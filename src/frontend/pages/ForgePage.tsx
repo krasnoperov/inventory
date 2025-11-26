@@ -3,7 +3,7 @@ import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useRouteStore } from '../stores/routeStore';
-import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
+import type { Asset, Variant, JobContext } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
@@ -38,6 +38,10 @@ export default function ForgePage() {
     assetType: 'composite' as 'character' | 'item' | 'scene' | 'composite',
   });
   const [isForging, setIsForging] = useState(false);
+  const [forgeSubmitted, setForgeSubmitted] = useState<{
+    assetName: string;
+    variantCount: number;
+  } | null>(null);
 
   // WebSocket connection for real-time updates
   const {
@@ -156,18 +160,25 @@ export default function ForgePage() {
 
       const result = await response.json() as { success: boolean; jobId: string };
 
-      // Track the job for real-time updates
-      trackJob(result.jobId);
+      // Track the job for real-time updates with context
+      trackJob(result.jobId, {
+        assetName: forgeForm.assetName,
+        jobType: 'compose',
+        prompt: forgeForm.prompt,
+      });
 
-      // Navigate back to space to see the result
-      navigate(`/spaces/${spaceId}`);
+      // Show success state instead of navigating immediately
+      setForgeSubmitted({
+        assetName: forgeForm.assetName,
+        variantCount: selectedVariantIds.size,
+      });
     } catch (err) {
       console.error('Forge error:', err);
       alert(err instanceof Error ? err.message : 'Failed to start forge');
     } finally {
       setIsForging(false);
     }
-  }, [spaceId, selectedVariantIds, forgeForm, trackJob, navigate]);
+  }, [spaceId, selectedVariantIds, forgeForm, trackJob]);
 
   // Get selected variants data
   const selectedVariants = variants.filter((v) => selectedVariantIds.has(v.id));
@@ -234,6 +245,34 @@ export default function ForgePage() {
           </p>
         </div>
 
+        {/* Success State - Forge Submitted */}
+        {forgeSubmitted && (
+          <div className={styles.forgeSuccess}>
+            <div className={styles.successIcon}>🔨</div>
+            <h2 className={styles.successTitle}>Forge Started!</h2>
+            <p className={styles.successMessage}>
+              Creating <strong>{forgeSubmitted.assetName}</strong> from {forgeSubmitted.variantCount} variants.
+              This may take a moment.
+            </p>
+            <div className={styles.successActions}>
+              <Link to={`/spaces/${spaceId}`} className={styles.viewSpaceButton}>
+                View in Space
+              </Link>
+              <button
+                className={styles.forgeAnotherButton}
+                onClick={() => {
+                  setForgeSubmitted(null);
+                  setSelectedVariantIds(new Set());
+                  setForgeForm({ prompt: '', assetName: '', assetType: 'composite' });
+                }}
+              >
+                Forge Another
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!forgeSubmitted && (
         <div className={styles.content}>
           {/* Left Panel: Asset/Variant Grid */}
           <div className={styles.pickerPanel}>
@@ -418,6 +457,7 @@ export default function ForgePage() {
             </div>
           </div>
         </div>
+        )}
       </main>
     </div>
   );

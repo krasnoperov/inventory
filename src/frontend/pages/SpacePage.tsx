@@ -3,7 +3,7 @@ import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useRouteStore } from '../stores/routeStore';
-import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
+import type { Asset, Variant, JobContext } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
@@ -148,10 +148,14 @@ export default function SpacePage() {
         throw new Error(errorData.error || 'Failed to start generation');
       }
 
-      const result = await response.json() as { success: boolean; jobId: string };
+      const result = await response.json() as { success: boolean; jobId: string; assetId?: string };
 
-      // Track the job for real-time updates
-      trackJob(result.jobId);
+      // Track the job for real-time updates with context
+      trackJob(result.jobId, {
+        assetName: generateForm.assetName,
+        jobType: 'generate',
+        prompt: generateForm.prompt,
+      });
 
       // Reset form and close modal
       setGenerateForm({ prompt: '', assetName: '', assetType: 'character' });
@@ -391,25 +395,53 @@ export default function SpacePage() {
         {/* Active Jobs */}
         {jobs.size > 0 && (
           <section className={styles.jobsSection}>
-            {Array.from(jobs.values()).map((job) => (
-              <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
-                <div className={styles.jobStatus}>
-                  {job.status === 'pending' && '⏳ Queued...'}
-                  {job.status === 'processing' && '🎨 Generating...'}
-                  {job.status === 'completed' && '✅ Complete'}
-                  {job.status === 'failed' && '❌ Failed'}
+            {Array.from(jobs.values()).map((job) => {
+              // Determine job type label
+              const jobTypeLabel = {
+                generate: 'Generating',
+                edit: 'Refining',
+                compose: 'Forging',
+                reference: 'Creating from reference',
+              }[job.jobType || 'generate'] || 'Processing';
+
+              return (
+                <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
+                  <div className={styles.jobHeader}>
+                    <div className={styles.jobStatus}>
+                      {job.status === 'pending' && '⏳'}
+                      {job.status === 'processing' && '🎨'}
+                      {job.status === 'completed' && '✅'}
+                      {job.status === 'failed' && '❌'}
+                    </div>
+                    <div className={styles.jobInfo}>
+                      <span className={styles.jobTitle}>
+                        {job.status === 'pending' && `${jobTypeLabel} queued...`}
+                        {job.status === 'processing' && `${jobTypeLabel}...`}
+                        {job.status === 'completed' && `${jobTypeLabel} complete`}
+                        {job.status === 'failed' && `${jobTypeLabel} failed`}
+                      </span>
+                      {job.assetName && (
+                        <span className={styles.jobAssetName}>{job.assetName}</span>
+                      )}
+                      {job.prompt && job.status !== 'completed' && (
+                        <span className={styles.jobPrompt} title={job.prompt}>
+                          "{job.prompt.length > 60 ? job.prompt.slice(0, 60) + '...' : job.prompt}"
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {job.error && <div className={styles.jobError}>{job.error}</div>}
+                  {(job.status === 'completed' || job.status === 'failed') && (
+                    <button
+                      className={styles.dismissButton}
+                      onClick={() => clearJob(job.jobId)}
+                    >
+                      Dismiss
+                    </button>
+                  )}
                 </div>
-                {job.error && <div className={styles.jobError}>{job.error}</div>}
-                {(job.status === 'completed' || job.status === 'failed') && (
-                  <button
-                    className={styles.dismissButton}
-                    onClick={() => clearJob(job.jobId)}
-                  >
-                    Dismiss
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </section>
         )}
 
@@ -453,10 +485,16 @@ export default function SpacePage() {
                 const activeVariant = getActiveVariant(asset.id, asset.active_variant_id);
                 const assetVariants = variants.filter(v => v.asset_id === asset.id);
 
+                // Check if there's an active job for this asset
+                const assetJob = Array.from(jobs.values()).find(
+                  j => j.assetName === asset.name && (j.status === 'pending' || j.status === 'processing')
+                );
+                const isGenerating = assetVariants.length === 0 && assetJob;
+
                 return (
                   <div
                     key={asset.id}
-                    className={styles.assetCard}
+                    className={`${styles.assetCard} ${isGenerating ? styles.generating : ''}`}
                     onClick={() => navigate(`/spaces/${spaceId}/assets/${asset.id}`)}
                   >
                     <div className={styles.assetThumb}>
@@ -466,6 +504,13 @@ export default function SpacePage() {
                           alt={asset.name}
                           className={styles.assetImage}
                         />
+                      ) : isGenerating ? (
+                        <div className={styles.assetGenerating}>
+                          <div className={styles.generatingSpinner} />
+                          <span className={styles.generatingText}>
+                            {assetJob.status === 'pending' ? 'Queued' : 'Generating'}
+                          </span>
+                        </div>
                       ) : (
                         <div className={styles.assetPlaceholder}>
                           {assetVariants.length === 0 ? '⏳' : '🖼️'}
@@ -475,7 +520,13 @@ export default function SpacePage() {
                     <div className={styles.assetInfo}>
                       <span className={styles.assetName}>{asset.name}</span>
                       <span className={styles.assetMeta}>
-                        {asset.type} &bull; {assetVariants.length} variant{assetVariants.length !== 1 ? 's' : ''}
+                        {isGenerating ? (
+                          <span className={styles.generatingMeta}>
+                            {assetJob.status === 'pending' ? 'Waiting in queue...' : 'Creating...'}
+                          </span>
+                        ) : (
+                          <>{asset.type} &bull; {assetVariants.length} variant{assetVariants.length !== 1 ? 's' : ''}</>
+                        )}
                       </span>
                     </div>
                   </div>

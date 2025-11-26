@@ -421,6 +421,45 @@
   opacity: 0.5;
 }
 
+/* Generating state for asset cards */
+.assetCard.generating {
+  border-color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.assetGenerating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  height: 100%;
+  color: var(--color-primary);
+}
+
+.generatingSpinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.generatingText {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+.generatingMeta {
+  color: var(--color-primary);
+}
+
 .assetInfo {
   padding: 0.75rem;
   display: flex;
@@ -595,9 +634,9 @@
 
 .jobCard {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
-  padding: 0.75rem 1rem;
+  padding: 1rem;
   border-radius: 8px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -611,6 +650,9 @@
 .jobCard.processing {
   border-color: var(--color-primary);
   background: rgba(99, 102, 241, 0.1);
+}
+
+.jobCard.processing .jobStatus {
   animation: pulse 2s ease-in-out infinite;
 }
 
@@ -624,19 +666,54 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+.jobHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .jobStatus {
-  flex: 1;
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.jobInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.jobTitle {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+}
+
+.jobAssetName {
   font-weight: 500;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+}
+
+.jobPrompt {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .jobError {
   color: var(--color-error);
   font-size: 0.875rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .dismissButton {
@@ -648,6 +725,7 @@
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .dismissButton:hover {

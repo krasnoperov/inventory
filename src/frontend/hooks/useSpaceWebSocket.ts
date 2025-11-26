@@ -33,12 +33,25 @@ export interface UseSpaceWebSocketParams {
 // Connection status
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-// Job status tracking
+// Job status tracking with context
 export interface JobStatus {
   jobId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   error?: string;
   variantId?: string;
+  // Context for displaying meaningful job info
+  assetId?: string;
+  assetName?: string;
+  jobType?: 'generate' | 'edit' | 'compose' | 'reference';
+  prompt?: string;
+}
+
+// Job context for tracking (used when calling trackJob)
+export interface JobContext {
+  assetId?: string;
+  assetName?: string;
+  jobType?: 'generate' | 'edit' | 'compose' | 'reference';
+  prompt?: string;
 }
 
 // Server message types based on ARCHITECTURE.md
@@ -76,7 +89,7 @@ export interface UseSpaceWebSocketReturn {
   setActiveVariant: (assetId: string, variantId: string) => void;
   deleteVariant: (variantId: string) => void;
   requestSync: () => void;
-  trackJob: (jobId: string) => void;
+  trackJob: (jobId: string, context?: JobContext) => void;
   clearJob: (jobId: string) => void;
 }
 
@@ -135,10 +148,14 @@ export function useSpaceWebSocket({
   }, [sendMessage]);
 
   // Job tracking methods
-  const trackJob = useCallback((jobId: string) => {
+  const trackJob = useCallback((jobId: string, context?: JobContext) => {
     setJobs((prev) => {
       const next = new Map(prev);
-      next.set(jobId, { jobId, status: 'pending' });
+      next.set(jobId, {
+        jobId,
+        status: 'pending',
+        ...context,
+      });
       return next;
     });
   }, []);

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useRouteStore } from '../stores/routeStore';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
-import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
+import { useSpaceWebSocket, type JobContext } from '../hooks/useSpaceWebSocket';
 import { LineageTree } from '../components/LineageTree';
 import styles from './AssetDetailPage.module.css';
 
@@ -93,10 +93,12 @@ export default function AssetDetailPage() {
   const {
     assets: wsAssets,
     variants: wsVariants,
+    jobs,
     setActiveVariant,
     deleteVariant,
     deleteAsset,
     trackJob,
+    clearJob,
     status: wsStatus,
   } = useSpaceWebSocket({ spaceId: spaceId || '' });
 
@@ -234,8 +236,13 @@ export default function AssetDetailPage() {
 
       const result = await response.json() as { success: boolean; jobId: string };
 
-      // Track the job for real-time updates
-      trackJob(result.jobId);
+      // Track the job for real-time updates with context
+      trackJob(result.jobId, {
+        assetId,
+        assetName: asset?.name,
+        jobType: 'edit',
+        prompt: refinePrompt,
+      });
 
       // Close modal and reset
       setShowRefineModal(false);
@@ -306,8 +313,13 @@ export default function AssetDetailPage() {
 
       const result = await response.json() as { success: boolean; jobId: string; assetId: string };
 
-      // Track the job for real-time updates
-      trackJob(result.jobId);
+      // Track the job for real-time updates with context
+      trackJob(result.jobId, {
+        assetId: result.assetId,
+        assetName: referenceForm.assetName,
+        jobType: 'reference',
+        prompt: referenceForm.prompt,
+      });
 
       // Close modal and reset
       setShowReferenceModal(false);
@@ -476,6 +488,53 @@ export default function AssetDetailPage() {
           </p>
         </div>
 
+        {/* Active Jobs for this Asset */}
+        {(() => {
+          const assetJobs = Array.from(jobs.values()).filter(
+            j => j.assetId === assetId || j.assetName === asset.name
+          );
+          if (assetJobs.length === 0) return null;
+
+          return (
+            <div className={styles.jobsSection}>
+              {assetJobs.map((job) => (
+                <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
+                  <div className={styles.jobIcon}>
+                    {job.status === 'pending' && '⏳'}
+                    {job.status === 'processing' && '🎨'}
+                    {job.status === 'completed' && '✅'}
+                    {job.status === 'failed' && '❌'}
+                  </div>
+                  <div className={styles.jobContent}>
+                    <span className={styles.jobTitle}>
+                      {job.status === 'pending' && 'Refinement queued...'}
+                      {job.status === 'processing' && 'Creating new variant...'}
+                      {job.status === 'completed' && 'New variant ready'}
+                      {job.status === 'failed' && 'Refinement failed'}
+                    </span>
+                    {job.prompt && job.status !== 'completed' && (
+                      <span className={styles.jobPrompt}>
+                        "{job.prompt.length > 80 ? job.prompt.slice(0, 80) + '...' : job.prompt}"
+                      </span>
+                    )}
+                    {job.error && (
+                      <span className={styles.jobError}>{job.error}</span>
+                    )}
+                  </div>
+                  {(job.status === 'completed' || job.status === 'failed') && (
+                    <button
+                      className={styles.jobDismiss}
+                      onClick={() => clearJob(job.jobId)}
+                    >
+                      Dismiss
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         <div className={styles.content}>
           {/* Main Image Preview or Comparison View */}
           <div className={styles.previewSection}>
@@ -629,6 +688,22 @@ export default function AssetDetailPage() {
               </p>
             )}
             <div className={styles.variantsList}>
+              {/* Pending variant placeholders for active jobs */}
+              {Array.from(jobs.values())
+                .filter(j => (j.assetId === assetId || j.assetName === asset.name) &&
+                       j.jobType === 'edit' &&
+                       (j.status === 'pending' || j.status === 'processing'))
+                .map((job) => (
+                  <div key={job.jobId} className={`${styles.variantThumb} ${styles.pendingVariant}`}>
+                    <div className={styles.pendingContent}>
+                      <div className={styles.pendingSpinner} />
+                      <span className={styles.pendingText}>
+                        {job.status === 'pending' ? 'Queued' : 'Creating'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              }
               {variants.map((variant) => (
                 <div
                   key={variant.id}
