@@ -5,11 +5,12 @@ import { JobDAO } from '../../dao/job-dao';
 import { MemberDAO } from '../../dao/member-dao';
 import { getAuthToken } from '../auth';
 import { type GenerationMessage } from '../services/generationConsumer';
+import { generationRateLimiter } from '../middleware/rate-limit';
 
 const jobRoutes = new Hono<AppContext>();
 
 // POST /api/spaces/:id/generate - Create new asset generation job
-jobRoutes.post('/api/spaces/:id/generate', async (c) => {
+jobRoutes.post('/api/spaces/:id/generate', generationRateLimiter, async (c) => {
   try {
     const container = c.get('container');
     const authService = container.get(AuthService);
@@ -144,7 +145,7 @@ jobRoutes.post('/api/spaces/:id/generate', async (c) => {
 });
 
 // POST /api/spaces/:id/assets/:assetId/edit - Create new variant by editing existing
-jobRoutes.post('/api/spaces/:id/assets/:assetId/edit', async (c) => {
+jobRoutes.post('/api/spaces/:id/assets/:assetId/edit', generationRateLimiter, async (c) => {
   try {
     const container = c.get('container');
     const authService = container.get(AuthService);
@@ -279,7 +280,7 @@ jobRoutes.post('/api/spaces/:id/assets/:assetId/edit', async (c) => {
 });
 
 // POST /api/spaces/:id/compose - Create composite asset from multiple source variants
-jobRoutes.post('/api/spaces/:id/compose', async (c) => {
+jobRoutes.post('/api/spaces/:id/compose', generationRateLimiter, async (c) => {
   try {
     const container = c.get('container');
     const authService = container.get(AuthService);
@@ -412,6 +413,161 @@ jobRoutes.post('/api/spaces/:id/compose', async (c) => {
   }
 });
 
+// POST /api/spaces/:id/generate-from - Generate new asset using existing variant as reference
+jobRoutes.post('/api/spaces/:id/generate-from', generationRateLimiter, async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const jobDAO = container.get(JobDAO);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const userId = String(payload.userId);
+
+    // Verify user is member with edit permissions
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    if (member.role !== 'editor' && member.role !== 'owner') {
+      return c.json({ error: 'Editor or owner role required' }, 403);
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    const { prompt, assetName, assetType, sourceVariantId, model, aspectRatio } = body;
+
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+      return c.json({ error: 'Prompt is required and must be a non-empty string' }, 400);
+    }
+
+    if (!assetName || typeof assetName !== 'string' || assetName.trim().length === 0) {
+      return c.json({ error: 'Asset name is required and must be a non-empty string' }, 400);
+    }
+
+    const validAssetTypes = ['character', 'item', 'scene', 'composite'];
+    if (!assetType || !validAssetTypes.includes(assetType)) {
+      return c.json({ error: 'Asset type must be one of: character, item, scene, composite' }, 400);
+    }
+
+    if (!sourceVariantId || typeof sourceVariantId !== 'string') {
+      return c.json({ error: 'Source variant ID is required' }, 400);
+    }
+
+    // Get source variant from Durable Object to verify it exists and get image key
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Asset storage not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    // Fetch space state to find the variant
+    const stateResponse = await doStub.fetch(new Request('http://do/internal/state'));
+    if (!stateResponse.ok) {
+      return c.json({ error: 'Failed to fetch space state' }, 500);
+    }
+
+    const state = await stateResponse.json() as {
+      variants: Array<{ id: string; image_key: string; asset_id: string }>;
+    };
+
+    const sourceVariant = state.variants.find(v => v.id === sourceVariantId);
+    if (!sourceVariant) {
+      return c.json({ error: 'Source variant not found' }, 404);
+    }
+
+    // Create the new asset in DO first
+    const assetId = crypto.randomUUID();
+    const createAssetResponse = await doStub.fetch(new Request('http://do/internal/create-asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: assetId,
+        name: assetName.trim(),
+        type: assetType,
+        createdBy: userId,
+      }),
+    }));
+
+    if (!createAssetResponse.ok) {
+      const errorData = await createAssetResponse.json() as { error?: string };
+      return c.json({ error: errorData.error || 'Failed to create asset' }, 500);
+    }
+
+    // Create job in D1
+    const jobId = crypto.randomUUID();
+    const now = Date.now();
+
+    const input = {
+      prompt: prompt.trim(),
+      assetName: assetName.trim(),
+      assetType,
+      assetId,
+      sourceVariantId,
+      sourceImageKey: sourceVariant.image_key,
+      model,
+      aspectRatio: aspectRatio || '1:1',
+    };
+
+    const job = await jobDAO.createJob({
+      id: jobId,
+      space_id: spaceId,
+      type: 'reference',  // New type: generate with reference
+      status: 'pending',
+      input: JSON.stringify(input),
+      result_variant_id: null,
+      error: null,
+      attempts: 0,
+      created_by: userId,
+      created_at: now,
+      updated_at: now,
+    });
+
+    // Enqueue job to generation queue
+    const message: GenerationMessage = {
+      jobId,
+      spaceId,
+      ...input,
+    };
+
+    console.log('[Job Route] Sending generate-from-reference message to GENERATION_QUEUE', {
+      jobId,
+      spaceId,
+      assetName: input.assetName,
+      sourceVariantId,
+    });
+
+    await env.GENERATION_QUEUE.send(message);
+
+    console.log('[Job Route] Generate-from-reference message sent successfully', { jobId });
+
+    return c.json({
+      success: true,
+      jobId: job.id,
+      assetId,
+    }, 201);
+  } catch (error) {
+    console.error('[Job Route] Error creating generate-from-reference job:', error);
+    return c.json({ error: 'Failed to create job' }, 500);
+  }
+});
+
 // GET /api/spaces/:id/assets/:assetId - Get asset details with variants and lineage
 jobRoutes.get('/api/spaces/:id/assets/:assetId', async (c) => {
   try {
@@ -523,6 +679,63 @@ jobRoutes.get('/api/spaces/:id/variants/:variantId/lineage', async (c) => {
   } catch (error) {
     console.error('Error getting lineage:', error);
     return c.json({ error: 'Failed to get lineage' }, 500);
+  }
+});
+
+// GET /api/spaces/:id/variants/:variantId/lineage/graph - Get full lineage graph
+jobRoutes.get('/api/spaces/:id/variants/:variantId/lineage/graph', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const variantId = c.req.param('variantId');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    // Get full lineage graph from Durable Object
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Asset storage not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    const doResponse = await doStub.fetch(new Request(`http://do/internal/lineage/${variantId}/graph`, {
+      method: 'GET',
+    }));
+
+    if (!doResponse.ok) {
+      const errorData = await doResponse.json() as { error?: string };
+      const status = doResponse.status === 404 ? 404 : 500;
+      return c.json({ error: errorData.error || 'Failed to get lineage graph' }, status);
+    }
+
+    const data = await doResponse.json();
+    return c.json(data);
+  } catch (error) {
+    console.error('Error getting lineage graph:', error);
+    return c.json({ error: 'Failed to get lineage graph' }, 500);
   }
 });
 

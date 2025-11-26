@@ -9,6 +9,7 @@ export type RoutePage =
   | 'dashboard'
   | 'space'
   | 'asset'
+  | 'forge'
   | 'unknown';
 
 export interface RouteParams {
@@ -51,6 +52,12 @@ const parseRoute = (path: string): { page: RoutePage; params: RouteParams } => {
   const assetMatch = path.match(/^\/spaces\/([^/]+)\/assets\/([^/]+)$/);
   if (assetMatch) {
     return { page: 'asset', params: { spaceId: assetMatch[1], assetId: assetMatch[2] } };
+  }
+
+  // Match /spaces/:id/forge
+  const forgeMatch = path.match(/^\/spaces\/([^/]+)\/forge$/);
+  if (forgeMatch) {
+    return { page: 'forge', params: { spaceId: forgeMatch[1] } };
   }
 
   // Match /spaces/:id

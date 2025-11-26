@@ -8,6 +8,7 @@ import AuthorizationApprovalPage from './pages/AuthorizationApprovalPage';
 import DashboardPage from './pages/DashboardPage';
 import SpacePage from './pages/SpacePage';
 import AssetDetailPage from './pages/AssetDetailPage';
+import ForgePage from './pages/ForgePage';
 import { loadSession } from './config';
 import type { User } from './contexts/AuthContext';
 import { useRouteStore } from './stores/routeStore';
@@ -32,6 +33,8 @@ function AppRouter() {
       return <SpacePage />;
     case 'asset':
       return <AssetDetailPage />;
+    case 'forge':
+      return <ForgePage />;
     default:
       // Unknown route - show 404 or redirect to home
       return <LandingPage />;

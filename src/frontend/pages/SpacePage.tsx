@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
@@ -7,6 +7,7 @@ import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
+import { ChatSidebar } from '../components/ChatSidebar';
 import styles from './SpacePage.module.css';
 
 interface Space {
@@ -57,6 +58,9 @@ export default function SpacePage() {
     },
   });
 
+  // Chat sidebar state
+  const [showChat, setShowChat] = useState(false);
+
   // Generation modal state
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [generateForm, setGenerateForm] = useState({
@@ -65,6 +69,12 @@ export default function SpacePage() {
     assetType: 'character' as 'character' | 'item' | 'scene' | 'composite',
   });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+
+  // Export/Import state
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) {
@@ -152,7 +162,118 @@ export default function SpacePage() {
     } finally {
       setIsGenerating(false);
     }
-  }, [spaceId, generateForm]);
+  }, [spaceId, generateForm, trackJob]);
+
+  const handleSuggestPrompt = useCallback(async () => {
+    if (isSuggesting) return;
+
+    setIsSuggesting(true);
+    try {
+      const response = await fetch(`/api/spaces/${spaceId}/chat/suggest`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetType: generateForm.assetType,
+          theme: generateForm.assetName || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to get suggestion');
+      }
+
+      const data = await response.json() as { success: boolean; suggestion: string };
+      if (data.success && data.suggestion) {
+        setGenerateForm(f => ({ ...f, prompt: data.suggestion }));
+      }
+    } catch (err) {
+      console.error('Suggestion error:', err);
+      // Silently fail - user can still type their own prompt
+    } finally {
+      setIsSuggesting(false);
+    }
+  }, [spaceId, generateForm.assetType, generateForm.assetName, isSuggesting]);
+
+  // Export space as ZIP
+  const handleExport = useCallback(async () => {
+    if (isExporting) return;
+
+    setIsExporting(true);
+    try {
+      const response = await fetch(`/api/spaces/${spaceId}/export`, {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to export');
+      }
+
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/);
+      const filename = filenameMatch?.[1] || `space-export-${new Date().toISOString().split('T')[0]}.zip`;
+
+      // Download the file
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to export');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [spaceId, isExporting]);
+
+  // Import from ZIP
+  const handleImport = useCallback(async (file: File) => {
+    if (isImporting) return;
+
+    setIsImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`/api/spaces/${spaceId}/import`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to import');
+      }
+
+      const result = await response.json() as {
+        success: boolean;
+        imported: { assets: number; variants: number; lineage: number };
+      };
+
+      alert(`Import successful!\nAssets: ${result.imported.assets}\nVariants: ${result.imported.variants}\nLineage: ${result.imported.lineage}`);
+
+      // Request sync to get updated data
+      requestSync();
+    } catch (err) {
+      console.error('Import error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to import');
+    } finally {
+      setIsImporting(false);
+      // Reset file input
+      if (importInputRef.current) {
+        importInputRef.current.value = '';
+      }
+    }
+  }, [spaceId, isImporting, requestSync]);
 
   // Get active variant for an asset
   const getActiveVariant = useCallback((assetId: string, activeVariantId: string | null) => {
@@ -161,7 +282,16 @@ export default function SpacePage() {
   }, [variants]);
 
   const headerRightSlot = user ? (
-    <HeaderNav userName={user.name} userEmail={user.email} />
+    <div className={styles.headerRight}>
+      <button
+        className={`${styles.chatToggle} ${showChat ? styles.active : ''}`}
+        onClick={() => setShowChat(!showChat)}
+        title={showChat ? 'Close chat' : 'Open assistant'}
+      >
+        🤖
+      </button>
+      <HeaderNav userName={user.name} userEmail={user.email} />
+    </div>
   ) : (
     <Link to="/login" className={styles.authButton}>Sign In</Link>
   );
@@ -201,13 +331,14 @@ export default function SpacePage() {
   const canEdit = space.role === 'owner' || space.role === 'editor';
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${showChat ? styles.withChat : ''}`}>
       <AppHeader
         leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
         rightSlot={headerRightSlot}
       />
 
-      <main className={styles.main}>
+      <div className={styles.pageContent}>
+        <main className={styles.main}>
         <div className={styles.header}>
           <div className={styles.titleRow}>
             <h1 className={styles.title}>{space.name}</h1>
@@ -218,10 +349,43 @@ export default function SpacePage() {
               <span className={styles.liveIndicator}>Live</span>
             )}
           </div>
-          <p className={styles.subtitle}>
-            {members.length} member{members.length !== 1 ? 's' : ''} &bull; {assets.length} asset{assets.length !== 1 ? 's' : ''}
-            {wsError && <span className={styles.wsError}> (Connection error)</span>}
-          </p>
+          <div className={styles.headerActions}>
+            <p className={styles.subtitle}>
+              {members.length} member{members.length !== 1 ? 's' : ''} &bull; {assets.length} asset{assets.length !== 1 ? 's' : ''}
+              {wsError && <span className={styles.wsError}> (Connection error)</span>}
+            </p>
+            <div className={styles.exportImportButtons}>
+              <button
+                className={styles.exportButton}
+                onClick={handleExport}
+                disabled={isExporting || assets.length === 0}
+                title={assets.length === 0 ? 'No assets to export' : 'Export all assets as ZIP'}
+              >
+                {isExporting ? 'Exporting...' : 'Export'}
+              </button>
+              {canEdit && (
+                <>
+                  <button
+                    className={styles.importButton}
+                    onClick={() => importInputRef.current?.click()}
+                    disabled={isImporting}
+                  >
+                    {isImporting ? 'Importing...' : 'Import'}
+                  </button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept=".zip"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImport(file);
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Active Jobs */}
@@ -253,14 +417,24 @@ export default function SpacePage() {
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <h2 className={styles.sectionTitle}>Assets</h2>
-            {canEdit && (
-              <button
-                className={styles.generateButton}
-                onClick={() => setShowGenerateModal(true)}
-              >
-                Generate Asset
-              </button>
-            )}
+            <div className={styles.sectionActions}>
+              {canEdit && assets.length >= 2 && (
+                <button
+                  className={styles.forgeButton}
+                  onClick={() => navigate(`/spaces/${spaceId}/forge`)}
+                >
+                  Forge
+                </button>
+              )}
+              {canEdit && (
+                <button
+                  className={styles.generateButton}
+                  onClick={() => setShowGenerateModal(true)}
+                >
+                  Generate Asset
+                </button>
+              )}
+            </div>
           </div>
 
           {assets.length === 0 ? (
@@ -331,7 +505,14 @@ export default function SpacePage() {
             ))}
           </div>
         </section>
-      </main>
+        </main>
+
+        <ChatSidebar
+          spaceId={spaceId || ''}
+          isOpen={showChat}
+          onClose={() => setShowChat(false)}
+        />
+      </div>
 
       {/* Generate Modal */}
       {showGenerateModal && (
@@ -365,7 +546,17 @@ export default function SpacePage() {
             </div>
 
             <div className={styles.formGroup}>
-              <label className={styles.label}>Prompt</label>
+              <div className={styles.promptLabelRow}>
+                <label className={styles.label}>Prompt</label>
+                <button
+                  type="button"
+                  className={styles.suggestButton}
+                  onClick={handleSuggestPrompt}
+                  disabled={isSuggesting || isGenerating}
+                >
+                  {isSuggesting ? 'Thinking...' : 'Suggest'}
+                </button>
+              </div>
               <textarea
                 className={styles.textarea}
                 value={generateForm.prompt}

@@ -18,6 +18,8 @@ export interface GenerationMessage {
   assetId?: string; // Optional: asset created by job route
   model?: string;
   aspectRatio?: string;
+  sourceVariantId?: string; // For edit/reference jobs - single parent variant ID
+  sourceImageKey?: string; // For edit/reference jobs - R2 key of source image
   sourceVariantIds?: string[]; // For compose jobs - parent variant IDs
 }
 
@@ -43,6 +45,21 @@ export interface GenerationMessage {
  */
 export class GenerationConsumer {
   constructor(private env: Env) {}
+
+  /**
+   * Convert ArrayBuffer to base64 string without stack overflow.
+   * Uses chunked processing to handle large images safely.
+   */
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    return btoa(binary);
+  }
 
   async processJob(message: GenerationMessage): Promise<void> {
     const { jobId, spaceId, prompt, model, aspectRatio } = message;
@@ -105,11 +122,31 @@ export class GenerationConsumer {
         }
 
         const sourceBuffer = await sourceObject.arrayBuffer();
-        const sourceBase64 = btoa(String.fromCharCode(...new Uint8Array(sourceBuffer)));
+        const sourceBase64 = this.arrayBufferToBase64(sourceBuffer);
         const sourceMimeType = sourceObject.httpMetadata?.contentType || 'image/png';
 
         result = await nanoBanana.edit({
           image: { data: sourceBase64, mimeType: sourceMimeType },
+          prompt,
+          model: model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image',
+          aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9',
+        });
+      } else if (job.type === 'reference' && jobInput.sourceImageKey) {
+        // Reference mode: generate NEW asset using existing image as style reference
+        console.log(`[GenerationConsumer] Reference job, fetching source image: ${jobInput.sourceImageKey}`);
+
+        const sourceObject = await this.env.IMAGES.get(jobInput.sourceImageKey);
+        if (!sourceObject) {
+          throw new Error(`Source image not found: ${jobInput.sourceImageKey}`);
+        }
+
+        const sourceBuffer = await sourceObject.arrayBuffer();
+        const sourceBase64 = this.arrayBufferToBase64(sourceBuffer);
+        const sourceMimeType = sourceObject.httpMetadata?.contentType || 'image/png';
+
+        // Use compose with single image as reference for style consistency
+        result = await nanoBanana.compose({
+          images: [{ data: sourceBase64, mimeType: sourceMimeType, label: 'Reference:' }],
           prompt,
           model: model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image',
           aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9',
@@ -135,7 +172,7 @@ export class GenerationConsumer {
             }
 
             const buffer = await imageObject.arrayBuffer();
-            const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+            const base64 = this.arrayBufferToBase64(buffer);
             const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
 
             return { data: base64, mimeType, label: `Image ${index + 1}:` };
@@ -334,25 +371,37 @@ export async function handleGenerationQueue(
   // Process all messages in the batch
   const promises = batch.messages.map(async (msg, index) => {
     const message = msg.body;
-    console.log(`[Queue] Processing message ${index + 1}/${batch.messages.length}`, {
+
+    // Build human-readable operation description
+    const sourceCount = message.sourceVariantIds?.length || 0;
+    const hasSingleSource = !!message.sourceVariantId;
+    let operation: string;
+    if (sourceCount > 1) {
+      operation = `COMPOSE: Combining ${sourceCount} images into "${message.assetName}" (${message.assetType})`;
+    } else if (sourceCount === 1) {
+      operation = `COMPOSE: Single reference into "${message.assetName}" (${message.assetType})`;
+    } else if (hasSingleSource && message.assetType === 'composite') {
+      // Reference job: new asset using existing variant as style reference
+      operation = `REFERENCE: Creating "${message.assetName}" (${message.assetType}) from reference`;
+    } else if (hasSingleSource) {
+      operation = `EDIT: Refining "${message.assetName}" (${message.assetType})`;
+    } else {
+      operation = `GENERATE: Creating new "${message.assetName}" (${message.assetType})`;
+    }
+
+    console.log(`[Queue] ${index + 1}/${batch.messages.length} | ${operation}`, {
       jobId: message.jobId,
-      spaceId: message.spaceId,
-      assetName: message.assetName,
-      assetType: message.assetType,
-      model: message.model,
-      messageId: msg.id,
+      model: message.model || 'default',
+      prompt: message.prompt?.slice(0, 80) + (message.prompt?.length > 80 ? '...' : ''),
     });
 
     try {
       await consumer.processJob(message);
       msg.ack();
-      console.log(`[Queue] Message ${msg.id} acknowledged (jobId: ${message.jobId})`);
+      console.log(`[Queue] ✓ ${operation} - completed`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[Queue] Message ${msg.id} failed, will retry`, {
-        jobId: message.jobId,
-        error: errorMessage,
-      });
+      console.error(`[Queue] ✗ ${operation} - failed, will retry: ${errorMessage}`);
       msg.retry();
     }
   });

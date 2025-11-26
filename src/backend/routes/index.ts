@@ -17,6 +17,7 @@ import { imageRoutes } from './image';
 import { chatRoutes } from './chat';
 import { searchRoutes } from './search';
 import { websocketRoutes } from './websocket';
+import { exportRoutes } from './export';
 
 /**
  * Register all routes with the main app
@@ -52,6 +53,9 @@ export function registerRoutes(app: Hono<AppContext>) {
 
   // WebSocket routes (Phase 3: Durable Object)
   app.route('/', websocketRoutes);
+
+  // Export/Import routes
+  app.route('/', exportRoutes);
 
   // --- Domain routes will be added per ARCHITECTURE.md ---
 }

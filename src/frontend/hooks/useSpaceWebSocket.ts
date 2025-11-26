@@ -218,7 +218,11 @@ export function useSpaceWebSocket({
                 break;
 
               case 'variant:created':
-                setVariants((prev) => [...prev, message.variant]);
+                setVariants((prev) => {
+                  // Avoid duplicates (variant may already exist from job:completed)
+                  if (prev.some(v => v.id === message.variant.id)) return prev;
+                  return [...prev, message.variant];
+                });
                 break;
 
               case 'variant:deleted':
@@ -241,7 +245,11 @@ export function useSpaceWebSocket({
                 break;
 
               case 'job:completed':
-                setVariants((prev) => [...prev, message.variant]);
+                setVariants((prev) => {
+                  // Avoid duplicates (variant may already exist from variant:created)
+                  if (prev.some(v => v.id === message.variant.id)) return prev;
+                  return [...prev, message.variant];
+                });
                 setJobs((prev) => {
                   const next = new Map(prev);
                   next.set(message.jobId, {

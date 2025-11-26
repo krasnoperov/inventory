@@ -211,7 +211,13 @@ export class SpaceDO extends DurableObject<Env> {
       return this.handleApplyVariant(request);
     }
 
-    // Get lineage for a variant
+    // Get full lineage graph for a variant
+    if (url.pathname.match(/^\/internal\/lineage\/[^/]+\/graph$/) && request.method === 'GET') {
+      const variantId = url.pathname.split('/internal/lineage/')[1].split('/graph')[0];
+      return this.handleGetLineageGraph(variantId);
+    }
+
+    // Get lineage for a variant (direct parents/children only)
     if (url.pathname.startsWith('/internal/lineage/') && request.method === 'GET') {
       const variantId = url.pathname.split('/internal/lineage/')[1];
       return this.handleGetLineage(variantId);
@@ -248,6 +254,16 @@ export class SpaceDO extends DurableObject<Env> {
 
     if (url.pathname === '/internal/job/failed' && request.method === 'POST') {
       return this.handleJobFailed(request);
+    }
+
+    // Set active variant (for import)
+    if (url.pathname === '/internal/set-active' && request.method === 'POST') {
+      return this.handleSetActive(request);
+    }
+
+    // Add lineage (for import)
+    if (url.pathname === '/internal/add-lineage' && request.method === 'POST') {
+      return this.handleAddLineage(request);
     }
 
     return new Response('Not found', { status: 404 });
@@ -583,6 +599,7 @@ export class SpaceDO extends DurableObject<Env> {
   private async handleCreateAsset(request: Request): Promise<Response> {
     try {
       const data = (await request.json()) as {
+        id?: string; // Optional: pass specific ID for reference jobs
         name: string;
         type: 'character' | 'item' | 'scene' | 'composite';
         createdBy: string;
@@ -642,6 +659,102 @@ export class SpaceDO extends DurableObject<Env> {
       console.error('Error getting lineage:', error);
       return new Response(
         JSON.stringify({ error: 'Failed to get lineage' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle get full lineage graph for a variant (all connected nodes)
+   * GET /internal/lineage/:variantId/graph
+   */
+  private async handleGetLineageGraph(startVariantId: string): Promise<Response> {
+    try {
+      // Use BFS to traverse the full graph
+      const visited = new Set<string>();
+      const queue: string[] = [startVariantId];
+      const allVariantIds = new Set<string>();
+      const allLineage: Array<{
+        id: string;
+        parent_variant_id: string;
+        child_variant_id: string;
+        relation_type: string;
+        created_at: number;
+      }> = [];
+
+      while (queue.length > 0) {
+        const variantId = queue.shift()!;
+        if (visited.has(variantId)) continue;
+        visited.add(variantId);
+        allVariantIds.add(variantId);
+
+        // Get all lineage connections for this variant
+        const lineageResult = await this.ctx.storage.sql.exec(
+          `SELECT * FROM lineage WHERE parent_variant_id = ? OR child_variant_id = ?`,
+          variantId,
+          variantId
+        );
+
+        for (const row of lineageResult.toArray()) {
+          const lineageRow = row as {
+            id: string;
+            parent_variant_id: string;
+            child_variant_id: string;
+            relation_type: string;
+            created_at: number;
+          };
+
+          // Avoid duplicate lineage entries
+          if (!allLineage.some(l => l.id === lineageRow.id)) {
+            allLineage.push(lineageRow);
+          }
+
+          // Queue connected variants
+          if (!visited.has(lineageRow.parent_variant_id)) {
+            queue.push(lineageRow.parent_variant_id);
+          }
+          if (!visited.has(lineageRow.child_variant_id)) {
+            queue.push(lineageRow.child_variant_id);
+          }
+        }
+      }
+
+      // Fetch all variants in the graph with asset info
+      const variants: Array<{
+        id: string;
+        asset_id: string;
+        thumb_key: string;
+        image_key: string;
+        created_at: number;
+        asset_name: string;
+        asset_type: string;
+      }> = [];
+
+      if (allVariantIds.size > 0) {
+        const placeholders = Array.from(allVariantIds).map(() => '?').join(',');
+        const variantsResult = await this.ctx.storage.sql.exec(
+          `SELECT v.id, v.asset_id, v.thumb_key, v.image_key, v.created_at,
+                  a.name as asset_name, a.type as asset_type
+           FROM variants v
+           JOIN assets a ON v.asset_id = a.id
+           WHERE v.id IN (${placeholders})`,
+          ...Array.from(allVariantIds)
+        );
+        variants.push(...variantsResult.toArray() as typeof variants);
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        startVariantId,
+        variants,
+        lineage: allLineage,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error getting lineage graph:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to get lineage graph' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -840,22 +953,92 @@ export class SpaceDO extends DurableObject<Env> {
     }
   }
 
+  /**
+   * Handle set active variant (for import)
+   * POST /internal/set-active
+   */
+  private async handleSetActive(request: Request): Promise<Response> {
+    try {
+      const data = (await request.json()) as { assetId: string; variantId: string };
+      const asset = await this.updateAsset(data.assetId, { active_variant_id: data.variantId });
+
+      if (!asset) {
+        return new Response(
+          JSON.stringify({ error: 'Asset not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Broadcast the update
+      this.broadcast({ type: 'asset:updated', asset });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error setting active variant:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to set active variant' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle add lineage (for import)
+   * POST /internal/add-lineage
+   */
+  private async handleAddLineage(request: Request): Promise<Response> {
+    try {
+      const data = (await request.json()) as {
+        parentVariantId: string;
+        childVariantId: string;
+        relationType: 'derived' | 'composed';
+      };
+
+      const lineageId = crypto.randomUUID();
+      const now = Date.now();
+
+      await this.ctx.storage.sql.exec(
+        `INSERT INTO lineage (id, parent_variant_id, child_variant_id, relation_type, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        lineageId,
+        data.parentVariantId,
+        data.childVariantId,
+        data.relationType,
+        now
+      );
+
+      return new Response(JSON.stringify({ success: true, id: lineageId }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error adding lineage:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to add lineage' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
   // ============================================================================
   // Core Methods
   // ============================================================================
 
   /**
-   * Get full state (assets + variants)
+   * Get full state (assets + variants + lineage)
    */
-  private async getFullState(): Promise<{ assets: Asset[]; variants: Variant[] }> {
+  private async getFullState(): Promise<{ assets: Asset[]; variants: Variant[]; lineage: Lineage[] }> {
     const assetsResult = await this.ctx.storage.sql.exec(
       'SELECT * FROM assets ORDER BY updated_at DESC'
     );
     const variantsResult = await this.ctx.storage.sql.exec('SELECT * FROM variants');
+    const lineageResult = await this.ctx.storage.sql.exec('SELECT * FROM lineage');
 
     return {
       assets: assetsResult.toArray() as unknown as Asset[],
       variants: variantsResult.toArray() as unknown as Variant[],
+      lineage: lineageResult.toArray() as unknown as Lineage[],
     };
   }
 
@@ -863,11 +1046,12 @@ export class SpaceDO extends DurableObject<Env> {
    * Create a new asset
    */
   private async createAsset(data: {
+    id?: string; // Optional: pass specific ID for reference jobs
     name: string;
     type: Asset['type'];
     createdBy: string;
   }): Promise<Asset> {
-    const id = crypto.randomUUID();
+    const id = data.id || crypto.randomUUID();
     const now = Date.now();
 
     const asset: Asset = {

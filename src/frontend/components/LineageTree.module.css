@@ -1,0 +1,271 @@
+.container {
+  background: var(--color-surface);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  padding: 1.5rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.toggleButton {
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggleButton:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.toggleButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sectionLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.nodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.node {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.node:hover {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.nodeImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.badge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  font-size: 0.5rem;
+  text-align: center;
+  padding: 2px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge.derived {
+  background: rgba(59, 130, 246, 0.9);
+  color: white;
+}
+
+.badge.composed {
+  background: rgba(168, 85, 247, 0.9);
+  color: white;
+}
+
+.connector {
+  display: flex;
+  justify-content: center;
+  padding: 0.25rem 0;
+}
+
+.arrow {
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-muted);
+}
+
+.current {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.currentImage {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  border: 3px solid var(--color-primary);
+  object-fit: cover;
+}
+
+.currentLabel {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Graph Mode */
+.graphContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.graphInfo {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.graphLevels {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.graphLevel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.levelConnector {
+  padding: 0.25rem 0;
+}
+
+.levelArrow {
+  width: 24px;
+  height: 32px;
+  color: var(--color-text-muted);
+}
+
+.levelNodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.graphNode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
+  background: var(--color-bg);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 80px;
+}
+
+.graphNode:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.graphNode.currentNode {
+  border-color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.graphNodeImage {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.graphNodeLabel {
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--color-text);
+  text-align: center;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.currentBadge {
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .node {
+    width: 48px;
+    height: 48px;
+  }
+
+  .currentImage {
+    width: 64px;
+    height: 64px;
+  }
+
+  .graphNodeImage {
+    width: 48px;
+    height: 48px;
+  }
+
+  .graphNode {
+    min-width: 64px;
+  }
+}

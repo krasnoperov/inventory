@@ -27,6 +27,7 @@
     "@tanstack/react-query": "^5.90.11",
     "better-sqlite3": "^12.4.6",
     "dotenv": "^17.2.3",
+    "fflate": "^0.8.2",
     "hono": "^4.10.6",
     "inversify": "^7.10.4",
     "jose": "^6.1.2",

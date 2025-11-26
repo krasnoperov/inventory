@@ -5,11 +5,12 @@ import { MemberDAO } from '../../dao/member-dao';
 import { SpaceDAO } from '../../dao/space-dao';
 import { getAuthToken } from '../auth';
 import { ClaudeService, type BotContext, type ChatMessage } from '../services/claudeService';
+import { chatRateLimiter, suggestionRateLimiter } from '../middleware/rate-limit';
 
 const chatRoutes = new Hono<AppContext>();
 
 // POST /api/spaces/:id/chat - Send chat message to bot
-chatRoutes.post('/api/spaces/:id/chat', async (c) => {
+chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
   try {
     const container = c.get('container');
     const authService = container.get(AuthService);
@@ -165,7 +166,7 @@ chatRoutes.post('/api/spaces/:id/chat', async (c) => {
 });
 
 // POST /api/spaces/:id/chat/suggest - Get prompt suggestion
-chatRoutes.post('/api/spaces/:id/chat/suggest', async (c) => {
+chatRoutes.post('/api/spaces/:id/chat/suggest', suggestionRateLimiter, async (c) => {
   try {
     const container = c.get('container');
     const authService = container.get(AuthService);

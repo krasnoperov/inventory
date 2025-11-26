@@ -46,7 +46,7 @@ export interface AssetIndexTable {
 export interface JobsTable {
   id: string;
   space_id: string;
-  type: 'generate' | 'edit' | 'compose';
+  type: 'generate' | 'edit' | 'compose' | 'reference';
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'stuck';
   input: string;  // JSON
   result_variant_id: string | null;
