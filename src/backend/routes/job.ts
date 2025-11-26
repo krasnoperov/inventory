@@ -739,6 +739,406 @@ jobRoutes.get('/api/spaces/:id/variants/:variantId/lineage/graph', async (c) => 
   }
 });
 
+// POST /api/spaces/:id/assets/:assetId/spawn - Spawn new asset from variant
+jobRoutes.post('/api/spaces/:id/assets/:assetId/spawn', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const assetId = c.req.param('assetId');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space with editor or owner role
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    if (member.role !== 'editor' && member.role !== 'owner') {
+      return c.json({ error: 'Editor or owner role required' }, 403);
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    const { variantId, name, assetType, parentAssetId } = body;
+
+    if (!variantId || typeof variantId !== 'string') {
+      return c.json({ error: 'Variant ID is required' }, 400);
+    }
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return c.json({ error: 'Asset name is required' }, 400);
+    }
+
+    if (!assetType || typeof assetType !== 'string') {
+      return c.json({ error: 'Asset type is required' }, 400);
+    }
+
+    // Spawn asset via Durable Object
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Asset storage not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    const doResponse = await doStub.fetch(new Request('http://do/internal/spawn', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourceVariantId: variantId,
+        name: name.trim(),
+        type: assetType,
+        parentAssetId,
+        createdBy: userId,
+      }),
+    }));
+
+    if (!doResponse.ok) {
+      const errorData = await doResponse.json() as { error?: string };
+      const status = doResponse.status === 404 ? 404 : 500;
+      return c.json({ error: errorData.error || 'Failed to spawn asset' }, status);
+    }
+
+    const data = await doResponse.json();
+    return c.json(data, 201);
+  } catch (error) {
+    console.error('Error spawning asset:', error);
+    return c.json({ error: 'Failed to spawn asset' }, 500);
+  }
+});
+
+// PATCH /api/spaces/:id/assets/:assetId/parent - Re-parent asset
+jobRoutes.patch('/api/spaces/:id/assets/:assetId/parent', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const assetId = c.req.param('assetId');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space with editor or owner role
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    if (member.role !== 'editor' && member.role !== 'owner') {
+      return c.json({ error: 'Editor or owner role required' }, 403);
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    const { parentAssetId } = body;  // null to make root, string to set parent
+
+    // Update asset parent via Durable Object
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Asset storage not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    const doResponse = await doStub.fetch(new Request(`http://do/internal/asset/${assetId}/parent`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        parentAssetId: parentAssetId ?? null,
+      }),
+    }));
+
+    if (!doResponse.ok) {
+      const errorData = await doResponse.json() as { error?: string };
+      const status = doResponse.status === 404 ? 404 : doResponse.status === 400 ? 400 : 500;
+      return c.json({ error: errorData.error || 'Failed to update asset parent' }, status);
+    }
+
+    const data = await doResponse.json();
+    return c.json(data);
+  } catch (error) {
+    console.error('Error updating asset parent:', error);
+    return c.json({ error: 'Failed to update asset parent' }, 500);
+  }
+});
+
+// GET /api/spaces/:id/assets/:assetId/children - Get child assets
+jobRoutes.get('/api/spaces/:id/assets/:assetId/children', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const assetId = c.req.param('assetId');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    // Get child assets from Durable Object
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Asset storage not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    const doResponse = await doStub.fetch(new Request(`http://do/internal/asset/${assetId}/children`, {
+      method: 'GET',
+    }));
+
+    if (!doResponse.ok) {
+      const errorData = await doResponse.json() as { error?: string };
+      const status = doResponse.status === 404 ? 404 : 500;
+      return c.json({ error: errorData.error || 'Failed to get children' }, status);
+    }
+
+    const data = await doResponse.json();
+    return c.json(data);
+  } catch (error) {
+    console.error('Error getting asset children:', error);
+    return c.json({ error: 'Failed to get asset children' }, 500);
+  }
+});
+
+// GET /api/spaces/:id/assets/:assetId/ancestors - Get ancestor chain (breadcrumbs)
+jobRoutes.get('/api/spaces/:id/assets/:assetId/ancestors', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const assetId = c.req.param('assetId');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    // Get ancestors from Durable Object
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Asset storage not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    const doResponse = await doStub.fetch(new Request(`http://do/internal/asset/${assetId}/ancestors`, {
+      method: 'GET',
+    }));
+
+    if (!doResponse.ok) {
+      const errorData = await doResponse.json() as { error?: string };
+      const status = doResponse.status === 404 ? 404 : 500;
+      return c.json({ error: errorData.error || 'Failed to get ancestors' }, status);
+    }
+
+    const data = await doResponse.json();
+    return c.json(data);
+  } catch (error) {
+    console.error('Error getting asset ancestors:', error);
+    return c.json({ error: 'Failed to get asset ancestors' }, 500);
+  }
+});
+
+// PATCH /api/spaces/:id/variants/:variantId/star - Toggle star status
+jobRoutes.patch('/api/spaces/:id/variants/:variantId/star', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const variantId = c.req.param('variantId');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space with editor or owner role
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    if (member.role !== 'editor' && member.role !== 'owner') {
+      return c.json({ error: 'Editor or owner role required' }, 403);
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    const { starred } = body;
+
+    if (typeof starred !== 'boolean') {
+      return c.json({ error: 'starred must be a boolean' }, 400);
+    }
+
+    // Update variant star status via Durable Object
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Asset storage not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    const doResponse = await doStub.fetch(new Request(`http://do/internal/variant/${variantId}/star`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ starred }),
+    }));
+
+    if (!doResponse.ok) {
+      const errorData = await doResponse.json() as { error?: string };
+      const status = doResponse.status === 404 ? 404 : 500;
+      return c.json({ error: errorData.error || 'Failed to update variant' }, status);
+    }
+
+    const data = await doResponse.json();
+    return c.json(data);
+  } catch (error) {
+    console.error('Error updating variant star:', error);
+    return c.json({ error: 'Failed to update variant' }, 500);
+  }
+});
+
+// PATCH /api/spaces/:id/lineage/:lineageId/sever - Sever lineage link
+jobRoutes.patch('/api/spaces/:id/lineage/:lineageId/sever', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const lineageId = c.req.param('lineageId');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space with editor or owner role
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    if (member.role !== 'editor' && member.role !== 'owner') {
+      return c.json({ error: 'Editor or owner role required' }, 403);
+    }
+
+    // Sever lineage via Durable Object
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Asset storage not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    const doResponse = await doStub.fetch(new Request(`http://do/internal/lineage/${lineageId}/sever`, {
+      method: 'PATCH',
+    }));
+
+    if (!doResponse.ok) {
+      const errorData = await doResponse.json() as { error?: string };
+      const status = doResponse.status === 404 ? 404 : 500;
+      return c.json({ error: errorData.error || 'Failed to sever lineage' }, status);
+    }
+
+    const data = await doResponse.json();
+    return c.json(data);
+  } catch (error) {
+    console.error('Error severing lineage:', error);
+    return c.json({ error: 'Failed to sever lineage' }, 500);
+  }
+});
+
 // GET /api/jobs/:id - Get job status
 jobRoutes.get('/api/jobs/:id', async (c) => {
   try {

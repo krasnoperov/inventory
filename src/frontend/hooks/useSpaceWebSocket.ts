@@ -4,8 +4,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 export interface Asset {
   id: string;
   name: string;
-  type: 'character' | 'item' | 'scene' | 'composite';
+  type: string;  // User-editable: character, item, scene, sprite-sheet, animation, style-sheet, reference, etc.
   tags: string;
+  parent_asset_id: string | null;  // NULL = root asset, else nested under parent
   active_variant_id: string | null;
   created_by: string;
   created_at: number;
@@ -19,7 +20,17 @@ export interface Variant {
   image_key: string;
   thumb_key: string;
   recipe: string;
+  starred: boolean;  // User marks important versions
   created_by: string;
+  created_at: number;
+}
+
+export interface Lineage {
+  id: string;
+  parent_variant_id: string;
+  child_variant_id: string;
+  relation_type: 'derived' | 'composed' | 'spawned';
+  severed: boolean;  // User can cut the historical link
   created_at: number;
 }
 
@@ -56,23 +67,48 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
+  | { type: 'asset:spawned'; asset: Asset; variant: Variant; lineage: Lineage }
   | { type: 'variant:created'; variant: Variant }
+  | { type: 'variant:updated'; variant: Variant }
   | { type: 'variant:deleted'; variantId: string }
+  | { type: 'lineage:created'; lineage: Lineage }
+  | { type: 'lineage:severed'; lineageId: string }
   | { type: 'job:progress'; jobId: string; status: string }
   | { type: 'job:completed'; jobId: string; variant: Variant }
   | { type: 'job:failed'; jobId: string; error: string }
   | { type: 'error'; code: string; message: string };
 
-// Client message types based on ARCHITECTURE.md
-type AssetType = 'character' | 'item' | 'scene' | 'composite';
+// Predefined asset types (user can also create custom)
+export const PREDEFINED_ASSET_TYPES = [
+  'character',
+  'item',
+  'scene',
+  'environment',
+  'sprite-sheet',
+  'animation',
+  'style-sheet',
+  'reference',
+] as const;
+
+export type PredefinedAssetType = typeof PREDEFINED_ASSET_TYPES[number];
 
 interface AssetChanges {
   name?: string;
+  type?: string;
   tags?: string[];
+  parentAssetId?: string | null;
+}
+
+// Spawn params for creating new asset from variant
+export interface SpawnParams {
+  sourceVariantId: string;
+  name: string;
+  assetType: string;
+  parentAssetId?: string;
 }
 
 // Return type
@@ -81,16 +117,24 @@ export interface UseSpaceWebSocketReturn {
   error: string | null;
   assets: Asset[];
   variants: Variant[];
+  lineage: Lineage[];
   jobs: Map<string, JobStatus>;
   sendMessage: (msg: object) => void;
-  createAsset: (name: string, type: AssetType) => void;
+  createAsset: (name: string, type: string, parentAssetId?: string) => void;
   updateAsset: (assetId: string, changes: AssetChanges) => void;
   deleteAsset: (assetId: string) => void;
   setActiveVariant: (assetId: string, variantId: string) => void;
   deleteVariant: (variantId: string) => void;
+  spawnAsset: (params: SpawnParams) => void;
+  starVariant: (variantId: string, starred: boolean) => void;
+  severLineage: (lineageId: string) => void;
   requestSync: () => void;
   trackJob: (jobId: string, context?: JobContext) => void;
   clearJob: (jobId: string) => void;
+  // Helper methods for hierarchy navigation
+  getChildren: (assetId: string) => Asset[];
+  getAncestors: (assetId: string) => Asset[];
+  getRootAssets: () => Asset[];
 }
 
 /**
@@ -106,6 +150,7 @@ export function useSpaceWebSocket({
   const [error, setError] = useState<string | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [variants, setVariants] = useState<Variant[]>([]);
+  const [lineage, setLineage] = useState<Lineage[]>([]);
   const [jobs, setJobs] = useState<Map<string, JobStatus>>(new Map());
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -123,8 +168,8 @@ export function useSpaceWebSocket({
   }, []);
 
   // Asset mutation methods
-  const createAsset = useCallback((name: string, type: AssetType) => {
-    sendMessage({ type: 'asset:create', name, assetType: type });
+  const createAsset = useCallback((name: string, type: string, parentAssetId?: string) => {
+    sendMessage({ type: 'asset:create', name, assetType: type, parentAssetId });
   }, [sendMessage]);
 
   const updateAsset = useCallback((assetId: string, changes: AssetChanges) => {
@@ -143,9 +188,56 @@ export function useSpaceWebSocket({
     sendMessage({ type: 'variant:delete', variantId });
   }, [sendMessage]);
 
+  // Spawn new asset from variant (copy operation with lineage)
+  const spawnAsset = useCallback((params: SpawnParams) => {
+    sendMessage({
+      type: 'asset:spawn',
+      sourceVariantId: params.sourceVariantId,
+      name: params.name,
+      assetType: params.assetType,
+      parentAssetId: params.parentAssetId,
+    });
+  }, [sendMessage]);
+
+  // Star/unstar a variant
+  const starVariant = useCallback((variantId: string, starred: boolean) => {
+    sendMessage({ type: 'variant:star', variantId, starred });
+  }, [sendMessage]);
+
+  // Sever lineage link (cut historical connection)
+  const severLineage = useCallback((lineageId: string) => {
+    sendMessage({ type: 'lineage:sever', lineageId });
+  }, [sendMessage]);
+
   const requestSync = useCallback(() => {
     sendMessage({ type: 'sync:request' });
   }, [sendMessage]);
+
+  // Helper methods for hierarchy navigation
+  const getChildren = useCallback((assetId: string): Asset[] => {
+    return assets.filter(a => a.parent_asset_id === assetId);
+  }, [assets]);
+
+  const getAncestors = useCallback((assetId: string): Asset[] => {
+    const ancestors: Asset[] = [];
+    let current = assets.find(a => a.id === assetId);
+
+    while (current?.parent_asset_id) {
+      const parent = assets.find(a => a.id === current!.parent_asset_id);
+      if (parent) {
+        ancestors.unshift(parent);  // Add to front for root-first order
+        current = parent;
+      } else {
+        break;
+      }
+    }
+
+    return ancestors;
+  }, [assets]);
+
+  const getRootAssets = useCallback((): Asset[] => {
+    return assets.filter(a => a.parent_asset_id === null);
+  }, [assets]);
 
   // Job tracking methods
   const trackJob = useCallback((jobId: string, context?: JobContext) => {
@@ -215,6 +307,7 @@ export function useSpaceWebSocket({
               case 'sync:state':
                 setAssets(message.assets);
                 setVariants(message.variants);
+                setLineage(message.lineage || []);
                 setError(null);
                 break;
 
@@ -234,6 +327,16 @@ export function useSpaceWebSocket({
                 setAssets((prev) => prev.filter((asset) => asset.id !== message.assetId));
                 break;
 
+              case 'asset:spawned':
+                // Add the spawned asset, variant, and lineage
+                setAssets((prev) => [...prev, message.asset]);
+                setVariants((prev) => {
+                  if (prev.some(v => v.id === message.variant.id)) return prev;
+                  return [...prev, message.variant];
+                });
+                setLineage((prev) => [...prev, message.lineage]);
+                break;
+
               case 'variant:created':
                 setVariants((prev) => {
                   // Avoid duplicates (variant may already exist from job:completed)
@@ -242,9 +345,32 @@ export function useSpaceWebSocket({
                 });
                 break;
 
+              case 'variant:updated':
+                setVariants((prev) =>
+                  prev.map((variant) =>
+                    variant.id === message.variant.id ? message.variant : variant
+                  )
+                );
+                break;
+
               case 'variant:deleted':
                 setVariants((prev) =>
                   prev.filter((variant) => variant.id !== message.variantId)
+                );
+                break;
+
+              case 'lineage:created':
+                setLineage((prev) => {
+                  if (prev.some(l => l.id === message.lineage.id)) return prev;
+                  return [...prev, message.lineage];
+                });
+                break;
+
+              case 'lineage:severed':
+                setLineage((prev) =>
+                  prev.map((l) =>
+                    l.id === message.lineageId ? { ...l, severed: true } : l
+                  )
                 );
                 break;
 
@@ -366,6 +492,7 @@ export function useSpaceWebSocket({
     error,
     assets,
     variants,
+    lineage,
     jobs,
     sendMessage,
     createAsset,
@@ -373,9 +500,15 @@ export function useSpaceWebSocket({
     deleteAsset,
     setActiveVariant,
     deleteVariant,
+    spawnAsset,
+    starVariant,
+    severLineage,
     requestSync,
     trackJob,
     clearJob,
+    getChildren,
+    getAncestors,
+    getRootAssets,
   };
 }
 

@@ -9,8 +9,9 @@ import { AuthService } from '../features/auth/auth-service';
 interface Asset {
   id: string;
   name: string;
-  type: 'character' | 'item' | 'scene' | 'composite';
+  type: string; // User-editable: character, item, scene, sprite-sheet, animation, style-sheet, reference, etc.
   tags: string; // JSON array
+  parent_asset_id: string | null; // NULL = root asset, else nested under parent
   active_variant_id: string | null;
   created_by: string;
   created_at: number;
@@ -24,6 +25,7 @@ interface Variant {
   image_key: string;
   thumb_key: string;
   recipe: string; // JSON
+  starred: boolean; // User marks important versions
   created_by: string;
   created_at: number;
 }
@@ -46,7 +48,8 @@ interface Lineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: 'derived' | 'composed';
+  relation_type: 'derived' | 'composed' | 'spawned';
+  severed: boolean; // User can cut the link if desired
   created_at: number;
 }
 
@@ -69,11 +72,14 @@ interface UserPresence {
 
 type ClientMessage =
   | { type: 'sync:request' }
-  | { type: 'asset:create'; name: string; assetType: 'character' | 'item' | 'scene' | 'composite' }
-  | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[] } }
+  | { type: 'asset:create'; name: string; assetType: string; parentAssetId?: string }
+  | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[]; type?: string; parentAssetId?: string | null } }
   | { type: 'asset:delete'; assetId: string }
   | { type: 'asset:setActive'; assetId: string; variantId: string }
+  | { type: 'asset:spawn'; sourceVariantId: string; name: string; assetType: string; parentAssetId?: string }
   | { type: 'variant:delete'; variantId: string }
+  | { type: 'variant:star'; variantId: string; starred: boolean }
+  | { type: 'lineage:sever'; lineageId: string }
   | { type: 'presence:update'; viewing?: string }
   | { type: 'chat:send'; content: string };
 
@@ -82,12 +88,16 @@ type ClientMessage =
 // ============================================================================
 
 type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; presence: UserPresence[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
+  | { type: 'asset:spawned'; asset: Asset; variant: Variant; lineage: Lineage }
   | { type: 'variant:created'; variant: Variant }
+  | { type: 'variant:updated'; variant: Variant }
   | { type: 'variant:deleted'; variantId: string }
+  | { type: 'lineage:created'; lineage: Lineage }
+  | { type: 'lineage:severed'; lineageId: string }
   | { type: 'job:progress'; jobId: string; status: string }
   | { type: 'job:completed'; jobId: string; variant: Variant }
   | { type: 'job:failed'; jobId: string; error: string }
@@ -132,8 +142,9 @@ export class SpaceDO extends DurableObject<Env> {
         CREATE TABLE IF NOT EXISTS assets (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
-          type TEXT NOT NULL CHECK (type IN ('character', 'item', 'scene', 'composite')),
+          type TEXT NOT NULL,
           tags TEXT DEFAULT '[]',
+          parent_asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,
           active_variant_id TEXT,
           created_by TEXT NOT NULL,
           created_at INTEGER NOT NULL,
@@ -147,6 +158,7 @@ export class SpaceDO extends DurableObject<Env> {
           image_key TEXT NOT NULL,
           thumb_key TEXT NOT NULL,
           recipe TEXT NOT NULL,
+          starred INTEGER NOT NULL DEFAULT 0,
           created_by TEXT NOT NULL,
           created_at INTEGER NOT NULL
         );
@@ -169,19 +181,55 @@ export class SpaceDO extends DurableObject<Env> {
           id TEXT PRIMARY KEY,
           parent_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
           child_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
-          relation_type TEXT NOT NULL CHECK (relation_type IN ('derived', 'composed')),
+          relation_type TEXT NOT NULL CHECK (relation_type IN ('derived', 'composed', 'spawned')),
+          severed INTEGER NOT NULL DEFAULT 0,
           created_at INTEGER NOT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_variants_asset ON variants(asset_id);
         CREATE INDEX IF NOT EXISTS idx_assets_updated ON assets(updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_assets_parent ON assets(parent_asset_id);
         CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_lineage_parent ON lineage(parent_variant_id);
         CREATE INDEX IF NOT EXISTS idx_lineage_child ON lineage(child_variant_id);
       `);
 
+      // Run migrations for existing databases
+      await this.runMigrations();
+
       this.initialized = true;
     });
+  }
+
+  /**
+   * Run migrations for existing databases to add new columns
+   */
+  private async runMigrations(): Promise<void> {
+    // Check if parent_asset_id column exists
+    try {
+      await this.ctx.storage.sql.exec('SELECT parent_asset_id FROM assets LIMIT 1');
+    } catch {
+      // Column doesn't exist, add it
+      await this.ctx.storage.sql.exec('ALTER TABLE assets ADD COLUMN parent_asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL');
+      await this.ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS idx_assets_parent ON assets(parent_asset_id)');
+    }
+
+    // Check if starred column exists on variants
+    try {
+      await this.ctx.storage.sql.exec('SELECT starred FROM variants LIMIT 1');
+    } catch {
+      await this.ctx.storage.sql.exec('ALTER TABLE variants ADD COLUMN starred INTEGER NOT NULL DEFAULT 0');
+    }
+
+    // Check if severed column exists on lineage
+    try {
+      await this.ctx.storage.sql.exec('SELECT severed FROM lineage LIMIT 1');
+    } catch {
+      await this.ctx.storage.sql.exec('ALTER TABLE lineage ADD COLUMN severed INTEGER NOT NULL DEFAULT 0');
+    }
+
+    // Update lineage constraint to include 'spawned' - SQLite doesn't support ALTER CONSTRAINT
+    // New rows will use the updated CHECK, existing data with old values is still valid
   }
 
   /**
@@ -266,6 +314,41 @@ export class SpaceDO extends DurableObject<Env> {
       return this.handleAddLineage(request);
     }
 
+    // Spawn asset from variant
+    if (url.pathname === '/internal/spawn' && request.method === 'POST') {
+      return this.handleSpawnAsset(request);
+    }
+
+    // Get children of an asset
+    if (url.pathname.match(/^\/internal\/asset\/[^/]+\/children$/) && request.method === 'GET') {
+      const assetId = url.pathname.split('/internal/asset/')[1].split('/children')[0];
+      return this.handleGetAssetChildren(assetId);
+    }
+
+    // Get ancestors of an asset (breadcrumbs)
+    if (url.pathname.match(/^\/internal\/asset\/[^/]+\/ancestors$/) && request.method === 'GET') {
+      const assetId = url.pathname.split('/internal/asset/')[1].split('/ancestors')[0];
+      return this.handleGetAssetAncestors(assetId);
+    }
+
+    // Star/unstar variant
+    if (url.pathname.match(/^\/internal\/variant\/[^/]+\/star$/) && request.method === 'PATCH') {
+      const variantId = url.pathname.split('/internal/variant/')[1].split('/star')[0];
+      return this.handleStarVariant(variantId, request);
+    }
+
+    // Sever lineage
+    if (url.pathname.match(/^\/internal\/lineage\/[^/]+\/sever$/) && request.method === 'PATCH') {
+      const lineageId = url.pathname.split('/internal/lineage/')[1].split('/sever')[0];
+      return this.handleSeverLineage(lineageId);
+    }
+
+    // Re-parent asset
+    if (url.pathname.match(/^\/internal\/asset\/[^/]+\/parent$/) && request.method === 'PATCH') {
+      const assetId = url.pathname.split('/internal/asset/')[1].split('/parent')[0];
+      return this.handleReparentAsset(assetId, request);
+    }
+
     return new Response('Not found', { status: 404 });
   }
 
@@ -342,7 +425,7 @@ export class SpaceDO extends DurableObject<Env> {
           break;
 
         case 'asset:create':
-          await this.handleAssetCreate(ws, meta, msg.name, msg.assetType);
+          await this.handleAssetCreate(ws, meta, msg.name, msg.assetType, msg.parentAssetId);
           break;
 
         case 'asset:update':
@@ -357,8 +440,20 @@ export class SpaceDO extends DurableObject<Env> {
           await this.handleAssetSetActive(ws, meta, msg.assetId, msg.variantId);
           break;
 
+        case 'asset:spawn':
+          await this.handleAssetSpawn(ws, meta, msg.sourceVariantId, msg.name, msg.assetType, msg.parentAssetId);
+          break;
+
         case 'variant:delete':
           await this.handleVariantDelete(ws, meta, msg.variantId);
+          break;
+
+        case 'variant:star':
+          await this.handleVariantStar(ws, meta, msg.variantId, msg.starred);
+          break;
+
+        case 'lineage:sever':
+          await this.handleLineageSever(ws, meta, msg.lineageId);
           break;
 
         case 'chat:send':
@@ -413,6 +508,7 @@ export class SpaceDO extends DurableObject<Env> {
       type: 'sync:state',
       assets: state.assets,
       variants: state.variants,
+      lineage: state.lineage,
       presence,
     });
   }
@@ -421,7 +517,8 @@ export class SpaceDO extends DurableObject<Env> {
     ws: WebSocket,
     meta: WebSocketMeta,
     name: string,
-    assetType: Asset['type']
+    assetType: string,
+    parentAssetId?: string
   ): Promise<void> {
     // Only editors and owners can create assets
     if (meta.role === 'viewer') {
@@ -432,6 +529,7 @@ export class SpaceDO extends DurableObject<Env> {
     const asset = await this.createAsset({
       name,
       type: assetType,
+      parentAssetId,
       createdBy: meta.userId,
     });
 
@@ -442,7 +540,7 @@ export class SpaceDO extends DurableObject<Env> {
     ws: WebSocket,
     meta: WebSocketMeta,
     assetId: string,
-    changes: { name?: string; tags?: string[] }
+    changes: { name?: string; tags?: string[]; type?: string; parentAssetId?: string | null }
   ): Promise<void> {
     if (meta.role === 'viewer') {
       this.sendError(ws, 'PERMISSION_DENIED', 'Viewers cannot update assets');
@@ -504,6 +602,79 @@ export class SpaceDO extends DurableObject<Env> {
 
     await this.deleteVariant(variantId);
     this.broadcast({ type: 'variant:deleted', variantId });
+  }
+
+  private async handleAssetSpawn(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    sourceVariantId: string,
+    name: string,
+    assetType: string,
+    parentAssetId?: string
+  ): Promise<void> {
+    if (meta.role === 'viewer') {
+      this.sendError(ws, 'PERMISSION_DENIED', 'Viewers cannot spawn assets');
+      return;
+    }
+
+    const result = await this.spawnAsset({
+      sourceVariantId,
+      name,
+      type: assetType,
+      parentAssetId,
+      createdBy: meta.userId,
+    });
+
+    if (!result) {
+      this.sendError(ws, 'NOT_FOUND', 'Source variant not found');
+      return;
+    }
+
+    this.broadcast({
+      type: 'asset:spawned',
+      asset: result.asset,
+      variant: result.variant,
+      lineage: result.lineage,
+    });
+  }
+
+  private async handleVariantStar(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    variantId: string,
+    starred: boolean
+  ): Promise<void> {
+    if (meta.role === 'viewer') {
+      this.sendError(ws, 'PERMISSION_DENIED', 'Viewers cannot star variants');
+      return;
+    }
+
+    const variant = await this.updateVariantStar(variantId, starred);
+    if (!variant) {
+      this.sendError(ws, 'NOT_FOUND', 'Variant not found');
+      return;
+    }
+
+    this.broadcast({ type: 'variant:updated', variant });
+  }
+
+  private async handleLineageSever(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    lineageId: string
+  ): Promise<void> {
+    if (meta.role === 'viewer') {
+      this.sendError(ws, 'PERMISSION_DENIED', 'Viewers cannot sever lineage');
+      return;
+    }
+
+    const success = await this.severLineage(lineageId);
+    if (!success) {
+      this.sendError(ws, 'NOT_FOUND', 'Lineage not found');
+      return;
+    }
+
+    this.broadcast({ type: 'lineage:severed', lineageId });
   }
 
   private async handleChatSend(
@@ -993,19 +1164,20 @@ export class SpaceDO extends DurableObject<Env> {
       const data = (await request.json()) as {
         parentVariantId: string;
         childVariantId: string;
-        relationType: 'derived' | 'composed';
+        relationType: 'derived' | 'composed' | 'spawned';
       };
 
       const lineageId = crypto.randomUUID();
       const now = Date.now();
 
       await this.ctx.storage.sql.exec(
-        `INSERT INTO lineage (id, parent_variant_id, child_variant_id, relation_type, created_at)
-         VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO lineage (id, parent_variant_id, child_variant_id, relation_type, severed, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
         lineageId,
         data.parentVariantId,
         data.childVariantId,
         data.relationType,
+        0, // severed = false
         now
       );
 
@@ -1016,6 +1188,221 @@ export class SpaceDO extends DurableObject<Env> {
       console.error('Error adding lineage:', error);
       return new Response(
         JSON.stringify({ error: 'Failed to add lineage' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle spawn asset from variant
+   * POST /internal/spawn
+   */
+  private async handleSpawnAsset(request: Request): Promise<Response> {
+    try {
+      const data = (await request.json()) as {
+        sourceVariantId: string;
+        name: string;
+        type: string;
+        parentAssetId?: string;
+        createdBy: string;
+      };
+
+      const result = await this.spawnAsset(data);
+      if (!result) {
+        return new Response(
+          JSON.stringify({ error: 'Source variant not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Broadcast the spawn
+      this.broadcast({
+        type: 'asset:spawned',
+        asset: result.asset,
+        variant: result.variant,
+        lineage: result.lineage,
+      });
+
+      return new Response(JSON.stringify({ success: true, ...result }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error spawning asset:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to spawn asset' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle get asset children
+   * GET /internal/asset/:assetId/children
+   */
+  private async handleGetAssetChildren(assetId: string): Promise<Response> {
+    try {
+      const result = await this.ctx.storage.sql.exec(
+        'SELECT * FROM assets WHERE parent_asset_id = ? ORDER BY updated_at DESC',
+        assetId
+      );
+      const children = result.toArray() as unknown as Asset[];
+
+      return new Response(JSON.stringify({ success: true, children }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error getting asset children:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to get asset children' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle get asset ancestors (breadcrumbs)
+   * GET /internal/asset/:assetId/ancestors
+   */
+  private async handleGetAssetAncestors(assetId: string): Promise<Response> {
+    try {
+      const ancestors: Asset[] = [];
+      let currentId: string | null = assetId;
+
+      // Walk up the tree
+      while (currentId) {
+        const result = await this.ctx.storage.sql.exec(
+          'SELECT * FROM assets WHERE id = ?',
+          currentId
+        );
+        const asset = result.toArray()[0] as unknown as Asset | undefined;
+        if (!asset) break;
+
+        // Don't include the starting asset in ancestors
+        if (asset.id !== assetId) {
+          ancestors.unshift(asset); // Add to beginning for root-first order
+        }
+        currentId = asset.parent_asset_id;
+      }
+
+      return new Response(JSON.stringify({ success: true, ancestors }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error getting asset ancestors:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to get asset ancestors' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle star/unstar variant
+   * PATCH /internal/variant/:variantId/star
+   */
+  private async handleStarVariant(variantId: string, request: Request): Promise<Response> {
+    try {
+      const data = (await request.json()) as { starred: boolean };
+      const variant = await this.updateVariantStar(variantId, data.starred);
+
+      if (!variant) {
+        return new Response(
+          JSON.stringify({ error: 'Variant not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Broadcast the update
+      this.broadcast({ type: 'variant:updated', variant });
+
+      return new Response(JSON.stringify({ success: true, variant }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error starring variant:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to star variant' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle sever lineage
+   * PATCH /internal/lineage/:lineageId/sever
+   */
+  private async handleSeverLineage(lineageId: string): Promise<Response> {
+    try {
+      const success = await this.severLineage(lineageId);
+
+      if (!success) {
+        return new Response(
+          JSON.stringify({ error: 'Lineage not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Broadcast the sever
+      this.broadcast({ type: 'lineage:severed', lineageId });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error severing lineage:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to sever lineage' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle re-parent asset
+   * PATCH /internal/asset/:assetId/parent
+   */
+  private async handleReparentAsset(assetId: string, request: Request): Promise<Response> {
+    try {
+      const data = (await request.json()) as { parentAssetId: string | null };
+
+      // Check for circular reference
+      if (data.parentAssetId) {
+        let currentId: string | null = data.parentAssetId;
+        while (currentId) {
+          if (currentId === assetId) {
+            return new Response(
+              JSON.stringify({ error: 'Cannot create circular reference' }),
+              { status: 400, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+          const result = await this.ctx.storage.sql.exec(
+            'SELECT parent_asset_id FROM assets WHERE id = ?',
+            currentId
+          );
+          const parent = result.toArray()[0] as { parent_asset_id: string | null } | undefined;
+          currentId = parent?.parent_asset_id ?? null;
+        }
+      }
+
+      const asset = await this.updateAsset(assetId, { parent_asset_id: data.parentAssetId });
+
+      if (!asset) {
+        return new Response(
+          JSON.stringify({ error: 'Asset not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Broadcast the update
+      this.broadcast({ type: 'asset:updated', asset });
+
+      return new Response(JSON.stringify({ success: true, asset }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error re-parenting asset:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to re-parent asset' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -1048,7 +1435,8 @@ export class SpaceDO extends DurableObject<Env> {
   private async createAsset(data: {
     id?: string; // Optional: pass specific ID for reference jobs
     name: string;
-    type: Asset['type'];
+    type: string;
+    parentAssetId?: string;
     createdBy: string;
   }): Promise<Asset> {
     const id = data.id || crypto.randomUUID();
@@ -1059,6 +1447,7 @@ export class SpaceDO extends DurableObject<Env> {
       name: data.name,
       type: data.type,
       tags: '[]',
+      parent_asset_id: data.parentAssetId ?? null,
       active_variant_id: null,
       created_by: data.createdBy,
       created_at: now,
@@ -1066,12 +1455,13 @@ export class SpaceDO extends DurableObject<Env> {
     };
 
     await this.ctx.storage.sql.exec(
-      `INSERT INTO assets (id, name, type, tags, active_variant_id, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO assets (id, name, type, tags, parent_asset_id, active_variant_id, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       asset.name,
       asset.type,
       asset.tags,
+      asset.parent_asset_id,
       asset.active_variant_id,
       asset.created_by,
       asset.created_at,
@@ -1086,7 +1476,7 @@ export class SpaceDO extends DurableObject<Env> {
    */
   private async updateAsset(
     id: string,
-    changes: { name?: string; tags?: string[]; active_variant_id?: string | null }
+    changes: { name?: string; tags?: string[]; type?: string; parent_asset_id?: string | null; active_variant_id?: string | null }
   ): Promise<Asset | null> {
     const result = await this.ctx.storage.sql.exec(
       'SELECT * FROM assets WHERE id = ?',
@@ -1107,6 +1497,16 @@ export class SpaceDO extends DurableObject<Env> {
     if (changes.tags !== undefined) {
       updates.push('tags = ?');
       values.push(JSON.stringify(changes.tags));
+    }
+
+    if (changes.type !== undefined) {
+      updates.push('type = ?');
+      values.push(changes.type);
+    }
+
+    if (changes.parent_asset_id !== undefined) {
+      updates.push('parent_asset_id = ?');
+      values.push(changes.parent_asset_id);
     }
 
     if (changes.active_variant_id !== undefined) {
@@ -1200,20 +1600,22 @@ export class SpaceDO extends DurableObject<Env> {
       image_key: data.imageKey,
       thumb_key: data.thumbKey,
       recipe: data.recipe,
+      starred: false,
       created_by: data.createdBy,
       created_at: now,
     };
 
     // Insert variant
     await this.ctx.storage.sql.exec(
-      `INSERT INTO variants (id, asset_id, job_id, image_key, thumb_key, recipe, created_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, job_id, image_key, thumb_key, recipe, starred, created_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       variant.id,
       variant.asset_id,
       variant.job_id,
       variant.image_key,
       variant.thumb_key,
       variant.recipe,
+      0, // starred = false
       variant.created_by,
       variant.created_at
     );
@@ -1240,12 +1642,13 @@ export class SpaceDO extends DurableObject<Env> {
       for (const parentId of data.parentVariantIds) {
         const lineageId = crypto.randomUUID();
         await this.ctx.storage.sql.exec(
-          `INSERT INTO lineage (id, parent_variant_id, child_variant_id, relation_type, created_at)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO lineage (id, parent_variant_id, child_variant_id, relation_type, severed, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
           lineageId,
           parentId,
           variant.id,
           relationType,
+          0, // severed = false
           now
         );
       }
@@ -1299,6 +1702,135 @@ export class SpaceDO extends DurableObject<Env> {
 
     // Delete variant
     await this.ctx.storage.sql.exec('DELETE FROM variants WHERE id = ?', id);
+  }
+
+  /**
+   * Spawn a new asset from an existing variant
+   * Creates a copy of the variant in a new asset with 'spawned' lineage
+   */
+  private async spawnAsset(data: {
+    sourceVariantId: string;
+    name: string;
+    type: string;
+    parentAssetId?: string;
+    createdBy: string;
+  }): Promise<{ asset: Asset; variant: Variant; lineage: Lineage } | null> {
+    // Get source variant
+    const sourceResult = await this.ctx.storage.sql.exec(
+      'SELECT * FROM variants WHERE id = ?',
+      data.sourceVariantId
+    );
+    const sourceVariant = sourceResult.toArray()[0] as unknown as Variant | undefined;
+    if (!sourceVariant) return null;
+
+    const now = Date.now();
+
+    // Create new asset
+    const asset = await this.createAsset({
+      name: data.name,
+      type: data.type,
+      parentAssetId: data.parentAssetId,
+      createdBy: data.createdBy,
+    });
+
+    // Create new variant (copy of source)
+    const newVariantId = crypto.randomUUID();
+    const variant: Variant = {
+      id: newVariantId,
+      asset_id: asset.id,
+      job_id: null, // No job - this is a copy
+      image_key: sourceVariant.image_key,
+      thumb_key: sourceVariant.thumb_key,
+      recipe: sourceVariant.recipe,
+      starred: false,
+      created_by: data.createdBy,
+      created_at: now,
+    };
+
+    await this.ctx.storage.sql.exec(
+      `INSERT INTO variants (id, asset_id, job_id, image_key, thumb_key, recipe, starred, created_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      variant.id,
+      variant.asset_id,
+      variant.job_id,
+      variant.image_key,
+      variant.thumb_key,
+      variant.recipe,
+      variant.starred ? 1 : 0,
+      variant.created_by,
+      variant.created_at
+    );
+
+    // Increment refs for copied images
+    await this.incrementRef(variant.image_key);
+    await this.incrementRef(variant.thumb_key);
+
+    // Create spawned lineage
+    const lineageId = crypto.randomUUID();
+    const lineage: Lineage = {
+      id: lineageId,
+      parent_variant_id: data.sourceVariantId,
+      child_variant_id: newVariantId,
+      relation_type: 'spawned',
+      severed: false,
+      created_at: now,
+    };
+
+    await this.ctx.storage.sql.exec(
+      `INSERT INTO lineage (id, parent_variant_id, child_variant_id, relation_type, severed, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      lineage.id,
+      lineage.parent_variant_id,
+      lineage.child_variant_id,
+      lineage.relation_type,
+      lineage.severed ? 1 : 0,
+      lineage.created_at
+    );
+
+    // Set the spawned variant as active
+    await this.updateAsset(asset.id, { active_variant_id: newVariantId });
+    asset.active_variant_id = newVariantId;
+
+    return { asset, variant, lineage };
+  }
+
+  /**
+   * Update variant starred status
+   */
+  private async updateVariantStar(variantId: string, starred: boolean): Promise<Variant | null> {
+    const result = await this.ctx.storage.sql.exec(
+      'SELECT * FROM variants WHERE id = ?',
+      variantId
+    );
+    const variant = result.toArray()[0] as unknown as Variant | undefined;
+    if (!variant) return null;
+
+    await this.ctx.storage.sql.exec(
+      'UPDATE variants SET starred = ? WHERE id = ?',
+      starred ? 1 : 0,
+      variantId
+    );
+
+    return { ...variant, starred };
+  }
+
+  /**
+   * Sever a lineage link
+   */
+  private async severLineage(lineageId: string): Promise<boolean> {
+    const result = await this.ctx.storage.sql.exec(
+      'SELECT * FROM lineage WHERE id = ?',
+      lineageId
+    );
+    const lineage = result.toArray()[0] as unknown as Lineage | undefined;
+    if (!lineage) return false;
+
+    await this.ctx.storage.sql.exec(
+      'UPDATE lineage SET severed = 1 WHERE id = ?',
+      lineageId
+    );
+
+    return true;
   }
 
   /**

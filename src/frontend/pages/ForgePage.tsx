@@ -6,7 +6,7 @@ import { useRouteStore } from '../stores/routeStore';
 import type { Asset, Variant, JobContext } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
-import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
+import { useSpaceWebSocket, PREDEFINED_ASSET_TYPES } from '../hooks/useSpaceWebSocket';
 import styles from './ForgePage.module.css';
 
 interface Space {
@@ -35,7 +35,7 @@ export default function ForgePage() {
   const [forgeForm, setForgeForm] = useState({
     prompt: '',
     assetName: '',
-    assetType: 'composite' as 'character' | 'item' | 'scene' | 'composite',
+    assetType: 'character' as string,
   });
   const [isForging, setIsForging] = useState(false);
   const [forgeSubmitted, setForgeSubmitted] = useState<{
@@ -263,7 +263,7 @@ export default function ForgePage() {
                 onClick={() => {
                   setForgeSubmitted(null);
                   setSelectedVariantIds(new Set());
-                  setForgeForm({ prompt: '', assetName: '', assetType: 'composite' });
+                  setForgeForm({ prompt: '', assetName: '', assetType: 'character' });
                 }}
               >
                 Forge Another
@@ -412,14 +412,15 @@ export default function ForgePage() {
                   onChange={(e) =>
                     setForgeForm((f) => ({
                       ...f,
-                      assetType: e.target.value as typeof f.assetType,
+                      assetType: e.target.value,
                     }))
                   }
                 >
-                  <option value="composite">Composite</option>
-                  <option value="character">Character</option>
-                  <option value="item">Item</option>
-                  <option value="scene">Scene</option>
+                  {PREDEFINED_ASSET_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
+                    </option>
+                  ))}
                 </select>
               </div>
 

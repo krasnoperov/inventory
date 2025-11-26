@@ -10,7 +10,9 @@ interface VariantMinimal {
 
 interface LineageNode {
   variant: VariantMinimal;
-  relation_type: 'derived' | 'composed';
+  relation_type: 'derived' | 'composed' | 'spawned';
+  severed?: boolean;
+  lineage_id?: string;  // For sever action
 }
 
 // Graph mode types
@@ -28,7 +30,8 @@ interface GraphLineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: string;
+  relation_type: 'derived' | 'composed' | 'spawned';
+  severed: boolean;
   created_at: number;
 }
 
@@ -37,14 +40,44 @@ interface LineageTreeProps {
   parents: LineageNode[];
   children: LineageNode[];
   onSelectVariant: (variant: VariantMinimal) => void;
+  onSeverLineage?: (lineageId: string) => void;
   spaceId?: string;
 }
+
+// Helper to get display text for relation type
+const getRelationLabel = (type: string): string => {
+  switch (type) {
+    case 'derived': return 'Edit';
+    case 'composed': return 'Compose';
+    case 'spawned': return 'Spawn';
+    default: return type;
+  }
+};
+
+const getRelationTooltip = (type: string, direction: 'parent' | 'child'): string => {
+  if (direction === 'parent') {
+    switch (type) {
+      case 'derived': return 'Edited from this variant';
+      case 'composed': return 'Composed from this variant';
+      case 'spawned': return 'Spawned from this variant (new asset)';
+      default: return `Related via ${type}`;
+    }
+  } else {
+    switch (type) {
+      case 'derived': return 'Created by editing';
+      case 'composed': return 'Created by composing';
+      case 'spawned': return 'Spawned to new asset';
+      default: return `Related via ${type}`;
+    }
+  }
+};
 
 export function LineageTree({
   currentVariant,
   parents,
   children,
   onSelectVariant,
+  onSeverLineage,
   spaceId,
 }: LineageTreeProps) {
   const [showGraph, setShowGraph] = useState(false);
@@ -243,9 +276,9 @@ export function LineageTree({
               {parents.map((node) => (
                 <div
                   key={node.variant.id}
-                  className={styles.node}
+                  className={`${styles.node} ${node.severed ? styles.severed : ''}`}
                   onClick={() => onSelectVariant(node.variant)}
-                  title={`${node.relation_type === 'derived' ? 'Edited from' : 'Composed from'} this variant`}
+                  title={getRelationTooltip(node.relation_type, 'parent') + (node.severed ? ' (link severed)' : '')}
                 >
                   <img
                     src={`/api/images/${node.variant.thumb_key}`}
@@ -253,12 +286,27 @@ export function LineageTree({
                     className={styles.nodeImage}
                   />
                   <span className={`${styles.badge} ${styles[node.relation_type]}`}>
-                    {node.relation_type === 'derived' ? 'Edit' : 'Compose'}
+                    {getRelationLabel(node.relation_type)}
                   </span>
+                  {node.severed && (
+                    <span className={styles.severedBadge} title="Link severed">✂</span>
+                  )}
+                  {node.lineage_id && !node.severed && onSeverLineage && (
+                    <button
+                      className={styles.severButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSeverLineage(node.lineage_id!);
+                      }}
+                      title="Sever this lineage link"
+                    >
+                      ✂
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
-            <div className={styles.connector}>
+            <div className={`${styles.connector} ${parents.some(p => p.severed) ? styles.severedConnector : ''}`}>
               <svg className={styles.arrow} viewBox="0 0 24 24" fill="none">
                 <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -279,7 +327,7 @@ export function LineageTree({
         {/* Children (descendants) */}
         {children.length > 0 && (
           <div className={styles.section}>
-            <div className={styles.connector}>
+            <div className={`${styles.connector} ${children.some(c => c.severed) ? styles.severedConnector : ''}`}>
               <svg className={styles.arrow} viewBox="0 0 24 24" fill="none">
                 <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -289,9 +337,9 @@ export function LineageTree({
               {children.map((node) => (
                 <div
                   key={node.variant.id}
-                  className={styles.node}
+                  className={`${styles.node} ${node.severed ? styles.severed : ''}`}
                   onClick={() => onSelectVariant(node.variant)}
-                  title={`${node.relation_type === 'derived' ? 'Created by editing' : 'Created by composing'}`}
+                  title={getRelationTooltip(node.relation_type, 'child') + (node.severed ? ' (link severed)' : '')}
                 >
                   <img
                     src={`/api/images/${node.variant.thumb_key}`}
@@ -299,8 +347,23 @@ export function LineageTree({
                     className={styles.nodeImage}
                   />
                   <span className={`${styles.badge} ${styles[node.relation_type]}`}>
-                    {node.relation_type === 'derived' ? 'Edit' : 'Compose'}
+                    {getRelationLabel(node.relation_type)}
                   </span>
+                  {node.severed && (
+                    <span className={styles.severedBadge} title="Link severed">✂</span>
+                  )}
+                  {node.lineage_id && !node.severed && onSeverLineage && (
+                    <button
+                      className={styles.severButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSeverLineage(node.lineage_id!);
+                      }}
+                      title="Sever this lineage link"
+                    >
+                      ✂
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

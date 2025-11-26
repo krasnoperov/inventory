@@ -5,39 +5,16 @@ import { useAuth } from '../contexts/useAuth';
 import { useRouteStore } from '../stores/routeStore';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
-import { useSpaceWebSocket, type JobContext } from '../hooks/useSpaceWebSocket';
+import {
+  useSpaceWebSocket,
+  type JobContext,
+  type Asset,
+  type Variant,
+  type Lineage,
+  PREDEFINED_ASSET_TYPES,
+} from '../hooks/useSpaceWebSocket';
 import { LineageTree } from '../components/LineageTree';
 import styles from './AssetDetailPage.module.css';
-
-interface Asset {
-  id: string;
-  name: string;
-  type: 'character' | 'item' | 'scene' | 'composite';
-  tags: string;
-  active_variant_id: string | null;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-}
-
-interface Variant {
-  id: string;
-  asset_id: string;
-  job_id: string | null;
-  image_key: string;
-  thumb_key: string;
-  recipe: string;
-  created_by: string;
-  created_at: number;
-}
-
-interface Lineage {
-  id: string;
-  parent_variant_id: string;
-  child_variant_id: string;
-  relation_type: 'derived' | 'composed';
-  created_at: number;
-}
 
 interface AssetDetailsResponse {
   success: boolean;
@@ -85,7 +62,7 @@ export default function AssetDetailPage() {
   const [referenceForm, setReferenceForm] = useState({
     prompt: '',
     assetName: '',
-    assetType: 'character' as 'character' | 'item' | 'scene' | 'composite',
+    assetType: 'character' as string,
   });
   const [isCreatingReference, setIsCreatingReference] = useState(false);
 
@@ -850,12 +827,13 @@ export default function AssetDetailPage() {
               <select
                 className={styles.refineSelect}
                 value={referenceForm.assetType}
-                onChange={(e) => setReferenceForm(f => ({ ...f, assetType: e.target.value as typeof f.assetType }))}
+                onChange={(e) => setReferenceForm(f => ({ ...f, assetType: e.target.value }))}
               >
-                <option value="character">Character</option>
-                <option value="item">Item</option>
-                <option value="scene">Scene</option>
-                <option value="composite">Composite</option>
+                {PREDEFINED_ASSET_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
+                  </option>
+                ))}
               </select>
             </div>
 

@@ -114,6 +114,70 @@
   color: white;
 }
 
+.badge.spawned {
+  background: rgba(34, 197, 94, 0.9);
+  color: white;
+}
+
+/* Severed state */
+.node.severed {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.node.severed:hover {
+  opacity: 0.8;
+}
+
+.severedBadge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 0.625rem;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.severButton {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(239, 68, 68, 0.8);
+  color: white;
+  font-size: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.node:hover .severButton {
+  opacity: 1;
+}
+
+.severButton:hover {
+  background: rgba(239, 68, 68, 1);
+  transform: scale(1.1);
+}
+
+.connector.severedConnector .arrow {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
 .connector {
   display: flex;
   justify-content: center;

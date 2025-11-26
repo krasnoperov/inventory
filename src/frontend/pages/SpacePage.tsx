@@ -6,7 +6,7 @@ import { useRouteStore } from '../stores/routeStore';
 import type { Asset, Variant, JobContext } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
-import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
+import { useSpaceWebSocket, PREDEFINED_ASSET_TYPES } from '../hooks/useSpaceWebSocket';
 import { ChatSidebar } from '../components/ChatSidebar';
 import styles from './SpacePage.module.css';
 
@@ -66,7 +66,7 @@ export default function SpacePage() {
   const [generateForm, setGenerateForm] = useState({
     prompt: '',
     assetName: '',
-    assetType: 'character' as 'character' | 'item' | 'scene' | 'composite',
+    assetType: 'character' as string,
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
@@ -587,12 +587,13 @@ export default function SpacePage() {
               <select
                 className={styles.select}
                 value={generateForm.assetType}
-                onChange={(e) => setGenerateForm(f => ({ ...f, assetType: e.target.value as typeof f.assetType }))}
+                onChange={(e) => setGenerateForm(f => ({ ...f, assetType: e.target.value }))}
               >
-                <option value="character">Character</option>
-                <option value="item">Item</option>
-                <option value="scene">Scene</option>
-                <option value="composite">Composite</option>
+                {PREDEFINED_ASSET_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
+                  </option>
+                ))}
               </select>
             </div>
 
