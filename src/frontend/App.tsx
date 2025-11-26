@@ -5,6 +5,9 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
 import AuthorizationApprovalPage from './pages/AuthorizationApprovalPage';
+import DashboardPage from './pages/DashboardPage';
+import SpacePage from './pages/SpacePage';
+import AssetDetailPage from './pages/AssetDetailPage';
 import { loadSession } from './config';
 import type { User } from './contexts/AuthContext';
 import { useRouteStore } from './stores/routeStore';
@@ -23,6 +26,12 @@ function AppRouter() {
       return <ProfilePage />;
     case 'oauthApprove':
       return <AuthorizationApprovalPage />;
+    case 'dashboard':
+      return <DashboardPage />;
+    case 'space':
+      return <SpacePage />;
+    case 'asset':
+      return <AssetDetailPage />;
     default:
       // Unknown route - show 404 or redirect to home
       return <LandingPage />;

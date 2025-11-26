@@ -1,4 +1,46 @@
 :root {
+  /* Core color palette - app surfaces and text */
+  --color-bg: light-dark(
+    oklch(97% 0.005 264),
+    oklch(15% 0.015 264)
+  );
+  --color-surface: light-dark(
+    oklch(100% 0 0),
+    oklch(20% 0.015 264)
+  );
+  --color-surface-elevated: light-dark(
+    oklch(100% 0 0),
+    oklch(25% 0.015 264)
+  );
+  --color-text: light-dark(
+    oklch(20% 0.015 264),
+    oklch(92% 0.005 264)
+  );
+  --color-text-muted: light-dark(
+    oklch(45% 0.01 264),
+    oklch(70% 0.005 264)
+  );
+  --color-border: light-dark(
+    oklch(85% 0.005 264),
+    oklch(30% 0.015 264)
+  );
+  --color-primary: light-dark(
+    oklch(55% 0.18 276),
+    oklch(65% 0.16 276)
+  );
+  --color-primary-hover: light-dark(
+    oklch(50% 0.18 276),
+    oklch(70% 0.16 276)
+  );
+  --color-error: light-dark(
+    oklch(55% 0.2 25),
+    oklch(70% 0.18 25)
+  );
+  --color-success: light-dark(
+    oklch(55% 0.15 145),
+    oklch(70% 0.13 145)
+  );
+
   /* Brand gradients */
   /* Light: #667eea (oklch(62.19% 0.1845 276.62)) to #764ba2 (oklch(48.97% 0.1549 307.72)) */
   /* Dark: Medium-dark (2/3 to dark) - comfortable for night without being too intense */

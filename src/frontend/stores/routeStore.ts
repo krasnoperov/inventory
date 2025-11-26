@@ -6,6 +6,9 @@ export type RoutePage =
   | 'login'
   | 'profile'
   | 'oauthApprove'
+  | 'dashboard'
+  | 'space'
+  | 'asset'
   | 'unknown';
 
 export interface RouteParams {
@@ -38,6 +41,22 @@ const parseRoute = (path: string): { page: RoutePage; params: RouteParams } => {
 
   if (path === '/oauth/approve') {
     return { page: 'oauthApprove', params: {} };
+  }
+
+  if (path === '/dashboard') {
+    return { page: 'dashboard', params: {} };
+  }
+
+  // Match /spaces/:id/assets/:assetId
+  const assetMatch = path.match(/^\/spaces\/([^/]+)\/assets\/([^/]+)$/);
+  if (assetMatch) {
+    return { page: 'asset', params: { spaceId: assetMatch[1], assetId: assetMatch[2] } };
+  }
+
+  // Match /spaces/:id
+  const spaceMatch = path.match(/^\/spaces\/([^/]+)$/);
+  if (spaceMatch) {
+    return { page: 'space', params: { id: spaceMatch[1] } };
   }
 
   return { page: 'unknown', params: {} };
