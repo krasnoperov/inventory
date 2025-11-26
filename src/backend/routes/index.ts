@@ -10,6 +10,13 @@ import { healthRoutes } from './health';
 import { oauthRoutes } from './oauth';
 import { authRoutes } from './auth';
 import { userRoutes } from './user';
+import { spaceRoutes } from './space';
+import { memberRoutes } from './member';
+import { jobRoutes } from './job';
+import { imageRoutes } from './image';
+import { chatRoutes } from './chat';
+import { searchRoutes } from './search';
+import { websocketRoutes } from './websocket';
 
 /**
  * Register all routes with the main app
@@ -27,8 +34,24 @@ export function registerRoutes(app: Hono<AppContext>) {
   // User profile routes
   app.route('/', userRoutes);
 
+  // Space management routes (Phase 1)
+  app.route('/', spaceRoutes);
+  app.route('/', memberRoutes);
+
+  // Generation job routes (Phase 2)
+  app.route('/', jobRoutes);
+
+  // Image serving routes
+  app.route('/', imageRoutes);
+
+  // Bot assistant chat routes (Phase 5)
+  app.route('/', chatRoutes);
+
+  // Search and sync routes (Phase 6)
+  app.route('/', searchRoutes);
+
+  // WebSocket routes (Phase 3: Durable Object)
+  app.route('/', websocketRoutes);
+
   // --- Domain routes will be added per ARCHITECTURE.md ---
-  // Phase 1: spaces, members (REST)
-  // Phase 2: generate, edit, compose (via Queue)
-  // Phase 3: WebSocket (Durable Object)
 }

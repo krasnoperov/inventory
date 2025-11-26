@@ -4,6 +4,7 @@ import { createContainer } from '../core/container';
 import { registerRoutes } from './routes';
 import { uploadSecurityMiddleware } from './middleware/upload-security';
 import type { AppContext } from './routes/types';
+import { handleGenerationQueue } from './services/generationConsumer';
 
 export type Bindings = Env;
 
@@ -22,39 +23,10 @@ app.use('/api/upload/*', uploadSecurityMiddleware());
 // Register all routes
 registerRoutes(app);
 
-// Queue handler - bare foundation (no processing)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+// Queue handler - delegates to generation consumer
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleQueue(batch: MessageBatch<any>, env: Env): Promise<void> {
-  // No queue processing in bare foundation
-  // Acknowledge all messages to prevent retries
-  for (const message of batch.messages) {
-    message.ack();
-  }
-
-  // --- FUTURE: Add queue processing when implementing workflows ---
-  // Example:
-  // const container = createContainer(env);
-  //
-  // for (const message of batch.messages) {
-  //   try {
-  //     const msg = message.body as MyQueueMessage;
-  //
-  //     if (msg.type === 'my-job-type') {
-  //       // Start workflow
-  //       const instance = await env.MY_WORKFLOW.create({
-  //         params: { jobId: msg.jobId, ...msg.params }
-  //       });
-  //
-  //       message.ack();
-  //     } else {
-  //       console.error('Unknown message type:', msg.type);
-  //       message.retry();
-  //     }
-  //   } catch (error) {
-  //     console.error('Queue processing error:', error);
-  //     message.retry({ delaySeconds: 60 });
-  //   }
-  // }
+  await handleGenerationQueue(batch, env);
 }
 
 // No custom notFound handler needed!
