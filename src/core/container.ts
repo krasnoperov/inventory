@@ -13,6 +13,9 @@ import { AuthService } from '../backend/features/auth/auth-service';
 import { AuthController } from '../backend/features/auth/auth-controller';
 import { AuthHandler } from '../backend/features/auth/auth-handler';
 
+// Import Domain Services
+import { NanoBananaService } from '../backend/services/nanoBananaService';
+
 /**
  * Create and configure the dependency injection container
  * This is the heart of the bare framework - add your services here
@@ -37,17 +40,12 @@ export function createContainer(env: Env): Container {
   container.bind(AuthController).toSelf().inSingletonScope();
   container.bind(AuthHandler).toSelf().inSingletonScope();
 
-  // --- FUTURE: Bind your domain services here ---
-  // Example:
-  // import { AssetDAO } from '../dao/asset-dao';
-  // import { AssetService } from '../backend/services/assetService';
-  //
-  // container.bind(AssetDAO).toSelf().inSingletonScope();
-  // container.bind(TYPES.AssetDAO).toService(AssetDAO);
-  //
-  // container.bind(AssetService).toDynamicValue(() => (
-  //   new AssetService(env.SOME_API_KEY)
-  // )).inSingletonScope();
+  // Bind Domain Services
+  if (env.GOOGLE_AI_API_KEY) {
+    container.bind(NanoBananaService).toDynamicValue(() => (
+      new NanoBananaService(env.GOOGLE_AI_API_KEY!)
+    )).inSingletonScope();
+  }
 
   return container;
 }

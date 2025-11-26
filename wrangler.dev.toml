@@ -59,7 +59,7 @@ local_protocol = "http"
 # name = "my-workflow-local"
 # class_name = "MyWorkflow"
 
-# --- FUTURE: R2 Storage ---
-# [[r2_buckets]]
-# binding = "MY_STORAGE"
-# bucket_name = "my-bucket-local"
+# R2 Storage for generated images (local uses miniflare's R2 simulation)
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "inventory-images-local"

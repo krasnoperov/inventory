@@ -27,12 +27,8 @@ export function registerRoutes(app: Hono<AppContext>) {
   // User profile routes
   app.route('/', userRoutes);
 
-  // --- FUTURE: Add your domain-specific routes here ---
-  // Example:
-  // import { assetRoutes } from './assets';
-  // app.route('/', assetRoutes);
-  //
-  // Example: Upload routes
-  // import { uploadRoutes } from './upload';
-  // app.route('/', uploadRoutes);
+  // --- Domain routes will be added per ARCHITECTURE.md ---
+  // Phase 1: spaces, members (REST)
+  // Phase 2: generate, edit, compose (via Queue)
+  // Phase 3: WebSocket (Durable Object)
 }

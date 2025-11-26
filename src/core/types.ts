@@ -36,12 +36,12 @@ export interface Env {
   // Environment
   ENVIRONMENT?: 'development' | 'stage' | 'staging' | 'production';
 
+  // R2 Storage for generated images
+  IMAGES?: R2Bucket;
+
   // --- FUTURE: Add your domain-specific bindings here ---
   // Example for queues:
   // MY_QUEUE?: Queue<any>;
-  //
-  // Example for R2 storage:
-  // MY_STORAGE?: R2Bucket;
   //
   // Example for workflows:
   // MY_WORKFLOW?: {

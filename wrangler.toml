@@ -48,11 +48,10 @@ ENVIRONMENT = "stage"
 # queue = "my-queue-stage"
 # binding = "MY_QUEUE"
 
-# --- FUTURE: R2 Storage ---
-# Uncomment when you need file storage:
-# [[r2_buckets]]
-# binding = "MY_STORAGE"
-# bucket_name = "my-bucket-stage"
+# R2 Storage for generated images
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "inventory-images-stage"
 
 # ====================
 # PRODUCTION ENVIRONMENT
@@ -90,10 +89,10 @@ ENVIRONMENT = "production"
 # queue = "my-queue-production"
 # binding = "MY_QUEUE"
 
-# --- FUTURE: R2 Storage - Production ---
-# [[env.production.r2_buckets]]
-# binding = "MY_STORAGE"
-# bucket_name = "my-bucket-production"
+# R2 Storage for generated images - Production
+[[env.production.r2_buckets]]
+binding = "IMAGES"
+bucket_name = "inventory-images-production"
 
 # ====================
 # LOCAL DEVELOPMENT
