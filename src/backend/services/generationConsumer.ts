@@ -65,10 +65,25 @@ export class GenerationConsumer {
       return;
     }
 
+    // Get DO stub for broadcasting
+    const doId = this.env.SPACES_DO?.idFromName(spaceId);
+    const doStub = doId ? this.env.SPACES_DO?.get(doId) : null;
+
     try {
       // Update to processing and increment attempts
       await jobDao.updateJobStatus(jobId, 'processing');
       await jobDao.incrementAttempts(jobId);
+
+      // Broadcast job:progress to WebSocket clients
+      if (doStub) {
+        await doStub.fetch(
+          new Request('http://do/internal/job/progress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobId, status: 'processing' }),
+          })
+        );
+      }
 
       // Generate image
       if (!this.env.GOOGLE_AI_API_KEY) {
@@ -117,12 +132,9 @@ export class GenerationConsumer {
       }
 
       // Call SpaceDO to apply the variant
-      if (!this.env.SPACES_DO) {
+      if (!doStub) {
         throw new Error('SPACES_DO not configured');
       }
-
-      const doId = this.env.SPACES_DO.idFromName(spaceId);
-      const doStub = this.env.SPACES_DO.get(doId);
 
       // Parse job input to check for compose mode
       const isComposeJob = jobInput.sourceVariantIds && jobInput.sourceVariantIds.length > 0;
@@ -176,6 +188,18 @@ export class GenerationConsumer {
       // Update job to completed with the variant ID from the DO
       await jobDao.setJobResult(jobId, doResult.variant.id);
 
+      // Broadcast job:completed to WebSocket clients
+      await doStub.fetch(
+        new Request('http://do/internal/job/completed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobId,
+            variant: doResult.variant,
+          }),
+        })
+      );
+
       console.log(
         `Job ${jobId} completed successfully, variant: ${doResult.variant.id}, asset: ${doResult.variant.asset_id}`
       );
@@ -193,6 +217,17 @@ export class GenerationConsumer {
         // Mark as stuck after 3 attempts
         await jobDao.updateJobStatus(jobId, 'stuck', errorMessage);
         console.error(`Job ${jobId} marked as stuck after ${currentJob.attempts} attempts`);
+
+        // Broadcast job:failed to WebSocket clients
+        if (doStub) {
+          await doStub.fetch(
+            new Request('http://do/internal/job/failed', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jobId, error: errorMessage }),
+            })
+          );
+        }
       } else {
         // Throw to let queue retry
         await jobDao.updateJobStatus(jobId, 'failed', errorMessage);

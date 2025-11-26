@@ -143,11 +143,139 @@ jobRoutes.post('/api/spaces/:id/generate', async (c) => {
   }
 });
 
-// POST /api/assets/:assetId/edit - New variant from edit (placeholder)
-jobRoutes.post('/api/assets/:assetId/edit', async (c) => {
-  return c.json({
-    error: 'Not implemented - requires Durable Object',
-  }, 501);
+// POST /api/spaces/:id/assets/:assetId/edit - Create new variant by editing existing
+jobRoutes.post('/api/spaces/:id/assets/:assetId/edit', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const jobDAO = container.get(JobDAO);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const assetId = c.req.param('assetId');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space with editor or owner role
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    if (member.role !== 'editor' && member.role !== 'owner') {
+      return c.json({ error: 'Editor or owner role required' }, 403);
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    const { prompt, variantId, model, aspectRatio } = body;
+
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+      return c.json({ error: 'Prompt is required and must be a non-empty string' }, 400);
+    }
+
+    if (!variantId || typeof variantId !== 'string') {
+      return c.json({ error: 'Variant ID is required' }, 400);
+    }
+
+    // Get asset and variant from Durable Object
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Asset storage not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    // Fetch asset to verify it exists and get variant info
+    const doResponse = await doStub.fetch(new Request(`http://do/internal/asset/${assetId}`, {
+      method: 'GET',
+    }));
+
+    if (!doResponse.ok) {
+      const errorData = await doResponse.json() as { error?: string };
+      const status = doResponse.status === 404 ? 404 : 500;
+      return c.json({ error: errorData.error || 'Asset not found' }, status);
+    }
+
+    const assetData = await doResponse.json() as {
+      asset: { id: string; name: string; type: string };
+      variants: Array<{ id: string; image_key: string }>;
+    };
+
+    // Find the source variant
+    const sourceVariant = assetData.variants.find(v => v.id === variantId);
+    if (!sourceVariant) {
+      return c.json({ error: 'Variant not found' }, 404);
+    }
+
+    // Create job in D1
+    const jobId = crypto.randomUUID();
+    const now = Date.now();
+
+    const input = {
+      prompt: prompt.trim(),
+      assetId,
+      assetName: assetData.asset.name,
+      assetType: assetData.asset.type,
+      sourceVariantId: variantId,
+      sourceImageKey: sourceVariant.image_key,
+      model,  // Let NanoBananaService use its default if undefined
+      aspectRatio: aspectRatio || '1:1',
+    };
+
+    const job = await jobDAO.createJob({
+      id: jobId,
+      space_id: spaceId,
+      type: 'edit',
+      status: 'pending',
+      input: JSON.stringify(input),
+      result_variant_id: null,
+      error: null,
+      attempts: 0,
+      created_by: userId,
+      created_at: now,
+      updated_at: now,
+    });
+
+    // Enqueue job to generation queue
+    const message: GenerationMessage = {
+      jobId,
+      spaceId,
+      ...input,
+    };
+
+    console.log('[Job Route] Sending edit message to GENERATION_QUEUE', {
+      jobId,
+      spaceId,
+      assetId,
+      sourceVariantId: variantId,
+    });
+
+    await env.GENERATION_QUEUE.send(message);
+
+    console.log('[Job Route] Edit message sent successfully', { jobId });
+
+    return c.json({
+      success: true,
+      jobId: job.id,
+    }, 201);
+  } catch (error) {
+    console.error('[Job Route] Error creating edit job:', error);
+    return c.json({ error: 'Failed to create edit job' }, 500);
+  }
 });
 
 // POST /api/spaces/:id/compose - Create composite asset from multiple source variants

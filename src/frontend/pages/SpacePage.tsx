@@ -45,7 +45,10 @@ export default function SpacePage() {
     error: wsError,
     assets,
     variants,
+    jobs,
     requestSync,
+    trackJob,
+    clearJob,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
@@ -135,6 +138,11 @@ export default function SpacePage() {
         throw new Error(errorData.error || 'Failed to start generation');
       }
 
+      const result = await response.json() as { success: boolean; jobId: string };
+
+      // Track the job for real-time updates
+      trackJob(result.jobId);
+
       // Reset form and close modal
       setGenerateForm({ prompt: '', assetName: '', assetType: 'character' });
       setShowGenerateModal(false);
@@ -215,6 +223,31 @@ export default function SpacePage() {
             {wsError && <span className={styles.wsError}> (Connection error)</span>}
           </p>
         </div>
+
+        {/* Active Jobs */}
+        {jobs.size > 0 && (
+          <section className={styles.jobsSection}>
+            {Array.from(jobs.values()).map((job) => (
+              <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
+                <div className={styles.jobStatus}>
+                  {job.status === 'pending' && '⏳ Queued...'}
+                  {job.status === 'processing' && '🎨 Generating...'}
+                  {job.status === 'completed' && '✅ Complete'}
+                  {job.status === 'failed' && '❌ Failed'}
+                </div>
+                {job.error && <div className={styles.jobError}>{job.error}</div>}
+                {(job.status === 'completed' || job.status === 'failed') && (
+                  <button
+                    className={styles.dismissButton}
+                    onClick={() => clearJob(job.jobId)}
+                  >
+                    Dismiss
+                  </button>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
 
         {/* Asset Grid */}
         <section className={styles.section}>

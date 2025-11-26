@@ -33,6 +33,14 @@ export interface UseSpaceWebSocketParams {
 // Connection status
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
+// Job status tracking
+export interface JobStatus {
+  jobId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error?: string;
+  variantId?: string;
+}
+
 // Server message types based on ARCHITECTURE.md
 type ServerMessage =
   | { type: 'sync:state'; assets: Asset[]; variants: Variant[] }
@@ -41,6 +49,9 @@ type ServerMessage =
   | { type: 'asset:deleted'; assetId: string }
   | { type: 'variant:created'; variant: Variant }
   | { type: 'variant:deleted'; variantId: string }
+  | { type: 'job:progress'; jobId: string; status: string }
+  | { type: 'job:completed'; jobId: string; variant: Variant }
+  | { type: 'job:failed'; jobId: string; error: string }
   | { type: 'error'; code: string; message: string };
 
 // Client message types based on ARCHITECTURE.md
@@ -57,6 +68,7 @@ export interface UseSpaceWebSocketReturn {
   error: string | null;
   assets: Asset[];
   variants: Variant[];
+  jobs: Map<string, JobStatus>;
   sendMessage: (msg: object) => void;
   createAsset: (name: string, type: AssetType) => void;
   updateAsset: (assetId: string, changes: AssetChanges) => void;
@@ -64,6 +76,8 @@ export interface UseSpaceWebSocketReturn {
   setActiveVariant: (assetId: string, variantId: string) => void;
   deleteVariant: (variantId: string) => void;
   requestSync: () => void;
+  trackJob: (jobId: string) => void;
+  clearJob: (jobId: string) => void;
 }
 
 /**
@@ -79,6 +93,7 @@ export function useSpaceWebSocket({
   const [error, setError] = useState<string | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [variants, setVariants] = useState<Variant[]>([]);
+  const [jobs, setJobs] = useState<Map<string, JobStatus>>(new Map());
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
@@ -118,6 +133,23 @@ export function useSpaceWebSocket({
   const requestSync = useCallback(() => {
     sendMessage({ type: 'sync:request' });
   }, [sendMessage]);
+
+  // Job tracking methods
+  const trackJob = useCallback((jobId: string) => {
+    setJobs((prev) => {
+      const next = new Map(prev);
+      next.set(jobId, { jobId, status: 'pending' });
+      return next;
+    });
+  }, []);
+
+  const clearJob = useCallback((jobId: string) => {
+    setJobs((prev) => {
+      const next = new Map(prev);
+      next.delete(jobId);
+      return next;
+    });
+  }, []);
 
   // Store callbacks in refs to avoid dependency issues
   const onConnectRef = useRef(onConnect);
@@ -193,6 +225,44 @@ export function useSpaceWebSocket({
                 setVariants((prev) =>
                   prev.filter((variant) => variant.id !== message.variantId)
                 );
+                break;
+
+              case 'job:progress':
+                setJobs((prev) => {
+                  const next = new Map(prev);
+                  const existing = next.get(message.jobId);
+                  if (existing) {
+                    next.set(message.jobId, { ...existing, status: 'processing' });
+                  } else {
+                    next.set(message.jobId, { jobId: message.jobId, status: 'processing' });
+                  }
+                  return next;
+                });
+                break;
+
+              case 'job:completed':
+                setVariants((prev) => [...prev, message.variant]);
+                setJobs((prev) => {
+                  const next = new Map(prev);
+                  next.set(message.jobId, {
+                    jobId: message.jobId,
+                    status: 'completed',
+                    variantId: message.variant.id,
+                  });
+                  return next;
+                });
+                break;
+
+              case 'job:failed':
+                setJobs((prev) => {
+                  const next = new Map(prev);
+                  next.set(message.jobId, {
+                    jobId: message.jobId,
+                    status: 'failed',
+                    error: message.error,
+                  });
+                  return next;
+                });
                 break;
 
               case 'error':
@@ -271,6 +341,7 @@ export function useSpaceWebSocket({
     error,
     assets,
     variants,
+    jobs,
     sendMessage,
     createAsset,
     updateAsset,
@@ -278,6 +349,8 @@ export function useSpaceWebSocket({
     setActiveVariant,
     deleteVariant,
     requestSync,
+    trackJob,
+    clearJob,
   };
 }
 

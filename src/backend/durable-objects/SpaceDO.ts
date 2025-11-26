@@ -237,6 +237,19 @@ export class SpaceDO extends DurableObject<Env> {
       return this.handleGetChatHistory();
     }
 
+    // Job status broadcasts
+    if (url.pathname === '/internal/job/progress' && request.method === 'POST') {
+      return this.handleJobProgress(request);
+    }
+
+    if (url.pathname === '/internal/job/completed' && request.method === 'POST') {
+      return this.handleJobCompleted(request);
+    }
+
+    if (url.pathname === '/internal/job/failed' && request.method === 'POST') {
+      return this.handleJobFailed(request);
+    }
+
     return new Response('Not found', { status: 404 });
   }
 
@@ -762,6 +775,66 @@ export class SpaceDO extends DurableObject<Env> {
       console.error('Error getting chat history:', error);
       return new Response(
         JSON.stringify({ error: 'Failed to get chat history' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle job progress broadcast
+   * POST /internal/job/progress
+   */
+  private async handleJobProgress(request: Request): Promise<Response> {
+    try {
+      const data = (await request.json()) as { jobId: string; status: string };
+      this.broadcast({ type: 'job:progress', jobId: data.jobId, status: data.status });
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error broadcasting job progress:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to broadcast job progress' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle job completed broadcast
+   * POST /internal/job/completed
+   */
+  private async handleJobCompleted(request: Request): Promise<Response> {
+    try {
+      const data = (await request.json()) as { jobId: string; variant: Variant };
+      this.broadcast({ type: 'job:completed', jobId: data.jobId, variant: data.variant });
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error broadcasting job completed:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to broadcast job completed' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle job failed broadcast
+   * POST /internal/job/failed
+   */
+  private async handleJobFailed(request: Request): Promise<Response> {
+    try {
+      const data = (await request.json()) as { jobId: string; error: string };
+      this.broadcast({ type: 'job:failed', jobId: data.jobId, error: data.error });
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error broadcasting job failed:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to broadcast job failed' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }

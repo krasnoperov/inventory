@@ -440,6 +440,76 @@
   cursor: not-allowed;
 }
 
+/* Jobs Section */
+.jobsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.jobCard {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.jobCard.pending {
+  border-color: var(--color-text-muted);
+  background: var(--color-bg);
+}
+
+.jobCard.processing {
+  border-color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.1);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.jobCard.completed {
+  border-color: var(--color-success, #10b981);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.jobCard.failed {
+  border-color: var(--color-error);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.jobStatus {
+  flex: 1;
+  font-weight: 500;
+}
+
+.jobError {
+  color: var(--color-error);
+  font-size: 0.875rem;
+}
+
+.dismissButton {
+  padding: 0.375rem 0.75rem;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dismissButton:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .main {
