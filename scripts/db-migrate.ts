@@ -11,9 +11,9 @@
 import { execSync } from 'child_process';
 
 const ENVIRONMENTS = {
-  local: 'whitelabel-local',
-  stage: 'whitelabel-stage',
-  production: 'whitelabel-production'
+  local: 'inventory-local',
+  stage: 'inventory-stage',
+  production: 'inventory-production'
 } as const;
 
 type Environment = keyof typeof ENVIRONMENTS;

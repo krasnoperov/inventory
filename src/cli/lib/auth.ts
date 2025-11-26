@@ -11,8 +11,8 @@ export const AUTH_SCOPES = 'openid profile email';
  * Detect how the CLI was invoked and return the appropriate command string.
  * Examples:
  * - "npm run cli" when run via package.json script
- * - "npx whitelabel-cli" when run via npx
- * - "whitelabel-cli" when installed globally
+ * - "npx inventory-cli" when run via npx
+ * - "inventory-cli" when installed globally
  */
 function detectCliCommand(): string {
   const argv = process.argv;
@@ -24,12 +24,12 @@ function detectCliCommand(): string {
 
   // Check if run via npx
   if (argv[0]?.includes('npx') || process.env.npm_execpath?.includes('npx')) {
-    return 'npx whitelabel-cli';
+    return 'npx inventory-cli';
   }
 
   // Check if run as a global binary
-  if (argv[1]?.includes('whitelabel-cli')) {
-    return 'whitelabel-cli';
+  if (argv[1]?.includes('inventory-cli')) {
+    return 'inventory-cli';
   }
 
   // Fallback
@@ -192,7 +192,7 @@ function getSuccessPage(): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Login Successful - Whitelabel CLI</title>
+  <title>Login Successful - Inventory CLI</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -271,7 +271,7 @@ function getErrorPage(error: string, description?: string): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Login Failed - Whitelabel CLI</title>
+  <title>Login Failed - Inventory CLI</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

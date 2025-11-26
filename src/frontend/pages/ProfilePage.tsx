@@ -113,7 +113,7 @@ export default function ProfilePage() {
       <AppHeader
         leftSlot={(
           <Link to="/" className={styles.brand}>
-            Whitelabel App
+            Inventory
           </Link>
         )}
         rightSlot={headerRightSlot}

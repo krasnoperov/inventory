@@ -84,10 +84,10 @@ export async function getConfigPath(): Promise<string> {
 export function resolveBaseUrl(env: string): string {
   switch (env) {
     case 'production':
-      return 'https://whitelabel.krasnoperov.me';
+      return 'https://inventory.krasnoperov.me';
     case 'stage':
     case 'staging':
-      return 'https://whitelabel-stage.krasnoperov.me';
+      return 'https://inventory-stage.krasnoperov.me';
     case 'local':
       return 'https://local.krasnoperov.me:3001';
     default:

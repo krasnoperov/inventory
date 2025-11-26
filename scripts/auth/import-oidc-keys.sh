@@ -11,7 +11,7 @@ Parameters:
   private-key.pem        Path to ES256 private key in PKCS8 PEM format.
   public-key.pem         Path to ES256 public key in SPKI PEM format.
   key-id                 Identifier embedded in JWT header (kid).
-  issuer                 Optional issuer URL (defaults to https://whitelabel.krasnoperov.me for production, https://whitelabel-stage.krasnoperov.me otherwise).
+  issuer                 Optional issuer URL (defaults to https://inventory.krasnoperov.me for production, https://inventory-stage.krasnoperov.me otherwise).
   audience               Optional audience claim (defaults to lrsr-api).
   allowed-client-ids     Optional JSON array string of allowed client IDs (defaults to ["lrsr-cli"]).
 USAGE
@@ -38,9 +38,9 @@ fi
 
 if [[ -z "$ISSUER" ]]; then
   if [[ "$ENVIRONMENT" == "production" ]]; then
-    ISSUER="https://whitelabel.krasnoperov.me"
+    ISSUER="https://inventory.krasnoperov.me"
   else
-    ISSUER="https://whitelabel-stage.krasnoperov.me"
+    ISSUER="https://inventory-stage.krasnoperov.me"
   fi
 fi
 

@@ -45,9 +45,9 @@ export class AuthService {
       return issuer;
     }
     if (this.env.ENVIRONMENT === 'production') {
-      return 'https://whitelabel.krasnoperov.me';
+      return 'https://inventory.krasnoperov.me';
     }
-    return 'https://whitelabel-stage.krasnoperov.me';
+    return 'https://inventory-stage.krasnoperov.me';
   }
 
   private getAudience(): string {

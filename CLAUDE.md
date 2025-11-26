@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **Whitelabel Framework Foundation** - a production-ready starting point for building authenticated web applications on Cloudflare Workers. It provides:
+**Inventory** is a graphical assets forging inventory with nano-banana pro, built on Cloudflare Workers. It provides:
 
 - Multi-user authentication (Google OAuth + JWT)
 - Dual-worker architecture (HTTP + background processing)
@@ -13,7 +13,7 @@ This is a **Whitelabel Framework Foundation** - a production-ready starting poin
 - Testing infrastructure
 - CLI tool with login/logout
 
-The framework is intentionally minimal - all domain-specific logic has been removed, leaving only the infrastructure needed to build on top of.
+The project provides a solid foundation with authentication, frontend, and database infrastructure ready for implementing graphical asset management features.
 
 ## Essential Commands
 
@@ -244,4 +244,4 @@ See commented examples in:
 - Additional API endpoints
 - Domain-specific frontend pages
 
-This is intentionally a **bare foundation** - start building your application on top of this infrastructure.
+Start building your graphical assets forging features on top of this infrastructure.

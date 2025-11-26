@@ -1,6 +1,6 @@
-# Whitelabel Framework
+# Inventory
 
-A production-ready foundation for building authenticated web applications on Cloudflare Workers.
+A graphical assets forging inventory with nano-banana pro, built on Cloudflare Workers.
 
 ## Features
 
@@ -54,10 +54,6 @@ src/
 ├── cli/           # CLI tool
 └── worker/        # Cloudflare Worker entry points
 ```
-
-## Customization
-
-See [WHITELABEL.md](./WHITELABEL.md) for branding and customization instructions.
 
 ## Documentation
 
