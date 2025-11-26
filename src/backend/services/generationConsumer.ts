@@ -91,11 +91,71 @@ export class GenerationConsumer {
       }
 
       const nanoBanana = new NanoBananaService(this.env.GOOGLE_AI_API_KEY);
-      const result = await nanoBanana.generate({
-        prompt,
-        model: model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image',
-        aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9',
-      });
+      const jobInput = JSON.parse(job.input);
+
+      let result;
+
+      if (job.type === 'edit' && jobInput.sourceImageKey) {
+        // Edit mode: fetch source image from R2 and pass to edit()
+        console.log(`[GenerationConsumer] Edit job, fetching source image: ${jobInput.sourceImageKey}`);
+
+        const sourceObject = await this.env.IMAGES.get(jobInput.sourceImageKey);
+        if (!sourceObject) {
+          throw new Error(`Source image not found: ${jobInput.sourceImageKey}`);
+        }
+
+        const sourceBuffer = await sourceObject.arrayBuffer();
+        const sourceBase64 = btoa(String.fromCharCode(...new Uint8Array(sourceBuffer)));
+        const sourceMimeType = sourceObject.httpMetadata?.contentType || 'image/png';
+
+        result = await nanoBanana.edit({
+          image: { data: sourceBase64, mimeType: sourceMimeType },
+          prompt,
+          model: model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image',
+          aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9',
+        });
+      } else if (job.type === 'compose' && jobInput.sourceVariantIds?.length > 0) {
+        // Compose mode: fetch all source images from R2 and pass to compose()
+        console.log(`[GenerationConsumer] Compose job, fetching ${jobInput.sourceVariantIds.length} source images`);
+
+        // We need to get the image keys for the source variants from DO
+        const stateResponse = await doStub!.fetch(new Request('http://do/internal/state'));
+        const state = await stateResponse.json() as { variants: Array<{ id: string; image_key: string }> };
+
+        const images = await Promise.all(
+          jobInput.sourceVariantIds.map(async (variantId: string, index: number) => {
+            const variant = state.variants.find((v: { id: string }) => v.id === variantId);
+            if (!variant) {
+              throw new Error(`Source variant not found: ${variantId}`);
+            }
+
+            const imageObject = await this.env.IMAGES.get(variant.image_key);
+            if (!imageObject) {
+              throw new Error(`Source image not found: ${variant.image_key}`);
+            }
+
+            const buffer = await imageObject.arrayBuffer();
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+            const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
+
+            return { data: base64, mimeType, label: `Image ${index + 1}:` };
+          })
+        );
+
+        result = await nanoBanana.compose({
+          images,
+          prompt,
+          model: model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image',
+          aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9',
+        });
+      } else {
+        // Generate mode: text-to-image
+        result = await nanoBanana.generate({
+          prompt,
+          model: model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image',
+          aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9',
+        });
+      }
 
       // Upload to R2
       const variantId = crypto.randomUUID();
@@ -119,8 +179,7 @@ export class GenerationConsumer {
         },
       });
 
-      // Parse job input to get assetId
-      const jobInput = JSON.parse(job.input);
+      // Get assetId from already-parsed jobInput
       let assetId = jobInput.assetId || message.assetId;
 
       // If no assetId exists, we need to create the asset first
@@ -136,18 +195,32 @@ export class GenerationConsumer {
         throw new Error('SPACES_DO not configured');
       }
 
-      // Parse job input to check for compose mode
-      const isComposeJob = jobInput.sourceVariantIds && jobInput.sourceVariantIds.length > 0;
+      // Build recipe based on job type
+      const isEditJob = job.type === 'edit' && jobInput.sourceVariantId;
+      const isComposeJob = job.type === 'compose' && jobInput.sourceVariantIds?.length > 0;
 
       const recipe = {
-        type: isComposeJob ? 'compose' : 'generate',
+        type: job.type || 'generate',
         prompt,
         model: model || 'gemini-3-pro-image-preview',
         aspectRatio: aspectRatio || '1:1',
-        inputs: isComposeJob ? jobInput.sourceVariantIds.map((id: string) => ({ variantId: id })) : [],
+        inputs: isEditJob
+          ? [{ variantId: jobInput.sourceVariantId, imageKey: jobInput.sourceImageKey }]
+          : isComposeJob
+            ? jobInput.sourceVariantIds.map((id: string) => ({ variantId: id }))
+            : [],
       };
 
-      // Apply variant to DO with lineage if this is a compose job
+      // Determine parent variants for lineage
+      const parentVariantIds = isEditJob
+        ? [jobInput.sourceVariantId]
+        : isComposeJob
+          ? jobInput.sourceVariantIds
+          : undefined;
+
+      const relationType = isEditJob ? 'derived' : isComposeJob ? 'composed' : undefined;
+
+      // Apply variant to DO with lineage
       const doResponse = await doStub.fetch(
         new Request('http://do/internal/apply-variant', {
           method: 'POST',
@@ -160,8 +233,8 @@ export class GenerationConsumer {
             thumbKey,
             recipe: JSON.stringify(recipe),
             createdBy: job.created_by,
-            parentVariantIds: isComposeJob ? jobInput.sourceVariantIds : undefined,
-            relationType: isComposeJob ? 'composed' : undefined,
+            parentVariantIds,
+            relationType,
           }),
         })
       );
