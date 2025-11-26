@@ -41,17 +41,25 @@ ENVIRONMENT = "local"
 port = 8788
 local_protocol = "http"
 
-# --- FUTURE: Queue (unified worker handles both producer and consumer) ---
-# Uncomment when you add async workflows:
-# [[queues.consumers]]
-# queue = "my-queue-local"
-# max_batch_size = 1
-# max_batch_timeout = 60
-# max_retries = 3
-#
-# [[queues.producers]]
-# queue = "my-queue-local"
-# binding = "MY_QUEUE"
+# Queue (unified worker handles both producer and consumer in local dev)
+[[queues.consumers]]
+queue = "inventory-generation-local"
+max_batch_size = 1
+max_batch_timeout = 60
+max_retries = 3
+
+[[queues.producers]]
+queue = "inventory-generation-local"
+binding = "GENERATION_QUEUE"
+
+# Durable Objects - Space state and WebSocket (local)
+[[durable_objects.bindings]]
+name = "SPACES_DO"
+class_name = "SpaceDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SpaceDO"]
 
 # --- FUTURE: Workflow Binding ---
 # [[workflows]]

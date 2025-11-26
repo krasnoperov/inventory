@@ -20,3 +20,6 @@ export default {
 // --- FUTURE: Export your Workflow classes here (only used in local dev) ---
 // Example:
 // export { MyWorkflow } from '../backend/workflows/MyWorkflow';
+
+// Export Durable Objects
+export { SpaceDO } from '../backend/durable-objects/SpaceDO';

@@ -42,11 +42,19 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "stage"
 ENVIRONMENT = "stage"
 
-# --- FUTURE: Queue Producer ---
-# Uncomment when you add async workflows:
-# [[queues.producers]]
-# queue = "my-queue-stage"
-# binding = "MY_QUEUE"
+# Queue Producer - sends generation jobs to processing worker
+[[queues.producers]]
+queue = "inventory-generation-stage"
+binding = "GENERATION_QUEUE"
+
+# Durable Objects - Space state and WebSocket
+[[durable_objects.bindings]]
+name = "SPACES_DO"
+class_name = "SpaceDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SpaceDO"]
 
 # R2 Storage for generated images
 [[r2_buckets]]
@@ -84,10 +92,15 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "production"
 ENVIRONMENT = "production"
 
-# --- FUTURE: Queue Producer - Production ---
-# [[env.production.queues.producers]]
-# queue = "my-queue-production"
-# binding = "MY_QUEUE"
+# Queue Producer - Production
+[[env.production.queues.producers]]
+queue = "inventory-generation-production"
+binding = "GENERATION_QUEUE"
+
+# Durable Objects - Production
+[[env.production.durable_objects.bindings]]
+name = "SPACES_DO"
+class_name = "SpaceDO"
 
 # R2 Storage for generated images - Production
 [[env.production.r2_buckets]]

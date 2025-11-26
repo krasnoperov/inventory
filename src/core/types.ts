@@ -36,8 +36,30 @@ export interface Env {
   // Environment
   ENVIRONMENT?: 'development' | 'stage' | 'staging' | 'production';
 
-  // R2 Storage for generated images
-  IMAGES?: R2Bucket;
+  // R2 Storage for generated images (required for Inventory Forge)
+  IMAGES: R2Bucket;
+
+  // Inventory Forge: Background job processing
+  GENERATION_QUEUE: Queue<{
+    jobId: string;
+    spaceId: string;
+    prompt: string;
+    assetName: string;
+    assetType: string;
+    assetId?: string;
+    model?: string;
+    aspectRatio?: string;
+    sourceVariantIds?: string[];
+  }>;
+
+  // Inventory Forge: Space Durable Objects
+  SPACES_DO?: DurableObjectNamespace;
+
+  // Inventory Forge: Rate limiting for bots
+  RATE_LIMIT_KV?: KVNamespace;
+
+  // Inventory Forge: Claude API for generation
+  ANTHROPIC_API_KEY?: string;
 
   // --- FUTURE: Add your domain-specific bindings here ---
   // Example for queues:

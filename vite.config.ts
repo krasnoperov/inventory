@@ -34,6 +34,7 @@ export default defineConfig({
         target: 'http://localhost:8788',
         changeOrigin: true,
         secure: false,
+        ws: true,
       },
       '/.well-known': {
         target: 'http://localhost:8788',

@@ -7,6 +7,9 @@ import { createDb } from '../db';
 
 // Import DAOs
 import { UserDAO } from '../dao/user-dao';
+import { SpaceDAO } from '../dao/space-dao';
+import { MemberDAO } from '../dao/member-dao';
+import { JobDAO } from '../dao/job-dao';
 
 // Import Auth Services
 import { AuthService } from '../backend/features/auth/auth-service';
@@ -34,6 +37,15 @@ export function createContainer(env: Env): Container {
   // Bind DAOs
   container.bind(UserDAO).toSelf().inSingletonScope();
   container.bind(TYPES.UserDAO).toService(UserDAO);
+
+  container.bind(SpaceDAO).toSelf().inSingletonScope();
+  container.bind(TYPES.SpaceDAO).toService(SpaceDAO);
+
+  container.bind(MemberDAO).toSelf().inSingletonScope();
+  container.bind(TYPES.MemberDAO).toService(MemberDAO);
+
+  container.bind(JobDAO).toSelf().inSingletonScope();
+  container.bind(TYPES.JobDAO).toService(JobDAO);
 
   // Bind Auth Services
   container.bind(AuthService).toSelf().inSingletonScope();

@@ -20,6 +20,7 @@
     "cli": "node --env-file .env --import @swc-node/register/esm-register src/cli/index.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
     "@google/genai": "^1.30.0",
     "@openai/agents": "^0.3.3",
     "@react-oauth/google": "^0.12.2",

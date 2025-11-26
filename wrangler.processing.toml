@@ -37,18 +37,17 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "stage"
 ENVIRONMENT = "stage"
 
-# --- FUTURE: Queue CONSUMER ---
-# Uncomment when you add async workflows:
-# [[queues.consumers]]
-# queue = "my-queue-stage"
-# max_batch_size = 1
-# max_batch_timeout = 60
-# max_retries = 3
+# Queue Consumer - processes generation jobs
+[[queues.consumers]]
+queue = "inventory-generation-stage"
+max_batch_size = 1
+max_batch_timeout = 60
+max_retries = 3
 
-# --- FUTURE: Queue PRODUCER (for retries) ---
-# [[queues.producers]]
-# queue = "my-queue-stage"
-# binding = "MY_QUEUE"
+# Queue Producer (for retries)
+[[queues.producers]]
+queue = "inventory-generation-stage"
+binding = "GENERATION_QUEUE"
 
 # --- FUTURE: Workflow Binding ---
 # Uncomment when you create workflows:
@@ -57,10 +56,10 @@ ENVIRONMENT = "stage"
 # name = "my-workflow-stage"
 # class_name = "MyWorkflow"
 
-# --- FUTURE: R2 Storage ---
-# [[r2_buckets]]
-# binding = "MY_STORAGE"
-# bucket_name = "my-bucket-stage"
+# R2 Storage for generated images
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "inventory-images-stage"
 
 # ====================
 # PRODUCTION ENVIRONMENT
@@ -89,17 +88,17 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "production"
 ENVIRONMENT = "production"
 
-# --- FUTURE: Queue CONSUMER - Production ---
-# [[env.production.queues.consumers]]
-# queue = "my-queue-production"
-# max_batch_size = 1
-# max_batch_timeout = 60
-# max_retries = 3
+# Queue Consumer - Production
+[[env.production.queues.consumers]]
+queue = "inventory-generation-production"
+max_batch_size = 1
+max_batch_timeout = 60
+max_retries = 3
 
-# --- FUTURE: Queue PRODUCER - Production ---
-# [[env.production.queues.producers]]
-# queue = "my-queue-production"
-# binding = "MY_QUEUE"
+# Queue Producer - Production (for retries)
+[[env.production.queues.producers]]
+queue = "inventory-generation-production"
+binding = "GENERATION_QUEUE"
 
 # --- FUTURE: Workflow Binding - Production ---
 # [[env.production.workflows]]
@@ -107,10 +106,10 @@ ENVIRONMENT = "production"
 # name = "my-workflow-production"
 # class_name = "MyWorkflow"
 
-# --- FUTURE: R2 Storage - Production ---
-# [[env.production.r2_buckets]]
-# binding = "MY_STORAGE"
-# bucket_name = "my-bucket-production"
+# R2 Storage - Production
+[[env.production.r2_buckets]]
+binding = "IMAGES"
+bucket_name = "inventory-images-production"
 
 # ====================
 # LOCAL DEVELOPMENT

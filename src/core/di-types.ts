@@ -7,11 +7,9 @@ export const TYPES = {
 
   // DAO symbols
   UserDAO: Symbol.for('UserDAO'),
-
-  // --- FUTURE: Add your DAO symbols here ---
-  // Example:
-  // AssetDAO: Symbol.for('AssetDAO'),
-  // JobDAO: Symbol.for('JobDAO'),
+  SpaceDAO: Symbol.for('SpaceDAO'),
+  MemberDAO: Symbol.for('MemberDAO'),
+  JobDAO: Symbol.for('JobDAO'),
 
   // For classes, we use the class constructor directly
   // This file only contains symbols for non-class bindings
