@@ -15,12 +15,54 @@ export interface UsersTable {
   updated_at: string;
 }
 
+// ============================================================================
+// PHASE 1 - Spaces and Asset Management
+// ============================================================================
+
+export interface SpacesTable {
+  id: string;
+  name: string;
+  owner_id: string;
+  created_at: number;
+}
+
+export interface SpaceMembersTable {
+  space_id: string;
+  user_id: string;
+  role: 'owner' | 'editor' | 'viewer';
+  joined_at: number;
+}
+
+export interface AssetIndexTable {
+  id: string;
+  space_id: string;
+  name: string;
+  type: string;
+  tags: string | null;
+  thumb_key: string | null;
+  updated_at: number;
+}
+
+export interface JobsTable {
+  id: string;
+  space_id: string;
+  type: 'generate' | 'edit' | 'compose';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'stuck';
+  input: string;  // JSON
+  result_variant_id: string | null;
+  error: string | null;
+  attempts: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface Database {
   users: UsersTable;
-  // --- FUTURE: Add your domain tables here ---
-  // Example:
-  // assets: AssetsTable;
-  // jobs: JobsTable;
+  spaces: SpacesTable;
+  space_members: SpaceMembersTable;
+  asset_index: AssetIndexTable;
+  jobs: JobsTable;
 }
 
 // User types
@@ -35,3 +77,23 @@ export interface SessionUser {
   name: string;
   google_id: string | null;
 }
+
+// Space types
+export type Space = Selectable<SpacesTable>;
+export type NewSpace = Insertable<SpacesTable>;
+export type SpaceUpdate = Updateable<SpacesTable>;
+
+// SpaceMember types
+export type SpaceMember = Selectable<SpaceMembersTable>;
+export type NewSpaceMember = Insertable<SpaceMembersTable>;
+export type SpaceMemberUpdate = Updateable<SpaceMembersTable>;
+
+// AssetIndex types
+export type AssetIndex = Selectable<AssetIndexTable>;
+export type NewAssetIndex = Insertable<AssetIndexTable>;
+export type AssetIndexUpdate = Updateable<AssetIndexTable>;
+
+// Job types
+export type Job = Selectable<JobsTable>;
+export type NewJob = Insertable<JobsTable>;
+export type JobUpdate = Updateable<JobsTable>;
