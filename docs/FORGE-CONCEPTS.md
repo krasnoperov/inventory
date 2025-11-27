@@ -231,15 +231,18 @@ The central workspace for all generation operations. Minecraft-inspired crafting
 
 ### Slot Behavior
 
-**Capacity:** Maximum 14 slots (Gemini image limit)
+**Capacity:** Maximum 14 slots (Gemini image input limit)
 
-**Display:** Show only filled slots + one [+] button (no empty placeholders)
+**Display rules:**
+- Show only filled slots + one [+] button (no empty placeholders)
+- Hide [+] button when 14 slots are filled (max capacity)
+- Adding should no-op when at capacity
 
 ```
 Empty:      [+]
 1 item:     [Hero] [+]
 3 items:    [Hero] [Style] [Sword] [+]
-14 items:   [1] [2] [3] ... [14]  (no [+], max reached)
+14 items:   [1] [2] [3] ... [14]  (no [+] button, max reached)
 ```
 
 **Slot contents:**
@@ -273,11 +276,11 @@ Destination:
 │     Type: [character ▼]
 │     Parent: [None ▼]        ← optional nesting
 │
-└── ○ New Variant in "Hero"   ← only if Hero variant in slots
-    ○ New Variant in "Knight" ← only if Knight variant in slots
+└── ○ New Variant in "Hero"   ← available if Hero exists in space
+    ○ New Variant in "Knight" ← available if Knight exists in space
 ```
 
-"New Variant in X" options appear dynamically based on which asset variants are in slots.
+**Destination is always user's choice.** User can select any existing asset as destination, regardless of tray contents. This allows generating new variants purely from prompt without any references.
 
 ---
 
@@ -288,20 +291,27 @@ Destination:
 | Slots | Prompt | Destination | Operation | Button |
 |-------|--------|-------------|-----------|--------|
 | 0 | Required | New Asset | Generate | "⚡ Generate" |
+| 0 | Required | Existing Asset | Generate Variant | "⚡ Generate Variant" |
+| 0 | Empty | Any | — | Disabled |
 | 1 | Empty | New Asset | Fork | "📋 Fork" |
 | 1 | Required | New Asset | Remix | "✨ Remix" |
-| 1 | Required | Same Asset | Refine | "🔄 Refine" |
+| 1 | Required | Existing Asset | Refine | "🔄 Refine" |
 | 2+ | Required | New Asset | Compose | "🎨 Compose" |
-| 2+ | Required | Same Asset | Mix | "🔀 Mix" |
+| 2+ | Required | Existing Asset | Mix | "🔀 Mix" |
 
 ### Button Labels & Descriptions
 
 The Forge button dynamically updates based on tray state:
 
 #### ⚡ Generate
-**Condition:** 0 slots, prompt required
+**Condition:** 0 slots, prompt required, destination = New Asset
 **Description:** "Create new asset from scratch using AI"
 **Result:** New asset with generated variant
+
+#### ⚡ Generate Variant
+**Condition:** 0 slots, prompt required, destination = Existing Asset
+**Description:** "Create new variant in [Asset] from prompt"
+**Result:** New variant added to existing asset (no references used)
 
 #### 📋 Fork
 **Condition:** 1 slot, no prompt
