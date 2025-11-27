@@ -46,7 +46,12 @@ export interface AssetIndexTable {
 export interface JobsTable {
   id: string;
   space_id: string;
-  type: 'generate' | 'edit' | 'compose' | 'reference';
+  // Job types:
+  // - 'generate': Fresh AI generation for new asset (no references)
+  // - 'derive': AI generation with references (single ref = derive, multiple = compose)
+  // - 'compose': AI generation combining multiple references
+  // Note: 'fork' is synchronous copy, doesn't create a job
+  type: 'generate' | 'derive' | 'compose';
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'stuck';
   input: string;  // JSON
   result_variant_id: string | null;

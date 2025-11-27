@@ -518,6 +518,19 @@
   text-transform: uppercase;
 }
 
+.starIndicator {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 0.75rem;
+  color: #f59e0b;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.variantThumb.starred {
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
 /* Pending Variant Placeholder */
 .variantThumb.pendingVariant {
   border-color: var(--color-primary);
@@ -556,8 +569,35 @@
 }
 
 /* Action Buttons */
-.deleteAssetButton {
+.assetActions {
   margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.renameAssetButton {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.renameAssetButton:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.renameAssetButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deleteAssetButton {
   padding: 0.5rem 1rem;
   border-radius: 6px;
   border: 1px solid var(--color-error);
@@ -593,6 +633,50 @@
 .variantActions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.starButton {
+  padding: 0.375rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.starButton:hover {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.starButton.starred {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.downloadButton {
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.downloadButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .setActiveButton {
@@ -840,6 +924,28 @@
 }
 
 .refineSubmitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* New Asset Button */
+.newAssetButton {
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.newAssetButton:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.newAssetButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

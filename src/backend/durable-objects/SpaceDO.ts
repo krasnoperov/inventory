@@ -188,14 +188,18 @@ export class SpaceDO extends DurableObject<Env> {
 
         CREATE INDEX IF NOT EXISTS idx_variants_asset ON variants(asset_id);
         CREATE INDEX IF NOT EXISTS idx_assets_updated ON assets(updated_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_assets_parent ON assets(parent_asset_id);
         CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_lineage_parent ON lineage(parent_variant_id);
         CREATE INDEX IF NOT EXISTS idx_lineage_child ON lineage(child_variant_id);
       `);
 
-      // Run migrations for existing databases
+      // Run migrations for existing databases (adds new columns to existing tables)
       await this.runMigrations();
+
+      // Create indexes that depend on migrated columns
+      await this.ctx.storage.sql.exec(`
+        CREATE INDEX IF NOT EXISTS idx_assets_parent ON assets(parent_asset_id);
+      `);
 
       this.initialized = true;
     });
@@ -773,6 +777,7 @@ export class SpaceDO extends DurableObject<Env> {
         id?: string; // Optional: pass specific ID for reference jobs
         name: string;
         type: 'character' | 'item' | 'scene' | 'composite';
+        parentAssetId?: string;
         createdBy: string;
       };
 
@@ -1662,7 +1667,11 @@ export class SpaceDO extends DurableObject<Env> {
 
     const asset = assetResult.toArray()[0] as { active_variant_id: string | null } | undefined;
     if (asset && !asset.active_variant_id) {
-      await this.updateAsset(variant.asset_id, { active_variant_id: variant.id });
+      const updatedAsset = await this.updateAsset(variant.asset_id, { active_variant_id: variant.id });
+      // Broadcast asset update so clients know the active variant changed
+      if (updatedAsset) {
+        this.broadcast({ type: 'asset:updated', asset: updatedAsset });
+      }
     }
 
     // Broadcast variant creation

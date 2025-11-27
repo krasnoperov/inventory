@@ -68,7 +68,8 @@ export default function LandingPage() {
                 You're logged in and ready to build. This is your bare framework foundation—add your domain logic to get started.
               </p>
               <div className={styles.ctaButtons}>
-                <Link to="/profile" className={styles.ctaButton}>View Profile</Link>
+                <Link to="/dashboard" className={styles.ctaButton}>Go to Dashboard</Link>
+                <Link to="/profile" className={styles.ctaButtonSecondary}>View Profile</Link>
               </div>
             </div>
           )}

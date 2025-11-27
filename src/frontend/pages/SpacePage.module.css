@@ -380,7 +380,14 @@
   color: var(--color-error);
 }
 
-/* Asset Grid */
+/* Asset Catalogue - Hierarchical View */
+.assetCatalogue {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Legacy Asset Grid (kept for compatibility) */
 .assetGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

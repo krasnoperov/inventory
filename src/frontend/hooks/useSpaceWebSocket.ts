@@ -53,7 +53,12 @@ export interface JobStatus {
   // Context for displaying meaningful job info
   assetId?: string;
   assetName?: string;
-  jobType?: 'generate' | 'edit' | 'compose' | 'reference';
+  // Job types:
+  // - 'generate': Fresh AI generation (no references)
+  // - 'derive': AI generation for new variant or new asset with single reference
+  // - 'compose': AI generation combining multiple references
+  // Note: 'fork' is synchronous copy, doesn't create a job
+  jobType?: 'generate' | 'derive' | 'compose';
   prompt?: string;
 }
 
@@ -61,7 +66,7 @@ export interface JobStatus {
 export interface JobContext {
   assetId?: string;
   assetName?: string;
-  jobType?: 'generate' | 'edit' | 'compose' | 'reference';
+  jobType?: 'generate' | 'derive' | 'compose';
   prompt?: string;
 }
 
@@ -395,7 +400,10 @@ export function useSpaceWebSocket({
                 });
                 setJobs((prev) => {
                   const next = new Map(prev);
+                  const existing = next.get(message.jobId);
+                  // Preserve original context (assetId, assetName, jobType, prompt) when marking complete
                   next.set(message.jobId, {
+                    ...existing,
                     jobId: message.jobId,
                     status: 'completed',
                     variantId: message.variant.id,
@@ -407,7 +415,10 @@ export function useSpaceWebSocket({
               case 'job:failed':
                 setJobs((prev) => {
                   const next = new Map(prev);
+                  const existing = next.get(message.jobId);
+                  // Preserve original context when marking failed
                   next.set(message.jobId, {
+                    ...existing,
                     jobId: message.jobId,
                     status: 'failed',
                     error: message.error,

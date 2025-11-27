@@ -1,13 +1,20 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useRouteStore } from '../stores/routeStore';
-import type { Asset, Variant, JobContext } from '../hooks/useSpaceWebSocket';
+import { useReferenceStore } from '../stores/referenceStore';
+import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { useSpaceWebSocket, PREDEFINED_ASSET_TYPES } from '../hooks/useSpaceWebSocket';
 import { ChatSidebar } from '../components/ChatSidebar';
+import { AssetCard } from '../components/AssetCard';
+import { RefineModal } from '../components/RefineModal';
+import { NewAssetModal } from '../components/NewAssetModal';
+import { GenerateModal } from '../components/GenerateModal';
+import { ReferenceShelf } from '../components/ReferenceShelf';
+import { LineagePopover } from '../components/LineagePopover';
 import styles from './SpacePage.module.css';
 
 interface Space {
@@ -40,16 +47,28 @@ export default function SpacePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Reference store
+  const { addReference } = useReferenceStore();
+
   // WebSocket connection for real-time updates
   const {
     status: wsStatus,
     error: wsError,
     assets,
     variants,
+    lineage,
     jobs,
     requestSync,
     trackJob,
     clearJob,
+    deleteVariant,
+    starVariant,
+    setActiveVariant,
+    deleteAsset,
+    spawnAsset,
+    createAsset,
+    updateAsset,
+    getRootAssets,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
@@ -61,15 +80,12 @@ export default function SpacePage() {
   // Chat sidebar state
   const [showChat, setShowChat] = useState(false);
 
-  // Generation modal state
+  // Modal states
   const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [generateForm, setGenerateForm] = useState({
-    prompt: '',
-    assetName: '',
-    assetType: 'character' as string,
-  });
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [generateForAsset, setGenerateForAsset] = useState<Asset | null>(null); // When generating for specific asset
+  const [refineModalState, setRefineModalState] = useState<{ variant: Variant; asset: Asset } | null>(null);
+  const [newAssetModalState, setNewAssetModalState] = useState<{ variant: Variant; asset: Asset } | null>(null);
+  const [lineagePopoverState, setLineagePopoverState] = useState<{ variant: Variant; asset: Asset; position: { x: number; y: number } } | null>(null);
 
   // Export/Import state
   const [isExporting, setIsExporting] = useState(false);
@@ -125,21 +141,61 @@ export default function SpacePage() {
     }
   };
 
-  const handleGenerate = useCallback(async () => {
-    if (!generateForm.prompt.trim() || !generateForm.assetName.trim()) {
-      return;
-    }
+  // Get root assets for hierarchical display
+  const rootAssets = useMemo(() => getRootAssets(), [getRootAssets]);
 
-    setIsGenerating(true);
-    try {
-      const response = await fetch(`/api/spaces/${spaceId}/generate`, {
+  // Handle generate (with optional asset context)
+  // If targetAsset is set, this creates a new variant in that asset using the active variant as source
+  // Otherwise, this triggers the top-level generate flow for creating a NEW asset
+  const handleGenerate = useCallback(async (prompt: string, referenceIds: string[], assetName?: string, assetType?: string) => {
+    const targetAsset = generateForAsset;
+
+    if (targetAsset) {
+      // Create new variant in existing asset - POST /assets/:assetId/variants
+      const activeVariantId = targetAsset.active_variant_id;
+      const sourceVariant = activeVariantId
+        ? variants.find(v => v.id === activeVariantId)
+        : variants.find(v => v.asset_id === targetAsset.id); // Fallback to any variant
+
+      if (!sourceVariant) {
+        throw new Error('No source variant found for this asset. The asset must have at least one variant.');
+      }
+
+      const response = await fetch(`/api/spaces/${spaceId}/assets/${targetAsset.id}/variants`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: generateForm.prompt,
-          assetName: generateForm.assetName,
-          assetType: generateForm.assetType,
+          sourceVariantId: sourceVariant.id,
+          prompt,
+          referenceVariantIds: referenceIds.length > 0 ? referenceIds : undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to start variant generation');
+      }
+
+      const result = await response.json() as { success: boolean; jobId: string };
+      trackJob(result.jobId, {
+        jobType: 'derive',
+        prompt,
+        assetId: targetAsset.id,
+        assetName: targetAsset.name,
+      });
+    } else {
+      // Create new asset - POST /assets
+      // This handles generate, derive, and compose based on inputs
+      const response = await fetch(`/api/spaces/${spaceId}/assets`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: assetName || 'Generated Asset',
+          type: assetType || 'character',
+          prompt,
+          referenceVariantIds: referenceIds.length > 0 ? referenceIds : undefined,
         }),
       });
 
@@ -148,57 +204,61 @@ export default function SpacePage() {
         throw new Error(errorData.error || 'Failed to start generation');
       }
 
-      const result = await response.json() as { success: boolean; jobId: string; assetId?: string };
-
-      // Track the job for real-time updates with context
+      const result = await response.json() as { success: boolean; jobId: string; mode: string; assetId: string };
       trackJob(result.jobId, {
-        assetName: generateForm.assetName,
-        jobType: 'generate',
-        prompt: generateForm.prompt,
+        jobType: result.mode as 'generate' | 'derive' | 'compose',
+        prompt,
+        assetId: result.assetId,
+        assetName: assetName,
       });
-
-      // Reset form and close modal
-      setGenerateForm({ prompt: '', assetName: '', assetType: 'character' });
-      setShowGenerateModal(false);
-    } catch (err) {
-      console.error('Generation error:', err);
-      alert(err instanceof Error ? err.message : 'Failed to start generation');
-    } finally {
-      setIsGenerating(false);
     }
-  }, [spaceId, generateForm, trackJob]);
 
-  const handleSuggestPrompt = useCallback(async () => {
-    if (isSuggesting) return;
+    // Clear asset context after generation starts
+    setGenerateForAsset(null);
+  }, [spaceId, trackJob, generateForAsset, variants]);
 
-    setIsSuggesting(true);
-    try {
-      const response = await fetch(`/api/spaces/${spaceId}/chat/suggest`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assetType: generateForm.assetType,
-          theme: generateForm.assetName || undefined,
-        }),
-      });
+  // Handle refine (create new variant in same asset)
+  const handleRefine = useCallback(async (variant: Variant, asset: Asset, prompt: string, referenceIds: string[]) => {
+    const response = await fetch(`/api/spaces/${spaceId}/assets/${asset.id}/variants`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourceVariantId: variant.id,
+        prompt,
+        referenceVariantIds: referenceIds.length > 0 ? referenceIds : undefined,
+      }),
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to get suggestion');
-      }
-
-      const data = await response.json() as { success: boolean; suggestion: string };
-      if (data.success && data.suggestion) {
-        setGenerateForm(f => ({ ...f, prompt: data.suggestion }));
-      }
-    } catch (err) {
-      console.error('Suggestion error:', err);
-      // Silently fail - user can still type their own prompt
-    } finally {
-      setIsSuggesting(false);
+    if (!response.ok) {
+      const errorData = await response.json() as { error?: string };
+      throw new Error(errorData.error || 'Failed to start refinement');
     }
-  }, [spaceId, generateForm.assetType, generateForm.assetName, isSuggesting]);
+
+    const result = await response.json() as { success: boolean; jobId: string };
+    trackJob(result.jobId, { assetId: asset.id, assetName: asset.name, jobType: 'derive', prompt });
+  }, [spaceId, trackJob]);
+
+  // Handle new asset from variant (spawn)
+  const handleNewAsset = useCallback((sourceVariant: Variant, name: string, type: string, parentAssetId: string | null) => {
+    spawnAsset({
+      sourceVariantId: sourceVariant.id,
+      name,
+      assetType: type,
+      parentAssetId: parentAssetId || undefined,
+    });
+  }, [spawnAsset]);
+
+  // Handle add reference
+  const handleAddReference = useCallback((variant: Variant, asset: Asset) => {
+    addReference(variant, asset);
+  }, [addReference]);
+
+  // Handle generate variant for specific asset - opens modal with asset context
+  const handleGenerateVariant = useCallback((asset: Asset) => {
+    setGenerateForAsset(asset);
+    setShowGenerateModal(true);
+  }, []);
 
   // Export space as ZIP
   const handleExport = useCallback(async () => {
@@ -215,12 +275,10 @@ export default function SpacePage() {
         throw new Error(errorData.error || 'Failed to export');
       }
 
-      // Get filename from Content-Disposition header or use default
       const contentDisposition = response.headers.get('Content-Disposition');
       const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/);
       const filename = filenameMatch?.[1] || `space-export-${new Date().toISOString().split('T')[0]}.zip`;
 
-      // Download the file
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -264,26 +322,31 @@ export default function SpacePage() {
       };
 
       alert(`Import successful!\nAssets: ${result.imported.assets}\nVariants: ${result.imported.variants}\nLineage: ${result.imported.lineage}`);
-
-      // Request sync to get updated data
       requestSync();
     } catch (err) {
       console.error('Import error:', err);
       alert(err instanceof Error ? err.message : 'Failed to import');
     } finally {
       setIsImporting(false);
-      // Reset file input
       if (importInputRef.current) {
         importInputRef.current.value = '';
       }
     }
   }, [spaceId, isImporting, requestSync]);
 
-  // Get active variant for an asset
-  const getActiveVariant = useCallback((assetId: string, activeVariantId: string | null) => {
-    if (!activeVariantId) return null;
-    return variants.find(v => v.id === activeVariantId && v.asset_id === assetId);
-  }, [variants]);
+  // Check if asset is generating
+  const isAssetGenerating = useCallback((assetId: string) => {
+    return Array.from(jobs.values()).some(
+      j => j.assetId === assetId && (j.status === 'pending' || j.status === 'processing')
+    );
+  }, [jobs]);
+
+  const getGeneratingStatus = useCallback((assetId: string) => {
+    const job = Array.from(jobs.values()).find(
+      j => j.assetId === assetId && (j.status === 'pending' || j.status === 'processing')
+    );
+    return job?.status as 'pending' | 'processing' | undefined;
+  }, [jobs]);
 
   const headerRightSlot = user ? (
     <div className={styles.headerRight}>
@@ -343,219 +406,241 @@ export default function SpacePage() {
 
       <div className={styles.pageContent}>
         <main className={styles.main}>
-        <div className={styles.header}>
-          <div className={styles.titleRow}>
-            <h1 className={styles.title}>{space.name}</h1>
-            <span className={`${styles.roleBadge} ${styles[space.role]}`}>
-              {space.role}
-            </span>
-            {wsStatus === 'connected' && (
-              <span className={styles.liveIndicator}>Live</span>
-            )}
-          </div>
-          <div className={styles.headerActions}>
-            <p className={styles.subtitle}>
-              {members.length} member{members.length !== 1 ? 's' : ''} &bull; {assets.length} asset{assets.length !== 1 ? 's' : ''}
-              {wsError && <span className={styles.wsError}> (Connection error)</span>}
-            </p>
-            <div className={styles.exportImportButtons}>
-              <button
-                className={styles.exportButton}
-                onClick={handleExport}
-                disabled={isExporting || assets.length === 0}
-                title={assets.length === 0 ? 'No assets to export' : 'Export all assets as ZIP'}
-              >
-                {isExporting ? 'Exporting...' : 'Export'}
-              </button>
-              {canEdit && (
-                <>
-                  <button
-                    className={styles.importButton}
-                    onClick={() => importInputRef.current?.click()}
-                    disabled={isImporting}
-                  >
-                    {isImporting ? 'Importing...' : 'Import'}
-                  </button>
-                  <input
-                    ref={importInputRef}
-                    type="file"
-                    accept=".zip"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImport(file);
-                    }}
-                  />
-                </>
+          <div className={styles.header}>
+            <div className={styles.titleRow}>
+              <h1 className={styles.title}>{space.name}</h1>
+              <span className={`${styles.roleBadge} ${styles[space.role]}`}>
+                {space.role}
+              </span>
+              {wsStatus === 'connected' && (
+                <span className={styles.liveIndicator}>Live</span>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Active Jobs */}
-        {jobs.size > 0 && (
-          <section className={styles.jobsSection}>
-            {Array.from(jobs.values()).map((job) => {
-              // Determine job type label
-              const jobTypeLabel = {
-                generate: 'Generating',
-                edit: 'Refining',
-                compose: 'Forging',
-                reference: 'Creating from reference',
-              }[job.jobType || 'generate'] || 'Processing';
-
-              return (
-                <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
-                  <div className={styles.jobHeader}>
-                    <div className={styles.jobStatus}>
-                      {job.status === 'pending' && '⏳'}
-                      {job.status === 'processing' && '🎨'}
-                      {job.status === 'completed' && '✅'}
-                      {job.status === 'failed' && '❌'}
-                    </div>
-                    <div className={styles.jobInfo}>
-                      <span className={styles.jobTitle}>
-                        {job.status === 'pending' && `${jobTypeLabel} queued...`}
-                        {job.status === 'processing' && `${jobTypeLabel}...`}
-                        {job.status === 'completed' && `${jobTypeLabel} complete`}
-                        {job.status === 'failed' && `${jobTypeLabel} failed`}
-                      </span>
-                      {job.assetName && (
-                        <span className={styles.jobAssetName}>{job.assetName}</span>
-                      )}
-                      {job.prompt && job.status !== 'completed' && (
-                        <span className={styles.jobPrompt} title={job.prompt}>
-                          "{job.prompt.length > 60 ? job.prompt.slice(0, 60) + '...' : job.prompt}"
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {job.error && <div className={styles.jobError}>{job.error}</div>}
-                  {(job.status === 'completed' || job.status === 'failed') && (
-                    <button
-                      className={styles.dismissButton}
-                      onClick={() => clearJob(job.jobId)}
-                    >
-                      Dismiss
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </section>
-        )}
-
-        {/* Asset Grid */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Assets</h2>
-            <div className={styles.sectionActions}>
-              {canEdit && assets.length >= 2 && (
-                <button
-                  className={styles.forgeButton}
-                  onClick={() => navigate(`/spaces/${spaceId}/forge`)}
-                >
-                  Forge
-                </button>
-              )}
-              {canEdit && (
-                <button
-                  className={styles.generateButton}
-                  onClick={() => setShowGenerateModal(true)}
-                >
-                  Generate Asset
-                </button>
-              )}
-            </div>
-          </div>
-
-          {assets.length === 0 ? (
-            <div className={styles.emptyState}>
-              <span className={styles.emptyIcon}>🎨</span>
-              <p className={styles.emptyText}>No assets yet</p>
-              <p className={styles.emptySubtext}>
-                {canEdit
-                  ? 'Click "Generate Asset" to create your first asset'
-                  : 'Assets will appear here when created'}
+            <div className={styles.headerActions}>
+              <p className={styles.subtitle}>
+                {members.length} member{members.length !== 1 ? 's' : ''} &bull; {assets.length} asset{assets.length !== 1 ? 's' : ''}
+                {wsError && <span className={styles.wsError}> (Connection error)</span>}
               </p>
+              <div className={styles.exportImportButtons}>
+                <button
+                  className={styles.exportButton}
+                  onClick={handleExport}
+                  disabled={isExporting || assets.length === 0}
+                  title={assets.length === 0 ? 'No assets to export' : 'Export all assets as ZIP'}
+                >
+                  {isExporting ? 'Exporting...' : 'Export'}
+                </button>
+                {canEdit && (
+                  <>
+                    <button
+                      className={styles.importButton}
+                      onClick={() => importInputRef.current?.click()}
+                      disabled={isImporting}
+                    >
+                      {isImporting ? 'Importing...' : 'Import'}
+                    </button>
+                    <input
+                      ref={importInputRef}
+                      type="file"
+                      accept=".zip"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImport(file);
+                      }}
+                    />
+                  </>
+                )}
+              </div>
             </div>
-          ) : (
-            <div className={styles.assetGrid}>
-              {assets.map((asset) => {
-                const activeVariant = getActiveVariant(asset.id, asset.active_variant_id);
-                const assetVariants = variants.filter(v => v.asset_id === asset.id);
+          </div>
 
-                // Check if there's an active job for this asset
-                const assetJob = Array.from(jobs.values()).find(
-                  j => j.assetName === asset.name && (j.status === 'pending' || j.status === 'processing')
-                );
-                const isGenerating = assetVariants.length === 0 && assetJob;
+          {/* Active Jobs */}
+          {jobs.size > 0 && (
+            <section className={styles.jobsSection}>
+              {Array.from(jobs.values()).map((job) => {
+                const jobTypeLabel = {
+                  generate: 'Generating',
+                  derive: 'Creating variant',
+                  compose: 'Composing',
+                }[job.jobType || 'generate'] || 'Processing';
 
                 return (
-                  <div
-                    key={asset.id}
-                    className={`${styles.assetCard} ${isGenerating ? styles.generating : ''}`}
-                    onClick={() => navigate(`/spaces/${spaceId}/assets/${asset.id}`)}
-                  >
-                    <div className={styles.assetThumb}>
-                      {activeVariant ? (
-                        <img
-                          src={`/api/images/${activeVariant.thumb_key}`}
-                          alt={asset.name}
-                          className={styles.assetImage}
-                        />
-                      ) : isGenerating ? (
-                        <div className={styles.assetGenerating}>
-                          <div className={styles.generatingSpinner} />
-                          <span className={styles.generatingText}>
-                            {assetJob.status === 'pending' ? 'Queued' : 'Generating'}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className={styles.assetPlaceholder}>
-                          {assetVariants.length === 0 ? '⏳' : '🖼️'}
-                        </div>
-                      )}
-                    </div>
-                    <div className={styles.assetInfo}>
-                      <span className={styles.assetName}>{asset.name}</span>
-                      <span className={styles.assetMeta}>
-                        {isGenerating ? (
-                          <span className={styles.generatingMeta}>
-                            {assetJob.status === 'pending' ? 'Waiting in queue...' : 'Creating...'}
-                          </span>
-                        ) : (
-                          <>{asset.type} &bull; {assetVariants.length} variant{assetVariants.length !== 1 ? 's' : ''}</>
+                  <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
+                    <div className={styles.jobHeader}>
+                      <div className={styles.jobStatus}>
+                        {job.status === 'pending' && '⏳'}
+                        {job.status === 'processing' && '🎨'}
+                        {job.status === 'completed' && '✅'}
+                        {job.status === 'failed' && '❌'}
+                      </div>
+                      <div className={styles.jobInfo}>
+                        <span className={styles.jobTitle}>
+                          {job.status === 'pending' && `${jobTypeLabel} queued...`}
+                          {job.status === 'processing' && `${jobTypeLabel}...`}
+                          {job.status === 'completed' && `${jobTypeLabel} complete`}
+                          {job.status === 'failed' && `${jobTypeLabel} failed`}
+                        </span>
+                        {job.assetName && (
+                          <span className={styles.jobAssetName}>{job.assetName}</span>
                         )}
-                      </span>
+                        {job.prompt && job.status !== 'completed' && (
+                          <span className={styles.jobPrompt} title={job.prompt}>
+                            "{job.prompt.length > 60 ? job.prompt.slice(0, 60) + '...' : job.prompt}"
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    {job.error && <div className={styles.jobError}>{job.error}</div>}
+                    {(job.status === 'completed' || job.status === 'failed') && (
+                      <button
+                        className={styles.dismissButton}
+                        onClick={() => clearJob(job.jobId)}
+                      >
+                        Dismiss
+                      </button>
+                    )}
                   </div>
                 );
               })}
-            </div>
+            </section>
           )}
-        </section>
 
-        {/* Members Section */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Members</h2>
-          </div>
-
-          <div className={styles.memberList}>
-            {members.map((member) => (
-              <div key={member.user_id} className={styles.memberCard}>
-                <div className={styles.memberInfo}>
-                  <span className={styles.memberName}>{member.user.name || member.user.email}</span>
-                  <span className={styles.memberEmail}>{member.user.email}</span>
-                </div>
-                <span className={`${styles.memberRole} ${styles[member.role]}`}>
-                  {member.role}
-                </span>
+          {/* Asset Catalogue - Hierarchical View */}
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <h2 className={styles.sectionTitle}>Assets</h2>
+              <div className={styles.sectionActions}>
+                {canEdit && (
+                  <button
+                    className={styles.generateButton}
+                    onClick={() => setShowGenerateModal(true)}
+                  >
+                    Generate
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
-        </section>
+            </div>
+
+            {assets.length === 0 ? (
+              <div className={styles.emptyState}>
+                <span className={styles.emptyIcon}>🎨</span>
+                <p className={styles.emptyText}>No assets yet</p>
+                <p className={styles.emptySubtext}>
+                  {canEdit
+                    ? 'Click "Generate" to create your first asset'
+                    : 'Assets will appear here when created'}
+                </p>
+              </div>
+            ) : (
+              <div className={styles.assetCatalogue}>
+                {rootAssets.map((asset) => {
+                  const assetVariants = variants.filter(v => v.asset_id === asset.id);
+                  const childAssets = assets.filter(a => a.parent_asset_id === asset.id);
+
+                  return (
+                    <AssetCard
+                      key={asset.id}
+                      asset={asset}
+                      variants={assetVariants}
+                      lineage={lineage}
+                      childAssets={childAssets}
+                      allAssets={assets}
+                      allVariants={variants}
+                      depth={0}
+                      isGenerating={isAssetGenerating(asset.id)}
+                      generatingStatus={getGeneratingStatus(asset.id)}
+                      canEdit={canEdit}
+                      spaceId={spaceId || ''}
+                      onVariantClick={(variant, clickedAsset) => {
+                        // Variant click is handled by popover in AssetCard
+                      }}
+                      onAssetClick={(clickedAsset) => {
+                        navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
+                      }}
+                      onRefine={(variant, clickedAsset) => {
+                        setRefineModalState({ variant, asset: clickedAsset });
+                      }}
+                      onNewAsset={(variant, clickedAsset) => {
+                        setNewAssetModalState({ variant, asset: clickedAsset });
+                      }}
+                      onAddReference={(variant) => {
+                        const variantAsset = assets.find(a => a.id === variant.asset_id);
+                        if (variantAsset) {
+                          handleAddReference(variant, variantAsset);
+                        }
+                      }}
+                      onStarVariant={(variant, starred) => {
+                        starVariant(variant.id, starred);
+                      }}
+                      onSetActiveVariant={(clickedAsset, variant) => {
+                        setActiveVariant(clickedAsset.id, variant.id);
+                      }}
+                      onDeleteVariant={(variant) => {
+                        if (confirm('Delete this variant? This cannot be undone.')) {
+                          deleteVariant(variant.id);
+                        }
+                      }}
+                      onGenerateVariant={handleGenerateVariant}
+                      onAddChildAsset={(parentAsset) => {
+                        const name = window.prompt('Child asset name:');
+                        if (!name || !name.trim()) return;
+                        const type = window.prompt('Asset type (character, item, scene, etc.):', 'character');
+                        if (!type) return;
+                        createAsset(name.trim(), type.trim(), parentAsset.id);
+                      }}
+                      onRenameAsset={(clickedAsset) => {
+                        const newName = window.prompt('Rename asset:', clickedAsset.name);
+                        if (newName && newName.trim() && newName !== clickedAsset.name) {
+                          updateAsset(clickedAsset.id, { name: newName.trim() });
+                        }
+                      }}
+                      onDeleteAsset={(clickedAsset) => {
+                        if (confirm(`Delete "${clickedAsset.name}" and all its variants? This cannot be undone.`)) {
+                          deleteAsset(clickedAsset.id);
+                        }
+                      }}
+                      onViewLineage={(variant) => {
+                        const variantAsset = assets.find(a => a.id === variant.asset_id);
+                        if (variantAsset) {
+                          // Position in center of screen
+                          setLineagePopoverState({
+                            variant,
+                            asset: variantAsset,
+                            position: {
+                              x: window.innerWidth / 2,
+                              y: window.innerHeight / 3,
+                            },
+                          });
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* Members Section */}
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <h2 className={styles.sectionTitle}>Members</h2>
+            </div>
+
+            <div className={styles.memberList}>
+              {members.map((member) => (
+                <div key={member.user_id} className={styles.memberCard}>
+                  <div className={styles.memberInfo}>
+                    <span className={styles.memberName}>{member.user.name || member.user.email}</span>
+                    <span className={styles.memberEmail}>{member.user.email}</span>
+                  </div>
+                  <span className={`${styles.memberRole} ${styles[member.role]}`}>
+                    {member.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
         </main>
 
         <ChatSidebar
@@ -565,77 +650,68 @@ export default function SpacePage() {
         />
       </div>
 
+      {/* Reference Shelf */}
+      <ReferenceShelf onGenerate={() => setShowGenerateModal(true)} />
+
       {/* Generate Modal */}
       {showGenerateModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowGenerateModal(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 className={styles.modalTitle}>Generate New Asset</h2>
+        <GenerateModal
+          targetAsset={generateForAsset}
+          sourceVariant={generateForAsset ? (
+            // Find the source variant (active or first available)
+            generateForAsset.active_variant_id
+              ? variants.find(v => v.id === generateForAsset.active_variant_id)
+              : variants.find(v => v.asset_id === generateForAsset.id)
+          ) : undefined}
+          onClose={() => {
+            setShowGenerateModal(false);
+            setGenerateForAsset(null);
+          }}
+          onGenerate={handleGenerate}
+        />
+      )}
 
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Asset Name</label>
-              <input
-                type="text"
-                className={styles.input}
-                value={generateForm.assetName}
-                onChange={(e) => setGenerateForm(f => ({ ...f, assetName: e.target.value }))}
-                placeholder="e.g., Knight Character"
-              />
-            </div>
+      {/* Refine Modal */}
+      {refineModalState && (
+        <RefineModal
+          variant={refineModalState.variant}
+          asset={refineModalState.asset}
+          onClose={() => setRefineModalState(null)}
+          onRefine={(prompt, referenceIds) => {
+            handleRefine(refineModalState.variant, refineModalState.asset, prompt, referenceIds);
+          }}
+        />
+      )}
 
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Asset Type</label>
-              <select
-                className={styles.select}
-                value={generateForm.assetType}
-                onChange={(e) => setGenerateForm(f => ({ ...f, assetType: e.target.value }))}
-              >
-                {PREDEFINED_ASSET_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* New Asset Modal */}
+      {newAssetModalState && (
+        <NewAssetModal
+          sourceVariant={newAssetModalState.variant}
+          sourceAsset={newAssetModalState.asset}
+          allAssets={assets}
+          allVariants={variants}
+          onClose={() => setNewAssetModalState(null)}
+          onCreate={(name, type, parentAssetId) => {
+            handleNewAsset(newAssetModalState.variant, name, type, parentAssetId);
+          }}
+        />
+      )}
 
-            <div className={styles.formGroup}>
-              <div className={styles.promptLabelRow}>
-                <label className={styles.label}>Prompt</label>
-                <button
-                  type="button"
-                  className={styles.suggestButton}
-                  onClick={handleSuggestPrompt}
-                  disabled={isSuggesting || isGenerating}
-                >
-                  {isSuggesting ? 'Thinking...' : 'Suggest'}
-                </button>
-              </div>
-              <textarea
-                className={styles.textarea}
-                value={generateForm.prompt}
-                onChange={(e) => setGenerateForm(f => ({ ...f, prompt: e.target.value }))}
-                placeholder="Describe the asset you want to generate..."
-                rows={4}
-              />
-            </div>
-
-            <div className={styles.modalActions}>
-              <button
-                className={styles.cancelButton}
-                onClick={() => setShowGenerateModal(false)}
-                disabled={isGenerating}
-              >
-                Cancel
-              </button>
-              <button
-                className={styles.submitButton}
-                onClick={handleGenerate}
-                disabled={isGenerating || !generateForm.prompt.trim() || !generateForm.assetName.trim()}
-              >
-                {isGenerating ? 'Starting...' : 'Generate'}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Lineage Popover */}
+      {lineagePopoverState && (
+        <LineagePopover
+          variant={lineagePopoverState.variant}
+          asset={lineagePopoverState.asset}
+          allVariants={variants}
+          allAssets={assets}
+          lineage={lineage}
+          position={lineagePopoverState.position}
+          onClose={() => setLineagePopoverState(null)}
+          onVariantClick={(variant, clickedAsset) => {
+            setLineagePopoverState(null);
+            navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
+          }}
+        />
       )}
     </div>
   );

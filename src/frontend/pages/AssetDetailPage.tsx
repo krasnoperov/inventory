@@ -66,14 +66,25 @@ export default function AssetDetailPage() {
   });
   const [isCreatingReference, setIsCreatingReference] = useState(false);
 
+  // New Asset (spawn) modal state
+  const [showNewAssetModal, setShowNewAssetModal] = useState(false);
+  const [newAssetForm, setNewAssetForm] = useState({
+    name: '',
+    type: 'character' as string,
+  });
+
   // WebSocket for real-time updates
   const {
     assets: wsAssets,
     variants: wsVariants,
+    lineage: wsLineage,
     jobs,
     setActiveVariant,
     deleteVariant,
     deleteAsset,
+    spawnAsset,
+    starVariant,
+    updateAsset,
     trackJob,
     clearJob,
     status: wsStatus,
@@ -119,7 +130,16 @@ export default function AssetDetailPage() {
         }
       }
     }
-  }, [wsStatus, wsAssets, wsVariants, assetId, selectedVariant]);
+
+    // Update lineage from WebSocket (filter to variants of this asset)
+    const variantIds = new Set(assetVariants.map(v => v.id));
+    const assetLineage = wsLineage.filter(
+      l => variantIds.has(l.parent_variant_id) || variantIds.has(l.child_variant_id)
+    );
+    if (assetLineage.length > 0 || wsLineage.length > 0) {
+      setLineage(assetLineage);
+    }
+  }, [wsStatus, wsAssets, wsVariants, wsLineage, assetId, selectedVariant]);
 
   // Action handlers
   const handleSetActiveVariant = useCallback((variantId: string) => {
@@ -129,6 +149,18 @@ export default function AssetDetailPage() {
     // Action completes via WebSocket update
     setTimeout(() => setActionInProgress(false), 500);
   }, [assetId, setActiveVariant, actionInProgress]);
+
+  const handleStarVariant = useCallback((variantId: string, starred: boolean) => {
+    starVariant(variantId, starred);
+  }, [starVariant]);
+
+  const handleRenameAsset = useCallback(() => {
+    if (!asset) return;
+    const newName = window.prompt('Rename asset:', asset.name);
+    if (newName && newName.trim() && newName !== asset.name) {
+      updateAsset(assetId!, { name: newName.trim() });
+    }
+  }, [asset, assetId, updateAsset]);
 
   const handleDeleteVariant = useCallback((variant: Variant) => {
     setConfirmDialog({
@@ -196,13 +228,14 @@ export default function AssetDetailPage() {
 
     setIsRefining(true);
     try {
-      const response = await fetch(`/api/spaces/${spaceId}/assets/${assetId}/edit`, {
+      // Use new consolidated endpoint: POST /assets/:assetId/variants
+      const response = await fetch(`/api/spaces/${spaceId}/assets/${assetId}/variants`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          sourceVariantId: selectedVariant.id,
           prompt: refinePrompt,
-          variantId: selectedVariant.id,
         }),
       });
 
@@ -217,7 +250,7 @@ export default function AssetDetailPage() {
       trackJob(result.jobId, {
         assetId,
         assetName: asset?.name,
-        jobType: 'edit',
+        jobType: 'derive',
         prompt: refinePrompt,
       });
 
@@ -266,20 +299,37 @@ export default function AssetDetailPage() {
     }
   }, [spaceId, asset, isSuggestingRefine]);
 
+  // Handle creating a new asset by spawning from variant (copies variant to new asset)
+  const handleSpawnNewAsset = useCallback(() => {
+    if (!selectedVariant || !newAssetForm.name.trim()) return;
+
+    spawnAsset({
+      sourceVariantId: selectedVariant.id,
+      name: newAssetForm.name.trim(),
+      assetType: newAssetForm.type,
+    });
+
+    // Close modal, reset form, and navigate to space to see the new asset
+    setShowNewAssetModal(false);
+    setNewAssetForm({ name: '', type: 'character' });
+    navigate(`/spaces/${spaceId}`);
+  }, [selectedVariant, newAssetForm, spawnAsset, navigate, spaceId]);
+
   const handleCreateFromReference = useCallback(async () => {
     if (!selectedVariant || !referenceForm.prompt.trim() || !referenceForm.assetName.trim() || isCreatingReference) return;
 
     setIsCreatingReference(true);
     try {
-      const response = await fetch(`/api/spaces/${spaceId}/generate-from`, {
+      // Use new consolidated endpoint: POST /assets with prompt + referenceVariantIds
+      const response = await fetch(`/api/spaces/${spaceId}/assets`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          name: referenceForm.assetName,
+          type: referenceForm.assetType,
           prompt: referenceForm.prompt,
-          assetName: referenceForm.assetName,
-          assetType: referenceForm.assetType,
-          sourceVariantId: selectedVariant.id,
+          referenceVariantIds: [selectedVariant.id],
         }),
       });
 
@@ -288,13 +338,13 @@ export default function AssetDetailPage() {
         throw new Error(errorData.error || 'Failed to create from reference');
       }
 
-      const result = await response.json() as { success: boolean; jobId: string; assetId: string };
+      const result = await response.json() as { success: boolean; jobId: string; assetId: string; mode: string };
 
       // Track the job for real-time updates with context
       trackJob(result.jobId, {
         assetId: result.assetId,
         assetName: referenceForm.assetName,
-        jobType: 'reference',
+        jobType: result.mode as 'derive' | 'compose',
         prompt: referenceForm.prompt,
       });
 
@@ -451,14 +501,24 @@ export default function AssetDetailPage() {
             <span className={`${styles.typeBadge} ${styles[asset.type]}`}>
               {asset.type}
             </span>
-            <button
-              className={styles.deleteAssetButton}
-              onClick={handleDeleteAsset}
-              disabled={actionInProgress}
-              title="Delete Asset"
-            >
-              Delete Asset
-            </button>
+            <div className={styles.assetActions}>
+              <button
+                className={styles.renameAssetButton}
+                onClick={handleRenameAsset}
+                disabled={actionInProgress}
+                title="Rename Asset"
+              >
+                Rename
+              </button>
+              <button
+                className={styles.deleteAssetButton}
+                onClick={handleDeleteAsset}
+                disabled={actionInProgress}
+                title="Delete Asset"
+              >
+                Delete
+              </button>
+            </div>
           </div>
           <p className={styles.subtitle}>
             {variants.length} variant{variants.length !== 1 ? 's' : ''}
@@ -567,6 +627,21 @@ export default function AssetDetailPage() {
                   <h3>Variant Details</h3>
                   <div className={styles.variantActions}>
                     <button
+                      className={`${styles.starButton} ${selectedVariant.starred ? styles.starred : ''}`}
+                      onClick={() => handleStarVariant(selectedVariant.id, !selectedVariant.starred)}
+                      title={selectedVariant.starred ? 'Unstar' : 'Star'}
+                    >
+                      {selectedVariant.starred ? '★' : '☆'}
+                    </button>
+                    <a
+                      className={styles.downloadButton}
+                      href={`/api/images/${selectedVariant.image_key}`}
+                      download={`${asset.name}-${selectedVariant.id.slice(0, 8)}.png`}
+                      title="Download full image"
+                    >
+                      Download
+                    </a>
+                    <button
                       className={styles.refineButton}
                       onClick={() => setShowRefineModal(true)}
                       disabled={actionInProgress}
@@ -574,12 +649,20 @@ export default function AssetDetailPage() {
                       Refine
                     </button>
                     <button
+                      className={styles.newAssetButton}
+                      onClick={() => setShowNewAssetModal(true)}
+                      disabled={actionInProgress}
+                      title="Create a new asset from this variant"
+                    >
+                      New Asset
+                    </button>
+                    <button
                       className={styles.referenceButton}
                       onClick={() => setShowReferenceModal(true)}
                       disabled={actionInProgress}
-                      title="Create a new asset using this variant as reference"
+                      title="Generate a new asset using this variant as style reference"
                     >
-                      Use as Reference
+                      Generate from Reference
                     </button>
                     {selectedVariant.id !== asset.active_variant_id && (
                       <button
@@ -668,7 +751,7 @@ export default function AssetDetailPage() {
               {/* Pending variant placeholders for active jobs */}
               {Array.from(jobs.values())
                 .filter(j => (j.assetId === assetId || j.assetName === asset.name) &&
-                       j.jobType === 'edit' &&
+                       j.jobType === 'derive' &&
                        (j.status === 'pending' || j.status === 'processing'))
                 .map((job) => (
                   <div key={job.jobId} className={`${styles.variantThumb} ${styles.pendingVariant}`}>
@@ -684,13 +767,16 @@ export default function AssetDetailPage() {
               {variants.map((variant) => (
                 <div
                   key={variant.id}
-                  className={`${styles.variantThumb} ${selectedVariant?.id === variant.id ? styles.selected : ''} ${variant.id === asset.active_variant_id ? styles.active : ''} ${compareVariant?.id === variant.id ? styles.comparing : ''}`}
+                  className={`${styles.variantThumb} ${selectedVariant?.id === variant.id ? styles.selected : ''} ${variant.id === asset.active_variant_id ? styles.active : ''} ${compareVariant?.id === variant.id ? styles.comparing : ''} ${variant.starred ? styles.starred : ''}`}
                   onClick={() => handleVariantClick(variant)}
                 >
                   <img
                     src={`/api/images/${variant.thumb_key}`}
                     alt={`Variant ${variant.id}`}
                   />
+                  {variant.starred && (
+                    <span className={styles.starIndicator}>★</span>
+                  )}
                   {variant.id === asset.active_variant_id && (
                     <span className={styles.activeIndicator}>Active</span>
                   )}
@@ -865,6 +951,72 @@ export default function AssetDetailPage() {
                 disabled={isCreatingReference || !referenceForm.prompt.trim() || !referenceForm.assetName.trim()}
               >
                 {isCreatingReference ? 'Creating...' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Asset (Spawn) Modal */}
+      {showNewAssetModal && selectedVariant && (
+        <div className={styles.dialogOverlay} onClick={() => setShowNewAssetModal(false)}>
+          <div className={styles.refineModal} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.dialogTitle}>New Asset from Variant</h3>
+            <p className={styles.refineDescription}>
+              Create a new asset using this variant as its first image. The image will be copied to the new asset.
+            </p>
+
+            <div className={styles.refinePreview}>
+              <img
+                src={`/api/images/${selectedVariant.thumb_key}`}
+                alt="Source variant"
+                className={styles.refinePreviewImage}
+              />
+            </div>
+
+            <div className={styles.refineFormGroup}>
+              <label className={styles.refineLabel}>Asset Name</label>
+              <input
+                type="text"
+                className={styles.refineInput}
+                value={newAssetForm.name}
+                onChange={(e) => setNewAssetForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="e.g., Hero Armored"
+                autoFocus
+              />
+            </div>
+
+            <div className={styles.refineFormGroup}>
+              <label className={styles.refineLabel}>Asset Type</label>
+              <select
+                className={styles.refineSelect}
+                value={newAssetForm.type}
+                onChange={(e) => setNewAssetForm(f => ({ ...f, type: e.target.value }))}
+              >
+                {PREDEFINED_ASSET_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.dialogActions}>
+              <button
+                className={styles.dialogCancel}
+                onClick={() => {
+                  setShowNewAssetModal(false);
+                  setNewAssetForm({ name: '', type: 'character' });
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.refineSubmitButton}
+                onClick={handleSpawnNewAsset}
+                disabled={!newAssetForm.name.trim()}
+              >
+                Create Asset
               </button>
             </div>
           </div>

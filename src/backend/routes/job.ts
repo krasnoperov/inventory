@@ -9,8 +9,31 @@ import { generationRateLimiter } from '../middleware/rate-limit';
 
 const jobRoutes = new Hono<AppContext>();
 
-// POST /api/spaces/:id/generate - Create new asset generation job
-jobRoutes.post('/api/spaces/:id/generate', generationRateLimiter, async (c) => {
+// ============================================================================
+// NEW CONSOLIDATED ENDPOINTS
+// ============================================================================
+
+/**
+ * POST /api/spaces/:spaceId/assets - Create new asset
+ *
+ * Unified endpoint for all asset creation operations:
+ * - Fork: Copy variant to new asset (no AI) - prompt undefined, single referenceVariantIds
+ * - Generate: Fresh AI generation - prompt defined, no referenceVariantIds
+ * - Derive: AI with single reference - prompt defined, single referenceVariantIds
+ * - Compose: AI with multiple refs - prompt defined, multiple referenceVariantIds
+ *
+ * Request body:
+ * {
+ *   name: string;              // Required: new asset name
+ *   type: string;              // Required: asset type (character, item, scene, etc.)
+ *   parentAssetId?: string;    // Optional: parent for hierarchy
+ *   prompt?: string;           // Optional: AI prompt (undefined = fork/copy)
+ *   referenceVariantIds?: string[]; // Optional: source variants
+ *   model?: string;            // Optional: AI model
+ *   aspectRatio?: string;      // Optional: aspect ratio (default 1:1)
+ * }
+ */
+jobRoutes.post('/api/spaces/:spaceId/assets', generationRateLimiter, async (c) => {
   try {
     const container = c.get('container');
     const authService = container.get(AuthService);
@@ -31,7 +54,7 @@ jobRoutes.post('/api/spaces/:id/generate', generationRateLimiter, async (c) => {
       return c.json({ error: 'Invalid authentication' }, 401);
     }
 
-    const spaceId = c.req.param('id');
+    const spaceId = c.req.param('spaceId');
     const userId = String(payload.userId);
 
     // Verify user is member of space with editor or owner role
@@ -44,68 +67,149 @@ jobRoutes.post('/api/spaces/:id/generate', generationRateLimiter, async (c) => {
       return c.json({ error: 'Editor or owner role required' }, 403);
     }
 
-    // Validate request body
+    // Parse and validate request body
     const body = await c.req.json();
-    const { prompt, assetName, assetType, model, aspectRatio } = body;
+    const { name, type, parentAssetId, prompt, referenceVariantIds, model, aspectRatio } = body;
 
-    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-      return c.json({ error: 'Prompt is required and must be a non-empty string' }, 400);
-    }
-
-    if (!assetName || typeof assetName !== 'string' || assetName.trim().length === 0) {
+    // Validate required fields
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return c.json({ error: 'Asset name is required and must be a non-empty string' }, 400);
     }
 
-    const validAssetTypes = ['character', 'item', 'scene', 'composite'];
-    if (!assetType || !validAssetTypes.includes(assetType)) {
+    const validAssetTypes = ['character', 'item', 'scene', 'environment', 'sprite-sheet', 'animation', 'style-sheet', 'reference', 'composite'];
+    if (!type || !validAssetTypes.includes(type)) {
       return c.json({ error: `Asset type must be one of: ${validAssetTypes.join(', ')}` }, 400);
     }
 
-    // Create job in D1
-    const jobId = crypto.randomUUID();
-    const now = Date.now();
+    // Determine operation mode based on prompt and referenceVariantIds
+    const hasPrompt = prompt !== undefined && prompt !== null;
+    const hasRefs = Array.isArray(referenceVariantIds) && referenceVariantIds.length > 0;
+    const refCount = hasRefs ? referenceVariantIds.length : 0;
 
-    // Create asset in Durable Object first
-    let assetId: string;
-    if (env.SPACES_DO) {
-      const doId = env.SPACES_DO.idFromName(spaceId);
-      const doStub = env.SPACES_DO.get(doId);
+    // Validation based on operation mode
+    if (!hasPrompt && !hasRefs) {
+      return c.json({
+        error: 'Either prompt or referenceVariantIds is required. Provide prompt for AI generation, or referenceVariantIds to fork from an existing variant.'
+      }, 400);
+    }
 
-      const doResponse = await doStub.fetch(new Request('http://do/internal/create-asset', {
+    if (!hasPrompt && refCount > 1) {
+      return c.json({
+        error: 'Cannot fork from multiple variants without a prompt. Provide a prompt to compose them, or use a single referenceVariantIds to fork.'
+      }, 400);
+    }
+
+    if (hasPrompt && typeof prompt !== 'string') {
+      return c.json({ error: 'Prompt must be a string' }, 400);
+    }
+
+    if (hasPrompt && prompt.trim().length === 0) {
+      return c.json({ error: 'Prompt cannot be empty. Use undefined/null for fork operation.' }, 400);
+    }
+
+    // Get Durable Object stub
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Asset storage not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    // FORK MODE: No prompt, single reference - just copy the variant
+    if (!hasPrompt && refCount === 1) {
+      const sourceVariantId = referenceVariantIds[0];
+
+      // Spawn asset via DO (copies variant, creates spawned lineage)
+      const doResponse = await doStub.fetch(new Request('http://do/internal/spawn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: assetName.trim(),
-          type: assetType,
+          sourceVariantId,
+          name: name.trim(),
+          type,
+          parentAssetId,
           createdBy: userId,
         }),
       }));
 
       if (!doResponse.ok) {
         const errorData = await doResponse.json() as { error?: string };
-        return c.json({ error: errorData.error || 'Failed to create asset' }, 500);
+        const status = doResponse.status === 404 ? 404 : 500;
+        return c.json({ error: errorData.error || 'Failed to fork asset' }, status);
       }
 
-      const assetResult = await doResponse.json() as { success: boolean; asset: { id: string } };
-      assetId = assetResult.asset.id;
-    } else {
-      // Fallback for local dev without DO
-      assetId = crypto.randomUUID();
+      const data = await doResponse.json() as { success: boolean; asset: { id: string }; variant: { id: string } };
+      return c.json({
+        success: true,
+        mode: 'fork',
+        assetId: data.asset.id,
+        variantId: data.variant.id,
+      }, 201);
     }
+
+    // AI GENERATION MODE: Has prompt (with or without references)
+    // Validate references exist if provided
+    let sourceImageKeys: string[] = [];
+    if (hasRefs) {
+      const stateResponse = await doStub.fetch(new Request('http://do/internal/state'));
+      if (!stateResponse.ok) {
+        return c.json({ error: 'Failed to fetch space state' }, 500);
+      }
+
+      const state = await stateResponse.json() as {
+        variants: Array<{ id: string; image_key: string }>;
+      };
+
+      for (const refId of referenceVariantIds) {
+        const variant = state.variants.find(v => v.id === refId);
+        if (!variant) {
+          return c.json({ error: `Reference variant not found: ${refId}` }, 404);
+        }
+        sourceImageKeys.push(variant.image_key);
+      }
+    }
+
+    // Create asset in DO first
+    const assetId = crypto.randomUUID();
+    const createAssetResponse = await doStub.fetch(new Request('http://do/internal/create-asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: assetId,
+        name: name.trim(),
+        type,
+        parentAssetId,
+        createdBy: userId,
+      }),
+    }));
+
+    if (!createAssetResponse.ok) {
+      const errorData = await createAssetResponse.json() as { error?: string };
+      return c.json({ error: errorData.error || 'Failed to create asset' }, 500);
+    }
+
+    // Create job in D1
+    const jobId = crypto.randomUUID();
+    const now = Date.now();
+
+    // Determine job type for tracking
+    const jobType = refCount === 0 ? 'generate' : refCount === 1 ? 'derive' : 'compose';
 
     const input = {
       prompt: prompt.trim(),
-      assetName: assetName.trim(),
-      assetType,
+      assetName: name.trim(),
+      assetType: type,
       assetId,
-      model,  // Let NanoBananaService use its default if undefined
+      sourceVariantIds: hasRefs ? referenceVariantIds : undefined,
+      sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
+      model,
       aspectRatio: aspectRatio || '1:1',
     };
 
     const job = await jobDAO.createJob({
       id: jobId,
       space_id: spaceId,
-      type: 'generate',
+      type: jobType,
       status: 'pending',
       input: JSON.stringify(input),
       result_variant_id: null,
@@ -123,29 +227,45 @@ jobRoutes.post('/api/spaces/:id/generate', generationRateLimiter, async (c) => {
       ...input,
     };
 
-    console.log('[Job Route] Sending generate message to GENERATION_QUEUE', {
+    console.log('[Job Route] POST /assets - Sending message to GENERATION_QUEUE', {
       jobId,
       spaceId,
+      mode: jobType,
       assetName: input.assetName,
-      assetType: input.assetType,
+      refCount,
     });
 
     await env.GENERATION_QUEUE.send(message);
 
-    console.log('[Job Route] Generate message sent successfully', { jobId });
+    console.log('[Job Route] POST /assets - Message sent successfully', { jobId });
 
     return c.json({
       success: true,
+      mode: jobType,
       jobId: job.id,
+      assetId,
     }, 201);
   } catch (error) {
-    console.error('[Job Route] Error creating generation job:', error);
-    return c.json({ error: 'Failed to create generation job' }, 500);
+    console.error('[Job Route] Error in POST /assets:', error);
+    return c.json({ error: 'Failed to create asset' }, 500);
   }
 });
 
-// POST /api/spaces/:id/assets/:assetId/edit - Create new variant by editing existing
-jobRoutes.post('/api/spaces/:id/assets/:assetId/edit', generationRateLimiter, async (c) => {
+/**
+ * POST /api/spaces/:spaceId/assets/:assetId/variants - Create new variant in existing asset
+ *
+ * Always uses AI generation to create a new variant derived from an existing one.
+ *
+ * Request body:
+ * {
+ *   sourceVariantId: string;        // Required: variant to derive from
+ *   prompt: string;                 // Required: modification instructions
+ *   referenceVariantIds?: string[]; // Optional: additional reference images
+ *   model?: string;                 // Optional: AI model
+ *   aspectRatio?: string;           // Optional: aspect ratio
+ * }
+ */
+jobRoutes.post('/api/spaces/:spaceId/assets/:assetId/variants', generationRateLimiter, async (c) => {
   try {
     const container = c.get('container');
     const authService = container.get(AuthService);
@@ -166,7 +286,7 @@ jobRoutes.post('/api/spaces/:id/assets/:assetId/edit', generationRateLimiter, as
       return c.json({ error: 'Invalid authentication' }, 401);
     }
 
-    const spaceId = c.req.param('id');
+    const spaceId = c.req.param('spaceId');
     const assetId = c.req.param('assetId');
     const userId = String(payload.userId);
 
@@ -180,16 +300,16 @@ jobRoutes.post('/api/spaces/:id/assets/:assetId/edit', generationRateLimiter, as
       return c.json({ error: 'Editor or owner role required' }, 403);
     }
 
-    // Validate request body
+    // Parse and validate request body
     const body = await c.req.json();
-    const { prompt, variantId, model, aspectRatio } = body;
+    const { sourceVariantId, prompt, referenceVariantIds, model, aspectRatio } = body;
 
-    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-      return c.json({ error: 'Prompt is required and must be a non-empty string' }, 400);
+    if (!sourceVariantId || typeof sourceVariantId !== 'string') {
+      return c.json({ error: 'sourceVariantId is required' }, 400);
     }
 
-    if (!variantId || typeof variantId !== 'string') {
-      return c.json({ error: 'Variant ID is required' }, 400);
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+      return c.json({ error: 'prompt is required and must be a non-empty string' }, 400);
     }
 
     // Get asset and variant from Durable Object
@@ -217,9 +337,30 @@ jobRoutes.post('/api/spaces/:id/assets/:assetId/edit', generationRateLimiter, as
     };
 
     // Find the source variant
-    const sourceVariant = assetData.variants.find(v => v.id === variantId);
+    const sourceVariant = assetData.variants.find(v => v.id === sourceVariantId);
     if (!sourceVariant) {
-      return c.json({ error: 'Variant not found' }, 404);
+      return c.json({ error: 'Source variant not found in this asset' }, 404);
+    }
+
+    // Validate additional references if provided
+    let additionalImageKeys: string[] = [];
+    if (Array.isArray(referenceVariantIds) && referenceVariantIds.length > 0) {
+      const stateResponse = await doStub.fetch(new Request('http://do/internal/state'));
+      if (!stateResponse.ok) {
+        return c.json({ error: 'Failed to fetch space state' }, 500);
+      }
+
+      const state = await stateResponse.json() as {
+        variants: Array<{ id: string; image_key: string }>;
+      };
+
+      for (const refId of referenceVariantIds) {
+        const variant = state.variants.find(v => v.id === refId);
+        if (!variant) {
+          return c.json({ error: `Reference variant not found: ${refId}` }, 404);
+        }
+        additionalImageKeys.push(variant.image_key);
+      }
     }
 
     // Create job in D1
@@ -231,296 +372,10 @@ jobRoutes.post('/api/spaces/:id/assets/:assetId/edit', generationRateLimiter, as
       assetId,
       assetName: assetData.asset.name,
       assetType: assetData.asset.type,
-      sourceVariantId: variantId,
-      sourceImageKey: sourceVariant.image_key,
-      model,  // Let NanoBananaService use its default if undefined
-      aspectRatio: aspectRatio || '1:1',
-    };
-
-    const job = await jobDAO.createJob({
-      id: jobId,
-      space_id: spaceId,
-      type: 'edit',
-      status: 'pending',
-      input: JSON.stringify(input),
-      result_variant_id: null,
-      error: null,
-      attempts: 0,
-      created_by: userId,
-      created_at: now,
-      updated_at: now,
-    });
-
-    // Enqueue job to generation queue
-    const message: GenerationMessage = {
-      jobId,
-      spaceId,
-      ...input,
-    };
-
-    console.log('[Job Route] Sending edit message to GENERATION_QUEUE', {
-      jobId,
-      spaceId,
-      assetId,
-      sourceVariantId: variantId,
-    });
-
-    await env.GENERATION_QUEUE.send(message);
-
-    console.log('[Job Route] Edit message sent successfully', { jobId });
-
-    return c.json({
-      success: true,
-      jobId: job.id,
-    }, 201);
-  } catch (error) {
-    console.error('[Job Route] Error creating edit job:', error);
-    return c.json({ error: 'Failed to create edit job' }, 500);
-  }
-});
-
-// POST /api/spaces/:id/compose - Create composite asset from multiple source variants
-jobRoutes.post('/api/spaces/:id/compose', generationRateLimiter, async (c) => {
-  try {
-    const container = c.get('container');
-    const authService = container.get(AuthService);
-    const jobDAO = container.get(JobDAO);
-    const memberDAO = container.get(MemberDAO);
-    const env = c.env;
-
-    // Check authentication
-    const cookieHeader = c.req.header("Cookie");
-    const token = getAuthToken(cookieHeader || null);
-
-    if (!token) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
-    const payload = await authService.verifyJWT(token);
-    if (!payload) {
-      return c.json({ error: 'Invalid authentication' }, 401);
-    }
-
-    const spaceId = c.req.param('id');
-    const userId = String(payload.userId);
-
-    // Verify user is member of space with editor or owner role
-    const member = await memberDAO.getMember(spaceId, userId);
-    if (!member) {
-      return c.json({ error: 'Access denied' }, 403);
-    }
-
-    if (member.role !== 'editor' && member.role !== 'owner') {
-      return c.json({ error: 'Editor or owner role required' }, 403);
-    }
-
-    // Validate request body
-    const body = await c.req.json();
-    const { prompt, assetName, sourceVariantIds, model, aspectRatio } = body;
-
-    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-      return c.json({ error: 'Prompt is required and must be a non-empty string' }, 400);
-    }
-
-    if (!assetName || typeof assetName !== 'string' || assetName.trim().length === 0) {
-      return c.json({ error: 'Asset name is required and must be a non-empty string' }, 400);
-    }
-
-    if (!Array.isArray(sourceVariantIds) || sourceVariantIds.length < 2) {
-      return c.json({ error: 'At least 2 source variant IDs are required for composition' }, 400);
-    }
-
-    // Create job in D1
-    const jobId = crypto.randomUUID();
-    const now = Date.now();
-
-    // Create composite asset in Durable Object first
-    let assetId: string;
-    if (env.SPACES_DO) {
-      const doId = env.SPACES_DO.idFromName(spaceId);
-      const doStub = env.SPACES_DO.get(doId);
-
-      const doResponse = await doStub.fetch(new Request('http://do/internal/create-asset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: assetName.trim(),
-          type: 'composite',
-          createdBy: userId,
-        }),
-      }));
-
-      if (!doResponse.ok) {
-        const errorData = await doResponse.json() as { error?: string };
-        return c.json({ error: errorData.error || 'Failed to create asset' }, 500);
-      }
-
-      const assetResult = await doResponse.json() as { success: boolean; asset: { id: string } };
-      assetId = assetResult.asset.id;
-    } else {
-      assetId = crypto.randomUUID();
-    }
-
-    const input = {
-      prompt: prompt.trim(),
-      assetName: assetName.trim(),
-      assetType: 'composite' as const,
-      assetId,
-      sourceVariantIds,
-      model,  // Let NanoBananaService use its default if undefined
-      aspectRatio: aspectRatio || '1:1',
-    };
-
-    const job = await jobDAO.createJob({
-      id: jobId,
-      space_id: spaceId,
-      type: 'compose',
-      status: 'pending',
-      input: JSON.stringify(input),
-      result_variant_id: null,
-      error: null,
-      attempts: 0,
-      created_by: userId,
-      created_at: now,
-      updated_at: now,
-    });
-
-    // Enqueue job to generation queue
-    const message: GenerationMessage = {
-      jobId,
-      spaceId,
-      ...input,
-    };
-
-    console.log('[Job Route] Sending compose message to GENERATION_QUEUE', {
-      jobId,
-      spaceId,
-      assetName: input.assetName,
-      sourceVariantIds: input.sourceVariantIds,
-    });
-
-    await env.GENERATION_QUEUE.send(message);
-
-    console.log('[Job Route] Compose message sent successfully', { jobId });
-
-    return c.json({
-      success: true,
-      jobId: job.id,
-    }, 201);
-  } catch (error) {
-    console.error('[Job Route] Error creating compose job:', error);
-    return c.json({ error: 'Failed to create compose job' }, 500);
-  }
-});
-
-// POST /api/spaces/:id/generate-from - Generate new asset using existing variant as reference
-jobRoutes.post('/api/spaces/:id/generate-from', generationRateLimiter, async (c) => {
-  try {
-    const container = c.get('container');
-    const authService = container.get(AuthService);
-    const jobDAO = container.get(JobDAO);
-    const memberDAO = container.get(MemberDAO);
-    const env = c.env;
-
-    // Check authentication
-    const cookieHeader = c.req.header("Cookie");
-    const token = getAuthToken(cookieHeader || null);
-
-    if (!token) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
-    const payload = await authService.verifyJWT(token);
-    if (!payload) {
-      return c.json({ error: 'Invalid authentication' }, 401);
-    }
-
-    const spaceId = c.req.param('id');
-    const userId = String(payload.userId);
-
-    // Verify user is member with edit permissions
-    const member = await memberDAO.getMember(spaceId, userId);
-    if (!member) {
-      return c.json({ error: 'Access denied' }, 403);
-    }
-
-    if (member.role !== 'editor' && member.role !== 'owner') {
-      return c.json({ error: 'Editor or owner role required' }, 403);
-    }
-
-    // Validate request body
-    const body = await c.req.json();
-    const { prompt, assetName, assetType, sourceVariantId, model, aspectRatio } = body;
-
-    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-      return c.json({ error: 'Prompt is required and must be a non-empty string' }, 400);
-    }
-
-    if (!assetName || typeof assetName !== 'string' || assetName.trim().length === 0) {
-      return c.json({ error: 'Asset name is required and must be a non-empty string' }, 400);
-    }
-
-    const validAssetTypes = ['character', 'item', 'scene', 'composite'];
-    if (!assetType || !validAssetTypes.includes(assetType)) {
-      return c.json({ error: 'Asset type must be one of: character, item, scene, composite' }, 400);
-    }
-
-    if (!sourceVariantId || typeof sourceVariantId !== 'string') {
-      return c.json({ error: 'Source variant ID is required' }, 400);
-    }
-
-    // Get source variant from Durable Object to verify it exists and get image key
-    if (!env.SPACES_DO) {
-      return c.json({ error: 'Asset storage not available' }, 503);
-    }
-
-    const doId = env.SPACES_DO.idFromName(spaceId);
-    const doStub = env.SPACES_DO.get(doId);
-
-    // Fetch space state to find the variant
-    const stateResponse = await doStub.fetch(new Request('http://do/internal/state'));
-    if (!stateResponse.ok) {
-      return c.json({ error: 'Failed to fetch space state' }, 500);
-    }
-
-    const state = await stateResponse.json() as {
-      variants: Array<{ id: string; image_key: string; asset_id: string }>;
-    };
-
-    const sourceVariant = state.variants.find(v => v.id === sourceVariantId);
-    if (!sourceVariant) {
-      return c.json({ error: 'Source variant not found' }, 404);
-    }
-
-    // Create the new asset in DO first
-    const assetId = crypto.randomUUID();
-    const createAssetResponse = await doStub.fetch(new Request('http://do/internal/create-asset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: assetId,
-        name: assetName.trim(),
-        type: assetType,
-        createdBy: userId,
-      }),
-    }));
-
-    if (!createAssetResponse.ok) {
-      const errorData = await createAssetResponse.json() as { error?: string };
-      return c.json({ error: errorData.error || 'Failed to create asset' }, 500);
-    }
-
-    // Create job in D1
-    const jobId = crypto.randomUUID();
-    const now = Date.now();
-
-    const input = {
-      prompt: prompt.trim(),
-      assetName: assetName.trim(),
-      assetType,
-      assetId,
       sourceVariantId,
       sourceImageKey: sourceVariant.image_key,
+      referenceVariantIds: referenceVariantIds || undefined,
+      referenceImageKeys: additionalImageKeys.length > 0 ? additionalImageKeys : undefined,
       model,
       aspectRatio: aspectRatio || '1:1',
     };
@@ -528,7 +383,7 @@ jobRoutes.post('/api/spaces/:id/generate-from', generationRateLimiter, async (c)
     const job = await jobDAO.createJob({
       id: jobId,
       space_id: spaceId,
-      type: 'reference',  // New type: generate with reference
+      type: 'derive', // New variant derived from existing
       status: 'pending',
       input: JSON.stringify(input),
       result_variant_id: null,
@@ -546,27 +401,30 @@ jobRoutes.post('/api/spaces/:id/generate-from', generationRateLimiter, async (c)
       ...input,
     };
 
-    console.log('[Job Route] Sending generate-from-reference message to GENERATION_QUEUE', {
+    console.log('[Job Route] POST /variants - Sending message to GENERATION_QUEUE', {
       jobId,
       spaceId,
-      assetName: input.assetName,
+      assetId,
       sourceVariantId,
     });
 
     await env.GENERATION_QUEUE.send(message);
 
-    console.log('[Job Route] Generate-from-reference message sent successfully', { jobId });
+    console.log('[Job Route] POST /variants - Message sent successfully', { jobId });
 
     return c.json({
       success: true,
       jobId: job.id,
-      assetId,
     }, 201);
   } catch (error) {
-    console.error('[Job Route] Error creating generate-from-reference job:', error);
-    return c.json({ error: 'Failed to create job' }, 500);
+    console.error('[Job Route] Error in POST /variants:', error);
+    return c.json({ error: 'Failed to create variant' }, 500);
   }
 });
+
+// ============================================================================
+// READ/QUERY ENDPOINTS
+// ============================================================================
 
 // GET /api/spaces/:id/assets/:assetId - Get asset details with variants and lineage
 jobRoutes.get('/api/spaces/:id/assets/:assetId', async (c) => {
@@ -736,91 +594,6 @@ jobRoutes.get('/api/spaces/:id/variants/:variantId/lineage/graph', async (c) => 
   } catch (error) {
     console.error('Error getting lineage graph:', error);
     return c.json({ error: 'Failed to get lineage graph' }, 500);
-  }
-});
-
-// POST /api/spaces/:id/assets/:assetId/spawn - Spawn new asset from variant
-jobRoutes.post('/api/spaces/:id/assets/:assetId/spawn', async (c) => {
-  try {
-    const container = c.get('container');
-    const authService = container.get(AuthService);
-    const memberDAO = container.get(MemberDAO);
-    const env = c.env;
-
-    // Check authentication
-    const cookieHeader = c.req.header("Cookie");
-    const token = getAuthToken(cookieHeader || null);
-
-    if (!token) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
-    const payload = await authService.verifyJWT(token);
-    if (!payload) {
-      return c.json({ error: 'Invalid authentication' }, 401);
-    }
-
-    const spaceId = c.req.param('id');
-    const assetId = c.req.param('assetId');
-    const userId = String(payload.userId);
-
-    // Verify user is member of space with editor or owner role
-    const member = await memberDAO.getMember(spaceId, userId);
-    if (!member) {
-      return c.json({ error: 'Access denied' }, 403);
-    }
-
-    if (member.role !== 'editor' && member.role !== 'owner') {
-      return c.json({ error: 'Editor or owner role required' }, 403);
-    }
-
-    // Validate request body
-    const body = await c.req.json();
-    const { variantId, name, assetType, parentAssetId } = body;
-
-    if (!variantId || typeof variantId !== 'string') {
-      return c.json({ error: 'Variant ID is required' }, 400);
-    }
-
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return c.json({ error: 'Asset name is required' }, 400);
-    }
-
-    if (!assetType || typeof assetType !== 'string') {
-      return c.json({ error: 'Asset type is required' }, 400);
-    }
-
-    // Spawn asset via Durable Object
-    if (!env.SPACES_DO) {
-      return c.json({ error: 'Asset storage not available' }, 503);
-    }
-
-    const doId = env.SPACES_DO.idFromName(spaceId);
-    const doStub = env.SPACES_DO.get(doId);
-
-    const doResponse = await doStub.fetch(new Request('http://do/internal/spawn', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sourceVariantId: variantId,
-        name: name.trim(),
-        type: assetType,
-        parentAssetId,
-        createdBy: userId,
-      }),
-    }));
-
-    if (!doResponse.ok) {
-      const errorData = await doResponse.json() as { error?: string };
-      const status = doResponse.status === 404 ? 404 : 500;
-      return c.json({ error: errorData.error || 'Failed to spawn asset' }, status);
-    }
-
-    const data = await doResponse.json();
-    return c.json(data, 201);
-  } catch (error) {
-    console.error('Error spawning asset:', error);
-    return c.json({ error: 'Failed to spawn asset' }, 500);
   }
 });
 

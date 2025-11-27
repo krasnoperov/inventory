@@ -44,29 +44,31 @@ interface LineageTreeProps {
   spaceId?: string;
 }
 
-// Helper to get display text for relation type
+// Helper to get display text for relation type - user-friendly labels
 const getRelationLabel = (type: string): string => {
   switch (type) {
-    case 'derived': return 'Edit';
-    case 'composed': return 'Compose';
-    case 'spawned': return 'Spawn';
+    case 'derived': return 'Refined';
+    case 'composed': return 'Composed';
+    case 'spawned': return 'Forked';
     default: return type;
   }
 };
 
 const getRelationTooltip = (type: string, direction: 'parent' | 'child'): string => {
   if (direction === 'parent') {
+    // This variant was created from the parent
     switch (type) {
-      case 'derived': return 'Edited from this variant';
-      case 'composed': return 'Composed from this variant';
-      case 'spawned': return 'Spawned from this variant (new asset)';
+      case 'derived': return 'Refined from this image';
+      case 'composed': return 'Part of composition that created this';
+      case 'spawned': return 'Forked from this to create new asset';
       default: return `Related via ${type}`;
     }
   } else {
+    // The child was created from this variant
     switch (type) {
-      case 'derived': return 'Created by editing';
-      case 'composed': return 'Created by composing';
-      case 'spawned': return 'Spawned to new asset';
+      case 'derived': return 'Was refined to create this';
+      case 'composed': return 'Was used to compose this';
+      case 'spawned': return 'Was forked to create new asset';
       default: return `Related via ${type}`;
     }
   }

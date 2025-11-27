@@ -112,9 +112,18 @@ export class GenerationConsumer {
 
       let result;
 
-      if (job.type === 'edit' && jobInput.sourceImageKey) {
-        // Edit mode: fetch source image from R2 and pass to edit()
-        console.log(`[GenerationConsumer] Edit job, fetching source image: ${jobInput.sourceImageKey}`);
+      // Determine processing mode based on job type and inputs:
+      // - 'derive' with sourceImageKey: Edit single image (new variant in same asset)
+      // - 'derive' with sourceImageKeys: Compose with single reference (new asset)
+      // - 'compose': Multi-image composition
+      // - 'generate': Fresh text-to-image
+      const hasSourceImage = jobInput.sourceImageKey;
+      const hasSourceImageKeys = jobInput.sourceImageKeys?.length > 0;
+      const hasSourceVariantIds = jobInput.sourceVariantIds?.length > 0;
+
+      if (job.type === 'derive' && hasSourceImage) {
+        // Derive mode (single source): Edit existing variant
+        console.log(`[GenerationConsumer] Derive job (edit), fetching source image: ${jobInput.sourceImageKey}`);
 
         const sourceObject = await this.env.IMAGES.get(jobInput.sourceImageKey);
         if (!sourceObject) {
@@ -131,27 +140,32 @@ export class GenerationConsumer {
           model: model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image',
           aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9',
         });
-      } else if (job.type === 'reference' && jobInput.sourceImageKey) {
-        // Reference mode: generate NEW asset using existing image as style reference
-        console.log(`[GenerationConsumer] Reference job, fetching source image: ${jobInput.sourceImageKey}`);
+      } else if ((job.type === 'derive' || job.type === 'compose') && hasSourceImageKeys) {
+        // Derive/Compose with sourceImageKeys: Generate using reference images
+        console.log(`[GenerationConsumer] ${job.type} job with ${jobInput.sourceImageKeys.length} reference images`);
 
-        const sourceObject = await this.env.IMAGES.get(jobInput.sourceImageKey);
-        if (!sourceObject) {
-          throw new Error(`Source image not found: ${jobInput.sourceImageKey}`);
-        }
+        const images = await Promise.all(
+          jobInput.sourceImageKeys.map(async (imageKey: string, index: number) => {
+            const imageObject = await this.env.IMAGES.get(imageKey);
+            if (!imageObject) {
+              throw new Error(`Source image not found: ${imageKey}`);
+            }
 
-        const sourceBuffer = await sourceObject.arrayBuffer();
-        const sourceBase64 = this.arrayBufferToBase64(sourceBuffer);
-        const sourceMimeType = sourceObject.httpMetadata?.contentType || 'image/png';
+            const buffer = await imageObject.arrayBuffer();
+            const base64 = this.arrayBufferToBase64(buffer);
+            const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
 
-        // Use compose with single image as reference for style consistency
+            return { data: base64, mimeType, label: `Reference ${index + 1}:` };
+          })
+        );
+
         result = await nanoBanana.compose({
-          images: [{ data: sourceBase64, mimeType: sourceMimeType, label: 'Reference:' }],
+          images,
           prompt,
           model: model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image',
           aspectRatio: aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9',
         });
-      } else if (job.type === 'compose' && jobInput.sourceVariantIds?.length > 0) {
+      } else if (job.type === 'compose' && hasSourceVariantIds) {
         // Compose mode: fetch all source images from R2 and pass to compose()
         console.log(`[GenerationConsumer] Compose job, fetching ${jobInput.sourceVariantIds.length} source images`);
 
@@ -233,29 +247,37 @@ export class GenerationConsumer {
       }
 
       // Build recipe based on job type
-      const isEditJob = job.type === 'edit' && jobInput.sourceVariantId;
-      const isComposeJob = job.type === 'compose' && jobInput.sourceVariantIds?.length > 0;
+      // For derive jobs: sourceVariantId is the single source variant
+      // For compose jobs: sourceVariantIds are multiple source variants
+      const isDeriveJob = job.type === 'derive';
+      const isComposeJob = job.type === 'compose';
+      const hasInputs = jobInput.sourceVariantId || jobInput.sourceVariantIds?.length > 0;
 
       const recipe = {
         type: job.type || 'generate',
         prompt,
         model: model || 'gemini-3-pro-image-preview',
         aspectRatio: aspectRatio || '1:1',
-        inputs: isEditJob
+        inputs: isDeriveJob && jobInput.sourceVariantId
           ? [{ variantId: jobInput.sourceVariantId, imageKey: jobInput.sourceImageKey }]
-          : isComposeJob
+          : jobInput.sourceVariantIds?.length > 0
             ? jobInput.sourceVariantIds.map((id: string) => ({ variantId: id }))
             : [],
       };
 
       // Determine parent variants for lineage
-      const parentVariantIds = isEditJob
-        ? [jobInput.sourceVariantId]
-        : isComposeJob
-          ? jobInput.sourceVariantIds
-          : undefined;
+      let parentVariantIds: string[] | undefined;
+      let relationType: 'derived' | 'composed' | undefined;
 
-      const relationType = isEditJob ? 'derived' : isComposeJob ? 'composed' : undefined;
+      if (isDeriveJob && jobInput.sourceVariantId) {
+        // Derive from single source variant
+        parentVariantIds = [jobInput.sourceVariantId];
+        relationType = 'derived';
+      } else if (jobInput.sourceVariantIds?.length > 0) {
+        // Compose from multiple variants (or derive with reference images)
+        parentVariantIds = jobInput.sourceVariantIds;
+        relationType = 'composed';
+      }
 
       // Apply variant to DO with lineage
       const doResponse = await doStub.fetch(
