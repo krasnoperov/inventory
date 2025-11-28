@@ -64,6 +64,10 @@ export interface ViewingContext {
   assetId?: string;
   assetName?: string;
   variantId?: string;
+  /** Total number of variants for this asset */
+  variantCount?: number;
+  /** Index of the currently selected variant (1-based for display) */
+  variantIndex?: number;
 }
 
 /** Chat message for history */

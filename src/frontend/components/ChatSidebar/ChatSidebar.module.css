@@ -127,16 +127,83 @@
   text-align: center;
 }
 
-/* Context Bar - Elevated card style */
+/* Context Bar - Enhanced with thumbnails */
 .contextBar {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  gap: 0.625rem;
+  padding: 0.75rem;
   margin: 0 0.75rem;
   background: var(--forge-input-bg);
   border: 1px solid var(--forge-bar-border-inner);
   border-radius: 10px;
+}
+
+/* Asset context with thumbnail */
+.contextAsset {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.contextThumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--forge-slot-bg);
+  border: 1px solid var(--forge-bar-border-inner);
+  flex-shrink: 0;
+}
+
+.contextThumbPlaceholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: var(--forge-slot-bg);
+  border: 1px solid var(--forge-bar-border-inner);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.contextAssetInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.contextAssetName {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contextVariantInfo {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+
+.contextBotAccess {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  color: var(--color-success);
+  margin-top: 0.125rem;
+}
+
+.contextBotAccess::before {
+  content: '👁️';
+  font-size: 0.6875rem;
 }
 
 .contextItem {
@@ -157,6 +224,19 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Catalog view context */
+.contextCatalog {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.contextCatalog .contextIcon {
+  font-size: 1rem;
 }
 
 /* Messages Area */

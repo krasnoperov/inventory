@@ -217,13 +217,14 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         const variantId = params.variantId as string;
         const assetName = params.assetName as string;
         const focus = (params.focus as string) || 'general';
+        const question = params.question as string | undefined;
 
         try {
           const response = await fetch(`/api/spaces/${spaceId}/chat/describe`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ variantId, assetName, focus }),
+            body: JSON.stringify({ variantId, assetName, focus, question }),
           });
 
           if (!response.ok) {
