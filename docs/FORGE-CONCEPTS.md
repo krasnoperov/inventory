@@ -197,67 +197,34 @@ Shows all variants of a single asset. This is where variant management happens.
 
 ## Forge Tray
 
-The central workspace for all generation operations. Minecraft-inspired crafting interface.
+The central workspace for all generation operations. A minimal, always-visible floating bar at the bottom of the screen.
 
-### Structure
+> For implementation details, see [PLAN.md](./PLAN.md)
+
+### Layout
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ ⚒️ FORGE TRAY                                              [Clear]  │
-│                                                                     │
-│ SLOTS (up to 14):                                                   │
-│ ┌─────┐ ┌─────┐ ┌─────┐                                            │
-│ │Hero │ │Style│ │     │ [+]  ← only shows after last filled slot   │
-│ │ v2  │ │     │ │     │                                            │
-│ │  ×  │ │  ×  │ │     │                                            │
-│ └─────┘ └─────┘ └─────┘                                            │
-│ variant  asset                                                      │
-│                                                                     │
-│ Prompt:                                                             │
-│ ┌─────────────────────────────────────────────────────────────────┐ │
-│ │ battle-ready pose in forest clearing                            │ │
-│ └─────────────────────────────────────────────────────────────────┘ │
-│                                                                     │
-│ Destination:                                                        │
-│ ○ New Variant in "Hero"     ← only if Hero variant in slots        │
-│ ● New Asset: [Forest Hero___] Type: [character ▼] Parent: [Hero ▼] │
-│                                                                     │
-│ ┌──────────────────────────────────────────────────────────────────┐│
-│ │ ⚡ Compose                                                        ││
-│ │ Combine multiple references into new asset                       ││
-│ └──────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  [ref] [ref] [+]  │  "describe what you want..."              [Forge ▸] │
+└─────────────────────────────────────────────────────────────────────────┘
+     ^                              ^                              ^
+  slot pills                   prompt input                  action button
+  (0-14 items)               (always visible)              (mode-aware label)
+```
+
+**Empty state:**
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  [+]  │  "describe what you want..."                       [Generate ▸] │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Slot Behavior
 
-**Capacity:** Maximum 14 slots (Gemini image input limit)
-
-**Display rules:**
-- Show only filled slots + one [+] button (no empty placeholders)
-- Hide [+] button when 14 slots are filled (max capacity)
-- Adding should no-op when at capacity
-
-```
-Empty:      [+]
-1 item:     [Hero] [+]
-3 items:    [Hero] [Style] [Sword] [+]
-14 items:   [1] [2] [3] ... [14]  (no [+] button, max reached)
-```
-
-**Slot contents:**
-- From Catalog: adds asset's **primary variant** (shows asset name only)
-- From Detail: adds **specific variant** (shows "Asset vN")
-
-```
-┌─────┐     ┌─────┐
-│Hero │     │Hero │
-│     │  vs │ v3  │
-│  ×  │     │  ×  │
-└─────┘     └─────┘
- asset       specific
- (primary)   variant
-```
+- **Capacity:** Maximum 14 slots (Gemini image input limit)
+- Show only filled slots + one [+] button
+- From Catalog: adds asset's **primary variant**
+- From Detail: adds **specific variant**
 
 ### Adding to Tray
 
@@ -267,171 +234,86 @@ Empty:      [+]
 | Asset Detail | Click [+] on variant thumbnail | Add that specific variant |
 | Asset Picker | Select asset | Add asset's primary variant |
 
-### Destination Options
+### Destination Selection
 
-```
-Destination:
-├── ● New Asset
-│     Name: [____________]
-│     Type: [character ▼]
-│     Parent: [None ▼]        ← optional nesting
-│
-└── ○ New Variant in "Hero"   ← available if Hero exists in space
-    ○ New Variant in "Knight" ← available if Knight exists in space
-```
-
-**Destination is always user's choice.** User can select any existing asset as destination, regardless of tray contents. This allows generating new variants purely from prompt without any references.
+Destination (new asset vs existing asset variant) is selected in the **ForgeModal** that opens when clicking the Forge button. This keeps the tray minimal while providing full control in the modal.
 
 ---
 
 ## Operations
 
-### Operation Matrix
+The Forge button label changes based on slot count:
 
-| Slots | Prompt | Destination | Operation | Button |
-|-------|--------|-------------|-----------|--------|
-| 0 | Required | New Asset | Generate | "⚡ Generate" |
-| 0 | Required | Existing Asset | Generate Variant | "⚡ Generate Variant" |
-| 0 | Empty | Any | — | Disabled |
-| 1 | Empty | New Asset | Fork | "📋 Fork" |
-| 1 | Required | New Asset | Remix | "✨ Remix" |
-| 1 | Required | Existing Asset | Refine | "🔄 Refine" |
-| 2+ | Required | New Asset | Compose | "🎨 Compose" |
-| 2+ | Required | Existing Asset | Mix | "🔀 Mix" |
+| Slots | Operation | Description |
+|-------|-----------|-------------|
+| 0 | **Generate** | Create from scratch with prompt |
+| 1 | **Transform** | Modify single reference |
+| 2+ | **Combine** | Merge multiple sources |
 
-### Button Labels & Descriptions
-
-The Forge button dynamically updates based on tray state:
-
-#### ⚡ Generate
-**Condition:** 0 slots, prompt required, destination = New Asset
-**Description:** "Create new asset from scratch using AI"
-**Result:** New asset with generated variant
-
-#### ⚡ Generate Variant
-**Condition:** 0 slots, prompt required, destination = Existing Asset
-**Description:** "Create new variant in [Asset] from prompt"
-**Result:** New variant added to existing asset (no references used)
-
-#### 📋 Fork
-**Condition:** 1 slot, no prompt
-**Description:** "Copy to new asset (no AI generation)"
-**Result:** New asset with copied variant, spawned lineage
-
-#### ✨ Remix
-**Condition:** 1 slot, prompt required, destination = New Asset
-**Description:** "Transform into new asset using AI"
-**Result:** New asset derived from source
-
-#### 🔄 Refine
-**Condition:** 1 slot, prompt required, destination = Same Asset
-**Description:** "Create new variant in this asset"
-**Result:** New variant added to existing asset
-
-#### 🎨 Compose
-**Condition:** 2+ slots, prompt required, destination = New Asset
-**Description:** "Combine references into new asset"
-**Result:** New asset composed from multiple sources
-
-#### 🔀 Mix
-**Condition:** 2+ slots, prompt required, destination = Same Asset
-**Description:** "Blend references into new variant"
-**Result:** New variant combining multiple sources
-
-### Validation States
-
-Tray shows validation feedback:
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│ ⚡ Generate                                          [disabled]  │
-│ Add a prompt to generate                                         │
-└──────────────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────┐
-│ 📋 Fork                                              [enabled]   │
-│ Copy to new asset (no AI generation)                             │
-└──────────────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────┐
-│ 🎨 Compose                                          [disabled]   │
-│ Add a prompt to combine references                               │
-└──────────────────────────────────────────────────────────────────┘
-```
+The destination (new asset vs existing asset variant) is determined by user selection in the **ForgeModal**, not by operation name. This simplifies the UI while preserving all capabilities.
 
 ---
 
 ## Workflow Examples
 
-### Example 1: Generate New Character with Style Reference
+### Example 1: Transform with Style Reference
 
 **Goal:** Create "Archer" character using style from "Style Guide" asset.
 
 1. In Catalog, click [+tray] on "Style Guide" → slot 1
 2. Enter prompt: "female archer with bow, dynamic pose"
-3. Destination: New Asset, name "Archer", type "character"
-4. Button shows: **"✨ Remix"** — "Transform into new asset using AI"
-5. Click [Remix]
+3. Click **[Transform ▸]** → ForgeModal opens
+4. Select destination: New Asset, name "Archer", type "character"
+5. Click submit
 
 ```
-Tray: [Style Guide] [+]
-Prompt: "female archer with bow, dynamic pose"
-Destination: New Asset "Archer" (character)
+Tray: [Style Guide]  "female archer..."  [Transform ▸]
 → Creates "Archer" asset with generated variant
 ```
 
-### Example 2: Refine Character with Props Reference
+### Example 2: Combine Multiple References
 
 **Goal:** Create new variant of "Archer" wearing armor from "Plate Armor" asset.
 
-1. Open "Archer" asset detail
-2. Click [+] on variant v2 → slot 1 (shows "Archer v2")
-3. Go to catalog, click [+tray] on "Plate Armor" → slot 2
-4. Enter prompt: "wearing the plate armor"
-5. Destination: New Variant in "Archer"
-6. Button shows: **"🔀 Mix"** — "Blend references into new variant"
-7. Click [Mix]
+1. Open "Archer" asset detail, click [+] on variant v2 → slot 1
+2. Go to catalog, click [+tray] on "Plate Armor" → slot 2
+3. Enter prompt: "wearing the plate armor"
+4. Click **[Combine ▸]** → ForgeModal opens
+5. Select destination: New Variant in "Archer"
+6. Click submit
 
 ```
-Tray: [Archer v2] [Plate Armor] [+]
-Prompt: "wearing the plate armor"
-Destination: New Variant in "Archer"
+Tray: [Archer v2] [Plate Armor]  "wearing..."  [Combine ▸]
 → Creates new variant v3 in Archer asset
 ```
 
-### Example 3: Extract Prop from Exploration
+### Example 3: Extract Element from Image
 
 **Goal:** Variant v5 has a cool sword, extract it to separate asset.
 
-1. Open "Hero" asset detail
-2. Click [+] on variant v5 → slot 1 (shows "Hero v5")
-3. Enter prompt: "isolate the sword only, white background"
-4. Destination: New Asset, name "Magic Sword", type "item"
-5. Button shows: **"✨ Remix"** — "Transform into new asset using AI"
-6. Click [Remix]
+1. Open "Hero" asset detail, click [+] on variant v5 → slot 1
+2. Enter prompt: "isolate the sword only, white background"
+3. Click **[Transform ▸]** → ForgeModal opens
+4. Select destination: New Asset, name "Magic Sword", type "item"
+5. Click submit
 
 ```
-Tray: [Hero v5] [+]
-Prompt: "isolate the sword only, white background"
-Destination: New Asset "Magic Sword" (item)
+Tray: [Hero v5]  "isolate the sword..."  [Transform ▸]
 → Creates "Magic Sword" asset with extracted sword
 ```
 
-### Example 4: Fork Without Changes
+### Example 4: Generate from Scratch
 
-**Goal:** Create standalone copy of character.
+**Goal:** Create a new character with no references.
 
-1. In Catalog, click [+tray] on "Hero" → slot 1
-2. No prompt
-3. Destination: New Asset, name "Hero Clone", type "character"
-4. Button shows: **"📋 Fork"** — "Copy to new asset (no AI generation)"
-5. Click [Fork]
+1. Enter prompt: "medieval knight in shining armor"
+2. Click **[Generate ▸]** → ForgeModal opens
+3. Select destination: New Asset, name "Knight", type "character"
+4. Click submit
 
 ```
-Tray: [Hero] [+]
-Prompt: (empty)
-Destination: New Asset "Hero Clone" (character)
-→ Creates "Hero Clone" with copied variant (no AI)
+Tray: [+]  "medieval knight..."  [Generate ▸]
+→ Creates "Knight" asset with generated variant
 ```
 
 ### Example 5: Combine Multiple Characters into Scene
@@ -442,14 +324,12 @@ Destination: New Asset "Hero Clone" (character)
 2. Click [+tray] on "Villain" → slot 2
 3. Click [+tray] on "Style Guide" → slot 3
 4. Enter prompt: "epic battle scene, dramatic lighting"
-5. Destination: New Asset, name "Battle Scene", type "scene"
-6. Button shows: **"🎨 Compose"** — "Combine references into new asset"
-7. Click [Compose]
+5. Click **[Combine ▸]** → ForgeModal opens
+6. Select destination: New Asset, name "Battle Scene", type "scene"
+7. Click submit
 
 ```
-Tray: [Hero] [Villain] [Style Guide] [+]
-Prompt: "epic battle scene, dramatic lighting"
-Destination: New Asset "Battle Scene" (scene)
+Tray: [Hero] [Villain] [Style Guide]  "epic battle..."  [Combine ▸]
 → Creates composed scene from all references
 ```
 
@@ -515,7 +395,7 @@ When viewing a variant in detail, available actions:
 | **Download** | Save image to local device |
 | **Delete** | Remove variant (cannot delete last/primary) |
 
-Note: Fork, Remix, Refine, etc. are done through the Forge Tray — select variant, add to tray, configure, forge.
+Note: All transformations are done through the Forge Tray — select variant, add to tray, configure, forge.
 
 ---
 
@@ -547,4 +427,4 @@ Note: Fork, Remix, Refine, etc. are done through the Forge Tray — select varia
 |------|-------|-----------------|
 | **Catalog** | Assets (primary only) | Browse, Add to Tray, Navigate |
 | **Asset Detail** | All variants | Manage variants, Add to Tray |
-| **Forge Tray** | Selected items | Generate, Fork, Remix, Refine, Compose, Mix |
+| **Forge Tray** | Selected items | Generate, Transform, Combine |

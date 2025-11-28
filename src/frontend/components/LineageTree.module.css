@@ -72,9 +72,9 @@
 
 .node {
   position: relative;
-  width: 56px;
-  height: 56px;
-  border-radius: 8px;
+  width: var(--thumb-size-sm);
+  height: var(--thumb-size-sm);
+  border-radius: var(--thumb-radius-sm);
   overflow: hidden;
   border: 2px solid var(--color-border);
   cursor: pointer;
@@ -199,9 +199,9 @@
 }
 
 .currentImage {
-  width: 72px;
-  height: 72px;
-  border-radius: 10px;
+  width: var(--thumb-size-md);
+  height: var(--thumb-size-md);
+  border-radius: var(--thumb-radius);
   border: 3px solid var(--color-primary);
   object-fit: cover;
 }
@@ -283,9 +283,9 @@
 }
 
 .graphNodeImage {
-  width: 56px;
-  height: 56px;
-  border-radius: 6px;
+  width: var(--thumb-size-sm);
+  height: var(--thumb-size-sm);
+  border-radius: var(--thumb-radius-sm);
   object-fit: cover;
 }
 
@@ -315,21 +315,21 @@
   }
 
   .node {
-    width: 48px;
-    height: 48px;
+    width: var(--thumb-size-xs);
+    height: var(--thumb-size-xs);
   }
 
   .currentImage {
-    width: 64px;
-    height: 64px;
+    width: var(--thumb-size-sm);
+    height: var(--thumb-size-sm);
   }
 
   .graphNodeImage {
-    width: 48px;
-    height: 48px;
+    width: var(--thumb-size-xs);
+    height: var(--thumb-size-xs);
   }
 
   .graphNode {
-    min-width: 64px;
+    min-width: var(--thumb-size-sm);
   }
 }

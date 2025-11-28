@@ -751,6 +751,8 @@ export class SpaceDO extends DurableObject<Env> {
         thumbKey: string;
         recipe: string;
         createdBy: string;
+        parentVariantIds?: string[];
+        relationType?: 'derived' | 'composed';
       };
 
       const result = await this.applyVariant(data);
@@ -855,6 +857,7 @@ export class SpaceDO extends DurableObject<Env> {
         parent_variant_id: string;
         child_variant_id: string;
         relation_type: string;
+        severed: boolean;
         created_at: number;
       }> = [];
 
@@ -877,12 +880,16 @@ export class SpaceDO extends DurableObject<Env> {
             parent_variant_id: string;
             child_variant_id: string;
             relation_type: string;
+            severed: number; // SQLite stores as 0/1
             created_at: number;
           };
 
           // Avoid duplicate lineage entries
           if (!allLineage.some(l => l.id === lineageRow.id)) {
-            allLineage.push(lineageRow);
+            allLineage.push({
+              ...lineageRow,
+              severed: Boolean(lineageRow.severed), // Convert SQLite 0/1 to boolean
+            });
           }
 
           // Queue connected variants

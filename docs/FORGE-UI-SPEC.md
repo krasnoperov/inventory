@@ -1,6 +1,9 @@
 # Forge UI Specification
 
-Technical specification for implementing the Forge UI components.
+Visual specifications and component hierarchy for the Forge UI.
+
+> For implementation details and store design, see [PLAN.md](./PLAN.md).
+> For assistant integration, see [ASSISTANT-PLAN.md](./ASSISTANT-PLAN.md).
 
 ---
 
@@ -15,12 +18,15 @@ SpacePage (Catalog View)
 │       ├── AddToTrayButton
 │       └── NestedAssets (recursive)
 ├── ForgeTray (persistent bottom bar)
-│   ├── SlotList
-│   │   └── TraySlot (repeating, max 14)
-│   ├── AddSlotButton
-│   ├── PromptInput
-│   ├── DestinationSelector
-│   └── ForgeButton
+│   ├── ForgeSlots
+│   │   └── SlotPill (repeating, max 14)
+│   ├── ForgePromptBar (inline input)
+│   └── ForgeButton (mode-aware: Generate/Transform/Combine)
+├── ForgeModal (opens on button click)
+│   ├── ReferencesDisplay (read-only slots)
+│   ├── PromptInput (editable)
+│   ├── DestinationPicker
+│   └── SubmitButton
 └── AssetPicker (modal)
 
 AssetDetailPage
@@ -41,479 +47,91 @@ AssetDetailPage
 
 ## ForgeTray Component
 
-### State
-
-```typescript
-interface TraySlot {
-  id: string;                    // Unique slot ID
-  assetId: string;               // Source asset
-  assetName: string;             // For display
-  variantId: string;             // Specific variant (or primary)
-  variantNumber?: number;        // If specific variant, show "vN"
-  thumbnailUrl: string;          // Thumbnail to display
-}
-
-// Consolidated destination type - all fields for each variant in one place
-type Destination =
-  | {
-      type: 'new-asset';
-      name: string;              // Required, validated before forge
-      assetType: string;         // Required, validated before forge
-      parentId: string | null;   // Optional nesting
-    }
-  | {
-      type: 'existing-asset';
-      assetId: string;
-      assetName: string;         // For display
-    };
-
-interface ForgeTrayState {
-  slots: TraySlot[];             // Max 14 (Gemini limit)
-  prompt: string;
-  destination: Destination;
-  isExpanded: boolean;
-}
-```
-
-### Slot Display Logic
-
-```typescript
-function getSlotDisplay(slot: TraySlot): { label: string; sublabel?: string } {
-  if (slot.variantNumber) {
-    // Specific variant selected
-    return {
-      label: slot.assetName,
-      sublabel: `v${slot.variantNumber}`
-    };
-  } else {
-    // Primary variant (default)
-    return {
-      label: slot.assetName
-    };
-  }
-}
-```
+A minimal, always-visible floating bar at the bottom of the screen.
 
 ### Visual Layout
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ ⚒️ FORGE                                                           [Clear]  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌──────┐ ┌──────┐ ┌──────┐                                                │
-│  │[img] │ │[img] │ │      │                                                │
-│  │Hero  │ │Style │ │  +   │  ← Add button (opens Asset Picker)             │
-│  │ v2   │ │      │ │      │                                                │
-│  │  ×   │ │  ×   │ └──────┘                                                │
-│  └──────┘ └──────┘                                                         │
-│                                                                             │
-│  Prompt:                                                                    │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                                                                     │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  Destination:                                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ ○ New Asset: [name______] Type: [character ▼] Parent: [None ▼]      │   │
-│  │ ○ New Variant in "Hero"                                             │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  ⚡ Remix                                                            │   │
-│  │  Transform into new asset using AI                                  │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  [ref] [ref] [+]  │  "describe what you want..."              [Forge ▸] │
+└─────────────────────────────────────────────────────────────────────────┘
+     ^                              ^                              ^
+  slot pills                   prompt input                  action button
+  (0-14 items)               (always visible)              (mode-aware label)
 ```
 
-### Slot Sizing
-
-```css
-.traySlot {
-  width: 64px;
-  height: 80px;  /* 64px image + 16px label */
-}
-
-.traySlot .thumbnail {
-  width: 64px;
-  height: 64px;
-  border-radius: 4px;
-  object-fit: cover;
-}
-
-.traySlot .label {
-  font-size: 10px;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.traySlot .sublabel {
-  font-size: 9px;
-  color: var(--text-secondary);
-}
-
-.traySlot .removeButton {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 16px;
-  height: 16px;
-}
+**Empty state:**
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  [+]  │  "describe what you want..."                       [Generate ▸] │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Slot Capacity & Display
+### Slot Behavior
 
-**Capacity:** Maximum 14 slots (Gemini image input limit)
-
-**Display rules:**
-- Show only filled slots + one [+] button (no empty placeholders)
-- Hide [+] button when `slots.length === 14` (max capacity reached)
-- `addSlot()` should no-op when at capacity
-
-```
-Empty:      [+]
-1 item:     [Hero] [+]
-3 items:    [Hero] [Style] [Sword] [+]
-14 items:   [1] [2] [3] ... [14]  (no [+] button, max reached)
-```
-
-**Capacity enforcement:**
-```typescript
-const MAX_SLOTS = 14;
-
-function addSlot(state: ForgeTrayState, slot: TraySlot): ForgeTrayState {
-  if (state.slots.length >= MAX_SLOTS) {
-    return state; // No-op at max capacity
-  }
-  return { ...state, slots: [...state.slots, slot] };
-}
-
-function canAddSlot(state: ForgeTrayState): boolean {
-  return state.slots.length < MAX_SLOTS;
-}
-```
-
-**Slot contents:**
-- From Catalog: adds asset's **primary variant** (shows asset name only)
+- **Capacity:** Maximum 14 slots (Gemini image input limit)
+- Compact 40x40px pill thumbnails
+- Show only filled slots + one [+] button
+- From Catalog: adds asset's **primary variant**
 - From Detail: adds **specific variant** (shows "Asset vN")
 
-```
-┌─────┐     ┌─────┐
-│Hero │     │Hero │
-│     │  vs │ v3  │
-│  ×  │     │  ×  │
-└─────┘     └─────┘
- asset       specific
- (primary)   variant
-```
+### Operation Button
 
-### Collapsed/Expanded States
+The button label changes based on slot count:
 
-When tray is empty or minimized:
+| Slots | Label |
+|-------|-------|
+| 0 | Generate |
+| 1 | Transform |
+| 2+ | Combine |
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ ⚒️ FORGE  [+]                                                      [Expand] │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-When expanded with items:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ ⚒️ FORGE                                                         [Collapse] │
-│ ... (full tray content) ...                                                 │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+Clicking opens **ForgeModal** for prompt editing and destination selection.
 
 ---
 
-## ForgeButton Component
+## ForgeModal Component
 
-### Operation Detection Logic
+Opens when clicking the Forge button. Provides full control over the generation.
 
-```typescript
-interface ForgeOperation {
-  id: 'generate' | 'generate-variant' | 'fork' | 'remix' | 'refine' | 'compose' | 'mix';
-  label: string;
-  icon: string;
-  description: string;
-  enabled: boolean;
-  disabledReason?: string;
-}
-
-function detectOperation(state: ForgeTrayState): ForgeOperation {
-  const slotCount = state.slots.length;
-  const hasPrompt = state.prompt.trim().length > 0;
-  const dest = state.destination;
-  const isNewAsset = dest.type === 'new-asset';
-
-  // Validation for new-asset destination
-  const newAssetValid = isNewAsset
-    && dest.name.trim().length > 0
-    && dest.assetType.length > 0;
-
-  // 0 slots, new asset → Generate
-  if (slotCount === 0 && isNewAsset) {
-    const enabled = hasPrompt && newAssetValid;
-    let disabledReason: string | undefined;
-    if (!hasPrompt) {
-      disabledReason = 'Add a prompt to generate';
-    } else if (!newAssetValid) {
-      disabledReason = 'Enter asset name and type';
-    }
-
-    return {
-      id: 'generate',
-      label: 'Generate',
-      icon: '⚡',
-      description: 'Create new asset from scratch using AI',
-      enabled,
-      disabledReason
-    };
-  }
-
-  // 0 slots, existing asset → Generate Variant (pure AI into existing asset)
-  if (slotCount === 0 && !isNewAsset) {
-    return {
-      id: 'generate-variant',
-      label: 'Generate Variant',
-      icon: '⚡',
-      description: `Create new variant in "${dest.assetName}" from prompt`,
-      enabled: hasPrompt,
-      disabledReason: !hasPrompt ? 'Add a prompt to generate' : undefined
-    };
-  }
-
-  // 1 slot, no prompt → Fork
-  if (slotCount === 1 && !hasPrompt) {
-    const enabled = newAssetValid;
-    return {
-      id: 'fork',
-      label: 'Fork',
-      icon: '📋',
-      description: 'Copy to new asset (no AI generation)',
-      enabled,
-      disabledReason: !isNewAsset ? 'Select "New Asset" to fork' :
-                      !enabled ? 'Enter asset name and type' : undefined
-    };
-  }
-
-  // 1 slot, has prompt, new asset → Remix
-  if (slotCount === 1 && hasPrompt && isNewAsset) {
-    return {
-      id: 'remix',
-      label: 'Remix',
-      icon: '✨',
-      description: 'Transform into new asset using AI',
-      enabled: newAssetValid,
-      disabledReason: !newAssetValid ? 'Enter asset name and type' : undefined
-    };
-  }
-
-  // 1 slot, has prompt, existing asset → Refine
-  if (slotCount === 1 && hasPrompt && !isNewAsset) {
-    return {
-      id: 'refine',
-      label: 'Refine',
-      icon: '🔄',
-      description: 'Create new variant in this asset',
-      enabled: true
-    };
-  }
-
-  // 2+ slots, new asset → Compose
-  if (isNewAsset) {
-    const enabled = hasPrompt && newAssetValid;
-    let disabledReason: string | undefined;
-    if (!hasPrompt) {
-      disabledReason = 'Add a prompt to combine references';
-    } else if (!newAssetValid) {
-      disabledReason = 'Enter asset name and type';
-    }
-
-    return {
-      id: 'compose',
-      label: 'Compose',
-      icon: '🎨',
-      description: 'Combine references into new asset',
-      enabled,
-      disabledReason
-    };
-  }
-
-  // 2+ slots, existing asset → Mix
-  return {
-    id: 'mix',
-    label: 'Mix',
-    icon: '🔀',
-    description: 'Blend references into new variant',
-    enabled: hasPrompt,
-    disabledReason: !hasPrompt ? 'Add a prompt to blend references' : undefined
-  };
-}
-```
-
-### Button Visual States
-
-```tsx
-function ForgeButton({ operation }: { operation: ForgeOperation }) {
-  return (
-    <button
-      className={`forgeButton ${operation.enabled ? 'enabled' : 'disabled'}`}
-      disabled={!operation.enabled}
-    >
-      <div className="buttonMain">
-        <span className="icon">{operation.icon}</span>
-        <span className="label">{operation.label}</span>
-      </div>
-      <div className="buttonDescription">
-        {operation.enabled
-          ? operation.description
-          : operation.disabledReason}
-      </div>
-    </button>
-  );
-}
-```
-
-```css
-.forgeButton {
-  width: 100%;
-  padding: 12px 16px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-}
-
-.forgeButton.enabled {
-  background: var(--accent-color);
-  color: white;
-}
-
-.forgeButton.disabled {
-  background: var(--bg-secondary);
-  color: var(--text-tertiary);
-  cursor: not-allowed;
-}
-
-.forgeButton .buttonMain {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.forgeButton .buttonDescription {
-  font-size: 12px;
-  margin-top: 4px;
-  opacity: 0.8;
-}
-```
-
----
-
-## DestinationSelector Component
-
-### Logic
-
-```typescript
-// Uses the consolidated Destination type from ForgeTrayState
-
-interface DestinationOption {
-  destination: Destination;
-  label: string;
-  isQuickOption?: boolean;  // Assets in tray shown at top
-}
-
-interface Asset {
-  id: string;
-  name: string;
-}
-
-function getDestinationOptions(
-  allAssets: Asset[],           // All assets in the space
-  slots: TraySlot[],
-  currentDestination: Destination
-): DestinationOption[] {
-  const options: DestinationOption[] = [];
-
-  // "New Asset" option - preserve current values if already new-asset
-  const newAssetDest: Destination = currentDestination.type === 'new-asset'
-    ? currentDestination
-    : { type: 'new-asset', name: '', assetType: 'character', parentId: null };
-
-  options.push({
-    destination: newAssetDest,
-    label: 'New Asset'
-  });
-
-  // Quick options: assets currently in tray (shown first)
-  const assetsInTray = new Set<string>();
-  for (const slot of slots) {
-    if (!assetsInTray.has(slot.assetId)) {
-      assetsInTray.add(slot.assetId);
-      options.push({
-        destination: { type: 'existing-asset', assetId: slot.assetId, assetName: slot.assetName },
-        label: `New Variant in "${slot.assetName}"`,
-        isQuickOption: true
-      });
-    }
-  }
-
-  // All other assets in space (for "Generate Variant" without references)
-  for (const asset of allAssets) {
-    if (!assetsInTray.has(asset.id)) {
-      options.push({
-        destination: { type: 'existing-asset', assetId: asset.id, assetName: asset.name },
-        label: `New Variant in "${asset.name}"`
-      });
-    }
-  }
-
-  return options;
-}
-
-// Destination is always user's choice
-// - User can select any existing asset as destination, regardless of tray contents
-// - This allows "Generate Variant" (0 slots + prompt + existing asset)
-// - Assets in tray shown as quick options at top, all others below
-```
-
-### Visual Layout
+### Layout
 
 ```
-Destination:
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ ● New Asset                                                                 │
-│   Name: [________________]  Type: [character ▼]  Parent: [None ▼]          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ Quick (in tray):                                                            │
-│ ○ New Variant in "Hero"                                                     │
-│ ○ New Variant in "Style Guide"                                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ All Assets:                          [Search... 🔍]                         │
-│ ○ New Variant in "Knight"                                                   │
-│ ○ New Variant in "Tavern"                                                   │
-│ ○ New Variant in "Forest"                                                   │
-│ ...                                                                         │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Forge                                                            [×]   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  References:                                                            │
+│  ┌──────┐ ┌──────┐ ┌──────┐                                            │
+│  │[img] │ │[img] │ │[img] │  (read-only display of tray slots)         │
+│  │Hero  │ │Style │ │Sword │                                            │
+│  └──────┘ └──────┘ └──────┘                                            │
+│                                                                         │
+│  Prompt:                                                                │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ battle-ready pose in forest clearing                            │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│  Destination:                                                           │
+│  ● Create new asset                                                     │
+│      Name: [________________]                                           │
+│      Type: [character ▼]                                                │
+│      Parent: [None ▼]                                                   │
+│  ○ Add variant to "Hero"                                                │
+│  ○ Add variant to "Style"                                               │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                      [Combine ▸]                                 │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Sections:**
-- **New Asset**: Always first, with inline name/type/parent fields
-- **Quick (in tray)**: Assets currently in tray slots (if any)
-- **All Assets**: All other assets in space, searchable
+### Sections
 
-When "New Asset" selected, show additional fields:
-- **Name** (required): Text input
-- **Type** (required): Dropdown with predefined types
-- **Parent** (optional): Dropdown with all assets + "None"
+1. **References** - Read-only display of slots from tray
+2. **Prompt** - Editable, pre-filled from tray
+3. **Destination** - Choose new asset or existing asset variant
+4. **Submit** - Button label matches operation
 
 ---
 
@@ -706,108 +324,30 @@ Normal:           Primary:          Starred:          Primary+Starred:
 
 ## API Integration
 
-### Forge Operations → API Calls
+All operations map to two API endpoints based on destination:
 
-| Operation | API Endpoint | Method | Body |
-|-----------|--------------|--------|------|
-| Generate | `/api/spaces/:spaceId/assets` | POST | `{ name, type, parentAssetId?, prompt }` |
-| Generate Variant | `/api/spaces/:spaceId/assets/:assetId/variants` | POST | `{ prompt }` |
-| Fork | `/api/spaces/:spaceId/assets` | POST | `{ name, type, parentAssetId?, referenceVariantIds: [id] }` |
-| Remix | `/api/spaces/:spaceId/assets` | POST | `{ name, type, parentAssetId?, prompt, referenceVariantIds: [id] }` |
-| Refine | `/api/spaces/:spaceId/assets/:assetId/variants` | POST | `{ sourceVariantId, prompt }` |
-| Compose | `/api/spaces/:spaceId/assets` | POST | `{ name, type, parentAssetId?, prompt, referenceVariantIds: [...] }` |
-| Mix | `/api/spaces/:spaceId/assets/:assetId/variants` | POST | `{ sourceVariantId, prompt, referenceVariantIds: [...] }` |
+| Destination | API Endpoint | Method |
+|-------------|--------------|--------|
+| New Asset | `/api/spaces/:spaceId/assets` | POST |
+| Existing Asset | `/api/spaces/:spaceId/assets/:assetId/variants` | POST |
 
-### Request Body Structure
+The request body includes prompt and reference variant IDs as needed.
 
-```typescript
-// For new asset creation (Generate, Fork, Remix, Compose)
-interface CreateAssetRequest {
-  name: string;
-  type: string;
-  parentAssetId?: string;
-  prompt?: string;                    // Required for Generate, Remix, Compose
-  referenceVariantIds?: string[];     // Required for Fork, Remix, Compose
-}
-
-// For new variant in existing asset (Generate Variant, Refine, Mix)
-interface CreateVariantRequest {
-  sourceVariantId?: string;           // Required for Refine/Mix, absent for Generate Variant
-  prompt: string;
-  referenceVariantIds?: string[];     // Additional references for Mix
-}
-```
-
----
-
-## Zustand Store
-
-### Store Structure
-
-```typescript
-const MAX_SLOTS = 14;
-
-// Default destination for empty tray or reset
-const defaultNewAssetDestination: Destination = {
-  type: 'new-asset',
-  name: '',
-  assetType: 'character',
-  parentId: null
-};
-
-interface ForgeTrayStore {
-  // State
-  slots: TraySlot[];
-  prompt: string;
-  destination: Destination;  // Consolidated type (see ForgeTrayState)
-  isExpanded: boolean;
-
-  // Actions
-  addSlot: (asset: Asset, variant?: Variant) => void;  // No-op if slots.length >= 14
-  removeSlot: (slotId: string) => void;
-  clearSlots: () => void;
-  setPrompt: (prompt: string) => void;
-  setDestination: (destination: Destination) => void;
-  setNewAssetName: (name: string) => void;      // Only when destination.type === 'new-asset'
-  setNewAssetType: (assetType: string) => void; // Only when destination.type === 'new-asset'
-  setNewAssetParent: (parentId: string | null) => void;
-  toggleExpanded: () => void;
-  reset: () => void;  // Clear all state
-
-  // Computed (call these, don't store)
-  getOperation: () => ForgeOperation;
-  canAddSlot: () => boolean;
-}
-
-// Behavior notes:
-// - Destination is always user's choice (no auto-reset based on slots)
-// - When switching destination type, preserve prompt
-// - addSlot should no-op when at MAX_SLOTS capacity
-// - 0 slots + existing asset destination = "Generate Variant" operation
-```
-
-### Persistence
-
-Tray state should persist across page navigation within the same space:
-- Store in Zustand with space-scoped key
-- Clear when changing spaces
-- Optionally persist to localStorage
+> For detailed API types and store implementation, see [PLAN.md](./PLAN.md).
 
 ---
 
 ## Responsive Behavior
 
 ### Desktop (> 1024px)
-- Full tray at bottom
-- Side-by-side slots and prompt/destination
+- Floating bar at bottom center (min 400px, max 600px)
 
 ### Tablet (768px - 1024px)
-- Tray takes full width
-- Stacked layout: slots above, prompt/destination below
+- Bar takes more width, still centered
 
 ### Mobile (< 768px)
-- Collapsed tray by default (just icon + count)
-- Tap to expand as bottom sheet
+- Full-width bar at bottom
+- ForgeModal opens as bottom sheet
 - Full-screen Asset Picker
 
 ---
@@ -819,4 +359,5 @@ Tray state should persist across page navigation within the same space:
 - ARIA labels for icon-only buttons
 - Screen reader announcements for tray changes
 - Escape closes modals
-- Tab order: slots → prompt → destination → forge button
+- Tab order: slots → prompt → forge button
+- Cmd+Enter shortcut to submit from tray

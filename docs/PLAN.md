@@ -128,6 +128,7 @@ interface ForgeTarget {
 interface ForgeTrayState {
   slots: ForgeSlot[];
   maxSlots: 14;
+  prompt: string;  // Prompt lives in store (enables assistant control)
 
   // Actions
   addSlot: (variant: Variant, asset: Asset) => boolean;
@@ -135,6 +136,17 @@ interface ForgeTrayState {
   clearSlots: () => void;
   hasVariant: (variantId: string) => boolean;
   reorderSlots: (fromIndex: number, toIndex: number) => void;
+  setPrompt: (prompt: string) => void;  // For assistant integration
+
+  // Context export (for assistant)
+  getContext: () => ForgeContext;
+}
+
+// Context for AI assistant integration (see ASSISTANT-PLAN.md)
+interface ForgeContext {
+  operation: ForgeOperation;
+  slots: Array<{ assetId: string; assetName: string; variantId: string }>;
+  prompt: string;
 }
 
 // Derived (computed on access)
@@ -332,3 +344,17 @@ Job type mapping:
 4. Single unified modal handles all forge flows
 5. Clean codebase with no legacy reference store code
 6. Smooth animations that feel polished but not flashy
+
+---
+
+## Future: Assistant Integration
+
+This plan is designed to support AI assistant control of the Forge Tray. Key provisions:
+
+- **`prompt` in store**: Prompt state lives in the store (not just modal), enabling external control
+- **`setPrompt()` action**: Assistant can programmatically set the prompt
+- **`getContext()` selector**: Exports tray state for assistant context building
+
+See **[ASSISTANT-PLAN.md](./ASSISTANT-PLAN.md)** for the full assistant integration specification.
+
+No blockers identified - assistant features can be built on top of this implementation.
