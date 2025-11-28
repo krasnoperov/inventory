@@ -9,6 +9,25 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ForgeContextSlot {
+  assetId: string;
+  assetName: string;
+  variantId: string;
+}
+
+export interface ForgeContext {
+  operation: 'generate' | 'fork' | 'refine' | 'create' | 'combine';
+  slots: ForgeContextSlot[];
+  prompt: string;
+}
+
+export interface ViewingContext {
+  type: 'catalog' | 'asset' | 'variant';
+  assetId?: string;
+  assetName?: string;
+  variantId?: string;
+}
+
 export interface BotContext {
   spaceId: string;
   spaceName: string;
@@ -19,6 +38,10 @@ export interface BotContext {
     variantCount: number;
   }>;
   mode: 'advisor' | 'actor';
+  // Forge Tray context
+  forge?: ForgeContext;
+  // What the user is currently viewing
+  viewing?: ViewingContext;
 }
 
 export interface AdvisorResponse {
@@ -29,7 +52,7 @@ export interface AdvisorResponse {
 
 export interface ActorCommand {
   type: 'command';
-  action: 'generate' | 'compose' | 'edit';
+  action: 'tray:add' | 'tray:remove' | 'tray:clear' | 'tray:setPrompt' | 'search:assets';
   params: Record<string, unknown>;
   explanation: string;
 }
@@ -88,40 +111,79 @@ export class ClaudeService {
    * Build system prompt based on context and mode
    */
   private buildSystemPrompt(context: BotContext): string {
-    const basePrompt = `You are an AI assistant helping users manage their visual asset inventory in a collaborative workspace called "${context.spaceName}".
+    let basePrompt = `You are an AI assistant helping users manage their visual asset inventory in a collaborative workspace called "${context.spaceName}".
 
 Current assets in this space:
-${context.assets.map(a => `- ${a.name} (${a.type}): ${a.variantCount} variants`).join('\n')}
+${context.assets.length > 0 ? context.assets.map(a => `- ${a.name} (${a.type}): ${a.variantCount} variants`).join('\n') : '(no assets yet)'}
 
 `;
+
+    // Add Forge Tray context if available
+    if (context.forge) {
+      const { operation, slots, prompt } = context.forge;
+      basePrompt += `FORGE TRAY STATE:
+- Operation: ${operation.toUpperCase()}
+- References: ${slots.length > 0 ? slots.map(s => s.assetName).join(', ') : 'empty'}
+- Current prompt: ${prompt ? `"${prompt}"` : '(none)'}
+
+The Forge Tray is where users combine and transform assets. Operations:
+- Generate: Create new asset from text prompt (0 refs)
+- Fork: Copy asset as-is to new asset (1 ref, no prompt)
+- Create: Transform ref into new asset (1 ref + prompt)
+- Refine: Add variant to existing asset (1 ref + prompt)
+- Combine: Merge multiple refs (2+ refs + prompt)
+
+`;
+    }
+
+    // Add viewing context if available
+    if (context.viewing) {
+      const { type, assetName } = context.viewing;
+      if (type === 'asset' && assetName) {
+        basePrompt += `USER IS VIEWING: Asset "${assetName}"
+
+`;
+      } else if (type === 'catalog') {
+        basePrompt += `USER IS VIEWING: Space catalog (all assets)
+
+`;
+      }
+    }
 
     if (context.mode === 'advisor') {
       return basePrompt + `You are in ADVISOR mode. Your role is to:
 - Answer questions about the assets and workflow
-- Suggest creative ideas for new assets or compositions
-- Explain best practices for asset management
-- Help users understand their options
+- Suggest creative prompts for the Forge Tray
+- Recommend which assets to add as references
+- Explain the different operations (Generate, Fork, Create, Refine, Combine)
+- Help users achieve their creative goals
 
-Respond conversationally and helpfully. If you have specific suggestions, list them clearly.`;
+When suggesting prompts, be specific and visual. Consider the current tray state.
+Respond conversationally and helpfully.`;
     }
 
     return basePrompt + `You are in ACTOR mode. You can take actions on behalf of the user.
 
 Available actions:
-1. generate - Create a new asset with AI image generation
-   Required: prompt (description), assetName, assetType (character|item|scene|composite)
+1. tray:add - Add an asset to the Forge Tray
+   Required: assetId (string)
 
-2. compose - Combine multiple existing variants into a new composite
-   Required: prompt (how to combine), assetName, sourceVariantIds (array of variant IDs)
+2. tray:remove - Remove a slot from the Forge Tray
+   Required: slotIndex (number)
 
-3. edit - Create a variant of an existing asset with modifications
-   Required: assetId, prompt (what to change)
+3. tray:clear - Clear all slots from the Forge Tray
+
+4. tray:setPrompt - Set the prompt in the Forge Tray
+   Required: prompt (string)
+
+5. search:assets - Search for assets by name or type
+   Required: query (string)
 
 When the user asks you to do something, respond in this JSON format:
 {
-  "action": "generate|compose|edit",
+  "action": "tray:add|tray:remove|tray:clear|tray:setPrompt|search:assets",
   "params": { /* action parameters */ },
-  "explanation": "What you're about to do and why"
+  "explanation": "What you're doing and why"
 }
 
 If you need clarification before acting, just respond with a normal message asking for more details.

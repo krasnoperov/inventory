@@ -88,7 +88,35 @@
   color: var(--color-text-muted);
   margin: 0.5rem 1rem 0;
   padding-bottom: 0.75rem;
+}
+
+/* Context Bar */
+.contextBar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.625rem 1rem;
+  background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
+}
+
+.contextItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.contextIcon {
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.contextLabel {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Messages Area */

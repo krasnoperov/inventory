@@ -1,4 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useForgeTrayStore } from '../stores/forgeTrayStore';
+import type { Asset } from '../hooks/useSpaceWebSocket';
 import styles from './ChatSidebar.module.css';
 
 interface ChatMessage {
@@ -17,19 +19,52 @@ interface BotResponse {
   };
 }
 
+interface ForgeContext {
+  operation: string;
+  slots: Array<{ assetId: string; assetName: string; variantId: string }>;
+  prompt: string;
+}
+
+interface ViewingContext {
+  type: 'catalog' | 'asset' | 'variant';
+  assetId?: string;
+  assetName?: string;
+  variantId?: string;
+}
+
 interface ChatSidebarProps {
   spaceId: string;
   isOpen: boolean;
   onClose: () => void;
+  /** Current asset being viewed (for Asset Detail page) */
+  currentAsset?: Asset | null;
+  /** All assets in the space (for action handling) */
+  allAssets?: Asset[];
 }
 
-export function ChatSidebar({ spaceId, isOpen, onClose }: ChatSidebarProps) {
+export function ChatSidebar({ spaceId, isOpen, onClose, currentAsset, allAssets = [] }: ChatSidebarProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [mode, setMode] = useState<'advisor' | 'actor'>('advisor');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Get forge tray context
+  const forgeContext = useForgeTrayStore((state) => state.getContext());
+  const { addSlot, setPrompt, clearSlots, removeSlot, slots } = useForgeTrayStore();
+
+  // Build viewing context
+  const viewingContext = useMemo<ViewingContext>(() => {
+    if (currentAsset) {
+      return {
+        type: 'asset',
+        assetId: currentAsset.id,
+        assetName: currentAsset.name,
+      };
+    }
+    return { type: 'catalog' };
+  }, [currentAsset]);
 
   // Load chat history on mount
   useEffect(() => {
@@ -42,6 +77,43 @@ export function ChatSidebar({ spaceId, isOpen, onClose }: ChatSidebarProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Handle assistant actions (tray control, etc.)
+  const handleAssistantAction = useCallback((action: string, params: Record<string, unknown>) => {
+    switch (action) {
+      case 'tray:add': {
+        const assetId = params.assetId as string;
+        const asset = allAssets.find(a => a.id === assetId);
+        if (asset && asset.active_variant_id) {
+          // We need to find the variant - for now, we'll just show a message
+          // Full implementation would require variants list
+          console.log('Would add asset to tray:', asset.name);
+        }
+        break;
+      }
+      case 'tray:remove': {
+        const slotIndex = params.slotIndex as number;
+        if (slots[slotIndex]) {
+          removeSlot(slots[slotIndex].id);
+        }
+        break;
+      }
+      case 'tray:clear':
+        clearSlots();
+        break;
+      case 'tray:setPrompt': {
+        const prompt = params.prompt as string;
+        setPrompt(prompt);
+        break;
+      }
+      case 'search:assets':
+        // Search action - results would be shown in chat
+        console.log('Search for:', params.query);
+        break;
+      default:
+        console.log('Unknown action:', action, params);
+    }
+  }, [allAssets, slots, addSlot, removeSlot, clearSlots, setPrompt]);
 
   const loadChatHistory = async () => {
     try {
@@ -100,6 +172,8 @@ export function ChatSidebar({ spaceId, isOpen, onClose }: ChatSidebarProps) {
             role: m.role,
             content: m.content,
           })),
+          forgeContext,
+          viewingContext,
         }),
       });
 
@@ -109,6 +183,11 @@ export function ChatSidebar({ spaceId, isOpen, onClose }: ChatSidebarProps) {
       }
 
       const data = await response.json() as { success: boolean; response: BotResponse };
+
+      // Handle actor commands
+      if (data.response.type === 'command' && data.response.command) {
+        handleAssistantAction(data.response.command.action, data.response.command.params);
+      }
 
       // Add bot response to chat
       const botContent = data.response.type === 'advice'
@@ -132,7 +211,7 @@ export function ChatSidebar({ spaceId, isOpen, onClose }: ChatSidebarProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, spaceId, mode, messages]);
+  }, [inputValue, isLoading, spaceId, mode, messages, forgeContext, viewingContext, handleAssistantAction]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -178,6 +257,34 @@ export function ChatSidebar({ spaceId, isOpen, onClose }: ChatSidebarProps) {
           ? 'Ask questions and get suggestions'
           : 'Give commands to modify assets'}
       </p>
+
+      {/* Context Bar - shows current forge and viewing state */}
+      <div className={styles.contextBar}>
+        <div className={styles.contextItem}>
+          <span className={styles.contextIcon}>📍</span>
+          <span className={styles.contextLabel}>
+            {viewingContext.type === 'asset'
+              ? `Viewing: ${viewingContext.assetName}`
+              : 'Viewing: Catalog'}
+          </span>
+        </div>
+        {forgeContext.slots.length > 0 && (
+          <div className={styles.contextItem}>
+            <span className={styles.contextIcon}>🔥</span>
+            <span className={styles.contextLabel}>
+              Tray: {forgeContext.slots.map(s => s.assetName).join(', ')}
+            </span>
+          </div>
+        )}
+        {forgeContext.prompt && (
+          <div className={styles.contextItem}>
+            <span className={styles.contextIcon}>✏️</span>
+            <span className={styles.contextLabel}>
+              Prompt: "{forgeContext.prompt.slice(0, 30)}{forgeContext.prompt.length > 30 ? '...' : ''}"
+            </span>
+          </div>
+        )}
+      </div>
 
       <div className={styles.messages}>
         {isLoadingHistory ? (

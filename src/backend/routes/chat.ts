@@ -4,7 +4,7 @@ import { AuthService } from '../features/auth/auth-service';
 import { MemberDAO } from '../../dao/member-dao';
 import { SpaceDAO } from '../../dao/space-dao';
 import { getAuthToken } from '../auth';
-import { ClaudeService, type BotContext, type ChatMessage } from '../services/claudeService';
+import { ClaudeService, type BotContext, type ChatMessage, type ForgeContext, type ViewingContext } from '../services/claudeService';
 import { chatRateLimiter, suggestionRateLimiter } from '../middleware/rate-limit';
 
 const chatRoutes = new Hono<AppContext>();
@@ -48,7 +48,19 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
 
     // Validate request body
     const body = await c.req.json();
-    const { message, mode = 'advisor', history = [] } = body;
+    const {
+      message,
+      mode = 'advisor',
+      history = [],
+      forgeContext,
+      viewingContext,
+    } = body as {
+      message: string;
+      mode?: string;
+      history?: ChatMessage[];
+      forgeContext?: ForgeContext;
+      viewingContext?: ViewingContext;
+    };
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return c.json({ error: 'Message is required' }, 400);
@@ -98,7 +110,9 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
       spaceId,
       spaceName: space.name,
       assets,
-      mode,
+      mode: mode as 'advisor' | 'actor',
+      forge: forgeContext,
+      viewing: viewingContext,
     };
 
     // Process message with Claude
