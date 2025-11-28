@@ -3,7 +3,17 @@ import { D1Dialect } from 'kysely-d1';
 import type { Database } from '../../db/types';
 import type { Env } from '../../core/types';
 import { JobDAO } from '../../dao/job-dao';
+import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { NanoBananaService } from './nanoBananaService';
+import { USAGE_EVENTS } from './usageService';
+import {
+  detectImageType,
+  base64ToBuffer,
+  arrayBufferToBase64,
+  createThumbnail,
+  getBaseUrl,
+  getExtensionForMimeType,
+} from '../utils/image-utils';
 
 // =============================================================================
 // Queue Message Type
@@ -45,21 +55,6 @@ export interface GenerationMessage {
  */
 export class GenerationConsumer {
   constructor(private env: Env) {}
-
-  /**
-   * Convert ArrayBuffer to base64 string without stack overflow.
-   * Uses chunked processing to handle large images safely.
-   */
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    return btoa(binary);
-  }
 
   async processJob(message: GenerationMessage): Promise<void> {
     const { jobId, spaceId, prompt, model, aspectRatio } = message;
@@ -131,7 +126,7 @@ export class GenerationConsumer {
         }
 
         const sourceBuffer = await sourceObject.arrayBuffer();
-        const sourceBase64 = this.arrayBufferToBase64(sourceBuffer);
+        const sourceBase64 = arrayBufferToBase64(sourceBuffer);
         const sourceMimeType = sourceObject.httpMetadata?.contentType || 'image/png';
 
         result = await nanoBanana.edit({
@@ -152,7 +147,7 @@ export class GenerationConsumer {
             }
 
             const buffer = await imageObject.arrayBuffer();
-            const base64 = this.arrayBufferToBase64(buffer);
+            const base64 = arrayBufferToBase64(buffer);
             const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
 
             return { data: base64, mimeType, label: `Reference ${index + 1}:` };
@@ -193,7 +188,7 @@ export class GenerationConsumer {
             }
 
             const buffer = await imageObject.arrayBuffer();
-            const base64 = this.arrayBufferToBase64(buffer);
+            const base64 = arrayBufferToBase64(buffer);
             const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
 
             return { data: base64, mimeType, label: `Image ${index + 1}:` };
@@ -217,25 +212,60 @@ export class GenerationConsumer {
 
       // Upload to R2
       const variantId = crypto.randomUUID();
-      const imageKey = `images/${spaceId}/${variantId}.png`;
-      const thumbKey = `images/${spaceId}/${variantId}_thumb.png`;
+
+      // Detect actual image type from base64 magic bytes (more reliable than API response)
+      const actualMimeType = detectImageType(result.imageData);
+      const extension = getExtensionForMimeType(actualMimeType);
+
+      const imageKey = `images/${spaceId}/${variantId}.${extension}`;
+      const thumbKey = `images/${spaceId}/${variantId}_thumb.webp`;
 
       // Convert base64 to buffer
-      const imageBuffer = Uint8Array.from(atob(result.imageData), c => c.charCodeAt(0));
+      const imageBuffer = base64ToBuffer(result.imageData);
 
-      // Upload full image
+      // Upload full image first
       await this.env.IMAGES.put(imageKey, imageBuffer, {
         httpMetadata: {
-          contentType: result.imageMimeType,
+          contentType: actualMimeType,
         },
       });
 
-      // Upload thumbnail (same image for now)
-      await this.env.IMAGES.put(thumbKey, imageBuffer, {
-        httpMetadata: {
-          contentType: result.imageMimeType,
-        },
-      });
+      console.log(`[GenerationConsumer] Uploaded full image: ${imageKey} (${actualMimeType})`);
+
+      // Create and upload thumbnail using Cloudflare Image Resizing
+      // 512px covers 2x DPR at 256px and 3x DPR at 170px (--thumb-size-lg is 150px)
+      try {
+        const baseUrl = getBaseUrl(this.env);
+        const { buffer: thumbBuffer, mimeType: thumbMimeType } = await createThumbnail(
+          imageKey,
+          baseUrl,
+          this.env,
+          {
+            width: 512,
+            height: 512,
+            fit: 'cover',
+            gravity: 'auto', // Smart crop using saliency detection
+            quality: 80,
+            format: 'webp',
+          }
+        );
+
+        await this.env.IMAGES.put(thumbKey, thumbBuffer, {
+          httpMetadata: {
+            contentType: thumbMimeType,
+          },
+        });
+
+        console.log(`[GenerationConsumer] Uploaded thumbnail: ${thumbKey} (${thumbMimeType})`);
+      } catch (thumbError) {
+        // Fallback: use the original image as thumbnail if resizing fails
+        console.warn(`[GenerationConsumer] Thumbnail creation failed, using original:`, thumbError);
+        await this.env.IMAGES.put(thumbKey, imageBuffer, {
+          httpMetadata: {
+            contentType: actualMimeType,
+          },
+        });
+      }
 
       // Get assetId from already-parsed jobInput
       let assetId = jobInput.assetId || message.assetId;
@@ -334,6 +364,25 @@ export class GenerationConsumer {
 
       // Update job to completed with the variant ID from the DO
       await jobDao.setJobResult(jobId, doResult.variant.id);
+
+      // Track image generation usage for billing
+      try {
+        const usageEventDAO = new UsageEventDAO(db);
+        await usageEventDAO.create({
+          userId: parseInt(job.created_by),
+          eventName: USAGE_EVENTS.NANOBANANA_IMAGES,
+          quantity: 1,
+          metadata: {
+            model: model || 'gemini-3-pro-image-preview',
+            operation: job.type || 'generate',
+            aspect_ratio: aspectRatio || '1:1',
+            job_id: jobId,
+          },
+        });
+      } catch (usageError) {
+        // Log but don't fail the job if usage tracking fails
+        console.warn(`[GenerationConsumer] Failed to track usage for job ${jobId}:`, usageError);
+      }
 
       // Broadcast job:completed to WebSocket clients
       await doStub.fetch(

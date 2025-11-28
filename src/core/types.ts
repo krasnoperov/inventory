@@ -61,6 +61,10 @@ export interface Env {
   // Inventory Forge: Claude API for generation
   ANTHROPIC_API_KEY?: string;
 
+  // Polar.sh billing integration
+  POLAR_ACCESS_TOKEN?: string;
+  POLAR_ORGANIZATION_ID?: string;
+
   // --- FUTURE: Add your domain-specific bindings here ---
   // Example for queues:
   // MY_QUEUE?: Queue<any>;

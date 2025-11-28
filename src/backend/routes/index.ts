@@ -18,6 +18,7 @@ import { chatRoutes } from './chat';
 import { searchRoutes } from './search';
 import { websocketRoutes } from './websocket';
 import { exportRoutes } from './export';
+import { billingRoutes } from './billing';
 
 /**
  * Register all routes with the main app
@@ -56,6 +57,9 @@ export function registerRoutes(app: Hono<AppContext>) {
 
   // Export/Import routes
   app.route('/', exportRoutes);
+
+  // Billing routes (Polar.sh integration)
+  app.route('/', billingRoutes);
 
   // --- Domain routes will be added per ARCHITECTURE.md ---
 }

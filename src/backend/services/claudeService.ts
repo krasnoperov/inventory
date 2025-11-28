@@ -13,6 +13,20 @@ import type {
 export type { ChatMessage, ForgeContext, ViewingContext, BotResponse };
 
 // =============================================================================
+// Usage Tracking Types
+// =============================================================================
+
+export interface ClaudeUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export interface BotResponseWithUsage {
+  response: BotResponse;
+  usage: ClaudeUsage;
+}
+
+// =============================================================================
 // Types (Extended for internal use)
 // =============================================================================
 
@@ -36,7 +50,82 @@ export interface BotContext {
 // Tool Definitions
 // =============================================================================
 
-const ASSISTANT_TOOLS: Anthropic.Tool[] = [
+/**
+ * READ_TOOLS: Tools for observing/analyzing assets without modification.
+ * Available in both Advisor and Actor modes.
+ */
+const READ_TOOLS: Anthropic.Tool[] = [
+  {
+    name: 'search_assets',
+    description: 'Search for assets in the space by name, type, or description',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query (matches asset names and types)',
+        },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'describe_image',
+    description: 'Analyze and describe what is in a variant image. Use this when the user asks what is in an image, wants you to analyze a generated result, or needs a detailed description of a variant. IMPORTANT: Use this tool whenever asked to describe, analyze, or look at an image - you cannot see images without calling this tool.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        variantId: {
+          type: 'string',
+          description: 'The ID of the variant to analyze',
+        },
+        assetName: {
+          type: 'string',
+          description: 'The name of the asset (for context)',
+        },
+        question: {
+          type: 'string',
+          description: 'The specific question to answer about the image. Pass through the user\'s question or your own analytical question. Examples: "What separate assets can we extract from this scene?", "What is the character wearing?", "Describe the lighting and mood."',
+        },
+        focus: {
+          type: 'string',
+          enum: ['general', 'style', 'composition', 'details', 'compare'],
+          description: 'Optional fallback focus if no question provided: general overview, artistic style, composition, fine details, or comparison to prompt',
+        },
+      },
+      required: ['variantId', 'assetName'],
+    },
+  },
+  {
+    name: 'compare_variants',
+    description: 'Compare two or more variants of the same or different assets, highlighting differences and similarities.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        variantIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'IDs of variants to compare (2-4)',
+        },
+        aspectsToCompare: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['style', 'composition', 'colors', 'details', 'mood'],
+          },
+          description: 'Aspects to focus comparison on',
+        },
+      },
+      required: ['variantIds'],
+    },
+  },
+];
+
+/**
+ * ACTION_TOOLS: Tools that modify state (create, refine, combine assets, modify tray).
+ * Only available in Actor mode.
+ */
+const ACTION_TOOLS: Anthropic.Tool[] = [
   {
     name: 'create_plan',
     description: 'Create a multi-step plan to achieve the user\'s goal. Use this when the user wants to create multiple assets, do a series of operations, or achieve a complex creative goal. The plan will be shown to the user for approval before execution.',
@@ -202,67 +291,10 @@ const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       required: ['sourceAssetIds', 'prompt', 'targetName', 'targetType'],
     },
   },
-  {
-    name: 'search_assets',
-    description: 'Search for assets in the space by name, type, or description',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        query: {
-          type: 'string',
-          description: 'Search query (matches asset names and types)',
-        },
-      },
-      required: ['query'],
-    },
-  },
-  {
-    name: 'describe_image',
-    description: 'Analyze and describe what is in a variant image. Use this when the user asks what is in an image, wants you to analyze a generated result, or needs a detailed description of a variant.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        variantId: {
-          type: 'string',
-          description: 'The ID of the variant to analyze',
-        },
-        assetName: {
-          type: 'string',
-          description: 'The name of the asset (for context)',
-        },
-        focus: {
-          type: 'string',
-          enum: ['general', 'style', 'composition', 'details', 'compare'],
-          description: 'What aspect to focus on: general overview, artistic style, composition, fine details, or comparison to prompt',
-        },
-      },
-      required: ['variantId', 'assetName'],
-    },
-  },
-  {
-    name: 'compare_variants',
-    description: 'Compare two or more variants of the same or different assets, highlighting differences and similarities.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        variantIds: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'IDs of variants to compare (2-4)',
-        },
-        aspectsToCompare: {
-          type: 'array',
-          items: {
-            type: 'string',
-            enum: ['style', 'composition', 'colors', 'details', 'mood'],
-          },
-          description: 'Aspects to focus comparison on',
-        },
-      },
-      required: ['variantIds'],
-    },
-  },
 ];
+
+/** All tools combined for Actor mode */
+const ALL_TOOLS: Anthropic.Tool[] = [...READ_TOOLS, ...ACTION_TOOLS];
 
 // =============================================================================
 // Claude Service - Bot Assistant Integration
@@ -277,12 +309,13 @@ export class ClaudeService {
 
   /**
    * Process a chat message and generate a response with tool use
+   * Returns both the response and token usage for billing
    */
   async processMessage(
     userMessage: string,
     context: BotContext,
     history: ChatMessage[] = []
-  ): Promise<BotResponse> {
+  ): Promise<BotResponseWithUsage> {
     const systemPrompt = this.buildSystemPrompt(context);
 
     const messages: Anthropic.MessageParam[] = [
@@ -293,32 +326,27 @@ export class ClaudeService {
       { role: 'user', content: userMessage },
     ];
 
-    // Use tool calling for actor mode
-    if (context.mode === 'actor') {
-      const response = await this.client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
-        system: systemPrompt,
-        tools: ASSISTANT_TOOLS,
-        messages,
-      });
+    // Select tools based on mode
+    // Actor mode: All tools (read + action)
+    // Advisor mode: Read tools only (search, describe, compare)
+    const tools = context.mode === 'actor' ? ALL_TOOLS : READ_TOOLS;
+    const maxTokens = context.mode === 'actor' ? 2048 : 1024;
 
-      return this.parseToolResponse(response);
-    }
-
-    // Simple text response for advisor mode
     const response = await this.client.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
+      max_tokens: maxTokens,
       system: systemPrompt,
+      tools,
       messages,
     });
 
-    const responseText = response.content[0].type === 'text'
-      ? response.content[0].text
-      : '';
-
-    return this.parseAdvisorResponse(responseText);
+    return {
+      response: this.parseToolResponse(response),
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      },
+    };
   }
 
   /**
@@ -352,8 +380,18 @@ Operations explained:
     }
 
     if (context.viewing) {
-      const { type, assetName } = context.viewing;
-      prompt += `USER IS VIEWING: ${type === 'asset' ? `Asset "${assetName}"` : 'Space catalog'}\n\n`;
+      const { type, assetName, variantId, variantCount, variantIndex } = context.viewing;
+      if (type === 'asset' && assetName) {
+        const variantInfo = variantCount && variantCount > 0
+          ? ` (viewing variant ${variantIndex || 1} of ${variantCount}${variantId ? `, variantId: ${variantId}` : ''})`
+          : '';
+        prompt += `USER IS VIEWING: Asset "${assetName}"${variantInfo}
+To describe this image, use the describe_image tool with variantId="${variantId}" and assetName="${assetName}".
+
+`;
+      } else {
+        prompt += `USER IS VIEWING: Space catalog\n\n`;
+      }
     }
 
     if (context.activePlan) {
@@ -368,7 +406,17 @@ ${plan.steps.map((s, i) => `${i + 1}. [${s.status}] ${s.description}${s.result ?
     }
 
     if (context.mode === 'advisor') {
-      prompt += `MODE: ADVISOR
+      prompt += `MODE: ADVISOR (Read Tools Available)
+You can observe and analyze assets, but cannot modify them.
+
+AVAILABLE TOOLS:
+- describe_image: Analyze what's in an image. ALWAYS use this when asked to describe, look at, or analyze any image. You cannot see images without calling this tool.
+- compare_variants: Compare multiple variants side-by-side
+- search_assets: Find assets by name or type
+
+IMPORTANT: When the user asks you to describe what they're viewing or asks about an image, you MUST use the describe_image tool. Do not say you cannot see images - use the tool!
+
+GUIDELINES:
 - Answer questions about assets and creative workflow
 - Suggest prompts and techniques
 - Explain operations and best practices
@@ -512,8 +560,41 @@ Always explain what you're doing and why.`;
     imageBase64: string,
     mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
     assetName: string,
-    focus: 'general' | 'style' | 'composition' | 'details' | 'compare' = 'general'
+    focus: 'general' | 'style' | 'composition' | 'details' | 'compare' = 'general',
+    question?: string
   ): Promise<string> {
+    // If a specific question is provided, use it directly
+    if (question) {
+      const userPrompt = `This is an image of "${assetName}" from a visual asset library.\n\nQuestion: ${question}\n\nPlease answer the question based on what you see in the image.`;
+
+      const response = await this.client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: mediaType,
+                data: imageBase64,
+              },
+            },
+            {
+              type: 'text',
+              text: userPrompt,
+            },
+          ],
+        }],
+      });
+
+      return response.content[0].type === 'text'
+        ? response.content[0].text
+        : 'Unable to analyze this image.';
+    }
+
+    // Fallback to focus-based prompts
     const focusPrompts: Record<string, string> = {
       general: `Describe this image in detail. What do you see? Include the subject, setting, colors, mood, and any notable details.`,
       style: `Analyze the artistic style of this image. Describe the art style, techniques used, color palette, and visual aesthetic. Compare to known art styles if applicable.`,

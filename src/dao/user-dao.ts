@@ -12,6 +12,7 @@ export interface CreateUserData {
 export interface UpdateUserData {
   name?: string;
   google_id?: string;
+  polar_customer_id?: string;
 }
 
 @injectable()
@@ -69,6 +70,7 @@ export class UserDAO {
 
     if (data.name !== undefined) updateData.name = data.name;
     if (data.google_id !== undefined) updateData.google_id = data.google_id;
+    if (data.polar_customer_id !== undefined) updateData.polar_customer_id = data.polar_customer_id;
 
     await this.db
       .updateTable('users')

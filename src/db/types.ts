@@ -11,6 +11,7 @@ export interface UsersTable {
   email: string;
   name: string;
   google_id: string | null;
+  polar_customer_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -62,12 +63,27 @@ export interface JobsTable {
   updated_at: number;
 }
 
+// ============================================================================
+// BILLING - Usage Tracking
+// ============================================================================
+
+export interface UsageEventsTable {
+  id: Generated<string>;
+  user_id: number;
+  event_name: string;  // 'claude_tokens', 'nanobanana_images'
+  quantity: number;
+  metadata: string | null;  // JSON
+  created_at: string;
+  synced_at: string | null;  // NULL until synced to Polar
+}
+
 export interface Database {
   users: UsersTable;
   spaces: SpacesTable;
   space_members: SpaceMembersTable;
   asset_index: AssetIndexTable;
   jobs: JobsTable;
+  usage_events: UsageEventsTable;
 }
 
 // User types
@@ -102,3 +118,8 @@ export type AssetIndexUpdate = Updateable<AssetIndexTable>;
 export type Job = Selectable<JobsTable>;
 export type NewJob = Insertable<JobsTable>;
 export type JobUpdate = Updateable<JobsTable>;
+
+// UsageEvent types
+export type UsageEvent = Selectable<UsageEventsTable>;
+export type NewUsageEvent = Insertable<UsageEventsTable>;
+export type UsageEventUpdate = Updateable<UsageEventsTable>;

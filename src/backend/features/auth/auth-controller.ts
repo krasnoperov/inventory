@@ -1,12 +1,14 @@
 import { injectable, inject } from 'inversify';
 import { AuthService } from './auth-service';
 import { UserDAO } from "../../../dao/user-dao";
+import { PolarService } from '../../services/polarService';
 
 @injectable()
 export class AuthController {
   constructor(
     @inject(AuthService) private authService: AuthService,
-    @inject(UserDAO) private userDAO: UserDAO
+    @inject(UserDAO) private userDAO: UserDAO,
+    @inject(PolarService) private polarService: PolarService
   ) {}
 
   async authenticateWithGoogle(accessToken: string) {
@@ -45,6 +47,24 @@ export class AuthController {
         });
 
         user = await this.userDAO.findById(userId);
+
+        // Create Polar customer for billing (if Polar is configured)
+        if (user && this.polarService.isConfigured()) {
+          try {
+            const polarCustomerId = await this.polarService.createCustomer(
+              user.id,
+              user.email,
+              user.name
+            );
+            if (polarCustomerId) {
+              await this.userDAO.update(user.id, { polar_customer_id: polarCustomerId });
+              console.log(`Created Polar customer ${polarCustomerId} for user ${user.id}`);
+            }
+          } catch (polarError) {
+            // Log but don't fail signup if Polar customer creation fails
+            console.error(`Failed to create Polar customer for user ${userId}:`, polarError);
+          }
+        }
       } else {
         // User exists with this Google ID
         // Only update name (not email - to avoid conflicts)

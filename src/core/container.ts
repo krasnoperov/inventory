@@ -10,6 +10,7 @@ import { UserDAO } from '../dao/user-dao';
 import { SpaceDAO } from '../dao/space-dao';
 import { MemberDAO } from '../dao/member-dao';
 import { JobDAO } from '../dao/job-dao';
+import { UsageEventDAO } from '../dao/usage-event-dao';
 
 // Import Auth Services
 import { AuthService } from '../backend/features/auth/auth-service';
@@ -18,6 +19,8 @@ import { AuthHandler } from '../backend/features/auth/auth-handler';
 
 // Import Domain Services
 import { NanoBananaService } from '../backend/services/nanoBananaService';
+import { PolarService } from '../backend/services/polarService';
+import { UsageService } from '../backend/services/usageService';
 
 /**
  * Create and configure the dependency injection container
@@ -47,6 +50,9 @@ export function createContainer(env: Env): Container {
   container.bind(JobDAO).toSelf().inSingletonScope();
   container.bind(TYPES.JobDAO).toService(JobDAO);
 
+  container.bind(UsageEventDAO).toSelf().inSingletonScope();
+  container.bind(TYPES.UsageEventDAO).toService(UsageEventDAO);
+
   // Bind Auth Services
   container.bind(AuthService).toSelf().inSingletonScope();
   container.bind(AuthController).toSelf().inSingletonScope();
@@ -58,6 +64,14 @@ export function createContainer(env: Env): Container {
       new NanoBananaService(env.GOOGLE_AI_API_KEY!)
     )).inSingletonScope();
   }
+
+  // Bind Billing Services (Polar.sh)
+  if (env.POLAR_ACCESS_TOKEN) {
+    container.bind(PolarService).toSelf().inSingletonScope();
+  }
+
+  // UsageService always bound (works with or without Polar)
+  container.bind(UsageService).toSelf().inSingletonScope();
 
   return container;
 }

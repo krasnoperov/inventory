@@ -5,23 +5,9 @@ import { MemberDAO } from '../../dao/member-dao';
 import { SpaceDAO } from '../../dao/space-dao';
 import { getAuthToken } from '../auth';
 import { ClaudeService, type BotContext, type ChatMessage, type ForgeContext, type ViewingContext } from '../services/claudeService';
+import { UsageService } from '../services/usageService';
 import { chatRateLimiter, suggestionRateLimiter } from '../middleware/rate-limit';
-
-/**
- * Convert ArrayBuffer to base64 using chunked approach to avoid call stack limits
- */
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000; // 32KB chunks to avoid call stack limits
-  let binary = '';
-
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-    binary += String.fromCharCode(...chunk);
-  }
-
-  return btoa(binary);
-}
+import { arrayBufferToBase64, detectImageType } from '../utils/image-utils';
 
 const chatRoutes = new Hono<AppContext>();
 
@@ -32,6 +18,7 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
     const authService = container.get(AuthService);
     const memberDAO = container.get(MemberDAO);
     const spaceDAO = container.get(SpaceDAO);
+    const usageService = container.get(UsageService);
     const env = c.env;
 
     // Check authentication
@@ -133,11 +120,19 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
 
     // Process message with Claude
     const claudeService = new ClaudeService(env.ANTHROPIC_API_KEY);
-    const response = await claudeService.processMessage(
+    const { response, usage } = await claudeService.processMessage(
       message.trim(),
       context,
       history as ChatMessage[]
     );
+
+    // Track Claude API usage with actual token counts from Anthropic API
+    usageService.trackClaudeUsage(
+      payload.userId,
+      usage.inputTokens,
+      usage.outputTokens,
+      'claude-sonnet-4-20250514'
+    ).catch(err => console.warn('Failed to track Claude usage:', err));
 
     // Store chat message in DO (user message)
     if (env.SPACES_DO) {
@@ -300,10 +295,11 @@ chatRoutes.post('/api/spaces/:id/chat/describe', chatRateLimiter, async (c) => {
 
     // Validate request body
     const body = await c.req.json();
-    const { variantId, assetName, focus = 'general' } = body as {
+    const { variantId, assetName, focus = 'general', question } = body as {
       variantId: string;
       assetName: string;
       focus?: 'general' | 'style' | 'composition' | 'details' | 'compare';
+      question?: string;
     };
 
     if (!variantId || !assetName) {
@@ -354,13 +350,12 @@ chatRoutes.post('/api/spaces/:id/chat/describe', chatRateLimiter, async (c) => {
     const arrayBuffer = await imageObject.arrayBuffer();
     const base64 = arrayBufferToBase64(arrayBuffer);
 
-    // Determine media type
-    const contentType = imageObject.httpMetadata?.contentType || 'image/png';
-    const mediaType = contentType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+    // Detect actual media type from image data (more reliable than R2 metadata)
+    const mediaType = detectImageType(base64);
 
     // Call Claude to describe the image
     const claudeService = new ClaudeService(env.ANTHROPIC_API_KEY);
-    const description = await claudeService.describeImage(base64, mediaType, assetName, focus);
+    const description = await claudeService.describeImage(base64, mediaType, assetName, focus, question);
 
     return c.json({
       success: true,
@@ -454,11 +449,10 @@ chatRoutes.post('/api/spaces/:id/chat/compare', chatRateLimiter, async (c) => {
 
       const arrayBuffer = await imageObject.arrayBuffer();
       const base64 = arrayBufferToBase64(arrayBuffer);
-      const contentType = imageObject.httpMetadata?.contentType || 'image/png';
 
       images.push({
         base64,
-        mediaType: contentType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+        mediaType: detectImageType(base64),
         label,
       });
     }
