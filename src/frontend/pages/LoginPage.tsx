@@ -1,6 +1,7 @@
 import { useGoogleLogin } from '@react-oauth/google';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { type User } from '../contexts/AuthContext';
 import { FormContainer, FormTitle } from '../components/forms';
 import styles from './LoginPage.module.css';
@@ -8,6 +9,7 @@ import styles from './LoginPage.module.css';
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  useDocumentTitle('Login');
 
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {

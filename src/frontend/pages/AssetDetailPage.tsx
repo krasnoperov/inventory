@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { AppHeader } from '../components/AppHeader';
@@ -48,6 +49,9 @@ export default function AssetDetailPage() {
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
+
+  // Set page title
+  useDocumentTitle(asset?.name);
 
   // Chat sidebar state
   const [showChat, setShowChat] = useState(false);

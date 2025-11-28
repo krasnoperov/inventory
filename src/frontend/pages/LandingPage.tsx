@@ -1,11 +1,13 @@
 import { Link } from '../components/Link';
 import { useAuth } from '../contexts/useAuth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import styles from './LandingPage.module.css';
 
 export default function LandingPage() {
   const { user } = useAuth();
+  useDocumentTitle();
 
   return (
     <div className={styles.page}>

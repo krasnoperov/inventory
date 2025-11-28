@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from '../hooks/useSearchParams';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { FormContainer, FormTitle } from '../components/forms';
 import styles from './AuthorizationApprovalPage.module.css';
 
@@ -18,6 +19,7 @@ export default function AuthorizationApprovalPage() {
   const [request, setRequest] = useState<ApprovalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  useDocumentTitle('Authorize App');
 
   const requestId = searchParams.get('request');
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { FormContainer, FormTitle, ErrorMessage, formStyles } from '../components/forms';
@@ -16,6 +17,7 @@ interface ProfileData {
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  useDocumentTitle('Profile');
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);

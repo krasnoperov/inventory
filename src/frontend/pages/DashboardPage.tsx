@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { ErrorMessage } from '../components/forms';
@@ -17,6 +18,7 @@ interface Space {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  useDocumentTitle('Dashboard');
 
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [isLoading, setIsLoading] = useState(true);
