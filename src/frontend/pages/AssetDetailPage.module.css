@@ -3,11 +3,52 @@
   background: var(--color-bg);
 }
 
+.pageContent {
+  min-height: calc(100vh - 60px);
+  position: relative;
+}
+
 .main {
   max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
   padding-bottom: 200px; /* Space for ForgeTray */
+  transition: margin 0.3s ease;
+}
+
+/* When chat is open, shift content left to make room but stay visually balanced */
+.page.withChat .main {
+  margin-right: 400px; /* Sidebar width + gap */
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.chatToggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  font-size: 1.125rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.chatToggle:hover {
+  border-color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.chatToggle.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .brand {
@@ -1083,6 +1124,11 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  /* On mobile, chat is overlay - don't push content */
+  .page.withChat .main {
+    margin-right: auto;
+  }
+
   .main {
     padding: 1rem;
   }

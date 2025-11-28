@@ -41,18 +41,8 @@
     oklch(70% 0.13 145)
   );
 
-  /* Brand gradients */
-  /* Light: #667eea (oklch(62.19% 0.1845 276.62)) to #764ba2 (oklch(48.97% 0.1549 307.72)) */
-  /* Dark: Medium-dark (2/3 to dark) - comfortable for night without being too intense */
-  --brand-gradient-start: light-dark(
-    oklch(62.19% 0.1845 276.62),
-    oklch(35% 0.12 276.62)
-  );
-  --brand-gradient-end: light-dark(
-    oklch(48.97% 0.1549 307.72),
-    oklch(25% 0.10 307.72)
-  );
-  --gradient-brand: linear-gradient(135deg, var(--brand-gradient-start) 0%, var(--brand-gradient-end) 100%);
+  /* Brand background - solid color matching app style */
+  --gradient-brand: var(--color-bg);
 
   /* Light: rgba(102, 126, 234, 0.92) and rgba(118, 75, 162, 0.92) */
   /* Dark: Slightly lighter than background gradient for distinction */

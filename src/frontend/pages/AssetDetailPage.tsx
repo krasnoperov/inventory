@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
@@ -14,6 +14,7 @@ import {
   type Lineage,
 } from '../hooks/useSpaceWebSocket';
 import { LineageTree } from '../components/LineageTree';
+import { ChatSidebar } from '../components/ChatSidebar';
 import { ForgeTray, type ForgeSubmitParams } from '../components/ForgeTray';
 import styles from './AssetDetailPage.module.css';
 
@@ -48,6 +49,8 @@ export default function AssetDetailPage() {
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
 
+  // Chat sidebar state
+  const [showChat, setShowChat] = useState(false);
 
   // Inline editing state
   const [editingName, setEditingName] = useState(false);
@@ -385,7 +388,16 @@ export default function AssetDetailPage() {
   };
 
   const headerRightSlot = user ? (
-    <HeaderNav userName={user.name} userEmail={user.email} />
+    <div className={styles.headerRight}>
+      <button
+        className={`${styles.chatToggle} ${showChat ? styles.active : ''}`}
+        onClick={() => setShowChat(!showChat)}
+        title={showChat ? 'Close chat' : 'Open assistant'}
+      >
+        🤖
+      </button>
+      <HeaderNav userName={user.name} userEmail={user.email} />
+    </div>
   ) : (
     <Link to="/login" className={styles.authButton}>Sign In</Link>
   );
@@ -426,22 +438,23 @@ export default function AssetDetailPage() {
   const selectedRecipe = selectedVariant ? parseRecipe(selectedVariant.recipe) : null;
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${showChat ? styles.withChat : ''}`}>
       <AppHeader
         leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
         rightSlot={headerRightSlot}
       />
 
-      <main className={styles.main}>
+      <div className={styles.pageContent}>
+        <main className={styles.main}>
         <nav className={styles.breadcrumb}>
           <Link to="/dashboard">Dashboard</Link>
           <span>/</span>
           <Link to={`/spaces/${spaceId}`}>Space</Link>
           {ancestorPath.map((ancestor) => (
-            <span key={ancestor.id}>
+            <React.Fragment key={ancestor.id}>
               <span>/</span>
               <Link to={`/spaces/${spaceId}/assets/${ancestor.id}`}>{ancestor.name}</Link>
-            </span>
+            </React.Fragment>
           ))}
           <span>/</span>
           <span>{asset.name}</span>
@@ -749,7 +762,62 @@ export default function AssetDetailPage() {
             </div>
           </div>
         )}
-      </main>
+        </main>
+
+        {/* Chat Sidebar */}
+        <ChatSidebar
+          spaceId={spaceId || ''}
+          isOpen={showChat}
+          onClose={() => setShowChat(false)}
+          currentAsset={asset}
+          allAssets={wsAssets}
+          allVariants={wsVariants}
+          onGenerateAsset={async (params) => {
+            await handleForgeSubmit({
+              prompt: params.prompt,
+              referenceVariantIds: [],
+              destination: {
+                type: 'new_asset',
+                assetName: params.name,
+                assetType: params.type,
+                parentAssetId: params.parentAssetId || null,
+              },
+              operation: 'generate',
+            });
+          }}
+          onRefineAsset={async (params) => {
+            const targetAsset = wsAssets.find(a => a.id === params.assetId);
+            const sourceVariant = wsVariants.find(v => v.id === targetAsset?.active_variant_id);
+            if (sourceVariant) {
+              await handleForgeSubmit({
+                prompt: params.prompt,
+                referenceVariantIds: [sourceVariant.id],
+                destination: {
+                  type: 'existing_asset',
+                  assetId: params.assetId,
+                },
+                operation: 'refine',
+              });
+            }
+          }}
+          onCombineAssets={async (params) => {
+            const sourceVariantIds = params.sourceAssetIds
+              .map(id => wsAssets.find(a => a.id === id)?.active_variant_id)
+              .filter((id): id is string => !!id);
+            await handleForgeSubmit({
+              prompt: params.prompt,
+              referenceVariantIds: sourceVariantIds,
+              destination: {
+                type: 'new_asset',
+                assetName: params.targetName,
+                assetType: params.targetType,
+                parentAssetId: null,
+              },
+              operation: 'combine',
+            });
+          }}
+        />
+      </div>
 
       {/* Confirmation Dialog */}
       {confirmDialog && (

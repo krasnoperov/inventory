@@ -4,28 +4,21 @@
 }
 
 .pageContent {
-  display: flex;
   min-height: calc(100vh - 60px);
   position: relative;
 }
 
 .main {
-  flex: 1;
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
   padding-bottom: 200px; /* Space for ForgeTray */
-  transition: padding-right 0.3s ease;
+  transition: margin 0.3s ease;
 }
 
-/* When chat is open, add padding to avoid overlap */
+/* When chat is open, shift content left to make room but stay visually balanced */
 .page.withChat .main {
-  padding-right: 2rem;
-}
-
-/* Chat takes fixed width on the right */
-.page.withChat .pageContent {
-  padding-right: 380px; /* Width of chat sidebar */
+  margin-right: 400px; /* Sidebar width + gap */
 }
 
 .brand {
@@ -771,11 +764,7 @@
   }
 
   /* On mobile, chat is overlay - don't push content */
-  .page.withChat .pageContent {
-    padding-right: 0;
-  }
-
   .page.withChat .main {
-    padding-right: 1rem;
+    margin-right: auto;
   }
 }

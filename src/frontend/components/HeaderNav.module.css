@@ -5,12 +5,13 @@
 }
 
 .navLink {
-  color: var(--text-on-brand-strong);
+  color: var(--color-text);
   font-weight: 600;
   text-decoration: none;
 }
 
 .navLink:hover {
+  color: var(--color-primary);
   text-decoration: underline;
 }
 
