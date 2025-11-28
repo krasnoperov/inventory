@@ -50,9 +50,32 @@ export function ChatSidebar({ spaceId, isOpen, onClose, currentAsset, allAssets 
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Get forge tray context
-  const forgeContext = useForgeTrayStore((state) => state.getContext());
-  const { addSlot, setPrompt, clearSlots, removeSlot, slots } = useForgeTrayStore();
+  // Get forge tray state (select individual values to avoid infinite loops)
+  const slots = useForgeTrayStore((state) => state.slots);
+  const prompt = useForgeTrayStore((state) => state.prompt);
+  const addSlot = useForgeTrayStore((state) => state.addSlot);
+  const setPrompt = useForgeTrayStore((state) => state.setPrompt);
+  const clearSlots = useForgeTrayStore((state) => state.clearSlots);
+  const removeSlot = useForgeTrayStore((state) => state.removeSlot);
+
+  // Build forge context (memoized to avoid recreating on each render)
+  const forgeContext = useMemo<ForgeContext>(() => {
+    const slotCount = slots.length;
+    let operation: string;
+    if (slotCount === 0) operation = 'generate';
+    else if (slotCount === 1) operation = prompt ? 'refine' : 'fork';
+    else operation = 'combine';
+
+    return {
+      operation,
+      slots: slots.map(s => ({
+        assetId: s.asset.id,
+        assetName: s.asset.name,
+        variantId: s.variant.id,
+      })),
+      prompt,
+    };
+  }, [slots, prompt]);
 
   // Build viewing context
   const viewingContext = useMemo<ViewingContext>(() => {
@@ -113,7 +136,7 @@ export function ChatSidebar({ spaceId, isOpen, onClose, currentAsset, allAssets 
       default:
         console.log('Unknown action:', action, params);
     }
-  }, [allAssets, slots, addSlot, removeSlot, clearSlots, setPrompt]);
+  }, [allAssets, slots, removeSlot, clearSlots, setPrompt]);
 
   const loadChatHistory = async () => {
     try {
