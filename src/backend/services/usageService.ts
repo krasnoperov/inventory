@@ -3,8 +3,13 @@ import { UsageEventDAO, type UsageEventMetadata } from '../../dao/usage-event-da
 import { PolarService } from './polarService';
 
 export const USAGE_EVENTS = {
-  CLAUDE_TOKENS: 'claude_tokens',
-  NANOBANANA_IMAGES: 'nanobanana_images',
+  // Claude (Anthropic) - split by token type for accurate pricing
+  CLAUDE_INPUT_TOKENS: 'claude_input_tokens',
+  CLAUDE_OUTPUT_TOKENS: 'claude_output_tokens',
+  // Gemini (NanoBanana) - images + tokens
+  GEMINI_IMAGES: 'gemini_images',
+  GEMINI_INPUT_TOKENS: 'gemini_input_tokens',
+  GEMINI_OUTPUT_TOKENS: 'gemini_output_tokens',
 } as const;
 
 export type UsageEventName = (typeof USAGE_EVENTS)[keyof typeof USAGE_EVENTS];
@@ -43,7 +48,7 @@ export class UsageService {
 
   /**
    * Track Claude API token usage
-   * Called after successful Claude API calls
+   * Creates separate events for input and output tokens (different pricing)
    */
   async trackClaudeUsage(
     userId: number,
@@ -52,70 +57,118 @@ export class UsageService {
     model: string,
     requestId?: string
   ): Promise<void> {
-    const totalTokens = tokensIn + tokensOut;
-    const metadata: UsageEventMetadata = {
+    const baseMetadata: UsageEventMetadata = {
       model,
-      tokens_in: tokensIn,
-      tokens_out: tokensOut,
       request_id: requestId,
     };
 
-    // Always save locally first (reliable)
-    await this.usageEventDAO.create({
-      userId,
-      eventName: USAGE_EVENTS.CLAUDE_TOKENS,
-      quantity: totalTokens,
-      metadata,
-    });
+    // Track input tokens
+    if (tokensIn > 0) {
+      await this.usageEventDAO.create({
+        userId,
+        eventName: USAGE_EVENTS.CLAUDE_INPUT_TOKENS,
+        quantity: tokensIn,
+        metadata: { ...baseMetadata, token_type: 'input' },
+      });
 
-    // Try to sync to Polar immediately (fire and forget)
-    if (this.polarService) {
-      this.polarService
-        .ingestEvent(userId, USAGE_EVENTS.CLAUDE_TOKENS, {
-          ...metadata,
-          quantity: totalTokens,
-        })
-        .catch((err) => {
-          console.warn('Failed to sync Claude usage to Polar:', err);
-        });
+      if (this.polarService) {
+        this.polarService
+          .ingestEvent(userId, USAGE_EVENTS.CLAUDE_INPUT_TOKENS, {
+            ...baseMetadata,
+            token_type: 'input',
+          })
+          .catch((err) => console.warn('Failed to sync Claude input tokens to Polar:', err));
+      }
+    }
+
+    // Track output tokens
+    if (tokensOut > 0) {
+      await this.usageEventDAO.create({
+        userId,
+        eventName: USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS,
+        quantity: tokensOut,
+        metadata: { ...baseMetadata, token_type: 'output' },
+      });
+
+      if (this.polarService) {
+        this.polarService
+          .ingestEvent(userId, USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS, {
+            ...baseMetadata,
+            token_type: 'output',
+          })
+          .catch((err) => console.warn('Failed to sync Claude output tokens to Polar:', err));
+      }
     }
   }
 
   /**
-   * Track NanoBanana image generation
-   * Called after successful image generation
+   * Track Gemini/NanoBanana image generation
+   * Tracks: image count + input/output tokens (if available)
    */
   async trackImageGeneration(
     userId: number,
     imageCount: number,
     model: string,
     operation?: string,
-    aspectRatio?: string
+    aspectRatio?: string,
+    tokenUsage?: { inputTokens: number; outputTokens: number }
   ): Promise<void> {
-    const metadata: UsageEventMetadata = {
+    const baseMetadata: UsageEventMetadata = {
       model,
       operation,
       aspect_ratio: aspectRatio,
     };
 
-    // Always save locally first
+    // Track image count
     await this.usageEventDAO.create({
       userId,
-      eventName: USAGE_EVENTS.NANOBANANA_IMAGES,
+      eventName: USAGE_EVENTS.GEMINI_IMAGES,
       quantity: imageCount,
-      metadata,
+      metadata: baseMetadata,
     });
 
-    // Try to sync to Polar immediately
     if (this.polarService) {
       this.polarService
-        .ingestEvent(userId, USAGE_EVENTS.NANOBANANA_IMAGES, {
-          ...metadata,
-          quantity: imageCount,
-        })
-        .catch((err) => {
-          console.warn('Failed to sync image generation to Polar:', err);
-        });
+        .ingestEvent(userId, USAGE_EVENTS.GEMINI_IMAGES, baseMetadata)
+        .catch((err) => console.warn('Failed to sync Gemini image count to Polar:', err));
+    }
+
+    // Track input tokens (if available)
+    if (tokenUsage?.inputTokens && tokenUsage.inputTokens > 0) {
+      await this.usageEventDAO.create({
+        userId,
+        eventName: USAGE_EVENTS.GEMINI_INPUT_TOKENS,
+        quantity: tokenUsage.inputTokens,
+        metadata: { ...baseMetadata, token_type: 'input' },
+      });
+
+      if (this.polarService) {
+        this.polarService
+          .ingestEvent(userId, USAGE_EVENTS.GEMINI_INPUT_TOKENS, {
+            ...baseMetadata,
+            token_type: 'input',
+          })
+          .catch((err) => console.warn('Failed to sync Gemini input tokens to Polar:', err));
+      }
+    }
+
+    // Track output tokens (if available)
+    if (tokenUsage?.outputTokens && tokenUsage.outputTokens > 0) {
+      await this.usageEventDAO.create({
+        userId,
+        eventName: USAGE_EVENTS.GEMINI_OUTPUT_TOKENS,
+        quantity: tokenUsage.outputTokens,
+        metadata: { ...baseMetadata, token_type: 'output' },
+      });
+
+      if (this.polarService) {
+        this.polarService
+          .ingestEvent(userId, USAGE_EVENTS.GEMINI_OUTPUT_TOKENS, {
+            ...baseMetadata,
+            token_type: 'output',
+          })
+          .catch((err) => console.warn('Failed to sync Gemini output tokens to Polar:', err));
+      }
     }
   }
 
@@ -228,8 +281,11 @@ export class UsageService {
     userId: number,
     service: 'claude' | 'nanobanana'
   ): Promise<QuotaCheck> {
+    // Check the most relevant meter for the service
+    // For Claude: check output tokens (most expensive)
+    // For Gemini: check image count
     const eventName =
-      service === 'claude' ? USAGE_EVENTS.CLAUDE_TOKENS : USAGE_EVENTS.NANOBANANA_IMAGES;
+      service === 'claude' ? USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS : USAGE_EVENTS.GEMINI_IMAGES;
 
     // If no Polar service, always allow (no limits enforced)
     if (!this.polarService) {

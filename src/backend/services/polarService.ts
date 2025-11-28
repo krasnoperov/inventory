@@ -7,6 +7,7 @@ export interface PolarEventMetadata {
   model?: string;
   tokens_in?: number;
   tokens_out?: number;
+  token_type?: 'input' | 'output';
   operation?: string;
   aspect_ratio?: string;
   request_id?: string;

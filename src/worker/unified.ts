@@ -1,9 +1,9 @@
-// Unified Worker: Frontend + API + Queue + Workflow (for local dev)
+// Unified Worker: Frontend + API + Queue + Scheduled (for local dev)
 // In stage/production, queue processing and workflows are handled by the separate processing worker
 // But for local development, everything runs in one worker for simplicity
 
 import 'reflect-metadata';
-import { app, handleQueue } from '../backend/index';
+import { app, handleQueue, handleScheduled } from '../backend/index';
 
 // Export unified worker with all capabilities (used in local dev)
 // In stage/production deployments, this worker only handles HTTP (see wrangler.toml)
@@ -15,6 +15,9 @@ export default {
 
   // Queue consumer handler (only used in local dev)
   queue: handleQueue,
+
+  // Scheduled handler - syncs usage events to Polar (cron trigger)
+  scheduled: handleScheduled,
 };
 
 // --- FUTURE: Export your Workflow classes here (only used in local dev) ---

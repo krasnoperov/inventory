@@ -61,6 +61,10 @@ new_sqlite_classes = ["SpaceDO"]
 binding = "IMAGES"
 bucket_name = "inventory-images-stage"
 
+# Cron Triggers - Usage sync to Polar (every 5 minutes)
+[triggers]
+crons = ["*/5 * * * *"]
+
 # ====================
 # PRODUCTION ENVIRONMENT
 # ====================
@@ -106,6 +110,10 @@ class_name = "SpaceDO"
 [[env.production.r2_buckets]]
 binding = "IMAGES"
 bucket_name = "inventory-images-production"
+
+# Cron Triggers - Usage sync to Polar (every 5 minutes)
+[env.production.triggers]
+crons = ["*/5 * * * *"]
 
 # ====================
 # LOCAL DEVELOPMENT

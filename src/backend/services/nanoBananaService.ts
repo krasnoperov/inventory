@@ -45,6 +45,12 @@ export interface GenerationResult {
   model: ImageModel;
   aspectRatio?: AspectRatio;
   imageSize?: ImageSize;
+  // Token usage for billing
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
 }
 
 // =============================================================================
@@ -217,12 +223,23 @@ export class NanoBananaService {
 
     const { mimeType, data } = imagePart.inlineData;
 
+    // Extract token usage if available
+    const usageMetadata = response.usageMetadata;
+    const usage = usageMetadata
+      ? {
+          inputTokens: usageMetadata.promptTokenCount || 0,
+          outputTokens: usageMetadata.candidatesTokenCount || 0,
+          totalTokens: usageMetadata.totalTokenCount || 0,
+        }
+      : undefined;
+
     return {
       imageData: data,
       imageMimeType: mimeType || 'image/webp',
       model,
       aspectRatio,
       imageSize,
+      usage,
     };
   }
 }

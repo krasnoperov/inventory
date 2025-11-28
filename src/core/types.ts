@@ -65,6 +65,9 @@ export interface Env {
   POLAR_ACCESS_TOKEN?: string;
   POLAR_ORGANIZATION_ID?: string;
 
+  // Internal API authentication (for cron jobs, internal services)
+  INTERNAL_API_SECRET?: string;
+
   // --- FUTURE: Add your domain-specific bindings here ---
   // Example for queues:
   // MY_QUEUE?: Queue<any>;

@@ -365,20 +365,43 @@ export class GenerationConsumer {
       // Update job to completed with the variant ID from the DO
       await jobDao.setJobResult(jobId, doResult.variant.id);
 
-      // Track image generation usage for billing
+      // Track image generation usage for billing (granular: images + tokens)
       try {
         const usageEventDAO = new UsageEventDAO(db);
+        const baseMetadata = {
+          model: model || 'gemini-3-pro-image-preview',
+          operation: job.type || 'generate',
+          aspect_ratio: aspectRatio || '1:1',
+          job_id: jobId,
+        };
+
+        // Track image count
         await usageEventDAO.create({
           userId: parseInt(job.created_by),
-          eventName: USAGE_EVENTS.NANOBANANA_IMAGES,
+          eventName: USAGE_EVENTS.GEMINI_IMAGES,
           quantity: 1,
-          metadata: {
-            model: model || 'gemini-3-pro-image-preview',
-            operation: job.type || 'generate',
-            aspect_ratio: aspectRatio || '1:1',
-            job_id: jobId,
-          },
+          metadata: baseMetadata,
         });
+
+        // Track input tokens (if available from result)
+        if (result.usage?.inputTokens) {
+          await usageEventDAO.create({
+            userId: parseInt(job.created_by),
+            eventName: USAGE_EVENTS.GEMINI_INPUT_TOKENS,
+            quantity: result.usage.inputTokens,
+            metadata: { ...baseMetadata, token_type: 'input' },
+          });
+        }
+
+        // Track output tokens (if available from result)
+        if (result.usage?.outputTokens) {
+          await usageEventDAO.create({
+            userId: parseInt(job.created_by),
+            eventName: USAGE_EVENTS.GEMINI_OUTPUT_TOKENS,
+            quantity: result.usage.outputTokens,
+            metadata: { ...baseMetadata, token_type: 'output' },
+          });
+        }
       } catch (usageError) {
         // Log but don't fail the job if usage tracking fails
         console.warn(`[GenerationConsumer] Failed to track usage for job ${jobId}:`, usageError);

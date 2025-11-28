@@ -126,4 +126,76 @@ billingRoutes.get('/api/billing/quota/:service', async (c) => {
   }
 });
 
+/**
+ * Sync pending usage events to Polar
+ * POST /api/internal/billing/sync
+ *
+ * Internal endpoint - should be called by:
+ * - Cloudflare Cron Trigger (scheduled)
+ * - Manual trigger for debugging
+ *
+ * Protected by INTERNAL_API_SECRET header
+ */
+billingRoutes.post('/api/internal/billing/sync', async (c) => {
+  try {
+    // Verify internal API secret
+    const secret = c.req.header('X-Internal-Secret');
+    const expectedSecret = c.env.INTERNAL_API_SECRET;
+
+    if (!expectedSecret || secret !== expectedSecret) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const container = c.get('container');
+    const usageService = container.get(UsageService);
+
+    const batchSize = parseInt(c.req.query('batch_size') || '100');
+    const syncedCount = await usageService.syncPendingEvents(batchSize);
+
+    return c.json({
+      success: true,
+      synced: syncedCount,
+      message: syncedCount > 0
+        ? `Synced ${syncedCount} events to Polar`
+        : 'No pending events to sync',
+    });
+  } catch (error) {
+    console.error('Error syncing usage events:', error);
+    return c.json({ error: 'Failed to sync usage events' }, 500);
+  }
+});
+
+/**
+ * Cleanup old synced usage events
+ * POST /api/internal/billing/cleanup
+ *
+ * Removes events older than X days that have been synced
+ */
+billingRoutes.post('/api/internal/billing/cleanup', async (c) => {
+  try {
+    // Verify internal API secret
+    const secret = c.req.header('X-Internal-Secret');
+    const expectedSecret = c.env.INTERNAL_API_SECRET;
+
+    if (!expectedSecret || secret !== expectedSecret) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const container = c.get('container');
+    const usageService = container.get(UsageService);
+
+    const olderThanDays = parseInt(c.req.query('days') || '90');
+    const deletedCount = await usageService.cleanupOldEvents(olderThanDays);
+
+    return c.json({
+      success: true,
+      deleted: deletedCount,
+      message: `Deleted ${deletedCount} old synced events`,
+    });
+  } catch (error) {
+    console.error('Error cleaning up usage events:', error);
+    return c.json({ error: 'Failed to cleanup usage events' }, 500);
+  }
+});
+
 export { billingRoutes };

@@ -66,19 +66,35 @@ This application uses [Polar.sh](https://polar.sh) as our Merchant of Record (Mo
 
 ## Usage Meters
 
-We track two types of usage:
+We track **granular meters** for accurate cost attribution:
 
-### 1. Claude Tokens (`claude_tokens`)
-- **Aggregation:** SUM
-- **Unit:** tokens
-- **Tracked on:** Every chat/assistant API call
-- **Metadata:** `{ model, tokens_in, tokens_out, request_id }`
+### Claude (Anthropic) - Separate Input/Output
 
-### 2. Image Generation (`nanobanana_images`)
-- **Aggregation:** COUNT
-- **Unit:** images
-- **Tracked on:** Every successful image generation
-- **Metadata:** `{ model, operation, aspect_ratio }`
+| Meter | Aggregation | Unit | Pricing Basis |
+|-------|-------------|------|---------------|
+| `claude_input_tokens` | SUM | tokens | ~$3/MTok |
+| `claude_output_tokens` | SUM | tokens | ~$15/MTok |
+
+**Why separate?** Output tokens cost 5x more than input tokens. Combined tracking loses pricing accuracy.
+
+**Metadata:** `{ model, token_type, request_id }`
+
+### Gemini (NanoBanana) - Images + Tokens
+
+| Meter | Aggregation | Unit | Pricing Basis |
+|-------|-------------|------|---------------|
+| `gemini_images` | COUNT | images | ~$0.02-0.04/image |
+| `gemini_input_tokens` | SUM | tokens | (optional, for analysis) |
+| `gemini_output_tokens` | SUM | tokens | (optional, for analysis) |
+
+**Metadata:** `{ model, operation, aspect_ratio, token_type }`
+
+### Billing Flexibility
+
+Track everything now, decide billing later:
+- Bill per image only? Use `gemini_images` meter
+- Bill per token? Use token meters
+- Blended rate? Create composite pricing in Polar
 
 ---
 
@@ -97,9 +113,26 @@ User registers → AuthController creates user in DB
 ```
 AI request → Service executes → UsageService.trackX()
                                         ↓
-                          Save to usage_events (D1)
+                          Save to usage_events (D1) [always succeeds]
                                         ↓
-                          Async sync to Polar Events API
+                          Try async sync to Polar [may fail]
+                                        ↓
+                          If failed: synced_at stays NULL
+                                        ↓
+                          Cron job retries every 5 minutes
+```
+
+### Sync Reliability
+
+Events are **never lost** because:
+1. **Local-first**: Events always saved to D1 before Polar sync attempt
+2. **Idempotent retry**: Cron job syncs `synced_at IS NULL` events in batches
+3. **Eventual consistency**: Failed syncs retry automatically
+
+```toml
+# wrangler.toml - Cron trigger every 5 minutes
+[triggers]
+crons = ["*/5 * * * *"]
 ```
 
 ### 3. Billing Cycle (Monthly)
@@ -119,11 +152,22 @@ Polar aggregates usage_events into meters
 
 ## API Endpoints
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/billing/usage` | GET | Required | Current billing period usage |
-| `/api/billing/portal` | GET | Required | Get Polar customer portal URL |
-| `/api/billing/quota/:service` | GET | Required | Check quota for claude or nanobanana |
+### User-Facing (requires JWT auth)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/billing/usage` | GET | Current billing period usage |
+| `/api/billing/portal` | GET | Get Polar customer portal URL |
+| `/api/billing/quota/:service` | GET | Check quota for `claude` or `nanobanana` |
+
+### Internal (requires `X-Internal-Secret` header)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/internal/billing/sync` | POST | Manually trigger event sync to Polar |
+| `/api/internal/billing/cleanup` | POST | Remove old synced events (default: 90 days) |
+
+**Note:** Internal endpoints are also called automatically by the cron trigger.
 
 ### Response Examples
 
@@ -135,16 +179,11 @@ Polar aggregates usage_events into meters
     "end": "2025-11-30T23:59:59Z"
   },
   "usage": {
-    "claude_tokens": {
-      "used": 125000,
-      "limit": 500000,
-      "remaining": 375000
-    },
-    "nanobanana_images": {
-      "used": 42,
-      "limit": 100,
-      "remaining": 58
-    }
+    "claude_input_tokens": { "used": 50000, "limit": null, "remaining": null },
+    "claude_output_tokens": { "used": 12000, "limit": null, "remaining": null },
+    "gemini_images": { "used": 42, "limit": 100, "remaining": 58 },
+    "gemini_input_tokens": { "used": 8500, "limit": null, "remaining": null },
+    "gemini_output_tokens": { "used": 2100, "limit": null, "remaining": null }
   },
   "estimatedCost": {
     "amount": 4.50,

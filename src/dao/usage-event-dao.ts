@@ -7,10 +7,12 @@ export interface UsageEventMetadata {
   model?: string;
   tokens_in?: number;
   tokens_out?: number;
+  token_type?: 'input' | 'output';
   operation?: string;
   aspect_ratio?: string;
   request_id?: string;
   job_id?: string;
+  [key: string]: string | number | boolean | undefined;
 }
 
 @injectable()
