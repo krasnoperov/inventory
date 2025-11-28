@@ -390,6 +390,137 @@
   --thumb-badge-size: 20px;
   --thumb-badge-bg: var(--color-primary);
   --thumb-badge-shadow: 0 2px 4px oklch(0% 0 0 / 0.25);
+
+  /* Role semantic colors - for badges and indicators */
+  --color-role-owner: light-dark(
+    oklch(55% 0.16 250),
+    oklch(65% 0.14 250)
+  );
+  --color-role-owner-bg: light-dark(
+    oklch(55% 0.16 250 / 0.15),
+    oklch(65% 0.14 250 / 0.15)
+  );
+  --color-role-owner-border: light-dark(
+    oklch(55% 0.16 250 / 0.3),
+    oklch(65% 0.14 250 / 0.3)
+  );
+  --color-role-admin: light-dark(
+    oklch(55% 0.18 300),
+    oklch(65% 0.16 300)
+  );
+  --color-role-admin-bg: light-dark(
+    oklch(55% 0.18 300 / 0.15),
+    oklch(65% 0.16 300 / 0.15)
+  );
+  --color-role-admin-border: light-dark(
+    oklch(55% 0.18 300 / 0.3),
+    oklch(65% 0.16 300 / 0.3)
+  );
+  --color-role-member: light-dark(
+    oklch(55% 0.15 145),
+    oklch(65% 0.13 145)
+  );
+  --color-role-member-bg: light-dark(
+    oklch(55% 0.15 145 / 0.15),
+    oklch(65% 0.13 145 / 0.15)
+  );
+  --color-role-member-border: light-dark(
+    oklch(55% 0.15 145 / 0.3),
+    oklch(65% 0.13 145 / 0.3)
+  );
+
+  /* Asset type colors */
+  --color-type-character: light-dark(
+    oklch(55% 0.16 250),
+    oklch(65% 0.14 250)
+  );
+  --color-type-character-bg: light-dark(
+    oklch(55% 0.16 250 / 0.15),
+    oklch(65% 0.14 250 / 0.15)
+  );
+  --color-type-item: light-dark(
+    oklch(55% 0.18 300),
+    oklch(65% 0.16 300)
+  );
+  --color-type-item-bg: light-dark(
+    oklch(55% 0.18 300 / 0.15),
+    oklch(65% 0.16 300 / 0.15)
+  );
+  --color-type-scene: light-dark(
+    oklch(55% 0.15 145),
+    oklch(65% 0.13 145)
+  );
+  --color-type-scene-bg: light-dark(
+    oklch(55% 0.15 145 / 0.15),
+    oklch(65% 0.13 145 / 0.15)
+  );
+  --color-type-composite: light-dark(
+    oklch(70% 0.15 55),
+    oklch(75% 0.13 55)
+  );
+  --color-type-composite-bg: light-dark(
+    oklch(70% 0.15 55 / 0.15),
+    oklch(75% 0.13 55 / 0.15)
+  );
+
+  /* Accent colors */
+  --color-star: light-dark(
+    oklch(75% 0.15 75),
+    oklch(80% 0.13 75)
+  );
+  --color-star-bg: light-dark(
+    oklch(75% 0.15 75 / 0.15),
+    oklch(80% 0.13 75 / 0.15)
+  );
+  --color-star-border: light-dark(
+    oklch(75% 0.15 75 / 0.5),
+    oklch(80% 0.13 75 / 0.5)
+  );
+  --color-danger: light-dark(
+    oklch(55% 0.2 25),
+    oklch(70% 0.18 25)
+  );
+  --color-danger-bg: light-dark(
+    oklch(55% 0.2 25 / 0.15),
+    oklch(70% 0.18 25 / 0.15)
+  );
+
+  /* Status indicator colors - for job/process states */
+  --color-status-pending: var(--color-text-muted);
+  --color-status-pending-bg: light-dark(
+    oklch(50% 0.01 264 / 0.1),
+    oklch(70% 0.01 264 / 0.1)
+  );
+  --color-status-processing: var(--color-primary);
+  --color-status-processing-bg: light-dark(
+    oklch(55% 0.18 276 / 0.1),
+    oklch(65% 0.16 276 / 0.1)
+  );
+  --color-status-completed: var(--color-success);
+  --color-status-completed-bg: light-dark(
+    oklch(55% 0.15 145 / 0.1),
+    oklch(70% 0.13 145 / 0.1)
+  );
+  --color-status-failed: var(--color-error);
+  --color-status-failed-bg: light-dark(
+    oklch(55% 0.2 25 / 0.1),
+    oklch(70% 0.18 25 / 0.1)
+  );
+
+  /* Border radius scale */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px light-dark(
+    oklch(55% 0.18 276 / 0.25),
+    oklch(65% 0.16 276 / 0.3)
+  );
 }
 
 body {

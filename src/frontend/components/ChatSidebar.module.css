@@ -504,8 +504,8 @@
 }
 
 .planStatus.planning {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  color: #1a1a2e;
+  background: var(--color-star);
+  color: var(--color-bg);
 }
 
 .planStatus.executing {
@@ -520,12 +520,12 @@
 }
 
 .planStatus.completed {
-  background: linear-gradient(135deg, #34d399, #10b981);
+  background: var(--color-success);
   color: white;
 }
 
 .planStatus.failed {
-  background: linear-gradient(135deg, #f87171, #ef4444);
+  background: var(--color-error);
   color: white;
 }
 
@@ -557,8 +557,8 @@
 }
 
 .planStep.in_progress {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: var(--color-status-processing-bg);
+  border-color: var(--color-status-processing);
 }
 
 .planStep.completed {
@@ -566,8 +566,8 @@
 }
 
 .planStep.failed {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--color-status-failed-bg);
+  border-color: var(--color-status-failed);
 }
 
 .stepNumber {
@@ -587,7 +587,7 @@
 }
 
 .planStep.completed .stepNumber {
-  background: linear-gradient(135deg, #34d399, #10b981);
+  background: var(--color-success);
   border-color: transparent;
   color: white;
 }
@@ -605,7 +605,7 @@
 }
 
 .planStep.failed .stepNumber {
-  background: linear-gradient(135deg, #f87171, #ef4444);
+  background: var(--color-error);
   border-color: transparent;
   color: white;
 }
