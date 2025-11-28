@@ -3,18 +3,15 @@ import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useRouteStore } from '../stores/routeStore';
-import { useReferenceStore } from '../stores/referenceStore';
+import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
-import { useSpaceWebSocket, PREDEFINED_ASSET_TYPES } from '../hooks/useSpaceWebSocket';
+import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { AssetCard } from '../components/AssetCard';
-import { RefineModal } from '../components/RefineModal';
 import { NewAssetModal } from '../components/NewAssetModal';
-import { GenerateModal } from '../components/GenerateModal';
-import { ReferenceShelf } from '../components/ReferenceShelf';
-import { LineagePopover } from '../components/LineagePopover';
+import { ForgeTray, type ForgeSubmitParams } from '../components/ForgeTray';
 import styles from './SpacePage.module.css';
 
 interface Space {
@@ -47,8 +44,8 @@ export default function SpacePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Reference store
-  const { addReference } = useReferenceStore();
+  // Forge tray store
+  const { addSlot } = useForgeTrayStore();
 
   // WebSocket connection for real-time updates
   const {
@@ -56,23 +53,17 @@ export default function SpacePage() {
     error: wsError,
     assets,
     variants,
-    lineage,
     jobs,
     requestSync,
     trackJob,
     clearJob,
-    deleteVariant,
-    starVariant,
-    setActiveVariant,
     deleteAsset,
     spawnAsset,
     createAsset,
     updateAsset,
-    getRootAssets,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
-      console.log('WebSocket connected, requesting sync...');
       requestSync();
     },
   });
@@ -81,11 +72,7 @@ export default function SpacePage() {
   const [showChat, setShowChat] = useState(false);
 
   // Modal states
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [generateForAsset, setGenerateForAsset] = useState<Asset | null>(null); // When generating for specific asset
-  const [refineModalState, setRefineModalState] = useState<{ variant: Variant; asset: Asset } | null>(null);
   const [newAssetModalState, setNewAssetModalState] = useState<{ variant: Variant; asset: Asset } | null>(null);
-  const [lineagePopoverState, setLineagePopoverState] = useState<{ variant: Variant; asset: Asset; position: { x: number; y: number } } | null>(null);
 
   // Export/Import state
   const [isExporting, setIsExporting] = useState(false);
@@ -141,34 +128,58 @@ export default function SpacePage() {
     }
   };
 
-  // Get root assets for hierarchical display
-  const rootAssets = useMemo(() => getRootAssets(), [getRootAssets]);
-
-  // Handle generate (with optional asset context)
-  // If targetAsset is set, this creates a new variant in that asset using the active variant as source
-  // Otherwise, this triggers the top-level generate flow for creating a NEW asset
-  const handleGenerate = useCallback(async (prompt: string, referenceIds: string[], assetName?: string, assetType?: string) => {
-    const targetAsset = generateForAsset;
-
-    if (targetAsset) {
-      // Create new variant in existing asset - POST /assets/:assetId/variants
-      const activeVariantId = targetAsset.active_variant_id;
-      const sourceVariant = activeVariantId
-        ? variants.find(v => v.id === activeVariantId)
-        : variants.find(v => v.asset_id === targetAsset.id); // Fallback to any variant
-
-      if (!sourceVariant) {
-        throw new Error('No source variant found for this asset. The asset must have at least one variant.');
+  // Get all assets sorted by hierarchy (root first, then by name)
+  const sortedAssets = useMemo(() => {
+    // Build a path for each asset for sorting
+    const getPath = (asset: Asset): string[] => {
+      const path: string[] = [];
+      let current: Asset | undefined = asset;
+      while (current) {
+        path.unshift(current.name);
+        current = assets.find(a => a.id === current?.parent_asset_id);
       }
+      return path;
+    };
 
-      const response = await fetch(`/api/spaces/${spaceId}/assets/${targetAsset.id}/variants`, {
+    return [...assets].sort((a, b) => {
+      const pathA = getPath(a);
+      const pathB = getPath(b);
+      // Sort by path depth first (roots first), then alphabetically
+      if (pathA.length !== pathB.length) {
+        return pathA.length - pathB.length;
+      }
+      return pathA.join('/').localeCompare(pathB.join('/'));
+    });
+  }, [assets]);
+
+  // Build parent path for each asset
+  const getParentPath = useCallback((asset: Asset): Asset[] => {
+    const path: Asset[] = [];
+    let current = assets.find(a => a.id === asset.parent_asset_id);
+    while (current) {
+      path.unshift(current);
+      current = assets.find(a => a.id === current?.parent_asset_id);
+    }
+    return path;
+  }, [assets]);
+
+  // Handle forge submit (unified handler for generate, transform, combine)
+  const handleForgeSubmit = useCallback(async (params: ForgeSubmitParams) => {
+    const { prompt, referenceVariantIds, destination } = params;
+
+    if (destination.type === 'existing_asset' && destination.assetId) {
+      // Add variant to existing asset
+      const asset = assets.find(a => a.id === destination.assetId);
+      const sourceVariantId = referenceVariantIds.length > 0 ? referenceVariantIds[0] : undefined;
+
+      const response = await fetch(`/api/spaces/${spaceId}/assets/${destination.assetId}/variants`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sourceVariantId: sourceVariant.id,
+          sourceVariantId,
           prompt,
-          referenceVariantIds: referenceIds.length > 0 ? referenceIds : undefined,
+          referenceVariantIds: referenceVariantIds.length > 1 ? referenceVariantIds.slice(1) : undefined,
         }),
       });
 
@@ -179,23 +190,23 @@ export default function SpacePage() {
 
       const result = await response.json() as { success: boolean; jobId: string };
       trackJob(result.jobId, {
-        jobType: 'derive',
+        jobType: referenceVariantIds.length > 1 ? 'compose' : 'derive',
         prompt,
-        assetId: targetAsset.id,
-        assetName: targetAsset.name,
+        assetId: destination.assetId,
+        assetName: asset?.name,
       });
     } else {
-      // Create new asset - POST /assets
-      // This handles generate, derive, and compose based on inputs
+      // Create new asset
       const response = await fetch(`/api/spaces/${spaceId}/assets`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: assetName || 'Generated Asset',
-          type: assetType || 'character',
+          name: destination.assetName || 'Generated Asset',
+          type: destination.assetType || 'character',
+          parentAssetId: destination.parentAssetId || undefined,
           prompt,
-          referenceVariantIds: referenceIds.length > 0 ? referenceIds : undefined,
+          referenceVariantIds: referenceVariantIds.length > 0 ? referenceVariantIds : undefined,
         }),
       });
 
@@ -209,35 +220,10 @@ export default function SpacePage() {
         jobType: result.mode as 'generate' | 'derive' | 'compose',
         prompt,
         assetId: result.assetId,
-        assetName: assetName,
+        assetName: destination.assetName,
       });
     }
-
-    // Clear asset context after generation starts
-    setGenerateForAsset(null);
-  }, [spaceId, trackJob, generateForAsset, variants]);
-
-  // Handle refine (create new variant in same asset)
-  const handleRefine = useCallback(async (variant: Variant, asset: Asset, prompt: string, referenceIds: string[]) => {
-    const response = await fetch(`/api/spaces/${spaceId}/assets/${asset.id}/variants`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sourceVariantId: variant.id,
-        prompt,
-        referenceVariantIds: referenceIds.length > 0 ? referenceIds : undefined,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json() as { error?: string };
-      throw new Error(errorData.error || 'Failed to start refinement');
-    }
-
-    const result = await response.json() as { success: boolean; jobId: string };
-    trackJob(result.jobId, { assetId: asset.id, assetName: asset.name, jobType: 'derive', prompt });
-  }, [spaceId, trackJob]);
+  }, [spaceId, trackJob, assets]);
 
   // Handle new asset from variant (spawn)
   const handleNewAsset = useCallback((sourceVariant: Variant, name: string, type: string, parentAssetId: string | null) => {
@@ -249,16 +235,10 @@ export default function SpacePage() {
     });
   }, [spawnAsset]);
 
-  // Handle add reference
-  const handleAddReference = useCallback((variant: Variant, asset: Asset) => {
-    addReference(variant, asset);
-  }, [addReference]);
-
-  // Handle generate variant for specific asset - opens modal with asset context
-  const handleGenerateVariant = useCallback((asset: Asset) => {
-    setGenerateForAsset(asset);
-    setShowGenerateModal(true);
-  }, []);
+  // Handle add to forge tray
+  const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
+    addSlot(variant, asset);
+  }, [addSlot]);
 
   // Export space as ZIP
   const handleExport = useCallback(async () => {
@@ -510,16 +490,6 @@ export default function SpacePage() {
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>Assets</h2>
-              <div className={styles.sectionActions}>
-                {canEdit && (
-                  <button
-                    className={styles.generateButton}
-                    onClick={() => setShowGenerateModal(true)}
-                  >
-                    Generate
-                  </button>
-                )}
-              </div>
             </div>
 
             {assets.length === 0 ? (
@@ -528,60 +498,34 @@ export default function SpacePage() {
                 <p className={styles.emptyText}>No assets yet</p>
                 <p className={styles.emptySubtext}>
                   {canEdit
-                    ? 'Click "Generate" to create your first asset'
+                    ? 'Use the Forge Tray below to create your first asset'
                     : 'Assets will appear here when created'}
                 </p>
               </div>
             ) : (
               <div className={styles.assetCatalogue}>
-                {rootAssets.map((asset) => {
+                {sortedAssets.map((asset) => {
                   const assetVariants = variants.filter(v => v.asset_id === asset.id);
-                  const childAssets = assets.filter(a => a.parent_asset_id === asset.id);
+                  const parentPath = getParentPath(asset);
 
                   return (
                     <AssetCard
                       key={asset.id}
                       asset={asset}
                       variants={assetVariants}
-                      lineage={lineage}
-                      childAssets={childAssets}
+                      childAssets={[]}
                       allAssets={assets}
                       allVariants={variants}
                       depth={0}
+                      parentPath={parentPath}
                       isGenerating={isAssetGenerating(asset.id)}
                       generatingStatus={getGeneratingStatus(asset.id)}
                       canEdit={canEdit}
                       spaceId={spaceId || ''}
-                      onVariantClick={(variant, clickedAsset) => {
-                        // Variant click is handled by popover in AssetCard
-                      }}
                       onAssetClick={(clickedAsset) => {
                         navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
                       }}
-                      onRefine={(variant, clickedAsset) => {
-                        setRefineModalState({ variant, asset: clickedAsset });
-                      }}
-                      onNewAsset={(variant, clickedAsset) => {
-                        setNewAssetModalState({ variant, asset: clickedAsset });
-                      }}
-                      onAddReference={(variant) => {
-                        const variantAsset = assets.find(a => a.id === variant.asset_id);
-                        if (variantAsset) {
-                          handleAddReference(variant, variantAsset);
-                        }
-                      }}
-                      onStarVariant={(variant, starred) => {
-                        starVariant(variant.id, starred);
-                      }}
-                      onSetActiveVariant={(clickedAsset, variant) => {
-                        setActiveVariant(clickedAsset.id, variant.id);
-                      }}
-                      onDeleteVariant={(variant) => {
-                        if (confirm('Delete this variant? This cannot be undone.')) {
-                          deleteVariant(variant.id);
-                        }
-                      }}
-                      onGenerateVariant={handleGenerateVariant}
+                      onAddToTray={canEdit ? handleAddToTray : undefined}
                       onAddChildAsset={(parentAsset) => {
                         const name = window.prompt('Child asset name:');
                         if (!name || !name.trim()) return;
@@ -598,20 +542,6 @@ export default function SpacePage() {
                       onDeleteAsset={(clickedAsset) => {
                         if (confirm(`Delete "${clickedAsset.name}" and all its variants? This cannot be undone.`)) {
                           deleteAsset(clickedAsset.id);
-                        }
-                      }}
-                      onViewLineage={(variant) => {
-                        const variantAsset = assets.find(a => a.id === variant.asset_id);
-                        if (variantAsset) {
-                          // Position in center of screen
-                          setLineagePopoverState({
-                            variant,
-                            asset: variantAsset,
-                            position: {
-                              x: window.innerWidth / 2,
-                              y: window.innerHeight / 3,
-                            },
-                          });
                         }
                       }}
                     />
@@ -650,36 +580,13 @@ export default function SpacePage() {
         />
       </div>
 
-      {/* Reference Shelf */}
-      <ReferenceShelf onGenerate={() => setShowGenerateModal(true)} />
-
-      {/* Generate Modal */}
-      {showGenerateModal && (
-        <GenerateModal
-          targetAsset={generateForAsset}
-          sourceVariant={generateForAsset ? (
-            // Find the source variant (active or first available)
-            generateForAsset.active_variant_id
-              ? variants.find(v => v.id === generateForAsset.active_variant_id)
-              : variants.find(v => v.asset_id === generateForAsset.id)
-          ) : undefined}
-          onClose={() => {
-            setShowGenerateModal(false);
-            setGenerateForAsset(null);
-          }}
-          onGenerate={handleGenerate}
-        />
-      )}
-
-      {/* Refine Modal */}
-      {refineModalState && (
-        <RefineModal
-          variant={refineModalState.variant}
-          asset={refineModalState.asset}
-          onClose={() => setRefineModalState(null)}
-          onRefine={(prompt, referenceIds) => {
-            handleRefine(refineModalState.variant, refineModalState.asset, prompt, referenceIds);
-          }}
+      {/* Forge Tray - persistent bottom bar for generation */}
+      {canEdit && (
+        <ForgeTray
+          allAssets={assets}
+          allVariants={variants}
+          onSubmit={handleForgeSubmit}
+          onBrandBackground={false}
         />
       )}
 
@@ -697,22 +604,6 @@ export default function SpacePage() {
         />
       )}
 
-      {/* Lineage Popover */}
-      {lineagePopoverState && (
-        <LineagePopover
-          variant={lineagePopoverState.variant}
-          asset={lineagePopoverState.asset}
-          allVariants={variants}
-          allAssets={assets}
-          lineage={lineage}
-          position={lineagePopoverState.position}
-          onClose={() => setLineagePopoverState(null)}
-          onVariantClick={(variant, clickedAsset) => {
-            setLineagePopoverState(null);
-            navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
-          }}
-        />
-      )}
     </div>
   );
 }

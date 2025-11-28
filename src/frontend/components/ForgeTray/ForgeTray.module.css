@@ -1,0 +1,427 @@
+/* ForgeTray - Glossy Glass Aesthetic */
+.tray {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+
+  /* Solid background for non-brand pages */
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+
+  min-width: 420px;
+  max-width: 640px;
+  width: 90vw;
+
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glossy glass effect when on brand gradient background */
+.tray.onBrandBackground {
+  background: var(--forge-bar-bg);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid var(--forge-bar-border);
+  box-shadow: var(--forge-bar-shadow);
+}
+
+/* Unified Input Area - Contains textarea, thumbs, and controls */
+.inputArea {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0.75rem;
+  border-radius: 14px;
+  background: var(--forge-input-bg);
+  border: 1px solid var(--forge-bar-border-inner);
+  margin: 0.5rem;
+  transition: box-shadow 0.2s ease;
+}
+
+.inputArea:focus-within {
+  box-shadow: var(--forge-input-focus-glow);
+}
+
+/* Auto-expanding Prompt Textarea */
+.promptTextarea {
+  width: 100%;
+  min-height: 44px;
+  max-height: 200px;
+  padding: 0.625rem 0.75rem;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--color-text);
+  line-height: 1.5;
+  resize: none;
+  overflow-y: auto;
+}
+
+.promptTextarea::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.promptTextarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Custom scrollbar for textarea */
+.promptTextarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.promptTextarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.promptTextarea::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 3px;
+}
+
+.promptTextarea::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+}
+
+/* Thumbnails Row - Inside input area */
+.thumbsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--forge-bar-border-inner);
+  flex-wrap: wrap;
+}
+
+/* Individual Slot Thumbnail */
+.slotThumb {
+  position: relative;
+  width: var(--forge-slot-size);
+  height: var(--forge-slot-size);
+  border-radius: var(--forge-slot-radius);
+  cursor: default;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.slotThumb:hover {
+  transform: scale(1.05);
+}
+
+.slotImage {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--forge-slot-radius);
+  border: 1.5px solid var(--forge-slot-border);
+  background: var(--forge-slot-bg);
+  object-fit: cover;
+}
+
+.slotThumb:hover .slotImage {
+  border-color: var(--color-primary);
+}
+
+.removeButton {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: var(--thumb-action-size-sm);
+  height: var(--thumb-action-size-sm);
+  border-radius: 50%;
+  border: var(--thumb-action-border);
+  background: var(--thumb-action-bg);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+  box-shadow: var(--thumb-action-shadow);
+  z-index: 1;
+}
+
+.slotThumb:hover .removeButton {
+  opacity: 1;
+}
+
+.removeButton:hover {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: white;
+  transform: scale(1.1);
+}
+
+.slotTooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  color: var(--color-text);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.slotThumb:hover .slotTooltip {
+  opacity: 1;
+}
+
+/* Add Thumbnail Button */
+.addThumbButton {
+  width: var(--forge-slot-size);
+  height: var(--forge-slot-size);
+  border-radius: var(--forge-slot-radius);
+  border: 1.5px dashed var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.addThumbButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.08);
+  transform: scale(1.05);
+}
+
+/* Controls Row - Bottom of input area */
+.controlsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0.25rem;
+  border-top: 1px solid var(--forge-bar-border-inner);
+  flex-wrap: wrap;
+}
+
+/* Destination Toggle Group */
+.destinationToggle {
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--forge-slot-bg);
+  border: 1px solid var(--forge-bar-border-inner);
+}
+
+.destButton {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.625rem;
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.destButton:first-child {
+  border-right: 1px solid var(--forge-bar-border-inner);
+}
+
+.destButton:hover:not(:disabled) {
+  color: var(--color-text);
+  background: var(--surface-glass);
+}
+
+.destButton.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.destButton.active:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.destButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.destButton svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.destButton.active svg {
+  opacity: 1;
+}
+
+/* New Asset Name Input */
+.assetNameInput {
+  flex: 1;
+  min-width: 100px;
+  max-width: 180px;
+  padding: 0.375rem 0.625rem;
+  background: var(--forge-slot-bg);
+  border: 1px solid var(--forge-bar-border-inner);
+  border-radius: 6px;
+  outline: none;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--color-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.assetNameInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.assetNameInput::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.assetNameInput:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Spacer to push button to the right */
+.controlsSpacer {
+  flex: 1;
+}
+
+/* Glossy Primary Forge Button */
+.forgeButton {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background: var(--forge-button-bg);
+  border: 1px solid var(--forge-button-border);
+  border-radius: 8px;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--forge-button-shadow);
+  flex-shrink: 0;
+}
+
+.forgeButton:hover:not(:disabled) {
+  background: var(--forge-button-hover-bg);
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 20px rgba(99, 102, 241, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.forgeButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.forgeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.forgeButton svg {
+  flex-shrink: 0;
+}
+
+.buttonLabel {
+  white-space: nowrap;
+}
+
+/* Loading Spinner */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive behavior */
+@media (max-width: 768px) {
+  .tray {
+    left: 0.5rem;
+    right: 0.5rem;
+    transform: none;
+    min-width: 0;
+    max-width: none;
+    width: auto;
+  }
+
+  .controlsRow {
+    flex-wrap: wrap;
+  }
+
+  .assetNameInput {
+    max-width: none;
+    order: 1;
+    flex-basis: 100%;
+    margin-top: 0.5rem;
+  }
+
+  .controlsSpacer {
+    display: none;
+  }
+
+  .forgeButton {
+    order: 0;
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .tray {
+    border-radius: 16px 16px 0 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .inputArea {
+    margin: 0.375rem;
+    border-radius: 12px;
+  }
+
+  .destButton span {
+    display: none;
+  }
+
+  .buttonLabel {
+    display: none;
+  }
+}

@@ -1,0 +1,100 @@
+.slots {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.slot {
+  position: relative;
+  width: var(--forge-slot-size, 40px);
+  height: var(--forge-slot-size, 40px);
+  border-radius: var(--forge-slot-radius, 8px);
+  border: 1px solid var(--forge-slot-border, var(--border-subtle, var(--color-border)));
+  overflow: hidden;
+  cursor: default;
+  transition: all 0.15s ease;
+}
+
+.slot:hover {
+  border-color: var(--color-primary);
+}
+
+.slotImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.removeButton {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.slot:hover .removeButton {
+  opacity: 1;
+}
+
+.removeButton:hover {
+  background: var(--color-error);
+  color: white;
+}
+
+.addButton {
+  width: var(--forge-slot-size, 40px);
+  height: var(--forge-slot-size, 40px);
+  border-radius: var(--forge-slot-radius, 8px);
+  border: 1px dashed var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.addButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.slotTooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  color: var(--color-text);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.slot:hover .slotTooltip {
+  opacity: 1;
+}

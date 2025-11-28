@@ -18,6 +18,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+  padding-bottom: 200px; /* Space for ForgeTray */
 }
 
 .brand {
@@ -380,17 +381,17 @@
   color: var(--color-error);
 }
 
-/* Asset Catalogue - Hierarchical View */
+/* Asset Catalogue - Flat grid view using consistent thumbnail sizes */
 .assetCatalogue {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--thumb-size-lg), 1fr));
   gap: 1rem;
 }
 
 /* Legacy Asset Grid (kept for compatibility) */
 .assetGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--thumb-size-lg), 1fr));
   gap: 1rem;
 }
 

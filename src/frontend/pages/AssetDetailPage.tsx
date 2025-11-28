@@ -1,19 +1,20 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useRouteStore } from '../stores/routeStore';
+import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import {
   useSpaceWebSocket,
-  type JobContext,
+  PREDEFINED_ASSET_TYPES,
   type Asset,
   type Variant,
   type Lineage,
-  PREDEFINED_ASSET_TYPES,
 } from '../hooks/useSpaceWebSocket';
 import { LineageTree } from '../components/LineageTree';
+import { ForgeTray, type ForgeSubmitParams } from '../components/ForgeTray';
 import styles from './AssetDetailPage.module.css';
 
 interface AssetDetailsResponse {
@@ -47,31 +48,13 @@ export default function AssetDetailPage() {
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
 
-  // Compare mode state
-  const [compareMode, setCompareMode] = useState(false);
-  const [compareVariant, setCompareVariant] = useState<Variant | null>(null);
 
-  // Refine modal state
-  const [showRefineModal, setShowRefineModal] = useState(false);
-  const [refinePrompt, setRefinePrompt] = useState('');
-  const [isRefining, setIsRefining] = useState(false);
-  const [isSuggestingRefine, setIsSuggestingRefine] = useState(false);
+  // Inline editing state
+  const [editingName, setEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
 
-  // Use as Reference modal state
-  const [showReferenceModal, setShowReferenceModal] = useState(false);
-  const [referenceForm, setReferenceForm] = useState({
-    prompt: '',
-    assetName: '',
-    assetType: 'character' as string,
-  });
-  const [isCreatingReference, setIsCreatingReference] = useState(false);
-
-  // New Asset (spawn) modal state
-  const [showNewAssetModal, setShowNewAssetModal] = useState(false);
-  const [newAssetForm, setNewAssetForm] = useState({
-    name: '',
-    type: 'character' as string,
-  });
+  // Forge tray store
+  const { addSlot } = useForgeTrayStore();
 
   // WebSocket for real-time updates
   const {
@@ -82,13 +65,40 @@ export default function AssetDetailPage() {
     setActiveVariant,
     deleteVariant,
     deleteAsset,
-    spawnAsset,
     starVariant,
     updateAsset,
     trackJob,
     clearJob,
+    requestSync,
     status: wsStatus,
-  } = useSpaceWebSocket({ spaceId: spaceId || '' });
+  } = useSpaceWebSocket({
+    spaceId: spaceId || '',
+    onConnect: () => {
+      requestSync();
+    },
+  });
+
+  // Compute parent asset and child assets
+  const parentAsset = useMemo(() => {
+    if (!asset?.parent_asset_id) return null;
+    return wsAssets.find(a => a.id === asset.parent_asset_id) || null;
+  }, [asset?.parent_asset_id, wsAssets]);
+
+  const childAssets = useMemo(() => {
+    if (!asset) return [];
+    return wsAssets.filter(a => a.parent_asset_id === asset.id);
+  }, [asset, wsAssets]);
+
+  // Build breadcrumb path (ancestors)
+  const ancestorPath = useMemo(() => {
+    const path: Asset[] = [];
+    let current = parentAsset;
+    while (current) {
+      path.unshift(current);
+      current = wsAssets.find(a => a.id === current?.parent_asset_id) || null;
+    }
+    return path;
+  }, [parentAsset, wsAssets]);
 
   useEffect(() => {
     if (!user) {
@@ -154,12 +164,38 @@ export default function AssetDetailPage() {
     starVariant(variantId, starred);
   }, [starVariant]);
 
-  const handleRenameAsset = useCallback(() => {
+  const handleStartEditName = useCallback(() => {
     if (!asset) return;
-    const newName = window.prompt('Rename asset:', asset.name);
-    if (newName && newName.trim() && newName !== asset.name) {
-      updateAsset(assetId!, { name: newName.trim() });
+    setEditNameValue(asset.name);
+    setEditingName(true);
+  }, [asset]);
+
+  const handleSaveName = useCallback(() => {
+    if (!asset || !assetId) return;
+    const newName = editNameValue.trim();
+    if (newName && newName !== asset.name) {
+      updateAsset(assetId, { name: newName });
     }
+    setEditingName(false);
+  }, [asset, assetId, editNameValue, updateAsset]);
+
+  const handleCancelEditName = useCallback(() => {
+    setEditingName(false);
+    setEditNameValue('');
+  }, []);
+
+  const handleNameKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveName();
+    } else if (e.key === 'Escape') {
+      handleCancelEditName();
+    }
+  }, [handleSaveName, handleCancelEditName]);
+
+  const handleTypeChange = useCallback((newType: string) => {
+    if (!asset || !assetId || newType === asset.type) return;
+    updateAsset(assetId, { type: newType });
   }, [asset, assetId, updateAsset]);
 
   const handleDeleteVariant = useCallback((variant: Variant) => {
@@ -199,168 +235,78 @@ export default function AssetDetailPage() {
     });
   }, [assetId, asset?.name, deleteAsset, navigate, spaceId]);
 
-  const toggleCompareMode = useCallback(() => {
-    setCompareMode((prev) => {
-      if (prev) {
-        // Exiting compare mode, clear compare variant
-        setCompareVariant(null);
-      }
-      return !prev;
-    });
+  const handleVariantClick = useCallback((variant: Variant) => {
+    setSelectedVariant(variant);
   }, []);
 
-  const handleVariantClick = useCallback((variant: Variant) => {
-    if (compareMode) {
-      // In compare mode, clicking sets the compare variant
-      if (variant.id === selectedVariant?.id) {
-        // Can't compare with itself
-        return;
-      }
-      setCompareVariant(variant);
-    } else {
-      // Normal mode, select the variant
-      setSelectedVariant(variant);
+  // Handle add to forge tray (specific variant from detail view)
+  const handleAddToTray = useCallback((variant: Variant) => {
+    if (asset) {
+      addSlot(variant, asset);
     }
-  }, [compareMode, selectedVariant]);
+  }, [addSlot, asset]);
 
-  const handleRefine = useCallback(async () => {
-    if (!assetId || !selectedVariant || !refinePrompt.trim() || isRefining) return;
+  // Handle forge submit (unified handler for generate, transform, combine)
+  const handleForgeSubmit = useCallback(async (params: ForgeSubmitParams) => {
+    const { prompt, referenceVariantIds, destination } = params;
 
-    setIsRefining(true);
-    try {
-      // Use new consolidated endpoint: POST /assets/:assetId/variants
-      const response = await fetch(`/api/spaces/${spaceId}/assets/${assetId}/variants`, {
+    if (destination.type === 'existing_asset' && destination.assetId) {
+      // Add variant to existing asset
+      const targetAsset = wsAssets.find(a => a.id === destination.assetId);
+      const sourceVariantId = referenceVariantIds.length > 0 ? referenceVariantIds[0] : undefined;
+
+      const response = await fetch(`/api/spaces/${spaceId}/assets/${destination.assetId}/variants`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sourceVariantId: selectedVariant.id,
-          prompt: refinePrompt,
+          sourceVariantId,
+          prompt,
+          referenceVariantIds: referenceVariantIds.length > 1 ? referenceVariantIds.slice(1) : undefined,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to start refinement');
+        throw new Error(errorData.error || 'Failed to start variant generation');
       }
 
       const result = await response.json() as { success: boolean; jobId: string };
-
-      // Track the job for real-time updates with context
       trackJob(result.jobId, {
-        assetId,
-        assetName: asset?.name,
-        jobType: 'derive',
-        prompt: refinePrompt,
+        jobType: referenceVariantIds.length > 1 ? 'compose' : 'derive',
+        prompt,
+        assetId: destination.assetId,
+        assetName: targetAsset?.name,
       });
-
-      // Close modal and reset
-      setShowRefineModal(false);
-      setRefinePrompt('');
-    } catch (err) {
-      console.error('Refine error:', err);
-      alert(err instanceof Error ? err.message : 'Failed to refine variant');
-    } finally {
-      setIsRefining(false);
-    }
-  }, [assetId, spaceId, selectedVariant, refinePrompt, isRefining, trackJob]);
-
-  const handleSuggestRefine = useCallback(async () => {
-    if (isSuggestingRefine || !asset) return;
-
-    setIsSuggestingRefine(true);
-    try {
-      const response = await fetch(`/api/spaces/${spaceId}/chat/suggest`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assetType: asset.type,
-          theme: `refinement for ${asset.name}`,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get suggestion');
-      }
-
-      const data = await response.json() as { success: boolean; suggestion: string };
-      if (data.success && data.suggestion) {
-        // Extract a shorter refinement suggestion
-        const refineSuggestion = data.suggestion.length > 200
-          ? data.suggestion.substring(0, 200).trim() + '...'
-          : data.suggestion;
-        setRefinePrompt(refineSuggestion);
-      }
-    } catch (err) {
-      console.error('Suggestion error:', err);
-    } finally {
-      setIsSuggestingRefine(false);
-    }
-  }, [spaceId, asset, isSuggestingRefine]);
-
-  // Handle creating a new asset by spawning from variant (copies variant to new asset)
-  const handleSpawnNewAsset = useCallback(() => {
-    if (!selectedVariant || !newAssetForm.name.trim()) return;
-
-    spawnAsset({
-      sourceVariantId: selectedVariant.id,
-      name: newAssetForm.name.trim(),
-      assetType: newAssetForm.type,
-    });
-
-    // Close modal, reset form, and navigate to space to see the new asset
-    setShowNewAssetModal(false);
-    setNewAssetForm({ name: '', type: 'character' });
-    navigate(`/spaces/${spaceId}`);
-  }, [selectedVariant, newAssetForm, spawnAsset, navigate, spaceId]);
-
-  const handleCreateFromReference = useCallback(async () => {
-    if (!selectedVariant || !referenceForm.prompt.trim() || !referenceForm.assetName.trim() || isCreatingReference) return;
-
-    setIsCreatingReference(true);
-    try {
-      // Use new consolidated endpoint: POST /assets with prompt + referenceVariantIds
+    } else {
+      // Create new asset
       const response = await fetch(`/api/spaces/${spaceId}/assets`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: referenceForm.assetName,
-          type: referenceForm.assetType,
-          prompt: referenceForm.prompt,
-          referenceVariantIds: [selectedVariant.id],
+          name: destination.assetName || 'Generated Asset',
+          type: destination.assetType || 'character',
+          parentAssetId: destination.parentAssetId || undefined,
+          prompt,
+          referenceVariantIds: referenceVariantIds.length > 0 ? referenceVariantIds : undefined,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to create from reference');
+        throw new Error(errorData.error || 'Failed to start generation');
       }
 
-      const result = await response.json() as { success: boolean; jobId: string; assetId: string; mode: string };
-
-      // Track the job for real-time updates with context
+      const result = await response.json() as { success: boolean; jobId: string; mode: string; assetId: string };
       trackJob(result.jobId, {
+        jobType: result.mode as 'generate' | 'derive' | 'compose',
+        prompt,
         assetId: result.assetId,
-        assetName: referenceForm.assetName,
-        jobType: result.mode as 'derive' | 'compose',
-        prompt: referenceForm.prompt,
+        assetName: destination.assetName,
       });
-
-      // Close modal and reset
-      setShowReferenceModal(false);
-      setReferenceForm({ prompt: '', assetName: '', assetType: 'character' });
-
-      // Navigate to space to see the new asset being created
-      navigate(`/spaces/${spaceId}`);
-    } catch (err) {
-      console.error('Create from reference error:', err);
-      alert(err instanceof Error ? err.message : 'Failed to create from reference');
-    } finally {
-      setIsCreatingReference(false);
     }
-  }, [spaceId, selectedVariant, referenceForm, isCreatingReference, trackJob, navigate]);
+  }, [spaceId, trackJob, wsAssets]);
 
   const fetchAssetDetails = async () => {
     try {
@@ -491,25 +437,50 @@ export default function AssetDetailPage() {
           <Link to="/dashboard">Dashboard</Link>
           <span>/</span>
           <Link to={`/spaces/${spaceId}`}>Space</Link>
+          {ancestorPath.map((ancestor) => (
+            <span key={ancestor.id}>
+              <span>/</span>
+              <Link to={`/spaces/${spaceId}/assets/${ancestor.id}`}>{ancestor.name}</Link>
+            </span>
+          ))}
           <span>/</span>
           <span>{asset.name}</span>
         </nav>
 
         <div className={styles.header}>
           <div className={styles.titleRow}>
-            <h1 className={styles.title}>{asset.name}</h1>
-            <span className={`${styles.typeBadge} ${styles[asset.type]}`}>
-              {asset.type}
-            </span>
-            <div className={styles.assetActions}>
-              <button
-                className={styles.renameAssetButton}
-                onClick={handleRenameAsset}
-                disabled={actionInProgress}
-                title="Rename Asset"
+            {editingName ? (
+              <input
+                type="text"
+                className={styles.titleInput}
+                value={editNameValue}
+                onChange={(e) => setEditNameValue(e.target.value)}
+                onKeyDown={handleNameKeyDown}
+                onBlur={handleSaveName}
+                autoFocus
+              />
+            ) : (
+              <h1
+                className={styles.title}
+                onClick={handleStartEditName}
+                title="Click to rename"
               >
-                Rename
-              </button>
+                {asset.name}
+              </h1>
+            )}
+            <select
+              className={styles.typeSelect}
+              value={asset.type}
+              onChange={(e) => handleTypeChange(e.target.value)}
+              disabled={actionInProgress}
+            >
+              {PREDEFINED_ASSET_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t.charAt(0).toUpperCase() + t.slice(1).replace('-', ' ')}
+                </option>
+              ))}
+            </select>
+            <div className={styles.assetActions}>
               <button
                 className={styles.deleteAssetButton}
                 onClick={handleDeleteAsset}
@@ -573,40 +544,9 @@ export default function AssetDetailPage() {
         })()}
 
         <div className={styles.content}>
-          {/* Main Image Preview or Comparison View */}
+          {/* Main Image Preview */}
           <div className={styles.previewSection}>
-            {compareMode && selectedVariant && compareVariant ? (
-              /* Side-by-side comparison view */
-              <div className={styles.comparisonView}>
-                <div className={styles.comparisonSide}>
-                  <div className={styles.comparisonLabel}>A - Original</div>
-                  <div className={styles.comparisonPreview}>
-                    <img
-                      src={`/api/images/${selectedVariant.image_key}`}
-                      alt="Variant A"
-                      className={styles.comparisonImage}
-                    />
-                  </div>
-                  <div className={styles.comparisonMeta}>
-                    <span>{formatDate(selectedVariant.created_at)}</span>
-                  </div>
-                </div>
-                <div className={styles.comparisonDivider} />
-                <div className={styles.comparisonSide}>
-                  <div className={styles.comparisonLabel}>B - Comparing</div>
-                  <div className={styles.comparisonPreview}>
-                    <img
-                      src={`/api/images/${compareVariant.image_key}`}
-                      alt="Variant B"
-                      className={styles.comparisonImage}
-                    />
-                  </div>
-                  <div className={styles.comparisonMeta}>
-                    <span>{formatDate(compareVariant.created_at)}</span>
-                  </div>
-                </div>
-              </div>
-            ) : selectedVariant ? (
+            {selectedVariant ? (
               <div className={styles.preview}>
                 <img
                   src={`/api/images/${selectedVariant.image_key}`}
@@ -642,27 +582,14 @@ export default function AssetDetailPage() {
                       Download
                     </a>
                     <button
-                      className={styles.refineButton}
-                      onClick={() => setShowRefineModal(true)}
-                      disabled={actionInProgress}
+                      className={styles.addToTrayButton}
+                      onClick={() => handleAddToTray(selectedVariant)}
+                      title="Add to Forge Tray for generation"
                     >
-                      Refine
-                    </button>
-                    <button
-                      className={styles.newAssetButton}
-                      onClick={() => setShowNewAssetModal(true)}
-                      disabled={actionInProgress}
-                      title="Create a new asset from this variant"
-                    >
-                      New Asset
-                    </button>
-                    <button
-                      className={styles.referenceButton}
-                      onClick={() => setShowReferenceModal(true)}
-                      disabled={actionInProgress}
-                      title="Generate a new asset using this variant as style reference"
-                    >
-                      Generate from Reference
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                      Add to Tray
                     </button>
                     {selectedVariant.id !== asset.active_variant_id && (
                       <button
@@ -731,22 +658,6 @@ export default function AssetDetailPage() {
 
           {/* Variant List */}
           <div className={styles.variantsSection}>
-            <div className={styles.variantsSectionHeader}>
-              <h3>All Variants</h3>
-              {variants.length >= 2 && (
-                <button
-                  className={`${styles.compareToggle} ${compareMode ? styles.active : ''}`}
-                  onClick={toggleCompareMode}
-                >
-                  {compareMode ? 'Exit Compare' : 'Compare'}
-                </button>
-              )}
-            </div>
-            {compareMode && (
-              <p className={styles.compareHint}>
-                Click a variant to compare with the selected one
-              </p>
-            )}
             <div className={styles.variantsList}>
               {/* Pending variant placeholders for active jobs */}
               {Array.from(jobs.values())
@@ -767,7 +678,7 @@ export default function AssetDetailPage() {
               {variants.map((variant) => (
                 <div
                   key={variant.id}
-                  className={`${styles.variantThumb} ${selectedVariant?.id === variant.id ? styles.selected : ''} ${variant.id === asset.active_variant_id ? styles.active : ''} ${compareVariant?.id === variant.id ? styles.comparing : ''} ${variant.starred ? styles.starred : ''}`}
+                  className={`${styles.variantThumb} ${selectedVariant?.id === variant.id ? styles.selected : ''} ${variant.id === asset.active_variant_id ? styles.active : ''} ${variant.starred ? styles.starred : ''}`}
                   onClick={() => handleVariantClick(variant)}
                 >
                   <img
@@ -780,17 +691,64 @@ export default function AssetDetailPage() {
                   {variant.id === asset.active_variant_id && (
                     <span className={styles.activeIndicator}>Active</span>
                   )}
-                  {selectedVariant?.id === variant.id && compareMode && (
-                    <span className={styles.compareLabel}>A</span>
-                  )}
-                  {compareVariant?.id === variant.id && (
-                    <span className={styles.compareLabel}>B</span>
-                  )}
+                  <button
+                    className={styles.addToTrayButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAddToTray(variant);
+                    }}
+                    title="Add to Forge Tray"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>
           </div>
         </div>
+
+        {/* Sub-Assets Section */}
+        {childAssets.length > 0 && (
+          <div className={styles.subAssetsSection}>
+            <h2 className={styles.subAssetsTitle}>Sub-Assets ({childAssets.length})</h2>
+            <div className={styles.subAssetsGrid}>
+              {childAssets.map((child) => {
+                const childVariant = wsVariants.find(v => v.asset_id === child.id && v.id === child.active_variant_id)
+                  || wsVariants.find(v => v.asset_id === child.id);
+                return (
+                  <Link
+                    key={child.id}
+                    to={`/spaces/${spaceId}/assets/${child.id}`}
+                    className={styles.subAssetCard}
+                  >
+                    <div className={styles.subAssetThumb}>
+                      {childVariant ? (
+                        <img
+                          src={`/api/images/${childVariant.thumb_key}`}
+                          alt={child.name}
+                        />
+                      ) : (
+                        <div className={styles.emptyThumb}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className={styles.subAssetInfo}>
+                      <span className={styles.subAssetName}>{child.name}</span>
+                      <span className={styles.subAssetType}>{child.type}</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Confirmation Dialog */}
@@ -817,211 +775,14 @@ export default function AssetDetailPage() {
         </div>
       )}
 
-      {/* Refine Modal */}
-      {showRefineModal && selectedVariant && (
-        <div className={styles.dialogOverlay} onClick={() => setShowRefineModal(false)}>
-          <div className={styles.refineModal} onClick={(e) => e.stopPropagation()}>
-            <h3 className={styles.dialogTitle}>Refine Variant</h3>
-            <p className={styles.refineDescription}>
-              Create a new variant by modifying this one. The original will be preserved.
-            </p>
-
-            <div className={styles.refinePreview}>
-              <img
-                src={`/api/images/${selectedVariant.thumb_key}`}
-                alt="Source variant"
-                className={styles.refinePreviewImage}
-              />
-            </div>
-
-            <div className={styles.refineFormGroup}>
-              <div className={styles.refineLabelRow}>
-                <label className={styles.refineLabel}>Modification prompt</label>
-                <button
-                  type="button"
-                  className={styles.refineSuggestButton}
-                  onClick={handleSuggestRefine}
-                  disabled={isSuggestingRefine || isRefining}
-                >
-                  {isSuggestingRefine ? 'Thinking...' : 'Suggest'}
-                </button>
-              </div>
-              <textarea
-                className={styles.refineTextarea}
-                value={refinePrompt}
-                onChange={(e) => setRefinePrompt(e.target.value)}
-                placeholder="Describe the changes you want to make..."
-                rows={4}
-                autoFocus
-              />
-            </div>
-
-            <div className={styles.dialogActions}>
-              <button
-                className={styles.dialogCancel}
-                onClick={() => {
-                  setShowRefineModal(false);
-                  setRefinePrompt('');
-                }}
-                disabled={isRefining}
-              >
-                Cancel
-              </button>
-              <button
-                className={styles.refineSubmitButton}
-                onClick={handleRefine}
-                disabled={isRefining || !refinePrompt.trim()}
-              >
-                {isRefining ? 'Starting...' : 'Refine'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Use as Reference Modal */}
-      {showReferenceModal && selectedVariant && (
-        <div className={styles.dialogOverlay} onClick={() => setShowReferenceModal(false)}>
-          <div className={styles.refineModal} onClick={(e) => e.stopPropagation()}>
-            <h3 className={styles.dialogTitle}>Create from Reference</h3>
-            <p className={styles.refineDescription}>
-              Create a new asset using this variant as a style reference.
-            </p>
-
-            <div className={styles.refinePreview}>
-              <img
-                src={`/api/images/${selectedVariant.thumb_key}`}
-                alt="Reference variant"
-                className={styles.refinePreviewImage}
-              />
-            </div>
-
-            <div className={styles.refineFormGroup}>
-              <label className={styles.refineLabel}>New Asset Name</label>
-              <input
-                type="text"
-                className={styles.refineInput}
-                value={referenceForm.assetName}
-                onChange={(e) => setReferenceForm(f => ({ ...f, assetName: e.target.value }))}
-                placeholder="e.g., Princess"
-                autoFocus
-              />
-            </div>
-
-            <div className={styles.refineFormGroup}>
-              <label className={styles.refineLabel}>Asset Type</label>
-              <select
-                className={styles.refineSelect}
-                value={referenceForm.assetType}
-                onChange={(e) => setReferenceForm(f => ({ ...f, assetType: e.target.value }))}
-              >
-                {PREDEFINED_ASSET_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className={styles.refineFormGroup}>
-              <label className={styles.refineLabel}>Description</label>
-              <textarea
-                className={styles.refineTextarea}
-                value={referenceForm.prompt}
-                onChange={(e) => setReferenceForm(f => ({ ...f, prompt: e.target.value }))}
-                placeholder="Describe the new asset, using the reference for style consistency..."
-                rows={4}
-              />
-            </div>
-
-            <div className={styles.dialogActions}>
-              <button
-                className={styles.dialogCancel}
-                onClick={() => {
-                  setShowReferenceModal(false);
-                  setReferenceForm({ prompt: '', assetName: '', assetType: 'character' });
-                }}
-                disabled={isCreatingReference}
-              >
-                Cancel
-              </button>
-              <button
-                className={styles.refineSubmitButton}
-                onClick={handleCreateFromReference}
-                disabled={isCreatingReference || !referenceForm.prompt.trim() || !referenceForm.assetName.trim()}
-              >
-                {isCreatingReference ? 'Creating...' : 'Create'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* New Asset (Spawn) Modal */}
-      {showNewAssetModal && selectedVariant && (
-        <div className={styles.dialogOverlay} onClick={() => setShowNewAssetModal(false)}>
-          <div className={styles.refineModal} onClick={(e) => e.stopPropagation()}>
-            <h3 className={styles.dialogTitle}>New Asset from Variant</h3>
-            <p className={styles.refineDescription}>
-              Create a new asset using this variant as its first image. The image will be copied to the new asset.
-            </p>
-
-            <div className={styles.refinePreview}>
-              <img
-                src={`/api/images/${selectedVariant.thumb_key}`}
-                alt="Source variant"
-                className={styles.refinePreviewImage}
-              />
-            </div>
-
-            <div className={styles.refineFormGroup}>
-              <label className={styles.refineLabel}>Asset Name</label>
-              <input
-                type="text"
-                className={styles.refineInput}
-                value={newAssetForm.name}
-                onChange={(e) => setNewAssetForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g., Hero Armored"
-                autoFocus
-              />
-            </div>
-
-            <div className={styles.refineFormGroup}>
-              <label className={styles.refineLabel}>Asset Type</label>
-              <select
-                className={styles.refineSelect}
-                value={newAssetForm.type}
-                onChange={(e) => setNewAssetForm(f => ({ ...f, type: e.target.value }))}
-              >
-                {PREDEFINED_ASSET_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className={styles.dialogActions}>
-              <button
-                className={styles.dialogCancel}
-                onClick={() => {
-                  setShowNewAssetModal(false);
-                  setNewAssetForm({ name: '', type: 'character' });
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className={styles.refineSubmitButton}
-                onClick={handleSpawnNewAsset}
-                disabled={!newAssetForm.name.trim()}
-              >
-                Create Asset
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Forge Tray - persistent bottom bar for generation */}
+      <ForgeTray
+        allAssets={wsAssets}
+        allVariants={wsVariants}
+        onSubmit={handleForgeSubmit}
+        onBrandBackground={false}
+        currentAsset={asset}
+      />
     </div>
   );
 }

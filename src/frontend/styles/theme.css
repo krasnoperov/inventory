@@ -308,6 +308,98 @@
   --layout-gap: 20px;
   --panel-spacing: 1.5rem;
   --panel-spacing-sm: 1rem;
+
+  /* Thumbnail sizing - consistent across app */
+  --thumb-size-lg: 150px;
+  --thumb-size-md: 100px;
+  --thumb-size-sm: 75px;
+  --thumb-size-xs: 48px;
+  --thumb-radius: 10px;
+  --thumb-radius-sm: 6px;
+
+  /* Forge Tray - Glossy Glass Aesthetic */
+  --forge-bar-bg: linear-gradient(
+    180deg,
+    light-dark(oklch(100% 0 0 / 0.25), oklch(100% 0 0 / 0.12)) 0%,
+    light-dark(oklch(100% 0 0 / 0.15), oklch(100% 0 0 / 0.06)) 100%
+  );
+  --forge-bar-border: light-dark(
+    oklch(100% 0 0 / 0.4),
+    oklch(100% 0 0 / 0.2)
+  );
+  --forge-bar-border-inner: light-dark(
+    oklch(100% 0 0 / 0.15),
+    oklch(100% 0 0 / 0.08)
+  );
+  --forge-bar-shadow:
+    0 -8px 32px light-dark(oklch(0% 0 0 / 0.12), oklch(0% 0 0 / 0.35)),
+    0 -2px 8px light-dark(oklch(0% 0 0 / 0.06), oklch(0% 0 0 / 0.2)),
+    inset 0 1px 0 light-dark(oklch(100% 0 0 / 0.5), oklch(100% 0 0 / 0.15));
+  --forge-input-bg: light-dark(
+    oklch(100% 0 0 / 0.7),
+    oklch(20% 0.015 264 / 0.8)
+  );
+  --forge-input-border: light-dark(
+    oklch(100% 0 0 / 0.3),
+    oklch(100% 0 0 / 0.12)
+  );
+  --forge-input-focus-glow: 0 0 0 3px light-dark(
+    oklch(62.19% 0.1845 276.62 / 0.2),
+    oklch(62.19% 0.1845 276.62 / 0.3)
+  );
+
+  /* Forge Button - Glossy Primary */
+  --forge-button-bg: linear-gradient(
+    180deg,
+    light-dark(oklch(65% 0.17 276), oklch(55% 0.15 276)) 0%,
+    light-dark(oklch(55% 0.18 290), oklch(45% 0.16 290)) 100%
+  );
+  --forge-button-border: light-dark(
+    oklch(100% 0 0 / 0.25),
+    oklch(100% 0 0 / 0.15)
+  );
+  --forge-button-shadow:
+    0 4px 16px light-dark(oklch(55% 0.18 276 / 0.4), oklch(0% 0 0 / 0.4)),
+    inset 0 1px 0 light-dark(oklch(100% 0 0 / 0.3), oklch(100% 0 0 / 0.2));
+  --forge-button-hover-bg: linear-gradient(
+    180deg,
+    light-dark(oklch(68% 0.16 276), oklch(60% 0.14 276)) 0%,
+    light-dark(oklch(58% 0.17 290), oklch(50% 0.15 290)) 100%
+  );
+
+  /* Slot pills - sized for inside textarea */
+  --forge-slot-size: var(--thumb-size-sm);
+  --forge-slot-radius: var(--thumb-radius-sm);
+  --forge-slot-border: var(--border-glass);
+  --forge-slot-bg: light-dark(
+    oklch(100% 0 0 / 0.5),
+    oklch(100% 0 0 / 0.08)
+  );
+
+  /* Thumbnail Action Buttons - Unified hover buttons */
+  --thumb-action-size: 24px;
+  --thumb-action-size-sm: 18px;
+  --thumb-action-bg: light-dark(
+    oklch(100% 0 0 / 0.95),
+    oklch(25% 0.015 264 / 0.95)
+  );
+  --thumb-action-bg-hover: light-dark(
+    oklch(100% 0 0),
+    oklch(30% 0.015 264)
+  );
+  --thumb-action-shadow: 0 2px 6px light-dark(
+    oklch(0% 0 0 / 0.2),
+    oklch(0% 0 0 / 0.4)
+  );
+  --thumb-action-border: 1px solid light-dark(
+    oklch(85% 0.005 264),
+    oklch(35% 0.015 264)
+  );
+
+  /* Selection Badge - Checkmark indicator */
+  --thumb-badge-size: 20px;
+  --thumb-badge-bg: var(--color-primary);
+  --thumb-badge-shadow: 0 2px 4px oklch(0% 0 0 / 0.25);
 }
 
 body {

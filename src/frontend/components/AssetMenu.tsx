@@ -6,7 +6,6 @@ export interface AssetMenuProps {
   asset: Asset;
   position: { x: number; y: number };
   onClose: () => void;
-  onGenerateVariant?: () => void;
   onAddChild?: () => void;
   onRename?: () => void;
   onMove?: () => void;
@@ -17,7 +16,6 @@ export function AssetMenu({
   asset,
   position,
   onClose,
-  onGenerateVariant,
   onAddChild,
   onRename,
   onMove,
@@ -90,20 +88,6 @@ export function AssetMenu({
       </div>
 
       <div className={styles.section}>
-        {onGenerateVariant && (
-          <button
-            className={styles.action}
-            onClick={() => handleAction(onGenerateVariant)}
-          >
-            <span className={styles.actionIcon}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-            </span>
-            <span className={styles.actionLabel}>Generate Variant</span>
-          </button>
-        )}
-
         {onAddChild && (
           <button
             className={styles.action}
