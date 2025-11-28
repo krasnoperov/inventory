@@ -149,7 +149,7 @@ jobRoutes.post('/api/spaces/:spaceId/assets', generationRateLimiter, async (c) =
 
     // AI GENERATION MODE: Has prompt (with or without references)
     // Validate references exist if provided
-    let sourceImageKeys: string[] = [];
+    const sourceImageKeys: string[] = [];
     if (hasRefs) {
       const stateResponse = await doStub.fetch(new Request('http://do/internal/state'));
       if (!stateResponse.ok) {
@@ -343,7 +343,7 @@ jobRoutes.post('/api/spaces/:spaceId/assets/:assetId/variants', generationRateLi
     }
 
     // Validate additional references if provided
-    let additionalImageKeys: string[] = [];
+    const additionalImageKeys: string[] = [];
     if (Array.isArray(referenceVariantIds) && referenceVariantIds.length > 0) {
       const stateResponse = await doStub.fetch(new Request('http://do/internal/state'));
       if (!stateResponse.ok) {

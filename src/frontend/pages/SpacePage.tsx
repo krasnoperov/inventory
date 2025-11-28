@@ -113,43 +113,43 @@ export default function SpacePage() {
       return;
     }
 
+    const fetchSpaceData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const [spaceResponse, membersResponse] = await Promise.all([
+          fetch(`/api/spaces/${spaceId}`, { credentials: 'include' }),
+          fetch(`/api/spaces/${spaceId}/members`, { credentials: 'include' }),
+        ]);
+
+        if (!spaceResponse.ok) {
+          if (spaceResponse.status === 403) {
+            throw new Error('You do not have access to this space');
+          }
+          if (spaceResponse.status === 404) {
+            throw new Error('Space not found');
+          }
+          throw new Error('Failed to fetch space');
+        }
+
+        const spaceData = await spaceResponse.json() as { success: boolean; space: Space };
+        setSpace(spaceData.space);
+
+        if (membersResponse.ok) {
+          const membersData = await membersResponse.json() as { success: boolean; members: Member[] };
+          setMembers(membersData.members || []);
+        }
+      } catch (err) {
+        console.error('Space fetch error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load space');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchSpaceData();
   }, [user, spaceId, navigate]);
-
-  const fetchSpaceData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const [spaceResponse, membersResponse] = await Promise.all([
-        fetch(`/api/spaces/${spaceId}`, { credentials: 'include' }),
-        fetch(`/api/spaces/${spaceId}/members`, { credentials: 'include' }),
-      ]);
-
-      if (!spaceResponse.ok) {
-        if (spaceResponse.status === 403) {
-          throw new Error('You do not have access to this space');
-        }
-        if (spaceResponse.status === 404) {
-          throw new Error('Space not found');
-        }
-        throw new Error('Failed to fetch space');
-      }
-
-      const spaceData = await spaceResponse.json() as { success: boolean; space: Space };
-      setSpace(spaceData.space);
-
-      if (membersResponse.ok) {
-        const membersData = await membersResponse.json() as { success: boolean; members: Member[] };
-        setMembers(membersData.members || []);
-      }
-    } catch (err) {
-      console.error('Space fetch error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load space');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Get all assets sorted by hierarchy (root first, then by name)
   const sortedAssets = useMemo(() => {

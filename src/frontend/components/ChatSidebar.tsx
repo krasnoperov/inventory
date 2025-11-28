@@ -134,12 +134,43 @@ export function ChatSidebar({
     return { type: 'catalog' };
   }, [currentAsset]);
 
+  // Load chat history
+  const loadChatHistory = useCallback(async () => {
+    try {
+      setIsLoadingHistory(true);
+      const response = await fetch(`/api/spaces/${spaceId}/chat/history`, {
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json() as { success: boolean; messages: Array<{
+          sender_type: 'user' | 'bot';
+          content: string;
+          created_at: number;
+        }> };
+
+        if (data.success && data.messages) {
+          const formattedMessages: ChatMessage[] = data.messages.map(msg => ({
+            role: msg.sender_type === 'user' ? 'user' : 'assistant',
+            content: msg.content,
+            timestamp: msg.created_at,
+          }));
+          setMessages(formattedMessages);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load chat history:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [spaceId]);
+
   // Load chat history on mount
   useEffect(() => {
     if (isOpen && spaceId) {
       loadChatHistory();
     }
-  }, [isOpen, spaceId]);
+  }, [isOpen, spaceId, loadChatHistory]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -598,36 +629,6 @@ export function ChatSidebar({
     setAwaitingConfirmation(false);
     setIsExecutingPlan(false);
   }, [activePlan]);
-
-  const loadChatHistory = async () => {
-    try {
-      setIsLoadingHistory(true);
-      const response = await fetch(`/api/spaces/${spaceId}/chat/history`, {
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const data = await response.json() as { success: boolean; messages: Array<{
-          sender_type: 'user' | 'bot';
-          content: string;
-          created_at: number;
-        }> };
-
-        if (data.success && data.messages) {
-          const formattedMessages: ChatMessage[] = data.messages.map(msg => ({
-            role: msg.sender_type === 'user' ? 'user' : 'assistant',
-            content: msg.content,
-            timestamp: msg.created_at,
-          }));
-          setMessages(formattedMessages);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load chat history:', err);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
 
   const sendMessage = useCallback(async (overrideMessage?: string, overrideMode?: 'advisor' | 'actor') => {
     const messageToSend = overrideMessage ?? inputValue.trim();

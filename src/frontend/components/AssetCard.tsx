@@ -23,25 +23,21 @@ export interface AssetCardProps {
   onDeleteAsset?: (asset: Asset) => void;
 }
 
-export function AssetCard({
-  asset,
-  variants,
-  childAssets,
-  allAssets,
-  allVariants,
-  depth = 0,
-  parentPath = [],
-  isGenerating = false,
-  generatingStatus,
-  canEdit = false,
-  spaceId,
-  onAssetClick,
-  onAddToTray,
-  onAddChildAsset,
-  onRenameAsset,
-  onMoveAsset,
-  onDeleteAsset,
-}: AssetCardProps) {
+export function AssetCard(props: AssetCardProps) {
+  const {
+    asset,
+    variants,
+    depth = 0,
+    parentPath = [],
+    isGenerating = false,
+    generatingStatus,
+    onAssetClick,
+    onAddToTray,
+    onAddChildAsset,
+    onRenameAsset,
+    onMoveAsset,
+    onDeleteAsset,
+  } = props;
   const [showAssetMenu, setShowAssetMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [isHovered, setIsHovered] = useState(false);

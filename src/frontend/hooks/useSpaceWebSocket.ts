@@ -305,12 +305,14 @@ export function useSpaceWebSocket({
   // Store callbacks in refs to avoid dependency issues
   const onConnectRef = useRef(onConnect);
   const onDisconnectRef = useRef(onDisconnect);
+  const onJobCompleteRef = useRef(onJobComplete);
   const onChatMessageRef = useRef(onChatMessage);
 
   // Update refs in useEffect to avoid accessing refs during render
   useEffect(() => {
     onConnectRef.current = onConnect;
     onDisconnectRef.current = onDisconnect;
+    onJobCompleteRef.current = onJobComplete;
     onChatMessageRef.current = onChatMessage;
   });
 
@@ -454,9 +456,7 @@ export function useSpaceWebSocket({
                   };
                   next.set(message.jobId, completedJob);
                   // Notify callback if provided
-                  if (onJobComplete) {
-                    onJobComplete(completedJob, message.variant);
-                  }
+                  onJobCompleteRef.current?.(completedJob, message.variant);
                   return next;
                 });
                 break;

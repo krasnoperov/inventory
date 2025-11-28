@@ -137,6 +137,50 @@ export default function AssetDetailPage() {
       return;
     }
 
+    const fetchAssetDetails = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const response = await fetch(`/api/spaces/${spaceId}/assets/${assetId}`, {
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          if (response.status === 403) {
+            throw new Error('You do not have access to this asset');
+          }
+          if (response.status === 404) {
+            throw new Error('Asset not found');
+          }
+          throw new Error('Failed to fetch asset');
+        }
+
+        const data = await response.json() as AssetDetailsResponse;
+        const variantsData = data.variants || [];
+        const lineageData = data.lineage || [];
+
+        setAsset(data.asset);
+        setVariants(variantsData);
+        setLineage(lineageData);
+
+        // Select active variant by default
+        if (data.asset.active_variant_id) {
+          const activeVariant = variantsData.find(v => v.id === data.asset.active_variant_id);
+          if (activeVariant) {
+            setSelectedVariant(activeVariant);
+          }
+        } else if (variantsData.length > 0) {
+          setSelectedVariant(variantsData[0]);
+        }
+      } catch (err) {
+        console.error('Asset fetch error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load asset');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchAssetDetails();
   }, [user, spaceId, assetId, navigate]);
 
@@ -336,50 +380,6 @@ export default function AssetDetailPage() {
       return result.jobId;
     }
   }, [spaceId, trackJob, wsAssets]);
-
-  const fetchAssetDetails = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const response = await fetch(`/api/spaces/${spaceId}/assets/${assetId}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        if (response.status === 403) {
-          throw new Error('You do not have access to this asset');
-        }
-        if (response.status === 404) {
-          throw new Error('Asset not found');
-        }
-        throw new Error('Failed to fetch asset');
-      }
-
-      const data = await response.json() as AssetDetailsResponse;
-      const variantsData = data.variants || [];
-      const lineageData = data.lineage || [];
-
-      setAsset(data.asset);
-      setVariants(variantsData);
-      setLineage(lineageData);
-
-      // Select active variant by default
-      if (data.asset.active_variant_id) {
-        const activeVariant = variantsData.find(v => v.id === data.asset.active_variant_id);
-        if (activeVariant) {
-          setSelectedVariant(activeVariant);
-        }
-      } else if (variantsData.length > 0) {
-        setSelectedVariant(variantsData[0]);
-      }
-    } catch (err) {
-      console.error('Asset fetch error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load asset');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const getVariantLineage = useCallback((variantId: string) => {
     const parents = lineage

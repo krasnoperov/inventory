@@ -257,8 +257,6 @@ export class GenerationConsumer {
       // For derive jobs: sourceVariantId is the single source variant
       // For compose jobs: sourceVariantIds are multiple source variants
       const isDeriveJob = job.type === 'derive';
-      const isComposeJob = job.type === 'compose';
-      const hasInputs = jobInput.sourceVariantId || jobInput.sourceVariantIds?.length > 0;
 
       // Build recipe inputs with imageKeys for retry capability
       // Note: sourceImageKeys is now always populated during processing (enriched above for compose jobs)
