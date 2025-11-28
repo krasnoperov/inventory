@@ -30,11 +30,6 @@ interface Variant {
   created_at: number;
 }
 
-interface ImageRef {
-  image_key: string;
-  ref_count: number;
-}
-
 interface ChatMessage {
   id: string;
   sender_type: 'user' | 'bot';
@@ -1672,12 +1667,23 @@ export class SpaceDO extends DurableObject<Env> {
       variant.asset_id
     );
 
-    const asset = assetResult.toArray()[0] as { active_variant_id: string | null } | undefined;
-    if (asset && !asset.active_variant_id) {
+    const assetRow = assetResult.toArray()[0] as { active_variant_id: string | null } | undefined;
+    if (assetRow && !assetRow.active_variant_id) {
       const updatedAsset = await this.updateAsset(variant.asset_id, { active_variant_id: variant.id });
       // Broadcast asset update so clients know the active variant changed
       if (updatedAsset) {
         this.broadcast({ type: 'asset:updated', asset: updatedAsset });
+      }
+    } else {
+      // Always broadcast asset update when variant added so other users see the new variant
+      // (even if active_variant_id didn't change)
+      const fullAssetResult = await this.ctx.storage.sql.exec(
+        'SELECT * FROM assets WHERE id = ?',
+        variant.asset_id
+      );
+      const currentAsset = fullAssetResult.toArray()[0] as unknown as Asset | undefined;
+      if (currentAsset) {
+        this.broadcast({ type: 'asset:updated', asset: currentAsset });
       }
     }
 

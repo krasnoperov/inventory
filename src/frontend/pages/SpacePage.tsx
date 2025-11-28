@@ -70,10 +70,29 @@ export default function SpacePage() {
     onConnect: () => {
       requestSync();
     },
+    onJobComplete: (completedJob, variant) => {
+      // Notify ChatSidebar of completed job for auto-review
+      setLastCompletedJob({
+        jobId: completedJob.jobId,
+        variantId: variant.id,
+        assetId: completedJob.assetId,
+        assetName: completedJob.assetName,
+        prompt: completedJob.prompt,
+      });
+    },
   });
 
   // Chat sidebar state
   const [showChat, setShowChat] = useState(false);
+
+  // Track last completed job for assistant auto-review
+  const [lastCompletedJob, setLastCompletedJob] = useState<{
+    jobId: string;
+    variantId: string;
+    assetId?: string;
+    assetName?: string;
+    prompt?: string;
+  } | null>(null);
 
   // Modal states
   const [newAssetModalState, setNewAssetModalState] = useState<{ variant: Variant; asset: Asset } | null>(null);
@@ -168,7 +187,8 @@ export default function SpacePage() {
   }, [assets]);
 
   // Handle forge submit (unified handler for generate, transform, combine)
-  const handleForgeSubmit = useCallback(async (params: ForgeSubmitParams) => {
+  // Returns the job ID for tracking
+  const handleForgeSubmit = useCallback(async (params: ForgeSubmitParams): Promise<string> => {
     const { prompt, referenceVariantIds, destination } = params;
 
     if (destination.type === 'existing_asset' && destination.assetId) {
@@ -199,6 +219,7 @@ export default function SpacePage() {
         assetId: destination.assetId,
         assetName: asset?.name,
       });
+      return result.jobId;
     } else {
       // Create new asset
       const response = await fetch(`/api/spaces/${spaceId}/assets`, {
@@ -226,6 +247,7 @@ export default function SpacePage() {
         assetId: result.assetId,
         assetName: destination.assetName,
       });
+      return result.jobId;
     }
   }, [spaceId, trackJob, assets]);
 
@@ -583,8 +605,9 @@ export default function SpacePage() {
           onClose={() => setShowChat(false)}
           allAssets={assets}
           allVariants={variants}
+          lastCompletedJob={lastCompletedJob}
           onGenerateAsset={async (params) => {
-            await handleForgeSubmit({
+            return await handleForgeSubmit({
               prompt: params.prompt,
               referenceVariantIds: [],
               destination: {
@@ -600,7 +623,7 @@ export default function SpacePage() {
             const asset = assets.find(a => a.id === params.assetId);
             const sourceVariant = variants.find(v => v.id === asset?.active_variant_id);
             if (sourceVariant) {
-              await handleForgeSubmit({
+              return await handleForgeSubmit({
                 prompt: params.prompt,
                 referenceVariantIds: [sourceVariant.id],
                 destination: {
@@ -615,7 +638,7 @@ export default function SpacePage() {
             const sourceVariantIds = params.sourceAssetIds
               .map(id => assets.find(a => a.id === id)?.active_variant_id)
               .filter((id): id is string => !!id);
-            await handleForgeSubmit({
+            return await handleForgeSubmit({
               prompt: params.prompt,
               referenceVariantIds: sourceVariantIds,
               destination: {

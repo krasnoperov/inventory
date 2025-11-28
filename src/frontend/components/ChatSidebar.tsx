@@ -57,6 +57,15 @@ interface ChatSidebarProps {
 }
 
 // =============================================================================
+// Constants
+// =============================================================================
+
+/** Maximum number of jobs to track for auto-review */
+const MAX_TRACKED_JOBS = 50;
+/** Time-to-live for job tracking entries (10 minutes) */
+const JOB_TTL_MS = 10 * 60 * 1000;
+
+// =============================================================================
 // Component
 // =============================================================================
 
@@ -85,10 +94,6 @@ export function ChatSidebar({
   // Track jobs initiated by the assistant for auto-review
   // Includes timestamp for TTL-based cleanup
   const assistantJobsRef = useRef<Map<string, { assetName: string; prompt: string; createdAt: number }>>(new Map());
-
-  // Constants for job tracking limits
-  const MAX_TRACKED_JOBS = 50;
-  const JOB_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
   // Get forge tray state
   const slots = useForgeTrayStore((state) => state.slots);

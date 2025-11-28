@@ -34,11 +34,30 @@ export interface Lineage {
   created_at: number;
 }
 
+export interface UserPresence {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string;
+  viewing?: string;  // Asset ID currently viewing, or null for catalog
+  lastSeen: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  userName: string;
+  content: string;
+  role: 'user' | 'assistant';
+  createdAt: number;
+}
+
 // WebSocket connection parameters
 export interface UseSpaceWebSocketParams {
   spaceId: string;
   onConnect?: () => void;
   onDisconnect?: () => void;
+  onJobComplete?: (job: JobStatus, variant: Variant) => void;
+  onChatMessage?: (message: ChatMessage) => void;
 }
 
 // Connection status
@@ -72,7 +91,7 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence?: UserPresence[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -85,6 +104,8 @@ type ServerMessage =
   | { type: 'job:progress'; jobId: string; status: string }
   | { type: 'job:completed'; jobId: string; variant: Variant }
   | { type: 'job:failed'; jobId: string; error: string }
+  | { type: 'chat:message'; message: ChatMessage }
+  | { type: 'presence:update'; presence: UserPresence[] }
   | { type: 'error'; code: string; message: string };
 
 // Predefined asset types (user can also create custom)
@@ -124,6 +145,7 @@ export interface UseSpaceWebSocketReturn {
   variants: Variant[];
   lineage: Lineage[];
   jobs: Map<string, JobStatus>;
+  presence: UserPresence[];
   sendMessage: (msg: object) => void;
   createAsset: (name: string, type: string, parentAssetId?: string) => void;
   updateAsset: (assetId: string, changes: AssetChanges) => void;
@@ -136,6 +158,8 @@ export interface UseSpaceWebSocketReturn {
   requestSync: () => void;
   trackJob: (jobId: string, context?: JobContext) => void;
   clearJob: (jobId: string) => void;
+  updatePresence: (viewing?: string) => void;
+  sendChatMessage: (content: string) => void;
   // Helper methods for hierarchy navigation
   getChildren: (assetId: string) => Asset[];
   getAncestors: (assetId: string) => Asset[];
@@ -150,6 +174,8 @@ export function useSpaceWebSocket({
   spaceId,
   onConnect,
   onDisconnect,
+  onJobComplete,
+  onChatMessage,
 }: UseSpaceWebSocketParams): UseSpaceWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +183,7 @@ export function useSpaceWebSocket({
   const [variants, setVariants] = useState<Variant[]>([]);
   const [lineage, setLineage] = useState<Lineage[]>([]);
   const [jobs, setJobs] = useState<Map<string, JobStatus>>(new Map());
+  const [presence, setPresence] = useState<UserPresence[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
@@ -218,6 +245,16 @@ export function useSpaceWebSocket({
     sendMessage({ type: 'sync:request' });
   }, [sendMessage]);
 
+  // Update presence (what asset the user is viewing)
+  const updatePresence = useCallback((viewing?: string) => {
+    sendMessage({ type: 'presence:update', viewing });
+  }, [sendMessage]);
+
+  // Send chat message via WebSocket
+  const sendChatMessage = useCallback((content: string) => {
+    sendMessage({ type: 'chat:send', content });
+  }, [sendMessage]);
+
   // Helper methods for hierarchy navigation
   const getChildren = useCallback((assetId: string): Asset[] => {
     return assets.filter(a => a.parent_asset_id === assetId);
@@ -268,8 +305,14 @@ export function useSpaceWebSocket({
   // Store callbacks in refs to avoid dependency issues
   const onConnectRef = useRef(onConnect);
   const onDisconnectRef = useRef(onDisconnect);
-  onConnectRef.current = onConnect;
-  onDisconnectRef.current = onDisconnect;
+  const onChatMessageRef = useRef(onChatMessage);
+
+  // Update refs in useEffect to avoid accessing refs during render
+  useEffect(() => {
+    onConnectRef.current = onConnect;
+    onDisconnectRef.current = onDisconnect;
+    onChatMessageRef.current = onChatMessage;
+  });
 
   // Connect on mount, disconnect on unmount
   useEffect(() => {
@@ -313,6 +356,7 @@ export function useSpaceWebSocket({
                 setAssets(message.assets);
                 setVariants(message.variants);
                 setLineage(message.lineage || []);
+                setPresence(message.presence || []);
                 setError(null);
                 break;
 
@@ -402,12 +446,17 @@ export function useSpaceWebSocket({
                   const next = new Map(prev);
                   const existing = next.get(message.jobId);
                   // Preserve original context (assetId, assetName, jobType, prompt) when marking complete
-                  next.set(message.jobId, {
+                  const completedJob: JobStatus = {
                     ...existing,
                     jobId: message.jobId,
                     status: 'completed',
                     variantId: message.variant.id,
-                  });
+                  };
+                  next.set(message.jobId, completedJob);
+                  // Notify callback if provided
+                  if (onJobComplete) {
+                    onJobComplete(completedJob, message.variant);
+                  }
                   return next;
                 });
                 break;
@@ -425,6 +474,15 @@ export function useSpaceWebSocket({
                   });
                   return next;
                 });
+                break;
+
+              case 'chat:message':
+                // Notify callback for real-time chat sync
+                onChatMessageRef.current?.(message.message);
+                break;
+
+              case 'presence:update':
+                setPresence(message.presence);
                 break;
 
               case 'error':
@@ -505,6 +563,7 @@ export function useSpaceWebSocket({
     variants,
     lineage,
     jobs,
+    presence,
     sendMessage,
     createAsset,
     updateAsset,
@@ -517,6 +576,8 @@ export function useSpaceWebSocket({
     requestSync,
     trackJob,
     clearJob,
+    updatePresence,
+    sendChatMessage,
     getChildren,
     getAncestors,
     getRootAssets,

@@ -4,11 +4,8 @@ import type {
   ForgeContext,
   ViewingContext,
   ToolCall,
-  PlanStep,
   AssistantPlan,
   AdvisorResponse,
-  ActorResponse,
-  PlanResponse,
   BotResponse,
 } from '../../api/types';
 
@@ -561,7 +558,7 @@ Always explain what you're doing and why.`;
     images: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; label: string }>,
     aspects: string[] = ['style', 'composition', 'colors']
   ): Promise<string> {
-    const imageBlocks: Anthropic.ImageBlockParam[] = images.map((img, i) => ({
+    const imageBlocks: Anthropic.ImageBlockParam[] = images.map((img) => ({
       type: 'image',
       source: {
         type: 'base64',

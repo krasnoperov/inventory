@@ -23,7 +23,7 @@ export interface ForgeSubmitParams {
 export interface ForgeTrayProps {
   allAssets: Asset[];
   allVariants: Variant[];
-  onSubmit: (params: ForgeSubmitParams) => Promise<void>;
+  onSubmit: (params: ForgeSubmitParams) => Promise<void | string>;
   onBrandBackground?: boolean;
   /** Current asset context (for Asset Detail page) */
   currentAsset?: Asset | null;
