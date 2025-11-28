@@ -141,29 +141,30 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
       }));
 
       // Store bot response
+      const botContent = response.type === 'advice'
+        ? response.message
+        : response.message || JSON.stringify(response);
+
       await doStub.fetch(new Request('http://do/internal/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           senderType: 'bot',
           senderId: 'claude',
-          content: response.type === 'advice'
-            ? response.message
-            : JSON.stringify(response),
+          content: botContent,
           metadata: JSON.stringify({ type: response.type }),
         }),
       }));
     }
 
-    // If actor mode returned a command, we can optionally execute it
-    if (response.type === 'command' && mode === 'actor') {
-      // Check if user has permission to execute commands
+    // Check permissions for action/plan execution
+    if ((response.type === 'action' || response.type === 'plan') && mode === 'actor') {
       if (member.role !== 'owner' && member.role !== 'editor') {
         return c.json({
           success: true,
           response: {
             type: 'advice',
-            message: 'I understand what you want to do, but you need editor permissions to make changes. Here\'s what I would have done:\n\n' + response.explanation,
+            message: 'I understand what you want to do, but you need editor permissions to make changes.\n\n' + response.message,
           },
         });
       }

@@ -577,6 +577,52 @@ export default function SpacePage() {
           spaceId={spaceId || ''}
           isOpen={showChat}
           onClose={() => setShowChat(false)}
+          allAssets={assets}
+          allVariants={variants}
+          onGenerateAsset={async (params) => {
+            await handleForgeSubmit({
+              prompt: params.prompt,
+              referenceVariantIds: [],
+              destination: {
+                type: 'new_asset',
+                assetName: params.name,
+                assetType: params.type,
+                parentAssetId: params.parentAssetId || null,
+              },
+              operation: 'generate',
+            });
+          }}
+          onRefineAsset={async (params) => {
+            const asset = assets.find(a => a.id === params.assetId);
+            const sourceVariant = variants.find(v => v.id === asset?.active_variant_id);
+            if (sourceVariant) {
+              await handleForgeSubmit({
+                prompt: params.prompt,
+                referenceVariantIds: [sourceVariant.id],
+                destination: {
+                  type: 'existing_asset',
+                  assetId: params.assetId,
+                },
+                operation: 'refine',
+              });
+            }
+          }}
+          onCombineAssets={async (params) => {
+            const sourceVariantIds = params.sourceAssetIds
+              .map(id => assets.find(a => a.id === id)?.active_variant_id)
+              .filter((id): id is string => !!id);
+            await handleForgeSubmit({
+              prompt: params.prompt,
+              referenceVariantIds: sourceVariantIds,
+              destination: {
+                type: 'new_asset',
+                assetName: params.targetName,
+                assetType: params.targetType,
+                parentAssetId: null,
+              },
+              operation: 'combine',
+            });
+          }}
         />
       </div>
 

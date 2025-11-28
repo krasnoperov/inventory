@@ -468,32 +468,38 @@ interface ForgeContext {
 - [x] forgeTrayStore with `prompt`, `setPrompt`, `getContext()`
 - [x] 5 operation model (generate/fork/create/refine/combine)
 
-### Phase 1: Context Awareness
-- [ ] Add `forgeContext` to chat API request
-- [ ] Extend Claude system prompt with tray state
-- [ ] Display context bar in assistant panel
+### Phase 1: Context Awareness - COMPLETED ✅
+- [x] Add `forgeContext` and `viewingContext` to chat API request
+- [x] Extend Claude system prompt with tray state and viewing context
+- [x] Display context bar in assistant panel (ChatSidebar)
 
-### Phase 2: Tray Control
-- [ ] Implement tray action commands
-- [ ] Add action buttons to assistant responses
-- [ ] Handle action confirmations
+### Phase 2: Tray Control - COMPLETED ✅
+- [x] Implement tray action commands via Claude tool use
+- [x] Execute tool calls (add_to_tray, remove_from_tray, clear_tray, set_prompt)
+- [x] Connect to actual generation endpoints (generate_asset, refine_asset, combine_assets)
 
-### Phase 3: Catalog Search
-- [ ] Add search action parsing
-- [ ] Implement asset search with thumbnails
-- [ ] Render clickable asset cards in chat
+### Phase 3: Planning Capability - COMPLETED ✅
+- [x] Add create_plan tool for multi-step operations
+- [x] Plan UI with step-by-step display and status
+- [x] Plan approval flow (Execute/Cancel buttons)
+- [x] Sequential step execution with progress tracking
 
-### Phase 4: Image Understanding
+### Phase 4: Catalog Search - COMPLETED ✅
+- [x] Add search_assets tool
+- [x] Basic name/type matching
+- [ ] Render clickable asset cards in chat (future enhancement)
+
+### Phase 5: Image Understanding
 - [ ] Add multimodal Claude requests
 - [ ] Implement describe action
 - [ ] Add image comparison capability
 
-### Phase 5: Result Review Loop
+### Phase 6: Result Review Loop
 - [ ] Hook into job completion
 - [ ] Auto-review generated images
 - [ ] Suggest refinements
 
-### Phase 6: Polish
+### Phase 7: Polish
 - [ ] Streaming responses
 - [ ] Better error handling
 - [ ] Mobile responsiveness
