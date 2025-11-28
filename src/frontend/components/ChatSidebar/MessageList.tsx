@@ -5,17 +5,10 @@ import styles from './ChatSidebar.module.css';
 // Types
 // =============================================================================
 
-/** Chat message with UI-specific fields */
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp?: number;
-  isError?: boolean;
-  retryPayload?: {
-    message: string;
-    mode: 'advisor' | 'actor';
-  };
-}
+import type { ChatMessage } from '../../stores/chatStore';
+
+// Re-export for backward compatibility
+export type { ChatMessage };
 
 export interface MessageListProps {
   messages: ChatMessage[];
@@ -64,13 +57,23 @@ export function MessageList({
         </div>
       ) : (
         <>
-          {messages.map((msg, idx) => (
+          {messages.map((msg) => (
             <div
-              key={idx}
+              key={msg.id}
               className={`${styles.message} ${styles[msg.role]} ${msg.isError ? styles.error : ''}`}
             >
               <div className={styles.messageContent}>
                 {msg.isError && <span className={styles.errorIcon}>⚠️</span>}
+                {msg.thumbnail && (
+                  <div className={styles.messageThumbnail}>
+                    <img
+                      src={msg.thumbnail.url}
+                      alt={msg.thumbnail.assetName}
+                      className={styles.thumbnailImage}
+                    />
+                    <span className={styles.thumbnailLabel}>{msg.thumbnail.assetName}</span>
+                  </div>
+                )}
                 {msg.content}
                 {msg.isError && msg.retryPayload && (
                   <button

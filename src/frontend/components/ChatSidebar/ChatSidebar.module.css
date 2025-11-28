@@ -722,6 +722,37 @@
 }
 
 /* =============================================================================
+   Message Thumbnails
+   ============================================================================= */
+
+.messageThumbnail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  background: var(--forge-slot-bg);
+  border-radius: 10px;
+  border: 1px solid var(--forge-bar-border-inner);
+}
+
+.thumbnailImage {
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.thumbnailLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: center;
+}
+
+/* =============================================================================
    Responsive
    ============================================================================= */
 

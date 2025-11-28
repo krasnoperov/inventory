@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
+import { useChatStore, useChatIsOpen } from '../stores/chatStore';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import {
@@ -53,8 +54,15 @@ export default function AssetDetailPage() {
   // Set page title
   useDocumentTitle(asset?.name);
 
-  // Chat sidebar state
-  const [showChat, setShowChat] = useState(false);
+  // Chat sidebar state (persisted in store)
+  const showChat = useChatIsOpen(spaceId || '');
+  const setIsOpen = useChatStore((state) => state.setIsOpen);
+  const toggleChat = useCallback(() => {
+    setIsOpen(spaceId || '', !showChat);
+  }, [setIsOpen, spaceId, showChat]);
+  const closeChat = useCallback(() => {
+    setIsOpen(spaceId || '', false);
+  }, [setIsOpen, spaceId]);
 
   // Track last completed job for assistant auto-review
   const [lastCompletedJob, setLastCompletedJob] = useState<{
@@ -63,6 +71,7 @@ export default function AssetDetailPage() {
     assetId?: string;
     assetName?: string;
     prompt?: string;
+    thumbKey?: string;
   } | null>(null);
 
   // Inline editing state
@@ -94,12 +103,14 @@ export default function AssetDetailPage() {
     },
     onJobComplete: (completedJob, variant) => {
       // Notify ChatSidebar of completed job for auto-review
+      // Pass thumbKey directly to avoid race condition with variants state
       setLastCompletedJob({
         jobId: completedJob.jobId,
         variantId: variant.id,
         assetId: completedJob.assetId,
         assetName: completedJob.assetName,
         prompt: completedJob.prompt,
+        thumbKey: variant.thumb_key,
       });
     },
   });
@@ -417,7 +428,7 @@ export default function AssetDetailPage() {
     <div className={styles.headerRight}>
       <button
         className={`${styles.chatToggle} ${showChat ? styles.active : ''}`}
-        onClick={() => setShowChat(!showChat)}
+        onClick={toggleChat}
         title={showChat ? 'Close chat' : 'Open assistant'}
       >
         🤖
@@ -794,7 +805,7 @@ export default function AssetDetailPage() {
         <ChatSidebar
           spaceId={spaceId || ''}
           isOpen={showChat}
-          onClose={() => setShowChat(false)}
+          onClose={closeChat}
           currentAsset={asset}
           allAssets={wsAssets}
           allVariants={wsVariants}

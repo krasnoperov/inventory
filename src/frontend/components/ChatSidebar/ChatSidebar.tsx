@@ -1,14 +1,22 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
+import {
+  useChatStore,
+  useChatMessages,
+  useChatInputBuffer,
+  useChatMode,
+  useChatPlan,
+  useChatPlanStatus,
+  type ChatMessage,
+} from '../../stores/chatStore';
 import type { Asset, Variant } from '../../hooks/useSpaceWebSocket';
 import type {
   ForgeContext,
   ViewingContext,
   BotResponse,
 } from '../../../api/types';
-import { usePlanState } from './hooks/usePlanState';
 import { useToolExecution } from './hooks/useToolExecution';
-import { MessageList, type ChatMessage } from './MessageList';
+import { MessageList } from './MessageList';
 import { PlanPanel } from './PlanPanel';
 import { ChatInput } from './ChatInput';
 import styles from './ChatSidebar.module.css';
@@ -24,6 +32,7 @@ export interface JobCompletionData {
   assetId?: string;
   assetName?: string;
   prompt?: string;
+  thumbKey?: string; // Pass directly to avoid race condition with allVariants
 }
 
 export interface ChatSidebarProps {
@@ -58,16 +67,38 @@ export function ChatSidebar({
   onCombineAssets,
   lastCompletedJob,
 }: ChatSidebarProps) {
-  // Local state
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const [mode, setMode] = useState<'advisor' | 'actor'>('actor');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [isAutoReviewing, setIsAutoReviewing] = useState(false);
+  // Store state (persisted) - use hooks that don't recreate selectors
+  const messages = useChatMessages(spaceId);
+  const inputValue = useChatInputBuffer(spaceId);
+  const mode = useChatMode(spaceId);
+  const activePlan = useChatPlan(spaceId);
+  const planStatus = useChatPlanStatus(spaceId);
 
-  // Extracted hooks
-  const plan = usePlanState();
+  // Store actions
+  const {
+    setMessages,
+    addMessage,
+    clearMessages,
+    setInputBuffer,
+    setMode,
+    setPlan,
+    approvePlan,
+    rejectPlan,
+    startStep,
+    completeStep,
+    failStep,
+    cancelPlan,
+    resetPlan,
+  } = useChatStore();
+
+  // Local state (transient - not persisted)
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isAutoReviewing, setIsAutoReviewing] = useState(false);
+  const [isExecutingStep, setIsExecutingStep] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  // Tool execution hook
   const toolExec = useToolExecution({
     spaceId,
     allAssets,
@@ -113,10 +144,15 @@ export function ChatSidebar({
   }, [currentAsset]);
 
   // ==========================================================================
-  // Chat History
+  // Chat History - Load from server if store is empty
   // ==========================================================================
 
   const loadChatHistory = useCallback(async () => {
+    // Only load from server if we don't have messages in store
+    if (messages.length > 0 || historyLoaded) {
+      return;
+    }
+
     try {
       setIsLoadingHistory(true);
       const response = await fetch(`/api/spaces/${spaceId}/chat/history`, {
@@ -130,21 +166,23 @@ export function ChatSidebar({
           created_at: number;
         }> };
 
-        if (data.success && data.messages) {
-          const formattedMessages: ChatMessage[] = data.messages.map(msg => ({
+        if (data.success && data.messages && data.messages.length > 0) {
+          const formattedMessages: ChatMessage[] = data.messages.map((msg, idx) => ({
+            id: `history_${idx}_${msg.created_at}`,
             role: msg.sender_type === 'user' ? 'user' : 'assistant',
             content: msg.content,
             timestamp: msg.created_at,
           }));
-          setMessages(formattedMessages);
+          setMessages(spaceId, formattedMessages);
         }
       }
     } catch (err) {
       console.error('Failed to load chat history:', err);
     } finally {
       setIsLoadingHistory(false);
+      setHistoryLoaded(true);
     }
-  }, [spaceId]);
+  }, [spaceId, messages.length, historyLoaded, setMessages]);
 
   useEffect(() => {
     if (isOpen && spaceId) {
@@ -172,11 +210,22 @@ export function ChatSidebar({
     const autoReviewJob = async () => {
       setIsAutoReviewing(true);
 
-      setMessages(prev => [...prev, {
+      // Use thumbKey directly from job completion (avoids race condition with allVariants)
+      // Fallback to looking up in allVariants if thumbKey not provided
+      const thumbKey = lastCompletedJob.thumbKey
+        ?? allVariants.find(v => v.id === lastCompletedJob.variantId)?.thumb_key;
+      const thumbnailUrl = thumbKey ? `/api/images/${thumbKey}` : undefined;
+
+      addMessage(spaceId, {
         role: 'assistant',
         content: `Generation complete for "${jobInfo.assetName}"! Let me review the result...`,
         timestamp: Date.now(),
-      }]);
+        thumbnail: thumbnailUrl ? {
+          url: thumbnailUrl,
+          assetName: jobInfo.assetName,
+          assetId: lastCompletedJob.assetId,
+        } : undefined,
+      });
 
       try {
         const response = await fetch(`/api/spaces/${spaceId}/chat/describe`, {
@@ -194,118 +243,123 @@ export function ChatSidebar({
           const data = await response.json() as { success: boolean; description: string };
           const reviewMessage = `**Review of "${jobInfo.assetName}":**\n\n${data.description}\n\n**Original prompt:** "${jobInfo.prompt.slice(0, 100)}${jobInfo.prompt.length > 100 ? '...' : ''}"`;
 
-          setMessages(prev => [...prev, {
+          addMessage(spaceId, {
             role: 'assistant',
             content: reviewMessage,
             timestamp: Date.now(),
-          }]);
+          });
         } else {
-          setMessages(prev => [...prev, {
+          addMessage(spaceId, {
             role: 'assistant',
             content: `Generated "${jobInfo.assetName}" successfully! (Auto-review unavailable)`,
             timestamp: Date.now(),
-          }]);
+          });
         }
       } catch (err) {
         console.error('Auto-review failed:', err);
-        setMessages(prev => [...prev, {
+        addMessage(spaceId, {
           role: 'assistant',
           content: `Generated "${jobInfo.assetName}" successfully!`,
           timestamp: Date.now(),
-        }]);
+        });
       } finally {
         setIsAutoReviewing(false);
       }
     };
 
     autoReviewJob();
-  }, [lastCompletedJob, isOpen, spaceId, toolExec]);
+  }, [lastCompletedJob, isOpen, spaceId, toolExec, addMessage, allVariants]);
 
   // ==========================================================================
   // Plan Execution
   // ==========================================================================
 
-  const [isExecutingStep, setIsExecutingStep] = useState(false);
-
   const executeStep = useCallback(async (stepIndex: number) => {
-    if (!plan.activePlan) return;
+    if (!activePlan) return;
 
     setIsExecutingStep(true);
-    plan.startStep(stepIndex);
+    startStep(spaceId, stepIndex);
 
-    const step = plan.activePlan.steps[stepIndex];
+    const step = activePlan.steps[stepIndex];
     try {
       const result = await toolExec.executeToolCall({
         name: step.action,
         params: step.params,
       });
 
-      plan.completeStep(stepIndex, result);
+      completeStep(spaceId, stepIndex, result);
 
-      setMessages(prev => [...prev, {
+      addMessage(spaceId, {
         role: 'assistant',
         content: `Step ${stepIndex + 1}: ${step.description}\n${result}`,
         timestamp: Date.now(),
-      }]);
+      });
 
       // Check if more steps remain
-      const nextIndex = plan.activePlan.steps.findIndex((s, i) => i > stepIndex && s.status === 'pending');
+      const nextIndex = activePlan.steps.findIndex((s, i) => i > stepIndex && s.status === 'pending');
       if (nextIndex !== -1) {
-        setMessages(prev => [...prev, {
+        addMessage(spaceId, {
           role: 'assistant',
           content: `Ready for step ${nextIndex + 1}. Click "Next Step" to continue or "Cancel" to stop.`,
           timestamp: Date.now(),
-        }]);
+        });
       } else {
-        setMessages(prev => [...prev, {
+        addMessage(spaceId, {
           role: 'assistant',
           content: 'Plan completed successfully!',
           timestamp: Date.now(),
-        }]);
-        setTimeout(() => plan.reset(), 2000);
+        });
+        setTimeout(() => resetPlan(spaceId), 2000);
       }
     } catch (err) {
       const error = err instanceof Error ? err.message : 'Failed';
-      plan.failStep(stepIndex, error);
+      failStep(spaceId, stepIndex, error);
 
-      setMessages(prev => [...prev, {
+      addMessage(spaceId, {
         role: 'assistant',
         content: `Step ${stepIndex + 1} failed: ${error}`,
         timestamp: Date.now(),
-      }]);
+      });
     } finally {
       setIsExecutingStep(false);
     }
-  }, [plan, toolExec]);
+  }, [activePlan, spaceId, startStep, completeStep, failStep, resetPlan, addMessage, toolExec]);
 
   const handleApprove = useCallback(() => {
-    plan.approve();
-    if (plan.activePlan) {
-      setMessages(prev => [...prev, {
+    approvePlan(spaceId);
+    if (activePlan) {
+      addMessage(spaceId, {
         role: 'assistant',
-        content: `Starting plan: "${plan.activePlan!.goal}"\nExecuting step 1...`,
+        content: `Starting plan: "${activePlan.goal}"\nExecuting step 1...`,
         timestamp: Date.now(),
-      }]);
+      });
       executeStep(0);
     }
-  }, [plan, executeStep]);
+  }, [spaceId, activePlan, approvePlan, addMessage, executeStep]);
 
   const handleContinue = useCallback(() => {
-    if (plan.nextPendingStepIndex !== -1) {
-      executeStep(plan.nextPendingStepIndex);
+    if (!activePlan) return;
+    const nextIndex = activePlan.steps.findIndex(s => s.status === 'pending');
+    if (nextIndex !== -1) {
+      executeStep(nextIndex);
     }
-  }, [plan.nextPendingStepIndex, executeStep]);
+  }, [activePlan, executeStep]);
 
   const handleCancel = useCallback(() => {
-    if (plan.activePlan) {
-      setMessages(prev => [...prev, {
+    if (activePlan) {
+      const completedCount = activePlan.steps.filter(s => s.status === 'completed').length;
+      addMessage(spaceId, {
         role: 'assistant',
-        content: `Plan cancelled. ${plan.completedStepCount}/${plan.activePlan!.steps.length} steps were completed.`,
+        content: `Plan cancelled. ${completedCount}/${activePlan.steps.length} steps were completed.`,
         timestamp: Date.now(),
-      }]);
+      });
     }
-    plan.cancel();
-  }, [plan]);
+    cancelPlan(spaceId);
+  }, [spaceId, activePlan, cancelPlan, addMessage]);
+
+  const handleReject = useCallback(() => {
+    rejectPlan(spaceId);
+  }, [spaceId, rejectPlan]);
 
   // ==========================================================================
   // Message Sending
@@ -318,15 +372,15 @@ export function ChatSidebar({
     if (!messageToSend || isLoading) return;
 
     if (!overrideMessage) {
-      setInputValue('');
+      setInputBuffer(spaceId, '');
     }
     setIsLoading(true);
 
-    setMessages(prev => [...prev, {
+    addMessage(spaceId, {
       role: 'user',
       content: messageToSend,
       timestamp: Date.now(),
-    }]);
+    });
 
     try {
       const response = await fetch(`/api/spaces/${spaceId}/chat`, {
@@ -342,7 +396,7 @@ export function ChatSidebar({
           })),
           forgeContext,
           viewingContext,
-          activePlan: plan.activePlan,
+          activePlan,
         }),
       });
 
@@ -355,25 +409,25 @@ export function ChatSidebar({
       const botResponse = data.response;
 
       if (botResponse.type === 'plan' && botResponse.plan) {
-        plan.setPlan(botResponse.plan);
-        setMessages(prev => [...prev, {
+        setPlan(spaceId, botResponse.plan);
+        addMessage(spaceId, {
           role: 'assistant',
           content: botResponse.message,
           timestamp: Date.now(),
-        }]);
+        });
       } else if (botResponse.type === 'action' && botResponse.toolCalls) {
         const results = await toolExec.executeToolCalls(botResponse.toolCalls);
-        setMessages(prev => [...prev, {
+        addMessage(spaceId, {
           role: 'assistant',
           content: `${botResponse.message}\n\n${results.join('\n')}`,
           timestamp: Date.now(),
-        }]);
+        });
       } else {
-        setMessages(prev => [...prev, {
+        addMessage(spaceId, {
           role: 'assistant',
           content: botResponse.message,
           timestamp: Date.now(),
-        }]);
+        });
       }
     } catch (err) {
       console.error('Chat error:', err);
@@ -404,27 +458,62 @@ export function ChatSidebar({
         isRetryable = true;
       }
 
-      setMessages(prev => [...prev, {
+      addMessage(spaceId, {
         role: 'assistant',
         content: errorMessage,
         timestamp: Date.now(),
         isError: true,
         retryPayload: isRetryable ? { message: messageToSend, mode: modeToUse } : undefined,
-      }]);
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, spaceId, mode, messages, forgeContext, viewingContext, plan, toolExec]);
+  }, [inputValue, isLoading, spaceId, mode, messages, forgeContext, viewingContext, activePlan, setInputBuffer, addMessage, setPlan, toolExec]);
 
   const retryMessage = useCallback((payload: { message: string; mode: 'advisor' | 'actor' }) => {
-    setMessages(prev => prev.filter(m => !m.isError));
+    // Remove the last error message
+    const updatedMessages = messages.filter(m => !m.isError);
+    setMessages(spaceId, updatedMessages);
     sendMessage(payload.message, payload.mode);
-  }, [sendMessage]);
+  }, [messages, spaceId, setMessages, sendMessage]);
 
   const clearChat = useCallback(() => {
-    setMessages([]);
-    plan.reset();
-  }, [plan]);
+    clearMessages(spaceId);
+  }, [spaceId, clearMessages]);
+
+  const handleInputChange = useCallback((value: string) => {
+    setInputBuffer(spaceId, value);
+  }, [spaceId, setInputBuffer]);
+
+  const handleModeChange = useCallback((newMode: 'advisor' | 'actor') => {
+    setMode(spaceId, newMode);
+  }, [spaceId, setMode]);
+
+  // ==========================================================================
+  // Plan state adapter for PlanPanel
+  // ==========================================================================
+
+  const planState = useMemo(() => {
+    if (planStatus === 'idle' || !activePlan) {
+      return { status: 'idle' as const };
+    }
+    if (planStatus === 'awaiting_approval') {
+      return { status: 'awaiting_approval' as const, plan: activePlan };
+    }
+    if (planStatus === 'executing') {
+      return { status: 'executing' as const, plan: activePlan, currentStep: activePlan.currentStepIndex };
+    }
+    if (planStatus === 'paused') {
+      return { status: 'paused' as const, plan: activePlan, currentStep: activePlan.currentStepIndex };
+    }
+    if (planStatus === 'completed') {
+      return { status: 'completed' as const, plan: activePlan };
+    }
+    if (planStatus === 'failed') {
+      return { status: 'failed' as const, plan: activePlan, error: 'Plan failed' };
+    }
+    return { status: 'idle' as const };
+  }, [planStatus, activePlan]);
 
   // ==========================================================================
   // Render
@@ -432,7 +521,7 @@ export function ChatSidebar({
 
   if (!isOpen) return null;
 
-  const isExecuting = plan.isExecuting || isExecutingStep;
+  const isExecuting = planStatus === 'executing' || isExecutingStep;
 
   return (
     <div className={styles.sidebar}>
@@ -477,10 +566,10 @@ export function ChatSidebar({
 
       {/* Plan Panel */}
       <PlanPanel
-        planState={plan.state}
+        planState={planState}
         isExecuting={isExecuting}
         onApprove={handleApprove}
-        onReject={plan.reject}
+        onReject={handleReject}
         onContinue={handleContinue}
         onCancel={handleCancel}
       />
@@ -492,17 +581,17 @@ export function ChatSidebar({
         isLoadingHistory={isLoadingHistory}
         isAutoReviewing={isAutoReviewing}
         onRetry={retryMessage}
-        onSuggestionClick={setInputValue}
+        onSuggestionClick={handleInputChange}
       />
 
       {/* Chat Input */}
       <ChatInput
         value={inputValue}
-        onChange={setInputValue}
+        onChange={handleInputChange}
         onSend={() => sendMessage()}
         onClear={clearChat}
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={handleModeChange}
         disabled={isLoading || isExecuting}
         showClear={messages.length > 0}
       />
