@@ -173,6 +173,13 @@ export class GenerationConsumer {
         const stateResponse = await doStub!.fetch(new Request('http://do/internal/state'));
         const state = await stateResponse.json() as { variants: Array<{ id: string; image_key: string }> };
 
+        // Build imageKeys array to store in job.input for recipe
+        const resolvedImageKeys = jobInput.sourceVariantIds.map((variantId: string) => {
+          const variant = state.variants.find((v: { id: string }) => v.id === variantId);
+          return variant?.image_key || '';
+        });
+        jobInput.sourceImageKeys = resolvedImageKeys;
+
         const images = await Promise.all(
           jobInput.sourceVariantIds.map(async (variantId: string, index: number) => {
             const variant = state.variants.find((v: { id: string }) => v.id === variantId);
@@ -253,16 +260,26 @@ export class GenerationConsumer {
       const isComposeJob = job.type === 'compose';
       const hasInputs = jobInput.sourceVariantId || jobInput.sourceVariantIds?.length > 0;
 
+      // Build recipe inputs with imageKeys for retry capability
+      // Note: sourceImageKeys is now always populated during processing (enriched above for compose jobs)
+      let recipeInputs: Array<{ variantId: string; imageKey: string }> = [];
+      if (isDeriveJob && jobInput.sourceVariantId) {
+        // Single source variant (derive/edit)
+        recipeInputs = [{ variantId: jobInput.sourceVariantId, imageKey: jobInput.sourceImageKey }];
+      } else if (jobInput.sourceVariantIds?.length > 0 && jobInput.sourceImageKeys?.length > 0) {
+        // Multiple source variants (compose) - imageKeys populated during processing
+        recipeInputs = jobInput.sourceVariantIds.map((id: string, i: number) => ({
+          variantId: id,
+          imageKey: jobInput.sourceImageKeys[i],
+        }));
+      }
+
       const recipe = {
         type: job.type || 'generate',
         prompt,
         model: model || 'gemini-3-pro-image-preview',
         aspectRatio: aspectRatio || '1:1',
-        inputs: isDeriveJob && jobInput.sourceVariantId
-          ? [{ variantId: jobInput.sourceVariantId, imageKey: jobInput.sourceImageKey }]
-          : jobInput.sourceVariantIds?.length > 0
-            ? jobInput.sourceVariantIds.map((id: string) => ({ variantId: id }))
-            : [],
+        inputs: recipeInputs,
       };
 
       // Determine parent variants for lineage
