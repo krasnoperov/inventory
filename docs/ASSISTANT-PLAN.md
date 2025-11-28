@@ -481,28 +481,40 @@ interface ForgeContext {
 ### Phase 3: Planning Capability - COMPLETED ✅
 - [x] Add create_plan tool for multi-step operations
 - [x] Plan UI with step-by-step display and status
-- [x] Plan approval flow (Execute/Cancel buttons)
-- [x] Sequential step execution with progress tracking
+- [x] Interactive step-by-step control: Start → Next Step → Done
+- [x] Confirmation required between each step
+- [x] Cancel at any point with progress summary
+- [x] Visual progress tracking with animated indicators
 
 ### Phase 4: Catalog Search - COMPLETED ✅
 - [x] Add search_assets tool
 - [x] Basic name/type matching
 - [ ] Render clickable asset cards in chat (future enhancement)
 
-### Phase 5: Image Understanding
+### Phase 5: Chat UI Redesign - COMPLETED ✅
+- [x] Glassmorphic background matching ForgeTray aesthetic
+- [x] Gradient header with branded title
+- [x] Toggle-style mode selector (like ForgeTray destination toggle)
+- [x] Unified input area with focus glow
+- [x] Custom scrollbars, glossy send button
+- [x] Enhanced message bubbles with shadows
+- [x] Fixed page layout when chat is open
+- [x] Mobile overlay mode (no content push)
+
+### Phase 6: Image Understanding
 - [ ] Add multimodal Claude requests
 - [ ] Implement describe action
 - [ ] Add image comparison capability
 
-### Phase 6: Result Review Loop
+### Phase 7: Result Review Loop
 - [ ] Hook into job completion
 - [ ] Auto-review generated images
 - [ ] Suggest refinements
 
-### Phase 7: Polish
+### Phase 8: Polish
 - [ ] Streaming responses
 - [ ] Better error handling
-- [ ] Mobile responsiveness
+- [ ] Additional mobile optimizations
 
 ---
 
