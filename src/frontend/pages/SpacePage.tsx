@@ -12,7 +12,6 @@ import { HeaderNav } from '../components/HeaderNav';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { AssetCard } from '../components/AssetCard';
-import { NewAssetModal } from '../components/NewAssetModal';
 import { ForgeTray, type ForgeSubmitParams } from '../components/ForgeTray';
 import styles from './SpacePage.module.css';
 
@@ -63,7 +62,6 @@ export default function SpacePage() {
     trackJob,
     clearJob,
     deleteAsset,
-    spawnAsset,
     createAsset,
     updateAsset,
   } = useSpaceWebSocket({
@@ -80,7 +78,7 @@ export default function SpacePage() {
         assetId: completedJob.assetId,
         assetName: completedJob.assetName,
         prompt: completedJob.prompt,
-        thumbKey: variant.thumb_key,
+        thumbKey: variant.thumb_key || variant.image_key,
       });
     },
   });
@@ -105,8 +103,6 @@ export default function SpacePage() {
     thumbKey?: string;
   } | null>(null);
 
-  // Modal states
-  const [newAssetModalState, setNewAssetModalState] = useState<{ variant: Variant; asset: Asset } | null>(null);
 
   // Export/Import state
   const [isExporting, setIsExporting] = useState(false);
@@ -262,15 +258,6 @@ export default function SpacePage() {
     }
   }, [spaceId, trackJob, assets]);
 
-  // Handle new asset from variant (spawn)
-  const handleNewAsset = useCallback((sourceVariant: Variant, name: string, type: string, parentAssetId: string | null) => {
-    spawnAsset({
-      sourceVariantId: sourceVariant.id,
-      name,
-      assetType: type,
-      parentAssetId: parentAssetId || undefined,
-    });
-  }, [spawnAsset]);
 
   // Handle add to forge tray
   const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
@@ -674,19 +661,6 @@ export default function SpacePage() {
         />
       )}
 
-      {/* New Asset Modal */}
-      {newAssetModalState && (
-        <NewAssetModal
-          sourceVariant={newAssetModalState.variant}
-          sourceAsset={newAssetModalState.asset}
-          allAssets={assets}
-          allVariants={variants}
-          onClose={() => setNewAssetModalState(null)}
-          onCreate={(name, type, parentAssetId) => {
-            handleNewAsset(newAssetModalState.variant, name, type, parentAssetId);
-          }}
-        />
-      )}
 
     </div>
   );

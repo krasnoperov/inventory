@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl } from '../hooks/useSpaceWebSocket';
 import styles from './AssetPicker.module.css';
 
 export interface AssetPickerProps {
@@ -40,11 +40,11 @@ export function AssetPicker({
   const getAssetThumbnail = useCallback((asset: Asset) => {
     const activeVariant = variants.find(v => v.id === asset.active_variant_id);
     if (activeVariant) {
-      return `/api/images/${activeVariant.thumb_key}`;
+      return getVariantThumbnailUrl(activeVariant);
     }
     const anyVariant = variants.find(v => v.asset_id === asset.id);
     if (anyVariant) {
-      return `/api/images/${anyVariant.thumb_key}`;
+      return getVariantThumbnailUrl(anyVariant);
     }
     return null;
   }, [variants]);

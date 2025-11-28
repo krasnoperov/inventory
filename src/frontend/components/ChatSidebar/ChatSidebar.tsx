@@ -9,7 +9,7 @@ import {
   useChatPlanStatus,
   type ChatMessage,
 } from '../../stores/chatStore';
-import type { Asset, Variant } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
 import type {
   ForgeContext,
   ViewingContext,
@@ -40,6 +40,8 @@ export interface ChatSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   currentAsset?: Asset | null;
+  /** The currently selected/viewed variant */
+  currentVariant?: Variant | null;
   allAssets?: Asset[];
   allVariants?: Variant[];
   onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string }) => Promise<string | void>;
@@ -60,6 +62,7 @@ export function ChatSidebar({
   isOpen,
   onClose,
   currentAsset,
+  currentVariant,
   allAssets = [],
   allVariants = [],
   onGenerateAsset,
@@ -131,17 +134,28 @@ export function ChatSidebar({
     };
   }, [slots, prompt]);
 
-  // Build viewing context
+  // Build viewing context with variant info
   const viewingContext = useMemo<ViewingContext>(() => {
     if (currentAsset) {
+      // Get variants for this asset
+      const assetVariants = allVariants.filter(v => v.asset_id === currentAsset.id);
+      // Determine which variant we're viewing
+      const viewedVariant = currentVariant || assetVariants.find(v => v.id === currentAsset.active_variant_id);
+      const variantIndex = viewedVariant
+        ? assetVariants.findIndex(v => v.id === viewedVariant.id) + 1
+        : 1;
+
       return {
         type: 'asset',
         assetId: currentAsset.id,
         assetName: currentAsset.name,
+        variantId: viewedVariant?.id,
+        variantCount: assetVariants.length,
+        variantIndex,
       };
     }
     return { type: 'catalog' };
-  }, [currentAsset]);
+  }, [currentAsset, currentVariant, allVariants]);
 
   // ==========================================================================
   // Chat History - Load from server if store is empty
@@ -212,9 +226,10 @@ export function ChatSidebar({
 
       // Use thumbKey directly from job completion (avoids race condition with allVariants)
       // Fallback to looking up in allVariants if thumbKey not provided
-      const thumbKey = lastCompletedJob.thumbKey
-        ?? allVariants.find(v => v.id === lastCompletedJob.variantId)?.thumb_key;
-      const thumbnailUrl = thumbKey ? `/api/images/${thumbKey}` : undefined;
+      const variant = allVariants.find(v => v.id === lastCompletedJob.variantId);
+      const thumbnailUrl = lastCompletedJob.thumbKey
+        ? `/api/images/${lastCompletedJob.thumbKey}`
+        : variant ? getVariantThumbnailUrl(variant) : undefined;
 
       addMessage(spaceId, {
         role: 'assistant',
@@ -536,16 +551,42 @@ export function ChatSidebar({
         </button>
       </div>
 
-      {/* Context Bar */}
+      {/* Context Bar - Shows what the bot can see */}
       <div className={styles.contextBar}>
-        <div className={styles.contextItem}>
-          <span className={styles.contextIcon}>📍</span>
-          <span className={styles.contextLabel}>
-            {viewingContext.type === 'asset'
-              ? `Viewing: ${viewingContext.assetName}`
-              : 'Viewing: Catalog'}
-          </span>
-        </div>
+        {viewingContext.type === 'asset' && viewingContext.assetName ? (
+          <div className={styles.contextAsset}>
+            {/* Thumbnail of current variant */}
+            {(() => {
+              const variant = currentVariant || allVariants.find(v => v.id === viewingContext.variantId);
+              const thumbUrl = variant ? getVariantThumbnailUrl(variant) : null;
+              return thumbUrl ? (
+                <img
+                  src={thumbUrl}
+                  alt={viewingContext.assetName}
+                  className={styles.contextThumb}
+                />
+              ) : (
+                <div className={styles.contextThumbPlaceholder}>🖼️</div>
+              );
+            })()}
+            <div className={styles.contextAssetInfo}>
+              <span className={styles.contextAssetName}>{viewingContext.assetName}</span>
+              <span className={styles.contextVariantInfo}>
+                Variant {viewingContext.variantIndex || 1} of {viewingContext.variantCount || 1}
+              </span>
+              <span className={styles.contextBotAccess}>
+                Bot can analyze this image
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.contextCatalog}>
+            <span className={styles.contextIcon}>📁</span>
+            <span>Viewing: Catalog ({allAssets.length} assets)</span>
+          </div>
+        )}
+
+        {/* Forge tray context */}
         {forgeContext.slots.length > 0 && (
           <div className={styles.contextItem}>
             <span className={styles.contextIcon}>🔥</span>

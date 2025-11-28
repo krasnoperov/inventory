@@ -11,6 +11,7 @@ import { HeaderNav } from '../components/HeaderNav';
 import {
   useSpaceWebSocket,
   PREDEFINED_ASSET_TYPES,
+  getVariantThumbnailUrl,
   type Asset,
   type Variant,
   type Lineage,
@@ -110,7 +111,7 @@ export default function AssetDetailPage() {
         assetId: completedJob.assetId,
         assetName: completedJob.assetName,
         prompt: completedJob.prompt,
-        thumbKey: variant.thumb_key,
+        thumbKey: variant.thumb_key || variant.image_key,
       });
     },
   });
@@ -732,7 +733,7 @@ export default function AssetDetailPage() {
                   onClick={() => handleVariantClick(variant)}
                 >
                   <img
-                    src={`/api/images/${variant.thumb_key}`}
+                    src={getVariantThumbnailUrl(variant)}
                     alt={`Variant ${variant.id}`}
                   />
                   {variant.starred && (
@@ -776,7 +777,7 @@ export default function AssetDetailPage() {
                     <div className={styles.subAssetThumb}>
                       {childVariant ? (
                         <img
-                          src={`/api/images/${childVariant.thumb_key}`}
+                          src={getVariantThumbnailUrl(childVariant)}
                           alt={child.name}
                         />
                       ) : (
@@ -807,6 +808,7 @@ export default function AssetDetailPage() {
           isOpen={showChat}
           onClose={closeChat}
           currentAsset={asset}
+          currentVariant={selectedVariant}
           allAssets={wsAssets}
           allVariants={wsVariants}
           lastCompletedJob={lastCompletedJob}

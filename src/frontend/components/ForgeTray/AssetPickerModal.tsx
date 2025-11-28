@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
-import type { Asset, Variant } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
 import styles from './AssetPickerModal.module.css';
 
 export interface AssetPickerModalProps {
@@ -173,7 +173,7 @@ export function AssetPickerModal({
                       <div className={styles.thumbnailWrapper}>
                         {primaryVariant && (
                           <img
-                            src={`/api/images/${primaryVariant.thumb_key}`}
+                            src={getVariantThumbnailUrl(primaryVariant)}
                             alt={slot.asset.name}
                             className={styles.assetImage}
                           />
@@ -221,7 +221,7 @@ export function AssetPickerModal({
                       <div className={styles.thumbnailWrapper}>
                         {primaryVariant ? (
                           <img
-                            src={`/api/images/${primaryVariant.thumb_key}`}
+                            src={getVariantThumbnailUrl(primaryVariant)}
                             alt={asset.name}
                             className={styles.assetImage}
                           />

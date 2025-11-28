@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
 import type { ForgeOperation } from '../../stores/forgeTrayStore';
-import type { Asset, Variant } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
 import { AssetPickerModal } from './AssetPickerModal';
 import styles from './ForgeTray.module.css';
 
@@ -230,7 +230,7 @@ export function ForgeTray({
               {slots.map((slot) => (
                 <div key={slot.id} className={styles.slotThumb}>
                   <img
-                    src={`/api/images/${slot.variant.thumb_key}`}
+                    src={getVariantThumbnailUrl(slot.variant)}
                     alt={slot.asset.name}
                     className={styles.slotImage}
                   />

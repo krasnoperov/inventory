@@ -18,11 +18,19 @@ export interface Variant {
   asset_id: string;
   job_id: string | null;
   image_key: string;
-  thumb_key: string;
+  thumb_key?: string;  // Optional: falls back to image_key if not present
   recipe: string;
   starred: boolean;  // User marks important versions
   created_by: string;
   created_at: number;
+}
+
+/**
+ * Get thumbnail URL for a variant, falling back to original image if no thumbnail exists
+ */
+export function getVariantThumbnailUrl(variant: Variant): string {
+  const key = variant.thumb_key || variant.image_key;
+  return `/api/images/${key}`;
 }
 
 export interface Lineage {

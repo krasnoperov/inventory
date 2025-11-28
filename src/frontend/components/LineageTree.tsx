@@ -1,11 +1,17 @@
 import { useState, useCallback } from 'react';
 import styles from './LineageTree.module.css';
 
+// Helper to get thumbnail URL with fallback to image_key
+function getThumbnailUrl(variant: { thumb_key?: string; image_key: string }): string {
+  return `/api/images/${variant.thumb_key || variant.image_key}`;
+}
+
 // Using a minimal variant type that works with the parent component
 interface VariantMinimal {
   id: string;
   asset_id: string;
-  thumb_key: string;
+  image_key: string;
+  thumb_key?: string;  // Optional: falls back to image_key
 }
 
 interface LineageNode {
@@ -19,8 +25,8 @@ interface LineageNode {
 interface GraphVariant {
   id: string;
   asset_id: string;
-  thumb_key: string;
   image_key: string;
+  thumb_key?: string;  // Optional: falls back to image_key
   created_at: number;
   asset_name: string;
   asset_type: string;
@@ -234,7 +240,7 @@ export function LineageTree({
                       title={`${variant.asset_name} (${variant.asset_type})`}
                     >
                       <img
-                        src={`/api/images/${variant.thumb_key}`}
+                        src={getThumbnailUrl(variant)}
                         alt={variant.asset_name}
                         className={styles.graphNodeImage}
                       />
@@ -283,7 +289,7 @@ export function LineageTree({
                   title={getRelationTooltip(node.relation_type, 'parent') + (node.severed ? ' (link severed)' : '')}
                 >
                   <img
-                    src={`/api/images/${node.variant.thumb_key}`}
+                    src={getThumbnailUrl(node.variant)}
                     alt="Parent variant"
                     className={styles.nodeImage}
                   />
@@ -319,7 +325,7 @@ export function LineageTree({
         {/* Current variant (center) */}
         <div className={styles.current}>
           <img
-            src={`/api/images/${currentVariant.thumb_key}`}
+            src={getThumbnailUrl(currentVariant)}
             alt="Current variant"
             className={styles.currentImage}
           />
@@ -344,7 +350,7 @@ export function LineageTree({
                   title={getRelationTooltip(node.relation_type, 'child') + (node.severed ? ' (link severed)' : '')}
                 >
                   <img
-                    src={`/api/images/${node.variant.thumb_key}`}
+                    src={getThumbnailUrl(node.variant)}
                     alt="Child variant"
                     className={styles.nodeImage}
                   />

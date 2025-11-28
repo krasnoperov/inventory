@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl } from '../hooks/useSpaceWebSocket';
 import { AssetMenu } from './AssetMenu';
 import styles from './AssetCard.module.css';
 
@@ -96,7 +96,7 @@ export function AssetCard(props: AssetCardProps) {
         ) : primaryVariant ? (
           <div className={styles.thumbnailWrapper}>
             <img
-              src={`/api/images/${primaryVariant.thumb_key}`}
+              src={getVariantThumbnailUrl(primaryVariant)}
               alt={asset.name}
               className={styles.thumbnail}
             />
