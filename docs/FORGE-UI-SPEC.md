@@ -2,7 +2,7 @@
 
 Visual specifications and component hierarchy for the Forge UI.
 
-> For implementation details and store design, see [PLAN.md](./PLAN.md).
+> For concepts and workflow examples, see [FORGE-CONCEPTS.md](./FORGE-CONCEPTS.md).
 > For assistant integration, see [ASSISTANT-PLAN.md](./ASSISTANT-PLAN.md).
 
 ---
@@ -11,35 +11,44 @@ Visual specifications and component hierarchy for the Forge UI.
 
 ```
 SpacePage (Catalog View)
+├── AppHeader
 ├── AssetGrid
 │   └── AssetCard (repeating)
-│       ├── Thumbnail (primary variant)
-│       ├── AssetInfo (name, type)
-│       ├── AddToTrayButton
-│       └── NestedAssets (recursive)
+│       ├── ThumbnailArea (with hover overlay)
+│       │   ├── Thumbnail (primary variant)
+│       │   └── HoverOverlay ([View] [Add] buttons)
+│       ├── InfoRow (name, type, [+] button)
+│       └── AssetMenu (right-click context menu)
 ├── ForgeTray (persistent bottom bar)
-│   ├── ForgeSlots
-│   │   └── SlotPill (repeating, max 14)
-│   ├── ForgePromptBar (inline input)
-│   └── ForgeButton (mode-aware: Generate/Transform/Combine)
-├── ForgeModal (opens on button click)
-│   ├── ReferencesDisplay (read-only slots)
-│   ├── PromptInput (editable)
-│   ├── DestinationPicker
-│   └── SubmitButton
-└── AssetPicker (modal)
+│   ├── InputArea (unified container)
+│   │   ├── PromptTextarea (auto-expanding)
+│   │   ├── ThumbsRow (slot thumbnails + [+] button)
+│   │   └── ControlsRow
+│   │       ├── DestinationToggle ([Current] [New])
+│   │       ├── AssetNameInput (when New selected)
+│   │       └── ForgeButton (mode-aware label)
+│   └── AssetPickerModal (opens on [+] click)
+├── NewAssetModal
+└── JobsSection (pending/processing indicators)
 
 AssetDetailPage
-├── AssetHeader (name, type, variant count)
-├── PrimaryVariantDisplay (large image)
-├── VariantGrid
-│   └── VariantThumbnail (repeating)
-│       ├── Thumbnail
-│       ├── PrimaryBadge (if primary)
-│       ├── StarBadge (if starred)
-│       └── AddToTrayButton
-├── ChildAssets
-│   └── AssetCard (repeating)
+├── AppHeader
+├── Breadcrumb
+├── Header (title, type select, delete button)
+├── JobsSection (asset-specific jobs)
+├── Content (two-column grid)
+│   ├── PreviewSection (left)
+│   │   ├── Preview (selected variant large image)
+│   │   ├── VariantDetails (actions, metadata, prompt)
+│   │   └── LineageTree (parent/child relationships)
+│   └── VariantsSection (right sidebar, sticky)
+│       └── VariantsList
+│           └── VariantThumb (repeating)
+│               ├── Thumbnail
+│               ├── StarIndicator
+│               ├── ActiveIndicator
+│               └── AddToTrayButton (hover)
+├── SubAssetsSection (child assets grid)
 └── ForgeTray (same component, persistent)
 ```
 
@@ -47,105 +56,90 @@ AssetDetailPage
 
 ## ForgeTray Component
 
-A minimal, always-visible floating bar at the bottom of the screen.
+A minimal, always-visible floating bar at the bottom of the screen with glossy glass aesthetic.
+
+**Location:** `src/frontend/components/ForgeTray/ForgeTray.tsx`
 
 ### Visual Layout
 
+The tray uses a unified input area design with all controls inline:
+
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  [ref] [ref] [+]  │  "describe what you want..."              [Forge ▸] │
-└─────────────────────────────────────────────────────────────────────────┘
-     ^                              ^                              ^
-  slot pills                   prompt input                  action button
-  (0-14 items)               (always visible)              (mode-aware label)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │                                                                         │ │
+│ │  Describe what to generate...                    (auto-expanding)       │ │
+│ │                                                                         │ │
+│ │  ┌─────┐ ┌─────┐ [+]                              ← thumbs row          │ │
+│ │  │ ref │ │ ref │     75px thumbnails                                   │ │
+│ │  │  ×  │ │  ×  │     hover shows remove                                │ │
+│ │  └─────┘ └─────┘                                                       │ │
+│ │                                                                         │ │
+│ │  [Current] [New]  [Asset name___]              ⚡ [Create]              │ │
+│ │      ^        ^         ^                           ^                   │ │
+│ │  dest toggle       name input              submit button                │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Empty state:**
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  [+]  │  "describe what you want..."                       [Generate ▸] │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+### Sub-components
+
+| Component | Purpose |
+|-----------|---------|
+| `InputArea` | Unified container with inner border, focus glow |
+| `PromptTextarea` | Auto-expanding textarea, min 44px, max 200px |
+| `ThumbsRow` | Horizontal flex row of slot thumbnails |
+| `ControlsRow` | Destination toggle, name input, submit button |
 
 ### Slot Behavior
 
 - **Capacity:** Maximum 14 slots (Gemini image input limit)
-- Compact 40x40px pill thumbnails
-- Show only filled slots + one [+] button
-- From Catalog: adds asset's **primary variant**
-- From Detail: adds **specific variant** (shows "Asset vN")
+- **Thumbnail size:** 75px (`--forge-slot-size`)
+- Hover reveals:
+  - Remove button (× in top-right)
+  - Tooltip with asset name
+- [+] button opens AssetPickerModal
 
-### Operation Button
+### Operation Logic
 
-The button label changes based on slot count:
-
-| Slots | Label |
-|-------|-------|
-| 0 | Generate |
-| 1 | Transform |
-| 2+ | Combine |
-
-Clicking opens **ForgeModal** for prompt editing and destination selection.
-
----
-
-## ForgeModal Component
-
-Opens when clicking the Forge button. Provides full control over the generation.
-
-### Layout
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Forge                                                            [×]   │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  References:                                                            │
-│  ┌──────┐ ┌──────┐ ┌──────┐                                            │
-│  │[img] │ │[img] │ │[img] │  (read-only display of tray slots)         │
-│  │Hero  │ │Style │ │Sword │                                            │
-│  └──────┘ └──────┘ └──────┘                                            │
-│                                                                         │
-│  Prompt:                                                                │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ battle-ready pose in forest clearing                            │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  Destination:                                                           │
-│  ● Create new asset                                                     │
-│      Name: [________________]                                           │
-│      Type: [character ▼]                                                │
-│      Parent: [None ▼]                                                   │
-│  ○ Add variant to "Hero"                                                │
-│  ○ Add variant to "Style"                                               │
-│                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                      [Combine ▸]                                 │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### Sections
-
-1. **References** - Read-only display of slots from tray
-2. **Prompt** - Editable, pre-filled from tray
-3. **Destination** - Choose new asset or existing asset variant
-4. **Submit** - Button label matches operation
-
----
-
-## AssetPicker Component
-
-### State
+The operation is determined by slot count, prompt presence, and destination:
 
 ```typescript
-interface AssetPickerState {
-  searchQuery: string;
-  typeFilter: string | null;  // null = all types
-  selectedAssetIds: Set<string>;  // For multi-select
+function getOperation(slotCount, hasPrompt, destinationType): ForgeOperation {
+  if (slotCount === 0) return 'generate';
+  if (slotCount === 1) {
+    if (!hasPrompt && destinationType === 'new_asset') return 'fork';
+    if (destinationType === 'existing_asset') return 'refine';
+    return 'create';
+  }
+  return 'combine';
 }
 ```
+
+| Slots | Has Prompt | Destination | Button Label |
+|-------|------------|-------------|--------------|
+| 0 | Yes | New | Generate |
+| 1 | No | New | Fork |
+| 1 | Yes | New | Create |
+| 1 | Yes | Existing | Refine |
+| 2+ | Yes | Any | Combine |
+
+### Destination Toggle
+
+- **Current** — Add variant to current asset (Asset Detail) or first slot's asset (Catalog)
+- **New** — Create new asset, shows name input field
+
+When "New" is selected:
+- Parent is set to first reference's asset (auto-hierarchy)
+- Type is inherited from source asset
+
+---
+
+## AssetPickerModal Component
+
+Modal for selecting assets to add to Forge Tray.
+
+**Location:** `src/frontend/components/ForgeTray/AssetPickerModal.tsx`
 
 ### Layout
 
@@ -153,54 +147,70 @@ interface AssetPickerState {
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  Add to Forge Tray                                                    [×]   │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────┐  Type: ┌─────────────────────┐    │
-│  │ 🔍 Search assets...                 │        │ All               ▼│    │
-│  └─────────────────────────────────────┘        └─────────────────────┘    │
+│  ┌───────────────────────────────────┐  ┌─────────────────────────────┐    │
+│  │ 🔍 Search assets...               │  │ All Types              ▼   │    │
+│  └───────────────────────────────────┘  └─────────────────────────────┘    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  In Tray (2):                                                               │
-│  ┌──────┐ ┌──────┐                                                         │
-│  │[img] │ │[img] │                                                         │
-│  │Hero  │ │Style │                                                         │
-│  │  ✓   │ │  ✓   │  ← checkmark indicates in tray                          │
-│  └──────┘ └──────┘                                                         │
+│  In Tray:                                                                   │
+│  ┌───────┐ ┌───────┐                                                       │
+│  │[thumb]│ │[thumb]│                                                       │
+│  │  [✓]  │ │  [✓]  │   ← checkmark badge on selected                       │
+│  │Space /│ │Space /│   ← parent path breadcrumb                            │
+│  │Hero   │ │Style  │   ← asset name                                        │
+│  │char   │ │ref    │   ← asset type                                        │
+│  └───────┘ └───────┘                                                       │
 │                                                                             │
-│  Recent:                                                                    │
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐                                       │
-│  │[img] │ │[img] │ │[img] │ │[img] │                                       │
-│  │Sword │ │Armor │ │Tavrn │ │Enemy │                                       │
-│  └──────┘ └──────┘ └──────┘ └──────┘                                       │
+│  Characters:                                                                │
+│  ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐                                   │
+│  │[thumb]│ │[thumb]│ │[thumb]│ │[thumb]│                                   │
+│  │Hero   │ │Villn  │ │Guard  │ │Merch  │                                   │
+│  │char   │ │char   │ │char   │ │char   │                                   │
+│  └───────┘ └───────┘ └───────┘ └───────┘                                   │
 │                                                                             │
-│  Characters (4):                                                            │
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐                                       │
-│  │[img] │ │[img] │ │[img] │ │[img] │                                       │
-│  │Hero  │ │Villn │ │Guard │ │Merch │                                       │
-│  │  ✓   │ │      │ │      │ │      │                                       │
-│  └──────┘ └──────┘ └──────┘ └──────┘                                       │
-│                                                                             │
-│  Items (6):                                                                 │
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐                     │
-│  │[img] │ │[img] │ │[img] │ │[img] │ │[img] │ │[img] │                     │
-│  │Sword │ │Armor │ │Potion│ │Chest │ │Key   │ │Ring  │                     │
-│  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘                     │
+│  Items:                                                                     │
+│  ┌───────┐ ┌───────┐ ┌───────┐                                             │
+│  │[thumb]│ │[thumb]│ │[thumb]│                                             │
+│  │Sword  │ │Armor  │ │Potion │                                             │
+│  │item   │ │item   │ │item   │                                             │
+│  └───────┘ └───────┘ └───────┘                                             │
 │                                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                              [Done]         │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Behavior
+### Features
 
-- Click asset → Toggle in/out of tray
-- Already-in-tray assets show checkmark
-- Clicking asset already in tray removes it
-- "Done" closes picker
-- Scrollable content area
-- Groups collapsed by default if many assets
+- **Search** — Filter by asset name
+- **Type filter** — Dropdown to show specific type
+- **Grouped by type** — "In Tray" shown first, then by asset type
+- **Selection toggle** — Click to add/remove from tray
+- **Checkmark badge** — Shows on thumbnails already in tray
+- **Parent path** — Shows breadcrumb of asset hierarchy
+- **Thumbnail grid** — 75px thumbnails (`--thumb-size-sm`)
+
+### Styling
+
+```css
+.modal {
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.2s ease;
+}
+
+.checkmark {
+  width: var(--thumb-badge-size);  /* 20px */
+  background: var(--thumb-badge-bg);
+  box-shadow: var(--thumb-badge-shadow);
+}
+```
 
 ---
 
-## Catalog Asset Card
+## AssetCard Component
+
+**Location:** `src/frontend/components/AssetCard.tsx`
 
 ### Layout
 
@@ -209,14 +219,11 @@ interface AssetPickerState {
 │  ┌───────────────────────────┐  │
 │  │                           │  │
 │  │     [Primary Variant]     │  │  ← 1:1 aspect ratio
-│  │        Thumbnail          │  │
+│  │        Thumbnail          │  │  ← grid-sized
 │  │                           │  │
 │  └───────────────────────────┘  │
-│  Hero                        [+]│  ← name + add to tray button
+│  Space / Game / Hero         [+]│  ← parent path + name + add button
 │  character                      │  ← type (smaller, muted)
-├─────────────────────────────────┤
-│  └─ Hero Armored           [+]  │  ← nested child (indented)
-│  └─ Hero Sprites           [+]  │
 └─────────────────────────────────┘
 ```
 
@@ -227,9 +234,9 @@ On hover, show overlay with quick actions:
 ```
 ┌─────────────────────────────────┐
 │  ┌───────────────────────────┐  │
-│  │  ┌─────────────────────┐  │  │
-│  │  │  [View] [Add to Tray]│  │  │  ← overlay actions
-│  │  └─────────────────────┘  │  │
+│  │     ┌───────────────┐     │  │
+│  │     │ [View] [Add]  │     │  │  ← overlay buttons
+│  │     └───────────────┘     │  │     use --thumb-action-* vars
 │  │     [Primary Variant]     │  │
 │  └───────────────────────────┘  │
 │  Hero                        [+]│
@@ -239,85 +246,109 @@ On hover, show overlay with quick actions:
 
 ### Context Menu (Right-click)
 
+Opens `AssetMenu` component:
+
 ```
 ┌─────────────────────────┐
-│ View Details            │
-│ Add to Tray             │
+│ Add Child Asset         │
 ├─────────────────────────┤
 │ Rename                  │
-│ Change Type        ►    │
-│ Move to...         ►    │
-├─────────────────────────┤
-│ Add Child Asset         │
+│ Move to...              │
 ├─────────────────────────┤
 │ Delete                  │
 └─────────────────────────┘
+```
+
+### Styling
+
+```css
+.overlayButton {
+  background: var(--thumb-action-bg);
+  border: var(--thumb-action-border);
+  box-shadow: var(--thumb-action-shadow);
+}
+
+.addButton {
+  width: var(--thumb-action-size);  /* 24px */
+  height: var(--thumb-action-size);
+}
 ```
 
 ---
 
 ## Variant Thumbnail (Asset Detail View)
 
+Variant thumbnails appear in the right sidebar of Asset Detail page.
+
 ### Layout
 
 ```
-┌─────────┐
-│ [✓] [★] │  ← badges (primary, starred)
-│         │
-│  [img]  │  ← thumbnail
-│         │
-│   [+]   │  ← add to tray button
-└─────────┘
+┌─────────────┐
+│ [★]  [Act]  │  ← star indicator (top-left), active badge (top-right)
+│             │
+│   [thumb]   │  ← 150px thumbnail (--thumb-size-lg)
+│             │
+│       [+]   │  ← add to tray button (hover reveals)
+└─────────────┘
 ```
 
 ### States
 
 ```
-Normal:           Primary:          Starred:          Primary+Starred:
-┌─────────┐       ┌─────────┐       ┌─────────┐       ┌─────────┐
-│         │       │ [✓]     │       │     [★] │       │ [✓] [★] │
-│  [img]  │       │  [img]  │       │  [img]  │       │  [img]  │
-│   [+]   │       │   [+]   │       │   [+]   │       │   [+]   │
-└─────────┘       └─────────┘       └─────────┘       └─────────┘
+Normal:           Active:           Starred:          Selected:
+┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+│             │   │      [Act]  │   │  ★          │   │  ╔═════════╗│
+│   [thumb]   │   │   [thumb]   │   │   [thumb]   │   │  ║ [thumb] ║│
+│       [+]   │   │       [+]   │   │       [+]   │   │  ╚═════════╝│
+└─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘
+ default border    green border      amber border      primary border
 ```
 
 ### Click Behavior
 
-- Click thumbnail → Expand to large view with actions
-- Click [+] → Add to Forge Tray
+- Click thumbnail → Select variant, show in main preview
+- Click [+] → Add to Forge Tray (button appears on hover)
 
-### Expanded Variant View (Modal/Lightbox)
+### Variant Details Panel
+
+Below the main preview, shows details for selected variant:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                                                       [×]   │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │                                                                       │  │
-│  │                                                                       │  │
-│  │                         [LARGE IMAGE]                                 │  │
-│  │                                                                       │  │
-│  │                                                                       │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-│  Variant 3 of 8                                      [← Prev] [Next →]      │
-│                                                                             │
-│  Actions:                                                                   │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
-│  │ Set Primary  │ │    Star      │ │ Add to Tray  │ │   Download   │       │
-│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘       │
-│                                                                             │
-│  ┌──────────────┐                                                          │
-│  │    Delete    │                                                          │
-│  └──────────────┘                                                          │
-│                                                                             │
-│  Recipe:                                                                    │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │ Prompt: "female archer with bow, dynamic pose"                        │  │
-│  │ Sources: Style Guide, Knight                                          │  │
-│  │ Created: 2024-01-15 14:32                                             │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Variant Details                                              │
+│  [☆] [Download] [+ Add to Tray] [Set Active] [Delete]        │
+├──────────────────────────────────────────────────────────────┤
+│  Created: 2024-01-15 14:32                                   │
+│  Type: derived    Model: gemini-2.0-flash                    │
+├──────────────────────────────────────────────────────────────┤
+│  Prompt:                                                      │
+│  "female archer with bow, dynamic pose"                      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Styling
+
+```css
+.variantThumb {
+  width: var(--thumb-size-lg);     /* 150px */
+  height: var(--thumb-size-lg);
+  border-radius: var(--thumb-radius);
+  border: 2px solid var(--color-border);
+}
+
+.variantThumb.selected {
+  border-color: var(--color-primary);
+}
+
+.variantThumb.active {
+  border-color: #22c55e;
+}
+
+.addToTrayButton {
+  width: var(--thumb-action-size);  /* 24px */
+  background: var(--thumb-action-bg);
+  box-shadow: var(--thumb-action-shadow);
+}
 ```
 
 ---
@@ -328,36 +359,98 @@ All operations map to two API endpoints based on destination:
 
 | Destination | API Endpoint | Method |
 |-------------|--------------|--------|
-| New Asset | `/api/spaces/:spaceId/assets` | POST |
-| Existing Asset | `/api/spaces/:spaceId/assets/:assetId/variants` | POST |
+| New Asset | `POST /api/spaces/:spaceId/assets` | Create asset + variant |
+| Existing Asset | `POST /api/spaces/:spaceId/assets/:assetId/variants` | Add variant |
 
-The request body includes prompt and reference variant IDs as needed.
+### Request Bodies
 
-> For detailed API types and store implementation, see [PLAN.md](./PLAN.md).
+**New Asset:**
+```typescript
+{
+  name: string;
+  type: string;
+  parentAssetId?: string;       // Auto-set from first reference
+  prompt: string;
+  referenceVariantIds?: string[];
+}
+```
+
+**New Variant:**
+```typescript
+{
+  sourceVariantId?: string;     // Primary reference
+  prompt: string;
+  referenceVariantIds?: string[]; // Additional references
+}
+```
+
+### Job Tracking
+
+Jobs are tracked via WebSocket with status updates:
+- `pending` → `processing` → `completed` or `failed`
+
+Job types: `generate`, `derive`, `compose`
 
 ---
 
 ## Responsive Behavior
 
 ### Desktop (> 1024px)
-- Floating bar at bottom center (min 400px, max 600px)
+- Floating bar at bottom center
+- Min width: 420px, Max width: 640px
 
 ### Tablet (768px - 1024px)
 - Bar takes more width, still centered
+- Controls row wraps if needed
 
 ### Mobile (< 768px)
-- Full-width bar at bottom
-- ForgeModal opens as bottom sheet
-- Full-screen Asset Picker
+- Full-width bar (left/right: 0.5rem)
+- Destination buttons show icons only
+- Button label hidden
+
+### Mobile Small (< 480px)
+- Bar docks to bottom edge (no rounded corners at bottom)
+- Full-screen Asset Picker Modal
 
 ---
 
 ## Accessibility
 
 - All interactive elements keyboard accessible
-- Focus visible states
+- Focus visible states with `--forge-input-focus-glow`
 - ARIA labels for icon-only buttons
-- Screen reader announcements for tray changes
 - Escape closes modals
-- Tab order: slots → prompt → forge button
-- Cmd+Enter shortcut to submit from tray
+- Tab order: prompt → thumbnails → controls → submit
+- **Cmd+Enter** shortcut to submit from prompt/name input
+
+---
+
+## File Structure
+
+```
+src/frontend/
+├── components/
+│   ├── ForgeTray/
+│   │   ├── index.ts              # Barrel exports
+│   │   ├── ForgeTray.tsx         # Main component
+│   │   ├── ForgeTray.module.css
+│   │   ├── AssetPickerModal.tsx  # Asset selection modal
+│   │   ├── AssetPickerModal.module.css
+│   │   ├── ForgeSlots.tsx        # (unused, slots inline)
+│   │   └── ForgeSlots.module.css
+│   ├── AssetCard.tsx             # Catalog grid card
+│   ├── AssetCard.module.css
+│   ├── AssetMenu.tsx             # Context menu
+│   ├── AssetMenu.module.css
+│   ├── AssetPicker.tsx           # Dropdown picker (different from modal)
+│   └── AssetPicker.module.css
+├── stores/
+│   └── forgeTrayStore.ts         # Zustand store for tray state
+├── pages/
+│   ├── SpacePage.tsx             # Catalog view
+│   ├── SpacePage.module.css
+│   ├── AssetDetailPage.tsx       # Asset detail view
+│   └── AssetDetailPage.module.css
+└── styles/
+    └── theme.css                 # CSS variables
+```

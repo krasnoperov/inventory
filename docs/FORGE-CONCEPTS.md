@@ -8,8 +8,9 @@ Inventory Forge is a graphical asset management system for game development. Use
 
 1. **Assets are the primary unit** — Users work with Assets, not raw images
 2. **Variants are internal** — Multiple versions exist within an Asset, but only the primary variant is visible in catalog
-3. **Forge Tray is the workspace** — Minecraft-inspired crafting interface for combining and transforming assets
+3. **Forge Tray is the workspace** — Always-visible floating bar with inline controls for combining and transforming assets
 4. **Destination-first workflow** — Users define where results go BEFORE generation (no review step)
+5. **Glossy glass aesthetic** — Consistent visual style with backdrop blur, soft shadows, and unified action buttons
 
 ---
 
@@ -151,193 +152,210 @@ Shows assets as cards. **Only primary variant thumbnail visible.**
 
 ### Level 2: Asset Detail View
 
-Shows all variants of a single asset. This is where variant management happens.
+Shows all variants of a single asset. Two-column layout with main preview and variant sidebar.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  ← Back to Catalog                                                  │
+│  Dashboard / Space / [Parent] / Hero                                │
 │                                                                     │
-│  Hero                                                               │
-│  character • 8 variants                                             │
+│  Hero                                    [character ▼]    [Delete]  │
+│  8 variants                                                         │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  ┌───────────────────────────────────┐                              │
-│  │                                   │  PRIMARY VARIANT             │
-│  │         [LARGE IMAGE]             │  (represents asset)          │
-│  │                                   │                              │
-│  └───────────────────────────────────┘                              │
+│  ┌─────────────────────────────────────┐  ┌─────────────────────┐  │
+│  │                                     │  │  ┌─────┐ ← variants  │  │
+│  │                                     │  │  │[Act]│   sidebar   │  │
+│  │         [SELECTED VARIANT]          │  │  │ ★   │   150px     │  │
+│  │           LARGE PREVIEW             │  │  │[+]  │             │  │
+│  │                                     │  │  └─────┘             │  │
+│  │                                     │  │  ┌─────┐             │  │
+│  └─────────────────────────────────────┘  │  │     │             │  │
+│                                           │  │[+]  │             │  │
+│  Variant Details:                         │  └─────┘             │  │
+│  ┌─────────────────────────────────────┐  │  ┌─────┐             │  │
+│  │ [☆] [Download] [+ Tray] [Active]    │  │  │     │             │  │
+│  │ Created: 2024-01-15 14:32           │  │  │[+]  │             │  │
+│  │ Prompt: "battle-ready pose..."      │  │  └─────┘             │  │
+│  └─────────────────────────────────────┘  └─────────────────────┘  │
 │                                                                     │
-│  All Variants:                                                      │
-│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐  │
-│  │[✓]  │ │[★]  │ │     │ │     │ │[★]  │ │     │ │     │ │     │  │
-│  │ v1  │ │ v2  │ │ v3  │ │ v4  │ │ v5  │ │ v6  │ │ v7  │ │ v8  │  │
-│  │[+]  │ │[+]  │ │[+]  │ │[+]  │ │[+]  │ │[+]  │ │[+]  │ │[+]  │  │
-│  └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘  │
-│                                                                     │
-│  [✓] = Primary    [★] = Starred    [+] = Add to Tray               │
-│                                                                     │
-│  Children Assets:                                      [+ Add Child]│
-│  ┌─────────┐                                                        │
-│  │ Armor   │                                                        │
-│  └─────────┘                                                        │
+│  Sub-Assets (3):                                                    │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐                               │
+│  │[thumb]  │ │[thumb]  │ │[thumb]  │                               │
+│  │Armor    │ │Weapon   │ │Sprite   │                               │
+│  └─────────┘ └─────────┘ └─────────┘                               │
 │                                                                     │
 ├─────────────────────────────────────────────────────────────────────┤
-│  ⚒️ FORGE TRAY (persistent)                                         │
-│  [Hero v2] [Style] [+]   Prompt: [________]  [⚡ Remix]             │
+│  ⚒️ FORGE TRAY (persistent at bottom)                               │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+**Layout:**
+- Two-column grid: preview section (left) + variants sidebar (right)
+- `align-items: start` ensures top alignment
+- Variants sidebar is sticky (scrolls with content)
+
 **Interactions:**
-- Click variant → View large, show actions
-- Click [+] on variant → Add specific variant to Forge Tray
-- Set Primary → This variant represents the asset in catalog
-- Star → Mark as important iteration
+- Click variant thumbnail → Select and show in main preview
+- Click [+] on variant → Add to Forge Tray (hover reveals button)
+- ★ Star/Unstar → Mark as important iteration
+- [Active] badge shows which variant represents asset in catalog
+- Click asset name → Inline edit
+- Type dropdown → Change asset type
 
 ---
 
 ## Forge Tray
 
-The central workspace for all generation operations. A minimal, always-visible floating bar at the bottom of the screen.
-
-> For implementation details, see [PLAN.md](./PLAN.md)
+The central workspace for all generation operations. A minimal, always-visible floating bar at the bottom of the screen with a glossy glass aesthetic.
 
 ### Layout
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  [ref] [ref] [+]  │  "describe what you want..."              [Forge ▸] │
-└─────────────────────────────────────────────────────────────────────────┘
-     ^                              ^                              ^
-  slot pills                   prompt input                  action button
-  (0-14 items)               (always visible)              (mode-aware label)
-```
+The tray uses a unified input area design with all controls inline (no separate modal):
 
-**Empty state:**
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  [+]  │  "describe what you want..."                       [Generate ▸] │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │  Describe what to generate...                                           │ │
+│ │                                                                         │ │
+│ │  ┌─────┐ ┌─────┐ [+]                                                   │ │
+│ │  │ ref │ │ ref │      ← thumbnail slots inside input area              │ │
+│ │  └─────┘ └─────┘                                                       │ │
+│ │                                                                         │ │
+│ │  [Current ▸] [New ▸]  [Asset name___]          ⚡ [Create]             │ │
+│ │       ^          ^           ^                       ^                  │ │
+│ │  dest toggle  new asset   name input          submit button             │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Slot Behavior
 
 - **Capacity:** Maximum 14 slots (Gemini image input limit)
+- **Thumbnail size:** 75px (`--forge-slot-size`)
 - Show only filled slots + one [+] button
 - From Catalog: adds asset's **primary variant**
 - From Detail: adds **specific variant**
+- Hover reveals remove button (×)
 
 ### Adding to Tray
 
 | Location | Action | Result |
 |----------|--------|--------|
-| Catalog View | Click [+tray] on asset | Add asset's primary variant |
+| Catalog View | Click [+] on asset card | Add asset's primary variant |
+| Catalog View | Hover → "Add" overlay button | Add asset's primary variant |
 | Asset Detail | Click [+] on variant thumbnail | Add that specific variant |
-| Asset Picker | Select asset | Add asset's primary variant |
+| Asset Picker Modal | Click asset thumbnail | Toggle in/out of tray |
 
 ### Destination Selection
 
-Destination (new asset vs existing asset variant) is selected in the **ForgeModal** that opens when clicking the Forge button. This keeps the tray minimal while providing full control in the modal.
+Destination is selected **inline** in the tray via toggle buttons:
+- **Current** — Add variant to current/first slot's asset
+- **New** — Create new asset (shows name input field)
+
+When creating a new asset from references, it automatically:
+- Sets parent to the first reference's asset
+- Inherits type from the source asset
 
 ---
 
 ## Operations
 
-The Forge button label changes based on slot count:
+The operation is determined by slot count, prompt presence, and destination:
 
-| Slots | Operation | Description |
-|-------|-----------|-------------|
-| 0 | **Generate** | Create from scratch with prompt |
-| 1 | **Transform** | Modify single reference |
-| 2+ | **Combine** | Merge multiple sources |
+| Slots | Has Prompt | Destination | Operation | Description |
+|-------|------------|-------------|-----------|-------------|
+| 0 | Yes | New | **Generate** | Create from scratch |
+| 1 | No | New | **Fork** | Copy asset without changes |
+| 1 | Yes | New | **Create** | Transform into new asset |
+| 1 | Yes | Existing | **Refine** | Add variant to existing asset |
+| 2+ | Yes | Any | **Combine** | Merge multiple sources |
 
-The destination (new asset vs existing asset variant) is determined by user selection in the **ForgeModal**, not by operation name. This simplifies the UI while preserving all capabilities.
+The button label updates dynamically: Generate, Fork, Create, Refine, or Combine.
 
 ---
 
 ## Workflow Examples
 
-### Example 1: Transform with Style Reference
+### Example 1: Create with Style Reference
 
 **Goal:** Create "Archer" character using style from "Style Guide" asset.
 
-1. In Catalog, click [+tray] on "Style Guide" → slot 1
+1. In Catalog, click [+] on "Style Guide" card → added to tray
 2. Enter prompt: "female archer with bow, dynamic pose"
-3. Click **[Transform ▸]** → ForgeModal opens
-4. Select destination: New Asset, name "Archer", type "character"
-5. Click submit
+3. Click **[New]** destination toggle
+4. Enter name: "Archer"
+5. Click **[Create]**
 
 ```
-Tray: [Style Guide]  "female archer..."  [Transform ▸]
-→ Creates "Archer" asset with generated variant
+Tray: [Style Guide]  "female archer..."  [New] "Archer"  [Create]
+→ Creates "Archer" asset as child of Style Guide
 ```
 
-### Example 2: Combine Multiple References
+### Example 2: Refine Existing Asset
 
-**Goal:** Create new variant of "Archer" wearing armor from "Plate Armor" asset.
+**Goal:** Create new variant of "Hero" with armor.
 
-1. Open "Archer" asset detail, click [+] on variant v2 → slot 1
-2. Go to catalog, click [+tray] on "Plate Armor" → slot 2
-3. Enter prompt: "wearing the plate armor"
-4. Click **[Combine ▸]** → ForgeModal opens
-5. Select destination: New Variant in "Archer"
-6. Click submit
-
-```
-Tray: [Archer v2] [Plate Armor]  "wearing..."  [Combine ▸]
-→ Creates new variant v3 in Archer asset
-```
-
-### Example 3: Extract Element from Image
-
-**Goal:** Variant v5 has a cool sword, extract it to separate asset.
-
-1. Open "Hero" asset detail, click [+] on variant v5 → slot 1
-2. Enter prompt: "isolate the sword only, white background"
-3. Click **[Transform ▸]** → ForgeModal opens
-4. Select destination: New Asset, name "Magic Sword", type "item"
-5. Click submit
+1. Open "Hero" asset detail
+2. Click [+] on any variant → added to tray
+3. Enter prompt: "add plate armor, battle-worn"
+4. Keep destination as **[Current]** (defaults to Hero)
+5. Click **[Refine]**
 
 ```
-Tray: [Hero v5]  "isolate the sword..."  [Transform ▸]
-→ Creates "Magic Sword" asset with extracted sword
+Tray: [Hero v2]  "add plate armor..."  [Current]  [Refine]
+→ Creates new variant in Hero asset
+```
+
+### Example 3: Fork Asset
+
+**Goal:** Create a copy of "Hero" to modify separately.
+
+1. In Catalog, click [+] on "Hero" → added to tray
+2. Leave prompt **empty**
+3. Click **[New]** destination
+4. Enter name: "Hero Alternate"
+5. Click **[Fork]**
+
+```
+Tray: [Hero]  (no prompt)  [New] "Hero Alternate"  [Fork]
+→ Creates "Hero Alternate" asset with same image
 ```
 
 ### Example 4: Generate from Scratch
 
 **Goal:** Create a new character with no references.
 
-1. Enter prompt: "medieval knight in shining armor"
-2. Click **[Generate ▸]** → ForgeModal opens
-3. Select destination: New Asset, name "Knight", type "character"
-4. Click submit
+1. Open tray on Space page (no refs)
+2. Enter prompt: "medieval knight in shining armor"
+3. Enter name: "Knight"
+4. Click **[Generate]**
 
 ```
-Tray: [+]  "medieval knight..."  [Generate ▸]
+Tray: [+]  "medieval knight..."  "Knight"  [Generate]
 → Creates "Knight" asset with generated variant
 ```
 
-### Example 5: Combine Multiple Characters into Scene
+### Example 5: Combine Multiple References
 
 **Goal:** Create battle scene combining Hero and Villain.
 
-1. In Catalog, click [+tray] on "Hero" → slot 1
-2. Click [+tray] on "Villain" → slot 2
-3. Click [+tray] on "Style Guide" → slot 3
+1. In Catalog, click [+] on "Hero" → slot 1
+2. Click [+] on "Villain" → slot 2
+3. Click [+] on "Style Guide" → slot 3
 4. Enter prompt: "epic battle scene, dramatic lighting"
-5. Click **[Combine ▸]** → ForgeModal opens
-6. Select destination: New Asset, name "Battle Scene", type "scene"
-7. Click submit
+5. Click **[New]**, enter name: "Battle Scene"
+6. Click **[Combine]**
 
 ```
-Tray: [Hero] [Villain] [Style Guide]  "epic battle..."  [Combine ▸]
+Tray: [Hero] [Villain] [Style]  "epic battle..."  [Combine]
 → Creates composed scene from all references
 ```
 
 ---
 
-## Asset Picker
+## Asset Picker Modal
 
-Modal for selecting assets to add to Forge Tray.
+Modal for selecting assets to add to Forge Tray. Opens when clicking [+] button in tray.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -347,26 +365,19 @@ Modal for selecting assets to add to Forge Tray.
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  In Tray:                                                   │
-│  ┌─────┐ ┌─────┐                                           │
-│  │Hero │ │Style│  (already selected)                       │
-│  │ [✓] │ │ [✓] │                                           │
-│  └─────┘ └─────┘                                           │
-│                                                             │
-│  Recent:                                                    │
-│  ┌─────┐ ┌─────┐ ┌─────┐                                   │
-│  │Sword│ │Armor│ │Tavrn│                                   │
-│  └─────┘ └─────┘ └─────┘                                   │
+│  ┌───────┐ ┌───────┐                                       │
+│  │[thumb]│ │[thumb]│                                       │
+│  │ [✓]   │ │ [✓]   │                                       │
+│  │Hero   │ │Style  │  (checkmark badge on selected)        │
+│  │char   │ │ref    │                                       │
+│  └───────┘ └───────┘                                       │
 │                                                             │
 │  Characters:                                                │
-│  ┌─────┐ ┌─────┐ ┌─────┐                                   │
-│  │Hero │ │Villn│ │Guard│                                   │
-│  │ [✓] │ │     │ │     │                                   │
-│  └─────┘ └─────┘ └─────┘                                   │
-│                                                             │
-│  Items:                                                     │
-│  ┌─────┐ ┌─────┐                                           │
-│  │Sword│ │Armor│                                           │
-│  └─────┘ └─────┘                                           │
+│  ┌───────┐ ┌───────┐ ┌───────┐                             │
+│  │[thumb]│ │[thumb]│ │[thumb]│                             │
+│  │Hero   │ │Villn  │ │Guard  │                             │
+│  │char   │ │char   │ │char   │                             │
+│  └───────┘ └───────┘ └───────┘                             │
 │                                                             │
 ├─────────────────────────────────────────────────────────────┤
 │                                              [Done]         │
@@ -375,11 +386,12 @@ Modal for selecting assets to add to Forge Tray.
 
 **Features:**
 - Search by name
-- Filter by type
-- Grouped by type
-- Shows which assets already in tray
-- Click to toggle selection
-- Each asset shows primary variant thumbnail
+- Filter by type dropdown
+- Grouped by type (In Tray shown first)
+- Assets already in tray show checkmark badge
+- Click thumbnail to toggle in/out of tray
+- Shows asset hierarchy breadcrumb (parent path)
+- Thumbnail grid uses 75px thumbnails (`--thumb-size-sm`)
 
 ---
 
@@ -419,12 +431,24 @@ Note: All transformations are done through the Forge Tray — select variant, ad
 | **Asset** | Catalog | Named entity users work with |
 | **Primary Variant** | Asset thumbnail | Represents asset in catalog |
 | **Variants** | Asset Detail only | Internal iterations |
-| **Forge Tray** | Persistent bottom | Crafting workspace |
-| **Asset Picker** | Modal | Find and select assets |
+| **Forge Tray** | Persistent bottom | Unified generation workspace |
+| **Asset Picker Modal** | Modal | Find and select assets for tray |
 | **Lineage** | Hidden | Internal evolution tracking |
 
 | View | Shows | Primary Actions |
 |------|-------|-----------------|
 | **Catalog** | Assets (primary only) | Browse, Add to Tray, Navigate |
-| **Asset Detail** | All variants | Manage variants, Add to Tray |
-| **Forge Tray** | Selected items | Generate, Transform, Combine |
+| **Asset Detail** | All variants + sub-assets | Manage variants, Add to Tray |
+| **Forge Tray** | Selected slots + prompt | Generate, Fork, Create, Refine, Combine |
+
+## CSS Design System
+
+Consistent styling via CSS variables in `theme.css`:
+
+| Category | Variables |
+|----------|-----------|
+| **Thumbnail Sizing** | `--thumb-size-lg` (150px), `--thumb-size-sm` (75px), `--thumb-size-xs` (48px) |
+| **Thumbnail Radius** | `--thumb-radius` (10px), `--thumb-radius-sm` (6px) |
+| **Forge Tray** | `--forge-slot-size`, `--forge-bar-bg`, `--forge-button-bg` |
+| **Action Buttons** | `--thumb-action-size`, `--thumb-action-bg`, `--thumb-action-shadow` |
+| **Selection Badges** | `--thumb-badge-size`, `--thumb-badge-bg`, `--thumb-badge-shadow` |
