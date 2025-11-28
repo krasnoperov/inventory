@@ -3,8 +3,14 @@
    ============================================================================= */
 
 .sidebar {
+  /* Fixed positioning on all screen sizes */
+  position: fixed;
+  top: var(--header-height, 60px);
+  right: 0;
+  bottom: 0;
   width: 380px;
-  height: 100%;
+  z-index: 100;
+
   display: flex;
   flex-direction: column;
 
@@ -13,7 +19,7 @@
   backdrop-filter: blur(20px) saturate(1.5);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
   border-left: 1px solid var(--forge-bar-border);
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
+  box-shadow: -4px 0 24px oklch(0% 0 0 / 0.1);
 
   /* Animation */
   transform: translateX(0);
@@ -721,14 +727,11 @@
 
 @media (max-width: 768px) {
   .sidebar {
-    position: fixed;
     top: 0;
-    right: 0;
-    bottom: 0;
     width: 100%;
     max-width: 400px;
     z-index: 200;
-    box-shadow: -8px 0 30px rgba(0, 0, 0, 0.2);
+    box-shadow: -8px 0 30px oklch(0% 0 0 / 0.2);
   }
 }
 

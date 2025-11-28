@@ -44,6 +44,17 @@
   /* Brand background - solid color matching app style */
   --gradient-brand: var(--color-bg);
 
+  /* Brand gradient colors for buttons and accents */
+  /* #667eea ≈ oklch(62.19% 0.1845 276.62), #764ba2 ≈ oklch(48.97% 0.1549 307.72) */
+  --brand-gradient-start: light-dark(
+    oklch(62% 0.18 277),
+    oklch(55% 0.16 277)
+  );
+  --brand-gradient-end: light-dark(
+    oklch(49% 0.15 308),
+    oklch(45% 0.13 308)
+  );
+
   /* Light: rgba(102, 126, 234, 0.92) and rgba(118, 75, 162, 0.92) */
   /* Dark: Slightly lighter than background gradient for distinction */
   --gradient-player: linear-gradient(135deg,

@@ -109,7 +109,7 @@ export default function SpacePage() {
     }
 
     if (!spaceId) {
-      navigate('/dashboard');
+      navigate('/');
       return;
     }
 
@@ -373,7 +373,7 @@ export default function SpacePage() {
     return (
       <div className={styles.page}>
         <AppHeader
-          leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
+          leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
           rightSlot={headerRightSlot}
         />
         <main className={styles.main}>
@@ -387,14 +387,14 @@ export default function SpacePage() {
     return (
       <div className={styles.page}>
         <AppHeader
-          leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
+          leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
           rightSlot={headerRightSlot}
         />
         <main className={styles.main}>
           <div className={styles.error}>
             <h2>Error</h2>
             <p>{error || 'Space not found'}</p>
-            <Link to="/dashboard" className={styles.backLink}>Back to Dashboard</Link>
+            <Link to="/" className={styles.backLink}>Back to Spaces</Link>
           </div>
         </main>
       </div>
@@ -406,7 +406,7 @@ export default function SpacePage() {
   return (
     <div className={`${styles.page} ${showChat ? styles.withChat : ''}`}>
       <AppHeader
-        leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
+        leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
         rightSlot={headerRightSlot}
       />
 

@@ -5,7 +5,6 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
 import AuthorizationApprovalPage from './pages/AuthorizationApprovalPage';
-import DashboardPage from './pages/DashboardPage';
 import SpacePage from './pages/SpacePage';
 import AssetDetailPage from './pages/AssetDetailPage';
 import { loadSession } from './config';
@@ -27,7 +26,8 @@ function AppRouter() {
     case 'oauthApprove':
       return <AuthorizationApprovalPage />;
     case 'dashboard':
-      return <DashboardPage />;
+      // Dashboard removed - LandingPage now shows spaces when logged in
+      return <LandingPage />;
     case 'space':
       return <SpacePage />;
     case 'asset':
