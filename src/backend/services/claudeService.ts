@@ -1,32 +1,23 @@
 import Anthropic from '@anthropic-ai/sdk';
+import type {
+  ChatMessage,
+  ForgeContext,
+  ViewingContext,
+  ToolCall,
+  PlanStep,
+  AssistantPlan,
+  AdvisorResponse,
+  ActorResponse,
+  PlanResponse,
+  BotResponse,
+} from '../../api/types';
+
+// Re-export types for consumers
+export type { ChatMessage, ForgeContext, ViewingContext, BotResponse };
 
 // =============================================================================
-// Types
+// Types (Extended for internal use)
 // =============================================================================
-
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-export interface ForgeContextSlot {
-  assetId: string;
-  assetName: string;
-  variantId: string;
-}
-
-export interface ForgeContext {
-  operation: 'generate' | 'fork' | 'refine' | 'create' | 'combine';
-  slots: ForgeContextSlot[];
-  prompt: string;
-}
-
-export interface ViewingContext {
-  type: 'catalog' | 'asset' | 'variant';
-  assetId?: string;
-  assetName?: string;
-  variantId?: string;
-}
 
 export interface BotContext {
   spaceId: string;
@@ -43,58 +34,6 @@ export interface BotContext {
   // Current plan being executed
   activePlan?: AssistantPlan;
 }
-
-// =============================================================================
-// Plan Types
-// =============================================================================
-
-export interface PlanStep {
-  id: string;
-  description: string;
-  action: string;
-  params: Record<string, unknown>;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
-  result?: string;
-  error?: string;
-}
-
-export interface AssistantPlan {
-  id: string;
-  goal: string;
-  steps: PlanStep[];
-  currentStepIndex: number;
-  status: 'planning' | 'executing' | 'completed' | 'failed' | 'paused';
-  createdAt: number;
-}
-
-// =============================================================================
-// Response Types
-// =============================================================================
-
-export interface AdvisorResponse {
-  type: 'advice';
-  message: string;
-  suggestions?: string[];
-}
-
-export interface ToolCall {
-  name: string;
-  params: Record<string, unknown>;
-}
-
-export interface ActorResponse {
-  type: 'action';
-  toolCalls: ToolCall[];
-  message: string;
-}
-
-export interface PlanResponse {
-  type: 'plan';
-  plan: AssistantPlan;
-  message: string;
-}
-
-export type BotResponse = AdvisorResponse | ActorResponse | PlanResponse;
 
 // =============================================================================
 // Tool Definitions
@@ -278,6 +217,52 @@ const ASSISTANT_TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ['query'],
+    },
+  },
+  {
+    name: 'describe_image',
+    description: 'Analyze and describe what is in a variant image. Use this when the user asks what is in an image, wants you to analyze a generated result, or needs a detailed description of a variant.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        variantId: {
+          type: 'string',
+          description: 'The ID of the variant to analyze',
+        },
+        assetName: {
+          type: 'string',
+          description: 'The name of the asset (for context)',
+        },
+        focus: {
+          type: 'string',
+          enum: ['general', 'style', 'composition', 'details', 'compare'],
+          description: 'What aspect to focus on: general overview, artistic style, composition, fine details, or comparison to prompt',
+        },
+      },
+      required: ['variantId', 'assetName'],
+    },
+  },
+  {
+    name: 'compare_variants',
+    description: 'Compare two or more variants of the same or different assets, highlighting differences and similarities.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        variantIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'IDs of variants to compare (2-4)',
+        },
+        aspectsToCompare: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['style', 'composition', 'colors', 'details', 'mood'],
+          },
+          description: 'Aspects to focus comparison on',
+        },
+      },
+      required: ['variantIds'],
     },
   },
 ];
@@ -521,5 +506,95 @@ Always explain what you're doing and why.`;
     return response.content[0].type === 'text'
       ? response.content[0].text
       : '';
+  }
+
+  /**
+   * Describe an image using multimodal Claude
+   */
+  async describeImage(
+    imageBase64: string,
+    mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+    assetName: string,
+    focus: 'general' | 'style' | 'composition' | 'details' | 'compare' = 'general'
+  ): Promise<string> {
+    const focusPrompts: Record<string, string> = {
+      general: `Describe this image in detail. What do you see? Include the subject, setting, colors, mood, and any notable details.`,
+      style: `Analyze the artistic style of this image. Describe the art style, techniques used, color palette, and visual aesthetic. Compare to known art styles if applicable.`,
+      composition: `Analyze the composition of this image. Describe the layout, focal points, use of space, visual balance, and how elements guide the viewer's eye.`,
+      details: `Examine the fine details in this image. Look for textures, small elements, patterns, accessories, and subtle features that might be missed at first glance.`,
+      compare: `Describe this image objectively, focusing on elements that could be compared to other versions or variants. Note specific visual features, poses, expressions, and distinguishing characteristics.`,
+    };
+
+    const userPrompt = `This is an image of "${assetName}" from a visual asset library. ${focusPrompts[focus]}`;
+
+    const response = await this.client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: mediaType,
+              data: imageBase64,
+            },
+          },
+          {
+            type: 'text',
+            text: userPrompt,
+          },
+        ],
+      }],
+    });
+
+    return response.content[0].type === 'text'
+      ? response.content[0].text
+      : 'Unable to describe this image.';
+  }
+
+  /**
+   * Compare multiple images using multimodal Claude
+   */
+  async compareImages(
+    images: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; label: string }>,
+    aspects: string[] = ['style', 'composition', 'colors']
+  ): Promise<string> {
+    const imageBlocks: Anthropic.ImageBlockParam[] = images.map((img, i) => ({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: img.mediaType,
+        data: img.base64,
+      },
+    }));
+
+    const labelList = images.map((img, i) => `Image ${i + 1}: "${img.label}"`).join('\n');
+    const aspectList = aspects.join(', ');
+
+    const response = await this.client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: [
+          ...imageBlocks,
+          {
+            type: 'text',
+            text: `Compare these ${images.length} images from a visual asset library:
+${labelList}
+
+Focus on these aspects: ${aspectList}
+
+For each aspect, describe similarities and differences between the images. Which elements are consistent? What changed between variants? Provide specific observations.`,
+          },
+        ],
+      }],
+    });
+
+    return response.content[0].type === 'text'
+      ? response.content[0].text
+      : 'Unable to compare these images.';
   }
 }

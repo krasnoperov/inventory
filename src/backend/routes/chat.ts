@@ -7,6 +7,22 @@ import { getAuthToken } from '../auth';
 import { ClaudeService, type BotContext, type ChatMessage, type ForgeContext, type ViewingContext } from '../services/claudeService';
 import { chatRateLimiter, suggestionRateLimiter } from '../middleware/rate-limit';
 
+/**
+ * Convert ArrayBuffer to base64 using chunked approach to avoid call stack limits
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000; // 32KB chunks to avoid call stack limits
+  let binary = '';
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
+
 const chatRoutes = new Hono<AppContext>();
 
 // POST /api/spaces/:id/chat - Send chat message to bot
@@ -249,6 +265,215 @@ chatRoutes.post('/api/spaces/:id/chat/suggest', suggestionRateLimiter, async (c)
   } catch (error) {
     console.error('Error generating prompt suggestion:', error);
     return c.json({ error: 'Failed to generate suggestion' }, 500);
+  }
+});
+
+// POST /api/spaces/:id/chat/describe - Describe an image
+chatRoutes.post('/api/spaces/:id/chat/describe', chatRateLimiter, async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    const { variantId, assetName, focus = 'general' } = body as {
+      variantId: string;
+      assetName: string;
+      focus?: 'general' | 'style' | 'composition' | 'details' | 'compare';
+    };
+
+    if (!variantId || !assetName) {
+      return c.json({ error: 'variantId and assetName are required' }, 400);
+    }
+
+    // Check Claude API key
+    if (!env.ANTHROPIC_API_KEY) {
+      return c.json({ error: 'Bot assistant not configured' }, 503);
+    }
+
+    // Get variant image_key from DO
+    if (!env.SPACES_DO) {
+      return c.json({ error: 'Space not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    const stateResponse = await doStub.fetch(new Request('http://do/internal/state', {
+      method: 'GET',
+    }));
+
+    if (!stateResponse.ok) {
+      return c.json({ error: 'Failed to get space state' }, 500);
+    }
+
+    const state = await stateResponse.json() as {
+      variants: Array<{ id: string; image_key: string }>;
+    };
+
+    const variant = state.variants.find(v => v.id === variantId);
+    if (!variant || !variant.image_key) {
+      return c.json({ error: 'Variant not found or has no image' }, 404);
+    }
+
+    // Fetch image from R2
+    if (!env.IMAGES) {
+      return c.json({ error: 'Image storage not configured' }, 503);
+    }
+
+    const imageObject = await env.IMAGES.get(variant.image_key);
+    if (!imageObject) {
+      return c.json({ error: 'Image not found in storage' }, 404);
+    }
+
+    // Convert to base64 (chunked to handle large images)
+    const arrayBuffer = await imageObject.arrayBuffer();
+    const base64 = arrayBufferToBase64(arrayBuffer);
+
+    // Determine media type
+    const contentType = imageObject.httpMetadata?.contentType || 'image/png';
+    const mediaType = contentType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+
+    // Call Claude to describe the image
+    const claudeService = new ClaudeService(env.ANTHROPIC_API_KEY);
+    const description = await claudeService.describeImage(base64, mediaType, assetName, focus);
+
+    return c.json({
+      success: true,
+      description,
+    });
+  } catch (error) {
+    console.error('Error describing image:', error);
+    return c.json({ error: 'Failed to describe image' }, 500);
+  }
+});
+
+// POST /api/spaces/:id/chat/compare - Compare multiple images
+chatRoutes.post('/api/spaces/:id/chat/compare', chatRateLimiter, async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const memberDAO = container.get(MemberDAO);
+    const env = c.env;
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    const { variantIds, aspects = ['style', 'composition', 'colors'] } = body as {
+      variantIds: Array<{ variantId: string; label: string }>;
+      aspects?: string[];
+    };
+
+    if (!variantIds || variantIds.length < 2 || variantIds.length > 4) {
+      return c.json({ error: 'Must provide 2-4 variants to compare' }, 400);
+    }
+
+    // Check Claude API key
+    if (!env.ANTHROPIC_API_KEY) {
+      return c.json({ error: 'Bot assistant not configured' }, 503);
+    }
+
+    // Get variant image_keys from DO
+    if (!env.SPACES_DO || !env.IMAGES) {
+      return c.json({ error: 'Services not available' }, 503);
+    }
+
+    const doId = env.SPACES_DO.idFromName(spaceId);
+    const doStub = env.SPACES_DO.get(doId);
+
+    const stateResponse = await doStub.fetch(new Request('http://do/internal/state', {
+      method: 'GET',
+    }));
+
+    if (!stateResponse.ok) {
+      return c.json({ error: 'Failed to get space state' }, 500);
+    }
+
+    const state = await stateResponse.json() as {
+      variants: Array<{ id: string; image_key: string }>;
+    };
+
+    // Fetch all images
+    const images: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; label: string }> = [];
+
+    for (const { variantId, label } of variantIds) {
+      const variant = state.variants.find(v => v.id === variantId);
+      if (!variant || !variant.image_key) {
+        return c.json({ error: `Variant ${variantId} not found` }, 404);
+      }
+
+      const imageObject = await env.IMAGES.get(variant.image_key);
+      if (!imageObject) {
+        return c.json({ error: `Image for variant ${variantId} not found` }, 404);
+      }
+
+      const arrayBuffer = await imageObject.arrayBuffer();
+      const base64 = arrayBufferToBase64(arrayBuffer);
+      const contentType = imageObject.httpMetadata?.contentType || 'image/png';
+
+      images.push({
+        base64,
+        mediaType: contentType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+        label,
+      });
+    }
+
+    // Call Claude to compare images
+    const claudeService = new ClaudeService(env.ANTHROPIC_API_KEY);
+    const comparison = await claudeService.compareImages(images, aspects);
+
+    return c.json({
+      success: true,
+      comparison,
+    });
+  } catch (error) {
+    console.error('Error comparing images:', error);
+    return c.json({ error: 'Failed to compare images' }, 500);
   }
 });
 

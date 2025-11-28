@@ -1,12 +1,20 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
+import type {
+  ForgeContext,
+  ViewingContext,
+  ToolCall,
+  AssistantPlan,
+  BotResponse,
+} from '../../api/types';
 import styles from './ChatSidebar.module.css';
 
 // =============================================================================
-// Types
+// Extended Types (frontend-specific)
 // =============================================================================
 
+/** Extended chat message with UI-specific fields */
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -14,51 +22,21 @@ interface ChatMessage {
   // For action/plan messages
   plan?: AssistantPlan;
   actionResults?: string[];
+  // For error messages with retry
+  isError?: boolean;
+  retryPayload?: {
+    message: string;
+    mode: 'advisor' | 'actor';
+  };
 }
 
-interface ToolCall {
-  name: string;
-  params: Record<string, unknown>;
-}
-
-interface AssistantPlan {
-  id: string;
-  goal: string;
-  steps: PlanStep[];
-  currentStepIndex: number;
-  status: 'planning' | 'executing' | 'completed' | 'failed' | 'paused';
-  createdAt: number;
-}
-
-interface PlanStep {
-  id: string;
-  description: string;
-  action: string;
-  params: Record<string, unknown>;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
-  result?: string;
-  error?: string;
-}
-
-interface BotResponse {
-  type: 'advice' | 'action' | 'plan';
-  message: string;
-  suggestions?: string[];
-  toolCalls?: ToolCall[];
-  plan?: AssistantPlan;
-}
-
-interface ForgeContext {
-  operation: string;
-  slots: Array<{ assetId: string; assetName: string; variantId: string }>;
-  prompt: string;
-}
-
-interface ViewingContext {
-  type: 'catalog' | 'asset' | 'variant';
+/** Job completion data passed from parent */
+interface JobCompletionData {
+  jobId: string;
+  variantId: string;
   assetId?: string;
   assetName?: string;
-  variantId?: string;
+  prompt?: string;
 }
 
 interface ChatSidebarProps {
@@ -68,12 +46,14 @@ interface ChatSidebarProps {
   currentAsset?: Asset | null;
   allAssets?: Asset[];
   allVariants?: Variant[];
-  /** Callback to generate a new asset */
-  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string }) => Promise<void>;
-  /** Callback to refine an asset (add variant) */
-  onRefineAsset?: (params: { assetId: string; prompt: string }) => Promise<void>;
-  /** Callback to combine assets */
-  onCombineAssets?: (params: { sourceAssetIds: string[]; prompt: string; targetName: string; targetType: string }) => Promise<void>;
+  /** Callback to generate a new asset - returns the job ID for tracking */
+  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string }) => Promise<string | void>;
+  /** Callback to refine an asset (add variant) - returns the job ID for tracking */
+  onRefineAsset?: (params: { assetId: string; prompt: string }) => Promise<string | void>;
+  /** Callback to combine assets - returns the job ID for tracking */
+  onCombineAssets?: (params: { sourceAssetIds: string[]; prompt: string; targetName: string; targetType: string }) => Promise<string | void>;
+  /** Job completion notification from parent - triggers auto-review if job was initiated by assistant */
+  lastCompletedJob?: JobCompletionData | null;
 }
 
 // =============================================================================
@@ -90,6 +70,7 @@ export function ChatSidebar({
   onGenerateAsset,
   onRefineAsset,
   onCombineAssets,
+  lastCompletedJob,
 }: ChatSidebarProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -99,7 +80,15 @@ export function ChatSidebar({
   const [activePlan, setActivePlan] = useState<AssistantPlan | null>(null);
   const [isExecutingPlan, setIsExecutingPlan] = useState(false);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [isAutoReviewing, setIsAutoReviewing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Track jobs initiated by the assistant for auto-review
+  // Includes timestamp for TTL-based cleanup
+  const assistantJobsRef = useRef<Map<string, { assetName: string; prompt: string; createdAt: number }>>(new Map());
+
+  // Constants for job tracking limits
+  const MAX_TRACKED_JOBS = 50;
+  const JOB_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
   // Get forge tray state
   const slots = useForgeTrayStore((state) => state.slots);
@@ -152,6 +141,106 @@ export function ChatSidebar({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Clean up stale job tracking entries to prevent memory leaks
+  useEffect(() => {
+    const cleanupJobs = () => {
+      const now = Date.now();
+      const jobs = assistantJobsRef.current;
+
+      // Remove entries older than TTL
+      for (const [jobId, jobInfo] of jobs.entries()) {
+        if (now - jobInfo.createdAt > JOB_TTL_MS) {
+          jobs.delete(jobId);
+        }
+      }
+
+      // If still over limit, remove oldest entries
+      if (jobs.size > MAX_TRACKED_JOBS) {
+        const entries = Array.from(jobs.entries())
+          .sort((a, b) => a[1].createdAt - b[1].createdAt);
+        const toRemove = entries.slice(0, jobs.size - MAX_TRACKED_JOBS);
+        toRemove.forEach(([id]) => jobs.delete(id));
+      }
+    };
+
+    // Clean up when sidebar closes
+    if (!isOpen) {
+      assistantJobsRef.current.clear();
+      return;
+    }
+
+    // Periodic cleanup while open
+    const interval = setInterval(cleanupJobs, 60000); // Every minute
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
+  // Auto-review completed jobs that were initiated by the assistant
+  useEffect(() => {
+    if (!lastCompletedJob || !isOpen) return;
+
+    const jobInfo = assistantJobsRef.current.get(lastCompletedJob.jobId);
+    if (!jobInfo) return; // Not an assistant-initiated job
+
+    // Remove from tracking
+    assistantJobsRef.current.delete(lastCompletedJob.jobId);
+
+    // Trigger auto-review
+    const autoReviewJob = async () => {
+      setIsAutoReviewing(true);
+
+      // Add a notification that the job completed
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `✨ Generation complete for "${jobInfo.assetName}"! Let me review the result...`,
+        timestamp: Date.now(),
+      }]);
+
+      try {
+        // Call the describe endpoint to review the generated image
+        const response = await fetch(`/api/spaces/${spaceId}/chat/describe`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            variantId: lastCompletedJob.variantId,
+            assetName: jobInfo.assetName,
+            focus: 'general',
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json() as { success: boolean; description: string };
+
+          // Build review message with suggestions
+          const reviewMessage = `**Review of "${jobInfo.assetName}":**\n\n${data.description}\n\n**Original prompt:** "${jobInfo.prompt.slice(0, 100)}${jobInfo.prompt.length > 100 ? '...' : ''}"`;
+
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: reviewMessage,
+            timestamp: Date.now(),
+          }]);
+        } else {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `Generated "${jobInfo.assetName}" successfully! (Auto-review unavailable)`,
+            timestamp: Date.now(),
+          }]);
+        }
+      } catch (err) {
+        console.error('Auto-review failed:', err);
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Generated "${jobInfo.assetName}" successfully!`,
+          timestamp: Date.now(),
+        }]);
+      } finally {
+        setIsAutoReviewing(false);
+      }
+    };
+
+    autoReviewJob();
+  }, [lastCompletedJob, isOpen, spaceId]);
+
   // Execute a single tool call
   const executeToolCall = useCallback(async (tool: ToolCall): Promise<string> => {
     const { name, params } = tool;
@@ -198,7 +287,15 @@ export function ChatSidebar({
           prompt: params.prompt as string,
           parentAssetId: params.parentAssetId as string | undefined,
         };
-        await onGenerateAsset(genParams);
+        const jobId = await onGenerateAsset(genParams);
+        // Track job for auto-review
+        if (jobId) {
+          assistantJobsRef.current.set(jobId, {
+            assetName: genParams.name,
+            prompt: genParams.prompt,
+            createdAt: Date.now(),
+          });
+        }
         return `Started generating "${genParams.name}"`;
       }
 
@@ -208,8 +305,16 @@ export function ChatSidebar({
           assetId: params.assetId as string,
           prompt: params.prompt as string,
         };
-        await onRefineAsset(refineParams);
+        const jobId = await onRefineAsset(refineParams);
         const asset = allAssets.find(a => a.id === refineParams.assetId);
+        // Track job for auto-review
+        if (jobId) {
+          assistantJobsRef.current.set(jobId, {
+            assetName: asset?.name || 'asset',
+            prompt: refineParams.prompt,
+            createdAt: Date.now(),
+          });
+        }
         return `Started refining "${asset?.name || 'asset'}"`;
       }
 
@@ -221,7 +326,15 @@ export function ChatSidebar({
           targetName: params.targetName as string,
           targetType: params.targetType as string,
         };
-        await onCombineAssets(combineParams);
+        const jobId = await onCombineAssets(combineParams);
+        // Track job for auto-review
+        if (jobId) {
+          assistantJobsRef.current.set(jobId, {
+            assetName: combineParams.targetName,
+            prompt: combineParams.prompt,
+            createdAt: Date.now(),
+          });
+        }
         return `Started combining assets into "${combineParams.targetName}"`;
       }
 
@@ -235,10 +348,69 @@ export function ChatSidebar({
         return `Found: ${matches.map(a => a.name).join(', ')}`;
       }
 
+      case 'describe_image': {
+        const variantId = params.variantId as string;
+        const assetName = params.assetName as string;
+        const focus = (params.focus as string) || 'general';
+
+        try {
+          const response = await fetch(`/api/spaces/${spaceId}/chat/describe`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ variantId, assetName, focus }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json() as { error?: string };
+            return `Failed to describe image: ${error.error || 'Unknown error'}`;
+          }
+
+          const data = await response.json() as { success: boolean; description: string };
+          return data.description;
+        } catch (err) {
+          return `Failed to describe image: ${err instanceof Error ? err.message : 'Network error'}`;
+        }
+      }
+
+      case 'compare_variants': {
+        const variantIds = params.variantIds as string[];
+        const aspects = (params.aspectsToCompare as string[]) || ['style', 'composition', 'colors'];
+
+        // Build labels from asset names
+        const variantsWithLabels = variantIds.map(vid => {
+          const variant = allVariants.find(v => v.id === vid);
+          const asset = variant ? allAssets.find(a => a.id === variant.asset_id) : null;
+          return {
+            variantId: vid,
+            label: asset?.name || `Variant ${vid.slice(0, 8)}`,
+          };
+        });
+
+        try {
+          const response = await fetch(`/api/spaces/${spaceId}/chat/compare`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ variantIds: variantsWithLabels, aspects }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json() as { error?: string };
+            return `Failed to compare images: ${error.error || 'Unknown error'}`;
+          }
+
+          const data = await response.json() as { success: boolean; comparison: string };
+          return data.comparison;
+        } catch (err) {
+          return `Failed to compare images: ${err instanceof Error ? err.message : 'Network error'}`;
+        }
+      }
+
       default:
         return `Unknown action: ${name}`;
     }
-  }, [allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPrompt, onGenerateAsset, onRefineAsset, onCombineAssets]);
+  }, [spaceId, allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPrompt, onGenerateAsset, onRefineAsset, onCombineAssets]);
 
   // Execute all tool calls from a response
   const executeToolCalls = useCallback(async (toolCalls: ToolCall[]): Promise<string[]> => {
@@ -452,12 +624,17 @@ export function ChatSidebar({
     }
   };
 
-  const sendMessage = useCallback(async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const sendMessage = useCallback(async (overrideMessage?: string, overrideMode?: 'advisor' | 'actor') => {
+    const messageToSend = overrideMessage ?? inputValue.trim();
+    const modeToUse = overrideMode ?? mode;
 
-    const userMessage = inputValue.trim();
-    setInputValue('');
+    if (!messageToSend || isLoading) return;
+
+    if (!overrideMessage) {
+      setInputValue('');
+    }
     setIsLoading(true);
+    const userMessage = messageToSend;
 
     // Add user message to chat
     setMessages(prev => [...prev, {
@@ -473,7 +650,7 @@ export function ChatSidebar({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage,
-          mode,
+          mode: modeToUse,
           history: messages.slice(-10).map(m => ({
             role: m.role,
             content: m.content,
@@ -521,10 +698,40 @@ export function ChatSidebar({
       }
     } catch (err) {
       console.error('Chat error:', err);
+
+      // Categorize error types for better messaging
+      let errorMessage: string;
+      let isRetryable = false;
+
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+        isRetryable = true;
+      } else if (err instanceof Error) {
+        if (err.message.includes('rate limit') || err.message.includes('429')) {
+          errorMessage = 'Too many requests. Please wait a moment and try again.';
+          isRetryable = true;
+        } else if (err.message.includes('503') || err.message.includes('unavailable')) {
+          errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
+          isRetryable = true;
+        } else if (err.message.includes('401') || err.message.includes('authentication')) {
+          errorMessage = 'Session expired. Please refresh the page and sign in again.';
+        } else if (err.message.includes('403')) {
+          errorMessage = 'You don\'t have permission to perform this action.';
+        } else {
+          errorMessage = err.message;
+          isRetryable = true; // Most other errors might be transient
+        }
+      } else {
+        errorMessage = 'An unexpected error occurred. Please try again.';
+        isRetryable = true;
+      }
+
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Error: ${err instanceof Error ? err.message : 'Failed to get response'}`,
+        content: errorMessage,
         timestamp: Date.now(),
+        isError: true,
+        retryPayload: isRetryable ? { message: userMessage, mode: modeToUse } : undefined,
       }]);
     } finally {
       setIsLoading(false);
@@ -542,6 +749,14 @@ export function ChatSidebar({
     setMessages([]);
     setActivePlan(null);
   }, []);
+
+  // Retry a failed message - auto-resends the original message
+  const retryMessage = useCallback((payload: { message: string; mode: 'advisor' | 'actor' }) => {
+    // Remove the error message
+    setMessages(prev => prev.filter(m => !m.isError));
+    // Directly send with the original message and mode
+    sendMessage(payload.message, payload.mode);
+  }, [sendMessage]);
 
   if (!isOpen) return null;
 
@@ -699,10 +914,19 @@ export function ChatSidebar({
             {messages.map((msg, idx) => (
               <div
                 key={idx}
-                className={`${styles.message} ${styles[msg.role]}`}
+                className={`${styles.message} ${styles[msg.role]} ${msg.isError ? styles.error : ''}`}
               >
                 <div className={styles.messageContent}>
+                  {msg.isError && <span className={styles.errorIcon}>⚠️</span>}
                   {msg.content}
+                  {msg.isError && msg.retryPayload && (
+                    <button
+                      className={styles.retryButton}
+                      onClick={() => retryMessage(msg.retryPayload!)}
+                    >
+                      Retry
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -710,6 +934,13 @@ export function ChatSidebar({
               <div className={`${styles.message} ${styles.assistant}`}>
                 <div className={styles.messageContent}>
                   <span className={styles.typing}>Thinking...</span>
+                </div>
+              </div>
+            )}
+            {isAutoReviewing && !isLoading && (
+              <div className={`${styles.message} ${styles.assistant}`}>
+                <div className={styles.messageContent}>
+                  <span className={styles.typing}>Analyzing image...</span>
                 </div>
               </div>
             )}
@@ -736,7 +967,7 @@ export function ChatSidebar({
           />
           <button
             className={styles.sendButton}
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={isLoading || isExecutingPlan || !inputValue.trim()}
           >
             →

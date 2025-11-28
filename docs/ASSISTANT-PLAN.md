@@ -501,34 +501,39 @@ interface ForgeContext {
 - [x] Fixed page layout when chat is open
 - [x] Mobile overlay mode (no content push)
 
-### Phase 6: Image Understanding
-- [ ] Add multimodal Claude requests
-- [ ] Implement describe action
-- [ ] Add image comparison capability
+**Note:** Enhanced existing `ChatSidebar` component rather than creating new `AssistantPanel` - pragmatic decision to avoid disruption.
 
-### Phase 7: Result Review Loop
-- [ ] Hook into job completion
-- [ ] Auto-review generated images
-- [ ] Suggest refinements
+### Phase 6: Image Understanding - COMPLETED ✅
+- [x] Add multimodal Claude requests (describeImage, compareImages in ClaudeService)
+- [x] Implement describe action (/api/spaces/:id/chat/describe endpoint)
+- [x] Add image comparison capability (/api/spaces/:id/chat/compare endpoint)
+- [x] Add describe_image and compare_variants tools for Claude
 
-### Phase 8: Polish
-- [ ] Streaming responses
-- [ ] Better error handling
-- [ ] Additional mobile optimizations
+### Phase 7: Result Review Loop - COMPLETED ✅
+- [x] Hook into job completion (onJobComplete callback in useSpaceWebSocket)
+- [x] Track assistant-initiated jobs (assistantJobsRef in ChatSidebar)
+- [x] Auto-review generated images when jobs complete
+- [x] Display review with original prompt comparison
+
+### Phase 8: Polish - COMPLETED ✅
+- [x] Better error handling with categorized messages (network, rate limit, auth, etc.)
+- [x] Retry capability for transient errors
+- [x] Error message styling with retry button UI
+
+**Deferred:**
+- Streaming responses (requires SSE backend infrastructure)
 
 ---
 
 ## Files to Create/Modify
 
-### New Files
-| File | Purpose |
-|------|---------|
-| `src/frontend/components/AssistantPanel/` | New panel component folder |
-| `src/frontend/components/AssistantPanel/AssistantPanel.tsx` | Main panel (replaces ChatSidebar) |
-| `src/frontend/components/AssistantPanel/ContextBar.tsx` | Shows current context |
-| `src/frontend/components/AssistantPanel/MessageTypes/` | Different message renderers |
-| `src/frontend/components/AssistantPanel/QuickActions.tsx` | Quick action buttons |
-| `src/frontend/hooks/useAssistantActions.ts` | Action handler hook |
+### New Files (Originally Planned - Not Created)
+*Decision: Enhanced existing ChatSidebar instead of creating new component structure*
+
+| File | Status |
+|------|--------|
+| `src/frontend/components/AssistantPanel/` | Not created - used ChatSidebar |
+| `src/frontend/hooks/useAssistantActions.ts` | Not created - actions inline in ChatSidebar |
 
 ### Modified Files
 | File | Changes |
@@ -536,13 +541,13 @@ interface ForgeContext {
 | `src/frontend/stores/forgeTrayStore.ts` | Add `prompt`, `setPrompt`, `getContext` |
 | `src/backend/services/claudeService.ts` | Extend context, add new actions |
 | `src/backend/routes/chat.ts` | Accept forgeContext in request |
-| `src/frontend/pages/SpacePage.tsx` | Replace ChatSidebar with AssistantPanel |
+| `src/frontend/pages/SpacePage.tsx` | Pass context props to ChatSidebar |
 
-### Deprecated Files
-| File | Reason |
+### Enhanced Files (Not Replaced)
+| File | Status |
 |------|--------|
-| `src/frontend/components/ChatSidebar.tsx` | Replaced by AssistantPanel |
-| `src/frontend/components/ChatSidebar.module.css` | Replaced |
+| `src/frontend/components/ChatSidebar.tsx` | Enhanced with all assistant features |
+| `src/frontend/components/ChatSidebar.module.css` | Enhanced with glassmorphic styling |
 
 ---
 
@@ -578,3 +583,18 @@ interface ForgeContext {
 5. Assistant automatically reviews generation results
 6. All actions feel responsive (< 2s for text, < 5s for image analysis)
 7. Clear visual feedback for all assistant actions
+
+---
+
+## Known Limitations
+
+### Current Implementation
+1. **No streaming responses** - Messages appear all at once after processing completes
+2. **Text-only search results** - Asset search returns names, not clickable thumbnail cards
+3. **Large image handling** - Very large images may fail base64 encoding (mitigated with chunked encoding)
+
+### Future Enhancements
+1. **Clickable asset cards** in search results with [+] buttons to add to tray
+2. **SSE streaming** for real-time response display
+3. **Semantic search** using embeddings for better asset discovery
+4. **Voice input** for hands-free operation
