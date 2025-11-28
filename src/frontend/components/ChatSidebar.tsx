@@ -98,6 +98,7 @@ export function ChatSidebar({
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [activePlan, setActivePlan] = useState<AssistantPlan | null>(null);
   const [isExecutingPlan, setIsExecutingPlan] = useState(false);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Get forge tray state
@@ -293,61 +294,133 @@ export function ChatSidebar({
     }
   }, [executeToolCall]);
 
-  // Execute full plan
-  const executePlan = useCallback(async (plan: AssistantPlan) => {
+  // Execute single step of plan (step-by-step mode)
+  const executeNextStep = useCallback(async () => {
+    if (!activePlan) return;
+
+    const nextStepIndex = activePlan.steps.findIndex(s => s.status === 'pending');
+    if (nextStepIndex === -1) return;
+
     setIsExecutingPlan(true);
-    let currentPlan: AssistantPlan = { ...plan, status: 'executing' };
+    setAwaitingConfirmation(false);
+
+    // Update plan status to executing
+    let currentPlan: AssistantPlan = { ...activePlan, status: 'executing' };
     setActivePlan(currentPlan);
 
-    // Add execution start message
+    // Execute the step
+    currentPlan = await executePlanStep(currentPlan, nextStepIndex);
+    setActivePlan(currentPlan);
+
+    // Add step result message
+    const step = currentPlan.steps[nextStepIndex];
     setMessages(prev => [...prev, {
       role: 'assistant',
-      content: `Starting plan: "${plan.goal}"`,
+      content: `Step ${nextStepIndex + 1}: ${step.description}\n${step.result || step.error || ''}`,
       timestamp: Date.now(),
     }]);
 
-    let shouldContinue = true;
-    for (let i = 0; i < plan.steps.length && shouldContinue; i++) {
-      currentPlan = await executePlanStep(currentPlan, i);
+    // Check if there are more steps
+    const remainingSteps = currentPlan.steps.filter(s => s.status === 'pending').length;
+    if (remainingSteps > 0 && step.status === 'completed') {
+      // Pause and await confirmation for next step
+      setAwaitingConfirmation(true);
+      currentPlan = { ...currentPlan, status: 'paused' };
       setActivePlan(currentPlan);
 
-      // Check if step failed
-      if (currentPlan.steps[i].status === 'failed') {
-        shouldContinue = false;
-      }
-
-      // Add step result message
-      const step = currentPlan.steps[i];
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Step ${i + 1}: ${step.description}\n${step.result || step.error || ''}`,
+        content: `Ready for step ${nextStepIndex + 2}. Click "Next Step" to continue or "Cancel" to stop.`,
+        timestamp: Date.now(),
+      }]);
+    } else if (remainingSteps === 0 || step.status === 'failed') {
+      // Plan completed or failed
+      const allCompleted = currentPlan.steps.every(s => s.status === 'completed');
+      const finalStatus: AssistantPlan['status'] = allCompleted ? 'completed' : 'failed';
+      currentPlan = { ...currentPlan, status: finalStatus };
+      setActivePlan(currentPlan);
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: allCompleted
+          ? `Plan completed successfully!`
+          : `Plan stopped. ${currentPlan.steps.filter(s => s.status === 'completed').length}/${currentPlan.steps.length} steps completed.`,
         timestamp: Date.now(),
       }]);
 
-      // Small delay between steps for visual feedback
-      if (shouldContinue) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+      // Clear plan after completion
+      if (allCompleted) {
+        setTimeout(() => setActivePlan(null), 2000);
       }
     }
 
-    // Mark plan as completed or failed
-    const allCompleted = currentPlan.steps.every(s => s.status === 'completed');
-    const finalStatus: AssistantPlan['status'] = allCompleted ? 'completed' : 'failed';
-    const finalPlan: AssistantPlan = { ...currentPlan, status: finalStatus };
-    setActivePlan(finalPlan);
     setIsExecutingPlan(false);
+  }, [activePlan, executePlanStep]);
 
-    // Add completion message
+  // Start plan execution (first step)
+  const startPlan = useCallback(async (plan: AssistantPlan) => {
+    // Update plan status
+    const updatedPlan: AssistantPlan = { ...plan, status: 'executing' };
+    setActivePlan(updatedPlan);
+
+    // Add start message
     setMessages(prev => [...prev, {
       role: 'assistant',
-      content: allCompleted
-        ? `Plan completed successfully!`
-        : `Plan failed. Some steps did not complete.`,
+      content: `Starting plan: "${plan.goal}"\nExecuting step 1...`,
       timestamp: Date.now(),
     }]);
 
-    return finalPlan;
+    // Execute first step
+    setIsExecutingPlan(true);
+    const afterFirstStep = await executePlanStep(updatedPlan, 0);
+    setActivePlan(afterFirstStep);
+
+    // Add result message
+    const step = afterFirstStep.steps[0];
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: `Step 1: ${step.description}\n${step.result || step.error || ''}`,
+      timestamp: Date.now(),
+    }]);
+
+    // Check if more steps
+    const remainingSteps = afterFirstStep.steps.filter(s => s.status === 'pending').length;
+    if (remainingSteps > 0 && step.status === 'completed') {
+      setAwaitingConfirmation(true);
+      setActivePlan({ ...afterFirstStep, status: 'paused' });
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Ready for step 2. Click "Next Step" to continue.`,
+        timestamp: Date.now(),
+      }]);
+    } else {
+      const allCompleted = afterFirstStep.steps.every(s => s.status === 'completed');
+      setActivePlan({ ...afterFirstStep, status: allCompleted ? 'completed' : 'failed' });
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: allCompleted ? `Plan completed!` : `Plan failed at step 1.`,
+        timestamp: Date.now(),
+      }]);
+    }
+
+    setIsExecutingPlan(false);
   }, [executePlanStep]);
+
+  // Cancel the plan
+  const cancelPlan = useCallback(() => {
+    if (activePlan) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Plan cancelled. ${activePlan.steps.filter(s => s.status === 'completed').length}/${activePlan.steps.length} steps were completed.`,
+        timestamp: Date.now(),
+      }]);
+    }
+    setActivePlan(null);
+    setAwaitingConfirmation(false);
+    setIsExecutingPlan(false);
+  }, [activePlan]);
 
   const loadChatHistory = async () => {
     try {
@@ -556,21 +629,49 @@ export function ChatSidebar({
               </div>
             ))}
           </div>
+          {/* Initial approval buttons */}
           {activePlan.status === 'planning' && (
             <div className={styles.planActions}>
               <button
                 className={styles.planApprove}
-                onClick={() => executePlan(activePlan)}
+                onClick={() => startPlan(activePlan)}
                 disabled={isExecutingPlan}
               >
-                Execute Plan
+                Start Plan
               </button>
               <button
                 className={styles.planCancel}
-                onClick={() => setActivePlan(null)}
+                onClick={cancelPlan}
                 disabled={isExecutingPlan}
               >
                 Cancel
+              </button>
+            </div>
+          )}
+          {/* Step-by-step controls when paused/awaiting */}
+          {(activePlan.status === 'paused' || awaitingConfirmation) && (
+            <div className={styles.stepControls}>
+              <button
+                className={styles.nextStepButton}
+                onClick={executeNextStep}
+                disabled={isExecutingPlan}
+              >
+                Next Step →
+              </button>
+              <button
+                className={styles.pauseButton}
+                onClick={cancelPlan}
+                disabled={isExecutingPlan}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {/* Executing indicator */}
+          {activePlan.status === 'executing' && !awaitingConfirmation && (
+            <div className={styles.planActions}>
+              <button className={styles.planApprove} disabled>
+                Executing...
               </button>
             </div>
           )}
