@@ -48,7 +48,8 @@ export class UsageService {
 
   /**
    * Track Claude API token usage
-   * Creates separate events for input and output tokens (different pricing)
+   * Creates separate events for input and output tokens (different pricing) in local storage
+   * Sends single LLM event with full breakdown to Polar
    */
   async trackClaudeUsage(
     userId: number,
@@ -62,7 +63,7 @@ export class UsageService {
       request_id: requestId,
     };
 
-    // Track input tokens
+    // Track input tokens locally
     if (tokensIn > 0) {
       await this.usageEventDAO.create({
         userId,
@@ -70,18 +71,9 @@ export class UsageService {
         quantity: tokensIn,
         metadata: { ...baseMetadata, token_type: 'input' },
       });
-
-      if (this.polarService) {
-        this.polarService
-          .ingestEvent(userId, USAGE_EVENTS.CLAUDE_INPUT_TOKENS, {
-            ...baseMetadata,
-            token_type: 'input',
-          })
-          .catch((err) => console.warn('Failed to sync Claude input tokens to Polar:', err));
-      }
     }
 
-    // Track output tokens
+    // Track output tokens locally
     if (tokensOut > 0) {
       await this.usageEventDAO.create({
         userId,
@@ -89,21 +81,26 @@ export class UsageService {
         quantity: tokensOut,
         metadata: { ...baseMetadata, token_type: 'output' },
       });
+    }
 
-      if (this.polarService) {
-        this.polarService
-          .ingestEvent(userId, USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS, {
-            ...baseMetadata,
-            token_type: 'output',
-          })
-          .catch((err) => console.warn('Failed to sync Claude output tokens to Polar:', err));
-      }
+    // Send single LLM event to Polar with full token breakdown
+    if (this.polarService && (tokensIn > 0 || tokensOut > 0)) {
+      this.polarService
+        .ingestLLMEvent(userId, 'claude_usage', {
+          vendor: 'anthropic',
+          model,
+          inputTokens: tokensIn,
+          outputTokens: tokensOut,
+        })
+        .catch((err) => console.warn('Failed to sync Claude usage to Polar:', err));
     }
   }
 
   /**
    * Track Gemini/NanoBanana image generation
    * Tracks: image count + input/output tokens (if available)
+   * For images: sends quantity in metadata for Polar meter aggregation
+   * For tokens: sends LLM event with full token breakdown
    */
   async trackImageGeneration(
     userId: number,
@@ -119,7 +116,7 @@ export class UsageService {
       aspect_ratio: aspectRatio,
     };
 
-    // Track image count
+    // Track image count locally
     await this.usageEventDAO.create({
       userId,
       eventName: USAGE_EVENTS.GEMINI_IMAGES,
@@ -127,13 +124,17 @@ export class UsageService {
       metadata: baseMetadata,
     });
 
+    // Send image event to Polar with quantity in metadata
     if (this.polarService) {
       this.polarService
-        .ingestEvent(userId, USAGE_EVENTS.GEMINI_IMAGES, baseMetadata)
+        .ingestEvent(userId, USAGE_EVENTS.GEMINI_IMAGES, {
+          ...baseMetadata,
+          quantity: imageCount,
+        })
         .catch((err) => console.warn('Failed to sync Gemini image count to Polar:', err));
     }
 
-    // Track input tokens (if available)
+    // Track tokens locally
     if (tokenUsage?.inputTokens && tokenUsage.inputTokens > 0) {
       await this.usageEventDAO.create({
         userId,
@@ -141,18 +142,8 @@ export class UsageService {
         quantity: tokenUsage.inputTokens,
         metadata: { ...baseMetadata, token_type: 'input' },
       });
-
-      if (this.polarService) {
-        this.polarService
-          .ingestEvent(userId, USAGE_EVENTS.GEMINI_INPUT_TOKENS, {
-            ...baseMetadata,
-            token_type: 'input',
-          })
-          .catch((err) => console.warn('Failed to sync Gemini input tokens to Polar:', err));
-      }
     }
 
-    // Track output tokens (if available)
     if (tokenUsage?.outputTokens && tokenUsage.outputTokens > 0) {
       await this.usageEventDAO.create({
         userId,
@@ -160,21 +151,29 @@ export class UsageService {
         quantity: tokenUsage.outputTokens,
         metadata: { ...baseMetadata, token_type: 'output' },
       });
+    }
 
-      if (this.polarService) {
-        this.polarService
-          .ingestEvent(userId, USAGE_EVENTS.GEMINI_OUTPUT_TOKENS, {
-            ...baseMetadata,
-            token_type: 'output',
-          })
-          .catch((err) => console.warn('Failed to sync Gemini output tokens to Polar:', err));
-      }
+    // Send Gemini LLM event to Polar with full token breakdown (if tokens available)
+    if (this.polarService && tokenUsage && (tokenUsage.inputTokens > 0 || tokenUsage.outputTokens > 0)) {
+      this.polarService
+        .ingestLLMEvent(userId, 'gemini_usage', {
+          vendor: 'google',
+          model,
+          inputTokens: tokenUsage.inputTokens || 0,
+          outputTokens: tokenUsage.outputTokens || 0,
+        })
+        .catch((err) => console.warn('Failed to sync Gemini token usage to Polar:', err));
     }
   }
 
   /**
    * Sync pending local events to Polar
    * Can be called by a scheduled job or queue consumer
+   *
+   * Groups events by type:
+   * - Claude token events: Sent as LLM events with proper metadata
+   * - Gemini image events: Sent with quantity in metadata
+   * - Gemini token events: Sent as LLM events with proper metadata
    */
   async syncPendingEvents(batchSize = 100): Promise<number> {
     if (!this.polarService) {
@@ -187,25 +186,75 @@ export class UsageService {
     }
 
     try {
-      // Convert to Polar event format
-      const polarEvents = pendingEvents.map((event) => {
-        const metadata = event.metadata ? JSON.parse(event.metadata) : {};
-        return {
-          userId: event.user_id,
-          eventName: event.event_name,
-          timestamp: new Date(event.created_at),
-          metadata: {
-            ...metadata,
-            quantity: event.quantity,
-            local_event_id: event.id,
-          },
-        };
-      });
+      // Group events by type for proper formatting
+      const claudeEvents = pendingEvents.filter((e) =>
+        e.event_name.startsWith('claude_')
+      );
+      const geminiTokenEvents = pendingEvents.filter((e) =>
+        e.event_name === USAGE_EVENTS.GEMINI_INPUT_TOKENS ||
+        e.event_name === USAGE_EVENTS.GEMINI_OUTPUT_TOKENS
+      );
+      const geminiImageEvents = pendingEvents.filter((e) =>
+        e.event_name === USAGE_EVENTS.GEMINI_IMAGES
+      );
 
-      // Send batch to Polar
-      await this.polarService.ingestEventsBatch(polarEvents);
+      // Sync Claude LLM events - group by user and timestamp (within same second)
+      if (claudeEvents.length > 0) {
+        // Group input/output events that belong together
+        const groupedClaude = this.groupClaudeEvents(claudeEvents);
+        await this.polarService.ingestLLMEventsBatch(
+          groupedClaude.map((group) => ({
+            userId: group.userId,
+            eventName: 'claude_usage',
+            timestamp: group.timestamp,
+            llmData: {
+              vendor: 'anthropic' as const,
+              model: group.model,
+              inputTokens: group.inputTokens,
+              outputTokens: group.outputTokens,
+            },
+          }))
+        );
+      }
 
-      // Mark as synced
+      // Sync Gemini LLM events (tokens)
+      if (geminiTokenEvents.length > 0) {
+        const groupedGemini = this.groupGeminiTokenEvents(geminiTokenEvents);
+        await this.polarService.ingestLLMEventsBatch(
+          groupedGemini.map((group) => ({
+            userId: group.userId,
+            eventName: 'gemini_usage',
+            timestamp: group.timestamp,
+            llmData: {
+              vendor: 'google' as const,
+              model: group.model,
+              inputTokens: group.inputTokens,
+              outputTokens: group.outputTokens,
+            },
+          }))
+        );
+      }
+
+      // Sync Gemini image events with quantity in metadata
+      if (geminiImageEvents.length > 0) {
+        await this.polarService.ingestEventsBatch(
+          geminiImageEvents.map((event) => {
+            const metadata = event.metadata ? JSON.parse(event.metadata) : {};
+            return {
+              userId: event.user_id,
+              eventName: event.event_name,
+              timestamp: new Date(event.created_at),
+              metadata: {
+                ...metadata,
+                quantity: event.quantity,
+                local_event_id: event.id,
+              },
+            };
+          })
+        );
+      }
+
+      // Mark all as synced
       await this.usageEventDAO.markSynced(pendingEvents.map((e) => e.id));
 
       return pendingEvents.length;
@@ -213,6 +262,83 @@ export class UsageService {
       console.error('Failed to sync events to Polar:', error);
       throw error;
     }
+  }
+
+  /**
+   * Group Claude input/output events by user and approximate timestamp
+   */
+  private groupClaudeEvents(events: Array<{ id: string; user_id: number; event_name: string; quantity: number; metadata: string | null; created_at: string }>): Array<{
+    userId: number;
+    timestamp: Date;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  }> {
+    const groups: Map<string, { userId: number; timestamp: Date; model: string; inputTokens: number; outputTokens: number }> = new Map();
+
+    for (const event of events) {
+      const metadata = event.metadata ? JSON.parse(event.metadata) : {};
+      // Group by user + timestamp (rounded to second)
+      const timestampKey = new Date(event.created_at).toISOString().slice(0, 19);
+      const key = `${event.user_id}:${timestampKey}`;
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          userId: event.user_id,
+          timestamp: new Date(event.created_at),
+          model: metadata.model || 'unknown',
+          inputTokens: 0,
+          outputTokens: 0,
+        });
+      }
+
+      const group = groups.get(key)!;
+      if (event.event_name === USAGE_EVENTS.CLAUDE_INPUT_TOKENS) {
+        group.inputTokens += event.quantity;
+      } else if (event.event_name === USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS) {
+        group.outputTokens += event.quantity;
+      }
+    }
+
+    return Array.from(groups.values());
+  }
+
+  /**
+   * Group Gemini token events by user and approximate timestamp
+   */
+  private groupGeminiTokenEvents(events: Array<{ id: string; user_id: number; event_name: string; quantity: number; metadata: string | null; created_at: string }>): Array<{
+    userId: number;
+    timestamp: Date;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  }> {
+    const groups: Map<string, { userId: number; timestamp: Date; model: string; inputTokens: number; outputTokens: number }> = new Map();
+
+    for (const event of events) {
+      const metadata = event.metadata ? JSON.parse(event.metadata) : {};
+      const timestampKey = new Date(event.created_at).toISOString().slice(0, 19);
+      const key = `${event.user_id}:${timestampKey}`;
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          userId: event.user_id,
+          timestamp: new Date(event.created_at),
+          model: metadata.model || 'unknown',
+          inputTokens: 0,
+          outputTokens: 0,
+        });
+      }
+
+      const group = groups.get(key)!;
+      if (event.event_name === USAGE_EVENTS.GEMINI_INPUT_TOKENS) {
+        group.inputTokens += event.quantity;
+      } else if (event.event_name === USAGE_EVENTS.GEMINI_OUTPUT_TOKENS) {
+        group.outputTokens += event.quantity;
+      }
+    }
+
+    return Array.from(groups.values());
   }
 
   /**

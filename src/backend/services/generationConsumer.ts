@@ -2,10 +2,10 @@ import { Kysely } from 'kysely';
 import { D1Dialect } from 'kysely-d1';
 import type { Database } from '../../db/types';
 import type { Env } from '../../core/types';
+import { createContainer } from '../../core/container';
 import { JobDAO } from '../../dao/job-dao';
-import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { NanoBananaService } from './nanoBananaService';
-import { USAGE_EVENTS } from './usageService';
+import { UsageService } from './usageService';
 import {
   detectImageType,
   base64ToBuffer,
@@ -365,43 +365,23 @@ export class GenerationConsumer {
       // Update job to completed with the variant ID from the DO
       await jobDao.setJobResult(jobId, doResult.variant.id);
 
-      // Track image generation usage for billing (granular: images + tokens)
+      // Track image generation usage for billing via UsageService
+      // This handles both local D1 storage and Polar sync
       try {
-        const usageEventDAO = new UsageEventDAO(db);
-        const baseMetadata = {
-          model: model || 'gemini-3-pro-image-preview',
-          operation: job.type || 'generate',
-          aspect_ratio: aspectRatio || '1:1',
-          job_id: jobId,
-        };
+        const container = createContainer(this.env);
+        const usageService = container.get(UsageService);
 
-        // Track image count
-        await usageEventDAO.create({
-          userId: parseInt(job.created_by),
-          eventName: USAGE_EVENTS.GEMINI_IMAGES,
-          quantity: 1,
-          metadata: baseMetadata,
-        });
-
-        // Track input tokens (if available from result)
-        if (result.usage?.inputTokens) {
-          await usageEventDAO.create({
-            userId: parseInt(job.created_by),
-            eventName: USAGE_EVENTS.GEMINI_INPUT_TOKENS,
-            quantity: result.usage.inputTokens,
-            metadata: { ...baseMetadata, token_type: 'input' },
-          });
-        }
-
-        // Track output tokens (if available from result)
-        if (result.usage?.outputTokens) {
-          await usageEventDAO.create({
-            userId: parseInt(job.created_by),
-            eventName: USAGE_EVENTS.GEMINI_OUTPUT_TOKENS,
-            quantity: result.usage.outputTokens,
-            metadata: { ...baseMetadata, token_type: 'output' },
-          });
-        }
+        await usageService.trackImageGeneration(
+          parseInt(job.created_by),
+          1, // image count
+          model || 'gemini-3-pro-image-preview',
+          job.type || 'generate',
+          aspectRatio || '1:1',
+          result.usage ? {
+            inputTokens: result.usage.inputTokens || 0,
+            outputTokens: result.usage.outputTokens || 0,
+          } : undefined
+        );
       } catch (usageError) {
         // Log but don't fail the job if usage tracking fails
         console.warn(`[GenerationConsumer] Failed to track usage for job ${jobId}:`, usageError);

@@ -150,6 +150,54 @@ Polar aggregates usage_events into meters
 
 ---
 
+## Healthbar UI
+
+The `/api/billing/status` endpoint provides all data needed for a usage healthbar:
+
+### Meter Credits (Prepaid)
+
+Polar supports **Meter Credits Benefit** which gives customers a quota per billing cycle:
+- Subscribe to a plan → get N credits for each meter
+- Credits reset each billing cycle
+- Overage billing when credits exhausted (if configured)
+
+### Healthbar Display
+
+```
+Claude Input Tokens     [██████████░░░░░░░░░░] 50% (50K / 100K)
+Claude Output Tokens    [████████████████░░░░] 80% (40K / 50K)  ⚠️
+Gemini Images          [██████████████████░░] 90% (90 / 100)   🔴
+```
+
+### Status Indicators
+
+| Status | Percentage | UI Treatment |
+|--------|------------|--------------|
+| `ok` | < 75% | Green/normal |
+| `warning` | 75-89% | Yellow/amber |
+| `critical` | 90-99% | Red/urgent |
+| `exceeded` | 100%+ | Red + disabled |
+
+### Frontend Integration
+
+```typescript
+const { meters, subscription, portalUrl } = await fetch('/api/billing/status').then(r => r.json());
+
+// Render healthbars
+for (const meter of meters) {
+  const color = meter.status === 'ok' ? 'green' :
+                meter.status === 'warning' ? 'yellow' : 'red';
+  renderProgressBar(meter.name, meter.percentUsed, color);
+}
+
+// Show upgrade prompt when critical
+if (meters.some(m => m.status === 'critical' || m.status === 'exceeded')) {
+  showUpgradePrompt(portalUrl);
+}
+```
+
+---
+
 ## API Endpoints
 
 ### User-Facing (requires JWT auth)
@@ -157,6 +205,7 @@ Polar aggregates usage_events into meters
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/billing/usage` | GET | Current billing period usage |
+| `/api/billing/status` | GET | Billing status with meter info (for healthbar UI) |
 | `/api/billing/portal` | GET | Get Polar customer portal URL |
 | `/api/billing/quota/:service` | GET | Check quota for `claude` or `nanobanana` |
 
@@ -191,6 +240,45 @@ Polar aggregates usage_events into meters
   }
 }
 ```
+
+**GET /api/billing/status** (for healthbar UI)
+```json
+{
+  "configured": true,
+  "hasSubscription": true,
+  "meters": [
+    {
+      "name": "claude_input_tokens",
+      "consumed": 50000,
+      "credited": 100000,
+      "remaining": 50000,
+      "percentUsed": 50.0,
+      "hasLimit": true,
+      "status": "ok"
+    },
+    {
+      "name": "gemini_images",
+      "consumed": 85,
+      "credited": 100,
+      "remaining": 15,
+      "percentUsed": 85.0,
+      "hasLimit": true,
+      "status": "warning"
+    }
+  ],
+  "subscription": {
+    "status": "active",
+    "renewsAt": "2025-12-01T00:00:00Z"
+  },
+  "portalUrl": "https://polar.sh/checkout/xxx/portal"
+}
+```
+
+**Status values for meters:**
+- `ok` - usage below 75%
+- `warning` - usage 75-89%
+- `critical` - usage 90-99%
+- `exceeded` - usage 100%+
 
 **GET /api/billing/portal**
 ```json

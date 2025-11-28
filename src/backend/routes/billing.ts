@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { AppContext } from './types';
 import { AuthService } from '../features/auth/auth-service';
 import { UsageService } from '../services/usageService';
+import { PolarService } from '../services/polarService';
 import { getAuthToken } from '../auth';
 
 const billingRoutes = new Hono<AppContext>();
@@ -86,6 +87,72 @@ billingRoutes.get('/api/billing/portal', async (c) => {
   } catch (error) {
     console.error('Error getting portal URL:', error);
     return c.json({ error: 'Failed to get billing portal URL' }, 500);
+  }
+});
+
+/**
+ * Get billing status for healthbar UI
+ * GET /api/billing/status
+ *
+ * Returns meter usage with percentages for displaying a healthbar:
+ * - meters: array of { name, consumed, credited, remaining, percentUsed, hasLimit }
+ * - subscription: { status, renewsAt } if subscribed
+ * - portalUrl: link to manage billing
+ */
+billingRoutes.get('/api/billing/status', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const polarService = container.get(PolarService);
+
+    // Check authentication
+    const cookieHeader = c.req.header('Cookie');
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    // Get full billing status
+    const status = await polarService.getBillingStatus(payload.userId);
+
+    // Format response for frontend healthbar
+    return c.json({
+      configured: status.configured,
+      hasSubscription: status.hasSubscription,
+      meters: status.meters.map((m) => ({
+        name: m.meterSlug,
+        consumed: m.consumed,
+        credited: m.credited,
+        remaining: m.remaining,
+        percentUsed: Math.round(m.percentUsed * 10) / 10, // 1 decimal place
+        hasLimit: m.hasLimit,
+        // Status indicator for UI
+        status:
+          m.percentUsed >= 100
+            ? 'exceeded'
+            : m.percentUsed >= 90
+              ? 'critical'
+              : m.percentUsed >= 75
+                ? 'warning'
+                : 'ok',
+      })),
+      subscription: status.subscription
+        ? {
+            status: status.subscription.status,
+            renewsAt: status.subscription.currentPeriodEnd?.toISOString() || null,
+          }
+        : null,
+      portalUrl: status.portalUrl,
+    });
+  } catch (error) {
+    console.error('Error fetching billing status:', error);
+    return c.json({ error: 'Failed to fetch billing status' }, 500);
   }
 });
 

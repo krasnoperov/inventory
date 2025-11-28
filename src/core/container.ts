@@ -66,9 +66,8 @@ export function createContainer(env: Env): Container {
   }
 
   // Bind Billing Services (Polar.sh)
-  if (env.POLAR_ACCESS_TOKEN) {
-    container.bind(PolarService).toSelf().inSingletonScope();
-  }
+  // PolarService always bound - it handles missing token gracefully internally
+  container.bind(PolarService).toSelf().inSingletonScope();
 
   // UsageService always bound (works with or without Polar)
   container.bind(UsageService).toSelf().inSingletonScope();
