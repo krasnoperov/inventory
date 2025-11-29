@@ -297,6 +297,38 @@ if (meters.some(m => m.status === 'critical' || m.status === 'exceeded')) {
 |----------|----------|-------------|
 | `POLAR_ACCESS_TOKEN` | Yes | API token from Polar dashboard |
 | `POLAR_ORGANIZATION_ID` | No | Your organization ID (optional) |
+| `POLAR_ENVIRONMENT` | No | `sandbox` or `production` (default: `production`) |
+| `POLAR_WEBHOOK_SECRET` | No | Secret for webhook signature verification |
+| `INTERNAL_API_SECRET` | No | Secret for internal billing sync endpoint |
+
+### Sandbox vs Production
+
+Polar uses **completely separate environments** for testing:
+
+| Environment | Dashboard | API Base URL | Use For |
+|-------------|-----------|--------------|---------|
+| Sandbox | [sandbox.polar.sh](https://sandbox.polar.sh) | `sandbox-api.polar.sh` | Local dev, staging |
+| Production | [polar.sh](https://polar.sh) | `api.polar.sh` | Production |
+
+**Important:**
+- Sandbox and production require **separate accounts and organizations**
+- API tokens from one environment **do not work** in the other
+- Sandbox subscriptions **auto-cancel after 90 days**
+
+### Setting Up Sandbox (Recommended First)
+
+1. **Create sandbox account** at [sandbox.polar.sh/start](https://sandbox.polar.sh/start)
+2. **Create organization** (e.g., "inventory-sandbox")
+3. **Create meters** (see Usage Meters section above)
+4. **Create products** with meter credits
+5. **Generate API token**: Settings → API Access → Create token
+
+### Testing Payments in Sandbox
+
+Use Stripe test cards:
+- **Success**: `4242 4242 4242 4242`
+- **Expiry**: Any future date
+- **CVC**: Any 3 digits
 
 ### Polar Dashboard Setup
 
@@ -314,14 +346,23 @@ if (meters.some(m => m.status === 'critical' || m.status === 'exceeded')) {
 ### Setting Secrets
 
 ```bash
-# Local development (.env)
-POLAR_ACCESS_TOKEN=polar_at_xxx
-POLAR_ORGANIZATION_ID=org_xxx
+# Local development (.env) - Use sandbox credentials
+POLAR_ACCESS_TOKEN=polar_at_sandbox_xxx
+POLAR_ORGANIZATION_ID=org_sandbox_xxx
+POLAR_ENVIRONMENT=sandbox
 
-# Production (Cloudflare secrets)
-wrangler secret put POLAR_ACCESS_TOKEN
-wrangler secret put POLAR_ORGANIZATION_ID
+# Stage environment (Cloudflare secrets) - Also uses sandbox
+wrangler secret put POLAR_ACCESS_TOKEN        # Enter sandbox token
+wrangler secret put POLAR_ORGANIZATION_ID     # Enter sandbox org ID
+
+# Production environment (Cloudflare secrets) - Uses production Polar
+wrangler secret put POLAR_ACCESS_TOKEN --env production        # Enter production token
+wrangler secret put POLAR_ORGANIZATION_ID --env production     # Enter production org ID
 ```
+
+**Note:** `POLAR_ENVIRONMENT` is set via `wrangler.toml` vars, not secrets:
+- Stage: `POLAR_ENVIRONMENT = "sandbox"` (in `[vars]`)
+- Production: `POLAR_ENVIRONMENT = "production"` (in `[env.production.vars]`)
 
 ---
 
@@ -333,9 +374,15 @@ Usage tracking works locally even without Polar - events are saved to the local 
 # Run without Polar (usage still tracked in D1)
 npm run dev
 
-# Run with Polar integration
-POLAR_ACCESS_TOKEN=polar_at_xxx npm run dev
+# Run with Polar sandbox integration
+# First, set up your .env with sandbox credentials:
+#   POLAR_ACCESS_TOKEN=polar_at_sandbox_xxx
+#   POLAR_ORGANIZATION_ID=org_sandbox_xxx
+#   POLAR_ENVIRONMENT=sandbox
+npm run dev
 ```
+
+The `POLAR_ENVIRONMENT=sandbox` is already set in `wrangler.dev.toml`, so local dev automatically uses the sandbox API endpoint (`sandbox-api.polar.sh`).
 
 ### Testing Usage Tracking
 

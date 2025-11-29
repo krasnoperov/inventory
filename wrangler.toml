@@ -41,6 +41,7 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 [vars]
 NODE_ENV = "stage"
 ENVIRONMENT = "stage"
+POLAR_ENVIRONMENT = "sandbox"
 
 # Queue Producer - sends generation jobs to processing worker
 [[queues.producers]]
@@ -95,6 +96,7 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 [env.production.vars]
 NODE_ENV = "production"
 ENVIRONMENT = "production"
+POLAR_ENVIRONMENT = "production"
 
 # Queue Producer - Production
 [[env.production.queues.producers]]
@@ -131,3 +133,8 @@ local_protocol = "http"
 # wrangler secret put OIDC_ISSUER
 # wrangler secret put OIDC_AUDIENCE
 # wrangler secret put GOOGLE_AI_API_KEY (optional, for NanoBananaService)
+# wrangler secret put ANTHROPIC_API_KEY (optional, for ClaudeService)
+# wrangler secret put POLAR_ACCESS_TOKEN (optional, for Polar.sh billing)
+# wrangler secret put POLAR_ORGANIZATION_ID (optional, for Polar.sh billing)
+# wrangler secret put POLAR_WEBHOOK_SECRET (optional, for Polar webhook verification)
+# wrangler secret put INTERNAL_API_SECRET (for internal billing sync endpoint)

@@ -18,8 +18,22 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
       email TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       google_id TEXT UNIQUE,
+      polar_customer_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `.execute(db);
+
+  // Usage events table for Polar billing integration
+  await sql`
+    CREATE TABLE usage_events (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      event_name TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      metadata TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      synced_at TEXT
     )
   `.execute(db);
 
@@ -39,6 +53,7 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
 }
 
 export async function cleanupTestDatabase(db: Kysely<DatabaseSchema>) {
+  await db.deleteFrom('usage_events').execute();
   await db.deleteFrom('users').execute();
   // --- FUTURE: Add cleanup for your domain tables here ---
   // Example:

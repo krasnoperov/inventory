@@ -85,6 +85,7 @@ export class PolarService {
     }
     this.client = new Polar({
       accessToken: env.POLAR_ACCESS_TOKEN,
+      server: env.POLAR_ENVIRONMENT === 'sandbox' ? 'sandbox' : 'production',
     });
     this.organizationId = env.POLAR_ORGANIZATION_ID || '';
   }

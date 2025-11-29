@@ -36,6 +36,7 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 [vars]
 NODE_ENV = "development"
 ENVIRONMENT = "local"
+POLAR_ENVIRONMENT = "sandbox"
 
 [dev]
 port = 8788

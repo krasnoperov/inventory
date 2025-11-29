@@ -64,6 +64,8 @@ export interface Env {
   // Polar.sh billing integration
   POLAR_ACCESS_TOKEN?: string;
   POLAR_ORGANIZATION_ID?: string;
+  POLAR_WEBHOOK_SECRET?: string;
+  POLAR_ENVIRONMENT?: 'sandbox' | 'production';
 
   // Internal API authentication (for cron jobs, internal services)
   INTERNAL_API_SECRET?: string;
