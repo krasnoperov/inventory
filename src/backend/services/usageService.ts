@@ -189,7 +189,12 @@ export class UsageService {
       // Sync Claude LLM events - group by user and timestamp (within same second)
       if (claudeEvents.length > 0) {
         // Group input/output events that belong together
-        const groupedClaude = this.groupClaudeEvents(claudeEvents);
+        const groupedClaude = this.groupTokenEvents(
+          claudeEvents,
+          'claude',
+          USAGE_EVENTS.CLAUDE_INPUT_TOKENS,
+          USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS
+        );
         await this.polarService.ingestLLMEventsBatch(
           groupedClaude.map((group) => ({
             userId: group.userId,
@@ -208,7 +213,12 @@ export class UsageService {
 
       // Sync Gemini LLM events (tokens)
       if (geminiTokenEvents.length > 0) {
-        const groupedGemini = this.groupGeminiTokenEvents(geminiTokenEvents);
+        const groupedGemini = this.groupTokenEvents(
+          geminiTokenEvents,
+          'gemini',
+          USAGE_EVENTS.GEMINI_INPUT_TOKENS,
+          USAGE_EVENTS.GEMINI_OUTPUT_TOKENS
+        );
         await this.polarService.ingestLLMEventsBatch(
           groupedGemini.map((group) => ({
             userId: group.userId,
@@ -257,10 +267,15 @@ export class UsageService {
   }
 
   /**
-   * Group Claude input/output events by user and approximate timestamp
+   * Group token events by user and approximate timestamp
    * Includes deterministic externalId for Polar deduplication
    */
-  private groupClaudeEvents(events: Array<{ id: string; user_id: number; event_name: string; quantity: number; metadata: string | null; created_at: string }>): Array<{
+  private groupTokenEvents(
+    events: Array<{ id: string; user_id: number; event_name: string; quantity: number; metadata: string | null; created_at: string }>,
+    prefix: 'claude' | 'gemini',
+    inputEventName: string,
+    outputEventName: string
+  ): Array<{
     userId: number;
     timestamp: Date;
     model: string;
@@ -284,56 +299,14 @@ export class UsageService {
           inputTokens: 0,
           outputTokens: 0,
           // Deterministic externalId for Polar deduplication
-          externalId: `claude:${event.user_id}:${timestampKey}`,
+          externalId: `${prefix}:${event.user_id}:${timestampKey}`,
         });
       }
 
       const group = groups.get(key)!;
-      if (event.event_name === USAGE_EVENTS.CLAUDE_INPUT_TOKENS) {
+      if (event.event_name === inputEventName) {
         group.inputTokens += event.quantity;
-      } else if (event.event_name === USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS) {
-        group.outputTokens += event.quantity;
-      }
-    }
-
-    return Array.from(groups.values());
-  }
-
-  /**
-   * Group Gemini token events by user and approximate timestamp
-   * Includes deterministic externalId for Polar deduplication
-   */
-  private groupGeminiTokenEvents(events: Array<{ id: string; user_id: number; event_name: string; quantity: number; metadata: string | null; created_at: string }>): Array<{
-    userId: number;
-    timestamp: Date;
-    model: string;
-    inputTokens: number;
-    outputTokens: number;
-    externalId: string;
-  }> {
-    const groups: Map<string, { userId: number; timestamp: Date; model: string; inputTokens: number; outputTokens: number; externalId: string }> = new Map();
-
-    for (const event of events) {
-      const metadata = event.metadata ? JSON.parse(event.metadata) : {};
-      const timestampKey = new Date(event.created_at).toISOString().slice(0, 19);
-      const key = `${event.user_id}:${timestampKey}`;
-
-      if (!groups.has(key)) {
-        groups.set(key, {
-          userId: event.user_id,
-          timestamp: new Date(event.created_at),
-          model: metadata.model || 'unknown',
-          inputTokens: 0,
-          outputTokens: 0,
-          // Deterministic externalId for Polar deduplication
-          externalId: `gemini:${event.user_id}:${timestampKey}`,
-        });
-      }
-
-      const group = groups.get(key)!;
-      if (event.event_name === USAGE_EVENTS.GEMINI_INPUT_TOKENS) {
-        group.inputTokens += event.quantity;
-      } else if (event.event_name === USAGE_EVENTS.GEMINI_OUTPUT_TOKENS) {
+      } else if (event.event_name === outputEventName) {
         group.outputTokens += event.quantity;
       }
     }

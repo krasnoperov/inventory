@@ -42,6 +42,14 @@ export default {
           // Sync missing Polar customers (retry failed signups)
           const customersResult = await usageService.syncMissingCustomers(50);
           console.log(`[Polar Worker] Customers sync: ${customersResult.created} created, ${customersResult.failed} failed`);
+
+          // Warn on high failure rates (visible in CF logs/analytics)
+          if (eventsResult.failed > 10 || customersResult.failed > 5) {
+            console.warn('[Polar Worker] HIGH FAILURE RATE:', {
+              eventsFailed: eventsResult.failed,
+              customersFailed: customersResult.failed,
+            });
+          }
         } catch (error) {
           console.error('[Polar Worker] Sync error:', error);
         }

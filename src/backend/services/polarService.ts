@@ -216,27 +216,7 @@ export class PolarService {
     eventName: string,
     llmData: LLMUsageData
   ): Promise<void> {
-    if (!this.client) return;
-
-    const llmMetadata: LLMMetadata = {
-      vendor: llmData.vendor,
-      model: llmData.model,
-      inputTokens: llmData.inputTokens,
-      outputTokens: llmData.outputTokens,
-      totalTokens: llmData.inputTokens + llmData.outputTokens,
-      cachedInputTokens: llmData.cachedInputTokens,
-    };
-
-    await this.client.events.ingest({
-      events: [
-        {
-          name: eventName,
-          externalCustomerId: String(userId),
-          timestamp: new Date(),
-          metadata: { llm: llmMetadata },
-        },
-      ],
-    });
+    await this.ingestLLMEventsBatch([{ userId, eventName, llmData }]);
   }
 
   /**
