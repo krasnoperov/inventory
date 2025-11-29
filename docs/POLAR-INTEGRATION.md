@@ -448,6 +448,17 @@ wrangler d1 execute DB --local --command "SELECT COUNT(*) FROM usage_events WHER
 - Stores local usage events with `synced_at` for Polar sync tracking
 - See `db/migrations/0004_polar_billing.sql` and `db/migrations/0007_quota_rate_limits.sql`
 
+### Quota Limits Sync Strategy
+
+Local `quota_limits` are kept in sync via two mechanisms:
+
+| Trigger | When | Action |
+|---------|------|--------|
+| **Webhooks** | Subscription changes | Polar sends events → webhook handler updates D1 |
+| **Billing page** | User views `/api/billing/status` | Fetch fresh limits from Polar → update D1 |
+
+This ensures limits are accurate even if webhooks are delayed or missed.
+
 ---
 
 ## Error Handling
