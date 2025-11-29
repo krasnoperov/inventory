@@ -2,6 +2,17 @@
 
 Learn how to create, refine, and combine images using the Forge.
 
+## What the AI Does Best
+
+Our image generation is powered by Gemini, which excels at:
+
+- **Text in images** — Legible text for logos, signs, diagrams, infographics, UI mockups
+- **World knowledge** — Architectural styles, historical periods, real places, cultural references
+- **Multi-image composition** — Combining multiple references while keeping elements consistent
+- **Iterative refinement** — Making adjustments through conversation while preserving context
+- **Complex scenes** — Understanding relationships between elements ("holding", "in front of", "next to")
+- **Professional quality** — High-resolution output with control over lighting and camera angles
+
 ## Understanding the Basics
 
 The Forge uses AI to generate images from your text descriptions. You can:
@@ -29,30 +40,43 @@ Each asset has one "active" variant that represents its current look. You can sw
 Start with just a text prompt. Describe what you want to see, and the AI will create it.
 
 **Example prompts:**
+- **Game characters:** "Elven ranger with silver hair in a long braid, leaf-patterned leather armor, carrying a recurve bow, forest background, fantasy illustration style"
+- **Game items:** "Legendary fire sword with obsidian blade, molten cracks glowing orange, wrapped leather grip, dramatic lighting, RPG item art"
+- **Architecture:** "Red brick Victorian townhouse with bay windows, black iron railings, climbing ivy on facade, overcast London sky"
 - **Interiors:** "Scandinavian living room with light oak flooring, white linen sofa, monstera plant in terracotta pot, soft north-facing window light"
-- **Architecture:** "Mid-century modern house with floor-to-ceiling windows, flat roof, cantilevered second floor, desert landscape, golden hour"
 - **People:** "Woman in her 30s with shoulder-length black hair, wearing a navy blazer, confident expression, studio lighting"
 - **Products:** "Matte black ceramic coffee mug, cylindrical, 12oz, on white marble surface, soft diffused light"
-- **Fantasy:** "A medieval knight in polished silver plate armor with blue trim, standing confidently, painterly fantasy art style"
+- **Food:** "Artisan sourdough bread loaf, golden crust with flour dusting, rustic wooden cutting board, warm kitchen lighting"
+- **Fashion:** "Oversized camel wool coat, double-breasted with tortoiseshell buttons, draped on minimal white mannequin, editorial style"
+- **Logos:** "Vintage coffee shop logo, art deco style, 'MORNING BREW' text in gold serif font, circular badge design with coffee bean motif"
+- **Infographics:** "Step-by-step recipe diagram showing 4 stages of bread making, clean icons, minimal flat style, numbered steps with short labels"
+- **UI mockups:** "Mobile app login screen, modern minimal design, 'Welcome Back' heading, email and password fields, blue accent buttons"
 
 ### Refine an Existing Image
 When you have an image but want to change something, use refinement. The AI will modify your existing image based on your instructions.
 
 **Example refinements:**
-- "Change the sofa upholstery to navy blue velvet"
-- "Add a brass pendant light above the dining table"
-- "Change the time of day to sunset with warm orange light"
-- "The person is now seated at the desk, same outfit"
-- "Replace the curtains with white wooden venetian blinds"
+- **Game:** "Change the armor color to deep crimson red" / "Add a flowing black cape attached at the shoulders"
+- **Interior:** "Change the sofa upholstery to navy blue velvet" / "Add a brass pendant light above the dining table"
+- **Architecture:** "Add a rooftop garden with greenery visible" / "Change facade material to weathered copper panels"
+- **People:** "The person is now seated at the desk, same outfit" / "Change expression to a warm smile"
+- **Product:** "Change the mug color to terracotta orange" / "Add steam rising from the cup"
+- **Food:** "Add a pat of melting butter on top" / "Sprinkle fresh herbs as garnish"
+- **Fashion:** "Change the coat color to charcoal grey" / "Add a silk scarf draped around the collar"
+- **Logo:** "Change the text to 'SUNSET CAFE'" / "Add a subtle drop shadow to the badge"
+- **UI:** "Change the button color to green" / "Add a 'Forgot Password?' link below the form"
 
 ### Combine Multiple Images
 The most powerful feature—take elements from multiple images and merge them into something new.
 
 **Example combinations:**
-- Place a piece of furniture from one image into a room from another
-- Put a person from a portrait into an environment shot
-- Combine a building facade with landscaping from a different image
-- Create a product lifestyle shot by combining product with a scene
+- **Game:** Place a character into a scene/environment; equip a character with a weapon from another image
+- **Interior:** Place furniture from one image into a room from another
+- **Architecture:** Combine a building facade with landscaping from a different image
+- **People:** Put a person from a portrait into an office or lifestyle environment
+- **Product:** Place a product into a lifestyle scene (coffee mug on a cozy desk setup)
+- **Food:** Combine plated dish with a restaurant table setting background
+- **Fashion:** Place a garment on a model from another image; combine outfit pieces
 
 ### Fork an Image
 Create an exact copy of an image as a new asset. Useful when you want to take an existing design in a completely different direction without losing the original.
@@ -83,12 +107,26 @@ The button label changes based on what you're doing:
 
 ### Be Specific in Your Prompts
 The AI responds well to detailed descriptions. Include materials, textures, and specific details:
-- Instead of "a living room," try "Scandinavian living room with light oak flooring, white linen sofa, large monstera in terracotta pot"
-- Instead of "a person," try "woman in her 30s, shoulder-length black hair, navy blazer, confident expression"
+- Instead of "a warrior," try "elven ranger with silver braided hair, leaf-patterned leather armor, glowing amber eyes"
 - Instead of "a building," try "red brick Victorian townhouse with bay windows and black iron railings"
+- Instead of "a living room," try "Scandinavian living room with light oak flooring, white linen sofa, large monstera"
+- Instead of "a person," try "woman in her 30s, shoulder-length black hair, navy blazer, confident expression"
+- Instead of "a product shot," try "matte black ceramic mug on white marble surface, soft diffused light"
+- Instead of "food," try "artisan sourdough loaf, golden crust with flour dusting, rustic wooden board"
+- Instead of "a logo," try "art deco coffee shop badge, 'MORNING BREW' in gold serif font, circular design"
+- Instead of "an app screen," try "login screen with 'Welcome Back' heading, email field, blue accent buttons"
 
 ### One Step at a Time
 Making multiple changes at once can lead to unpredictable results.
+
+**Bad:** "Make the armor red, add a cape, and give them a different weapon"
+
+**Good:**
+1. First: "Change armor color to deep crimson red"
+2. Then: "Add flowing black cape attached at shoulders"
+3. Finally: "Replace sword with battle axe"
+
+**Another example:**
 
 **Bad:** "Change the sofa to blue, add a coffee table, and make it evening lighting"
 
@@ -151,18 +189,24 @@ One of the biggest challenges in AI image generation is maintaining visual consi
 ### Create Reference Sheets
 
 Start by generating a "reference image" that establishes your visual identity:
+- **For game characters:** Create a "character sheet" with front/back/side views, then use for action poses and scenes
 - **For people:** A clear portrait with good lighting, then use for different poses/scenes
 - **For interiors:** Generate the base room, then use as reference for different angles or times of day
 - **For architecture:** Generate the main exterior view, then use for interior shots or different angles
-- **For products:** Generate a hero shot, then use for lifestyle/context images
+- **For game items:** Generate the item clearly on neutral background, then combine with characters
 
 ### Use Visual Anchors
 
 Repeat the same descriptive phrases exactly across prompts:
-- **Materials:** "light oak with visible grain", "brushed brass hardware", "white linen upholstery"
+- **Game characters:** "silver hair in a long braid", "leaf-patterned leather armor", "glowing amber eyes"
+- **Architecture:** "red brick Victorian facade", "industrial steel-frame windows", "wrought iron railings"
+- **Interiors:** "light oak with visible grain", "white linen upholstery", "brushed brass hardware"
 - **People:** "woman with short silver hair and round glasses", "man in charcoal wool coat"
-- **Style:** "soft diffused natural light from large windows", "warm golden hour sunlight"
-- **Architecture:** "red brick Victorian facade", "industrial steel-frame windows"
+- **Products:** "matte black ceramic", "white marble surface", "soft diffused studio light"
+- **Food:** "rustic wooden board", "fresh herb garnish", "warm kitchen lighting"
+- **Logos/Branding:** "gold serif font", "art deco geometric shapes", "circular badge design"
+- **UI elements:** "rounded corners", "blue accent color", "minimal flat style"
+- **Art style:** "painterly fantasy illustration", "photorealistic", "editorial photography", "flat vector"
 
 Consistency in your language helps the AI maintain consistency in the visuals.
 
@@ -177,16 +221,20 @@ Each small step preserves more of what came before.
 ### Be Explicit About Changes
 
 When adding or removing elements, say it clearly:
-- "Add a pendant light above the dining table. Brass globe pendant centered over table."
-- "Remove the rug. Hardwood floor now visible throughout the room."
-- "The person is now seated at the desk. Same outfit, seated position."
+- **Game:** "Character now holding a staff in right hand. Staff with crystal orb on top."
+- **Game:** "Remove the helmet. Character's face now visible, same hairstyle."
+- **Interior:** "Add a pendant light above the dining table. Brass globe pendant centered."
+- **Architecture:** "Add climbing ivy on the left side of the facade."
+- **People:** "The person is now seated at the desk. Same outfit, seated position."
+- **Food:** "Add a drizzle of olive oil on top. Oil pooling slightly."
 
 ### Reference Your Images Clearly
 
 When combining multiple references, be specific:
-- "The armchair from the first image"
-- "The room layout from the second reference"
-- "Place the furniture from image 1 in the space from image 2"
+- **Game:** "The warrior from image 1 holding the sword from image 2"
+- **Interior:** "The armchair from image 1 placed in the living room from image 2"
+- **Product:** "The coffee mug from image 1 on the desk setup from image 2"
+- **Fashion:** "The coat from image 1 worn by the model from image 2"
 
 ---
 
@@ -203,11 +251,15 @@ For best results with multiple references, structure your prompts clearly:
 
 **Examples:**
 
-> **Furniture in room:** "The modern armchair from image 1 placed in the living room from image 2. Position armchair in the corner by the windows. Maintain the warm afternoon lighting from image 2. Keep the chair's exact fabric texture and walnut legs."
+> **Game scene:** "The mage character from image 1 standing in the crystal cave from image 2. Character in center, casting pose with hands raised. Keep the cave's blue ambient glow. Maintain character's exact robe design and staff."
 
-> **Person in environment:** "The woman from image 1 standing in the office space from image 2, near the window. Same outfit and pose. Keep the office's natural lighting and color palette."
+> **Interior design:** "The modern armchair from image 1 placed in the living room from image 2. Position armchair in the corner by the windows. Maintain the warm afternoon lighting. Keep the chair's exact fabric texture and walnut legs."
 
-> **Architecture composite:** "The building facade from image 1 with the landscaping from image 2 in the foreground. Golden hour lighting. Maintain the building's exact proportions and materials."
+> **Architecture:** "The Victorian townhouse from image 1 with the garden landscaping from image 2 in the foreground. Overcast soft lighting. Maintain the building's red brick and iron railings exactly."
+
+> **Product lifestyle:** "The ceramic mug from image 1 placed on the desk setup from image 2. Position mug near the keyboard. Maintain the cozy morning lighting. Keep the mug's exact matte black finish."
+
+> **Food styling:** "The sourdough loaf from image 1 on the rustic table setting from image 2. Position bread on the wooden board. Maintain warm kitchen lighting. Keep the bread's golden crust texture."
 
 ---
 
@@ -235,15 +287,20 @@ You can view an asset's full history to see all the images and prompts that cont
 
 ## Getting Started
 
+**For game development:**
+1. Generate your character with detailed appearance and art style
+2. Create a character sheet (front/back/side views) using refine
+3. Combine character with environments and items
+
+**For architecture:**
+1. Generate the main exterior view with materials and lighting
+2. Refine for different angles or times of day
+3. Combine with landscaping or context images
+
 **For interior design:**
 1. Generate your base room with style, materials, and lighting
 2. Refine with one furniture change at a time
 3. Try different times of day or lighting moods
-
-**For architecture:**
-1. Generate the main exterior view
-2. Create interior views using exterior as reference
-3. Combine with different landscaping or contexts
 
 **For people/portraits:**
 1. Generate a clear reference portrait
@@ -251,8 +308,33 @@ You can view an asset's full history to see all the images and prompts that cont
 3. Combine with environments for lifestyle shots
 
 **For products:**
-1. Generate your hero product shot
-2. Combine with different scene backgrounds
-3. Refine lighting or angles as needed
+1. Generate your hero product shot on neutral background
+2. Combine with different lifestyle scene backgrounds
+3. Refine lighting or styling as needed
+
+**For food photography:**
+1. Generate your hero dish with plating and lighting
+2. Refine with garnishes or styling changes
+3. Combine with table settings or restaurant backgrounds
+
+**For fashion:**
+1. Generate garment on mannequin or flat lay
+2. Refine colors, details, or accessories
+3. Combine with models or lifestyle contexts
+
+**For logos & branding:**
+1. Generate your logo with text, style, and shape (Gemini excels at text!)
+2. Refine colors, fonts, or decorative elements
+3. Create variations for different use cases
+
+**For infographics & diagrams:**
+1. Generate your diagram with structure, icons, and labels
+2. Refine individual elements or text
+3. Maintain consistent style across a series
+
+**For UI mockups:**
+1. Generate screen layouts with labels and buttons
+2. Refine individual components or copy
+3. Create flow sequences for different screens
 
 The best way to learn is to experiment. Every variant you create teaches you more about what the AI can do.

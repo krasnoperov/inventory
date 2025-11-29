@@ -21,43 +21,68 @@ export type { ChatMessage, ForgeContext, ViewingContext, BotResponse };
 const IMAGE_GENERATION_GUIDE = `
 IMAGE GENERATION BEST PRACTICES:
 
+WHAT GEMINI EXCELS AT:
+- Text rendering: Legible text in images (logos, signs, diagrams, infographics, UI mockups)
+- World knowledge: Architectural styles, historical periods, real places, cultural references
+- Multi-reference composition: Combining up to 14 images while maintaining element consistency
+- Iterative refinement: Conversational editing with context preservation
+- Contextual reasoning: Complex scenes with relationships between elements
+- Professional output: High-resolution (up to 4K), control over lighting and camera angles
+
 1. BE SPECIFIC IN PROMPTS
    Instead of generic descriptions, use detailed specifics:
-   - Architecture: "A mid-century modern house with floor-to-ceiling windows, flat roof, and cantilevered second floor, desert landscape"
-   - Interiors: "Scandinavian living room with light oak flooring, white linen sofa, monstera plant in terracotta pot, north-facing window light"
-   - Characters: "A woman in her 30s with shoulder-length black hair, wearing a navy blazer, confident expression"
-   - Products: "Matte black ceramic coffee mug, cylindrical, 12oz, on white marble surface"
+   - Game characters: "Elven ranger with silver hair in a long braid, leaf-patterned leather armor, recurve bow, forest background, fantasy illustration style"
+   - Game items: "Legendary fire sword with obsidian blade, molten cracks glowing orange, wrapped leather grip, RPG item art"
+   - Architecture: "Red brick Victorian townhouse with bay windows, black iron railings, climbing ivy, overcast London sky"
+   - Interiors: "Scandinavian living room with light oak flooring, white linen sofa, monstera in terracotta pot, north-facing window light"
+   - People: "Woman in her 30s with shoulder-length black hair, navy blazer, confident expression, studio lighting"
+   - Products: "Matte black ceramic coffee mug, cylindrical, 12oz, on white marble surface, soft diffused light"
+   - Food: "Artisan sourdough loaf, golden crust with flour dusting, rustic wooden cutting board, warm kitchen lighting"
+   - Fashion: "Oversized camel wool coat, double-breasted with tortoiseshell buttons, minimal white mannequin, editorial style"
+   - Text/Graphics: "Vintage coffee shop logo, art deco style, 'MORNING BREW' text in gold serif font, circular badge design"
+   - Infographics: "Step-by-step recipe diagram showing 4 stages of bread making, clean icons, minimal style, numbered steps"
+   - UI/Mockups: "Mobile app login screen, modern minimal design, 'Welcome Back' heading, email and password fields, blue accent color"
    Include: subject, style, lighting, mood, composition, materials/textures
 
 2. ONE STEP AT A TIME
    Change only ONE thing per refinement. Multiple changes = unpredictable results.
 
-   Bad: "change the sofa to blue, add a coffee table, and make it evening lighting"
-   Good: Step 1: "Change sofa upholstery to navy blue" → Step 2: "Add walnut coffee table in front of sofa" → Step 3: "Change to warm evening lighting from table lamps"
+   Game example - Bad: "make the armor red, add a cape, and give them a different weapon"
+   Good: Step 1: "Change armor to deep crimson" → Step 2: "Add flowing black cape" → Step 3: "Replace sword with battle axe"
 
-   Bad: "make the building taller with more windows and different materials"
-   Good: Step 1: "Add two more floors to the building" → Step 2: "Add floor-to-ceiling windows on new floors" → Step 3: "Change facade material to weathered copper panels"
+   Interior example - Bad: "change sofa to blue, add coffee table, make it evening"
+   Good: Step 1: "Change sofa to navy blue" → Step 2: "Add walnut coffee table" → Step 3: "Change to evening lighting"
 
 3. VISUAL ANCHORS FOR CONSISTENCY
    Repeat exact phrases across prompts to maintain consistency:
-   - Architecture: "red brick Victorian facade", "industrial steel-frame windows", "polished concrete floors"
+   - Game characters: "silver hair in a long braid", "leaf-patterned leather armor", "glowing amber eyes"
+   - Architecture: "red brick Victorian facade", "black iron railings", "bay windows"
+   - Interiors: "light oak with visible grain", "white linen upholstery", "brushed brass hardware"
    - People: "woman with short silver hair and round glasses", "man in charcoal wool coat"
-   - Style: "soft diffused natural light from large windows", "warm golden hour sunlight", "overcast flat lighting"
-   - Materials: "white oak with visible grain", "brushed brass hardware", "matte black metal frame"
+   - Products: "matte black ceramic", "white marble surface", "soft diffused studio light"
+   - Food: "rustic wooden board", "fresh herb garnish", "warm kitchen lighting"
+   - Fashion: "camel wool texture", "tortoiseshell buttons", "clean editorial lighting"
+   - Logos/Branding: "gold serif font", "art deco geometric shapes", "circular badge design"
+   - UI elements: "rounded corners 8px", "blue #2563EB accent", "SF Pro font style"
+   - Art styles: "painterly fantasy illustration", "photorealistic", "editorial photography", "flat vector style"
 
 4. EXPLICIT STATE CHANGES
    When modifying, be explicit about what changes:
-   - "Add a pendant light above the dining table. Brass globe pendant centered over table."
-   - "Remove the rug. Hardwood floor now visible throughout the room."
-   - "Replace the curtains with wooden blinds. White wooden venetian blinds on all windows."
-   - "The person is now seated at the desk. Same outfit, seated position."
+   - Game: "Character now holding staff in right hand. Staff with crystal orb on top."
+   - Game: "Remove helmet. Character's face now visible, same hairstyle."
+   - Interior: "Add pendant light above dining table. Brass globe pendant centered."
+   - Architecture: "Add climbing ivy on the left side of the facade."
+   - People: "Person now seated at desk. Same outfit, seated position."
+   - Food: "Add drizzle of olive oil on top. Oil pooling slightly."
+   - Fashion: "Add silk scarf draped around the collar."
 
 5. ENTITY REFERENCES IN COMBINES
    Be specific about which image contributes what:
-   - "The sofa from image 1 placed in the living room from image 2, against the main wall"
-   - "The person from image 1 standing in the office space from image 2, near the window"
-   - "The building facade from image 1 with the landscaping from image 2 in the foreground"
-   - "Use the color palette from image 1 but the room layout from image 2"
+   - Game: "The warrior from image 1 holding the sword from image 2, battle stance"
+   - Interior: "The armchair from image 1 placed in the living room from image 2"
+   - Architecture: "Building facade from image 1 with landscaping from image 2 in foreground"
+   - Product: "The coffee mug from image 1 on the desk setup from image 2"
+   - Fashion: "The coat from image 1 worn by the model from image 2"
    - NOT: "combine these" or "put them together"
 
 6. STRUCTURED PROMPTS FOR COMPLEX SCENES
@@ -68,24 +93,30 @@ IMAGE GENERATION BEST PRACTICES:
    - Lighting: direction, quality, time of day
    - Constraints: what must stay the same
 
-   Example: "The modern armchair from image 1 placed in the sunroom from image 2. Position armchair in the corner by the windows. Maintain the warm afternoon lighting from image 2. Keep the chair's exact fabric texture and walnut legs."
+   Example (game): "The mage from image 1 in the crystal cave from image 2. Center frame, casting pose. Keep cave's blue glow. Maintain exact robe design."
+   Example (interior): "The armchair from image 1 in the sunroom from image 2. By the windows. Keep warm afternoon light and fabric texture."
+   Example (product): "The mug from image 1 on the desk from image 2. Near keyboard. Keep cozy morning light and matte black finish."
+   Example (food): "The sourdough from image 1 on the table setting from image 2. On wooden board. Keep warm kitchen light and golden crust."
 
 7. POSITIVE DESCRIPTIONS WORK BETTER
    "Minimalist room with clean surfaces" works better than "remove the clutter"
-   "Clear blue sky" works better than "no clouds"
+   "Character with bare hands" works better than "remove the weapon"
+   "Clear blue sky background" works better than "no clouds"
    Describe what you want, not what you don't want.
 
 8. SPATIAL UNDERSTANDING
-   Works well: placing furniture in rooms, objects on surfaces, people in environments, "next to", "in front of", "on the wall"
-   Challenging: precise measurements, exact spacing, complex multi-object arrangements
-   Tip: Build complex scenes gradually - start with the room, add major furniture, then accessories.
+   Works well: placing characters in scenes, furniture in rooms, objects in hands, products on surfaces, food on plates, "next to", "in front of", "holding"
+   Challenging: precise positioning, exact spacing, complex multi-character scenes, precise measurements
+   Tip: Build complex scenes gradually - start with main subject, add environment, then secondary elements.
 
 9. CONSISTENCY ACROSS A SERIES
    For consistent elements across multiple images:
-   - Create a "reference sheet" first (multiple angles, detail shots)
-   - Architecture: generate exterior, then use as reference for interior views
-   - Products: generate hero shot, then use for lifestyle/context images
-   - People: generate a clear portrait first, then use for different scenes/poses
+   - Game characters: create "character sheet" (front/back/side), then use for action poses and scenes
+   - Architecture: generate exterior, then use as reference for interior views or different angles
+   - Interiors: generate base room, then use for different times of day or furniture arrangements
+   - Products: generate hero shot, then combine with lifestyle scene backgrounds
+   - Food: generate hero dish, then combine with different table settings
+   - Fashion: generate garment, then combine with models or different contexts
    - Keep visual anchor phrases identical across all prompts
 `;
 
@@ -299,7 +330,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'generate_asset',
-    description: 'Generate a new asset from scratch using a text prompt. Creates a brand new asset in the space. PROMPT TIPS: Be specific - include subject, style, lighting, mood, materials. Use visual anchors (exact phrases to reuse for consistency). Examples: "Scandinavian living room with light oak floors, white linen sofa, monstera in terracotta pot, soft north-facing window light" or "Woman in her 30s, shoulder-length black hair, navy blazer, confident expression, studio lighting" or "Mid-century modern house, floor-to-ceiling windows, flat roof, desert landscape, golden hour"',
+    description: 'Generate a new asset from scratch using a text prompt. Creates a brand new asset in the space. PROMPT TIPS: Be specific - include subject, style, lighting, mood, materials. Use visual anchors (exact phrases to reuse). Examples: "Elven ranger, silver braided hair, leaf-patterned armor, fantasy illustration" / "Victorian townhouse, red brick, bay windows, iron railings" / "Scandinavian living room, light oak floors, white linen sofa" / "Artisan sourdough, golden crust, rustic wooden board" / "Camel wool coat, tortoiseshell buttons, editorial style"',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -336,7 +367,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
         },
         prompt: {
           type: 'string',
-          description: 'Prompt describing ONE specific change. Examples: "Change sofa upholstery to navy blue velvet", "Add pendant light above the dining table", "Change time of day to sunset with warm orange light", "Person now seated at the desk, same outfit". For removals: "Remove the rug. Hardwood floor visible throughout."',
+          description: 'Prompt describing ONE specific change. Examples: "Change armor to deep crimson" / "Add flowing black cape" / "Change sofa to navy blue velvet" / "Add pendant light above table" / "Add fresh herb garnish" / "Change coat color to charcoal". For removals: "Remove helmet. Face now visible."',
         },
       },
       required: ['assetId', 'prompt'],
@@ -355,7 +386,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
         },
         prompt: {
           type: 'string',
-          description: 'Structured combination prompt. Examples: "The armchair from image 1 placed in the living room from image 2, positioned by the window, maintain the warm afternoon lighting" or "The person from image 1 standing in the office from image 2, near the desk, same outfit and pose" or "Building facade from image 1 with the landscaping from image 2 in foreground, golden hour lighting". Always specify: what from each image, where it goes, lighting, what to preserve.',
+          description: 'Structured combination prompt. Examples: "Warrior from image 1 in throne room from image 2, battle stance, dramatic lighting" / "Armchair from image 1 in living room from image 2, by window, warm light" / "Mug from image 1 on desk from image 2, keep matte finish" / "Sourdough from image 1 on table setting from image 2, keep golden crust" / "Coat from image 1 on model from image 2, keep fabric texture". Specify: what from each image, position, lighting, what to preserve.',
         },
         targetName: {
           type: 'string',
@@ -523,20 +554,25 @@ GUIDELINES:
 5. For multi-step changes, break them into separate refine_asset calls (one change per step)
 
 COMMON WORKFLOWS:
-- "Create a room/space" → generate_asset with detailed prompt (style, materials, lighting, furniture)
-- "Create a character/person" → generate_asset with appearance details, then create reference variants
+- "Create a game character" → generate_asset with appearance, armor, art style; then character sheet variants
+- "Create a building" → generate_asset with architecture style, materials, context; then different angles/views
+- "Create a room" → generate_asset with style, materials, lighting; then refine furniture one piece at a time
+- "Create a product shot" → generate_asset on neutral background; then combine with lifestyle scenes
+- "Create food photography" → generate_asset with plating and styling; then combine with table settings
+- "Create fashion imagery" → generate_asset on mannequin; then combine with models or contexts
+- "Create a logo" → generate_asset with text, style, shape; Gemini excels at text rendering
+- "Create an infographic" → generate_asset with diagram structure, icons, text; leverage text rendering strength
+- "Create UI mockup" → generate_asset with screen layout, text labels, buttons; great for wireframes and concepts
 - "Make variations" → refine_asset with ONE specific change per call
-- "Redesign the space" → create_plan with sequential refine_asset steps (one change each)
-- "Place furniture in room" → combine_assets with furniture from image 1 in room from image 2
-- "Create a photo collage" → combine_assets with explicit entity references for each element
-- "Create architectural views" → create_plan: generate exterior, then interior views using exterior as reference
-- "Product lifestyle shots" → create_plan: generate product, then combine with different scene backgrounds
+- "Place element in scene" → combine_assets: element from image 1 in environment from image 2
+- "Equip/style subject" → combine_assets: subject from image 1 with item/garment from image 2
+- "Create series" → create_plan: generate hero image, then variants maintaining visual anchors
 
 PROMPT QUALITY CHECKLIST:
-✓ Specific subject (not "a room" but "Scandinavian living room with light oak floors")
-✓ Materials/textures (white linen, brushed brass, polished concrete)
-✓ Style/aesthetic (mid-century modern, industrial, minimalist, photorealistic)
-✓ Lighting (soft north-facing window light, warm golden hour, studio lighting)
+✓ Specific subject (not "a building" but "Victorian townhouse with red brick and bay windows")
+✓ Materials/textures (weathered leather, light oak grain, matte ceramic, golden crust)
+✓ Style/aesthetic (fantasy illustration, photorealistic, editorial photography, pixel art)
+✓ Lighting (dramatic rim lighting, soft diffused natural, warm kitchen light, studio)
 ✓ Visual anchors for consistency (exact phrases to reuse across prompts)
 
 Always explain what you're doing and why.`;
