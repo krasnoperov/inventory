@@ -6,6 +6,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { FormContainer, FormTitle, ErrorMessage, formStyles } from '../components/forms';
+import { BillingSection } from '../components/BillingSection';
 import styles from './ProfilePage.module.css';
 
 interface ProfileData {
@@ -170,6 +171,8 @@ export default function ProfilePage() {
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </form>
+
+            <BillingSection />
           </FormContainer>
         )}
       </main>
