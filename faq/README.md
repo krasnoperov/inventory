@@ -20,8 +20,8 @@ The assistant learns from your successful prompts to provide better suggestions 
 ### [Billing FAQ](./BILLING.md)
 Understand how usage-based billing works. View your usage, manage subscriptions, and learn about upgrading your plan.
 
-### [Error Handling](./error-handling.md)
-How the assistant handles quota limits and rate limiting. What to do when you see "quota exceeded" or "too many requests" errors.
+### [Usage Limits & Errors](./error-handling.md)
+What happens when you reach your quota or rate limits. How to handle "quota exceeded" or "too many requests" messages.
 
 ## Planned Features
 
@@ -43,7 +43,7 @@ See: [Implementation Plan](../docs/BATCH_OPERATIONS_PLAN.md)
 | [Trust Zones](./trust-zones.md) | Control AI action permissions |
 | [Memory & Personalization](./memory-personalization.md) | Assistant learning preferences |
 | [Billing FAQ](./BILLING.md) | Usage limits, subscriptions, upgrades |
-| [Error Handling](./error-handling.md) | Quota and rate limit errors |
+| [Usage Limits & Errors](./error-handling.md) | Quota and rate limit handling |
 
 ## Getting Help
 

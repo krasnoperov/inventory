@@ -1,87 +1,67 @@
-# Error Handling in Chat
+# Usage Limits & Errors
 
-This document explains how the Forge Assistant handles errors, particularly billing-related errors like quota limits and rate limiting.
+This guide explains what happens when you reach your usage limits while using the Forge Assistant.
 
-## Error Types
+---
 
-### Quota Exceeded (HTTP 402)
+## Monthly Quota
 
-When you've used all of your monthly quota for a service (like Claude AI chat), you'll see a message like:
+Each plan includes a monthly allowance for AI features. When you've used your entire quota, you'll see:
 
-> "Monthly quota exceeded for claude. Please upgrade your plan."
+> "Monthly quota exceeded. Please upgrade your plan."
 
-**What you'll see:**
-- Your current usage (e.g., "You've used 50,000 of your 50,000 monthly quota")
-- An **Upgrade Plan** button that takes you to the billing portal
-
-**What to do:**
-1. Click "Upgrade Plan" to view subscription options
-2. Or wait until the next billing cycle when your quota resets
-
-### Rate Limited (HTTP 429)
-
-When you're making requests too quickly, you'll see a message like:
-
-> "Too many requests. Please wait 60 seconds."
-
-**What you'll see:**
-- A countdown timer showing seconds remaining
-- A progress bar showing time until reset
+**What you'll see in the chat:**
+- Your current usage (e.g., "You've used 50,000 of your 50,000 monthly tokens")
+- An **Upgrade Plan** button
 
 **What to do:**
-- Wait for the countdown to complete
-- The timer shows "Ready to try again" when you can make another request
+1. Click **Upgrade Plan** to view subscription options in the billing portal
+2. Or wait until the start of your next billing cycle when your quota resets
 
-## Technical Details
+Your quota resets automatically at the beginning of each billing period. Check your Profile page to see your renewal date.
 
-For developers integrating with the API, here's the error response format:
+---
 
-```typescript
-// HTTP 402 (Quota Exceeded) or HTTP 429 (Rate Limited)
-{
-  "error": "Rate limited" | "Quota exceeded",
-  "message": "Human-readable error message",
-  "denyReason": "quota_exceeded" | "rate_limited",
-  "quota": {
-    "used": 50000,      // Current usage this period
-    "limit": 50000,     // Quota limit (null = unlimited)
-    "remaining": 0      // Remaining quota (null = unlimited)
-  },
-  "rateLimit": {
-    "used": 20,         // Requests in current window
-    "limit": 20,        // Max requests per window
-    "remaining": 0,     // Remaining requests
-    "resetsAt": "2024-01-15T10:30:00Z"  // When window resets (ISO string)
-  }
-}
-```
+## Rate Limiting
 
-### Frontend Implementation
+To ensure fair usage for everyone, there's a limit on how many requests you can make per minute. If you're working too quickly, you'll see:
 
-The frontend handles these errors specially:
+> "Too many requests. Please wait..."
 
-1. **Quota errors (402)**: Display upgrade CTA with link to `/api/billing/portal`
-2. **Rate limit errors (429)**: Display countdown timer based on `rateLimit.resetsAt`
+**What you'll see in the chat:**
+- A countdown timer showing seconds until you can try again
+- A progress bar that fills as the wait time passes
 
-See the following files for implementation details:
-- `src/api/types.ts` - `LimitErrorResponse` type definition
-- `src/frontend/stores/chatStore.ts` - `ChatMessage.quotaError` and `rateLimitError` fields
-- `src/frontend/components/ChatSidebar/MessageList.tsx` - Error card rendering
-- `src/frontend/components/ChatSidebar/RateLimitCountdown.tsx` - Countdown timer component
-- `src/backend/services/usageService.ts` - `PreCheckResult` and `preCheck()` function
+**What to do:**
+- Simply wait for the countdown to finish
+- When it shows "Ready to try again", you can continue working
 
-### Backend Implementation
+Rate limits reset every 60 seconds, so you won't have to wait long.
 
-The backend enforces limits using:
+---
 
-1. **Quota checking**: Compares current period usage against cached limits
-2. **Rate limiting**: Fixed-window counter per user (default: 20 requests/minute for Claude)
+## Other Errors
 
-See `src/backend/services/usageService.ts`:
-- `preCheck()` - Combined quota + rate limit check before API calls
-- `DEFAULT_RATE_LIMITS` - Rate limit configuration per service
+### Network Errors
+If you see "Network error", check your internet connection and try again.
 
-## Related Documentation
+### Service Unavailable
+If the AI service is temporarily unavailable, wait a moment and retry. The assistant will offer a "Retry" button for these errors.
 
-- [Billing FAQ](./BILLING.md) - Subscription and usage information
-- [Trust Zones](./trust-zones.md) - Action approval settings
+### Session Expired
+If you see "Session expired", refresh the page and sign in again.
+
+---
+
+## Tips to Avoid Limits
+
+1. **Work thoughtfully** - Review each generation before requesting another
+2. **Use refinements** - Refining an existing image often uses fewer resources than generating from scratch
+3. **Plan your workflow** - The assistant can help you plan multi-step operations efficiently
+
+---
+
+## Related
+
+- [Billing FAQ](./BILLING.md) - How billing works, managing your subscription
+- [Image Generation Guide](./image-generation-guide.md) - Tips for better generations
