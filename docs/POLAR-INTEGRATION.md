@@ -30,6 +30,15 @@ This application uses [Polar.sh](https://polar.sh) as our Merchant of Record (Mo
                                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Main Cloudflare Worker                       │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  UsageService.preCheck() - Local D1 (~20-40ms)          │    │
+│  │  • Check quota (usage vs cached limits from webhooks)   │    │
+│  │  • Check rate limit (fixed-window counter)              │    │
+│  │  → Returns 402 (quota) or 429 (rate limit) if blocked   │    │
+│  └─────────────────────────────┬───────────────────────────┘    │
+│                                │ allowed                         │
+│                                ▼                                 │
 │  ┌────────────────┐         ┌─────────────────┐                 │
 │  │ ClaudeService  │         │ NanoBananaService│                │
 │  │ (Anthropic)    │         │ (Gemini Images)  │                │
@@ -59,9 +68,9 @@ This application uses [Polar.sh](https://polar.sh) as our Merchant of Record (Mo
 │  - Syncs to Polar with deduplication                            │
 │  - Marks synced_at on success                                   │
 │  - Retries failed events (max 3 attempts)                       │
-└─────────────────────────────────┬───────────────────────────────┘
-                                  │
-                                  ▼
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Polar.sh                                 │
 │  - Aggregates usage into meters                                  │
@@ -69,6 +78,14 @@ This application uses [Polar.sh](https://polar.sh) as our Merchant of Record (Mo
 │  - Generates invoices                                           │
 │  - Collects payment                                             │
 │  - Handles VAT/taxes                                            │
+│  - Sends webhooks on subscription changes ────────────┐         │
+└───────────────────────────────────────────────────────┼─────────┘
+                                                        │
+┌───────────────────────────────────────────────────────┼─────────┐
+│                    Webhook Handler                     │         │
+│  - subscription.active → Cache limits in D1           ◄─────────┘
+│  - subscription.updated → Refresh limits                         │
+│  - subscription.canceled → Revoke limits (set to 0)             │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -223,10 +240,9 @@ if (meters.some(m => m.status === 'critical' || m.status === 'exceeded')) {
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/internal/billing/sync` | POST | Manually trigger event sync to Polar |
 | `/api/internal/billing/cleanup` | POST | Remove old synced events (default: 90 days) |
 
-**Note:** Internal endpoints are also called automatically by the cron trigger.
+**Note:** Event sync to Polar happens automatically via cron trigger (every 5 min).
 
 ### Response Examples
 
@@ -413,29 +429,24 @@ wrangler d1 execute DB --local --command "SELECT COUNT(*) FROM usage_events WHER
 | File | Purpose |
 |------|---------|
 | `src/backend/services/polarService.ts` | Polar SDK wrapper |
-| `src/backend/services/usageService.ts` | Usage tracking orchestration |
+| `src/backend/services/usageService.ts` | Usage tracking + preCheck() for quota/rate limits |
 | `src/backend/routes/billing.ts` | Billing API endpoints |
+| `src/backend/routes/webhooks.ts` | Polar webhook handler (caches limits to D1) |
 | `src/dao/usage-event-dao.ts` | Local usage event storage |
-| `db/migrations/0004_polar_billing.sql` | Schema changes |
+| `db/migrations/0004_polar_billing.sql` | Initial billing schema |
+| `db/migrations/0007_quota_rate_limits.sql` | Quota limits + rate limiting columns |
 | `src/backend/services/claudeService.ts` | Added usage return from Anthropic API |
 
 ### Database Schema
 
-```sql
--- Added to users table
-ALTER TABLE users ADD COLUMN polar_customer_id TEXT;
+**users table additions:**
+- `polar_customer_id` - Links to Polar customer
+- `quota_limits` - JSON of meter limits cached from webhooks
+- `rate_limit_count` / `rate_limit_window_start` - Fixed-window rate limiting
 
--- New table for local usage tracking
-CREATE TABLE usage_events (
-  id TEXT PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  event_name TEXT NOT NULL,  -- 'claude_tokens', 'nanobanana_images'
-  quantity INTEGER NOT NULL,
-  metadata TEXT,  -- JSON with details
-  created_at TEXT DEFAULT (datetime('now')),
-  synced_at TEXT  -- NULL until synced to Polar
-);
-```
+**usage_events table:**
+- Stores local usage events with `synced_at` for Polar sync tracking
+- See `db/migrations/0004_polar_billing.sql` and `db/migrations/0007_quota_rate_limits.sql`
 
 ---
 
@@ -446,15 +457,75 @@ CREATE TABLE usage_events (
 If Polar API is unavailable:
 1. Usage event is saved locally in `usage_events` table
 2. `synced_at` remains NULL
-3. Background job retries sync periodically
-4. User requests are NOT blocked
+3. Background job retries sync periodically (max 3 attempts)
+4. User requests are NOT blocked - quota checks use local D1 data
 
-### Quota Exceeded
+### Quota and Rate Limit Responses
 
-When user exceeds their plan limits:
-1. `UsageService.checkQuota()` returns `{ allowed: false }`
-2. API can return 429 with upgrade prompt
-3. User can still access read-only features
+All AI endpoints use `UsageService.preCheck()` before processing. When blocked:
+
+**HTTP 402 Payment Required** - Quota exceeded
+```json
+{
+  "error": "Quota exceeded",
+  "message": "Monthly quota exceeded for claude. Please upgrade your plan.",
+  "denyReason": "quota_exceeded",
+  "quota": {
+    "used": 105000,
+    "limit": 100000,
+    "remaining": 0
+  },
+  "rateLimit": {
+    "used": 5,
+    "limit": 20,
+    "remaining": 15,
+    "resetsAt": "2025-11-29T12:01:00Z"
+  }
+}
+```
+
+**HTTP 429 Too Many Requests** - Rate limited
+```json
+{
+  "error": "Rate limited",
+  "message": "Too many requests. Please wait 45 seconds.",
+  "denyReason": "rate_limited",
+  "quota": { ... },
+  "rateLimit": {
+    "used": 20,
+    "limit": 20,
+    "remaining": 0,
+    "resetsAt": "2025-11-29T12:01:00Z"
+  }
+}
+```
+
+### Frontend Handling
+
+```typescript
+import { isLimitErrorResponse } from '@/api/types';
+
+const response = await fetch('/api/spaces/:id/chat', { ... });
+if (!response.ok) {
+  const error = await response.json();
+  if (isLimitErrorResponse(error)) {
+    if (error.denyReason === 'quota_exceeded') {
+      // Show upgrade CTA, link to billing portal
+      showUpgradeModal(error.message);
+    } else {
+      // Show countdown timer until resetsAt
+      showRateLimitTimer(error.rateLimit.resetsAt);
+    }
+  }
+}
+```
+
+### Rate Limit Configuration
+
+| Service | Window | Max Requests |
+|---------|--------|--------------|
+| Claude | 60 seconds | 20 |
+| NanoBanana | 60 seconds | 10 |
 
 ---
 

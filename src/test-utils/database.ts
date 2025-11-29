@@ -19,6 +19,10 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
       name TEXT NOT NULL,
       google_id TEXT UNIQUE,
       polar_customer_id TEXT,
+      quota_limits TEXT,
+      quota_limits_updated_at TEXT,
+      rate_limit_count INTEGER NOT NULL DEFAULT 0,
+      rate_limit_window_start TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -38,6 +42,12 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
       last_sync_error TEXT,
       last_sync_attempt_at TEXT
     )
+  `.execute(db);
+
+  // Optimized index for usage aggregation queries
+  await sql`
+    CREATE INDEX idx_usage_events_user_event_period
+      ON usage_events(user_id, event_name, created_at)
   `.execute(db);
 
   // --- FUTURE: Add your domain-specific test tables here ---

@@ -80,15 +80,27 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
       return c.json({ error: 'Bot assistant not configured' }, 503);
     }
 
-    // Check quota before making Claude API call
-    const quotaCheck = await usageService.checkQuota(payload.userId, 'claude');
-    if (!quotaCheck.allowed) {
+    // Pre-check: quota + rate limit before making Claude API call
+    // Uses local D1 for fast checks (~20-40ms vs 100-500ms Polar API)
+    const preCheck = await usageService.preCheck(payload.userId, 'claude');
+    if (!preCheck.allowed) {
+      const statusCode = preCheck.denyReason === 'rate_limited' ? 429 : 402;
       return c.json({
-        error: 'Quota exceeded',
-        message: quotaCheck.message || 'You have exceeded your Claude usage quota. Please upgrade your plan.',
-        remaining: quotaCheck.remaining,
-        limit: quotaCheck.limit,
-      }, 402);
+        error: preCheck.denyReason === 'rate_limited' ? 'Rate limited' : 'Quota exceeded',
+        message: preCheck.denyMessage,
+        denyReason: preCheck.denyReason,
+        quota: {
+          used: preCheck.quotaUsed,
+          limit: preCheck.quotaLimit,
+          remaining: preCheck.quotaRemaining,
+        },
+        rateLimit: {
+          used: preCheck.rateLimitUsed,
+          limit: preCheck.rateLimitMax,
+          remaining: preCheck.rateLimitRemaining,
+          resetsAt: preCheck.rateLimitResetsAt?.toISOString() || null,
+        },
+      }, statusCode);
     }
 
     // Get assets from DO for context
@@ -155,12 +167,16 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
     );
 
     // Track Claude API usage with actual token counts from Anthropic API
-    usageService.trackClaudeUsage(
-      payload.userId,
-      usage.inputTokens,
-      usage.outputTokens,
-      'claude-sonnet-4-20250514'
-    ).catch(err => console.warn('Failed to track Claude usage:', err));
+    // Also increment rate limit counter for this request
+    Promise.all([
+      usageService.trackClaudeUsage(
+        payload.userId,
+        usage.inputTokens,
+        usage.outputTokens,
+        'claude-sonnet-4-20250514'
+      ),
+      usageService.incrementRateLimit(payload.userId),
+    ]).catch(err => console.warn('Failed to track Claude usage:', err));
 
     // Store chat message in DO (user message)
     if (env.SPACES_DO) {
@@ -270,15 +286,26 @@ chatRoutes.post('/api/spaces/:id/chat/suggest', suggestionRateLimiter, async (c)
       return c.json({ error: 'Bot assistant not configured' }, 503);
     }
 
-    // Check quota before making Claude API call
-    const quotaCheck = await usageService.checkQuota(payload.userId, 'claude');
-    if (!quotaCheck.allowed) {
+    // Pre-check: quota + rate limit before making Claude API call
+    const suggestPreCheck = await usageService.preCheck(payload.userId, 'claude');
+    if (!suggestPreCheck.allowed) {
+      const statusCode = suggestPreCheck.denyReason === 'rate_limited' ? 429 : 402;
       return c.json({
-        error: 'Quota exceeded',
-        message: quotaCheck.message || 'You have exceeded your Claude usage quota. Please upgrade your plan.',
-        remaining: quotaCheck.remaining,
-        limit: quotaCheck.limit,
-      }, 402);
+        error: suggestPreCheck.denyReason === 'rate_limited' ? 'Rate limited' : 'Quota exceeded',
+        message: suggestPreCheck.denyMessage,
+        denyReason: suggestPreCheck.denyReason,
+        quota: {
+          used: suggestPreCheck.quotaUsed,
+          limit: suggestPreCheck.quotaLimit,
+          remaining: suggestPreCheck.quotaRemaining,
+        },
+        rateLimit: {
+          used: suggestPreCheck.rateLimitUsed,
+          limit: suggestPreCheck.rateLimitMax,
+          remaining: suggestPreCheck.rateLimitRemaining,
+          resetsAt: suggestPreCheck.rateLimitResetsAt?.toISOString() || null,
+        },
+      }, statusCode);
     }
 
     // Build context
@@ -293,13 +320,16 @@ chatRoutes.post('/api/spaces/:id/chat/suggest', suggestionRateLimiter, async (c)
     const claudeService = new ClaudeService(env.ANTHROPIC_API_KEY);
     const { suggestion, usage } = await claudeService.suggestPrompt(context, assetType, theme);
 
-    // Track Claude API usage
-    usageService.trackClaudeUsage(
-      payload.userId,
-      usage.inputTokens,
-      usage.outputTokens,
-      'claude-sonnet-4-20250514'
-    ).catch(err => console.warn('Failed to track Claude usage:', err));
+    // Track Claude API usage + increment rate limit
+    Promise.all([
+      usageService.trackClaudeUsage(
+        payload.userId,
+        usage.inputTokens,
+        usage.outputTokens,
+        'claude-sonnet-4-20250514'
+      ),
+      usageService.incrementRateLimit(payload.userId),
+    ]).catch(err => console.warn('Failed to track Claude usage:', err));
 
     return c.json({
       success: true,
@@ -360,15 +390,26 @@ chatRoutes.post('/api/spaces/:id/chat/describe', chatRateLimiter, async (c) => {
       return c.json({ error: 'Bot assistant not configured' }, 503);
     }
 
-    // Check quota before making Claude API call
-    const quotaCheck = await usageService.checkQuota(payload.userId, 'claude');
-    if (!quotaCheck.allowed) {
+    // Pre-check: quota + rate limit before making Claude API call
+    const describePreCheck = await usageService.preCheck(payload.userId, 'claude');
+    if (!describePreCheck.allowed) {
+      const statusCode = describePreCheck.denyReason === 'rate_limited' ? 429 : 402;
       return c.json({
-        error: 'Quota exceeded',
-        message: quotaCheck.message || 'You have exceeded your Claude usage quota. Please upgrade your plan.',
-        remaining: quotaCheck.remaining,
-        limit: quotaCheck.limit,
-      }, 402);
+        error: describePreCheck.denyReason === 'rate_limited' ? 'Rate limited' : 'Quota exceeded',
+        message: describePreCheck.denyMessage,
+        denyReason: describePreCheck.denyReason,
+        quota: {
+          used: describePreCheck.quotaUsed,
+          limit: describePreCheck.quotaLimit,
+          remaining: describePreCheck.quotaRemaining,
+        },
+        rateLimit: {
+          used: describePreCheck.rateLimitUsed,
+          limit: describePreCheck.rateLimitMax,
+          remaining: describePreCheck.rateLimitRemaining,
+          resetsAt: describePreCheck.rateLimitResetsAt?.toISOString() || null,
+        },
+      }, statusCode);
     }
 
     // Get variant image_key from DO
@@ -417,13 +458,16 @@ chatRoutes.post('/api/spaces/:id/chat/describe', chatRateLimiter, async (c) => {
     const claudeService = new ClaudeService(env.ANTHROPIC_API_KEY);
     const { description, usage } = await claudeService.describeImage(base64, mediaType, assetName, focus, question);
 
-    // Track Claude API usage
-    usageService.trackClaudeUsage(
-      payload.userId,
-      usage.inputTokens,
-      usage.outputTokens,
-      'claude-sonnet-4-20250514'
-    ).catch(err => console.warn('Failed to track Claude usage:', err));
+    // Track Claude API usage + increment rate limit
+    Promise.all([
+      usageService.trackClaudeUsage(
+        payload.userId,
+        usage.inputTokens,
+        usage.outputTokens,
+        'claude-sonnet-4-20250514'
+      ),
+      usageService.incrementRateLimit(payload.userId),
+    ]).catch(err => console.warn('Failed to track Claude usage:', err));
 
     return c.json({
       success: true,
@@ -482,15 +526,26 @@ chatRoutes.post('/api/spaces/:id/chat/compare', chatRateLimiter, async (c) => {
       return c.json({ error: 'Bot assistant not configured' }, 503);
     }
 
-    // Check quota before making Claude API call
-    const quotaCheck = await usageService.checkQuota(payload.userId, 'claude');
-    if (!quotaCheck.allowed) {
+    // Pre-check: quota + rate limit before making Claude API call
+    const comparePreCheck = await usageService.preCheck(payload.userId, 'claude');
+    if (!comparePreCheck.allowed) {
+      const statusCode = comparePreCheck.denyReason === 'rate_limited' ? 429 : 402;
       return c.json({
-        error: 'Quota exceeded',
-        message: quotaCheck.message || 'You have exceeded your Claude usage quota. Please upgrade your plan.',
-        remaining: quotaCheck.remaining,
-        limit: quotaCheck.limit,
-      }, 402);
+        error: comparePreCheck.denyReason === 'rate_limited' ? 'Rate limited' : 'Quota exceeded',
+        message: comparePreCheck.denyMessage,
+        denyReason: comparePreCheck.denyReason,
+        quota: {
+          used: comparePreCheck.quotaUsed,
+          limit: comparePreCheck.quotaLimit,
+          remaining: comparePreCheck.quotaRemaining,
+        },
+        rateLimit: {
+          used: comparePreCheck.rateLimitUsed,
+          limit: comparePreCheck.rateLimitMax,
+          remaining: comparePreCheck.rateLimitRemaining,
+          resetsAt: comparePreCheck.rateLimitResetsAt?.toISOString() || null,
+        },
+      }, statusCode);
     }
 
     // Get variant image_keys from DO
@@ -541,13 +596,16 @@ chatRoutes.post('/api/spaces/:id/chat/compare', chatRateLimiter, async (c) => {
     const claudeService = new ClaudeService(env.ANTHROPIC_API_KEY);
     const { comparison, usage } = await claudeService.compareImages(images, aspects);
 
-    // Track Claude API usage
-    usageService.trackClaudeUsage(
-      payload.userId,
-      usage.inputTokens,
-      usage.outputTokens,
-      'claude-sonnet-4-20250514'
-    ).catch(err => console.warn('Failed to track Claude usage:', err));
+    // Track Claude API usage + increment rate limit
+    Promise.all([
+      usageService.trackClaudeUsage(
+        payload.userId,
+        usage.inputTokens,
+        usage.outputTokens,
+        'claude-sonnet-4-20250514'
+      ),
+      usageService.incrementRateLimit(payload.userId),
+    ]).catch(err => console.warn('Failed to track Claude usage:', err));
 
     return c.json({
       success: true,

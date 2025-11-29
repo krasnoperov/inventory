@@ -168,3 +168,66 @@ export interface ApprovalResult {
   result?: unknown;
   error?: string;
 }
+
+// ============================================================================
+// BILLING - Quota and Rate Limit Feedback
+// ============================================================================
+
+/** Quota status in error responses */
+export interface QuotaStatus {
+  /** Current usage in this billing period */
+  used: number;
+  /** Quota limit (null = unlimited) */
+  limit: number | null;
+  /** Remaining quota (null = unlimited) */
+  remaining: number | null;
+}
+
+/** Rate limit status in error responses */
+export interface RateLimitStatus {
+  /** Current requests in this window */
+  used: number;
+  /** Max requests per window */
+  limit: number;
+  /** Remaining requests in this window */
+  remaining: number;
+  /** When the rate limit window resets (ISO string, null if window not active) */
+  resetsAt: string | null;
+}
+
+/**
+ * Error response when request is blocked by quota or rate limit
+ *
+ * HTTP Status Codes:
+ * - 402 Payment Required: Quota exceeded (user should upgrade plan)
+ * - 429 Too Many Requests: Rate limited (user should wait)
+ *
+ * UI Recommendations:
+ * - quota_exceeded: Show upgrade CTA, link to billing portal
+ * - rate_limited: Show countdown timer based on resetsAt, disable action button
+ */
+export interface LimitErrorResponse {
+  /** Error type: 'Rate limited' or 'Quota exceeded' */
+  error: string;
+  /** Human-readable message */
+  message: string;
+  /** Denial reason for programmatic handling */
+  denyReason: 'quota_exceeded' | 'rate_limited';
+  /** Current quota status */
+  quota: QuotaStatus;
+  /** Current rate limit status */
+  rateLimit: RateLimitStatus;
+}
+
+/**
+ * Type guard to check if an error response is a limit error
+ */
+export function isLimitErrorResponse(response: unknown): response is LimitErrorResponse {
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    'denyReason' in response &&
+    ((response as LimitErrorResponse).denyReason === 'quota_exceeded' ||
+      (response as LimitErrorResponse).denyReason === 'rate_limited')
+  );
+}

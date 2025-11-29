@@ -20,7 +20,7 @@ describe('UsageService', () => {
     usageEventDAO = new UsageEventDAO(db);
     userDAO = new UserDAO(db);
     // Create service without PolarService (null) for local-only testing
-    usageService = new UsageService(usageEventDAO, userDAO, null);
+    usageService = new UsageService(usageEventDAO, userDAO, null, db);
 
     // Create a test user
     const user = await new TestUserBuilder()

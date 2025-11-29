@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import type { AppContext } from './types';
+import { UserDAO } from '../../dao/user-dao';
+import { PolarService } from '../services/polarService';
 
 const webhookRoutes = new Hono<AppContext>();
 
@@ -42,18 +44,14 @@ interface PolarWebhookEvent {
  * POST /api/webhooks/polar
  *
  * Receives webhook events from Polar for subscription lifecycle management.
+ * Updates local quota_limits cache when subscriptions change.
  *
  * Events handled:
  * - subscription.created: New subscription started
- * - subscription.active: Subscription became active
- * - subscription.updated: Subscription modified
- * - subscription.canceled: Subscription canceled
+ * - subscription.active: Subscription became active → fetch and cache limits
+ * - subscription.updated: Subscription modified → refresh limits
+ * - subscription.canceled: Subscription canceled → revoke limits
  * - customer.state_changed: Customer state updated
- *
- * NOTE: Currently these handlers only log events. If you need to:
- * - Cache subscription status for faster UI: update users.subscription_status
- * - Revoke access on cancel: check subscription state before allowing actions
- * - Track state changes: implement DB updates in handlers
  *
  * @see https://docs.polar.sh/api-reference/webhooks/create
  * @see https://docs.polar.sh/features/webhooks
@@ -98,44 +96,48 @@ webhookRoutes.post('/api/webhooks/polar', async (c) => {
 
       // Parse the verified body
       const event = JSON.parse(rawBody) as PolarWebhookEvent;
-      return handlePolarEvent(event);
+      return await handlePolarEvent(event);
     }
 
     // No webhook secret configured - parse body directly (dev mode)
     const event = await c.req.json() as PolarWebhookEvent;
-    return handlePolarEvent(event);
+    return await handlePolarEvent(event);
   } catch (error) {
     console.error('[Polar Webhook] Error processing webhook:', error);
     return c.json({ error: 'Webhook processing failed' }, 500);
   }
 
   /**
-   * Handle Polar webhook event inline
+   * Handle Polar webhook event
    */
-  function handlePolarEvent(event: PolarWebhookEvent) {
+  async function handlePolarEvent(event: PolarWebhookEvent) {
     const { type, data } = event;
 
     console.log(`[Polar Webhook] Received event: ${type}`);
 
+    const container = c.get('container');
+    const userDAO = container.get(UserDAO);
+    const polarService = container.get(PolarService);
+
     switch (type) {
       case 'subscription.created':
-        handleSubscriptionCreated(data as SubscriptionEventData);
+        await handleSubscriptionCreated(data as SubscriptionEventData, userDAO);
         break;
 
       case 'subscription.active':
-        handleSubscriptionActive(data as SubscriptionEventData);
+        await handleSubscriptionActive(data as SubscriptionEventData, userDAO, polarService);
         break;
 
       case 'subscription.updated':
-        handleSubscriptionUpdated(data as SubscriptionEventData);
+        await handleSubscriptionUpdated(data as SubscriptionEventData, userDAO, polarService);
         break;
 
       case 'subscription.canceled':
-        handleSubscriptionCanceled(data as SubscriptionEventData);
+        await handleSubscriptionCanceled(data as SubscriptionEventData, userDAO);
         break;
 
       case 'customer.state_changed':
-        handleCustomerStateChanged(data as CustomerStateEventData);
+        await handleCustomerStateChanged(data as CustomerStateEventData, userDAO, polarService);
         break;
 
       default:
@@ -151,7 +153,10 @@ webhookRoutes.post('/api/webhooks/polar', async (c) => {
  * Handle subscription.created event
  * A new subscription has been created (may not be active yet)
  */
-function handleSubscriptionCreated(data: SubscriptionEventData): void {
+async function handleSubscriptionCreated(
+  data: SubscriptionEventData,
+  _userDAO: UserDAO
+): Promise<void> {
   const { customer, subscription } = data;
   console.log(`[Polar Webhook] Subscription created for customer ${customer.id}`, {
     subscriptionId: subscription.id,
@@ -159,42 +164,70 @@ function handleSubscriptionCreated(data: SubscriptionEventData): void {
     productId: subscription.product_id,
   });
 
-  // Optionally update user record or trigger notifications
-  // For now, just log - the subscription.active event will handle activation
+  // Don't update limits yet - wait for subscription.active
 }
 
 /**
  * Handle subscription.active event
- * The subscription is now active and benefits should be granted
+ * The subscription is now active - fetch and cache quota limits
+ *
+ * @see https://docs.polar.sh/features/usage-based-billing/meters
  */
-function handleSubscriptionActive(data: SubscriptionEventData): void {
+async function handleSubscriptionActive(
+  data: SubscriptionEventData,
+  userDAO: UserDAO,
+  polarService: PolarService
+): Promise<void> {
   const { customer, subscription } = data;
   console.log(`[Polar Webhook] Subscription active for customer ${customer.id}`, {
     subscriptionId: subscription.id,
     currentPeriodEnd: subscription.current_period_end,
   });
 
-  // Could update user tier/benefits here
-  // For usage-based billing, credits are handled by Polar's meter credit benefits
+  if (!customer.external_id) {
+    console.warn('[Polar Webhook] No external_id on customer, cannot update local limits');
+    return;
+  }
+
+  const userId = parseInt(customer.external_id);
+  await fetchAndCacheLimits(userId, userDAO, polarService);
 }
 
 /**
  * Handle subscription.updated event
- * The subscription was modified (e.g., plan change)
+ * The subscription was modified (e.g., plan change) - refresh limits
  */
-function handleSubscriptionUpdated(data: SubscriptionEventData): void {
+async function handleSubscriptionUpdated(
+  data: SubscriptionEventData,
+  userDAO: UserDAO,
+  polarService: PolarService
+): Promise<void> {
   const { customer, subscription } = data;
   console.log(`[Polar Webhook] Subscription updated for customer ${customer.id}`, {
     subscriptionId: subscription.id,
     status: subscription.status,
   });
+
+  if (!customer.external_id) {
+    console.warn('[Polar Webhook] No external_id on customer, cannot update local limits');
+    return;
+  }
+
+  // Only refresh limits if subscription is still active
+  if (subscription.status === 'active') {
+    const userId = parseInt(customer.external_id);
+    await fetchAndCacheLimits(userId, userDAO, polarService);
+  }
 }
 
 /**
  * Handle subscription.canceled event
- * The subscription has been canceled (may still be active until period end)
+ * The subscription has been canceled - revoke quota limits
  */
-function handleSubscriptionCanceled(data: SubscriptionEventData): void {
+async function handleSubscriptionCanceled(
+  data: SubscriptionEventData,
+  userDAO: UserDAO
+): Promise<void> {
   const { customer, subscription } = data;
   console.log(`[Polar Webhook] Subscription canceled for customer ${customer.id}`, {
     subscriptionId: subscription.id,
@@ -202,20 +235,105 @@ function handleSubscriptionCanceled(data: SubscriptionEventData): void {
     endsAt: subscription.current_period_end,
   });
 
-  // Could send notification to user, update UI state, etc.
+  if (!customer.external_id) {
+    console.warn('[Polar Webhook] No external_id on customer, cannot revoke limits');
+    return;
+  }
+
+  const userId = parseInt(customer.external_id);
+
+  // Set all limits to 0 (user can still see usage but can't make new requests)
+  const revokedLimits = {
+    claude_input_tokens: 0,
+    claude_output_tokens: 0,
+    gemini_images: 0,
+    gemini_input_tokens: 0,
+    gemini_output_tokens: 0,
+  };
+
+  await userDAO.update(userId, {
+    quota_limits: JSON.stringify(revokedLimits),
+    quota_limits_updated_at: new Date().toISOString(),
+  });
+
+  console.log(`[Polar Webhook] Revoked quota limits for user ${userId}`);
 }
 
 /**
  * Handle customer.state_changed event
- * Customer's overall state has changed (e.g., active subscriptions changed)
+ * Customer's overall state has changed - refresh limits if they have active subscriptions
  */
-function handleCustomerStateChanged(data: CustomerStateEventData): void {
+async function handleCustomerStateChanged(
+  data: CustomerStateEventData,
+  userDAO: UserDAO,
+  polarService: PolarService
+): Promise<void> {
   const { customer } = data;
   console.log(`[Polar Webhook] Customer state changed: ${customer.id}`, {
     activeSubscriptions: customer.active_subscriptions,
   });
 
-  // Could update cached customer state for faster UI responses
+  if (!customer.external_id) {
+    console.warn('[Polar Webhook] No external_id on customer, cannot update state');
+    return;
+  }
+
+  const userId = parseInt(customer.external_id);
+
+  if (customer.active_subscriptions > 0) {
+    // Has active subscriptions - refresh limits
+    await fetchAndCacheLimits(userId, userDAO, polarService);
+  } else {
+    // No active subscriptions - revoke limits
+    const revokedLimits = {
+      claude_input_tokens: 0,
+      claude_output_tokens: 0,
+      gemini_images: 0,
+      gemini_input_tokens: 0,
+      gemini_output_tokens: 0,
+    };
+
+    await userDAO.update(userId, {
+      quota_limits: JSON.stringify(revokedLimits),
+      quota_limits_updated_at: new Date().toISOString(),
+    });
+
+    console.log(`[Polar Webhook] Revoked quota limits for user ${userId} (no active subscriptions)`);
+  }
+}
+
+/**
+ * Fetch meter limits from Polar API and cache in local DB
+ * This is called when subscriptions become active or are updated
+ *
+ * @see https://docs.polar.sh/api-reference/customer-meters/list
+ */
+async function fetchAndCacheLimits(
+  userId: number,
+  userDAO: UserDAO,
+  polarService: PolarService
+): Promise<void> {
+  try {
+    // Fetch current meter credits from Polar
+    const meters = await polarService.getCustomerMeters(userId);
+
+    // Convert to limits object (use credited amount as the limit)
+    const limits: Record<string, number | null> = {};
+    for (const meter of meters) {
+      limits[meter.meterSlug] = meter.hasLimit ? meter.credited : null;
+    }
+
+    // Update user's cached limits
+    await userDAO.update(userId, {
+      quota_limits: JSON.stringify(limits),
+      quota_limits_updated_at: new Date().toISOString(),
+    });
+
+    console.log(`[Polar Webhook] Updated quota limits for user ${userId}:`, limits);
+  } catch (error) {
+    console.error(`[Polar Webhook] Failed to fetch/cache limits for user ${userId}:`, error);
+    // Don't throw - webhook should still return 200
+  }
 }
 
 export { webhookRoutes };

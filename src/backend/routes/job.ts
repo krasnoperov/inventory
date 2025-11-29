@@ -3,6 +3,7 @@ import type { AppContext } from './types';
 import { AuthService } from '../features/auth/auth-service';
 import { JobDAO } from '../../dao/job-dao';
 import { MemberDAO } from '../../dao/member-dao';
+import { UsageService } from '../services/usageService';
 import { getAuthToken } from '../auth';
 import { type GenerationMessage } from '../services/generationConsumer';
 import { generationRateLimiter } from '../middleware/rate-limit';
@@ -148,6 +149,29 @@ jobRoutes.post('/api/spaces/:spaceId/assets', generationRateLimiter, async (c) =
     }
 
     // AI GENERATION MODE: Has prompt (with or without references)
+    // Pre-check: quota + rate limit before queueing image generation
+    const usageService = container.get(UsageService);
+    const preCheck = await usageService.preCheck(payload.userId, 'nanobanana');
+    if (!preCheck.allowed) {
+      const statusCode = preCheck.denyReason === 'rate_limited' ? 429 : 402;
+      return c.json({
+        error: preCheck.denyReason === 'rate_limited' ? 'Rate limited' : 'Quota exceeded',
+        message: preCheck.denyMessage,
+        denyReason: preCheck.denyReason,
+        quota: {
+          used: preCheck.quotaUsed,
+          limit: preCheck.quotaLimit,
+          remaining: preCheck.quotaRemaining,
+        },
+        rateLimit: {
+          used: preCheck.rateLimitUsed,
+          limit: preCheck.rateLimitMax,
+          remaining: preCheck.rateLimitRemaining,
+          resetsAt: preCheck.rateLimitResetsAt?.toISOString() || null,
+        },
+      }, statusCode);
+    }
+
     // Validate references exist if provided
     const sourceImageKeys: string[] = [];
     if (hasRefs) {
@@ -237,6 +261,11 @@ jobRoutes.post('/api/spaces/:spaceId/assets', generationRateLimiter, async (c) =
 
     await env.GENERATION_QUEUE.send(message);
 
+    // Increment rate limit counter after successful queue
+    usageService.incrementRateLimit(payload.userId).catch(err =>
+      console.warn('Failed to increment rate limit:', err)
+    );
+
     console.log('[Job Route] POST /assets - Message sent successfully', { jobId });
 
     return c.json({
@@ -310,6 +339,29 @@ jobRoutes.post('/api/spaces/:spaceId/assets/:assetId/variants', generationRateLi
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
       return c.json({ error: 'prompt is required and must be a non-empty string' }, 400);
+    }
+
+    // Pre-check: quota + rate limit before queueing image generation
+    const usageService = container.get(UsageService);
+    const variantPreCheck = await usageService.preCheck(payload.userId, 'nanobanana');
+    if (!variantPreCheck.allowed) {
+      const statusCode = variantPreCheck.denyReason === 'rate_limited' ? 429 : 402;
+      return c.json({
+        error: variantPreCheck.denyReason === 'rate_limited' ? 'Rate limited' : 'Quota exceeded',
+        message: variantPreCheck.denyMessage,
+        denyReason: variantPreCheck.denyReason,
+        quota: {
+          used: variantPreCheck.quotaUsed,
+          limit: variantPreCheck.quotaLimit,
+          remaining: variantPreCheck.quotaRemaining,
+        },
+        rateLimit: {
+          used: variantPreCheck.rateLimitUsed,
+          limit: variantPreCheck.rateLimitMax,
+          remaining: variantPreCheck.rateLimitRemaining,
+          resetsAt: variantPreCheck.rateLimitResetsAt?.toISOString() || null,
+        },
+      }, statusCode);
     }
 
     // Get asset and variant from Durable Object
@@ -409,6 +461,11 @@ jobRoutes.post('/api/spaces/:spaceId/assets/:assetId/variants', generationRateLi
     });
 
     await env.GENERATION_QUEUE.send(message);
+
+    // Increment rate limit counter after successful queue
+    usageService.incrementRateLimit(payload.userId).catch(err =>
+      console.warn('Failed to increment rate limit:', err)
+    );
 
     console.log('[Job Route] POST /variants - Message sent successfully', { jobId });
 

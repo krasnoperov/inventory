@@ -13,6 +13,12 @@ export interface UpdateUserData {
   name?: string;
   google_id?: string;
   polar_customer_id?: string;
+  // Quota limits cached from Polar webhooks (JSON)
+  quota_limits?: string;
+  quota_limits_updated_at?: string;
+  // Rate limiting fields
+  rate_limit_count?: number;
+  rate_limit_window_start?: string;
 }
 
 @injectable()
@@ -50,6 +56,7 @@ export class UserDAO {
         email: data.email,
         name: data.name,
         google_id: data.google_id,
+        rate_limit_count: 0, // Initialize rate limit counter
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -71,6 +78,10 @@ export class UserDAO {
     if (data.name !== undefined) updateData.name = data.name;
     if (data.google_id !== undefined) updateData.google_id = data.google_id;
     if (data.polar_customer_id !== undefined) updateData.polar_customer_id = data.polar_customer_id;
+    if (data.quota_limits !== undefined) updateData.quota_limits = data.quota_limits;
+    if (data.quota_limits_updated_at !== undefined) updateData.quota_limits_updated_at = data.quota_limits_updated_at;
+    if (data.rate_limit_count !== undefined) updateData.rate_limit_count = data.rate_limit_count;
+    if (data.rate_limit_window_start !== undefined) updateData.rate_limit_window_start = data.rate_limit_window_start;
 
     await this.db
       .updateTable('users')

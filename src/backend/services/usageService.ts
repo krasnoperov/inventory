@@ -1,7 +1,11 @@
 import { injectable, inject, optional } from 'inversify';
+import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import { UsageEventDAO, type UsageEventMetadata } from '../../dao/usage-event-dao';
 import { UserDAO } from '../../dao/user-dao';
 import { PolarService } from './polarService';
+import type { Database } from '../../db/types';
+import { TYPES } from '../../core/di-types';
 
 export const USAGE_EVENTS = {
   // Claude (Anthropic) - split by token type for accurate pricing
@@ -40,6 +44,34 @@ export interface QuotaCheck {
   message?: string;
 }
 
+/**
+ * Result of pre-check before performing a limited action
+ * Combines quota check + rate limit check in one response
+ */
+export interface PreCheckResult {
+  allowed: boolean;
+  // Quota info
+  quotaUsed: number;
+  quotaLimit: number | null;
+  quotaRemaining: number | null;
+  // Rate limit info
+  rateLimitUsed: number;
+  rateLimitMax: number;
+  rateLimitRemaining: number;
+  rateLimitResetsAt: Date | null;
+  // Denial reason (if not allowed)
+  denyReason?: 'quota_exceeded' | 'rate_limited';
+  denyMessage?: string;
+}
+
+/**
+ * Rate limit configuration
+ */
+export interface RateLimitConfig {
+  windowSeconds: number;  // Time window in seconds
+  maxRequests: number;    // Max requests per window
+}
+
 export interface SyncResult {
   synced: number;
   failed: number;
@@ -50,12 +82,19 @@ export interface CustomerSyncResult {
   failed: number;
 }
 
+// Default rate limits per service
+export const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
+  claude: { windowSeconds: 60, maxRequests: 20 },
+  nanobanana: { windowSeconds: 60, maxRequests: 10 },
+};
+
 @injectable()
 export class UsageService {
   constructor(
     @inject(UsageEventDAO) private usageEventDAO: UsageEventDAO,
     @inject(UserDAO) private userDAO: UserDAO,
     @inject(PolarService) @optional() private polarService: PolarService | null,
+    @inject(TYPES.Database) private db: Kysely<Database>,
   ) {}
 
   /**
@@ -383,79 +422,179 @@ export class UsageService {
   }
 
   /**
-   * Check if user has quota remaining for a specific service
-   * Returns whether the action is allowed
+   * Pre-check: Verify quota AND rate limit before performing a limited action
+   * Uses local D1 data for fast checks (~20-40ms vs 100-500ms Polar API)
+   *
+   * This combines:
+   * 1. Quota check: Current period usage vs cached limits (from Polar webhooks)
+   * 2. Rate limit: Fixed-window request counter
+   *
+   * @param userId - User ID
+   * @param service - Service to check ('claude' or 'nanobanana')
+   * @param rateLimit - Optional rate limit config (defaults per service)
+   * @returns PreCheckResult with allowed status and detailed info
+   *
+   * @see https://docs.polar.sh/features/usage-based-billing/meters
+   */
+  async preCheck(
+    userId: number,
+    service: 'claude' | 'nanobanana',
+    rateLimit?: RateLimitConfig
+  ): Promise<PreCheckResult> {
+    const eventName = service === 'claude'
+      ? USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS
+      : USAGE_EVENTS.GEMINI_IMAGES;
+
+    const rateLimitConfig = rateLimit || DEFAULT_RATE_LIMITS[service];
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const windowStart = new Date(now.getTime() - rateLimitConfig.windowSeconds * 1000).toISOString();
+
+    // Single query: get user + aggregate usage for current period
+    const result = await this.db
+      .selectFrom('users as u')
+      .leftJoin('usage_events as e', (join) =>
+        join
+          .onRef('e.user_id', '=', 'u.id')
+          .on('e.event_name', '=', eventName)
+          .on('e.created_at', '>=', periodStart)
+      )
+      .select([
+        'u.id',
+        'u.quota_limits',
+        'u.rate_limit_count',
+        'u.rate_limit_window_start',
+      ])
+      .select((eb) =>
+        eb.fn.coalesce(
+          eb.fn.sum<number>('e.quantity'),
+          sql<number>`0`
+        ).as('total_used')
+      )
+      .where('u.id', '=', userId)
+      .groupBy(['u.id', 'u.quota_limits', 'u.rate_limit_count', 'u.rate_limit_window_start'])
+      .executeTakeFirst();
+
+    if (!result) {
+      return {
+        allowed: false,
+        quotaUsed: 0,
+        quotaLimit: null,
+        quotaRemaining: null,
+        rateLimitUsed: 0,
+        rateLimitMax: rateLimitConfig.maxRequests,
+        rateLimitRemaining: 0,
+        rateLimitResetsAt: null,
+        denyReason: 'quota_exceeded',
+        denyMessage: 'User not found',
+      };
+    }
+
+    // Parse quota limits from cached JSON
+    const limits: Record<string, number | null> = result.quota_limits
+      ? JSON.parse(result.quota_limits)
+      : {};
+    const quotaLimit = limits[eventName] ?? null;
+    const quotaUsed = Number(result.total_used) || 0;
+    const quotaRemaining = quotaLimit !== null ? Math.max(0, quotaLimit - quotaUsed) : null;
+
+    // Check rate limit (fixed window)
+    const windowExpired = !result.rate_limit_window_start ||
+      result.rate_limit_window_start < windowStart;
+    const rateLimitUsed = windowExpired ? 0 : (result.rate_limit_count || 0);
+    const rateLimitRemaining = Math.max(0, rateLimitConfig.maxRequests - rateLimitUsed);
+    const rateLimitResetsAt = result.rate_limit_window_start && !windowExpired
+      ? new Date(new Date(result.rate_limit_window_start).getTime() + rateLimitConfig.windowSeconds * 1000)
+      : null;
+
+    // Check quota exceeded
+    if (quotaLimit !== null && quotaUsed >= quotaLimit) {
+      return {
+        allowed: false,
+        quotaUsed,
+        quotaLimit,
+        quotaRemaining: 0,
+        rateLimitUsed,
+        rateLimitMax: rateLimitConfig.maxRequests,
+        rateLimitRemaining,
+        rateLimitResetsAt,
+        denyReason: 'quota_exceeded',
+        denyMessage: `Monthly quota exceeded for ${service}. Please upgrade your plan.`,
+      };
+    }
+
+    // Check rate limit exceeded
+    if (rateLimitUsed >= rateLimitConfig.maxRequests) {
+      return {
+        allowed: false,
+        quotaUsed,
+        quotaLimit,
+        quotaRemaining,
+        rateLimitUsed,
+        rateLimitMax: rateLimitConfig.maxRequests,
+        rateLimitRemaining: 0,
+        rateLimitResetsAt,
+        denyReason: 'rate_limited',
+        denyMessage: `Too many requests. Please wait ${rateLimitConfig.windowSeconds} seconds.`,
+      };
+    }
+
+    // Allowed
+    return {
+      allowed: true,
+      quotaUsed,
+      quotaLimit,
+      quotaRemaining,
+      rateLimitUsed,
+      rateLimitMax: rateLimitConfig.maxRequests,
+      rateLimitRemaining: rateLimitRemaining - 1, // Account for this request
+      rateLimitResetsAt,
+    };
+  }
+
+  /**
+   * Increment rate limit counter after successful action
+   * Called alongside usage event recording
+   */
+  async incrementRateLimit(userId: number): Promise<void> {
+    const now = new Date().toISOString();
+
+    await this.db
+      .updateTable('users')
+      .set({
+        rate_limit_count: sql`CASE
+          WHEN rate_limit_window_start IS NULL OR rate_limit_window_start < datetime('now', '-60 seconds')
+          THEN 1
+          ELSE rate_limit_count + 1
+        END`,
+        rate_limit_window_start: sql`CASE
+          WHEN rate_limit_window_start IS NULL OR rate_limit_window_start < datetime('now', '-60 seconds')
+          THEN ${now}
+          ELSE rate_limit_window_start
+        END`,
+      })
+      .where('id', '=', userId)
+      .execute();
+  }
+
+  /**
+   * Check if user has quota remaining for a specific service (legacy method)
+   * Now uses local D1 instead of Polar API for faster checks
+   *
+   * @deprecated Use preCheck() for combined quota + rate limit checks
    */
   async checkQuota(
     userId: number,
     service: 'claude' | 'nanobanana'
   ): Promise<QuotaCheck> {
-    // Check the most relevant meter for the service
-    // For Claude: check output tokens (most expensive)
-    // For Gemini: check image count
-    const eventName =
-      service === 'claude' ? USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS : USAGE_EVENTS.GEMINI_IMAGES;
+    const result = await this.preCheck(userId, service);
 
-    // If no Polar service, always allow (no limits enforced)
-    if (!this.polarService) {
-      return {
-        allowed: true,
-        remaining: null,
-        limit: null,
-      };
-    }
-
-    try {
-      const usage = await this.polarService.getCustomerUsage(userId);
-      if (!usage) {
-        // No usage data, allow but warn
-        return {
-          allowed: true,
-          remaining: null,
-          limit: null,
-          message: 'Unable to verify quota',
-        };
-      }
-
-      const meterData = usage.meters[eventName];
-      if (!meterData) {
-        // No meter for this service, allow
-        return {
-          allowed: true,
-          remaining: null,
-          limit: null,
-        };
-      }
-
-      const { used, limit } = meterData;
-      if (limit === null) {
-        // No limit set, allow
-        return {
-          allowed: true,
-          remaining: null,
-          limit: null,
-        };
-      }
-
-      const remaining = limit - used;
-      const allowed = remaining > 0;
-
-      return {
-        allowed,
-        remaining,
-        limit,
-        message: allowed ? undefined : `Quota exceeded. Upgrade your plan for more ${service} usage.`,
-      };
-    } catch (error) {
-      console.error('Failed to check quota:', error);
-      // On error, allow but log
-      return {
-        allowed: true,
-        remaining: null,
-        limit: null,
-        message: 'Quota check failed',
-      };
-    }
+    return {
+      allowed: result.allowed,
+      remaining: result.quotaRemaining,
+      limit: result.quotaLimit,
+      message: result.denyMessage,
+    };
   }
 
   /**

@@ -31,6 +31,7 @@ export class TestUserBuilder {
       email: this.data.email || `test-${uniqueNum}@example.com`,
       name: this.data.name || 'Test User',
       google_id: this.data.google_id || null,
+      rate_limit_count: 0, // Initialize rate limit counter
       created_at: now,
       updated_at: now
     };
