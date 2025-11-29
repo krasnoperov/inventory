@@ -302,44 +302,6 @@ billingRoutes.post('/api/billing/retry-failed', async (c) => {
 });
 
 /**
- * Sync pending usage events to Polar
- * POST /api/internal/billing/sync
- *
- * Internal endpoint - called by polar worker cron
- * Note: The polar worker has direct D1 access, so this endpoint
- * is kept for potential future use but not actively used.
- */
-billingRoutes.post('/api/internal/billing/sync', async (c) => {
-  try {
-    // Verify internal API secret
-    const secret = c.req.header('X-Internal-Secret');
-    const expectedSecret = c.env.INTERNAL_API_SECRET;
-
-    if (!expectedSecret || secret !== expectedSecret) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const container = c.get('container');
-    const usageService = container.get(UsageService);
-
-    const batchSize = parseInt(c.req.query('batch_size') || '100');
-    const result = await usageService.syncPendingEvents(batchSize);
-
-    return c.json({
-      success: true,
-      synced: result.synced,
-      failed: result.failed,
-      message: result.synced > 0 || result.failed > 0
-        ? `Synced ${result.synced} events, ${result.failed} failed`
-        : 'No pending events to sync',
-    });
-  } catch (error) {
-    console.error('Error syncing usage events:', error);
-    return c.json({ error: 'Failed to sync usage events' }, 500);
-  }
-});
-
-/**
  * Cleanup old synced usage events
  * POST /api/internal/billing/cleanup
  *

@@ -149,14 +149,24 @@ export class UsageService {
 
   /**
    * Sync pending local events to Polar
-   * Can be called by a scheduled job or queue consumer
+   * Called by the Polar worker cron job every 5 minutes
    *
    * Groups events by type:
    * - Claude token events: Sent as LLM events with proper metadata
    * - Gemini image events: Sent with quantity in metadata
    * - Gemini token events: Sent as LLM events with proper metadata
    *
-   * Uses idempotency keys to prevent duplicate charges on retry
+   * Uses externalId for deduplication - Polar ignores events with duplicate externalId,
+   * making it safe to retry on transient failures.
+   *
+   * Reliability pattern:
+   * 1. Increment sync_attempts BEFORE calling Polar (track attempt even if we crash)
+   * 2. Call Polar's batch ingest API
+   * 3. Mark synced_at on success / record error on failure
+   * 4. Events with sync_attempts >= MAX_SYNC_ATTEMPTS (3) are excluded from future syncs
+   *
+   * @see https://docs.polar.sh/api-reference/events/ingest
+   * @see https://docs.polar.sh/features/usage-based-billing/ingestion-strategies
    */
   async syncPendingEvents(batchSize = 100): Promise<SyncResult> {
     if (!this.polarService) {

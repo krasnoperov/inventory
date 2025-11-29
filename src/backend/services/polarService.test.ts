@@ -46,28 +46,12 @@ describe('PolarService', () => {
       assert.strictEqual(result, null);
     });
 
-    test('ingestEvent completes without error when not configured', async () => {
-      const service = createPolarService();
-      // Should not throw
-      await service.ingestEvent(123, 'test_event', { model: 'test' });
-    });
-
     test('ingestEventsBatch completes without error when not configured', async () => {
       const service = createPolarService();
       await service.ingestEventsBatch([
         { userId: 123, eventName: 'test_event' },
         { userId: 456, eventName: 'test_event' },
       ]);
-    });
-
-    test('ingestLLMEvent completes without error when not configured', async () => {
-      const service = createPolarService();
-      await service.ingestLLMEvent(123, 'claude_usage', {
-        vendor: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
-        inputTokens: 100,
-        outputTokens: 50,
-      });
     });
 
     test('ingestLLMEventsBatch completes without error when not configured', async () => {

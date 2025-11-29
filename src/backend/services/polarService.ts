@@ -101,6 +101,9 @@ export class PolarService {
    * Create a customer in Polar using our user ID as external_id
    * This allows us to reference customers by our internal user ID
    * Returns null if Polar is not configured
+   *
+   * @see https://docs.polar.sh/api-reference/customers/create
+   * @see https://docs.polar.sh/features/customer-management
    */
   async createCustomer(userId: number, email: string, name: string): Promise<string | null> {
     if (!this.client) return null;
@@ -140,38 +143,11 @@ export class PolarService {
   }
 
   /**
-   * Ingest a usage event for a customer
-   * Uses external_customer_id to reference our user ID
-   */
-  async ingestEvent(
-    userId: number,
-    eventName: string,
-    metadata?: PolarEventMetadata
-  ): Promise<void> {
-    if (!this.client) return;
-
-    // Filter out undefined values from metadata
-    const cleanMetadata = metadata
-      ? Object.fromEntries(
-          Object.entries(metadata).filter(([, v]) => v !== undefined)
-        ) as { [key: string]: string | number | boolean }
-      : undefined;
-
-    await this.client.events.ingest({
-      events: [
-        {
-          name: eventName,
-          externalCustomerId: String(userId),
-          timestamp: new Date(),
-          metadata: cleanMetadata,
-        },
-      ],
-    });
-  }
-
-  /**
    * Ingest multiple events at once (batch)
    * Uses externalId for deduplication on retry
+   *
+   * @see https://docs.polar.sh/api-reference/events/ingest
+   * @see https://docs.polar.sh/features/usage-based-billing/ingestion-strategies
    */
   async ingestEventsBatch(
     events: Array<{
@@ -208,20 +184,11 @@ export class PolarService {
   }
 
   /**
-   * Ingest LLM usage event with proper LLMMetadata structure
-   * This is the recommended format for AI token billing in Polar
-   */
-  async ingestLLMEvent(
-    userId: number,
-    eventName: string,
-    llmData: LLMUsageData
-  ): Promise<void> {
-    await this.ingestLLMEventsBatch([{ userId, eventName, llmData }]);
-  }
-
-  /**
    * Ingest multiple LLM events at once (batch)
-   * Uses externalId for deduplication on retry
+   * Uses externalId for deduplication on retry - Polar ignores events with duplicate externalId
+   *
+   * @see https://docs.polar.sh/api-reference/events/ingest
+   * @see https://docs.polar.sh/features/usage-based-billing/ingestion-strategies/llm
    */
   async ingestLLMEventsBatch(
     events: Array<{
@@ -264,6 +231,9 @@ export class PolarService {
    * Create a customer session and return the portal URL
    * This allows the customer to view their usage and manage billing
    * Returns null if Polar is not configured
+   *
+   * @see https://docs.polar.sh/api-reference/customer-sessions/create
+   * @see https://docs.polar.sh/features/customer-portal
    */
   async getCustomerPortalUrl(userId: number, returnUrl?: string): Promise<string | null> {
     if (!this.client) return null;
@@ -279,6 +249,9 @@ export class PolarService {
   /**
    * Get customer meter usage from Polar
    * Uses the Customer Meters API to get consumed/credited units per meter
+   *
+   * @see https://docs.polar.sh/api-reference/customer-meters/list
+   * @see https://docs.polar.sh/features/usage-based-billing/meters
    */
   async getCustomerMeters(userId: number): Promise<CustomerMeterInfo[]> {
     if (!this.client) return [];

@@ -4,7 +4,13 @@ import { sql } from 'kysely';
 import type { Database, UsageEvent, NewUsageEvent } from '../db/types';
 import { TYPES } from '../core/di-types';
 
-// Maximum sync attempts before marking as failed
+/**
+ * Maximum sync attempts before marking event as failed
+ * After this many failures, events are excluded from automatic sync and require
+ * manual retry via /api/billing/retry-failed endpoint
+ *
+ * @see https://docs.polar.sh/api-reference/events/ingest - Polar batch ingest API
+ */
 export const MAX_SYNC_ATTEMPTS = 3;
 
 export interface UsageEventMetadata {

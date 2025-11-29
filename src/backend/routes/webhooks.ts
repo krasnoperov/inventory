@@ -42,7 +42,6 @@ interface PolarWebhookEvent {
  * POST /api/webhooks/polar
  *
  * Receives webhook events from Polar for subscription lifecycle management.
- * See: https://polar.sh/docs/features/webhooks
  *
  * Events handled:
  * - subscription.created: New subscription started
@@ -50,6 +49,14 @@ interface PolarWebhookEvent {
  * - subscription.updated: Subscription modified
  * - subscription.canceled: Subscription canceled
  * - customer.state_changed: Customer state updated
+ *
+ * NOTE: Currently these handlers only log events. If you need to:
+ * - Cache subscription status for faster UI: update users.subscription_status
+ * - Revoke access on cancel: check subscription state before allowing actions
+ * - Track state changes: implement DB updates in handlers
+ *
+ * @see https://docs.polar.sh/api-reference/webhooks/create
+ * @see https://docs.polar.sh/features/webhooks
  */
 webhookRoutes.post('/api/webhooks/polar', async (c) => {
   try {

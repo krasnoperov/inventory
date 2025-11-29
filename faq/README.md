@@ -1,8 +1,13 @@
-# Forge Assistant Features
+# Forge User Guide
 
-This directory contains user-facing documentation for the Forge Assistant AI features.
+This directory contains user-facing documentation for Inventory Forge.
 
-## Current Features
+## Getting Started
+
+### [Image Generation Guide](./image-generation-guide.md)
+Learn how to create, refine, and combine images using the Forge. Covers basic concepts, operations (generate, refine, combine, fork), tips for better prompts, working with spatial relationships, and building up complex designs step by step.
+
+## Assistant Features
 
 ### [Trust Zones](./trust-zones.md)
 Control how the AI assistant executes actions. Safe operations run automatically, while generating operations require your approval. Learn how to configure trust settings and use the approval panel.
@@ -24,12 +29,11 @@ See: [Implementation Plan](../docs/BATCH_OPERATIONS_PLAN.md)
 
 ## Quick Reference
 
-| Feature | Status | Key Files |
-|---------|--------|-----------|
-| Trust Zones | ✅ Implemented | `trustLevels.ts`, `ChatSidebar.tsx` |
-| Memory & Personalization | ✅ Implemented | `memoryService.ts`, `PreferencesPanel.tsx` |
-| Autonomous Workflows | 📋 Planned | See plan document |
-| Batch Operations | 📋 Planned | See plan document |
+| Topic | Description |
+|-------|-------------|
+| [Image Generation](./image-generation-guide.md) | Create, refine, combine images |
+| [Trust Zones](./trust-zones.md) | Control AI action permissions |
+| [Memory & Personalization](./memory-personalization.md) | Assistant learning preferences |
 
 ## Getting Help
 
