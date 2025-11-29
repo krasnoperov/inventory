@@ -15,6 +15,14 @@ Control how the AI assistant executes actions. Safe operations run automatically
 ### [Memory & Personalization](./memory-personalization.md)
 The assistant learns from your successful prompts to provide better suggestions over time. Manage your learned patterns, set style preferences, and configure personalization settings.
 
+## Billing & Limits
+
+### [Billing FAQ](./BILLING.md)
+Understand how usage-based billing works. View your usage, manage subscriptions, and learn about upgrading your plan.
+
+### [Error Handling](./error-handling.md)
+How the assistant handles quota limits and rate limiting. What to do when you see "quota exceeded" or "too many requests" errors.
+
 ## Planned Features
 
 ### Autonomous Workflows
@@ -34,6 +42,8 @@ See: [Implementation Plan](../docs/BATCH_OPERATIONS_PLAN.md)
 | [Image Generation](./image-generation-guide.md) | Create, refine, combine images |
 | [Trust Zones](./trust-zones.md) | Control AI action permissions |
 | [Memory & Personalization](./memory-personalization.md) | Assistant learning preferences |
+| [Billing FAQ](./BILLING.md) | Usage limits, subscriptions, upgrades |
+| [Error Handling](./error-handling.md) | Quota and rate limit errors |
 
 ## Getting Help
 

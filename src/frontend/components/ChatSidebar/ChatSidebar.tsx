@@ -11,10 +11,12 @@ import {
   type ChatMessage,
 } from '../../stores/chatStore';
 import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
-import type {
-  ForgeContext,
-  ViewingContext,
-  BotResponse,
+import {
+  isLimitErrorResponse,
+  type ForgeContext,
+  type ViewingContext,
+  type BotResponse,
+  type LimitErrorResponse,
 } from '../../../api/types';
 import { useToolExecution } from './hooks/useToolExecution';
 import { MessageList } from './MessageList';
@@ -493,8 +495,52 @@ export function ChatSidebar({
       });
 
       if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to send message');
+        const errorData = await response.json();
+
+        // Handle billing errors (402 quota exceeded, 429 rate limited)
+        // @see LimitErrorResponse in api/types.ts
+        // @see PreCheckResult in usageService.ts for backend implementation
+        if (isLimitErrorResponse(errorData)) {
+          const limitError = errorData as LimitErrorResponse;
+
+          if (limitError.denyReason === 'quota_exceeded') {
+            // HTTP 402: Show upgrade CTA, link to billing portal
+            addMessage(spaceId, {
+              role: 'assistant',
+              content: limitError.message,
+              timestamp: Date.now(),
+              isError: true,
+              quotaError: {
+                service: 'claude',
+                used: limitError.quota.used,
+                limit: limitError.quota.limit,
+              },
+            });
+            return; // Don't retry quota errors - user must upgrade
+          }
+
+          if (limitError.denyReason === 'rate_limited') {
+            // HTTP 429: Show countdown timer until resetsAt
+            const resetsAt = limitError.rateLimit.resetsAt;
+            const remainingSeconds = resetsAt
+              ? Math.max(0, Math.ceil((new Date(resetsAt).getTime() - Date.now()) / 1000))
+              : 60; // Default to 60s if no reset time provided
+
+            addMessage(spaceId, {
+              role: 'assistant',
+              content: limitError.message,
+              timestamp: Date.now(),
+              isError: true,
+              rateLimitError: {
+                resetsAt,
+                remainingSeconds,
+              },
+            });
+            return; // Don't retry rate limit errors - user must wait
+          }
+        }
+
+        throw new Error((errorData as { error?: string }).error || 'Failed to send message');
       }
 
       const data = await response.json() as { success: boolean; response: BotResponse };

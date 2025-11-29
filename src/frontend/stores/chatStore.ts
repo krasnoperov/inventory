@@ -7,6 +7,11 @@ import type { AssistantPlan, PlanStep, PendingApproval, AutoExecutedAction } fro
 // Types
 // =============================================================================
 
+/**
+ * Chat message stored in session history
+ *
+ * @see LimitErrorResponse in api/types.ts for billing error structure
+ */
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -19,6 +24,25 @@ export interface ChatMessage {
     url: string;
     assetName: string;
     assetId?: string;
+  };
+  /**
+   * Quota exceeded error (HTTP 402)
+   * UI should show upgrade CTA and link to /api/billing/portal
+   * @see LimitErrorResponse.denyReason === 'quota_exceeded'
+   */
+  quotaError?: {
+    service: string;
+    used: number;
+    limit: number | null;
+  };
+  /**
+   * Rate limit error (HTTP 429)
+   * UI should show countdown timer until resetsAt
+   * @see LimitErrorResponse.denyReason === 'rate_limited'
+   */
+  rateLimitError?: {
+    resetsAt: string | null;  // ISO date string
+    remainingSeconds: number;
   };
 }
 
