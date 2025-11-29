@@ -75,6 +75,10 @@ export interface UsageEventsTable {
   metadata: string | null;  // JSON
   created_at: string;
   synced_at: string | null;  // NULL until synced to Polar
+  // Sync reliability tracking
+  sync_attempts: number;
+  last_sync_error: string | null;
+  last_sync_attempt_at: string | null;
 }
 
 export interface Database {

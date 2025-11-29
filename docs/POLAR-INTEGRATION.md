@@ -29,7 +29,7 @@ This application uses [Polar.sh](https://polar.sh) as our Merchant of Record (Mo
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Our Cloudflare Worker                        │
+│                     Main Cloudflare Worker                       │
 │  ┌────────────────┐         ┌─────────────────┐                 │
 │  │ ClaudeService  │         │ NanoBananaService│                │
 │  │ (Anthropic)    │         │ (Gemini Images)  │                │
@@ -42,16 +42,26 @@ This application uses [Polar.sh](https://polar.sh) as our Merchant of Record (Mo
 │          │  (tracks usage) │                                    │
 │          └────────┬────────┘                                    │
 │                   │                                             │
-│    ┌──────────────┼──────────────┐                              │
-│    ▼              ▼              ▼                              │
-│ ┌──────┐    ┌──────────┐   ┌──────────┐                        │
-│ │ D1   │    │ Polar    │   │ Response │                        │
-│ │Cache │    │ Events   │   │ to User  │                        │
-│ └──────┘    │ API      │   └──────────┘                        │
-│             └────┬─────┘                                        │
-└──────────────────┼──────────────────────────────────────────────┘
-                   │
-                   ▼
+│    ┌──────────────┴──────────────┐                              │
+│    ▼                             ▼                              │
+│ ┌──────────────┐          ┌──────────┐                          │
+│ │ D1 (local)   │          │ Response │                          │
+│ │ usage_events │          │ to User  │                          │
+│ └──────┬───────┘          └──────────┘                          │
+└────────┼────────────────────────────────────────────────────────┘
+         │
+         │  (synced_at = NULL)
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              Polar Billing Worker (Cron: every 5 min)            │
+│  - Reads pending events from D1                                  │
+│  - Batches events with deterministic externalId                  │
+│  - Syncs to Polar with deduplication                            │
+│  - Marks synced_at on success                                   │
+│  - Retries failed events (max 3 attempts)                       │
+└─────────────────────────────────┬───────────────────────────────┘
+                                  │
+                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Polar.sh                                 │
 │  - Aggregates usage into meters                                  │
@@ -115,19 +125,19 @@ AI request → Service executes → UsageService.trackX()
                                         ↓
                           Save to usage_events (D1) [always succeeds]
                                         ↓
-                          Try async sync to Polar [may fail]
+                          synced_at stays NULL (pending)
                                         ↓
-                          If failed: synced_at stays NULL
-                                        ↓
-                          Cron job retries every 5 minutes
+                          Cron job syncs to Polar every 5 minutes
+                          (with externalId for deduplication)
 ```
 
 ### Sync Reliability
 
 Events are **never lost** because:
 1. **Local-first**: Events always saved to D1 before Polar sync attempt
-2. **Idempotent retry**: Cron job syncs `synced_at IS NULL` events in batches
-3. **Eventual consistency**: Failed syncs retry automatically
+2. **Deduplication**: Each event has a deterministic `externalId` (Polar's dedup key)
+3. **Idempotent retry**: Cron job syncs `synced_at IS NULL` events in batches
+4. **Eventual consistency**: Failed syncs retry automatically (max 3 attempts)
 
 ```toml
 # wrangler.toml - Cron trigger every 5 minutes

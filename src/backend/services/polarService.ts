@@ -171,16 +171,18 @@ export class PolarService {
 
   /**
    * Ingest multiple events at once (batch)
+   * Uses externalId for deduplication on retry
    */
   async ingestEventsBatch(
     events: Array<{
       userId: number;
       eventName: string;
       timestamp?: Date;
+      externalId?: string;
       metadata?: PolarEventMetadata;
     }>
-  ): Promise<void> {
-    if (!this.client) return;
+  ): Promise<{ inserted: number; duplicates: number }> {
+    if (!this.client) return { inserted: 0, duplicates: 0 };
 
     const polarEvents = events.map((event) => {
       const cleanMetadata = event.metadata
@@ -193,11 +195,16 @@ export class PolarService {
         name: event.eventName,
         externalCustomerId: String(event.userId),
         timestamp: event.timestamp || new Date(),
+        externalId: event.externalId,
         metadata: cleanMetadata,
       };
     });
 
-    await this.client.events.ingest({ events: polarEvents });
+    const result = await this.client.events.ingest({ events: polarEvents });
+    return {
+      inserted: result.inserted || 0,
+      duplicates: result.duplicates || 0,
+    };
   }
 
   /**
@@ -234,16 +241,18 @@ export class PolarService {
 
   /**
    * Ingest multiple LLM events at once (batch)
+   * Uses externalId for deduplication on retry
    */
   async ingestLLMEventsBatch(
     events: Array<{
       userId: number;
       eventName: string;
       timestamp?: Date;
+      externalId?: string;
       llmData: LLMUsageData;
     }>
-  ): Promise<void> {
-    if (!this.client) return;
+  ): Promise<{ inserted: number; duplicates: number }> {
+    if (!this.client) return { inserted: 0, duplicates: 0 };
 
     const polarEvents = events.map((event) => {
       const llmMetadata: LLMMetadata = {
@@ -259,11 +268,16 @@ export class PolarService {
         name: event.eventName,
         externalCustomerId: String(event.userId),
         timestamp: event.timestamp || new Date(),
+        externalId: event.externalId,
         metadata: { llm: llmMetadata },
       };
     });
 
-    await this.client.events.ingest({ events: polarEvents });
+    const result = await this.client.events.ingest({ events: polarEvents });
+    return {
+      inserted: result.inserted || 0,
+      duplicates: result.duplicates || 0,
+    };
   }
 
   /**

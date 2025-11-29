@@ -1,5 +1,6 @@
 import { injectable, inject, optional } from 'inversify';
 import { UsageEventDAO, type UsageEventMetadata } from '../../dao/usage-event-dao';
+import { UserDAO } from '../../dao/user-dao';
 import { PolarService } from './polarService';
 
 export const USAGE_EVENTS = {
@@ -39,17 +40,28 @@ export interface QuotaCheck {
   message?: string;
 }
 
+export interface SyncResult {
+  synced: number;
+  failed: number;
+}
+
+export interface CustomerSyncResult {
+  created: number;
+  failed: number;
+}
+
 @injectable()
 export class UsageService {
   constructor(
     @inject(UsageEventDAO) private usageEventDAO: UsageEventDAO,
+    @inject(UserDAO) private userDAO: UserDAO,
     @inject(PolarService) @optional() private polarService: PolarService | null,
   ) {}
 
   /**
    * Track Claude API token usage
-   * Creates separate events for input and output tokens (different pricing) in local storage
-   * Sends single LLM event with full breakdown to Polar
+   * Creates separate events for input and output tokens (different pricing) in local storage.
+   * Events are synced to Polar via the cron job (syncPendingEvents) for reliability.
    */
   async trackClaudeUsage(
     userId: number,
@@ -82,25 +94,14 @@ export class UsageService {
         metadata: { ...baseMetadata, token_type: 'output' },
       });
     }
-
-    // Send single LLM event to Polar with full token breakdown
-    if (this.polarService && (tokensIn > 0 || tokensOut > 0)) {
-      this.polarService
-        .ingestLLMEvent(userId, 'claude_usage', {
-          vendor: 'anthropic',
-          model,
-          inputTokens: tokensIn,
-          outputTokens: tokensOut,
-        })
-        .catch((err) => console.warn('Failed to sync Claude usage to Polar:', err));
-    }
+    // Note: Events are synced to Polar via cron job (every 5 min) with proper
+    // deduplication (externalId) and retry logic. No fire-and-forget here.
   }
 
   /**
    * Track Gemini/NanoBanana image generation
-   * Tracks: image count + input/output tokens (if available)
-   * For images: sends quantity in metadata for Polar meter aggregation
-   * For tokens: sends LLM event with full token breakdown
+   * Tracks: image count + input/output tokens (if available) in local storage.
+   * Events are synced to Polar via the cron job (syncPendingEvents) for reliability.
    */
   async trackImageGeneration(
     userId: number,
@@ -124,17 +125,7 @@ export class UsageService {
       metadata: baseMetadata,
     });
 
-    // Send image event to Polar with quantity in metadata
-    if (this.polarService) {
-      this.polarService
-        .ingestEvent(userId, USAGE_EVENTS.GEMINI_IMAGES, {
-          ...baseMetadata,
-          quantity: imageCount,
-        })
-        .catch((err) => console.warn('Failed to sync Gemini image count to Polar:', err));
-    }
-
-    // Track tokens locally
+    // Track tokens locally (if available)
     if (tokenUsage?.inputTokens && tokenUsage.inputTokens > 0) {
       await this.usageEventDAO.create({
         userId,
@@ -152,18 +143,8 @@ export class UsageService {
         metadata: { ...baseMetadata, token_type: 'output' },
       });
     }
-
-    // Send Gemini LLM event to Polar with full token breakdown (if tokens available)
-    if (this.polarService && tokenUsage && (tokenUsage.inputTokens > 0 || tokenUsage.outputTokens > 0)) {
-      this.polarService
-        .ingestLLMEvent(userId, 'gemini_usage', {
-          vendor: 'google',
-          model,
-          inputTokens: tokenUsage.inputTokens || 0,
-          outputTokens: tokenUsage.outputTokens || 0,
-        })
-        .catch((err) => console.warn('Failed to sync Gemini token usage to Polar:', err));
-    }
+    // Note: Events are synced to Polar via cron job (every 5 min) with proper
+    // deduplication (externalId) and retry logic. No fire-and-forget here.
   }
 
   /**
@@ -174,18 +155,25 @@ export class UsageService {
    * - Claude token events: Sent as LLM events with proper metadata
    * - Gemini image events: Sent with quantity in metadata
    * - Gemini token events: Sent as LLM events with proper metadata
+   *
+   * Uses idempotency keys to prevent duplicate charges on retry
    */
-  async syncPendingEvents(batchSize = 100): Promise<number> {
+  async syncPendingEvents(batchSize = 100): Promise<SyncResult> {
     if (!this.polarService) {
-      return 0;
+      return { synced: 0, failed: 0 };
     }
 
     const pendingEvents = await this.usageEventDAO.findUnsynced(batchSize);
     if (pendingEvents.length === 0) {
-      return 0;
+      return { synced: 0, failed: 0 };
     }
 
+    const eventIds = pendingEvents.map((e) => e.id);
+
     try {
+      // Mark sync attempt BEFORE sending to Polar (for tracking)
+      await this.usageEventDAO.incrementSyncAttempts(eventIds);
+
       // Group events by type for proper formatting
       const claudeEvents = pendingEvents.filter((e) =>
         e.event_name.startsWith('claude_')
@@ -207,6 +195,7 @@ export class UsageService {
             userId: group.userId,
             eventName: 'claude_usage',
             timestamp: group.timestamp,
+            externalId: group.externalId,
             llmData: {
               vendor: 'anthropic' as const,
               model: group.model,
@@ -225,6 +214,7 @@ export class UsageService {
             userId: group.userId,
             eventName: 'gemini_usage',
             timestamp: group.timestamp,
+            externalId: group.externalId,
             llmData: {
               vendor: 'google' as const,
               model: group.model,
@@ -244,28 +234,31 @@ export class UsageService {
               userId: event.user_id,
               eventName: event.event_name,
               timestamp: new Date(event.created_at),
+              externalId: event.id, // Use local event ID for deduplication
               metadata: {
                 ...metadata,
                 quantity: event.quantity,
-                local_event_id: event.id,
               },
             };
           })
         );
       }
 
-      // Mark all as synced
-      await this.usageEventDAO.markSynced(pendingEvents.map((e) => e.id));
+      // Mark all as synced AFTER success
+      await this.usageEventDAO.markSynced(eventIds);
 
-      return pendingEvents.length;
+      return { synced: pendingEvents.length, failed: 0 };
     } catch (error) {
+      // Record error for debugging
+      await this.usageEventDAO.recordSyncError(eventIds, String(error));
       console.error('Failed to sync events to Polar:', error);
-      throw error;
+      return { synced: 0, failed: pendingEvents.length };
     }
   }
 
   /**
    * Group Claude input/output events by user and approximate timestamp
+   * Includes deterministic externalId for Polar deduplication
    */
   private groupClaudeEvents(events: Array<{ id: string; user_id: number; event_name: string; quantity: number; metadata: string | null; created_at: string }>): Array<{
     userId: number;
@@ -273,8 +266,9 @@ export class UsageService {
     model: string;
     inputTokens: number;
     outputTokens: number;
+    externalId: string;
   }> {
-    const groups: Map<string, { userId: number; timestamp: Date; model: string; inputTokens: number; outputTokens: number }> = new Map();
+    const groups: Map<string, { userId: number; timestamp: Date; model: string; inputTokens: number; outputTokens: number; externalId: string }> = new Map();
 
     for (const event of events) {
       const metadata = event.metadata ? JSON.parse(event.metadata) : {};
@@ -289,6 +283,8 @@ export class UsageService {
           model: metadata.model || 'unknown',
           inputTokens: 0,
           outputTokens: 0,
+          // Deterministic externalId for Polar deduplication
+          externalId: `claude:${event.user_id}:${timestampKey}`,
         });
       }
 
@@ -305,6 +301,7 @@ export class UsageService {
 
   /**
    * Group Gemini token events by user and approximate timestamp
+   * Includes deterministic externalId for Polar deduplication
    */
   private groupGeminiTokenEvents(events: Array<{ id: string; user_id: number; event_name: string; quantity: number; metadata: string | null; created_at: string }>): Array<{
     userId: number;
@@ -312,8 +309,9 @@ export class UsageService {
     model: string;
     inputTokens: number;
     outputTokens: number;
+    externalId: string;
   }> {
-    const groups: Map<string, { userId: number; timestamp: Date; model: string; inputTokens: number; outputTokens: number }> = new Map();
+    const groups: Map<string, { userId: number; timestamp: Date; model: string; inputTokens: number; outputTokens: number; externalId: string }> = new Map();
 
     for (const event of events) {
       const metadata = event.metadata ? JSON.parse(event.metadata) : {};
@@ -327,6 +325,8 @@ export class UsageService {
           model: metadata.model || 'unknown',
           inputTokens: 0,
           outputTokens: 0,
+          // Deterministic externalId for Polar deduplication
+          externalId: `gemini:${event.user_id}:${timestampKey}`,
         });
       }
 
@@ -496,5 +496,60 @@ export class UsageService {
    */
   async cleanupOldEvents(olderThanDays = 90): Promise<number> {
     return await this.usageEventDAO.deleteOldSyncedEvents(olderThanDays);
+  }
+
+  /**
+   * Sync missing Polar customers
+   * Retries creating Polar customers for users who failed during signup
+   * Handles race conditions by re-checking DB state before Polar operations
+   */
+  async syncMissingCustomers(limit = 50): Promise<CustomerSyncResult> {
+    if (!this.polarService) {
+      return { created: 0, failed: 0 };
+    }
+
+    const usersWithoutPolar = await this.userDAO.findWithoutPolarCustomer(limit);
+    if (usersWithoutPolar.length === 0) {
+      return { created: 0, failed: 0 };
+    }
+
+    let created = 0;
+    let failed = 0;
+
+    for (const user of usersWithoutPolar) {
+      try {
+        // Re-check DB to avoid race condition with concurrent signup
+        const freshUser = await this.userDAO.findById(user.id);
+        if (!freshUser || freshUser.polar_customer_id) {
+          // User was deleted or already has a Polar customer now
+          continue;
+        }
+
+        // Try to create customer in Polar
+        let customerId: string | null = null;
+        try {
+          customerId = await this.polarService.createCustomer(user.id, user.email, user.name);
+        } catch (polarError) {
+          // If creation failed, maybe customer already exists (created by another process)
+          // Try to look up by external ID
+          const existingCustomer = await this.polarService.getCustomerByExternalId(user.id);
+          if (existingCustomer) {
+            customerId = existingCustomer.id;
+          } else {
+            throw polarError; // Re-throw if not a duplicate
+          }
+        }
+
+        if (customerId) {
+          await this.userDAO.update(user.id, { polar_customer_id: customerId });
+          created++;
+        }
+      } catch (error) {
+        console.error(`Failed to create Polar customer for user ${user.id}:`, error);
+        failed++;
+      }
+    }
+
+    return { created, failed };
   }
 }

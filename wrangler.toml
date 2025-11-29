@@ -62,9 +62,9 @@ new_sqlite_classes = ["SpaceDO"]
 binding = "IMAGES"
 bucket_name = "inventory-images-stage"
 
-# Cron Triggers - Usage sync to Polar (every 5 minutes)
-[triggers]
-crons = ["*/5 * * * *"]
+# Cron Triggers - Moved to dedicated polar worker (wrangler.polar.toml)
+# [triggers]
+# crons = ["*/5 * * * *"]
 
 # ====================
 # PRODUCTION ENVIRONMENT
@@ -113,9 +113,9 @@ class_name = "SpaceDO"
 binding = "IMAGES"
 bucket_name = "inventory-images-production"
 
-# Cron Triggers - Usage sync to Polar (every 5 minutes)
-[env.production.triggers]
-crons = ["*/5 * * * *"]
+# Cron Triggers - Moved to dedicated polar worker (wrangler.polar.toml)
+# [env.production.triggers]
+# crons = ["*/5 * * * *"]
 
 # ====================
 # LOCAL DEVELOPMENT
@@ -137,4 +137,3 @@ local_protocol = "http"
 # wrangler secret put POLAR_ACCESS_TOKEN (optional, for Polar.sh billing)
 # wrangler secret put POLAR_ORGANIZATION_ID (optional, for Polar.sh billing)
 # wrangler secret put POLAR_WEBHOOK_SECRET (optional, for Polar webhook verification)
-# wrangler secret put INTERNAL_API_SECRET (for internal billing sync endpoint)

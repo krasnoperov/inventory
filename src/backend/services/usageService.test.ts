@@ -5,19 +5,22 @@ import type { Database } from '../../db/types';
 import { createTestDatabase, cleanupTestDatabase } from '../../test-utils/database';
 import { TestUserBuilder } from '../../test-utils/test-data-builders';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
+import { UserDAO } from '../../dao/user-dao';
 import { UsageService, USAGE_EVENTS } from './usageService';
 
 describe('UsageService', () => {
   let db: Kysely<Database>;
   let usageEventDAO: UsageEventDAO;
+  let userDAO: UserDAO;
   let usageService: UsageService;
   let testUserId: number;
 
   beforeEach(async () => {
     db = await createTestDatabase();
     usageEventDAO = new UsageEventDAO(db);
+    userDAO = new UserDAO(db);
     // Create service without PolarService (null) for local-only testing
-    usageService = new UsageService(usageEventDAO, null);
+    usageService = new UsageService(usageEventDAO, userDAO, null);
 
     // Create a test user
     const user = await new TestUserBuilder()
@@ -173,12 +176,13 @@ describe('UsageService', () => {
   });
 
   describe('syncPendingEvents', () => {
-    test('returns 0 when PolarService is null', async () => {
+    test('returns { synced: 0, failed: 0 } when PolarService is null', async () => {
       // Create some events
       await usageService.trackClaudeUsage(testUserId, 100, 50, 'claude-sonnet-4-20250514');
 
-      const synced = await usageService.syncPendingEvents();
-      assert.strictEqual(synced, 0);
+      const result = await usageService.syncPendingEvents();
+      assert.strictEqual(result.synced, 0);
+      assert.strictEqual(result.failed, 0);
     });
   });
 
@@ -245,6 +249,9 @@ describe('UsageService', () => {
         metadata: null,
         created_at: oldDate.toISOString(),
         synced_at: oldDate.toISOString(), // Mark as synced
+        sync_attempts: 1,
+        last_sync_error: null,
+        last_sync_attempt_at: oldDate.toISOString(),
       }).execute();
 
       // Create a recent event

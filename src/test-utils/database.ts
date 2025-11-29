@@ -33,7 +33,10 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
       quantity INTEGER NOT NULL,
       metadata TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      synced_at TEXT
+      synced_at TEXT,
+      sync_attempts INTEGER NOT NULL DEFAULT 0,
+      last_sync_error TEXT,
+      last_sync_attempt_at TEXT
     )
   `.execute(db);
 

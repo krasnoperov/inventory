@@ -109,4 +109,32 @@ export class UserDAO {
       google_id: user.google_id,
     };
   }
+
+  /**
+   * Find users without a Polar customer ID
+   * Used by cron job to retry customer creation
+   */
+  async findWithoutPolarCustomer(limit = 50): Promise<User[]> {
+    return await this.db
+      .selectFrom('users')
+      .selectAll()
+      .where('polar_customer_id', 'is', null)
+      .orderBy('created_at', 'asc')
+      .limit(limit)
+      .execute();
+  }
+
+  /**
+   * Count users without a Polar customer ID
+   * Used for billing status CLI command
+   */
+  async countWithoutPolarCustomer(): Promise<number> {
+    const result = await this.db
+      .selectFrom('users')
+      .select((eb) => eb.fn.countAll<number>().as('count'))
+      .where('polar_customer_id', 'is', null)
+      .executeTakeFirst();
+
+    return Number(result?.count) || 0;
+  }
 }

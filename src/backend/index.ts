@@ -48,18 +48,20 @@ async function handleScheduled(
 
     // Sync pending events (in batches)
     let totalSynced = 0;
-    let batchSynced: number;
+    let totalFailed = 0;
     const maxBatches = 10; // Safety limit
     let batchCount = 0;
+    let batchResult;
 
     do {
-      batchSynced = await usageService.syncPendingEvents(100);
-      totalSynced += batchSynced;
+      batchResult = await usageService.syncPendingEvents(100);
+      totalSynced += batchResult.synced;
+      totalFailed += batchResult.failed;
       batchCount++;
-    } while (batchSynced > 0 && batchCount < maxBatches);
+    } while (batchResult.synced > 0 && batchCount < maxBatches);
 
-    if (totalSynced > 0) {
-      console.log(`[Scheduled] Synced ${totalSynced} usage events to Polar`);
+    if (totalSynced > 0 || totalFailed > 0) {
+      console.log(`[Scheduled] Synced ${totalSynced} events, ${totalFailed} failed`);
     }
 
     // Cleanup old synced events (older than 90 days)

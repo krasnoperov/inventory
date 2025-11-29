@@ -3,6 +3,8 @@ import type { AppContext } from './types';
 import { AuthService } from '../features/auth/auth-service';
 import { UsageService } from '../services/usageService';
 import { PolarService } from '../services/polarService';
+import { UsageEventDAO } from '../../dao/usage-event-dao';
+import { UserDAO } from '../../dao/user-dao';
 import { getAuthToken } from '../auth';
 
 const billingRoutes = new Hono<AppContext>();
@@ -194,14 +196,118 @@ billingRoutes.get('/api/billing/quota/:service', async (c) => {
 });
 
 /**
+ * Get sync status for CLI/admin
+ * GET /api/billing/sync-status
+ *
+ * Returns counts of pending, failed, and synced events
+ * Plus count of users without Polar customer ID
+ *
+ * TODO: Add admin role check when implementing roles
+ */
+billingRoutes.get('/api/billing/sync-status', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const usageEventDAO = container.get(UsageEventDAO);
+    const userDAO = container.get(UserDAO);
+
+    // Check authentication (Bearer token for CLI)
+    const authHeader = c.req.header('Authorization');
+    const cookieHeader = c.req.header('Cookie');
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    // TODO: Check if user is admin when roles are implemented
+    // For now, any authenticated user can view sync status
+
+    const eventStats = await usageEventDAO.getSyncStats();
+    const usersWithoutPolar = await userDAO.countWithoutPolarCustomer();
+
+    return c.json({
+      events: eventStats,
+      customers: {
+        withoutPolarId: usersWithoutPolar,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching sync status:', error);
+    return c.json({ error: 'Failed to fetch sync status' }, 500);
+  }
+});
+
+/**
+ * Reset failed events for retry
+ * POST /api/billing/retry-failed
+ *
+ * Resets sync_attempts for all failed events so they'll be
+ * picked up by the next cron sync
+ *
+ * TODO: Add admin role check when implementing roles
+ */
+billingRoutes.post('/api/billing/retry-failed', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const usageEventDAO = container.get(UsageEventDAO);
+
+    // Check authentication (Bearer token for CLI)
+    const authHeader = c.req.header('Authorization');
+    const cookieHeader = c.req.header('Cookie');
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    // TODO: Check if user is admin when roles are implemented
+
+    // Find and reset failed events
+    const failedEvents = await usageEventDAO.findFailed(1000);
+
+    if (failedEvents.length === 0) {
+      return c.json({
+        reset: 0,
+        message: 'No failed events to retry.',
+      });
+    }
+
+    const eventIds = failedEvents.map((e) => e.id);
+    await usageEventDAO.resetSyncAttempts(eventIds);
+
+    return c.json({
+      reset: eventIds.length,
+      message: `Reset ${eventIds.length} failed events. They will be synced on the next cron run.`,
+    });
+  } catch (error) {
+    console.error('Error resetting failed events:', error);
+    return c.json({ error: 'Failed to reset events' }, 500);
+  }
+});
+
+/**
  * Sync pending usage events to Polar
  * POST /api/internal/billing/sync
  *
- * Internal endpoint - should be called by:
- * - Cloudflare Cron Trigger (scheduled)
- * - Manual trigger for debugging
- *
- * Protected by INTERNAL_API_SECRET header
+ * Internal endpoint - called by polar worker cron
+ * Note: The polar worker has direct D1 access, so this endpoint
+ * is kept for potential future use but not actively used.
  */
 billingRoutes.post('/api/internal/billing/sync', async (c) => {
   try {
@@ -217,13 +323,14 @@ billingRoutes.post('/api/internal/billing/sync', async (c) => {
     const usageService = container.get(UsageService);
 
     const batchSize = parseInt(c.req.query('batch_size') || '100');
-    const syncedCount = await usageService.syncPendingEvents(batchSize);
+    const result = await usageService.syncPendingEvents(batchSize);
 
     return c.json({
       success: true,
-      synced: syncedCount,
-      message: syncedCount > 0
-        ? `Synced ${syncedCount} events to Polar`
+      synced: result.synced,
+      failed: result.failed,
+      message: result.synced > 0 || result.failed > 0
+        ? `Synced ${result.synced} events, ${result.failed} failed`
         : 'No pending events to sync',
     });
   } catch (error) {

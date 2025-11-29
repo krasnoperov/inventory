@@ -3,6 +3,7 @@ import process from 'node:process';
 import { parseArgs } from './lib/utils';
 import { handleLogin } from './commands/login';
 import { handleLogout } from './commands/logout';
+import { handleBilling } from './commands/billing';
 
 async function main() {
   const [, , command, ...args] = process.argv;
@@ -27,11 +28,16 @@ async function main() {
 
 function printHelp() {
   console.log(`
-CLI Tool - Bare Framework Foundation
+CLI Tool - Inventory
 
 Authentication:
   login                        Authenticate with the API and store access token
   logout                       Remove stored credentials
+
+Billing (Polar.sh):
+  billing status               Show sync status (pending, failed, synced events)
+  billing sync                 Trigger manual sync of pending events
+  billing retry-failed         Retry all failed events
 
 Options:
   --env <environment>          Target environment (production|stage|local), default: stage
@@ -41,12 +47,8 @@ Examples:
   npm run cli login            Authenticate with stage environment
   npm run cli login --env production
   npm run cli logout
-
---- FUTURE: Add your domain-specific commands here ---
-Example:
-  assets list                  List all assets
-  assets get <id>              Get detailed info about a specific asset
-  assets create                Create a new asset
+  npm run cli billing status   Show billing sync status
+  npm run cli billing retry    Reset failed events for retry
 `);
 }
 
@@ -57,6 +59,9 @@ async function dispatchCommand(command: string, parsed: Parameters<typeof parseA
       break;
     case 'logout':
       await handleLogout(parsed);
+      break;
+    case 'billing':
+      await handleBilling(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);
