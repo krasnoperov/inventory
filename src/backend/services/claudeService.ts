@@ -15,6 +15,81 @@ import { shouldAutoExecute, getTrustLevel, TOOL_TRUST_MAP } from './trustLevels'
 export type { ChatMessage, ForgeContext, ViewingContext, BotResponse };
 
 // =============================================================================
+// Image Generation Best Practices (injected into system prompt)
+// =============================================================================
+
+const IMAGE_GENERATION_GUIDE = `
+IMAGE GENERATION BEST PRACTICES:
+
+1. BE SPECIFIC IN PROMPTS
+   Instead of generic descriptions, use detailed specifics:
+   - Architecture: "A mid-century modern house with floor-to-ceiling windows, flat roof, and cantilevered second floor, desert landscape"
+   - Interiors: "Scandinavian living room with light oak flooring, white linen sofa, monstera plant in terracotta pot, north-facing window light"
+   - Characters: "A woman in her 30s with shoulder-length black hair, wearing a navy blazer, confident expression"
+   - Products: "Matte black ceramic coffee mug, cylindrical, 12oz, on white marble surface"
+   Include: subject, style, lighting, mood, composition, materials/textures
+
+2. ONE STEP AT A TIME
+   Change only ONE thing per refinement. Multiple changes = unpredictable results.
+
+   Bad: "change the sofa to blue, add a coffee table, and make it evening lighting"
+   Good: Step 1: "Change sofa upholstery to navy blue" → Step 2: "Add walnut coffee table in front of sofa" → Step 3: "Change to warm evening lighting from table lamps"
+
+   Bad: "make the building taller with more windows and different materials"
+   Good: Step 1: "Add two more floors to the building" → Step 2: "Add floor-to-ceiling windows on new floors" → Step 3: "Change facade material to weathered copper panels"
+
+3. VISUAL ANCHORS FOR CONSISTENCY
+   Repeat exact phrases across prompts to maintain consistency:
+   - Architecture: "red brick Victorian facade", "industrial steel-frame windows", "polished concrete floors"
+   - People: "woman with short silver hair and round glasses", "man in charcoal wool coat"
+   - Style: "soft diffused natural light from large windows", "warm golden hour sunlight", "overcast flat lighting"
+   - Materials: "white oak with visible grain", "brushed brass hardware", "matte black metal frame"
+
+4. EXPLICIT STATE CHANGES
+   When modifying, be explicit about what changes:
+   - "Add a pendant light above the dining table. Brass globe pendant centered over table."
+   - "Remove the rug. Hardwood floor now visible throughout the room."
+   - "Replace the curtains with wooden blinds. White wooden venetian blinds on all windows."
+   - "The person is now seated at the desk. Same outfit, seated position."
+
+5. ENTITY REFERENCES IN COMBINES
+   Be specific about which image contributes what:
+   - "The sofa from image 1 placed in the living room from image 2, against the main wall"
+   - "The person from image 1 standing in the office space from image 2, near the window"
+   - "The building facade from image 1 with the landscaping from image 2 in the foreground"
+   - "Use the color palette from image 1 but the room layout from image 2"
+   - NOT: "combine these" or "put them together"
+
+6. STRUCTURED PROMPTS FOR COMPLEX SCENES
+   For combines, structure clearly:
+   - References: what each input image represents
+   - Scene: the setting or environment
+   - Subject: what goes where, spatial relationships
+   - Lighting: direction, quality, time of day
+   - Constraints: what must stay the same
+
+   Example: "The modern armchair from image 1 placed in the sunroom from image 2. Position armchair in the corner by the windows. Maintain the warm afternoon lighting from image 2. Keep the chair's exact fabric texture and walnut legs."
+
+7. POSITIVE DESCRIPTIONS WORK BETTER
+   "Minimalist room with clean surfaces" works better than "remove the clutter"
+   "Clear blue sky" works better than "no clouds"
+   Describe what you want, not what you don't want.
+
+8. SPATIAL UNDERSTANDING
+   Works well: placing furniture in rooms, objects on surfaces, people in environments, "next to", "in front of", "on the wall"
+   Challenging: precise measurements, exact spacing, complex multi-object arrangements
+   Tip: Build complex scenes gradually - start with the room, add major furniture, then accessories.
+
+9. CONSISTENCY ACROSS A SERIES
+   For consistent elements across multiple images:
+   - Create a "reference sheet" first (multiple angles, detail shots)
+   - Architecture: generate exterior, then use as reference for interior views
+   - Products: generate hero shot, then use for lifestyle/context images
+   - People: generate a clear portrait first, then use for different scenes/poses
+   - Keep visual anchor phrases identical across all prompts
+`;
+
+// =============================================================================
 // Usage Tracking Types
 // =============================================================================
 
@@ -224,7 +299,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'generate_asset',
-    description: 'Generate a new asset from scratch using a text prompt. This creates a brand new asset in the space.',
+    description: 'Generate a new asset from scratch using a text prompt. Creates a brand new asset in the space. PROMPT TIPS: Be specific - include subject, style, lighting, mood, materials. Use visual anchors (exact phrases to reuse for consistency). Examples: "Scandinavian living room with light oak floors, white linen sofa, monstera in terracotta pot, soft north-facing window light" or "Woman in her 30s, shoulder-length black hair, navy blazer, confident expression, studio lighting" or "Mid-century modern house, floor-to-ceiling windows, flat roof, desert landscape, golden hour"',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -239,7 +314,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
         },
         prompt: {
           type: 'string',
-          description: 'Detailed prompt describing the image to generate',
+          description: 'Detailed prompt. Include: subject with specifics, style/aesthetic, lighting, mood, materials/textures. Use phrases you can repeat for consistency (visual anchors like "light oak flooring", "industrial steel windows", "warm afternoon light").',
         },
         parentAssetId: {
           type: 'string',
@@ -251,7 +326,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'refine_asset',
-    description: 'Add a new variant to an existing asset by refining it with a prompt',
+    description: 'Add a new variant to an existing asset by refining it with a prompt. IMPORTANT: Change only ONE thing at a time for best results. Multiple changes = unpredictable results. Be explicit about state changes. Use positive descriptions rather than negative.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -261,7 +336,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
         },
         prompt: {
           type: 'string',
-          description: 'Prompt describing how to modify/refine the asset',
+          description: 'Prompt describing ONE specific change. Examples: "Change sofa upholstery to navy blue velvet", "Add pendant light above the dining table", "Change time of day to sunset with warm orange light", "Person now seated at the desk, same outfit". For removals: "Remove the rug. Hardwood floor visible throughout."',
         },
       },
       required: ['assetId', 'prompt'],
@@ -269,22 +344,22 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'combine_assets',
-    description: 'Combine multiple asset references into a new asset or variant',
+    description: 'Combine multiple asset references into a new asset. IMPORTANT: Use explicit entity references - say exactly what comes from which image. Structure prompt with: what each image provides, spatial relationships, lighting, and what must stay the same. Works best with 2-4 references.',
     input_schema: {
       type: 'object' as const,
       properties: {
         sourceAssetIds: {
           type: 'array',
           items: { type: 'string' },
-          description: 'IDs of assets to combine (2 or more)',
+          description: 'IDs of assets to combine (2-4 recommended). Order matters for entity references.',
         },
         prompt: {
           type: 'string',
-          description: 'Prompt describing how to combine the assets',
+          description: 'Structured combination prompt. Examples: "The armchair from image 1 placed in the living room from image 2, positioned by the window, maintain the warm afternoon lighting" or "The person from image 1 standing in the office from image 2, near the desk, same outfit and pose" or "Building facade from image 1 with the landscaping from image 2 in foreground, golden hour lighting". Always specify: what from each image, where it goes, lighting, what to preserve.',
         },
         targetName: {
           type: 'string',
-          description: 'Name for the combined result (if creating new asset)',
+          description: 'Name for the combined result',
         },
         targetType: {
           type: 'string',
@@ -427,27 +502,42 @@ IMPORTANT: When the user asks you to describe what they're viewing or asks about
 
 GUIDELINES:
 - Answer questions about assets and creative workflow
-- Suggest prompts and techniques
+- Suggest prompts and techniques using the best practices below
 - Explain operations and best practices
 - Help users understand their options
+
+${IMAGE_GENERATION_GUIDE}
 
 Be helpful, creative, and concise.`;
     } else {
       prompt += `MODE: ACTOR (Tool Use Enabled)
 You can take actions to help the user create and manage assets.
 
+${IMAGE_GENERATION_GUIDE}
+
 GUIDELINES:
 1. For complex requests (multiple assets, series, collections), use create_plan to make a step-by-step plan
 2. For simple single actions, use the appropriate tool directly
 3. Always confirm understanding before taking destructive actions
-4. Be creative with prompts - make them detailed and visually specific
-5. When generating prompts, consider: composition, lighting, style, mood, details
+4. Apply the best practices above when crafting prompts
+5. For multi-step changes, break them into separate refine_asset calls (one change per step)
 
 COMMON WORKFLOWS:
-- "Create a character" → generate_asset with detailed prompt
-- "Make variations" → refine_asset with modification prompts
-- "Create a set/collection" → create_plan with multiple generate_asset steps
-- "Combine these" → combine_assets with the references
+- "Create a room/space" → generate_asset with detailed prompt (style, materials, lighting, furniture)
+- "Create a character/person" → generate_asset with appearance details, then create reference variants
+- "Make variations" → refine_asset with ONE specific change per call
+- "Redesign the space" → create_plan with sequential refine_asset steps (one change each)
+- "Place furniture in room" → combine_assets with furniture from image 1 in room from image 2
+- "Create a photo collage" → combine_assets with explicit entity references for each element
+- "Create architectural views" → create_plan: generate exterior, then interior views using exterior as reference
+- "Product lifestyle shots" → create_plan: generate product, then combine with different scene backgrounds
+
+PROMPT QUALITY CHECKLIST:
+✓ Specific subject (not "a room" but "Scandinavian living room with light oak floors")
+✓ Materials/textures (white linen, brushed brass, polished concrete)
+✓ Style/aesthetic (mid-century modern, industrial, minimalist, photorealistic)
+✓ Lighting (soft north-facing window light, warm golden hour, studio lighting)
+✓ Visual anchors for consistency (exact phrases to reuse across prompts)
 
 Always explain what you're doing and why.`;
     }
