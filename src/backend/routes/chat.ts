@@ -6,6 +6,7 @@ import { SpaceDAO } from '../../dao/space-dao';
 import { getAuthToken } from '../auth';
 import { ClaudeService, type BotContext, type ChatMessage, type ForgeContext, type ViewingContext } from '../services/claudeService';
 import { UsageService } from '../services/usageService';
+import { MemoryService } from '../services/memoryService';
 import { chatRateLimiter, suggestionRateLimiter } from '../middleware/rate-limit';
 import { arrayBufferToBase64, detectImageType } from '../utils/image-utils';
 
@@ -19,6 +20,7 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
     const memberDAO = container.get(MemberDAO);
     const spaceDAO = container.get(SpaceDAO);
     const usageService = container.get(UsageService);
+    const memoryService = container.get(MemoryService);
     const env = c.env;
 
     // Check authentication
@@ -119,6 +121,20 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
       }
     }
 
+    // Get personalization context (learned patterns)
+    let personalizationContext: string | undefined;
+    try {
+      const { patternContext } = await memoryService.getPersonalizationContext(
+        payload.userId,
+        spaceId
+      );
+      if (patternContext) {
+        personalizationContext = patternContext;
+      }
+    } catch (err) {
+      console.warn('Failed to get personalization context:', err);
+    }
+
     // Build context
     const context: BotContext = {
       spaceId,
@@ -127,6 +143,7 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
       mode: mode as 'advisor' | 'actor',
       forge: forgeContext,
       viewing: viewingContext,
+      personalizationContext,
     };
 
     // Process message with Claude
@@ -593,6 +610,70 @@ chatRoutes.get('/api/spaces/:id/chat/history', async (c) => {
   } catch (error) {
     console.error('Error getting chat history:', error);
     return c.json({ error: 'Failed to get chat history' }, 500);
+  }
+});
+
+// POST /api/spaces/:id/chat/feedback - Record feedback on a variant
+chatRoutes.post('/api/spaces/:id/chat/feedback', async (c) => {
+  try {
+    const container = c.get('container');
+    const authService = container.get(AuthService);
+    const memberDAO = container.get(MemberDAO);
+    const memoryService = container.get(MemoryService);
+
+    // Check authentication
+    const cookieHeader = c.req.header("Cookie");
+    const token = getAuthToken(cookieHeader || null);
+
+    if (!token) {
+      return c.json({ error: 'Authentication required' }, 401);
+    }
+
+    const payload = await authService.verifyJWT(token);
+    if (!payload) {
+      return c.json({ error: 'Invalid authentication' }, 401);
+    }
+
+    const spaceId = c.req.param('id');
+    const userId = String(payload.userId);
+
+    // Verify user is member of space
+    const member = await memberDAO.getMember(spaceId, userId);
+    if (!member) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    const { variantId, rating, prompt } = body as {
+      variantId: string;
+      rating: 'positive' | 'negative';
+      prompt?: string;
+    };
+
+    if (!variantId || !rating) {
+      return c.json({ error: 'variantId and rating are required' }, 400);
+    }
+
+    if (rating !== 'positive' && rating !== 'negative') {
+      return c.json({ error: 'rating must be "positive" or "negative"' }, 400);
+    }
+
+    // Record feedback
+    const feedbackId = await memoryService.recordFeedback({
+      userId: payload.userId,
+      variantId,
+      rating,
+      prompt,
+    });
+
+    return c.json({
+      success: true,
+      feedbackId,
+    });
+  } catch (error) {
+    console.error('Error recording feedback:', error);
+    return c.json({ error: 'Failed to record feedback' }, 500);
   }
 });
 

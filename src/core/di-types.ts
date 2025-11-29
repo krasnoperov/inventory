@@ -11,6 +11,7 @@ export const TYPES = {
   MemberDAO: Symbol.for('MemberDAO'),
   JobDAO: Symbol.for('JobDAO'),
   UsageEventDAO: Symbol.for('UsageEventDAO'),
+  MemoryDAO: Symbol.for('MemoryDAO'),
 
   // For classes, we use the class constructor directly
   // This file only contains symbols for non-class bindings

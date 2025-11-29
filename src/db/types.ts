@@ -88,6 +88,10 @@ export interface Database {
   asset_index: AssetIndexTable;
   jobs: JobsTable;
   usage_events: UsageEventsTable;
+  // Phase 2: Assistant Memory
+  user_patterns: UserPatternsTable;
+  user_feedback: UserFeedbackTable;
+  user_preferences: UserPreferencesTable;
 }
 
 // User types
@@ -127,3 +131,57 @@ export type JobUpdate = Updateable<JobsTable>;
 export type UsageEvent = Selectable<UsageEventsTable>;
 export type NewUsageEvent = Insertable<UsageEventsTable>;
 export type UsageEventUpdate = Updateable<UsageEventsTable>;
+
+// ============================================================================
+// PHASE 2 - Assistant Memory & Personalization
+// ============================================================================
+
+export interface UserPatternsTable {
+  id: string;
+  user_id: number;
+  space_id: string | null;  // NULL = global pattern
+  asset_type: string;  // 'character', 'scene', 'object', etc.
+  prompt_text: string;
+  prompt_hash: string;
+  success_count: number;
+  total_uses: number;
+  style_tags: string | null;  // JSON array
+  last_used_at: string;
+  created_at: string;
+}
+
+export interface UserFeedbackTable {
+  id: string;
+  user_id: number;
+  variant_id: string;
+  rating: 'positive' | 'negative';
+  prompt: string | null;
+  created_at: string;
+}
+
+export interface UserPreferencesTable {
+  user_id: number;
+  default_art_style: string | null;
+  default_aspect_ratio: string | null;
+  auto_execute_safe: boolean;
+  auto_approve_low_cost: boolean;
+  inject_patterns: boolean;
+  max_patterns_context: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// UserPattern types
+export type UserPattern = Selectable<UserPatternsTable>;
+export type NewUserPattern = Insertable<UserPatternsTable>;
+export type UserPatternUpdate = Updateable<UserPatternsTable>;
+
+// UserFeedback types
+export type UserFeedback = Selectable<UserFeedbackTable>;
+export type NewUserFeedback = Insertable<UserFeedbackTable>;
+export type UserFeedbackUpdate = Updateable<UserFeedbackTable>;
+
+// UserPreferences types
+export type UserPreferences = Selectable<UserPreferencesTable>;
+export type NewUserPreferences = Insertable<UserPreferencesTable>;
+export type UserPreferencesUpdate = Updateable<UserPreferencesTable>;

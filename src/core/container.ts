@@ -11,6 +11,7 @@ import { SpaceDAO } from '../dao/space-dao';
 import { MemberDAO } from '../dao/member-dao';
 import { JobDAO } from '../dao/job-dao';
 import { UsageEventDAO } from '../dao/usage-event-dao';
+import { MemoryDAO } from '../dao/memory-dao';
 
 // Import Auth Services
 import { AuthService } from '../backend/features/auth/auth-service';
@@ -21,6 +22,7 @@ import { AuthHandler } from '../backend/features/auth/auth-handler';
 import { NanoBananaService } from '../backend/services/nanoBananaService';
 import { PolarService } from '../backend/services/polarService';
 import { UsageService } from '../backend/services/usageService';
+import { MemoryService } from '../backend/services/memoryService';
 
 /**
  * Create and configure the dependency injection container
@@ -53,6 +55,9 @@ export function createContainer(env: Env): Container {
   container.bind(UsageEventDAO).toSelf().inSingletonScope();
   container.bind(TYPES.UsageEventDAO).toService(UsageEventDAO);
 
+  container.bind(MemoryDAO).toSelf().inSingletonScope();
+  container.bind(TYPES.MemoryDAO).toService(MemoryDAO);
+
   // Bind Auth Services
   container.bind(AuthService).toSelf().inSingletonScope();
   container.bind(AuthController).toSelf().inSingletonScope();
@@ -71,6 +76,9 @@ export function createContainer(env: Env): Container {
 
   // UsageService always bound (works with or without Polar)
   container.bind(UsageService).toSelf().inSingletonScope();
+
+  // Memory & Personalization
+  container.bind(MemoryService).toSelf().inSingletonScope();
 
   return container;
 }

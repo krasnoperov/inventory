@@ -113,8 +113,13 @@ export interface AdvisorResponse {
 /** Action response with tool calls */
 export interface ActorResponse {
   type: 'action';
-  toolCalls: ToolCall[];
   message: string;
+  /** Tool calls (legacy mode or when trust zones disabled) */
+  toolCalls?: ToolCall[];
+  /** Safe tools that were auto-executed (trust zone mode) */
+  autoExecuted?: AutoExecutedAction[];
+  /** Generating tools pending approval (trust zone mode) */
+  pendingApprovals?: PendingApproval[];
 }
 
 /** Plan response for multi-step operations */
@@ -126,3 +131,40 @@ export interface PlanResponse {
 
 /** Union of all bot response types */
 export type BotResponse = AdvisorResponse | ActorResponse | PlanResponse;
+
+// ============================================================================
+// TRUST ZONES - Auto-execute vs Approval
+// ============================================================================
+
+/** Result of an auto-executed safe tool */
+export interface AutoExecutedAction {
+  tool: string;
+  params: Record<string, unknown>;
+  result: unknown;
+  success: boolean;
+  error?: string;
+}
+
+/** A tool call pending user approval */
+export interface PendingApproval {
+  id: string;
+  tool: string;
+  params: Record<string, unknown>;
+  description: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: number;
+}
+
+/** Request to approve/reject pending tool calls */
+export interface ApprovalRequest {
+  approvalIds: string[];
+  action: 'approve' | 'reject';
+}
+
+/** Result of approval processing */
+export interface ApprovalResult {
+  approvalId: string;
+  success: boolean;
+  result?: unknown;
+  error?: string;
+}

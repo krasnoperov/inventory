@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useCallback } from 'react';
-import type { AssistantPlan, PlanStep } from '../../api/types';
+import type { AssistantPlan, PlanStep, PendingApproval, AutoExecutedAction } from '../../api/types';
 
 // =============================================================================
 // Types
@@ -33,6 +33,10 @@ export interface ChatSession {
   planError?: string;
   isOpen: boolean;
   lastUpdated: number;
+  /** Pending approvals for generating tools (trust zones) */
+  pendingApprovals: PendingApproval[];
+  /** Results of auto-executed safe tools (trust zones) */
+  lastAutoExecuted: AutoExecutedAction[];
 }
 
 interface ChatState {
@@ -57,6 +61,13 @@ interface ChatState {
   failStep: (spaceId: string, stepIndex: number, error: string) => void;
   cancelPlan: (spaceId: string) => void;
   resetPlan: (spaceId: string) => void;
+
+  // Trust zone actions
+  setPendingApprovals: (spaceId: string, approvals: PendingApproval[]) => void;
+  approveApproval: (spaceId: string, approvalId: string) => PendingApproval | undefined;
+  rejectApproval: (spaceId: string, approvalId: string) => void;
+  clearPendingApprovals: (spaceId: string) => void;
+  setLastAutoExecuted: (spaceId: string, actions: AutoExecutedAction[]) => void;
 }
 
 // =============================================================================
@@ -71,6 +82,8 @@ const createEmptySession = (): ChatSession => ({
   planStatus: 'idle',
   isOpen: false,
   lastUpdated: Date.now(),
+  pendingApprovals: [],
+  lastAutoExecuted: [],
 });
 
 const generateMessageId = (): string => {
@@ -356,6 +369,89 @@ export const useChatStore = create<ChatState>()(
           },
         }));
       },
+
+      // Trust zone actions
+      setPendingApprovals: (spaceId, approvals) => {
+        set((state) => ({
+          sessions: {
+            ...state.sessions,
+            [spaceId]: {
+              ...(state.sessions[spaceId] || createEmptySession()),
+              pendingApprovals: approvals,
+              lastUpdated: Date.now(),
+            },
+          },
+        }));
+      },
+
+      approveApproval: (spaceId, approvalId) => {
+        const session = get().sessions[spaceId];
+        if (!session) return undefined;
+
+        const approval = session.pendingApprovals.find(a => a.id === approvalId);
+        if (!approval) return undefined;
+
+        set((state) => ({
+          sessions: {
+            ...state.sessions,
+            [spaceId]: {
+              ...session,
+              pendingApprovals: session.pendingApprovals.map(a =>
+                a.id === approvalId ? { ...a, status: 'approved' as const } : a
+              ),
+              lastUpdated: Date.now(),
+            },
+          },
+        }));
+
+        return approval;
+      },
+
+      rejectApproval: (spaceId, approvalId) => {
+        set((state) => {
+          const session = state.sessions[spaceId];
+          if (!session) return state;
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [spaceId]: {
+                ...session,
+                pendingApprovals: session.pendingApprovals.map(a =>
+                  a.id === approvalId ? { ...a, status: 'rejected' as const } : a
+                ),
+                lastUpdated: Date.now(),
+              },
+            },
+          };
+        });
+      },
+
+      clearPendingApprovals: (spaceId) => {
+        set((state) => ({
+          sessions: {
+            ...state.sessions,
+            [spaceId]: {
+              ...(state.sessions[spaceId] || createEmptySession()),
+              pendingApprovals: [],
+              lastUpdated: Date.now(),
+            },
+          },
+        }));
+      },
+
+      setLastAutoExecuted: (spaceId, actions) => {
+        set((state) => ({
+          sessions: {
+            ...state.sessions,
+            [spaceId]: {
+              ...(state.sessions[spaceId] || createEmptySession()),
+              lastAutoExecuted: actions,
+              lastUpdated: Date.now(),
+            },
+          },
+        }));
+      },
     }),
     {
       name: 'chat-storage',
@@ -375,6 +471,8 @@ export const useChatStore = create<ChatState>()(
 // =============================================================================
 
 const emptyMessages: ChatMessage[] = [];
+const emptyApprovals: PendingApproval[] = [];
+const emptyAutoExecuted: AutoExecutedAction[] = [];
 const defaultSession: ChatSession = {
   messages: emptyMessages,
   inputBuffer: '',
@@ -383,6 +481,8 @@ const defaultSession: ChatSession = {
   planStatus: 'idle',
   isOpen: false,
   lastUpdated: 0,
+  pendingApprovals: emptyApprovals,
+  lastAutoExecuted: emptyAutoExecuted,
 };
 
 // =============================================================================
@@ -440,6 +540,22 @@ export function useChatPlanStatus(spaceId: string) {
 export function useChatIsOpen(spaceId: string) {
   const selector = useCallback(
     (state: ChatState) => state.sessions[spaceId]?.isOpen ?? false,
+    [spaceId]
+  );
+  return useChatStore(selector);
+}
+
+export function usePendingApprovals(spaceId: string) {
+  const selector = useCallback(
+    (state: ChatState) => state.sessions[spaceId]?.pendingApprovals ?? emptyApprovals,
+    [spaceId]
+  );
+  return useChatStore(selector);
+}
+
+export function useLastAutoExecuted(spaceId: string) {
+  const selector = useCallback(
+    (state: ChatState) => state.sessions[spaceId]?.lastAutoExecuted ?? emptyAutoExecuted,
     [spaceId]
   );
   return useChatStore(selector);

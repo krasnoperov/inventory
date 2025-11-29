@@ -7,7 +7,9 @@ import type {
   AssistantPlan,
   AdvisorResponse,
   BotResponse,
+  PendingApproval,
 } from '../../api/types';
+import { shouldAutoExecute, getTrustLevel, TOOL_TRUST_MAP } from './trustLevels';
 
 // Re-export types for consumers
 export type { ChatMessage, ForgeContext, ViewingContext, BotResponse };
@@ -44,6 +46,8 @@ export interface BotContext {
   viewing?: ViewingContext;
   // Current plan being executed
   activePlan?: AssistantPlan;
+  // Personalization: learned patterns and preferences
+  personalizationContext?: string;
 }
 
 // =============================================================================
@@ -405,6 +409,11 @@ ${plan.steps.map((s, i) => `${i + 1}. [${s.status}] ${s.description}${s.result ?
 `;
     }
 
+    // Inject personalization context (learned patterns)
+    if (context.personalizationContext) {
+      prompt += context.personalizationContext;
+    }
+
     if (context.mode === 'advisor') {
       prompt += `MODE: ADVISOR (Read Tools Available)
 You can observe and analyze assets, but cannot modify them.
@@ -448,9 +457,11 @@ Always explain what you're doing and why.`;
 
   /**
    * Parse tool response from Claude
+   * Classifies tool calls by trust level for auto-execute vs approval
    */
   private parseToolResponse(response: Anthropic.Message): BotResponse {
-    const toolCalls: ToolCall[] = [];
+    const safeToolCalls: ToolCall[] = [];
+    const generatingToolCalls: ToolCall[] = [];
     let textContent = '';
 
     for (const block of response.content) {
@@ -482,19 +493,42 @@ Always explain what you're doing and why.`;
           };
         }
 
-        // Regular tool call
-        toolCalls.push({
+        // Classify tool by trust level
+        const toolCall: ToolCall = {
           name: block.name,
           params: block.input as Record<string, unknown>,
-        });
+        };
+
+        if (shouldAutoExecute(block.name)) {
+          safeToolCalls.push(toolCall);
+        } else {
+          generatingToolCalls.push(toolCall);
+        }
       }
     }
 
-    if (toolCalls.length > 0) {
+    // If we have any tool calls, return action response with trust zone classification
+    if (safeToolCalls.length > 0 || generatingToolCalls.length > 0) {
+      // Convert generating tools to pending approvals
+      const pendingApprovals: PendingApproval[] = generatingToolCalls.map((tc, index) => {
+        const config = TOOL_TRUST_MAP[tc.name];
+        return {
+          id: `approval_${Date.now()}_${index}`,
+          tool: tc.name,
+          params: tc.params,
+          description: config?.description || tc.name,
+          status: 'pending' as const,
+          createdAt: Date.now(),
+        };
+      });
+
       return {
         type: 'action',
-        toolCalls,
-        message: textContent || 'Executing actions...',
+        message: textContent || this.buildActionMessage(safeToolCalls, pendingApprovals),
+        // Safe tools - caller should auto-execute these
+        toolCalls: safeToolCalls.length > 0 ? safeToolCalls : undefined,
+        // Generating tools - need user approval
+        pendingApprovals: pendingApprovals.length > 0 ? pendingApprovals : undefined,
       };
     }
 
@@ -503,6 +537,28 @@ Always explain what you're doing and why.`;
       type: 'advice',
       message: textContent || 'I understand. How can I help?',
     };
+  }
+
+  /**
+   * Build a helpful message describing what actions will be taken
+   */
+  private buildActionMessage(safeCalls: ToolCall[], pendingApprovals: PendingApproval[]): string {
+    const parts: string[] = [];
+
+    if (safeCalls.length > 0) {
+      const safeDescriptions = safeCalls.map(tc => {
+        const config = TOOL_TRUST_MAP[tc.name];
+        return config?.description || tc.name;
+      });
+      parts.push(`Executing: ${safeDescriptions.join(', ')}`);
+    }
+
+    if (pendingApprovals.length > 0) {
+      const approvalDescriptions = pendingApprovals.map(pa => pa.description);
+      parts.push(`Awaiting approval: ${approvalDescriptions.join(', ')}`);
+    }
+
+    return parts.join('. ') || 'Processing...';
   }
 
   /**

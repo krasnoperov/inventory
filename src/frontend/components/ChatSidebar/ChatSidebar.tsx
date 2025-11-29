@@ -7,6 +7,7 @@ import {
   useChatMode,
   useChatPlan,
   useChatPlanStatus,
+  usePendingApprovals,
   type ChatMessage,
 } from '../../stores/chatStore';
 import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
@@ -19,6 +20,7 @@ import { useToolExecution } from './hooks/useToolExecution';
 import { MessageList } from './MessageList';
 import { PlanPanel } from './PlanPanel';
 import { ChatInput } from './ChatInput';
+import { PreferencesPanel } from './PreferencesPanel';
 import styles from './ChatSidebar.module.css';
 
 // =============================================================================
@@ -76,6 +78,7 @@ export function ChatSidebar({
   const mode = useChatMode(spaceId);
   const activePlan = useChatPlan(spaceId);
   const planStatus = useChatPlanStatus(spaceId);
+  const pendingApprovals = usePendingApprovals(spaceId);
 
   // Store actions
   const {
@@ -92,6 +95,12 @@ export function ChatSidebar({
     failStep,
     cancelPlan,
     resetPlan,
+    // Trust zone actions
+    setPendingApprovals,
+    approveApproval,
+    rejectApproval,
+    clearPendingApprovals,
+    setLastAutoExecuted,
   } = useChatStore();
 
   // Local state (transient - not persisted)
@@ -100,6 +109,7 @@ export function ChatSidebar({
   const [isAutoReviewing, setIsAutoReviewing] = useState(false);
   const [isExecutingStep, setIsExecutingStep] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
 
   // Tool execution hook
   const toolExec = useToolExecution({
@@ -377,6 +387,73 @@ export function ChatSidebar({
   }, [spaceId, rejectPlan]);
 
   // ==========================================================================
+  // Approval Handlers (Trust Zones)
+  // ==========================================================================
+
+  const handleApproveToolCall = useCallback(async (approvalId: string) => {
+    const approval = approveApproval(spaceId, approvalId);
+    if (!approval) return;
+
+    // Convert approval to tool call and execute
+    const toolCall = {
+      name: approval.tool,
+      params: approval.params,
+    };
+
+    try {
+      const result = await toolExec.executeToolCall(toolCall);
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: `✅ Approved and executed: ${approval.description}\n${result}`,
+        timestamp: Date.now(),
+      });
+
+      // Clear this approval from pending list
+      const remaining = pendingApprovals.filter(a => a.id !== approvalId);
+      setPendingApprovals(spaceId, remaining);
+    } catch (err) {
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: `❌ Failed to execute ${approval.description}: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        timestamp: Date.now(),
+        isError: true,
+      });
+    }
+  }, [spaceId, approveApproval, pendingApprovals, setPendingApprovals, toolExec, addMessage]);
+
+  const handleRejectToolCall = useCallback((approvalId: string) => {
+    const approval = pendingApprovals.find(a => a.id === approvalId);
+    if (!approval) return;
+
+    rejectApproval(spaceId, approvalId);
+
+    // Remove from pending list
+    const remaining = pendingApprovals.filter(a => a.id !== approvalId);
+    setPendingApprovals(spaceId, remaining);
+
+    addMessage(spaceId, {
+      role: 'assistant',
+      content: `❌ Rejected: ${approval.description}`,
+      timestamp: Date.now(),
+    });
+  }, [spaceId, pendingApprovals, rejectApproval, setPendingApprovals, addMessage]);
+
+  const handleApproveAll = useCallback(async () => {
+    for (const approval of pendingApprovals) {
+      await handleApproveToolCall(approval.id);
+    }
+  }, [pendingApprovals, handleApproveToolCall]);
+
+  const handleRejectAll = useCallback(() => {
+    clearPendingApprovals(spaceId);
+    addMessage(spaceId, {
+      role: 'assistant',
+      content: `❌ Rejected all pending actions`,
+      timestamp: Date.now(),
+    });
+  }, [spaceId, clearPendingApprovals, addMessage]);
+
+  // ==========================================================================
   // Message Sending
   // ==========================================================================
 
@@ -430,11 +507,38 @@ export function ChatSidebar({
           content: botResponse.message,
           timestamp: Date.now(),
         });
-      } else if (botResponse.type === 'action' && botResponse.toolCalls) {
-        const results = await toolExec.executeToolCalls(botResponse.toolCalls);
+      } else if (botResponse.type === 'action') {
+        // Trust Zones: Handle auto-execute vs pending approvals
+        const messageParts: string[] = [botResponse.message];
+
+        // Auto-execute safe tools (toolCalls)
+        if (botResponse.toolCalls && botResponse.toolCalls.length > 0) {
+          const results = await toolExec.executeToolCalls(botResponse.toolCalls);
+          messageParts.push('\n**Auto-executed:**');
+          messageParts.push(results.join('\n'));
+
+          // Store results in state for reference
+          setLastAutoExecuted(spaceId, botResponse.toolCalls.map((tc, i) => ({
+            tool: tc.name,
+            params: tc.params,
+            result: results[i],
+            success: results[i].startsWith('✅'),
+          })));
+        }
+
+        // Store pending approvals for generating tools
+        if (botResponse.pendingApprovals && botResponse.pendingApprovals.length > 0) {
+          setPendingApprovals(spaceId, botResponse.pendingApprovals);
+          messageParts.push('\n**Awaiting approval:**');
+          botResponse.pendingApprovals.forEach(pa => {
+            messageParts.push(`⏳ ${pa.description}`);
+          });
+          messageParts.push('\n_Use the approval panel below to approve or reject._');
+        }
+
         addMessage(spaceId, {
           role: 'assistant',
-          content: `${botResponse.message}\n\n${results.join('\n')}`,
+          content: messageParts.join('\n'),
           timestamp: Date.now(),
         });
       } else {
@@ -546,6 +650,13 @@ export function ChatSidebar({
           <span className={styles.botIcon}>🤖</span>
           <h3>Forge Assistant</h3>
         </div>
+        <button
+          className={styles.settingsButton}
+          onClick={() => setShowPreferences(true)}
+          title="Preferences"
+        >
+          &#9881;
+        </button>
         <button className={styles.closeButton} onClick={onClose} title="Close chat">
           ×
         </button>
@@ -615,6 +726,65 @@ export function ChatSidebar({
         onCancel={handleCancel}
       />
 
+      {/* Approval Panel (Trust Zones) */}
+      {pendingApprovals.length > 0 && (
+        <div className={styles.approvalPanel}>
+          <div className={styles.approvalHeader}>
+            <span className={styles.approvalIcon}>⏳</span>
+            <span className={styles.approvalTitle}>
+              {pendingApprovals.length} action{pendingApprovals.length > 1 ? 's' : ''} awaiting approval
+            </span>
+          </div>
+          <div className={styles.approvalList}>
+            {pendingApprovals.map(approval => (
+              <div key={approval.id} className={styles.approvalItem}>
+                <div className={styles.approvalDescription}>
+                  <span className={styles.approvalTool}>{approval.description}</span>
+                  {typeof approval.params.prompt === 'string' && approval.params.prompt && (
+                    <span className={styles.approvalPrompt}>
+                      "{approval.params.prompt.slice(0, 50)}
+                      {approval.params.prompt.length > 50 ? '...' : ''}"
+                    </span>
+                  )}
+                </div>
+                <div className={styles.approvalActions}>
+                  <button
+                    className={styles.approveButton}
+                    onClick={() => handleApproveToolCall(approval.id)}
+                    title="Approve"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    className={styles.rejectButton}
+                    onClick={() => handleRejectToolCall(approval.id)}
+                    title="Reject"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {pendingApprovals.length > 1 && (
+            <div className={styles.approvalBulkActions}>
+              <button
+                className={styles.approveAllButton}
+                onClick={handleApproveAll}
+              >
+                Approve All
+              </button>
+              <button
+                className={styles.rejectAllButton}
+                onClick={handleRejectAll}
+              >
+                Reject All
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Message List */}
       <MessageList
         messages={messages}
@@ -635,6 +805,12 @@ export function ChatSidebar({
         onModeChange={handleModeChange}
         disabled={isLoading || isExecuting}
         showClear={messages.length > 0}
+      />
+
+      {/* Preferences Panel */}
+      <PreferencesPanel
+        isOpen={showPreferences}
+        onClose={() => setShowPreferences(false)}
       />
     </div>
   );
