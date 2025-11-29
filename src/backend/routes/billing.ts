@@ -100,12 +100,16 @@ billingRoutes.get('/api/billing/portal', async (c) => {
  * - meters: array of { name, consumed, credited, remaining, percentUsed, hasLimit }
  * - subscription: { status, renewsAt } if subscribed
  * - portalUrl: link to manage billing
+ *
+ * Side effect: Refreshes local D1 quota_limits cache from Polar API.
+ * This ensures quota limits stay fresh when user views billing page.
  */
 billingRoutes.get('/api/billing/status', async (c) => {
   try {
     const container = c.get('container');
     const authService = container.get(AuthService);
     const polarService = container.get(PolarService);
+    const userDAO = container.get(UserDAO);
 
     // Check authentication
     const cookieHeader = c.req.header('Cookie');
@@ -120,8 +124,21 @@ billingRoutes.get('/api/billing/status', async (c) => {
       return c.json({ error: 'Invalid authentication' }, 401);
     }
 
-    // Get full billing status
+    // Get full billing status from Polar
     const status = await polarService.getBillingStatus(payload.userId);
+
+    // Refresh local D1 quota_limits cache (non-blocking)
+    // This keeps local limits in sync when user views billing page
+    if (status.meters.length > 0) {
+      const limits: Record<string, number | null> = {};
+      for (const meter of status.meters) {
+        limits[meter.meterSlug] = meter.hasLimit ? meter.credited : null;
+      }
+      userDAO.update(payload.userId, {
+        quota_limits: JSON.stringify(limits),
+        quota_limits_updated_at: new Date().toISOString(),
+      }).catch(err => console.warn('Failed to refresh local quota_limits:', err));
+    }
 
     // Format response for frontend healthbar
     return c.json({
