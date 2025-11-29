@@ -78,6 +78,17 @@ chatRoutes.post('/api/spaces/:id/chat', chatRateLimiter, async (c) => {
       return c.json({ error: 'Bot assistant not configured' }, 503);
     }
 
+    // Check quota before making Claude API call
+    const quotaCheck = await usageService.checkQuota(payload.userId, 'claude');
+    if (!quotaCheck.allowed) {
+      return c.json({
+        error: 'Quota exceeded',
+        message: quotaCheck.message || 'You have exceeded your Claude usage quota. Please upgrade your plan.',
+        remaining: quotaCheck.remaining,
+        limit: quotaCheck.limit,
+      }, 402);
+    }
+
     // Get assets from DO for context
     let assets: BotContext['assets'] = [];
     if (env.SPACES_DO) {
@@ -198,6 +209,7 @@ chatRoutes.post('/api/spaces/:id/chat/suggest', suggestionRateLimiter, async (c)
     const authService = container.get(AuthService);
     const memberDAO = container.get(MemberDAO);
     const spaceDAO = container.get(SpaceDAO);
+    const usageService = container.get(UsageService);
     const env = c.env;
 
     // Check authentication
@@ -241,6 +253,17 @@ chatRoutes.post('/api/spaces/:id/chat/suggest', suggestionRateLimiter, async (c)
       return c.json({ error: 'Bot assistant not configured' }, 503);
     }
 
+    // Check quota before making Claude API call
+    const quotaCheck = await usageService.checkQuota(payload.userId, 'claude');
+    if (!quotaCheck.allowed) {
+      return c.json({
+        error: 'Quota exceeded',
+        message: quotaCheck.message || 'You have exceeded your Claude usage quota. Please upgrade your plan.',
+        remaining: quotaCheck.remaining,
+        limit: quotaCheck.limit,
+      }, 402);
+    }
+
     // Build context
     const context: BotContext = {
       spaceId,
@@ -251,7 +274,15 @@ chatRoutes.post('/api/spaces/:id/chat/suggest', suggestionRateLimiter, async (c)
 
     // Get prompt suggestion
     const claudeService = new ClaudeService(env.ANTHROPIC_API_KEY);
-    const suggestion = await claudeService.suggestPrompt(context, assetType, theme);
+    const { suggestion, usage } = await claudeService.suggestPrompt(context, assetType, theme);
+
+    // Track Claude API usage
+    usageService.trackClaudeUsage(
+      payload.userId,
+      usage.inputTokens,
+      usage.outputTokens,
+      'claude-sonnet-4-20250514'
+    ).catch(err => console.warn('Failed to track Claude usage:', err));
 
     return c.json({
       success: true,
@@ -269,6 +300,7 @@ chatRoutes.post('/api/spaces/:id/chat/describe', chatRateLimiter, async (c) => {
     const container = c.get('container');
     const authService = container.get(AuthService);
     const memberDAO = container.get(MemberDAO);
+    const usageService = container.get(UsageService);
     const env = c.env;
 
     // Check authentication
@@ -309,6 +341,17 @@ chatRoutes.post('/api/spaces/:id/chat/describe', chatRateLimiter, async (c) => {
     // Check Claude API key
     if (!env.ANTHROPIC_API_KEY) {
       return c.json({ error: 'Bot assistant not configured' }, 503);
+    }
+
+    // Check quota before making Claude API call
+    const quotaCheck = await usageService.checkQuota(payload.userId, 'claude');
+    if (!quotaCheck.allowed) {
+      return c.json({
+        error: 'Quota exceeded',
+        message: quotaCheck.message || 'You have exceeded your Claude usage quota. Please upgrade your plan.',
+        remaining: quotaCheck.remaining,
+        limit: quotaCheck.limit,
+      }, 402);
     }
 
     // Get variant image_key from DO
@@ -355,7 +398,15 @@ chatRoutes.post('/api/spaces/:id/chat/describe', chatRateLimiter, async (c) => {
 
     // Call Claude to describe the image
     const claudeService = new ClaudeService(env.ANTHROPIC_API_KEY);
-    const description = await claudeService.describeImage(base64, mediaType, assetName, focus, question);
+    const { description, usage } = await claudeService.describeImage(base64, mediaType, assetName, focus, question);
+
+    // Track Claude API usage
+    usageService.trackClaudeUsage(
+      payload.userId,
+      usage.inputTokens,
+      usage.outputTokens,
+      'claude-sonnet-4-20250514'
+    ).catch(err => console.warn('Failed to track Claude usage:', err));
 
     return c.json({
       success: true,
@@ -373,6 +424,7 @@ chatRoutes.post('/api/spaces/:id/chat/compare', chatRateLimiter, async (c) => {
     const container = c.get('container');
     const authService = container.get(AuthService);
     const memberDAO = container.get(MemberDAO);
+    const usageService = container.get(UsageService);
     const env = c.env;
 
     // Check authentication
@@ -411,6 +463,17 @@ chatRoutes.post('/api/spaces/:id/chat/compare', chatRateLimiter, async (c) => {
     // Check Claude API key
     if (!env.ANTHROPIC_API_KEY) {
       return c.json({ error: 'Bot assistant not configured' }, 503);
+    }
+
+    // Check quota before making Claude API call
+    const quotaCheck = await usageService.checkQuota(payload.userId, 'claude');
+    if (!quotaCheck.allowed) {
+      return c.json({
+        error: 'Quota exceeded',
+        message: quotaCheck.message || 'You have exceeded your Claude usage quota. Please upgrade your plan.',
+        remaining: quotaCheck.remaining,
+        limit: quotaCheck.limit,
+      }, 402);
     }
 
     // Get variant image_keys from DO
@@ -459,7 +522,15 @@ chatRoutes.post('/api/spaces/:id/chat/compare', chatRateLimiter, async (c) => {
 
     // Call Claude to compare images
     const claudeService = new ClaudeService(env.ANTHROPIC_API_KEY);
-    const comparison = await claudeService.compareImages(images, aspects);
+    const { comparison, usage } = await claudeService.compareImages(images, aspects);
+
+    // Track Claude API usage
+    usageService.trackClaudeUsage(
+      payload.userId,
+      usage.inputTokens,
+      usage.outputTokens,
+      'claude-sonnet-4-20250514'
+    ).catch(err => console.warn('Failed to track Claude usage:', err));
 
     return c.json({
       success: true,

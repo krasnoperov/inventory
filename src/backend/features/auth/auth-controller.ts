@@ -131,6 +131,24 @@ export class AuthController {
         google_id: googleId,
       });
 
+      // Create Polar customer for billing (if Polar is configured)
+      if (this.polarService.isConfigured()) {
+        try {
+          const polarCustomerId = await this.polarService.createCustomer(
+            userId,
+            email,
+            name || ''
+          );
+          if (polarCustomerId) {
+            await this.userDAO.update(userId, { polar_customer_id: polarCustomerId });
+            console.log(`Created Polar customer ${polarCustomerId} for user ${userId}`);
+          }
+        } catch (polarError) {
+          // Log but don't fail signup if Polar customer creation fails
+          console.error(`Failed to create Polar customer for user ${userId}:`, polarError);
+        }
+      }
+
       return userId;
     } else if (!user.google_id) {
       // Update existing user with Google ID if not set

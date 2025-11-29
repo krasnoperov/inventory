@@ -531,12 +531,13 @@ Always explain what you're doing and why.`;
 
   /**
    * Generate a creative prompt suggestion
+   * Returns both the suggestion and token usage for billing
    */
   async suggestPrompt(
     context: BotContext,
     assetType: string,
     theme?: string
-  ): Promise<string> {
+  ): Promise<{ suggestion: string; usage: ClaudeUsage }> {
     const prompt = theme
       ? `Generate a creative image prompt for a ${assetType} with the theme "${theme}". The prompt should be detailed and specific for AI image generation.`
       : `Generate a creative image prompt for a ${assetType}. Consider the existing assets in the space for consistency. The prompt should be detailed and specific for AI image generation.`;
@@ -548,13 +549,20 @@ Always explain what you're doing and why.`;
       messages: [{ role: 'user', content: prompt }],
     });
 
-    return response.content[0].type === 'text'
-      ? response.content[0].text
-      : '';
+    return {
+      suggestion: response.content[0].type === 'text'
+        ? response.content[0].text
+        : '',
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      },
+    };
   }
 
   /**
    * Describe an image using multimodal Claude
+   * Returns both the description and token usage for billing
    */
   async describeImage(
     imageBase64: string,
@@ -562,7 +570,7 @@ Always explain what you're doing and why.`;
     assetName: string,
     focus: 'general' | 'style' | 'composition' | 'details' | 'compare' = 'general',
     question?: string
-  ): Promise<string> {
+  ): Promise<{ description: string; usage: ClaudeUsage }> {
     // If a specific question is provided, use it directly
     if (question) {
       const userPrompt = `This is an image of "${assetName}" from a visual asset library.\n\nQuestion: ${question}\n\nPlease answer the question based on what you see in the image.`;
@@ -589,9 +597,15 @@ Always explain what you're doing and why.`;
         }],
       });
 
-      return response.content[0].type === 'text'
-        ? response.content[0].text
-        : 'Unable to analyze this image.';
+      return {
+        description: response.content[0].type === 'text'
+          ? response.content[0].text
+          : 'Unable to analyze this image.',
+        usage: {
+          inputTokens: response.usage.input_tokens,
+          outputTokens: response.usage.output_tokens,
+        },
+      };
     }
 
     // Fallback to focus-based prompts
@@ -627,18 +641,25 @@ Always explain what you're doing and why.`;
       }],
     });
 
-    return response.content[0].type === 'text'
-      ? response.content[0].text
-      : 'Unable to describe this image.';
+    return {
+      description: response.content[0].type === 'text'
+        ? response.content[0].text
+        : 'Unable to describe this image.',
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      },
+    };
   }
 
   /**
    * Compare multiple images using multimodal Claude
+   * Returns both the comparison and token usage for billing
    */
   async compareImages(
     images: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; label: string }>,
     aspects: string[] = ['style', 'composition', 'colors']
-  ): Promise<string> {
+  ): Promise<{ comparison: string; usage: ClaudeUsage }> {
     const imageBlocks: Anthropic.ImageBlockParam[] = images.map((img) => ({
       type: 'image',
       source: {
@@ -671,8 +692,14 @@ For each aspect, describe similarities and differences between the images. Which
       }],
     });
 
-    return response.content[0].type === 'text'
-      ? response.content[0].text
-      : 'Unable to compare these images.';
+    return {
+      comparison: response.content[0].type === 'text'
+        ? response.content[0].text
+        : 'Unable to compare these images.',
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      },
+    };
   }
 }
