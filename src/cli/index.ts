@@ -5,6 +5,7 @@ import { handleLogin } from './commands/login';
 import { handleLogout } from './commands/logout';
 import { handleBilling } from './commands/billing';
 import { handleChat } from './commands/chat';
+import { handleSpaces } from './commands/spaces';
 
 async function main() {
   const [, , command, ...args] = process.argv;
@@ -40,6 +41,11 @@ Billing (Polar.sh):
   billing sync                 Trigger manual sync of pending events
   billing retry-failed         Retry all failed events
 
+Spaces:
+  spaces                       List all spaces
+  spaces --details             List spaces with asset summaries
+  spaces --id <id>             Show details for a specific space
+
 Chat:
   chat send <msg>              Send message to chat service (no execution)
   chat execute                 Execute pending actions
@@ -54,6 +60,7 @@ Examples:
   npm run cli login --env production
   npm run cli logout
   npm run cli billing status   Show billing sync status
+  npm run cli spaces --details List spaces with asset summaries
   npm run cli chat send "Create a warrior" --space space_123 --state test.json
 `);
 }
@@ -71,6 +78,9 @@ async function dispatchCommand(command: string, parsed: Parameters<typeof parseA
       break;
     case 'chat':
       await handleChat(parsed);
+      break;
+    case 'spaces':
+      await handleSpaces(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);
