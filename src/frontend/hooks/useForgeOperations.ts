@@ -4,20 +4,25 @@
  * Centralizes all forge operations (generate, refine, combine) for both
  * SpacePage and AssetDetailPage. Works at the asset level - backend
  * resolves asset IDs to default variants.
+ *
+ * All operations use WebSocket for real-time communication with the backend.
+ * The backend triggers Cloudflare Workflows for async processing.
  */
 
 import { useCallback } from 'react';
 import type { ForgeSubmitParams } from '../components/ForgeTray';
-import type { JobContext } from './useSpaceWebSocket';
+import type { GenerateRequestParams, RefineRequestParams } from './useSpaceWebSocket';
 
 export interface UseForgeOperationsParams {
-  spaceId: string;
-  trackJob: (jobId: string, context?: JobContext) => void;
+  /** WebSocket function to send generate requests */
+  sendGenerateRequest: (params: GenerateRequestParams) => string;
+  /** WebSocket function to send refine requests */
+  sendRefineRequest: (params: RefineRequestParams) => string;
 }
 
 export interface UseForgeOperationsReturn {
   /** Submit a forge operation (generate, refine, combine, fork) */
-  handleForgeSubmit: (params: ForgeSubmitParams) => Promise<string>;
+  handleForgeSubmit: (params: ForgeSubmitParams) => string;
 
   /** Chat callback: Generate a new asset (optionally with reference images) */
   onGenerateAsset: (params: {
@@ -26,13 +31,13 @@ export interface UseForgeOperationsReturn {
     prompt: string;
     parentAssetId?: string;
     referenceAssetIds?: string[];
-  }) => Promise<string | void>;
+  }) => string;
 
   /** Chat callback: Refine an existing asset with a new variant */
   onRefineAsset: (params: {
     assetId: string;
     prompt: string;
-  }) => Promise<string | void>;
+  }) => string;
 
   /** Chat callback: Combine multiple assets into a new one */
   onCombineAssets: (params: {
@@ -40,100 +45,65 @@ export interface UseForgeOperationsReturn {
     prompt: string;
     targetName: string;
     targetType: string;
-  }) => Promise<string | void>;
+  }) => string;
 }
 
 export function useForgeOperations({
-  spaceId,
-  trackJob,
+  sendGenerateRequest,
+  sendRefineRequest,
 }: UseForgeOperationsParams): UseForgeOperationsReturn {
 
   /**
-   * Submit a forge operation to the backend.
+   * Submit a forge operation via WebSocket.
    *
    * Supports two reference modes (backend resolves appropriately):
    * - referenceAssetIds: Asset-level refs (from Chat/Claude) - backend resolves to default variants
    * - referenceVariantIds: Explicit variant refs (from ForgeTray UI) - used as-is
+   *
+   * Returns requestId for tracking the operation.
    */
-  const handleForgeSubmit = useCallback(async (params: ForgeSubmitParams): Promise<string> => {
+  const handleForgeSubmit = useCallback((params: ForgeSubmitParams): string => {
     const { prompt, referenceVariantIds = [], referenceAssetIds, destination } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
 
     if (destination.type === 'existing_asset' && destination.assetId) {
-      // Add variant to existing asset (refine operation)
-      // sourceVariantId is optional - backend resolves from asset's active variant if not provided
+      // Add variant to existing asset (refine operation) - prompt is required
+      if (!prompt) {
+        throw new Error('Prompt is required for refine operations');
+      }
+
       const sourceVariantId = hasVariantRefs ? referenceVariantIds[0] : undefined;
 
-      const response = await fetch(`/api/spaces/${spaceId}/assets/${destination.assetId}/variants`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourceVariantId,
-          prompt,
-          referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
-          referenceVariantIds: !hasAssetRefs && referenceVariantIds.length > 1 ? referenceVariantIds.slice(1) : undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to start variant generation');
-      }
-
-      const result = await response.json() as { success: boolean; jobId: string };
-      const refCount = hasAssetRefs ? referenceAssetIds.length : referenceVariantIds.length;
-      trackJob(result.jobId, {
-        jobType: refCount > 1 ? 'compose' : 'derive',
-        prompt,
+      return sendRefineRequest({
         assetId: destination.assetId,
-        assetName: destination.assetName,
+        prompt,
+        sourceVariantId,
+        referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
       });
-      return result.jobId;
     } else {
       // Create new asset
-      const response = await fetch(`/api/spaces/${spaceId}/assets`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: destination.assetName || 'Generated Asset',
-          type: destination.assetType || 'character',
-          parentAssetId: destination.parentAssetId || undefined,
-          prompt,
-          referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
-          referenceVariantIds: !hasAssetRefs && hasVariantRefs ? referenceVariantIds : undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to start generation');
-      }
-
-      const result = await response.json() as { success: boolean; jobId: string; mode: string; assetId: string };
-      trackJob(result.jobId, {
-        jobType: result.mode as 'generate' | 'derive' | 'compose',
+      return sendGenerateRequest({
+        name: destination.assetName || 'Generated Asset',
+        assetType: destination.assetType || 'character',
         prompt,
-        assetId: result.assetId,
-        assetName: destination.assetName,
+        referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
+        parentAssetId: destination.parentAssetId || undefined,
       });
-      return result.jobId;
     }
-  }, [spaceId, trackJob]);
+  }, [sendGenerateRequest, sendRefineRequest]);
 
   /**
    * Chat callback: Generate a new asset
    * Passes referenceAssetIds directly - backend resolves to default variants
    */
-  const onGenerateAsset = useCallback(async (params: {
+  const onGenerateAsset = useCallback((params: {
     name: string;
     type: string;
     prompt: string;
     parentAssetId?: string;
     referenceAssetIds?: string[];
-  }): Promise<string | void> => {
+  }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
       referenceAssetIds: params.referenceAssetIds,
@@ -151,10 +121,10 @@ export function useForgeOperations({
    * Chat callback: Refine an existing asset
    * Passes assetId only - backend resolves sourceVariantId from asset's active variant
    */
-  const onRefineAsset = useCallback(async (params: {
+  const onRefineAsset = useCallback((params: {
     assetId: string;
     prompt: string;
-  }): Promise<string | void> => {
+  }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
       destination: {
@@ -169,12 +139,12 @@ export function useForgeOperations({
    * Chat callback: Combine multiple assets
    * Passes asset IDs directly - backend resolves to default variants
    */
-  const onCombineAssets = useCallback(async (params: {
+  const onCombineAssets = useCallback((params: {
     sourceAssetIds: string[];
     prompt: string;
     targetName: string;
     targetType: string;
-  }): Promise<string | void> => {
+  }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
       referenceAssetIds: params.sourceAssetIds,

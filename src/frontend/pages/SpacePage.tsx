@@ -1,18 +1,17 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
-import { useChatStore, useChatIsOpen } from '../stores/chatStore';
-import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
+import type { Asset, Variant, ChatResponseResult, DescribeResponseResult, CompareResponseResult } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { ChatSidebar } from '../components/ChatSidebar';
-import { AssetCard } from '../components/AssetCard';
+import { AssetCanvas } from '../components/AssetCanvas';
 import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import styles from './SpacePage.module.css';
@@ -46,6 +45,7 @@ export default function SpacePage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(true);
 
   // Set page title
   useDocumentTitle(space?.name);
@@ -53,27 +53,31 @@ export default function SpacePage() {
   // Forge tray store
   const { addSlot } = useForgeTrayStore();
 
+  // Track chat response for ChatSidebar
+  const [chatResponse, setChatResponse] = useState<ChatResponseResult | null>(null);
+  // Track describe/compare responses for ChatSidebar tool execution
+  const [describeResponse, setDescribeResponse] = useState<DescribeResponseResult | null>(null);
+  const [compareResponse, setCompareResponse] = useState<CompareResponseResult | null>(null);
+
   // WebSocket connection for real-time updates
   const {
     status: wsStatus,
-    error: wsError,
     assets,
     variants,
     jobs,
     requestSync,
-    trackJob,
     clearJob,
-    deleteAsset,
-    createAsset,
-    updateAsset,
+    sendChatRequest,
+    sendGenerateRequest,
+    sendRefineRequest,
+    sendDescribeRequest,
+    sendCompareRequest,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
     },
     onJobComplete: (completedJob, variant) => {
-      // Notify ChatSidebar of completed job for auto-review
-      // Pass thumbKey directly to avoid race condition with variants state
       setLastCompletedJob({
         jobId: completedJob.jobId,
         variantId: variant.id,
@@ -83,17 +87,16 @@ export default function SpacePage() {
         thumbKey: variant.thumb_key || variant.image_key,
       });
     },
+    onChatResponse: (response) => {
+      setChatResponse(response);
+    },
+    onDescribeResponse: (response) => {
+      setDescribeResponse(response);
+    },
+    onCompareResponse: (response) => {
+      setCompareResponse(response);
+    },
   });
-
-  // Chat sidebar state (persisted in store)
-  const showChat = useChatIsOpen(spaceId || '');
-  const setIsOpen = useChatStore((state) => state.setIsOpen);
-  const toggleChat = useCallback(() => {
-    setIsOpen(spaceId || '', !showChat);
-  }, [setIsOpen, spaceId, showChat]);
-  const closeChat = useCallback(() => {
-    setIsOpen(spaceId || '', false);
-  }, [setIsOpen, spaceId]);
 
   // Track last completed job for assistant auto-review
   const [lastCompletedJob, setLastCompletedJob] = useState<{
@@ -104,7 +107,6 @@ export default function SpacePage() {
     prompt?: string;
     thumbKey?: string;
   } | null>(null);
-
 
   // Export/Import state
   const [isExporting, setIsExporting] = useState(false);
@@ -160,47 +162,11 @@ export default function SpacePage() {
     fetchSpaceData();
   }, [user, spaceId, navigate]);
 
-  // Get all assets sorted by hierarchy (root first, then by name)
-  const sortedAssets = useMemo(() => {
-    // Build a path for each asset for sorting
-    const getPath = (asset: Asset): string[] => {
-      const path: string[] = [];
-      let current: Asset | undefined = asset;
-      while (current) {
-        path.unshift(current.name);
-        current = assets.find(a => a.id === current?.parent_asset_id);
-      }
-      return path;
-    };
-
-    return [...assets].sort((a, b) => {
-      const pathA = getPath(a);
-      const pathB = getPath(b);
-      // Sort by path depth first (roots first), then alphabetically
-      if (pathA.length !== pathB.length) {
-        return pathA.length - pathB.length;
-      }
-      return pathA.join('/').localeCompare(pathB.join('/'));
-    });
-  }, [assets]);
-
-  // Build parent path for each asset
-  const getParentPath = useCallback((asset: Asset): Asset[] => {
-    const path: Asset[] = [];
-    let current = assets.find(a => a.id === asset.parent_asset_id);
-    while (current) {
-      path.unshift(current);
-      current = assets.find(a => a.id === current?.parent_asset_id);
-    }
-    return path;
-  }, [assets]);
-
-  // Use shared forge operations hook (handles generate, refine, combine)
+  // Use shared forge operations hook (all operations via WebSocket)
   const { handleForgeSubmit, onGenerateAsset, onRefineAsset, onCombineAssets } = useForgeOperations({
-    spaceId: spaceId || '',
-    trackJob,
+    sendGenerateRequest,
+    sendRefineRequest,
   });
-
 
   // Handle add to forge tray
   const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
@@ -281,29 +247,8 @@ export default function SpacePage() {
     }
   }, [spaceId, isImporting, requestSync]);
 
-  // Check if asset is generating
-  const isAssetGenerating = useCallback((assetId: string) => {
-    return Array.from(jobs.values()).some(
-      j => j.assetId === assetId && (j.status === 'pending' || j.status === 'processing')
-    );
-  }, [jobs]);
-
-  const getGeneratingStatus = useCallback((assetId: string) => {
-    const job = Array.from(jobs.values()).find(
-      j => j.assetId === assetId && (j.status === 'pending' || j.status === 'processing')
-    );
-    return job?.status as 'pending' | 'processing' | undefined;
-  }, [jobs]);
-
   const headerRightSlot = user ? (
     <div className={styles.headerRight}>
-      <button
-        className={`${styles.chatToggle} ${showChat ? styles.active : ''}`}
-        onClick={toggleChat}
-        title={showChat ? 'Close chat' : 'Open assistant'}
-      >
-        🤖
-      </button>
       <HeaderNav userName={user.name} userEmail={user.email} />
     </div>
   ) : (
@@ -318,9 +263,9 @@ export default function SpacePage() {
           rightSlot={headerRightSlot}
           statusSlot={<UsageIndicator />}
         />
-        <main className={styles.main}>
+        <div className={styles.loadingPage}>
           <div className={styles.loading}>Loading space...</div>
-        </main>
+        </div>
       </div>
     );
   }
@@ -333,13 +278,13 @@ export default function SpacePage() {
           rightSlot={headerRightSlot}
           statusSlot={<UsageIndicator />}
         />
-        <main className={styles.main}>
+        <div className={styles.errorPage}>
           <div className={styles.error}>
             <h2>Error</h2>
             <p>{error || 'Space not found'}</p>
             <Link to="/" className={styles.backLink}>Back to Spaces</Link>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
@@ -347,216 +292,161 @@ export default function SpacePage() {
   const canEdit = space.role === 'owner' || space.role === 'editor';
 
   return (
-    <div className={`${styles.page} ${showChat ? styles.withChat : ''}`}>
+    <div className={styles.page}>
       <AppHeader
         leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
         rightSlot={headerRightSlot}
         statusSlot={<UsageIndicator />}
       />
 
-      <div className={styles.pageContent}>
-        <main className={styles.main}>
-          <div className={styles.header}>
-            <div className={styles.titleRow}>
-              <h1 className={styles.title}>{space.name}</h1>
-              <span className={`${styles.roleBadge} ${styles[space.role]}`}>
-                {space.role}
-              </span>
-              {wsStatus === 'connected' && (
-                <span className={styles.liveIndicator}>Live</span>
-              )}
-            </div>
-            <div className={styles.headerActions}>
-              <p className={styles.subtitle}>
-                {members.length} member{members.length !== 1 ? 's' : ''} &bull; {assets.length} asset{assets.length !== 1 ? 's' : ''}
-                {wsError && <span className={styles.wsError}> (Connection error)</span>}
-              </p>
-              <div className={styles.exportImportButtons}>
-                <button
-                  className={styles.exportButton}
-                  onClick={handleExport}
-                  disabled={isExporting || assets.length === 0}
-                  title={assets.length === 0 ? 'No assets to export' : 'Export all assets as ZIP'}
-                >
-                  {isExporting ? 'Exporting...' : 'Export'}
-                </button>
-                {canEdit && (
-                  <>
-                    <button
-                      className={styles.importButton}
-                      onClick={() => importInputRef.current?.click()}
-                      disabled={isImporting}
-                    >
-                      {isImporting ? 'Importing...' : 'Import'}
-                    </button>
-                    <input
-                      ref={importInputRef}
-                      type="file"
-                      accept=".zip"
-                      style={{ display: 'none' }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleImport(file);
-                      }}
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Active Jobs */}
-          {jobs.size > 0 && (
-            <section className={styles.jobsSection}>
-              {Array.from(jobs.values()).map((job) => {
-                const jobTypeLabel = {
-                  generate: 'Generating',
-                  derive: 'Creating variant',
-                  compose: 'Composing',
-                }[job.jobType || 'generate'] || 'Processing';
-
-                return (
-                  <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
-                    <div className={styles.jobHeader}>
-                      <div className={styles.jobStatus}>
-                        {job.status === 'pending' && '⏳'}
-                        {job.status === 'processing' && '🎨'}
-                        {job.status === 'completed' && '✅'}
-                        {job.status === 'failed' && '❌'}
-                      </div>
-                      <div className={styles.jobInfo}>
-                        <span className={styles.jobTitle}>
-                          {job.status === 'pending' && `${jobTypeLabel} queued...`}
-                          {job.status === 'processing' && `${jobTypeLabel}...`}
-                          {job.status === 'completed' && `${jobTypeLabel} complete`}
-                          {job.status === 'failed' && `${jobTypeLabel} failed`}
-                        </span>
-                        {job.assetName && (
-                          <span className={styles.jobAssetName}>{job.assetName}</span>
-                        )}
-                        {job.prompt && job.status !== 'completed' && (
-                          <span className={styles.jobPrompt} title={job.prompt}>
-                            "{job.prompt.length > 60 ? job.prompt.slice(0, 60) + '...' : job.prompt}"
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {job.error && <div className={styles.jobError}>{job.error}</div>}
-                    {(job.status === 'completed' || job.status === 'failed') && (
-                      <button
-                        className={styles.dismissButton}
-                        onClick={() => clearJob(job.jobId)}
-                      >
-                        Dismiss
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </section>
-          )}
-
-          {/* Asset Catalogue - Hierarchical View */}
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Assets</h2>
-            </div>
-
-            {assets.length === 0 ? (
-              <div className={styles.emptyState}>
-                <span className={styles.emptyIcon}>🎨</span>
-                <p className={styles.emptyText}>No assets yet</p>
-                <p className={styles.emptySubtext}>
-                  {canEdit
-                    ? 'Use the Forge Tray below to create your first asset'
-                    : 'Assets will appear here when created'}
-                </p>
-              </div>
-            ) : (
-              <div className={styles.assetCatalogue}>
-                {sortedAssets.map((asset) => {
-                  const assetVariants = variants.filter(v => v.asset_id === asset.id);
-                  const parentPath = getParentPath(asset);
-
-                  return (
-                    <AssetCard
-                      key={asset.id}
-                      asset={asset}
-                      variants={assetVariants}
-                      childAssets={[]}
-                      allAssets={assets}
-                      allVariants={variants}
-                      depth={0}
-                      parentPath={parentPath}
-                      isGenerating={isAssetGenerating(asset.id)}
-                      generatingStatus={getGeneratingStatus(asset.id)}
-                      canEdit={canEdit}
-                      spaceId={spaceId || ''}
-                      onAssetClick={(clickedAsset) => {
-                        navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
-                      }}
-                      onAddToTray={canEdit ? handleAddToTray : undefined}
-                      onAddChildAsset={(parentAsset) => {
-                        const name = window.prompt('Child asset name:');
-                        if (!name || !name.trim()) return;
-                        const type = window.prompt('Asset type (character, item, scene, etc.):', 'character');
-                        if (!type) return;
-                        createAsset(name.trim(), type.trim(), parentAsset.id);
-                      }}
-                      onRenameAsset={(clickedAsset) => {
-                        const newName = window.prompt('Rename asset:', clickedAsset.name);
-                        if (newName && newName.trim() && newName !== clickedAsset.name) {
-                          updateAsset(clickedAsset.id, { name: newName.trim() });
-                        }
-                      }}
-                      onDeleteAsset={(clickedAsset) => {
-                        if (confirm(`Delete "${clickedAsset.name}" and all its variants? This cannot be undone.`)) {
-                          deleteAsset(clickedAsset.id);
-                        }
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* Members Section */}
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Members</h2>
-            </div>
-
-            <div className={styles.memberList}>
-              {members.map((member) => (
-                <div key={member.user_id} className={styles.memberCard}>
-                  <div className={styles.memberInfo}>
-                    <span className={styles.memberName}>{member.user.name || member.user.email}</span>
-                    <span className={styles.memberEmail}>{member.user.email}</span>
-                  </div>
-                  <span className={`${styles.memberRole} ${styles[member.role]}`}>
-                    {member.role}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
-        </main>
-
-        <ChatSidebar
-          spaceId={spaceId || ''}
-          isOpen={showChat}
-          onClose={closeChat}
-          allAssets={assets}
-          allVariants={variants}
-          lastCompletedJob={lastCompletedJob}
-          onGenerateAsset={onGenerateAsset}
-          onRefineAsset={onRefineAsset}
-          onCombineAssets={onCombineAssets}
+      {/* Full-screen canvas container */}
+      <div className={styles.canvasContainer}>
+        {/* Asset Canvas - fills entire container */}
+        <AssetCanvas
+          assets={assets}
+          variants={variants}
+          jobs={jobs}
+          onAssetClick={(clickedAsset) => {
+            navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
+          }}
+          onAddToTray={canEdit ? handleAddToTray : undefined}
         />
+
+        {/* Space info overlay - top left */}
+        <div className={styles.spaceOverlay}>
+          <div className={styles.spaceHeader}>
+            <h1 className={styles.spaceTitle}>{space.name}</h1>
+          </div>
+          <div className={styles.spaceMeta}>
+            <span className={`${styles.roleBadge} ${styles[space.role]}`}>
+              {space.role}
+            </span>
+            <span className={styles.metaBadge}>
+              {members.length} member{members.length !== 1 ? 's' : ''}
+            </span>
+            <span className={styles.metaBadge}>
+              {assets.length} asset{assets.length !== 1 ? 's' : ''}
+            </span>
+            {wsStatus === 'connected' && (
+              <span className={styles.liveIndicator}>Live</span>
+            )}
+          </div>
+        </div>
+
+        {/* Tools overlay - top right (when chat is closed) */}
+        {!isChatOpen && (
+          <div className={styles.toolsOverlay}>
+            <button
+              className={styles.toolButton}
+              onClick={handleExport}
+              disabled={isExporting || assets.length === 0}
+              title={assets.length === 0 ? 'No assets to export' : 'Export all assets as ZIP'}
+            >
+              {isExporting ? 'Exporting...' : 'Export'}
+            </button>
+            {canEdit && (
+              <>
+                <button
+                  className={styles.toolButton}
+                  onClick={() => importInputRef.current?.click()}
+                  disabled={isImporting}
+                >
+                  {isImporting ? 'Importing...' : 'Import'}
+                </button>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".zip"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImport(file);
+                  }}
+                />
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Chat toggle button */}
+        <button
+          className={`${styles.chatToggle} ${isChatOpen ? styles.active : ''}`}
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          title={isChatOpen ? 'Hide chat' : 'Show chat'}
+          style={{ right: isChatOpen ? 'calc(380px + 1.5rem)' : '1rem' }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        </button>
+
+        {/* Floating chat panel */}
+        <div className={`${styles.chatPanel} ${!isChatOpen ? styles.collapsed : ''}`}>
+          <ChatSidebar
+            spaceId={spaceId || ''}
+            isOpen={true}
+            onClose={() => setIsChatOpen(false)}
+            allAssets={assets}
+            allVariants={variants}
+            lastCompletedJob={lastCompletedJob}
+            onGenerateAsset={onGenerateAsset}
+            onRefineAsset={onRefineAsset}
+            onCombineAssets={onCombineAssets}
+            sendChatRequest={sendChatRequest}
+            chatResponse={chatResponse}
+            sendDescribeRequest={sendDescribeRequest}
+            sendCompareRequest={sendCompareRequest}
+            describeResponse={describeResponse}
+            compareResponse={compareResponse}
+          />
+        </div>
+
+        {/* Jobs overlay - bottom left */}
+        {jobs.size > 0 && (
+          <div className={styles.jobsOverlay}>
+            {Array.from(jobs.values()).map((job) => {
+              const jobTypeLabel = {
+                generate: 'Generating',
+                derive: 'Creating variant',
+                compose: 'Composing',
+              }[job.jobType || 'generate'] || 'Processing';
+
+              return (
+                <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
+                  <div className={styles.jobStatus}>
+                    {job.status === 'pending' && '⏳'}
+                    {job.status === 'processing' && '🎨'}
+                    {job.status === 'completed' && '✓'}
+                    {job.status === 'failed' && '✗'}
+                  </div>
+                  <div className={styles.jobInfo}>
+                    <span className={styles.jobTitle}>
+                      {job.status === 'pending' && `${jobTypeLabel} queued`}
+                      {job.status === 'processing' && `${jobTypeLabel}...`}
+                      {job.status === 'completed' && 'Done'}
+                      {job.status === 'failed' && 'Failed'}
+                    </span>
+                    {job.assetName && (
+                      <span className={styles.jobAssetName}>{job.assetName}</span>
+                    )}
+                    {job.error && <span className={styles.jobError}>{job.error}</span>}
+                  </div>
+                  {(job.status === 'completed' || job.status === 'failed') && (
+                    <button
+                      className={styles.dismissButton}
+                      onClick={() => clearJob(job.jobId)}
+                    >
+                      Dismiss
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Forge Tray - persistent bottom bar for generation */}
+      {/* Forge Tray - floating bottom bar */}
       {canEdit && (
         <ForgeTray
           allAssets={assets}
@@ -565,8 +455,6 @@ export default function SpacePage() {
           onBrandBackground={false}
         />
       )}
-
-
     </div>
   );
 }

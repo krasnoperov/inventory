@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
 import {
   useChatStore,
@@ -10,13 +10,23 @@ import {
   usePendingApprovals,
   type ChatMessage,
 } from '../../stores/chatStore';
-import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
 import {
-  isLimitErrorResponse,
+  type Asset,
+  type Variant,
+  getVariantThumbnailUrl,
+  type ChatRequestParams,
+  type ChatResponseResult,
+  type DescribeRequestParams,
+  type CompareRequestParams,
+  type DescribeResponseResult,
+  type CompareResponseResult,
+  type ForgeContext as WsForgeContext,
+  type ViewingContext as WsViewingContext,
+} from '../../hooks/useSpaceWebSocket';
+import {
   type ForgeContext,
   type ViewingContext,
   type BotResponse,
-  type LimitErrorResponse,
 } from '../../../api/types';
 import { useToolExecution } from './hooks/useToolExecution';
 import { useLimitedUsage, invalidateUsageCache, formatMeterName } from '../../hooks/useLimitedUsage';
@@ -49,10 +59,22 @@ export interface ChatSidebarProps {
   currentVariant?: Variant | null;
   allAssets?: Asset[];
   allVariants?: Variant[];
-  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string; referenceAssetIds?: string[] }) => Promise<string | void>;
-  onRefineAsset?: (params: { assetId: string; prompt: string }) => Promise<string | void>;
-  onCombineAssets?: (params: { sourceAssetIds: string[]; prompt: string; targetName: string; targetType: string }) => Promise<string | void>;
+  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string; referenceAssetIds?: string[] }) => string | void;
+  onRefineAsset?: (params: { assetId: string; prompt: string }) => string | void;
+  onCombineAssets?: (params: { sourceAssetIds: string[]; prompt: string; targetName: string; targetType: string }) => string | void;
   lastCompletedJob?: JobCompletionData | null;
+  /** WebSocket chat request function (required for chat communication) */
+  sendChatRequest: (params: ChatRequestParams) => string;
+  /** Latest chat response from WebSocket workflow */
+  chatResponse: ChatResponseResult | null;
+  /** WebSocket describe request function (for tool calls) */
+  sendDescribeRequest?: (params: DescribeRequestParams) => string;
+  /** WebSocket compare request function (for tool calls) */
+  sendCompareRequest?: (params: CompareRequestParams) => string;
+  /** Latest describe response from WebSocket */
+  describeResponse?: DescribeResponseResult | null;
+  /** Latest compare response from WebSocket */
+  compareResponse?: CompareResponseResult | null;
 }
 
 // Re-export ChatMessage type for consumers
@@ -74,6 +96,12 @@ export function ChatSidebar({
   onRefineAsset,
   onCombineAssets,
   lastCompletedJob,
+  sendChatRequest,
+  chatResponse,
+  sendDescribeRequest,
+  sendCompareRequest,
+  describeResponse,
+  compareResponse,
 }: ChatSidebarProps) {
   // Store state (persisted) - use hooks that don't recreate selectors
   const messages = useChatMessages(spaceId);
@@ -117,19 +145,35 @@ export function ChatSidebar({
   const [warnedMeters, setWarnedMeters] = useState<Set<string>>(new Set());
   // Track plan step waiting for ForgeTray completion (step index, or null if none)
   const [forgeTrayStepIndex, setForgeTrayStepIndex] = useState<number | null>(null);
+  // Track pending WebSocket chat request
+  const pendingChatRequestRef = useRef<{ requestId: string; messageToSend: string; modeToUse: 'advisor' | 'actor' } | null>(null);
 
   // Usage tracking for 90% warnings
   const { meters, refresh: refreshUsage } = useLimitedUsage();
 
   // Tool execution hook
   const toolExec = useToolExecution({
-    spaceId,
     allAssets,
     allVariants,
     onGenerateAsset,
     onRefineAsset,
     onCombineAssets,
+    sendDescribeRequest,
+    sendCompareRequest,
   });
+
+  // Handle describe/compare responses from WebSocket
+  useEffect(() => {
+    if (describeResponse) {
+      toolExec.handleDescribeResponse(describeResponse);
+    }
+  }, [describeResponse, toolExec]);
+
+  useEffect(() => {
+    if (compareResponse) {
+      toolExec.handleCompareResponse(compareResponse);
+    }
+  }, [compareResponse, toolExec]);
 
   // Forge tray state for context
   const slots = useForgeTrayStore((state) => state.slots);
@@ -340,6 +384,107 @@ export function ChatSidebar({
   }, [lastCompletedJob, forgeTrayStepIndex, activePlan, spaceId, completeStep, addMessage, resetPlan]);
 
   // ==========================================================================
+  // WebSocket Chat Response Handler
+  // ==========================================================================
+
+  useEffect(() => {
+    if (!chatResponse || !pendingChatRequestRef.current) return;
+
+    // Check if this response matches our pending request
+    if (chatResponse.requestId !== pendingChatRequestRef.current.requestId) return;
+
+    const { messageToSend, modeToUse } = pendingChatRequestRef.current;
+    pendingChatRequestRef.current = null;
+    setIsLoading(false);
+
+    if (!chatResponse.success) {
+      // Handle error
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: chatResponse.error || 'Failed to process message',
+        timestamp: Date.now(),
+        isError: true,
+        retryPayload: { message: messageToSend, mode: modeToUse },
+      });
+      return;
+    }
+
+    const botResponse = chatResponse.response as BotResponse | undefined;
+    if (!botResponse) {
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: 'Received empty response from assistant',
+        timestamp: Date.now(),
+        isError: true,
+      });
+      return;
+    }
+
+    // Process the bot response (same logic as HTTP handler)
+    if (botResponse.type === 'plan' && (botResponse as any).plan) {
+      setPlan(spaceId, (botResponse as any).plan);
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: botResponse.message || '',
+        timestamp: Date.now(),
+      });
+    } else if (botResponse.type === 'action') {
+      const messageParts: string[] = [botResponse.message || ''];
+
+      // Auto-execute safe tools (toolCalls)
+      if ((botResponse as any).toolCalls && (botResponse as any).toolCalls.length > 0) {
+        toolExec.executeToolCalls((botResponse as any).toolCalls).then(results => {
+          const updatedParts = [...messageParts, '\n**Auto-executed:**', results.join('\n')];
+          addMessage(spaceId, {
+            role: 'assistant',
+            content: updatedParts.join('\n'),
+            timestamp: Date.now(),
+          });
+        });
+        return;
+      }
+
+      // Store pending approvals
+      if ((botResponse as any).pendingApprovals && (botResponse as any).pendingApprovals.length > 0) {
+        setPendingApprovals(spaceId, (botResponse as any).pendingApprovals);
+        messageParts.push('\n**Awaiting approval:**');
+        (botResponse as any).pendingApprovals.forEach((pa: any) => {
+          messageParts.push(`⏳ ${pa.description}`);
+        });
+        messageParts.push('\n_Use the approval panel below to approve or reject._');
+      }
+
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: messageParts.join('\n'),
+        timestamp: Date.now(),
+      });
+    } else {
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: botResponse.message || 'Response received',
+        timestamp: Date.now(),
+      });
+    }
+
+    // Check for 90% usage warning after successful response
+    invalidateUsageCache();
+    refreshUsage().then(() => {
+      for (const meter of meters) {
+        if (meter.percentUsed >= 90 && !warnedMeters.has(meter.name)) {
+          setWarnedMeters(prev => new Set(prev).add(meter.name));
+          addMessage(spaceId, {
+            role: 'assistant',
+            content: `⚠️ You've used ${Math.round(meter.percentUsed)}% of your ${formatMeterName(meter.name)} this month.`,
+            timestamp: Date.now(),
+          });
+          break;
+        }
+      }
+    });
+  }, [chatResponse, spaceId, addMessage, setPlan, setPendingApprovals, toolExec, meters, warnedMeters, refreshUsage]);
+
+  // ==========================================================================
   // Plan Execution
   // ==========================================================================
 
@@ -547,182 +692,34 @@ export function ChatSidebar({
       timestamp: Date.now(),
     });
 
-    try {
-      const response = await fetch(`/api/spaces/${spaceId}/chat`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: messageToSend,
-          mode: modeToUse,
-          history: messages.slice(-10).map(m => ({
-            role: m.role,
-            content: m.content,
-          })),
-          forgeContext,
-          viewingContext,
-          activePlan,
-        }),
-      });
+    // Convert forge context to WebSocket format
+    const wsForgeContext: WsForgeContext | undefined = forgeContext.slots.length > 0 ? {
+      items: forgeContext.slots.map(s => ({
+        assetId: s.assetId,
+        assetName: s.assetName,
+        assetType: allAssets.find(a => a.id === s.assetId)?.type || 'unknown',
+        variantId: s.variantId,
+      })),
+      prompt: forgeContext.prompt,
+    } : undefined;
 
-      if (!response.ok) {
-        const errorData = await response.json();
+    // Convert viewing context to WebSocket format
+    const wsViewingContext: WsViewingContext | undefined = viewingContext.type === 'asset' ? {
+      assetId: viewingContext.assetId,
+      variantId: viewingContext.variantId,
+    } : undefined;
 
-        // Handle billing errors (402 quota exceeded, 429 rate limited)
-        // @see LimitErrorResponse in api/types.ts
-        // @see PreCheckResult in usageService.ts for backend implementation
-        if (isLimitErrorResponse(errorData)) {
-          const limitError = errorData as LimitErrorResponse;
+    // Send via WebSocket - response handled by chatResponse effect
+    const requestId = sendChatRequest({
+      message: messageToSend,
+      mode: modeToUse,
+      forgeContext: wsForgeContext,
+      viewingContext: wsViewingContext,
+    });
 
-          if (limitError.denyReason === 'quota_exceeded') {
-            // HTTP 402: Show upgrade CTA, link to billing portal
-            addMessage(spaceId, {
-              role: 'assistant',
-              content: limitError.message,
-              timestamp: Date.now(),
-              isError: true,
-              quotaError: {
-                service: 'claude',
-                used: limitError.quota.used,
-                limit: limitError.quota.limit,
-              },
-            });
-            return; // Don't retry quota errors - user must upgrade
-          }
-
-          if (limitError.denyReason === 'rate_limited') {
-            // HTTP 429: Show countdown timer until resetsAt
-            const resetsAt = limitError.rateLimit.resetsAt;
-            const remainingSeconds = resetsAt
-              ? Math.max(0, Math.ceil((new Date(resetsAt).getTime() - Date.now()) / 1000))
-              : 60; // Default to 60s if no reset time provided
-
-            addMessage(spaceId, {
-              role: 'assistant',
-              content: limitError.message,
-              timestamp: Date.now(),
-              isError: true,
-              rateLimitError: {
-                resetsAt,
-                remainingSeconds,
-              },
-            });
-            return; // Don't retry rate limit errors - user must wait
-          }
-        }
-
-        throw new Error((errorData as { error?: string }).error || 'Failed to send message');
-      }
-
-      const data = await response.json() as { success: boolean; response: BotResponse };
-      const botResponse = data.response;
-
-      if (botResponse.type === 'plan' && botResponse.plan) {
-        setPlan(spaceId, botResponse.plan);
-        addMessage(spaceId, {
-          role: 'assistant',
-          content: botResponse.message,
-          timestamp: Date.now(),
-        });
-      } else if (botResponse.type === 'action') {
-        // Trust Zones: Handle auto-execute vs pending approvals
-        const messageParts: string[] = [botResponse.message];
-
-        // Auto-execute safe tools (toolCalls)
-        if (botResponse.toolCalls && botResponse.toolCalls.length > 0) {
-          const results = await toolExec.executeToolCalls(botResponse.toolCalls);
-          messageParts.push('\n**Auto-executed:**');
-          messageParts.push(results.join('\n'));
-
-          // Store results in state for reference
-          setLastAutoExecuted(spaceId, botResponse.toolCalls.map((tc, i) => ({
-            tool: tc.name,
-            params: tc.params,
-            result: results[i],
-            success: results[i].startsWith('✅'),
-          })));
-        }
-
-        // Store pending approvals for generating tools
-        if (botResponse.pendingApprovals && botResponse.pendingApprovals.length > 0) {
-          setPendingApprovals(spaceId, botResponse.pendingApprovals);
-          messageParts.push('\n**Awaiting approval:**');
-          botResponse.pendingApprovals.forEach(pa => {
-            messageParts.push(`⏳ ${pa.description}`);
-          });
-          messageParts.push('\n_Use the approval panel below to approve or reject._');
-        }
-
-        addMessage(spaceId, {
-          role: 'assistant',
-          content: messageParts.join('\n'),
-          timestamp: Date.now(),
-        });
-      } else {
-        addMessage(spaceId, {
-          role: 'assistant',
-          content: botResponse.message,
-          timestamp: Date.now(),
-        });
-      }
-
-      // Check for 90% usage warning after successful response
-      // Invalidate cache and refresh to get updated usage
-      invalidateUsageCache();
-      await refreshUsage();
-
-      // Check if any meter crossed 90% and hasn't been warned yet
-      for (const meter of meters) {
-        if (meter.percentUsed >= 90 && !warnedMeters.has(meter.name)) {
-          setWarnedMeters(prev => new Set(prev).add(meter.name));
-          addMessage(spaceId, {
-            role: 'assistant',
-            content: `⚠️ You've used ${Math.round(meter.percentUsed)}% of your ${formatMeterName(meter.name)} this month.`,
-            timestamp: Date.now(),
-          });
-          break; // Only show one warning at a time
-        }
-      }
-    } catch (err) {
-      console.error('Chat error:', err);
-
-      let errorMessage: string;
-      let isRetryable = false;
-
-      if (err instanceof TypeError && err.message.includes('fetch')) {
-        errorMessage = 'Network error. Please check your connection and try again.';
-        isRetryable = true;
-      } else if (err instanceof Error) {
-        if (err.message.includes('rate limit') || err.message.includes('429')) {
-          errorMessage = 'Too many requests. Please wait a moment and try again.';
-          isRetryable = true;
-        } else if (err.message.includes('503') || err.message.includes('unavailable')) {
-          errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
-          isRetryable = true;
-        } else if (err.message.includes('401') || err.message.includes('authentication')) {
-          errorMessage = 'Session expired. Please refresh the page and sign in again.';
-        } else if (err.message.includes('403')) {
-          errorMessage = 'You don\'t have permission to perform this action.';
-        } else {
-          errorMessage = err.message;
-          isRetryable = true;
-        }
-      } else {
-        errorMessage = 'An unexpected error occurred. Please try again.';
-        isRetryable = true;
-      }
-
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: errorMessage,
-        timestamp: Date.now(),
-        isError: true,
-        retryPayload: isRetryable ? { message: messageToSend, mode: modeToUse } : undefined,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [inputValue, isLoading, spaceId, mode, messages, forgeContext, viewingContext, activePlan, setInputBuffer, addMessage, setPlan, toolExec, meters, warnedMeters, refreshUsage]);
+    // Store pending request info for response handler
+    pendingChatRequestRef.current = { requestId, messageToSend, modeToUse };
+  }, [inputValue, isLoading, spaceId, mode, forgeContext, viewingContext, setInputBuffer, addMessage, sendChatRequest, allAssets]);
 
   const retryMessage = useCallback((payload: { message: string; mode: 'advisor' | 'actor' }) => {
     // Remove the last error message
@@ -792,19 +789,28 @@ export function ChatSidebar({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerTitle}>
-          <span className={styles.botIcon}>🤖</span>
-          <h3>Forge Assistant</h3>
+          <svg className={styles.headerIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="20" height="20">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+          <h3>Assistant</h3>
         </div>
-        <button
-          className={styles.settingsButton}
-          onClick={() => setShowPreferences(true)}
-          title="Preferences"
-        >
-          &#9881;
-        </button>
-        <button className={styles.closeButton} onClick={onClose} title="Close chat">
-          ×
-        </button>
+        <div className={styles.headerActions}>
+          <button
+            className={styles.settingsButton}
+            onClick={() => setShowPreferences(true)}
+            title="Preferences"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+            </svg>
+          </button>
+          <button className={styles.closeButton} onClick={onClose} title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Context Bar - Shows what the bot can see */}
