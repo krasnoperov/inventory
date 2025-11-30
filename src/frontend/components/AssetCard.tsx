@@ -10,7 +10,6 @@ export interface AssetCardProps {
   allAssets: Asset[];
   allVariants: Variant[];
   depth?: number;
-  parentPath?: Asset[];  // Path of parent assets for breadcrumb display
   isGenerating?: boolean;
   generatingStatus?: 'pending' | 'processing';
   canEdit?: boolean;
@@ -27,8 +26,9 @@ export function AssetCard(props: AssetCardProps) {
   const {
     asset,
     variants,
+    childAssets,
+    allVariants,
     depth = 0,
-    parentPath = [],
     isGenerating = false,
     generatingStatus,
     onAssetClick,
@@ -41,6 +41,7 @@ export function AssetCard(props: AssetCardProps) {
   const [showAssetMenu, setShowAssetMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [hoveredChildId, setHoveredChildId] = useState<string | null>(null);
 
   // Get primary variant (active_variant_id or first variant)
   const primaryVariant = useMemo(() => {
@@ -49,6 +50,21 @@ export function AssetCard(props: AssetCardProps) {
     }
     return variants[0] || null;
   }, [asset.active_variant_id, variants]);
+
+  // Get variant for a child asset
+  const getChildVariant = useCallback((child: Asset): Variant | null => {
+    if (child.active_variant_id) {
+      return allVariants.find(v => v.id === child.active_variant_id) || null;
+    }
+    return allVariants.find(v => v.asset_id === child.id) || null;
+  }, [allVariants]);
+
+  // Get grandchildren for a child asset
+  const getGrandchildren = useCallback((childId: string): Asset[] => {
+    return props.allAssets
+      .filter(a => a.parent_asset_id === childId)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [props.allAssets]);
 
   // Handle clicking on the card (navigate to detail)
   const handleCardClick = useCallback(() => {
@@ -148,18 +164,6 @@ export function AssetCard(props: AssetCardProps) {
       {/* Asset Info Row */}
       <div className={styles.infoRow}>
         <div className={styles.nameRow} onClick={handleCardClick}>
-          {/* Parent path breadcrumb */}
-          {parentPath.length > 0 && (
-            <span className={styles.parentPath}>
-              {parentPath.map((p, i) => (
-                <span key={p.id}>
-                  {p.name}
-                  {i < parentPath.length - 1 && ' / '}
-                </span>
-              ))}
-              {' / '}
-            </span>
-          )}
           <span className={styles.name}>{asset.name}</span>
           <span className={styles.type}>{asset.type}</span>
         </div>
@@ -175,6 +179,120 @@ export function AssetCard(props: AssetCardProps) {
           </button>
         )}
       </div>
+
+      {/* Children Thumbnails - Level 2 (larger) with Level 3 nested */}
+      {childAssets.length > 0 && (
+        <div className={styles.childrenSection}>
+          <div className={styles.childrenGrid}>
+            {childAssets.map((child) => {
+              const childVariant = getChildVariant(child);
+              const isChildHovered = hoveredChildId === child.id;
+              const grandchildren = getGrandchildren(child.id);
+
+              return (
+                <div key={child.id} className={styles.childCard}>
+                  {/* Child thumbnail (Level 2) */}
+                  <div
+                    className={styles.childThumb}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAssetClick?.(child);
+                    }}
+                    onMouseEnter={() => setHoveredChildId(child.id)}
+                    onMouseLeave={() => setHoveredChildId(null)}
+                    title={child.name}
+                  >
+                    {childVariant ? (
+                      <img
+                        src={getVariantThumbnailUrl(childVariant)}
+                        alt={child.name}
+                        className={styles.childThumbImg}
+                      />
+                    ) : (
+                      <div className={styles.childThumbEmpty}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="20" height="20">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                          <circle cx="8.5" cy="8.5" r="1.5" />
+                          <polyline points="21 15 16 10 5 21" />
+                        </svg>
+                      </div>
+                    )}
+                    {/* Add to tray on hover */}
+                    {isChildHovered && onAddToTray && childVariant && (
+                      <button
+                        className={styles.childAddButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAddToTray(childVariant, child);
+                        }}
+                        title="Add to Forge Tray"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <span className={styles.childName}>{child.name}</span>
+
+                  {/* Grandchildren (Level 3) */}
+                  {grandchildren.length > 0 && (
+                    <div className={styles.grandchildrenGrid}>
+                      {grandchildren.map((grandchild) => {
+                        const grandchildVariant = getChildVariant(grandchild);
+                        const isGrandchildHovered = hoveredChildId === grandchild.id;
+
+                        return (
+                          <div
+                            key={grandchild.id}
+                            className={styles.grandchildThumb}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAssetClick?.(grandchild);
+                            }}
+                            onMouseEnter={() => setHoveredChildId(grandchild.id)}
+                            onMouseLeave={() => setHoveredChildId(null)}
+                            title={grandchild.name}
+                          >
+                            {grandchildVariant ? (
+                              <img
+                                src={getVariantThumbnailUrl(grandchildVariant)}
+                                alt={grandchild.name}
+                                className={styles.grandchildThumbImg}
+                              />
+                            ) : (
+                              <div className={styles.grandchildThumbEmpty}>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12">
+                                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                </svg>
+                              </div>
+                            )}
+                            {/* Add to tray on hover */}
+                            {isGrandchildHovered && onAddToTray && grandchildVariant && (
+                              <button
+                                className={styles.grandchildAddButton}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onAddToTray(grandchildVariant, grandchild);
+                                }}
+                                title="Add to Forge Tray"
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="8" height="8">
+                                  <path d="M12 5v14M5 12h14" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Asset Menu (context menu) */}
       {showAssetMenu && menuPosition && (
