@@ -290,6 +290,10 @@ export class SpaceDO extends DurableObject<Env> {
       return this.handleGetChatHistory();
     }
 
+    if (url.pathname === '/internal/chat/history' && request.method === 'DELETE') {
+      return this.handleClearChatHistory();
+    }
+
     // Job status broadcasts
     if (url.pathname === '/internal/job/progress' && request.method === 'POST') {
       return this.handleJobProgress(request);
@@ -1072,6 +1076,25 @@ export class SpaceDO extends DurableObject<Env> {
   }
 
   /**
+   * Handle clear chat history
+   * DELETE /internal/chat/history
+   */
+  private async handleClearChatHistory(): Promise<Response> {
+    try {
+      await this.ctx.storage.sql.exec('DELETE FROM chat_messages');
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error clearing chat history:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to clear chat history' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
    * Handle job progress broadcast
    * POST /internal/job/progress
    */
@@ -1187,6 +1210,19 @@ export class SpaceDO extends DurableObject<Env> {
         0, // severed = false
         now
       );
+
+      // Broadcast lineage creation
+      this.broadcast({
+        type: 'lineage:created',
+        lineage: {
+          id: lineageId,
+          parent_variant_id: data.parentVariantId,
+          child_variant_id: data.childVariantId,
+          relation_type: data.relationType,
+          severed: false,
+          created_at: now,
+        },
+      });
 
       return new Response(JSON.stringify({ success: true, id: lineageId }), {
         headers: { 'Content-Type': 'application/json' },
@@ -1658,6 +1694,18 @@ export class SpaceDO extends DurableObject<Env> {
           0, // severed = false
           now
         );
+        // Broadcast lineage creation
+        this.broadcast({
+          type: 'lineage:created',
+          lineage: {
+            id: lineageId,
+            parent_variant_id: parentId,
+            child_variant_id: variant.id,
+            relation_type: relationType,
+            severed: false,
+            created_at: now,
+          },
+        });
       }
     }
 
