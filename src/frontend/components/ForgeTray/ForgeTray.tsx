@@ -26,7 +26,7 @@ export interface ForgeSubmitParams {
 export interface ForgeTrayProps {
   allAssets: Asset[];
   allVariants: Variant[];
-  onSubmit: (params: ForgeSubmitParams) => Promise<void | string>;
+  onSubmit: (params: ForgeSubmitParams) => void | string;
   onBrandBackground?: boolean;
   /** Current asset context (for Asset Detail page) */
   currentAsset?: Asset | null;
@@ -146,7 +146,7 @@ export function ForgeTray({
       // For fork operation, prompt should be undefined (copy without modification)
       const trimmedPrompt = prompt.trim();
 
-      await onSubmit({
+      onSubmit({
         prompt: trimmedPrompt || undefined,
         referenceVariantIds: slots.map(s => s.variant.id),
         destination: {
