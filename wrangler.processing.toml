@@ -49,12 +49,22 @@ max_retries = 3
 queue = "inventory-generation-stage"
 binding = "GENERATION_QUEUE"
 
-# --- FUTURE: Workflow Binding ---
-# Uncomment when you create workflows:
-# [[workflows]]
-# binding = "MY_WORKFLOW"
-# name = "my-workflow-stage"
-# class_name = "MyWorkflow"
+# Cloudflare Workflows - Chat and Generation
+[[workflows]]
+binding = "CHAT_WORKFLOW"
+name = "inventory-chat-workflow-stage"
+class_name = "ChatWorkflow"
+
+[[workflows]]
+binding = "GENERATION_WORKFLOW"
+name = "inventory-generation-workflow-stage"
+class_name = "GenerationWorkflow"
+
+# Durable Objects - Space state (needed by workflows to broadcast results)
+[[durable_objects.bindings]]
+name = "SPACES_DO"
+class_name = "SpaceDO"
+script_name = "inventory-stage"
 
 # R2 Storage for generated images
 [[r2_buckets]]
@@ -100,11 +110,22 @@ max_retries = 3
 queue = "inventory-generation-production"
 binding = "GENERATION_QUEUE"
 
-# --- FUTURE: Workflow Binding - Production ---
-# [[env.production.workflows]]
-# binding = "MY_WORKFLOW"
-# name = "my-workflow-production"
-# class_name = "MyWorkflow"
+# Cloudflare Workflows - Production
+[[env.production.workflows]]
+binding = "CHAT_WORKFLOW"
+name = "inventory-chat-workflow-production"
+class_name = "ChatWorkflow"
+
+[[env.production.workflows]]
+binding = "GENERATION_WORKFLOW"
+name = "inventory-generation-workflow-production"
+class_name = "GenerationWorkflow"
+
+# Durable Objects - Production (needed by workflows)
+[[env.production.durable_objects.bindings]]
+name = "SPACES_DO"
+class_name = "SpaceDO"
+script_name = "inventory-production"
 
 # R2 Storage - Production
 [[env.production.r2_buckets]]

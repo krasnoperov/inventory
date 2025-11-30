@@ -9,25 +9,45 @@ import type { Env } from '../core/types';
 // Simple Hono app for health checks and future workflow status endpoints
 const app = new Hono<{ Bindings: Env }>();
 
-// --- FUTURE: Workflow status endpoint ---
-// app.get('/api/workflow/:instanceId', async (c) => {
-//   const { instanceId } = c.req.param();
-//   try {
-//     const instance = await c.env.MY_WORKFLOW.get(instanceId);
-//     if (!instance) {
-//       return c.json({ error: 'Workflow instance not found', instanceId }, 404);
-//     }
-//     const status = await instance.status();
-//     return c.json({ instanceId, status });
-//   } catch (error) {
-//     console.error('Error fetching workflow status:', error);
-//     return c.json({
-//       error: 'Failed to fetch workflow status',
-//       instanceId,
-//       details: error instanceof Error ? error.message : String(error)
-//     }, 500);
-//   }
-// });
+// Workflow status endpoint - check chat workflow status
+app.get('/api/workflow/chat/:instanceId', async (c) => {
+  const { instanceId } = c.req.param();
+  try {
+    if (!c.env.CHAT_WORKFLOW) {
+      return c.json({ error: 'CHAT_WORKFLOW not configured' }, 500);
+    }
+    const instance = await c.env.CHAT_WORKFLOW.get(instanceId);
+    const status = await instance.status();
+    return c.json({ instanceId, type: 'chat', status });
+  } catch (error) {
+    console.error('Error fetching chat workflow status:', error);
+    return c.json({
+      error: 'Failed to fetch workflow status',
+      instanceId,
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// Workflow status endpoint - check generation workflow status
+app.get('/api/workflow/generation/:instanceId', async (c) => {
+  const { instanceId } = c.req.param();
+  try {
+    if (!c.env.GENERATION_WORKFLOW) {
+      return c.json({ error: 'GENERATION_WORKFLOW not configured' }, 500);
+    }
+    const instance = await c.env.GENERATION_WORKFLOW.get(instanceId);
+    const status = await instance.status();
+    return c.json({ instanceId, type: 'generation', status });
+  } catch (error) {
+    console.error('Error fetching generation workflow status:', error);
+    return c.json({
+      error: 'Failed to fetch workflow status',
+      instanceId,
+      details: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', (c) => {
@@ -44,6 +64,6 @@ export default {
   queue: handleQueue,
 };
 
-// --- FUTURE: Export your Workflow classes here ---
-// Example:
-// export { MyWorkflow } from '../backend/workflows/MyWorkflow';
+// Export Workflow classes
+export { ChatWorkflow } from '../backend/workflows/ChatWorkflow';
+export { GenerationWorkflow } from '../backend/workflows/GenerationWorkflow';

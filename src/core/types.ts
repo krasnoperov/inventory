@@ -3,6 +3,28 @@
 // ============================================================================
 // Define your Cloudflare Workers bindings here
 
+import type { ChatWorkflowInput, GenerationWorkflowInput } from '../backend/workflows/types';
+
+/** Cloudflare Workflow instance handle */
+export interface WorkflowInstance {
+  id: string;
+  pause(): Promise<void>;
+  resume(): Promise<void>;
+  terminate(): Promise<void>;
+  restart(): Promise<void>;
+  status(): Promise<{
+    status: 'queued' | 'running' | 'paused' | 'complete' | 'errored' | 'terminated' | 'unknown';
+    error?: string;
+    output?: unknown;
+  }>;
+}
+
+/** Cloudflare Workflow binding */
+export interface WorkflowBinding<TInput> {
+  create(options: { id?: string; params: TInput }): Promise<WorkflowInstance>;
+  get(id: string): Promise<WorkflowInstance>;
+}
+
 export interface Env {
   // D1 Database
   DB: D1Database;
@@ -54,6 +76,10 @@ export interface Env {
 
   // Inventory Forge: Space Durable Objects
   SPACES_DO?: DurableObjectNamespace;
+
+  // Inventory Forge: Cloudflare Workflows
+  CHAT_WORKFLOW?: WorkflowBinding<ChatWorkflowInput>;
+  GENERATION_WORKFLOW?: WorkflowBinding<GenerationWorkflowInput>;
 
   // Inventory Forge: Rate limiting for bots
   RATE_LIMIT_KV?: KVNamespace;

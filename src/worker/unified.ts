@@ -20,9 +20,9 @@ export default {
   scheduled: handleScheduled,
 };
 
-// --- FUTURE: Export your Workflow classes here (only used in local dev) ---
-// Example:
-// export { MyWorkflow } from '../backend/workflows/MyWorkflow';
-
 // Export Durable Objects
 export { SpaceDO } from '../backend/durable-objects/SpaceDO';
+
+// Export Workflow classes (used in local dev; in stage/prod only processing worker uses these)
+export { ChatWorkflow } from '../backend/workflows/ChatWorkflow';
+export { GenerationWorkflow } from '../backend/workflows/GenerationWorkflow';

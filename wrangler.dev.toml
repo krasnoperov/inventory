@@ -62,11 +62,16 @@ class_name = "SpaceDO"
 tag = "v1"
 new_sqlite_classes = ["SpaceDO"]
 
-# --- FUTURE: Workflow Binding ---
-# [[workflows]]
-# binding = "MY_WORKFLOW"
-# name = "my-workflow-local"
-# class_name = "MyWorkflow"
+# Cloudflare Workflows - Chat and Generation (local)
+[[workflows]]
+binding = "CHAT_WORKFLOW"
+name = "inventory-chat-workflow-local"
+class_name = "ChatWorkflow"
+
+[[workflows]]
+binding = "GENERATION_WORKFLOW"
+name = "inventory-generation-workflow-local"
+class_name = "GenerationWorkflow"
 
 # R2 Storage for generated images (local uses miniflare's R2 simulation)
 [[r2_buckets]]
