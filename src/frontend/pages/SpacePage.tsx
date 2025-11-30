@@ -9,6 +9,7 @@ import { useChatStore, useChatIsOpen } from '../stores/chatStore';
 import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
+import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { AssetCard } from '../components/AssetCard';
@@ -373,6 +374,7 @@ export default function SpacePage() {
         <AppHeader
           leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
           rightSlot={headerRightSlot}
+          statusSlot={<UsageIndicator />}
         />
         <main className={styles.main}>
           <div className={styles.loading}>Loading space...</div>
@@ -387,6 +389,7 @@ export default function SpacePage() {
         <AppHeader
           leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
           rightSlot={headerRightSlot}
+          statusSlot={<UsageIndicator />}
         />
         <main className={styles.main}>
           <div className={styles.error}>
@@ -406,6 +409,7 @@ export default function SpacePage() {
       <AppHeader
         leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
         rightSlot={headerRightSlot}
+        statusSlot={<UsageIndicator />}
       />
 
       <div className={styles.pageContent}>

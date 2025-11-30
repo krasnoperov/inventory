@@ -1,0 +1,123 @@
+/* Compact usage indicator for header status slot */
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.15s ease;
+  cursor: pointer;
+}
+
+.indicator:hover {
+  transform: translateY(-1px);
+}
+
+/* Progress bar track */
+.bar {
+  width: 48px;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Progress bar fill */
+.fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Label text */
+.label {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* State: OK (< 90%) - muted, minimal */
+.ok {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.ok:hover {
+  background: var(--color-bg);
+}
+
+.ok .fill {
+  background: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+/* State: Warning (90-99%) - amber highlight */
+.warning {
+  background: light-dark(
+    oklch(95% 0.05 85),
+    oklch(25% 0.04 85)
+  );
+  color: light-dark(
+    oklch(45% 0.12 70),
+    oklch(80% 0.12 85)
+  );
+}
+
+.warning:hover {
+  background: light-dark(
+    oklch(92% 0.06 85),
+    oklch(28% 0.05 85)
+  );
+}
+
+.warning .fill {
+  background: light-dark(
+    oklch(75% 0.15 85),
+    oklch(70% 0.14 85)
+  );
+}
+
+/* State: Exceeded (100%+) - red with subtle pulse */
+.exceeded {
+  background: light-dark(
+    oklch(95% 0.04 25),
+    oklch(25% 0.04 25)
+  );
+  color: var(--color-error);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.exceeded:hover {
+  background: light-dark(
+    oklch(92% 0.05 25),
+    oklch(28% 0.05 25)
+  );
+}
+
+.exceeded .fill {
+  background: var(--color-error);
+}
+
+/* Subtle pulse animation for exceeded state */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* Mobile: hide bar, show just percentage */
+@media (max-width: 480px) {
+  .bar {
+    display: none;
+  }
+
+  .label {
+    font-size: 0.7rem;
+  }
+}

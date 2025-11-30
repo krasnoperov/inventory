@@ -19,6 +19,7 @@ import {
   type LimitErrorResponse,
 } from '../../../api/types';
 import { useToolExecution } from './hooks/useToolExecution';
+import { useLimitedUsage, invalidateUsageCache, formatMeterName } from '../../hooks/useLimitedUsage';
 import { MessageList } from './MessageList';
 import { PlanPanel } from './PlanPanel';
 import { ChatInput } from './ChatInput';
@@ -112,6 +113,11 @@ export function ChatSidebar({
   const [isExecutingStep, setIsExecutingStep] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
+  // Track which meters have shown 90% warning this session
+  const [warnedMeters, setWarnedMeters] = useState<Set<string>>(new Set());
+
+  // Usage tracking for 90% warnings
+  const { meters, refresh: refreshUsage } = useLimitedUsage();
 
   // Tool execution hook
   const toolExec = useToolExecution({
@@ -594,6 +600,24 @@ export function ChatSidebar({
           timestamp: Date.now(),
         });
       }
+
+      // Check for 90% usage warning after successful response
+      // Invalidate cache and refresh to get updated usage
+      invalidateUsageCache();
+      await refreshUsage();
+
+      // Check if any meter crossed 90% and hasn't been warned yet
+      for (const meter of meters) {
+        if (meter.percentUsed >= 90 && !warnedMeters.has(meter.name)) {
+          setWarnedMeters(prev => new Set(prev).add(meter.name));
+          addMessage(spaceId, {
+            role: 'assistant',
+            content: `⚠️ You've used ${Math.round(meter.percentUsed)}% of your ${formatMeterName(meter.name)} this month.`,
+            timestamp: Date.now(),
+          });
+          break; // Only show one warning at a time
+        }
+      }
     } catch (err) {
       console.error('Chat error:', err);
 
@@ -633,7 +657,7 @@ export function ChatSidebar({
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, spaceId, mode, messages, forgeContext, viewingContext, activePlan, setInputBuffer, addMessage, setPlan, toolExec]);
+  }, [inputValue, isLoading, spaceId, mode, messages, forgeContext, viewingContext, activePlan, setInputBuffer, addMessage, setPlan, toolExec, meters, warnedMeters, refreshUsage]);
 
   const retryMessage = useCallback((payload: { message: string; mode: 'advisor' | 'actor' }) => {
     // Remove the last error message
