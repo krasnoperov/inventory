@@ -1,52 +1,35 @@
 import { Hono } from 'hono';
 import type { AppContext } from './types';
-import { AuthService } from '../features/auth/auth-service';
+import { authMiddleware } from '../middleware/auth-middleware';
 import { UsageService } from '../services/usageService';
 import { PolarService } from '../services/polarService';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { UserDAO } from '../../dao/user-dao';
-import { getAuthToken } from '../auth';
 
 const billingRoutes = new Hono<AppContext>();
+
+// Apply auth middleware to all routes except internal ones
+billingRoutes.use('/api/billing/*', authMiddleware);
 
 /**
  * Get current usage statistics for the authenticated user
  * GET /api/billing/usage
  */
 billingRoutes.get('/api/billing/usage', async (c) => {
-  try {
-    const container = c.get('container');
-    const authService = container.get(AuthService);
-    const usageService = container.get(UsageService);
+  const userId = c.get('userId')!;
+  const usageService = c.get('container').get(UsageService);
 
-    // Check authentication
-    const cookieHeader = c.req.header('Cookie');
-    const token = getAuthToken(cookieHeader || null);
+  // Get usage stats
+  const stats = await usageService.getUserUsageStats(userId);
 
-    if (!token) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
-    const payload = await authService.verifyJWT(token);
-    if (!payload) {
-      return c.json({ error: 'Invalid authentication' }, 401);
-    }
-
-    // Get usage stats
-    const stats = await usageService.getUserUsageStats(payload.userId);
-
-    return c.json({
-      period: {
-        start: stats.period.start.toISOString(),
-        end: stats.period.end.toISOString(),
-      },
-      usage: stats.usage,
-      estimatedCost: stats.estimatedCost,
-    });
-  } catch (error) {
-    console.error('Error fetching usage stats:', error);
-    return c.json({ error: 'Failed to fetch usage statistics' }, 500);
-  }
+  return c.json({
+    period: {
+      start: stats.period.start.toISOString(),
+      end: stats.period.end.toISOString(),
+    },
+    usage: stats.usage,
+    estimatedCost: stats.estimatedCost,
+  });
 });
 
 /**
@@ -54,42 +37,23 @@ billingRoutes.get('/api/billing/usage', async (c) => {
  * GET /api/billing/portal
  */
 billingRoutes.get('/api/billing/portal', async (c) => {
-  try {
-    const container = c.get('container');
-    const authService = container.get(AuthService);
-    const usageService = container.get(UsageService);
+  const userId = c.get('userId')!;
+  const usageService = c.get('container').get(UsageService);
 
-    // Check authentication
-    const cookieHeader = c.req.header('Cookie');
-    const token = getAuthToken(cookieHeader || null);
+  // Get return URL from query param or use default
+  const returnUrl = c.req.query('return_url');
 
-    if (!token) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
+  // Get portal URL
+  const portalUrl = await usageService.getCustomerPortalUrl(userId, returnUrl);
 
-    const payload = await authService.verifyJWT(token);
-    if (!payload) {
-      return c.json({ error: 'Invalid authentication' }, 401);
-    }
-
-    // Get return URL from query param or use default
-    const returnUrl = c.req.query('return_url');
-
-    // Get portal URL
-    const portalUrl = await usageService.getCustomerPortalUrl(payload.userId, returnUrl);
-
-    if (!portalUrl) {
-      return c.json({
-        error: 'Billing portal not available',
-        message: 'Billing is not configured for this account',
-      }, 503);
-    }
-
-    return c.json({ url: portalUrl });
-  } catch (error) {
-    console.error('Error getting portal URL:', error);
-    return c.json({ error: 'Failed to get billing portal URL' }, 500);
+  if (!portalUrl) {
+    return c.json({
+      error: 'Billing portal not available',
+      message: 'Billing is not configured for this account',
+    }, 503);
   }
+
+  return c.json({ url: portalUrl });
 });
 
 /**
@@ -105,74 +69,56 @@ billingRoutes.get('/api/billing/portal', async (c) => {
  * This ensures quota limits stay fresh when user views billing page.
  */
 billingRoutes.get('/api/billing/status', async (c) => {
-  try {
-    const container = c.get('container');
-    const authService = container.get(AuthService);
-    const polarService = container.get(PolarService);
-    const userDAO = container.get(UserDAO);
+  const userId = c.get('userId')!;
+  const container = c.get('container');
+  const polarService = container.get(PolarService);
+  const userDAO = container.get(UserDAO);
 
-    // Check authentication
-    const cookieHeader = c.req.header('Cookie');
-    const token = getAuthToken(cookieHeader || null);
+  // Get full billing status from Polar
+  const status = await polarService.getBillingStatus(userId);
 
-    if (!token) {
-      return c.json({ error: 'Authentication required' }, 401);
+  // Refresh local D1 quota_limits cache (non-blocking)
+  // This keeps local limits in sync when user views billing page
+  if (status.meters.length > 0) {
+    const limits: Record<string, number | null> = {};
+    for (const meter of status.meters) {
+      limits[meter.meterSlug] = meter.hasLimit ? meter.credited : null;
     }
-
-    const payload = await authService.verifyJWT(token);
-    if (!payload) {
-      return c.json({ error: 'Invalid authentication' }, 401);
-    }
-
-    // Get full billing status from Polar
-    const status = await polarService.getBillingStatus(payload.userId);
-
-    // Refresh local D1 quota_limits cache (non-blocking)
-    // This keeps local limits in sync when user views billing page
-    if (status.meters.length > 0) {
-      const limits: Record<string, number | null> = {};
-      for (const meter of status.meters) {
-        limits[meter.meterSlug] = meter.hasLimit ? meter.credited : null;
-      }
-      userDAO.update(payload.userId, {
-        quota_limits: JSON.stringify(limits),
-        quota_limits_updated_at: new Date().toISOString(),
-      }).catch(err => console.warn('Failed to refresh local quota_limits:', err));
-    }
-
-    // Format response for frontend healthbar
-    return c.json({
-      configured: status.configured,
-      hasSubscription: status.hasSubscription,
-      meters: status.meters.map((m) => ({
-        name: m.meterSlug,
-        consumed: m.consumed,
-        credited: m.credited,
-        remaining: m.remaining,
-        percentUsed: Math.round(m.percentUsed * 10) / 10, // 1 decimal place
-        hasLimit: m.hasLimit,
-        // Status indicator for UI
-        status:
-          m.percentUsed >= 100
-            ? 'exceeded'
-            : m.percentUsed >= 90
-              ? 'critical'
-              : m.percentUsed >= 75
-                ? 'warning'
-                : 'ok',
-      })),
-      subscription: status.subscription
-        ? {
-            status: status.subscription.status,
-            renewsAt: status.subscription.currentPeriodEnd?.toISOString() || null,
-          }
-        : null,
-      portalUrl: status.portalUrl,
-    });
-  } catch (error) {
-    console.error('Error fetching billing status:', error);
-    return c.json({ error: 'Failed to fetch billing status' }, 500);
+    userDAO.update(userId, {
+      quota_limits: JSON.stringify(limits),
+      quota_limits_updated_at: new Date().toISOString(),
+    }).catch(err => console.warn('Failed to refresh local quota_limits:', err));
   }
+
+  // Format response for frontend healthbar
+  return c.json({
+    configured: status.configured,
+    hasSubscription: status.hasSubscription,
+    meters: status.meters.map((m) => ({
+      name: m.meterSlug,
+      consumed: m.consumed,
+      credited: m.credited,
+      remaining: m.remaining,
+      percentUsed: Math.round(m.percentUsed * 10) / 10, // 1 decimal place
+      hasLimit: m.hasLimit,
+      // Status indicator for UI
+      status:
+        m.percentUsed >= 100
+          ? 'exceeded'
+          : m.percentUsed >= 90
+            ? 'critical'
+            : m.percentUsed >= 75
+              ? 'warning'
+              : 'ok',
+    })),
+    subscription: status.subscription
+      ? {
+          status: status.subscription.status,
+          renewsAt: status.subscription.currentPeriodEnd?.toISOString() || null,
+        }
+      : null,
+    portalUrl: status.portalUrl,
+  });
 });
 
 /**
@@ -180,36 +126,17 @@ billingRoutes.get('/api/billing/status', async (c) => {
  * GET /api/billing/quota/:service
  */
 billingRoutes.get('/api/billing/quota/:service', async (c) => {
-  try {
-    const container = c.get('container');
-    const authService = container.get(AuthService);
-    const usageService = container.get(UsageService);
+  const userId = c.get('userId')!;
+  const usageService = c.get('container').get(UsageService);
 
-    // Check authentication
-    const cookieHeader = c.req.header('Cookie');
-    const token = getAuthToken(cookieHeader || null);
-
-    if (!token) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
-
-    const payload = await authService.verifyJWT(token);
-    if (!payload) {
-      return c.json({ error: 'Invalid authentication' }, 401);
-    }
-
-    const service = c.req.param('service');
-    if (service !== 'claude' && service !== 'nanobanana') {
-      return c.json({ error: 'Invalid service. Must be "claude" or "nanobanana"' }, 400);
-    }
-
-    const quota = await usageService.checkQuota(payload.userId, service);
-
-    return c.json(quota);
-  } catch (error) {
-    console.error('Error checking quota:', error);
-    return c.json({ error: 'Failed to check quota' }, 500);
+  const service = c.req.param('service');
+  if (service !== 'claude' && service !== 'nanobanana') {
+    return c.json({ error: 'Invalid service. Must be "claude" or "nanobanana"' }, 400);
   }
+
+  const quota = await usageService.checkQuota(userId, service);
+
+  return c.json(quota);
 });
 
 /**
@@ -222,44 +149,24 @@ billingRoutes.get('/api/billing/quota/:service', async (c) => {
  * TODO: Add admin role check when implementing roles
  */
 billingRoutes.get('/api/billing/sync-status', async (c) => {
-  try {
-    const container = c.get('container');
-    const authService = container.get(AuthService);
-    const usageEventDAO = container.get(UsageEventDAO);
-    const userDAO = container.get(UserDAO);
+  const userId = c.get('userId')!;
+  const container = c.get('container');
+  const usageEventDAO = container.get(UsageEventDAO);
+  const userDAO = container.get(UserDAO);
 
-    // Check authentication (Bearer token for CLI)
-    const authHeader = c.req.header('Authorization');
-    const cookieHeader = c.req.header('Cookie');
-    const token = authHeader?.startsWith('Bearer ')
-      ? authHeader.slice(7)
-      : getAuthToken(cookieHeader || null);
+  // TODO: Check if user is admin when roles are implemented
+  // For now, any authenticated user can view sync status
+  void userId; // Acknowledge userId is available but not used for admin check yet
 
-    if (!token) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
+  const eventStats = await usageEventDAO.getSyncStats();
+  const usersWithoutPolar = await userDAO.countWithoutPolarCustomer();
 
-    const payload = await authService.verifyJWT(token);
-    if (!payload) {
-      return c.json({ error: 'Invalid authentication' }, 401);
-    }
-
-    // TODO: Check if user is admin when roles are implemented
-    // For now, any authenticated user can view sync status
-
-    const eventStats = await usageEventDAO.getSyncStats();
-    const usersWithoutPolar = await userDAO.countWithoutPolarCustomer();
-
-    return c.json({
-      events: eventStats,
-      customers: {
-        withoutPolarId: usersWithoutPolar,
-      },
-    });
-  } catch (error) {
-    console.error('Error fetching sync status:', error);
-    return c.json({ error: 'Failed to fetch sync status' }, 500);
-  }
+  return c.json({
+    events: eventStats,
+    customers: {
+      withoutPolarId: usersWithoutPolar,
+    },
+  });
 });
 
 /**
@@ -272,50 +179,29 @@ billingRoutes.get('/api/billing/sync-status', async (c) => {
  * TODO: Add admin role check when implementing roles
  */
 billingRoutes.post('/api/billing/retry-failed', async (c) => {
-  try {
-    const container = c.get('container');
-    const authService = container.get(AuthService);
-    const usageEventDAO = container.get(UsageEventDAO);
+  const userId = c.get('userId')!;
+  const usageEventDAO = c.get('container').get(UsageEventDAO);
 
-    // Check authentication (Bearer token for CLI)
-    const authHeader = c.req.header('Authorization');
-    const cookieHeader = c.req.header('Cookie');
-    const token = authHeader?.startsWith('Bearer ')
-      ? authHeader.slice(7)
-      : getAuthToken(cookieHeader || null);
+  // TODO: Check if user is admin when roles are implemented
+  void userId; // Acknowledge userId is available but not used for admin check yet
 
-    if (!token) {
-      return c.json({ error: 'Authentication required' }, 401);
-    }
+  // Find and reset failed events
+  const failedEvents = await usageEventDAO.findFailed(1000);
 
-    const payload = await authService.verifyJWT(token);
-    if (!payload) {
-      return c.json({ error: 'Invalid authentication' }, 401);
-    }
-
-    // TODO: Check if user is admin when roles are implemented
-
-    // Find and reset failed events
-    const failedEvents = await usageEventDAO.findFailed(1000);
-
-    if (failedEvents.length === 0) {
-      return c.json({
-        reset: 0,
-        message: 'No failed events to retry.',
-      });
-    }
-
-    const eventIds = failedEvents.map((e) => e.id);
-    await usageEventDAO.resetSyncAttempts(eventIds);
-
+  if (failedEvents.length === 0) {
     return c.json({
-      reset: eventIds.length,
-      message: `Reset ${eventIds.length} failed events. They will be synced on the next cron run.`,
+      reset: 0,
+      message: 'No failed events to retry.',
     });
-  } catch (error) {
-    console.error('Error resetting failed events:', error);
-    return c.json({ error: 'Failed to reset events' }, 500);
   }
+
+  const eventIds = failedEvents.map((e) => e.id);
+  await usageEventDAO.resetSyncAttempts(eventIds);
+
+  return c.json({
+    reset: eventIds.length,
+    message: `Reset ${eventIds.length} failed events. They will be synced on the next cron run.`,
+  });
 });
 
 /**
@@ -323,32 +209,27 @@ billingRoutes.post('/api/billing/retry-failed', async (c) => {
  * POST /api/internal/billing/cleanup
  *
  * Removes events older than X days that have been synced
+ * Uses internal API secret instead of user auth
  */
 billingRoutes.post('/api/internal/billing/cleanup', async (c) => {
-  try {
-    // Verify internal API secret
-    const secret = c.req.header('X-Internal-Secret');
-    const expectedSecret = c.env.INTERNAL_API_SECRET;
+  // Verify internal API secret (no user auth needed)
+  const secret = c.req.header('X-Internal-Secret');
+  const expectedSecret = c.env.INTERNAL_API_SECRET;
 
-    if (!expectedSecret || secret !== expectedSecret) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const container = c.get('container');
-    const usageService = container.get(UsageService);
-
-    const olderThanDays = parseInt(c.req.query('days') || '90');
-    const deletedCount = await usageService.cleanupOldEvents(olderThanDays);
-
-    return c.json({
-      success: true,
-      deleted: deletedCount,
-      message: `Deleted ${deletedCount} old synced events`,
-    });
-  } catch (error) {
-    console.error('Error cleaning up usage events:', error);
-    return c.json({ error: 'Failed to cleanup usage events' }, 500);
+  if (!expectedSecret || secret !== expectedSecret) {
+    return c.json({ error: 'Unauthorized' }, 401);
   }
+
+  const usageService = c.get('container').get(UsageService);
+
+  const olderThanDays = parseInt(c.req.query('days') || '90');
+  const deletedCount = await usageService.cleanupOldEvents(olderThanDays);
+
+  return c.json({
+    success: true,
+    deleted: deletedCount,
+    message: `Deleted ${deletedCount} old synced events`,
+  });
 });
 
 export { billingRoutes };

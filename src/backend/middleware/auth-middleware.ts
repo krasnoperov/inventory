@@ -1,6 +1,5 @@
 import type { Context, Next } from 'hono';
-import type { Container } from 'inversify';
-import type { Env } from '../../core/types';
+import type { AppContext } from '../routes/types';
 import { AuthService } from '../features/auth/auth-service';
 
 /**
@@ -22,25 +21,35 @@ function extractToken(c: Context): string | undefined {
 }
 
 /**
- * Create auth middleware that validates JWT tokens
+ * Auth middleware that validates JWT tokens and sets userId on context.
+ * Use on route groups that require authentication.
+ *
+ * @example
+ * const routes = new Hono<AppContext>();
+ * routes.use('*', authMiddleware);
+ * routes.get('/protected', (c) => {
+ *   const userId = c.get('userId')!;
+ *   // ...
+ * });
  */
-export function createAuthMiddleware() {
-  return async (c: Context<{ Bindings: Env; Variables: { userId: number; container: Container } }>, next: Next) => {
-    const container = c.get('container');
-    const authService = container.get(AuthService);
+export const authMiddleware = async (c: Context<AppContext>, next: Next) => {
+  const container = c.get('container');
+  const authService = container.get(AuthService);
 
-    const token = extractToken(c);
+  const token = extractToken(c);
 
-    if (!token) {
-      return c.json({ error: 'Not authenticated' }, 401);
-    }
+  if (!token) {
+    return c.json({ error: 'Authentication required' }, 401);
+  }
 
-    const payload = await authService.verifyJWT(token);
-    if (!payload) {
-      return c.json({ error: 'Invalid token' }, 401);
-    }
+  const payload = await authService.verifyJWT(token);
+  if (!payload) {
+    return c.json({ error: 'Invalid authentication' }, 401);
+  }
 
-    c.set('userId', payload.userId);
-    await next();
-  };
-}
+  c.set('userId', payload.userId);
+  await next();
+};
+
+/** @deprecated Use authMiddleware directly */
+export const createAuthMiddleware = () => authMiddleware;

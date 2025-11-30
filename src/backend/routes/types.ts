@@ -8,6 +8,7 @@ export type AppContext = {
   Variables: {
     container: ReturnType<typeof createContainer>;
     uploadSecurity?: UploadSecurity;
+    userId?: number;
   };
 };
 

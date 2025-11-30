@@ -18,6 +18,12 @@ app.use('*', async (c, next) => {
   await next();
 });
 
+// Global error handler - catches unhandled errors in routes
+app.onError((err, c) => {
+  console.error('Unhandled route error:', err);
+  return c.json({ error: 'Internal server error' }, 500);
+});
+
 // Apply upload security middleware to upload routes
 app.use('/api/upload/*', uploadSecurityMiddleware());
 
