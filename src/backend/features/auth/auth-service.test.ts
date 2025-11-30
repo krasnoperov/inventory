@@ -18,9 +18,9 @@ const createAuthService = async (overrides: Partial<Env> = {}) => {
     OIDC_PRIVATE_KEY: privatePem,
     OIDC_PUBLIC_KEY: publicPem,
     OIDC_KEY_ID: 'test-key',
-    OIDC_AUDIENCE: 'lrsr-api',
+    OIDC_AUDIENCE: 'forgetray-api',
     OIDC_ISSUER: 'https://issuer.test',
-    OIDC_ALLOWED_CLIENT_IDS: JSON.stringify(['lrsr-cli', 'qa-cli']),
+    OIDC_ALLOWED_CLIENT_IDS: JSON.stringify(['forgetray-cli', 'qa-cli']),
     GOOGLE_CLIENT_ID: 'google-client-id',
     GOOGLE_CLIENT_SECRET: 'google-client-secret',
     ENVIRONMENT: 'stage',
@@ -37,7 +37,7 @@ test('AuthService issues and verifies JWTs', async () => {
   const decoded = decodeJwt(token);
 
   assert.strictEqual(decoded.sub, '123');
-  assert.strictEqual(decoded.aud, 'lrsr-api');
+  assert.strictEqual(decoded.aud, 'forgetray-api');
   assert.strictEqual(decoded.iss, 'https://issuer.test');
 
   const payload = await authService.verifyJWT(token);
@@ -66,7 +66,7 @@ test('AuthService validates allowed client IDs', async () => {
 });
 
 test('AuthService rejects token when audience mismatches', async () => {
-  const authService = await createAuthService({ OIDC_AUDIENCE: 'lrsr-api' });
+  const authService = await createAuthService({ OIDC_AUDIENCE: 'forgetray-api' });
   const token = await authService.createJWT(42);
 
   const mismatched = await createAuthService({ OIDC_AUDIENCE: 'other-api' });

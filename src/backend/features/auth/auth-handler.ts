@@ -261,7 +261,7 @@ export class AuthHandler {
   private getClientName(clientId: string): string {
     // Map client IDs to friendly names
     const clientNames: Record<string, string> = {
-      'lrsr-cli': 'Inventory CLI',
+      'forgetray-cli': 'ForgeTray CLI',
       'claude-desktop': 'Claude Desktop',
     };
     return clientNames[clientId] || clientId;

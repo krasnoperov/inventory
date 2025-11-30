@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { StoredConfig, MultiEnvConfig } from './types';
 
 export const DEFAULT_ENVIRONMENT = 'production';
-const CONFIG_DIR_NAME = 'npm run cli';
+const CONFIG_DIR_NAME = 'forgetray-cli';
 const CONFIG_FILE_NAME = 'config.json';
 
 async function loadMultiEnvConfig(): Promise<MultiEnvConfig | null> {

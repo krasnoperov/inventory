@@ -12,8 +12,8 @@ Parameters:
   public-key.pem         Path to ES256 public key in SPKI PEM format.
   key-id                 Identifier embedded in JWT header (kid).
   issuer                 Optional issuer URL (defaults to https://inventory.krasnoperov.me for production, https://inventory-stage.krasnoperov.me otherwise).
-  audience               Optional audience claim (defaults to lrsr-api).
-  allowed-client-ids     Optional JSON array string of allowed client IDs (defaults to ["lrsr-cli"]).
+  audience               Optional audience claim (defaults to forgetray-api).
+  allowed-client-ids     Optional JSON array string of allowed client IDs (defaults to ["forgetray-cli"]).
 USAGE
   exit 1
 fi
@@ -23,8 +23,8 @@ PRIVATE_KEY_PATH="$2"
 PUBLIC_KEY_PATH="$3"
 KEY_ID="$4"
 ISSUER="${5:-}"
-AUDIENCE="${6:-lrsr-api}"
-ALLOWED_CLIENT_IDS="${7:-[\"lrsr-cli\"]}"
+AUDIENCE="${6:-forgetray-api}"
+ALLOWED_CLIENT_IDS="${7:-[\"forgetray-cli\"]}"
 
 if [[ ! -f "$PRIVATE_KEY_PATH" ]]; then
   echo "Private key file not found: $PRIVATE_KEY_PATH" >&2

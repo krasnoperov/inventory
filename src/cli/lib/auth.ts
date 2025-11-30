@@ -3,7 +3,7 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 import type { StoredConfig } from './types';
 
-export const DEFAULT_CLIENT_ID = 'lrsr-cli';
+export const DEFAULT_CLIENT_ID = 'forgetray-cli';
 export const DEFAULT_REDIRECT_PORT = 8765;
 export const AUTH_SCOPES = 'openid profile email';
 
