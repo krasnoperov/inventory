@@ -11,14 +11,14 @@ import { HeaderNav } from '../components/HeaderNav';
 import {
   useSpaceWebSocket,
   PREDEFINED_ASSET_TYPES,
-  getVariantThumbnailUrl,
   type Asset,
   type Variant,
   type Lineage,
+  type ChatResponseResult,
 } from '../hooks/useSpaceWebSocket';
-import { LineageTree } from '../components/LineageTree';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { ForgeTray } from '../components/ForgeTray';
+import { VariantCanvas } from '../components/VariantCanvas';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import styles from './AssetDetailPage.module.css';
 
@@ -83,6 +83,12 @@ export default function AssetDetailPage() {
   // Forge tray store
   const { addSlot } = useForgeTrayStore();
 
+  // Track chat response for ChatSidebar
+  const [chatResponse, setChatResponse] = useState<ChatResponseResult | null>(null);
+
+  // Variant details panel state
+  const [showDetails, setShowDetails] = useState(false);
+
   // WebSocket for real-time updates
   const {
     assets: wsAssets,
@@ -94,18 +100,18 @@ export default function AssetDetailPage() {
     deleteAsset,
     starVariant,
     updateAsset,
-    trackJob,
     clearJob,
     requestSync,
     status: wsStatus,
+    sendChatRequest,
+    sendGenerateRequest,
+    sendRefineRequest,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
     },
     onJobComplete: (completedJob, variant) => {
-      // Notify ChatSidebar of completed job for auto-review
-      // Pass thumbKey directly to avoid race condition with variants state
       setLastCompletedJob({
         jobId: completedJob.jobId,
         variantId: variant.id,
@@ -115,18 +121,16 @@ export default function AssetDetailPage() {
         thumbKey: variant.thumb_key || variant.image_key,
       });
     },
+    onChatResponse: (response) => {
+      setChatResponse(response);
+    },
   });
 
-  // Compute parent asset and child assets
+  // Compute parent asset
   const parentAsset = useMemo(() => {
     if (!asset?.parent_asset_id) return null;
     return wsAssets.find(a => a.id === asset.parent_asset_id) || null;
   }, [asset?.parent_asset_id, wsAssets]);
-
-  const childAssets = useMemo(() => {
-    if (!asset) return [];
-    return wsAssets.filter(a => a.parent_asset_id === asset.id);
-  }, [asset, wsAssets]);
 
   // Build breadcrumb path (ancestors)
   const ancestorPath = useMemo(() => {
@@ -218,20 +222,18 @@ export default function AssetDetailPage() {
         if (updated) {
           setSelectedVariant(updated);
         } else if (!assetVariants.some(v => v.id === selectedVariant.id)) {
-          // Selected variant was deleted, select first available
           setSelectedVariant(assetVariants[0] || null);
         }
       }
     }
 
-    // Update lineage from WebSocket (filter to variants of this asset)
+    // Update lineage from WebSocket
+    // Only include lineage where BOTH parent and child variants belong to this asset
     const variantIds = new Set(assetVariants.map(v => v.id));
     const assetLineage = wsLineage.filter(
-      l => variantIds.has(l.parent_variant_id) || variantIds.has(l.child_variant_id)
+      l => variantIds.has(l.parent_variant_id) && variantIds.has(l.child_variant_id)
     );
-    if (assetLineage.length > 0 || wsLineage.length > 0) {
-      setLineage(assetLineage);
-    }
+    setLineage(assetLineage);
   }, [wsStatus, wsAssets, wsVariants, wsLineage, assetId, selectedVariant]);
 
   // Action handlers
@@ -239,7 +241,6 @@ export default function AssetDetailPage() {
     if (!assetId || actionInProgress) return;
     setActionInProgress(true);
     setActiveVariant(assetId, variantId);
-    // Action completes via WebSocket update
     setTimeout(() => setActionInProgress(false), 500);
   }, [assetId, setActiveVariant, actionInProgress]);
 
@@ -290,7 +291,6 @@ export default function AssetDetailPage() {
         setActionInProgress(true);
         deleteVariant(variant.id);
         setConfirmDialog(null);
-        // If deleting selected variant, select another
         if (selectedVariant?.id === variant.id) {
           const remaining = variants.filter(v => v.id !== variant.id);
           setSelectedVariant(remaining[0] || null);
@@ -310,7 +310,6 @@ export default function AssetDetailPage() {
         setActionInProgress(true);
         deleteAsset(assetId);
         setConfirmDialog(null);
-        // Navigate back to space after deletion
         setTimeout(() => {
           navigate(`/spaces/${spaceId}`);
         }, 500);
@@ -320,40 +319,23 @@ export default function AssetDetailPage() {
 
   const handleVariantClick = useCallback((variant: Variant) => {
     setSelectedVariant(variant);
+    setShowDetails(true);
   }, []);
 
-  // Handle add to forge tray (specific variant from detail view)
-  const handleAddToTray = useCallback((variant: Variant) => {
-    if (asset) {
+  // Handle add to forge tray
+  const handleAddToTray = useCallback((variant: Variant, targetAsset?: Asset) => {
+    if (targetAsset) {
+      addSlot(variant, targetAsset);
+    } else if (asset) {
       addSlot(variant, asset);
     }
   }, [addSlot, asset]);
 
-  // Use shared forge operations hook (handles generate, refine, combine)
+  // Use shared forge operations hook
   const { handleForgeSubmit, onGenerateAsset, onRefineAsset, onCombineAssets } = useForgeOperations({
-    spaceId: spaceId || '',
-    trackJob,
+    sendGenerateRequest,
+    sendRefineRequest,
   });
-
-  const getVariantLineage = useCallback((variantId: string) => {
-    const parents = lineage
-      .filter(l => l.child_variant_id === variantId)
-      .map(l => {
-        const parentVariant = variants.find(v => v.id === l.parent_variant_id);
-        return parentVariant ? { ...l, variant: parentVariant } : null;
-      })
-      .filter(Boolean);
-
-    const children = lineage
-      .filter(l => l.parent_variant_id === variantId)
-      .map(l => {
-        const childVariant = variants.find(v => v.id === l.child_variant_id);
-        return childVariant ? { ...l, variant: childVariant } : null;
-      })
-      .filter(Boolean);
-
-    return { parents, children };
-  }, [lineage, variants]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
@@ -369,13 +351,6 @@ export default function AssetDetailPage() {
 
   const headerRightSlot = user ? (
     <div className={styles.headerRight}>
-      <button
-        className={`${styles.chatToggle} ${showChat ? styles.active : ''}`}
-        onClick={toggleChat}
-        title={showChat ? 'Close chat' : 'Open assistant'}
-      >
-        🤖
-      </button>
       <HeaderNav userName={user.name} userEmail={user.email} />
     </div>
   ) : (
@@ -389,9 +364,9 @@ export default function AssetDetailPage() {
           leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
           rightSlot={headerRightSlot}
         />
-        <main className={styles.main}>
+        <div className={styles.loadingPage}>
           <div className={styles.loading}>Loading asset...</div>
-        </main>
+        </div>
       </div>
     );
   }
@@ -403,45 +378,57 @@ export default function AssetDetailPage() {
           leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
           rightSlot={headerRightSlot}
         />
-        <main className={styles.main}>
+        <div className={styles.errorPage}>
           <div className={styles.error}>
             <h2>Error</h2>
             <p>{error || 'Asset not found'}</p>
             <Link to={`/spaces/${spaceId}`} className={styles.backLink}>Back to Space</Link>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
 
-  const selectedLineage = selectedVariant ? getVariantLineage(selectedVariant.id) : null;
   const selectedRecipe = selectedVariant ? parseRecipe(selectedVariant.recipe) : null;
 
   return (
-    <div className={`${styles.page} ${showChat ? styles.withChat : ''}`}>
+    <div className={styles.page}>
       <AppHeader
         leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
         rightSlot={headerRightSlot}
       />
 
-      <div className={styles.pageContent}>
-        <main className={styles.main}>
-        <nav className={styles.breadcrumb}>
-          <Link to="/dashboard">Dashboard</Link>
-          <span>/</span>
-          <Link to={`/spaces/${spaceId}`}>Space</Link>
-          {ancestorPath.map((ancestor) => (
-            <React.Fragment key={ancestor.id}>
-              <span>/</span>
-              <Link to={`/spaces/${spaceId}/assets/${ancestor.id}`}>{ancestor.name}</Link>
-            </React.Fragment>
-          ))}
-          <span>/</span>
-          <span>{asset.name}</span>
-        </nav>
+      {/* Full-screen canvas container */}
+      <div className={styles.canvasContainer}>
+        {/* Variant Canvas - fills entire container */}
+        <VariantCanvas
+          asset={asset}
+          variants={variants}
+          lineage={lineage}
+          selectedVariantId={selectedVariant?.id}
+          jobs={jobs}
+          onVariantClick={handleVariantClick}
+          onAddToTray={handleAddToTray}
+          onSetActive={handleSetActiveVariant}
+        />
 
-        <div className={styles.header}>
-          <div className={styles.titleRow}>
+        {/* Asset info overlay - top left */}
+        <div className={styles.assetOverlay}>
+          {/* Breadcrumb */}
+          <nav className={styles.breadcrumb}>
+            <Link to="/dashboard">Dashboard</Link>
+            <span>/</span>
+            <Link to={`/spaces/${spaceId}`}>Space</Link>
+            {ancestorPath.map((ancestor) => (
+              <React.Fragment key={ancestor.id}>
+                <span>/</span>
+                <Link to={`/spaces/${spaceId}/assets/${ancestor.id}`}>{ancestor.name}</Link>
+              </React.Fragment>
+            ))}
+          </nav>
+
+          {/* Asset header */}
+          <div className={styles.assetHeader}>
             {editingName ? (
               <input
                 type="text"
@@ -461,6 +448,9 @@ export default function AssetDetailPage() {
                 {asset.name}
               </h1>
             )}
+          </div>
+
+          <div className={styles.assetMeta}>
             <select
               className={styles.typeSelect}
               value={asset.type}
@@ -473,58 +463,60 @@ export default function AssetDetailPage() {
                 </option>
               ))}
             </select>
-            <div className={styles.assetActions}>
-              <button
-                className={styles.deleteAssetButton}
-                onClick={handleDeleteAsset}
-                disabled={actionInProgress}
-                title="Delete Asset"
-              >
-                Delete
-              </button>
-            </div>
+            <span className={styles.metaBadge}>
+              {variants.length} variant{variants.length !== 1 ? 's' : ''}
+            </span>
+            {wsStatus === 'connected' && (
+              <span className={styles.liveIndicator}>Live</span>
+            )}
           </div>
-          <p className={styles.subtitle}>
-            {variants.length} variant{variants.length !== 1 ? 's' : ''}
-          </p>
+
+          <div className={styles.assetActions}>
+            <button
+              className={styles.deleteAssetButton}
+              onClick={handleDeleteAsset}
+              disabled={actionInProgress}
+              title="Delete Asset"
+            >
+              Delete Asset
+            </button>
+          </div>
         </div>
 
-        {/* Active Jobs for this Asset */}
-        {(() => {
+        {/* Jobs overlay - bottom left */}
+        {jobs.size > 0 && (() => {
           const assetJobs = Array.from(jobs.values()).filter(
             j => j.assetId === assetId || j.assetName === asset.name
           );
           if (assetJobs.length === 0) return null;
 
           return (
-            <div className={styles.jobsSection}>
+            <div className={styles.jobsOverlay}>
               {assetJobs.map((job) => (
                 <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
-                  <div className={styles.jobIcon}>
+                  <div className={styles.jobStatus}>
                     {job.status === 'pending' && '⏳'}
                     {job.status === 'processing' && '🎨'}
-                    {job.status === 'completed' && '✅'}
-                    {job.status === 'failed' && '❌'}
+                    {job.status === 'completed' && '✓'}
+                    {job.status === 'failed' && '✗'}
                   </div>
-                  <div className={styles.jobContent}>
+                  <div className={styles.jobInfo}>
                     <span className={styles.jobTitle}>
-                      {job.status === 'pending' && 'Refinement queued...'}
-                      {job.status === 'processing' && 'Creating new variant...'}
-                      {job.status === 'completed' && 'New variant ready'}
-                      {job.status === 'failed' && 'Refinement failed'}
+                      {job.status === 'pending' && 'Queued'}
+                      {job.status === 'processing' && 'Creating variant...'}
+                      {job.status === 'completed' && 'Done'}
+                      {job.status === 'failed' && 'Failed'}
                     </span>
                     {job.prompt && job.status !== 'completed' && (
                       <span className={styles.jobPrompt}>
-                        "{job.prompt.length > 80 ? job.prompt.slice(0, 80) + '...' : job.prompt}"
+                        "{job.prompt.length > 60 ? job.prompt.slice(0, 60) + '...' : job.prompt}"
                       </span>
                     )}
-                    {job.error && (
-                      <span className={styles.jobError}>{job.error}</span>
-                    )}
+                    {job.error && <span className={styles.jobError}>{job.error}</span>}
                   </div>
                   {(job.status === 'completed' || job.status === 'failed') && (
                     <button
-                      className={styles.jobDismiss}
+                      className={styles.dismissButton}
                       onClick={() => clearJob(job.jobId)}
                     >
                       Dismiss
@@ -536,228 +528,133 @@ export default function AssetDetailPage() {
           );
         })()}
 
-        <div className={styles.content}>
-          {/* Main Image Preview */}
-          <div className={styles.previewSection}>
-            {selectedVariant ? (
-              <div className={styles.preview}>
-                <img
-                  src={`/api/images/${selectedVariant.image_key}`}
-                  alt={asset.name}
-                  className={styles.previewImage}
-                />
-              </div>
-            ) : (
-              <div className={styles.emptyPreview}>
-                <span>No variants available</span>
-              </div>
-            )}
+        {/* Variant details panel - bottom right (when variant selected and showDetails) */}
+        {selectedVariant && showDetails && (
+          <div className={styles.detailsPanel}>
+            <div className={styles.detailsHeader}>
+              <h3>Variant Details</h3>
+              <button
+                className={styles.closeDetails}
+                onClick={() => setShowDetails(false)}
+                title="Close"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-            {/* Variant Details */}
-            {selectedVariant && (
-              <div className={styles.variantDetails}>
-                <div className={styles.variantDetailsHeader}>
-                  <h3>Variant Details</h3>
-                  <div className={styles.variantActions}>
-                    <button
-                      className={`${styles.starButton} ${selectedVariant.starred ? styles.starred : ''}`}
-                      onClick={() => handleStarVariant(selectedVariant.id, !selectedVariant.starred)}
-                      title={selectedVariant.starred ? 'Unstar' : 'Star'}
-                    >
-                      {selectedVariant.starred ? '★' : '☆'}
-                    </button>
-                    <a
-                      className={styles.downloadButton}
-                      href={`/api/images/${selectedVariant.image_key}`}
-                      download={`${asset.name}-${selectedVariant.id.slice(0, 8)}.png`}
-                      title="Download full image"
-                    >
-                      Download
-                    </a>
-                    <button
-                      className={styles.addToTrayButton}
-                      onClick={() => handleAddToTray(selectedVariant)}
-                      title="Add to Forge Tray for generation"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
-                      Add to Tray
-                    </button>
-                    {selectedVariant.id !== asset.active_variant_id && (
-                      <button
-                        className={styles.setActiveButton}
-                        onClick={() => handleSetActiveVariant(selectedVariant.id)}
-                        disabled={actionInProgress}
-                      >
-                        Set as Active
-                      </button>
-                    )}
-                    <button
-                      className={styles.deleteVariantButton}
-                      onClick={() => handleDeleteVariant(selectedVariant)}
-                      disabled={actionInProgress || variants.length <= 1}
-                      title={variants.length <= 1 ? 'Cannot delete the only variant' : 'Delete Variant'}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-                <div className={styles.detailsGrid}>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Created</span>
-                    <span className={styles.detailValue}>{formatDate(selectedVariant.created_at)}</span>
-                  </div>
-                  {selectedRecipe && (
-                    <>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Type</span>
-                        <span className={styles.detailValue}>{selectedRecipe.type}</span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Model</span>
-                        <span className={styles.detailValue}>{selectedRecipe.model}</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-                {selectedRecipe?.prompt && (
-                  <div className={styles.promptSection}>
-                    <span className={styles.detailLabel}>Prompt</span>
-                    <p className={styles.promptText}>{selectedRecipe.prompt}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Lineage Section */}
-            {selectedVariant && selectedLineage && (selectedLineage.parents.length > 0 || selectedLineage.children.length > 0) && (
-              <LineageTree
-                currentVariant={selectedVariant}
-                parents={selectedLineage.parents
-                  .filter((p): p is NonNullable<typeof p> => p !== null)
-                  .map(p => ({ variant: p.variant, relation_type: p.relation_type as 'derived' | 'composed' }))}
-                children={selectedLineage.children
-                  .filter((c): c is NonNullable<typeof c> => c !== null)
-                  .map(c => ({ variant: c.variant, relation_type: c.relation_type as 'derived' | 'composed' }))}
-                onSelectVariant={(v) => {
-                  const fullVariant = variants.find(variant => variant.id === v.id);
-                  if (fullVariant) setSelectedVariant(fullVariant);
-                }}
-                spaceId={spaceId}
+            {/* Large preview */}
+            <div className={styles.detailsPreview}>
+              <img
+                src={`/api/images/${selectedVariant.image_key}`}
+                alt={asset.name}
+                className={styles.previewImage}
               />
-            )}
-          </div>
+            </div>
 
-          {/* Variant List */}
-          <div className={styles.variantsSection}>
-            <div className={styles.variantsList}>
-              {/* Pending variant placeholders for active jobs */}
-              {Array.from(jobs.values())
-                .filter(j => (j.assetId === assetId || j.assetName === asset.name) &&
-                       j.jobType === 'derive' &&
-                       (j.status === 'pending' || j.status === 'processing'))
-                .map((job) => (
-                  <div key={job.jobId} className={`${styles.variantThumb} ${styles.pendingVariant}`}>
-                    <div className={styles.pendingContent}>
-                      <div className={styles.pendingSpinner} />
-                      <span className={styles.pendingText}>
-                        {job.status === 'pending' ? 'Queued' : 'Creating'}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              }
-              {variants.map((variant) => (
-                <div
-                  key={variant.id}
-                  className={`${styles.variantThumb} ${selectedVariant?.id === variant.id ? styles.selected : ''} ${variant.id === asset.active_variant_id ? styles.active : ''} ${variant.starred ? styles.starred : ''}`}
-                  onClick={() => handleVariantClick(variant)}
+            {/* Actions */}
+            <div className={styles.detailsActions}>
+              <button
+                className={`${styles.starButton} ${selectedVariant.starred ? styles.starred : ''}`}
+                onClick={() => handleStarVariant(selectedVariant.id, !selectedVariant.starred)}
+                title={selectedVariant.starred ? 'Unstar' : 'Star'}
+              >
+                {selectedVariant.starred ? '★' : '☆'}
+              </button>
+              <a
+                className={styles.downloadButton}
+                href={`/api/images/${selectedVariant.image_key}`}
+                download={`${asset.name}-${selectedVariant.id.slice(0, 8)}.png`}
+                title="Download full image"
+              >
+                Download
+              </a>
+              <button
+                className={styles.addToTrayButton}
+                onClick={() => handleAddToTray(selectedVariant)}
+                title="Add to Forge Tray"
+              >
+                Add to Tray
+              </button>
+              {selectedVariant.id !== asset.active_variant_id && (
+                <button
+                  className={styles.setActiveButton}
+                  onClick={() => handleSetActiveVariant(selectedVariant.id)}
+                  disabled={actionInProgress}
                 >
-                  <img
-                    src={getVariantThumbnailUrl(variant)}
-                    alt={`Variant ${variant.id}`}
-                  />
-                  {variant.starred && (
-                    <span className={styles.starIndicator}>★</span>
-                  )}
-                  {variant.id === asset.active_variant_id && (
-                    <span className={styles.activeIndicator}>Active</span>
-                  )}
-                  <button
-                    className={styles.addToTrayButton}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddToTray(variant);
-                    }}
-                    title="Add to Forge Tray"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                      <path d="M12 5v14M5 12h14" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+                  Set Active
+                </button>
+              )}
+              <button
+                className={styles.deleteVariantButton}
+                onClick={() => handleDeleteVariant(selectedVariant)}
+                disabled={actionInProgress || variants.length <= 1}
+                title={variants.length <= 1 ? 'Cannot delete the only variant' : 'Delete'}
+              >
+                Delete
+              </button>
             </div>
-          </div>
-        </div>
 
-        {/* Sub-Assets Section */}
-        {childAssets.length > 0 && (
-          <div className={styles.subAssetsSection}>
-            <h2 className={styles.subAssetsTitle}>Sub-Assets ({childAssets.length})</h2>
-            <div className={styles.subAssetsGrid}>
-              {childAssets.map((child) => {
-                const childVariant = wsVariants.find(v => v.asset_id === child.id && v.id === child.active_variant_id)
-                  || wsVariants.find(v => v.asset_id === child.id);
-                return (
-                  <Link
-                    key={child.id}
-                    to={`/spaces/${spaceId}/assets/${child.id}`}
-                    className={styles.subAssetCard}
-                  >
-                    <div className={styles.subAssetThumb}>
-                      {childVariant ? (
-                        <img
-                          src={getVariantThumbnailUrl(childVariant)}
-                          alt={child.name}
-                        />
-                      ) : (
-                        <div className={styles.emptyThumb}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <polyline points="21 15 16 10 5 21" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                    <div className={styles.subAssetInfo}>
-                      <span className={styles.subAssetName}>{child.name}</span>
-                      <span className={styles.subAssetType}>{child.type}</span>
-                    </div>
-                  </Link>
-                );
-              })}
+            {/* Metadata */}
+            <div className={styles.detailsGrid}>
+              <div className={styles.detailItem}>
+                <span className={styles.detailLabel}>Created</span>
+                <span className={styles.detailValue}>{formatDate(selectedVariant.created_at)}</span>
+              </div>
+              {selectedRecipe && (
+                <>
+                  <div className={styles.detailItem}>
+                    <span className={styles.detailLabel}>Type</span>
+                    <span className={styles.detailValue}>{selectedRecipe.type}</span>
+                  </div>
+                  <div className={styles.detailItem}>
+                    <span className={styles.detailLabel}>Model</span>
+                    <span className={styles.detailValue}>{selectedRecipe.model}</span>
+                  </div>
+                </>
+              )}
             </div>
+
+            {selectedRecipe?.prompt && (
+              <div className={styles.promptSection}>
+                <span className={styles.detailLabel}>Prompt</span>
+                <p className={styles.promptText}>{selectedRecipe.prompt}</p>
+              </div>
+            )}
           </div>
         )}
-        </main>
 
-        {/* Chat Sidebar */}
-        <ChatSidebar
-          spaceId={spaceId || ''}
-          isOpen={showChat}
-          onClose={closeChat}
-          currentAsset={asset}
-          currentVariant={selectedVariant}
-          allAssets={wsAssets}
-          allVariants={wsVariants}
-          lastCompletedJob={lastCompletedJob}
-          onGenerateAsset={onGenerateAsset}
-          onRefineAsset={onRefineAsset}
-          onCombineAssets={onCombineAssets}
-        />
+        {/* Chat toggle button */}
+        <button
+          className={`${styles.chatToggle} ${showChat ? styles.active : ''}`}
+          onClick={toggleChat}
+          title={showChat ? 'Hide assistant' : 'Show assistant'}
+          style={{ right: showChat ? 'calc(380px + 1.5rem)' : '1rem' }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        </button>
+
+        {/* Floating chat panel */}
+        <div className={`${styles.chatPanel} ${!showChat ? styles.collapsed : ''}`}>
+          <ChatSidebar
+            spaceId={spaceId || ''}
+            isOpen={true}
+            onClose={closeChat}
+            currentAsset={asset}
+            currentVariant={selectedVariant}
+            allAssets={wsAssets}
+            allVariants={wsVariants}
+            lastCompletedJob={lastCompletedJob}
+            onGenerateAsset={onGenerateAsset}
+            onRefineAsset={onRefineAsset}
+            onCombineAssets={onCombineAssets}
+            sendChatRequest={sendChatRequest}
+            chatResponse={chatResponse}
+          />
+        </div>
       </div>
 
       {/* Confirmation Dialog */}
