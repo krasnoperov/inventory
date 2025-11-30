@@ -108,6 +108,45 @@ spaceRoutes.get('/api/spaces/:id', async (c) => {
   });
 });
 
+// GET /api/spaces/:id/assets - List all assets in a space
+spaceRoutes.get('/api/spaces/:id/assets', async (c) => {
+  const userId = String(c.get('userId')!);
+  const container = c.get('container');
+  const memberDAO = container.get(MemberDAO);
+  const env = c.env;
+
+  const spaceId = c.req.param('id');
+
+  // Check if user is a member of this space
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+
+  // Get assets from SpaceDO
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doId = env.SPACES_DO.idFromName(spaceId);
+  const doStub = env.SPACES_DO.get(doId);
+
+  const doResponse = await doStub.fetch(new Request('http://do/internal/state', {
+    method: 'GET',
+  }));
+
+  if (!doResponse.ok) {
+    return c.json({ error: 'Failed to fetch assets' }, 500);
+  }
+
+  const state = await doResponse.json() as { assets: unknown[] };
+
+  return c.json({
+    success: true,
+    assets: state.assets,
+  });
+});
+
 // DELETE /api/spaces/:id - Delete space (owner only)
 spaceRoutes.delete('/api/spaces/:id', async (c) => {
   const userId = String(c.get('userId')!);
