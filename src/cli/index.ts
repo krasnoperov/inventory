@@ -4,6 +4,7 @@ import { parseArgs } from './lib/utils';
 import { handleLogin } from './commands/login';
 import { handleLogout } from './commands/logout';
 import { handleBilling } from './commands/billing';
+import { handleChat } from './commands/chat';
 
 async function main() {
   const [, , command, ...args] = process.argv;
@@ -39,6 +40,11 @@ Billing (Polar.sh):
   billing sync                 Trigger manual sync of pending events
   billing retry-failed         Retry all failed events
 
+Chat:
+  chat send <msg>              Send message to chat service (no execution)
+  chat execute                 Execute pending actions
+  chat show                    Display state for evaluation
+
 Options:
   --env <environment>          Target environment (production|stage|local), default: stage
   --local                      Shortcut for local development
@@ -48,7 +54,7 @@ Examples:
   npm run cli login --env production
   npm run cli logout
   npm run cli billing status   Show billing sync status
-  npm run cli billing retry    Reset failed events for retry
+  npm run cli chat send "Create a warrior" --space space_123 --state test.json
 `);
 }
 
@@ -62,6 +68,9 @@ async function dispatchCommand(command: string, parsed: Parameters<typeof parseA
       break;
     case 'billing':
       await handleBilling(parsed);
+      break;
+    case 'chat':
+      await handleChat(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);
