@@ -9,7 +9,10 @@ export type DestinationType = 'existing_asset' | 'new_asset';
 
 export interface ForgeSubmitParams {
   prompt?: string;  // undefined for fork (copy without modification)
-  referenceVariantIds: string[];
+  // Use referenceVariantIds for explicit variant selection (ForgeTray UI)
+  // Use referenceAssetIds for asset-level references (Chat/Claude) - backend resolves to default variants
+  referenceVariantIds?: string[];
+  referenceAssetIds?: string[];
   destination: {
     type: DestinationType;
     assetId?: string;

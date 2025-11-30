@@ -19,7 +19,7 @@ export interface ToolExecutionDeps {
   spaceId: string;
   allAssets: Asset[];
   allVariants: Variant[];
-  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string }) => Promise<string | void>;
+  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string; referenceAssetIds?: string[] }) => Promise<string | void>;
   onRefineAsset?: (params: { assetId: string; prompt: string }) => Promise<string | void>;
   onCombineAssets?: (params: { sourceAssetIds: string[]; prompt: string; targetName: string; targetType: string }) => Promise<string | void>;
 }
@@ -151,6 +151,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
           type: params.type as string,
           prompt: params.prompt as string,
           parentAssetId: params.parentAssetId as string | undefined,
+          referenceAssetIds: params.referenceAssetIds as string[] | undefined,
         };
         const jobId = await onGenerateAsset(genParams);
         // Track job for auto-review
@@ -214,7 +215,8 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
       }
 
       case 'describe_image': {
-        const variantId = params.variantId as string;
+        const assetId = params.assetId as string;
+        const variantId = params.variantId as string | undefined;
         const assetName = params.assetName as string;
         const focus = (params.focus as string) || 'general';
         const question = params.question as string | undefined;
@@ -224,7 +226,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ variantId, assetName, focus, question }),
+            body: JSON.stringify({ assetId, variantId, assetName, focus, question }),
           });
 
           if (!response.ok) {

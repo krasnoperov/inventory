@@ -49,7 +49,7 @@ export interface ChatSidebarProps {
   currentVariant?: Variant | null;
   allAssets?: Asset[];
   allVariants?: Variant[];
-  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string }) => Promise<string | void>;
+  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string; referenceAssetIds?: string[] }) => Promise<string | void>;
   onRefineAsset?: (params: { assetId: string; prompt: string }) => Promise<string | void>;
   onCombineAssets?: (params: { sourceAssetIds: string[]; prompt: string; targetName: string; targetType: string }) => Promise<string | void>;
   lastCompletedJob?: JobCompletionData | null;
@@ -115,6 +115,8 @@ export function ChatSidebar({
   const [showPreferences, setShowPreferences] = useState(false);
   // Track which meters have shown 90% warning this session
   const [warnedMeters, setWarnedMeters] = useState<Set<string>>(new Set());
+  // Track plan step waiting for ForgeTray completion (step index, or null if none)
+  const [forgeTrayStepIndex, setForgeTrayStepIndex] = useState<number | null>(null);
 
   // Usage tracking for 90% warnings
   const { meters, refresh: refreshUsage } = useLimitedUsage();
@@ -132,6 +134,7 @@ export function ChatSidebar({
   // Forge tray state for context
   const slots = useForgeTrayStore((state) => state.slots);
   const prompt = useForgeTrayStore((state) => state.prompt);
+  const prefillFromStep = useForgeTrayStore((state) => state.prefillFromStep);
 
   // Build forge context
   const forgeContext = useMemo<ForgeContext>(() => {
@@ -304,6 +307,39 @@ export function ChatSidebar({
   }, [lastCompletedJob, isOpen, spaceId, toolExec, addMessage, allVariants]);
 
   // ==========================================================================
+  // ForgeTray Step Completion (when user submits manually from ForgeTray)
+  // ==========================================================================
+
+  useEffect(() => {
+    // If a plan step is waiting for ForgeTray completion and a job just finished
+    if (forgeTrayStepIndex !== null && lastCompletedJob && activePlan) {
+      const step = activePlan.steps[forgeTrayStepIndex];
+      if (step && step.status === 'in_progress') {
+        // Complete the step
+        completeStep(spaceId, forgeTrayStepIndex, `Generated via ForgeTray (job: ${lastCompletedJob.jobId})`);
+        setForgeTrayStepIndex(null);
+
+        // Check for remaining steps
+        const nextIndex = activePlan.steps.findIndex((s, i) => i > forgeTrayStepIndex && s.status === 'pending');
+        if (nextIndex !== -1) {
+          addMessage(spaceId, {
+            role: 'assistant',
+            content: `Step ${forgeTrayStepIndex + 1} completed! Ready for step ${nextIndex + 1}. Click "Next Step" to continue.`,
+            timestamp: Date.now(),
+          });
+        } else {
+          addMessage(spaceId, {
+            role: 'assistant',
+            content: 'Plan completed successfully!',
+            timestamp: Date.now(),
+          });
+          setTimeout(() => resetPlan(spaceId), 2000);
+        }
+      }
+    }
+  }, [lastCompletedJob, forgeTrayStepIndex, activePlan, spaceId, completeStep, addMessage, resetPlan]);
+
+  // ==========================================================================
   // Plan Execution
   // ==========================================================================
 
@@ -373,10 +409,39 @@ export function ChatSidebar({
   const handleContinue = useCallback(() => {
     if (!activePlan) return;
     const nextIndex = activePlan.steps.findIndex(s => s.status === 'pending');
-    if (nextIndex !== -1) {
-      executeStep(nextIndex);
+    if (nextIndex === -1) return;
+
+    const step = activePlan.steps[nextIndex];
+
+    // For generate_asset steps with references, prefill ForgeTray for review
+    if (step.action === 'generate_asset') {
+      const referenceAssetIds = step.params.referenceAssetIds as string[] | undefined;
+      const stepPrompt = step.params.prompt as string || '';
+
+      if (referenceAssetIds && referenceAssetIds.length > 0) {
+        // Prefill ForgeTray with references and prompt
+        prefillFromStep(referenceAssetIds, stepPrompt, allAssets, allVariants);
+
+        // Update step status to in_progress
+        startStep(spaceId, nextIndex);
+
+        // Track that this step is waiting for ForgeTray completion
+        setForgeTrayStepIndex(nextIndex);
+
+        // Inform user to review in ForgeTray
+        const assetName = step.params.name as string || 'New Asset';
+        addMessage(spaceId, {
+          role: 'assistant',
+          content: `Step ${nextIndex + 1}: ${step.description}\n\nForgeTray has been loaded with:\n• ${referenceAssetIds.length} reference image(s)\n• Prompt: "${stepPrompt.slice(0, 100)}${stepPrompt.length > 100 ? '...' : ''}"\n• Target: "${assetName}"\n\nReview and adjust in the ForgeTray below, then click Generate when ready.`,
+          timestamp: Date.now(),
+        });
+        return;
+      }
     }
-  }, [activePlan, executeStep]);
+
+    // For other steps, execute directly
+    executeStep(nextIndex);
+  }, [activePlan, executeStep, prefillFromStep, allAssets, allVariants, spaceId, startStep, addMessage]);
 
   const handleCancel = useCallback(() => {
     if (activePlan) {
@@ -666,8 +731,18 @@ export function ChatSidebar({
     sendMessage(payload.message, payload.mode);
   }, [messages, spaceId, setMessages, sendMessage]);
 
-  const clearChat = useCallback(() => {
+  const clearChat = useCallback(async () => {
+    // Clear local state
     clearMessages(spaceId);
+    // Clear server-side history
+    try {
+      await fetch(`/api/spaces/${spaceId}/chat/history`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+    } catch (err) {
+      console.error('Failed to clear server chat history:', err);
+    }
   }, [spaceId, clearMessages]);
 
   const handleInputChange = useCallback((value: string) => {

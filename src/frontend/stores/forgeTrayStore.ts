@@ -38,6 +38,14 @@ interface ForgeTrayState {
   reorderSlots: (fromIndex: number, toIndex: number) => void;
   setPrompt: (prompt: string) => void;
 
+  // Prefill from plan step (resolves asset IDs to slots)
+  prefillFromStep: (
+    referenceAssetIds: string[],
+    prompt: string,
+    allAssets: Asset[],
+    allVariants: Variant[]
+  ) => void;
+
   // Context export (for assistant)
   getContext: () => ForgeContext;
 }
@@ -111,6 +119,32 @@ export const useForgeTrayStore = create<ForgeTrayState>()((set, get) => ({
 
   setPrompt: (prompt) => {
     set({ prompt });
+  },
+
+  prefillFromStep: (referenceAssetIds, prompt, allAssets, allVariants) => {
+    // Clear existing slots first
+    const newSlots: ForgeSlot[] = [];
+
+    for (const assetId of referenceAssetIds) {
+      const asset = allAssets.find(a => a.id === assetId);
+      if (!asset) continue;
+
+      // Find the active variant for this asset
+      const variant = allVariants.find(v => v.id === asset.active_variant_id);
+      if (!variant) continue;
+
+      newSlots.push({
+        id: `${variant.id}-${Date.now()}-${newSlots.length}`,
+        variant,
+        asset,
+        position: newSlots.length,
+      });
+    }
+
+    set({
+      slots: newSlots,
+      prompt,
+    });
   },
 
   getContext: () => {

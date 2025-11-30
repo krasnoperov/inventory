@@ -18,7 +18,8 @@ import {
 } from '../hooks/useSpaceWebSocket';
 import { LineageTree } from '../components/LineageTree';
 import { ChatSidebar } from '../components/ChatSidebar';
-import { ForgeTray, type ForgeSubmitParams } from '../components/ForgeTray';
+import { ForgeTray } from '../components/ForgeTray';
+import { useForgeOperations } from '../hooks/useForgeOperations';
 import styles from './AssetDetailPage.module.css';
 
 interface AssetDetailsResponse {
@@ -328,70 +329,11 @@ export default function AssetDetailPage() {
     }
   }, [addSlot, asset]);
 
-  // Handle forge submit (unified handler for generate, transform, combine)
-  // Returns the job ID for tracking
-  const handleForgeSubmit = useCallback(async (params: ForgeSubmitParams): Promise<string> => {
-    const { prompt, referenceVariantIds, destination } = params;
-
-    if (destination.type === 'existing_asset' && destination.assetId) {
-      // Add variant to existing asset
-      const targetAsset = wsAssets.find(a => a.id === destination.assetId);
-      const sourceVariantId = referenceVariantIds.length > 0 ? referenceVariantIds[0] : undefined;
-
-      const response = await fetch(`/api/spaces/${spaceId}/assets/${destination.assetId}/variants`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourceVariantId,
-          prompt,
-          referenceVariantIds: referenceVariantIds.length > 1 ? referenceVariantIds.slice(1) : undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to start variant generation');
-      }
-
-      const result = await response.json() as { success: boolean; jobId: string };
-      trackJob(result.jobId, {
-        jobType: referenceVariantIds.length > 1 ? 'compose' : 'derive',
-        prompt,
-        assetId: destination.assetId,
-        assetName: targetAsset?.name,
-      });
-      return result.jobId;
-    } else {
-      // Create new asset
-      const response = await fetch(`/api/spaces/${spaceId}/assets`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: destination.assetName || 'Generated Asset',
-          type: destination.assetType || 'character',
-          parentAssetId: destination.parentAssetId || undefined,
-          prompt,
-          referenceVariantIds: referenceVariantIds.length > 0 ? referenceVariantIds : undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to start generation');
-      }
-
-      const result = await response.json() as { success: boolean; jobId: string; mode: string; assetId: string };
-      trackJob(result.jobId, {
-        jobType: result.mode as 'generate' | 'derive' | 'compose',
-        prompt,
-        assetId: result.assetId,
-        assetName: destination.assetName,
-      });
-      return result.jobId;
-    }
-  }, [spaceId, trackJob, wsAssets]);
+  // Use shared forge operations hook (handles generate, refine, combine)
+  const { handleForgeSubmit, onGenerateAsset, onRefineAsset, onCombineAssets } = useForgeOperations({
+    spaceId: spaceId || '',
+    trackJob,
+  });
 
   const getVariantLineage = useCallback((variantId: string) => {
     const parents = lineage
@@ -812,50 +754,9 @@ export default function AssetDetailPage() {
           allAssets={wsAssets}
           allVariants={wsVariants}
           lastCompletedJob={lastCompletedJob}
-          onGenerateAsset={async (params) => {
-            return await handleForgeSubmit({
-              prompt: params.prompt,
-              referenceVariantIds: [],
-              destination: {
-                type: 'new_asset',
-                assetName: params.name,
-                assetType: params.type,
-                parentAssetId: params.parentAssetId || null,
-              },
-              operation: 'generate',
-            });
-          }}
-          onRefineAsset={async (params) => {
-            const targetAsset = wsAssets.find(a => a.id === params.assetId);
-            const sourceVariant = wsVariants.find(v => v.id === targetAsset?.active_variant_id);
-            if (sourceVariant) {
-              return await handleForgeSubmit({
-                prompt: params.prompt,
-                referenceVariantIds: [sourceVariant.id],
-                destination: {
-                  type: 'existing_asset',
-                  assetId: params.assetId,
-                },
-                operation: 'refine',
-              });
-            }
-          }}
-          onCombineAssets={async (params) => {
-            const sourceVariantIds = params.sourceAssetIds
-              .map(id => wsAssets.find(a => a.id === id)?.active_variant_id)
-              .filter((id): id is string => !!id);
-            return await handleForgeSubmit({
-              prompt: params.prompt,
-              referenceVariantIds: sourceVariantIds,
-              destination: {
-                type: 'new_asset',
-                assetName: params.targetName,
-                assetType: params.targetType,
-                parentAssetId: null,
-              },
-              operation: 'combine',
-            });
-          }}
+          onGenerateAsset={onGenerateAsset}
+          onRefineAsset={onRefineAsset}
+          onCombineAssets={onCombineAssets}
         />
       </div>
 
