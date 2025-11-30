@@ -59,6 +59,103 @@ export interface ChatMessage {
   createdAt: number;
 }
 
+// Bot response type from Claude
+export interface BotResponse {
+  type: 'advice' | 'action' | 'clarification' | 'rejection';
+  message?: string;
+  actions?: Array<{
+    type: string;
+    params: Record<string, unknown>;
+    explanation?: string;
+  }>;
+}
+
+// Forge context for chat requests
+export interface ForgeContext {
+  items: Array<{
+    assetId: string;
+    assetName: string;
+    assetType: string;
+    variantId?: string;
+  }>;
+  prompt?: string;
+}
+
+// Viewing context for chat requests
+export interface ViewingContext {
+  assetId?: string;
+  variantId?: string;
+}
+
+// Chat request parameters
+export interface ChatRequestParams {
+  message: string;
+  mode: 'advisor' | 'actor';
+  forgeContext?: ForgeContext;
+  viewingContext?: ViewingContext;
+}
+
+// Generate request parameters
+export interface GenerateRequestParams {
+  name: string;
+  assetType: string;
+  prompt?: string;
+  referenceAssetIds?: string[];
+  aspectRatio?: string;
+  parentAssetId?: string;
+}
+
+// Refine request parameters
+export interface RefineRequestParams {
+  assetId: string;
+  prompt: string;
+  sourceVariantId?: string;
+  referenceAssetIds?: string[];
+  aspectRatio?: string;
+}
+
+/** Focus options for image description */
+export type DescribeFocus = 'general' | 'style' | 'composition' | 'details' | 'compare';
+
+// Describe image request parameters
+export interface DescribeRequestParams {
+  assetId: string;
+  variantId: string;
+  assetName: string;
+  focus?: DescribeFocus;
+  question?: string;
+}
+
+// Compare images request parameters
+export interface CompareRequestParams {
+  variantIds: string[];
+  aspects?: string[];
+}
+
+// Chat response from workflow
+export interface ChatResponseResult {
+  requestId: string;
+  success: boolean;
+  response?: BotResponse;
+  error?: string;
+}
+
+// Describe response from server
+export interface DescribeResponseResult {
+  requestId: string;
+  success: boolean;
+  description?: string;
+  error?: string;
+}
+
+// Compare response from server
+export interface CompareResponseResult {
+  requestId: string;
+  success: boolean;
+  comparison?: string;
+  error?: string;
+}
+
 // WebSocket connection parameters
 export interface UseSpaceWebSocketParams {
   spaceId: string;
@@ -66,6 +163,11 @@ export interface UseSpaceWebSocketParams {
   onDisconnect?: () => void;
   onJobComplete?: (job: JobStatus, variant: Variant) => void;
   onChatMessage?: (message: ChatMessage) => void;
+  onChatResponse?: (response: ChatResponseResult) => void;
+  onGenerateStarted?: (data: { requestId: string; jobId: string; assetId: string; assetName: string }) => void;
+  onGenerateResult?: (data: { requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }) => void;
+  onDescribeResponse?: (response: DescribeResponseResult) => void;
+  onCompareResponse?: (response: CompareResponseResult) => void;
 }
 
 // Connection status
@@ -114,7 +216,15 @@ type ServerMessage =
   | { type: 'job:failed'; jobId: string; error: string }
   | { type: 'chat:message'; message: ChatMessage }
   | { type: 'presence:update'; presence: UserPresence[] }
-  | { type: 'error'; code: string; message: string };
+  | { type: 'error'; code: string; message: string }
+  // Workflow response messages
+  | { type: 'chat:response'; requestId: string; success: boolean; response?: BotResponse; error?: string }
+  | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }
+  | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
+  | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
+  // Vision (describe/compare) response messages
+  | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string }
+  | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string };
 
 // Predefined asset types (user can also create custom)
 export const PREDEFINED_ASSET_TYPES = [
@@ -168,6 +278,12 @@ export interface UseSpaceWebSocketReturn {
   clearJob: (jobId: string) => void;
   updatePresence: (viewing?: string) => void;
   sendChatMessage: (content: string) => void;
+  // Workflow-triggering methods
+  sendChatRequest: (params: ChatRequestParams) => string;  // Returns requestId
+  sendGenerateRequest: (params: GenerateRequestParams) => string;  // Returns requestId
+  sendRefineRequest: (params: RefineRequestParams) => string;  // Returns requestId
+  sendDescribeRequest: (params: DescribeRequestParams) => string;  // Returns requestId
+  sendCompareRequest: (params: CompareRequestParams) => string;  // Returns requestId
   // Helper methods for hierarchy navigation
   getChildren: (assetId: string) => Asset[];
   getAncestors: (assetId: string) => Asset[];
@@ -184,6 +300,11 @@ export function useSpaceWebSocket({
   onDisconnect,
   onJobComplete,
   onChatMessage,
+  onChatResponse,
+  onGenerateStarted,
+  onGenerateResult,
+  onDescribeResponse,
+  onCompareResponse,
 }: UseSpaceWebSocketParams): UseSpaceWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
@@ -263,6 +384,78 @@ export function useSpaceWebSocket({
     sendMessage({ type: 'chat:send', content });
   }, [sendMessage]);
 
+  // Send chat request to trigger ChatWorkflow
+  const sendChatRequest = useCallback((params: ChatRequestParams): string => {
+    const requestId = crypto.randomUUID();
+    sendMessage({
+      type: 'chat:request',
+      requestId,
+      message: params.message,
+      mode: params.mode,
+      forgeContext: params.forgeContext,
+      viewingContext: params.viewingContext,
+    });
+    return requestId;
+  }, [sendMessage]);
+
+  // Send generate request to trigger GenerationWorkflow
+  const sendGenerateRequest = useCallback((params: GenerateRequestParams): string => {
+    const requestId = crypto.randomUUID();
+    sendMessage({
+      type: 'generate:request',
+      requestId,
+      name: params.name,
+      assetType: params.assetType,
+      prompt: params.prompt,
+      referenceAssetIds: params.referenceAssetIds,
+      aspectRatio: params.aspectRatio,
+      parentAssetId: params.parentAssetId,
+    });
+    return requestId;
+  }, [sendMessage]);
+
+  // Send refine request to trigger GenerationWorkflow for variant refinement
+  const sendRefineRequest = useCallback((params: RefineRequestParams): string => {
+    const requestId = crypto.randomUUID();
+    sendMessage({
+      type: 'refine:request',
+      requestId,
+      assetId: params.assetId,
+      prompt: params.prompt,
+      sourceVariantId: params.sourceVariantId,
+      referenceAssetIds: params.referenceAssetIds,
+      aspectRatio: params.aspectRatio,
+    });
+    return requestId;
+  }, [sendMessage]);
+
+  // Send describe request to get image description via Claude vision
+  const sendDescribeRequest = useCallback((params: DescribeRequestParams): string => {
+    const requestId = crypto.randomUUID();
+    sendMessage({
+      type: 'describe:request',
+      requestId,
+      assetId: params.assetId,
+      variantId: params.variantId,
+      assetName: params.assetName,
+      focus: params.focus,
+      question: params.question,
+    });
+    return requestId;
+  }, [sendMessage]);
+
+  // Send compare request to compare multiple images via Claude vision
+  const sendCompareRequest = useCallback((params: CompareRequestParams): string => {
+    const requestId = crypto.randomUUID();
+    sendMessage({
+      type: 'compare:request',
+      requestId,
+      variantIds: params.variantIds,
+      aspects: params.aspects,
+    });
+    return requestId;
+  }, [sendMessage]);
+
   // Helper methods for hierarchy navigation
   const getChildren = useCallback((assetId: string): Asset[] => {
     return assets.filter(a => a.parent_asset_id === assetId);
@@ -315,6 +508,11 @@ export function useSpaceWebSocket({
   const onDisconnectRef = useRef(onDisconnect);
   const onJobCompleteRef = useRef(onJobComplete);
   const onChatMessageRef = useRef(onChatMessage);
+  const onChatResponseRef = useRef(onChatResponse);
+  const onGenerateStartedRef = useRef(onGenerateStarted);
+  const onGenerateResultRef = useRef(onGenerateResult);
+  const onDescribeResponseRef = useRef(onDescribeResponse);
+  const onCompareResponseRef = useRef(onCompareResponse);
 
   // Update refs in useEffect to avoid accessing refs during render
   useEffect(() => {
@@ -322,6 +520,11 @@ export function useSpaceWebSocket({
     onDisconnectRef.current = onDisconnect;
     onJobCompleteRef.current = onJobComplete;
     onChatMessageRef.current = onChatMessage;
+    onChatResponseRef.current = onChatResponse;
+    onGenerateStartedRef.current = onGenerateStarted;
+    onGenerateResultRef.current = onGenerateResult;
+    onDescribeResponseRef.current = onDescribeResponse;
+    onCompareResponseRef.current = onCompareResponse;
   });
 
   // Connect on mount, disconnect on unmount
@@ -498,6 +701,140 @@ export function useSpaceWebSocket({
                 console.error('WebSocket error from server:', message.code, message.message);
                 break;
 
+              // Workflow response messages
+              case 'chat:response':
+                onChatResponseRef.current?.({
+                  requestId: message.requestId,
+                  success: message.success,
+                  response: message.response,
+                  error: message.error,
+                });
+                break;
+
+              case 'generate:started':
+                onGenerateStartedRef.current?.({
+                  requestId: message.requestId,
+                  jobId: message.jobId,
+                  assetId: message.assetId,
+                  assetName: message.assetName,
+                });
+                // Also track the job
+                setJobs((prev) => {
+                  const next = new Map(prev);
+                  next.set(message.jobId, {
+                    jobId: message.jobId,
+                    status: 'pending',
+                    assetId: message.assetId,
+                    assetName: message.assetName,
+                  });
+                  return next;
+                });
+                break;
+
+              case 'generate:result':
+                onGenerateResultRef.current?.({
+                  requestId: message.requestId,
+                  jobId: message.jobId,
+                  success: message.success,
+                  variant: message.variant,
+                  error: message.error,
+                });
+                // Update job status
+                setJobs((prev) => {
+                  const next = new Map(prev);
+                  const existing = next.get(message.jobId);
+                  if (message.success && message.variant) {
+                    next.set(message.jobId, {
+                      ...existing,
+                      jobId: message.jobId,
+                      status: 'completed',
+                      variantId: message.variant.id,
+                    });
+                    // Notify job completion callback
+                    onJobCompleteRef.current?.(
+                      { ...existing, jobId: message.jobId, status: 'completed', variantId: message.variant.id },
+                      message.variant
+                    );
+                  } else {
+                    next.set(message.jobId, {
+                      ...existing,
+                      jobId: message.jobId,
+                      status: 'failed',
+                      error: message.error,
+                    });
+                  }
+                  return next;
+                });
+                // Add variant to state if successful
+                if (message.success && message.variant) {
+                  setVariants((prev) => {
+                    if (prev.some(v => v.id === message.variant!.id)) return prev;
+                    return [...prev, message.variant!];
+                  });
+                }
+                break;
+
+              case 'refine:result':
+                // Handle refine result similar to generate:result
+                onGenerateResultRef.current?.({
+                  requestId: message.requestId,
+                  jobId: message.jobId,
+                  success: message.success,
+                  variant: message.variant,
+                  error: message.error,
+                });
+                // Update job status
+                setJobs((prev) => {
+                  const next = new Map(prev);
+                  const existing = next.get(message.jobId);
+                  if (message.success && message.variant) {
+                    next.set(message.jobId, {
+                      ...existing,
+                      jobId: message.jobId,
+                      status: 'completed',
+                      variantId: message.variant.id,
+                    });
+                    onJobCompleteRef.current?.(
+                      { ...existing, jobId: message.jobId, status: 'completed', variantId: message.variant.id },
+                      message.variant
+                    );
+                  } else {
+                    next.set(message.jobId, {
+                      ...existing,
+                      jobId: message.jobId,
+                      status: 'failed',
+                      error: message.error,
+                    });
+                  }
+                  return next;
+                });
+                if (message.success && message.variant) {
+                  setVariants((prev) => {
+                    if (prev.some(v => v.id === message.variant!.id)) return prev;
+                    return [...prev, message.variant!];
+                  });
+                }
+                break;
+
+              // Vision (describe/compare) response messages
+              case 'describe:response':
+                onDescribeResponseRef.current?.({
+                  requestId: message.requestId,
+                  success: message.success,
+                  description: message.description,
+                  error: message.error,
+                });
+                break;
+
+              case 'compare:response':
+                onCompareResponseRef.current?.({
+                  requestId: message.requestId,
+                  success: message.success,
+                  comparison: message.comparison,
+                  error: message.error,
+                });
+                break;
+
               default:
                 console.warn('Unknown message type:', message);
             }
@@ -586,6 +923,11 @@ export function useSpaceWebSocket({
     clearJob,
     updatePresence,
     sendChatMessage,
+    sendChatRequest,
+    sendGenerateRequest,
+    sendRefineRequest,
+    sendDescribeRequest,
+    sendCompareRequest,
     getChildren,
     getAncestors,
     getRootAssets,

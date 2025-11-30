@@ -6,7 +6,7 @@
 
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
-import { ApiClient } from './api-client';
+import { WebSocketClient } from '../lib/websocket-client';
 import { loadState, saveStateWithLog } from './state';
 import {
   createInitialState,
@@ -15,6 +15,7 @@ import {
   type PendingAction,
   type PlanState,
 } from './types';
+import type { BotResponse } from '../../api/types';
 import { truncate } from '../lib/utils';
 import { getNextStepNumber, formatSendStep, type LogEntry } from './logger';
 
@@ -59,36 +60,42 @@ export async function handleSend(parsed: ParsedArgs): Promise<void> {
     state.activePlan = null;
   }
 
-  try {
-    // Create API client
-    const apiClient = await ApiClient.create(env);
+  // Create WebSocket client and connect
+  let wsClient: WebSocketClient | null = null;
 
-    // Get space name if not already in state
-    if (!state.meta.spaceName) {
-      try {
-        const spaceInfo = await apiClient.getSpace(state.meta.spaceId);
-        state.meta.spaceName = spaceInfo.name;
-      } catch {
-        // Space name is optional, continue without it
-      }
-    }
+  try {
+    wsClient = await WebSocketClient.create(env, state.meta.spaceId);
+    await wsClient.connect();
 
     console.log(`\nSending message to space ${state.meta.spaceId}...`);
     console.log(`Mode: ${mode}`);
     console.log(`Message: "${truncate(message, 80)}"`);
 
-    // Build request with context
-    const request = {
+    // Build forge context for WebSocket format
+    // The CLI ForgeContext uses 'slots' which maps to WebSocket 'items'
+    const forgeContext = state.conversation.context.forgeContext ? {
+      items: state.conversation.context.forgeContext.slots?.map(slot => ({
+        assetId: slot.assetId,
+        assetName: slot.assetName,
+        assetType: '', // CLI slots don't have assetType, WebSocket expects it
+        variantId: slot.variantId,
+      })) || [],
+      prompt: state.conversation.context.forgeContext.prompt,
+    } : undefined;
+
+    // Send via WebSocket
+    const response = await wsClient.sendChatRequest({
       message,
       mode,
-      history: state.conversation.history,
-      forgeContext: state.conversation.context.forgeContext,
+      forgeContext,
       viewingContext: state.conversation.context.viewingContext,
-    };
+    });
 
-    // Send to API
-    const response = await apiClient.sendChat(state.meta.spaceId, request);
-    const botResponse = response.response;
+    if (!response.success) {
+      throw new Error(response.error || 'Chat request failed');
+    }
+
+    const botResponse = response.response as BotResponse;
 
     console.log(`\nResponse type: ${botResponse.type}`);
     console.log(`Message: ${truncate(botResponse.message, 200)}`);
@@ -220,6 +227,9 @@ export async function handleSend(parsed: ParsedArgs): Promise<void> {
   } catch (error) {
     console.error('\nError:', error instanceof Error ? error.message : error);
     process.exitCode = 1;
+  } finally {
+    // Always disconnect WebSocket
+    wsClient?.disconnect();
   }
 }
 

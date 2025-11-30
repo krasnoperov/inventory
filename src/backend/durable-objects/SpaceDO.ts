@@ -1,6 +1,21 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../../core/types';
 import { AuthService } from '../features/auth/auth-service';
+import { ClaudeService } from '../services/claudeService';
+import { arrayBufferToBase64, detectImageType } from '../utils/image-utils';
+import type {
+  ChatRequestMessage,
+  GenerateRequestMessage,
+  RefineRequestMessage,
+  DescribeRequestMessage,
+  CompareRequestMessage,
+  ChatWorkflowInput,
+  GenerationWorkflowInput,
+  ChatWorkflowOutput,
+  GenerationWorkflowOutput,
+  BotContextAsset,
+} from '../workflows/types';
+import type { ChatMessage as ApiChatMessage, ForgeContext, ViewingContext } from '../../api/types';
 
 // ============================================================================
 // Types for DO SQLite Schema
@@ -76,7 +91,14 @@ type ClientMessage =
   | { type: 'variant:star'; variantId: string; starred: boolean }
   | { type: 'lineage:sever'; lineageId: string }
   | { type: 'presence:update'; viewing?: string }
-  | { type: 'chat:send'; content: string };
+  | { type: 'chat:send'; content: string }
+  // Workflow-triggering messages
+  | ChatRequestMessage
+  | GenerateRequestMessage
+  | RefineRequestMessage
+  // Vision (describe/compare) messages
+  | DescribeRequestMessage
+  | CompareRequestMessage;
 
 // ============================================================================
 // Message Types (Server → Client)
@@ -98,7 +120,15 @@ type ServerMessage =
   | { type: 'job:failed'; jobId: string; error: string }
   | { type: 'chat:message'; message: ChatMessage }
   | { type: 'presence:update'; presence: UserPresence[] }
-  | { type: 'error'; code: string; message: string };
+  | { type: 'error'; code: string; message: string }
+  // Workflow response messages
+  | { type: 'chat:response'; requestId: string; success: boolean; response?: unknown; error?: string }
+  | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }
+  | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
+  | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
+  // Vision (describe/compare) response messages
+  | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string }
+  | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string };
 
 // ============================================================================
 // SpaceDO - Durable Object for Space State & WebSocket Hub
@@ -307,6 +337,15 @@ export class SpaceDO extends DurableObject<Env> {
       return this.handleJobFailed(request);
     }
 
+    // Workflow result endpoints
+    if (url.pathname === '/internal/chat-result' && request.method === 'POST') {
+      return this.handleChatWorkflowResult(request);
+    }
+
+    if (url.pathname === '/internal/generation-result' && request.method === 'POST') {
+      return this.handleGenerationWorkflowResult(request);
+    }
+
     // Set active variant (for import)
     if (url.pathname === '/internal/set-active' && request.method === 'POST') {
       return this.handleSetActive(request);
@@ -465,6 +504,28 @@ export class SpaceDO extends DurableObject<Env> {
 
         case 'presence:update':
           this.handlePresenceUpdate(meta, msg.viewing);
+          break;
+
+        // Workflow-triggering messages
+        case 'chat:request':
+          await this.handleChatRequest(ws, meta, msg);
+          break;
+
+        case 'generate:request':
+          await this.handleGenerateRequest(ws, meta, msg);
+          break;
+
+        case 'refine:request':
+          await this.handleRefineRequest(ws, meta, msg);
+          break;
+
+        // Vision (describe/compare) messages
+        case 'describe:request':
+          await this.handleDescribeRequest(ws, msg);
+          break;
+
+        case 'compare:request':
+          await this.handleCompareRequest(ws, msg);
           break;
 
         default:
@@ -710,6 +771,638 @@ export class SpaceDO extends DurableObject<Env> {
       type: 'presence:update',
       presence: Array.from(this.presence.values()),
     });
+  }
+
+  // ============================================================================
+  // Workflow-Triggering Message Handlers
+  // ============================================================================
+
+  /**
+   * Handle chat:request - trigger ChatWorkflow
+   */
+  private async handleChatRequest(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    msg: ChatRequestMessage
+  ): Promise<void> {
+    if (!this.spaceId) {
+      this.sendError(ws, 'INVALID_STATE', 'Space ID not set');
+      return;
+    }
+
+    if (!this.env.CHAT_WORKFLOW) {
+      this.sendError(ws, 'NOT_CONFIGURED', 'Chat workflow not configured');
+      return;
+    }
+
+    try {
+      // Get chat history from local storage
+      const historyResult = await this.ctx.storage.sql.exec(
+        'SELECT * FROM chat_messages ORDER BY created_at DESC LIMIT 20'
+      );
+      const historyRows = historyResult.toArray() as unknown as ChatMessage[];
+      const history: ApiChatMessage[] = historyRows.reverse().map(row => ({
+        role: row.sender_type === 'user' ? 'user' as const : 'assistant' as const,
+        content: row.content,
+      }));
+
+      // Get assets for context
+      const assetsResult = await this.ctx.storage.sql.exec(
+        'SELECT a.id, a.name, a.type, COUNT(v.id) as variant_count FROM assets a LEFT JOIN variants v ON a.id = v.asset_id GROUP BY a.id'
+      );
+      const assets: BotContextAsset[] = (assetsResult.toArray() as Array<{
+        id: string;
+        name: string;
+        type: string;
+        variant_count: number;
+      }>).map(row => ({
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        variantCount: row.variant_count,
+      }));
+
+      // Build workflow input
+      const workflowInput: ChatWorkflowInput = {
+        requestId: msg.requestId,
+        spaceId: this.spaceId,
+        userId: meta.userId,
+        message: msg.message,
+        mode: msg.mode,
+        history,
+        forgeContext: msg.forgeContext,
+        viewingContext: msg.viewingContext,
+        assets,
+      };
+
+      // Trigger the workflow
+      const instance = await this.env.CHAT_WORKFLOW.create({
+        id: msg.requestId,
+        params: workflowInput,
+      });
+
+      console.log(`[SpaceDO] Started ChatWorkflow instance: ${instance.id}`);
+    } catch (error) {
+      console.error('[SpaceDO] Error starting ChatWorkflow:', error);
+      this.sendError(ws, 'WORKFLOW_ERROR', error instanceof Error ? error.message : 'Failed to start chat workflow');
+    }
+  }
+
+  /**
+   * Handle generate:request - trigger GenerationWorkflow for new asset creation
+   */
+  private async handleGenerateRequest(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    msg: GenerateRequestMessage
+  ): Promise<void> {
+    if (!this.spaceId) {
+      this.sendError(ws, 'INVALID_STATE', 'Space ID not set');
+      return;
+    }
+
+    if (!this.env.GENERATION_WORKFLOW) {
+      this.sendError(ws, 'NOT_CONFIGURED', 'Generation workflow not configured');
+      return;
+    }
+
+    if (meta.role === 'viewer') {
+      this.sendError(ws, 'PERMISSION_DENIED', 'Viewers cannot generate assets');
+      return;
+    }
+
+    try {
+      const jobId = crypto.randomUUID();
+      const assetId = crypto.randomUUID();
+
+      // Create the asset first
+      const asset = await this.createAsset({
+        id: assetId,
+        name: msg.name,
+        type: msg.assetType,
+        parentAssetId: msg.parentAssetId,
+        createdBy: meta.userId,
+      });
+
+      // Broadcast asset creation
+      this.broadcast({ type: 'asset:created', asset });
+
+      // Resolve reference asset IDs to image keys and variant IDs
+      let sourceImageKeys: string[] = [];
+      let parentVariantIds: string[] = [];
+      let jobType: 'generate' | 'derive' | 'compose' = 'generate';
+
+      if (msg.referenceAssetIds && msg.referenceAssetIds.length > 0) {
+        for (const refAssetId of msg.referenceAssetIds) {
+          // Get the active variant for this asset
+          const assetResult = await this.ctx.storage.sql.exec(
+            'SELECT active_variant_id FROM assets WHERE id = ?',
+            refAssetId
+          );
+          const assetRow = assetResult.toArray()[0] as { active_variant_id: string | null } | undefined;
+
+          if (assetRow?.active_variant_id) {
+            // Get the variant's image key
+            const variantResult = await this.ctx.storage.sql.exec(
+              'SELECT image_key FROM variants WHERE id = ?',
+              assetRow.active_variant_id
+            );
+            const variantRow = variantResult.toArray()[0] as { image_key: string } | undefined;
+
+            if (variantRow) {
+              sourceImageKeys.push(variantRow.image_key);
+              parentVariantIds.push(assetRow.active_variant_id);
+            }
+          }
+        }
+
+        // Determine job type based on number of references
+        if (sourceImageKeys.length === 1) {
+          jobType = 'derive';
+        } else if (sourceImageKeys.length > 1) {
+          jobType = 'compose';
+        }
+      }
+
+      // Create job record in D1
+      if (this.env.DB) {
+        await this.env.DB.prepare(`
+          INSERT INTO jobs (id, space_id, user_id, type, status, params, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          jobId,
+          this.spaceId,
+          meta.userId,
+          jobType,
+          'pending',
+          JSON.stringify({ prompt: msg.prompt, assetName: msg.name, assetType: msg.assetType }),
+          Date.now(),
+          Date.now()
+        ).run();
+      }
+
+      // Build workflow input
+      const workflowInput: GenerationWorkflowInput = {
+        requestId: msg.requestId,
+        jobId,
+        spaceId: this.spaceId,
+        userId: meta.userId,
+        prompt: msg.prompt || `Generate a ${msg.assetType} named "${msg.name}"`,
+        assetId,
+        assetName: msg.name,
+        assetType: msg.assetType,
+        aspectRatio: msg.aspectRatio,
+        sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
+        parentVariantIds: parentVariantIds.length > 0 ? parentVariantIds : undefined,
+        type: jobType,
+      };
+
+      // Notify client that generation started
+      this.broadcast({
+        type: 'generate:started',
+        requestId: msg.requestId,
+        jobId,
+        assetId,
+        assetName: msg.name,
+      });
+
+      // Trigger the workflow
+      const instance = await this.env.GENERATION_WORKFLOW.create({
+        id: jobId,
+        params: workflowInput,
+      });
+
+      console.log(`[SpaceDO] Started GenerationWorkflow instance: ${instance.id}`);
+    } catch (error) {
+      console.error('[SpaceDO] Error starting GenerationWorkflow:', error);
+      this.sendError(ws, 'WORKFLOW_ERROR', error instanceof Error ? error.message : 'Failed to start generation workflow');
+    }
+  }
+
+  /**
+   * Handle refine:request - trigger GenerationWorkflow for variant refinement
+   */
+  private async handleRefineRequest(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    msg: RefineRequestMessage
+  ): Promise<void> {
+    if (!this.spaceId) {
+      this.sendError(ws, 'INVALID_STATE', 'Space ID not set');
+      return;
+    }
+
+    if (!this.env.GENERATION_WORKFLOW) {
+      this.sendError(ws, 'NOT_CONFIGURED', 'Generation workflow not configured');
+      return;
+    }
+
+    if (meta.role === 'viewer') {
+      this.sendError(ws, 'PERMISSION_DENIED', 'Viewers cannot refine variants');
+      return;
+    }
+
+    try {
+      const jobId = crypto.randomUUID();
+
+      // Get the asset
+      const assetResult = await this.ctx.storage.sql.exec(
+        'SELECT * FROM assets WHERE id = ?',
+        msg.assetId
+      );
+      const asset = assetResult.toArray()[0] as unknown as Asset | undefined;
+
+      if (!asset) {
+        this.sendError(ws, 'NOT_FOUND', 'Asset not found');
+        return;
+      }
+
+      // Get source variant (use provided or active variant)
+      const sourceVariantId = msg.sourceVariantId || asset.active_variant_id;
+      if (!sourceVariantId) {
+        this.sendError(ws, 'NOT_FOUND', 'No source variant available');
+        return;
+      }
+
+      const variantResult = await this.ctx.storage.sql.exec(
+        'SELECT * FROM variants WHERE id = ?',
+        sourceVariantId
+      );
+      const sourceVariant = variantResult.toArray()[0] as unknown as Variant | undefined;
+
+      if (!sourceVariant) {
+        this.sendError(ws, 'NOT_FOUND', 'Source variant not found');
+        return;
+      }
+
+      // Resolve additional reference assets
+      let sourceImageKeys = [sourceVariant.image_key];
+      let parentVariantIds = [sourceVariantId];
+      let jobType: 'derive' | 'compose' = 'derive';
+
+      if (msg.referenceAssetIds && msg.referenceAssetIds.length > 0) {
+        for (const refAssetId of msg.referenceAssetIds) {
+          const refAssetResult = await this.ctx.storage.sql.exec(
+            'SELECT active_variant_id FROM assets WHERE id = ?',
+            refAssetId
+          );
+          const refAssetRow = refAssetResult.toArray()[0] as { active_variant_id: string | null } | undefined;
+
+          if (refAssetRow?.active_variant_id) {
+            const refVariantResult = await this.ctx.storage.sql.exec(
+              'SELECT image_key FROM variants WHERE id = ?',
+              refAssetRow.active_variant_id
+            );
+            const refVariantRow = refVariantResult.toArray()[0] as { image_key: string } | undefined;
+
+            if (refVariantRow) {
+              sourceImageKeys.push(refVariantRow.image_key);
+              parentVariantIds.push(refAssetRow.active_variant_id);
+            }
+          }
+        }
+
+        // If we have multiple sources, it's a compose operation
+        if (sourceImageKeys.length > 1) {
+          jobType = 'compose';
+        }
+      }
+
+      // Create job record in D1
+      if (this.env.DB) {
+        await this.env.DB.prepare(`
+          INSERT INTO jobs (id, space_id, user_id, type, status, params, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          jobId,
+          this.spaceId,
+          meta.userId,
+          jobType,
+          'pending',
+          JSON.stringify({ prompt: msg.prompt, assetId: msg.assetId, sourceVariantId }),
+          Date.now(),
+          Date.now()
+        ).run();
+      }
+
+      // Build workflow input
+      const workflowInput: GenerationWorkflowInput = {
+        requestId: msg.requestId,
+        jobId,
+        spaceId: this.spaceId,
+        userId: meta.userId,
+        prompt: msg.prompt,
+        assetId: msg.assetId,
+        assetName: asset.name,
+        assetType: asset.type,
+        aspectRatio: msg.aspectRatio,
+        sourceVariantId,
+        sourceImageKeys,
+        parentVariantIds,
+        type: jobType,
+      };
+
+      // Notify client that refinement started
+      this.broadcast({
+        type: 'generate:started',
+        requestId: msg.requestId,
+        jobId,
+        assetId: msg.assetId,
+        assetName: asset.name,
+      });
+
+      // Trigger the workflow
+      const instance = await this.env.GENERATION_WORKFLOW.create({
+        id: jobId,
+        params: workflowInput,
+      });
+
+      console.log(`[SpaceDO] Started GenerationWorkflow (refine) instance: ${instance.id}`);
+    } catch (error) {
+      console.error('[SpaceDO] Error starting refine workflow:', error);
+      this.sendError(ws, 'WORKFLOW_ERROR', error instanceof Error ? error.message : 'Failed to start refine workflow');
+    }
+  }
+
+  // ============================================================================
+  // Vision (Describe/Compare) Message Handlers
+  // ============================================================================
+
+  /**
+   * Handle describe:request - describe an image using Claude vision
+   * Non-blocking: sends response via WebSocket when ready
+   */
+  private async handleDescribeRequest(
+    ws: WebSocket,
+    msg: DescribeRequestMessage
+  ): Promise<void> {
+    // Process async - don't block the WebSocket handler
+    this.processDescribeRequest(ws, msg).catch((error) => {
+      console.error('[SpaceDO] Error processing describe request:', error);
+      this.send(ws, {
+        type: 'describe:response',
+        requestId: msg.requestId,
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to describe image',
+      });
+    });
+  }
+
+  private async processDescribeRequest(
+    ws: WebSocket,
+    msg: DescribeRequestMessage
+  ): Promise<void> {
+    // Check Claude API key
+    if (!this.env.ANTHROPIC_API_KEY) {
+      this.send(ws, {
+        type: 'describe:response',
+        requestId: msg.requestId,
+        success: false,
+        error: 'Bot assistant not configured',
+      });
+      return;
+    }
+
+    // Get variant image_key from local storage
+    const variantResult = await this.ctx.storage.sql.exec(
+      'SELECT image_key FROM variants WHERE id = ?',
+      msg.variantId
+    );
+    const variant = variantResult.toArray()[0] as { image_key: string } | undefined;
+
+    if (!variant?.image_key) {
+      this.send(ws, {
+        type: 'describe:response',
+        requestId: msg.requestId,
+        success: false,
+        error: 'Variant not found or has no image',
+      });
+      return;
+    }
+
+    // Fetch image from R2
+    if (!this.env.IMAGES) {
+      this.send(ws, {
+        type: 'describe:response',
+        requestId: msg.requestId,
+        success: false,
+        error: 'Image storage not configured',
+      });
+      return;
+    }
+
+    const imageObject = await this.env.IMAGES.get(variant.image_key);
+    if (!imageObject) {
+      this.send(ws, {
+        type: 'describe:response',
+        requestId: msg.requestId,
+        success: false,
+        error: 'Image not found in storage',
+      });
+      return;
+    }
+
+    // Convert to base64
+    const arrayBuffer = await imageObject.arrayBuffer();
+    const base64 = arrayBufferToBase64(arrayBuffer);
+    const mediaType = detectImageType(base64);
+
+    // Call Claude to describe the image
+    const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY);
+    const { description } = await claudeService.describeImage(
+      base64,
+      mediaType,
+      msg.assetName,
+      msg.focus || 'general',
+      msg.question
+    );
+
+    // Send response back to client
+    this.send(ws, {
+      type: 'describe:response',
+      requestId: msg.requestId,
+      success: true,
+      description,
+    });
+  }
+
+  /**
+   * Handle compare:request - compare multiple images using Claude vision
+   * Non-blocking: sends response via WebSocket when ready
+   */
+  private async handleCompareRequest(
+    ws: WebSocket,
+    msg: CompareRequestMessage
+  ): Promise<void> {
+    // Process async - don't block the WebSocket handler
+    this.processCompareRequest(ws, msg).catch((error) => {
+      console.error('[SpaceDO] Error processing compare request:', error);
+      this.send(ws, {
+        type: 'compare:response',
+        requestId: msg.requestId,
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to compare images',
+      });
+    });
+  }
+
+  private async processCompareRequest(
+    ws: WebSocket,
+    msg: CompareRequestMessage
+  ): Promise<void> {
+    // Check Claude API key
+    if (!this.env.ANTHROPIC_API_KEY) {
+      this.send(ws, {
+        type: 'compare:response',
+        requestId: msg.requestId,
+        success: false,
+        error: 'Bot assistant not configured',
+      });
+      return;
+    }
+
+    // Validate variant count
+    if (!msg.variantIds || msg.variantIds.length < 2 || msg.variantIds.length > 4) {
+      this.send(ws, {
+        type: 'compare:response',
+        requestId: msg.requestId,
+        success: false,
+        error: 'Must provide 2-4 variants to compare',
+      });
+      return;
+    }
+
+    // Check R2 availability
+    if (!this.env.IMAGES) {
+      this.send(ws, {
+        type: 'compare:response',
+        requestId: msg.requestId,
+        success: false,
+        error: 'Image storage not configured',
+      });
+      return;
+    }
+
+    // Fetch all variant images
+    const images: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; label: string }> = [];
+
+    for (const variantId of msg.variantIds) {
+      // Get variant and asset info
+      const variantResult = await this.ctx.storage.sql.exec(
+        `SELECT v.image_key, a.name as asset_name
+         FROM variants v
+         JOIN assets a ON v.asset_id = a.id
+         WHERE v.id = ?`,
+        variantId
+      );
+      const variantRow = variantResult.toArray()[0] as { image_key: string; asset_name: string } | undefined;
+
+      if (!variantRow?.image_key) {
+        this.send(ws, {
+          type: 'compare:response',
+          requestId: msg.requestId,
+          success: false,
+          error: `Variant ${variantId.slice(0, 8)} not found`,
+        });
+        return;
+      }
+
+      const imageObject = await this.env.IMAGES.get(variantRow.image_key);
+      if (!imageObject) {
+        this.send(ws, {
+          type: 'compare:response',
+          requestId: msg.requestId,
+          success: false,
+          error: `Image for variant ${variantId.slice(0, 8)} not found`,
+        });
+        return;
+      }
+
+      const arrayBuffer = await imageObject.arrayBuffer();
+      const base64 = arrayBufferToBase64(arrayBuffer);
+
+      images.push({
+        base64,
+        mediaType: detectImageType(base64),
+        label: variantRow.asset_name || `Variant ${variantId.slice(0, 8)}`,
+      });
+    }
+
+    // Call Claude to compare images
+    const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY);
+    const aspects = msg.aspects || ['style', 'composition', 'colors'];
+    const { comparison } = await claudeService.compareImages(images, aspects);
+
+    // Send response back to client
+    this.send(ws, {
+      type: 'compare:response',
+      requestId: msg.requestId,
+      success: true,
+      comparison,
+    });
+  }
+
+  // ============================================================================
+  // Workflow Result Handlers (Internal HTTP)
+  // ============================================================================
+
+  /**
+   * Handle chat workflow result
+   * POST /internal/chat-result
+   */
+  private async handleChatWorkflowResult(request: Request): Promise<Response> {
+    try {
+      const result = (await request.json()) as ChatWorkflowOutput;
+
+      // Broadcast the chat response to all clients
+      this.broadcast({
+        type: 'chat:response',
+        requestId: result.requestId,
+        success: result.success,
+        response: result.response,
+        error: result.error,
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('[SpaceDO] Error handling chat workflow result:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to handle chat result' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  /**
+   * Handle generation workflow result
+   * POST /internal/generation-result
+   */
+  private async handleGenerationWorkflowResult(request: Request): Promise<Response> {
+    try {
+      const result = (await request.json()) as GenerationWorkflowOutput;
+
+      // Broadcast the generation result to all clients
+      this.broadcast({
+        type: 'generate:result',
+        requestId: result.requestId,
+        jobId: result.jobId,
+        success: result.success,
+        variant: result.variant as unknown as Variant,
+        error: result.error,
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('[SpaceDO] Error handling generation workflow result:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to handle generation result' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
   }
 
   /**

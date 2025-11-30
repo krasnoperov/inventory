@@ -1,0 +1,102 @@
+/* Asset Canvas - Full-screen React Flow container */
+
+.canvas {
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg);
+}
+
+/* Controls styling */
+.controls {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.controls button {
+  background: var(--color-surface) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-muted) !important;
+}
+
+.controls button:hover {
+  background: var(--color-bg) !important;
+  color: var(--color-text) !important;
+}
+
+.controls button svg {
+  fill: currentColor !important;
+}
+
+/* MiniMap styling */
+.minimap {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* Empty state */
+.empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  background: var(--color-bg);
+}
+
+.emptyIcon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
+}
+
+.emptyText {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 0.75rem 0;
+}
+
+.emptySubtext {
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+/* React Flow overrides for dark mode compatibility */
+:global(.react-flow__edge-path) {
+  stroke: var(--color-border);
+}
+
+:global(.react-flow__edge.animated .react-flow__edge-path) {
+  stroke: var(--color-primary);
+  stroke-dasharray: 5;
+  animation: dashdraw 0.5s linear infinite;
+}
+
+@keyframes dashdraw {
+  from {
+    stroke-dashoffset: 10;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+:global(.react-flow__arrowhead) {
+  fill: var(--color-text-muted);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .minimap {
+    display: none !important;
+  }
+}

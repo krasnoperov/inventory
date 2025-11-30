@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useForgeTrayStore } from '../../../stores/forgeTrayStore';
-import type { Asset, Variant } from '../../../hooks/useSpaceWebSocket';
+import type { Asset, Variant, DescribeRequestParams, CompareRequestParams, DescribeResponseResult, CompareResponseResult, DescribeFocus } from '../../../hooks/useSpaceWebSocket';
 import type { ToolCall } from '../../../../api/types';
 
 // =============================================================================
@@ -16,12 +16,14 @@ export interface TrackedJobInfo {
 
 /** Dependencies injected into the hook */
 export interface ToolExecutionDeps {
-  spaceId: string;
   allAssets: Asset[];
   allVariants: Variant[];
-  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string; referenceAssetIds?: string[] }) => Promise<string | void>;
-  onRefineAsset?: (params: { assetId: string; prompt: string }) => Promise<string | void>;
-  onCombineAssets?: (params: { sourceAssetIds: string[]; prompt: string; targetName: string; targetType: string }) => Promise<string | void>;
+  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string; referenceAssetIds?: string[] }) => string | void;
+  onRefineAsset?: (params: { assetId: string; prompt: string }) => string | void;
+  onCombineAssets?: (params: { sourceAssetIds: string[]; prompt: string; targetName: string; targetType: string }) => string | void;
+  // WebSocket methods for describe/compare
+  sendDescribeRequest?: (params: DescribeRequestParams) => string;
+  sendCompareRequest?: (params: CompareRequestParams) => string;
 }
 
 export interface UseToolExecutionReturn {
@@ -33,6 +35,10 @@ export interface UseToolExecutionReturn {
   consumeTrackedJob: (jobId: string) => TrackedJobInfo | undefined;
   /** Clear all tracked jobs */
   clearTrackedJobs: () => void;
+  /** Handle describe response from WebSocket */
+  handleDescribeResponse: (response: DescribeResponseResult) => void;
+  /** Handle compare response from WebSocket */
+  handleCompareResponse: (response: CompareResponseResult) => void;
 }
 
 // =============================================================================
@@ -43,13 +49,21 @@ export interface UseToolExecutionReturn {
 const MAX_TRACKED_JOBS = 50;
 /** Time-to-live for job tracking entries (10 minutes) */
 const JOB_TTL_MS = 10 * 60 * 1000;
+/** Timeout for describe/compare requests (60 seconds) */
+const VISION_REQUEST_TIMEOUT_MS = 60 * 1000;
 
 // =============================================================================
 // Hook
 // =============================================================================
 
+interface PendingVisionRequest {
+  resolve: (value: string) => void;
+  reject: (error: Error) => void;
+  createdAt: number;
+}
+
 export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionReturn {
-  const { spaceId, allAssets, allVariants, onGenerateAsset, onRefineAsset, onCombineAssets } = deps;
+  const { allAssets, allVariants, onGenerateAsset, onRefineAsset, onCombineAssets, sendDescribeRequest, sendCompareRequest } = deps;
 
   // Forge tray state
   const slots = useForgeTrayStore((state) => state.slots);
@@ -61,29 +75,45 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
   // Job tracking for auto-review
   const trackedJobsRef = useRef<Map<string, TrackedJobInfo>>(new Map());
 
-  // Cleanup stale jobs periodically
-  useEffect(() => {
-    const cleanupJobs = () => {
-      const now = Date.now();
-      const jobs = trackedJobsRef.current;
+  // Pending vision (describe/compare) requests awaiting WebSocket response
+  const pendingDescribeRef = useRef<Map<string, PendingVisionRequest>>(new Map());
+  const pendingCompareRef = useRef<Map<string, PendingVisionRequest>>(new Map());
 
-      // Remove entries older than TTL
+  // Cleanup stale jobs and vision requests periodically
+  useEffect(() => {
+    const cleanup = () => {
+      const now = Date.now();
+
+      // Cleanup jobs
+      const jobs = trackedJobsRef.current;
       for (const [jobId, jobInfo] of jobs.entries()) {
         if (now - jobInfo.createdAt > JOB_TTL_MS) {
           jobs.delete(jobId);
         }
       }
-
-      // If still over limit, remove oldest entries
       if (jobs.size > MAX_TRACKED_JOBS) {
         const entries = Array.from(jobs.entries())
           .sort((a, b) => a[1].createdAt - b[1].createdAt);
         const toRemove = entries.slice(0, jobs.size - MAX_TRACKED_JOBS);
         toRemove.forEach(([id]) => jobs.delete(id));
       }
+
+      // Cleanup timed-out vision requests
+      for (const [requestId, request] of pendingDescribeRef.current.entries()) {
+        if (now - request.createdAt > VISION_REQUEST_TIMEOUT_MS) {
+          request.reject(new Error('Request timed out'));
+          pendingDescribeRef.current.delete(requestId);
+        }
+      }
+      for (const [requestId, request] of pendingCompareRef.current.entries()) {
+        if (now - request.createdAt > VISION_REQUEST_TIMEOUT_MS) {
+          request.reject(new Error('Request timed out'));
+          pendingCompareRef.current.delete(requestId);
+        }
+      }
     };
 
-    const interval = setInterval(cleanupJobs, 60000); // Every minute
+    const interval = setInterval(cleanup, 10000); // Every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -104,6 +134,32 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
   // Clear all tracked jobs
   const clearTrackedJobs = useCallback(() => {
     trackedJobsRef.current.clear();
+  }, []);
+
+  // Handle describe response from WebSocket
+  const handleDescribeResponse = useCallback((response: DescribeResponseResult) => {
+    const pending = pendingDescribeRef.current.get(response.requestId);
+    if (pending) {
+      pendingDescribeRef.current.delete(response.requestId);
+      if (response.success && response.description) {
+        pending.resolve(response.description);
+      } else {
+        pending.reject(new Error(response.error || 'Failed to describe image'));
+      }
+    }
+  }, []);
+
+  // Handle compare response from WebSocket
+  const handleCompareResponse = useCallback((response: CompareResponseResult) => {
+    const pending = pendingCompareRef.current.get(response.requestId);
+    if (pending) {
+      pendingCompareRef.current.delete(response.requestId);
+      if (response.success && response.comparison) {
+        pending.resolve(response.comparison);
+      } else {
+        pending.reject(new Error(response.error || 'Failed to compare images'));
+      }
+    }
   }, []);
 
   // Execute a single tool call
@@ -153,7 +209,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
           parentAssetId: params.parentAssetId as string | undefined,
           referenceAssetIds: params.referenceAssetIds as string[] | undefined,
         };
-        const jobId = await onGenerateAsset(genParams);
+        const jobId = onGenerateAsset(genParams);
         // Track job for auto-review
         if (jobId) {
           trackJob(jobId, {
@@ -171,7 +227,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
           assetId: params.assetId as string,
           prompt: params.prompt as string,
         };
-        const jobId = await onRefineAsset(refineParams);
+        const jobId = onRefineAsset(refineParams);
         const asset = allAssets.find(a => a.id === refineParams.assetId);
         // Track job for auto-review
         if (jobId) {
@@ -192,7 +248,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
           targetName: params.targetName as string,
           targetType: params.targetType as string,
         };
-        const jobId = await onCombineAssets(combineParams);
+        const jobId = onCombineAssets(combineParams);
         // Track job for auto-review
         if (jobId) {
           trackJob(jobId, {
@@ -215,70 +271,72 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
       }
 
       case 'describe_image': {
+        if (!sendDescribeRequest) return 'Describe not available (WebSocket not connected)';
+
         const assetId = params.assetId as string;
         const variantId = params.variantId as string | undefined;
         const assetName = params.assetName as string;
-        const focus = (params.focus as string) || 'general';
+        const focus = (params.focus as DescribeFocus | undefined) || 'general';
         const question = params.question as string | undefined;
 
-        try {
-          const response = await fetch(`/api/spaces/${spaceId}/chat/describe`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ assetId, variantId, assetName, focus, question }),
+        // Resolve variantId if not provided
+        let targetVariantId = variantId;
+        if (!targetVariantId && assetId) {
+          const asset = allAssets.find(a => a.id === assetId);
+          targetVariantId = asset?.active_variant_id || undefined;
+        }
+
+        if (!targetVariantId) {
+          return 'No variant found for this asset';
+        }
+
+        // Send WebSocket request and wait for response
+        return new Promise<string>((resolve, reject) => {
+          const requestId = sendDescribeRequest({
+            assetId,
+            variantId: targetVariantId!,
+            assetName,
+            focus,
+            question,
           });
 
-          if (!response.ok) {
-            const error = await response.json() as { error?: string };
-            return `Failed to describe image: ${error.error || 'Unknown error'}`;
-          }
-
-          const data = await response.json() as { success: boolean; description: string };
-          return data.description;
-        } catch (err) {
-          return `Failed to describe image: ${err instanceof Error ? err.message : 'Network error'}`;
-        }
+          pendingDescribeRef.current.set(requestId, {
+            resolve,
+            reject,
+            createdAt: Date.now(),
+          });
+        });
       }
 
       case 'compare_variants': {
+        if (!sendCompareRequest) return 'Compare not available (WebSocket not connected)';
+
         const variantIds = params.variantIds as string[];
         const aspects = (params.aspectsToCompare as string[]) || ['style', 'composition', 'colors'];
 
-        // Build labels from asset names
-        const variantsWithLabels = variantIds.map(vid => {
-          const variant = allVariants.find(v => v.id === vid);
-          const asset = variant ? allAssets.find(a => a.id === variant.asset_id) : null;
-          return {
-            variantId: vid,
-            label: asset?.name || `Variant ${vid.slice(0, 8)}`,
-          };
-        });
+        if (!variantIds || variantIds.length < 2 || variantIds.length > 4) {
+          return 'Must provide 2-4 variants to compare';
+        }
 
-        try {
-          const response = await fetch(`/api/spaces/${spaceId}/chat/compare`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ variantIds: variantsWithLabels, aspects }),
+        // Send WebSocket request and wait for response
+        return new Promise<string>((resolve, reject) => {
+          const requestId = sendCompareRequest({
+            variantIds,
+            aspects,
           });
 
-          if (!response.ok) {
-            const error = await response.json() as { error?: string };
-            return `Failed to compare images: ${error.error || 'Unknown error'}`;
-          }
-
-          const data = await response.json() as { success: boolean; comparison: string };
-          return data.comparison;
-        } catch (err) {
-          return `Failed to compare images: ${err instanceof Error ? err.message : 'Network error'}`;
-        }
+          pendingCompareRef.current.set(requestId, {
+            resolve,
+            reject,
+            createdAt: Date.now(),
+          });
+        });
       }
 
       default:
         return `Unknown action: ${name}`;
     }
-  }, [spaceId, allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPrompt, onGenerateAsset, onRefineAsset, onCombineAssets, trackJob]);
+  }, [allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPrompt, onGenerateAsset, onRefineAsset, onCombineAssets, sendDescribeRequest, sendCompareRequest, trackJob]);
 
   // Execute all tool calls, collecting results
   const executeToolCalls = useCallback(async (toolCalls: ToolCall[]): Promise<string[]> => {
@@ -300,5 +358,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
     trackJob,
     consumeTrackedJob,
     clearTrackedJobs,
+    handleDescribeResponse,
+    handleCompareResponse,
   };
 }

@@ -1,0 +1,183 @@
+/* Variant Node - Individual node in the variant canvas */
+
+.node {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  padding: 6px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.node:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
+  transform: translateY(-2px);
+}
+
+.node.selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+}
+
+.node.highlighted {
+  border-color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.node.active {
+  border-color: var(--color-success);
+}
+
+.node.starred {
+  border-color: var(--color-star-border);
+}
+
+/* Handles (connection points) */
+.handle {
+  width: 10px !important;
+  height: 10px !important;
+  background: var(--color-border) !important;
+  border: 2px solid var(--color-surface) !important;
+  transition: all 0.15s ease;
+}
+
+.node:hover .handle {
+  background: var(--color-primary) !important;
+}
+
+/* Thumbnail container */
+.thumbnail {
+  position: relative;
+  min-width: 100px;
+  max-width: 240px;
+  height: 140px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Image with preserved aspect ratio */
+.image {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Generating state */
+.generating {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-primary);
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.generating span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+/* Indicators */
+.activeIndicator {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 0.5625rem;
+  background: var(--color-success);
+  color: white;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.starIndicator {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 0.875rem;
+  color: var(--color-star);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* Hover actions */
+.actions {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.thumbnail:hover .actions {
+  opacity: 1;
+}
+
+.actionButton {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.actionButton:hover {
+  background: var(--color-primary);
+  color: white;
+  transform: scale(1.1);
+}
+
+/* Label */
+.label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 4px 2px;
+}
+
+.variantId {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  font-family: monospace;
+}
+
+.starBadge {
+  font-size: 10px;
+  color: var(--color-star);
+}
