@@ -1,83 +1,92 @@
 /* =============================================================================
-   ChatSidebar - Glossy Glass Aesthetic (matching ForgeTray)
+   ChatSidebar - Floating Glass Panel (matches ForgeTray aesthetic)
    ============================================================================= */
 
 .sidebar {
-  /* Fixed positioning on all screen sizes */
-  position: fixed;
-  top: var(--header-height, 60px);
-  right: 0;
-  bottom: 0;
-  width: 380px;
-  z-index: 100;
-
+  /* Fills parent container - parent controls positioning */
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 
   /* Glassmorphic background */
-  background: var(--forge-bar-bg);
-  backdrop-filter: blur(20px) saturate(1.5);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  border-left: 1px solid var(--forge-bar-border);
-  box-shadow: -4px 0 24px oklch(0% 0 0 / 0.1);
-
-  /* Animation */
-  transform: translateX(0);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
 }
 
-/* Header - Gradient accent */
+/* Header - Clean minimal */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.25rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.05));
-  border-bottom: 1px solid var(--forge-bar-border-inner);
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .headerTitle {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.5rem;
 }
 
 .headerTitle h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-text);
-  background: linear-gradient(135deg, var(--color-text), var(--color-primary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
-.botIcon {
-  font-size: 1.375rem;
-  filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.3));
+.headerIcon {
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
-.closeButton {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid var(--forge-bar-border-inner);
-  background: var(--forge-slot-bg);
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.settingsButton {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--color-text-muted);
-  font-size: 1.25rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+}
+
+.settingsButton:hover {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.closeButton {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
 }
 
 .closeButton:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: var(--color-error);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.3);
   color: var(--color-error);
-  transform: scale(1.05);
 }
 
 /* Mode Selector - Toggle style like ForgeTray */
@@ -131,42 +140,43 @@
 .contextBar {
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
-  padding: 0.75rem;
-  margin: 0 0.75rem;
-  background: var(--forge-input-bg);
-  border: 1px solid var(--forge-bar-border-inner);
-  border-radius: 10px;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  margin: 0.75rem 0.75rem 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
 }
 
 /* Asset context with thumbnail */
 .contextAsset {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
+  gap: 0.625rem;
 }
 
 .contextThumb {
-  width: 48px;
-  height: 48px;
-  border-radius: 6px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
-  background: var(--forge-slot-bg);
-  border: 1px solid var(--forge-bar-border-inner);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
 .contextThumbPlaceholder {
-  width: 48px;
-  height: 48px;
-  border-radius: 6px;
-  background: var(--forge-slot-bg);
-  border: 1px solid var(--forge-bar-border-inner);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
-  opacity: 0.5;
+  font-size: 1rem;
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -309,19 +319,19 @@
 
 .suggestions button {
   padding: 0.625rem 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--forge-bar-border-inner);
-  background: var(--forge-slot-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   color: var(--color-text);
   font-size: 0.8125rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   text-align: left;
 }
 
 .suggestions button:hover {
   border-color: var(--color-primary);
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--color-bg);
   transform: translateX(4px);
 }
 
@@ -360,15 +370,14 @@
 }
 
 .message.user .messageContent {
-  background: var(--forge-button-bg);
+  background: var(--color-primary);
   color: white;
   border-bottom-right-radius: 4px;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
 .message.assistant .messageContent {
-  background: var(--forge-input-bg);
-  border: 1px solid var(--forge-bar-border-inner);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   color: var(--color-text);
   border-bottom-left-radius: 4px;
 }
@@ -430,19 +439,20 @@
   }
 }
 
-/* Input Area - Unified like ForgeTray */
+/* Input Area */
 .inputArea {
   padding: 0.75rem;
-  margin: 0.75rem;
-  margin-top: 0;
-  background: var(--forge-input-bg);
-  border: 1px solid var(--forge-bar-border-inner);
-  border-radius: 14px;
-  transition: box-shadow 0.2s ease;
+  margin: 0 0.75rem 0.75rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  flex-shrink: 0;
 }
 
 .inputArea:focus-within {
-  box-shadow: var(--forge-input-focus-glow);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px oklch(55% 0.18 276 / 0.1);
 }
 
 .clearButton {
@@ -512,30 +522,26 @@
   border-radius: 2px;
 }
 
-/* Glossy Send Button */
+/* Send Button */
 .sendButton {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
   border: none;
-  background: var(--forge-button-bg);
+  background: var(--color-primary);
   color: white;
-  font-size: 1.25rem;
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   flex-shrink: 0;
-  box-shadow: var(--forge-button-shadow);
 }
 
 .sendButton:hover:not(:disabled) {
-  background: var(--forge-button-hover-bg);
+  background: var(--color-primary-hover);
   transform: translateY(-1px);
-  box-shadow:
-    0 6px 20px rgba(99, 102, 241, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .sendButton:active:not(:disabled) {
@@ -546,20 +552,19 @@
   opacity: 0.4;
   cursor: not-allowed;
   transform: none;
-  box-shadow: none;
 }
 
 /* =============================================================================
-   Plan Card - Enhanced styling
+   Plan Card
    ============================================================================= */
 
 .planCard {
   margin: 0.75rem;
   padding: 1rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.08));
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  border-radius: 14px;
-  backdrop-filter: blur(8px);
+  background: var(--color-status-processing-bg);
+  border: 1px solid oklch(55% 0.18 276 / 0.25);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
 }
 
 .planHeader {
@@ -660,8 +665,8 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--forge-slot-bg);
-  border: 1px solid var(--forge-bar-border-inner);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -717,28 +722,27 @@
 .planCancel {
   flex: 1;
   padding: 0.625rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: none;
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .planApprove {
-  background: var(--forge-button-bg);
+  background: var(--color-primary);
   color: white;
-  box-shadow: var(--forge-button-shadow);
 }
 
 .planApprove:hover:not(:disabled) {
-  background: var(--forge-button-hover-bg);
+  background: var(--color-primary-hover);
   transform: translateY(-1px);
 }
 
 .planCancel {
-  background: var(--forge-slot-bg);
-  border: 1px solid var(--forge-bar-border-inner);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   color: var(--color-text-muted);
 }
 
@@ -760,7 +764,7 @@
   gap: 0.5rem;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--forge-bar-border-inner);
+  border-top: 1px solid var(--color-border);
 }
 
 .nextStepButton {
@@ -786,19 +790,19 @@
 
 .pauseButton {
   padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid var(--forge-bar-border-inner);
-  background: var(--forge-slot-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   color: var(--color-text-muted);
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .pauseButton:hover:not(:disabled) {
-  border-color: var(--color-warning);
-  color: var(--color-warning);
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
 }
 
 /* =============================================================================
@@ -811,9 +815,9 @@
   gap: 0.5rem;
   margin-bottom: 0.75rem;
   padding: 0.5rem;
-  background: var(--forge-slot-bg);
-  border-radius: 10px;
-  border: 1px solid var(--forge-bar-border-inner);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
 }
 
 .thumbnailImage {
@@ -837,22 +841,14 @@
    ============================================================================= */
 
 @media (max-width: 768px) {
+  /* On mobile, sidebar is hidden by parent container */
   .sidebar {
+    height: 100%;
     top: 0;
-    width: 100%;
-    max-width: 400px;
-    z-index: 200;
-    box-shadow: -8px 0 30px oklch(0% 0 0 / 0.2);
   }
 }
 
 @media (max-width: 480px) {
-  .sidebar {
-    max-width: none;
-    border-left: none;
-    border-radius: 0;
-  }
-
   .header {
     padding: 0.875rem 1rem;
   }
@@ -870,10 +866,10 @@
 .approvalPanel {
   margin: 0.75rem;
   padding: 0.875rem;
-  background: linear-gradient(135deg, rgba(234, 179, 8, 0.12), rgba(245, 158, 11, 0.08));
-  border: 1px solid rgba(234, 179, 8, 0.3);
-  border-radius: 14px;
-  backdrop-filter: blur(8px);
+  background: var(--status-warning-bg);
+  border: 1px solid var(--status-warning-border);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
 }
 
 .approvalHeader {
@@ -1014,7 +1010,7 @@
 }
 
 /* =============================================================================
-   PreferencesPanel - Slide-out overlay
+   PreferencesPanel - Modal overlay
    ============================================================================= */
 
 .preferencesOverlay {
@@ -1029,20 +1025,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .preferencesPanel {
   width: 90%;
-  max-width: 500px;
+  max-width: 480px;
   max-height: 80vh;
-  background: var(--forge-bar-bg);
-  backdrop-filter: blur(20px) saturate(1.5);
-  border: 1px solid var(--forge-bar-border);
-  border-radius: 12px;
-  box-shadow: 0 24px 48px oklch(0% 0 0 / 0.3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 48px oklch(0% 0 0 / 0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .preferencesPanelHeader {
@@ -1050,8 +1063,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.25rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.05));
-  border-bottom: 1px solid var(--forge-bar-border-inner);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .preferencesIcon {
@@ -1129,9 +1141,9 @@
   text-align: center;
   color: var(--color-text-muted);
   font-size: 0.875rem;
-  background: var(--forge-slot-bg);
-  border-radius: 8px;
-  border: 1px dashed var(--forge-bar-border-inner);
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border);
 }
 
 /* Patterns List */
@@ -1147,9 +1159,9 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.75rem;
-  background: var(--forge-slot-bg);
-  border: 1px solid var(--forge-bar-border-inner);
-  border-radius: 8px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .patternInfo {
@@ -1182,13 +1194,13 @@
 
 .patternDelete {
   background: none;
-  border: 1px solid var(--forge-bar-border-inner);
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
   padding: 0.25rem 0.5rem;
   font-size: 0.6875rem;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -1212,13 +1224,13 @@
 .preferencesSelect {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  background: var(--forge-slot-bg);
-  border: 1px solid var(--forge-bar-border-inner);
-  border-radius: 6px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   color: var(--color-text);
   font-size: 0.875rem;
   cursor: pointer;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.15s ease;
 }
 
 .preferencesSelect:hover {
@@ -1228,7 +1240,7 @@
 .preferencesSelect:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  box-shadow: var(--focus-ring);
 }
 
 /* Checkbox Preferences */
@@ -1268,7 +1280,7 @@
 .preferencesRange {
   width: 100%;
   height: 4px;
-  background: var(--forge-slot-bg);
+  background: var(--color-border);
   border-radius: 2px;
   appearance: none;
   cursor: pointer;
