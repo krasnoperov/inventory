@@ -181,13 +181,17 @@ const READ_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'describe_image',
-    description: 'Analyze and describe what is in a variant image. Use this when the user asks what is in an image, wants you to analyze a generated result, or needs a detailed description of a variant. IMPORTANT: Use this tool whenever asked to describe, analyze, or look at an image - you cannot see images without calling this tool.',
+    description: 'Analyze and describe what is in an asset image. Use this when the user asks what is in an image, wants you to analyze a generated result, or needs a detailed description. IMPORTANT: Use this tool whenever asked to describe, analyze, or look at an image - you cannot see images without calling this tool. Provide assetId (resolves to default variant) OR variantId (specific variant).',
     input_schema: {
       type: 'object' as const,
       properties: {
+        assetId: {
+          type: 'string',
+          description: 'The ID of the asset to analyze (will use the default/latest variant)',
+        },
         variantId: {
           type: 'string',
-          description: 'The ID of the variant to analyze',
+          description: 'Optional: specific variant ID to analyze (if not provided, uses default variant for the asset)',
         },
         assetName: {
           type: 'string',
@@ -203,7 +207,7 @@ const READ_TOOLS: Anthropic.Tool[] = [
           description: 'Optional fallback focus if no question provided: general overview, artistic style, composition, fine details, or comparison to prompt',
         },
       },
-      required: ['variantId', 'assetName'],
+      required: ['assetId', 'assetName'],
     },
   },
   {
@@ -330,7 +334,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'generate_asset',
-    description: 'Generate a new asset from scratch using a text prompt. Creates a brand new asset in the space. PROMPT TIPS: Be specific - include subject, style, lighting, mood, materials. Use visual anchors (exact phrases to reuse). Examples: "Elven ranger, silver braided hair, leaf-patterned armor, fantasy illustration" / "Victorian townhouse, red brick, bay windows, iron railings" / "Scandinavian living room, light oak floors, white linen sofa" / "Artisan sourdough, golden crust, rustic wooden board" / "Camel wool coat, tortoiseshell buttons, editorial style"',
+    description: 'Generate a new asset using a text prompt. Can optionally use reference images for style matching or element extraction. PROMPT TIPS: Be specific - include subject, style, lighting, mood. When using references, describe what to extract/match from each. Examples: "Elven ranger, silver braided hair, leaf-patterned armor" / "Extract the blue slime creature from image 1, place on neutral background, keep chibi style"',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -345,7 +349,12 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
         },
         prompt: {
           type: 'string',
-          description: 'Detailed prompt. Include: subject with specifics, style/aesthetic, lighting, mood, materials/textures. Use phrases you can repeat for consistency (visual anchors like "light oak flooring", "industrial steel windows", "warm afternoon light").',
+          description: 'Detailed prompt. When using referenceAssetIds: describe what to extract/use from each reference image (e.g., "Extract the gold coin from image 1, isolate on neutral parchment background, maintain chibi storybook style"). Without references: describe subject, style, lighting, mood.',
+        },
+        referenceAssetIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional: Asset IDs to use as visual references (can be multiple). Use for: element extraction (image 1 = source), style matching (images 2+ = style refs), consistency. Prompt should reference by image number: "Extract X from image 1, match style of images 2-3".',
         },
         parentAssetId: {
           type: 'string',
@@ -443,7 +452,7 @@ export class ClaudeService {
     const maxTokens = context.mode === 'actor' ? 2048 : 1024;
 
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-5-20251101',
       max_tokens: maxTokens,
       system: systemPrompt,
       tools,
@@ -567,6 +576,9 @@ COMMON WORKFLOWS:
 - "Place element in scene" → combine_assets: element from image 1 in environment from image 2
 - "Equip/style subject" → combine_assets: subject from image 1 with item/garment from image 2
 - "Create series" → create_plan: generate hero image, then variants maintaining visual anchors
+- "Extract elements from scene" → generate_asset with referenceAssetIds pointing to source scene, prompt describes what to extract and where to place it (e.g., "Extract the blue slime from image 1, isolate on neutral parchment background, maintain chibi style")
+- "Match style from reference" → generate_asset with referenceAssetIds, prompt describes new subject in the style of the reference
+- "Extract + match style" → generate_asset with MULTIPLE referenceAssetIds: source scene + style references. Prompt: "Extract [element] from image 1 (source scene). Match the style of images 2-3 (style references). Place on neutral background." Example: referenceAssetIds: ["game-scene", "princess", "knight"]
 
 PROMPT QUALITY CHECKLIST:
 ✓ Specific subject (not "a building" but "Victorian townhouse with red brick and bay windows")
@@ -596,27 +608,34 @@ Always explain what you're doing and why.`;
       } else if (block.type === 'tool_use') {
         // Check if this is a plan creation
         if (block.name === 'create_plan') {
-          const input = block.input as { goal: string; steps: Array<{ description: string; action: string; params: Record<string, unknown> }> };
-          const plan: AssistantPlan = {
-            id: `plan_${Date.now()}`,
-            goal: input.goal,
-            steps: input.steps.map((s, i) => ({
-              id: `step_${i}`,
-              description: s.description,
-              action: s.action,
-              params: s.params,
-              status: 'pending' as const,
-            })),
-            currentStepIndex: 0,
-            status: 'planning',
-            createdAt: Date.now(),
-          };
+          const input = block.input as { goal?: string; steps?: Array<{ description: string; action: string; params: Record<string, unknown> }> };
 
-          return {
-            type: 'plan',
-            plan,
-            message: textContent || `I've created a plan to: ${input.goal}`,
-          };
+          // Validate plan structure
+          if (!input.goal || !Array.isArray(input.steps) || input.steps.length === 0) {
+            console.error('[ClaudeService] Invalid create_plan response:', JSON.stringify(input, null, 2));
+            // Fall through to treat as regular response
+          } else {
+            const plan: AssistantPlan = {
+              id: `plan_${Date.now()}`,
+              goal: input.goal,
+              steps: input.steps.map((s, i) => ({
+                id: `step_${i}`,
+                description: s.description || `Step ${i + 1}`,
+                action: s.action || 'generate_asset',
+                params: s.params || {},
+                status: 'pending' as const,
+              })),
+              currentStepIndex: 0,
+              status: 'planning',
+              createdAt: Date.now(),
+            };
+
+            return {
+              type: 'plan',
+              plan,
+              message: textContent || `I've created a plan to: ${input.goal}`,
+            };
+          }
         }
 
         // Classify tool by trust level
@@ -725,7 +744,7 @@ Always explain what you're doing and why.`;
       : `Generate a creative image prompt for a ${assetType}. Consider the existing assets in the space for consistency. The prompt should be detailed and specific for AI image generation.`;
 
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-5-20251101',
       max_tokens: 256,
       system: `You are a creative assistant helping generate prompts for AI image generation. Keep prompts concise but descriptive. Focus on visual details, style, and composition.`,
       messages: [{ role: 'user', content: prompt }],
@@ -758,7 +777,7 @@ Always explain what you're doing and why.`;
       const userPrompt = `This is an image of "${assetName}" from a visual asset library.\n\nQuestion: ${question}\n\nPlease answer the question based on what you see in the image.`;
 
       const response = await this.client.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-4-5-20251101',
         max_tokens: 1024,
         messages: [{
           role: 'user',
@@ -802,7 +821,7 @@ Always explain what you're doing and why.`;
     const userPrompt = `This is an image of "${assetName}" from a visual asset library. ${focusPrompts[focus]}`;
 
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-5-20251101',
       max_tokens: 1024,
       messages: [{
         role: 'user',
@@ -855,7 +874,7 @@ Always explain what you're doing and why.`;
     const aspectList = aspects.join(', ');
 
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-5-20251101',
       max_tokens: 1024,
       messages: [{
         role: 'user',
