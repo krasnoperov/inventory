@@ -72,6 +72,7 @@ export default function SpacePage() {
     sendRefineRequest,
     sendDescribeRequest,
     sendCompareRequest,
+    spawnAsset,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
@@ -166,6 +167,7 @@ export default function SpacePage() {
   const { handleForgeSubmit, onGenerateAsset, onRefineAsset, onCombineAssets } = useForgeOperations({
     sendGenerateRequest,
     sendRefineRequest,
+    spawnAsset,
   });
 
   // Handle add to forge tray

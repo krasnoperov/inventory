@@ -106,6 +106,7 @@ export default function AssetDetailPage() {
     sendChatRequest,
     sendGenerateRequest,
     sendRefineRequest,
+    spawnAsset,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
@@ -335,6 +336,7 @@ export default function AssetDetailPage() {
   const { handleForgeSubmit, onGenerateAsset, onRefineAsset, onCombineAssets } = useForgeOperations({
     sendGenerateRequest,
     sendRefineRequest,
+    spawnAsset,
   });
 
   const formatDate = (timestamp: number) => {

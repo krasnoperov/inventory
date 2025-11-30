@@ -11,13 +11,15 @@
 
 import { useCallback } from 'react';
 import type { ForgeSubmitParams } from '../components/ForgeTray';
-import type { GenerateRequestParams, RefineRequestParams } from './useSpaceWebSocket';
+import type { GenerateRequestParams, RefineRequestParams, SpawnParams } from './useSpaceWebSocket';
 
 export interface UseForgeOperationsParams {
   /** WebSocket function to send generate requests */
   sendGenerateRequest: (params: GenerateRequestParams) => string;
   /** WebSocket function to send refine requests */
   sendRefineRequest: (params: RefineRequestParams) => string;
+  /** WebSocket function to spawn (fork) an asset - creates 'spawned' lineage */
+  spawnAsset?: (params: SpawnParams) => void;
 }
 
 export interface UseForgeOperationsReturn {
@@ -51,6 +53,7 @@ export interface UseForgeOperationsReturn {
 export function useForgeOperations({
   sendGenerateRequest,
   sendRefineRequest,
+  spawnAsset,
 }: UseForgeOperationsParams): UseForgeOperationsReturn {
 
   /**
@@ -60,12 +63,24 @@ export function useForgeOperations({
    * - referenceAssetIds: Asset-level refs (from Chat/Claude) - backend resolves to default variants
    * - referenceVariantIds: Explicit variant refs (from ForgeTray UI) - used as-is
    *
-   * Returns requestId for tracking the operation.
+   * Fork operations use spawnAsset to create 'spawned' lineage.
+   * Returns requestId for tracking the operation (or empty string for spawn).
    */
   const handleForgeSubmit = useCallback((params: ForgeSubmitParams): string => {
-    const { prompt, referenceVariantIds = [], referenceAssetIds, destination } = params;
+    const { prompt, referenceVariantIds = [], referenceAssetIds, destination, operation } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
+
+    // Fork operation: use spawnAsset to create 'spawned' lineage
+    if (operation === 'fork' && hasVariantRefs && spawnAsset) {
+      spawnAsset({
+        sourceVariantId: referenceVariantIds[0],
+        name: destination.assetName || 'Forked Asset',
+        assetType: destination.assetType || 'character',
+        parentAssetId: destination.parentAssetId || undefined,
+      });
+      return ''; // spawnAsset is synchronous, no requestId
+    }
 
     if (destination.type === 'existing_asset' && destination.assetId) {
       // Add variant to existing asset (refine operation) - prompt is required
@@ -82,7 +97,7 @@ export function useForgeOperations({
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
       });
     } else {
-      // Create new asset
+      // Create new asset (generate, create, or combine)
       return sendGenerateRequest({
         name: destination.assetName || 'Generated Asset',
         assetType: destination.assetType || 'character',
@@ -91,7 +106,7 @@ export function useForgeOperations({
         parentAssetId: destination.parentAssetId || undefined,
       });
     }
-  }, [sendGenerateRequest, sendRefineRequest]);
+  }, [sendGenerateRequest, sendRefineRequest, spawnAsset]);
 
   /**
    * Chat callback: Generate a new asset

@@ -47,7 +47,7 @@ Lean MVP architecture with hooks for future scale.
 
 | Data | Store | Notes |
 |------|-------|-------|
-| Assets, Variants | DO SQLite | Authoritative. Real-time sync via WebSocket. |
+| Assets, Variants, Lineage | DO SQLite | Authoritative. Real-time sync via WebSocket. |
 | Users, Spaces, Members | D1 | Global. Auth and access control. |
 | Asset Index | D1 | Best-effort shadow for cross-space search. |
 | Jobs | D1 | Generation job tracking. |
@@ -60,8 +60,9 @@ Lean MVP architecture with hooks for future scale.
 CREATE TABLE assets (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('character', 'item', 'scene', 'composite')),
+  type TEXT NOT NULL,  -- 'character', 'item', 'scene', 'sprite-sheet', 'animation', 'style-sheet', 'reference', etc.
   tags TEXT DEFAULT '[]',  -- JSON array
+  parent_asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,  -- Asset hierarchy (NULL = root)
   active_variant_id TEXT,
   created_by TEXT NOT NULL,
   created_at INTEGER NOT NULL,
@@ -71,11 +72,22 @@ CREATE TABLE assets (
 CREATE TABLE variants (
   id TEXT PRIMARY KEY,
   asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
-  job_id TEXT UNIQUE,  -- Idempotency key, NULL for imports
+  job_id TEXT UNIQUE,  -- Idempotency key, NULL for imports/spawns
   image_key TEXT NOT NULL,
   thumb_key TEXT NOT NULL,
   recipe TEXT NOT NULL,  -- JSON, see below
+  starred INTEGER NOT NULL DEFAULT 0,  -- User can mark important variants
   created_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+-- Variant lineage: tracks generation history between variants
+CREATE TABLE lineage (
+  id TEXT PRIMARY KEY,
+  parent_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+  child_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+  relation_type TEXT NOT NULL CHECK (relation_type IN ('derived', 'composed', 'spawned')),
+  severed INTEGER NOT NULL DEFAULT 0,  -- User can cut lineage display without deleting
   created_at INTEGER NOT NULL
 );
 
@@ -95,8 +107,20 @@ CREATE TABLE chat_messages (
 
 CREATE INDEX idx_variants_asset ON variants(asset_id);
 CREATE INDEX idx_assets_updated ON assets(updated_at DESC);
+CREATE INDEX idx_assets_parent ON assets(parent_asset_id);
+CREATE INDEX idx_lineage_parent ON lineage(parent_variant_id);
+CREATE INDEX idx_lineage_child ON lineage(child_variant_id);
 CREATE INDEX idx_chat_created ON chat_messages(created_at DESC);
 ```
+
+**Relationship Model:**
+- **Asset Hierarchy**: `parent_asset_id` enables tree structures (e.g., "Head" child of "Character"). User CAN rearrange via drag-to-reparent.
+- **Variant Lineage**: `lineage` table tracks generation history. User CANNOT rearrange (immutable for audit/reproducibility).
+- **Lineage Types**:
+  - `derived`: Single source image edited/refined
+  - `composed`: Multiple source images combined
+  - `spawned`: Variant copied to create new asset
+- **Severed Flag**: Reserved for admin/future use. No user-facing UI. Keeps record but hides from visualization.
 
 ### D1 Schema (Global)
 
@@ -157,24 +181,23 @@ CREATE INDEX idx_jobs_space_status ON jobs(space_id, status);
 
 ```typescript
 interface Recipe {
-  type: 'generate' | 'edit' | 'compose';
+  type: 'generate' | 'derive' | 'compose';  // Note: 'derive' not 'edit'
   prompt: string;
   model: 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image';
   aspectRatio: '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3';
-  imageSize?: '1K' | '2K' | '4K';
 
-  // For edit/compose: what was used (same-space only)
+  // For derive/compose: source images used in generation
   inputs: Array<{
-    imageKey: string;        // R2 key (always valid, survives deletion)
-    sourceVariantId: string; // For lineage (may become invalid)
-    sourceAssetId: string;   // For lineage (may become invalid)
-    sourceAssetName: string; // Snapshot for display
-    label: string;           // "Image 1:", "Character:", etc.
+    variantId: string;   // Source variant ID (for reference)
+    imageKey: string;    // R2 key (always valid, survives deletion)
   }>;
 }
 ```
 
-**Constraint:** `inputs[].imageKey` must be in same space (`images/{thisSpaceId}/...`). Enforced at compose/edit time.
+**Notes:**
+- Recipe stores generation parameters for reproducibility
+- Lineage table is authoritative for relationships (Recipe is for metadata)
+- `inputs[].imageKey` must be in same space (`images/{thisSpaceId}/...`)
 
 ### Chat Message Metadata Schema
 
@@ -271,52 +294,62 @@ type ClientMessage =
   | { type: 'sync:request' }
 
   // Assets
-  | { type: 'asset:create'; name: string; assetType: AssetType }
-  | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[] } }
+  | { type: 'asset:create'; name: string; assetType: AssetType; parentAssetId?: string }
+  | { type: 'asset:update'; assetId: string; changes: { name?: string; type?: string; tags?: string[]; parent_asset_id?: string | null } }
   | { type: 'asset:delete'; assetId: string }
   | { type: 'asset:setActive'; assetId: string; variantId: string }
+  | { type: 'asset:spawn'; sourceVariantId: string; name: string; assetType: string; parentAssetId?: string }
 
   // Variants
   | { type: 'variant:delete'; variantId: string }
+  | { type: 'variant:star'; variantId: string; starred: boolean }
+
+  // Generation (via WebSocket instead of REST)
+  | { type: 'generate:request'; requestId: string; name: string; assetType: string; prompt?: string; referenceAssetIds?: string[]; aspectRatio?: string; parentAssetId?: string }
+  | { type: 'refine:request'; requestId: string; assetId: string; sourceVariantId?: string; prompt: string; referenceAssetIds?: string[]; aspectRatio?: string }
 
   // Presence (optional)
   | { type: 'presence:update'; viewing?: string }
 
   // Chat
   | { type: 'chat:send'; content: string }
-  | { type: 'bot:invoke'; mode: 'advisor' | 'actor'; prompt: string; selectedAssets?: string[] }
-  | { type: 'bot:confirm'; messageId: string }
-  | { type: 'bot:cancel'; messageId: string }
+  | { type: 'chat:request'; requestId: string; message: string; context?: object }
 ```
 
 **Server → Client:**
 
 ```typescript
 type ServerMessage =
-  // Sync (full state, fine for dozens of assets)
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[] }
+  // Sync (full state including lineage)
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: Presence[] }
 
-  // Mutations
+  // Asset Mutations
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
+  | { type: 'asset:spawned'; asset: Asset; variant: Variant; lineage: Lineage }
+
+  // Variant Mutations
   | { type: 'variant:created'; variant: Variant }
+  | { type: 'variant:updated'; variant: Variant }
   | { type: 'variant:deleted'; variantId: string }
 
-  // Jobs (relayed from worker)
-  | { type: 'job:progress'; jobId: string; status: string }
-  | { type: 'job:completed'; jobId: string; variant: Variant }
+  // Lineage Mutations
+  | { type: 'lineage:created'; lineage: Lineage }
+  | { type: 'lineage:severed'; lineageId: string }
+
+  // Generation Jobs
+  | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }
+  | { type: 'generate:progress'; requestId: string; jobId: string; status: string }
+  | { type: 'job:completed'; jobId: string; variant: Variant; assetId: string; assetName: string; prompt?: string }
   | { type: 'job:failed'; jobId: string; error: string }
 
   // Presence
-  | { type: 'presence:state'; users: Array<{ userId: string; viewing?: string }> }
+  | { type: 'presence:state'; users: Array<{ oderId: string; viewing?: string }> }
 
   // Chat
-  | { type: 'chat:message'; message: ChatMessage }
-  | { type: 'bot:thinking'; botId: string }
-  | { type: 'bot:streaming'; botId: string; chunk: string }
-  | { type: 'bot:done'; botId: string; messageId: string }
-  | { type: 'bot:action_updated'; messageId: string; status: string; jobId?: string }
+  | { type: 'chat:response'; requestId: string; message: string; done: boolean }
+  | { type: 'chat:history'; messages: ChatMessage[] }
 
   // Errors
   | { type: 'error'; code: string; message: string }
@@ -546,77 +579,56 @@ async decrementRef(imageKey: string) {
 
 ### Lineage Query
 
+Lineage is now stored in a dedicated `lineage` table, making queries efficient:
+
 ```typescript
-// GET /api/assets/:id/lineage?max_depth=5&max_nodes=50
-async getLineage(assetId: string, maxDepth = 5, maxNodes = 50): Promise<LineageTree> {
-  let nodeCount = 0;
+// Get all lineage for an asset's variants (for VariantCanvas display)
+async getAssetLineage(assetId: string): Promise<Lineage[]> {
+  // Get all variant IDs for this asset
+  const variants = await this.ctx.storage.sql.exec(
+    'SELECT id FROM variants WHERE asset_id = ?',
+    assetId
+  );
+  const variantIds = variants.toArray().map(v => v.id);
 
-  const build = async (id: string, depth: number): Promise<LineageNode | null> => {
-    if (depth > maxDepth || nodeCount >= maxNodes) {
-      return { assetId: id, truncated: true };
-    }
-    nodeCount++;
+  if (variantIds.length === 0) return [];
 
-    const asset = await this.getAsset(id);
-    if (!asset) return { assetId: id, deleted: true };
+  // Get lineage where either parent or child is in this asset
+  const lineage = await this.ctx.storage.sql.exec(`
+    SELECT * FROM lineage
+    WHERE parent_variant_id IN (${variantIds.map(() => '?').join(',')})
+       OR child_variant_id IN (${variantIds.map(() => '?').join(',')})
+  `, [...variantIds, ...variantIds]);
 
-    // Get all source asset IDs from this asset's variants' recipes
-    const variants = await this.getVariants(id);
-    const sourceAssetIds = new Set<string>();
-
-    for (const v of variants) {
-      const recipe = JSON.parse(v.recipe);
-      for (const input of recipe.inputs || []) {
-        if (input.sourceAssetId) {
-          sourceAssetIds.add(input.sourceAssetId);
-        }
-      }
-    }
-
-    return {
-      asset,
-      sources: await Promise.all(
-        [...sourceAssetIds].slice(0, 10).map(sid => build(sid, depth + 1))
-      )
-    };
-  };
-
-  return build(assetId, 0);
+  return lineage.toArray() as Lineage[];
 }
 
-// GET /api/assets/:id/derived?limit=50&cursor=
-async getDerived(assetId: string, limit = 50, cursor?: string): Promise<{ assets: Asset[]; nextCursor?: string }> {
-  // Get this asset's image keys
-  const variants = await this.getVariants(assetId);
-  const imageKeys = variants.map(v => v.image_key);
+// Get upstream lineage (parents of parents)
+async getUpstreamLineage(variantId: string, maxDepth = 5): Promise<Lineage[]> {
+  const result: Lineage[] = [];
+  const visited = new Set<string>();
 
-  if (imageKeys.length === 0) return { assets: [] };
+  const traverse = async (vId: string, depth: number) => {
+    if (depth > maxDepth || visited.has(vId)) return;
+    visited.add(vId);
 
-  // Find variants whose recipes reference these images
-  // This is O(all variants) but fine for dozens/hundreds
-  const allVariants = await this.sql.exec(`SELECT * FROM variants`).all();
+    const parents = await this.ctx.storage.sql.exec(
+      'SELECT * FROM lineage WHERE child_variant_id = ? AND severed = 0',
+      vId
+    );
 
-  const derivedAssetIds = new Set<string>();
-  for (const v of allVariants) {
-    if (v.asset_id === assetId) continue;
-    const recipe = JSON.parse(v.recipe);
-    for (const input of recipe.inputs || []) {
-      if (imageKeys.includes(input.imageKey)) {
-        derivedAssetIds.add(v.asset_id);
-      }
+    for (const l of parents.toArray()) {
+      result.push(l as Lineage);
+      await traverse(l.parent_variant_id, depth + 1);
     }
-  }
-
-  const sorted = [...derivedAssetIds].sort();
-  const startIdx = cursor ? sorted.indexOf(cursor) + 1 : 0;
-  const slice = sorted.slice(startIdx, startIdx + limit);
-
-  return {
-    assets: await Promise.all(slice.map(id => this.getAsset(id))),
-    nextCursor: slice.length === limit ? slice[slice.length - 1] : undefined
   };
+
+  await traverse(variantId, 0);
+  return result;
 }
 ```
+
+**Performance:** O(1) lookup per relationship via indexed `parent_variant_id` and `child_variant_id` columns.
 
 ### Nightly Backup
 
@@ -690,14 +702,12 @@ async backup() {
 | Feature | Hook |
 |---------|------|
 | Cross-space import | Copy image to target space, recipe type: 'import' |
-| Faster lineage | Add `lineage_edges` table, populate on variant create |
+| Cross-asset lineage display | Show ghost nodes for variants from other assets in VariantCanvas |
+| Asset reparenting UI | Drag-to-reparent on AssetCanvas with cycle prevention |
 | Event sourcing | Add `events` table, replay for undo/audit |
 | Incremental sync | Track `lastSyncedAt`, send deltas instead of full state |
 | Token refresh | WebSocket ping/pong with new token |
-| Real-time presence | Cursor positions, who's viewing what |
-| Bot as WebSocket client | Persistent connection for real-time observation |
 | Multi-action actor | Bot plans multiple steps, executes sequentially |
-| Image understanding | Send thumbnails to Gemini for visual analysis |
 | Prompt templates | Reusable prompts suggested by bot |
 
 ---
