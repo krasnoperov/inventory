@@ -33,3 +33,6 @@ export * from './controllers';
 
 // Schema management
 export * from './schema/SchemaManager';
+
+// Authentication handler
+export * from './AuthHandler';

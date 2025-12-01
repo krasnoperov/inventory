@@ -1,8 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Hono } from 'hono';
 import type { Env } from '../../core/types';
-import { AuthService } from '../features/auth/auth-service';
-import { getMemberRole } from '../../dao/member-queries';
 import type {
   ChatRequestMessage,
   GenerateRequestMessage,
@@ -14,6 +12,7 @@ import type { WebSocketMeta, ClientMessage, ServerMessage } from './space/types'
 import { SpaceRepository } from './space/repository/SpaceRepository';
 import { SchemaManager } from './space/schema/SchemaManager';
 import { createInternalApi } from './space/InternalApi';
+import { AuthHandler } from './space/AuthHandler';
 
 // Import controllers
 import {
@@ -269,30 +268,12 @@ export class SpaceDO extends DurableObject<Env> {
       return new Response('Invalid space', { status: 400 });
     }
 
-    // Extract JWT from cookie
-    const cookieHeader = request.headers.get('Cookie');
-    const token = this.getAuthToken(cookieHeader);
+    // Authenticate the WebSocket upgrade request
+    const authHandler = new AuthHandler(this.env, this.spaceId);
+    const result = await authHandler.authenticate(request);
 
-    if (!token) {
-      return new Response('Missing authentication', { status: 401 });
-    }
-
-    // Verify JWT
-    const authService = new AuthService(this.env);
-    const payload = await authService.verifyJWT(token);
-
-    if (!payload) {
-      return new Response('Invalid token', { status: 401 });
-    }
-
-    // Check membership in D1
-    const role = await getMemberRole(this.env.DB, this.spaceId, payload.userId);
-    if (!role) {
-      console.log('WebSocket auth failed: not a member', {
-        spaceId: this.spaceId,
-        userId: payload.userId,
-      });
-      return new Response('Not a member', { status: 403 });
+    if (!result.success) {
+      return new Response(result.message, { status: result.status });
     }
 
     // Create WebSocket pair
@@ -300,12 +281,7 @@ export class SpaceDO extends DurableObject<Env> {
     const [client, server] = Object.values(pair);
 
     // Accept with user metadata
-    const meta: WebSocketMeta = {
-      userId: String(payload.userId),
-      role,
-    };
-
-    this.ctx.acceptWebSocket(server, [JSON.stringify(meta)]);
+    this.ctx.acceptWebSocket(server, [JSON.stringify(result.meta)]);
 
     return new Response(null, {
       status: 101,
@@ -344,20 +320,4 @@ export class SpaceDO extends DurableObject<Env> {
     }
   }
 
-  // ============================================================================
-  // Utility Helpers
-  // ============================================================================
-
-  private getAuthToken(cookieHeader: string | null): string | null {
-    if (!cookieHeader) return null;
-
-    const cookies = cookieHeader.split(';').map((c) => c.trim());
-    for (const cookie of cookies) {
-      if (cookie.startsWith('auth_token=')) {
-        return cookie.substring('auth_token='.length);
-      }
-    }
-
-    return null;
-  }
 }
