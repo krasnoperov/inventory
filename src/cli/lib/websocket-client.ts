@@ -8,6 +8,7 @@
 import process from 'node:process';
 import WebSocket from 'ws';
 import { loadStoredConfig, resolveBaseUrl } from './config';
+import type { DescribeFocus, ClaudeUsage } from '../../shared/websocket-types';
 
 // Message types matching backend definitions
 interface ChatRequestMessage {
@@ -50,8 +51,6 @@ interface RefineRequestMessage {
   referenceAssetIds?: string[];
   aspectRatio?: string;
 }
-
-type DescribeFocus = 'general' | 'style' | 'composition' | 'details' | 'compare';
 
 interface DescribeRequestMessage {
   type: 'describe:request';
@@ -111,6 +110,7 @@ interface DescribeResponse {
   success: boolean;
   description?: string;
   error?: string;
+  usage?: ClaudeUsage;
 }
 
 interface CompareResponse {
@@ -119,6 +119,7 @@ interface CompareResponse {
   success: boolean;
   comparison?: string;
   error?: string;
+  usage?: ClaudeUsage;
 }
 
 // Specific server message types

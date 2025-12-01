@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import type { DescribeFocus, ClaudeUsage } from '../../shared/websocket-types';
 
 // Asset and Variant types based on DO SQLite schema
 export interface Asset {
@@ -114,8 +115,8 @@ export interface RefineRequestParams {
   aspectRatio?: string;
 }
 
-/** Focus options for image description */
-export type DescribeFocus = 'general' | 'style' | 'composition' | 'details' | 'compare';
+// Re-export shared types
+export type { DescribeFocus, ClaudeUsage } from '../../shared/websocket-types';
 
 // Describe image request parameters
 export interface DescribeRequestParams {
@@ -146,6 +147,7 @@ export interface DescribeResponseResult {
   success: boolean;
   description?: string;
   error?: string;
+  usage?: ClaudeUsage;
 }
 
 // Compare response from server
@@ -154,6 +156,7 @@ export interface CompareResponseResult {
   success: boolean;
   comparison?: string;
   error?: string;
+  usage?: ClaudeUsage;
 }
 
 // WebSocket connection parameters
@@ -223,8 +226,8 @@ type ServerMessage =
   | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   // Vision (describe/compare) response messages
-  | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string }
-  | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string };
+  | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string; usage?: ClaudeUsage }
+  | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage };
 
 // Predefined asset types (user can also create custom)
 export const PREDEFINED_ASSET_TYPES = [
@@ -823,6 +826,7 @@ export function useSpaceWebSocket({
                   success: message.success,
                   description: message.description,
                   error: message.error,
+                  usage: message.usage,
                 });
                 break;
 
@@ -832,6 +836,7 @@ export function useSpaceWebSocket({
                   success: message.success,
                   comparison: message.comparison,
                   error: message.error,
+                  usage: message.usage,
                 });
                 break;
 

@@ -244,8 +244,9 @@ export interface RefineResultMessage {
 // DESCRIBE/COMPARE WEBSOCKET MESSAGE TYPES
 // ============================================================================
 
-/** Focus options for image description */
-export type DescribeFocus = 'general' | 'style' | 'composition' | 'details' | 'compare';
+// Re-export shared types for convenience
+export type { DescribeFocus, ClaudeUsage } from '../../shared/websocket-types';
+import type { DescribeFocus, ClaudeUsage } from '../../shared/websocket-types';
 
 /** Describe image request from client (replaces HTTP POST /api/spaces/:id/chat/describe) */
 export interface DescribeRequestMessage {
@@ -267,6 +268,7 @@ export interface DescribeResponseMessage {
   success: boolean;
   description?: string;
   error?: string;
+  usage?: ClaudeUsage;
 }
 
 /** Compare images request from client (replaces HTTP POST /api/spaces/:id/chat/compare) */
@@ -285,4 +287,5 @@ export interface CompareResponseMessage {
   success: boolean;
   comparison?: string;
   error?: string;
+  usage?: ClaudeUsage;
 }

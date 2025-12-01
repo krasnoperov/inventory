@@ -147,6 +147,8 @@ export function ChatSidebar({
   const [forgeTrayStepIndex, setForgeTrayStepIndex] = useState<number | null>(null);
   // Track pending WebSocket chat request
   const pendingChatRequestRef = useRef<{ requestId: string; messageToSend: string; modeToUse: 'advisor' | 'actor' } | null>(null);
+  // Track pending auto-review request
+  const pendingAutoReviewRef = useRef<{ requestId: string; assetName: string; prompt: string } | null>(null);
 
   // Usage tracking for 90% warnings
   const { meters, refresh: refreshUsage } = useLimitedUsage();
@@ -174,6 +176,33 @@ export function ChatSidebar({
       toolExec.handleCompareResponse(compareResponse);
     }
   }, [compareResponse, toolExec]);
+
+  // Handle auto-review response (separate from tool execution)
+  useEffect(() => {
+    if (!describeResponse) return;
+
+    const pending = pendingAutoReviewRef.current;
+    if (!pending || describeResponse.requestId !== pending.requestId) return;
+
+    // Clear pending request
+    pendingAutoReviewRef.current = null;
+
+    if (describeResponse.success && describeResponse.description) {
+      const reviewMessage = `**Review of "${pending.assetName}":**\n\n${describeResponse.description}\n\n**Original prompt:** "${pending.prompt.slice(0, 100)}${pending.prompt.length > 100 ? '...' : ''}"`;
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: reviewMessage,
+        timestamp: Date.now(),
+      });
+    } else {
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: `Generated "${pending.assetName}" successfully! (Auto-review unavailable)`,
+        timestamp: Date.now(),
+      });
+    }
+    setIsAutoReviewing(false);
+  }, [describeResponse, spaceId, addMessage]);
 
   // Forge tray state for context
   const slots = useForgeTrayStore((state) => state.slots);
@@ -307,48 +336,34 @@ export function ChatSidebar({
         } : undefined,
       });
 
-      try {
-        const response = await fetch(`/api/spaces/${spaceId}/chat/describe`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            variantId: lastCompletedJob.variantId,
-            assetName: jobInfo.assetName,
-            focus: 'general',
-          }),
+      // Use WebSocket describe request for auto-review
+      if (sendDescribeRequest && lastCompletedJob.assetId) {
+        const requestId = sendDescribeRequest({
+          assetId: lastCompletedJob.assetId,
+          variantId: lastCompletedJob.variantId,
+          assetName: jobInfo.assetName,
+          focus: 'general',
         });
-
-        if (response.ok) {
-          const data = await response.json() as { success: boolean; description: string };
-          const reviewMessage = `**Review of "${jobInfo.assetName}":**\n\n${data.description}\n\n**Original prompt:** "${jobInfo.prompt.slice(0, 100)}${jobInfo.prompt.length > 100 ? '...' : ''}"`;
-
-          addMessage(spaceId, {
-            role: 'assistant',
-            content: reviewMessage,
-            timestamp: Date.now(),
-          });
-        } else {
-          addMessage(spaceId, {
-            role: 'assistant',
-            content: `Generated "${jobInfo.assetName}" successfully! (Auto-review unavailable)`,
-            timestamp: Date.now(),
-          });
-        }
-      } catch (err) {
-        console.error('Auto-review failed:', err);
+        // Store pending request for response handler
+        pendingAutoReviewRef.current = {
+          requestId,
+          assetName: jobInfo.assetName,
+          prompt: jobInfo.prompt,
+        };
+        // Response will be handled by the useEffect watching describeResponse
+      } else {
+        // Fallback if WebSocket not available
         addMessage(spaceId, {
           role: 'assistant',
           content: `Generated "${jobInfo.assetName}" successfully!`,
           timestamp: Date.now(),
         });
-      } finally {
         setIsAutoReviewing(false);
       }
     };
 
     autoReviewJob();
-  }, [lastCompletedJob, isOpen, spaceId, toolExec, addMessage, allVariants]);
+  }, [lastCompletedJob, isOpen, spaceId, toolExec, addMessage, allVariants, sendDescribeRequest]);
 
   // ==========================================================================
   // ForgeTray Step Completion (when user submits manually from ForgeTray)
