@@ -147,30 +147,30 @@
 .progressTrack {
   height: 8px;
   background: var(--color-bg);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
 }
 
 .progressBar {
   height: 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   transition: width 0.3s ease;
 }
 
 .progressBar.ok {
-  background: linear-gradient(90deg, #22c55e, #4ade80);
+  background: linear-gradient(90deg, var(--color-success), oklch(75% 0.15 145));
 }
 
 .progressBar.warning {
-  background: linear-gradient(90deg, #eab308, #facc15);
+  background: linear-gradient(90deg, oklch(80% 0.15 90), oklch(85% 0.18 90));
 }
 
 .progressBar.critical {
-  background: linear-gradient(90deg, #f97316, #fb923c);
+  background: linear-gradient(90deg, oklch(70% 0.18 50), oklch(75% 0.16 50));
 }
 
 .progressBar.exceeded {
-  background: linear-gradient(90deg, #ef4444, #f87171);
+  background: linear-gradient(90deg, var(--color-error), oklch(65% 0.18 25));
 }
 
 /* Meter Footer */
@@ -185,27 +185,27 @@
   font-size: 0.75rem;
   font-weight: 500;
   padding: 0.15rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .statusBadge.ok {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  background: oklch(55% 0.15 145 / 0.15);
+  color: var(--color-success);
 }
 
 .statusBadge.warning {
-  background: rgba(234, 179, 8, 0.15);
-  color: #ca8a04;
+  background: oklch(80% 0.15 90 / 0.15);
+  color: oklch(60% 0.12 85);
 }
 
 .statusBadge.critical {
-  background: rgba(249, 115, 22, 0.15);
-  color: #ea580c;
+  background: oklch(70% 0.18 50 / 0.15);
+  color: oklch(60% 0.16 50);
 }
 
 .statusBadge.exceeded {
-  background: rgba(239, 68, 68, 0.15);
-  color: #dc2626;
+  background: oklch(55% 0.2 25 / 0.15);
+  color: var(--color-error);
 }
 
 .percentage {

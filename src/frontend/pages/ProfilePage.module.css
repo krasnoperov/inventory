@@ -28,6 +28,7 @@
   font-weight: 700;
   color: var(--color-text);
   text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .brand:hover {
@@ -44,6 +45,7 @@
   color: var(--color-text);
   font-weight: 600;
   text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .navLink:hover {
@@ -53,7 +55,7 @@
 
 .authButton {
   padding: 0.5rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-primary);
   color: white;
   text-decoration: none;

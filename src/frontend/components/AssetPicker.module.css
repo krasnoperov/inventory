@@ -31,7 +31,7 @@
   width: 100%;
   padding: 0.625rem 0.75rem 0.625rem 2.25rem;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
   font-size: 0.875rem;
@@ -42,7 +42,7 @@
 .searchInput:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 0 3px oklch(55% 0.18 276 / 0.15);
 }
 
 .searchInput::placeholder {
@@ -64,7 +64,7 @@
   padding: 0.625rem 0.75rem;
   border: none;
   background: transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   text-align: left;
   transition: all 0.15s ease;
@@ -76,11 +76,11 @@
 }
 
 .option.selected {
-  background: rgba(99, 102, 241, 0.1);
+  background: oklch(55% 0.18 276 / 0.1);
 }
 
 .option.selected:hover {
-  background: rgba(99, 102, 241, 0.15);
+  background: oklch(55% 0.18 276 / 0.15);
 }
 
 .thumbnail {

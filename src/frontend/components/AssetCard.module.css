@@ -1,7 +1,7 @@
 /* AssetCard - Flat grid catalog view */
 .card {
   background: var(--color-surface);
-  border-radius: 10px;
+  border-radius: var(--thumb-radius);
   border: 1px solid var(--color-border);
   overflow: hidden;
   transition: all 0.2s ease;
@@ -9,7 +9,7 @@
 
 .card:hover {
   border-color: var(--color-border-hover, var(--color-border));
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px oklch(0% 0 0 / 0.1);
 }
 
 /* Depth styling not used in flat view but kept for compatibility */
@@ -55,7 +55,7 @@
 .hoverOverlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: oklch(0% 0 0 / 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -80,7 +80,7 @@
   padding: 8px 12px;
   background: var(--thumb-action-bg);
   border: var(--thumb-action-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--color-text);
   font-size: 11px;
   font-weight: 500;
@@ -185,7 +185,7 @@
   border: var(--thumb-action-border);
   background: var(--thumb-action-bg);
   color: var(--color-text-muted);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
@@ -227,7 +227,7 @@
   position: relative;
   width: 64px;
   height: 64px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
   border: 1px solid var(--color-border);
@@ -238,7 +238,7 @@
 .childThumb:hover {
   border-color: var(--color-primary);
   transform: scale(1.03);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.15);
 }
 
 .childThumbImg {
@@ -263,7 +263,7 @@
   right: 3px;
   width: 20px;
   height: 20px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: none;
   background: var(--color-primary);
   color: white;
@@ -307,7 +307,7 @@
   position: relative;
   width: 28px;
   height: 28px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
   cursor: pointer;
   border: 1px solid var(--color-border);
@@ -318,7 +318,7 @@
 .grandchildThumb:hover {
   border-color: var(--color-primary);
   transform: scale(1.08);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 4px oklch(0% 0 0 / 0.15);
   z-index: 1;
 }
 

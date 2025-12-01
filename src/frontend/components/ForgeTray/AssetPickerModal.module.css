@@ -1,7 +1,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: oklch(0% 0 0 / 0.5);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   display: flex;
@@ -18,9 +18,9 @@
 
 .modal {
   background: var(--color-surface);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px oklch(0% 0 0 / 0.2), 0 2px 8px oklch(0% 0 0 / 0.1);
   width: 90%;
   max-width: 640px;
   max-height: 80vh;
@@ -65,7 +65,7 @@
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   transition: all 0.15s ease;
 }
 
@@ -98,7 +98,7 @@
   width: 100%;
   padding: 0.625rem 0.75rem 0.625rem 2.25rem;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-bg);
   color: var(--color-text);
   font-size: 0.875rem;
@@ -109,13 +109,13 @@
 .searchInput:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 0 3px oklch(55% 0.18 276 / 0.15);
 }
 
 .typeFilter {
   padding: 8px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-bg);
   color: var(--color-text);
   font-size: 0.875rem;
@@ -171,7 +171,7 @@
 }
 
 .assetItem:hover .thumbnailWrapper {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px oklch(0% 0 0 / 0.15);
   transform: translateY(-2px);
 }
 
@@ -281,7 +281,7 @@
 
 .doneButton {
   padding: 0.625rem 1.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--forge-button-border);
   background: var(--forge-button-bg);
   color: white;
@@ -295,7 +295,7 @@
 .doneButton:hover {
   background: var(--forge-button-hover-bg);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: 0 6px 20px oklch(55% 0.18 276 / 0.4), inset 0 1px 0 oklch(100% 0 0 / 0.3);
 }
 
 .doneButton:active {

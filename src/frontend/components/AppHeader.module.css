@@ -17,7 +17,7 @@
   background: var(--color-surface);
   color: var(--color-text);
   border-bottom: 1px solid var(--color-border);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.08);
 }
 
 .side {
