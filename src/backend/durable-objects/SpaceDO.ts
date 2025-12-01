@@ -1036,7 +1036,21 @@ export class SpaceDO extends DurableObject<Env> {
       }
 
       // Get source variant (use provided or active variant)
-      const sourceVariantId = msg.sourceVariantId || asset.active_variant_id;
+      // If a specific variant was requested but doesn't exist, silently fallback to active variant
+      let sourceVariantId = msg.sourceVariantId || asset.active_variant_id;
+
+      if (msg.sourceVariantId && msg.sourceVariantId !== asset.active_variant_id) {
+        // Check if the specified variant still exists
+        const checkResult = await this.ctx.storage.sql.exec(
+          'SELECT 1 FROM variants WHERE id = ?',
+          msg.sourceVariantId
+        );
+        if (checkResult.toArray().length === 0) {
+          // Variant deleted - silently fallback to active variant
+          sourceVariantId = asset.active_variant_id;
+        }
+      }
+
       if (!sourceVariantId) {
         this.sendError(ws, 'NOT_FOUND', 'No source variant available');
         return;
