@@ -7,6 +7,7 @@ import {
   useNodesState,
   useEdgesState,
   type Edge,
+  type Connection,
   MarkerType,
   BackgroundVariant,
 } from '@xyflow/react';
@@ -39,6 +40,8 @@ export interface AssetCanvasProps {
   jobs?: Map<string, { assetId?: string; status: string }>;
   onAssetClick?: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
+  /** Called when user drags an edge to reparent an asset. Set childAssetId's parent to newParentAssetId (or null to unparent) */
+  onReparent?: (childAssetId: string, newParentAssetId: string | null) => void;
 }
 
 /** Calculate node width from image dimensions */
@@ -166,6 +169,7 @@ export function AssetCanvas({
   jobs,
   onAssetClick,
   onAddToTray,
+  onReparent,
 }: AssetCanvasProps) {
   // Track loaded image dimensions
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
@@ -280,6 +284,32 @@ export function AssetCanvas({
     setEdges(initialEdges);
   }, [initialNodes, initialEdges, setNodes, setEdges]);
 
+  // Handle new connections (reparenting via drag)
+  // User drags from parent's bottom handle (source) to child's top handle (target)
+  const handleConnect = useCallback((connection: Connection) => {
+    if (!onReparent || !connection.source || !connection.target) return;
+
+    // When connecting: source is the new parent, target is the child being reparented
+    const newParentId = connection.source;
+    const childId = connection.target;
+
+    // Don't allow self-connection
+    if (newParentId === childId) return;
+
+    // Call onReparent to update via WebSocket
+    onReparent(childId, newParentId);
+  }, [onReparent]);
+
+  // Handle edge deletion (unparent asset)
+  const handleEdgesDelete = useCallback((deletedEdges: Edge[]) => {
+    if (!onReparent) return;
+
+    for (const edge of deletedEdges) {
+      // When deleting an edge, unparent the target (child) asset
+      onReparent(edge.target, null);
+    }
+  }, [onReparent]);
+
   if (assets.length === 0) {
     return (
       <div className={styles.empty}>
@@ -299,12 +329,15 @@ export function AssetCanvas({
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onConnect={onReparent ? handleConnect : undefined}
+        onEdgesDelete={onReparent ? handleEdgesDelete : undefined}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.3}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
+        deleteKeyCode="Delete"
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
         <Controls className={styles.controls} />

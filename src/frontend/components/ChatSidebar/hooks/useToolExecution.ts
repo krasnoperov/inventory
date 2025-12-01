@@ -39,6 +39,8 @@ export interface UseToolExecutionReturn {
   handleDescribeResponse: (response: DescribeResponseResult) => void;
   /** Handle compare response from WebSocket */
   handleCompareResponse: (response: CompareResponseResult) => void;
+  /** Cleanup pending requests on WebSocket disconnect */
+  cleanupPendingRequests: () => void;
 }
 
 // =============================================================================
@@ -162,6 +164,20 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
     }
   }, []);
 
+  // Cleanup all pending requests on WebSocket disconnect
+  const cleanupPendingRequests = useCallback(() => {
+    // Reject all pending describe requests
+    for (const [requestId, pending] of pendingDescribeRef.current.entries()) {
+      pending.reject(new Error('WebSocket disconnected'));
+      pendingDescribeRef.current.delete(requestId);
+    }
+    // Reject all pending compare requests
+    for (const [requestId, pending] of pendingCompareRef.current.entries()) {
+      pending.reject(new Error('WebSocket disconnected'));
+      pendingCompareRef.current.delete(requestId);
+    }
+  }, []);
+
   // Execute a single tool call
   const executeToolCall = useCallback(async (tool: ToolCall): Promise<string> => {
     const { name, params } = tool;
@@ -202,12 +218,28 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
 
       case 'generate_asset': {
         if (!onGenerateAsset) return 'Generation not available';
+
+        // Validate parentAssetId exists
+        const parentAssetId = params.parentAssetId as string | undefined;
+        if (parentAssetId && !allAssets.find(a => a.id === parentAssetId)) {
+          return `Parent asset not found: ${parentAssetId}`;
+        }
+
+        // Validate all referenceAssetIds exist
+        const referenceAssetIds = params.referenceAssetIds as string[] | undefined;
+        if (referenceAssetIds) {
+          const invalidIds = referenceAssetIds.filter(id => !allAssets.find(a => a.id === id));
+          if (invalidIds.length > 0) {
+            return `Reference asset(s) not found: ${invalidIds.join(', ')}`;
+          }
+        }
+
         const genParams = {
           name: params.name as string,
           type: params.type as string,
           prompt: params.prompt as string,
-          parentAssetId: params.parentAssetId as string | undefined,
-          referenceAssetIds: params.referenceAssetIds as string[] | undefined,
+          parentAssetId,
+          referenceAssetIds,
         };
         const jobId = onGenerateAsset(genParams);
         // Track job for auto-review
@@ -223,27 +255,45 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
 
       case 'refine_asset': {
         if (!onRefineAsset) return 'Refinement not available';
+
+        // Validate assetId exists
+        const assetId = params.assetId as string;
+        const asset = allAssets.find(a => a.id === assetId);
+        if (!asset) {
+          return `Asset not found: ${assetId}`;
+        }
+
         const refineParams = {
-          assetId: params.assetId as string,
+          assetId,
           prompt: params.prompt as string,
         };
         const jobId = onRefineAsset(refineParams);
-        const asset = allAssets.find(a => a.id === refineParams.assetId);
         // Track job for auto-review
         if (jobId) {
           trackJob(jobId, {
-            assetName: asset?.name || 'asset',
+            assetName: asset.name,
             prompt: refineParams.prompt,
             createdAt: Date.now(),
           });
         }
-        return `Started refining "${asset?.name || 'asset'}"`;
+        return `Started refining "${asset.name}"`;
       }
 
       case 'combine_assets': {
         if (!onCombineAssets) return 'Combining not available';
+
+        // Validate all sourceAssetIds exist
+        const sourceAssetIds = params.sourceAssetIds as string[];
+        if (!sourceAssetIds || sourceAssetIds.length < 2) {
+          return 'At least 2 source assets are required for combining';
+        }
+        const invalidIds = sourceAssetIds.filter(id => !allAssets.find(a => a.id === id));
+        if (invalidIds.length > 0) {
+          return `Source asset(s) not found: ${invalidIds.join(', ')}`;
+        }
+
         const combineParams = {
-          sourceAssetIds: params.sourceAssetIds as string[],
+          sourceAssetIds,
           prompt: params.prompt as string,
           targetName: params.targetName as string,
           targetType: params.targetType as string,
@@ -360,5 +410,6 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
     clearTrackedJobs,
     handleDescribeResponse,
     handleCompareResponse,
+    cleanupPendingRequests,
   };
 }

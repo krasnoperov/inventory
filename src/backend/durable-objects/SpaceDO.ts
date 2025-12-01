@@ -16,6 +16,7 @@ import type {
   BotContextAsset,
 } from '../workflows/types';
 import type { ChatMessage as ApiChatMessage, ForgeContext, ViewingContext } from '../../api/types';
+import type { ClaudeUsage } from '../../shared/websocket-types';
 
 // ============================================================================
 // Types for DO SQLite Schema
@@ -127,8 +128,8 @@ type ServerMessage =
   | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   // Vision (describe/compare) response messages
-  | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string }
-  | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string };
+  | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string; usage?: ClaudeUsage }
+  | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage };
 
 // ============================================================================
 // SpaceDO - Durable Object for Space State & WebSocket Hub
@@ -611,7 +612,24 @@ export class SpaceDO extends DurableObject<Env> {
       return;
     }
 
-    const asset = await this.updateAsset(assetId, changes);
+    // If changing parent, validate no cycle would be created
+    if (changes.parentAssetId !== undefined) {
+      const wouldCycle = await this.wouldCreateCycle(assetId, changes.parentAssetId);
+      if (wouldCycle) {
+        this.sendError(ws, 'INVALID_OPERATION', 'Cannot set parent: would create circular hierarchy');
+        return;
+      }
+    }
+
+    // Map parentAssetId to parent_asset_id for database
+    const dbChanges: { name?: string; tags?: string[]; type?: string; parent_asset_id?: string | null } = {
+      name: changes.name,
+      tags: changes.tags,
+      type: changes.type,
+      parent_asset_id: changes.parentAssetId,
+    };
+
+    const asset = await this.updateAsset(assetId, dbChanges);
     if (!asset) {
       this.sendError(ws, 'NOT_FOUND', 'Asset not found');
       return;
@@ -1209,7 +1227,7 @@ export class SpaceDO extends DurableObject<Env> {
 
     // Call Claude to describe the image
     const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY);
-    const { description } = await claudeService.describeImage(
+    const { description, usage } = await claudeService.describeImage(
       base64,
       mediaType,
       msg.assetName,
@@ -1223,6 +1241,7 @@ export class SpaceDO extends DurableObject<Env> {
       requestId: msg.requestId,
       success: true,
       description,
+      usage: usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : undefined,
     });
   }
 
@@ -1331,7 +1350,7 @@ export class SpaceDO extends DurableObject<Env> {
     // Call Claude to compare images
     const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY);
     const aspects = msg.aspects || ['style', 'composition', 'colors'];
-    const { comparison } = await claudeService.compareImages(images, aspects);
+    const { comparison, usage } = await claudeService.compareImages(images, aspects);
 
     // Send response back to client
     this.send(ws, {
@@ -1339,6 +1358,7 @@ export class SpaceDO extends DurableObject<Env> {
       requestId: msg.requestId,
       success: true,
       comparison,
+      usage: usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : undefined,
     });
   }
 
@@ -2205,6 +2225,41 @@ export class SpaceDO extends DurableObject<Env> {
     );
 
     return asset;
+  }
+
+  /**
+   * Check if setting newParentId as parent of assetId would create a cycle.
+   * Returns true if it would create a cycle (invalid), false otherwise.
+   */
+  private async wouldCreateCycle(assetId: string, newParentId: string | null): Promise<boolean> {
+    // If no parent, no cycle possible
+    if (!newParentId) return false;
+
+    // Can't be your own parent
+    if (assetId === newParentId) return true;
+
+    // Walk up the ancestor chain from newParentId to see if we reach assetId
+    let currentId: string | null = newParentId;
+    const visited = new Set<string>();
+
+    while (currentId) {
+      // Prevent infinite loops in case of existing cycles
+      if (visited.has(currentId)) break;
+      visited.add(currentId);
+
+      // If we reach the asset we're trying to reparent, it's a cycle
+      if (currentId === assetId) return true;
+
+      // Get the parent of current
+      const result = await this.ctx.storage.sql.exec(
+        'SELECT parent_asset_id FROM assets WHERE id = ?',
+        currentId
+      );
+      const row = result.toArray()[0] as { parent_asset_id: string | null } | undefined;
+      currentId = row?.parent_asset_id ?? null;
+    }
+
+    return false;
   }
 
   /**

@@ -3,27 +3,27 @@
 .node {
   background: var(--color-surface);
   border: 2px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 6px;
   transition: all 0.15s ease;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.08);
 }
 
 .node:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 4px 20px oklch(55% 0.18 276 / 0.25);
   transform: translateY(-2px);
 }
 
 .node.selected {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 0 0 3px oklch(55% 0.18 276 / 0.3);
 }
 
 .node.highlighted {
   border-color: var(--color-primary);
-  background: rgba(99, 102, 241, 0.05);
+  background: oklch(55% 0.18 276 / 0.05);
 }
 
 .node.active {
@@ -53,7 +53,7 @@
   min-width: 100px;
   max-width: 240px;
   height: 140px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-bg);
   display: flex;
@@ -112,7 +112,7 @@
   border-radius: var(--radius-xs);
   font-weight: 600;
   text-transform: uppercase;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px oklch(0% 0 0 / 0.2);
 }
 
 .starIndicator {
@@ -121,8 +121,8 @@
   left: 6px;
   font-size: 0.875rem;
   color: var(--color-star);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  text-shadow: 0 1px 3px oklch(0% 0 0 / 0.4);
+  filter: drop-shadow(0 1px 2px oklch(0% 0 0 / 0.3));
 }
 
 /* Hover actions */
@@ -143,7 +143,7 @@
 .actionButton {
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: none;
   background: var(--color-surface);
   color: var(--color-text-muted);
@@ -152,7 +152,7 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px oklch(0% 0 0 / 0.15);
 }
 
 .actionButton:hover {
@@ -180,4 +180,26 @@
 .starBadge {
   font-size: 10px;
   color: var(--color-star);
+}
+
+/* Ghost node - cross-asset parent variant */
+.node.ghost {
+  opacity: 0.6;
+  border-style: dashed;
+  border-color: var(--color-text-muted);
+}
+
+.node.ghost:hover {
+  opacity: 0.9;
+  border-color: var(--color-primary);
+}
+
+.ghostLabel {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-primary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

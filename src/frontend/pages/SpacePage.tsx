@@ -73,6 +73,7 @@ export default function SpacePage() {
     sendDescribeRequest,
     sendCompareRequest,
     spawnAsset,
+    updateAsset,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
@@ -174,6 +175,11 @@ export default function SpacePage() {
   const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
     addSlot(variant, asset);
   }, [addSlot]);
+
+  // Handle asset reparenting via drag-and-drop on canvas
+  const handleReparent = useCallback((childAssetId: string, newParentAssetId: string | null) => {
+    updateAsset(childAssetId, { parentAssetId: newParentAssetId });
+  }, [updateAsset]);
 
   // Export space as ZIP
   const handleExport = useCallback(async () => {
@@ -312,6 +318,7 @@ export default function SpacePage() {
             navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
           }}
           onAddToTray={canEdit ? handleAddToTray : undefined}
+          onReparent={canEdit ? handleReparent : undefined}
         />
 
         {/* Space info overlay - top left */}

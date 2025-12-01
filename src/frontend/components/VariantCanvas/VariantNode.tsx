@@ -13,6 +13,10 @@ export interface VariantNodeData extends Record<string, unknown> {
   onVariantClick?: (variant: Variant) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onSetActive?: (variantId: string) => void;
+  /** Ghost node: parent variant from another asset */
+  isGhost?: boolean;
+  /** Callback for ghost node click (navigate to source asset) */
+  onGhostClick?: (assetId: string) => void;
 }
 
 export type VariantNodeType = Node<VariantNodeData, 'variant'>;
@@ -28,11 +32,17 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     onVariantClick,
     onAddToTray,
     onSetActive,
+    isGhost,
+    onGhostClick,
   } = data;
 
   const handleClick = useCallback(() => {
-    onVariantClick?.(variant);
-  }, [variant, onVariantClick]);
+    if (isGhost && onGhostClick) {
+      onGhostClick(asset.id);
+    } else {
+      onVariantClick?.(variant);
+    }
+  }, [variant, isGhost, asset.id, onVariantClick, onGhostClick]);
 
   const handleAddToTray = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -50,6 +60,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     isActive ? styles.active : '',
     isSelected ? styles.highlighted : '',
     variant.starred ? styles.starred : '',
+    isGhost ? styles.ghost : '',
   ].filter(Boolean).join(' ');
 
   return (
@@ -110,8 +121,16 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
       {/* Label */}
       <div className={styles.label}>
-        <span className={styles.variantId}>v{variant.id.slice(0, 6)}</span>
-        {variant.starred && <span className={styles.starBadge}>★</span>}
+        {isGhost ? (
+          <span className={styles.ghostLabel} title={`From: ${asset.name}`}>
+            ↗ {asset.name}
+          </span>
+        ) : (
+          <>
+            <span className={styles.variantId}>v{variant.id.slice(0, 6)}</span>
+            {variant.starred && <span className={styles.starBadge}>★</span>}
+          </>
+        )}
       </div>
 
       {/* Output handle (for outgoing edges to child variants) */}

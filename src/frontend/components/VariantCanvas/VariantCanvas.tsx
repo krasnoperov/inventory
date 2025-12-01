@@ -45,6 +45,12 @@ export interface VariantCanvasProps {
   onVariantClick?: (variant: Variant) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onSetActive?: (variantId: string) => void;
+  /** All variants from the space (for cross-asset lineage ghost nodes) */
+  allVariants?: Variant[];
+  /** All assets from the space (for resolving ghost node asset info) */
+  allAssets?: Asset[];
+  /** Callback when clicking a ghost node to navigate to its asset */
+  onGhostNodeClick?: (assetId: string) => void;
 }
 
 /** Calculate node width from image dimensions */
@@ -198,6 +204,9 @@ export function VariantCanvas({
   onVariantClick,
   onAddToTray,
   onSetActive,
+  allVariants,
+  allAssets,
+  onGhostNodeClick,
 }: VariantCanvasProps) {
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
 
@@ -250,6 +259,10 @@ export function VariantCanvas({
 
   // Build nodes and edges
   const { initialNodes, initialEdges } = useMemo(() => {
+    // Build set of valid variant IDs for this asset
+    const variantIds = new Set(variants.map(v => v.id));
+
+    // Create normal nodes for this asset's variants
     const nodes: VariantNodeType[] = variants.map((variant) => ({
       id: variant.id,
       type: 'variant' as const,
@@ -266,61 +279,136 @@ export function VariantCanvas({
       },
     }));
 
-    // Build set of valid variant IDs for edge validation
-    const variantIds = new Set(variants.map(v => v.id));
+    // Find cross-asset lineage: where child is in this asset but parent is from another asset
+    const crossAssetLineage = lineage.filter(l =>
+      variantIds.has(l.child_variant_id) &&
+      !variantIds.has(l.parent_variant_id) &&
+      !l.severed
+    );
+
+    // Create ghost nodes for external parent variants
+    const ghostNodes: VariantNodeType[] = [];
+    const ghostVariantIds = new Set<string>();
+
+    if (allVariants && allAssets && crossAssetLineage.length > 0) {
+      for (const lin of crossAssetLineage) {
+        if (ghostVariantIds.has(lin.parent_variant_id)) continue;
+
+        const parentVariant = allVariants.find(v => v.id === lin.parent_variant_id);
+        if (!parentVariant) continue;
+
+        const parentAsset = allAssets.find(a => a.id === parentVariant.asset_id);
+        if (!parentAsset) continue;
+
+        ghostVariantIds.add(lin.parent_variant_id);
+        ghostNodes.push({
+          id: lin.parent_variant_id,
+          type: 'variant' as const,
+          position: { x: 0, y: 0 },
+          data: {
+            variant: parentVariant,
+            asset: parentAsset,
+            isGhost: true,
+            onGhostClick: onGhostNodeClick,
+          },
+        });
+      }
+    }
+
+    const allNodes = [...nodes, ...ghostNodes];
+    const allVariantIds = new Set([...variantIds, ...ghostVariantIds]);
 
     // Create edges from lineage (parent -> child)
-    // Only include edges where both endpoints exist in our variant list
+    // Include edges where both endpoints exist (including ghost nodes)
     const edges: Edge[] = lineage
-      .filter(l => l.relation_type === 'derived' && variantIds.has(l.parent_variant_id) && variantIds.has(l.child_variant_id))
+      .filter(l => l.relation_type === 'derived' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
+      .map(l => {
+        const isFromGhost = ghostVariantIds.has(l.parent_variant_id);
+        return {
+          id: `${l.parent_variant_id}-${l.child_variant_id}`,
+          source: l.parent_variant_id,
+          target: l.child_variant_id,
+          type: 'smoothstep',
+          animated: isVariantGenerating(l.child_variant_id),
+          style: {
+            stroke: isFromGhost ? 'var(--color-text-muted)' : 'var(--color-border)',
+            strokeWidth: 2,
+            strokeDasharray: isFromGhost ? '4,4' : undefined,
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: 'var(--color-text-muted)',
+            width: 14,
+            height: 14,
+          },
+          label: isFromGhost ? 'spawned' : 'derived',
+          labelStyle: { fontSize: 9, fill: 'var(--color-text-muted)' },
+          labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
+        };
+      });
+
+    // Add composed edges with different style
+    const composedEdges: Edge[] = lineage
+      .filter(l => l.relation_type === 'composed' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
+      .map(l => {
+        const isFromGhost = ghostVariantIds.has(l.parent_variant_id);
+        return {
+          id: `${l.parent_variant_id}-${l.child_variant_id}-composed`,
+          source: l.parent_variant_id,
+          target: l.child_variant_id,
+          type: 'smoothstep',
+          animated: isVariantGenerating(l.child_variant_id),
+          style: {
+            stroke: 'var(--color-primary)',
+            strokeWidth: 2,
+            strokeDasharray: isFromGhost ? '4,4' : '5,5',
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: 'var(--color-primary)',
+            width: 14,
+            height: 14,
+          },
+          label: 'composed',
+          labelStyle: { fontSize: 9, fill: 'var(--color-primary)' },
+          labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
+        };
+      });
+
+    // Add spawned edges
+    const spawnedEdges: Edge[] = lineage
+      .filter(l => l.relation_type === 'spawned' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
       .map(l => ({
-        id: `${l.parent_variant_id}-${l.child_variant_id}`,
+        id: `${l.parent_variant_id}-${l.child_variant_id}-spawned`,
         source: l.parent_variant_id,
         target: l.child_variant_id,
         type: 'smoothstep',
-        animated: isVariantGenerating(l.child_variant_id),
-        style: { stroke: 'var(--color-border)', strokeWidth: 2 },
+        animated: false,
+        style: {
+          stroke: 'var(--color-text-muted)',
+          strokeWidth: 2,
+          strokeDasharray: '4,4',
+        },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: 'var(--color-text-muted)',
           width: 14,
           height: 14,
         },
-        label: 'derived',
+        label: 'spawned',
         labelStyle: { fontSize: 9, fill: 'var(--color-text-muted)' },
         labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
       }));
 
-    // Add composed edges with different style
-    const composedEdges: Edge[] = lineage
-      .filter(l => l.relation_type === 'composed' && variantIds.has(l.parent_variant_id) && variantIds.has(l.child_variant_id))
-      .map(l => ({
-        id: `${l.parent_variant_id}-${l.child_variant_id}-composed`,
-        source: l.parent_variant_id,
-        target: l.child_variant_id,
-        type: 'smoothstep',
-        animated: isVariantGenerating(l.child_variant_id),
-        style: { stroke: 'var(--color-primary)', strokeWidth: 2, strokeDasharray: '5,5' },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'var(--color-primary)',
-          width: 14,
-          height: 14,
-        },
-        label: 'composed',
-        labelStyle: { fontSize: 9, fill: 'var(--color-primary)' },
-        labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
-      }));
-
-    const allEdges = [...edges, ...composedEdges];
+    const allEdges = [...edges, ...composedEdges, ...spawnedEdges];
 
     // Apply layout
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      nodes, allEdges, imageDimensions, asset.active_variant_id ?? undefined, 'TB'
+      allNodes, allEdges, imageDimensions, asset.active_variant_id ?? undefined, 'TB'
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, imageDimensions]);
+  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, imageDimensions, allVariants, allAssets, onGhostNodeClick]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);

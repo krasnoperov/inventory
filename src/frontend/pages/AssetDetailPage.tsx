@@ -412,6 +412,9 @@ export default function AssetDetailPage() {
           onVariantClick={handleVariantClick}
           onAddToTray={handleAddToTray}
           onSetActive={handleSetActiveVariant}
+          allVariants={wsVariants}
+          allAssets={wsAssets}
+          onGhostNodeClick={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
         />
 
         {/* Asset info overlay - top left */}
