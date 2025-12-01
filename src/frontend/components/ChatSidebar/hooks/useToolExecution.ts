@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useMemo } from 'react';
 import { useForgeTrayStore } from '../../../stores/forgeTrayStore';
 import type { Asset, Variant, DescribeRequestParams, CompareRequestParams, DescribeResponseResult, CompareResponseResult, DescribeFocus } from '../../../hooks/useSpaceWebSocket';
 import type { ToolCall } from '../../../../api/types';
@@ -402,7 +402,8 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
     return results;
   }, [executeToolCall]);
 
-  return {
+  // Memoize return object to prevent unnecessary effect re-runs in consumers
+  return useMemo(() => ({
     executeToolCall,
     executeToolCalls,
     trackJob,
@@ -411,5 +412,14 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
     handleDescribeResponse,
     handleCompareResponse,
     cleanupPendingRequests,
-  };
+  }), [
+    executeToolCall,
+    executeToolCalls,
+    trackJob,
+    consumeTrackedJob,
+    clearTrackedJobs,
+    handleDescribeResponse,
+    handleCompareResponse,
+    cleanupPendingRequests,
+  ]);
 }

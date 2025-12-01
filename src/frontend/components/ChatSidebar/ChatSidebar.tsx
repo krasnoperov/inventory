@@ -131,7 +131,6 @@ export function ChatSidebar({
     approveApproval,
     rejectApproval,
     clearPendingApprovals,
-    setLastAutoExecuted,
   } = useChatStore();
 
   // Local state (transient - not persisted)
@@ -139,10 +138,13 @@ export function ChatSidebar({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isAutoReviewing, setIsAutoReviewing] = useState(false);
   const [isExecutingStep, setIsExecutingStep] = useState(false);
-  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
+  // Track if we've attempted to load history for this space (prevents re-fetch on message changes)
+  const hasAttemptedHistoryLoad = useRef(false);
   // Track which meters have shown 90% warning this session
   const [warnedMeters, setWarnedMeters] = useState<Set<string>>(new Set());
+  const warnedMetersRef = useRef(warnedMeters);
+  warnedMetersRef.current = warnedMeters;
   // Track plan step waiting for ForgeTray completion (step index, or null if none)
   const [forgeTrayStepIndex, setForgeTrayStepIndex] = useState<number | null>(null);
   // Track pending WebSocket chat request
@@ -152,6 +154,8 @@ export function ChatSidebar({
 
   // Usage tracking for 90% warnings
   const { meters, refresh: refreshUsage } = useLimitedUsage();
+  const metersRef = useRef(meters);
+  metersRef.current = meters;
 
   // Tool execution hook
   const toolExec = useToolExecution({
@@ -164,45 +168,45 @@ export function ChatSidebar({
     sendCompareRequest,
   });
 
-  // Handle describe/compare responses from WebSocket
+  // Handle describe responses from WebSocket (consolidated handler)
+  // Routes to either auto-review or tool execution based on requestId
   useEffect(() => {
-    if (describeResponse) {
-      toolExec.handleDescribeResponse(describeResponse);
-    }
-  }, [describeResponse, toolExec]);
+    if (!describeResponse) return;
 
+    // Check if this is an auto-review response first
+    const autoReviewPending = pendingAutoReviewRef.current;
+    if (autoReviewPending && describeResponse.requestId === autoReviewPending.requestId) {
+      // Handle auto-review
+      pendingAutoReviewRef.current = null;
+
+      if (describeResponse.success && describeResponse.description) {
+        const reviewMessage = `**Review of "${autoReviewPending.assetName}":**\n\n${describeResponse.description}\n\n**Original prompt:** "${autoReviewPending.prompt.slice(0, 100)}${autoReviewPending.prompt.length > 100 ? '...' : ''}"`;
+        addMessage(spaceId, {
+          role: 'assistant',
+          content: reviewMessage,
+          timestamp: Date.now(),
+        });
+      } else {
+        addMessage(spaceId, {
+          role: 'assistant',
+          content: `Generated "${autoReviewPending.assetName}" successfully! (Auto-review unavailable)`,
+          timestamp: Date.now(),
+        });
+      }
+      setIsAutoReviewing(false);
+      return;
+    }
+
+    // Otherwise, route to tool execution handler
+    toolExec.handleDescribeResponse(describeResponse);
+  }, [describeResponse, spaceId, addMessage, toolExec]);
+
+  // Handle compare responses from WebSocket
   useEffect(() => {
     if (compareResponse) {
       toolExec.handleCompareResponse(compareResponse);
     }
   }, [compareResponse, toolExec]);
-
-  // Handle auto-review response (separate from tool execution)
-  useEffect(() => {
-    if (!describeResponse) return;
-
-    const pending = pendingAutoReviewRef.current;
-    if (!pending || describeResponse.requestId !== pending.requestId) return;
-
-    // Clear pending request
-    pendingAutoReviewRef.current = null;
-
-    if (describeResponse.success && describeResponse.description) {
-      const reviewMessage = `**Review of "${pending.assetName}":**\n\n${describeResponse.description}\n\n**Original prompt:** "${pending.prompt.slice(0, 100)}${pending.prompt.length > 100 ? '...' : ''}"`;
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: reviewMessage,
-        timestamp: Date.now(),
-      });
-    } else {
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: `Generated "${pending.assetName}" successfully! (Auto-review unavailable)`,
-        timestamp: Date.now(),
-      });
-    }
-    setIsAutoReviewing(false);
-  }, [describeResponse, spaceId, addMessage]);
 
   // Forge tray state for context
   const slots = useForgeTrayStore((state) => state.slots);
@@ -256,8 +260,9 @@ export function ChatSidebar({
   // ==========================================================================
 
   const loadChatHistory = useCallback(async () => {
-    // Only load from server if we don't have messages in store
-    if (messages.length > 0 || historyLoaded) {
+    // Check store directly to avoid depending on messages.length (which changes on every message)
+    const existingMessages = useChatStore.getState().sessions[spaceId]?.messages;
+    if (existingMessages && existingMessages.length > 0) {
       return;
     }
 
@@ -288,15 +293,21 @@ export function ChatSidebar({
       console.error('Failed to load chat history:', err);
     } finally {
       setIsLoadingHistory(false);
-      setHistoryLoaded(true);
     }
-  }, [spaceId, messages.length, historyLoaded, setMessages]);
+  }, [spaceId, setMessages]);
 
+  // Load history once when sidebar opens (use ref to prevent re-fetch on message changes)
   useEffect(() => {
-    if (isOpen && spaceId) {
+    if (isOpen && spaceId && !hasAttemptedHistoryLoad.current) {
+      hasAttemptedHistoryLoad.current = true;
       loadChatHistory();
     }
   }, [isOpen, spaceId, loadChatHistory]);
+
+  // Reset history load flag when spaceId changes
+  useEffect(() => {
+    hasAttemptedHistoryLoad.current = false;
+  }, [spaceId]);
 
   // Clear job tracking when sidebar closes
   useEffect(() => {
@@ -483,10 +494,13 @@ export function ChatSidebar({
     }
 
     // Check for 90% usage warning after successful response
+    // Use refs to access current values without adding to dependency array
     invalidateUsageCache();
     refreshUsage().then(() => {
-      for (const meter of meters) {
-        if (meter.percentUsed >= 90 && !warnedMeters.has(meter.name)) {
+      const currentMeters = metersRef.current;
+      const currentWarnedMeters = warnedMetersRef.current;
+      for (const meter of currentMeters) {
+        if (meter.percentUsed >= 90 && !currentWarnedMeters.has(meter.name)) {
           setWarnedMeters(prev => new Set(prev).add(meter.name));
           addMessage(spaceId, {
             role: 'assistant',
@@ -497,7 +511,7 @@ export function ChatSidebar({
         }
       }
     });
-  }, [chatResponse, spaceId, addMessage, setPlan, setPendingApprovals, toolExec, meters, warnedMeters, refreshUsage]);
+  }, [chatResponse, spaceId, addMessage, setPlan, setPendingApprovals, toolExec, refreshUsage]);
 
   // ==========================================================================
   // Plan Execution
