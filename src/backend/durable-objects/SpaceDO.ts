@@ -1,24 +1,19 @@
 import { DurableObject } from 'cloudflare:workers';
+import type { Hono } from 'hono';
 import type { Env } from '../../core/types';
 import { AuthService } from '../features/auth/auth-service';
+import { getMemberRole } from '../../dao/member-queries';
 import type {
   ChatRequestMessage,
   GenerateRequestMessage,
   RefineRequestMessage,
   DescribeRequestMessage,
   CompareRequestMessage,
-  ChatWorkflowOutput,
-  GenerationWorkflowOutput,
 } from '../workflows/types';
-import type {
-  Asset,
-  Variant,
-  WebSocketMeta,
-  ClientMessage,
-  ServerMessage,
-} from './space/types';
+import type { WebSocketMeta, ClientMessage, ServerMessage } from './space/types';
 import { SpaceRepository } from './space/repository/SpaceRepository';
 import { SchemaManager } from './space/schema/SchemaManager';
+import { createInternalApi } from './space/InternalApi';
 
 // Import controllers
 import {
@@ -44,6 +39,7 @@ export class SpaceDO extends DurableObject<Env> {
   private spaceId: string | null = null;
   private initialized = false;
   private repo!: SpaceRepository;
+  private internalApi!: Hono;
 
   // Controllers
   private presenceCtrl!: PresenceController;
@@ -106,6 +102,16 @@ export class SpaceDO extends DurableObject<Env> {
       this.generationCtrl = new GenerationController(ctx);
       this.visionCtrl = new VisionController(ctx);
 
+      // Initialize internal HTTP router
+      this.internalApi = createInternalApi({
+        asset: this.assetCtrl,
+        variant: this.variantCtrl,
+        lineage: this.lineageCtrl,
+        chat: this.chatCtrl,
+        sync: this.syncCtrl,
+        generation: this.generationCtrl,
+      });
+
       this.initialized = true;
     });
   }
@@ -124,15 +130,13 @@ export class SpaceDO extends DurableObject<Env> {
 
     await this.ensureInitialized();
 
-    const url = new URL(request.url);
-
     // Handle WebSocket upgrade
     if (request.headers.get('Upgrade') === 'websocket') {
       return this.handleWebSocketUpgrade(request);
     }
 
-    // Route to controllers
-    return this.routeHttpRequest(url, request);
+    // Route to internal HTTP API (Hono-based)
+    return this.routeHttpRequest(request);
   }
 
   /**
@@ -249,160 +253,11 @@ export class SpaceDO extends DurableObject<Env> {
   }
 
   // ============================================================================
-  // HTTP Routing
+  // HTTP Routing (delegated to Hono-based InternalApi)
   // ============================================================================
 
-  private async routeHttpRequest(url: URL, request: Request): Promise<Response> {
-    try {
-      // Asset endpoints
-      if (url.pathname === '/internal/create-asset' && request.method === 'POST') {
-        const data = await request.json();
-        const asset = await this.assetCtrl.httpCreate(data as any);
-        return this.jsonResponse({ success: true, asset });
-      }
-
-      if (url.pathname.match(/^\/internal\/asset\/[^/]+\/children$/) && request.method === 'GET') {
-        const assetId = url.pathname.split('/internal/asset/')[1].split('/children')[0];
-        const children = await this.assetCtrl.httpGetChildren(assetId);
-        return this.jsonResponse({ success: true, children });
-      }
-
-      if (url.pathname.match(/^\/internal\/asset\/[^/]+\/ancestors$/) && request.method === 'GET') {
-        const assetId = url.pathname.split('/internal/asset/')[1].split('/ancestors')[0];
-        const ancestors = await this.assetCtrl.httpGetAncestors(assetId);
-        return this.jsonResponse({ success: true, ancestors });
-      }
-
-      if (url.pathname.match(/^\/internal\/asset\/[^/]+\/parent$/) && request.method === 'PATCH') {
-        const assetId = url.pathname.split('/internal/asset/')[1].split('/parent')[0];
-        const data = (await request.json()) as { parentAssetId: string | null };
-        const asset = await this.assetCtrl.httpReparent(assetId, data.parentAssetId);
-        return this.jsonResponse({ success: true, asset });
-      }
-
-      if (url.pathname.startsWith('/internal/asset/') && request.method === 'GET') {
-        const assetId = url.pathname.split('/internal/asset/')[1];
-        const result = await this.assetCtrl.httpGetDetails(assetId);
-        return this.jsonResponse({ success: true, ...result });
-      }
-
-      if (url.pathname === '/internal/spawn' && request.method === 'POST') {
-        const data = await request.json();
-        const result = await this.assetCtrl.httpSpawn(data as any);
-        return this.jsonResponse({ success: true, ...result });
-      }
-
-      if (url.pathname === '/internal/set-active' && request.method === 'POST') {
-        const data = (await request.json()) as { assetId: string; variantId: string };
-        const asset = await this.assetCtrl.httpSetActive(data.assetId, data.variantId);
-        return this.jsonResponse({ success: true });
-      }
-
-      // Variant endpoints
-      if (url.pathname === '/internal/apply-variant' && request.method === 'POST') {
-        const data = await request.json();
-        const result = await this.variantCtrl.httpApplyVariant(data as any);
-        return this.jsonResponse(result);
-      }
-
-      if (url.pathname.match(/^\/internal\/variant\/[^/]+\/star$/) && request.method === 'PATCH') {
-        const variantId = url.pathname.split('/internal/variant/')[1].split('/star')[0];
-        const data = (await request.json()) as { starred: boolean };
-        const variant = await this.variantCtrl.httpStar(variantId, data.starred);
-        return this.jsonResponse({ success: true, variant });
-      }
-
-      // Lineage endpoints
-      if (url.pathname.match(/^\/internal\/lineage\/[^/]+\/graph$/) && request.method === 'GET') {
-        const variantId = url.pathname.split('/internal/lineage/')[1].split('/graph')[0];
-        const graph = await this.lineageCtrl.httpGetGraph(variantId);
-        return this.jsonResponse({ success: true, ...graph });
-      }
-
-      if (url.pathname.match(/^\/internal\/lineage\/[^/]+\/sever$/) && request.method === 'PATCH') {
-        const lineageId = url.pathname.split('/internal/lineage/')[1].split('/sever')[0];
-        await this.lineageCtrl.httpSever(lineageId);
-        return this.jsonResponse({ success: true });
-      }
-
-      if (url.pathname.startsWith('/internal/lineage/') && request.method === 'GET') {
-        const variantId = url.pathname.split('/internal/lineage/')[1];
-        const result = await this.lineageCtrl.httpGetLineage(variantId);
-        return this.jsonResponse({ success: true, ...result });
-      }
-
-      if (url.pathname === '/internal/add-lineage' && request.method === 'POST') {
-        const data = await request.json();
-        const lineage = await this.lineageCtrl.httpAddLineage(data as any);
-        return this.jsonResponse({ success: true, id: lineage.id });
-      }
-
-      // Chat endpoints
-      if (url.pathname === '/internal/chat' && request.method === 'POST') {
-        const data = await request.json();
-        const message = await this.chatCtrl.httpStoreMessage(data as any);
-        return this.jsonResponse({ success: true, message });
-      }
-
-      if (url.pathname === '/internal/chat/history' && request.method === 'GET') {
-        const messages = await this.chatCtrl.httpGetHistory();
-        return this.jsonResponse({ success: true, messages });
-      }
-
-      if (url.pathname === '/internal/chat/history' && request.method === 'DELETE') {
-        await this.chatCtrl.httpClearHistory();
-        return this.jsonResponse({ success: true });
-      }
-
-      // State endpoint
-      if (url.pathname === '/internal/state' && request.method === 'GET') {
-        const state = await this.syncCtrl.httpGetState();
-        return this.jsonResponse(state);
-      }
-
-      // Job status endpoints
-      if (url.pathname === '/internal/job/progress' && request.method === 'POST') {
-        const data = (await request.json()) as { jobId: string; status: string };
-        this.generationCtrl.httpJobProgress(data.jobId, data.status);
-        return this.jsonResponse({ success: true });
-      }
-
-      if (url.pathname === '/internal/job/completed' && request.method === 'POST') {
-        const data = (await request.json()) as { jobId: string; variant: Variant };
-        this.generationCtrl.httpJobCompleted(data.jobId, data.variant);
-        return this.jsonResponse({ success: true });
-      }
-
-      if (url.pathname === '/internal/job/failed' && request.method === 'POST') {
-        const data = (await request.json()) as { jobId: string; error: string };
-        this.generationCtrl.httpJobFailed(data.jobId, data.error);
-        return this.jsonResponse({ success: true });
-      }
-
-      // Workflow result endpoints
-      if (url.pathname === '/internal/chat-result' && request.method === 'POST') {
-        const result = (await request.json()) as ChatWorkflowOutput;
-        this.generationCtrl.httpChatResult(result);
-        return this.jsonResponse({ success: true });
-      }
-
-      if (url.pathname === '/internal/generation-result' && request.method === 'POST') {
-        const result = (await request.json()) as GenerationWorkflowOutput;
-        this.generationCtrl.httpGenerationResult(result);
-        return this.jsonResponse({ success: true });
-      }
-
-      return new Response('Not found', { status: 404 });
-    } catch (error) {
-      if (error instanceof NotFoundError) {
-        return this.jsonResponse({ error: error.message }, 404);
-      }
-      if (error instanceof ValidationError) {
-        return this.jsonResponse({ error: error.message }, 400);
-      }
-      console.error('[SpaceDO] HTTP error:', error);
-      return this.jsonResponse({ error: 'Internal server error' }, 500);
-    }
+  private async routeHttpRequest(request: Request): Promise<Response> {
+    return this.internalApi.fetch(request);
   }
 
   // ============================================================================
@@ -431,13 +286,8 @@ export class SpaceDO extends DurableObject<Env> {
     }
 
     // Check membership in D1
-    const member = await this.env.DB.prepare(
-      'SELECT role FROM space_members WHERE space_id = ? AND user_id = ?'
-    )
-      .bind(this.spaceId, String(payload.userId))
-      .first<{ role: 'owner' | 'editor' | 'viewer' }>();
-
-    if (!member) {
+    const role = await getMemberRole(this.env.DB, this.spaceId, payload.userId);
+    if (!role) {
       console.log('WebSocket auth failed: not a member', {
         spaceId: this.spaceId,
         userId: payload.userId,
@@ -452,7 +302,7 @@ export class SpaceDO extends DurableObject<Env> {
     // Accept with user metadata
     const meta: WebSocketMeta = {
       userId: String(payload.userId),
-      role: member.role,
+      role,
     };
 
     this.ctx.acceptWebSocket(server, [JSON.stringify(meta)]);
@@ -509,12 +359,5 @@ export class SpaceDO extends DurableObject<Env> {
     }
 
     return null;
-  }
-
-  private jsonResponse(data: unknown, status = 200): Response {
-    return new Response(JSON.stringify(data), {
-      status,
-      headers: { 'Content-Type': 'application/json' },
-    });
   }
 }
