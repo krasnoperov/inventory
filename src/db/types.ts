@@ -41,35 +41,6 @@ export interface SpaceMembersTable {
   joined_at: number;
 }
 
-export interface AssetIndexTable {
-  id: string;
-  space_id: string;
-  name: string;
-  type: string;
-  tags: string | null;
-  thumb_key: string | null;
-  updated_at: number;
-}
-
-export interface JobsTable {
-  id: string;
-  space_id: string;
-  // Job types:
-  // - 'generate': Fresh AI generation for new asset (no references)
-  // - 'derive': AI generation with references (single ref = derive, multiple = compose)
-  // - 'compose': AI generation combining multiple references
-  // Note: 'fork' is synchronous copy, doesn't create a job
-  type: 'generate' | 'derive' | 'compose';
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'stuck';
-  input: string;  // JSON
-  result_variant_id: string | null;
-  error: string | null;
-  attempts: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-}
-
 // ============================================================================
 // BILLING - Usage Tracking
 // ============================================================================
@@ -92,8 +63,6 @@ export interface Database {
   users: UsersTable;
   spaces: SpacesTable;
   space_members: SpaceMembersTable;
-  asset_index: AssetIndexTable;
-  jobs: JobsTable;
   usage_events: UsageEventsTable;
   // Phase 2: Assistant Memory
   user_patterns: UserPatternsTable;
@@ -123,16 +92,6 @@ export type SpaceUpdate = Updateable<SpacesTable>;
 export type SpaceMember = Selectable<SpaceMembersTable>;
 export type NewSpaceMember = Insertable<SpaceMembersTable>;
 export type SpaceMemberUpdate = Updateable<SpaceMembersTable>;
-
-// AssetIndex types
-export type AssetIndex = Selectable<AssetIndexTable>;
-export type NewAssetIndex = Insertable<AssetIndexTable>;
-export type AssetIndexUpdate = Updateable<AssetIndexTable>;
-
-// Job types
-export type Job = Selectable<JobsTable>;
-export type NewJob = Insertable<JobsTable>;
-export type JobUpdate = Updateable<JobsTable>;
 
 // UsageEvent types
 export type UsageEvent = Selectable<UsageEventsTable>;

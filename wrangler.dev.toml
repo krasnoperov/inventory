@@ -1,7 +1,7 @@
 # ============================================================================
 # BARE FRAMEWORK FOUNDATION - Local Development Configuration
 # ============================================================================
-# Unified worker for local dev (handles HTTP + queues + workflows in one)
+# Unified worker for local dev (handles HTTP + workflows in one)
 # Usage: wrangler dev --config wrangler.dev.toml
 
 account_id = "2d61278ad8b69df60cde602758926e14"
@@ -41,17 +41,6 @@ POLAR_ENVIRONMENT = "sandbox"
 [dev]
 port = 8788
 local_protocol = "http"
-
-# Queue (unified worker handles both producer and consumer in local dev)
-[[queues.consumers]]
-queue = "inventory-generation-local"
-max_batch_size = 1
-max_batch_timeout = 60
-max_retries = 3
-
-[[queues.producers]]
-queue = "inventory-generation-local"
-binding = "GENERATION_QUEUE"
 
 # Durable Objects - Space state and WebSocket (local)
 [[durable_objects.bindings]]

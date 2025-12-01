@@ -16,25 +16,25 @@ Lean MVP architecture with hooks for future scale.
 │                     Cloudflare Edge                             │
 │                                                                 │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
-│  │   Worker    │    │    Queue    │    │  Durable Object     │  │
-│  │  (HTTP +    │───▶│ (generation │───▶│  (per Space)        │  │
-│  │   REST)     │    │   jobs)     │    │                     │  │
+│  │   Worker    │    │  Workflows  │    │  Durable Object     │  │
+│  │  (HTTP +    │───▶│ (Chat +     │───▶│  (per Space)        │  │
+│  │   REST)     │    │ Generation) │    │                     │  │
 │  └─────────────┘    └─────────────┘    │  ┌───────────────┐  │  │
 │         │                              │  │    SQLite     │  │  │
 │         │                              │  │ (authoritative│  │  │
 │         ▼                              │  │    state)     │  │  │
 │  ┌─────────────┐                       │  └───────────────┘  │  │
 │  │     D1      │                       │  ┌───────────────┐  │  │
-│  │  (users,    │◀──── sync (5min) ─────│  │  WebSocket    │  │  │
+│  │  (users,    │                       │  │  WebSocket    │  │  │
 │  │   spaces,   │                       │  │    Hub        │  │  │
-│  │   index)    │                       │  └───────────────┘  │  │
+│  │   members)  │                       │  └───────────────┘  │  │
 │  └─────────────┘                       └─────────────────────┘  │
 │         │                                        │              │
 │         │                                        │              │
 │         ▼                                        ▼              │
 │  ┌─────────────┐                       ┌─────────────────────┐  │
-│  │     R2      │◀──────────────────────│      Gemini         │  │
-│  │  (images)   │                       │       API           │  │
+│  │     R2      │◀──────────────────────│   Gemini / Claude   │  │
+│  │  (images)   │                       │       APIs          │  │
 │  └─────────────┘                       └─────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -49,10 +49,9 @@ Lean MVP architecture with hooks for future scale.
 |------|-------|-------|
 | Assets, Variants, Lineage | DO SQLite | Authoritative. Real-time sync via WebSocket. |
 | Users, Spaces, Members | D1 | Global. Auth and access control. |
-| Asset Index | D1 | Best-effort shadow for cross-space search. |
-| Jobs | D1 | Generation job tracking. |
 | Images | R2 | Key format: `images/{spaceId}/{variantId}.{ext}` |
 | Chat Messages | DO SQLite | Per-space chat with bot and users. |
+| Usage Events | D1 | Billing/usage tracking for Polar.sh integration. |
 
 ### DO SQLite Schema (Per Space)
 
@@ -148,33 +147,16 @@ CREATE TABLE space_members (
   PRIMARY KEY (space_id, user_id)
 );
 
--- Shadow index for cross-space search (best-effort, may lag)
-CREATE TABLE asset_index (
+-- Usage events for billing (Polar.sh integration)
+CREATE TABLE usage_events (
   id TEXT PRIMARY KEY,
-  space_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  type TEXT NOT NULL,
-  tags TEXT,
-  thumb_key TEXT,
-  updated_at INTEGER NOT NULL
+  user_id INTEGER NOT NULL,
+  event_name TEXT NOT NULL,  -- 'claude_tokens', 'gemini_images'
+  quantity INTEGER NOT NULL,
+  metadata TEXT,  -- JSON
+  created_at TEXT NOT NULL,
+  synced_at TEXT  -- NULL until synced to Polar
 );
-
-CREATE TABLE jobs (
-  id TEXT PRIMARY KEY,
-  space_id TEXT NOT NULL,
-  type TEXT NOT NULL,  -- 'generate', 'edit', 'compose'
-  status TEXT NOT NULL DEFAULT 'pending',  -- 'pending', 'processing', 'completed', 'failed', 'stuck'
-  input TEXT NOT NULL,  -- JSON
-  result_variant_id TEXT,
-  error TEXT,
-  attempts INTEGER DEFAULT 0,
-  created_by TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
-
-CREATE INDEX idx_asset_index_space ON asset_index(space_id);
-CREATE INDEX idx_jobs_space_status ON jobs(space_id, status);
 ```
 
 ### Recipe Schema
@@ -387,30 +369,22 @@ async handleWebSocketUpgrade(request: Request): Promise<Response> {
 
 On token expiry: client reconnects with new token. No refresh protocol.
 
-### Generation Job (Idempotent)
+### Generation Flow (via Cloudflare Workflows)
 
 ```
-1. Client: POST /api/spaces/:id/generate { prompt, params }
-2. Worker:
-   - Generate jobId = uuid()
-   - INSERT INTO jobs (id, space_id, status='pending', ...)
-   - Enqueue { jobId, spaceId, prompt, params }
-   - Return { jobId }
+1. Client: WebSocket generate:request { name, assetType, prompt, ... }
+2. SpaceDO (GenerationController):
+   - Create asset in DO SQLite
+   - Broadcast asset:created to WebSocket clients
+   - Trigger GenerationWorkflow with jobId = uuid()
+   - Broadcast generate:started { jobId, assetId }
 
-3. Queue Worker:
-   - Dequeue job
-   - Check D1: if status != 'pending', skip (idempotent)
-   - UPDATE jobs SET status='processing', attempts=attempts+1
+3. GenerationWorkflow:
    - Call Gemini API
-   - Upload to R2
+   - Upload to R2 (image + thumbnail)
    - Call DO: POST /internal/apply-variant { jobId, variantId, imageKey, ... }
-   - If DO returns { created: true }:
-       UPDATE jobs SET status='completed', result_variant_id=...
-   - If DO returns { created: false } (already exists):
-       UPDATE jobs SET status='completed' (idempotent, no dup)
-   - On error:
-       If attempts >= 3: UPDATE jobs SET status='stuck'
-       Else: throw (queue will retry with backoff)
+   - DO creates variant, broadcasts to WebSocket clients
+   - Workflow completes and sends result to DO
 
 4. DO /internal/apply-variant:
    - Check: SELECT * FROM variants WHERE job_id = ?
@@ -418,10 +392,10 @@ On token expiry: client reconnects with new token. No refresh protocol.
    - Else: INSERT variant, update refs, return { created: true, variant }
    - Broadcast to WebSocket clients
 
-5. Client: sees job:completed via WebSocket, or polls GET /api/jobs/:id
+5. Client: sees generate:result via WebSocket
 ```
 
-**Stuck jobs:** User sees "Generation failed" with "Retry" button → POST /api/jobs/:id/retry resets status to 'pending' and re-enqueues.
+**Job tracking:** Jobs are ephemeral client-side state. Workflows are durable and will complete even if client disconnects. Results persist in DO SQLite.
 
 ### Bot Invocation Flow
 
@@ -506,44 +480,6 @@ Based on the user's request, output a JSON action plan:
 }
 
 Only output the JSON. The user will confirm before execution.`;
-```
-
-### D1 Shadow Sync
-
-```typescript
-// DO: sync to D1 on timer and startup
-class InventorySpaceDO {
-  async alarm() {
-    await this.syncToD1();
-    // Re-schedule for 5 minutes
-    await this.ctx.storage.setAlarm(Date.now() + 5 * 60 * 1000);
-  }
-
-  async syncToD1() {
-    const assets = await this.sql.exec(`SELECT * FROM assets`).all();
-
-    try {
-      // Batch upsert to D1
-      await this.env.D1.batch([
-        // Clear stale entries for this space
-        this.env.D1.prepare(`DELETE FROM asset_index WHERE space_id = ?`).bind(this.spaceId),
-        // Insert current state
-        ...assets.map(a =>
-          this.env.D1.prepare(`
-            INSERT INTO asset_index (id, space_id, name, type, tags, thumb_key, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `).bind(a.id, this.spaceId, a.name, a.type, a.tags, a.thumb_key, a.updated_at)
-        )
-      ]);
-    } catch (err) {
-      // Best-effort: log and continue, will retry in 5 min
-      console.error('D1 sync failed:', err);
-    }
-  }
-}
-
-// Manual resync: POST /api/admin/spaces/:id/resync
-// Just calls DO.syncToD1() immediately
 ```
 
 ### R2 Image Cleanup

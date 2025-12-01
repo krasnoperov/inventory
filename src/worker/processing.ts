@@ -1,9 +1,8 @@
-// Processing Worker: Queue Consumer + Workflows + Workflow Status API
+// Processing Worker: Workflows + Workflow Status API
 // This worker handles all background processing
 
 import 'reflect-metadata';
 import { Hono } from 'hono';
-import { handleQueue } from '../backend/index';
 import type { Env } from '../core/types';
 
 // Simple Hono app for health checks and future workflow status endpoints
@@ -55,13 +54,10 @@ app.get('/api/health', (c) => {
   return c.json({ status: 'ok', worker: 'processing' });
 });
 
-// Export processing worker with queue capabilities
+// Export processing worker
 export default {
-  // HTTP handler for health checks and future workflow status
+  // HTTP handler for health checks and workflow status
   fetch: app.fetch,
-
-  // Queue consumer handler
-  queue: handleQueue,
 };
 
 // Export Workflow classes

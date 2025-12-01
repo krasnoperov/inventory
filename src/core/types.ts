@@ -61,19 +61,6 @@ export interface Env {
   // R2 Storage for generated images (required for Inventory Forge)
   IMAGES: R2Bucket;
 
-  // Inventory Forge: Background job processing
-  GENERATION_QUEUE: Queue<{
-    jobId: string;
-    spaceId: string;
-    prompt: string;
-    assetName: string;
-    assetType: string;
-    assetId?: string;
-    model?: string;
-    aspectRatio?: string;
-    sourceVariantIds?: string[];
-  }>;
-
   // Inventory Forge: Space Durable Objects
   SPACES_DO?: DurableObjectNamespace;
 

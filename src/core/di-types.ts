@@ -9,7 +9,6 @@ export const TYPES = {
   UserDAO: Symbol.for('UserDAO'),
   SpaceDAO: Symbol.for('SpaceDAO'),
   MemberDAO: Symbol.for('MemberDAO'),
-  JobDAO: Symbol.for('JobDAO'),
   UsageEventDAO: Symbol.for('UsageEventDAO'),
   MemoryDAO: Symbol.for('MemoryDAO'),
 

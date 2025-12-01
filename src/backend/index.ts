@@ -4,7 +4,6 @@ import { createContainer } from '../core/container';
 import { registerRoutes } from './routes';
 import { uploadSecurityMiddleware } from './middleware/upload-security';
 import type { AppContext } from './routes/types';
-import { handleGenerationQueue } from './services/generationConsumer';
 import { UsageService } from './services/usageService';
 
 export type Bindings = Env;
@@ -29,12 +28,6 @@ app.use('/api/upload/*', uploadSecurityMiddleware());
 
 // Register all routes
 registerRoutes(app);
-
-// Queue handler - delegates to generation consumer
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handleQueue(batch: MessageBatch<any>, env: Env): Promise<void> {
-  await handleGenerationQueue(batch, env);
-}
 
 // Scheduled handler - sync usage events to Polar
 async function handleScheduled(
@@ -90,9 +83,8 @@ async function handleScheduled(
 // Export as default for standalone use
 export default {
   fetch: app.fetch,
-  queue: handleQueue,
   scheduled: handleScheduled,
 };
 
 // Also export the app and handlers for the unified worker
-export { app, handleQueue, handleScheduled };
+export { app, handleScheduled };

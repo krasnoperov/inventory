@@ -108,13 +108,6 @@ export class GenerationController extends BaseController {
       msg.referenceAssetIds || []
     );
 
-    // Create job record in D1
-    await this.createJobRecord(jobId, meta.userId, jobType, {
-      prompt: msg.prompt,
-      assetName: msg.name,
-      assetType: msg.assetType,
-    });
-
     // Build workflow input
     const workflowInput: GenerationWorkflowInput = {
       requestId: msg.requestId,
@@ -197,13 +190,6 @@ export class GenerationController extends BaseController {
         jobType = 'compose';
       }
     }
-
-    // Create job record in D1
-    await this.createJobRecord(jobId, meta.userId, jobType, {
-      prompt: msg.prompt,
-      assetId: msg.assetId,
-      sourceVariantId,
-    });
 
     // Build workflow input
     const workflowInput: GenerationWorkflowInput = {
@@ -356,24 +342,5 @@ export class GenerationController extends BaseController {
     }
 
     return resolvedId;
-  }
-
-  /**
-   * Create a job record in D1 for tracking
-   */
-  private async createJobRecord(
-    jobId: string,
-    userId: string,
-    type: string,
-    params: Record<string, unknown>
-  ): Promise<void> {
-    if (!this.env.DB) return;
-
-    await this.env.DB.prepare(
-      `INSERT INTO jobs (id, space_id, user_id, type, status, params, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-      .bind(jobId, this.spaceId, userId, type, 'pending', JSON.stringify(params), Date.now(), Date.now())
-      .run();
   }
 }

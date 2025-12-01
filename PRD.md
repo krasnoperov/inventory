@@ -105,18 +105,18 @@ Uses Claude API for reasoning and planning:
 ## Implementation Phases
 
 ### Phase 1: Foundation
-- [ ] D1 migrations (users, spaces, members, jobs, asset_index)
-- [ ] DO SQLite schema (assets, variants, image_refs)
-- [ ] R2 integration for images
-- [ ] Basic REST API (spaces, members)
-- [ ] Simple space/asset list UI
+- [x] D1 migrations (users, spaces, members)
+- [x] DO SQLite schema (assets, variants, lineage, image_refs)
+- [x] R2 integration for images
+- [x] Basic REST API (spaces, members)
+- [x] Simple space/asset list UI
 
 ### Phase 2: Generation
-- [ ] Queue + worker for generation jobs
-- [ ] Gemini integration service
-- [ ] Generate → asset flow
-- [ ] Edit → variant flow
-- [ ] Job status UI
+- [x] Cloudflare Workflows for generation (ChatWorkflow, GenerationWorkflow)
+- [x] Gemini integration service
+- [x] Generate → asset flow
+- [x] Edit → variant flow
+- [x] Real-time job status via WebSocket
 
 ### Phase 3: Real-time
 - [ ] Durable Object with WebSocket

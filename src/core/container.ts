@@ -9,7 +9,6 @@ import { createDb } from '../db';
 import { UserDAO } from '../dao/user-dao';
 import { SpaceDAO } from '../dao/space-dao';
 import { MemberDAO } from '../dao/member-dao';
-import { JobDAO } from '../dao/job-dao';
 import { UsageEventDAO } from '../dao/usage-event-dao';
 import { MemoryDAO } from '../dao/memory-dao';
 
@@ -48,9 +47,6 @@ export function createContainer(env: Env): Container {
 
   container.bind(MemberDAO).toSelf().inSingletonScope();
   container.bind(TYPES.MemberDAO).toService(MemberDAO);
-
-  container.bind(JobDAO).toSelf().inSingletonScope();
-  container.bind(TYPES.JobDAO).toService(JobDAO);
 
   container.bind(UsageEventDAO).toSelf().inSingletonScope();
   container.bind(TYPES.UsageEventDAO).toService(UsageEventDAO);

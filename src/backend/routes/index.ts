@@ -16,7 +16,6 @@ import { jobRoutes } from './job';
 import { imageRoutes } from './image';
 import { chatRoutes } from './chat';
 import { memoryRoutes } from './memory';
-import { searchRoutes } from './search';
 import { websocketRoutes } from './websocket';
 import { exportRoutes } from './export';
 import { billingRoutes } from './billing';
@@ -53,9 +52,6 @@ export function registerRoutes(app: Hono<AppContext>) {
 
   // Memory & personalization routes (Phase 2)
   app.route('/', memoryRoutes);
-
-  // Search and sync routes (Phase 6)
-  app.route('/', searchRoutes);
 
   // WebSocket routes (Phase 3: Durable Object)
   app.route('/', websocketRoutes);

@@ -2,7 +2,7 @@
 # BARE FRAMEWORK FOUNDATION - Main Worker Configuration
 # ============================================================================
 # Handles HTTP requests (API + Frontend)
-# Processing worker handles queues/workflows (see wrangler.processing.toml)
+# Processing worker handles workflows (see wrangler.processing.toml)
 
 account_id = "2d61278ad8b69df60cde602758926e14"
 name = "inventory-stage"
@@ -42,11 +42,6 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "stage"
 ENVIRONMENT = "stage"
 POLAR_ENVIRONMENT = "sandbox"
-
-# Queue Producer - sends generation jobs to processing worker
-[[queues.producers]]
-queue = "inventory-generation-stage"
-binding = "GENERATION_QUEUE"
 
 # Durable Objects - Space state and WebSocket
 [[durable_objects.bindings]]
@@ -108,11 +103,6 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "production"
 ENVIRONMENT = "production"
 POLAR_ENVIRONMENT = "production"
-
-# Queue Producer - Production
-[[env.production.queues.producers]]
-queue = "inventory-generation-production"
-binding = "GENERATION_QUEUE"
 
 # Durable Objects - Production
 [[env.production.durable_objects.bindings]]

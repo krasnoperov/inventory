@@ -1,9 +1,8 @@
 # ============================================================================
 # BARE FRAMEWORK FOUNDATION - Processing Worker Configuration
 # ============================================================================
-# Handles queue consumption and workflows
+# Handles workflows
 # Separated from main worker for better resource isolation
-# Currently empty - add queues/workflows when implementing business logic
 
 account_id = "2d61278ad8b69df60cde602758926e14"
 name = "inventory-processing-stage"
@@ -36,18 +35,6 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 [vars]
 NODE_ENV = "stage"
 ENVIRONMENT = "stage"
-
-# Queue Consumer - processes generation jobs
-[[queues.consumers]]
-queue = "inventory-generation-stage"
-max_batch_size = 1
-max_batch_timeout = 60
-max_retries = 3
-
-# Queue Producer (for retries)
-[[queues.producers]]
-queue = "inventory-generation-stage"
-binding = "GENERATION_QUEUE"
 
 # Cloudflare Workflows - Chat and Generation
 [[workflows]]
@@ -97,18 +84,6 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 [env.production.vars]
 NODE_ENV = "production"
 ENVIRONMENT = "production"
-
-# Queue Consumer - Production
-[[env.production.queues.consumers]]
-queue = "inventory-generation-production"
-max_batch_size = 1
-max_batch_timeout = 60
-max_retries = 3
-
-# Queue Producer - Production (for retries)
-[[env.production.queues.producers]]
-queue = "inventory-generation-production"
-binding = "GENERATION_QUEUE"
 
 # Cloudflare Workflows - Production
 [[env.production.workflows]]

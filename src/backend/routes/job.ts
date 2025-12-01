@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
-import { JobDAO } from '../../dao/job-dao';
 import { MemberDAO } from '../../dao/member-dao';
 
 const jobRoutes = new Hono<AppContext>();
@@ -354,116 +353,6 @@ jobRoutes.patch('/api/spaces/:id/lineage/:lineageId/sever', async (c) => {
 
   const data = await doResponse.json();
   return c.json(data);
-});
-
-// GET /api/jobs/:id - Get job status
-jobRoutes.get('/api/jobs/:id', async (c) => {
-  const userId = c.get('userId')!;
-  const container = c.get('container');
-  const jobDAO = container.get(JobDAO);
-  const memberDAO = container.get(MemberDAO);
-
-  const jobId = c.req.param('id');
-  const userIdStr = String(userId);
-
-  // Get job from database
-  const job = await jobDAO.getJobById(jobId);
-  if (!job) {
-    return c.json({ error: 'Job not found' }, 404);
-  }
-
-  // Check if user created the job OR is a member of the job's space
-  const isCreator = job.created_by === userIdStr;
-  const member = await memberDAO.getMember(job.space_id, userIdStr);
-  const isMember = member !== null;
-
-  if (!isCreator && !isMember) {
-    return c.json({ error: 'Access denied' }, 403);
-  }
-
-  return c.json({
-    success: true,
-    job: {
-      id: job.id,
-      space_id: job.space_id,
-      type: job.type,
-      status: job.status,
-      input: job.input,
-      result_variant_id: job.result_variant_id,
-      error: job.error,
-      attempts: job.attempts,
-      created_by: job.created_by,
-      created_at: job.created_at,
-      updated_at: job.updated_at,
-    },
-  });
-});
-
-// POST /api/jobs/:id/retry - Retry stuck or failed job
-jobRoutes.post('/api/jobs/:id/retry', async (c) => {
-  const userId = c.get('userId')!;
-  const container = c.get('container');
-  const jobDAO = container.get(JobDAO);
-  const memberDAO = container.get(MemberDAO);
-  const env = c.env;
-
-  const jobId = c.req.param('id');
-  const userIdStr = String(userId);
-
-  // Get job from database
-  const job = await jobDAO.getJobById(jobId);
-  if (!job) {
-    return c.json({ error: 'Job not found' }, 404);
-  }
-
-  // Check if user created the job OR is a member of the job's space
-  const isCreator = job.created_by === userIdStr;
-  const member = await memberDAO.getMember(job.space_id, userIdStr);
-  const isMember = member !== null;
-
-  if (!isCreator && !isMember) {
-    return c.json({ error: 'Access denied' }, 403);
-  }
-
-  // Verify job status is 'stuck' or 'failed'
-  if (job.status !== 'stuck' && job.status !== 'failed') {
-    return c.json({
-      error: `Cannot retry job with status '${job.status}'. Only 'stuck' or 'failed' jobs can be retried.`,
-    }, 400);
-  }
-
-  // Retry the job using JobDAO
-  const retriedJob = await jobDAO.retryJob(jobId);
-  if (!retriedJob) {
-    return c.json({ error: 'Failed to retry job' }, 500);
-  }
-
-  // Re-enqueue to generation queue
-  const input = JSON.parse(job.input);
-
-  console.log('[Job Route] Sending retry message to GENERATION_QUEUE', {
-    jobId: retriedJob.id,
-    spaceId: retriedJob.space_id,
-    previousStatus: job.status,
-  });
-
-  await env.GENERATION_QUEUE.send({
-    jobId: retriedJob.id,
-    spaceId: retriedJob.space_id,
-    ...input,
-  });
-
-  console.log('[Job Route] Retry message sent successfully', { jobId: retriedJob.id });
-
-  return c.json({
-    success: true,
-    message: 'Job retry initiated',
-    job: {
-      id: retriedJob.id,
-      status: retriedJob.status,
-      updated_at: retriedJob.updated_at,
-    },
-  });
 });
 
 export { jobRoutes };
