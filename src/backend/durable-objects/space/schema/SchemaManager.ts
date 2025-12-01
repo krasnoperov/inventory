@@ -40,13 +40,16 @@ export class SchemaManager {
       CREATE TABLE IF NOT EXISTS variants (
         id TEXT PRIMARY KEY,
         asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
-        job_id TEXT UNIQUE,
-        image_key TEXT NOT NULL,
-        thumb_key TEXT NOT NULL,
+        workflow_id TEXT UNIQUE,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+        error_message TEXT,
+        image_key TEXT,
+        thumb_key TEXT,
         recipe TEXT NOT NULL,
         starred INTEGER NOT NULL DEFAULT 0,
         created_by TEXT NOT NULL,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER
       );
 
       CREATE TABLE IF NOT EXISTS image_refs (
@@ -80,6 +83,8 @@ export class SchemaManager {
   private async createIndexes(): Promise<void> {
     await this.sql.exec(`
       CREATE INDEX IF NOT EXISTS idx_variants_asset ON variants(asset_id);
+      CREATE INDEX IF NOT EXISTS idx_variants_status ON variants(status);
+      CREATE INDEX IF NOT EXISTS idx_variants_workflow ON variants(workflow_id);
       CREATE INDEX IF NOT EXISTS idx_assets_updated ON assets(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_lineage_parent ON lineage(parent_variant_id);
@@ -96,6 +101,7 @@ export class SchemaManager {
     await this.migrateParentAssetId();
     await this.migrateStarred();
     await this.migrateSevered();
+    await this.migratePlaceholderVariants();
   }
 
   /**
@@ -125,6 +131,58 @@ export class SchemaManager {
     if (await this.columnExists('lineage', 'severed')) return;
 
     await this.sql.exec('ALTER TABLE lineage ADD COLUMN severed INTEGER NOT NULL DEFAULT 0');
+  }
+
+  /**
+   * Migrate variants table to support placeholder variants.
+   *
+   * Changes:
+   * - Rename job_id → workflow_id
+   * - Add status column (pending/processing/completed/failed)
+   * - Add error_message column
+   * - Make image_key and thumb_key nullable
+   * - Add updated_at column
+   *
+   * Uses table swap because SQLite doesn't support ALTER COLUMN for nullability.
+   */
+  private async migratePlaceholderVariants(): Promise<void> {
+    // Check if migration already applied (status column exists)
+    if (await this.columnExists('variants', 'status')) return;
+
+    // Step 1: Create new table with updated schema
+    await this.sql.exec(`
+      CREATE TABLE variants_new (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        workflow_id TEXT UNIQUE,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+        error_message TEXT,
+        image_key TEXT,
+        thumb_key TEXT,
+        recipe TEXT NOT NULL,
+        starred INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER
+      )
+    `);
+
+    // Step 2: Copy existing data with status='completed' (all existing variants have images)
+    await this.sql.exec(`
+      INSERT INTO variants_new
+        (id, asset_id, workflow_id, status, error_message, image_key, thumb_key,
+         recipe, starred, created_by, created_at, updated_at)
+      SELECT
+        id, asset_id, job_id, 'completed', NULL, image_key, thumb_key,
+        recipe, starred, created_by, created_at, created_at
+      FROM variants
+    `);
+
+    // Step 3: Drop old table and rename new one
+    await this.sql.exec('DROP TABLE variants');
+    await this.sql.exec('ALTER TABLE variants_new RENAME TO variants');
+
+    // Note: Indexes will be recreated by createIndexes() which runs after migrations
   }
 
   /**

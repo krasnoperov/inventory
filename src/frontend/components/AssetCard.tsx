@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { type Asset, type Variant, getVariantThumbnailUrl } from '../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../hooks/useSpaceWebSocket';
 import { AssetMenu } from './AssetMenu';
 import styles from './AssetCard.module.css';
 
@@ -104,15 +104,21 @@ export function AssetCard(props: AssetCardProps) {
     >
       {/* Thumbnail Area */}
       <div className={styles.thumbnailArea} onClick={handleCardClick}>
-        {isGenerating && !primaryVariant ? (
+        {/* Show loading state for pending/processing variants */}
+        {primaryVariant && isVariantLoading(primaryVariant) ? (
           <div className={styles.generatingPlaceholder}>
             <div className={styles.spinner} />
-            <span>{generatingStatus === 'pending' ? 'Queued' : 'Generating'}</span>
+            <span>{primaryVariant.status === 'pending' ? 'Queued' : 'Generating'}</span>
           </div>
-        ) : primaryVariant ? (
+        ) : primaryVariant && isVariantFailed(primaryVariant) ? (
+          <div className={styles.generatingPlaceholder}>
+            <span className={styles.errorIcon}>⚠</span>
+            <span>Failed</span>
+          </div>
+        ) : primaryVariant && isVariantReady(primaryVariant) ? (
           <div className={styles.thumbnailWrapper}>
             <img
-              src={getVariantThumbnailUrl(primaryVariant)}
+              src={getVariantThumbnailUrl(primaryVariant)!}
               alt={asset.name}
               className={styles.thumbnail}
             />

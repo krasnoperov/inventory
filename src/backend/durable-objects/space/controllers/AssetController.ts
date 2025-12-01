@@ -318,37 +318,43 @@ export class AssetController extends BaseController {
       createdBy: data.createdBy,
     });
 
-    // Create new variant (copy of source)
+    // Create new variant (copy of source - spawned variants are immediately complete)
     const newVariantId = crypto.randomUUID();
     const variant: Variant = {
       id: newVariantId,
       asset_id: asset.id,
-      job_id: null,
+      workflow_id: null, // Spawned variants have no workflow
+      status: 'completed', // Spawned variants are immediately complete
+      error_message: null,
       image_key: sourceVariant.image_key,
       thumb_key: sourceVariant.thumb_key,
       recipe: sourceVariant.recipe,
       starred: false,
       created_by: data.createdBy,
       created_at: now,
+      updated_at: now,
     };
 
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, job_id, image_key, thumb_key, recipe, starred, created_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       variant.id,
       variant.asset_id,
-      variant.job_id,
+      variant.workflow_id,
+      variant.status,
+      variant.error_message,
       variant.image_key,
       variant.thumb_key,
       variant.recipe,
       variant.starred ? 1 : 0,
       variant.created_by,
-      variant.created_at
+      variant.created_at,
+      variant.updated_at
     );
 
     // Increment refs for copied images (reuses existing images)
-    await this.sql.exec(INCREMENT_REF_SQL, variant.image_key);
-    await this.sql.exec(INCREMENT_REF_SQL, variant.thumb_key);
+    if (variant.image_key) await this.sql.exec(INCREMENT_REF_SQL, variant.image_key);
+    if (variant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, variant.thumb_key);
 
     // Create spawned lineage
     const lineage = await this.repo.createLineage({

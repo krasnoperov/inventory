@@ -2,7 +2,7 @@
  * Generation Controller
  *
  * Handles workflow triggers for chat, generation, and refinement.
- * Also handles job status broadcasts and workflow result processing.
+ * Creates placeholder variants upfront and updates them when workflows complete.
  */
 
 import type { Variant, WebSocketMeta, ChatMessage, Asset } from '../types';
@@ -18,6 +18,15 @@ import type {
 } from '../../../workflows/types';
 import type { ChatMessage as ApiChatMessage } from '../../../../api/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
+
+/** Recipe stored with variant for retry capability */
+interface GenerationRecipe {
+  prompt: string;
+  assetType: string;
+  aspectRatio?: string;
+  sourceImageKeys?: string[];
+  type: 'generate' | 'derive' | 'compose';
+}
 
 export class GenerationController extends BaseController {
   constructor(ctx: ControllerContext) {
@@ -74,7 +83,7 @@ export class GenerationController extends BaseController {
 
   /**
    * Handle generate:request WebSocket message
-   * Creates asset and triggers GenerationWorkflow
+   * Creates asset, placeholder variant, lineage, then triggers workflow
    */
   async handleGenerateRequest(
     ws: WebSocket,
@@ -87,7 +96,7 @@ export class GenerationController extends BaseController {
       throw new ValidationError('Generation workflow not configured');
     }
 
-    const jobId = crypto.randomUUID();
+    const variantId = crypto.randomUUID();
     const assetId = crypto.randomUUID();
 
     // Create the asset first
@@ -108,13 +117,52 @@ export class GenerationController extends BaseController {
       msg.referenceAssetIds || []
     );
 
+    // Build recipe for storage (enables retry)
+    const recipe: GenerationRecipe = {
+      prompt: msg.prompt || `Generate a ${msg.assetType} named "${msg.name}"`,
+      assetType: msg.assetType,
+      aspectRatio: msg.aspectRatio,
+      sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
+      type: jobType,
+    };
+
+    // Create placeholder variant (status=pending, no images)
+    const variant = await this.repo.createPlaceholderVariant({
+      id: variantId,
+      assetId,
+      recipe: JSON.stringify(recipe),
+      createdBy: meta.userId,
+    });
+
+    // Set as active variant immediately
+    await this.repo.updateAsset(assetId, { active_variant_id: variantId });
+    asset.active_variant_id = variantId;
+
+    // Broadcast variant creation (placeholder)
+    this.broadcast({ type: 'variant:created', variant });
+    this.broadcast({ type: 'asset:updated', asset });
+
+    // Create lineage records for parent variants
+    if (parentVariantIds.length > 0) {
+      const relationType = parentVariantIds.length === 1 ? 'derived' : 'composed';
+      for (const parentId of parentVariantIds) {
+        const lineage = await this.repo.createLineage({
+          id: crypto.randomUUID(),
+          parentVariantId: parentId,
+          childVariantId: variantId,
+          relationType,
+        });
+        this.broadcast({ type: 'lineage:created', lineage });
+      }
+    }
+
     // Build workflow input
     const workflowInput: GenerationWorkflowInput = {
       requestId: msg.requestId,
-      jobId,
+      jobId: variantId, // Use variantId as jobId for correlation
       spaceId: this.spaceId,
       userId: meta.userId,
-      prompt: msg.prompt || `Generate a ${msg.assetType} named "${msg.name}"`,
+      prompt: recipe.prompt,
       assetId,
       assetName: msg.name,
       assetType: msg.assetType,
@@ -124,27 +172,24 @@ export class GenerationController extends BaseController {
       type: jobType,
     };
 
-    // Notify client that generation started
-    this.broadcast({
-      type: 'generate:started',
-      requestId: msg.requestId,
-      jobId,
-      assetId,
-      assetName: msg.name,
-    });
-
     // Trigger the workflow
     const instance = await this.env.GENERATION_WORKFLOW.create({
-      id: jobId,
+      id: variantId,
       params: workflowInput,
     });
+
+    // Update variant with workflow ID and set status to processing
+    const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
+    if (updatedVariant) {
+      this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+    }
 
     console.log(`[GenerationController] Started GenerationWorkflow instance: ${instance.id}`);
   }
 
   /**
    * Handle refine:request WebSocket message
-   * Triggers GenerationWorkflow for variant refinement
+   * Creates placeholder variant, lineage, then triggers workflow for refinement
    */
   async handleRefineRequest(
     ws: WebSocket,
@@ -157,7 +202,7 @@ export class GenerationController extends BaseController {
       throw new ValidationError('Generation workflow not configured');
     }
 
-    const jobId = crypto.randomUUID();
+    const variantId = crypto.randomUUID();
 
     // Get the asset
     const asset = await this.repo.getAssetById(msg.assetId);
@@ -176,9 +221,14 @@ export class GenerationController extends BaseController {
       throw new NotFoundError('Source variant not found');
     }
 
+    // Ensure source variant has an image (is completed)
+    if (!sourceVariant.image_key) {
+      throw new ValidationError('Source variant has no image');
+    }
+
     // Resolve additional references
     let sourceImageKeys = [sourceVariant.image_key];
-    let parentVariantIds = [sourceVariantId];
+    let parentVariantIds: string[] = [sourceVariantId];
     let jobType: 'derive' | 'compose' = 'derive';
 
     if (msg.referenceAssetIds && msg.referenceAssetIds.length > 0) {
@@ -191,10 +241,42 @@ export class GenerationController extends BaseController {
       }
     }
 
+    // Build recipe for storage (enables retry)
+    const recipe: GenerationRecipe = {
+      prompt: msg.prompt,
+      assetType: asset.type,
+      aspectRatio: msg.aspectRatio,
+      sourceImageKeys,
+      type: jobType,
+    };
+
+    // Create placeholder variant (status=pending, no images)
+    const variant = await this.repo.createPlaceholderVariant({
+      id: variantId,
+      assetId: msg.assetId,
+      recipe: JSON.stringify(recipe),
+      createdBy: meta.userId,
+    });
+
+    // Broadcast variant creation (placeholder)
+    this.broadcast({ type: 'variant:created', variant });
+
+    // Create lineage records for parent variants
+    const relationType = parentVariantIds.length === 1 ? 'derived' : 'composed';
+    for (const parentId of parentVariantIds) {
+      const lineage = await this.repo.createLineage({
+        id: crypto.randomUUID(),
+        parentVariantId: parentId,
+        childVariantId: variantId,
+        relationType,
+      });
+      this.broadcast({ type: 'lineage:created', lineage });
+    }
+
     // Build workflow input
     const workflowInput: GenerationWorkflowInput = {
       requestId: msg.requestId,
-      jobId,
+      jobId: variantId, // Use variantId as jobId for correlation
       spaceId: this.spaceId,
       userId: meta.userId,
       prompt: msg.prompt,
@@ -208,22 +290,97 @@ export class GenerationController extends BaseController {
       type: jobType,
     };
 
-    // Notify client that refinement started
-    this.broadcast({
-      type: 'generate:started',
-      requestId: msg.requestId,
-      jobId,
-      assetId: msg.assetId,
-      assetName: asset.name,
-    });
-
     // Trigger the workflow
     const instance = await this.env.GENERATION_WORKFLOW.create({
-      id: jobId,
+      id: variantId,
       params: workflowInput,
     });
 
+    // Update variant with workflow ID and set status to processing
+    const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
+    if (updatedVariant) {
+      this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+    }
+
     console.log(`[GenerationController] Started GenerationWorkflow (refine) instance: ${instance.id}`);
+  }
+
+  /**
+   * Handle variant:retry WebSocket message
+   * Retries a failed variant generation
+   */
+  async handleRetryRequest(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    variantId: string
+  ): Promise<void> {
+    this.requireEditor(meta);
+
+    if (!this.env.GENERATION_WORKFLOW) {
+      throw new ValidationError('Generation workflow not configured');
+    }
+
+    // Get the failed variant
+    const variant = await this.repo.getVariantById(variantId);
+    if (!variant) {
+      throw new NotFoundError('Variant not found');
+    }
+
+    if (variant.status !== 'failed') {
+      throw new ValidationError('Can only retry failed variants');
+    }
+
+    // Parse the recipe to get original generation params
+    let recipe: GenerationRecipe;
+    try {
+      recipe = JSON.parse(variant.recipe) as GenerationRecipe;
+    } catch {
+      throw new ValidationError('Invalid recipe format');
+    }
+
+    // Get the asset
+    const asset = await this.repo.getAssetById(variant.asset_id);
+    if (!asset) {
+      throw new NotFoundError('Asset not found');
+    }
+
+    // Reset variant for retry
+    const resetVariant = await this.repo.resetVariantForRetry(variantId);
+    if (!resetVariant) {
+      throw new NotFoundError('Failed to reset variant');
+    }
+
+    // Broadcast the reset
+    this.broadcast({ type: 'variant:updated', variant: resetVariant });
+
+    // Build workflow input from stored recipe
+    const workflowInput: GenerationWorkflowInput = {
+      requestId: crypto.randomUUID(),
+      jobId: variantId,
+      spaceId: this.spaceId,
+      userId: meta.userId,
+      prompt: recipe.prompt,
+      assetId: variant.asset_id,
+      assetName: asset.name,
+      assetType: recipe.assetType,
+      aspectRatio: recipe.aspectRatio,
+      sourceImageKeys: recipe.sourceImageKeys,
+      type: recipe.type,
+    };
+
+    // Trigger the workflow
+    const instance = await this.env.GENERATION_WORKFLOW.create({
+      id: variantId,
+      params: workflowInput,
+    });
+
+    // Update variant with new workflow ID
+    const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
+    if (updatedVariant) {
+      this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+    }
+
+    console.log(`[GenerationController] Retrying variant ${variantId}, workflow instance: ${instance.id}`);
   }
 
   // ==========================================================================
@@ -272,6 +429,7 @@ export class GenerationController extends BaseController {
   /**
    * Handle POST /internal/generation-result HTTP request
    * Broadcasts generation workflow result to all clients
+   * @deprecated Use httpCompleteVariant/httpFailVariant instead
    */
   httpGenerationResult(result: GenerationWorkflowOutput): void {
     this.broadcast({
@@ -282,6 +440,67 @@ export class GenerationController extends BaseController {
       variant: result.variant as unknown as Variant,
       error: result.error,
     });
+  }
+
+  // ==========================================================================
+  // HTTP Handlers - Variant Lifecycle
+  // ==========================================================================
+
+  /**
+   * Handle POST /internal/complete-variant HTTP request
+   * Updates a placeholder variant with generated images.
+   * Called by GenerationWorkflow when generation succeeds.
+   */
+  async httpCompleteVariant(data: {
+    variantId: string;
+    imageKey: string;
+    thumbKey: string;
+  }): Promise<{ success: boolean; variant: Variant }> {
+    // Idempotency: if already completed with same keys, return success
+    const existing = await this.repo.getVariantById(data.variantId);
+    if (!existing) {
+      throw new NotFoundError('Variant not found');
+    }
+
+    if (existing.status === 'completed' && existing.image_key === data.imageKey) {
+      return { success: true, variant: existing };
+    }
+
+    const variant = await this.repo.completeVariant(
+      data.variantId,
+      data.imageKey,
+      data.thumbKey
+    );
+
+    if (!variant) {
+      throw new NotFoundError('Variant not found');
+    }
+
+    // Broadcast the update
+    this.broadcast({ type: 'variant:updated', variant });
+
+    return { success: true, variant };
+  }
+
+  /**
+   * Handle POST /internal/fail-variant HTTP request
+   * Marks a variant as failed with an error message.
+   * Called by GenerationWorkflow when generation fails.
+   */
+  async httpFailVariant(data: {
+    variantId: string;
+    error: string;
+  }): Promise<{ success: boolean; variant: Variant }> {
+    const variant = await this.repo.failVariant(data.variantId, data.error);
+
+    if (!variant) {
+      throw new NotFoundError('Variant not found');
+    }
+
+    // Broadcast the update
+    this.broadcast({ type: 'variant:updated', variant });
+
+    return { success: true, variant };
   }
 
   // ==========================================================================

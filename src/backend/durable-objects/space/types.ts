@@ -21,6 +21,11 @@ import type { ClaudeUsage } from '../../../shared/websocket-types';
 // ============================================================================
 
 /**
+ * Variant generation status
+ */
+export type VariantStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+/**
  * Asset - A graphical asset in the inventory (character, item, scene, etc.)
  */
 export interface Asset {
@@ -37,17 +42,24 @@ export interface Asset {
 
 /**
  * Variant - A version/iteration of an asset
+ *
+ * Can be a placeholder (pending/processing/failed) or completed with images.
+ * Placeholders are created immediately when generation starts, allowing
+ * the UI to show progress and enabling retry on failure.
  */
 export interface Variant {
   id: string;
   asset_id: string;
-  job_id: string | null;
-  image_key: string;
-  thumb_key: string;
-  recipe: string; // JSON - generation parameters for reproducibility
+  workflow_id: string | null; // Cloudflare workflow instance ID (null for spawns/imports)
+  status: VariantStatus; // Generation lifecycle status
+  error_message: string | null; // Error details when status='failed'
+  image_key: string | null; // R2 key, null until generation completes
+  thumb_key: string | null; // R2 key for thumbnail, null until generation completes
+  recipe: string; // JSON - generation parameters stored upfront for retry
   starred: boolean; // User marks important versions
   created_by: string;
   created_at: number;
+  updated_at: number | null; // Track status changes
 }
 
 /**
@@ -114,6 +126,7 @@ export type ClientMessage =
   // Variant operations
   | { type: 'variant:delete'; variantId: string }
   | { type: 'variant:star'; variantId: string; starred: boolean }
+  | { type: 'variant:retry'; variantId: string }
   // Lineage operations
   | { type: 'lineage:sever'; lineageId: string }
   // Presence

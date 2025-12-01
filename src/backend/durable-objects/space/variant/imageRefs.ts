@@ -63,8 +63,11 @@ interface Recipe {
  * 2. Its own thumb_key (the thumbnail)
  * 3. Any input images from the recipe (source images used in generation)
  *
+ * Note: Only call this for completed variants. Placeholder variants
+ * (pending/failed) have null image keys and should not be ref-counted.
+ *
  * @param variant - Variant with image_key, thumb_key, and recipe
- * @returns Deduplicated array of image keys
+ * @returns Deduplicated array of non-null image keys
  *
  * @example
  * const keys = getVariantImageKeys({
@@ -78,11 +81,15 @@ interface Recipe {
  * // Returns: ['images/space1/variant1.png', 'thumbs/space1/variant1.png', 'images/space1/source.png']
  */
 export function getVariantImageKeys(variant: {
-  image_key: string;
-  thumb_key: string;
+  image_key: string | null;
+  thumb_key: string | null;
   recipe: string;
 }): string[] {
-  const keys: string[] = [variant.image_key, variant.thumb_key];
+  const keys: string[] = [];
+
+  // Only add keys that are not null (placeholder variants have null keys)
+  if (variant.image_key) keys.push(variant.image_key);
+  if (variant.thumb_key) keys.push(variant.thumb_key);
 
   try {
     const recipe = JSON.parse(variant.recipe) as Recipe;

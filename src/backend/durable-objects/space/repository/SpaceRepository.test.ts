@@ -125,12 +125,12 @@ describe('SpaceRepository', () => {
       assert.strictEqual(variant, null);
     });
 
-    test('getVariantByJobId finds by job_id', async () => {
-      mockSql.setMockResult('job_id = ?', [
-        { id: 'v1', job_id: 'job-123', asset_id: 'a1' },
+    test('getVariantByWorkflowId finds by workflow_id', async () => {
+      mockSql.setMockResult('workflow_id = ?', [
+        { id: 'v1', workflow_id: 'workflow-123', asset_id: 'a1' },
       ]);
 
-      const variant = await repo.getVariantByJobId('job-123');
+      const variant = await repo.getVariantByWorkflowId('workflow-123');
 
       assert(variant !== null);
       assert.strictEqual(variant.id, 'v1');

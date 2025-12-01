@@ -14,24 +14,52 @@ export interface Asset {
   updated_at: number;
 }
 
+/** Variant status for placeholder lifecycle */
+export type VariantStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
 export interface Variant {
   id: string;
   asset_id: string;
-  job_id: string | null;
-  image_key: string;
-  thumb_key?: string;  // Optional: falls back to image_key if not present
+  workflow_id: string | null;  // Cloudflare workflow ID
+  status: VariantStatus;
+  error_message: string | null;  // Error details when status='failed'
+  image_key: string | null;  // NULL until generation completes
+  thumb_key: string | null;  // NULL until generation completes
   recipe: string;
   starred: boolean;  // User marks important versions
   created_by: string;
   created_at: number;
+  updated_at: number | null;  // Track status changes
 }
 
 /**
- * Get thumbnail URL for a variant, falling back to original image if no thumbnail exists
+ * Get thumbnail URL for a variant, returning undefined for pending/failed variants
  */
-export function getVariantThumbnailUrl(variant: Variant): string {
+export function getVariantThumbnailUrl(variant: Variant): string | undefined {
+  if (!variant.image_key) return undefined;
   const key = variant.thumb_key || variant.image_key;
   return `/api/images/${key}`;
+}
+
+/**
+ * Check if a variant is ready to display (has an image)
+ */
+export function isVariantReady(variant: Variant): boolean {
+  return variant.status === 'completed' && variant.image_key !== null;
+}
+
+/**
+ * Check if a variant is in a loading state
+ */
+export function isVariantLoading(variant: Variant): boolean {
+  return variant.status === 'pending' || variant.status === 'processing';
+}
+
+/**
+ * Check if a variant failed and can be retried
+ */
+export function isVariantFailed(variant: Variant): boolean {
+  return variant.status === 'failed';
 }
 
 export interface Lineage {
@@ -275,6 +303,7 @@ export interface UseSpaceWebSocketReturn {
   deleteVariant: (variantId: string) => void;
   spawnAsset: (params: SpawnParams) => void;
   starVariant: (variantId: string, starred: boolean) => void;
+  retryVariant: (variantId: string) => void;
   severLineage: (lineageId: string) => void;
   requestSync: () => void;
   trackJob: (jobId: string, context?: JobContext) => void;
@@ -366,6 +395,11 @@ export function useSpaceWebSocket({
   // Star/unstar a variant
   const starVariant = useCallback((variantId: string, starred: boolean) => {
     sendMessage({ type: 'variant:star', variantId, starred });
+  }, [sendMessage]);
+
+  // Retry a failed variant generation
+  const retryVariant = useCallback((variantId: string) => {
+    sendMessage({ type: 'variant:retry', variantId });
   }, [sendMessage]);
 
   // Sever lineage link (cut historical connection)
@@ -922,6 +956,7 @@ export function useSpaceWebSocket({
     deleteVariant,
     spawnAsset,
     starVariant,
+    retryVariant,
     severLineage,
     requestSync,
     trackJob,

@@ -199,8 +199,8 @@ export class SpaceRepository {
     return (result.toArray()[0] as Variant) ?? null;
   }
 
-  async getVariantByJobId(jobId: string): Promise<Variant | null> {
-    const result = await this.sql.exec(VariantQueries.GET_BY_JOB_ID, jobId);
+  async getVariantByWorkflowId(workflowId: string): Promise<Variant | null> {
+    const result = await this.sql.exec(VariantQueries.GET_BY_WORKFLOW_ID, workflowId);
     return (result.toArray()[0] as Variant) ?? null;
   }
 
@@ -222,10 +222,14 @@ export class SpaceRepository {
     return (result.toArray()[0] as { image_key: string; asset_name: string }) ?? null;
   }
 
+  /**
+   * Create a completed variant (for spawns/imports where images already exist).
+   * For generation workflows, use createPlaceholderVariant + completeVariant.
+   */
   async createVariant(variant: {
     id: string;
     assetId: string;
-    jobId: string | null;
+    workflowId?: string | null;
     imageKey: string;
     thumbKey: string;
     recipe: string;
@@ -236,13 +240,16 @@ export class SpaceRepository {
       VariantQueries.INSERT,
       variant.id,
       variant.assetId,
-      variant.jobId,
+      variant.workflowId ?? null,
+      'completed', // status
+      null, // error_message
       variant.imageKey,
       variant.thumbKey,
       variant.recipe,
       0, // starred = false
       variant.createdBy,
-      now
+      now,
+      now // updated_at
     );
 
     // Increment refs for all images
@@ -270,14 +277,109 @@ export class SpaceRepository {
     const variant = await this.getVariantById(variantId);
     if (!variant) return false;
 
-    // Decrement refs for all images
-    const imageKeys = getVariantImageKeys(variant);
-    for (const key of imageKeys) {
-      await this.decrementImageRef(key);
+    // Only decrement refs for completed variants (pending/failed have no images)
+    if (variant.status === 'completed') {
+      const imageKeys = getVariantImageKeys(variant);
+      for (const key of imageKeys) {
+        await this.decrementImageRef(key);
+      }
     }
 
     await this.sql.exec(VariantQueries.DELETE, variantId);
     return true;
+  }
+
+  // ==========================================================================
+  // Placeholder Variant Lifecycle
+  // ==========================================================================
+
+  /**
+   * Create a placeholder variant for a pending generation.
+   * No image refs are incremented since there are no images yet.
+   */
+  async createPlaceholderVariant(data: {
+    id: string;
+    assetId: string;
+    recipe: string;
+    createdBy: string;
+  }): Promise<Variant> {
+    const now = Date.now();
+    await this.sql.exec(
+      VariantQueries.INSERT_PLACEHOLDER,
+      data.id,
+      data.assetId,
+      data.recipe,
+      data.createdBy,
+      now,
+      now
+    );
+    return (await this.getVariantById(data.id))!;
+  }
+
+  /**
+   * Update a placeholder variant with workflow info when generation starts.
+   */
+  async updateVariantWorkflow(
+    variantId: string,
+    workflowId: string,
+    status: 'pending' | 'processing'
+  ): Promise<Variant | null> {
+    const existing = await this.getVariantById(variantId);
+    if (!existing) return null;
+
+    await this.sql.exec(VariantQueries.UPDATE_WORKFLOW, workflowId, status, Date.now(), variantId);
+    return this.getVariantById(variantId);
+  }
+
+  /**
+   * Complete a variant with generated images.
+   * Increments refs for all images (image_key, thumb_key, recipe inputs).
+   */
+  async completeVariant(
+    variantId: string,
+    imageKey: string,
+    thumbKey: string
+  ): Promise<Variant | null> {
+    const existing = await this.getVariantById(variantId);
+    if (!existing) return null;
+
+    await this.sql.exec(VariantQueries.COMPLETE, imageKey, thumbKey, Date.now(), variantId);
+
+    // Increment refs for new images
+    const imageKeys = getVariantImageKeys({
+      image_key: imageKey,
+      thumb_key: thumbKey,
+      recipe: existing.recipe,
+    });
+    for (const key of imageKeys) {
+      await this.incrementImageRef(key);
+    }
+
+    return this.getVariantById(variantId);
+  }
+
+  /**
+   * Mark a variant as failed with an error message.
+   * No ref changes needed.
+   */
+  async failVariant(variantId: string, errorMessage: string): Promise<Variant | null> {
+    const existing = await this.getVariantById(variantId);
+    if (!existing) return null;
+
+    await this.sql.exec(VariantQueries.FAIL, errorMessage, Date.now(), variantId);
+    return this.getVariantById(variantId);
+  }
+
+  /**
+   * Reset a failed variant for retry.
+   * Clears error, workflow_id, resets status to pending.
+   */
+  async resetVariantForRetry(variantId: string): Promise<Variant | null> {
+    const existing = await this.getVariantById(variantId);
+    if (!existing) return null;
+
+    await this.sql.exec(VariantQueries.RESET_FOR_RETRY, Date.now(), variantId);
+    return this.getVariantById(variantId);
   }
 
   // ==========================================================================

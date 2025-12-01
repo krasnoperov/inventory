@@ -91,6 +91,15 @@ export interface InternalApiControllers {
     httpJobFailed(jobId: string, error: string): void;
     httpChatResult(result: ChatWorkflowOutput): void;
     httpGenerationResult(result: GenerationWorkflowOutput): void;
+    httpCompleteVariant(data: {
+      variantId: string;
+      imageKey: string;
+      thumbKey: string;
+    }): Promise<{ success: boolean; variant: Variant }>;
+    httpFailVariant(data: {
+      variantId: string;
+      error: string;
+    }): Promise<{ success: boolean; variant: Variant }>;
   };
 }
 
@@ -261,7 +270,30 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   });
 
   // ==========================================================================
-  // Workflow Result Routes
+  // Variant Lifecycle Routes (new flow)
+  // ==========================================================================
+
+  app.post('/internal/complete-variant', async (c) => {
+    const data = (await c.req.json()) as {
+      variantId: string;
+      imageKey: string;
+      thumbKey: string;
+    };
+    const result = await controllers.generation.httpCompleteVariant(data);
+    return c.json(result);
+  });
+
+  app.post('/internal/fail-variant', async (c) => {
+    const data = (await c.req.json()) as {
+      variantId: string;
+      error: string;
+    };
+    const result = await controllers.generation.httpFailVariant(data);
+    return c.json(result);
+  });
+
+  // ==========================================================================
+  // Workflow Result Routes (deprecated - use variant lifecycle routes)
   // ==========================================================================
 
   app.post('/internal/chat-result', async (c) => {

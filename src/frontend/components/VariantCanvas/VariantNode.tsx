@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import styles from './VariantNode.module.css';
 
 export interface VariantNodeData extends Record<string, unknown> {
@@ -8,11 +8,10 @@ export interface VariantNodeData extends Record<string, unknown> {
   asset: Asset;
   isActive?: boolean;
   isSelected?: boolean;
-  isGenerating?: boolean;
-  generatingStatus?: 'pending' | 'processing';
   onVariantClick?: (variant: Variant) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onSetActive?: (variantId: string) => void;
+  onRetry?: (variantId: string) => void;
   /** Ghost node: parent variant from another asset */
   isGhost?: boolean;
   /** Callback for ghost node click (navigate to source asset) */
@@ -27,11 +26,10 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     asset,
     isActive,
     isSelected,
-    isGenerating,
-    generatingStatus,
     onVariantClick,
     onAddToTray,
     onSetActive,
+    onRetry,
     isGhost,
     onGhostClick,
   } = data;
@@ -46,13 +44,24 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
   const handleAddToTray = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    onAddToTray?.(variant, asset);
+    if (isVariantReady(variant)) {
+      onAddToTray?.(variant, asset);
+    }
   }, [variant, asset, onAddToTray]);
 
   const handleSetActive = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    onSetActive?.(variant.id);
-  }, [variant.id, onSetActive]);
+    if (isVariantReady(variant)) {
+      onSetActive?.(variant.id);
+    }
+  }, [variant, onSetActive]);
+
+  const handleRetry = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isVariantFailed(variant) && onRetry) {
+      onRetry(variant.id);
+    }
+  }, [variant, onRetry]);
 
   const nodeClasses = [
     styles.node,
@@ -61,7 +70,57 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     isSelected ? styles.highlighted : '',
     variant.starred ? styles.starred : '',
     isGhost ? styles.ghost : '',
+    isVariantLoading(variant) ? styles.loading : '',
+    isVariantFailed(variant) ? styles.failed : '',
   ].filter(Boolean).join(' ');
+
+  // Render thumbnail based on variant status
+  const renderThumbnail = () => {
+    if (isVariantLoading(variant)) {
+      return (
+        <div className={styles.generating}>
+          <div className={styles.spinner} />
+          <span>{variant.status === 'pending' ? 'Queued' : 'Generating'}</span>
+        </div>
+      );
+    }
+
+    if (isVariantFailed(variant)) {
+      return (
+        <div className={`${styles.generating} ${styles.failedContent}`}>
+          <span className={styles.errorIcon}>⚠</span>
+          <span>Failed</span>
+          {onRetry && (
+            <button className={styles.retryButton} onClick={handleRetry}>
+              Retry
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    const url = getVariantThumbnailUrl(variant);
+    if (!url) {
+      return (
+        <div className={styles.placeholder}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+        </div>
+      );
+    }
+
+    return (
+      <img
+        src={url}
+        alt={`Variant ${variant.id.slice(0, 8)}`}
+        className={styles.image}
+        draggable={false}
+      />
+    );
+  };
 
   return (
     <div className={nodeClasses} onClick={handleClick}>
@@ -70,53 +129,43 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
       {/* Thumbnail */}
       <div className={styles.thumbnail}>
-        {isGenerating && !variant.image_key ? (
-          <div className={styles.generating}>
-            <div className={styles.spinner} />
-            <span>{generatingStatus === 'pending' ? 'Queued' : 'Generating'}</span>
-          </div>
-        ) : (
-          <img
-            src={getVariantThumbnailUrl(variant)}
-            alt={`Variant ${variant.id.slice(0, 8)}`}
-            className={styles.image}
-            draggable={false}
-          />
-        )}
+        {renderThumbnail()}
 
-        {/* Indicators */}
-        {isActive && (
+        {/* Indicators - only for completed variants */}
+        {isVariantReady(variant) && isActive && (
           <span className={styles.activeIndicator}>Active</span>
         )}
-        {variant.starred && (
+        {isVariantReady(variant) && variant.starred && (
           <span className={styles.starIndicator}>★</span>
         )}
 
-        {/* Hover actions */}
-        <div className={styles.actions}>
-          {onAddToTray && (
-            <button
-              className={styles.actionButton}
-              onClick={handleAddToTray}
-              title="Add to Forge Tray"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </button>
-          )}
-          {!isActive && onSetActive && (
-            <button
-              className={styles.actionButton}
-              onClick={handleSetActive}
-              title="Set as Active"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </button>
-          )}
-        </div>
+        {/* Hover actions - only for completed variants */}
+        {isVariantReady(variant) && (
+          <div className={styles.actions}>
+            {onAddToTray && (
+              <button
+                className={styles.actionButton}
+                onClick={handleAddToTray}
+                title="Add to Forge Tray"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            )}
+            {!isActive && onSetActive && (
+              <button
+                className={styles.actionButton}
+                onClick={handleSetActive}
+                title="Set as Active"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Label */}

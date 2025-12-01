@@ -219,6 +219,8 @@ export class SpaceDO extends DurableObject<Env> {
         return this.variantCtrl.handleDelete(ws, meta, msg.variantId);
       case 'variant:star':
         return this.variantCtrl.handleStar(ws, meta, msg.variantId, msg.starred);
+      case 'variant:retry':
+        return this.generationCtrl.handleRetryRequest(ws, meta, msg.variantId);
 
       // Lineage
       case 'lineage:sever':

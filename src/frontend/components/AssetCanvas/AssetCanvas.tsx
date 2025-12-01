@@ -194,9 +194,15 @@ export function AssetCanvas({
           return;
         }
 
+        const url = getVariantThumbnailUrl(variant);
+        if (!url) {
+          // Pending/failed variant - use default dimensions
+          newDimensions.set(asset.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+          return;
+        }
+
         try {
           const img = new Image();
-          const url = getVariantThumbnailUrl(variant);
 
           await new Promise<void>((resolve, reject) => {
             img.onload = () => {

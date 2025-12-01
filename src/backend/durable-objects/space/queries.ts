@@ -55,8 +55,8 @@ export const VariantQueries = {
   /** Get variant by ID */
   GET_BY_ID: 'SELECT * FROM variants WHERE id = ?',
 
-  /** Get variant by job ID (for idempotency check) */
-  GET_BY_JOB_ID: 'SELECT * FROM variants WHERE job_id = ?',
+  /** Get variant by workflow ID (for idempotency check) */
+  GET_BY_WORKFLOW_ID: 'SELECT * FROM variants WHERE workflow_id = ?',
 
   /** Get variants for an asset */
   GET_BY_ASSET: 'SELECT * FROM variants WHERE asset_id = ? ORDER BY created_at DESC',
@@ -68,9 +68,25 @@ export const VariantQueries = {
     JOIN assets a ON v.asset_id = a.id
     WHERE v.id = ?`,
 
-  /** Insert new variant */
-  INSERT: `INSERT INTO variants (id, asset_id, job_id, image_key, thumb_key, recipe, starred, created_by, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  /** Insert new placeholder variant (pending status) */
+  INSERT_PLACEHOLDER: `INSERT INTO variants (id, asset_id, status, recipe, created_by, created_at, updated_at)
+                       VALUES (?, ?, 'pending', ?, ?, ?, ?)`,
+
+  /** Insert new completed variant (legacy - for spawns/imports) */
+  INSERT: `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+
+  /** Update variant to completed status with images */
+  COMPLETE: `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, updated_at = ? WHERE id = ?`,
+
+  /** Update variant to failed status with error */
+  FAIL: `UPDATE variants SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
+
+  /** Reset variant for retry */
+  RESET_FOR_RETRY: `UPDATE variants SET status = 'pending', error_message = NULL, workflow_id = NULL, updated_at = ? WHERE id = ?`,
+
+  /** Update variant workflow_id and status */
+  UPDATE_WORKFLOW: `UPDATE variants SET workflow_id = ?, status = ?, updated_at = ? WHERE id = ?`,
 
   /** Update variant starred status */
   UPDATE_STARRED: 'UPDATE variants SET starred = ? WHERE id = ?',

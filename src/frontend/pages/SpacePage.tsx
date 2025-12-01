@@ -86,7 +86,7 @@ export default function SpacePage() {
         assetId: completedJob.assetId,
         assetName: completedJob.assetName,
         prompt: completedJob.prompt,
-        thumbKey: variant.thumb_key || variant.image_key,
+        thumbKey: variant.thumb_key ?? variant.image_key ?? undefined,
       });
     },
     onChatResponse: (response) => {

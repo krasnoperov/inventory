@@ -144,7 +144,8 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     }
 
     // Step 5: Upload to R2
-    const variantId = crypto.randomUUID();
+    // Note: variantId is now the same as jobId (placeholder was created upfront)
+    const variantId = jobId;
     let imageKey: string;
     let thumbKey: string;
 
@@ -219,10 +220,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       };
     }
 
-    // Step 6: Apply variant to SpaceDO
+    // Step 6: Complete variant in SpaceDO (placeholder was created upfront)
     let variant: GeneratedVariant;
     try {
-      variant = await step.do('apply-variant', async () => {
+      variant = await step.do('complete-variant', async () => {
         if (!this.env.SPACES_DO) {
           throw new Error('SPACES_DO not configured');
         }
@@ -230,58 +231,33 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         const doId = this.env.SPACES_DO.idFromName(spaceId);
         const doStub = this.env.SPACES_DO.get(doId);
 
-        // Build recipe
-        const recipe = {
-          type: jobType,
-          prompt,
-          model: model || 'gemini-3-pro-image-preview',
-          aspectRatio: aspectRatio || '1:1',
-          inputs: sourceImageKeys?.map((key, i) => ({
-            variantId: parentVariantIds?.[i],
-            imageKey: key,
-          })) || [],
-        };
-
-        // Determine lineage relation type
-        let relationType: 'derived' | 'composed' | undefined;
-        if (jobType === 'derive') {
-          relationType = 'derived';
-        } else if (jobType === 'compose' && parentVariantIds && parentVariantIds.length > 0) {
-          relationType = 'composed';
-        }
-
-        const response = await doStub.fetch(new Request('http://do/internal/apply-variant', {
+        // Call complete-variant endpoint to finalize the placeholder
+        const response = await doStub.fetch(new Request('http://do/internal/complete-variant', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            jobId,
             variantId,
-            assetId,
             imageKey,
             thumbKey,
-            recipe: JSON.stringify(recipe),
-            createdBy: userId,
-            parentVariantIds,
-            relationType,
           }),
         }));
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`DO apply-variant failed: ${errorText}`);
+          throw new Error(`DO complete-variant failed: ${errorText}`);
         }
 
-        const result = await response.json<{ created: boolean; variant: GeneratedVariant }>();
+        const result = await response.json<{ success: boolean; variant: GeneratedVariant }>();
         return result.variant;
       });
     } catch (error) {
-      console.error(`[GenerationWorkflow] Apply variant error:`, error);
-      await this.handleFailure(spaceId, jobId, requestId, error instanceof Error ? error.message : 'Failed to apply variant');
+      console.error(`[GenerationWorkflow] Complete variant error:`, error);
+      await this.handleFailure(spaceId, jobId, requestId, error instanceof Error ? error.message : 'Failed to complete variant');
       return {
         requestId,
         jobId,
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to apply variant',
+        error: error instanceof Error ? error.message : 'Failed to complete variant',
       };
     }
 
@@ -370,10 +346,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
   }
 
   /**
-   * Handle workflow failure
+   * Handle workflow failure by marking the variant as failed
    */
   private async handleFailure(spaceId: string, jobId: string, requestId: string, error: string): Promise<void> {
-    // Update job status
+    // Update D1 job status (legacy tracking)
     if (this.env.DB) {
       try {
         await this.env.DB.prepare(`
@@ -384,21 +360,23 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       }
     }
 
-    // Broadcast failure
+    // Mark the variant as failed (jobId === variantId now)
     if (this.env.SPACES_DO) {
       const doId = this.env.SPACES_DO.idFromName(spaceId);
       const doStub = this.env.SPACES_DO.get(doId);
 
-      await doStub.fetch(new Request('http://do/internal/generation-result', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requestId,
-          jobId,
-          success: false,
-          error,
-        }),
-      }));
+      try {
+        await doStub.fetch(new Request('http://do/internal/fail-variant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            variantId: jobId,
+            error,
+          }),
+        }));
+      } catch (fetchError) {
+        console.error('[GenerationWorkflow] Failed to mark variant as failed:', fetchError);
+      }
     }
   }
 }

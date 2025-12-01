@@ -47,6 +47,27 @@
 | Images | R2 | Format: `images/{spaceId}/{variantId}.{ext}` |
 | Usage Events | D1 | Billing tracking for Polar.sh. |
 
+### Variant Schema
+
+Variants track generation status via placeholder lifecycle:
+
+```sql
+CREATE TABLE variants (
+  id TEXT PRIMARY KEY,
+  asset_id TEXT NOT NULL,
+  workflow_id TEXT UNIQUE,              -- Cloudflare workflow ID
+  status TEXT NOT NULL DEFAULT 'pending' -- pending, processing, completed, failed
+    CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  error_message TEXT,                   -- Error details when failed
+  image_key TEXT,                       -- NULL until completed
+  thumb_key TEXT,                       -- NULL until completed
+  recipe TEXT NOT NULL,                 -- Full params for retry
+  starred INTEGER NOT NULL DEFAULT 0,
+  created_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER
+);
+
 ---
 
 ## Key Concepts
@@ -75,13 +96,38 @@
 
 ## Key Flows
 
-### Generation Flow
+### Generation Flow (Placeholder Variants)
+
+Generation uses "placeholder variants" - variants created before generation completes, with status tracking:
 
 1. Client sends `generate:request` via WebSocket
-2. SpaceDO creates asset, triggers `GenerationWorkflow`
-3. Workflow calls Gemini API, uploads to R2
-4. Workflow calls back to SpaceDO with result
-5. SpaceDO creates variant, broadcasts to all clients
+2. SpaceDO creates asset and **placeholder variant** (`status='pending'`)
+3. SpaceDO creates lineage records immediately
+4. SpaceDO broadcasts `asset:created`, `variant:created`, `lineage:created`
+5. SpaceDO triggers `GenerationWorkflow`, updates variant to `status='processing'`
+6. Workflow calls Gemini API, uploads to R2
+7. Workflow calls `POST /internal/complete-variant` with image keys
+8. SpaceDO updates variant (`status='completed'`), broadcasts `variant:updated`
+
+#### Variant Status Lifecycle
+
+```
+pending → processing → completed
+              ↓
+           failed → (retry) → pending
+```
+
+- **pending**: Placeholder created, waiting for workflow
+- **processing**: Workflow running
+- **completed**: Generation successful, images available
+- **failed**: Generation failed, error stored, can be retried
+
+#### Failed Variant Retry
+
+1. Client sends `variant:retry` via WebSocket
+2. SpaceDO validates variant is `failed`, parses stored recipe
+3. SpaceDO resets variant to `pending`, triggers new workflow
+4. Same flow continues from step 5
 
 ### Bot Chat Flow
 

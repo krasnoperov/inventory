@@ -1,13 +1,11 @@
 import { memo, useCallback } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import styles from './AssetNode.module.css';
 
 export interface AssetNodeData extends Record<string, unknown> {
   asset: Asset;
   variant: Variant | null;
-  isGenerating?: boolean;
-  generatingStatus?: 'pending' | 'processing';
   onAssetClick?: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
 }
@@ -15,7 +13,7 @@ export interface AssetNodeData extends Record<string, unknown> {
 export type AssetNodeType = Node<AssetNodeData, 'asset'>;
 
 function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
-  const { asset, variant, isGenerating, generatingStatus, onAssetClick, onAddToTray } = data;
+  const { asset, variant, onAssetClick, onAddToTray } = data;
 
   const handleClick = useCallback(() => {
     onAssetClick?.(asset);
@@ -23,10 +21,65 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
 
   const handleAddToTray = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (variant) {
+    if (variant && isVariantReady(variant)) {
       onAddToTray?.(variant, asset);
     }
   }, [variant, asset, onAddToTray]);
+
+  // Render thumbnail based on variant status
+  const renderThumbnail = () => {
+    if (!variant) {
+      return (
+        <div className={styles.placeholder}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+        </div>
+      );
+    }
+
+    if (isVariantLoading(variant)) {
+      return (
+        <div className={styles.generating}>
+          <div className={styles.spinner} />
+          <span>{variant.status === 'pending' ? 'Queued' : 'Generating'}</span>
+        </div>
+      );
+    }
+
+    if (isVariantFailed(variant)) {
+      return (
+        <div className={`${styles.generating} ${styles.failed}`}>
+          <span className={styles.errorIcon}>⚠</span>
+          <span>Failed</span>
+        </div>
+      );
+    }
+
+    const url = getVariantThumbnailUrl(variant);
+    if (!url) {
+      return (
+        <div className={styles.placeholder}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+        </div>
+      );
+    }
+
+    return (
+      <img
+        src={url}
+        alt={asset.name}
+        className={styles.image}
+        draggable={false}
+      />
+    );
+  };
 
   return (
     <div className={`${styles.node} ${selected ? styles.selected : ''}`}>
@@ -35,30 +88,10 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
 
       {/* Thumbnail */}
       <div className={styles.thumbnail} onClick={handleClick}>
-        {isGenerating && !variant ? (
-          <div className={styles.generating}>
-            <div className={styles.spinner} />
-            <span>{generatingStatus === 'pending' ? 'Queued' : 'Generating'}</span>
-          </div>
-        ) : variant ? (
-          <img
-            src={getVariantThumbnailUrl(variant)}
-            alt={asset.name}
-            className={styles.image}
-            draggable={false}
-          />
-        ) : (
-          <div className={styles.placeholder}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-          </div>
-        )}
+        {renderThumbnail()}
 
-        {/* Add to tray button on hover */}
-        {variant && onAddToTray && (
+        {/* Add to tray button on hover - only for ready variants */}
+        {variant && isVariantReady(variant) && onAddToTray && (
           <button
             className={styles.addButton}
             onClick={handleAddToTray}

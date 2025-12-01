@@ -94,6 +94,9 @@ export class VariantController extends BaseController {
   /**
    * Apply a variant from a workflow job (idempotent).
    * Handles ref counting, lineage creation, and auto-active-variant.
+   *
+   * Note: This creates completed variants directly. In future, placeholders
+   * will be created upfront and this will be replaced by httpCompleteVariant.
    */
   private async applyVariant(data: {
     jobId: string;
@@ -106,8 +109,8 @@ export class VariantController extends BaseController {
     parentVariantIds?: string[];
     relationType?: 'derived' | 'composed';
   }): Promise<{ created: boolean; variant: Variant }> {
-    // Check if variant already exists (idempotency via jobId)
-    const existing = await this.repo.getVariantByJobId(data.jobId);
+    // Check if variant already exists (idempotency via workflowId/jobId)
+    const existing = await this.repo.getVariantByWorkflowId(data.jobId);
     if (existing) {
       return { created: false, variant: existing };
     }
@@ -117,28 +120,34 @@ export class VariantController extends BaseController {
     const variant: Variant = {
       id: data.variantId,
       asset_id: data.assetId,
-      job_id: data.jobId,
+      workflow_id: data.jobId,
+      status: 'completed', // Variants created via workflow are immediately complete
+      error_message: null,
       image_key: data.imageKey,
       thumb_key: data.thumbKey,
       recipe: data.recipe,
       starred: false,
       created_by: data.createdBy,
       created_at: now,
+      updated_at: now,
     };
 
     // Insert variant
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, job_id, image_key, thumb_key, recipe, starred, created_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       variant.id,
       variant.asset_id,
-      variant.job_id,
+      variant.workflow_id,
+      variant.status,
+      variant.error_message,
       variant.image_key,
       variant.thumb_key,
       variant.recipe,
       0, // starred = false
       variant.created_by,
-      variant.created_at
+      variant.created_at,
+      variant.updated_at
     );
 
     // Increment refs for all images

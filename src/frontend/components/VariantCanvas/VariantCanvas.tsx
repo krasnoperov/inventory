@@ -216,9 +216,15 @@ export function VariantCanvas({
       const newDimensions = new Map<string, { width: number; height: number }>();
 
       const promises = variants.map(async (variant) => {
+        const url = getVariantThumbnailUrl(variant);
+        if (!url) {
+          // Pending/failed variant - use default dimensions
+          newDimensions.set(variant.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+          return;
+        }
+
         try {
           const img = new Image();
-          const url = getVariantThumbnailUrl(variant);
 
           await new Promise<void>((resolve) => {
             img.onload = () => {
