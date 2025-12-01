@@ -697,18 +697,27 @@ async backup() {
 
 ---
 
+## Implemented Features
+
+| Feature | Description |
+|---------|-------------|
+| Cross-asset lineage display | Ghost nodes in VariantCanvas show parent variants from other assets |
+| Asset reparenting UI | Drag-to-reparent on AssetCanvas with backend cycle prevention |
+| Asset ID validation | Chat Plan validates all asset references before execution |
+
+See `docs/RELATIONSHIPS.md` for detailed documentation of the relationship system.
+
 ## Future Hooks (Not Implemented Yet)
 
 | Feature | Hook |
 |---------|------|
 | Cross-space import | Copy image to target space, recipe type: 'import' |
-| Cross-asset lineage display | Show ghost nodes for variants from other assets in VariantCanvas |
-| Asset reparenting UI | Drag-to-reparent on AssetCanvas with cycle prevention |
 | Event sourcing | Add `events` table, replay for undo/audit |
 | Incremental sync | Track `lastSyncedAt`, send deltas instead of full state |
 | Token refresh | WebSocket ping/pong with new token |
 | Multi-action actor | Bot plans multiple steps, executes sequentially |
 | Prompt templates | Reusable prompts suggested by bot |
+| Lineage severing UI | UI to sever/restore lineage links (backend ready) |
 
 ---
 
