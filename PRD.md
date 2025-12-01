@@ -119,29 +119,27 @@ Uses Claude API for reasoning and planning:
 - [x] Real-time job status via WebSocket
 
 ### Phase 3: Real-time
-- [ ] Durable Object with WebSocket
-- [ ] Full-state sync on connect
-- [ ] Broadcast mutations
-- [ ] WebSocket auth (JWT + membership check)
+- [x] Durable Object with WebSocket
+- [x] Full-state sync on connect
+- [x] Broadcast mutations
+- [x] WebSocket auth (JWT + membership check)
 
 ### Phase 4: Forge & Lineage
-- [ ] Compose flow (multi-asset → new asset)
-- [ ] Lineage API (computed from recipes)
-- [ ] Lineage visualization UI
+- [x] Compose flow (multi-asset → new asset)
+- [x] Lineage API (computed from recipes)
+- [x] Lineage visualization UI
 
 ### Phase 5: Bot Assistant
-- [ ] Chat messages table in DO SQLite
-- [ ] Bot invocation API endpoint
-- [ ] Advisor mode (read-only analysis)
-- [ ] Actor mode (plan → confirm → execute)
-- [ ] Chat UI in space view
-- [ ] Rate limiting per user
+- [x] Chat messages table in DO SQLite
+- [x] Bot invocation API endpoint
+- [x] Advisor mode (read-only analysis)
+- [x] Actor mode (plan → confirm → execute)
+- [x] Chat UI in space view
+- [x] Rate limiting per user
 
 ### Phase 6: Polish
-- [ ] D1 shadow sync (every 5 min)
-- [ ] Nightly R2 backups
-- [ ] Presence indicators
-- [ ] Tags and filtering
+- [x] Presence indicators
+- [ ] Tags and filtering UI
 
 ---
 
@@ -153,9 +151,6 @@ Uses Claude API for reasoning and planning:
 | Lineage depth | 5 | Prevent deep recursion |
 | Lineage nodes | 50 | Prevent large response |
 | API pagination | limit=50, cursor | Future-proofed |
-| Job retries | 3 | Then marked 'stuck' |
-| D1 sync | Every 5 min | Best-effort shadow |
-| Backups | Nightly, 30 days | JSON to R2 |
 | Bot invocations | 10/user/hour | Prevent abuse |
 | Chat history | 100 messages | Per space, oldest pruned |
 
