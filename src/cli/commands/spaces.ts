@@ -1,10 +1,11 @@
 /**
- * Spaces Command - List user's spaces with asset summaries
+ * Spaces Command - List and manage user's spaces
  *
  * Usage:
  *   npm run cli spaces                    List all spaces
  *   npm run cli spaces --details          Show asset counts per space
  *   npm run cli spaces --id <space_id>    Show details for a specific space
+ *   npm run cli spaces create <name>      Create a new space
  */
 
 import process from 'node:process';
@@ -31,6 +32,7 @@ export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
   const env = isLocal ? 'local' : (parsed.options.env || 'stage');
   const showDetails = parsed.options.details === 'true';
   const spaceId = parsed.options.id;
+  const subcommand = parsed.positionals[0];
 
   // Load config
   const config = await loadStoredConfig(env);
@@ -58,7 +60,18 @@ export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
   }
 
   try {
-    if (spaceId) {
+    if (subcommand === 'create') {
+      // Create a new space
+      const spaceName = parsed.positionals.slice(1).join(' ') || parsed.options.name;
+      if (!spaceName) {
+        console.error('Error: Space name is required');
+        console.error('Usage: npm run cli spaces create <name>');
+        console.error('       npm run cli spaces create --name "My Space"');
+        process.exitCode = 1;
+        return;
+      }
+      await createSpace(baseUrl, accessToken, spaceName);
+    } else if (spaceId) {
       // Show details for a specific space
       await showSpaceDetails(baseUrl, accessToken, spaceId);
     } else if (showDetails) {
@@ -72,6 +85,34 @@ export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
     console.error('Error:', error instanceof Error ? error.message : error);
     process.exitCode = 1;
   }
+}
+
+async function createSpace(baseUrl: string, accessToken: string, name: string): Promise<void> {
+  const response = await fetch(`${baseUrl}/api/spaces`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to create space: ${response.status} - ${error}`);
+  }
+
+  const data = await response.json() as { space: Space };
+  const space = data.space;
+
+  console.log(`\nSpace created successfully!\n`);
+  console.log(`  ID:   ${space.id}`);
+  console.log(`  Name: ${space.name}`);
+  console.log(`  Role: ${space.role}`);
+  console.log(`\nTo start a chat session:`);
+  console.log(`  npm run cli chat send "Hello" --space ${space.id} --state ./test/${name.toLowerCase().replace(/\s+/g, '-')}.json`);
+  console.log(`\nTo listen for events:`);
+  console.log(`  npm run cli listen --space ${space.id}`);
 }
 
 async function listSpaces(baseUrl: string, accessToken: string): Promise<void> {

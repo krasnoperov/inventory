@@ -6,6 +6,7 @@ import { handleLogout } from './commands/logout';
 import { handleBilling } from './commands/billing';
 import { handleChat } from './commands/chat';
 import { handleSpaces } from './commands/spaces';
+import { handleListen } from './commands/listen';
 
 async function main() {
   const [, , command, ...args] = process.argv;
@@ -45,11 +46,16 @@ Spaces:
   spaces                       List all spaces
   spaces --details             List spaces with asset summaries
   spaces --id <id>             Show details for a specific space
+  spaces create <name>         Create a new space
 
 Chat:
   chat send <msg>              Send message to chat service (no execution)
   chat execute                 Execute pending actions
   chat show                    Display state for evaluation
+
+Listen:
+  listen --space <id>          Connect to space WebSocket and stream all events
+  listen --space <id> --json   Output raw JSON for piping/processing
 
 Options:
   --env <environment>          Target environment (production|stage|local), default: stage
@@ -61,6 +67,8 @@ Examples:
   npm run cli logout
   npm run cli billing status   Show billing sync status
   npm run cli spaces --details List spaces with asset summaries
+  npm run cli spaces create "My Game Assets"
+  npm run cli listen --space space_123
   npm run cli chat send "Create a warrior" --space space_123 --state test.json
 `);
 }
@@ -81,6 +89,9 @@ async function dispatchCommand(command: string, parsed: Parameters<typeof parseA
       break;
     case 'spaces':
       await handleSpaces(parsed);
+      break;
+    case 'listen':
+      await handleListen(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);

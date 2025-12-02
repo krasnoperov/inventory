@@ -1,11 +1,6 @@
-# Chat CLI
+# Inventory CLI
 
-CLI chat interface that simulates the web chat experience for testing and faster iteration. Provides step-by-step execution with debugging features like file-based state persistence and human-readable logs.
-
-**Key differences from web:**
-- **Explicit step-by-step workflow** - Review before executing
-- **Markdown logs** - Human-readable `.log.md` files alongside JSON state
-- **Same operations** - No special commands, works like web (prompt-driven)
+Command-line interface for the Inventory Forge platform. Provides space management, real-time event monitoring, and step-by-step chat workflow for testing and iteration.
 
 ## Quick Start
 
@@ -13,22 +8,107 @@ CLI chat interface that simulates the web chat experience for testing and faster
 # 1. Login first (if not already)
 npm run cli login --env stage
 
-# 2. Send a message to the chat service
+# 2. Create or list spaces
+npm run cli spaces                          # List all spaces
+npm run cli spaces create "My Game Assets"  # Create new space
+
+# 3. Listen to real-time events (in a separate terminal)
+npm run cli listen --space YOUR_SPACE_ID
+
+# 4. Send a message to the chat service
 npm run cli chat send "Create a fantasy warrior with silver armor" \
   --space YOUR_SPACE_ID --state ./test/warrior.json
 
-# 3. Inspect what Claude plans to do
+# 5. Inspect what Claude plans to do
 npm run cli chat show --state ./test/warrior.json --section gemini
 
-# Or check the human-readable log
-cat ./test/warrior.log.md
-
-# 4. Execute when satisfied
+# 6. Execute when satisfied
 npm run cli chat execute --state ./test/warrior.json
-
-# 5. Continue the conversation
-npm run cli chat send "Give them a flaming sword" --state ./test/warrior.json
 ```
+
+## Commands Overview
+
+| Command | Description |
+|---------|-------------|
+| `login` | Authenticate with the API |
+| `logout` | Remove stored credentials |
+| `spaces` | List, view, or create spaces |
+| `listen` | Connect to WebSocket and stream all events |
+| `chat` | Interactive chat workflow with Claude |
+| `billing` | Billing sync status and management |
+
+---
+
+## Spaces
+
+Manage your spaces (workspaces for organizing assets).
+
+### List Spaces
+
+```bash
+npm run cli spaces                    # Simple list
+npm run cli spaces --details          # With asset counts
+npm run cli spaces --id <space_id>    # Details for specific space
+```
+
+### Create Space
+
+```bash
+npm run cli spaces create "My Space Name"
+npm run cli spaces create --name "My Space Name"
+```
+
+---
+
+## Listen Mode
+
+Connect to a space's WebSocket and stream all events in real-time. Useful for debugging, monitoring, and understanding the event flow.
+
+```bash
+npm run cli listen --space <space_id>           # Pretty-printed output
+npm run cli listen --space <space_id> --json    # Raw JSON (for piping)
+```
+
+**Example output:**
+```
+Connected! Listening for events...
+Press Ctrl+C to exit
+
+[14:32:01.123] sync:state
+  Assets: 5, Variants: 12, Lineage: 3
+
+[14:32:15.456] generate:started
+  Request: abc123-def456
+  Job: xyz789 for Silver Warrior [asset_123]
+
+[14:32:25.789] variant:updated
+  Variant: xyz789 [completed]
+
+[14:32:25.801] job:completed
+  Job: xyz789 → completed (variant: xyz789)
+```
+
+**Event types displayed:**
+- `sync:state` - Initial state sync
+- `asset:created/updated/deleted` - Asset changes
+- `variant:created/updated/deleted` - Variant changes
+- `generate:started/result` - Generation workflow events
+- `refine:started/result` - Refinement workflow events
+- `chat:response` - Chat responses
+- `job:progress/completed/failed` - Job status changes
+- `presence:update` - User presence changes
+- `lineage:created/severed` - Variant lineage changes
+
+---
+
+## Chat Workflow
+
+CLI chat interface that simulates the web chat experience for testing and faster iteration. Provides step-by-step execution with debugging features like file-based state persistence and human-readable logs.
+
+**Key differences from web:**
+- **Explicit step-by-step workflow** - Review before executing
+- **Markdown logs** - Human-readable `.log.md` files alongside JSON state
+- **Same operations** - No special commands, works like web (prompt-driven)
 
 ## Workflow
 
