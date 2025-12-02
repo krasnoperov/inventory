@@ -16,6 +16,12 @@ export interface VariantNodeData extends Record<string, unknown> {
   isGhost?: boolean;
   /** Callback for ghost node click (navigate to source asset) */
   onGhostClick?: (assetId: string) => void;
+  /** Scale factor for active variant (default 1) */
+  scale?: number;
+  /** Whether this node has incoming edges */
+  hasIncoming?: boolean;
+  /** Whether this node has outgoing edges */
+  hasOutgoing?: boolean;
 }
 
 export type VariantNodeType = Node<VariantNodeData, 'variant'>;
@@ -32,6 +38,9 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     onRetry,
     isGhost,
     onGhostClick,
+    scale = 1,
+    hasIncoming,
+    hasOutgoing,
   } = data;
 
   const handleClick = useCallback(() => {
@@ -122,25 +131,35 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     );
   };
 
+  // Determine if we should show handles (only when connected or for potential connections)
+  // Always show handles for ghost nodes (they have connections by definition)
+  const showTopHandle = hasIncoming || isGhost;
+  const showBottomHandle = hasOutgoing || !isGhost; // Non-ghost nodes can have children
+
+  // Apply CSS custom property for scaling (used by CSS for proportional sizing)
+  const nodeStyle = scale !== 1 ? { '--node-scale': scale } as React.CSSProperties : undefined;
+
   return (
-    <div className={nodeClasses} onClick={handleClick}>
-      {/* Input handle (for incoming edges from parent variants) */}
-      <Handle type="target" position={Position.Top} className={styles.handle} />
+    <div className={nodeClasses} onClick={handleClick} style={nodeStyle}>
+      {/* Input handle (for incoming edges from parent variants) - hidden when no connections */}
+      {showTopHandle && (
+        <Handle type="target" position={Position.Top} className={styles.handle} />
+      )}
 
       {/* Thumbnail */}
       <div className={styles.thumbnail}>
         {renderThumbnail()}
 
         {/* Indicators - only for completed variants */}
-        {isVariantReady(variant) && isActive && (
+        {isVariantReady(variant) && isActive ? (
           <span className={styles.activeIndicator}>Active</span>
-        )}
-        {isVariantReady(variant) && variant.starred && (
+        ) : null}
+        {isVariantReady(variant) && variant.starred ? (
           <span className={styles.starIndicator}>★</span>
-        )}
+        ) : null}
 
         {/* Hover actions - only for completed variants */}
-        {isVariantReady(variant) && (
+        {isVariantReady(variant) ? (
           <div className={styles.actions}>
             {onAddToTray && (
               <button
@@ -165,25 +184,22 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
               </button>
             )}
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Label */}
-      <div className={styles.label}>
-        {isGhost ? (
+      {/* Label - only for ghost nodes (shows source asset name) */}
+      {isGhost && (
+        <div className={styles.label}>
           <span className={styles.ghostLabel} title={`From: ${asset.name}`}>
             ↗ {asset.name}
           </span>
-        ) : (
-          <>
-            <span className={styles.variantId}>v{variant.id.slice(0, 6)}</span>
-            {variant.starred && <span className={styles.starBadge}>★</span>}
-          </>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Output handle (for outgoing edges to child variants) */}
-      <Handle type="source" position={Position.Bottom} className={styles.handle} />
+      {/* Output handle (for outgoing edges to child variants) - hidden for ghost nodes */}
+      {showBottomHandle && (
+        <Handle type="source" position={Position.Bottom} className={styles.handle} />
+      )}
     </div>
   );
 }
