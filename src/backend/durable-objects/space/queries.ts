@@ -88,6 +88,9 @@ export const VariantQueries = {
   /** Update variant workflow_id and status */
   UPDATE_WORKFLOW: `UPDATE variants SET workflow_id = ?, status = ?, updated_at = ? WHERE id = ?`,
 
+  /** Update variant status only */
+  UPDATE_STATUS: `UPDATE variants SET status = ?, updated_at = ? WHERE id = ?`,
+
   /** Update variant starred status */
   UPDATE_STARRED: 'UPDATE variants SET starred = ? WHERE id = ?',
 

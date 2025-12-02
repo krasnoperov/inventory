@@ -332,6 +332,21 @@ export class SpaceRepository {
   }
 
   /**
+   * Update variant status only (e.g., pending → processing).
+   * Called by workflow via internal endpoint.
+   */
+  async updateVariantStatus(
+    variantId: string,
+    status: string
+  ): Promise<Variant | null> {
+    const existing = await this.getVariantById(variantId);
+    if (!existing) return null;
+
+    await this.sql.exec(VariantQueries.UPDATE_STATUS, status, Date.now(), variantId);
+    return this.getVariantById(variantId);
+  }
+
+  /**
    * Complete a variant with generated images.
    * Increments refs for all images (image_key, thumb_key, recipe inputs).
    */

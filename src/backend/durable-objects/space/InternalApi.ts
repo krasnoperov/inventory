@@ -2,20 +2,19 @@
  * Internal API Router
  *
  * Hono-based router for internal HTTP endpoints called by workflows.
- * Extracts ~150 lines of routing logic from SpaceDO for cleaner separation.
+ * All routes are prefixed with /internal.
  *
- * All routes are prefixed with /internal and handle:
- * - Asset CRUD operations
- * - Variant operations
- * - Lineage queries
- * - Chat history
- * - Job status updates
- * - Workflow results
+ * Routes:
+ * - Asset: CRUD, spawn, set-active
+ * - Variant: apply, star, status lifecycle (pending → processing → completed/failed)
+ * - Lineage: queries, add, sever
+ * - Chat: store messages, history, chat-result (for ChatWorkflow)
+ * - State: sync state for clients
  */
 
 import { Hono } from 'hono';
 import type { Variant } from './types';
-import type { ChatWorkflowOutput, GenerationWorkflowOutput } from '../../workflows/types';
+import type { ChatWorkflowOutput } from '../../workflows/types';
 import { NotFoundError, ValidationError } from './controllers/types';
 
 // ============================================================================
@@ -86,11 +85,13 @@ export interface InternalApiControllers {
     httpGetState(): Promise<unknown>;
   };
   generation: {
-    httpJobProgress(jobId: string, status: string): void;
-    httpJobCompleted(jobId: string, variant: Variant): void;
-    httpJobFailed(jobId: string, error: string): void;
+    // Chat workflow
     httpChatResult(result: ChatWorkflowOutput): void;
-    httpGenerationResult(result: GenerationWorkflowOutput): void;
+    // Variant lifecycle (GenerationWorkflow)
+    httpUpdateVariantStatus(data: {
+      variantId: string;
+      status: string;
+    }): Promise<{ success: boolean }>;
     httpCompleteVariant(data: {
       variantId: string;
       imageKey: string;
@@ -248,30 +249,17 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   });
 
   // ==========================================================================
-  // Job Status Routes
+  // Variant Lifecycle Routes (GenerationWorkflow)
   // ==========================================================================
 
-  app.post('/internal/job/progress', async (c) => {
-    const data = (await c.req.json()) as { jobId: string; status: string };
-    controllers.generation.httpJobProgress(data.jobId, data.status);
-    return c.json({ success: true });
+  app.post('/internal/variant/status', async (c) => {
+    const data = (await c.req.json()) as {
+      variantId: string;
+      status: string;
+    };
+    const result = await controllers.generation.httpUpdateVariantStatus(data);
+    return c.json(result);
   });
-
-  app.post('/internal/job/completed', async (c) => {
-    const data = (await c.req.json()) as { jobId: string; variant: Variant };
-    controllers.generation.httpJobCompleted(data.jobId, data.variant);
-    return c.json({ success: true });
-  });
-
-  app.post('/internal/job/failed', async (c) => {
-    const data = (await c.req.json()) as { jobId: string; error: string };
-    controllers.generation.httpJobFailed(data.jobId, data.error);
-    return c.json({ success: true });
-  });
-
-  // ==========================================================================
-  // Variant Lifecycle Routes (new flow)
-  // ==========================================================================
 
   app.post('/internal/complete-variant', async (c) => {
     const data = (await c.req.json()) as {
@@ -293,18 +281,12 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   });
 
   // ==========================================================================
-  // Workflow Result Routes (deprecated - use variant lifecycle routes)
+  // Chat Workflow Result Route
   // ==========================================================================
 
   app.post('/internal/chat-result', async (c) => {
     const result = (await c.req.json()) as ChatWorkflowOutput;
-    controllers.generation.httpChatResult(result);
-    return c.json({ success: true });
-  });
-
-  app.post('/internal/generation-result', async (c) => {
-    const result = (await c.req.json()) as GenerationWorkflowOutput;
-    controllers.generation.httpGenerationResult(result);
+    await controllers.generation.httpChatResult(result);
     return c.json({ success: true });
   });
 

@@ -17,7 +17,6 @@ import type {
   ChatWorkflowInput,
   ChatWorkflowOutput,
   GenerationWorkflowInput,
-  GenerationWorkflowOutput,
   BotContextAsset,
 } from '../../../workflows/types';
 import type { ChatMessage as ApiChatMessage } from '../../../../api/types';
@@ -460,32 +459,7 @@ export class GenerationController extends BaseController {
   }
 
   // ==========================================================================
-  // HTTP Handlers - Job Status
-  // ==========================================================================
-
-  /**
-   * Handle POST /internal/job/progress HTTP request
-   */
-  httpJobProgress(jobId: string, status: string): void {
-    this.broadcast({ type: 'job:progress', jobId, status });
-  }
-
-  /**
-   * Handle POST /internal/job/completed HTTP request
-   */
-  httpJobCompleted(jobId: string, variant: Variant): void {
-    this.broadcast({ type: 'job:completed', jobId, variant });
-  }
-
-  /**
-   * Handle POST /internal/job/failed HTTP request
-   */
-  httpJobFailed(jobId: string, error: string): void {
-    this.broadcast({ type: 'job:failed', jobId, error });
-  }
-
-  // ==========================================================================
-  // HTTP Handlers - Workflow Results
+  // HTTP Handlers - Chat Workflow
   // ==========================================================================
 
   /**
@@ -519,25 +493,29 @@ export class GenerationController extends BaseController {
     });
   }
 
-  /**
-   * Handle POST /internal/generation-result HTTP request
-   * Broadcasts generation workflow result to all clients
-   * @deprecated Use httpCompleteVariant/httpFailVariant instead
-   */
-  httpGenerationResult(result: GenerationWorkflowOutput): void {
-    this.broadcast({
-      type: 'generate:result',
-      requestId: result.requestId,
-      jobId: result.jobId,
-      success: result.success,
-      variant: result.variant as unknown as Variant,
-      error: result.error,
-    });
-  }
+  // ==========================================================================
+  // HTTP Handlers - Variant Lifecycle (GenerationWorkflow)
+  // ==========================================================================
 
-  // ==========================================================================
-  // HTTP Handlers - Variant Lifecycle
-  // ==========================================================================
+  /**
+   * Handle POST /internal/variant/status HTTP request
+   * Updates a variant's status (e.g., pending → processing).
+   * Called by GenerationWorkflow at workflow start.
+   */
+  async httpUpdateVariantStatus(data: {
+    variantId: string;
+    status: string;
+  }): Promise<{ success: boolean }> {
+    const variant = await this.repo.updateVariantStatus(data.variantId, data.status);
+    if (!variant) {
+      throw new NotFoundError('Variant not found');
+    }
+
+    // Broadcast the status update
+    this.broadcast({ type: 'variant:updated', variant });
+
+    return { success: true };
+  }
 
   /**
    * Handle POST /internal/complete-variant HTTP request

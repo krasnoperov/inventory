@@ -1,15 +1,17 @@
 /**
  * GenerationWorkflow - Cloudflare Workflow for Gemini Image Generation
  *
- * Handles image generation with:
- * - Quota validation
- * - Source image fetching (for derive/compose)
- * - Gemini API call with retries
- * - R2 upload (full image + thumbnail)
- * - Variant application to SpaceDO
- * - Job tracking in D1
- * - Usage tracking for billing
- * - Result broadcast to WebSocket clients
+ * Flow (per architecture.md):
+ * 1. SpaceDO creates placeholder variant (status='pending') before triggering workflow
+ * 2. Workflow updates variant to 'processing' via DO internal endpoint
+ * 3. Workflow fetches source images from R2 (for derive/compose)
+ * 4. Workflow calls Gemini API with retries
+ * 5. Workflow uploads result to R2 (full + thumbnail)
+ * 6. Workflow calls DO /internal/complete-variant → status='completed'
+ * 7. SpaceDO broadcasts variant:updated to WebSocket clients
+ *
+ * On failure: Workflow calls DO /internal/fail-variant → status='failed'
+ * Retry: Client sends variant:retry → SpaceDO resets to 'pending', triggers new workflow
  */
 
 import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
@@ -44,23 +46,14 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       type: jobType,
     } = event.payload;
 
-    console.log(`[GenerationWorkflow] Starting workflow for jobId: ${jobId}, type: ${jobType}`);
+    console.log(`[GenerationWorkflow] Starting workflow for variantId: ${jobId}, type: ${jobType}`);
 
-    // Step 1: Update job status to processing
-    await step.do('update-job-processing', async () => {
-      if (!this.env.DB) return;
-
-      await this.env.DB.prepare(`
-        UPDATE jobs SET status = 'processing', updated_at = ? WHERE id = ?
-      `).bind(Date.now(), jobId).run();
+    // Step 1: Update variant status to processing via DO
+    await step.do('update-variant-processing', async () => {
+      await this.updateVariantStatus(spaceId, jobId, 'processing');
     });
 
-    // Step 2: Broadcast job progress
-    await step.do('broadcast-progress', async () => {
-      await this.broadcastProgress(spaceId, jobId, 'processing');
-    });
-
-    // Step 3: Fetch source images (if derive/compose)
+    // Step 2: Fetch source images (if derive/compose)
     let sourceImages: ImageInput[] = [];
     if (sourceImageKeys && sourceImageKeys.length > 0) {
       sourceImages = await step.do('fetch-sources', {
@@ -92,7 +85,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       });
     }
 
-    // Step 4: Generate image with retries
+    // Step 3: Generate image with retries
     let generationResult: GenerationResult;
     try {
       generationResult = await step.do('generate-image', {
@@ -143,8 +136,8 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       };
     }
 
-    // Step 5: Upload to R2
-    // Note: variantId is now the same as jobId (placeholder was created upfront)
+    // Step 4: Upload to R2
+    // Note: variantId === jobId (placeholder variant created before workflow started)
     const variantId = jobId;
     let imageKey: string;
     let thumbKey: string;
@@ -220,7 +213,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       };
     }
 
-    // Step 6: Complete variant in SpaceDO (placeholder was created upfront)
+    // Step 5: Complete variant in SpaceDO (updates status to 'completed')
     let variant: GeneratedVariant;
     try {
       variant = await step.do('complete-variant', async () => {
@@ -261,29 +254,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       };
     }
 
-    // Step 7: Update job status to completed
-    await step.do('update-job-completed', async () => {
-      if (!this.env.DB) return;
+    // Note: Usage tracking is handled by SpaceDO when completing the variant
+    // The complete-variant endpoint broadcasts variant:updated to all connected clients
 
-      await this.env.DB.prepare(`
-        UPDATE jobs SET status = 'completed', result_variant_id = ?, updated_at = ? WHERE id = ?
-      `).bind(variantId, Date.now(), jobId).run();
-    });
-
-    // Note: Usage tracking is done in SpaceDO.httpCompleteVariant() after successful completion
-    // This ensures we only track successful generations and uses the correct usage_events table
-
-    // Step 8: Broadcast result
-    await step.do('broadcast-result', async () => {
-      await this.broadcastResult(spaceId, {
-        requestId,
-        jobId,
-        success: true,
-        variant,
-      });
-    });
-
-    console.log(`[GenerationWorkflow] Completed workflow for jobId: ${jobId}, variantId: ${variantId}`);
+    console.log(`[GenerationWorkflow] Completed workflow for variantId: ${variantId}`);
 
     return {
       requestId,
@@ -294,69 +268,38 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
   }
 
   /**
-   * Broadcast job progress to SpaceDO
+   * Update variant status via SpaceDO internal endpoint
    */
-  private async broadcastProgress(spaceId: string, jobId: string, status: string): Promise<void> {
+  private async updateVariantStatus(spaceId: string, variantId: string, status: string): Promise<void> {
     if (!this.env.SPACES_DO) return;
 
     const doId = this.env.SPACES_DO.idFromName(spaceId);
     const doStub = this.env.SPACES_DO.get(doId);
 
-    await doStub.fetch(new Request('http://do/internal/job/progress', {
+    await doStub.fetch(new Request('http://do/internal/variant/status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobId, status }),
+      body: JSON.stringify({ variantId, status }),
     }));
   }
 
   /**
-   * Broadcast successful result to SpaceDO
+   * Handle workflow failure by marking the variant as failed in SpaceDO
    */
-  private async broadcastResult(spaceId: string, result: GenerationWorkflowOutput): Promise<void> {
+  private async handleFailure(spaceId: string, variantId: string, _requestId: string, error: string): Promise<void> {
     if (!this.env.SPACES_DO) return;
 
     const doId = this.env.SPACES_DO.idFromName(spaceId);
     const doStub = this.env.SPACES_DO.get(doId);
 
-    await doStub.fetch(new Request('http://do/internal/generation-result', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(result),
-    }));
-  }
-
-  /**
-   * Handle workflow failure by marking the variant as failed
-   */
-  private async handleFailure(spaceId: string, jobId: string, requestId: string, error: string): Promise<void> {
-    // Update D1 job status (legacy tracking)
-    if (this.env.DB) {
-      try {
-        await this.env.DB.prepare(`
-          UPDATE jobs SET status = 'failed', error = ?, updated_at = ? WHERE id = ?
-        `).bind(error, Date.now(), jobId).run();
-      } catch (err) {
-        console.warn('[GenerationWorkflow] Failed to update job status:', err);
-      }
-    }
-
-    // Mark the variant as failed (jobId === variantId now)
-    if (this.env.SPACES_DO) {
-      const doId = this.env.SPACES_DO.idFromName(spaceId);
-      const doStub = this.env.SPACES_DO.get(doId);
-
-      try {
-        await doStub.fetch(new Request('http://do/internal/fail-variant', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            variantId: jobId,
-            error,
-          }),
-        }));
-      } catch (fetchError) {
-        console.error('[GenerationWorkflow] Failed to mark variant as failed:', fetchError);
-      }
+    try {
+      await doStub.fetch(new Request('http://do/internal/fail-variant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variantId, error }),
+      }));
+    } catch (fetchError) {
+      console.error('[GenerationWorkflow] Failed to mark variant as failed:', fetchError);
     }
   }
 }
