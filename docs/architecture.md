@@ -83,7 +83,7 @@ CREATE TABLE variants (
 - **Variant Lineage**: `lineage` table tracks generation history. Immutable for audit.
   - `refined`: Single source refined (refine operation)
   - `combined`: Multiple sources combined (combine operation)
-  - `spawned`: Variant forked to new asset (fork operation)
+  - `forked`: Variant forked to new asset (fork operation)
 
 ### Real-Time Sync
 

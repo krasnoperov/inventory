@@ -223,7 +223,7 @@ export class SpaceRepository {
   }
 
   /**
-   * Create a completed variant (for spawns/imports where images already exist).
+   * Create a completed variant (for forks/imports where images already exist).
    * For generation workflows, use createPlaceholderVariant + completeVariant.
    */
   async createVariant(variant: {
@@ -447,7 +447,7 @@ export class SpaceRepository {
     id: string;
     parentVariantId: string;
     childVariantId: string;
-    relationType: 'refined' | 'combined' | 'spawned';
+    relationType: 'refined' | 'combined' | 'forked';
   }): Promise<Lineage> {
     const now = Date.now();
     await this.sql.exec(

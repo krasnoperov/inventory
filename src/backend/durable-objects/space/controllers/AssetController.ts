@@ -1,7 +1,7 @@
 /**
  * Asset Controller
  *
- * Handles asset CRUD operations, spawning, and hierarchy management.
+ * Handles asset CRUD operations, forking, and hierarchy management.
  * Assets are the primary containers for variants in the inventory system.
  */
 
@@ -107,10 +107,10 @@ export class AssetController extends BaseController {
   }
 
   /**
-   * Handle asset:spawn WebSocket message
+   * Handle asset:fork WebSocket message
    * Creates a new asset from an existing variant
    */
-  async handleSpawn(
+  async handleFork(
     ws: WebSocket,
     meta: WebSocketMeta,
     sourceVariantId: string,
@@ -120,7 +120,7 @@ export class AssetController extends BaseController {
   ): Promise<void> {
     this.requireEditor(meta);
 
-    const result = await this.spawnAsset({
+    const result = await this.forkAsset({
       sourceVariantId,
       name,
       type: assetType,
@@ -133,7 +133,7 @@ export class AssetController extends BaseController {
     }
 
     this.broadcast({
-      type: 'asset:spawned',
+      type: 'asset:forked',
       asset: result.asset,
       variant: result.variant,
       lineage: result.lineage,
@@ -221,22 +221,22 @@ export class AssetController extends BaseController {
   }
 
   /**
-   * Handle POST /internal/spawn HTTP request
+   * Handle POST /internal/fork HTTP request
    */
-  async httpSpawn(data: {
+  async httpFork(data: {
     sourceVariantId: string;
     name: string;
     type: string;
     parentAssetId?: string;
     createdBy: string;
   }): Promise<{ asset: Asset; variant: Variant; lineage: Lineage }> {
-    const result = await this.spawnAsset(data);
+    const result = await this.forkAsset(data);
     if (!result) {
       throw new NotFoundError('Source variant not found');
     }
 
     this.broadcast({
-      type: 'asset:spawned',
+      type: 'asset:forked',
       asset: result.asset,
       variant: result.variant,
       lineage: result.lineage,
@@ -294,10 +294,10 @@ export class AssetController extends BaseController {
   }
 
   /**
-   * Spawn a new asset from an existing variant.
-   * Creates a copy of the variant in a new asset with 'spawned' lineage.
+   * Fork a new asset from an existing variant.
+   * Creates a copy of the variant in a new asset with 'forked' lineage.
    */
-  private async spawnAsset(data: {
+  private async forkAsset(data: {
     sourceVariantId: string;
     name: string;
     type: string;
@@ -318,13 +318,13 @@ export class AssetController extends BaseController {
       createdBy: data.createdBy,
     });
 
-    // Create new variant (copy of source - spawned variants are immediately complete)
+    // Create new variant (copy of source - forked variants are immediately complete)
     const newVariantId = crypto.randomUUID();
     const variant: Variant = {
       id: newVariantId,
       asset_id: asset.id,
-      workflow_id: null, // Spawned variants have no workflow
-      status: 'completed', // Spawned variants are immediately complete
+      workflow_id: null, // Forked variants have no workflow
+      status: 'completed', // Forked variants are immediately complete
       error_message: null,
       image_key: sourceVariant.image_key,
       thumb_key: sourceVariant.thumb_key,
@@ -356,15 +356,15 @@ export class AssetController extends BaseController {
     if (variant.image_key) await this.sql.exec(INCREMENT_REF_SQL, variant.image_key);
     if (variant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, variant.thumb_key);
 
-    // Create spawned lineage
+    // Create forked lineage
     const lineage = await this.repo.createLineage({
       id: crypto.randomUUID(),
       parentVariantId: data.sourceVariantId,
       childVariantId: newVariantId,
-      relationType: 'spawned',
+      relationType: 'forked',
     });
 
-    // Set the spawned variant as active
+    // Set the forked variant as active
     await this.repo.updateAsset(asset.id, { active_variant_id: newVariantId });
     asset.active_variant_id = newVariantId;
 

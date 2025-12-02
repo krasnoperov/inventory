@@ -31,7 +31,7 @@ const eventColors: Record<string, string> = {
   'asset:created': colors.green,
   'asset:updated': colors.yellow,
   'asset:deleted': colors.red,
-  'asset:spawned': colors.green,
+  'asset:forked': colors.green,
   // Variants
   'variant:created': colors.green,
   'variant:updated': colors.yellow,
@@ -211,7 +211,7 @@ function printMessageDetails(message: Record<string, unknown>, type: string): vo
       console.log(`  ID: ${message.assetId}`);
       break;
 
-    case 'asset:spawned': {
+    case 'asset:forked': {
       const asset = message.asset as { name?: string; type?: string } | undefined;
       const variant = message.variant as { id?: string } | undefined;
       if (asset) {

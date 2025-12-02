@@ -16,7 +16,7 @@ interface VariantMinimal {
 
 interface LineageNode {
   variant: VariantMinimal;
-  relation_type: 'refined' | 'combined' | 'spawned';
+  relation_type: 'refined' | 'combined' | 'forked';
   severed?: boolean;
   lineage_id?: string;  // For sever action
 }
@@ -36,7 +36,7 @@ interface GraphLineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: 'refined' | 'combined' | 'spawned';
+  relation_type: 'refined' | 'combined' | 'forked';
   severed: boolean;
   created_at: number;
 }
@@ -55,7 +55,7 @@ const getRelationLabel = (type: string): string => {
   switch (type) {
     case 'refined': return 'Refined';
     case 'combined': return 'Combined';
-    case 'spawned': return 'Forked';
+    case 'forked': return 'Forked';
     default: return type;
   }
 };
@@ -66,7 +66,7 @@ const getRelationTooltip = (type: string, direction: 'parent' | 'child'): string
     switch (type) {
       case 'derived': return 'Refined from this image';
       case 'composed': return 'Part of composition that created this';
-      case 'spawned': return 'Forked from this to create new asset';
+      case 'forked': return 'Forked from this to create new asset';
       default: return `Related via ${type}`;
     }
   } else {
@@ -74,7 +74,7 @@ const getRelationTooltip = (type: string, direction: 'parent' | 'child'): string
     switch (type) {
       case 'derived': return 'Was refined to create this';
       case 'composed': return 'Was used to compose this';
-      case 'spawned': return 'Was forked to create new asset';
+      case 'forked': return 'Was forked to create new asset';
       default: return `Related via ${type}`;
     }
   }

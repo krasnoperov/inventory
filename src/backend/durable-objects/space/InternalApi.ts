@@ -5,7 +5,7 @@
  * All routes are prefixed with /internal.
  *
  * Routes:
- * - Asset: CRUD, spawn, set-active
+ * - Asset: CRUD, fork, set-active
  * - Variant: apply, star, status lifecycle (pending → processing → completed/failed)
  * - Lineage: queries, add, sever
  * - Chat: store messages, history, chat-result (for ChatWorkflow)
@@ -38,7 +38,7 @@ export interface InternalApiControllers {
     httpGetChildren(assetId: string): Promise<unknown>;
     httpGetAncestors(assetId: string): Promise<unknown>;
     httpReparent(assetId: string, parentAssetId: string | null): Promise<unknown>;
-    httpSpawn(data: {
+    httpFork(data: {
       sourceVariantId: string;
       name: string;
       type: string;
@@ -67,7 +67,7 @@ export interface InternalApiControllers {
     httpAddLineage(data: {
       parentVariantId: string;
       childVariantId: string;
-      relationType: 'refined' | 'combined' | 'spawned';
+      relationType: 'refined' | 'combined' | 'forked';
     }): Promise<unknown>;
     httpSever(lineageId: string): Promise<void>;
   };
@@ -162,9 +162,9 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     return c.json({ success: true, asset });
   });
 
-  app.post('/internal/spawn', async (c) => {
+  app.post('/internal/fork', async (c) => {
     const data = await c.req.json();
-    const result = await controllers.asset.httpSpawn(data);
+    const result = await controllers.asset.httpFork(data);
     return c.json({ success: true, ...(result as object) });
   });
 

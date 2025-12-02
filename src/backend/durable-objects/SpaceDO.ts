@@ -234,8 +234,8 @@ export class SpaceDO extends DurableObject<Env> {
         return this.assetCtrl.handleDelete(ws, meta, msg.assetId);
       case 'asset:setActive':
         return this.assetCtrl.handleSetActive(ws, meta, msg.assetId, msg.variantId);
-      case 'asset:spawn':
-        return this.assetCtrl.handleSpawn(
+      case 'asset:fork':
+        return this.assetCtrl.handleFork(
           ws,
           meta,
           msg.sourceVariantId,

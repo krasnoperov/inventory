@@ -72,7 +72,7 @@ export const VariantQueries = {
   INSERT_PLACEHOLDER: `INSERT INTO variants (id, asset_id, status, recipe, created_by, created_at, updated_at)
                        VALUES (?, ?, 'pending', ?, ?, ?, ?)`,
 
-  /** Insert new completed variant (legacy - for spawns/imports) */
+  /** Insert new completed variant (legacy - for forks/imports) */
   INSERT: `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 

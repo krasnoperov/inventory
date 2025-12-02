@@ -66,7 +66,7 @@ export interface Lineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: 'refined' | 'combined' | 'spawned';
+  relation_type: 'refined' | 'combined' | 'forked';
   severed: boolean;  // User can cut the historical link
   created_at: number;
 }
@@ -236,7 +236,7 @@ type ServerMessage =
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
-  | { type: 'asset:spawned'; asset: Asset; variant: Variant; lineage: Lineage }
+  | { type: 'asset:forked'; asset: Asset; variant: Variant; lineage: Lineage }
   | { type: 'variant:created'; variant: Variant }
   | { type: 'variant:updated'; variant: Variant }
   | { type: 'variant:deleted'; variantId: string }
@@ -278,8 +278,8 @@ interface AssetChanges {
   parentAssetId?: string | null;
 }
 
-// Spawn params for creating new asset from variant
-export interface SpawnParams {
+// Fork params for creating new asset from variant
+export interface ForkParams {
   sourceVariantId: string;
   name: string;
   assetType: string;
@@ -301,7 +301,7 @@ export interface UseSpaceWebSocketReturn {
   deleteAsset: (assetId: string) => void;
   setActiveVariant: (assetId: string, variantId: string) => void;
   deleteVariant: (variantId: string) => void;
-  spawnAsset: (params: SpawnParams) => void;
+  forkAsset: (params: ForkParams) => void;
   starVariant: (variantId: string, starred: boolean) => void;
   retryVariant: (variantId: string) => void;
   severLineage: (lineageId: string) => void;
@@ -381,10 +381,10 @@ export function useSpaceWebSocket({
     sendMessage({ type: 'variant:delete', variantId });
   }, [sendMessage]);
 
-  // Spawn new asset from variant (copy operation with lineage)
-  const spawnAsset = useCallback((params: SpawnParams) => {
+  // Fork new asset from variant (copy operation with lineage)
+  const forkAsset = useCallback((params: ForkParams) => {
     sendMessage({
-      type: 'asset:spawn',
+      type: 'asset:fork',
       sourceVariantId: params.sourceVariantId,
       name: params.name,
       assetType: params.assetType,
@@ -626,8 +626,8 @@ export function useSpaceWebSocket({
                 setAssets((prev) => prev.filter((asset) => asset.id !== message.assetId));
                 break;
 
-              case 'asset:spawned':
-                // Add the spawned asset, variant, and lineage
+              case 'asset:forked':
+                // Add the forked asset, variant, and lineage
                 setAssets((prev) => [...prev, message.asset]);
                 setVariants((prev) => {
                   if (prev.some(v => v.id === message.variant.id)) return prev;
@@ -954,7 +954,7 @@ export function useSpaceWebSocket({
     deleteAsset,
     setActiveVariant,
     deleteVariant,
-    spawnAsset,
+    forkAsset,
     starVariant,
     retryVariant,
     severLineage,

@@ -11,15 +11,15 @@
 
 import { useCallback } from 'react';
 import type { ForgeSubmitParams } from '../components/ForgeTray';
-import type { GenerateRequestParams, RefineRequestParams, SpawnParams } from './useSpaceWebSocket';
+import type { GenerateRequestParams, RefineRequestParams, ForkParams } from './useSpaceWebSocket';
 
 export interface UseForgeOperationsParams {
   /** WebSocket function to send generate requests */
   sendGenerateRequest: (params: GenerateRequestParams) => string;
   /** WebSocket function to send refine requests */
   sendRefineRequest: (params: RefineRequestParams) => string;
-  /** WebSocket function to spawn (fork) an asset - creates 'spawned' lineage */
-  spawnAsset?: (params: SpawnParams) => void;
+  /** WebSocket function to fork an asset - creates 'forked' lineage */
+  forkAsset?: (params: ForkParams) => void;
 }
 
 export interface UseForgeOperationsReturn {
@@ -53,7 +53,7 @@ export interface UseForgeOperationsReturn {
 export function useForgeOperations({
   sendGenerateRequest,
   sendRefineRequest,
-  spawnAsset,
+  forkAsset,
 }: UseForgeOperationsParams): UseForgeOperationsReturn {
 
   /**
@@ -63,23 +63,23 @@ export function useForgeOperations({
    * - referenceAssetIds: Asset-level refs (from Chat/Claude) - backend resolves to default variants
    * - referenceVariantIds: Explicit variant refs (from ForgeTray UI) - used as-is
    *
-   * Fork operations use spawnAsset to create 'spawned' lineage.
-   * Returns requestId for tracking the operation (or empty string for spawn).
+   * Fork operations use forkAsset to create 'forked' lineage.
+   * Returns requestId for tracking the operation (or empty string for fork).
    */
   const handleForgeSubmit = useCallback((params: ForgeSubmitParams): string => {
     const { prompt, referenceVariantIds = [], referenceAssetIds, destination, operation } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
 
-    // Fork operation: use spawnAsset to create 'spawned' lineage
-    if (operation === 'fork' && hasVariantRefs && spawnAsset) {
-      spawnAsset({
+    // Fork operation: use forkAsset to create 'forked' lineage
+    if (operation === 'fork' && hasVariantRefs && forkAsset) {
+      forkAsset({
         sourceVariantId: referenceVariantIds[0],
         name: destination.assetName || 'Forked Asset',
         assetType: destination.assetType || 'character',
         parentAssetId: destination.parentAssetId || undefined,
       });
-      return ''; // spawnAsset is synchronous, no requestId
+      return ''; // forkAsset is synchronous, no requestId
     }
 
     if (destination.type === 'existing_asset' && destination.assetId) {
@@ -106,7 +106,7 @@ export function useForgeOperations({
         parentAssetId: destination.parentAssetId || undefined,
       });
     }
-  }, [sendGenerateRequest, sendRefineRequest, spawnAsset]);
+  }, [sendGenerateRequest, sendRefineRequest, forkAsset]);
 
   /**
    * Chat callback: Generate a new asset

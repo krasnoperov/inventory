@@ -50,7 +50,7 @@ export interface Asset {
 export interface Variant {
   id: string;
   asset_id: string;
-  workflow_id: string | null; // Cloudflare workflow instance ID (null for spawns/imports)
+  workflow_id: string | null; // Cloudflare workflow instance ID (null for forks/imports)
   status: VariantStatus; // Generation lifecycle status
   error_message: string | null; // Error details when status='failed'
   image_key: string | null; // R2 key, null until generation completes
@@ -81,7 +81,7 @@ export interface Lineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: 'refined' | 'combined' | 'spawned';
+  relation_type: 'refined' | 'combined' | 'forked';
   severed: boolean; // User can cut the link if desired
   created_at: number;
 }
@@ -122,7 +122,7 @@ export type ClientMessage =
   | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[]; type?: string; parentAssetId?: string | null } }
   | { type: 'asset:delete'; assetId: string }
   | { type: 'asset:setActive'; assetId: string; variantId: string }
-  | { type: 'asset:spawn'; sourceVariantId: string; name: string; assetType: string; parentAssetId?: string }
+  | { type: 'asset:fork'; sourceVariantId: string; name: string; assetType: string; parentAssetId?: string }
   // Variant operations
   | { type: 'variant:delete'; variantId: string }
   | { type: 'variant:star'; variantId: string; starred: boolean }
@@ -155,7 +155,7 @@ export type ServerMessage =
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
-  | { type: 'asset:spawned'; asset: Asset; variant: Variant; lineage: Lineage }
+  | { type: 'asset:forked'; asset: Asset; variant: Variant; lineage: Lineage }
   // Variant mutations
   | { type: 'variant:created'; variant: Variant }
   | { type: 'variant:updated'; variant: Variant }
@@ -214,9 +214,9 @@ export interface CreateAssetInput {
 }
 
 /**
- * Input for spawning an asset from a variant
+ * Input for forking an asset from a variant
  */
-export interface SpawnAssetInput {
+export interface ForkAssetInput {
   sourceVariantId: string;
   name: string;
   type: string;
@@ -225,9 +225,9 @@ export interface SpawnAssetInput {
 }
 
 /**
- * Result of spawning an asset
+ * Result of forking an asset
  */
-export interface SpawnResult {
+export interface ForkResult {
   asset: Asset;
   variant: Variant;
   lineage: Lineage;

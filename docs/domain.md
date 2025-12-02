@@ -36,9 +36,9 @@ An image version belonging to an Asset. Variants are internal — visible only i
 
 Tracks how variants relate to each other.
 
-- `derived` — Single-source refinement
-- `composed` — Multi-source composition
-- `spawned` — Fork/copy to new asset
+- `refined` — Single-source refinement
+- `combined` — Multi-source composition
+- `forked` — Fork/copy to new asset
 
 ---
 
@@ -92,18 +92,18 @@ Immutable generation history for audit trail and reproducibility.
 |----------|-------|
 | Mutable | No - history is immutable |
 | Severable | Yes - can hide from display |
-| Cross-asset | Yes - spawned lineage spans assets |
+| Cross-asset | Yes - forked lineage spans assets |
 
 ### How They Interact
 
 Fork/Spawn creates BOTH relationships:
 
 ```
-Source Asset                    New Asset (spawned)
+Source Asset                    New Asset (forked)
 ┌──────────────┐               ┌──────────────┐
 │   Asset A    │──(parent)────▶│   Asset B    │  Asset Hierarchy
 │  ┌────────┐  │               │  ┌────────┐  │
-│  │ Var v1 │──┼──(spawned)───▶│  │ Var v2 │  │  Variant Lineage
+│  │ Var v1 │──┼──(forked)────▶│  │ Var v2 │  │  Variant Lineage
 │  └────────┘  │               │  └────────┘  │
 └──────────────┘               └──────────────┘
 ```

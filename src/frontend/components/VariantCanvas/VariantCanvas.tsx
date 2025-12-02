@@ -125,11 +125,14 @@ function getLayoutedElements(
           x: nodeWithPosition.x - dims.width / 2,
           y: nodeWithPosition.y - dims.height / 2,
         },
-        style: isActive ? {
-          transform: `scale(${ACTIVE_SCALE})`,
-          transformOrigin: 'top left',
-          zIndex: 10,
-        } : undefined,
+        // Use actual width/height instead of CSS transform for proper React Flow edge positioning
+        width: dims.width,
+        height: dims.height,
+        style: isActive ? { zIndex: 10 } : undefined,
+        data: {
+          ...node.data,
+          scale, // Pass scale to node for internal sizing
+        },
       };
     });
   }
@@ -180,17 +183,29 @@ function getLayoutedElements(
       return {
         ...node,
         position,
-        style: isActive ? {
-          transform: `scale(${ACTIVE_SCALE})`,
-          transformOrigin: 'top left',
-          zIndex: 10,
-        } : undefined,
+        // Use actual width/height instead of CSS transform for proper React Flow edge positioning
+        width: dims.width,
+        height: dims.height,
+        style: isActive ? { zIndex: 10 } : undefined,
+        data: {
+          ...node.data,
+          scale, // Pass scale to node for internal sizing
+        },
       };
     });
   }
 
+  // Mark nodes with connection info for handle visibility
+  const allNodes = [...layoutedTreeNodes, ...layoutedOrphanNodes];
   return {
-    nodes: [...layoutedTreeNodes, ...layoutedOrphanNodes],
+    nodes: allNodes.map(node => ({
+      ...node,
+      data: {
+        ...node.data,
+        hasIncoming: targetIds.has(node.id),
+        hasOutgoing: sourceIds.has(node.id),
+      },
+    })),
     edges,
   };
 }
@@ -347,7 +362,7 @@ export function VariantCanvas({
             width: 14,
             height: 14,
           },
-          label: isFromGhost ? 'spawned' : 'refined',
+          label: isFromGhost ? 'forked' : 'refined',
           labelStyle: { fontSize: 9, fill: 'var(--color-text-muted)' },
           labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
         };
@@ -381,11 +396,11 @@ export function VariantCanvas({
         };
       });
 
-    // Add spawned edges
-    const spawnedEdges: Edge[] = lineage
-      .filter(l => l.relation_type === 'spawned' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
+    // Add forked edges
+    const forkedEdges: Edge[] = lineage
+      .filter(l => l.relation_type === 'forked' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
       .map(l => ({
-        id: `${l.parent_variant_id}-${l.child_variant_id}-spawned`,
+        id: `${l.parent_variant_id}-${l.child_variant_id}-forked`,
         source: l.parent_variant_id,
         target: l.child_variant_id,
         type: 'smoothstep',
@@ -401,12 +416,12 @@ export function VariantCanvas({
           width: 14,
           height: 14,
         },
-        label: 'spawned',
+        label: 'forked',
         labelStyle: { fontSize: 9, fill: 'var(--color-text-muted)' },
         labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
       }));
 
-    const allEdges = [...edges, ...combinedEdges, ...spawnedEdges];
+    const allEdges = [...edges, ...combinedEdges, ...forkedEdges];
 
     // Apply layout
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(

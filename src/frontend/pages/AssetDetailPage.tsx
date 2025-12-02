@@ -113,7 +113,7 @@ export default function AssetDetailPage() {
     sendRefineRequest,
     sendDescribeRequest,
     sendCompareRequest,
-    spawnAsset,
+    forkAsset,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
@@ -128,6 +128,10 @@ export default function AssetDetailPage() {
         prompt: completedJob.prompt,
         thumbKey: variant.thumb_key ?? variant.image_key ?? undefined,
       });
+      // Navigate to new asset if this job created one (different from current)
+      if (completedJob.assetId && completedJob.assetId !== assetId) {
+        navigate(`/spaces/${spaceId}/assets/${completedJob.assetId}`);
+      }
     },
     onChatResponse: (response) => {
       setChatResponse(response);
@@ -242,10 +246,11 @@ export default function AssetDetailPage() {
     }
 
     // Update lineage from WebSocket
-    // Only include lineage where BOTH parent and child variants belong to this asset
+    // Include lineage where the CHILD variant belongs to this asset
+    // This allows cross-asset parents to be shown as ghost nodes
     const variantIds = new Set(assetVariants.map(v => v.id));
     const assetLineage = wsLineage.filter(
-      l => variantIds.has(l.parent_variant_id) && variantIds.has(l.child_variant_id)
+      l => variantIds.has(l.child_variant_id)
     );
     setLineage(assetLineage);
   }, [wsStatus, wsAssets, wsVariants, wsLineage, assetId, selectedVariant]);
@@ -349,7 +354,7 @@ export default function AssetDetailPage() {
   const { handleForgeSubmit, onGenerateAsset, onRefineAsset, onCombineAssets } = useForgeOperations({
     sendGenerateRequest,
     sendRefineRequest,
-    spawnAsset,
+    forkAsset,
   });
 
   const formatDate = (timestamp: number) => {
