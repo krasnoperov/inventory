@@ -144,12 +144,21 @@ export class SchemaManager {
    * - Add updated_at column
    *
    * Uses table swap because SQLite doesn't support ALTER COLUMN for nullability.
+   * Also recreates lineage table to avoid FK constraint issues during migration.
    */
   private async migratePlaceholderVariants(): Promise<void> {
     // Check if migration already applied (status column exists)
     if (await this.columnExists('variants', 'status')) return;
 
-    // Step 1: Create new table with updated schema
+    // Step 1: Backup lineage data (it references variants via FK)
+    await this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS lineage_backup AS SELECT * FROM lineage
+    `);
+
+    // Step 2: Drop lineage table to remove FK references to variants
+    await this.sql.exec('DROP TABLE IF EXISTS lineage');
+
+    // Step 3: Create new variants table with updated schema
     await this.sql.exec(`
       CREATE TABLE variants_new (
         id TEXT PRIMARY KEY,
@@ -167,7 +176,7 @@ export class SchemaManager {
       )
     `);
 
-    // Step 2: Copy existing data with status='completed' (all existing variants have images)
+    // Step 4: Copy existing data with status='completed' (all existing variants have images)
     await this.sql.exec(`
       INSERT INTO variants_new
         (id, asset_id, workflow_id, status, error_message, image_key, thumb_key,
@@ -178,9 +187,29 @@ export class SchemaManager {
       FROM variants
     `);
 
-    // Step 3: Drop old table and rename new one
+    // Step 5: Drop old variants table and rename new one
     await this.sql.exec('DROP TABLE variants');
     await this.sql.exec('ALTER TABLE variants_new RENAME TO variants');
+
+    // Step 6: Recreate lineage table with FK to new variants table
+    await this.sql.exec(`
+      CREATE TABLE lineage (
+        id TEXT PRIMARY KEY,
+        parent_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+        child_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+        relation_type TEXT NOT NULL CHECK (relation_type IN ('derived', 'composed', 'spawned')),
+        severed INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      )
+    `);
+
+    // Step 7: Restore lineage data from backup
+    await this.sql.exec(`
+      INSERT INTO lineage SELECT * FROM lineage_backup
+    `);
+
+    // Step 8: Clean up backup table
+    await this.sql.exec('DROP TABLE lineage_backup');
 
     // Note: Indexes will be recreated by createIndexes() which runs after migrations
   }
