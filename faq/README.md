@@ -23,18 +23,6 @@ Understand how usage-based billing works. View your usage, manage subscriptions,
 ### [Usage Limits & Errors](./error-handling.md)
 What happens when you reach your quota or rate limits. How to handle "quota exceeded" or "too many requests" messages.
 
-## Planned Features
-
-### Autonomous Workflows
-Multi-step plans with checkpointing and rollback capabilities. The assistant will be able to execute complex creative workflows while tracking progress and allowing you to undo any step.
-
-See: [Implementation Plan](../docs/AUTONOMOUS_WORKFLOWS_PLAN.md)
-
-### Batch Operations
-Queue multiple generation jobs and manage them as a group. Create collections of assets, monitor progress, and pause/resume batch operations.
-
-See: [Implementation Plan](../docs/BATCH_OPERATIONS_PLAN.md)
-
 ## Quick Reference
 
 | Topic | Description |
