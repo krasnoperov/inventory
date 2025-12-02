@@ -629,6 +629,22 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar for plan steps */
+.planSteps::-webkit-scrollbar {
+  width: 4px;
+}
+
+.planSteps::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.planSteps::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 2px;
 }
 
 .planStep {

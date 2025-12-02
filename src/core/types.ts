@@ -56,7 +56,7 @@ export interface Env {
   OPENAI_API_KEY?: string;
 
   // Environment
-  ENVIRONMENT?: 'development' | 'stage' | 'staging' | 'production';
+  ENVIRONMENT?: 'local' | 'development' | 'stage' | 'staging' | 'production';
 
   // R2 Storage for generated images (required for Inventory Forge)
   IMAGES: R2Bucket;

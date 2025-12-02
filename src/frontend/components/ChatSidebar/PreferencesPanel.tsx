@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './ChatSidebar.module.css';
 
 // =============================================================================
@@ -30,6 +30,9 @@ export interface PreferencesPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+/** Cache TTL for preferences data (5 minutes) */
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 // =============================================================================
 // Constants
@@ -65,9 +68,23 @@ export function PreferencesPanel({ isOpen, onClose }: PreferencesPanelProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch data when panel opens
+  // Cache tracking - only refetch if cache is stale
+  const lastFetchedRef = useRef<number>(0);
+  const hasCachedDataRef = useRef<boolean>(false);
+
+  // Fetch data when panel opens (with caching)
   useEffect(() => {
     if (isOpen) {
+      const now = Date.now();
+      const cacheAge = now - lastFetchedRef.current;
+      const cacheExpired = cacheAge > CACHE_TTL_MS;
+
+      // Skip fetch if we have cached data and cache is still valid
+      if (hasCachedDataRef.current && !cacheExpired) {
+        setLoading(false);
+        return;
+      }
+
       fetchData();
     }
   }, [isOpen]);
@@ -92,6 +109,10 @@ export function PreferencesPanel({ isOpen, onClose }: PreferencesPanelProps) {
 
       setPatterns(patternsData.patterns || []);
       setPreferences(prefsData.preferences || null);
+
+      // Mark cache as valid
+      lastFetchedRef.current = Date.now();
+      hasCachedDataRef.current = true;
     } catch (err) {
       console.error('Error fetching preferences:', err);
       setError('Failed to load preferences');

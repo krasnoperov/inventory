@@ -106,8 +106,8 @@ export async function createThumbnail(
   const opts = { ...DEFAULT_THUMBNAIL_OPTIONS, ...options };
 
   // On local development, cf.image is not available
-  // Just return the original image
-  const isLocal = env.ENVIRONMENT === 'development' || env.ENVIRONMENT === undefined;
+  // Just return the original image from R2 directly
+  const isLocal = env.ENVIRONMENT === 'local' || env.ENVIRONMENT === 'development' || env.ENVIRONMENT === undefined;
 
   if (isLocal) {
     console.log('[createThumbnail] Local mode - returning original image');

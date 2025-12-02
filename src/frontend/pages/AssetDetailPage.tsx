@@ -15,6 +15,8 @@ import {
   type Variant,
   type Lineage,
   type ChatResponseResult,
+  type DescribeResponseResult,
+  type CompareResponseResult,
 } from '../hooks/useSpaceWebSocket';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { ForgeTray } from '../components/ForgeTray';
@@ -85,6 +87,9 @@ export default function AssetDetailPage() {
 
   // Track chat response for ChatSidebar
   const [chatResponse, setChatResponse] = useState<ChatResponseResult | null>(null);
+  // Track describe/compare responses for ChatSidebar tool execution
+  const [describeResponse, setDescribeResponse] = useState<DescribeResponseResult | null>(null);
+  const [compareResponse, setCompareResponse] = useState<CompareResponseResult | null>(null);
 
   // Variant details panel state
   const [showDetails, setShowDetails] = useState(false);
@@ -106,6 +111,8 @@ export default function AssetDetailPage() {
     sendChatRequest,
     sendGenerateRequest,
     sendRefineRequest,
+    sendDescribeRequest,
+    sendCompareRequest,
     spawnAsset,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
@@ -124,6 +131,12 @@ export default function AssetDetailPage() {
     },
     onChatResponse: (response) => {
       setChatResponse(response);
+    },
+    onDescribeResponse: (response) => {
+      setDescribeResponse(response);
+    },
+    onCompareResponse: (response) => {
+      setCompareResponse(response);
     },
   });
 
@@ -658,6 +671,10 @@ export default function AssetDetailPage() {
             onCombineAssets={onCombineAssets}
             sendChatRequest={sendChatRequest}
             chatResponse={chatResponse}
+            sendDescribeRequest={sendDescribeRequest}
+            sendCompareRequest={sendCompareRequest}
+            describeResponse={describeResponse}
+            compareResponse={compareResponse}
           />
         </div>
       </div>

@@ -1,9 +1,20 @@
-import type { PlanState } from './hooks/usePlanState';
+import type { AssistantPlan } from '../../../api/types';
 import styles from './ChatSidebar.module.css';
 
 // =============================================================================
 // Types
 // =============================================================================
+
+/**
+ * Plan state machine types for PlanPanel display
+ */
+export type PlanState =
+  | { status: 'idle' }
+  | { status: 'awaiting_approval'; plan: AssistantPlan }
+  | { status: 'executing'; plan: AssistantPlan; currentStep: number }
+  | { status: 'paused'; plan: AssistantPlan; currentStep: number }
+  | { status: 'completed'; plan: AssistantPlan }
+  | { status: 'failed'; plan: AssistantPlan; error: string };
 
 export interface PlanPanelProps {
   planState: PlanState;

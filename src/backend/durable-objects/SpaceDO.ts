@@ -143,9 +143,12 @@ export class SpaceDO extends DurableObject<Env> {
    * Main fetch handler for WebSocket upgrades and internal HTTP endpoints
    */
   async fetch(request: Request): Promise<Response> {
-    if (!this.spaceId) {
+    // Extract spaceId from external requests (not internal DO calls)
+    const url = new URL(request.url);
+    const isInternalRequest = url.hostname === 'do' || url.pathname.startsWith('/internal');
+
+    if (!this.spaceId && !isInternalRequest) {
       this.spaceId = this.extractSpaceId(request);
-      console.log('[SpaceDO] Extracted spaceId from URL:', this.spaceId, 'URL:', request.url);
     }
 
     await this.ensureInitialized();
