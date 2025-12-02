@@ -52,6 +52,8 @@ export interface ChatWorkflowInput {
 export interface ChatWorkflowOutput {
   /** Echo back requestId for correlation */
   requestId: string;
+  /** User ID for billing tracking */
+  userId: string;
   /** Whether the workflow succeeded */
   success: boolean;
   /** Claude's response (if success) */

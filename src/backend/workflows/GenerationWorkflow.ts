@@ -270,30 +270,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       `).bind(variantId, Date.now(), jobId).run();
     });
 
-    // Step 8: Track usage for billing
-    await step.do('track-usage', async () => {
-      if (!this.env.DB) return;
+    // Note: Usage tracking is done in SpaceDO.httpCompleteVariant() after successful completion
+    // This ensures we only track successful generations and uses the correct usage_events table
 
-      const now = Date.now();
-      const month = new Date(now).toISOString().slice(0, 7);
-
-      try {
-        await this.env.DB.prepare(`
-          INSERT INTO usage_records (user_id, service, operation, input_units, output_units, model, month, created_at)
-          VALUES (?, 'nanobanana', ?, 1, 0, ?, ?, ?)
-        `).bind(
-          parseInt(userId),
-          jobType,
-          model || 'gemini-3-pro-image-preview',
-          month,
-          now
-        ).run();
-      } catch (err) {
-        console.warn('[GenerationWorkflow] Failed to track usage:', err);
-      }
-    });
-
-    // Step 9: Broadcast result
+    // Step 8: Broadcast result
     await step.do('broadcast-result', async () => {
       await this.broadcastResult(spaceId, {
         requestId,

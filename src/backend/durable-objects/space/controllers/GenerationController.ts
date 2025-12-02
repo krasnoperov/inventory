@@ -3,6 +3,10 @@
  *
  * Handles workflow triggers for chat, generation, and refinement.
  * Creates placeholder variants upfront and updates them when workflows complete.
+ *
+ * Billing:
+ * - preCheck quota/rate limits BEFORE triggering workflows
+ * - Track usage AFTER successful completion (not during workflow)
  */
 
 import type { Variant, WebSocketMeta, ChatMessage, Asset } from '../types';
@@ -18,6 +22,12 @@ import type {
 } from '../../../workflows/types';
 import type { ChatMessage as ApiChatMessage } from '../../../../api/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
+import {
+  preCheck,
+  incrementRateLimit,
+  trackClaudeUsage,
+  trackImageGeneration,
+} from '../billing/usageCheck';
 
 /** Recipe stored with variant for retry capability */
 interface GenerationRecipe {
@@ -44,6 +54,22 @@ export class GenerationController extends BaseController {
   async handleChatRequest(ws: WebSocket, meta: WebSocketMeta, msg: ChatRequestMessage): Promise<void> {
     if (!this.env.CHAT_WORKFLOW) {
       throw new ValidationError('Chat workflow not configured');
+    }
+
+    // Check quota and rate limits before triggering workflow
+    if (this.env.DB) {
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), 'claude');
+      if (!check.allowed) {
+        this.send(ws, {
+          type: 'chat:error',
+          requestId: msg.requestId,
+          error: check.denyMessage || 'Request denied',
+          code: check.denyReason === 'rate_limited' ? 'RATE_LIMITED' : 'QUOTA_EXCEEDED',
+        });
+        return;
+      }
+      // Increment rate limit counter
+      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
     }
 
     // Get chat history from local storage
@@ -94,6 +120,22 @@ export class GenerationController extends BaseController {
 
     if (!this.env.GENERATION_WORKFLOW) {
       throw new ValidationError('Generation workflow not configured');
+    }
+
+    // Check quota and rate limits before triggering workflow
+    if (this.env.DB) {
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), 'nanobanana');
+      if (!check.allowed) {
+        this.send(ws, {
+          type: 'generate:error',
+          requestId: msg.requestId,
+          error: check.denyMessage || 'Request denied',
+          code: check.denyReason === 'rate_limited' ? 'RATE_LIMITED' : 'QUOTA_EXCEEDED',
+        });
+        return;
+      }
+      // Increment rate limit counter
+      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
     }
 
     const variantId = crypto.randomUUID();
@@ -209,6 +251,22 @@ export class GenerationController extends BaseController {
 
     if (!this.env.GENERATION_WORKFLOW) {
       throw new ValidationError('Generation workflow not configured');
+    }
+
+    // Check quota and rate limits before triggering workflow
+    if (this.env.DB) {
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), 'nanobanana');
+      if (!check.allowed) {
+        this.send(ws, {
+          type: 'refine:error',
+          requestId: msg.requestId,
+          error: check.denyMessage || 'Request denied',
+          code: check.denyReason === 'rate_limited' ? 'RATE_LIMITED' : 'QUOTA_EXCEEDED',
+        });
+        return;
+      }
+      // Increment rate limit counter
+      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
     }
 
     const variantId = crypto.randomUUID();
@@ -433,8 +491,25 @@ export class GenerationController extends BaseController {
   /**
    * Handle POST /internal/chat-result HTTP request
    * Broadcasts chat workflow result to all clients
+   * Tracks usage for successful requests
    */
-  httpChatResult(result: ChatWorkflowOutput): void {
+  async httpChatResult(result: ChatWorkflowOutput): Promise<void> {
+    // Track usage only for successful requests
+    if (result.success && result.usage && this.env.DB) {
+      try {
+        await trackClaudeUsage(
+          this.env.DB,
+          parseInt(result.userId),
+          result.usage.inputTokens,
+          result.usage.outputTokens,
+          'claude-sonnet-4-20250514',
+          result.requestId
+        );
+      } catch (err) {
+        console.warn('[GenerationController] Failed to track Claude usage:', err);
+      }
+    }
+
     this.broadcast({
       type: 'chat:response',
       requestId: result.requestId,
@@ -468,6 +543,7 @@ export class GenerationController extends BaseController {
    * Handle POST /internal/complete-variant HTTP request
    * Updates a placeholder variant with generated images.
    * Called by GenerationWorkflow when generation succeeds.
+   * Tracks usage for successful generations.
    */
   async httpCompleteVariant(data: {
     variantId: string;
@@ -492,6 +568,30 @@ export class GenerationController extends BaseController {
 
     if (!variant) {
       throw new NotFoundError('Variant not found');
+    }
+
+    // Track usage for successful generation
+    if (this.env.DB && variant.created_by) {
+      try {
+        // Parse recipe to get operation type
+        let operation = 'generate';
+        try {
+          const recipe = JSON.parse(variant.recipe);
+          operation = recipe.type || 'generate';
+        } catch {
+          // Ignore parse errors
+        }
+
+        await trackImageGeneration(
+          this.env.DB,
+          parseInt(variant.created_by),
+          1, // 1 image generated
+          'gemini-3-pro-image-preview',
+          operation
+        );
+      } catch (err) {
+        console.warn('[GenerationController] Failed to track image usage:', err);
+      }
     }
 
     // Broadcast the update

@@ -181,7 +181,11 @@ export type ServerMessage =
   | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   // Vision (describe/compare) response messages
   | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string; usage?: ClaudeUsage }
-  | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage };
+  | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage }
+  // Pre-check error messages (quota/rate limit exceeded)
+  | { type: 'chat:error'; requestId: string; error: string; code: string }
+  | { type: 'generate:error'; requestId: string; error: string; code: string }
+  | { type: 'refine:error'; requestId: string; error: string; code: string };
 
 // ============================================================================
 // Helper Types

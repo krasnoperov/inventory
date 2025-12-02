@@ -64,9 +64,10 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
       });
     } catch (error) {
       console.error(`[ChatWorkflow] Claude API error:`, error);
-      await this.broadcastError(spaceId, requestId, error instanceof Error ? error.message : 'Claude API error');
+      await this.broadcastError(spaceId, requestId, userId, error instanceof Error ? error.message : 'Claude API error');
       return {
         requestId,
+        userId,
         success: false,
         error: error instanceof Error ? error.message : 'Claude API error',
       };
@@ -111,40 +112,14 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
       }));
     });
 
-    // Step 4: Track usage for billing
-    await step.do('track-usage', async () => {
-      if (!this.env.DB) {
-        console.warn('[ChatWorkflow] DB not available, skipping usage tracking');
-        return;
-      }
+    // Note: Usage tracking is done in SpaceDO.httpChatResult() after successful completion
+    // This ensures we only track successful requests and avoids the wrong table issue
 
-      // Import and use UsageService
-      // Note: In workflow context, we need to be careful with DI
-      // For simplicity, we'll do a direct insert here
-      const now = Date.now();
-      const month = new Date(now).toISOString().slice(0, 7); // YYYY-MM
-
-      try {
-        await this.env.DB.prepare(`
-          INSERT INTO usage_records (user_id, service, operation, input_units, output_units, model, month, created_at)
-          VALUES (?, 'claude', 'chat', ?, ?, ?, ?, ?)
-        `).bind(
-          parseInt(userId),
-          claudeResult.usage.inputTokens,
-          claudeResult.usage.outputTokens,
-          'claude-sonnet-4-20250514',
-          month,
-          now
-        ).run();
-      } catch (err) {
-        console.warn('[ChatWorkflow] Failed to track usage:', err);
-      }
-    });
-
-    // Step 5: Broadcast result to WebSocket clients
+    // Step 4: Broadcast result to WebSocket clients
     await step.do('broadcast-result', async () => {
       await this.broadcastResult(spaceId, {
         requestId,
+        userId,
         success: true,
         response: claudeResult.response,
         usage: claudeResult.usage,
@@ -155,6 +130,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
 
     return {
       requestId,
+      userId,
       success: true,
       response: claudeResult.response,
       usage: claudeResult.usage,
@@ -183,7 +159,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
   /**
    * Broadcast error to SpaceDO for WebSocket delivery
    */
-  private async broadcastError(spaceId: string, requestId: string, error: string): Promise<void> {
+  private async broadcastError(spaceId: string, requestId: string, userId: string, error: string): Promise<void> {
     if (!this.env.SPACES_DO) {
       console.warn('[ChatWorkflow] SPACES_DO not available, cannot broadcast error');
       return;
@@ -197,6 +173,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         requestId,
+        userId,
         success: false,
         error,
       }),

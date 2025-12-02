@@ -73,6 +73,11 @@ export class SpaceDO extends DurableObject<Env> {
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.initialized) return;
 
+      // Recover spaceId from DO name if not set (happens after DO restart)
+      if (!this.spaceId) {
+        this.spaceId = this.ctx.id.name ?? this.ctx.id.toString();
+      }
+
       // Initialize schema and run migrations
       const schemaManager = new SchemaManager(this.ctx.storage.sql);
       await schemaManager.initialize();
@@ -147,6 +152,9 @@ export class SpaceDO extends DurableObject<Env> {
       return;
     }
 
+    // Ensure controllers are initialized (DO may have been restarted)
+    await this.ensureInitialized();
+
     try {
       const msg = JSON.parse(message) as ClientMessage;
       const meta = this.getWebSocketMeta(ws);
@@ -169,6 +177,9 @@ export class SpaceDO extends DurableObject<Env> {
    * Handle WebSocket close
    */
   async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+    // Ensure controllers are initialized (DO may have been restarted)
+    await this.ensureInitialized();
+
     const meta = this.getWebSocketMeta(ws);
     this.presenceCtrl.handleDisconnect(meta);
     ws.close(code, reason);
