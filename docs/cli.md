@@ -261,7 +261,7 @@ The state file is a JSON document that captures the entire conversation state:
   "pendingActions": [
     {
       "id": "approval_xyz",
-      "tool": "generate_asset",
+      "tool": "create",
       "params": {
         "name": "Silver Warrior",
         "type": "character",
@@ -293,9 +293,9 @@ The state file is a JSON document that captures the entire conversation state:
 ### What to Check Before Executing
 
 1. **Tool Selection** - Did Claude choose the right tool?
-   - `generate_asset` - Create new asset from scratch
-   - `refine_asset` - Modify existing asset
-   - `combine_assets` - Merge multiple references
+   - `create` - Create new asset (with optional reference images for style guidance)
+   - `refine` - Add a new variant to an existing asset
+   - `combine` - Create new asset by compositing multiple source images
 
 2. **Asset Name & Type** - Are they appropriate?
    ```
@@ -328,7 +328,7 @@ Response type: action
 Message: I'll create an elven archer character with silver hair for you.
 
 Pending actions: 1
-  - generate_asset: Elven Archer
+  - create: Elven Archer
 
 State saved to: ./test/elf.json
 
@@ -336,7 +336,7 @@ $ npm run cli chat show --state ./test/elf.json --section gemini
 
 === GEMINI PROMPTS ===
 
-○ [pending] generate_asset
+○ [pending] create
 
   Model: gemini-2.0-flash-preview-image-generation
 
@@ -360,7 +360,7 @@ Connecting to space space_123...
 
 Executing 1 action(s)...
 
-Executing: generate_asset
+Executing: create
   ID: approval_abc123
   Name: Elven Archer
   Prompt: An elegant elven archer with flowing silver hair...
@@ -423,9 +423,9 @@ Message: I'll create a party of 3 characters for you...
 
 Plan: Create fantasy adventuring party
 Steps: 3
-  1. [generate_asset] Create warrior character
-  2. [generate_asset] Create mage character
-  3. [generate_asset] Create rogue character
+  1. [create] Create warrior character
+  2. [create] Create mage character
+  3. [create] Create rogue character
 ```
 
 ### Local Development

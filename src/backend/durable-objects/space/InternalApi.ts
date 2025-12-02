@@ -57,7 +57,7 @@ export interface InternalApiControllers {
       recipe: string;
       createdBy: string;
       parentVariantIds?: string[];
-      relationType?: 'derived' | 'composed';
+      relationType?: 'refined' | 'combined';
     }): Promise<{ created: boolean; variant: Variant }>;
     httpStar(variantId: string, starred: boolean): Promise<unknown>;
   };
@@ -67,7 +67,7 @@ export interface InternalApiControllers {
     httpAddLineage(data: {
       parentVariantId: string;
       childVariantId: string;
-      relationType: 'derived' | 'composed' | 'spawned';
+      relationType: 'refined' | 'combined' | 'spawned';
     }): Promise<unknown>;
     httpSever(lineageId: string): Promise<void>;
   };

@@ -327,7 +327,7 @@ export function VariantCanvas({
     // Create edges from lineage (parent -> child)
     // Include edges where both endpoints exist (including ghost nodes)
     const edges: Edge[] = lineage
-      .filter(l => l.relation_type === 'derived' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
+      .filter(l => l.relation_type === 'refined' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
       .map(l => {
         const isFromGhost = ghostVariantIds.has(l.parent_variant_id);
         return {
@@ -347,19 +347,19 @@ export function VariantCanvas({
             width: 14,
             height: 14,
           },
-          label: isFromGhost ? 'spawned' : 'derived',
+          label: isFromGhost ? 'spawned' : 'refined',
           labelStyle: { fontSize: 9, fill: 'var(--color-text-muted)' },
           labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
         };
       });
 
-    // Add composed edges with different style
-    const composedEdges: Edge[] = lineage
-      .filter(l => l.relation_type === 'composed' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
+    // Add combined edges with different style
+    const combinedEdges: Edge[] = lineage
+      .filter(l => l.relation_type === 'combined' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
       .map(l => {
         const isFromGhost = ghostVariantIds.has(l.parent_variant_id);
         return {
-          id: `${l.parent_variant_id}-${l.child_variant_id}-composed`,
+          id: `${l.parent_variant_id}-${l.child_variant_id}-combined`,
           source: l.parent_variant_id,
           target: l.child_variant_id,
           type: 'smoothstep',
@@ -375,7 +375,7 @@ export function VariantCanvas({
             width: 14,
             height: 14,
           },
-          label: 'composed',
+          label: 'combined',
           labelStyle: { fontSize: 9, fill: 'var(--color-primary)' },
           labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
         };
@@ -406,7 +406,7 @@ export function VariantCanvas({
         labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
       }));
 
-    const allEdges = [...edges, ...composedEdges, ...spawnedEdges];
+    const allEdges = [...edges, ...combinedEdges, ...spawnedEdges];
 
     // Apply layout
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(

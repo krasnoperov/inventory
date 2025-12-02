@@ -61,7 +61,7 @@ describe('Lineage Graph', () => {
           id: 'l1',
           parent_variant_id: 'v1',
           child_variant_id: 'v2',
-          relation_type: 'derived',
+          relation_type: 'refined',
           severed: 0,
           created_at: 1000,
         },
@@ -93,7 +93,7 @@ describe('Lineage Graph', () => {
           id: 'l1',
           parent_variant_id: 'v1',
           child_variant_id: 'v2',
-          relation_type: 'derived',
+          relation_type: 'refined',
           severed: 0,
           created_at: 1000,
         },
@@ -119,18 +119,18 @@ describe('Lineage Graph', () => {
       // Graph: v1 -> v2, v1 -> v3, v2 -> v4
       const lineageData: Record<string, LineageRow[]> = {
         v1: [
-          { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'derived', severed: 0, created_at: 1000 },
-          { id: 'l2', parent_variant_id: 'v1', child_variant_id: 'v3', relation_type: 'derived', severed: 0, created_at: 1001 },
+          { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'refined', severed: 0, created_at: 1000 },
+          { id: 'l2', parent_variant_id: 'v1', child_variant_id: 'v3', relation_type: 'refined', severed: 0, created_at: 1001 },
         ],
         v2: [
-          { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'derived', severed: 0, created_at: 1000 },
-          { id: 'l3', parent_variant_id: 'v2', child_variant_id: 'v4', relation_type: 'derived', severed: 0, created_at: 1002 },
+          { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'refined', severed: 0, created_at: 1000 },
+          { id: 'l3', parent_variant_id: 'v2', child_variant_id: 'v4', relation_type: 'refined', severed: 0, created_at: 1002 },
         ],
         v3: [
-          { id: 'l2', parent_variant_id: 'v1', child_variant_id: 'v3', relation_type: 'derived', severed: 0, created_at: 1001 },
+          { id: 'l2', parent_variant_id: 'v1', child_variant_id: 'v3', relation_type: 'refined', severed: 0, created_at: 1001 },
         ],
         v4: [
-          { id: 'l3', parent_variant_id: 'v2', child_variant_id: 'v4', relation_type: 'derived', severed: 0, created_at: 1002 },
+          { id: 'l3', parent_variant_id: 'v2', child_variant_id: 'v4', relation_type: 'refined', severed: 0, created_at: 1002 },
         ],
       };
 
@@ -151,7 +151,7 @@ describe('Lineage Graph', () => {
     test('deduplicates lineage entries', async () => {
       // Same lineage returned from multiple queries
       const lineage: LineageRow[] = [
-        { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'derived', severed: 0, created_at: 1000 },
+        { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'refined', severed: 0, created_at: 1000 },
       ];
 
       const deps = createMockDeps(
@@ -170,7 +170,7 @@ describe('Lineage Graph', () => {
 
     test('converts severed boolean correctly', async () => {
       const lineage: LineageRow[] = [
-        { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'derived', severed: 1, created_at: 1000 },
+        { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'refined', severed: 1, created_at: 1000 },
       ];
 
       const deps = createMockDeps(
@@ -190,12 +190,12 @@ describe('Lineage Graph', () => {
       // Artificial cycle: v1 -> v2 -> v1
       const lineageData: Record<string, LineageRow[]> = {
         v1: [
-          { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'derived', severed: 0, created_at: 1000 },
-          { id: 'l2', parent_variant_id: 'v2', child_variant_id: 'v1', relation_type: 'derived', severed: 0, created_at: 1001 },
+          { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'refined', severed: 0, created_at: 1000 },
+          { id: 'l2', parent_variant_id: 'v2', child_variant_id: 'v1', relation_type: 'refined', severed: 0, created_at: 1001 },
         ],
         v2: [
-          { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'derived', severed: 0, created_at: 1000 },
-          { id: 'l2', parent_variant_id: 'v2', child_variant_id: 'v1', relation_type: 'derived', severed: 0, created_at: 1001 },
+          { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'refined', severed: 0, created_at: 1000 },
+          { id: 'l2', parent_variant_id: 'v2', child_variant_id: 'v1', relation_type: 'refined', severed: 0, created_at: 1001 },
         ],
       };
 

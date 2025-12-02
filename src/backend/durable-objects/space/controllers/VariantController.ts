@@ -69,7 +69,7 @@ export class VariantController extends BaseController {
     recipe: string;
     createdBy: string;
     parentVariantIds?: string[];
-    relationType?: 'derived' | 'composed';
+    relationType?: 'refined' | 'combined';
   }): Promise<{ created: boolean; variant: Variant }> {
     return this.applyVariant(data);
   }
@@ -107,7 +107,7 @@ export class VariantController extends BaseController {
     recipe: string;
     createdBy: string;
     parentVariantIds?: string[];
-    relationType?: 'derived' | 'composed';
+    relationType?: 'refined' | 'combined';
   }): Promise<{ created: boolean; variant: Variant }> {
     // Check if variant already exists (idempotency via workflowId/jobId)
     const existing = await this.repo.getVariantByWorkflowId(data.jobId);
@@ -158,7 +158,7 @@ export class VariantController extends BaseController {
 
     // Create lineage records if parent variants specified
     if (data.parentVariantIds && data.parentVariantIds.length > 0) {
-      const relationType = data.relationType || 'derived';
+      const relationType = data.relationType || 'refined';
       for (const parentId of data.parentVariantIds) {
         const lineage = await this.repo.createLineage({
           id: crypto.randomUUID(),

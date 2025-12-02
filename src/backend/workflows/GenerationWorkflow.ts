@@ -4,7 +4,7 @@
  * Flow (per architecture.md):
  * 1. SpaceDO creates placeholder variant (status='pending') before triggering workflow
  * 2. Workflow updates variant to 'processing' via DO internal endpoint
- * 3. Workflow fetches source images from R2 (for derive/compose)
+ * 3. Workflow fetches source images from R2 (for refine/combine operations)
  * 4. Workflow calls Gemini API with retries
  * 5. Workflow uploads result to R2 (full + thumbnail)
  * 6. Workflow calls DO /internal/complete-variant → status='completed'
@@ -54,7 +54,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       await this.updateVariantStatus(spaceId, jobId, 'processing');
     });
 
-    // Step 2: Fetch source images (if derive/compose)
+    // Step 2: Fetch source images (for refine/combine operations)
     let sourceImages: ImageInput[] = [];
     if (sourceImageKeys && sourceImageKeys.length > 0) {
       sourceImages = await step.do('fetch-sources', {

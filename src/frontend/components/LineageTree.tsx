@@ -16,7 +16,7 @@ interface VariantMinimal {
 
 interface LineageNode {
   variant: VariantMinimal;
-  relation_type: 'derived' | 'composed' | 'spawned';
+  relation_type: 'refined' | 'combined' | 'spawned';
   severed?: boolean;
   lineage_id?: string;  // For sever action
 }
@@ -36,7 +36,7 @@ interface GraphLineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: 'derived' | 'composed' | 'spawned';
+  relation_type: 'refined' | 'combined' | 'spawned';
   severed: boolean;
   created_at: number;
 }
@@ -53,8 +53,8 @@ interface LineageTreeProps {
 // Helper to get display text for relation type - user-friendly labels
 const getRelationLabel = (type: string): string => {
   switch (type) {
-    case 'derived': return 'Refined';
-    case 'composed': return 'Composed';
+    case 'refined': return 'Refined';
+    case 'combined': return 'Combined';
     case 'spawned': return 'Forked';
     default: return type;
   }

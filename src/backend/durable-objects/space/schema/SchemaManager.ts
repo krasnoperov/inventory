@@ -66,7 +66,7 @@ export class SchemaManager {
         id TEXT PRIMARY KEY,
         parent_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
         child_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
-        relation_type TEXT NOT NULL CHECK (relation_type IN ('derived', 'composed', 'spawned')),
+        relation_type TEXT NOT NULL CHECK (relation_type IN ('refined', 'combined', 'spawned')),
         severed INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL
       );

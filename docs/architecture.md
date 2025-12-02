@@ -81,9 +81,9 @@ CREATE TABLE variants (
 
 - **Asset Hierarchy**: `parent_asset_id` enables tree structures. User can drag-to-reparent.
 - **Variant Lineage**: `lineage` table tracks generation history. Immutable for audit.
-  - `derived`: Single source refined
-  - `composed`: Multiple sources combined
-  - `spawned`: Variant forked to new asset
+  - `refined`: Single source refined (refine operation)
+  - `combined`: Multiple sources combined (combine operation)
+  - `spawned`: Variant forked to new asset (fork operation)
 
 ### Real-Time Sync
 

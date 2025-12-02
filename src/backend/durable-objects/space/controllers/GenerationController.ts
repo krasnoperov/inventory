@@ -195,7 +195,7 @@ export class GenerationController extends BaseController {
 
     // Create lineage records for parent variants
     if (parentVariantIds.length > 0) {
-      const relationType = parentVariantIds.length === 1 ? 'derived' : 'composed';
+      const relationType = parentVariantIds.length === 1 ? 'refined' : 'combined';
       for (const parentId of parentVariantIds) {
         const lineage = await this.repo.createLineage({
           id: crypto.randomUUID(),
@@ -333,7 +333,7 @@ export class GenerationController extends BaseController {
     });
 
     // Create lineage records for parent variants
-    const relationType = parentVariantIds.length === 1 ? 'derived' : 'composed';
+    const relationType = parentVariantIds.length === 1 ? 'refined' : 'combined';
     for (const parentId of parentVariantIds) {
       const lineage = await this.repo.createLineage({
         id: crypto.randomUUID(),

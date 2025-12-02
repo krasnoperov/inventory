@@ -46,7 +46,7 @@ describe('Image Reference Utilities', () => {
         image_key: 'images/space1/var1.png',
         thumb_key: 'thumbs/space1/var1.png',
         recipe: JSON.stringify({
-          type: 'derive',
+          operation: 'refine',
           inputs: [{ imageKey: 'images/space1/source.png' }],
         }),
       });
@@ -61,7 +61,7 @@ describe('Image Reference Utilities', () => {
         image_key: 'img1',
         thumb_key: 'thumb1',
         recipe: JSON.stringify({
-          type: 'compose',
+          operation: 'combine',
           inputs: [
             { imageKey: 'ref1' },
             { imageKey: 'ref2' },
@@ -102,7 +102,7 @@ describe('Image Reference Utilities', () => {
       const keys = getVariantImageKeys({
         image_key: 'img',
         thumb_key: 'thumb',
-        recipe: JSON.stringify({ type: 'generate', prompt: 'test' }),
+        recipe: JSON.stringify({ operation: 'create', prompt: 'test' }),
       });
       assert.deepStrictEqual(keys, ['img', 'thumb']);
     });
@@ -134,9 +134,9 @@ describe('Image Reference Utilities', () => {
 
   describe('parseRecipe', () => {
     test('parses valid JSON', () => {
-      const recipe = parseRecipe(JSON.stringify({ type: 'generate', prompt: 'test' }));
+      const recipe = parseRecipe(JSON.stringify({ operation: 'create', prompt: 'test' }));
       assert(recipe !== null);
-      assert.strictEqual(recipe!.type, 'generate');
+      assert.strictEqual(recipe!.operation, 'create');
       assert.strictEqual(recipe!.prompt, 'test');
     });
 
@@ -153,12 +153,12 @@ describe('Image Reference Utilities', () => {
     test('parses recipe with inputs', () => {
       const recipe = parseRecipe(
         JSON.stringify({
-          type: 'derive',
+          operation: 'refine',
           inputs: [{ variantId: 'v1', imageKey: 'key1' }],
         })
       );
       assert(recipe !== null);
-      assert.strictEqual(recipe!.type, 'derive');
+      assert.strictEqual(recipe!.operation, 'refine');
       assert(Array.isArray(recipe!.inputs));
       assert.strictEqual(recipe!.inputs!.length, 1);
     });

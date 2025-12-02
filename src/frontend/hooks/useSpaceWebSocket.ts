@@ -66,7 +66,7 @@ export interface Lineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: 'derived' | 'composed' | 'spawned';
+  relation_type: 'refined' | 'combined' | 'spawned';
   severed: boolean;  // User can cut the historical link
   created_at: number;
 }
@@ -213,12 +213,12 @@ export interface JobStatus {
   // Context for displaying meaningful job info
   assetId?: string;
   assetName?: string;
-  // Job types:
-  // - 'generate': Fresh AI generation (no references)
-  // - 'derive': AI generation for new variant or new asset with single reference
-  // - 'compose': AI generation combining multiple references
+  // Operation types (maps to tools, not Gemini API):
+  // - 'create': Create new asset (with optional references for style guidance)
+  // - 'refine': Add variant to existing asset (with one main ref + optional extras)
+  // - 'combine': Create new asset by compositing multiple sources
   // Note: 'fork' is synchronous copy, doesn't create a job
-  jobType?: 'generate' | 'derive' | 'compose';
+  operation?: 'create' | 'refine' | 'combine';
   prompt?: string;
 }
 
@@ -226,7 +226,7 @@ export interface JobStatus {
 export interface JobContext {
   assetId?: string;
   assetName?: string;
-  jobType?: 'generate' | 'derive' | 'compose';
+  operation?: 'create' | 'refine' | 'combine';
   prompt?: string;
 }
 

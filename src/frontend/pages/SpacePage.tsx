@@ -414,11 +414,11 @@ export default function SpacePage() {
         {jobs.size > 0 && (
           <div className={styles.jobsOverlay}>
             {Array.from(jobs.values()).map((job) => {
-              const jobTypeLabel = {
-                generate: 'Generating',
-                derive: 'Creating variant',
-                compose: 'Composing',
-              }[job.jobType || 'generate'] || 'Processing';
+              const operationLabel = {
+                create: 'Creating',
+                refine: 'Refining',
+                combine: 'Combining',
+              }[job.operation || 'create'] || 'Processing';
 
               return (
                 <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
@@ -430,8 +430,8 @@ export default function SpacePage() {
                   </div>
                   <div className={styles.jobInfo}>
                     <span className={styles.jobTitle}>
-                      {job.status === 'pending' && `${jobTypeLabel} queued`}
-                      {job.status === 'processing' && `${jobTypeLabel}...`}
+                      {job.status === 'pending' && `${operationLabel} queued`}
+                      {job.status === 'processing' && `${operationLabel}...`}
                       {job.status === 'completed' && 'Done'}
                       {job.status === 'failed' && 'Failed'}
                     </span>

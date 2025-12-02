@@ -216,14 +216,14 @@ describe('SpaceRepository', () => {
 
     test('createLineage inserts with correct values', async () => {
       mockSql.setMockResult('WHERE id = ?', [
-        { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'derived' },
+        { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'refined' },
       ]);
 
       await repo.createLineage({
         id: 'l1',
         parentVariantId: 'v1',
         childVariantId: 'v2',
-        relationType: 'derived',
+        relationType: 'refined',
       });
 
       const insertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO lineage'));
@@ -231,7 +231,7 @@ describe('SpaceRepository', () => {
       assert(insertQuery.bindings.includes('l1'));
       assert(insertQuery.bindings.includes('v1'));
       assert(insertQuery.bindings.includes('v2'));
-      assert(insertQuery.bindings.includes('derived'));
+      assert(insertQuery.bindings.includes('refined'));
     });
   });
 
