@@ -34,7 +34,8 @@ interface GenerationRecipe {
   assetType: string;
   aspectRatio?: string;
   sourceImageKeys?: string[];
-  type: 'generate' | 'derive' | 'compose';
+  /** Operation type matching user-facing tool name */
+  operation: 'create' | 'refine' | 'combine';
 }
 
 export class GenerationController extends BaseController {
@@ -154,17 +155,17 @@ export class GenerationController extends BaseController {
     this.broadcast({ type: 'asset:created', asset });
 
     // Resolve reference assets to image keys and variant IDs
-    const { sourceImageKeys, parentVariantIds, jobType } = await this.resolveReferences(
+    const { sourceImageKeys, parentVariantIds } = await this.resolveReferences(
       msg.referenceAssetIds || []
     );
 
     // Build recipe for storage (enables retry)
     const recipe: GenerationRecipe = {
-      prompt: msg.prompt || `Generate a ${msg.assetType} named "${msg.name}"`,
+      prompt: msg.prompt || `Create a ${msg.assetType} named "${msg.name}"`,
       assetType: msg.assetType,
       aspectRatio: msg.aspectRatio,
       sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
-      type: jobType,
+      operation: 'create',
     };
 
     // Create placeholder variant (status=pending, no images)
@@ -219,7 +220,7 @@ export class GenerationController extends BaseController {
       aspectRatio: msg.aspectRatio,
       sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
       parentVariantIds: parentVariantIds.length > 0 ? parentVariantIds : undefined,
-      type: jobType,
+      operation: 'create',
     };
 
     // Trigger the workflow
@@ -234,7 +235,7 @@ export class GenerationController extends BaseController {
       this.broadcast({ type: 'variant:updated', variant: updatedVariant });
     }
 
-    console.log(`[GenerationController] Started GenerationWorkflow instance: ${instance.id}`);
+    console.log(`[GenerationController] [create] Started workflow for "${msg.name}" (${sourceImageKeys.length} refs)`);
   }
 
   /**
@@ -292,19 +293,14 @@ export class GenerationController extends BaseController {
       throw new ValidationError('Source variant has no image');
     }
 
-    // Resolve additional references
+    // Resolve additional references (for style guidance)
     let sourceImageKeys = [sourceVariant.image_key];
     let parentVariantIds: string[] = [sourceVariantId];
-    let jobType: 'derive' | 'compose' = 'derive';
 
     if (msg.referenceAssetIds && msg.referenceAssetIds.length > 0) {
       const additionalRefs = await this.resolveReferences(msg.referenceAssetIds);
       sourceImageKeys = [...sourceImageKeys, ...additionalRefs.sourceImageKeys];
       parentVariantIds = [...parentVariantIds, ...additionalRefs.parentVariantIds];
-
-      if (sourceImageKeys.length > 1) {
-        jobType = 'compose';
-      }
     }
 
     // Build recipe for storage (enables retry)
@@ -313,7 +309,7 @@ export class GenerationController extends BaseController {
       assetType: asset.type,
       aspectRatio: msg.aspectRatio,
       sourceImageKeys,
-      type: jobType,
+      operation: 'refine',
     };
 
     // Create placeholder variant (status=pending, no images)
@@ -362,7 +358,7 @@ export class GenerationController extends BaseController {
       sourceVariantId,
       sourceImageKeys,
       parentVariantIds,
-      type: jobType,
+      operation: 'refine',
     };
 
     // Trigger the workflow
@@ -377,7 +373,8 @@ export class GenerationController extends BaseController {
       this.broadcast({ type: 'variant:updated', variant: updatedVariant });
     }
 
-    console.log(`[GenerationController] Started GenerationWorkflow (refine) instance: ${instance.id}`);
+    const extraRefs = sourceImageKeys.length - 1; // Subtract 1 for source variant
+    console.log(`[GenerationController] [refine] Started workflow for "${asset.name}" (${extraRefs} extra refs)`);
   }
 
   /**
@@ -440,7 +437,7 @@ export class GenerationController extends BaseController {
       assetType: recipe.assetType,
       aspectRatio: recipe.aspectRatio,
       sourceImageKeys: recipe.sourceImageKeys,
-      type: recipe.type,
+      operation: recipe.operation,
     };
 
     // Trigger the workflow
@@ -455,7 +452,7 @@ export class GenerationController extends BaseController {
       this.broadcast({ type: 'variant:updated', variant: updatedVariant });
     }
 
-    console.log(`[GenerationController] Retrying variant ${variantId}, workflow instance: ${instance.id}`);
+    console.log(`[GenerationController] [${recipe.operation}] Retrying variant ${variantId}`);
   }
 
   // ==========================================================================
@@ -552,10 +549,10 @@ export class GenerationController extends BaseController {
     if (this.env.DB && variant.created_by) {
       try {
         // Parse recipe to get operation type
-        let operation = 'generate';
+        let operation = 'create';
         try {
           const recipe = JSON.parse(variant.recipe);
-          operation = recipe.type || 'generate';
+          operation = recipe.operation || 'create';
         } catch {
           // Ignore parse errors
         }
@@ -611,7 +608,6 @@ export class GenerationController extends BaseController {
   ): Promise<{
     sourceImageKeys: string[];
     parentVariantIds: string[];
-    jobType: 'generate' | 'derive' | 'compose';
   }> {
     const sourceImageKeys: string[] = [];
     const parentVariantIds: string[] = [];
@@ -627,15 +623,7 @@ export class GenerationController extends BaseController {
       }
     }
 
-    // Determine job type based on number of references
-    let jobType: 'generate' | 'derive' | 'compose' = 'generate';
-    if (sourceImageKeys.length === 1) {
-      jobType = 'derive';
-    } else if (sourceImageKeys.length > 1) {
-      jobType = 'compose';
-    }
-
-    return { sourceImageKeys, parentVariantIds, jobType };
+    return { sourceImageKeys, parentVariantIds };
   }
 
   /**

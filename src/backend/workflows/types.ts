@@ -71,8 +71,11 @@ export interface ChatWorkflowOutput {
 // GENERATION WORKFLOW TYPES
 // ============================================================================
 
-/** Job type for generation */
-export type GenerationJobType = 'generate' | 'derive' | 'compose';
+/**
+ * Operation type - matches user-facing tool names
+ * Used throughout the pipeline for clarity in logs and tracking
+ */
+export type OperationType = 'create' | 'refine' | 'combine';
 
 /** Input to GenerationWorkflow - triggered by SpaceDO on generate:request */
 export interface GenerationWorkflowInput {
@@ -102,8 +105,8 @@ export interface GenerationWorkflowInput {
   sourceImageKeys?: string[];
   /** Parent variant IDs for lineage tracking */
   parentVariantIds?: string[];
-  /** Generation type */
-  type: GenerationJobType;
+  /** Operation type (create/refine/combine) - matches user-facing tool name */
+  operation: OperationType;
 }
 
 /** Variant data returned after generation */

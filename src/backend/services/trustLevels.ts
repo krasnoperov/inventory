@@ -23,7 +23,7 @@ export interface ToolTrustConfig {
  * - Local state changes: tray manipulation, prompt setting
  *
  * GENERATING tools (autoExecute: false):
- * - AI image generation: generate, refine, combine
+ * - AI image generation: create, refine, combine
  * - Consumes credits, irreversible
  *
  * PLANNING tools (autoExecute: false):
@@ -74,10 +74,10 @@ export const TOOL_TRUST_MAP: Record<string, ToolTrustConfig> = {
 
   // === GENERATING: Requires approval (consumes credits) ===
 
-  generate: {
+  create: {
     level: 'generating',
     autoExecute: false,
-    description: 'Generate new asset from prompt',
+    description: 'Create new asset from prompt',
   },
   refine: {
     level: 'generating',

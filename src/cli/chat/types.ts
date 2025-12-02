@@ -203,7 +203,7 @@ export function buildGeminiRequest(approval: PendingApproval): GeminiRequest | u
   const { tool, params } = approval;
 
   // Only generating tools have Gemini requests
-  if (!['generate', 'refine', 'combine'].includes(tool)) {
+  if (!['create', 'refine', 'combine'].includes(tool)) {
     return undefined;
   }
 
@@ -234,7 +234,7 @@ export function buildGeminiRequestFromStep(step: PlanStep): GeminiRequest | unde
   const { action, params } = step;
 
   // Only generating actions have Gemini requests
-  if (!['generate', 'refine', 'combine'].includes(action)) {
+  if (!['create', 'refine', 'combine'].includes(action)) {
     return undefined;
   }
 
@@ -315,14 +315,22 @@ export function buildForgeContextFromStep(
     })
     .filter((s): s is NonNullable<typeof s> => s !== null);
 
-  // Determine operation based on step action and refs
+  // Determine ForgeContext operation based on step action and refs
+  // Note: ForgeContext.operation is UI state, step.action is tool name
   let operation: ForgeContext['operation'] = 'generate';
   if (step.action === 'refine') {
     operation = 'refine';
-  } else if (step.action === 'combine' || slots.length > 1) {
+  } else if (step.action === 'combine') {
     operation = 'combine';
-  } else if (slots.length === 1) {
-    operation = 'refine';
+  } else if (step.action === 'create') {
+    // 'create' tool maps to UI operation based on ref count
+    if (slots.length === 0) {
+      operation = 'generate'; // text-to-image
+    } else if (slots.length === 1) {
+      operation = 'create'; // transform with 1 ref
+    } else {
+      operation = 'combine'; // multiple refs
+    }
   }
 
   return {

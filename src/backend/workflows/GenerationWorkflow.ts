@@ -43,10 +43,11 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       sourceVariantId,
       sourceImageKeys,
       parentVariantIds,
-      type: jobType,
+      operation,
     } = event.payload;
 
-    console.log(`[GenerationWorkflow] Starting workflow for variantId: ${jobId}, type: ${jobType}`);
+    const refCount = sourceImageKeys?.length || 0;
+    console.log(`[GenerationWorkflow] [${operation}] Starting for "${assetName}" (${refCount} refs)`);
 
     // Step 1: Update variant status to processing via DO
     await step.do('update-variant-processing', async () => {
@@ -100,8 +101,14 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         const modelToUse = (model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image') || 'gemini-3-pro-image-preview';
         const aspectRatioToUse = (aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9') || '1:1';
 
-        if (jobType === 'derive' && sourceImages.length === 1) {
-          // Edit mode: single source image
+        // Select Gemini API based on operation + ref count:
+        // - create (0 refs) → generate() - pure text-to-image
+        // - create (1+ refs) → compose() - style transfer / extraction
+        // - refine (1 source) → edit() - single image edit
+        // - refine (source + extras) → compose() - edit with style refs
+        // - combine → compose() - always multiple sources
+        if (operation === 'refine' && sourceImages.length === 1) {
+          console.log(`[GenerationWorkflow] [${operation}] Using edit() API`);
           return nanoBanana.edit({
             image: sourceImages[0],
             prompt,
@@ -109,7 +116,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             aspectRatio: aspectRatioToUse,
           });
         } else if (sourceImages.length > 0) {
-          // Compose mode: multiple source images
+          console.log(`[GenerationWorkflow] [${operation}] Using compose() API with ${sourceImages.length} images`);
           return nanoBanana.compose({
             images: sourceImages,
             prompt,
@@ -117,7 +124,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             aspectRatio: aspectRatioToUse,
           });
         } else {
-          // Generate mode: text-to-image
+          console.log(`[GenerationWorkflow] [${operation}] Using generate() API`);
           return nanoBanana.generate({
             prompt,
             model: modelToUse,
@@ -257,7 +264,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     // Note: Usage tracking is handled by SpaceDO when completing the variant
     // The complete-variant endpoint broadcasts variant:updated to all connected clients
 
-    console.log(`[GenerationWorkflow] Completed workflow for variantId: ${variantId}`);
+    console.log(`[GenerationWorkflow] [${operation}] Completed for "${assetName}" → variantId: ${variantId}`);
 
     return {
       requestId,

@@ -3,7 +3,7 @@
  *
  * Usage: npm run cli chat advance --state <file> [--all]
  *
- * Uses WebSocket for generation operations (generate, refine, combine)
+ * Uses WebSocket for generation operations (create, refine, combine)
  * since REST endpoints have been removed in favor of WebSocket messages.
  */
 
@@ -252,7 +252,7 @@ async function executeStep(
 
   try {
     switch (action) {
-      case 'generate': {
+      case 'create': {
         const result = await wsClient.sendGenerateRequest({
           name: params.name as string,
           assetType: params.type as string,

@@ -3,7 +3,7 @@
  *
  * Usage: npm run cli chat execute --state <file>
  *
- * Uses WebSocket for generation operations (generate, refine, combine)
+ * Uses WebSocket for generation operations (create, refine, combine)
  * since REST endpoints have been removed in favor of WebSocket messages.
  */
 
@@ -24,7 +24,7 @@ async function executeActionViaWebSocket(
 
   try {
     switch (tool) {
-      case 'generate': {
+      case 'create': {
         const result = await wsClient.sendGenerateRequest({
           name: params.name as string,
           assetType: params.type as string,
@@ -204,7 +204,7 @@ export async function handleExecute(parsed: ParsedArgs): Promise<void> {
       }
 
       // Log reference info if present (backend resolves asset IDs to variant IDs)
-      if (action.tool === 'generate' && action.params.referenceAssetIds) {
+      if (action.tool === 'create' && action.params.referenceAssetIds) {
         const refIds = action.params.referenceAssetIds as string[];
         console.log(`  Reference assets: ${refIds.length} (backend resolves to variants)`);
       }

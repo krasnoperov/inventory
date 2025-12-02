@@ -216,7 +216,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         return `Set prompt: "${newPrompt.slice(0, 50)}${newPrompt.length > 50 ? '...' : ''}"`;
       }
 
-      case 'generate': {
+      case 'create': {
         if (!onGenerateAsset) return 'Generation not available';
 
         // Validate parentAssetId exists
