@@ -126,7 +126,7 @@ npm run cli chat show --state ./test/mage.json --section artifacts
 
 ### `execute` - Execute Pending Actions
 
-Executes pending actions (tool calls) and waits for generation jobs to complete.
+Executes pending actions (tool calls) via WebSocket and waits for generation to complete.
 
 ```bash
 npm run cli chat execute --state <file> [options]
@@ -137,8 +137,8 @@ npm run cli chat execute --state <file> [options]
 |----------|----------|-------------|
 | `--state <file>` | Yes | Path to state file |
 | `--action <id>` | No | Execute only specific action by ID |
-| `--wait` | No | Wait for jobs to complete (default: `true`) |
-| `--timeout <ms>` | No | Max wait time in milliseconds (default: `120000`) |
+| `--env <env>` | No | `production`, `stage`, or `local` (default: `stage`) |
+| `--local` | No | Shortcut for `--env local` |
 
 **Examples:**
 ```bash
@@ -148,8 +148,8 @@ npm run cli chat execute --state ./test/mage.json
 # Execute specific action only
 npm run cli chat execute --state ./test/mage.json --action approval_abc123
 
-# Don't wait for generation to complete
-npm run cli chat execute --state ./test/mage.json --wait false
+# Execute against local dev server
+npm run cli chat execute --state ./test/mage.json --local
 ```
 
 ## State File Format
@@ -275,14 +275,19 @@ $ npm run cli chat show --state ./test/elf.json --section gemini
 # Looks good! Execute it:
 $ npm run cli chat execute --state ./test/elf.json
 
+Connecting to space space_123...
+[WebSocketClient] Connected to space space_123
+
+Executing 1 action(s)...
+
 Executing: generate_asset
   ID: approval_abc123
   Name: Elven Archer
   Prompt: An elegant elven archer with flowing silver hair...
-  Job: job_xyz789
-  Waiting for completion...
+  Waiting for generation to complete...
   ✓ Completed
-  Variant: variant_def456
+  Variant: abc123-def456-...
+  Asset: xyz789-...
 
 State updated: ./test/elf.json
 ```
