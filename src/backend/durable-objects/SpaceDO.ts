@@ -73,14 +73,19 @@ export class SpaceDO extends DurableObject<Env> {
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.initialized) return;
 
-      // Recover spaceId from DO name if not set (happens after DO restart)
-      if (!this.spaceId) {
-        this.spaceId = this.ctx.id.name ?? this.ctx.id.toString();
-      }
-
-      // Initialize schema and run migrations
+      // Initialize schema first (needed for spaceId recovery)
       const schemaManager = new SchemaManager(this.ctx.storage.sql);
       await schemaManager.initialize();
+
+      // Recover spaceId from storage if not set (happens after DO restart)
+      if (!this.spaceId) {
+        this.spaceId = await this.recoverSpaceId();
+      }
+
+      // Store spaceId for future recovery (first access)
+      if (this.spaceId) {
+        await this.storeSpaceId(this.spaceId);
+      }
 
       // Initialize repository
       this.repo = new SpaceRepository(this.ctx.storage.sql, this.env.IMAGES);
@@ -130,6 +135,7 @@ export class SpaceDO extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
     if (!this.spaceId) {
       this.spaceId = this.extractSpaceId(request);
+      console.log('[SpaceDO] Extracted spaceId from URL:', this.spaceId, 'URL:', request.url);
     }
 
     await this.ensureInitialized();
@@ -331,6 +337,27 @@ export class SpaceDO extends DurableObject<Env> {
         this.send(ws, message);
       }
     }
+  }
+
+  // ============================================================================
+  // SpaceId Persistence (for DO restart recovery)
+  // ============================================================================
+
+  private async storeSpaceId(spaceId: string): Promise<void> {
+    await this.ctx.storage.put('_spaceId', spaceId);
+  }
+
+  private async recoverSpaceId(): Promise<string | null> {
+    const stored = await this.ctx.storage.get<string>('_spaceId');
+    if (stored) {
+      return stored;
+    }
+    // Fallback: try ctx.id.name (works in production, not in local dev)
+    if (this.ctx.id.name) {
+      return this.ctx.id.name;
+    }
+    console.error('[SpaceDO] Cannot recover spaceId - neither storage nor id.name available');
+    return null;
   }
 
 }
