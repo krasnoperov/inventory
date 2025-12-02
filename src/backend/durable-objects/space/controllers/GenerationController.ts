@@ -142,6 +142,15 @@ export class GenerationController extends BaseController {
     this.broadcast({ type: 'variant:created', variant });
     this.broadcast({ type: 'asset:updated', asset });
 
+    // Send generate:started so requestId can be correlated with variantId
+    this.broadcast({
+      type: 'generate:started',
+      requestId: msg.requestId,
+      jobId: variantId,
+      assetId,
+      assetName: msg.name,
+    });
+
     // Create lineage records for parent variants
     if (parentVariantIds.length > 0) {
       const relationType = parentVariantIds.length === 1 ? 'derived' : 'composed';
@@ -260,6 +269,15 @@ export class GenerationController extends BaseController {
 
     // Broadcast variant creation (placeholder)
     this.broadcast({ type: 'variant:created', variant });
+
+    // Send refine:started so requestId can be correlated with variantId
+    this.broadcast({
+      type: 'refine:started',
+      requestId: msg.requestId,
+      jobId: variantId,
+      assetId: msg.assetId,
+      assetName: asset.name,
+    });
 
     // Create lineage records for parent variants
     const relationType = parentVariantIds.length === 1 ? 'derived' : 'composed';

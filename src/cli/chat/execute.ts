@@ -2,20 +2,150 @@
  * Execute Command - Execute pending actions
  *
  * Usage: npm run cli chat execute --state <file>
+ *
+ * Uses WebSocket for generation operations (generate_asset, refine_asset, combine_assets)
+ * since REST endpoints have been removed in favor of WebSocket messages.
  */
 
 import type { ParsedArgs } from '../lib/types';
-import { ApiClient } from './api-client';
+import { WebSocketClient } from '../lib/websocket-client';
 import { loadState, saveStateWithLog } from './state';
-import type { ExecutedAction } from './types';
+import type { ActionResult, ExecutedAction, PendingAction } from './types';
 import { getNextStepNumber, formatExecuteStep, type LogEntry } from './logger';
+
+/**
+ * Execute a single action via WebSocket
+ */
+async function executeActionViaWebSocket(
+  wsClient: WebSocketClient,
+  action: PendingAction
+): Promise<ActionResult> {
+  const { tool, params } = action;
+
+  try {
+    switch (tool) {
+      case 'generate_asset': {
+        const result = await wsClient.sendGenerateRequest({
+          name: params.name as string,
+          assetType: params.type as string,
+          prompt: params.prompt as string,
+          referenceAssetIds: params.referenceAssetIds as string[] | undefined,
+          aspectRatio: params.aspectRatio as string | undefined,
+        });
+
+        if (result.success && result.variant) {
+          return {
+            success: true,
+            assetId: result.variant.asset_id,
+            assetName: params.name as string,
+            variantId: result.variant.id,
+            jobId: result.jobId,
+            jobResult: {
+              status: 'completed',
+              variantId: result.variant.id,
+            },
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error || 'Generation failed',
+            jobId: result.jobId,
+            jobResult: {
+              status: 'failed',
+              error: result.error || 'Generation failed',
+            },
+          };
+        }
+      }
+
+      case 'refine_asset': {
+        const assetId = params.assetId as string;
+        const result = await wsClient.sendRefineRequest({
+          assetId,
+          prompt: params.prompt as string,
+          sourceVariantId: params.sourceVariantId as string | undefined,
+          referenceAssetIds: params.referenceAssetIds as string[] | undefined,
+          aspectRatio: params.aspectRatio as string | undefined,
+        });
+
+        if (result.success && result.variant) {
+          return {
+            success: true,
+            assetId,
+            variantId: result.variant.id,
+            jobId: result.jobId,
+            jobResult: {
+              status: 'completed',
+              variantId: result.variant.id,
+            },
+          };
+        } else {
+          return {
+            success: false,
+            assetId,
+            error: result.error || 'Refinement failed',
+            jobId: result.jobId,
+            jobResult: {
+              status: 'failed',
+              error: result.error || 'Refinement failed',
+            },
+          };
+        }
+      }
+
+      case 'combine_assets': {
+        // Combine is handled like generate with multiple references
+        const result = await wsClient.sendGenerateRequest({
+          name: params.name as string,
+          assetType: params.type as string,
+          prompt: params.prompt as string,
+          referenceAssetIds: params.sourceAssetIds as string[],
+          aspectRatio: params.aspectRatio as string | undefined,
+        });
+
+        if (result.success && result.variant) {
+          return {
+            success: true,
+            assetId: result.variant.asset_id,
+            assetName: params.name as string,
+            variantId: result.variant.id,
+            jobId: result.jobId,
+            jobResult: {
+              status: 'completed',
+              variantId: result.variant.id,
+            },
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error || 'Combination failed',
+            jobId: result.jobId,
+            jobResult: {
+              status: 'failed',
+              error: result.error || 'Combination failed',
+            },
+          };
+        }
+      }
+
+      default:
+        return {
+          success: false,
+          error: `Unknown tool: ${tool}`,
+        };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
 
 export async function handleExecute(parsed: ParsedArgs): Promise<void> {
   // Parse arguments
   const statePath = parsed.options.state;
   const actionId = parsed.options.action;
-  const wait = parsed.options.wait !== 'false'; // Default true
-  const timeout = parseInt(parsed.options.timeout || '120000', 10);
   const isLocal = parsed.options.local === 'true';
   const env = isLocal ? 'local' : (parsed.options.env || 'stage');
 
@@ -52,9 +182,13 @@ export async function handleExecute(parsed: ParsedArgs): Promise<void> {
     return;
   }
 
+  let wsClient: WebSocketClient | null = null;
+
   try {
-    // Create API client
-    const apiClient = await ApiClient.create(env);
+    // Create WebSocket client and connect
+    wsClient = await WebSocketClient.create(env, state.meta.spaceId);
+    console.log(`Connecting to space ${state.meta.spaceId}...`);
+    await wsClient.connect();
 
     console.log(`\nExecuting ${actionsToExecute.length} action(s)...\n`);
 
@@ -75,32 +209,20 @@ export async function handleExecute(parsed: ParsedArgs): Promise<void> {
         console.log(`  Reference assets: ${refIds.length} (backend resolves to variants)`);
       }
 
-      // Execute the action
-      const result = await apiClient.executeAction(state.meta.spaceId, action);
+      // Execute the action via WebSocket
+      console.log(`  Waiting for generation to complete...`);
+      const result = await executeActionViaWebSocket(wsClient, action);
 
-      // Wait for async job if needed
-      if (result.jobId && wait) {
-        console.log(`  Job: ${result.jobId}`);
-        console.log(`  Waiting for completion...`);
-
-        const jobResult = await apiClient.waitForJob(result.jobId, timeout);
-        result.jobResult = jobResult;
-
-        if (jobResult.status === 'completed') {
-          console.log(`  ✓ Completed`);
-          if (jobResult.variantId) {
-            console.log(`  Variant: ${jobResult.variantId}`);
-          }
-        } else {
-          console.log(`  ✗ ${jobResult.status}: ${jobResult.error || 'Unknown error'}`);
+      if (result.success) {
+        console.log(`  ✓ Completed`);
+        if (result.variantId) {
+          console.log(`  Variant: ${result.variantId}`);
         }
-      } else if (result.success) {
-        console.log(`  ✓ Started`);
-        if (result.jobId) {
-          console.log(`  Job: ${result.jobId} (not waiting)`);
+        if (result.assetId) {
+          console.log(`  Asset: ${result.assetId}`);
         }
       } else {
-        console.log(`  ✗ Failed: ${result.error}`);
+        console.log(`  ✗ Failed: ${result.error || 'Unknown error'}`);
       }
 
       // Move to executed
@@ -110,7 +232,7 @@ export async function handleExecute(parsed: ParsedArgs): Promise<void> {
         params: action.params,
         description: action.description,
         geminiRequest: action.geminiRequest,
-        status: result.success && result.jobResult?.status !== 'failed' ? 'completed' : 'failed',
+        status: result.success ? 'completed' : 'failed',
         executedAt: new Date().toISOString(),
         result,
       };
@@ -128,9 +250,9 @@ export async function handleExecute(parsed: ParsedArgs): Promise<void> {
         }
       }
 
-      if (result.jobResult?.variantId) {
+      if (result.variantId) {
         state.artifacts.variants.push({
-          id: result.jobResult.variantId,
+          id: result.variantId,
           assetId: result.assetId || '',
           prompt: action.params.prompt as string,
         });
@@ -139,7 +261,7 @@ export async function handleExecute(parsed: ParsedArgs): Promise<void> {
       if (result.jobId) {
         state.artifacts.jobs.push({
           id: result.jobId,
-          status: result.jobResult?.status || 'pending',
+          status: result.jobResult?.status || 'completed',
           createdAt: new Date().toISOString(),
         });
       }
@@ -210,5 +332,10 @@ export async function handleExecute(parsed: ParsedArgs): Promise<void> {
   } catch (error) {
     console.error('\nError:', error instanceof Error ? error.message : error);
     process.exitCode = 1;
+  } finally {
+    // Always disconnect WebSocket
+    if (wsClient) {
+      wsClient.disconnect();
+    }
   }
 }

@@ -78,29 +78,53 @@ interface ChatResponse {
   error?: string;
 }
 
+/** Variant status lifecycle */
+type VariantStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+/** Variant from backend (placeholder variants architecture) */
+interface Variant {
+  id: string;
+  asset_id: string;
+  workflow_id: string | null;
+  status: VariantStatus;
+  error_message: string | null;
+  image_key: string | null;
+  thumb_key: string | null;
+  recipe: string;
+  starred: boolean;
+  created_by: string;
+  created_at: number;
+  updated_at: number | null;
+}
+
 interface GenerateStarted {
   type: 'generate:started';
   requestId: string;
-  jobId: string;
+  jobId: string; // This is the variantId
   assetId: string;
   assetName: string;
 }
 
+interface RefineStarted {
+  type: 'refine:started';
+  requestId: string;
+  jobId: string; // This is the variantId
+  assetId: string;
+  assetName: string;
+}
+
+interface VariantUpdated {
+  type: 'variant:updated';
+  variant: Variant;
+}
+
+// Legacy result types (deprecated, but kept for compatibility)
 interface GenerateResult {
   type: 'generate:result';
   requestId: string;
   jobId: string;
   success: boolean;
-  variant?: {
-    id: string;
-    asset_id: string;
-    job_id: string | null;
-    image_key: string;
-    thumb_key?: string;
-    recipe: string;
-    created_by: string;
-    created_at: number;
-  };
+  variant?: Variant;
   error?: string;
 }
 
@@ -123,7 +147,7 @@ interface CompareResponse {
 }
 
 // Specific server message types
-type SyncStateMessage = { type: 'sync:state'; assets: unknown[]; variants: unknown[]; lineage: unknown[] };
+type SyncStateMessage = { type: 'sync:state'; assets: unknown[]; variants: Variant[]; lineage: unknown[] };
 type ErrorMessage = { type: 'error'; code: string; message: string };
 type RefineResult = Omit<GenerateResult, 'type'> & { type: 'refine:result' };
 
@@ -131,8 +155,10 @@ type RefineResult = Omit<GenerateResult, 'type'> & { type: 'refine:result' };
 type ServerMessage =
   | ChatResponse
   | GenerateStarted
+  | RefineStarted
   | GenerateResult
   | RefineResult
+  | VariantUpdated
   | DescribeResponse
   | CompareResponse
   | SyncStateMessage
@@ -153,6 +179,15 @@ export class WebSocketClient {
 
   private generateHandlers: Map<string, {
     onStarted?: (data: GenerateStarted) => void;
+    onResult: (result: GenerateResult) => void;
+    reject: (error: Error) => void;
+  }> = new Map();
+
+  // Track pending variant completions (variantId → callbacks)
+  private variantCompletionHandlers: Map<string, {
+    requestId: string;
+    assetId: string;
+    assetName: string;
     onResult: (result: GenerateResult) => void;
     reject: (error: Error) => void;
   }> = new Map();
@@ -288,17 +323,52 @@ export class WebSocketClient {
         break;
       }
 
-      case 'generate:started': {
-        const startedMsg = message as GenerateStarted;
+      case 'generate:started':
+      case 'refine:started': {
+        const startedMsg = message as GenerateStarted | RefineStarted;
         const handler = this.generateHandlers.get(startedMsg.requestId);
-        if (handler?.onStarted) {
-          handler.onStarted(startedMsg);
+        if (handler) {
+          // Call onStarted callback if provided
+          if (handler.onStarted) {
+            handler.onStarted(startedMsg as GenerateStarted);
+          }
+          // Move handler to variant completion tracking (jobId === variantId)
+          this.variantCompletionHandlers.set(startedMsg.jobId, {
+            requestId: startedMsg.requestId,
+            assetId: startedMsg.assetId,
+            assetName: startedMsg.assetName,
+            onResult: handler.onResult,
+            reject: handler.reject,
+          });
+          // Remove from request-based handlers (we'll resolve via variant:updated)
+          this.generateHandlers.delete(startedMsg.requestId);
+        }
+        break;
+      }
+
+      case 'variant:updated': {
+        const updateMsg = message as VariantUpdated;
+        const variant = updateMsg.variant;
+        const handler = this.variantCompletionHandlers.get(variant.id);
+        if (handler && (variant.status === 'completed' || variant.status === 'failed')) {
+          this.variantCompletionHandlers.delete(variant.id);
+          // Convert to GenerateResult format for compatibility
+          const result: GenerateResult = {
+            type: 'generate:result',
+            requestId: handler.requestId,
+            jobId: variant.id,
+            success: variant.status === 'completed',
+            variant: variant.status === 'completed' ? variant : undefined,
+            error: variant.status === 'failed' ? (variant.error_message || 'Generation failed') : undefined,
+          };
+          handler.onResult(result);
         }
         break;
       }
 
       case 'generate:result':
       case 'refine:result': {
+        // Legacy handler for backwards compatibility
         const resultMsg = message as GenerateResult;
         const handler = this.generateHandlers.get(resultMsg.requestId);
         if (handler) {

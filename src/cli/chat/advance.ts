@@ -2,11 +2,15 @@
  * Advance Command - Execute the next step in an active plan
  *
  * Usage: npm run cli chat advance --state <file> [--all]
+ *
+ * Uses WebSocket for generation operations (generate_asset, refine_asset, combine_assets)
+ * since REST endpoints have been removed in favor of WebSocket messages.
  */
 
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import { ApiClient } from './api-client';
+import { WebSocketClient } from '../lib/websocket-client';
 import { loadState, saveState, saveStateWithLog } from './state';
 import {
   getNextPendingStep,
@@ -21,8 +25,6 @@ export async function handleAdvance(parsed: ParsedArgs): Promise<void> {
   // Parse arguments
   const statePath = parsed.options.state;
   const executeAll = parsed.options.all === 'true';
-  const wait = parsed.options.wait !== 'false'; // Default true
-  const timeout = parseInt(parsed.options.timeout || '120000', 10);
   const isLocal = parsed.options.local === 'true';
   const env = isLocal ? 'local' : (parsed.options.env || 'stage');
 
@@ -63,9 +65,16 @@ export async function handleAdvance(parsed: ParsedArgs): Promise<void> {
     return;
   }
 
+  let wsClient: WebSocketClient | null = null;
+
   try {
-    // Create API client
+    // Create API client (for getSpaceAssets only)
     const apiClient = await ApiClient.create(env);
+
+    // Create WebSocket client and connect (for generation operations)
+    wsClient = await WebSocketClient.create(env, state.meta.spaceId);
+    console.log(`Connecting to space ${state.meta.spaceId}...`);
+    await wsClient.connect();
 
     // Get space assets for context building
     const assetsResponse = await apiClient.getSpaceAssets(state.meta.spaceId);
@@ -119,14 +128,14 @@ export async function handleAdvance(parsed: ParsedArgs): Promise<void> {
       // Mark step as in progress
       step.status = 'in_progress';
 
-      // Execute the step
+      // Execute the step via WebSocket
       console.log(`\nExecuting...`);
-      const result = await executeStep(apiClient, state.meta.spaceId, step, wait, timeout);
+      const result = await executeStep(wsClient, step);
 
       if (result.success) {
         // Mark step as completed
         step.status = 'completed';
-        step.result = result.jobResult?.variantId
+        step.result = result.variantId
           ? `Created variant ${result.variantId}`
           : `Created asset ${result.assetId}`;
 
@@ -163,7 +172,6 @@ export async function handleAdvance(parsed: ParsedArgs): Promise<void> {
         console.log(`✓ Step ${index + 1} completed`);
         if (result.assetId) console.log(`  Asset ID: ${result.assetId}`);
         if (result.variantId) console.log(`  Variant ID: ${result.variantId}`);
-        if (result.jobId) console.log(`  Job ID: ${result.jobId}`);
 
         executedStepIndices.push(index);
       } else {
@@ -225,132 +233,126 @@ export async function handleAdvance(parsed: ParsedArgs): Promise<void> {
   } catch (error) {
     console.error('\nError:', error instanceof Error ? error.message : error);
     process.exitCode = 1;
+  } finally {
+    // Always disconnect WebSocket
+    if (wsClient) {
+      wsClient.disconnect();
+    }
   }
 }
 
 /**
- * Execute a single plan step
+ * Execute a single plan step via WebSocket
  */
 async function executeStep(
-  apiClient: ApiClient,
-  spaceId: string,
-  step: { action: string; params: Record<string, unknown> },
-  wait: boolean,
-  timeout: number
+  wsClient: WebSocketClient,
+  step: { action: string; params: Record<string, unknown> }
 ): Promise<ActionResult> {
   const { action, params } = step;
 
   try {
     switch (action) {
       case 'generate_asset': {
-        const result = await apiClient.createAsset(spaceId, {
+        const result = await wsClient.sendGenerateRequest({
           name: params.name as string,
-          type: params.type as string,
+          assetType: params.type as string,
           prompt: params.prompt as string,
           referenceAssetIds: params.referenceAssetIds as string[] | undefined,
           aspectRatio: params.aspectRatio as string | undefined,
         });
 
-        if (!result.success) {
-          return { success: false, error: 'API returned failure' };
-        }
-
-        // Wait for job if requested
-        if (wait && result.jobId) {
-          console.log(`  Waiting for job ${result.jobId}...`);
-          const jobResult = await apiClient.waitForJob(result.jobId, timeout);
-
+        if (result.success && result.variant) {
           return {
-            success: jobResult.status === 'completed',
-            assetId: result.assetId,
+            success: true,
+            assetId: result.variant.asset_id,
             assetName: params.name as string,
-            variantId: jobResult.variantId || result.variantId,
+            variantId: result.variant.id,
             jobId: result.jobId,
-            jobResult,
-            error: jobResult.error,
+            jobResult: {
+              status: 'completed',
+              variantId: result.variant.id,
+            },
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error || 'Generation failed',
+            jobId: result.jobId,
+            jobResult: {
+              status: 'failed',
+              error: result.error || 'Generation failed',
+            },
           };
         }
-
-        return {
-          success: true,
-          assetId: result.assetId,
-          assetName: params.name as string,
-          variantId: result.variantId,
-          jobId: result.jobId,
-        };
       }
 
       case 'refine_asset': {
         const assetId = params.assetId as string;
-        const result = await apiClient.createVariant(spaceId, assetId, {
-          sourceVariantId: params.sourceVariantId as string | undefined,
+        const result = await wsClient.sendRefineRequest({
+          assetId,
           prompt: params.prompt as string,
+          sourceVariantId: params.sourceVariantId as string | undefined,
           referenceAssetIds: params.referenceAssetIds as string[] | undefined,
           aspectRatio: params.aspectRatio as string | undefined,
         });
 
-        if (!result.success) {
-          return { success: false, error: 'API returned failure' };
-        }
-
-        // Wait for job if requested
-        if (wait && result.jobId) {
-          console.log(`  Waiting for job ${result.jobId}...`);
-          const jobResult = await apiClient.waitForJob(result.jobId, timeout);
-
+        if (result.success && result.variant) {
           return {
-            success: jobResult.status === 'completed',
+            success: true,
             assetId,
-            variantId: jobResult.variantId,
+            variantId: result.variant.id,
             jobId: result.jobId,
-            jobResult,
-            error: jobResult.error,
+            jobResult: {
+              status: 'completed',
+              variantId: result.variant.id,
+            },
+          };
+        } else {
+          return {
+            success: false,
+            assetId,
+            error: result.error || 'Refinement failed',
+            jobId: result.jobId,
+            jobResult: {
+              status: 'failed',
+              error: result.error || 'Refinement failed',
+            },
           };
         }
-
-        return {
-          success: true,
-          assetId,
-          jobId: result.jobId,
-        };
       }
 
       case 'combine_assets': {
-        const result = await apiClient.createAsset(spaceId, {
+        const result = await wsClient.sendGenerateRequest({
           name: params.name as string,
-          type: params.type as string,
+          assetType: params.type as string,
           prompt: params.prompt as string,
           referenceAssetIds: params.sourceAssetIds as string[],
           aspectRatio: params.aspectRatio as string | undefined,
         });
 
-        if (!result.success) {
-          return { success: false, error: 'API returned failure' };
-        }
-
-        // Wait for job if requested
-        if (wait && result.jobId) {
-          console.log(`  Waiting for job ${result.jobId}...`);
-          const jobResult = await apiClient.waitForJob(result.jobId, timeout);
-
+        if (result.success && result.variant) {
           return {
-            success: jobResult.status === 'completed',
-            assetId: result.assetId,
+            success: true,
+            assetId: result.variant.asset_id,
             assetName: params.name as string,
-            variantId: jobResult.variantId || result.variantId,
+            variantId: result.variant.id,
             jobId: result.jobId,
-            jobResult,
-            error: jobResult.error,
+            jobResult: {
+              status: 'completed',
+              variantId: result.variant.id,
+            },
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error || 'Combination failed',
+            jobId: result.jobId,
+            jobResult: {
+              status: 'failed',
+              error: result.error || 'Combination failed',
+            },
           };
         }
-
-        return {
-          success: true,
-          assetId: result.assetId,
-          assetName: params.name as string,
-          variantId: result.variantId,
-          jobId: result.jobId,
-        };
       }
 
       default:
