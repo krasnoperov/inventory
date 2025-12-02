@@ -73,22 +73,28 @@ export class SpaceDO extends DurableObject<Env> {
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.initialized) return;
 
-      // Initialize schema first (needed for spaceId recovery)
-      const schemaManager = new SchemaManager(this.ctx.storage.sql);
-      await schemaManager.initialize();
+      try {
+        // Initialize schema first
+        const schemaManager = new SchemaManager(this.ctx.storage.sql);
+        await schemaManager.initialize();
 
-      // Recover spaceId from storage if not set (happens after DO restart)
-      if (!this.spaceId) {
-        this.spaceId = await this.recoverSpaceId();
-      }
+        // Recover spaceId from storage if not set (happens after DO restart)
+        if (!this.spaceId) {
+          this.spaceId = await this.recoverSpaceId();
+        }
 
-      // Store spaceId for future recovery (first access)
-      if (this.spaceId) {
-        await this.storeSpaceId(this.spaceId);
-      }
+        // Store spaceId for future recovery (first access)
+        if (this.spaceId) {
+          await this.storeSpaceId(this.spaceId);
+        }
 
-      // Initialize repository
-      this.repo = new SpaceRepository(this.ctx.storage.sql, this.env.IMAGES);
+        // Ensure spaceId is set before proceeding
+        if (!this.spaceId) {
+          throw new Error('SpaceId not available - cannot initialize DO');
+        }
+
+        // Initialize repository
+        this.repo = new SpaceRepository(this.ctx.storage.sql, this.env.IMAGES);
 
       // Create controller context
       const ctx: ControllerContext = {
@@ -122,6 +128,10 @@ export class SpaceDO extends DurableObject<Env> {
       });
 
       this.initialized = true;
+      } catch (error) {
+        console.error('[SpaceDO] Initialization failed:', error);
+        throw error;
+      }
     });
   }
 
