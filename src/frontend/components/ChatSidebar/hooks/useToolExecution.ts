@@ -216,7 +216,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         return `Set prompt: "${newPrompt.slice(0, 50)}${newPrompt.length > 50 ? '...' : ''}"`;
       }
 
-      case 'generate_asset': {
+      case 'generate': {
         if (!onGenerateAsset) return 'Generation not available';
 
         // Validate parentAssetId exists
@@ -253,7 +253,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         return `Started generating "${genParams.name}"`;
       }
 
-      case 'refine_asset': {
+      case 'refine': {
         if (!onRefineAsset) return 'Refinement not available';
 
         // Validate assetId exists
@@ -279,7 +279,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         return `Started refining "${asset.name}"`;
       }
 
-      case 'combine_assets': {
+      case 'combine': {
         if (!onCombineAssets) return 'Combining not available';
 
         // Validate all sourceAssetIds exist
@@ -310,7 +310,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         return `Started combining assets into "${combineParams.targetName}"`;
       }
 
-      case 'search_assets': {
+      case 'search': {
         const query = (params.query as string || '').toLowerCase();
         const matches = allAssets.filter(a =>
           a.name.toLowerCase().includes(query) ||
@@ -320,7 +320,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         return `Found: ${matches.map(a => a.name).join(', ')}`;
       }
 
-      case 'describe_image': {
+      case 'describe': {
         if (!sendDescribeRequest) return 'Describe not available (WebSocket not connected)';
 
         const assetId = params.assetId as string;
@@ -358,7 +358,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         });
       }
 
-      case 'compare_variants': {
+      case 'compare': {
         if (!sendCompareRequest) return 'Compare not available (WebSocket not connected)';
 
         const variantIds = params.variantIds as string[];

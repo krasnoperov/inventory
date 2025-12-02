@@ -163,7 +163,7 @@ export async function handleSend(parsed: ParsedArgs): Promise<void> {
       }
     }
 
-    // Handle auto-executed actions (describe_image, search_assets, etc.)
+    // Handle auto-executed actions (describe, search, etc.)
     if (botResponse.type === 'action' && botResponse.autoExecuted) {
       state.autoExecuted = botResponse.autoExecuted;
 
@@ -240,7 +240,7 @@ function formatAutoExecutedResult(tool: string, result: unknown): string | null 
   if (!result) return null;
 
   switch (tool) {
-    case 'describe_image': {
+    case 'describe': {
       // Description is usually a string
       if (typeof result === 'string') {
         return truncate(result, 100);
@@ -253,7 +253,7 @@ function formatAutoExecutedResult(tool: string, result: unknown): string | null 
       return null;
     }
 
-    case 'search_assets': {
+    case 'search': {
       // Result is usually an array of assets
       if (Array.isArray(result)) {
         if (result.length === 0) {
@@ -267,7 +267,7 @@ function formatAutoExecutedResult(tool: string, result: unknown): string | null 
       return null;
     }
 
-    case 'compare_variants': {
+    case 'compare': {
       // Comparison result is usually a string analysis
       if (typeof result === 'string') {
         return truncate(result, 100);

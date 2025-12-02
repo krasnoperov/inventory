@@ -2,7 +2,7 @@
  * API Client for Chat Test CLI
  *
  * Handles HTTP calls to REST APIs.
- * Note: Generation operations (generate_asset, refine_asset, combine_assets) are
+ * Note: Generation operations (generate, refine, combine) are
  * now handled via WebSocket in execute.ts and advance.ts.
  */
 

@@ -166,7 +166,7 @@ export interface BotContext {
  */
 const READ_TOOLS: Anthropic.Tool[] = [
   {
-    name: 'search_assets',
+    name: 'search',
     description: 'Search for assets in the space by name, type, or description',
     input_schema: {
       type: 'object' as const,
@@ -180,7 +180,7 @@ const READ_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: 'describe_image',
+    name: 'describe',
     description: 'Analyze and describe what is in an asset image. Use this when the user asks what is in an image, wants you to analyze a generated result, or needs a detailed description. IMPORTANT: Use this tool whenever asked to describe, analyze, or look at an image - you cannot see images without calling this tool. Provide assetId (resolves to default variant) OR variantId (specific variant).',
     input_schema: {
       type: 'object' as const,
@@ -211,7 +211,7 @@ const READ_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: 'compare_variants',
+    name: 'compare',
     description: 'Compare two or more variants of the same or different assets, highlighting differences and similarities.',
     input_schema: {
       type: 'object' as const,
@@ -261,7 +261,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
               },
               action: {
                 type: 'string',
-                enum: ['generate_asset', 'refine_asset', 'combine_assets', 'add_to_tray', 'set_prompt', 'clear_tray'],
+                enum: ['generate', 'refine', 'combine', 'add_to_tray', 'set_prompt', 'clear_tray'],
                 description: 'The action to perform',
               },
               params: {
@@ -333,7 +333,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: 'generate_asset',
+    name: 'generate',
     description: 'Generate a new asset using a text prompt. Can optionally use reference images for style matching or element extraction. PROMPT TIPS: Be specific - include subject, style, lighting, mood. When using references, describe what to extract/match from each. Examples: "Elven ranger, silver braided hair, leaf-patterned armor" / "Extract the blue slime creature from image 1, place on neutral background, keep chibi style"',
     input_schema: {
       type: 'object' as const,
@@ -365,7 +365,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: 'refine_asset',
+    name: 'refine',
     description: 'Add a new variant to an existing asset by refining it with a prompt. IMPORTANT: Change only ONE thing at a time for best results. Multiple changes = unpredictable results. Be explicit about state changes. Use positive descriptions rather than negative.',
     input_schema: {
       type: 'object' as const,
@@ -383,7 +383,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: 'combine_assets',
+    name: 'combine',
     description: 'Combine multiple asset references into a new asset. IMPORTANT: Use explicit entity references - say exactly what comes from which image. Structure prompt with: what each image provides, spatial relationships, lighting, and what must stay the same. Works best with 2-4 references.',
     input_schema: {
       type: 'object' as const,
@@ -505,7 +505,7 @@ Operations explained:
           ? ` (viewing variant ${variantIndex || 1} of ${variantCount}${variantId ? `, variantId: ${variantId}` : ''})`
           : '';
         prompt += `USER IS VIEWING: Asset "${assetName}"${variantInfo}
-To describe this image, use the describe_image tool with variantId="${variantId}" and assetName="${assetName}".
+To describe this image, use the describe tool with variantId="${variantId}" and assetName="${assetName}".
 
 `;
       } else {
@@ -534,11 +534,11 @@ ${plan.steps.map((s, i) => `${i + 1}. [${s.status}] ${s.description}${s.result ?
 You can observe and analyze assets, but cannot modify them.
 
 AVAILABLE TOOLS:
-- describe_image: Analyze what's in an image. ALWAYS use this when asked to describe, look at, or analyze any image. You cannot see images without calling this tool.
-- compare_variants: Compare multiple variants side-by-side
-- search_assets: Find assets by name or type
+- describe: Analyze what's in an image. ALWAYS use this when asked to describe, look at, or analyze any image. You cannot see images without calling this tool.
+- compare: Compare multiple variants side-by-side
+- search: Find assets by name or type
 
-IMPORTANT: When the user asks you to describe what they're viewing or asks about an image, you MUST use the describe_image tool. Do not say you cannot see images - use the tool!
+IMPORTANT: When the user asks you to describe what they're viewing or asks about an image, you MUST use the describe tool. Do not say you cannot see images - use the tool!
 
 GUIDELINES:
 - Answer questions about assets and creative workflow
@@ -560,25 +560,25 @@ GUIDELINES:
 2. For simple single actions, use the appropriate tool directly
 3. Always confirm understanding before taking destructive actions
 4. Apply the best practices above when crafting prompts
-5. For multi-step changes, break them into separate refine_asset calls (one change per step)
+5. For multi-step changes, break them into separate refine calls (one change per step)
 
 COMMON WORKFLOWS:
-- "Create a game character" → generate_asset with appearance, armor, art style; then character sheet variants
-- "Create a building" → generate_asset with architecture style, materials, context; then different angles/views
-- "Create a room" → generate_asset with style, materials, lighting; then refine furniture one piece at a time
-- "Create a product shot" → generate_asset on neutral background; then combine with lifestyle scenes
-- "Create food photography" → generate_asset with plating and styling; then combine with table settings
-- "Create fashion imagery" → generate_asset on mannequin; then combine with models or contexts
-- "Create a logo" → generate_asset with text, style, shape; Gemini excels at text rendering
-- "Create an infographic" → generate_asset with diagram structure, icons, text; leverage text rendering strength
-- "Create UI mockup" → generate_asset with screen layout, text labels, buttons; great for wireframes and concepts
-- "Make variations" → refine_asset with ONE specific change per call
-- "Place element in scene" → combine_assets: element from image 1 in environment from image 2
-- "Equip/style subject" → combine_assets: subject from image 1 with item/garment from image 2
+- "Create a game character" → generate with appearance, armor, art style; then character sheet variants
+- "Create a building" → generate with architecture style, materials, context; then different angles/views
+- "Create a room" → generate with style, materials, lighting; then refine furniture one piece at a time
+- "Create a product shot" → generate on neutral background; then combine with lifestyle scenes
+- "Create food photography" → generate with plating and styling; then combine with table settings
+- "Create fashion imagery" → generate on mannequin; then combine with models or contexts
+- "Create a logo" → generate with text, style, shape; Gemini excels at text rendering
+- "Create an infographic" → generate with diagram structure, icons, text; leverage text rendering strength
+- "Create UI mockup" → generate with screen layout, text labels, buttons; great for wireframes and concepts
+- "Make variations" → refine with ONE specific change per call
+- "Place element in scene" → combine: element from image 1 in environment from image 2
+- "Equip/style subject" → combine: subject from image 1 with item/garment from image 2
 - "Create series" → create_plan: generate hero image, then variants maintaining visual anchors
-- "Extract elements from scene" → generate_asset with referenceAssetIds pointing to source scene, prompt describes what to extract and where to place it (e.g., "Extract the blue slime from image 1, isolate on neutral parchment background, maintain chibi style")
-- "Match style from reference" → generate_asset with referenceAssetIds, prompt describes new subject in the style of the reference
-- "Extract + match style" → generate_asset with MULTIPLE referenceAssetIds: source scene + style references. Prompt: "Extract [element] from image 1 (source scene). Match the style of images 2-3 (style references). Place on neutral background." Example: referenceAssetIds: ["game-scene", "princess", "knight"]
+- "Extract elements from scene" → generate with referenceAssetIds pointing to source scene, prompt describes what to extract and where to place it (e.g., "Extract the blue slime from image 1, isolate on neutral parchment background, maintain chibi style")
+- "Match style from reference" → generate with referenceAssetIds, prompt describes new subject in the style of the reference
+- "Extract + match style" → generate with MULTIPLE referenceAssetIds: source scene + style references. Prompt: "Extract [element] from image 1 (source scene). Match the style of images 2-3 (style references). Place on neutral background." Example: referenceAssetIds: ["game-scene", "princess", "knight"]
 
 PROMPT QUALITY CHECKLIST:
 ✓ Specific subject (not "a building" but "Victorian townhouse with red brick and bay windows")
@@ -621,7 +621,7 @@ Always explain what you're doing and why.`;
               steps: input.steps.map((s, i) => ({
                 id: `step_${i}`,
                 description: s.description || `Step ${i + 1}`,
-                action: s.action || 'generate_asset',
+                action: s.action || 'generate',
                 params: s.params || {},
                 status: 'pending' as const,
               })),

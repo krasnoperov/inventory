@@ -587,8 +587,8 @@ export function ChatSidebar({
 
     const step = activePlan.steps[nextIndex];
 
-    // For generate_asset steps with references, prefill ForgeTray for review
-    if (step.action === 'generate_asset') {
+    // For generate steps with references, prefill ForgeTray for review
+    if (step.action === 'generate') {
       const referenceAssetIds = step.params.referenceAssetIds as string[] | undefined;
       const stepPrompt = step.params.prompt as string || '';
 

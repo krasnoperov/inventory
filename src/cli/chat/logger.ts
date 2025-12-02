@@ -382,14 +382,14 @@ function formatAutoResult(tool: string, result: unknown): string {
   if (result === null || result === undefined) return 'Done';
 
   switch (tool) {
-    case 'describe_image': {
+    case 'describe': {
       if (typeof result === 'string') return result;
       const desc = (result as Record<string, unknown>).description;
       if (typeof desc === 'string') return desc;
       return 'Image described';
     }
 
-    case 'search_assets': {
+    case 'search': {
       if (Array.isArray(result)) {
         if (result.length === 0) return 'No assets found';
         return `Found ${result.length} asset(s)`;
@@ -397,7 +397,7 @@ function formatAutoResult(tool: string, result: unknown): string {
       return 'Search completed';
     }
 
-    case 'compare_variants': {
+    case 'compare': {
       if (typeof result === 'string') return result;
       return 'Comparison completed';
     }

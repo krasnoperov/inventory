@@ -3,7 +3,7 @@
  *
  * Usage: npm run cli chat advance --state <file> [--all]
  *
- * Uses WebSocket for generation operations (generate_asset, refine_asset, combine_assets)
+ * Uses WebSocket for generation operations (generate, refine, combine)
  * since REST endpoints have been removed in favor of WebSocket messages.
  */
 
@@ -252,7 +252,7 @@ async function executeStep(
 
   try {
     switch (action) {
-      case 'generate_asset': {
+      case 'generate': {
         const result = await wsClient.sendGenerateRequest({
           name: params.name as string,
           assetType: params.type as string,
@@ -286,7 +286,7 @@ async function executeStep(
         }
       }
 
-      case 'refine_asset': {
+      case 'refine': {
         const assetId = params.assetId as string;
         const result = await wsClient.sendRefineRequest({
           assetId,
@@ -321,7 +321,7 @@ async function executeStep(
         }
       }
 
-      case 'combine_assets': {
+      case 'combine': {
         const result = await wsClient.sendGenerateRequest({
           name: params.name as string,
           assetType: params.type as string,

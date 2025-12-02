@@ -145,7 +145,7 @@ export interface ConversationState {
   lastStep: StepRecord | null;
   pendingActions: PendingAction[];
   executedActions: ExecutedAction[];
-  /** Auto-executed safe tool results (describe_image, search_assets, etc.) */
+  /** Auto-executed safe tool results (describe, search, etc.) */
   autoExecuted: AutoExecutedAction[];
   /** Active plan (if any) */
   activePlan: PlanState | null;
@@ -203,7 +203,7 @@ export function buildGeminiRequest(approval: PendingApproval): GeminiRequest | u
   const { tool, params } = approval;
 
   // Only generating tools have Gemini requests
-  if (!['generate_asset', 'refine_asset', 'combine_assets'].includes(tool)) {
+  if (!['generate', 'refine', 'combine'].includes(tool)) {
     return undefined;
   }
 
@@ -234,7 +234,7 @@ export function buildGeminiRequestFromStep(step: PlanStep): GeminiRequest | unde
   const { action, params } = step;
 
   // Only generating actions have Gemini requests
-  if (!['generate_asset', 'refine_asset', 'combine_assets'].includes(action)) {
+  if (!['generate', 'refine', 'combine'].includes(action)) {
     return undefined;
   }
 
@@ -317,9 +317,9 @@ export function buildForgeContextFromStep(
 
   // Determine operation based on step action and refs
   let operation: ForgeContext['operation'] = 'generate';
-  if (step.action === 'refine_asset') {
+  if (step.action === 'refine') {
     operation = 'refine';
-  } else if (step.action === 'combine_assets' || slots.length > 1) {
+  } else if (step.action === 'combine' || slots.length > 1) {
     operation = 'combine';
   } else if (slots.length === 1) {
     operation = 'refine';

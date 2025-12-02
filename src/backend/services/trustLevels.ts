@@ -34,17 +34,17 @@ export const TOOL_TRUST_MAP: Record<string, ToolTrustConfig> = {
   // === SAFE: Auto-execute without approval ===
 
   // Read operations (no state change, low cost)
-  search_assets: {
+  search: {
     level: 'safe',
     autoExecute: true,
     description: 'Search assets by name/type',
   },
-  describe_image: {
+  describe: {
     level: 'safe',
     autoExecute: true,
     description: 'Analyze variant image',
   },
-  compare_variants: {
+  compare: {
     level: 'safe',
     autoExecute: true,
     description: 'Compare multiple variants',
@@ -74,17 +74,17 @@ export const TOOL_TRUST_MAP: Record<string, ToolTrustConfig> = {
 
   // === GENERATING: Requires approval (consumes credits) ===
 
-  generate_asset: {
+  generate: {
     level: 'generating',
     autoExecute: false,
     description: 'Generate new asset from prompt',
   },
-  refine_asset: {
+  refine: {
     level: 'generating',
     autoExecute: false,
     description: 'Add variant to existing asset',
   },
-  combine_assets: {
+  combine: {
     level: 'generating',
     autoExecute: false,
     description: 'Combine assets into new one',
