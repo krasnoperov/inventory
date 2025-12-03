@@ -226,7 +226,7 @@ export function ChatSidebar({
     let operation: string;
     if (slotCount === 0) operation = 'generate';
     else if (slotCount === 1) operation = prompt ? 'refine' : 'fork';
-    else operation = 'combine';
+    else operation = 'derive';
 
     return {
       operation,
@@ -594,8 +594,8 @@ export function ChatSidebar({
 
     const step = activePlan.steps[nextIndex];
 
-    // For create steps with references, prefill ForgeTray for review
-    if (step.action === 'create') {
+    // For derive steps with references, prefill ForgeTray for review
+    if (step.action === 'derive') {
       const referenceAssetIds = step.params.referenceAssetIds as string[] | undefined;
       const stepPrompt = step.params.prompt as string || '';
 

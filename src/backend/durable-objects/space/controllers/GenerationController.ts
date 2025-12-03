@@ -36,7 +36,7 @@ interface GenerationRecipe {
   aspectRatio?: string;
   sourceImageKeys?: string[];
   /** Operation type matching user-facing tool name */
-  operation: 'create' | 'refine' | 'combine';
+  operation: 'derive' | 'refine';
 }
 
 export class GenerationController extends BaseController {
@@ -178,7 +178,7 @@ export class GenerationController extends BaseController {
       assetType: msg.assetType,
       aspectRatio: msg.aspectRatio,
       sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
-      operation: 'create',
+      operation: 'derive',
     };
 
     // Create placeholder variant (status=pending, no images)
@@ -233,7 +233,7 @@ export class GenerationController extends BaseController {
       aspectRatio: msg.aspectRatio,
       sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
       parentVariantIds: parentVariantIds.length > 0 ? parentVariantIds : undefined,
-      operation: 'create',
+      operation: 'derive',
     };
 
     // Trigger the workflow
@@ -327,9 +327,8 @@ export class GenerationController extends BaseController {
       throw new ValidationError('No source images available');
     }
 
-    // Determine operation based on source count
-    // Use 'combine' operation if multiple sources, 'refine' for single source
-    const operation: OperationType = parentVariantIds.length > 1 ? 'combine' : 'refine';
+    // Always 'refine' for existing asset (source count doesn't matter)
+    const operation: OperationType = 'refine';
 
     // Build recipe for storage (enables retry)
     const recipe: GenerationRecipe = {
@@ -576,10 +575,12 @@ export class GenerationController extends BaseController {
     if (this.env.DB && variant.created_by) {
       try {
         // Parse recipe to get operation type
-        let operation = 'create';
+        let operation = 'derive';
         try {
           const recipe = JSON.parse(variant.recipe);
-          operation = recipe.operation || 'create';
+          // Handle legacy 'create'/'combine' operations
+          const recipeOp = recipe.operation || 'derive';
+          operation = recipeOp === 'create' || recipeOp === 'combine' ? 'derive' : recipeOp;
         } catch {
           // Ignore parse errors
         }

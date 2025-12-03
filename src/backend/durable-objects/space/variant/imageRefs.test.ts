@@ -61,7 +61,7 @@ describe('Image Reference Utilities', () => {
         image_key: 'img1',
         thumb_key: 'thumb1',
         recipe: JSON.stringify({
-          operation: 'combine',
+          operation: 'derive',
           inputs: [
             { imageKey: 'ref1' },
             { imageKey: 'ref2' },
@@ -102,7 +102,7 @@ describe('Image Reference Utilities', () => {
       const keys = getVariantImageKeys({
         image_key: 'img',
         thumb_key: 'thumb',
-        recipe: JSON.stringify({ operation: 'create', prompt: 'test' }),
+        recipe: JSON.stringify({ operation: 'derive', prompt: 'test' }),
       });
       assert.deepStrictEqual(keys, ['img', 'thumb']);
     });
@@ -134,9 +134,9 @@ describe('Image Reference Utilities', () => {
 
   describe('parseRecipe', () => {
     test('parses valid JSON', () => {
-      const recipe = parseRecipe(JSON.stringify({ operation: 'create', prompt: 'test' }));
+      const recipe = parseRecipe(JSON.stringify({ operation: 'derive', prompt: 'test' }));
       assert(recipe !== null);
-      assert.strictEqual(recipe!.operation, 'create');
+      assert.strictEqual(recipe!.operation, 'derive');
       assert.strictEqual(recipe!.prompt, 'test');
     });
 

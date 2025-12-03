@@ -101,7 +101,7 @@ export interface BotResponse {
 
 // Forge context for chat requests (matches api/types.ts ForgeContext)
 export interface ForgeContext {
-  operation: 'generate' | 'fork' | 'refine' | 'create' | 'combine';
+  operation: 'generate' | 'fork' | 'derive' | 'refine';
   slots: Array<{
     assetId: string;
     assetName: string;
@@ -221,11 +221,10 @@ export interface JobStatus {
   assetId?: string;
   assetName?: string;
   // Operation types (maps to tools, not Gemini API):
-  // - 'create': Create new asset (with optional references for style guidance)
-  // - 'refine': Add variant to existing asset (with one main ref + optional extras)
-  // - 'combine': Create new asset by compositing multiple sources
+  // - 'derive': Create new asset using references as inspiration
+  // - 'refine': Add variant to existing asset
   // Note: 'fork' is synchronous copy, doesn't create a job
-  operation?: 'create' | 'refine' | 'combine';
+  operation?: 'derive' | 'refine';
   prompt?: string;
 }
 
@@ -233,7 +232,7 @@ export interface JobStatus {
 export interface JobContext {
   assetId?: string;
   assetName?: string;
-  operation?: 'create' | 'refine' | 'combine';
+  operation?: 'derive' | 'refine';
   prompt?: string;
 }
 

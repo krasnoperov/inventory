@@ -53,9 +53,8 @@ interface LineageTreeProps {
 // Helper to get display text for relation type - user-friendly labels
 const getRelationLabel = (type: string): string => {
   switch (type) {
-    case 'created': return 'Created';
+    case 'derived': return 'Derived';
     case 'refined': return 'Refined';
-    case 'combined': return 'Combined';
     case 'forked': return 'Forked';
     default: return type;
   }
@@ -65,18 +64,16 @@ const getRelationTooltip = (type: string, direction: 'parent' | 'child'): string
   if (direction === 'parent') {
     // This variant was created from the parent
     switch (type) {
-      case 'created': return 'Used as reference when creating this asset';
+      case 'derived': return 'Used as reference when deriving this asset';
       case 'refined': return 'Refined from this image';
-      case 'combined': return 'Part of combination that created this';
       case 'forked': return 'Forked from this to create new asset';
       default: return `Related via ${type}`;
     }
   } else {
     // The child was created from this variant
     switch (type) {
-      case 'created': return 'Was used as reference to create this';
+      case 'derived': return 'Was used as reference to derive this';
       case 'refined': return 'Was refined to create this';
-      case 'combined': return 'Was combined to create this';
       case 'forked': return 'Was forked to create new asset';
       default: return `Related via ${type}`;
     }

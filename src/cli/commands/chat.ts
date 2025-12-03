@@ -98,7 +98,7 @@ COMMANDS:
     --add <assetIds> Add asset(s) to forge tray (comma-separated)
     --clear-tray     Clear all slots from forge tray
     --prompt <text>  Set the forge prompt
-    --operation      Set operation type (generate|fork|refine|combine)
+    --operation      Set operation type (generate|fork|derive|refine)
 
   assets             List space assets (for getting IDs to use with context)
     --state <file>   State file path (or use --space)
@@ -125,7 +125,7 @@ EXAMPLES:
 
   # Add assets to forge tray
   npm run cli chat context --state ./test/warrior.json \\
-    --add asset_abc,asset_def --prompt "Combine these characters"
+    --add asset_abc,asset_def --prompt "Derive a new character from these"
 
   # Inspect Claude's plan
   npm run cli chat show --state ./test/warrior.json --section plan

@@ -3,7 +3,7 @@
  *
  * Usage: npm run cli chat advance --state <file> [--all]
  *
- * Uses WebSocket for generation operations (create, refine, combine)
+ * Uses WebSocket for generation operations (derive, refine)
  * since REST endpoints have been removed in favor of WebSocket messages.
  */
 
@@ -252,7 +252,7 @@ async function executeStep(
 
   try {
     switch (action) {
-      case 'create': {
+      case 'derive': {
         const result = await wsClient.sendGenerateRequest({
           name: params.name as string,
           assetType: params.type as string,
@@ -276,11 +276,11 @@ async function executeStep(
         } else {
           return {
             success: false,
-            error: result.error || 'Generation failed',
+            error: result.error || 'Derivation failed',
             jobId: result.jobId,
             jobResult: {
               status: 'failed',
-              error: result.error || 'Generation failed',
+              error: result.error || 'Derivation failed',
             },
           };
         }
@@ -316,40 +316,6 @@ async function executeStep(
             jobResult: {
               status: 'failed',
               error: result.error || 'Refinement failed',
-            },
-          };
-        }
-      }
-
-      case 'combine': {
-        const result = await wsClient.sendGenerateRequest({
-          name: params.name as string,
-          assetType: params.type as string,
-          prompt: params.prompt as string,
-          referenceAssetIds: params.sourceAssetIds as string[],
-          aspectRatio: params.aspectRatio as string | undefined,
-        });
-
-        if (result.success && result.variant) {
-          return {
-            success: true,
-            assetId: result.variant.asset_id,
-            assetName: params.name as string,
-            variantId: result.variant.id,
-            jobId: result.jobId,
-            jobResult: {
-              status: 'completed',
-              variantId: result.variant.id,
-            },
-          };
-        } else {
-          return {
-            success: false,
-            error: result.error || 'Combination failed',
-            jobId: result.jobId,
-            jobResult: {
-              status: 'failed',
-              error: result.error || 'Combination failed',
             },
           };
         }

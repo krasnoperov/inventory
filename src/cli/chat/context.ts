@@ -8,7 +8,7 @@
  *   --add <assetId>       Add asset to forge tray (can repeat)
  *   --clear-tray          Clear all slots from forge tray
  *   --prompt <text>       Set the forge prompt
- *   --operation <type>    Set operation type (generate|fork|refine|combine)
+ *   --operation <type>    Set operation type (generate|fork|derive|refine)
  */
 
 import process from 'node:process';
@@ -153,7 +153,7 @@ export async function handleContext(parsed: ParsedArgs): Promise<void> {
 
       // Set operation
       if (operation !== undefined) {
-        const validOps = ['generate', 'fork', 'refine', 'create', 'combine'];
+        const validOps = ['generate', 'fork', 'derive', 'refine'];
         if (!validOps.includes(operation)) {
           console.error(`Warning: Unknown operation "${operation}", using anyway`);
         }
@@ -166,7 +166,7 @@ export async function handleContext(parsed: ParsedArgs): Promise<void> {
         if (forgeContext.slots.length === 1) {
           forgeContext.operation = 'refine';
         } else {
-          forgeContext.operation = 'combine';
+          forgeContext.operation = 'derive';
         }
         console.log(`  Auto-detected operation: ${forgeContext.operation}`);
       }

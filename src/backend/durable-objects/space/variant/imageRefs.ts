@@ -47,7 +47,7 @@ export const DELETE_REF_SQL = 'DELETE FROM image_refs WHERE image_key = ?';
  * Recipe structure as stored in variant.recipe JSON.
  */
 interface Recipe {
-  operation?: 'create' | 'refine' | 'combine';
+  operation?: 'derive' | 'refine';
   prompt?: string;
   inputs?: Array<{
     variantId?: string;

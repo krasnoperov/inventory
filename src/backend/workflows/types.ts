@@ -75,7 +75,7 @@ export interface ChatWorkflowOutput {
  * Operation type - matches user-facing tool names
  * Used throughout the pipeline for clarity in logs and tracking
  */
-export type OperationType = 'create' | 'refine' | 'combine';
+export type OperationType = 'derive' | 'refine';
 
 /** Input to GenerationWorkflow - triggered by SpaceDO on generate:request */
 export interface GenerationWorkflowInput {
@@ -105,7 +105,7 @@ export interface GenerationWorkflowInput {
   sourceImageKeys?: string[];
   /** Parent variant IDs for lineage tracking */
   parentVariantIds?: string[];
-  /** Operation type (create/refine/combine) - matches user-facing tool name */
+  /** Operation type (derive/refine) - matches user-facing tool name */
   operation: OperationType;
 }
 
@@ -207,7 +207,7 @@ export interface RefineRequestMessage {
   prompt: string;
   /** Single source variant (legacy) */
   sourceVariantId?: string;
-  /** Multiple source variants from ForgeTray (for combine into existing asset) */
+  /** Multiple source variants from ForgeTray (for refine with multiple refs) */
   sourceVariantIds?: string[];
   /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];

@@ -435,10 +435,9 @@ export default function SpacePage() {
           <div className={styles.jobsOverlay}>
             {Array.from(jobs.values()).map((job) => {
               const operationLabel = {
-                create: 'Creating',
+                derive: 'Deriving',
                 refine: 'Refining',
-                combine: 'Combining',
-              }[job.operation || 'create'] || 'Processing';
+              }[job.operation || 'derive'] || 'Processing';
 
               return (
                 <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>

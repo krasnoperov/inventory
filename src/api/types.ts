@@ -53,7 +53,7 @@ export interface ForgeContextSlot {
 
 /** Forge Tray state context passed to Claude */
 export interface ForgeContext {
-  operation: 'generate' | 'fork' | 'refine' | 'create' | 'combine' | string;
+  operation: 'generate' | 'fork' | 'derive' | 'refine' | string;
   slots: ForgeContextSlot[];
   prompt: string;
 }

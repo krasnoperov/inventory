@@ -203,7 +203,7 @@ export function buildGeminiRequest(approval: PendingApproval): GeminiRequest | u
   const { tool, params } = approval;
 
   // Only generating tools have Gemini requests
-  if (!['create', 'refine', 'combine'].includes(tool)) {
+  if (!['derive', 'refine'].includes(tool)) {
     return undefined;
   }
 
@@ -234,7 +234,7 @@ export function buildGeminiRequestFromStep(step: PlanStep): GeminiRequest | unde
   const { action, params } = step;
 
   // Only generating actions have Gemini requests
-  if (!['create', 'refine', 'combine'].includes(action)) {
+  if (!['derive', 'refine'].includes(action)) {
     return undefined;
   }
 
@@ -320,17 +320,9 @@ export function buildForgeContextFromStep(
   let operation: ForgeContext['operation'] = 'generate';
   if (step.action === 'refine') {
     operation = 'refine';
-  } else if (step.action === 'combine') {
-    operation = 'combine';
-  } else if (step.action === 'create') {
-    // 'create' tool maps to UI operation based on ref count
-    if (slots.length === 0) {
-      operation = 'generate'; // text-to-image
-    } else if (slots.length === 1) {
-      operation = 'create'; // transform with 1 ref
-    } else {
-      operation = 'combine'; // multiple refs
-    }
+  } else if (step.action === 'derive') {
+    // 'derive' creates new asset with 1+ refs
+    operation = slots.length === 0 ? 'generate' : 'derive';
   }
 
   return {
