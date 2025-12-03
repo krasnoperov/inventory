@@ -36,7 +36,7 @@ interface ExportVariant {
 interface ExportLineage {
   parentVariantId: string;
   childVariantId: string;
-  relationType: 'created' | 'refined' | 'combined' | 'forked';
+  relationType: 'derived' | 'refined' | 'forked';
 }
 
 export const exportRoutes = new Hono<AppContext>();

@@ -21,9 +21,8 @@ export interface ToolExecutionDeps {
   // Forge operations (matching ForgeTray UI)
   onGenerate?: (params: { name: string; type: string; prompt: string; parentAssetId?: string }) => string | void;
   onFork?: (params: { sourceAssetId: string; name: string; type: string; parentAssetId?: string }) => void;
-  onCreate?: (params: { name: string; type: string; prompt: string; referenceAssetId: string; parentAssetId?: string }) => string | void;
+  onDerive?: (params: { name: string; type: string; prompt: string; referenceAssetIds: string[]; parentAssetId?: string }) => string | void;
   onRefine?: (params: { assetId: string; prompt: string }) => string | void;
-  onCombine?: (params: { sourceAssetIds: string[]; prompt: string; name: string; type: string }) => string | void;
   // WebSocket methods for describe/compare
   sendDescribeRequest?: (params: DescribeRequestParams) => string;
   sendCompareRequest?: (params: CompareRequestParams) => string;
@@ -68,7 +67,7 @@ interface PendingVisionRequest {
 }
 
 export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionReturn {
-  const { allAssets, allVariants, onGenerate, onFork, onCreate, onRefine, onCombine, sendDescribeRequest, sendCompareRequest } = deps;
+  const { allAssets, allVariants, onGenerate, onFork, onDerive, onRefine, sendDescribeRequest, sendCompareRequest } = deps;
 
   // Forge tray state
   const slots = useForgeTrayStore((state) => state.slots);
@@ -271,13 +270,16 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         return `Forked "${sourceAsset.name}" as "${params.name}"`;
       }
 
-      case 'create': {
-        if (!onCreate) return 'Create not available';
+      case 'derive': {
+        if (!onDerive) return 'Derive not available';
 
-        const referenceAssetId = params.referenceAssetId as string;
-        const referenceAsset = allAssets.find(a => a.id === referenceAssetId);
-        if (!referenceAsset) {
-          return `Reference asset not found: ${referenceAssetId}`;
+        const referenceAssetIds = params.referenceAssetIds as string[];
+        if (!referenceAssetIds || referenceAssetIds.length === 0) {
+          return 'At least 1 reference asset is required for deriving';
+        }
+        const invalidIds = referenceAssetIds.filter(id => !allAssets.find(a => a.id === id));
+        if (invalidIds.length > 0) {
+          return `Reference asset(s) not found: ${invalidIds.join(', ')}`;
         }
 
         const parentAssetId = params.parentAssetId as string | undefined;
@@ -285,22 +287,23 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
           return `Parent asset not found: ${parentAssetId}`;
         }
 
-        const createParams = {
+        const deriveParams = {
           name: params.name as string,
           type: params.type as string,
           prompt: params.prompt as string,
-          referenceAssetId,
+          referenceAssetIds,
           parentAssetId,
         };
-        const jobId = onCreate(createParams);
+        const jobId = onDerive(deriveParams);
         if (jobId) {
           trackJob(jobId, {
-            assetName: createParams.name,
-            prompt: createParams.prompt,
+            assetName: deriveParams.name,
+            prompt: deriveParams.prompt,
             createdAt: Date.now(),
           });
         }
-        return `Started creating "${createParams.name}" from "${referenceAsset.name}"`;
+        const refNames = referenceAssetIds.map(id => allAssets.find(a => a.id === id)?.name).filter(Boolean).join(', ');
+        return `Started deriving "${deriveParams.name}" from ${refNames}`;
       }
 
       case 'refine': {
@@ -325,35 +328,6 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
           });
         }
         return `Started refining "${asset.name}"`;
-      }
-
-      case 'combine': {
-        if (!onCombine) return 'Combine not available';
-
-        const sourceAssetIds = params.sourceAssetIds as string[];
-        if (!sourceAssetIds || sourceAssetIds.length < 2) {
-          return 'At least 2 source assets are required for combining';
-        }
-        const invalidIds = sourceAssetIds.filter(id => !allAssets.find(a => a.id === id));
-        if (invalidIds.length > 0) {
-          return `Source asset(s) not found: ${invalidIds.join(', ')}`;
-        }
-
-        const combineParams = {
-          sourceAssetIds,
-          prompt: params.prompt as string,
-          name: params.name as string,
-          type: params.type as string,
-        };
-        const jobId = onCombine(combineParams);
-        if (jobId) {
-          trackJob(jobId, {
-            assetName: combineParams.name,
-            prompt: combineParams.prompt,
-            createdAt: Date.now(),
-          });
-        }
-        return `Started combining assets into "${combineParams.name}"`;
       }
 
       case 'search': {
@@ -432,7 +406,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
       default:
         return `Unknown action: ${name}`;
     }
-  }, [allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPrompt, onGenerate, onFork, onCreate, onRefine, onCombine, sendDescribeRequest, sendCompareRequest, trackJob]);
+  }, [allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPrompt, onGenerate, onFork, onDerive, onRefine, sendDescribeRequest, sendCompareRequest, trackJob]);
 
   // Execute all tool calls, collecting results
   const executeToolCalls = useCallback(async (toolCalls: ToolCall[]): Promise<string[]> => {

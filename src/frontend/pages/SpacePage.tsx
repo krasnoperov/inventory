@@ -184,7 +184,7 @@ export default function SpacePage() {
   }, [user, spaceId, navigate]);
 
   // Use shared forge operations hook (all operations via WebSocket)
-  const { handleForgeSubmit, onGenerate, onFork, onCreate, onRefine, onCombine } = useForgeOperations({
+  const { handleForgeSubmit, onGenerate, onFork, onDerive, onRefine } = useForgeOperations({
     sendGenerateRequest,
     sendRefineRequest,
     forkAsset,
@@ -419,9 +419,8 @@ export default function SpacePage() {
             lastCompletedJob={lastCompletedJob}
             onGenerate={onGenerate}
             onFork={onFork}
-            onCreate={onCreate}
+            onDerive={onDerive}
             onRefine={onRefine}
-            onCombine={onCombine}
             sendChatRequest={sendChatRequest}
             chatResponse={chatResponse}
             sendDescribeRequest={sendDescribeRequest}

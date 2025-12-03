@@ -261,7 +261,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
               },
               action: {
                 type: 'string',
-                enum: ['generate', 'fork', 'create', 'refine', 'combine', 'add_to_tray', 'set_prompt', 'clear_tray'],
+                enum: ['generate', 'fork', 'derive', 'refine', 'add_to_tray', 'set_prompt', 'clear_tray'],
                 description: 'The action to perform',
               },
               params: {
@@ -390,8 +390,8 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: 'create',
-    description: 'Create a NEW asset using ONE reference image as inspiration. Use this for style transfer, element extraction, or transforming an existing image into something new. The reference guides the AI but the result is a new creation.',
+    name: 'derive',
+    description: 'Derive a NEW asset using one or more reference images as inspiration. Use this for style transfer, element extraction, combining multiple references, or transforming existing images into something new. The references guide the AI but the result is a new creation.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -402,22 +402,23 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
         type: {
           type: 'string',
           enum: ['character', 'item', 'scene', 'prop', 'effect', 'ui'],
-          description: 'Type of asset to create',
+          description: 'Type of asset to derive',
         },
         prompt: {
           type: 'string',
-          description: 'Prompt describing the transformation or extraction. Examples: "Extract the gold coin, place on parchment background", "Same character but in anime style", "The armor design applied to a different character".',
+          description: 'Prompt describing the transformation. For single ref: "Extract the gold coin", "Same character in anime style". For multiple refs: "Character from image 1 in scene from image 2", "Mug from image 1 on desk from image 2".',
         },
-        referenceAssetId: {
-          type: 'string',
-          description: 'The asset ID to use as reference/inspiration',
+        referenceAssetIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Asset IDs to use as references (1-14). For multiple refs, order matters: image 1, image 2, etc.',
         },
         parentAssetId: {
           type: 'string',
           description: 'Optional: ID of parent asset if this is a child/derived asset',
         },
       },
-      required: ['name', 'type', 'prompt', 'referenceAssetId'],
+      required: ['name', 'type', 'prompt', 'referenceAssetIds'],
     },
   },
   {
@@ -436,34 +437,6 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ['assetId', 'prompt'],
-    },
-  },
-  {
-    name: 'combine',
-    description: 'Combine multiple assets (2-4 images) into a NEW asset. Use this to composite elements from different images: character in scene, item on surface, outfit on model. Be explicit about what comes from which image.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        sourceAssetIds: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'IDs of assets to combine (2-4). Order matters: image 1, image 2, etc.',
-        },
-        prompt: {
-          type: 'string',
-          description: 'Composition prompt referencing each image. Examples: "Character from image 1 in scene from image 2", "Mug from image 1 on desk from image 2".',
-        },
-        name: {
-          type: 'string',
-          description: 'Name for the new combined asset',
-        },
-        type: {
-          type: 'string',
-          enum: ['character', 'item', 'scene', 'prop', 'effect', 'ui'],
-          description: 'Type of the combined asset',
-        },
-      },
-      required: ['sourceAssetIds', 'prompt', 'name', 'type'],
     },
   },
 ];
@@ -546,10 +519,9 @@ ${context.assets.length > 0
 
 Operations explained:
 - GENERATE: Create from prompt only (0 refs)
-- FORK: Copy ref to new asset without changes (1 ref, no prompt, new_asset destination)
-- CREATE: Create new asset using ref as inspiration (1 ref + prompt, new_asset destination)
-- REFINE: Add variant to existing asset (1 ref + prompt, existing_asset destination)
-- COMBINE: Merge multiple refs into new asset (2+ refs + prompt)
+- FORK: Copy ref to new asset without changes (1 ref, no prompt)
+- DERIVE: Create new asset using refs as inspiration (1+ refs + prompt)
+- REFINE: Add variant to existing asset (1+ refs + prompt)
 
 `;
     }
@@ -619,22 +591,22 @@ GUIDELINES:
 5. For multi-step changes, break them into separate refine calls (one change per step)
 
 COMMON WORKFLOWS:
-- "Create a game character" → create with appearance, armor, art style; then refine for character sheet variants
-- "Create a building" → create with architecture style, materials, context; then refine for different angles/views
-- "Create a room" → create with style, materials, lighting; then refine furniture one piece at a time
-- "Create a product shot" → create on neutral background; then combine with lifestyle scenes
-- "Create food photography" → create with plating and styling; then combine with table settings
-- "Create fashion imagery" → create on mannequin; then combine with models or contexts
-- "Create a logo" → create with text, style, shape; Gemini excels at text rendering
-- "Create an infographic" → create with diagram structure, icons, text; leverage text rendering strength
-- "Create UI mockup" → create with screen layout, text labels, buttons; great for wireframes and concepts
+- "Create a game character" → generate with appearance, armor, art style; then refine for character sheet variants
+- "Create a building" → generate with architecture style, materials, context; then refine for different angles/views
+- "Create a room" → generate with style, materials, lighting; then refine furniture one piece at a time
+- "Create a product shot" → generate on neutral background; then derive with lifestyle scene reference
+- "Create food photography" → generate with plating and styling; then derive with table setting reference
+- "Create fashion imagery" → generate on mannequin; then derive with model or context references
+- "Create a logo" → generate with text, style, shape; Gemini excels at text rendering
+- "Create an infographic" → generate with diagram structure, icons, text; leverage text rendering strength
+- "Create UI mockup" → generate with screen layout, text labels, buttons; great for wireframes and concepts
 - "Make variations" → refine with ONE specific change per call
-- "Place element in scene" → combine: element from image 1 in environment from image 2
-- "Equip/style subject" → combine: subject from image 1 with item/garment from image 2
-- "Create series" → create_plan: create hero image, then refine for variants maintaining visual anchors
-- "Extract elements from scene" → create with referenceAssetIds pointing to source scene, prompt describes what to extract (e.g., "Extract the blue slime from image 1, isolate on neutral background")
-- "Match style from reference" → create with referenceAssetIds, prompt describes new subject in the style of the reference
-- "Extract + match style" → create with MULTIPLE referenceAssetIds: source scene + style references. Prompt: "Extract [element] from image 1. Match the style of images 2-3."
+- "Place element in scene" → derive: element from image 1 in environment from image 2
+- "Equip/style subject" → derive: subject from image 1 with item/garment from image 2
+- "Create series" → create_plan: generate hero image, then refine for variants maintaining visual anchors
+- "Extract elements from scene" → derive with referenceAssetIds pointing to source scene, prompt describes what to extract (e.g., "Extract the blue slime from image 1, isolate on neutral background")
+- "Match style from reference" → derive with referenceAssetIds, prompt describes new subject in the style of the reference
+- "Extract + match style" → derive with MULTIPLE referenceAssetIds: source scene + style references. Prompt: "Extract [element] from image 1. Match the style of images 2-3."
 
 PROMPT QUALITY CHECKLIST:
 ✓ Specific subject (not "a building" but "Victorian townhouse with red brick and bay windows")

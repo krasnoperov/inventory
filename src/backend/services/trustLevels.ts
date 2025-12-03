@@ -23,7 +23,7 @@ export interface ToolTrustConfig {
  * - Local state changes: tray manipulation, prompt setting
  *
  * GENERATING tools (autoExecute: false):
- * - AI image generation: create, refine, combine
+ * - AI image generation: generate, derive, refine
  * - Consumes credits, irreversible
  *
  * PLANNING tools (autoExecute: false):
@@ -79,20 +79,15 @@ export const TOOL_TRUST_MAP: Record<string, ToolTrustConfig> = {
     autoExecute: false,
     description: 'Generate new asset from prompt',
   },
-  create: {
+  derive: {
     level: 'generating',
     autoExecute: false,
-    description: 'Create new asset using reference',
+    description: 'Derive new asset from references',
   },
   refine: {
     level: 'generating',
     autoExecute: false,
     description: 'Add variant to existing asset',
-  },
-  combine: {
-    level: 'generating',
-    autoExecute: false,
-    description: 'Combine assets into new one',
   },
 
   // === SAFE BUT MODIFYING: Fork (no AI, just copy) ===

@@ -63,9 +63,8 @@ export interface ChatSidebarProps {
   // Forge operations (matching ForgeTray UI)
   onGenerate?: (params: { name: string; type: string; prompt: string; parentAssetId?: string }) => string | void;
   onFork?: (params: { sourceAssetId: string; name: string; type: string; parentAssetId?: string }) => void;
-  onCreate?: (params: { name: string; type: string; prompt: string; referenceAssetId: string; parentAssetId?: string }) => string | void;
+  onDerive?: (params: { name: string; type: string; prompt: string; referenceAssetIds: string[]; parentAssetId?: string }) => string | void;
   onRefine?: (params: { assetId: string; prompt: string }) => string | void;
-  onCombine?: (params: { sourceAssetIds: string[]; prompt: string; name: string; type: string }) => string | void;
   lastCompletedJob?: JobCompletionData | null;
   /** WebSocket chat request function (required for chat communication) */
   sendChatRequest: (params: ChatRequestParams) => string;
@@ -98,9 +97,8 @@ export function ChatSidebar({
   allVariants = [],
   onGenerate,
   onFork,
-  onCreate,
+  onDerive,
   onRefine,
-  onCombine,
   lastCompletedJob,
   sendChatRequest,
   chatResponse,
@@ -171,9 +169,8 @@ export function ChatSidebar({
     allVariants,
     onGenerate,
     onFork,
-    onCreate,
+    onDerive,
     onRefine,
-    onCombine,
     sendDescribeRequest,
     sendCompareRequest,
   });

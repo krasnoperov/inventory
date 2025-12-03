@@ -67,12 +67,12 @@ export class SchemaManager {
       );
 
       -- Variant lineage (parent-child relationships)
-      -- relation_type matches user operations: created, refined, combined, forked
+      -- relation_type matches user operations: derived, refined, forked
       CREATE TABLE IF NOT EXISTS lineage (
         id TEXT PRIMARY KEY,
         parent_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
         child_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
-        relation_type TEXT NOT NULL CHECK (relation_type IN ('created', 'refined', 'combined', 'forked')),
+        relation_type TEXT NOT NULL CHECK (relation_type IN ('derived', 'refined', 'forked')),
         severed INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL
       );
@@ -94,24 +94,32 @@ export class SchemaManager {
    * Migrations are idempotent and safe to run multiple times.
    */
   private async runMigrations(): Promise<void> {
-    // Migration: Add 'created' to relation_type constraint
+    // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
-    // This also handles legacy 'spawned' → 'forked' conversion
+    // Conversions:
+    //   'spawned' → 'forked' (legacy)
+    //   'created' → 'derived'
+    //   'combined' → 'derived' (combine into new asset now uses derive)
     await this.sql.exec(`
       -- Create new table with updated constraint
       CREATE TABLE IF NOT EXISTS lineage_new (
         id TEXT PRIMARY KEY,
         parent_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
         child_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
-        relation_type TEXT NOT NULL CHECK (relation_type IN ('created', 'refined', 'combined', 'forked')),
+        relation_type TEXT NOT NULL CHECK (relation_type IN ('derived', 'refined', 'forked')),
         severed INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL
       );
 
-      -- Copy data, converting legacy 'spawned' to 'forked'
+      -- Copy data, converting legacy values
       INSERT OR IGNORE INTO lineage_new (id, parent_variant_id, child_variant_id, relation_type, severed, created_at)
       SELECT id, parent_variant_id, child_variant_id,
-             CASE WHEN relation_type = 'spawned' THEN 'forked' ELSE relation_type END,
+             CASE
+               WHEN relation_type = 'spawned' THEN 'forked'
+               WHEN relation_type = 'created' THEN 'derived'
+               WHEN relation_type = 'combined' THEN 'derived'
+               ELSE relation_type
+             END,
              severed, created_at
       FROM lineage;
 

@@ -33,18 +33,16 @@ export interface ForgeTrayProps {
 }
 
 // Determine operation based on state
+// Simplified: 4 operations - generate, fork, derive, refine
 function getOperation(
   slotCount: number,
   hasPrompt: boolean,
   destinationType: DestinationType
 ): ForgeOperation {
   if (slotCount === 0) return 'generate';
-  if (slotCount === 1) {
-    if (!hasPrompt && destinationType === 'new_asset') return 'fork';
-    if (destinationType === 'existing_asset') return 'refine';
-    return 'create'; // has prompt, new asset
-  }
-  return 'combine';
+  if (slotCount >= 1 && !hasPrompt && destinationType === 'new_asset') return 'fork';
+  if (destinationType === 'existing_asset') return 'refine';
+  return 'derive'; // has prompt, new asset (1+ refs)
 }
 
 // Get button label for operation
@@ -52,9 +50,8 @@ function getOperationLabel(operation: ForgeOperation): string {
   switch (operation) {
     case 'generate': return 'Generate';
     case 'fork': return 'Fork';
+    case 'derive': return 'Derive';
     case 'refine': return 'Refine';
-    case 'create': return 'Create';
-    case 'combine': return 'Combine';
   }
 }
 
@@ -62,7 +59,7 @@ function getOperationLabel(operation: ForgeOperation): string {
 function getPlaceholder(slotCount: number, operation: ForgeOperation): string {
   if (slotCount === 0) return 'Describe what to generate...';
   if (operation === 'fork') return 'Leave empty to fork, or describe changes...';
-  if (operation === 'combine') return 'Describe how to combine these references...';
+  if (operation === 'derive') return 'Describe what to derive from these references...';
   return 'Describe the refinement or transformation...';
 }
 
@@ -89,10 +86,14 @@ export function ForgeTray({
     return null;
   }, [currentAsset, slots]);
 
-  // When we have slots, default to existing asset; when empty (Generate), default to new on Scene
+  // SpacePage (no currentAsset): always new_asset, no toggle
+  // AssetDetailPage (has currentAsset): user can toggle between existing and new
   const effectiveDestinationType = useMemo(() => {
-    if (slots.length === 0 && !currentAsset) {
-      return 'new_asset'; // Generate on Scene always creates new
+    if (!currentAsset) {
+      return 'new_asset'; // SpacePage: always creates new assets
+    }
+    if (slots.length === 0) {
+      return 'new_asset'; // Generate: always creates new
     }
     return destinationType;
   }, [slots.length, currentAsset, destinationType]);
@@ -204,7 +205,8 @@ export function ForgeTray({
   }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, newAssetName]);
 
   const canAddMore = slots.length < maxSlots;
-  const showDestinationToggle = slots.length > 0 || currentAsset;
+  // Only show destination toggle on AssetDetailPage (has currentAsset) when slots > 0
+  const showDestinationToggle = !!currentAsset && slots.length > 0;
 
   const trayClass = onBrandBackground
     ? `${styles.tray} ${styles.onBrandBackground}`

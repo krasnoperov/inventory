@@ -8,7 +8,7 @@ export interface ForgeSlot {
   position: number;
 }
 
-export type ForgeOperation = 'generate' | 'fork' | 'refine' | 'create' | 'combine';
+export type ForgeOperation = 'generate' | 'fork' | 'derive' | 'refine';
 
 export interface ForgeTarget {
   type: 'new_asset' | 'existing_asset';
@@ -63,7 +63,7 @@ interface ForgeTrayState {
 export const getBasicOperation = (slotCount: number): ForgeOperation => {
   if (slotCount === 0) return 'generate';
   if (slotCount === 1) return 'refine'; // default for 1 slot
-  return 'combine';
+  return 'derive'; // 2+ slots: derive new asset from multiple refs
 };
 
 export const useForgeTrayStore = create<ForgeTrayState>()((set, get) => ({

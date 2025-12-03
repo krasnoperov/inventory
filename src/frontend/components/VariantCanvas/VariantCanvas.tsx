@@ -3,7 +3,6 @@ import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   type Edge,
@@ -22,19 +21,21 @@ const THUMB_HEIGHT = 140;
 const THUMB_MIN_WIDTH = 100;
 const THUMB_MAX_WIDTH = 240;
 const NODE_PADDING = 20;
-const LABEL_HEIGHT = 24;
 
 // Active variant is larger
 const ACTIVE_SCALE = 1.5;
 
-// Default node dimensions
+// Default node dimensions (no label height - labels only shown for ghost/forked nodes)
 const DEFAULT_NODE_WIDTH = 160;
-const DEFAULT_NODE_HEIGHT = THUMB_HEIGHT + NODE_PADDING + LABEL_HEIGHT;
+const DEFAULT_NODE_HEIGHT = THUMB_HEIGHT + NODE_PADDING;
 
 // Custom node types
 const nodeTypes = {
   variant: VariantNode,
 };
+
+/** Layout direction for the graph */
+export type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
 
 export interface VariantCanvasProps {
   asset: Asset;
@@ -53,6 +54,8 @@ export interface VariantCanvasProps {
   allAssets?: Asset[];
   /** Callback when clicking a ghost node to navigate to its asset */
   onGhostNodeClick?: (assetId: string) => void;
+  /** Layout direction: TB (top-bottom), LR (left-right), BT, RL. Default: LR */
+  layoutDirection?: LayoutDirection;
 }
 
 /** Calculate node width from image dimensions */
@@ -68,7 +71,7 @@ function getLayoutedElements(
   edges: Edge[],
   nodeDimensions: Map<string, { width: number; height: number }>,
   activeVariantId?: string,
-  direction: 'TB' | 'LR' = 'TB'
+  direction: LayoutDirection = 'LR'
 ): { nodes: VariantNodeType[]; edges: Edge[] } {
   if (nodes.length === 0) {
     return { nodes: [], edges: [] };
@@ -197,7 +200,7 @@ function getLayoutedElements(
     });
   }
 
-  // Mark nodes with connection info for handle visibility
+  // Mark nodes with connection info for handle visibility and layout direction
   const allNodes = [...layoutedTreeNodes, ...layoutedOrphanNodes];
   return {
     nodes: allNodes.map(node => ({
@@ -206,6 +209,7 @@ function getLayoutedElements(
         ...node.data,
         hasIncoming: targetIds.has(node.id),
         hasOutgoing: sourceIds.has(node.id),
+        layoutDirection: direction,
       },
     })),
     edges,
@@ -225,6 +229,7 @@ export function VariantCanvas({
   allVariants,
   allAssets,
   onGhostNodeClick,
+  layoutDirection = 'LR',
 }: VariantCanvasProps) {
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
 
@@ -452,51 +457,18 @@ export function VariantCanvas({
             width: 14,
             height: 14,
           },
-          label: isToGhost ? 'derived' : (isFromGhost ? 'forked' : 'refined'),
-          labelStyle: { fontSize: 9, fill: 'var(--color-text-muted)' },
-          labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
         };
       });
 
-    // Add combined edges with different style
-    const combinedEdges: Edge[] = lineage
-      .filter(l => l.relation_type === 'combined' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
+    // Add derived edges (cross-asset references when deriving new assets)
+    const derivedEdges: Edge[] = lineage
+      .filter(l => l.relation_type === 'derived' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
       .map(l => {
         const isFromGhost = ghostVariantIds.has(l.parent_variant_id);
         const isToGhost = ghostVariantIds.has(l.child_variant_id);
         const isGhostEdge = isFromGhost || isToGhost;
         return {
-          id: `${l.parent_variant_id}-${l.child_variant_id}-combined`,
-          source: l.parent_variant_id,
-          target: l.child_variant_id,
-          type: 'smoothstep',
-          animated: isVariantGenerating(l.child_variant_id),
-          style: {
-            stroke: 'var(--color-primary)',
-            strokeWidth: 2,
-            strokeDasharray: isGhostEdge ? '4,4' : '5,5',
-          },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: 'var(--color-primary)',
-            width: 14,
-            height: 14,
-          },
-          label: isToGhost ? 'derived' : 'combined',
-          labelStyle: { fontSize: 9, fill: 'var(--color-primary)' },
-          labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
-        };
-      });
-
-    // Add created edges (cross-asset references when creating new assets)
-    const createdEdges: Edge[] = lineage
-      .filter(l => l.relation_type === 'created' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
-      .map(l => {
-        const isFromGhost = ghostVariantIds.has(l.parent_variant_id);
-        const isToGhost = ghostVariantIds.has(l.child_variant_id);
-        const isGhostEdge = isFromGhost || isToGhost;
-        return {
-          id: `${l.parent_variant_id}-${l.child_variant_id}-created`,
+          id: `${l.parent_variant_id}-${l.child_variant_id}-derived`,
           source: l.parent_variant_id,
           target: l.child_variant_id,
           type: 'smoothstep',
@@ -512,18 +484,13 @@ export function VariantCanvas({
             width: 14,
             height: 14,
           },
-          label: isToGhost ? 'created →' : 'created',
-          labelStyle: { fontSize: 9, fill: 'var(--color-success)' },
-          labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
         };
       });
 
     // Add forked edges
     const forkedEdges: Edge[] = lineage
       .filter(l => l.relation_type === 'forked' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
-      .map(l => {
-        const isToGhost = ghostVariantIds.has(l.child_variant_id);
-        return {
+      .map(l => ({
           id: `${l.parent_variant_id}-${l.child_variant_id}-forked`,
           source: l.parent_variant_id,
           target: l.child_variant_id,
@@ -540,21 +507,17 @@ export function VariantCanvas({
             width: 14,
             height: 14,
           },
-          label: isToGhost ? 'forked →' : 'forked',
-          labelStyle: { fontSize: 9, fill: 'var(--color-text-muted)' },
-          labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
-        };
-      });
+        }));
 
-    const allEdges = [...edges, ...combinedEdges, ...createdEdges, ...forkedEdges];
+    const allEdges = [...edges, ...derivedEdges, ...forkedEdges];
 
-    // Apply layout
+    // Apply layout with configurable direction (default: LR for better sidebar/tray coexistence)
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      allNodes, allEdges, imageDimensions, asset.active_variant_id ?? undefined, 'TB'
+      allNodes, allEdges, imageDimensions, asset.active_variant_id ?? undefined, layoutDirection
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick]);
+  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -577,6 +540,14 @@ export function VariantCanvas({
     );
   }
 
+  // Adjust fitView padding based on chat sidebar state
+  // When chat is open (380px + margins), add extra right padding
+  const fitViewOptions = useMemo(() => ({
+    padding: 0.3,
+    // Shift content left when chat is open to avoid overlap
+    // Note: padding is uniform, but we position content to account for sidebar
+  }), []);
+
   return (
     <div className={styles.canvas}>
       <ReactFlow
@@ -586,23 +557,13 @@ export function VariantCanvas({
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
+        fitViewOptions={fitViewOptions}
         minZoom={0.3}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
-        <Controls className={styles.controls} />
-        <MiniMap
-          className={styles.minimap}
-          nodeColor={(node) => {
-            const data = node.data as VariantNodeData;
-            if (data.isActive) return 'var(--color-success)';
-            if (data.isSelected) return 'var(--color-primary)';
-            return 'var(--color-text-muted)';
-          }}
-          maskColor="rgba(0, 0, 0, 0.1)"
-        />
+        <Controls className={styles.controls} position="bottom-left" />
       </ReactFlow>
     </div>
   );

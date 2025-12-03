@@ -207,14 +207,14 @@ export class GenerationController extends BaseController {
     });
 
     // Create lineage records for parent variants
-    // For new asset creation, lineage type is always 'created'
+    // For new asset creation, lineage type is always 'derived'
     if (parentVariantIds.length > 0) {
       for (const parentId of parentVariantIds) {
         const lineage = await this.repo.createLineage({
           id: crypto.randomUUID(),
           parentVariantId: parentId,
           childVariantId: variantId,
-          relationType: 'created',
+          relationType: 'derived',
         });
         this.broadcast({ type: 'lineage:created', lineage });
       }
@@ -361,14 +361,13 @@ export class GenerationController extends BaseController {
     });
 
     // Create lineage records for parent variants
-    // Use operation type directly as relation_type ('refine' → 'refined', 'combine' → 'combined')
-    const relationType = operation === 'combine' ? 'combined' : 'refined';
+    // For existing asset refinement, lineage type is always 'refined'
     for (const parentId of parentVariantIds) {
       const lineage = await this.repo.createLineage({
         id: crypto.randomUUID(),
         parentVariantId: parentId,
         childVariantId: variantId,
-        relationType,
+        relationType: 'refined',
       });
       this.broadcast({ type: 'lineage:created', lineage });
     }

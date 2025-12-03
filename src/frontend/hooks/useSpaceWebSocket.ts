@@ -66,7 +66,7 @@ export interface Lineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: 'created' | 'refined' | 'combined' | 'forked';
+  relation_type: 'derived' | 'refined' | 'forked';
   severed: boolean;  // User can cut the historical link
   created_at: number;
 }

@@ -80,6 +80,16 @@ export default function AssetDetailPage() {
     setIsOpen(spaceId || '', false);
   }, [setIsOpen, spaceId]);
 
+  // Initialize chat as open on first visit to this space
+  useEffect(() => {
+    if (!spaceId) return;
+    const session = useChatStore.getState().sessions[spaceId];
+    if (!session) {
+      // No session exists yet, create one with chat open
+      setIsOpen(spaceId, true);
+    }
+  }, [spaceId, setIsOpen]);
+
   // Track last completed job for assistant auto-review
   const [lastCompletedJob, setLastCompletedJob] = useState<{
     jobId: string;
@@ -419,7 +429,7 @@ export default function AssetDetailPage() {
   }, [lineage, prefillFromVariant, wsAssets, wsVariants]);
 
   // Use shared forge operations hook
-  const { handleForgeSubmit, onGenerate, onFork, onCreate, onRefine, onCombine } = useForgeOperations({
+  const { handleForgeSubmit, onGenerate, onFork, onDerive, onRefine } = useForgeOperations({
     sendGenerateRequest,
     sendRefineRequest,
     forkAsset,
@@ -759,9 +769,8 @@ export default function AssetDetailPage() {
             lastCompletedJob={lastCompletedJob}
             onGenerate={onGenerate}
             onFork={onFork}
-            onCreate={onCreate}
+            onDerive={onDerive}
             onRefine={onRefine}
-            onCombine={onCombine}
             sendChatRequest={sendChatRequest}
             chatResponse={chatResponse}
             sendDescribeRequest={sendDescribeRequest}

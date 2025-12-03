@@ -23,7 +23,7 @@ export interface UseForgeOperationsParams {
 }
 
 export interface UseForgeOperationsReturn {
-  /** Submit a forge operation (generate, fork, create, refine, combine) */
+  /** Submit a forge operation (generate, fork, derive, refine) */
   handleForgeSubmit: (params: ForgeSubmitParams) => string;
 
   /** Generate: Create new asset from prompt only (no references) */
@@ -42,12 +42,12 @@ export interface UseForgeOperationsReturn {
     parentAssetId?: string;
   }) => void;
 
-  /** Create: Create new asset using one reference as inspiration */
-  onCreate: (params: {
+  /** Derive: Create new asset using one or more references as inspiration */
+  onDerive: (params: {
     name: string;
     type: string;
     prompt: string;
-    referenceAssetId: string;
+    referenceAssetIds: string[];
     parentAssetId?: string;
   }) => string;
 
@@ -55,14 +55,6 @@ export interface UseForgeOperationsReturn {
   onRefine: (params: {
     assetId: string;
     prompt: string;
-  }) => string;
-
-  /** Combine: Merge multiple assets into new one */
-  onCombine: (params: {
-    sourceAssetIds: string[];
-    prompt: string;
-    name: string;
-    type: string;
   }) => string;
 }
 
@@ -171,25 +163,25 @@ export function useForgeOperations({
   }, [forkAsset]);
 
   /**
-   * Create: Create new asset using one reference as inspiration
+   * Derive: Create new asset using one or more references as inspiration
    */
-  const onCreate = useCallback((params: {
+  const onDerive = useCallback((params: {
     name: string;
     type: string;
     prompt: string;
-    referenceAssetId: string;
+    referenceAssetIds: string[];
     parentAssetId?: string;
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
-      referenceAssetIds: [params.referenceAssetId],
+      referenceAssetIds: params.referenceAssetIds,
       destination: {
         type: 'new_asset',
         assetName: params.name,
         assetType: params.type,
         parentAssetId: params.parentAssetId || null,
       },
-      operation: 'create',
+      operation: 'derive',
     });
   }, [handleForgeSubmit]);
 
@@ -210,34 +202,11 @@ export function useForgeOperations({
     });
   }, [handleForgeSubmit]);
 
-  /**
-   * Combine: Merge multiple assets into new one
-   */
-  const onCombine = useCallback((params: {
-    sourceAssetIds: string[];
-    prompt: string;
-    name: string;
-    type: string;
-  }): string => {
-    return handleForgeSubmit({
-      prompt: params.prompt,
-      referenceAssetIds: params.sourceAssetIds,
-      destination: {
-        type: 'new_asset',
-        assetName: params.name,
-        assetType: params.type,
-        parentAssetId: null,
-      },
-      operation: 'combine',
-    });
-  }, [handleForgeSubmit]);
-
   return {
     handleForgeSubmit,
     onGenerate,
     onFork,
-    onCreate,
+    onDerive,
     onRefine,
-    onCombine,
   };
 }
