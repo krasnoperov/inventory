@@ -18,9 +18,12 @@ export interface TrackedJobInfo {
 export interface ToolExecutionDeps {
   allAssets: Asset[];
   allVariants: Variant[];
-  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string; referenceAssetIds?: string[] }) => string | void;
-  onRefineAsset?: (params: { assetId: string; prompt: string }) => string | void;
-  onCombineAssets?: (params: { sourceAssetIds: string[]; prompt: string; targetName: string; targetType: string }) => string | void;
+  // Forge operations (matching ForgeTray UI)
+  onGenerate?: (params: { name: string; type: string; prompt: string; parentAssetId?: string }) => string | void;
+  onFork?: (params: { sourceAssetId: string; name: string; type: string; parentAssetId?: string }) => void;
+  onCreate?: (params: { name: string; type: string; prompt: string; referenceAssetId: string; parentAssetId?: string }) => string | void;
+  onRefine?: (params: { assetId: string; prompt: string }) => string | void;
+  onCombine?: (params: { sourceAssetIds: string[]; prompt: string; name: string; type: string }) => string | void;
   // WebSocket methods for describe/compare
   sendDescribeRequest?: (params: DescribeRequestParams) => string;
   sendCompareRequest?: (params: CompareRequestParams) => string;
@@ -65,7 +68,7 @@ interface PendingVisionRequest {
 }
 
 export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionReturn {
-  const { allAssets, allVariants, onGenerateAsset, onRefineAsset, onCombineAssets, sendDescribeRequest, sendCompareRequest } = deps;
+  const { allAssets, allVariants, onGenerate, onFork, onCreate, onRefine, onCombine, sendDescribeRequest, sendCompareRequest } = deps;
 
   // Forge tray state
   const slots = useForgeTrayStore((state) => state.slots);
@@ -216,22 +219,16 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         return `Set prompt: "${newPrompt.slice(0, 50)}${newPrompt.length > 50 ? '...' : ''}"`;
       }
 
-      case 'create': {
-        if (!onGenerateAsset) return 'Generation not available';
+      // =======================================================================
+      // FORGE OPERATIONS (5 tools matching ForgeTray UI)
+      // =======================================================================
 
-        // Validate parentAssetId exists
+      case 'generate': {
+        if (!onGenerate) return 'Generate not available';
+
         const parentAssetId = params.parentAssetId as string | undefined;
         if (parentAssetId && !allAssets.find(a => a.id === parentAssetId)) {
           return `Parent asset not found: ${parentAssetId}`;
-        }
-
-        // Validate all referenceAssetIds exist
-        const referenceAssetIds = params.referenceAssetIds as string[] | undefined;
-        if (referenceAssetIds) {
-          const invalidIds = referenceAssetIds.filter(id => !allAssets.find(a => a.id === id));
-          if (invalidIds.length > 0) {
-            return `Reference asset(s) not found: ${invalidIds.join(', ')}`;
-          }
         }
 
         const genParams = {
@@ -239,10 +236,8 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
           type: params.type as string,
           prompt: params.prompt as string,
           parentAssetId,
-          referenceAssetIds,
         };
-        const jobId = onGenerateAsset(genParams);
-        // Track job for auto-review
+        const jobId = onGenerate(genParams);
         if (jobId) {
           trackJob(jobId, {
             assetName: genParams.name,
@@ -253,10 +248,64 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         return `Started generating "${genParams.name}"`;
       }
 
-      case 'refine': {
-        if (!onRefineAsset) return 'Refinement not available';
+      case 'fork': {
+        if (!onFork) return 'Fork not available';
 
-        // Validate assetId exists
+        const sourceAssetId = params.sourceAssetId as string;
+        const sourceAsset = allAssets.find(a => a.id === sourceAssetId);
+        if (!sourceAsset) {
+          return `Source asset not found: ${sourceAssetId}`;
+        }
+
+        const parentAssetId = params.parentAssetId as string | undefined;
+        if (parentAssetId && !allAssets.find(a => a.id === parentAssetId)) {
+          return `Parent asset not found: ${parentAssetId}`;
+        }
+
+        onFork({
+          sourceAssetId,
+          name: params.name as string,
+          type: params.type as string,
+          parentAssetId,
+        });
+        return `Forked "${sourceAsset.name}" as "${params.name}"`;
+      }
+
+      case 'create': {
+        if (!onCreate) return 'Create not available';
+
+        const referenceAssetId = params.referenceAssetId as string;
+        const referenceAsset = allAssets.find(a => a.id === referenceAssetId);
+        if (!referenceAsset) {
+          return `Reference asset not found: ${referenceAssetId}`;
+        }
+
+        const parentAssetId = params.parentAssetId as string | undefined;
+        if (parentAssetId && !allAssets.find(a => a.id === parentAssetId)) {
+          return `Parent asset not found: ${parentAssetId}`;
+        }
+
+        const createParams = {
+          name: params.name as string,
+          type: params.type as string,
+          prompt: params.prompt as string,
+          referenceAssetId,
+          parentAssetId,
+        };
+        const jobId = onCreate(createParams);
+        if (jobId) {
+          trackJob(jobId, {
+            assetName: createParams.name,
+            prompt: createParams.prompt,
+            createdAt: Date.now(),
+          });
+        }
+        return `Started creating "${createParams.name}" from "${referenceAsset.name}"`;
+      }
+
+      case 'refine': {
+        if (!onRefine) return 'Refine not available';
+
         const assetId = params.assetId as string;
         const asset = allAssets.find(a => a.id === assetId);
         if (!asset) {
@@ -267,8 +316,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
           assetId,
           prompt: params.prompt as string,
         };
-        const jobId = onRefineAsset(refineParams);
-        // Track job for auto-review
+        const jobId = onRefine(refineParams);
         if (jobId) {
           trackJob(jobId, {
             assetName: asset.name,
@@ -280,9 +328,8 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
       }
 
       case 'combine': {
-        if (!onCombineAssets) return 'Combining not available';
+        if (!onCombine) return 'Combine not available';
 
-        // Validate all sourceAssetIds exist
         const sourceAssetIds = params.sourceAssetIds as string[];
         if (!sourceAssetIds || sourceAssetIds.length < 2) {
           return 'At least 2 source assets are required for combining';
@@ -295,19 +342,18 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         const combineParams = {
           sourceAssetIds,
           prompt: params.prompt as string,
-          targetName: params.targetName as string,
-          targetType: params.targetType as string,
+          name: params.name as string,
+          type: params.type as string,
         };
-        const jobId = onCombineAssets(combineParams);
-        // Track job for auto-review
+        const jobId = onCombine(combineParams);
         if (jobId) {
           trackJob(jobId, {
-            assetName: combineParams.targetName,
+            assetName: combineParams.name,
             prompt: combineParams.prompt,
             createdAt: Date.now(),
           });
         }
-        return `Started combining assets into "${combineParams.targetName}"`;
+        return `Started combining assets into "${combineParams.name}"`;
       }
 
       case 'search': {
@@ -386,7 +432,7 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
       default:
         return `Unknown action: ${name}`;
     }
-  }, [allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPrompt, onGenerateAsset, onRefineAsset, onCombineAssets, sendDescribeRequest, sendCompareRequest, trackJob]);
+  }, [allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPrompt, onGenerate, onFork, onCreate, onRefine, onCombine, sendDescribeRequest, sendCompareRequest, trackJob]);
 
   // Execute all tool calls, collecting results
   const executeToolCalls = useCallback(async (toolCalls: ToolCall[]): Promise<string[]> => {

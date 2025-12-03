@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
+import { useChatStore, useChatIsOpen } from '../stores/chatStore';
 import type { Asset, Variant, ChatResponseResult, DescribeResponseResult, CompareResponseResult } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
@@ -45,7 +46,25 @@ export default function SpacePage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isChatOpen, setIsChatOpen] = useState(true);
+
+  // Chat sidebar state (persisted in store)
+  const isChatOpen = useChatIsOpen(spaceId || '');
+  const setIsOpen = useChatStore((state) => state.setIsOpen);
+  const toggleChat = useCallback(() => {
+    setIsOpen(spaceId || '', !isChatOpen);
+  }, [setIsOpen, spaceId, isChatOpen]);
+  const closeChat = useCallback(() => {
+    setIsOpen(spaceId || '', false);
+  }, [setIsOpen, spaceId]);
+
+  // Initialize chat to open on first visit to a space
+  useEffect(() => {
+    if (!spaceId) return;
+    const session = useChatStore.getState().sessions[spaceId];
+    if (!session) {
+      setIsOpen(spaceId, true);
+    }
+  }, [spaceId, setIsOpen]);
 
   // Set page title
   useDocumentTitle(space?.name);
@@ -165,7 +184,7 @@ export default function SpacePage() {
   }, [user, spaceId, navigate]);
 
   // Use shared forge operations hook (all operations via WebSocket)
-  const { handleForgeSubmit, onGenerateAsset, onRefineAsset, onCombineAssets } = useForgeOperations({
+  const { handleForgeSubmit, onGenerate, onFork, onCreate, onRefine, onCombine } = useForgeOperations({
     sendGenerateRequest,
     sendRefineRequest,
     forkAsset,
@@ -380,7 +399,7 @@ export default function SpacePage() {
         {/* Chat toggle button */}
         <button
           className={`${styles.chatToggle} ${isChatOpen ? styles.active : ''}`}
-          onClick={() => setIsChatOpen(!isChatOpen)}
+          onClick={toggleChat}
           title={isChatOpen ? 'Hide chat' : 'Show chat'}
           style={{ right: isChatOpen ? 'calc(380px + 1.5rem)' : '1rem' }}
         >
@@ -394,13 +413,15 @@ export default function SpacePage() {
           <ChatSidebar
             spaceId={spaceId || ''}
             isOpen={true}
-            onClose={() => setIsChatOpen(false)}
+            onClose={closeChat}
             allAssets={assets}
             allVariants={variants}
             lastCompletedJob={lastCompletedJob}
-            onGenerateAsset={onGenerateAsset}
-            onRefineAsset={onRefineAsset}
-            onCombineAssets={onCombineAssets}
+            onGenerate={onGenerate}
+            onFork={onFork}
+            onCreate={onCreate}
+            onRefine={onRefine}
+            onCombine={onCombine}
             sendChatRequest={sendChatRequest}
             chatResponse={chatResponse}
             sendDescribeRequest={sendDescribeRequest}

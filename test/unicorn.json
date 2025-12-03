@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "version": "1.0",
+    "createdAt": "2025-11-30T18:26:33.683Z",
+    "updatedAt": "2025-11-30T18:26:43.643Z",
+    "spaceId": "3abf2509-0ab1-45fd-b241-02667e24433a",
+    "environment": "local",
+    "spaceName": "unicorn"
+  },
+  "conversation": {
+    "history": [
+      {
+        "role": "user",
+        "content": "What's in this space?"
+      },
+      {
+        "role": "assistant",
+        "content": "Looking at your **unicorn** space, you have a nice collection of **19 assets** that appear to be for a fantasy RPG-style game. Here's what's here:\n\n## Characters (10)\n| Name | Variants | Notes |\n|------|----------|-------|\n| **knight** | 16 variants | Your most developed character |\n| **Silver Armored Warrior** | 3 variants | |\n| **White Knight** | 1 | |\n| **Red Royal Mage** | 1 | |\n| **Princess** | 1 | |\n| **Spiky Goblin** | 1 | |\n| **Blue Slime Monster** | 1 | |\n| **Blue Slime** | 1 | |\n| **Goblin** | 8 variants | Composite type |\n| **Goblin Warior** | 1 | Composite type |\n| **Goblin Mage** | 1 | (two versions exist) |\n\n## Items (5)\n| Name | Type |\n|------|------|\n| **Fantasy Sword** | Weapon |\n| **Knight's Shield** | Defense |\n| **Health Potion** | Consumable |\n| **Health Potion Bottle** | Consumable |\n| **Mana Potion Bottle** | Consumable |\n| **Gold Coin Pile** | Currency/Loot |\n\n## Scenes (1)\n| Name | Notes |\n|------|-------|\n| **Game Scene** | Composite type |\n\n---\n\nIt looks like you're building out a **chibi/storybook fantasy game** asset set with:\n- A party of heroes (knights, mage, princess)\n- Enemies (goblins, slimes)\n- Essential RPG items (weapons, potions, gold)\n- At least one game scene\n\nWould you like me to **analyze any of these assets** to see what they look like, **create new assets** to expand your collection, or **refine existing ones**?"
+      }
+    ],
+    "context": {}
+  },
+  "lastStep": {
+    "type": "send",
+    "timestamp": "2025-11-30T18:26:43.643Z",
+    "request": {
+      "message": "What's in this space?",
+      "mode": "actor"
+    },
+    "response": {
+      "type": "advice",
+      "message": "Looking at your **unicorn** space, you have a nice collection of **19 assets** that appear to be for a fantasy RPG-style game. Here's what's here:\n\n## Characters (10)\n| Name | Variants | Notes |\n|------|----------|-------|\n| **knight** | 16 variants | Your most developed character |\n| **Silver Armored Warrior** | 3 variants | |\n| **White Knight** | 1 | |\n| **Red Royal Mage** | 1 | |\n| **Princess** | 1 | |\n| **Spiky Goblin** | 1 | |\n| **Blue Slime Monster** | 1 | |\n| **Blue Slime** | 1 | |\n| **Goblin** | 8 variants | Composite type |\n| **Goblin Warior** | 1 | Composite type |\n| **Goblin Mage** | 1 | (two versions exist) |\n\n## Items (5)\n| Name | Type |\n|------|------|\n| **Fantasy Sword** | Weapon |\n| **Knight's Shield** | Defense |\n| **Health Potion** | Consumable |\n| **Health Potion Bottle** | Consumable |\n| **Mana Potion Bottle** | Consumable |\n| **Gold Coin Pile** | Currency/Loot |\n\n## Scenes (1)\n| Name | Notes |\n|------|-------|\n| **Game Scene** | Composite type |\n\n---\n\nIt looks like you're building out a **chibi/storybook fantasy game** asset set with:\n- A party of heroes (knights, mage, princess)\n- Enemies (goblins, slimes)\n- Essential RPG items (weapons, potions, gold)\n- At least one game scene\n\nWould you like me to **analyze any of these assets** to see what they look like, **create new assets** to expand your collection, or **refine existing ones**?"
+    }
+  },
+  "pendingActions": [],
+  "executedActions": [],
+  "autoExecuted": [],
+  "activePlan": null,
+  "artifacts": {
+    "assets": [],
+    "variants": [],
+    "jobs": []
+  }
+}

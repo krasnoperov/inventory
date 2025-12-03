@@ -1,0 +1,193 @@
+{
+  "meta": {
+    "version": "1.0",
+    "createdAt": "2025-11-30T03:26:04.034Z",
+    "updatedAt": "2025-11-30T03:33:31.824Z",
+    "spaceId": "3abf2509-0ab1-45fd-b241-02667e24433a",
+    "environment": "local",
+    "spaceName": "unicorn"
+  },
+  "conversation": {
+    "history": [
+      {
+        "role": "user",
+        "content": "Create a fantasy warrior with silver armor"
+      },
+      {
+        "role": "assistant",
+        "content": "I'll create a fantasy warrior with silver armor for you. Let me generate this as a new character asset with detailed specifications for the silver armor and warrior appearance."
+      },
+      {
+        "role": "user",
+        "content": "Give them a flaming sword and a flowing red cape"
+      },
+      {
+        "role": "assistant",
+        "content": "I'll add the flaming sword and flowing red cape to your fantasy warrior. Since you want to make two changes, I'll do them one at a time for the best results - first the flaming sword, then the flowing red cape."
+      },
+      {
+        "role": "user",
+        "content": "Now add the flowing red cape"
+      },
+      {
+        "role": "assistant",
+        "content": "Awaiting approval: Add variant to existing asset"
+      }
+    ],
+    "context": {
+      "viewingContext": {
+        "type": "variant",
+        "assetId": "f4283e16-d8ce-4141-9201-a9b10a29fa63",
+        "assetName": "Silver Armored Warrior",
+        "variantId": "baef324a-26d5-4926-ac8f-56568c17c7ba"
+      }
+    }
+  },
+  "lastStep": {
+    "type": "execute",
+    "timestamp": "2025-11-30T03:33:31.824Z"
+  },
+  "pendingActions": [],
+  "executedActions": [
+    {
+      "id": "approval_1764473169502_0",
+      "tool": "generate_asset",
+      "params": {
+        "name": "Silver Armored Warrior",
+        "type": "character",
+        "prompt": "Fantasy warrior in gleaming silver plate armor, intricate engravings on breastplate and pauldrons, polished steel finish with mirror-like reflections, leather straps and buckles, chainmail visible at joints, imposing helmet with T-shaped visor, sturdy leather boots, battle-ready stance with hand on sword hilt, dramatic lighting with rim light highlighting armor edges, fantasy illustration style, medieval fantasy aesthetic"
+      },
+      "description": "Generate new asset from prompt",
+      "geminiRequest": {
+        "model": "gemini-2.0-flash-preview-image-generation",
+        "prompt": "Fantasy warrior in gleaming silver plate armor, intricate engravings on breastplate and pauldrons, polished steel finish with mirror-like reflections, leather straps and buckles, chainmail visible at joints, imposing helmet with T-shaped visor, sturdy leather boots, battle-ready stance with hand on sword hilt, dramatic lighting with rim light highlighting armor edges, fantasy illustration style, medieval fantasy aesthetic",
+        "config": {
+          "responseModalities": [
+            "image",
+            "text"
+          ],
+          "aspectRatio": "1:1"
+        }
+      },
+      "status": "completed",
+      "executedAt": "2025-11-30T03:26:55.966Z",
+      "result": {
+        "success": true,
+        "assetId": "f4283e16-d8ce-4141-9201-a9b10a29fa63",
+        "assetName": "Silver Armored Warrior",
+        "jobId": "bd121d64-d375-4f36-8db2-4b68b2a1f330",
+        "jobResult": {
+          "status": "completed",
+          "variantId": "d0cd44e0-21a3-49a0-91fa-0b69b0f8ad91"
+        }
+      }
+    },
+    {
+      "id": "approval_1764473243151_0",
+      "tool": "refine_asset",
+      "params": {
+        "assetId": "f4283e16-d8ce-4141-9201-a9b10a29fa63",
+        "prompt": "Add flaming sword. Warrior now holding a sword with blade wreathed in orange and red flames, fire dancing along the edges",
+        "sourceVariantId": "d0cd44e0-21a3-49a0-91fa-0b69b0f8ad91"
+      },
+      "description": "Add variant to existing asset",
+      "geminiRequest": {
+        "model": "gemini-2.0-flash-preview-image-generation",
+        "prompt": "Add flaming sword. Warrior now holding a sword with blade wreathed in orange and red flames, fire dancing along the edges",
+        "config": {
+          "responseModalities": [
+            "image",
+            "text"
+          ],
+          "aspectRatio": "1:1"
+        }
+      },
+      "status": "completed",
+      "executedAt": "2025-11-30T03:32:49.760Z",
+      "result": {
+        "success": true,
+        "assetId": "f4283e16-d8ce-4141-9201-a9b10a29fa63",
+        "jobId": "5cb10c55-f3f4-4561-8276-c88de301b023",
+        "jobResult": {
+          "status": "completed",
+          "variantId": "54e77788-7214-45dd-9cce-3f9442c04994"
+        }
+      }
+    },
+    {
+      "id": "approval_1764473585768_0",
+      "tool": "refine_asset",
+      "params": {
+        "assetId": "f4283e16-d8ce-4141-9201-a9b10a29fa63",
+        "prompt": "Add flowing red cape. Cape drapes dramatically behind the warrior, billowing in the wind.",
+        "sourceVariantId": "54e77788-7214-45dd-9cce-3f9442c04994"
+      },
+      "description": "Add variant to existing asset",
+      "geminiRequest": {
+        "model": "gemini-3-pro-image-preview",
+        "prompt": "Add flowing red cape. Cape drapes dramatically behind the warrior, billowing in the wind.",
+        "config": {
+          "responseModalities": [
+            "image",
+            "text"
+          ],
+          "aspectRatio": "1:1"
+        }
+      },
+      "status": "completed",
+      "executedAt": "2025-11-30T03:33:31.824Z",
+      "result": {
+        "success": true,
+        "assetId": "f4283e16-d8ce-4141-9201-a9b10a29fa63",
+        "jobId": "03f22447-1ac8-4ff9-8e2e-77fc562bd806",
+        "jobResult": {
+          "status": "completed",
+          "variantId": "baef324a-26d5-4926-ac8f-56568c17c7ba"
+        }
+      }
+    }
+  ],
+  "artifacts": {
+    "assets": [
+      {
+        "id": "f4283e16-d8ce-4141-9201-a9b10a29fa63",
+        "name": "Silver Armored Warrior",
+        "type": "character"
+      }
+    ],
+    "variants": [
+      {
+        "id": "d0cd44e0-21a3-49a0-91fa-0b69b0f8ad91",
+        "assetId": "f4283e16-d8ce-4141-9201-a9b10a29fa63",
+        "prompt": "Fantasy warrior in gleaming silver plate armor, intricate engravings on breastplate and pauldrons, polished steel finish with mirror-like reflections, leather straps and buckles, chainmail visible at joints, imposing helmet with T-shaped visor, sturdy leather boots, battle-ready stance with hand on sword hilt, dramatic lighting with rim light highlighting armor edges, fantasy illustration style, medieval fantasy aesthetic"
+      },
+      {
+        "id": "54e77788-7214-45dd-9cce-3f9442c04994",
+        "assetId": "f4283e16-d8ce-4141-9201-a9b10a29fa63",
+        "prompt": "Add flaming sword. Warrior now holding a sword with blade wreathed in orange and red flames, fire dancing along the edges"
+      },
+      {
+        "id": "baef324a-26d5-4926-ac8f-56568c17c7ba",
+        "assetId": "f4283e16-d8ce-4141-9201-a9b10a29fa63",
+        "prompt": "Add flowing red cape. Cape drapes dramatically behind the warrior, billowing in the wind."
+      }
+    ],
+    "jobs": [
+      {
+        "id": "bd121d64-d375-4f36-8db2-4b68b2a1f330",
+        "status": "completed",
+        "createdAt": "2025-11-30T03:26:55.966Z"
+      },
+      {
+        "id": "5cb10c55-f3f4-4561-8276-c88de301b023",
+        "status": "completed",
+        "createdAt": "2025-11-30T03:32:49.761Z"
+      },
+      {
+        "id": "03f22447-1ac8-4ff9-8e2e-77fc562bd806",
+        "status": "completed",
+        "createdAt": "2025-11-30T03:33:31.824Z"
+      }
+    ]
+  }
+}

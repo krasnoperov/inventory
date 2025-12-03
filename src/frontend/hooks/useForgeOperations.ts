@@ -23,30 +23,46 @@ export interface UseForgeOperationsParams {
 }
 
 export interface UseForgeOperationsReturn {
-  /** Submit a forge operation (generate, refine, combine, fork) */
+  /** Submit a forge operation (generate, fork, create, refine, combine) */
   handleForgeSubmit: (params: ForgeSubmitParams) => string;
 
-  /** Chat callback: Generate a new asset (optionally with reference images) */
-  onGenerateAsset: (params: {
+  /** Generate: Create new asset from prompt only (no references) */
+  onGenerate: (params: {
     name: string;
     type: string;
     prompt: string;
     parentAssetId?: string;
-    referenceAssetIds?: string[];
   }) => string;
 
-  /** Chat callback: Refine an existing asset with a new variant */
-  onRefineAsset: (params: {
+  /** Fork: Copy asset to new asset without AI generation */
+  onFork: (params: {
+    sourceAssetId: string;
+    name: string;
+    type: string;
+    parentAssetId?: string;
+  }) => void;
+
+  /** Create: Create new asset using one reference as inspiration */
+  onCreate: (params: {
+    name: string;
+    type: string;
+    prompt: string;
+    referenceAssetId: string;
+    parentAssetId?: string;
+  }) => string;
+
+  /** Refine: Add variant to existing asset */
+  onRefine: (params: {
     assetId: string;
     prompt: string;
   }) => string;
 
-  /** Chat callback: Combine multiple assets into a new one */
-  onCombineAssets: (params: {
+  /** Combine: Merge multiple assets into new one */
+  onCombine: (params: {
     sourceAssetIds: string[];
     prompt: string;
-    targetName: string;
-    targetType: string;
+    name: string;
+    type: string;
   }) => string;
 }
 
@@ -109,34 +125,78 @@ export function useForgeOperations({
   }, [sendGenerateRequest, sendRefineRequest, forkAsset]);
 
   /**
-   * Chat callback: Generate a new asset
-   * Passes referenceAssetIds directly - backend resolves to default variants
+   * Generate: Create new asset from prompt only (no references)
    */
-  const onGenerateAsset = useCallback((params: {
+  const onGenerate = useCallback((params: {
     name: string;
     type: string;
     prompt: string;
     parentAssetId?: string;
-    referenceAssetIds?: string[];
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
-      referenceAssetIds: params.referenceAssetIds,
       destination: {
         type: 'new_asset',
         assetName: params.name,
         assetType: params.type,
         parentAssetId: params.parentAssetId || null,
       },
-      operation: params.referenceAssetIds?.length ? 'create' : 'generate',
+      operation: 'generate',
     });
   }, [handleForgeSubmit]);
 
   /**
-   * Chat callback: Refine an existing asset
-   * Passes assetId only - backend resolves sourceVariantId from asset's active variant
+   * Fork: Copy asset to new asset without AI generation
+   * Needs to resolve assetId to its active variantId
    */
-  const onRefineAsset = useCallback((params: {
+  const onFork = useCallback((params: {
+    sourceAssetId: string;
+    name: string;
+    type: string;
+    parentAssetId?: string;
+  }): void => {
+    if (!forkAsset) {
+      console.error('[useForgeOperations] forkAsset not provided');
+      return;
+    }
+    // Note: forkAsset expects sourceVariantId, but we have sourceAssetId
+    // The caller (ChatWorkflow handler) needs to resolve this
+    // For now, we pass assetId and let the backend resolve
+    forkAsset({
+      sourceVariantId: params.sourceAssetId, // Will be resolved by backend
+      name: params.name,
+      assetType: params.type,
+      parentAssetId: params.parentAssetId,
+    });
+  }, [forkAsset]);
+
+  /**
+   * Create: Create new asset using one reference as inspiration
+   */
+  const onCreate = useCallback((params: {
+    name: string;
+    type: string;
+    prompt: string;
+    referenceAssetId: string;
+    parentAssetId?: string;
+  }): string => {
+    return handleForgeSubmit({
+      prompt: params.prompt,
+      referenceAssetIds: [params.referenceAssetId],
+      destination: {
+        type: 'new_asset',
+        assetName: params.name,
+        assetType: params.type,
+        parentAssetId: params.parentAssetId || null,
+      },
+      operation: 'create',
+    });
+  }, [handleForgeSubmit]);
+
+  /**
+   * Refine: Add variant to existing asset
+   */
+  const onRefine = useCallback((params: {
     assetId: string;
     prompt: string;
   }): string => {
@@ -151,22 +211,21 @@ export function useForgeOperations({
   }, [handleForgeSubmit]);
 
   /**
-   * Chat callback: Combine multiple assets
-   * Passes asset IDs directly - backend resolves to default variants
+   * Combine: Merge multiple assets into new one
    */
-  const onCombineAssets = useCallback((params: {
+  const onCombine = useCallback((params: {
     sourceAssetIds: string[];
     prompt: string;
-    targetName: string;
-    targetType: string;
+    name: string;
+    type: string;
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
       referenceAssetIds: params.sourceAssetIds,
       destination: {
         type: 'new_asset',
-        assetName: params.targetName,
-        assetType: params.targetType,
+        assetName: params.name,
+        assetType: params.type,
         parentAssetId: null,
       },
       operation: 'combine',
@@ -175,8 +234,10 @@ export function useForgeOperations({
 
   return {
     handleForgeSubmit,
-    onGenerateAsset,
-    onRefineAsset,
-    onCombineAssets,
+    onGenerate,
+    onFork,
+    onCreate,
+    onRefine,
+    onCombine,
   };
 }

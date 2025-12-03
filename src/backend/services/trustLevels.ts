@@ -74,10 +74,15 @@ export const TOOL_TRUST_MAP: Record<string, ToolTrustConfig> = {
 
   // === GENERATING: Requires approval (consumes credits) ===
 
+  generate: {
+    level: 'generating',
+    autoExecute: false,
+    description: 'Generate new asset from prompt',
+  },
   create: {
     level: 'generating',
     autoExecute: false,
-    description: 'Create new asset from prompt',
+    description: 'Create new asset using reference',
   },
   refine: {
     level: 'generating',
@@ -88,6 +93,14 @@ export const TOOL_TRUST_MAP: Record<string, ToolTrustConfig> = {
     level: 'generating',
     autoExecute: false,
     description: 'Combine assets into new one',
+  },
+
+  // === SAFE BUT MODIFYING: Fork (no AI, just copy) ===
+
+  fork: {
+    level: 'safe',
+    autoExecute: true,
+    description: 'Fork asset as new copy',
   },
 
   // === PLANNING: Requires approval (creates execution plan) ===

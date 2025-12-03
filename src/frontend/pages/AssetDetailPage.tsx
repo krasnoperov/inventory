@@ -6,6 +6,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore, useChatIsOpen } from '../stores/chatStore';
+import { useAssetDetailStore, useSelectedVariantId, useShowDetailsPanel } from '../stores/assetDetailStore';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import {
@@ -51,9 +52,20 @@ export default function AssetDetailPage() {
   const [lineage, setLineage] = useState<Lineage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
+
+  // Variant selection and details panel state (persisted in store)
+  const selectedVariantId = useSelectedVariantId(assetId || '');
+  const showDetails = useShowDetailsPanel(assetId || '');
+  const setSelectedVariantId = useAssetDetailStore((state) => state.setSelectedVariantId);
+  const setShowDetailsPanel = useAssetDetailStore((state) => state.setShowDetailsPanel);
+
+  // Derive selectedVariant from variants array
+  const selectedVariant = useMemo(() => {
+    if (!selectedVariantId) return null;
+    return variants.find(v => v.id === selectedVariantId) || null;
+  }, [selectedVariantId, variants]);
 
   // Set page title
   useDocumentTitle(asset?.name);
@@ -83,7 +95,7 @@ export default function AssetDetailPage() {
   const [editNameValue, setEditNameValue] = useState('');
 
   // Forge tray store
-  const { addSlot } = useForgeTrayStore();
+  const { addSlot, prefillFromVariant } = useForgeTrayStore();
 
   // Track chat response for ChatSidebar
   const [chatResponse, setChatResponse] = useState<ChatResponseResult | null>(null);
@@ -91,8 +103,6 @@ export default function AssetDetailPage() {
   const [describeResponse, setDescribeResponse] = useState<DescribeResponseResult | null>(null);
   const [compareResponse, setCompareResponse] = useState<CompareResponseResult | null>(null);
 
-  // Variant details panel state
-  const [showDetails, setShowDetails] = useState(false);
 
   // WebSocket for real-time updates
   const {
@@ -114,6 +124,7 @@ export default function AssetDetailPage() {
     sendDescribeRequest,
     sendCompareRequest,
     forkAsset,
+    getChildren,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
@@ -161,6 +172,42 @@ export default function AssetDetailPage() {
     return path;
   }, [parentAsset, wsAssets]);
 
+  // Child assets - combine two sources:
+  // 1. Direct children via parent_asset_id (asset hierarchy)
+  // 2. Assets with variants that are children of this asset's variants (lineage)
+  const childAssets = useMemo(() => {
+    if (!assetId) return [];
+
+    // Get variant IDs for this asset
+    const thisAssetVariantIds = new Set(variants.map(v => v.id));
+
+    // Find child variant IDs from lineage (where parent is one of this asset's variants)
+    const childVariantIds = new Set(
+      wsLineage
+        .filter(l => thisAssetVariantIds.has(l.parent_variant_id))
+        .map(l => l.child_variant_id)
+    );
+
+    // Find assets that own those child variants (excluding this asset)
+    const lineageChildAssetIds = new Set(
+      wsVariants
+        .filter(v => childVariantIds.has(v.id) && v.asset_id !== assetId)
+        .map(v => v.asset_id)
+    );
+
+    // Combine: direct children + lineage-derived children
+    const directChildren = getChildren(assetId);
+    const lineageChildren = wsAssets.filter(a => lineageChildAssetIds.has(a.id));
+
+    // Deduplicate by id
+    const allChildIds = new Set([
+      ...directChildren.map(a => a.id),
+      ...lineageChildren.map(a => a.id),
+    ]);
+
+    return wsAssets.filter(a => allChildIds.has(a.id));
+  }, [assetId, variants, wsLineage, wsVariants, wsAssets, getChildren]);
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -199,14 +246,19 @@ export default function AssetDetailPage() {
         setVariants(variantsData);
         setLineage(lineageData);
 
-        // Select active variant by default
-        if (data.asset.active_variant_id) {
-          const activeVariant = variantsData.find(v => v.id === data.asset.active_variant_id);
-          if (activeVariant) {
-            setSelectedVariant(activeVariant);
+        // Select active variant by default (only if no stored selection)
+        const storedSelection = useAssetDetailStore.getState().sessions[assetId!]?.selectedVariantId;
+        const hasValidStoredSelection = storedSelection && variantsData.some(v => v.id === storedSelection);
+
+        if (!hasValidStoredSelection) {
+          if (data.asset.active_variant_id) {
+            const activeVariant = variantsData.find(v => v.id === data.asset.active_variant_id);
+            if (activeVariant) {
+              setSelectedVariantId(assetId!, activeVariant.id);
+            }
+          } else if (variantsData.length > 0) {
+            setSelectedVariantId(assetId!, variantsData[0].id);
           }
-        } else if (variantsData.length > 0) {
-          setSelectedVariant(variantsData[0]);
         }
       } catch (err) {
         console.error('Asset fetch error:', err);
@@ -234,26 +286,22 @@ export default function AssetDetailPage() {
     if (assetVariants.length > 0) {
       setVariants(assetVariants);
 
-      // Update selected variant if it was modified or deleted
-      if (selectedVariant) {
-        const updated = assetVariants.find(v => v.id === selectedVariant.id);
-        if (updated) {
-          setSelectedVariant(updated);
-        } else if (!assetVariants.some(v => v.id === selectedVariant.id)) {
-          setSelectedVariant(assetVariants[0] || null);
-        }
+      // If selected variant was deleted, select first available
+      if (selectedVariantId && !assetVariants.some(v => v.id === selectedVariantId)) {
+        setSelectedVariantId(assetId!, assetVariants[0]?.id || null);
       }
     }
 
     // Update lineage from WebSocket
-    // Include lineage where the CHILD variant belongs to this asset
-    // This allows cross-asset parents to be shown as ghost nodes
+    // Include lineage where EITHER parent OR child variant belongs to this asset
+    // - child in this asset: allows cross-asset parents to be shown as ghost nodes
+    // - parent in this asset: allows derivative children to be shown as ghost nodes
     const variantIds = new Set(assetVariants.map(v => v.id));
     const assetLineage = wsLineage.filter(
-      l => variantIds.has(l.child_variant_id)
+      l => variantIds.has(l.child_variant_id) || variantIds.has(l.parent_variant_id)
     );
     setLineage(assetLineage);
-  }, [wsStatus, wsAssets, wsVariants, wsLineage, assetId, selectedVariant]);
+  }, [wsStatus, wsAssets, wsVariants, wsLineage, assetId, selectedVariantId, setSelectedVariantId]);
 
   // Action handlers
   const handleSetActiveVariant = useCallback((variantId: string) => {
@@ -310,14 +358,14 @@ export default function AssetDetailPage() {
         setActionInProgress(true);
         deleteVariant(variant.id);
         setConfirmDialog(null);
-        if (selectedVariant?.id === variant.id) {
+        if (selectedVariantId === variant.id) {
           const remaining = variants.filter(v => v.id !== variant.id);
-          setSelectedVariant(remaining[0] || null);
+          setSelectedVariantId(assetId!, remaining[0]?.id || null);
         }
         setTimeout(() => setActionInProgress(false), 500);
       },
     });
-  }, [deleteVariant, selectedVariant, variants]);
+  }, [deleteVariant, selectedVariantId, variants, assetId, setSelectedVariantId]);
 
   const handleDeleteAsset = useCallback(() => {
     if (!assetId) return;
@@ -337,9 +385,9 @@ export default function AssetDetailPage() {
   }, [assetId, asset?.name, deleteAsset, navigate, spaceId]);
 
   const handleVariantClick = useCallback((variant: Variant) => {
-    setSelectedVariant(variant);
-    setShowDetails(true);
-  }, []);
+    setSelectedVariantId(assetId!, variant.id);
+    setShowDetailsPanel(assetId!, true);
+  }, [assetId, setSelectedVariantId, setShowDetailsPanel]);
 
   // Handle add to forge tray
   const handleAddToTray = useCallback((variant: Variant, targetAsset?: Asset) => {
@@ -350,8 +398,28 @@ export default function AssetDetailPage() {
     }
   }, [addSlot, asset]);
 
+  // Handle retry recipe - restore ForgeTray state from variant's recipe and lineage
+  const handleRetryRecipe = useCallback((variant: Variant) => {
+    // Parse the recipe to get the prompt
+    let prompt = '';
+    try {
+      const recipe = JSON.parse(variant.recipe);
+      prompt = recipe.prompt || '';
+    } catch {
+      // Ignore parse errors
+    }
+
+    // Find parent variant IDs from lineage
+    const parentVariantIds = lineage
+      .filter(l => l.child_variant_id === variant.id)
+      .map(l => l.parent_variant_id);
+
+    // Prefill the forge tray with the same state
+    prefillFromVariant(parentVariantIds, prompt, wsAssets, wsVariants);
+  }, [lineage, prefillFromVariant, wsAssets, wsVariants]);
+
   // Use shared forge operations hook
-  const { handleForgeSubmit, onGenerateAsset, onRefineAsset, onCombineAssets } = useForgeOperations({
+  const { handleForgeSubmit, onGenerate, onFork, onCreate, onRefine, onCombine } = useForgeOperations({
     sendGenerateRequest,
     sendRefineRequest,
     forkAsset,
@@ -430,6 +498,7 @@ export default function AssetDetailPage() {
           onVariantClick={handleVariantClick}
           onAddToTray={handleAddToTray}
           onSetActive={handleSetActiveVariant}
+          onRetryRecipe={handleRetryRecipe}
           allVariants={wsVariants}
           allAssets={wsAssets}
           onGhostNodeClick={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
@@ -493,6 +562,23 @@ export default function AssetDetailPage() {
               <span className={styles.liveIndicator}>Live</span>
             )}
           </div>
+
+          {/* Child assets (forks/derivatives) */}
+          {childAssets.length > 0 && (
+            <div className={styles.childAssets}>
+              <span className={styles.childLabel}>Derivatives:</span>
+              {childAssets.map((child) => (
+                <Link
+                  key={child.id}
+                  to={`/spaces/${spaceId}/assets/${child.id}`}
+                  className={styles.childLink}
+                  title={child.name}
+                >
+                  {child.name}
+                </Link>
+              ))}
+            </div>
+          )}
 
           <div className={styles.assetActions}>
             <button
@@ -558,7 +644,7 @@ export default function AssetDetailPage() {
               <h3>Variant Details</h3>
               <button
                 className={styles.closeDetails}
-                onClick={() => setShowDetails(false)}
+                onClick={() => setShowDetailsPanel(assetId!, false)}
                 title="Close"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
@@ -671,9 +757,11 @@ export default function AssetDetailPage() {
             allAssets={wsAssets}
             allVariants={wsVariants}
             lastCompletedJob={lastCompletedJob}
-            onGenerateAsset={onGenerateAsset}
-            onRefineAsset={onRefineAsset}
-            onCombineAssets={onCombineAssets}
+            onGenerate={onGenerate}
+            onFork={onFork}
+            onCreate={onCreate}
+            onRefine={onRefine}
+            onCombine={onCombine}
             sendChatRequest={sendChatRequest}
             chatResponse={chatResponse}
             sendDescribeRequest={sendDescribeRequest}

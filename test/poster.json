@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "version": "1.0",
+    "createdAt": "2025-11-30T03:40:35.625Z",
+    "updatedAt": "2025-11-30T03:40:42.377Z",
+    "spaceId": "3abf2509-0ab1-45fd-b241-02667e24433a",
+    "environment": "local",
+    "spaceName": "unicorn"
+  },
+  "conversation": {
+    "history": [
+      {
+        "role": "user",
+        "content": "Create a vintage travel poster for 'ForgeTray Island' - retro 1950s style with bold typography, tropical paradise vibes"
+      },
+      {
+        "role": "assistant",
+        "content": "I'll create a vintage travel poster for 'ForgeTray Island' with that classic 1950s aesthetic. Let me generate this for you!"
+      }
+    ],
+    "context": {}
+  },
+  "lastStep": {
+    "type": "send",
+    "timestamp": "2025-11-30T03:40:42.376Z",
+    "request": {
+      "message": "Create a vintage travel poster for 'ForgeTray Island' - retro 1950s style with bold typography, tropical paradise vibes",
+      "mode": "actor"
+    },
+    "response": {
+      "type": "action",
+      "message": "I'll create a vintage travel poster for 'ForgeTray Island' with that classic 1950s aesthetic. Let me generate this for you!",
+      "pendingApprovals": [
+        {
+          "id": "approval_1764474042370_0",
+          "tool": "generate_asset",
+          "params": {
+            "name": "ForgeTray Island Travel Poster",
+            "type": "ui",
+            "prompt": "Vintage 1950s travel poster for 'FORGETRAY ISLAND' in bold retro typography at the top. Tropical paradise scene with turquoise lagoon, white sand beach, swaying palm trees silhouetted against golden sunset sky. Art deco inspired geometric rays emanating from setting sun. Small sailboat on calm waters. Lush green tropical foliage framing the scene. Tagline text at bottom: 'Your Paradise Awaits'. Retro travel poster style with flat color blocks, limited palette of coral orange, turquoise blue, palm green, cream white, and golden yellow. Slightly worn vintage paper texture. Bold sans-serif and decorative serif typography. Mid-century modern illustration style with stylized shapes and clean lines."
+          },
+          "description": "Generate new asset from prompt",
+          "status": "pending",
+          "createdAt": 1764474042370
+        }
+      ]
+    }
+  },
+  "pendingActions": [
+    {
+      "id": "approval_1764474042370_0",
+      "tool": "generate_asset",
+      "params": {
+        "name": "ForgeTray Island Travel Poster",
+        "type": "ui",
+        "prompt": "Vintage 1950s travel poster for 'FORGETRAY ISLAND' in bold retro typography at the top. Tropical paradise scene with turquoise lagoon, white sand beach, swaying palm trees silhouetted against golden sunset sky. Art deco inspired geometric rays emanating from setting sun. Small sailboat on calm waters. Lush green tropical foliage framing the scene. Tagline text at bottom: 'Your Paradise Awaits'. Retro travel poster style with flat color blocks, limited palette of coral orange, turquoise blue, palm green, cream white, and golden yellow. Slightly worn vintage paper texture. Bold sans-serif and decorative serif typography. Mid-century modern illustration style with stylized shapes and clean lines."
+      },
+      "description": "Generate new asset from prompt",
+      "status": "pending",
+      "geminiRequest": {
+        "model": "gemini-3-pro-image-preview",
+        "prompt": "Vintage 1950s travel poster for 'FORGETRAY ISLAND' in bold retro typography at the top. Tropical paradise scene with turquoise lagoon, white sand beach, swaying palm trees silhouetted against golden sunset sky. Art deco inspired geometric rays emanating from setting sun. Small sailboat on calm waters. Lush green tropical foliage framing the scene. Tagline text at bottom: 'Your Paradise Awaits'. Retro travel poster style with flat color blocks, limited palette of coral orange, turquoise blue, palm green, cream white, and golden yellow. Slightly worn vintage paper texture. Bold sans-serif and decorative serif typography. Mid-century modern illustration style with stylized shapes and clean lines.",
+        "config": {
+          "responseModalities": [
+            "image",
+            "text"
+          ],
+          "aspectRatio": "1:1"
+        }
+      }
+    }
+  ],
+  "executedActions": [],
+  "artifacts": {
+    "assets": [],
+    "variants": [],
+    "jobs": []
+  }
+}

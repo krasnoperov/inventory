@@ -261,7 +261,7 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
               },
               action: {
                 type: 'string',
-                enum: ['create', 'refine', 'combine', 'add_to_tray', 'set_prompt', 'clear_tray'],
+                enum: ['generate', 'fork', 'create', 'refine', 'combine', 'add_to_tray', 'set_prompt', 'clear_tray'],
                 description: 'The action to perform',
               },
               params: {
@@ -332,9 +332,66 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
       required: ['prompt'],
     },
   },
+  // ==========================================================================
+  // FORGE OPERATIONS (5 tools matching ForgeTray UI exactly)
+  // ==========================================================================
+  {
+    name: 'generate',
+    description: 'Generate a NEW asset from a text prompt only, with no reference images. Use this for pure text-to-image generation when starting from scratch.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name for the new asset',
+        },
+        type: {
+          type: 'string',
+          enum: ['character', 'item', 'scene', 'prop', 'effect', 'ui'],
+          description: 'Type of asset to generate',
+        },
+        prompt: {
+          type: 'string',
+          description: 'Detailed prompt describing what to generate. Include: subject, style, lighting, mood, composition.',
+        },
+        parentAssetId: {
+          type: 'string',
+          description: 'Optional: ID of parent asset if this is a child/derived asset',
+        },
+      },
+      required: ['name', 'type', 'prompt'],
+    },
+  },
+  {
+    name: 'fork',
+    description: 'Fork an existing asset to create an exact copy as a new asset. No AI generation - just duplicates the image. Use this to branch off a variant into its own asset for independent iteration.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        sourceAssetId: {
+          type: 'string',
+          description: 'The ID of the asset to fork (will use its active variant)',
+        },
+        name: {
+          type: 'string',
+          description: 'Name for the new forked asset',
+        },
+        type: {
+          type: 'string',
+          enum: ['character', 'item', 'scene', 'prop', 'effect', 'ui'],
+          description: 'Type of the forked asset',
+        },
+        parentAssetId: {
+          type: 'string',
+          description: 'Optional: ID of parent asset in the hierarchy',
+        },
+      },
+      required: ['sourceAssetId', 'name', 'type'],
+    },
+  },
   {
     name: 'create',
-    description: 'Create a NEW asset from a text prompt. Optionally use reference images for style guidance or element extraction. Use this when making something new that doesn\'t exist yet. WITHOUT references: pure text-to-image generation. WITH references: style transfer, element extraction, or inspired creation. For modifying an EXISTING asset, use "refine" instead. For explicitly compositing elements from multiple images, use "combine" instead.',
+    description: 'Create a NEW asset using ONE reference image as inspiration. Use this for style transfer, element extraction, or transforming an existing image into something new. The reference guides the AI but the result is a new creation.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -349,24 +406,23 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
         },
         prompt: {
           type: 'string',
-          description: 'Detailed prompt describing what to create. Include: subject, style, lighting, mood. With references: describe what to extract or match from each (e.g., "Extract the gold coin from image 1, place on parchment background, match the painterly style of image 2").',
+          description: 'Prompt describing the transformation or extraction. Examples: "Extract the gold coin, place on parchment background", "Same character but in anime style", "The armor design applied to a different character".',
         },
-        referenceAssetIds: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional: Asset IDs for style guidance or element extraction. Prompt should reference by image number: "style of image 1", "extract X from image 2".',
+        referenceAssetId: {
+          type: 'string',
+          description: 'The asset ID to use as reference/inspiration',
         },
         parentAssetId: {
           type: 'string',
           description: 'Optional: ID of parent asset if this is a child/derived asset',
         },
       },
-      required: ['name', 'type', 'prompt'],
+      required: ['name', 'type', 'prompt', 'referenceAssetId'],
     },
   },
   {
     name: 'refine',
-    description: 'Add a new variant to an EXISTING asset. The current image is automatically used as the main reference. Use this to iterate on an asset that already exists. IMPORTANT: Change only ONE thing at a time - multiple changes give unpredictable results. Optionally add extra reference images for style guidance. For creating a NEW asset, use "create" instead.',
+    description: 'Refine an EXISTING asset by adding a new variant. The current image is automatically used as the source. Use this to iterate on an asset - changing colors, adding details, adjusting poses. IMPORTANT: Change only ONE thing at a time for best results.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -378,18 +434,13 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
           type: 'string',
           description: 'Prompt describing ONE specific change. Examples: "Change armor to deep crimson", "Add flowing black cape", "Remove helmet, face now visible". Use positive descriptions.',
         },
-        referenceAssetIds: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional: Additional asset IDs for style guidance. The asset being refined is always image 1; these become images 2+.',
-        },
       },
       required: ['assetId', 'prompt'],
     },
   },
   {
     name: 'combine',
-    description: 'Create a NEW asset by compositing elements from multiple existing assets (2-4 images). Use this when you need to explicitly place elements from different images together: character in scene, item on surface, outfit on model. IMPORTANT: Be explicit about what comes from which image. For single-reference creation or style transfer, use "create" instead.',
+    description: 'Combine multiple assets (2-4 images) into a NEW asset. Use this to composite elements from different images: character in scene, item on surface, outfit on model. Be explicit about what comes from which image.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -400,19 +451,19 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
         },
         prompt: {
           type: 'string',
-          description: 'Explicit composition prompt. MUST reference what comes from each image. Examples: "Character from image 1 in scene from image 2, center frame", "Mug from image 1 on desk from image 2", "Coat from image 1 on model from image 2".',
+          description: 'Composition prompt referencing each image. Examples: "Character from image 1 in scene from image 2", "Mug from image 1 on desk from image 2".',
         },
-        targetName: {
+        name: {
           type: 'string',
           description: 'Name for the new combined asset',
         },
-        targetType: {
+        type: {
           type: 'string',
           enum: ['character', 'item', 'scene', 'prop', 'effect', 'ui'],
           description: 'Type of the combined asset',
         },
       },
-      required: ['sourceAssetIds', 'prompt', 'targetName', 'targetType'],
+      required: ['sourceAssetIds', 'prompt', 'name', 'type'],
     },
   },
 ];

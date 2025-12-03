@@ -12,8 +12,12 @@ export interface VariantNodeData extends Record<string, unknown> {
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onSetActive?: (variantId: string) => void;
   onRetry?: (variantId: string) => void;
-  /** Ghost node: parent variant from another asset */
+  /** Restore ForgeTray to the state used to create this variant */
+  onRetryRecipe?: (variant: Variant) => void;
+  /** Ghost node: variant from another asset */
   isGhost?: boolean;
+  /** Ghost node is a derivative (child) rather than a parent */
+  isDerivative?: boolean;
   /** Callback for ghost node click (navigate to source asset) */
   onGhostClick?: (assetId: string) => void;
   /** Scale factor for active variant (default 1) */
@@ -22,6 +26,10 @@ export interface VariantNodeData extends Record<string, unknown> {
   hasIncoming?: boolean;
   /** Whether this node has outgoing edges */
   hasOutgoing?: boolean;
+  /** Assets this variant was forked to (shown as link on local node) */
+  forkedTo?: Array<{ assetId: string; assetName: string }>;
+  /** Asset this variant was forked from (shown as link on local node) */
+  forkedFrom?: { assetId: string; assetName: string };
 }
 
 export type VariantNodeType = Node<VariantNodeData, 'variant'>;
@@ -36,11 +44,15 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     onAddToTray,
     onSetActive,
     onRetry,
+    onRetryRecipe,
     isGhost,
+    isDerivative,
     onGhostClick,
     scale = 1,
     hasIncoming,
     hasOutgoing,
+    forkedTo,
+    forkedFrom,
   } = data;
 
   const handleClick = useCallback(() => {
@@ -71,6 +83,18 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       onRetry(variant.id);
     }
   }, [variant, onRetry]);
+
+  const handleRetryRecipe = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isVariantReady(variant) && onRetryRecipe) {
+      onRetryRecipe(variant);
+    }
+  }, [variant, onRetryRecipe]);
+
+  const handleForkedToClick = useCallback((e: React.MouseEvent, assetId: string) => {
+    e.stopPropagation();
+    onGhostClick?.(assetId);
+  }, [onGhostClick]);
 
   const nodeClasses = [
     styles.node,
@@ -132,9 +156,11 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
   };
 
   // Determine if we should show handles (only when connected or for potential connections)
-  // Always show handles for ghost nodes (they have connections by definition)
-  const showTopHandle = hasIncoming || isGhost;
-  const showBottomHandle = hasOutgoing || !isGhost; // Non-ghost nodes can have children
+  // Ghost nodes always have connections by definition:
+  // - Parent ghosts: show top handle (they are sources)
+  // - Derivative ghosts: show top handle (they receive the edge from parent in this asset)
+  const showTopHandle = hasIncoming || (isGhost && !isDerivative);
+  const showBottomHandle = hasOutgoing || !isGhost || isDerivative; // Non-ghost and derivative ghost nodes can have edges
 
   // Apply CSS custom property for scaling (used by CSS for proportional sizing)
   const nodeStyle = scale !== 1 ? { '--node-scale': scale } as React.CSSProperties : undefined;
@@ -183,16 +209,57 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
                 </svg>
               </button>
             )}
+            {onRetryRecipe && (
+              <button
+                className={styles.actionButton}
+                onClick={handleRetryRecipe}
+                title="Retry with same recipe"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <path d="M1 4v6h6" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                </svg>
+              </button>
+            )}
           </div>
         ) : null}
       </div>
 
-      {/* Label - only for ghost nodes (shows source asset name) */}
+      {/* Label - only for ghost nodes (shows source/target asset name) */}
       {isGhost && (
         <div className={styles.label}>
-          <span className={styles.ghostLabel} title={`From: ${asset.name}`}>
-            ↗ {asset.name}
+          <span className={styles.ghostLabel} title={isDerivative ? `To: ${asset.name}` : `From: ${asset.name}`}>
+            {isDerivative ? '↘' : '↗'} {asset.name}
           </span>
+        </div>
+      )}
+
+      {/* Forked-from link - for local variants that were forked from another asset */}
+      {!isGhost && forkedFrom && (
+        <div className={styles.label}>
+          <span
+            className={styles.forkedFromLink}
+            title={`Forked from: ${forkedFrom.assetName}`}
+            onClick={(e) => handleForkedToClick(e, forkedFrom.assetId)}
+          >
+            ↗ {forkedFrom.assetName}
+          </span>
+        </div>
+      )}
+
+      {/* Forked-to links - for local variants that were forked to other assets */}
+      {!isGhost && forkedTo && forkedTo.length > 0 && (
+        <div className={styles.label}>
+          {forkedTo.map((fork) => (
+            <span
+              key={fork.assetId}
+              className={styles.forkedToLink}
+              title={`Forked to: ${fork.assetName}`}
+              onClick={(e) => handleForkedToClick(e, fork.assetId)}
+            >
+              ↘ {fork.assetName}
+            </span>
+          ))}
         </div>
       )}
 

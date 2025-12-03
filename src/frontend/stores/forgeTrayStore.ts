@@ -46,6 +46,14 @@ interface ForgeTrayState {
     allVariants: Variant[]
   ) => void;
 
+  // Prefill from existing variant (for retry/recreate)
+  prefillFromVariant: (
+    parentVariantIds: string[],
+    prompt: string,
+    allAssets: Asset[],
+    allVariants: Variant[]
+  ) => void;
+
   // Context export (for assistant)
   getContext: () => ForgeContext;
 }
@@ -132,6 +140,31 @@ export const useForgeTrayStore = create<ForgeTrayState>()((set, get) => ({
       // Find the active variant for this asset
       const variant = allVariants.find(v => v.id === asset.active_variant_id);
       if (!variant) continue;
+
+      newSlots.push({
+        id: `${variant.id}-${Date.now()}-${newSlots.length}`,
+        variant,
+        asset,
+        position: newSlots.length,
+      });
+    }
+
+    set({
+      slots: newSlots,
+      prompt,
+    });
+  },
+
+  prefillFromVariant: (parentVariantIds, prompt, allAssets, allVariants) => {
+    // Restore exact variant references (for retry/recreate)
+    const newSlots: ForgeSlot[] = [];
+
+    for (const variantId of parentVariantIds) {
+      const variant = allVariants.find(v => v.id === variantId);
+      if (!variant) continue;
+
+      const asset = allAssets.find(a => a.id === variant.asset_id);
+      if (!asset) continue;
 
       newSlots.push({
         id: `${variant.id}-${Date.now()}-${newSlots.length}`,

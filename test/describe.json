@@ -1,0 +1,60 @@
+{
+  "meta": {
+    "version": "1.0",
+    "createdAt": "2025-11-30T03:44:39.222Z",
+    "updatedAt": "2025-11-30T03:44:46.220Z",
+    "spaceId": "3abf2509-0ab1-45fd-b241-02667e24433a",
+    "environment": "local",
+    "spaceName": "unicorn"
+  },
+  "conversation": {
+    "history": [
+      {
+        "role": "user",
+        "content": "What assets do I have in this space? Describe the goblin and the game scene."
+      },
+      {
+        "role": "assistant",
+        "content": "You have **11 assets** in the \"unicorn\" space:\n\n### Characters (3)\n- **Silver Armored Warrior** - 3 variants\n- **Knight** - 16 variants\n- **Princess** - 1 variant\n\n### Items (3)\n- **Health Potion** - 1 variant\n- **Knight's Shield** - 1 variant\n- **Fantasy Sword** - 1 variant\n\n### Composites (5)\n- **Goblin** - 8 variants\n- **Goblin Warrior** - 1 variant\n- **Goblin Mage** - 2 assets (1 variant each)\n- **Game Scene** - 1 variant\n\n---\n\nLet me analyze the Goblin and Game Scene for you:"
+      }
+    ],
+    "context": {}
+  },
+  "lastStep": {
+    "type": "send",
+    "timestamp": "2025-11-30T03:44:46.220Z",
+    "request": {
+      "message": "What assets do I have in this space? Describe the goblin and the game scene.",
+      "mode": "advisor"
+    },
+    "response": {
+      "type": "action",
+      "message": "You have **11 assets** in the \"unicorn\" space:\n\n### Characters (3)\n- **Silver Armored Warrior** - 3 variants\n- **Knight** - 16 variants\n- **Princess** - 1 variant\n\n### Items (3)\n- **Health Potion** - 1 variant\n- **Knight's Shield** - 1 variant\n- **Fantasy Sword** - 1 variant\n\n### Composites (5)\n- **Goblin** - 8 variants\n- **Goblin Warrior** - 1 variant\n- **Goblin Mage** - 2 assets (1 variant each)\n- **Game Scene** - 1 variant\n\n---\n\nLet me analyze the Goblin and Game Scene for you:",
+      "toolCalls": [
+        {
+          "name": "describe_image",
+          "params": {
+            "variantId": "a051bd8d-6466-4b9f-99c8-bd42f34333e1",
+            "assetName": "Goblin",
+            "question": "Describe this goblin character in detail - appearance, equipment, pose, art style, and any notable features."
+          }
+        },
+        {
+          "name": "describe_image",
+          "params": {
+            "variantId": "dc7edc8e-d126-4ed4-bc80-01dc42fa54bf",
+            "assetName": "Game Scene",
+            "question": "Describe this game scene in detail - the environment, any characters present, lighting, mood, composition, and art style."
+          }
+        }
+      ]
+    }
+  },
+  "pendingActions": [],
+  "executedActions": [],
+  "artifacts": {
+    "assets": [],
+    "variants": [],
+    "jobs": []
+  }
+}

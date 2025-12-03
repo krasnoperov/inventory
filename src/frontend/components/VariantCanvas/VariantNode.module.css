@@ -212,3 +212,45 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Forked-to link - shown on local variants that were forked to other assets */
+.forkedToLink {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: oklch(55% 0.18 276 / 0.1);
+  transition: all 0.15s ease;
+}
+
+.forkedToLink:hover {
+  color: var(--color-primary);
+  background: oklch(55% 0.18 276 / 0.2);
+}
+
+/* Forked-from link - shown on local variants that were forked from another asset */
+.forkedFromLink {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: oklch(70% 0.15 145 / 0.15);
+  transition: all 0.15s ease;
+}
+
+.forkedFromLink:hover {
+  color: var(--color-success);
+  background: oklch(70% 0.15 145 / 0.25);
+}

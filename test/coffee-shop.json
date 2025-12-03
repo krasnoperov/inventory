@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "version": "1.0",
+    "createdAt": "2025-11-30T03:40:05.777Z",
+    "updatedAt": "2025-11-30T03:40:12.417Z",
+    "spaceId": "3abf2509-0ab1-45fd-b241-02667e24433a",
+    "environment": "local",
+    "spaceName": "unicorn"
+  },
+  "conversation": {
+    "history": [
+      {
+        "role": "user",
+        "content": "Create a cozy coffee shop scene - morning sunlight streaming through windows, a cat on a wooden table drinking spilled milk, steam rising from a latte, warm earth tones"
+      },
+      {
+        "role": "assistant",
+        "content": "What a delightful scene! I'll create this cozy coffee shop with all those charming details - the morning light, the mischievous cat, and that inviting warm atmosphere."
+      }
+    ],
+    "context": {}
+  },
+  "lastStep": {
+    "type": "send",
+    "timestamp": "2025-11-30T03:40:12.416Z",
+    "request": {
+      "message": "Create a cozy coffee shop scene - morning sunlight streaming through windows, a cat on a wooden table drinking spilled milk, steam rising from a latte, warm earth tones",
+      "mode": "actor"
+    },
+    "response": {
+      "type": "action",
+      "message": "What a delightful scene! I'll create this cozy coffee shop with all those charming details - the morning light, the mischievous cat, and that inviting warm atmosphere.",
+      "pendingApprovals": [
+        {
+          "id": "approval_1764474012407_0",
+          "tool": "generate_asset",
+          "params": {
+            "name": "Cozy Coffee Shop Morning",
+            "type": "scene",
+            "prompt": "Cozy coffee shop interior, warm morning sunlight streaming through large windows, golden hour rays casting soft shadows. A fluffy orange tabby cat sitting on a rustic wooden table, lapping up spilled milk from a small white puddle. A ceramic latte cup nearby with visible steam rising, latte art visible. Warm earth tones throughout - exposed brick walls, honey-colored wooden floors, terracotta accents, cream-colored walls. Comfortable leather armchairs, potted plants on windowsills, vintage pendant lights. Soft diffused natural morning light, hygge atmosphere, photorealistic style with painterly warmth."
+          },
+          "description": "Generate new asset from prompt",
+          "status": "pending",
+          "createdAt": 1764474012407
+        }
+      ]
+    }
+  },
+  "pendingActions": [
+    {
+      "id": "approval_1764474012407_0",
+      "tool": "generate_asset",
+      "params": {
+        "name": "Cozy Coffee Shop Morning",
+        "type": "scene",
+        "prompt": "Cozy coffee shop interior, warm morning sunlight streaming through large windows, golden hour rays casting soft shadows. A fluffy orange tabby cat sitting on a rustic wooden table, lapping up spilled milk from a small white puddle. A ceramic latte cup nearby with visible steam rising, latte art visible. Warm earth tones throughout - exposed brick walls, honey-colored wooden floors, terracotta accents, cream-colored walls. Comfortable leather armchairs, potted plants on windowsills, vintage pendant lights. Soft diffused natural morning light, hygge atmosphere, photorealistic style with painterly warmth."
+      },
+      "description": "Generate new asset from prompt",
+      "status": "pending",
+      "geminiRequest": {
+        "model": "gemini-3-pro-image-preview",
+        "prompt": "Cozy coffee shop interior, warm morning sunlight streaming through large windows, golden hour rays casting soft shadows. A fluffy orange tabby cat sitting on a rustic wooden table, lapping up spilled milk from a small white puddle. A ceramic latte cup nearby with visible steam rising, latte art visible. Warm earth tones throughout - exposed brick walls, honey-colored wooden floors, terracotta accents, cream-colored walls. Comfortable leather armchairs, potted plants on windowsills, vintage pendant lights. Soft diffused natural morning light, hygge atmosphere, photorealistic style with painterly warmth.",
+        "config": {
+          "responseModalities": [
+            "image",
+            "text"
+          ],
+          "aspectRatio": "1:1"
+        }
+      }
+    }
+  ],
+  "executedActions": [],
+  "artifacts": {
+    "assets": [],
+    "variants": [],
+    "jobs": []
+  }
+}

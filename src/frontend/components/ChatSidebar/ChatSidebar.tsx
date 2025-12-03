@@ -8,6 +8,7 @@ import {
   useChatPlan,
   useChatPlanStatus,
   usePendingApprovals,
+  useShowPreferencesPanel,
   type ChatMessage,
 } from '../../stores/chatStore';
 import {
@@ -59,9 +60,12 @@ export interface ChatSidebarProps {
   currentVariant?: Variant | null;
   allAssets?: Asset[];
   allVariants?: Variant[];
-  onGenerateAsset?: (params: { name: string; type: string; prompt: string; parentAssetId?: string; referenceAssetIds?: string[] }) => string | void;
-  onRefineAsset?: (params: { assetId: string; prompt: string }) => string | void;
-  onCombineAssets?: (params: { sourceAssetIds: string[]; prompt: string; targetName: string; targetType: string }) => string | void;
+  // Forge operations (matching ForgeTray UI)
+  onGenerate?: (params: { name: string; type: string; prompt: string; parentAssetId?: string }) => string | void;
+  onFork?: (params: { sourceAssetId: string; name: string; type: string; parentAssetId?: string }) => void;
+  onCreate?: (params: { name: string; type: string; prompt: string; referenceAssetId: string; parentAssetId?: string }) => string | void;
+  onRefine?: (params: { assetId: string; prompt: string }) => string | void;
+  onCombine?: (params: { sourceAssetIds: string[]; prompt: string; name: string; type: string }) => string | void;
   lastCompletedJob?: JobCompletionData | null;
   /** WebSocket chat request function (required for chat communication) */
   sendChatRequest: (params: ChatRequestParams) => string;
@@ -92,9 +96,11 @@ export function ChatSidebar({
   currentVariant,
   allAssets = [],
   allVariants = [],
-  onGenerateAsset,
-  onRefineAsset,
-  onCombineAssets,
+  onGenerate,
+  onFork,
+  onCreate,
+  onRefine,
+  onCombine,
   lastCompletedJob,
   sendChatRequest,
   chatResponse,
@@ -110,6 +116,7 @@ export function ChatSidebar({
   const activePlan = useChatPlan(spaceId);
   const planStatus = useChatPlanStatus(spaceId);
   const pendingApprovals = usePendingApprovals(spaceId);
+  const showPreferences = useShowPreferencesPanel(spaceId);
 
   // Store actions
   const {
@@ -131,6 +138,8 @@ export function ChatSidebar({
     approveApproval,
     rejectApproval,
     clearPendingApprovals,
+    // Preferences panel
+    setShowPreferencesPanel,
   } = useChatStore();
 
   // Local state (transient - not persisted)
@@ -138,7 +147,6 @@ export function ChatSidebar({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isAutoReviewing, setIsAutoReviewing] = useState(false);
   const [isExecutingStep, setIsExecutingStep] = useState(false);
-  const [showPreferences, setShowPreferences] = useState(false);
   // Track if we've attempted to load history for this space (prevents re-fetch on message changes)
   const hasAttemptedHistoryLoad = useRef(false);
   // Track which meters have shown 90% warning this session
@@ -161,9 +169,11 @@ export function ChatSidebar({
   const toolExec = useToolExecution({
     allAssets,
     allVariants,
-    onGenerateAsset,
-    onRefineAsset,
-    onCombineAssets,
+    onGenerate,
+    onFork,
+    onCreate,
+    onRefine,
+    onCombine,
     sendDescribeRequest,
     sendCompareRequest,
   });
@@ -721,16 +731,16 @@ export function ChatSidebar({
       timestamp: Date.now(),
     });
 
-    // Convert forge context to WebSocket format
-    const wsForgeContext: WsForgeContext | undefined = forgeContext.slots.length > 0 ? {
-      items: forgeContext.slots.map(s => ({
+    // Convert forge context to WebSocket format (same shape as api/types ForgeContext)
+    const wsForgeContext: WsForgeContext = {
+      operation: forgeContext.operation as WsForgeContext['operation'],
+      slots: forgeContext.slots.map(s => ({
         assetId: s.assetId,
         assetName: s.assetName,
-        assetType: allAssets.find(a => a.id === s.assetId)?.type || 'unknown',
         variantId: s.variantId,
       })),
       prompt: forgeContext.prompt,
-    } : undefined;
+    };
 
     // Convert viewing context to WebSocket format
     const wsViewingContext: WsViewingContext | undefined = viewingContext.type === 'asset' ? {
@@ -826,7 +836,7 @@ export function ChatSidebar({
         <div className={styles.headerActions}>
           <button
             className={styles.settingsButton}
-            onClick={() => setShowPreferences(true)}
+            onClick={() => setShowPreferencesPanel(spaceId, true)}
             title="Preferences"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
@@ -990,7 +1000,7 @@ export function ChatSidebar({
       {/* Preferences Panel */}
       <PreferencesPanel
         isOpen={showPreferences}
-        onClose={() => setShowPreferences(false)}
+        onClose={() => setShowPreferencesPanel(spaceId, false)}
       />
     </div>
   );

@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "version": "1.0",
+    "createdAt": "2025-11-30T03:41:04.383Z",
+    "updatedAt": "2025-11-30T03:41:09.280Z",
+    "spaceId": "3abf2509-0ab1-45fd-b241-02667e24433a",
+    "environment": "local",
+    "spaceName": "unicorn"
+  },
+  "conversation": {
+    "history": [
+      {
+        "role": "user",
+        "content": "Create a minimalist modern logo design featuring a stylized banana - clean lines, no text, no monkeys, professional business aesthetic"
+      },
+      {
+        "role": "assistant",
+        "content": "I'll create a minimalist modern logo design featuring a stylized banana with clean, professional aesthetics."
+      }
+    ],
+    "context": {}
+  },
+  "lastStep": {
+    "type": "send",
+    "timestamp": "2025-11-30T03:41:09.280Z",
+    "request": {
+      "message": "Create a minimalist modern logo design featuring a stylized banana - clean lines, no text, no monkeys, professional business aesthetic",
+      "mode": "actor"
+    },
+    "response": {
+      "type": "action",
+      "message": "I'll create a minimalist modern logo design featuring a stylized banana with clean, professional aesthetics.",
+      "pendingApprovals": [
+        {
+          "id": "approval_1764474069274_0",
+          "tool": "generate_asset",
+          "params": {
+            "name": "Minimalist Banana Logo",
+            "type": "ui",
+            "prompt": "Minimalist modern logo design, stylized banana icon, clean geometric lines, single curved banana silhouette, professional business aesthetic, flat vector style, simple elegant shape, no text, no characters, abstract banana form, smooth curves, contemporary corporate logo design, solid color on white background, graphic design, scalable icon, premium brand mark"
+          },
+          "description": "Generate new asset from prompt",
+          "status": "pending",
+          "createdAt": 1764474069274
+        }
+      ]
+    }
+  },
+  "pendingActions": [
+    {
+      "id": "approval_1764474069274_0",
+      "tool": "generate_asset",
+      "params": {
+        "name": "Minimalist Banana Logo",
+        "type": "ui",
+        "prompt": "Minimalist modern logo design, stylized banana icon, clean geometric lines, single curved banana silhouette, professional business aesthetic, flat vector style, simple elegant shape, no text, no characters, abstract banana form, smooth curves, contemporary corporate logo design, solid color on white background, graphic design, scalable icon, premium brand mark"
+      },
+      "description": "Generate new asset from prompt",
+      "status": "pending",
+      "geminiRequest": {
+        "model": "gemini-3-pro-image-preview",
+        "prompt": "Minimalist modern logo design, stylized banana icon, clean geometric lines, single curved banana silhouette, professional business aesthetic, flat vector style, simple elegant shape, no text, no characters, abstract banana form, smooth curves, contemporary corporate logo design, solid color on white background, graphic design, scalable icon, premium brand mark",
+        "config": {
+          "responseModalities": [
+            "image",
+            "text"
+          ],
+          "aspectRatio": "1:1"
+        }
+      }
+    }
+  ],
+  "executedActions": [],
+  "artifacts": {
+    "assets": [],
+    "variants": [],
+    "jobs": []
+  }
+}

@@ -56,6 +56,7 @@ export interface ChatSession {
   planStatus: PlanStatus;
   planError?: string;
   isOpen: boolean;
+  showPreferencesPanel: boolean;
   lastUpdated: number;
   /** Pending approvals for generating tools (trust zones) */
   pendingApprovals: PendingApproval[];
@@ -75,6 +76,7 @@ interface ChatState {
   setInputBuffer: (spaceId: string, value: string) => void;
   setMode: (spaceId: string, mode: 'advisor' | 'actor') => void;
   setIsOpen: (spaceId: string, isOpen: boolean) => void;
+  setShowPreferencesPanel: (spaceId: string, show: boolean) => void;
 
   // Plan actions
   setPlan: (spaceId: string, plan: AssistantPlan) => void;
@@ -105,6 +107,7 @@ const createEmptySession = (): ChatSession => ({
   plan: null,
   planStatus: 'idle',
   isOpen: false,
+  showPreferencesPanel: false,
   lastUpdated: Date.now(),
   pendingApprovals: [],
   lastAutoExecuted: [],
@@ -222,6 +225,19 @@ export const useChatStore = create<ChatState>()(
             [spaceId]: {
               ...(state.sessions[spaceId] || createEmptySession()),
               isOpen,
+              lastUpdated: Date.now(),
+            },
+          },
+        }));
+      },
+
+      setShowPreferencesPanel: (spaceId, show) => {
+        set((state) => ({
+          sessions: {
+            ...state.sessions,
+            [spaceId]: {
+              ...(state.sessions[spaceId] || createEmptySession()),
+              showPreferencesPanel: show,
               lastUpdated: Date.now(),
             },
           },
@@ -507,6 +523,7 @@ const defaultSession: ChatSession = {
   plan: null,
   planStatus: 'idle',
   isOpen: false,
+  showPreferencesPanel: false,
   lastUpdated: 0,
   pendingApprovals: emptyApprovals,
   lastAutoExecuted: emptyAutoExecuted,
@@ -567,6 +584,14 @@ export function useChatPlanStatus(spaceId: string) {
 export function useChatIsOpen(spaceId: string) {
   const selector = useCallback(
     (state: ChatState) => state.sessions[spaceId]?.isOpen ?? false,
+    [spaceId]
+  );
+  return useChatStore(selector);
+}
+
+export function useShowPreferencesPanel(spaceId: string) {
+  const selector = useCallback(
+    (state: ChatState) => state.sessions[spaceId]?.showPreferencesPanel ?? false,
     [spaceId]
   );
   return useChatStore(selector);
