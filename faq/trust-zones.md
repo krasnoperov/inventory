@@ -27,8 +27,8 @@ These are safe because they don't consume credits and don't create permanent cha
 These operations require your explicit approval before running:
 
 - **Generate asset** - Creating a new asset from a prompt
+- **Derive asset** - Creating a new asset using references as inspiration
 - **Refine asset** - Adding a new variant to an existing asset
-- **Combine assets** - Merging multiple assets into a new one
 - **Create plan** - Creating a multi-step workflow
 
 These require approval because they consume AI credits and create permanent assets.

@@ -35,7 +35,7 @@ A collaborative web application for creating, refining, and combining AI-generat
 - See prompt history (recipe) for each variant
 
 ### Forging (Composition)
-- Select multiple assets to combine into a new asset
+- Select multiple assets to derive a new asset
 - Specify combination instructions with structured labels
 - View lineage (what assets were used to create this)
 

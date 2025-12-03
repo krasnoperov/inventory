@@ -1,6 +1,6 @@
 # Image Generation Guide
 
-Learn how to create, refine, and combine images using the Forge.
+Learn how to generate, derive, and refine images using the Forge.
 
 ## What the AI Does Best
 
@@ -8,7 +8,7 @@ Our image generation is powered by Gemini, which excels at:
 
 - **Text in images** — Legible text for logos, signs, diagrams, infographics, UI mockups
 - **World knowledge** — Architectural styles, historical periods, real places, cultural references
-- **Multi-image composition** — Combining multiple references while keeping elements consistent
+- **Multi-image composition** — Using multiple references while keeping elements consistent
 - **Iterative refinement** — Making adjustments through conversation while preserving context
 - **Complex scenes** — Understanding relationships between elements ("holding", "in front of", "next to")
 - **Professional quality** — High-resolution output with control over lighting and camera angles
@@ -17,8 +17,8 @@ Our image generation is powered by Gemini, which excels at:
 
 The Forge uses AI to generate images from your text descriptions. You can:
 - **Generate** entirely new images from scratch
-- **Refine** existing images with modifications
-- **Combine** multiple images into something new
+- **Derive** new images using existing ones as inspiration
+- **Refine** existing assets with modifications
 - **Fork** an image to create a copy as a starting point
 
 ## Core Concepts
@@ -66,17 +66,17 @@ When you have an image but want to change something, use refinement. The AI will
 - **Logo:** "Change the text to 'SUNSET CAFE'" / "Add a subtle drop shadow to the badge"
 - **UI:** "Change the button color to green" / "Add a 'Forgot Password?' link below the form"
 
-### Combine Multiple Images
-The most powerful feature—take elements from multiple images and merge them into something new.
+### Derive from Multiple Images
+The most powerful feature—take elements from multiple images and create something new.
 
-**Example combinations:**
+**Example derivations:**
 - **Game:** Place a character into a scene/environment; equip a character with a weapon from another image
 - **Interior:** Place furniture from one image into a room from another
-- **Architecture:** Combine a building facade with landscaping from a different image
+- **Architecture:** Use a building facade with landscaping from a different image
 - **People:** Put a person from a portrait into an office or lifestyle environment
 - **Product:** Place a product into a lifestyle scene (coffee mug on a cozy desk setup)
-- **Food:** Combine plated dish with a restaurant table setting background
-- **Fashion:** Place a garment on a model from another image; combine outfit pieces
+- **Food:** Use a plated dish with a restaurant table setting background
+- **Fashion:** Place a garment on a model from another image; use outfit pieces together
 
 ### Fork an Image
 Create an exact copy of an image as a new asset. Useful when you want to take an existing design in a completely different direction without losing the original.
@@ -88,18 +88,18 @@ Create an exact copy of an image as a new asset. Useful when you want to take an
 The Forge Tray at the bottom of your screen is your creative workbench.
 
 ### Adding References
-Click the **+** button to add images as references. You can add up to 4 reference images for combining.
+Click the **+** button to add images as references. You can add up to 14 reference images.
 
 ### Choosing a Destination
-- **Current**: Add the result as a new variant to an existing asset
-- **New**: Create an entirely new asset
+- **Current**: Add the result as a new variant to an existing asset (Refine)
+- **New**: Create an entirely new asset (Derive)
 
 ### The Action Button
 The button label changes based on what you're doing:
-- **Generate** — Creating from text only
-- **Refine** — Modifying a single image
-- **Combine** — Merging multiple images
-- **Fork** — Copying without changes
+- **Generate** — Creating from text only (no references)
+- **Fork** — Copying an image without AI changes
+- **Derive** — Creating new asset using references
+- **Refine** — Adding variant to existing asset
 
 ---
 
@@ -160,7 +160,7 @@ The AI has some understanding of space and composition:
 - Complex multi-character arrangements
 - Maintaining exact proportions across combinations
 
-**Tip:** For complex scenes, build up gradually. Start with your main subject, then combine with backgrounds and additional elements one at a time.
+**Tip:** For complex scenes, build up gradually. Start with your main subject, then derive with backgrounds and additional elements one at a time.
 
 ---
 
@@ -193,7 +193,7 @@ Start by generating a "reference image" that establishes your visual identity:
 - **For people:** A clear portrait with good lighting, then use for different poses/scenes
 - **For interiors:** Generate the base room, then use as reference for different angles or times of day
 - **For architecture:** Generate the main exterior view, then use for interior shots or different angles
-- **For game items:** Generate the item clearly on neutral background, then combine with characters
+- **For game items:** Generate the item clearly on neutral background, then derive with characters
 
 ### Use Visual Anchors
 
@@ -295,7 +295,7 @@ You can view an asset's full history to see all the images and prompts that cont
 **For architecture:**
 1. Generate the main exterior view with materials and lighting
 2. Refine for different angles or times of day
-3. Combine with landscaping or context images
+3. Derive with landscaping or context images
 
 **For interior design:**
 1. Generate your base room with style, materials, and lighting
@@ -305,22 +305,22 @@ You can view an asset's full history to see all the images and prompts that cont
 **For people/portraits:**
 1. Generate a clear reference portrait
 2. Refine for different expressions or poses
-3. Combine with environments for lifestyle shots
+3. Derive with environments for lifestyle shots
 
 **For products:**
 1. Generate your hero product shot on neutral background
-2. Combine with different lifestyle scene backgrounds
+2. Derive with different lifestyle scene backgrounds
 3. Refine lighting or styling as needed
 
 **For food photography:**
 1. Generate your hero dish with plating and lighting
 2. Refine with garnishes or styling changes
-3. Combine with table settings or restaurant backgrounds
+3. Derive with table settings or restaurant backgrounds
 
 **For fashion:**
 1. Generate garment on mannequin or flat lay
 2. Refine colors, details, or accessories
-3. Combine with models or lifestyle contexts
+3. Derive with models or lifestyle contexts
 
 **For logos & branding:**
 1. Generate your logo with text, style, and shape (Gemini excels at text!)

@@ -36,8 +36,8 @@ An image version belonging to an Asset. Variants are internal — visible only i
 
 Tracks how variants relate to each other.
 
-- `refined` — Single-source refinement
-- `combined` — Multi-source composition
+- `derived` — Created from reference(s) as inspiration
+- `refined` — Refinement of existing asset
 - `forked` — Fork/copy to new asset
 
 ---
@@ -134,9 +134,8 @@ The central workspace for all generation operations. A persistent floating bar a
 |-------|------------|-------------|-----------|
 | 0 | Yes | New | **Generate** — Create from scratch |
 | 1 | No | New | **Fork** — Copy asset without changes |
-| 1 | Yes | New | **Create** — Transform into new asset |
-| 1 | Yes | Existing | **Refine** — Add variant to existing asset |
-| 2+ | Yes | Any | **Combine** — Merge multiple sources |
+| 1+ | Yes | New | **Derive** — Create new asset using references |
+| 1+ | Yes | Existing | **Refine** — Add variant to existing asset |
 
 ### Slot Behavior
 

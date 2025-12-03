@@ -293,9 +293,8 @@ The state file is a JSON document that captures the entire conversation state:
 ### What to Check Before Executing
 
 1. **Tool Selection** - Did Claude choose the right tool?
-   - `create` - Create new asset (with optional reference images for style guidance)
+   - `derive` - Create new asset using references as inspiration
    - `refine` - Add a new variant to an existing asset
-   - `combine` - Create new asset by compositing multiple source images
 
 2. **Asset Name & Type** - Are they appropriate?
    ```

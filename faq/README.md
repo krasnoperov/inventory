@@ -5,7 +5,7 @@ This directory contains user-facing documentation for Inventory Forge.
 ## Getting Started
 
 ### [Image Generation Guide](./image-generation-guide.md)
-Learn how to create, refine, and combine images using the Forge. Covers basic concepts, operations (generate, refine, combine, fork), tips for better prompts, working with spatial relationships, and building up complex designs step by step.
+Learn how to generate, derive, and refine images using the Forge. Covers basic concepts, operations (generate, fork, derive, refine), tips for better prompts, working with spatial relationships, and building up complex designs step by step.
 
 ## Assistant Features
 
@@ -27,7 +27,7 @@ What happens when you reach your quota or rate limits. How to handle "quota exce
 
 | Topic | Description |
 |-------|-------------|
-| [Image Generation](./image-generation-guide.md) | Create, refine, combine images |
+| [Image Generation](./image-generation-guide.md) | Generate, derive, refine images |
 | [Trust Zones](./trust-zones.md) | Control AI action permissions |
 | [Memory & Personalization](./memory-personalization.md) | Assistant learning preferences |
 | [Billing FAQ](./BILLING.md) | Usage limits, subscriptions, upgrades |
