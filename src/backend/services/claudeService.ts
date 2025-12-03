@@ -487,7 +487,7 @@ ${context.assets.length > 0
 `;
 
     if (context.forge) {
-      const { operation, slots, prompt: forgePrompt } = context.forge;
+      const { operation = 'generate', slots = [], prompt: forgePrompt } = context.forge;
       prompt += `FORGE TRAY STATE:
 - Current operation: ${operation.toUpperCase()}
 - References in tray: ${slots.length > 0 ? slots.map((s, i) => `[${i}] ${s.assetName}`).join(', ') : 'empty'}
@@ -495,10 +495,10 @@ ${context.assets.length > 0
 
 Operations explained:
 - GENERATE: Create from prompt only (0 refs)
-- FORK: Duplicate as new asset (1 ref, no prompt)
-- CREATE: Transform ref to new asset (1 ref + prompt)
-- REFINE: Add variant to ref's asset (1 ref + prompt)
-- COMBINE: Merge refs into new (2+ refs + prompt)
+- FORK: Copy ref to new asset without changes (1 ref, no prompt, new_asset destination)
+- CREATE: Create new asset using ref as inspiration (1 ref + prompt, new_asset destination)
+- REFINE: Add variant to existing asset (1 ref + prompt, existing_asset destination)
+- COMBINE: Merge multiple refs into new asset (2+ refs + prompt)
 
 `;
     }
