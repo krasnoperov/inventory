@@ -15,6 +15,11 @@ export class SchemaManager {
    * Creates all tables and indexes if they don't exist.
    */
   async initialize(): Promise<void> {
+    await this.createTables();
+    await this.runMigrations();
+  }
+
+  private async createTables(): Promise<void> {
     await this.sql.exec(`
       -- Assets table
       CREATE TABLE IF NOT EXISTS assets (
@@ -62,11 +67,12 @@ export class SchemaManager {
       );
 
       -- Variant lineage (parent-child relationships)
+      -- relation_type matches user operations: created, refined, combined, forked
       CREATE TABLE IF NOT EXISTS lineage (
         id TEXT PRIMARY KEY,
         parent_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
         child_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
-        relation_type TEXT NOT NULL CHECK (relation_type IN ('refined', 'combined', 'forked')),
+        relation_type TEXT NOT NULL CHECK (relation_type IN ('created', 'refined', 'combined', 'forked')),
         severed INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL
       );
@@ -78,6 +84,42 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_assets_updated ON assets(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_assets_parent ON assets(parent_asset_id);
       CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_lineage_parent ON lineage(parent_variant_id);
+      CREATE INDEX IF NOT EXISTS idx_lineage_child ON lineage(child_variant_id);
+    `);
+  }
+
+  /**
+   * Run data migrations for schema changes.
+   * Migrations are idempotent and safe to run multiple times.
+   */
+  private async runMigrations(): Promise<void> {
+    // Migration: Add 'created' to relation_type constraint
+    // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
+    // This also handles legacy 'spawned' → 'forked' conversion
+    await this.sql.exec(`
+      -- Create new table with updated constraint
+      CREATE TABLE IF NOT EXISTS lineage_new (
+        id TEXT PRIMARY KEY,
+        parent_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+        child_variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+        relation_type TEXT NOT NULL CHECK (relation_type IN ('created', 'refined', 'combined', 'forked')),
+        severed INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      );
+
+      -- Copy data, converting legacy 'spawned' to 'forked'
+      INSERT OR IGNORE INTO lineage_new (id, parent_variant_id, child_variant_id, relation_type, severed, created_at)
+      SELECT id, parent_variant_id, child_variant_id,
+             CASE WHEN relation_type = 'spawned' THEN 'forked' ELSE relation_type END,
+             severed, created_at
+      FROM lineage;
+
+      -- Drop old table and rename new one
+      DROP TABLE IF EXISTS lineage;
+      ALTER TABLE lineage_new RENAME TO lineage;
+
+      -- Recreate indexes
       CREATE INDEX IF NOT EXISTS idx_lineage_parent ON lineage(parent_variant_id);
       CREATE INDEX IF NOT EXISTS idx_lineage_child ON lineage(child_variant_id);
     `);

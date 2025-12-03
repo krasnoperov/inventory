@@ -191,7 +191,10 @@ export interface GenerateRequestMessage {
   name: string;
   assetType: string;
   prompt?: string;
+  /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
+  /** Explicit variant references from ForgeTray UI - used as-is */
+  referenceVariantIds?: string[];
   aspectRatio?: string;
   parentAssetId?: string;
 }
@@ -202,7 +205,11 @@ export interface RefineRequestMessage {
   requestId: string;
   assetId: string;
   prompt: string;
+  /** Single source variant (legacy) */
   sourceVariantId?: string;
+  /** Multiple source variants from ForgeTray (for combine into existing asset) */
+  sourceVariantIds?: string[];
+  /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
   aspectRatio?: string;
 }

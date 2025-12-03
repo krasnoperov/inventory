@@ -69,7 +69,7 @@ export class VariantController extends BaseController {
     recipe: string;
     createdBy: string;
     parentVariantIds?: string[];
-    relationType?: 'refined' | 'combined';
+    relationType?: 'created' | 'refined' | 'combined';
   }): Promise<{ created: boolean; variant: Variant }> {
     return this.applyVariant(data);
   }
@@ -107,7 +107,7 @@ export class VariantController extends BaseController {
     recipe: string;
     createdBy: string;
     parentVariantIds?: string[];
-    relationType?: 'refined' | 'combined';
+    relationType?: 'created' | 'refined' | 'combined';
   }): Promise<{ created: boolean; variant: Variant }> {
     // Check if variant already exists (idempotency via workflowId/jobId)
     const existing = await this.repo.getVariantByWorkflowId(data.jobId);

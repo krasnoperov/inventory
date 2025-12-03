@@ -83,17 +83,16 @@ export function useForgeOperations({
     }
 
     if (destination.type === 'existing_asset' && destination.assetId) {
-      // Add variant to existing asset (refine operation) - prompt is required
+      // Add variant to existing asset (refine/combine operation) - prompt is required
       if (!prompt) {
         throw new Error('Prompt is required for refine operations');
       }
 
-      const sourceVariantId = hasVariantRefs ? referenceVariantIds[0] : undefined;
-
       return sendRefineRequest({
         assetId: destination.assetId,
         prompt,
-        sourceVariantId,
+        // Pass all source variants for combine-into-existing scenarios
+        sourceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
       });
     } else {
@@ -103,6 +102,7 @@ export function useForgeOperations({
         assetType: destination.assetType || 'character',
         prompt,
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
+        referenceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
         parentAssetId: destination.parentAssetId || undefined,
       });
     }

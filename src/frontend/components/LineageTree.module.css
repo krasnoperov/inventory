@@ -104,18 +104,23 @@
   text-transform: uppercase;
 }
 
-.badge.derived {
+.badge.created {
+  background: var(--color-success);
+  color: white;
+}
+
+.badge.refined {
   background: var(--color-type-character);
   color: white;
 }
 
-.badge.composed {
-  background: var(--color-type-item);
+.badge.combined {
+  background: var(--color-primary);
   color: white;
 }
 
-.badge.spawned {
-  background: var(--color-type-scene);
+.badge.forked {
+  background: var(--color-text-muted);
   color: white;
 }
 

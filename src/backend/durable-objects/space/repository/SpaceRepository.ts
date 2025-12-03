@@ -447,7 +447,7 @@ export class SpaceRepository {
     id: string;
     parentVariantId: string;
     childVariantId: string;
-    relationType: 'refined' | 'combined' | 'forked';
+    relationType: 'created' | 'refined' | 'combined' | 'forked';
   }): Promise<Lineage> {
     const now = Date.now();
     await this.sql.exec(

@@ -36,7 +36,7 @@ interface ExportVariant {
 interface ExportLineage {
   parentVariantId: string;
   childVariantId: string;
-  relationType: 'refined' | 'combined';
+  relationType: 'created' | 'refined' | 'combined' | 'forked';
 }
 
 export const exportRoutes = new Hono<AppContext>();
@@ -109,7 +109,7 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
     lineage: (state.lineage || []).map(l => ({
       parentVariantId: l.parent_variant_id,
       childVariantId: l.child_variant_id,
-      relationType: l.relation_type as 'refined' | 'combined',
+      relationType: l.relation_type as ExportLineage['relationType'],
     })),
   };
 

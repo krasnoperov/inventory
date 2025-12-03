@@ -16,7 +16,7 @@ interface VariantMinimal {
 
 interface LineageNode {
   variant: VariantMinimal;
-  relation_type: 'refined' | 'combined' | 'forked';
+  relation_type: 'created' | 'refined' | 'combined' | 'forked';
   severed?: boolean;
   lineage_id?: string;  // For sever action
 }
@@ -36,7 +36,7 @@ interface GraphLineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: 'refined' | 'combined' | 'forked';
+  relation_type: 'created' | 'refined' | 'combined' | 'forked';
   severed: boolean;
   created_at: number;
 }
@@ -53,6 +53,7 @@ interface LineageTreeProps {
 // Helper to get display text for relation type - user-friendly labels
 const getRelationLabel = (type: string): string => {
   switch (type) {
+    case 'created': return 'Created';
     case 'refined': return 'Refined';
     case 'combined': return 'Combined';
     case 'forked': return 'Forked';
@@ -64,16 +65,18 @@ const getRelationTooltip = (type: string, direction: 'parent' | 'child'): string
   if (direction === 'parent') {
     // This variant was created from the parent
     switch (type) {
-      case 'derived': return 'Refined from this image';
-      case 'composed': return 'Part of composition that created this';
+      case 'created': return 'Used as reference when creating this asset';
+      case 'refined': return 'Refined from this image';
+      case 'combined': return 'Part of combination that created this';
       case 'forked': return 'Forked from this to create new asset';
       default: return `Related via ${type}`;
     }
   } else {
     // The child was created from this variant
     switch (type) {
-      case 'derived': return 'Was refined to create this';
-      case 'composed': return 'Was used to compose this';
+      case 'created': return 'Was used as reference to create this';
+      case 'refined': return 'Was refined to create this';
+      case 'combined': return 'Was combined to create this';
       case 'forked': return 'Was forked to create new asset';
       default: return `Related via ${type}`;
     }

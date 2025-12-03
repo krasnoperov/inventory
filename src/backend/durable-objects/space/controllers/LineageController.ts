@@ -100,7 +100,7 @@ export class LineageController extends BaseController {
   async httpAddLineage(data: {
     parentVariantId: string;
     childVariantId: string;
-    relationType: 'refined' | 'combined' | 'forked';
+    relationType: 'created' | 'refined' | 'combined' | 'forked';
   }): Promise<Lineage> {
     const lineage = await this.repo.createLineage({
       id: crypto.randomUUID(),

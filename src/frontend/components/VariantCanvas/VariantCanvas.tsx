@@ -45,6 +45,8 @@ export interface VariantCanvasProps {
   onVariantClick?: (variant: Variant) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onSetActive?: (variantId: string) => void;
+  /** Restore ForgeTray to the state used to create this variant */
+  onRetryRecipe?: (variant: Variant) => void;
   /** All variants from the space (for cross-asset lineage ghost nodes) */
   allVariants?: Variant[];
   /** All assets from the space (for resolving ghost node asset info) */
@@ -219,6 +221,7 @@ export function VariantCanvas({
   onVariantClick,
   onAddToTray,
   onSetActive,
+  onRetryRecipe,
   allVariants,
   allAssets,
   onGhostNodeClick,
@@ -283,6 +286,50 @@ export function VariantCanvas({
     // Build set of valid variant IDs for this asset
     const variantIds = new Set(variants.map(v => v.id));
 
+    // Build forkedTo map (outgoing: this asset's variant was forked TO another asset)
+    // Build forkedFrom map (incoming: this asset's variant was forked FROM another asset)
+    const forkedToMap = new Map<string, { assetId: string; assetName: string }[]>();
+    const forkedFromMap = new Map<string, { assetId: string; assetName: string }>();
+    if (allVariants && allAssets) {
+      // Outgoing forked lineage: local parent → external child
+      const outgoingForked = lineage.filter(l =>
+        variantIds.has(l.parent_variant_id) &&
+        !variantIds.has(l.child_variant_id) &&
+        !l.severed &&
+        l.relation_type === 'forked'
+      );
+      for (const lin of outgoingForked) {
+        const childVariant = allVariants.find(v => v.id === lin.child_variant_id);
+        if (!childVariant) continue;
+        const childAsset = allAssets.find(a => a.id === childVariant.asset_id);
+        if (!childAsset) continue;
+
+        const existing = forkedToMap.get(lin.parent_variant_id) || [];
+        // Avoid duplicates (same asset)
+        if (!existing.some(e => e.assetId === childAsset.id)) {
+          existing.push({ assetId: childAsset.id, assetName: childAsset.name });
+        }
+        forkedToMap.set(lin.parent_variant_id, existing);
+      }
+
+      // Incoming forked lineage: external parent → local child
+      const incomingForked = lineage.filter(l =>
+        variantIds.has(l.child_variant_id) &&
+        !variantIds.has(l.parent_variant_id) &&
+        !l.severed &&
+        l.relation_type === 'forked'
+      );
+      for (const lin of incomingForked) {
+        const parentVariant = allVariants.find(v => v.id === lin.parent_variant_id);
+        if (!parentVariant) continue;
+        const parentAsset = allAssets.find(a => a.id === parentVariant.asset_id);
+        if (!parentAsset) continue;
+
+        // For incoming fork, the local child variant links back to parent asset
+        forkedFromMap.set(lin.child_variant_id, { assetId: parentAsset.id, assetName: parentAsset.name });
+      }
+    }
+
     // Create normal nodes for this asset's variants
     const nodes: VariantNodeType[] = variants.map((variant) => ({
       id: variant.id,
@@ -297,22 +344,38 @@ export function VariantCanvas({
         onVariantClick,
         onAddToTray,
         onSetActive,
+        onRetryRecipe,
+        forkedTo: forkedToMap.get(variant.id),
+        forkedFrom: forkedFromMap.get(variant.id),
+        onGhostClick: onGhostNodeClick, // For forked-to/from navigation
       },
     }));
 
-    // Find cross-asset lineage: where child is in this asset but parent is from another asset
-    const crossAssetLineage = lineage.filter(l =>
+    // Find incoming cross-asset lineage: where child is in this asset but parent is from another asset
+    // Exclude forked - for forked, the local variant IS a copy, so no ghost needed
+    const incomingCrossAssetLineage = lineage.filter(l =>
       variantIds.has(l.child_variant_id) &&
       !variantIds.has(l.parent_variant_id) &&
-      !l.severed
+      !l.severed &&
+      l.relation_type !== 'forked'
     );
 
-    // Create ghost nodes for external parent variants
+    // Find outgoing cross-asset lineage: where parent is in this asset but child is from another asset
+    // Exclude forked - forked relationships don't need ghost nodes (child is a copy)
+    const outgoingCrossAssetLineage = lineage.filter(l =>
+      variantIds.has(l.parent_variant_id) &&
+      !variantIds.has(l.child_variant_id) &&
+      !l.severed &&
+      l.relation_type !== 'forked'
+    );
+
+    // Create ghost nodes for external variants (both parents and children)
     const ghostNodes: VariantNodeType[] = [];
     const ghostVariantIds = new Set<string>();
 
-    if (allVariants && allAssets && crossAssetLineage.length > 0) {
-      for (const lin of crossAssetLineage) {
+    if (allVariants && allAssets) {
+      // Ghost nodes for external parent variants (incoming)
+      for (const lin of incomingCrossAssetLineage) {
         if (ghostVariantIds.has(lin.parent_variant_id)) continue;
 
         const parentVariant = allVariants.find(v => v.id === lin.parent_variant_id);
@@ -334,6 +397,31 @@ export function VariantCanvas({
           },
         });
       }
+
+      // Ghost nodes for external child variants (outgoing/derivatives) - excludes forked
+      for (const lin of outgoingCrossAssetLineage) {
+        if (ghostVariantIds.has(lin.child_variant_id)) continue;
+
+        const childVariant = allVariants.find(v => v.id === lin.child_variant_id);
+        if (!childVariant) continue;
+
+        const childAsset = allAssets.find(a => a.id === childVariant.asset_id);
+        if (!childAsset) continue;
+
+        ghostVariantIds.add(lin.child_variant_id);
+        ghostNodes.push({
+          id: lin.child_variant_id,
+          type: 'variant' as const,
+          position: { x: 0, y: 0 },
+          data: {
+            variant: childVariant,
+            asset: childAsset,
+            isGhost: true,
+            isDerivative: true, // Mark as outgoing derivative for different styling
+            onGhostClick: onGhostNodeClick,
+          },
+        });
+      }
     }
 
     const allNodes = [...nodes, ...ghostNodes];
@@ -345,6 +433,8 @@ export function VariantCanvas({
       .filter(l => l.relation_type === 'refined' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
       .map(l => {
         const isFromGhost = ghostVariantIds.has(l.parent_variant_id);
+        const isToGhost = ghostVariantIds.has(l.child_variant_id);
+        const isGhostEdge = isFromGhost || isToGhost;
         return {
           id: `${l.parent_variant_id}-${l.child_variant_id}`,
           source: l.parent_variant_id,
@@ -352,9 +442,9 @@ export function VariantCanvas({
           type: 'smoothstep',
           animated: isVariantGenerating(l.child_variant_id),
           style: {
-            stroke: isFromGhost ? 'var(--color-text-muted)' : 'var(--color-border)',
+            stroke: isGhostEdge ? 'var(--color-text-muted)' : 'var(--color-border)',
             strokeWidth: 2,
-            strokeDasharray: isFromGhost ? '4,4' : undefined,
+            strokeDasharray: isGhostEdge ? '4,4' : undefined,
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
@@ -362,7 +452,7 @@ export function VariantCanvas({
             width: 14,
             height: 14,
           },
-          label: isFromGhost ? 'forked' : 'refined',
+          label: isToGhost ? 'derived' : (isFromGhost ? 'forked' : 'refined'),
           labelStyle: { fontSize: 9, fill: 'var(--color-text-muted)' },
           labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
         };
@@ -373,6 +463,8 @@ export function VariantCanvas({
       .filter(l => l.relation_type === 'combined' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
       .map(l => {
         const isFromGhost = ghostVariantIds.has(l.parent_variant_id);
+        const isToGhost = ghostVariantIds.has(l.child_variant_id);
+        const isGhostEdge = isFromGhost || isToGhost;
         return {
           id: `${l.parent_variant_id}-${l.child_variant_id}-combined`,
           source: l.parent_variant_id,
@@ -382,7 +474,7 @@ export function VariantCanvas({
           style: {
             stroke: 'var(--color-primary)',
             strokeWidth: 2,
-            strokeDasharray: isFromGhost ? '4,4' : '5,5',
+            strokeDasharray: isGhostEdge ? '4,4' : '5,5',
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
@@ -390,8 +482,38 @@ export function VariantCanvas({
             width: 14,
             height: 14,
           },
-          label: 'combined',
+          label: isToGhost ? 'derived' : 'combined',
           labelStyle: { fontSize: 9, fill: 'var(--color-primary)' },
+          labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
+        };
+      });
+
+    // Add created edges (cross-asset references when creating new assets)
+    const createdEdges: Edge[] = lineage
+      .filter(l => l.relation_type === 'created' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
+      .map(l => {
+        const isFromGhost = ghostVariantIds.has(l.parent_variant_id);
+        const isToGhost = ghostVariantIds.has(l.child_variant_id);
+        const isGhostEdge = isFromGhost || isToGhost;
+        return {
+          id: `${l.parent_variant_id}-${l.child_variant_id}-created`,
+          source: l.parent_variant_id,
+          target: l.child_variant_id,
+          type: 'smoothstep',
+          animated: isVariantGenerating(l.child_variant_id),
+          style: {
+            stroke: 'var(--color-success)',
+            strokeWidth: 2,
+            strokeDasharray: isGhostEdge ? '4,4' : undefined,
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: 'var(--color-success)',
+            width: 14,
+            height: 14,
+          },
+          label: isToGhost ? 'created →' : 'created',
+          labelStyle: { fontSize: 9, fill: 'var(--color-success)' },
           labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
         };
       });
@@ -399,29 +521,32 @@ export function VariantCanvas({
     // Add forked edges
     const forkedEdges: Edge[] = lineage
       .filter(l => l.relation_type === 'forked' && allVariantIds.has(l.parent_variant_id) && allVariantIds.has(l.child_variant_id) && !l.severed)
-      .map(l => ({
-        id: `${l.parent_variant_id}-${l.child_variant_id}-forked`,
-        source: l.parent_variant_id,
-        target: l.child_variant_id,
-        type: 'smoothstep',
-        animated: false,
-        style: {
-          stroke: 'var(--color-text-muted)',
-          strokeWidth: 2,
-          strokeDasharray: '4,4',
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'var(--color-text-muted)',
-          width: 14,
-          height: 14,
-        },
-        label: 'forked',
-        labelStyle: { fontSize: 9, fill: 'var(--color-text-muted)' },
-        labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
-      }));
+      .map(l => {
+        const isToGhost = ghostVariantIds.has(l.child_variant_id);
+        return {
+          id: `${l.parent_variant_id}-${l.child_variant_id}-forked`,
+          source: l.parent_variant_id,
+          target: l.child_variant_id,
+          type: 'smoothstep',
+          animated: false,
+          style: {
+            stroke: 'var(--color-text-muted)',
+            strokeWidth: 2,
+            strokeDasharray: '4,4',
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: 'var(--color-text-muted)',
+            width: 14,
+            height: 14,
+          },
+          label: isToGhost ? 'forked →' : 'forked',
+          labelStyle: { fontSize: 9, fill: 'var(--color-text-muted)' },
+          labelBgStyle: { fill: 'var(--color-bg)', fillOpacity: 0.8 },
+        };
+      });
 
-    const allEdges = [...edges, ...combinedEdges, ...forkedEdges];
+    const allEdges = [...edges, ...combinedEdges, ...createdEdges, ...forkedEdges];
 
     // Apply layout
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
@@ -429,7 +554,7 @@ export function VariantCanvas({
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, imageDimensions, allVariants, allAssets, onGhostNodeClick]);
+  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);

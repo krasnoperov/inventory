@@ -66,7 +66,7 @@ export interface Lineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: 'refined' | 'combined' | 'forked';
+  relation_type: 'created' | 'refined' | 'combined' | 'forked';
   severed: boolean;  // User can cut the historical link
   created_at: number;
 }
@@ -99,15 +99,15 @@ export interface BotResponse {
   }>;
 }
 
-// Forge context for chat requests
+// Forge context for chat requests (matches api/types.ts ForgeContext)
 export interface ForgeContext {
-  items: Array<{
+  operation: 'generate' | 'fork' | 'refine' | 'create' | 'combine';
+  slots: Array<{
     assetId: string;
     assetName: string;
-    assetType: string;
-    variantId?: string;
+    variantId: string;
   }>;
-  prompt?: string;
+  prompt: string;
 }
 
 // Viewing context for chat requests
@@ -129,7 +129,10 @@ export interface GenerateRequestParams {
   name: string;
   assetType: string;
   prompt?: string;
+  /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
+  /** Explicit variant references from ForgeTray UI - used as-is */
+  referenceVariantIds?: string[];
   aspectRatio?: string;
   parentAssetId?: string;
 }
@@ -138,7 +141,11 @@ export interface GenerateRequestParams {
 export interface RefineRequestParams {
   assetId: string;
   prompt: string;
+  /** Single source variant (legacy, for simple refine) */
   sourceVariantId?: string;
+  /** Multiple source variants from ForgeTray (for combine into existing asset) */
+  sourceVariantIds?: string[];
+  /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
   aspectRatio?: string;
 }
@@ -445,6 +452,7 @@ export function useSpaceWebSocket({
       assetType: params.assetType,
       prompt: params.prompt,
       referenceAssetIds: params.referenceAssetIds,
+      referenceVariantIds: params.referenceVariantIds,
       aspectRatio: params.aspectRatio,
       parentAssetId: params.parentAssetId,
     });
@@ -460,6 +468,7 @@ export function useSpaceWebSocket({
       assetId: params.assetId,
       prompt: params.prompt,
       sourceVariantId: params.sourceVariantId,
+      sourceVariantIds: params.sourceVariantIds,
       referenceAssetIds: params.referenceAssetIds,
       aspectRatio: params.aspectRatio,
     });

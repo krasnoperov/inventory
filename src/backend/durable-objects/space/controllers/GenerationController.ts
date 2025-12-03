@@ -18,6 +18,7 @@ import type {
   ChatWorkflowOutput,
   GenerationWorkflowInput,
   BotContextAsset,
+  OperationType,
 } from '../../../workflows/types';
 import type { ChatMessage as ApiChatMessage } from '../../../../api/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
@@ -154,10 +155,22 @@ export class GenerationController extends BaseController {
     // Broadcast asset creation
     this.broadcast({ type: 'asset:created', asset });
 
-    // Resolve reference assets to image keys and variant IDs
-    const { sourceImageKeys, parentVariantIds } = await this.resolveReferences(
-      msg.referenceAssetIds || []
-    );
+    // Resolve references to image keys and variant IDs
+    // Prefer explicit variant IDs (from ForgeTray) over asset IDs
+    let sourceImageKeys: string[];
+    let parentVariantIds: string[];
+
+    if (msg.referenceVariantIds && msg.referenceVariantIds.length > 0) {
+      // Use explicit variant IDs from ForgeTray
+      const resolved = await this.resolveVariantReferences(msg.referenceVariantIds);
+      sourceImageKeys = resolved.sourceImageKeys;
+      parentVariantIds = resolved.parentVariantIds;
+    } else {
+      // Fall back to resolving from asset IDs (for Chat/Claude)
+      const resolved = await this.resolveReferences(msg.referenceAssetIds || []);
+      sourceImageKeys = resolved.sourceImageKeys;
+      parentVariantIds = resolved.parentVariantIds;
+    }
 
     // Build recipe for storage (enables retry)
     const recipe: GenerationRecipe = {
@@ -194,14 +207,14 @@ export class GenerationController extends BaseController {
     });
 
     // Create lineage records for parent variants
+    // For new asset creation, lineage type is always 'created'
     if (parentVariantIds.length > 0) {
-      const relationType = parentVariantIds.length === 1 ? 'refined' : 'combined';
       for (const parentId of parentVariantIds) {
         const lineage = await this.repo.createLineage({
           id: crypto.randomUUID(),
           parentVariantId: parentId,
           childVariantId: variantId,
-          relationType,
+          relationType: 'created',
         });
         this.broadcast({ type: 'lineage:created', lineage });
       }
@@ -277,31 +290,46 @@ export class GenerationController extends BaseController {
       throw new NotFoundError('Asset not found');
     }
 
-    // Resolve source variant (use provided or active variant)
-    let sourceVariantId = await this.resolveSourceVariant(msg.sourceVariantId, asset);
-    if (!sourceVariantId) {
-      throw new NotFoundError('No source variant available');
+    // Resolve source variants - prefer explicit array from ForgeTray
+    let sourceImageKeys: string[] = [];
+    let parentVariantIds: string[] = [];
+
+    if (msg.sourceVariantIds && msg.sourceVariantIds.length > 0) {
+      // ForgeTray path: use explicit variant IDs (for combine-into-existing)
+      const resolved = await this.resolveVariantReferences(msg.sourceVariantIds);
+      sourceImageKeys = resolved.sourceImageKeys;
+      parentVariantIds = resolved.parentVariantIds;
+    } else {
+      // Legacy path: single sourceVariantId or fall back to active variant
+      const sourceVariantId = await this.resolveSourceVariant(msg.sourceVariantId, asset);
+      if (!sourceVariantId) {
+        throw new NotFoundError('No source variant available');
+      }
+
+      const sourceVariant = await this.repo.getVariantById(sourceVariantId);
+      if (!sourceVariant?.image_key) {
+        throw new NotFoundError('Source variant not found or has no image');
+      }
+
+      sourceImageKeys = [sourceVariant.image_key];
+      parentVariantIds = [sourceVariantId];
     }
 
-    const sourceVariant = await this.repo.getVariantById(sourceVariantId);
-    if (!sourceVariant) {
-      throw new NotFoundError('Source variant not found');
-    }
-
-    // Ensure source variant has an image (is completed)
-    if (!sourceVariant.image_key) {
-      throw new ValidationError('Source variant has no image');
-    }
-
-    // Resolve additional references (for style guidance)
-    let sourceImageKeys = [sourceVariant.image_key];
-    let parentVariantIds: string[] = [sourceVariantId];
-
+    // Add any additional asset references (for style guidance)
     if (msg.referenceAssetIds && msg.referenceAssetIds.length > 0) {
       const additionalRefs = await this.resolveReferences(msg.referenceAssetIds);
       sourceImageKeys = [...sourceImageKeys, ...additionalRefs.sourceImageKeys];
       parentVariantIds = [...parentVariantIds, ...additionalRefs.parentVariantIds];
     }
+
+    // Validate we have at least one source
+    if (sourceImageKeys.length === 0) {
+      throw new ValidationError('No source images available');
+    }
+
+    // Determine operation based on source count
+    // Use 'combine' operation if multiple sources, 'refine' for single source
+    const operation: OperationType = parentVariantIds.length > 1 ? 'combine' : 'refine';
 
     // Build recipe for storage (enables retry)
     const recipe: GenerationRecipe = {
@@ -309,7 +337,7 @@ export class GenerationController extends BaseController {
       assetType: asset.type,
       aspectRatio: msg.aspectRatio,
       sourceImageKeys,
-      operation: 'refine',
+      operation,
     };
 
     // Create placeholder variant (status=pending, no images)
@@ -333,7 +361,8 @@ export class GenerationController extends BaseController {
     });
 
     // Create lineage records for parent variants
-    const relationType = parentVariantIds.length === 1 ? 'refined' : 'combined';
+    // Use operation type directly as relation_type ('refine' → 'refined', 'combine' → 'combined')
+    const relationType = operation === 'combine' ? 'combined' : 'refined';
     for (const parentId of parentVariantIds) {
       const lineage = await this.repo.createLineage({
         id: crypto.randomUUID(),
@@ -355,10 +384,10 @@ export class GenerationController extends BaseController {
       assetName: asset.name,
       assetType: asset.type,
       aspectRatio: msg.aspectRatio,
-      sourceVariantId,
+      sourceVariantId: parentVariantIds[0], // Primary source for workflow
       sourceImageKeys,
       parentVariantIds,
-      operation: 'refine',
+      operation,
     };
 
     // Trigger the workflow
@@ -373,8 +402,7 @@ export class GenerationController extends BaseController {
       this.broadcast({ type: 'variant:updated', variant: updatedVariant });
     }
 
-    const extraRefs = sourceImageKeys.length - 1; // Subtract 1 for source variant
-    console.log(`[GenerationController] [refine] Started workflow for "${asset.name}" (${extraRefs} extra refs)`);
+    console.log(`[GenerationController] [${operation}] Started workflow for "${asset.name}" (${sourceImageKeys.length} refs)`);
   }
 
   /**
@@ -620,6 +648,30 @@ export class GenerationController extends BaseController {
           sourceImageKeys.push(imageKey);
           parentVariantIds.push(asset.active_variant_id);
         }
+      }
+    }
+
+    return { sourceImageKeys, parentVariantIds };
+  }
+
+  /**
+   * Resolve explicit variant IDs to image keys (for ForgeTray UI)
+   * Unlike resolveReferences, this uses the exact variants specified
+   */
+  private async resolveVariantReferences(
+    referenceVariantIds: string[]
+  ): Promise<{
+    sourceImageKeys: string[];
+    parentVariantIds: string[];
+  }> {
+    const sourceImageKeys: string[] = [];
+    const parentVariantIds: string[] = [];
+
+    for (const variantId of referenceVariantIds) {
+      const imageKey = await this.repo.getVariantImageKey(variantId);
+      if (imageKey) {
+        sourceImageKeys.push(imageKey);
+        parentVariantIds.push(variantId);
       }
     }
 

@@ -81,7 +81,7 @@ export interface Lineage {
   id: string;
   parent_variant_id: string;
   child_variant_id: string;
-  relation_type: 'refined' | 'combined' | 'forked';
+  relation_type: 'created' | 'refined' | 'combined' | 'forked';
   severed: boolean; // User can cut the link if desired
   created_at: number;
 }
