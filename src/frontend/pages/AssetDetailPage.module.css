@@ -12,6 +12,8 @@
   flex: 1;
   position: relative;
   min-height: 0;
+  /* Isolate stacking context so transformed nodes don't overlap floating panels */
+  isolation: isolate;
 }
 
 /* Header elements */

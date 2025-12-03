@@ -3,6 +3,9 @@ import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import styles from './VariantNode.module.css';
 
+/** Layout direction for handle positioning */
+export type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
+
 export interface VariantNodeData extends Record<string, unknown> {
   variant: Variant;
   asset: Asset;
@@ -30,6 +33,8 @@ export interface VariantNodeData extends Record<string, unknown> {
   forkedTo?: Array<{ assetId: string; assetName: string }>;
   /** Asset this variant was forked from (shown as link on local node) */
   forkedFrom?: { assetId: string; assetName: string };
+  /** Layout direction for handle positioning */
+  layoutDirection?: LayoutDirection;
 }
 
 export type VariantNodeType = Node<VariantNodeData, 'variant'>;
@@ -53,7 +58,20 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     hasOutgoing,
     forkedTo,
     forkedFrom,
+    layoutDirection = 'LR',
   } = data;
+
+  // Determine handle positions based on layout direction
+  const getHandlePositions = () => {
+    switch (layoutDirection) {
+      case 'TB': return { target: Position.Top, source: Position.Bottom };
+      case 'BT': return { target: Position.Bottom, source: Position.Top };
+      case 'RL': return { target: Position.Right, source: Position.Left };
+      case 'LR':
+      default: return { target: Position.Left, source: Position.Right };
+    }
+  };
+  const { target: targetPosition, source: sourcePosition } = getHandlePositions();
 
   const handleClick = useCallback(() => {
     if (isGhost && onGhostClick) {
@@ -169,7 +187,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     <div className={nodeClasses} onClick={handleClick} style={nodeStyle}>
       {/* Input handle (for incoming edges from parent variants) - hidden when no connections */}
       {showTopHandle && (
-        <Handle type="target" position={Position.Top} className={styles.handle} />
+        <Handle type="target" position={targetPosition} className={styles.handle} />
       )}
 
       {/* Thumbnail */}
@@ -265,7 +283,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
       {/* Output handle (for outgoing edges to child variants) - hidden for ghost nodes */}
       {showBottomHandle && (
-        <Handle type="source" position={Position.Bottom} className={styles.handle} />
+        <Handle type="source" position={sourcePosition} className={styles.handle} />
       )}
     </div>
   );

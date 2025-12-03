@@ -3,7 +3,6 @@ import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   type Edge,
@@ -34,6 +33,9 @@ const nodeTypes = {
   asset: AssetNode,
 };
 
+/** Layout direction for the graph */
+export type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
+
 export interface AssetCanvasProps {
   assets: Asset[];
   variants: Variant[];
@@ -42,6 +44,8 @@ export interface AssetCanvasProps {
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   /** Called when user drags an edge to reparent an asset. Set childAssetId's parent to newParentAssetId (or null to unparent) */
   onReparent?: (childAssetId: string, newParentAssetId: string | null) => void;
+  /** Layout direction: TB (top-bottom), LR (left-right), BT, RL. Default: LR */
+  layoutDirection?: LayoutDirection;
 }
 
 /** Calculate node width from image dimensions */
@@ -56,7 +60,7 @@ function getLayoutedElements(
   nodes: AssetNodeType[],
   edges: Edge[],
   nodeDimensions: Map<string, { width: number; height: number }>,
-  direction: 'TB' | 'LR' = 'TB'
+  direction: LayoutDirection = 'LR'
 ): { nodes: AssetNodeType[]; edges: Edge[] } {
   if (nodes.length === 0) {
     return { nodes: [], edges: [] };
@@ -157,8 +161,16 @@ function getLayoutedElements(
     });
   }
 
+  // Add layout direction to all nodes
+  const allNodes = [...layoutedTreeNodes, ...layoutedOrphanNodes];
   return {
-    nodes: [...layoutedTreeNodes, ...layoutedOrphanNodes],
+    nodes: allNodes.map(node => ({
+      ...node,
+      data: {
+        ...node.data,
+        layoutDirection: direction,
+      },
+    })),
     edges
   };
 }
@@ -170,6 +182,7 @@ export function AssetCanvas({
   onAssetClick,
   onAddToTray,
   onReparent,
+  layoutDirection = 'LR',
 }: AssetCanvasProps) {
   // Track loaded image dimensions
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
@@ -273,13 +286,13 @@ export function AssetCanvas({
         },
       }));
 
-    // Apply layout with dynamic dimensions
+    // Apply layout with dynamic dimensions (default: LR for better sidebar/tray coexistence)
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      nodes, edges, imageDimensions, 'TB'
+      nodes, edges, imageDimensions, layoutDirection
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, onAddToTray, imageDimensions]);
+  }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, onAddToTray, imageDimensions, layoutDirection]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<AssetNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -346,15 +359,7 @@ export function AssetCanvas({
         deleteKeyCode="Delete"
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
-        <Controls className={styles.controls} />
-        <MiniMap
-          className={styles.minimap}
-          nodeColor={(node) => {
-            const data = node.data as AssetNodeData;
-            return data.variant ? 'var(--color-primary)' : 'var(--color-text-muted)';
-          }}
-          maskColor="rgba(0, 0, 0, 0.1)"
-        />
+        <Controls className={styles.controls} position="bottom-left" />
       </ReactFlow>
     </div>
   );

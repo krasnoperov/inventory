@@ -3,17 +3,34 @@ import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import styles from './AssetNode.module.css';
 
+/** Layout direction for handle positioning */
+export type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
+
 export interface AssetNodeData extends Record<string, unknown> {
   asset: Asset;
   variant: Variant | null;
   onAssetClick?: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
+  /** Layout direction for handle positioning */
+  layoutDirection?: LayoutDirection;
 }
 
 export type AssetNodeType = Node<AssetNodeData, 'asset'>;
 
 function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
-  const { asset, variant, onAssetClick, onAddToTray } = data;
+  const { asset, variant, onAssetClick, onAddToTray, layoutDirection = 'LR' } = data;
+
+  // Determine handle positions based on layout direction
+  const getHandlePositions = () => {
+    switch (layoutDirection) {
+      case 'TB': return { target: Position.Top, source: Position.Bottom };
+      case 'BT': return { target: Position.Bottom, source: Position.Top };
+      case 'RL': return { target: Position.Right, source: Position.Left };
+      case 'LR':
+      default: return { target: Position.Left, source: Position.Right };
+    }
+  };
+  const { target: targetPosition, source: sourcePosition } = getHandlePositions();
 
   const handleClick = useCallback(() => {
     onAssetClick?.(asset);
@@ -84,7 +101,7 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
   return (
     <div className={`${styles.node} ${selected ? styles.selected : ''}`}>
       {/* Input handle (for incoming edges from parents) */}
-      <Handle type="target" position={Position.Top} className={styles.handle} />
+      <Handle type="target" position={targetPosition} className={styles.handle} />
 
       {/* Thumbnail */}
       <div className={styles.thumbnail} onClick={handleClick}>
@@ -111,7 +128,7 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
       </div>
 
       {/* Output handle (for outgoing edges to children) */}
-      <Handle type="source" position={Position.Bottom} className={styles.handle} />
+      <Handle type="source" position={sourcePosition} className={styles.handle} />
     </div>
   );
 }

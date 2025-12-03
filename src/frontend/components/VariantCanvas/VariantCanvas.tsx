@@ -21,13 +21,20 @@ const THUMB_HEIGHT = 140;
 const THUMB_MIN_WIDTH = 100;
 const THUMB_MAX_WIDTH = 240;
 const NODE_PADDING = 20;
+const LABEL_HEIGHT = 24; // Extra height for nodes with labels (ghost/forked)
 
 // Active variant is larger
 const ACTIVE_SCALE = 1.5;
 
-// Default node dimensions (no label height - labels only shown for ghost/forked nodes)
+// Default node dimensions (without label - labels added dynamically for ghost/forked nodes)
 const DEFAULT_NODE_WIDTH = 160;
 const DEFAULT_NODE_HEIGHT = THUMB_HEIGHT + NODE_PADDING;
+
+/** Check if a node will render a label */
+function nodeHasLabel(node: VariantNodeType): boolean {
+  const { isGhost, forkedFrom, forkedTo } = node.data;
+  return Boolean(isGhost || forkedFrom || (forkedTo && forkedTo.length > 0));
+}
 
 // Custom node types
 const nodeTypes = {
@@ -103,8 +110,9 @@ function getLayoutedElements(
     treeNodes.forEach((node) => {
       const isActive = node.id === activeVariantId;
       const baseDims = nodeDimensions.get(node.id) || { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
+      const labelExtra = nodeHasLabel(node) ? LABEL_HEIGHT : 0;
       const scale = isActive ? ACTIVE_SCALE : 1;
-      const dims = { width: baseDims.width * scale, height: baseDims.height * scale };
+      const dims = { width: baseDims.width * scale, height: (baseDims.height + labelExtra) * scale };
       dagreGraph.setNode(node.id, { width: dims.width, height: dims.height });
     });
 
@@ -122,8 +130,9 @@ function getLayoutedElements(
       const nodeWithPosition = dagreGraph.node(node.id);
       const isActive = node.id === activeVariantId;
       const baseDims = nodeDimensions.get(node.id) || { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
+      const labelExtra = nodeHasLabel(node) ? LABEL_HEIGHT : 0;
       const scale = isActive ? ACTIVE_SCALE : 1;
-      const dims = { width: baseDims.width * scale, height: baseDims.height * scale };
+      const dims = { width: baseDims.width * scale, height: (baseDims.height + labelExtra) * scale };
       return {
         ...node,
         position: {
@@ -172,8 +181,9 @@ function getLayoutedElements(
     layoutedOrphanNodes = sortedOrphans.map((node) => {
       const isActive = node.id === activeVariantId;
       const baseDims = nodeDimensions.get(node.id) || { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
+      const labelExtra = nodeHasLabel(node) ? LABEL_HEIGHT : 0;
       const scale = isActive ? ACTIVE_SCALE : 1;
-      const dims = { width: baseDims.width * scale, height: baseDims.height * scale };
+      const dims = { width: baseDims.width * scale, height: (baseDims.height + labelExtra) * scale };
 
       if (currentX > startX && currentX + dims.width > startX + maxRowWidth) {
         currentX = startX;

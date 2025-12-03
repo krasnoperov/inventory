@@ -29,13 +29,6 @@
   fill: currentColor !important;
 }
 
-/* MiniMap styling */
-.minimap {
-  background: var(--color-surface) !important;
-  border: 1px solid var(--color-border) !important;
-  border-radius: var(--radius-md) !important;
-}
-
 /* Empty state */
 .empty {
   width: 100%;
@@ -92,11 +85,4 @@
 
 :global(.react-flow__arrowhead) {
   fill: var(--color-text-muted);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .minimap {
-    display: none !important;
-  }
 }
