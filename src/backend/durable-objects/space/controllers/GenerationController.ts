@@ -708,12 +708,17 @@ export class GenerationController extends BaseController {
         this.broadcast({ type: 'plan:step_updated', step: updatedStep });
       }
 
+      // Decrement active step count
+      await this.repo.decrementActiveSteps(step.plan_id);
+
       // Check if there are more steps; update plan status accordingly
       const plan = await this.repo.getPlanById(step.plan_id);
       if (!plan) return;
 
-      const nextStep = await this.repo.getNextPendingStep(step.plan_id);
-      const newStatus = nextStep ? 'paused' : 'completed';
+      const allPending = await this.repo.getAllPendingSteps(step.plan_id);
+      const newStatus = (allPending.length === 0 && plan.active_step_count <= 1)
+        ? 'completed'
+        : 'paused';
 
       const updatedPlan = await this.repo.updatePlanStatusAndIndex(
         step.plan_id,
@@ -783,6 +788,9 @@ export class GenerationController extends BaseController {
       if (updatedStep) {
         this.broadcast({ type: 'plan:step_updated', step: updatedStep });
       }
+
+      // Decrement active step count
+      await this.repo.decrementActiveSteps(step.plan_id);
 
       // Fail the entire plan
       const updatedPlan = await this.repo.updatePlanStatus(step.plan_id, 'failed');
@@ -1173,8 +1181,14 @@ export class GenerationController extends BaseController {
     // Check if plan is complete
     const step = await this.repo.getPlanStepById(stepId);
     if (step) {
-      const nextStep = await this.repo.getNextPendingStep(step.plan_id);
-      const newStatus = nextStep ? 'paused' : 'completed';
+      // Decrement active step count
+      await this.repo.decrementActiveSteps(step.plan_id);
+
+      const plan = await this.repo.getPlanById(step.plan_id);
+      const allPending = await this.repo.getAllPendingSteps(step.plan_id);
+      const newStatus = (allPending.length === 0 && plan && plan.active_step_count <= 1)
+        ? 'completed'
+        : 'paused';
       const updatedPlan = await this.repo.updatePlanStatusAndIndex(
         step.plan_id,
         newStatus,
