@@ -151,7 +151,6 @@ export function ChatSidebar({
   // Track which meters have shown 90% warning this session
   const [warnedMeters, setWarnedMeters] = useState<Set<string>>(new Set());
   const warnedMetersRef = useRef(warnedMeters);
-  warnedMetersRef.current = warnedMeters;
   // Track pending WebSocket chat request
   const pendingChatRequestRef = useRef<{ requestId: string; messageToSend: string; modeToUse: 'advisor' | 'actor' } | null>(null);
   // Track pending auto-review request
@@ -162,11 +161,16 @@ export function ChatSidebar({
   // Usage tracking for 90% warnings
   const { meters, refresh: refreshUsage } = useLimitedUsage();
   const metersRef = useRef(meters);
-  metersRef.current = meters;
 
   // Ref for sendChatRequest used in chatResponse effect without triggering re-runs
   const sendChatRequestRef = useRef(sendChatRequest);
-  sendChatRequestRef.current = sendChatRequest;
+
+  // Update refs in effect to avoid accessing during render
+  useEffect(() => {
+    warnedMetersRef.current = warnedMeters;
+    metersRef.current = meters;
+    sendChatRequestRef.current = sendChatRequest;
+  });
 
   // Tool execution hook
   const toolExec = useToolExecution({
@@ -205,6 +209,7 @@ export function ChatSidebar({
           timestamp: Date.now(),
         });
       }
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- responding to external WebSocket data
       setIsAutoReviewing(false);
       return;
     }
@@ -270,9 +275,13 @@ export function ChatSidebar({
 
   // Refs for forgeContext and viewingContext used in chatResponse effect
   const forgeContextRef = useRef(forgeContext);
-  forgeContextRef.current = forgeContext;
   const viewingContextRef = useRef(viewingContext);
-  viewingContextRef.current = viewingContext;
+
+  // Update context refs in effect to avoid accessing during render
+  useEffect(() => {
+    forgeContextRef.current = forgeContext;
+    viewingContextRef.current = viewingContext;
+  });
 
   // Chat history is now loaded via WebSocket in SpacePage/AssetDetailPage
   // See onChatHistory callback in useSpaceWebSocket
@@ -356,6 +365,7 @@ export function ChatSidebar({
 
     const { messageToSend, modeToUse } = pendingChatRequestRef.current;
     pendingChatRequestRef.current = null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- responding to external WebSocket data
     setIsLoading(false);
 
     if (!chatResponse.success) {

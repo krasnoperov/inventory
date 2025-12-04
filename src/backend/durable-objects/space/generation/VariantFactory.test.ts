@@ -1,10 +1,15 @@
-import { describe, test, beforeEach, mock } from 'node:test';
+import { describe, test, mock, type Mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { VariantFactory, determineOperation, type GenerationRecipe } from './VariantFactory';
 import type { SpaceRepository } from '../repository/SpaceRepository';
 import type { BroadcastFn } from '../controllers/types';
 import type { Env } from '../../../../core/types';
 import type { WebSocketMeta, Asset, Variant } from '../types';
+
+// Helper to get mock from a function
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MockFn = Mock<(...args: any[]) => any>;
+const asMock = (fn: unknown): MockFn => fn as MockFn;
 
 // ============================================================================
 // Mock Factories
@@ -102,13 +107,11 @@ describe('VariantFactory', () => {
       const factory = new VariantFactory('space-1', repo, env, broadcast);
 
       // Setup mocks
-      (repo.getAssetById as ReturnType<typeof mock.fn>).mock.mockImplementation(
-        async (id: string) => ({
-          id,
-          active_variant_id: `variant-${id}`,
-        })
-      );
-      (repo.getVariantImageKey as ReturnType<typeof mock.fn>).mock.mockImplementation(
+      asMock(repo.getAssetById).mock.mockImplementation(async (id: string) => ({
+        id,
+        active_variant_id: `variant-${id}`,
+      }));
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
         async (variantId: string) => `images/${variantId}.png`
       );
 
@@ -127,15 +130,11 @@ describe('VariantFactory', () => {
       const broadcast = createMockBroadcast();
       const factory = new VariantFactory('space-1', repo, env, broadcast);
 
-      (repo.getAssetById as ReturnType<typeof mock.fn>).mock.mockImplementation(
-        async (id: string) => ({
-          id,
-          active_variant_id: id === 'asset-1' ? 'variant-1' : null,
-        })
-      );
-      (repo.getVariantImageKey as ReturnType<typeof mock.fn>).mock.mockImplementation(
-        async () => 'images/test.png'
-      );
+      asMock(repo.getAssetById).mock.mockImplementation(async (id: string) => ({
+        id,
+        active_variant_id: id === 'asset-1' ? 'variant-1' : null,
+      }));
+      asMock(repo.getVariantImageKey).mock.mockImplementation(async () => 'images/test.png');
 
       const result = await factory.resolveAssetReferences(['asset-1', 'asset-2']);
 
@@ -151,7 +150,7 @@ describe('VariantFactory', () => {
       const broadcast = createMockBroadcast();
       const factory = new VariantFactory('space-1', repo, env, broadcast);
 
-      (repo.getVariantImageKey as ReturnType<typeof mock.fn>).mock.mockImplementation(
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
         async (variantId: string) => `images/${variantId}.png`
       );
 
@@ -167,7 +166,7 @@ describe('VariantFactory', () => {
       const broadcast = createMockBroadcast();
       const factory = new VariantFactory('space-1', repo, env, broadcast);
 
-      (repo.getVariantImageKey as ReturnType<typeof mock.fn>).mock.mockImplementation(
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
         async (variantId: string) => (variantId === 'var-1' ? 'images/var-1.png' : null)
       );
 
@@ -205,7 +204,7 @@ describe('VariantFactory', () => {
       assert.strictEqual(result.variant.status, 'pending');
 
       // Verify broadcasts
-      const broadcastCalls = (broadcast as ReturnType<typeof mock.fn>).mock.calls;
+      const broadcastCalls = asMock(broadcast).mock.calls;
       assert.ok(broadcastCalls.some((c) => c.arguments[0].type === 'asset:created'));
       assert.ok(broadcastCalls.some((c) => c.arguments[0].type === 'variant:created'));
       assert.ok(broadcastCalls.some((c) => c.arguments[0].type === 'asset:updated'));
@@ -219,11 +218,9 @@ describe('VariantFactory', () => {
       const meta = createMockMeta();
 
       // Setup reference resolution
-      (repo.getVariantImageKey as ReturnType<typeof mock.fn>).mock.mockImplementation(
-        async () => 'images/ref.png'
-      );
+      asMock(repo.getVariantImageKey).mock.mockImplementation(async () => 'images/ref.png');
 
-      const result = await factory.createAssetWithVariant(
+      await factory.createAssetWithVariant(
         {
           name: 'Derived Asset',
           assetType: 'character',
@@ -233,10 +230,10 @@ describe('VariantFactory', () => {
       );
 
       // Verify lineage created
-      assert.ok((repo.createLineage as ReturnType<typeof mock.fn>).mock.calls.length > 0);
+      assert.ok(asMock(repo.createLineage).mock.calls.length > 0);
 
       // Verify broadcasts include lineage
-      const broadcastCalls = (broadcast as ReturnType<typeof mock.fn>).mock.calls;
+      const broadcastCalls = asMock(broadcast).mock.calls;
       assert.ok(broadcastCalls.some((c) => c.arguments[0].type === 'lineage:created'));
     });
 
@@ -248,13 +245,11 @@ describe('VariantFactory', () => {
       const meta = createMockMeta();
 
       // Setup: variant reference resolves to an asset
-      (repo.getVariantById as ReturnType<typeof mock.fn>).mock.mockImplementation(async () => ({
+      asMock(repo.getVariantById).mock.mockImplementation(async () => ({
         id: 'ref-var-1',
         asset_id: 'parent-asset-1',
       }));
-      (repo.getVariantImageKey as ReturnType<typeof mock.fn>).mock.mockImplementation(
-        async () => 'images/ref.png'
-      );
+      asMock(repo.getVariantImageKey).mock.mockImplementation(async () => 'images/ref.png');
 
       await factory.createAssetWithVariant(
         {
@@ -266,7 +261,7 @@ describe('VariantFactory', () => {
       );
 
       // Verify createAsset was called with parentAssetId
-      const createAssetCall = (repo.createAsset as ReturnType<typeof mock.fn>).mock.calls[0];
+      const createAssetCall = asMock(repo.createAsset).mock.calls[0];
       assert.strictEqual(createAssetCall.arguments[0].parentAssetId, 'parent-asset-1');
     });
   });
@@ -280,13 +275,13 @@ describe('VariantFactory', () => {
       const meta = createMockMeta();
 
       // Setup existing asset
-      (repo.getAssetById as ReturnType<typeof mock.fn>).mock.mockImplementation(async () => ({
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
         id: 'asset-1',
         name: 'Existing Asset',
         type: 'character',
         active_variant_id: 'existing-var',
       }));
-      (repo.getVariantById as ReturnType<typeof mock.fn>).mock.mockImplementation(async () => ({
+      asMock(repo.getVariantById).mock.mockImplementation(async () => ({
         id: 'existing-var',
         image_key: 'images/existing.png',
       }));
@@ -333,7 +328,7 @@ describe('VariantFactory', () => {
       const meta = createMockMeta();
 
       // Asset exists but has no active variant with image
-      (repo.getAssetById as ReturnType<typeof mock.fn>).mock.mockImplementation(async () => ({
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
         id: 'asset-1',
         active_variant_id: null,
       }));
@@ -374,8 +369,8 @@ describe('VariantFactory', () => {
       const workflowId = await factory.triggerWorkflow('req-1', 'var-1', result, meta, 'generate');
 
       assert.ok(workflowId);
-      assert.ok((env.GENERATION_WORKFLOW!.create as ReturnType<typeof mock.fn>).mock.calls.length > 0);
-      assert.ok((repo.updateVariantWorkflow as ReturnType<typeof mock.fn>).mock.calls.length > 0);
+      assert.ok(asMock(env.GENERATION_WORKFLOW!.create).mock.calls.length > 0);
+      assert.ok(asMock(repo.updateVariantWorkflow).mock.calls.length > 0);
     });
 
     test('returns null when workflow not configured', async () => {
