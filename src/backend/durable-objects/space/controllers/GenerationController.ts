@@ -142,13 +142,26 @@ export class GenerationController extends BaseController {
     const variantId = crypto.randomUUID();
     const assetId = crypto.randomUUID();
 
+    // Auto-set parentAssetId from first reference if not explicitly provided
+    // This ensures derived assets show their relationship on the Space page
+    let effectiveParentAssetId = msg.parentAssetId;
+    if (!effectiveParentAssetId && msg.referenceAssetIds && msg.referenceAssetIds.length > 0) {
+      effectiveParentAssetId = msg.referenceAssetIds[0];
+    } else if (!effectiveParentAssetId && msg.referenceVariantIds && msg.referenceVariantIds.length > 0) {
+      // For ForgeTray path, get asset ID from first variant
+      const firstVariant = await this.repo.getVariantById(msg.referenceVariantIds[0]);
+      if (firstVariant) {
+        effectiveParentAssetId = firstVariant.asset_id;
+      }
+    }
+
     // Create the asset first
     const asset = await this.repo.createAsset({
       id: assetId,
       name: msg.name,
       type: msg.assetType,
       tags: [],
-      parentAssetId: msg.parentAssetId,
+      parentAssetId: effectiveParentAssetId,
       createdBy: meta.userId,
     });
 
@@ -545,6 +558,7 @@ export class GenerationController extends BaseController {
    * Updates a placeholder variant with generated images.
    * Called by GenerationWorkflow when generation succeeds.
    * Tracks usage for successful generations.
+   * If the variant was created by a plan step, completes the step.
    */
   async httpCompleteVariant(data: {
     variantId: string;
@@ -597,16 +611,63 @@ export class GenerationController extends BaseController {
       }
     }
 
-    // Broadcast the update
+    // Broadcast the variant update
     this.broadcast({ type: 'variant:updated', variant });
 
+    // If this variant was created by a plan step, complete the step
+    if (variant.plan_step_id) {
+      await this.completePlanStep(variant.plan_step_id, data.variantId);
+    }
+
     return { success: true, variant };
+  }
+
+  /**
+   * Complete a plan step when its variant generation succeeds.
+   * Also broadcasts plan updates to all clients.
+   */
+  private async completePlanStep(stepId: string, variantId: string): Promise<void> {
+    try {
+      const step = await this.repo.getPlanStepById(stepId);
+      if (!step) {
+        console.warn(`[GenerationController] Plan step ${stepId} not found for completion`);
+        return;
+      }
+
+      // Complete the step with the variant ID as result
+      const updatedStep = await this.repo.completeStep(stepId, `variant:${variantId}`);
+      if (updatedStep) {
+        this.broadcast({ type: 'plan:step_updated', step: updatedStep });
+      }
+
+      // Check if there are more steps; update plan status accordingly
+      const plan = await this.repo.getPlanById(step.plan_id);
+      if (!plan) return;
+
+      const nextStep = await this.repo.getNextPendingStep(step.plan_id);
+      const newStatus = nextStep ? 'paused' : 'completed';
+
+      const updatedPlan = await this.repo.updatePlanStatusAndIndex(
+        step.plan_id,
+        newStatus,
+        step.step_index + 1
+      );
+
+      if (updatedPlan) {
+        this.broadcast({ type: 'plan:updated', plan: updatedPlan });
+      }
+
+      console.log(`[GenerationController] Completed plan step ${stepId}, plan status: ${newStatus}`);
+    } catch (err) {
+      console.error(`[GenerationController] Failed to complete plan step ${stepId}:`, err);
+    }
   }
 
   /**
    * Handle POST /internal/fail-variant HTTP request
    * Marks a variant as failed with an error message.
    * Called by GenerationWorkflow when generation fails.
+   * If the variant was created by a plan step, fails the step and plan.
    */
   async httpFailVariant(data: {
     variantId: string;
@@ -618,10 +679,437 @@ export class GenerationController extends BaseController {
       throw new NotFoundError('Variant not found');
     }
 
-    // Broadcast the update
+    // Broadcast the variant update
     this.broadcast({ type: 'variant:updated', variant });
 
+    // Also broadcast job:failed for frontend job tracking
+    // Note: jobId === variantId (placeholder variant created before workflow starts)
+    this.broadcast({ type: 'job:failed', jobId: data.variantId, error: data.error });
+
+    // If this variant was created by a plan step, fail the step and plan
+    if (variant.plan_step_id) {
+      await this.failPlanStep(variant.plan_step_id, data.error);
+    }
+
     return { success: true, variant };
+  }
+
+  /**
+   * Fail a plan step when its variant generation fails.
+   * Also marks the entire plan as failed.
+   */
+  private async failPlanStep(stepId: string, error: string): Promise<void> {
+    try {
+      const step = await this.repo.getPlanStepById(stepId);
+      if (!step) {
+        console.warn(`[GenerationController] Plan step ${stepId} not found for failure`);
+        return;
+      }
+
+      // Fail the step
+      const updatedStep = await this.repo.failStep(stepId, error);
+      if (updatedStep) {
+        this.broadcast({ type: 'plan:step_updated', step: updatedStep });
+      }
+
+      // Fail the entire plan
+      const updatedPlan = await this.repo.updatePlanStatus(step.plan_id, 'failed');
+      if (updatedPlan) {
+        this.broadcast({ type: 'plan:updated', plan: updatedPlan });
+      }
+
+      console.log(`[GenerationController] Failed plan step ${stepId} and plan ${step.plan_id}`);
+    } catch (err) {
+      console.error(`[GenerationController] Failed to fail plan step ${stepId}:`, err);
+    }
+  }
+
+  // ==========================================================================
+  // Plan Step Execution
+  // ==========================================================================
+
+  /**
+   * Execute a plan step by triggering the appropriate generation/operation.
+   * Called from SpaceDO when a plan step needs to be executed.
+   *
+   * @returns The variant/job ID if a generation was started, null otherwise
+   */
+  async executePlanStep(
+    step: { id: string; action: string; params: string },
+    meta: WebSocketMeta
+  ): Promise<string | null> {
+    const params = JSON.parse(step.params) as Record<string, unknown>;
+
+    switch (step.action) {
+      case 'generate':
+        return this.executePlanGenerate(step.id, params, meta);
+
+      case 'derive':
+        return this.executePlanDerive(step.id, params, meta);
+
+      case 'refine':
+        return this.executePlanRefine(step.id, params, meta);
+
+      case 'fork':
+        await this.executePlanFork(step.id, params, meta);
+        return null; // Fork is synchronous, no job ID
+
+      // Non-generation actions (add_to_tray, set_prompt, clear_tray)
+      // These should be handled by the frontend for now
+      default:
+        console.log(`[GenerationController] Plan step action '${step.action}' not handled server-side`);
+        return null;
+    }
+  }
+
+  /**
+   * Execute a 'generate' plan step
+   */
+  private async executePlanGenerate(
+    stepId: string,
+    params: Record<string, unknown>,
+    meta: WebSocketMeta
+  ): Promise<string> {
+    const variantId = crypto.randomUUID();
+    const assetId = crypto.randomUUID();
+    const requestId = `plan_${stepId}_${Date.now()}`;
+
+    const name = params.name as string || 'Generated Asset';
+    const assetType = params.type as string || 'character';
+    const prompt = params.prompt as string || `Create a ${assetType}`;
+    const aspectRatio = params.aspectRatio as string | undefined;
+    const referenceAssetIds = params.referenceAssetIds as string[] | undefined;
+    const parentAssetId = params.parentAssetId as string | undefined;
+
+    // Determine effective parent
+    let effectiveParentAssetId = parentAssetId;
+    if (!effectiveParentAssetId && referenceAssetIds && referenceAssetIds.length > 0) {
+      effectiveParentAssetId = referenceAssetIds[0];
+    }
+
+    // Create asset
+    const asset = await this.repo.createAsset({
+      id: assetId,
+      name,
+      type: assetType,
+      tags: [],
+      parentAssetId: effectiveParentAssetId,
+      createdBy: meta.userId,
+    });
+    this.broadcast({ type: 'asset:created', asset });
+
+    // Resolve references
+    const { sourceImageKeys, parentVariantIds } = referenceAssetIds
+      ? await this.resolveReferences(referenceAssetIds)
+      : { sourceImageKeys: [], parentVariantIds: [] };
+
+    // Build recipe
+    const recipe: GenerationRecipe = {
+      prompt,
+      assetType,
+      aspectRatio,
+      sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
+      operation: 'derive',
+    };
+
+    // Create placeholder variant linked to the plan step
+    const variant = await this.repo.createPlaceholderVariant({
+      id: variantId,
+      assetId,
+      recipe: JSON.stringify(recipe),
+      createdBy: meta.userId,
+      planStepId: stepId,
+    });
+
+    // Set as active and broadcast
+    await this.repo.updateAsset(assetId, { active_variant_id: variantId });
+    asset.active_variant_id = variantId;
+    this.broadcast({ type: 'variant:created', variant });
+    this.broadcast({ type: 'asset:updated', asset });
+    this.broadcast({
+      type: 'generate:started',
+      requestId,
+      jobId: variantId,
+      assetId,
+      assetName: name,
+    });
+
+    // Create lineage
+    for (const parentId of parentVariantIds) {
+      const lineage = await this.repo.createLineage({
+        id: crypto.randomUUID(),
+        parentVariantId: parentId,
+        childVariantId: variantId,
+        relationType: 'derived',
+      });
+      this.broadcast({ type: 'lineage:created', lineage });
+    }
+
+    // Trigger workflow
+    if (this.env.GENERATION_WORKFLOW) {
+      const workflowInput: GenerationWorkflowInput = {
+        requestId,
+        jobId: variantId,
+        spaceId: this.spaceId,
+        userId: meta.userId,
+        prompt,
+        assetId,
+        assetName: name,
+        assetType,
+        aspectRatio,
+        sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
+        parentVariantIds: parentVariantIds.length > 0 ? parentVariantIds : undefined,
+        operation: 'derive',
+      };
+
+      const instance = await this.env.GENERATION_WORKFLOW.create({
+        id: variantId,
+        params: workflowInput,
+      });
+
+      const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
+      if (updatedVariant) {
+        this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+      }
+    }
+
+    console.log(`[GenerationController] Executed plan step ${stepId}: generate "${name}"`);
+    return variantId;
+  }
+
+  /**
+   * Execute a 'derive' plan step
+   */
+  private async executePlanDerive(
+    stepId: string,
+    params: Record<string, unknown>,
+    meta: WebSocketMeta
+  ): Promise<string> {
+    // derive is basically the same as generate but always requires references
+    return this.executePlanGenerate(stepId, params, meta);
+  }
+
+  /**
+   * Execute a 'refine' plan step
+   */
+  private async executePlanRefine(
+    stepId: string,
+    params: Record<string, unknown>,
+    meta: WebSocketMeta
+  ): Promise<string> {
+    const variantId = crypto.randomUUID();
+    const requestId = `plan_${stepId}_${Date.now()}`;
+
+    const assetId = params.assetId as string;
+    const prompt = params.prompt as string;
+
+    if (!assetId) {
+      throw new ValidationError('refine requires assetId');
+    }
+
+    const asset = await this.repo.getAssetById(assetId);
+    if (!asset) {
+      throw new NotFoundError(`Asset ${assetId} not found`);
+    }
+
+    // Get source variant
+    const sourceVariantId = asset.active_variant_id;
+    if (!sourceVariantId) {
+      throw new ValidationError(`Asset ${assetId} has no active variant`);
+    }
+
+    const sourceVariant = await this.repo.getVariantById(sourceVariantId);
+    if (!sourceVariant?.image_key) {
+      throw new ValidationError(`Asset ${assetId} has no completed variant to refine`);
+    }
+
+    // Build recipe
+    const recipe: GenerationRecipe = {
+      prompt,
+      assetType: asset.type,
+      sourceImageKeys: [sourceVariant.image_key],
+      operation: 'refine',
+    };
+
+    // Create placeholder variant linked to plan step
+    const variant = await this.repo.createPlaceholderVariant({
+      id: variantId,
+      assetId,
+      recipe: JSON.stringify(recipe),
+      createdBy: meta.userId,
+      planStepId: stepId,
+    });
+
+    // Set as active
+    await this.repo.updateAsset(assetId, { active_variant_id: variantId });
+    asset.active_variant_id = variantId;
+    this.broadcast({ type: 'variant:created', variant });
+    this.broadcast({ type: 'asset:updated', asset });
+    this.broadcast({
+      type: 'refine:started',
+      requestId,
+      jobId: variantId,
+      assetId,
+      assetName: asset.name,
+    });
+
+    // Create lineage (refined from source)
+    const lineage = await this.repo.createLineage({
+      id: crypto.randomUUID(),
+      parentVariantId: sourceVariantId,
+      childVariantId: variantId,
+      relationType: 'refined',
+    });
+    this.broadcast({ type: 'lineage:created', lineage });
+
+    // Trigger workflow
+    if (this.env.GENERATION_WORKFLOW) {
+      const workflowInput: GenerationWorkflowInput = {
+        requestId,
+        jobId: variantId,
+        spaceId: this.spaceId,
+        userId: meta.userId,
+        prompt,
+        assetId,
+        assetName: asset.name,
+        assetType: asset.type,
+        sourceImageKeys: [sourceVariant.image_key],
+        parentVariantIds: [sourceVariantId],
+        operation: 'refine',
+      };
+
+      const instance = await this.env.GENERATION_WORKFLOW.create({
+        id: variantId,
+        params: workflowInput,
+      });
+
+      const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
+      if (updatedVariant) {
+        this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+      }
+    }
+
+    console.log(`[GenerationController] Executed plan step ${stepId}: refine "${asset.name}"`);
+    return variantId;
+  }
+
+  /**
+   * Execute a 'fork' plan step
+   * Fork is handled specially since it's synchronous (no workflow).
+   * We mark the step complete immediately after forking.
+   */
+  private async executePlanFork(
+    stepId: string,
+    params: Record<string, unknown>,
+    meta: WebSocketMeta
+  ): Promise<void> {
+    const sourceAssetId = params.sourceAssetId as string;
+    const name = params.name as string;
+    const assetType = params.type as string || 'character';
+    const parentAssetId = params.parentAssetId as string | undefined;
+
+    if (!sourceAssetId) {
+      throw new ValidationError('fork requires sourceAssetId');
+    }
+
+    const sourceAsset = await this.repo.getAssetById(sourceAssetId);
+    if (!sourceAsset?.active_variant_id) {
+      throw new ValidationError(`Asset ${sourceAssetId} not found or has no active variant`);
+    }
+
+    // Fork creates a new asset+variant by copying the source variant
+    // Get the source variant to copy it
+    const sourceVariant = await this.repo.getVariantById(sourceAsset.active_variant_id);
+    if (!sourceVariant) {
+      throw new NotFoundError(`Source variant ${sourceAsset.active_variant_id} not found`);
+    }
+
+    const now = Date.now();
+    const newAssetId = crypto.randomUUID();
+    const newVariantId = crypto.randomUUID();
+
+    // Create new asset
+    const newAsset = await this.repo.createAsset({
+      id: newAssetId,
+      name,
+      type: assetType,
+      tags: [],
+      parentAssetId,
+      createdBy: meta.userId,
+    });
+
+    // Create new variant (copy of source)
+    const newVariant: Variant = {
+      id: newVariantId,
+      asset_id: newAssetId,
+      workflow_id: null,
+      status: 'completed',
+      error_message: null,
+      image_key: sourceVariant.image_key,
+      thumb_key: sourceVariant.thumb_key,
+      recipe: sourceVariant.recipe,
+      starred: false,
+      created_by: meta.userId,
+      created_at: now,
+      updated_at: now,
+      plan_step_id: null, // Fork is synchronous, doesn't need plan tracking
+    };
+
+    // Insert variant directly
+    await this.sql.exec(
+      `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      newVariant.id,
+      newVariant.asset_id,
+      newVariant.workflow_id,
+      newVariant.status,
+      newVariant.error_message,
+      newVariant.image_key,
+      newVariant.thumb_key,
+      newVariant.recipe,
+      newVariant.starred ? 1 : 0,
+      newVariant.created_by,
+      newVariant.created_at,
+      newVariant.updated_at
+    );
+
+    // Set as active variant
+    await this.repo.updateAsset(newAssetId, { active_variant_id: newVariantId });
+    newAsset.active_variant_id = newVariantId;
+
+    // Create lineage
+    const lineage = await this.repo.createLineage({
+      id: crypto.randomUUID(),
+      parentVariantId: sourceAsset.active_variant_id,
+      childVariantId: newVariantId,
+      relationType: 'forked',
+    });
+
+    // Broadcast fork result
+    this.broadcast({ type: 'asset:forked', asset: newAsset, variant: newVariant, lineage });
+
+    // Complete the step since fork is synchronous
+    const updatedStep = await this.repo.completeStep(stepId, `asset:${newAssetId}`);
+    if (updatedStep) {
+      this.broadcast({ type: 'plan:step_updated', step: updatedStep });
+    }
+
+    // Check if plan is complete
+    const step = await this.repo.getPlanStepById(stepId);
+    if (step) {
+      const nextStep = await this.repo.getNextPendingStep(step.plan_id);
+      const newStatus = nextStep ? 'paused' : 'completed';
+      const updatedPlan = await this.repo.updatePlanStatusAndIndex(
+        step.plan_id,
+        newStatus,
+        step.step_index + 1
+      );
+      if (updatedPlan) {
+        this.broadcast({ type: 'plan:updated', plan: updatedPlan });
+      }
+    }
+
+    console.log(`[GenerationController] Executed plan step ${stepId}: fork "${name}"`);
   }
 
   // ==========================================================================

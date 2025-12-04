@@ -310,11 +310,15 @@ export class AssetController extends BaseController {
 
     const now = Date.now();
 
+    // Auto-set parentAssetId from source variant's asset if not explicitly provided
+    // This ensures forked assets show their relationship on the Space page
+    const effectiveParentAssetId = data.parentAssetId ?? sourceVariant.asset_id;
+
     // Create new asset
     const asset = await this.createAsset({
       name: data.name,
       type: data.type,
-      parentAssetId: data.parentAssetId,
+      parentAssetId: effectiveParentAssetId,
       createdBy: data.createdBy,
     });
 
@@ -333,6 +337,7 @@ export class AssetController extends BaseController {
       created_by: data.createdBy,
       created_at: now,
       updated_at: now,
+      plan_step_id: null, // Forked variants are not created by plan steps
     };
 
     await this.sql.exec(

@@ -130,6 +130,7 @@ export class VariantController extends BaseController {
       created_by: data.createdBy,
       created_at: now,
       updated_at: now,
+      plan_step_id: null, // This variant is not created by a plan step
     };
 
     // Insert variant

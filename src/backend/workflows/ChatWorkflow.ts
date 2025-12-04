@@ -14,6 +14,7 @@ import type { Env } from '../../core/types';
 import type { ChatWorkflowInput, ChatWorkflowOutput } from './types';
 import type { BotContext, BotResponseWithUsage } from '../services/claudeService';
 import { ClaudeService } from '../services/claudeService';
+import type { BotResponse, ActorResponse, PlanResponse } from '../../api/types';
 
 export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
   async run(event: WorkflowEvent<ChatWorkflowInput>, step: WorkflowStep): Promise<ChatWorkflowOutput> {
@@ -73,7 +74,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
       };
     }
 
-    // Step 3: Store messages in SpaceDO
+    // Step 3: Store messages, approvals, plans in SpaceDO
     await step.do('store-messages', async () => {
       if (!this.env.SPACES_DO) {
         console.warn('[ChatWorkflow] SPACES_DO not available, skipping message storage');
@@ -95,10 +96,97 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
         }),
       }));
 
+      // Build metadata for bot message
+      const response = claudeResult.response;
+      const metadata: Record<string, unknown> = { type: response.type, mode };
+
+      // Handle plan response
+      if (response.type === 'plan') {
+        const planResponse = response as PlanResponse;
+        // Store the plan in the database
+        const planResult = await doStub.fetch(new Request('http://do/internal/plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: planResponse.plan.id,
+            goal: planResponse.plan.goal,
+            createdBy: userId,
+            steps: planResponse.plan.steps.map(s => ({
+              id: s.id,
+              description: s.description,
+              action: s.action,
+              params: JSON.stringify(s.params),
+            })),
+          }),
+        }));
+        if (!planResult.ok) {
+          console.error('[ChatWorkflow] Failed to store plan:', await planResult.text());
+        }
+        metadata.planId = planResponse.plan.id;
+      }
+
+      // Handle action response with approvals and auto-executed
+      if (response.type === 'action') {
+        const actionResponse = response as ActorResponse;
+        const approvalIds: string[] = [];
+        const autoExecutedIds: string[] = [];
+
+        // Store pending approvals
+        if (actionResponse.pendingApprovals && actionResponse.pendingApprovals.length > 0) {
+          for (const approval of actionResponse.pendingApprovals) {
+            const approvalResult = await doStub.fetch(new Request('http://do/internal/approval', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: approval.id,
+                requestId,
+                tool: approval.tool,
+                params: JSON.stringify(approval.params),
+                description: approval.description,
+                createdBy: userId,
+              }),
+            }));
+            if (approvalResult.ok) {
+              approvalIds.push(approval.id);
+            } else {
+              console.error('[ChatWorkflow] Failed to store approval:', await approvalResult.text());
+            }
+          }
+        }
+
+        // Store auto-executed results
+        if (actionResponse.autoExecuted && actionResponse.autoExecuted.length > 0) {
+          for (const autoExec of actionResponse.autoExecuted) {
+            const autoExecId = crypto.randomUUID();
+            const autoExecResult = await doStub.fetch(new Request('http://do/internal/auto-executed', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: autoExecId,
+                requestId,
+                tool: autoExec.tool,
+                params: JSON.stringify(autoExec.params),
+                result: JSON.stringify(autoExec.result),
+                success: autoExec.success,
+                error: autoExec.error,
+              }),
+            }));
+            if (autoExecResult.ok) {
+              autoExecutedIds.push(autoExecId);
+            } else {
+              console.error('[ChatWorkflow] Failed to store auto-executed:', await autoExecResult.text());
+            }
+          }
+        }
+
+        if (approvalIds.length > 0) metadata.approvalIds = approvalIds;
+        if (autoExecutedIds.length > 0) metadata.autoExecutedIds = autoExecutedIds;
+      }
+
       // Store bot response
-      const botContent = claudeResult.response.type === 'advice'
-        ? claudeResult.response.message
-        : claudeResult.response.message || JSON.stringify(claudeResult.response);
+      const botContent = response.type === 'advice'
+        ? response.message
+        : response.message || JSON.stringify(response);
 
       await doStub.fetch(new Request('http://do/internal/chat', {
         method: 'POST',
@@ -107,7 +195,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
           senderType: 'bot',
           senderId: 'claude',
           content: botContent,
-          metadata: JSON.stringify({ type: claudeResult.response.type }),
+          metadata: JSON.stringify(metadata),
         }),
       }));
     });
