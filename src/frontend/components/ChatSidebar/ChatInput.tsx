@@ -8,11 +8,11 @@ export interface ChatInputProps {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
-  onClear: () => void;
+  onNewChat: () => void;
   mode: 'advisor' | 'actor';
   onModeChange: (mode: 'advisor' | 'actor') => void;
   disabled: boolean;
-  showClear: boolean;
+  showNewChat: boolean;
 }
 
 // =============================================================================
@@ -23,11 +23,11 @@ export function ChatInput({
   value,
   onChange,
   onSend,
-  onClear,
+  onNewChat,
   mode,
   onModeChange,
   disabled,
-  showClear,
+  showNewChat,
 }: ChatInputProps) {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -61,9 +61,9 @@ export function ChatInput({
 
       {/* Input area */}
       <div className={styles.inputArea}>
-        {showClear && (
-          <button className={styles.clearButton} onClick={onClear} title="Clear chat">
-            Clear
+        {showNewChat && (
+          <button className={styles.newChatButton} onClick={onNewChat} title="Start new chat">
+            New Chat
           </button>
         )}
         <div className={styles.inputWrapper}>

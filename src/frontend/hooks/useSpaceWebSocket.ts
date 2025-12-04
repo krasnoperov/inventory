@@ -99,6 +99,87 @@ export interface BotResponse {
   }>;
 }
 
+// Plan types (synced from backend)
+export type PlanStatus = 'planning' | 'executing' | 'paused' | 'completed' | 'failed' | 'cancelled';
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+
+export interface Plan {
+  id: string;
+  goal: string;
+  status: PlanStatus;
+  current_step_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface PlanStep {
+  id: string;
+  plan_id: string;
+  step_index: number;
+  description: string;
+  action: string;
+  params: string; // JSON
+  status: PlanStepStatus;
+  result: string | null;
+  error: string | null;
+  created_at: number;
+  updated_at: number | null;
+}
+
+// Approval types (synced from backend)
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+
+export interface PendingApproval {
+  id: string;
+  request_id: string;
+  plan_id: string | null;
+  plan_step_id: string | null;
+  tool: string;
+  params: string; // JSON
+  description: string;
+  status: ApprovalStatus;
+  created_by: string;
+  approved_by: string | null;
+  rejected_by: string | null;
+  error_message: string | null;
+  result_job_id: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+// Auto-executed tool result
+export interface AutoExecuted {
+  id: string;
+  request_id: string;
+  tool: string;
+  params: string; // JSON
+  result: string; // JSON
+  success: boolean;
+  error: string | null;
+  created_at: number;
+}
+
+// User session (for CLI stateless mode)
+export interface UserSession {
+  user_id: string;
+  viewing_asset_id: string | null;
+  viewing_variant_id: string | null;
+  forge_context: string | null;
+  active_chat_session_id: string | null;
+  last_seen: number;
+  updated_at: number;
+}
+
+// Chat session (conversation thread)
+export interface ChatSession {
+  id: string;
+  title: string | null;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
 // Forge context for chat requests (matches api/types.ts ForgeContext)
 export interface ForgeContext {
   operation: 'generate' | 'fork' | 'derive' | 'refine';
@@ -206,6 +287,23 @@ export interface UseSpaceWebSocketParams {
   onGenerateResult?: (data: { requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }) => void;
   onDescribeResponse?: (response: DescribeResponseResult) => void;
   onCompareResponse?: (response: CompareResponseResult) => void;
+  // Plan lifecycle callbacks
+  onPlanCreated?: (plan: Plan, steps: PlanStep[]) => void;
+  onPlanUpdated?: (plan: Plan) => void;
+  onPlanStepUpdated?: (step: PlanStep) => void;
+  // Approval lifecycle callbacks
+  onApprovalCreated?: (approval: PendingApproval) => void;
+  onApprovalUpdated?: (approval: PendingApproval) => void;
+  onApprovalList?: (approvals: PendingApproval[]) => void;
+  // Auto-executed callback
+  onAutoExecuted?: (autoExecuted: AutoExecuted) => void;
+  // Session state callback
+  onSessionState?: (session: UserSession | null) => void;
+  // Chat history callback (WebSocket-based, replaces REST)
+  // Messages are in server format with sender_type/created_at fields
+  onChatHistory?: (messages: Array<{ sender_type: 'user' | 'bot'; content: string; created_at: number }>, sessionId: string | null) => void;
+  // Chat session created callback
+  onSessionCreated?: (session: ChatSession) => void;
 }
 
 // Connection status
@@ -261,7 +359,25 @@ type ServerMessage =
   | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   // Vision (describe/compare) response messages
   | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string; usage?: ClaudeUsage }
-  | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage };
+  | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage }
+  // Plan lifecycle messages
+  | { type: 'plan:created'; plan: Plan; steps: PlanStep[] }
+  | { type: 'plan:updated'; plan: Plan }
+  | { type: 'plan:step_updated'; step: PlanStep }
+  | { type: 'plan:deleted'; planId: string }
+  // Approval lifecycle messages
+  | { type: 'approval:created'; approval: PendingApproval }
+  | { type: 'approval:updated'; approval: PendingApproval }
+  | { type: 'approval:deleted'; approvalId: string }
+  | { type: 'approval:list'; approvals: PendingApproval[] }
+  // Auto-executed tool result
+  | { type: 'auto_executed'; autoExecuted: AutoExecuted }
+  // Session state
+  | { type: 'session:state'; session: UserSession | null }
+  // Chat history (WebSocket-based sync) - uses server format with sender_type/created_at
+  | { type: 'chat:history'; messages: Array<{ sender_type: 'user' | 'bot'; content: string; created_at: number }>; sessionId: string | null }
+  // Chat session created
+  | { type: 'chat:session_created'; session: ChatSession };
 
 // Predefined asset types (user can also create custom)
 export const PREDEFINED_ASSET_TYPES = [
@@ -326,6 +442,22 @@ export interface UseSpaceWebSocketReturn {
   getChildren: (assetId: string) => Asset[];
   getAncestors: (assetId: string) => Asset[];
   getRootAssets: () => Asset[];
+  // Plan methods
+  approvePlan: (planId: string) => void;
+  rejectPlan: (planId: string) => void;
+  cancelPlan: (planId: string) => void;
+  advancePlan: (planId: string) => void;
+  // Approval methods
+  approveApproval: (approvalId: string) => void;
+  rejectApproval: (approvalId: string) => void;
+  listApprovals: () => void;
+  // Session methods
+  getSession: () => void;
+  updateSession: (updates: { viewingAssetId?: string | null; viewingVariantId?: string | null; forgeContext?: string | null }) => void;
+  // Chat history (WebSocket-based)
+  requestChatHistory: (since?: number) => void;
+  // Chat session methods
+  startNewSession: () => void;
 }
 
 /**
@@ -343,6 +475,16 @@ export function useSpaceWebSocket({
   onGenerateResult,
   onDescribeResponse,
   onCompareResponse,
+  onPlanCreated,
+  onPlanUpdated,
+  onPlanStepUpdated,
+  onApprovalCreated,
+  onApprovalUpdated,
+  onApprovalList,
+  onAutoExecuted,
+  onSessionState,
+  onChatHistory,
+  onSessionCreated,
 }: UseSpaceWebSocketParams): UseSpaceWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
@@ -501,6 +643,59 @@ export function useSpaceWebSocket({
     return requestId;
   }, [sendMessage]);
 
+  // Plan methods
+  const approvePlan = useCallback((planId: string) => {
+    sendMessage({ type: 'plan:approve', planId });
+  }, [sendMessage]);
+
+  const rejectPlan = useCallback((planId: string) => {
+    sendMessage({ type: 'plan:reject', planId });
+  }, [sendMessage]);
+
+  const cancelPlan = useCallback((planId: string) => {
+    sendMessage({ type: 'plan:cancel', planId });
+  }, [sendMessage]);
+
+  const advancePlan = useCallback((planId: string) => {
+    sendMessage({ type: 'plan:advance', planId });
+  }, [sendMessage]);
+
+  // Approval methods
+  const approveApproval = useCallback((approvalId: string) => {
+    sendMessage({ type: 'approval:approve', approvalId });
+  }, [sendMessage]);
+
+  const rejectApproval = useCallback((approvalId: string) => {
+    sendMessage({ type: 'approval:reject', approvalId });
+  }, [sendMessage]);
+
+  const listApprovals = useCallback(() => {
+    sendMessage({ type: 'approval:list' });
+  }, [sendMessage]);
+
+  // Session methods
+  const getSession = useCallback(() => {
+    sendMessage({ type: 'session:get' });
+  }, [sendMessage]);
+
+  const updateSessionMethod = useCallback((updates: {
+    viewingAssetId?: string | null;
+    viewingVariantId?: string | null;
+    forgeContext?: string | null;
+  }) => {
+    sendMessage({ type: 'session:update', ...updates });
+  }, [sendMessage]);
+
+  // Request chat history via WebSocket (replaces REST endpoint)
+  const requestChatHistory = useCallback((since?: number) => {
+    sendMessage({ type: 'chat:history', since });
+  }, [sendMessage]);
+
+  // Start a new chat session
+  const startNewSession = useCallback(() => {
+    sendMessage({ type: 'chat:new_session' });
+  }, [sendMessage]);
+
   // Helper methods for hierarchy navigation
   const getChildren = useCallback((assetId: string): Asset[] => {
     return assets.filter(a => a.parent_asset_id === assetId);
@@ -558,6 +753,16 @@ export function useSpaceWebSocket({
   const onGenerateResultRef = useRef(onGenerateResult);
   const onDescribeResponseRef = useRef(onDescribeResponse);
   const onCompareResponseRef = useRef(onCompareResponse);
+  const onPlanCreatedRef = useRef(onPlanCreated);
+  const onPlanUpdatedRef = useRef(onPlanUpdated);
+  const onPlanStepUpdatedRef = useRef(onPlanStepUpdated);
+  const onApprovalCreatedRef = useRef(onApprovalCreated);
+  const onApprovalUpdatedRef = useRef(onApprovalUpdated);
+  const onApprovalListRef = useRef(onApprovalList);
+  const onAutoExecutedRef = useRef(onAutoExecuted);
+  const onSessionStateRef = useRef(onSessionState);
+  const onChatHistoryRef = useRef(onChatHistory);
+  const onSessionCreatedRef = useRef(onSessionCreated);
 
   // Update refs in useEffect to avoid accessing refs during render
   useEffect(() => {
@@ -570,6 +775,16 @@ export function useSpaceWebSocket({
     onGenerateResultRef.current = onGenerateResult;
     onDescribeResponseRef.current = onDescribeResponse;
     onCompareResponseRef.current = onCompareResponse;
+    onPlanCreatedRef.current = onPlanCreated;
+    onPlanUpdatedRef.current = onPlanUpdated;
+    onPlanStepUpdatedRef.current = onPlanStepUpdated;
+    onApprovalCreatedRef.current = onApprovalCreated;
+    onApprovalUpdatedRef.current = onApprovalUpdated;
+    onApprovalListRef.current = onApprovalList;
+    onAutoExecutedRef.current = onAutoExecuted;
+    onSessionStateRef.current = onSessionState;
+    onChatHistoryRef.current = onChatHistory;
+    onSessionCreatedRef.current = onSessionCreated;
   });
 
   // Connect on mount, disconnect on unmount
@@ -737,6 +952,16 @@ export function useSpaceWebSocket({
                 onChatMessageRef.current?.(message.message);
                 break;
 
+              case 'chat:history':
+                // Notify callback with full chat history (WebSocket-based sync)
+                onChatHistoryRef.current?.(message.messages, message.sessionId);
+                break;
+
+              case 'chat:session_created':
+                // Notify callback when a new chat session is created
+                onSessionCreatedRef.current?.(message.session);
+                break;
+
               case 'presence:update':
                 setPresence(message.presence);
                 break;
@@ -882,6 +1107,50 @@ export function useSpaceWebSocket({
                 });
                 break;
 
+              // Plan lifecycle messages
+              case 'plan:created':
+                onPlanCreatedRef.current?.(message.plan, message.steps);
+                break;
+
+              case 'plan:updated':
+                onPlanUpdatedRef.current?.(message.plan);
+                break;
+
+              case 'plan:step_updated':
+                onPlanStepUpdatedRef.current?.(message.step);
+                break;
+
+              case 'plan:deleted':
+                // Plans are not stored locally, just notify callback
+                break;
+
+              // Approval lifecycle messages
+              case 'approval:created':
+                onApprovalCreatedRef.current?.(message.approval);
+                break;
+
+              case 'approval:updated':
+                onApprovalUpdatedRef.current?.(message.approval);
+                break;
+
+              case 'approval:deleted':
+                // Approvals are not stored locally, just notify callback
+                break;
+
+              case 'approval:list':
+                onApprovalListRef.current?.(message.approvals);
+                break;
+
+              // Auto-executed tool result
+              case 'auto_executed':
+                onAutoExecutedRef.current?.(message.autoExecuted);
+                break;
+
+              // Session state
+              case 'session:state':
+                onSessionStateRef.current?.(message.session);
+                break;
+
               default:
                 console.warn('Unknown message type:', message);
             }
@@ -979,6 +1248,22 @@ export function useSpaceWebSocket({
     getChildren,
     getAncestors,
     getRootAssets,
+    // Plan methods
+    approvePlan,
+    rejectPlan,
+    cancelPlan,
+    advancePlan,
+    // Approval methods
+    approveApproval,
+    rejectApproval,
+    listApprovals,
+    // Session methods
+    getSession,
+    updateSession: updateSessionMethod,
+    // Chat history (WebSocket-based)
+    requestChatHistory,
+    // Chat session methods
+    startNewSession,
   };
 }
 

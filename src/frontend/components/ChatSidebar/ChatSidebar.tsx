@@ -8,6 +8,7 @@ import {
   useChatPlan,
   useChatPlanStatus,
   usePendingApprovals,
+  useLastAutoExecuted,
   useShowPreferencesPanel,
   type ChatMessage,
 } from '../../stores/chatStore';
@@ -78,6 +79,20 @@ export interface ChatSidebarProps {
   describeResponse?: DescribeResponseResult | null;
   /** Latest compare response from WebSocket */
   compareResponse?: CompareResponseResult | null;
+  /** WebSocket method to approve a pending approval (notifies server) */
+  wsApproveApproval?: (approvalId: string) => void;
+  /** WebSocket method to reject a pending approval (notifies server) */
+  wsRejectApproval?: (approvalId: string) => void;
+  /** WebSocket method to approve a plan (start execution) */
+  wsApprovePlan?: (planId: string) => void;
+  /** WebSocket method to advance a plan to the next step */
+  wsAdvancePlan?: (planId: string) => void;
+  /** WebSocket method to cancel a plan */
+  wsCancelPlan?: (planId: string) => void;
+  /** WebSocket method to reject a plan (before execution) */
+  wsRejectPlan?: (planId: string) => void;
+  /** WebSocket method to start a new chat session */
+  wsStartNewSession?: () => void;
 }
 
 // Re-export ChatMessage type for consumers
@@ -106,6 +121,13 @@ export function ChatSidebar({
   sendCompareRequest,
   describeResponse,
   compareResponse,
+  wsApproveApproval,
+  wsRejectApproval,
+  wsApprovePlan,
+  wsAdvancePlan,
+  wsCancelPlan,
+  wsRejectPlan,
+  wsStartNewSession,
 }: ChatSidebarProps) {
   // Store state (persisted) - use hooks that don't recreate selectors
   const messages = useChatMessages(spaceId);
@@ -114,6 +136,7 @@ export function ChatSidebar({
   const activePlan = useChatPlan(spaceId);
   const planStatus = useChatPlanStatus(spaceId);
   const pendingApprovals = usePendingApprovals(spaceId);
+  const lastAutoExecuted = useLastAutoExecuted(spaceId);
   const showPreferences = useShowPreferencesPanel(spaceId);
 
   // Store actions
@@ -136,17 +159,15 @@ export function ChatSidebar({
     approveApproval,
     rejectApproval,
     clearPendingApprovals,
+    setLastAutoExecuted,
     // Preferences panel
     setShowPreferencesPanel,
   } = useChatStore();
 
   // Local state (transient - not persisted)
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isAutoReviewing, setIsAutoReviewing] = useState(false);
   const [isExecutingStep, setIsExecutingStep] = useState(false);
-  // Track if we've attempted to load history for this space (prevents re-fetch on message changes)
-  const hasAttemptedHistoryLoad = useRef(false);
   // Track which meters have shown 90% warning this session
   const [warnedMeters, setWarnedMeters] = useState<Set<string>>(new Set());
   const warnedMetersRef = useRef(warnedMeters);
@@ -262,59 +283,8 @@ export function ChatSidebar({
     return { type: 'catalog' };
   }, [currentAsset, currentVariant, allVariants]);
 
-  // ==========================================================================
-  // Chat History - Load from server if store is empty
-  // ==========================================================================
-
-  const loadChatHistory = useCallback(async () => {
-    // Check store directly to avoid depending on messages.length (which changes on every message)
-    const existingMessages = useChatStore.getState().sessions[spaceId]?.messages;
-    if (existingMessages && existingMessages.length > 0) {
-      return;
-    }
-
-    try {
-      setIsLoadingHistory(true);
-      const response = await fetch(`/api/spaces/${spaceId}/chat/history`, {
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const data = await response.json() as { success: boolean; messages: Array<{
-          sender_type: 'user' | 'bot';
-          content: string;
-          created_at: number;
-        }> };
-
-        if (data.success && data.messages && data.messages.length > 0) {
-          const formattedMessages: ChatMessage[] = data.messages.map((msg, idx) => ({
-            id: `history_${idx}_${msg.created_at}`,
-            role: msg.sender_type === 'user' ? 'user' : 'assistant',
-            content: msg.content,
-            timestamp: msg.created_at,
-          }));
-          setMessages(spaceId, formattedMessages);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load chat history:', err);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  }, [spaceId, setMessages]);
-
-  // Load history once when sidebar opens (use ref to prevent re-fetch on message changes)
-  useEffect(() => {
-    if (isOpen && spaceId && !hasAttemptedHistoryLoad.current) {
-      hasAttemptedHistoryLoad.current = true;
-      loadChatHistory();
-    }
-  }, [isOpen, spaceId, loadChatHistory]);
-
-  // Reset history load flag when spaceId changes
-  useEffect(() => {
-    hasAttemptedHistoryLoad.current = false;
-  }, [spaceId]);
+  // Chat history is now loaded via WebSocket in SpacePage/AssetDetailPage
+  // See onChatHistory callback in useSpaceWebSocket
 
   // Clear job tracking when sidebar closes
   useEffect(() => {
@@ -576,69 +546,80 @@ export function ChatSidebar({
   }, [activePlan, spaceId, startStep, completeStep, failStep, resetPlan, addMessage, toolExec]);
 
   const handleApprove = useCallback(() => {
-    approvePlan(spaceId);
-    if (activePlan) {
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: `Starting plan: "${activePlan.goal}"\nExecuting step 1...`,
-        timestamp: Date.now(),
-      });
-      executeStep(0);
+    if (!activePlan) return;
+
+    // Notify server to approve and start plan execution
+    // Server will set status to 'executing' and broadcast update
+    if (wsApprovePlan) {
+      wsApprovePlan(activePlan.id);
     }
-  }, [spaceId, activePlan, approvePlan, addMessage, executeStep]);
+
+    // Also update local state (will be overwritten by server broadcast)
+    approvePlan(spaceId);
+
+    addMessage(spaceId, {
+      role: 'assistant',
+      content: `Starting plan: "${activePlan.goal}"\nApproved and waiting for execution...`,
+      timestamp: Date.now(),
+    });
+
+    // After approval, immediately request first step execution
+    if (wsAdvancePlan) {
+      wsAdvancePlan(activePlan.id);
+    }
+  }, [spaceId, activePlan, approvePlan, addMessage, wsApprovePlan, wsAdvancePlan]);
 
   const handleContinue = useCallback(() => {
     if (!activePlan) return;
-    const nextIndex = activePlan.steps.findIndex(s => s.status === 'pending');
-    if (nextIndex === -1) return;
 
-    const step = activePlan.steps[nextIndex];
-
-    // For derive steps with references, prefill ForgeTray for review
-    if (step.action === 'derive') {
-      const referenceAssetIds = step.params.referenceAssetIds as string[] | undefined;
-      const stepPrompt = step.params.prompt as string || '';
-
-      if (referenceAssetIds && referenceAssetIds.length > 0) {
-        // Prefill ForgeTray with references and prompt
-        prefillFromStep(referenceAssetIds, stepPrompt, allAssets, allVariants);
-
-        // Update step status to in_progress
-        startStep(spaceId, nextIndex);
-
-        // Track that this step is waiting for ForgeTray completion
-        setForgeTrayStepIndex(nextIndex);
-
-        // Inform user to review in ForgeTray
-        const assetName = step.params.name as string || 'New Asset';
-        addMessage(spaceId, {
-          role: 'assistant',
-          content: `Step ${nextIndex + 1}: ${step.description}\n\nForgeTray has been loaded with:\n• ${referenceAssetIds.length} reference image(s)\n• Prompt: "${stepPrompt.slice(0, 100)}${stepPrompt.length > 100 ? '...' : ''}"\n• Target: "${assetName}"\n\nReview and adjust in the ForgeTray below, then click Generate when ready.`,
-          timestamp: Date.now(),
-        });
-        return;
-      }
-    }
-
-    // For other steps, execute directly
-    executeStep(nextIndex);
-  }, [activePlan, executeStep, prefillFromStep, allAssets, allVariants, spaceId, startStep, addMessage]);
-
-  const handleCancel = useCallback(() => {
-    if (activePlan) {
-      const completedCount = activePlan.steps.filter(s => s.status === 'completed').length;
+    // Server-side execution: just send advance request
+    // Server will mark step as in_progress and trigger generation
+    if (wsAdvancePlan) {
+      wsAdvancePlan(activePlan.id);
       addMessage(spaceId, {
         role: 'assistant',
-        content: `Plan cancelled. ${completedCount}/${activePlan.steps.length} steps were completed.`,
+        content: `Continuing plan execution...`,
         timestamp: Date.now(),
       });
     }
+  }, [activePlan, wsAdvancePlan, spaceId, addMessage]);
+
+  const handleCancel = useCallback(() => {
+    if (!activePlan) return;
+
+    // Notify server to cancel plan
+    if (wsCancelPlan) {
+      wsCancelPlan(activePlan.id);
+    }
+
+    const completedCount = activePlan.steps.filter(s => s.status === 'completed').length;
+    addMessage(spaceId, {
+      role: 'assistant',
+      content: `Plan cancelled. ${completedCount}/${activePlan.steps.length} steps were completed.`,
+      timestamp: Date.now(),
+    });
+
+    // Also update local state (will be overwritten by server broadcast)
     cancelPlan(spaceId);
-  }, [spaceId, activePlan, cancelPlan, addMessage]);
+  }, [spaceId, activePlan, cancelPlan, addMessage, wsCancelPlan]);
 
   const handleReject = useCallback(() => {
+    if (!activePlan) return;
+
+    // Notify server to reject plan (sets status to 'cancelled')
+    if (wsRejectPlan) {
+      wsRejectPlan(activePlan.id);
+    }
+
+    addMessage(spaceId, {
+      role: 'assistant',
+      content: `Plan rejected: "${activePlan.goal}"`,
+      timestamp: Date.now(),
+    });
+
+    // Also update local state (will be overwritten by server broadcast)
     rejectPlan(spaceId);
-  }, [spaceId, rejectPlan]);
+  }, [spaceId, activePlan, rejectPlan, wsRejectPlan, addMessage]);
 
   // ==========================================================================
   // Approval Handlers (Trust Zones)
@@ -647,6 +628,11 @@ export function ChatSidebar({
   const handleApproveToolCall = useCallback(async (approvalId: string) => {
     const approval = approveApproval(spaceId, approvalId);
     if (!approval) return;
+
+    // Notify server of approval (will broadcast to all clients)
+    if (wsApproveApproval) {
+      wsApproveApproval(approvalId);
+    }
 
     // Convert approval to tool call and execute
     const toolCall = {
@@ -662,7 +648,7 @@ export function ChatSidebar({
         timestamp: Date.now(),
       });
 
-      // Clear this approval from pending list
+      // Clear this approval from pending list (server update will also sync this)
       const remaining = pendingApprovals.filter(a => a.id !== approvalId);
       setPendingApprovals(spaceId, remaining);
     } catch (err) {
@@ -673,15 +659,20 @@ export function ChatSidebar({
         isError: true,
       });
     }
-  }, [spaceId, approveApproval, pendingApprovals, setPendingApprovals, toolExec, addMessage]);
+  }, [spaceId, approveApproval, pendingApprovals, setPendingApprovals, toolExec, addMessage, wsApproveApproval]);
 
   const handleRejectToolCall = useCallback((approvalId: string) => {
     const approval = pendingApprovals.find(a => a.id === approvalId);
     if (!approval) return;
 
+    // Notify server of rejection (will broadcast to all clients)
+    if (wsRejectApproval) {
+      wsRejectApproval(approvalId);
+    }
+
     rejectApproval(spaceId, approvalId);
 
-    // Remove from pending list
+    // Remove from pending list (server update will also sync this)
     const remaining = pendingApprovals.filter(a => a.id !== approvalId);
     setPendingApprovals(spaceId, remaining);
 
@@ -690,7 +681,7 @@ export function ChatSidebar({
       content: `❌ Rejected: ${approval.description}`,
       timestamp: Date.now(),
     });
-  }, [spaceId, pendingApprovals, rejectApproval, setPendingApprovals, addMessage]);
+  }, [spaceId, pendingApprovals, rejectApproval, setPendingApprovals, addMessage, wsRejectApproval]);
 
   const handleApproveAll = useCallback(async () => {
     for (const approval of pendingApprovals) {
@@ -764,19 +755,17 @@ export function ChatSidebar({
     sendMessage(payload.message, payload.mode);
   }, [messages, spaceId, setMessages, sendMessage]);
 
-  const clearChat = useCallback(async () => {
-    // Clear local state
-    clearMessages(spaceId);
-    // Clear server-side history
-    try {
-      await fetch(`/api/spaces/${spaceId}/chat/history`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-    } catch (err) {
-      console.error('Failed to clear server chat history:', err);
+  // Start a new chat session (replaces "Clear" functionality)
+  const startNewChat = useCallback(() => {
+    if (wsStartNewSession) {
+      // Server will create new session and send chat:session_created
+      // which triggers onSessionCreated callback to clear local messages
+      wsStartNewSession();
+    } else {
+      // Fallback: just clear local state if WebSocket method not available
+      clearMessages(spaceId);
     }
-  }, [spaceId, clearMessages]);
+  }, [spaceId, clearMessages, wsStartNewSession]);
 
   const handleInputChange = useCallback((value: string) => {
     setInputBuffer(spaceId, value);
@@ -972,11 +961,45 @@ export function ChatSidebar({
         </div>
       )}
 
+      {/* Auto-Executed Panel (safe tools that ran automatically) */}
+      {lastAutoExecuted.length > 0 && (
+        <div className={styles.autoExecutedPanel}>
+          <div className={styles.autoExecutedHeader}>
+            <span className={styles.autoExecutedIcon}>⚡</span>
+            <span className={styles.autoExecutedTitle}>
+              {lastAutoExecuted.length} tool{lastAutoExecuted.length > 1 ? 's' : ''} auto-executed
+            </span>
+            <button
+              className={styles.dismissAutoExecuted}
+              onClick={() => setLastAutoExecuted(spaceId, [])}
+              title="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+          <div className={styles.autoExecutedList}>
+            {lastAutoExecuted.map((item, idx) => (
+              <div key={idx} className={`${styles.autoExecutedItem} ${item.success ? styles.success : styles.error}`}>
+                <span className={styles.autoExecutedToolName}>{item.tool}</span>
+                {item.success ? (
+                  <span className={styles.autoExecutedResult}>
+                    {typeof item.result === 'string'
+                      ? item.result.slice(0, 100) + (item.result.length > 100 ? '...' : '')
+                      : JSON.stringify(item.result).slice(0, 100)}
+                  </span>
+                ) : (
+                  <span className={styles.autoExecutedError}>{item.error || 'Failed'}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Message List */}
       <MessageList
         messages={messages}
         isLoading={isLoading}
-        isLoadingHistory={isLoadingHistory}
         isAutoReviewing={isAutoReviewing}
         onRetry={retryMessage}
         onSuggestionClick={handleInputChange}
@@ -987,11 +1010,11 @@ export function ChatSidebar({
         value={inputValue}
         onChange={handleInputChange}
         onSend={() => sendMessage()}
-        onClear={clearChat}
+        onNewChat={startNewChat}
         mode={mode}
         onModeChange={handleModeChange}
         disabled={isLoading || isExecuting}
-        showClear={messages.length > 0}
+        showNewChat={messages.length > 0}
       />
 
       {/* Preferences Panel */}

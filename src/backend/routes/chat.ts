@@ -105,40 +105,8 @@ chatRoutes.post('/api/spaces/:id/chat/suggest', suggestionRateLimiter, async (c)
 // NOTE: POST /api/spaces/:id/chat/compare has been removed.
 // Compare is now handled via WebSocket compare:request messages through SpaceDO.
 
-// GET /api/spaces/:id/chat/history - Get chat history
-chatRoutes.get('/api/spaces/:id/chat/history', async (c) => {
-  const userId = c.get('userId')!;
-  const memberDAO = c.get('container').get(MemberDAO);
-  const env = c.env;
-
-  const spaceId = c.req.param('id');
-  const userIdStr = String(userId);
-
-  // Verify user is member of space
-  const member = await memberDAO.getMember(spaceId, userIdStr);
-  if (!member) {
-    return c.json({ error: 'Access denied' }, 403);
-  }
-
-  // Get chat history from DO
-  if (!env.SPACES_DO) {
-    return c.json({ error: 'Chat not available' }, 503);
-  }
-
-  const doId = env.SPACES_DO.idFromName(spaceId);
-  const doStub = env.SPACES_DO.get(doId);
-
-  const doResponse = await doStub.fetch(new Request('http://do/internal/chat/history', {
-    method: 'GET',
-  }));
-
-  if (!doResponse.ok) {
-    return c.json({ error: 'Failed to get chat history' }, 500);
-  }
-
-  const data = await doResponse.json();
-  return c.json(data);
-});
+// NOTE: GET /api/spaces/:id/chat/history has been removed.
+// Chat history is now fetched via WebSocket chat:history messages through SpaceDO.
 
 // DELETE /api/spaces/:id/chat/history - Clear chat history
 chatRoutes.delete('/api/spaces/:id/chat/history', async (c) => {

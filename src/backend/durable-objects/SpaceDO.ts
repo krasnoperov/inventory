@@ -29,6 +29,9 @@ import {
   GenerationController,
   VisionController,
 } from './space/controllers';
+import { ApprovalController } from './space/controllers/ApprovalController';
+import { PlanController } from './space/controllers/PlanController';
+import { SessionController } from './space/controllers/SessionController';
 
 // ============================================================================
 // SpaceDO - Durable Object for Space State & WebSocket Hub
@@ -49,6 +52,9 @@ export class SpaceDO extends DurableObject<Env> {
   private variantCtrl!: VariantController;
   private generationCtrl!: GenerationController;
   private visionCtrl!: VisionController;
+  private approvalCtrl!: ApprovalController;
+  private planCtrl!: PlanController;
+  private sessionCtrl!: SessionController;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -116,6 +122,9 @@ export class SpaceDO extends DurableObject<Env> {
       this.variantCtrl = new VariantController(ctx);
       this.generationCtrl = new GenerationController(ctx);
       this.visionCtrl = new VisionController(ctx);
+      this.approvalCtrl = new ApprovalController(ctx);
+      this.planCtrl = new PlanController(ctx);
+      this.sessionCtrl = new SessionController(ctx);
 
       // Initialize internal HTTP router
       this.internalApi = createInternalApi({
@@ -125,6 +134,9 @@ export class SpaceDO extends DurableObject<Env> {
         chat: this.chatCtrl,
         sync: this.syncCtrl,
         generation: this.generationCtrl,
+        approval: this.approvalCtrl,
+        plan: this.planCtrl,
+        session: this.sessionCtrl,
       });
 
       this.initialized = true;
@@ -259,6 +271,60 @@ export class SpaceDO extends DurableObject<Env> {
       // Chat
       case 'chat:send':
         return this.chatCtrl.handleSend(ws, meta, msg.content);
+      case 'chat:history':
+        return this.chatCtrl.handleHistory(ws, meta, msg.since);
+      case 'chat:new_session':
+        return this.chatCtrl.handleNewSession(ws, meta);
+
+      // Plan
+      case 'plan:approve':
+        await this.planCtrl.handleApprove(ws, meta, msg.planId);
+        return;
+      case 'plan:reject':
+        await this.planCtrl.handleReject(ws, meta, msg.planId);
+        return;
+      case 'plan:cancel':
+        await this.planCtrl.handleCancel(ws, meta, msg.planId);
+        return;
+      case 'plan:advance': {
+        const result = await this.planCtrl.handleAdvance(ws, meta, msg.planId);
+        // If there's a step to execute, trigger it
+        if (result?.step) {
+          try {
+            await this.generationCtrl.executePlanStep(result.step, meta);
+          } catch (err) {
+            console.error(`[SpaceDO] Failed to execute plan step:`, err);
+            // The step was marked in_progress but execution failed
+            // Mark it as failed
+            await this.planCtrl.httpFailStep(
+              result.step.id,
+              err instanceof Error ? err.message : 'Execution failed'
+            );
+          }
+        }
+        return;
+      }
+
+      // Approval
+      case 'approval:approve':
+        await this.approvalCtrl.handleApprove(ws, meta, msg.approvalId);
+        return;
+      case 'approval:reject':
+        await this.approvalCtrl.handleReject(ws, meta, msg.approvalId);
+        return;
+      case 'approval:list':
+        return this.approvalCtrl.handleList(ws, meta);
+
+      // Session
+      case 'session:get':
+        return this.sessionCtrl.handleGet(ws, meta);
+      case 'session:update':
+        await this.sessionCtrl.handleUpdate(ws, meta, {
+          viewingAssetId: msg.viewingAssetId,
+          viewingVariantId: msg.viewingVariantId,
+          forgeContext: msg.forgeContext,
+        });
+        return;
 
       // Presence
       case 'presence:update':

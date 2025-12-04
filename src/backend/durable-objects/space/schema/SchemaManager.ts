@@ -56,9 +56,19 @@ export class SchemaManager {
         ref_count INTEGER NOT NULL DEFAULT 1
       );
 
-      -- Chat messages
+      -- Chat sessions (conversation threads)
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      -- Chat messages (linked to sessions)
       CREATE TABLE IF NOT EXISTS chat_messages (
         id TEXT PRIMARY KEY,
+        session_id TEXT REFERENCES chat_sessions(id) ON DELETE CASCADE,
         sender_type TEXT NOT NULL CHECK (sender_type IN ('user', 'bot')),
         sender_id TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -77,6 +87,77 @@ export class SchemaManager {
         created_at INTEGER NOT NULL
       );
 
+      -- Assistant plans (multi-step workflows)
+      CREATE TABLE IF NOT EXISTS plans (
+        id TEXT PRIMARY KEY,
+        goal TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'planning'
+          CHECK (status IN ('planning', 'executing', 'paused', 'completed', 'failed', 'cancelled')),
+        current_step_index INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      -- Plan steps
+      CREATE TABLE IF NOT EXISTS plan_steps (
+        id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+        step_index INTEGER NOT NULL,
+        description TEXT NOT NULL,
+        action TEXT NOT NULL,
+        params TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'in_progress', 'completed', 'failed')),
+        result TEXT,
+        error TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER
+      );
+
+      -- Pending approvals (trust zones - actions awaiting user approval)
+      CREATE TABLE IF NOT EXISTS pending_approvals (
+        id TEXT PRIMARY KEY,
+        request_id TEXT NOT NULL,
+        plan_id TEXT REFERENCES plans(id) ON DELETE SET NULL,
+        plan_step_id TEXT REFERENCES plan_steps(id) ON DELETE SET NULL,
+        tool TEXT NOT NULL,
+        params TEXT NOT NULL,
+        description TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'approved', 'rejected', 'executed', 'failed')),
+        created_by TEXT NOT NULL,
+        approved_by TEXT,
+        rejected_by TEXT,
+        error_message TEXT,
+        result_job_id TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      -- Auto-executed safe tool results (describe, search, compare)
+      CREATE TABLE IF NOT EXISTS auto_executed (
+        id TEXT PRIMARY KEY,
+        request_id TEXT NOT NULL,
+        tool TEXT NOT NULL,
+        params TEXT NOT NULL,
+        result TEXT NOT NULL,
+        success INTEGER NOT NULL DEFAULT 1,
+        error TEXT,
+        created_at INTEGER NOT NULL
+      );
+
+      -- User session context (for stateless CLI and cross-client sync)
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        user_id TEXT PRIMARY KEY,
+        viewing_asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,
+        viewing_variant_id TEXT,
+        forge_context TEXT,
+        active_chat_session_id TEXT REFERENCES chat_sessions(id) ON DELETE SET NULL,
+        last_seen INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
       -- Indexes
       CREATE INDEX IF NOT EXISTS idx_variants_asset ON variants(asset_id);
       CREATE INDEX IF NOT EXISTS idx_variants_status ON variants(status);
@@ -84,8 +165,17 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_assets_updated ON assets(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_assets_parent ON assets(parent_asset_id);
       CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(session_id);
+      CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_lineage_parent ON lineage(parent_variant_id);
       CREATE INDEX IF NOT EXISTS idx_lineage_child ON lineage(child_variant_id);
+      CREATE INDEX IF NOT EXISTS idx_plans_status ON plans(status);
+      CREATE INDEX IF NOT EXISTS idx_plans_created_by ON plans(created_by);
+      CREATE INDEX IF NOT EXISTS idx_plan_steps_plan ON plan_steps(plan_id);
+      CREATE INDEX IF NOT EXISTS idx_approvals_status ON pending_approvals(status);
+      CREATE INDEX IF NOT EXISTS idx_approvals_request ON pending_approvals(request_id);
+      CREATE INDEX IF NOT EXISTS idx_approvals_plan ON pending_approvals(plan_id);
+      CREATE INDEX IF NOT EXISTS idx_auto_executed_request ON auto_executed(request_id);
     `);
   }
 
@@ -94,6 +184,12 @@ export class SchemaManager {
    * Migrations are idempotent and safe to run multiple times.
    */
   private async runMigrations(): Promise<void> {
+    // Migration: Add plan_step_id to variants for tracking plan-triggered generations
+    await this.addPlanStepIdToVariants();
+
+    // Migration: Add chat sessions support
+    await this.addChatSessions();
+
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
     // Conversions:
@@ -131,5 +227,81 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_lineage_parent ON lineage(parent_variant_id);
       CREATE INDEX IF NOT EXISTS idx_lineage_child ON lineage(child_variant_id);
     `);
+  }
+
+  /**
+   * Add plan_step_id column to variants table for tracking plan-triggered generations.
+   * When a variant is generated as part of a plan step, we store the step ID
+   * so we can update the step when the generation completes.
+   */
+  private async addPlanStepIdToVariants(): Promise<void> {
+    // Check if column already exists
+    const result = await this.sql.exec(`PRAGMA table_info(variants)`);
+    const columns = result.toArray() as Array<{ name: string }>;
+    const hasColumn = columns.some(col => col.name === 'plan_step_id');
+
+    if (!hasColumn) {
+      await this.sql.exec(`
+        ALTER TABLE variants ADD COLUMN plan_step_id TEXT REFERENCES plan_steps(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS idx_variants_plan_step ON variants(plan_step_id);
+      `);
+    }
+  }
+
+  /**
+   * Add chat sessions support:
+   * - Add session_id column to chat_messages
+   * - Add active_chat_session_id to user_sessions
+   * - Create default session for orphaned messages
+   */
+  private async addChatSessions(): Promise<void> {
+    // Check if session_id column exists in chat_messages
+    const msgResult = await this.sql.exec(`PRAGMA table_info(chat_messages)`);
+    const msgColumns = msgResult.toArray() as Array<{ name: string }>;
+    const hasSessionId = msgColumns.some(col => col.name === 'session_id');
+
+    if (!hasSessionId) {
+      // Add session_id column
+      await this.sql.exec(`
+        ALTER TABLE chat_messages ADD COLUMN session_id TEXT REFERENCES chat_sessions(id) ON DELETE CASCADE;
+        CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(session_id);
+      `);
+
+      // Check if there are orphaned messages
+      const orphanedResult = await this.sql.exec(
+        `SELECT COUNT(*) as count FROM chat_messages WHERE session_id IS NULL`
+      );
+      const orphanedCount = (orphanedResult.toArray()[0] as { count: number })?.count ?? 0;
+
+      if (orphanedCount > 0) {
+        // Create a default session for orphaned messages
+        const now = Date.now();
+        const defaultSessionId = 'default-session';
+        await this.sql.exec(
+          `INSERT OR IGNORE INTO chat_sessions (id, title, created_by, created_at, updated_at)
+           VALUES (?, 'Previous Conversation', 'system', ?, ?)`,
+          defaultSessionId,
+          now,
+          now
+        );
+
+        // Link orphaned messages to default session
+        await this.sql.exec(
+          `UPDATE chat_messages SET session_id = ? WHERE session_id IS NULL`,
+          defaultSessionId
+        );
+      }
+    }
+
+    // Check if active_chat_session_id exists in user_sessions
+    const sessResult = await this.sql.exec(`PRAGMA table_info(user_sessions)`);
+    const sessColumns = sessResult.toArray() as Array<{ name: string }>;
+    const hasActiveChatSession = sessColumns.some(col => col.name === 'active_chat_session_id');
+
+    if (!hasActiveChatSession) {
+      await this.sql.exec(`
+        ALTER TABLE user_sessions ADD COLUMN active_chat_session_id TEXT REFERENCES chat_sessions(id) ON DELETE SET NULL;
+      `);
+    }
   }
 }

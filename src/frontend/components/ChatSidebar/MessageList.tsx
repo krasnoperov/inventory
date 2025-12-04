@@ -20,7 +20,6 @@ const BILLING_PORTAL_URL = '/api/billing/portal';
 export interface MessageListProps {
   messages: ChatMessage[];
   isLoading: boolean;
-  isLoadingHistory: boolean;
   isAutoReviewing: boolean;
   onRetry: (payload: { message: string; mode: 'advisor' | 'actor' }) => void;
   onSuggestionClick: (suggestion: string) => void;
@@ -33,7 +32,6 @@ export interface MessageListProps {
 export function MessageList({
   messages,
   isLoading,
-  isLoadingHistory,
   isAutoReviewing,
   onRetry,
   onSuggestionClick,
@@ -47,9 +45,7 @@ export function MessageList({
 
   return (
     <div className={styles.messages}>
-      {isLoadingHistory ? (
-        <div className={styles.loadingHistory}>Loading chat history...</div>
-      ) : messages.length === 0 ? (
+      {messages.length === 0 ? (
         <div className={styles.emptyChat}>
           <span className={styles.emptyIcon}>💬</span>
           <p>Start a conversation with your AI assistant</p>

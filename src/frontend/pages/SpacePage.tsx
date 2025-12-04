@@ -6,7 +6,17 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore, useChatIsOpen } from '../stores/chatStore';
-import type { Asset, Variant, ChatResponseResult, DescribeResponseResult, CompareResponseResult } from '../hooks/useSpaceWebSocket';
+import type {
+  Asset,
+  Variant,
+  ChatResponseResult,
+  DescribeResponseResult,
+  CompareResponseResult,
+  Plan,
+  PlanStep,
+  PendingApproval,
+  AutoExecuted,
+} from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { UsageIndicator } from '../components/UsageIndicator';
@@ -78,6 +88,19 @@ export default function SpacePage() {
   const [describeResponse, setDescribeResponse] = useState<DescribeResponseResult | null>(null);
   const [compareResponse, setCompareResponse] = useState<CompareResponseResult | null>(null);
 
+  // Get chatStore sync methods
+  const {
+    setMessages,
+    clearMessages,
+    syncServerPlan,
+    updateServerPlan,
+    updateServerPlanStep,
+    syncServerApproval,
+    updateServerApproval,
+    syncServerApprovals,
+    syncServerAutoExecuted,
+  } = useChatStore();
+
   // WebSocket connection for real-time updates
   const {
     status: wsStatus,
@@ -93,10 +116,23 @@ export default function SpacePage() {
     sendCompareRequest,
     forkAsset,
     updateAsset,
+    approveApproval: wsApproveApproval,
+    rejectApproval: wsRejectApproval,
+    approvePlan: wsApprovePlan,
+    advancePlan: wsAdvancePlan,
+    cancelPlan: wsCancelPlan,
+    rejectPlan: wsRejectPlan,
+    updateSession,
+    requestChatHistory,
+    startNewSession: wsStartNewSession,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
+      // Request chat history via WebSocket (replaces REST)
+      requestChatHistory();
+      // Sync session: user is viewing space overview (no specific asset)
+      updateSession({ viewingAssetId: null, viewingVariantId: null });
     },
     onJobComplete: (completedJob, variant) => {
       setLastCompletedJob({
@@ -116,6 +152,67 @@ export default function SpacePage() {
     },
     onCompareResponse: (response) => {
       setCompareResponse(response);
+    },
+    // Plan lifecycle callbacks
+    onPlanCreated: (plan: Plan, steps: PlanStep[]) => {
+      if (spaceId) {
+        syncServerPlan(spaceId, plan, steps);
+      }
+    },
+    onPlanUpdated: (plan: Plan) => {
+      if (spaceId) {
+        updateServerPlan(spaceId, plan);
+      }
+    },
+    onPlanStepUpdated: (step: PlanStep) => {
+      if (spaceId) {
+        updateServerPlanStep(spaceId, step);
+      }
+    },
+    // Approval lifecycle callbacks
+    onApprovalCreated: (approval: PendingApproval) => {
+      if (spaceId) {
+        syncServerApproval(spaceId, approval);
+      }
+    },
+    onApprovalUpdated: (approval: PendingApproval) => {
+      if (spaceId) {
+        updateServerApproval(spaceId, approval);
+      }
+    },
+    onApprovalList: (approvals: PendingApproval[]) => {
+      if (spaceId) {
+        syncServerApprovals(spaceId, approvals);
+      }
+    },
+    onAutoExecuted: (autoExecuted: AutoExecuted) => {
+      if (spaceId) {
+        syncServerAutoExecuted(spaceId, autoExecuted);
+      }
+    },
+    // Chat history via WebSocket (replaces REST)
+    onChatHistory: (messages, _sessionId) => {
+      if (spaceId) {
+        if (messages.length > 0) {
+          // Convert server format to client format
+          const formattedMessages = messages.map((msg, idx) => ({
+            id: `history_${idx}_${msg.created_at}`,
+            role: msg.sender_type === 'user' ? 'user' as const : 'assistant' as const,
+            content: msg.content,
+            timestamp: msg.created_at,
+          }));
+          setMessages(spaceId, formattedMessages);
+        } else {
+          // Empty history (new session) - clear messages
+          clearMessages(spaceId);
+        }
+      }
+    },
+    // New session created - clear local messages
+    onSessionCreated: () => {
+      if (spaceId) {
+        clearMessages(spaceId);
+      }
     },
   });
 
@@ -427,6 +524,13 @@ export default function SpacePage() {
             sendCompareRequest={sendCompareRequest}
             describeResponse={describeResponse}
             compareResponse={compareResponse}
+            wsApproveApproval={wsApproveApproval}
+            wsRejectApproval={wsRejectApproval}
+            wsApprovePlan={wsApprovePlan}
+            wsAdvancePlan={wsAdvancePlan}
+            wsCancelPlan={wsCancelPlan}
+            wsRejectPlan={wsRejectPlan}
+            wsStartNewSession={wsStartNewSession}
           />
         </div>
 

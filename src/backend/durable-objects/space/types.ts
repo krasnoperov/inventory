@@ -60,6 +60,18 @@ export interface Variant {
   created_by: string;
   created_at: number;
   updated_at: number | null; // Track status changes
+  plan_step_id: string | null; // If this variant was created by a plan step
+}
+
+/**
+ * ChatSession - A conversation thread in the space
+ */
+export interface ChatSession {
+  id: string;
+  title: string | null;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
 }
 
 /**
@@ -67,6 +79,7 @@ export interface Variant {
  */
 export interface ChatMessage {
   id: string;
+  session_id: string | null;
   sender_type: 'user' | 'bot';
   sender_id: string;
   content: string;
@@ -84,6 +97,114 @@ export interface Lineage {
   relation_type: 'derived' | 'refined' | 'forked';
   severed: boolean; // User can cut the link if desired
   created_at: number;
+}
+
+/**
+ * Plan status lifecycle
+ */
+export type PlanStatus = 'planning' | 'executing' | 'paused' | 'completed' | 'failed' | 'cancelled';
+
+/**
+ * Plan step status lifecycle
+ */
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+
+/**
+ * Plan - A multi-step assistant workflow
+ */
+export interface Plan {
+  id: string;
+  goal: string;
+  status: PlanStatus;
+  current_step_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * PlanStep - A single step in a plan
+ */
+export interface PlanStep {
+  id: string;
+  plan_id: string;
+  step_index: number;
+  description: string;
+  action: string; // 'generate', 'derive', 'refine', 'fork', 'add_to_tray', etc.
+  params: string; // JSON
+  status: PlanStepStatus;
+  result: string | null;
+  error: string | null;
+  created_at: number;
+  updated_at: number | null;
+}
+
+/**
+ * Approval status lifecycle
+ */
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+
+/**
+ * PendingApproval - A tool call awaiting user approval (trust zones)
+ */
+export interface PendingApproval {
+  id: string;
+  request_id: string;
+  plan_id: string | null;
+  plan_step_id: string | null;
+  tool: string; // 'derive', 'generate', 'refine', etc.
+  params: string; // JSON
+  description: string;
+  status: ApprovalStatus;
+  created_by: string;
+  approved_by: string | null;
+  rejected_by: string | null;
+  error_message: string | null;
+  result_job_id: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * AutoExecuted - Result of a safe auto-executed tool (describe, search, compare)
+ */
+export interface AutoExecuted {
+  id: string;
+  request_id: string;
+  tool: string;
+  params: string; // JSON
+  result: string; // JSON
+  success: boolean;
+  error: string | null;
+  created_at: number;
+}
+
+/**
+ * UserSession - Per-user context for stateless CLI and cross-client sync
+ */
+export interface UserSession {
+  user_id: string;
+  viewing_asset_id: string | null;
+  viewing_variant_id: string | null;
+  forge_context: string | null; // JSON: { operation, slots, prompt }
+  active_chat_session_id: string | null; // Current chat session
+  last_seen: number;
+  updated_at: number;
+}
+
+/**
+ * ChatMessageMetadata - Extended fields stored in chat_messages.metadata
+ */
+export interface ChatMessageMetadata {
+  mode?: 'advisor' | 'actor';
+  type?: 'advice' | 'action' | 'plan';
+  thumbnail?: { url: string; assetName: string; assetId?: string };
+  quotaError?: { service: string; used: number; limit: number | null };
+  rateLimitError?: { resetsAt: string | null; remainingSeconds: number };
+  isError?: boolean;
+  planId?: string;
+  approvalIds?: string[];
+  autoExecutedIds?: string[];
 }
 
 // ============================================================================
@@ -133,6 +254,20 @@ export type ClientMessage =
   | { type: 'presence:update'; viewing?: string }
   // Chat
   | { type: 'chat:send'; content: string }
+  | { type: 'chat:history'; since?: number } // Request chat history for active session
+  | { type: 'chat:new_session' } // Start a new chat session
+  // Plan operations
+  | { type: 'plan:approve'; planId: string }
+  | { type: 'plan:reject'; planId: string }
+  | { type: 'plan:cancel'; planId: string }
+  | { type: 'plan:advance'; planId: string } // Execute next step
+  // Approval operations
+  | { type: 'approval:approve'; approvalId: string }
+  | { type: 'approval:reject'; approvalId: string }
+  | { type: 'approval:list' } // Request pending approvals
+  // Session context operations
+  | { type: 'session:get' }
+  | { type: 'session:update'; viewingAssetId?: string | null; viewingVariantId?: string | null; forgeContext?: string | null }
   // Workflow-triggering messages
   | ChatRequestMessage
   | GenerateRequestMessage
@@ -151,6 +286,9 @@ export type ClientMessage =
 export type ServerMessage =
   // Sync (full state)
   | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[] }
+  // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
+  // Consider implementing for WebSocket reconnection state recovery.
+  // | { type: 'sync:chat_state'; messages: ChatMessage[]; plan: Plan | null; planSteps: PlanStep[]; approvals: PendingApproval[]; autoExecuted: AutoExecuted[] }
   // Asset mutations
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
@@ -169,6 +307,22 @@ export type ServerMessage =
   | { type: 'job:failed'; jobId: string; error: string }
   // Chat
   | { type: 'chat:message'; message: ChatMessage }
+  | { type: 'chat:history'; messages: ChatMessage[]; sessionId: string | null }
+  | { type: 'chat:session_created'; session: ChatSession }
+  // Plan mutations
+  | { type: 'plan:created'; plan: Plan; steps: PlanStep[] }
+  | { type: 'plan:updated'; plan: Plan }
+  | { type: 'plan:step_updated'; step: PlanStep }
+  | { type: 'plan:deleted'; planId: string }
+  // Approval mutations
+  | { type: 'approval:created'; approval: PendingApproval }
+  | { type: 'approval:updated'; approval: PendingApproval }
+  | { type: 'approval:deleted'; approvalId: string }
+  | { type: 'approval:list'; approvals: PendingApproval[] }
+  // Auto-executed results
+  | { type: 'auto_executed'; autoExecuted: AutoExecuted }
+  // Session context
+  | { type: 'session:state'; session: UserSession }
   // Presence
   | { type: 'presence:update'; presence: UserPresence[] }
   // Errors

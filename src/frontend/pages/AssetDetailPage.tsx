@@ -18,6 +18,10 @@ import {
   type ChatResponseResult,
   type DescribeResponseResult,
   type CompareResponseResult,
+  type Plan,
+  type PlanStep,
+  type PendingApproval,
+  type AutoExecuted,
 } from '../hooks/useSpaceWebSocket';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { ForgeTray } from '../components/ForgeTray';
@@ -113,6 +117,18 @@ export default function AssetDetailPage() {
   const [describeResponse, setDescribeResponse] = useState<DescribeResponseResult | null>(null);
   const [compareResponse, setCompareResponse] = useState<CompareResponseResult | null>(null);
 
+  // Get chatStore sync methods
+  const {
+    setMessages,
+    clearMessages,
+    syncServerPlan,
+    updateServerPlan,
+    updateServerPlanStep,
+    syncServerApproval,
+    updateServerApproval,
+    syncServerApprovals,
+    syncServerAutoExecuted,
+  } = useChatStore();
 
   // WebSocket for real-time updates
   const {
@@ -135,10 +151,21 @@ export default function AssetDetailPage() {
     sendCompareRequest,
     forkAsset,
     getChildren,
+    approveApproval: wsApproveApproval,
+    rejectApproval: wsRejectApproval,
+    approvePlan: wsApprovePlan,
+    advancePlan: wsAdvancePlan,
+    cancelPlan: wsCancelPlan,
+    rejectPlan: wsRejectPlan,
+    updateSession,
+    requestChatHistory,
+    startNewSession: wsStartNewSession,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
+      // Request chat history via WebSocket (replaces REST)
+      requestChatHistory();
     },
     onJobComplete: (completedJob, variant) => {
       setLastCompletedJob({
@@ -162,6 +189,67 @@ export default function AssetDetailPage() {
     },
     onCompareResponse: (response) => {
       setCompareResponse(response);
+    },
+    // Plan lifecycle callbacks
+    onPlanCreated: (plan: Plan, steps: PlanStep[]) => {
+      if (spaceId) {
+        syncServerPlan(spaceId, plan, steps);
+      }
+    },
+    onPlanUpdated: (plan: Plan) => {
+      if (spaceId) {
+        updateServerPlan(spaceId, plan);
+      }
+    },
+    onPlanStepUpdated: (step: PlanStep) => {
+      if (spaceId) {
+        updateServerPlanStep(spaceId, step);
+      }
+    },
+    // Approval lifecycle callbacks
+    onApprovalCreated: (approval: PendingApproval) => {
+      if (spaceId) {
+        syncServerApproval(spaceId, approval);
+      }
+    },
+    onApprovalUpdated: (approval: PendingApproval) => {
+      if (spaceId) {
+        updateServerApproval(spaceId, approval);
+      }
+    },
+    onApprovalList: (approvals: PendingApproval[]) => {
+      if (spaceId) {
+        syncServerApprovals(spaceId, approvals);
+      }
+    },
+    onAutoExecuted: (autoExecuted: AutoExecuted) => {
+      if (spaceId) {
+        syncServerAutoExecuted(spaceId, autoExecuted);
+      }
+    },
+    // Chat history via WebSocket (replaces REST)
+    onChatHistory: (messages, _sessionId) => {
+      if (spaceId) {
+        if (messages.length > 0) {
+          // Convert server format to client format
+          const formattedMessages = messages.map((msg, idx) => ({
+            id: `history_${idx}_${msg.created_at}`,
+            role: msg.sender_type === 'user' ? 'user' as const : 'assistant' as const,
+            content: msg.content,
+            timestamp: msg.created_at,
+          }));
+          setMessages(spaceId, formattedMessages);
+        } else {
+          // Empty history (new session) - clear messages
+          clearMessages(spaceId);
+        }
+      }
+    },
+    // New session created - clear local messages
+    onSessionCreated: () => {
+      if (spaceId) {
+        clearMessages(spaceId);
+      }
     },
   });
 
@@ -280,6 +368,15 @@ export default function AssetDetailPage() {
 
     fetchAssetDetails();
   }, [user, spaceId, assetId, navigate]);
+
+  // Sync session context when asset/variant changes
+  useEffect(() => {
+    if (wsStatus !== 'connected' || !assetId) return;
+    updateSession({
+      viewingAssetId: assetId,
+      viewingVariantId: selectedVariantId ?? null,
+    });
+  }, [wsStatus, assetId, selectedVariantId, updateSession]);
 
   // Sync WebSocket updates with local state
   useEffect(() => {
@@ -777,6 +874,13 @@ export default function AssetDetailPage() {
             sendCompareRequest={sendCompareRequest}
             describeResponse={describeResponse}
             compareResponse={compareResponse}
+            wsApproveApproval={wsApproveApproval}
+            wsRejectApproval={wsRejectApproval}
+            wsApprovePlan={wsApprovePlan}
+            wsAdvancePlan={wsAdvancePlan}
+            wsCancelPlan={wsCancelPlan}
+            wsRejectPlan={wsRejectPlan}
+            wsStartNewSession={wsStartNewSession}
           />
         </div>
       </div>

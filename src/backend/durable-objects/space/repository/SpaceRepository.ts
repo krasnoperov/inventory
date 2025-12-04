@@ -11,12 +11,32 @@
  * - Clear separation of concerns
  */
 
-import type { Asset, Variant, ChatMessage, Lineage } from '../types';
+import type {
+  Asset,
+  Variant,
+  ChatSession,
+  ChatMessage,
+  Lineage,
+  Plan,
+  PlanStep,
+  PlanStatus,
+  PlanStepStatus,
+  PendingApproval,
+  ApprovalStatus,
+  AutoExecuted,
+  UserSession,
+} from '../types';
 import {
   AssetQueries,
   VariantQueries,
   LineageQueries,
   ChatQueries,
+  ChatSessionQueries,
+  PlanQueries,
+  PlanStepQueries,
+  ApprovalQueries,
+  AutoExecutedQueries,
+  UserSessionQueries,
   buildAssetUpdateQuery,
   buildInClause,
 } from '../queries';
@@ -296,12 +316,14 @@ export class SpaceRepository {
   /**
    * Create a placeholder variant for a pending generation.
    * No image refs are incremented since there are no images yet.
+   * If planStepId is provided, this variant is linked to a plan step.
    */
   async createPlaceholderVariant(data: {
     id: string;
     assetId: string;
     recipe: string;
     createdBy: string;
+    planStepId?: string;
   }): Promise<Variant> {
     const now = Date.now();
     await this.sql.exec(
@@ -311,7 +333,8 @@ export class SpaceRepository {
       data.recipe,
       data.createdBy,
       now,
-      now
+      now,
+      data.planStepId ?? null
     );
     return (await this.getVariantById(data.id))!;
   }
@@ -471,8 +494,69 @@ export class SpaceRepository {
   }
 
   // ==========================================================================
-  // Chat Operations
+  // Chat Session Operations
   // ==========================================================================
+
+  async getChatSessionById(id: string): Promise<ChatSession | null> {
+    const result = await this.sql.exec(ChatSessionQueries.GET_BY_ID, id);
+    return (result.toArray()[0] as ChatSession) ?? null;
+  }
+
+  async getAllChatSessions(): Promise<ChatSession[]> {
+    const result = await this.sql.exec(ChatSessionQueries.GET_ALL);
+    return result.toArray() as ChatSession[];
+  }
+
+  async getRecentChatSessions(limit: number = 10): Promise<ChatSession[]> {
+    const result = await this.sql.exec(ChatSessionQueries.GET_RECENT, limit);
+    return result.toArray() as ChatSession[];
+  }
+
+  async createChatSession(session: {
+    id: string;
+    title?: string | null;
+    createdBy: string;
+  }): Promise<ChatSession> {
+    const now = Date.now();
+    await this.sql.exec(
+      ChatSessionQueries.INSERT,
+      session.id,
+      session.title ?? null,
+      session.createdBy,
+      now,
+      now
+    );
+    return (await this.getChatSessionById(session.id))!;
+  }
+
+  async updateChatSessionTitle(sessionId: string, title: string): Promise<ChatSession | null> {
+    const existing = await this.getChatSessionById(sessionId);
+    if (!existing) return null;
+
+    await this.sql.exec(ChatSessionQueries.UPDATE_TITLE, title, Date.now(), sessionId);
+    return this.getChatSessionById(sessionId);
+  }
+
+  async touchChatSession(sessionId: string): Promise<void> {
+    await this.sql.exec(ChatSessionQueries.TOUCH, Date.now(), sessionId);
+  }
+
+  async deleteChatSession(sessionId: string): Promise<boolean> {
+    const existing = await this.getChatSessionById(sessionId);
+    if (!existing) return false;
+
+    await this.sql.exec(ChatSessionQueries.DELETE, sessionId);
+    return true;
+  }
+
+  // ==========================================================================
+  // Chat Message Operations
+  // ==========================================================================
+
+  async getChatHistoryBySession(sessionId: string, limit: number = 100): Promise<ChatMessage[]> {
+    const result = await this.sql.exec(ChatQueries.GET_BY_SESSION, sessionId, limit);
+    return result.toArray() as ChatMessage[];
+  }
 
   async getChatHistory(limit: number = 20): Promise<ChatMessage[]> {
     const result = await this.sql.exec(ChatQueries.GET_RECENT, limit);
@@ -481,6 +565,7 @@ export class SpaceRepository {
 
   async createChatMessage(message: {
     id: string;
+    sessionId?: string | null;
     senderType: 'user' | 'bot';
     senderId: string;
     content: string;
@@ -490,20 +575,32 @@ export class SpaceRepository {
     await this.sql.exec(
       ChatQueries.INSERT,
       message.id,
+      message.sessionId ?? null,
       message.senderType,
       message.senderId,
       message.content,
       message.metadata ?? null,
       now
     );
+
+    // Touch the session to update its timestamp
+    if (message.sessionId) {
+      await this.touchChatSession(message.sessionId);
+    }
+
     return {
       id: message.id,
+      session_id: message.sessionId ?? null,
       sender_type: message.senderType,
       sender_id: message.senderId,
       content: message.content,
       metadata: message.metadata ?? null,
       created_at: now,
     };
+  }
+
+  async clearChatHistoryBySession(sessionId: string): Promise<void> {
+    await this.sql.exec(ChatQueries.DELETE_BY_SESSION, sessionId);
   }
 
   async clearChatHistory(): Promise<void> {
@@ -521,6 +618,321 @@ export class SpaceRepository {
       this.getAllLineage(),
     ]);
     return { assets, variants, lineage };
+  }
+
+  // ==========================================================================
+  // Plan Operations
+  // ==========================================================================
+
+  async getActivePlan(): Promise<Plan | null> {
+    const result = await this.sql.exec(PlanQueries.GET_ACTIVE);
+    return (result.toArray()[0] as Plan) ?? null;
+  }
+
+  async getPlanById(id: string): Promise<Plan | null> {
+    const result = await this.sql.exec(PlanQueries.GET_BY_ID, id);
+    return (result.toArray()[0] as Plan) ?? null;
+  }
+
+  async createPlan(plan: {
+    id: string;
+    goal: string;
+    status?: PlanStatus;
+    createdBy: string;
+  }): Promise<Plan> {
+    const now = Date.now();
+    await this.sql.exec(
+      PlanQueries.INSERT,
+      plan.id,
+      plan.goal,
+      plan.status ?? 'planning',
+      0, // current_step_index
+      plan.createdBy,
+      now,
+      now
+    );
+    return (await this.getPlanById(plan.id))!;
+  }
+
+  async updatePlanStatus(planId: string, status: PlanStatus): Promise<Plan | null> {
+    const existing = await this.getPlanById(planId);
+    if (!existing) return null;
+
+    await this.sql.exec(PlanQueries.UPDATE_STATUS, status, Date.now(), planId);
+    return this.getPlanById(planId);
+  }
+
+  async updatePlanStepIndex(planId: string, stepIndex: number): Promise<Plan | null> {
+    const existing = await this.getPlanById(planId);
+    if (!existing) return null;
+
+    await this.sql.exec(PlanQueries.UPDATE_STEP_INDEX, stepIndex, Date.now(), planId);
+    return this.getPlanById(planId);
+  }
+
+  async updatePlanStatusAndIndex(
+    planId: string,
+    status: PlanStatus,
+    stepIndex: number
+  ): Promise<Plan | null> {
+    const existing = await this.getPlanById(planId);
+    if (!existing) return null;
+
+    await this.sql.exec(PlanQueries.UPDATE_STATUS_AND_INDEX, status, stepIndex, Date.now(), planId);
+    return this.getPlanById(planId);
+  }
+
+  async deletePlan(planId: string): Promise<boolean> {
+    const existing = await this.getPlanById(planId);
+    if (!existing) return false;
+
+    await this.sql.exec(PlanQueries.DELETE, planId);
+    return true;
+  }
+
+  // ==========================================================================
+  // Plan Step Operations
+  // ==========================================================================
+
+  async getPlanSteps(planId: string): Promise<PlanStep[]> {
+    const result = await this.sql.exec(PlanStepQueries.GET_BY_PLAN, planId);
+    return result.toArray() as PlanStep[];
+  }
+
+  async getPlanStepById(id: string): Promise<PlanStep | null> {
+    const result = await this.sql.exec(PlanStepQueries.GET_BY_ID, id);
+    return (result.toArray()[0] as PlanStep) ?? null;
+  }
+
+  async getNextPendingStep(planId: string): Promise<PlanStep | null> {
+    const result = await this.sql.exec(PlanStepQueries.GET_NEXT_PENDING, planId);
+    return (result.toArray()[0] as PlanStep) ?? null;
+  }
+
+  async createPlanStep(step: {
+    id: string;
+    planId: string;
+    stepIndex: number;
+    description: string;
+    action: string;
+    params: string; // JSON
+  }): Promise<PlanStep> {
+    const now = Date.now();
+    await this.sql.exec(
+      PlanStepQueries.INSERT,
+      step.id,
+      step.planId,
+      step.stepIndex,
+      step.description,
+      step.action,
+      step.params,
+      'pending',
+      now
+    );
+    return (await this.getPlanStepById(step.id))!;
+  }
+
+  async updateStepStatus(stepId: string, status: PlanStepStatus): Promise<PlanStep | null> {
+    const existing = await this.getPlanStepById(stepId);
+    if (!existing) return null;
+
+    await this.sql.exec(PlanStepQueries.UPDATE_STATUS, status, Date.now(), stepId);
+    return this.getPlanStepById(stepId);
+  }
+
+  async completeStep(stepId: string, result: string): Promise<PlanStep | null> {
+    const existing = await this.getPlanStepById(stepId);
+    if (!existing) return null;
+
+    await this.sql.exec(PlanStepQueries.UPDATE_RESULT, 'completed', result, Date.now(), stepId);
+    return this.getPlanStepById(stepId);
+  }
+
+  async failStep(stepId: string, error: string): Promise<PlanStep | null> {
+    const existing = await this.getPlanStepById(stepId);
+    if (!existing) return null;
+
+    await this.sql.exec(PlanStepQueries.UPDATE_ERROR, 'failed', error, Date.now(), stepId);
+    return this.getPlanStepById(stepId);
+  }
+
+  // ==========================================================================
+  // Approval Operations
+  // ==========================================================================
+
+  async getPendingApprovals(): Promise<PendingApproval[]> {
+    const result = await this.sql.exec(ApprovalQueries.GET_PENDING);
+    return result.toArray() as PendingApproval[];
+  }
+
+  async getApprovalById(id: string): Promise<PendingApproval | null> {
+    const result = await this.sql.exec(ApprovalQueries.GET_BY_ID, id);
+    return (result.toArray()[0] as PendingApproval) ?? null;
+  }
+
+  async getApprovalsByRequest(requestId: string): Promise<PendingApproval[]> {
+    const result = await this.sql.exec(ApprovalQueries.GET_BY_REQUEST, requestId);
+    return result.toArray() as PendingApproval[];
+  }
+
+  async getApprovalsByPlan(planId: string): Promise<PendingApproval[]> {
+    const result = await this.sql.exec(ApprovalQueries.GET_BY_PLAN, planId);
+    return result.toArray() as PendingApproval[];
+  }
+
+  async createApproval(approval: {
+    id: string;
+    requestId: string;
+    planId?: string | null;
+    planStepId?: string | null;
+    tool: string;
+    params: string; // JSON
+    description: string;
+    createdBy: string;
+  }): Promise<PendingApproval> {
+    const now = Date.now();
+    await this.sql.exec(
+      ApprovalQueries.INSERT,
+      approval.id,
+      approval.requestId,
+      approval.planId ?? null,
+      approval.planStepId ?? null,
+      approval.tool,
+      approval.params,
+      approval.description,
+      'pending',
+      approval.createdBy,
+      now,
+      now
+    );
+    return (await this.getApprovalById(approval.id))!;
+  }
+
+  async approveApproval(approvalId: string, approvedBy: string): Promise<PendingApproval | null> {
+    const existing = await this.getApprovalById(approvalId);
+    if (!existing) return null;
+
+    await this.sql.exec(ApprovalQueries.APPROVE, approvedBy, Date.now(), approvalId);
+    return this.getApprovalById(approvalId);
+  }
+
+  async rejectApproval(approvalId: string, rejectedBy: string): Promise<PendingApproval | null> {
+    const existing = await this.getApprovalById(approvalId);
+    if (!existing) return null;
+
+    await this.sql.exec(ApprovalQueries.REJECT, rejectedBy, Date.now(), approvalId);
+    return this.getApprovalById(approvalId);
+  }
+
+  async executeApproval(approvalId: string, resultJobId: string): Promise<PendingApproval | null> {
+    const existing = await this.getApprovalById(approvalId);
+    if (!existing) return null;
+
+    await this.sql.exec(ApprovalQueries.EXECUTE, resultJobId, Date.now(), approvalId);
+    return this.getApprovalById(approvalId);
+  }
+
+  async failApproval(approvalId: string, errorMessage: string): Promise<PendingApproval | null> {
+    const existing = await this.getApprovalById(approvalId);
+    if (!existing) return null;
+
+    await this.sql.exec(ApprovalQueries.FAIL, errorMessage, Date.now(), approvalId);
+    return this.getApprovalById(approvalId);
+  }
+
+  // ==========================================================================
+  // Auto-Executed Operations
+  // ==========================================================================
+
+  async getAutoExecutedByRequest(requestId: string): Promise<AutoExecuted[]> {
+    const result = await this.sql.exec(AutoExecutedQueries.GET_BY_REQUEST, requestId);
+    return (result.toArray() as Array<Omit<AutoExecuted, 'success'> & { success: number }>).map((row) => ({
+      ...row,
+      success: Boolean(row.success),
+    }));
+  }
+
+  async getRecentAutoExecuted(limit: number = 20): Promise<AutoExecuted[]> {
+    const result = await this.sql.exec(AutoExecutedQueries.GET_RECENT, limit);
+    return (result.toArray() as Array<Omit<AutoExecuted, 'success'> & { success: number }>).map((row) => ({
+      ...row,
+      success: Boolean(row.success),
+    }));
+  }
+
+  async createAutoExecuted(autoExecuted: {
+    id: string;
+    requestId: string;
+    tool: string;
+    params: string;
+    result: string;
+    success: boolean;
+    error?: string | null;
+  }): Promise<AutoExecuted> {
+    const now = Date.now();
+    await this.sql.exec(
+      AutoExecutedQueries.INSERT,
+      autoExecuted.id,
+      autoExecuted.requestId,
+      autoExecuted.tool,
+      autoExecuted.params,
+      autoExecuted.result,
+      autoExecuted.success ? 1 : 0,
+      autoExecuted.error ?? null,
+      now
+    );
+    return {
+      id: autoExecuted.id,
+      request_id: autoExecuted.requestId,
+      tool: autoExecuted.tool,
+      params: autoExecuted.params,
+      result: autoExecuted.result,
+      success: autoExecuted.success,
+      error: autoExecuted.error ?? null,
+      created_at: now,
+    };
+  }
+
+  // ==========================================================================
+  // User Session Operations
+  // ==========================================================================
+
+  async getUserSession(userId: string): Promise<UserSession | null> {
+    const result = await this.sql.exec(UserSessionQueries.GET_BY_USER, userId);
+    return (result.toArray()[0] as UserSession) ?? null;
+  }
+
+  async upsertUserSession(session: {
+    userId: string;
+    viewingAssetId?: string | null;
+    viewingVariantId?: string | null;
+    forgeContext?: string | null;
+    activeChatSessionId?: string | null;
+  }): Promise<UserSession> {
+    const now = Date.now();
+    await this.sql.exec(
+      UserSessionQueries.UPSERT,
+      session.userId,
+      session.viewingAssetId ?? null,
+      session.viewingVariantId ?? null,
+      session.forgeContext ?? null,
+      session.activeChatSessionId ?? null,
+      now,
+      now
+    );
+    return (await this.getUserSession(session.userId))!;
+  }
+
+  async updateUserActiveChatSession(userId: string, sessionId: string | null): Promise<UserSession | null> {
+    const existing = await this.getUserSession(userId);
+    if (!existing) return null;
+
+    await this.sql.exec(UserSessionQueries.UPDATE_CHAT_SESSION, sessionId, Date.now(), userId);
+    return this.getUserSession(userId);
+  }
+
+  async updateUserLastSeen(userId: string): Promise<void> {
+    await this.sql.exec(UserSessionQueries.UPDATE_LAST_SEEN, Date.now(), userId);
   }
 
   // ==========================================================================

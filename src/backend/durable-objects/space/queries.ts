@@ -69,8 +69,8 @@ export const VariantQueries = {
     WHERE v.id = ?`,
 
   /** Insert new placeholder variant (pending status) */
-  INSERT_PLACEHOLDER: `INSERT INTO variants (id, asset_id, status, recipe, created_by, created_at, updated_at)
-                       VALUES (?, ?, 'pending', ?, ?, ?, ?)`,
+  INSERT_PLACEHOLDER: `INSERT INTO variants (id, asset_id, status, recipe, created_by, created_at, updated_at, plan_step_id)
+                       VALUES (?, ?, 'pending', ?, ?, ?, ?, ?)`,
 
   /** Insert new completed variant (legacy - for forks/imports) */
   INSERT: `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
@@ -141,18 +141,52 @@ export const LineageQueries = {
 // ============================================================================
 
 export const ChatQueries = {
-  /** Get recent chat messages */
+  /** Get recent chat messages for a session */
+  GET_BY_SESSION: 'SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at DESC LIMIT ?',
+
+  /** Get recent chat messages (legacy, all sessions) */
   GET_RECENT: 'SELECT * FROM chat_messages ORDER BY created_at DESC LIMIT ?',
 
   /** Get all chat messages (limited) */
   GET_ALL: 'SELECT * FROM chat_messages ORDER BY created_at DESC LIMIT 100',
 
   /** Insert new chat message */
-  INSERT: `INSERT INTO chat_messages (id, sender_type, sender_id, content, metadata, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+  INSERT: `INSERT INTO chat_messages (id, session_id, sender_type, sender_id, content, metadata, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+
+  /** Delete all chat messages for a session */
+  DELETE_BY_SESSION: 'DELETE FROM chat_messages WHERE session_id = ?',
 
   /** Delete all chat messages */
   DELETE_ALL: 'DELETE FROM chat_messages',
+} as const;
+
+// ============================================================================
+// Chat Session Queries
+// ============================================================================
+
+export const ChatSessionQueries = {
+  /** Get session by ID */
+  GET_BY_ID: 'SELECT * FROM chat_sessions WHERE id = ?',
+
+  /** Get all sessions ordered by most recent */
+  GET_ALL: 'SELECT * FROM chat_sessions ORDER BY updated_at DESC',
+
+  /** Get recent sessions */
+  GET_RECENT: 'SELECT * FROM chat_sessions ORDER BY updated_at DESC LIMIT ?',
+
+  /** Insert new session */
+  INSERT: `INSERT INTO chat_sessions (id, title, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?)`,
+
+  /** Update session title */
+  UPDATE_TITLE: 'UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?',
+
+  /** Update session updated_at timestamp */
+  TOUCH: 'UPDATE chat_sessions SET updated_at = ? WHERE id = ?',
+
+  /** Delete session by ID (cascades to messages) */
+  DELETE: 'DELETE FROM chat_sessions WHERE id = ?',
 } as const;
 
 // ============================================================================
@@ -171,6 +205,162 @@ export const ImageRefQueries = {
 
   /** Delete image reference */
   DELETE: 'DELETE FROM image_refs WHERE image_key = ?',
+} as const;
+
+// ============================================================================
+// Plan Queries
+// ============================================================================
+
+export const PlanQueries = {
+  /** Get active plan (non-completed, non-cancelled) */
+  GET_ACTIVE: `SELECT * FROM plans
+               WHERE status NOT IN ('completed', 'cancelled', 'failed')
+               ORDER BY created_at DESC LIMIT 1`,
+
+  /** Get plan by ID */
+  GET_BY_ID: 'SELECT * FROM plans WHERE id = ?',
+
+  /** Get recent plans */
+  GET_RECENT: 'SELECT * FROM plans ORDER BY created_at DESC LIMIT ?',
+
+  /** Insert new plan */
+  INSERT: `INSERT INTO plans (id, goal, status, current_step_index, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+
+  /** Update plan status */
+  UPDATE_STATUS: 'UPDATE plans SET status = ?, updated_at = ? WHERE id = ?',
+
+  /** Update plan step index */
+  UPDATE_STEP_INDEX: 'UPDATE plans SET current_step_index = ?, updated_at = ? WHERE id = ?',
+
+  /** Update plan status and step index */
+  UPDATE_STATUS_AND_INDEX: 'UPDATE plans SET status = ?, current_step_index = ?, updated_at = ? WHERE id = ?',
+
+  /** Delete plan by ID */
+  DELETE: 'DELETE FROM plans WHERE id = ?',
+} as const;
+
+// ============================================================================
+// Plan Step Queries
+// ============================================================================
+
+export const PlanStepQueries = {
+  /** Get steps for a plan */
+  GET_BY_PLAN: 'SELECT * FROM plan_steps WHERE plan_id = ? ORDER BY step_index ASC',
+
+  /** Get step by ID */
+  GET_BY_ID: 'SELECT * FROM plan_steps WHERE id = ?',
+
+  /** Get next pending step for a plan */
+  GET_NEXT_PENDING: `SELECT * FROM plan_steps
+                     WHERE plan_id = ? AND status = 'pending'
+                     ORDER BY step_index ASC LIMIT 1`,
+
+  /** Insert new plan step */
+  INSERT: `INSERT INTO plan_steps (id, plan_id, step_index, description, action, params, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+
+  /** Update step status */
+  UPDATE_STATUS: 'UPDATE plan_steps SET status = ?, updated_at = ? WHERE id = ?',
+
+  /** Update step with result */
+  UPDATE_RESULT: 'UPDATE plan_steps SET status = ?, result = ?, updated_at = ? WHERE id = ?',
+
+  /** Update step with error */
+  UPDATE_ERROR: 'UPDATE plan_steps SET status = ?, error = ?, updated_at = ? WHERE id = ?',
+
+  /** Delete steps for a plan */
+  DELETE_BY_PLAN: 'DELETE FROM plan_steps WHERE plan_id = ?',
+} as const;
+
+// ============================================================================
+// Approval Queries
+// ============================================================================
+
+export const ApprovalQueries = {
+  /** Get pending approvals */
+  GET_PENDING: `SELECT * FROM pending_approvals
+                WHERE status = 'pending'
+                ORDER BY created_at ASC`,
+
+  /** Get all approvals for a request */
+  GET_BY_REQUEST: 'SELECT * FROM pending_approvals WHERE request_id = ? ORDER BY created_at ASC',
+
+  /** Get approval by ID */
+  GET_BY_ID: 'SELECT * FROM pending_approvals WHERE id = ?',
+
+  /** Get approvals for a plan */
+  GET_BY_PLAN: 'SELECT * FROM pending_approvals WHERE plan_id = ? ORDER BY created_at ASC',
+
+  /** Insert new approval */
+  INSERT: `INSERT INTO pending_approvals
+           (id, request_id, plan_id, plan_step_id, tool, params, description, status, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+
+  /** Approve an approval */
+  APPROVE: `UPDATE pending_approvals SET status = 'approved', approved_by = ?, updated_at = ? WHERE id = ?`,
+
+  /** Reject an approval */
+  REJECT: `UPDATE pending_approvals SET status = 'rejected', rejected_by = ?, updated_at = ? WHERE id = ?`,
+
+  /** Mark approval as executed */
+  EXECUTE: `UPDATE pending_approvals SET status = 'executed', result_job_id = ?, updated_at = ? WHERE id = ?`,
+
+  /** Mark approval as failed */
+  FAIL: `UPDATE pending_approvals SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
+
+  /** Delete old approvals (cleanup) */
+  DELETE_OLD: `DELETE FROM pending_approvals
+               WHERE status IN ('executed', 'rejected', 'failed')
+               AND updated_at < ?`,
+} as const;
+
+// ============================================================================
+// Auto-Executed Queries
+// ============================================================================
+
+export const AutoExecutedQueries = {
+  /** Get by request ID */
+  GET_BY_REQUEST: 'SELECT * FROM auto_executed WHERE request_id = ? ORDER BY created_at ASC',
+
+  /** Get recent auto-executed */
+  GET_RECENT: 'SELECT * FROM auto_executed ORDER BY created_at DESC LIMIT ?',
+
+  /** Insert new auto-executed result */
+  INSERT: `INSERT INTO auto_executed (id, request_id, tool, params, result, success, error, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+
+  /** Delete old auto-executed (cleanup) */
+  DELETE_OLD: 'DELETE FROM auto_executed WHERE created_at < ?',
+} as const;
+
+// ============================================================================
+// User Session Queries
+// ============================================================================
+
+export const UserSessionQueries = {
+  /** Get session by user ID */
+  GET_BY_USER: 'SELECT * FROM user_sessions WHERE user_id = ?',
+
+  /** Upsert user session */
+  UPSERT: `INSERT INTO user_sessions (user_id, viewing_asset_id, viewing_variant_id, forge_context, active_chat_session_id, last_seen, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(user_id) DO UPDATE SET
+             viewing_asset_id = excluded.viewing_asset_id,
+             viewing_variant_id = excluded.viewing_variant_id,
+             forge_context = excluded.forge_context,
+             active_chat_session_id = excluded.active_chat_session_id,
+             last_seen = excluded.last_seen,
+             updated_at = excluded.updated_at`,
+
+  /** Update active chat session */
+  UPDATE_CHAT_SESSION: 'UPDATE user_sessions SET active_chat_session_id = ?, updated_at = ? WHERE user_id = ?',
+
+  /** Update last seen */
+  UPDATE_LAST_SEEN: 'UPDATE user_sessions SET last_seen = ? WHERE user_id = ?',
+
+  /** Delete old sessions (cleanup) */
+  DELETE_OLD: 'DELETE FROM user_sessions WHERE last_seen < ?',
 } as const;
 
 // ============================================================================
