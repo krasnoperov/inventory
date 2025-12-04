@@ -6,7 +6,7 @@
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: calc(6px * var(--node-scale));
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   cursor: pointer;
   box-shadow: 0 2px 8px oklch(0% 0 0 / 0.08);
   /* Fill React Flow's allocated space */
@@ -47,7 +47,7 @@
   height: 10px !important;
   background: var(--color-border) !important;
   border: 2px solid var(--color-surface) !important;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .node:hover .handle {
@@ -160,7 +160,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
   box-shadow: 0 2px 6px oklch(0% 0 0 / 0.15);
 }
 
@@ -226,7 +226,7 @@
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   background: oklch(55% 0.18 276 / 0.1);
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
 .forkedToLink:hover {
@@ -247,7 +247,7 @@
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   background: oklch(70% 0.15 145 / 0.15);
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
 .forkedFromLink:hover {

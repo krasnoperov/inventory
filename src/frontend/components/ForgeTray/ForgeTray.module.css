@@ -216,11 +216,12 @@
   flex-wrap: wrap;
 }
 
-/* Destination Toggle Group */
+/* Destination Toggle Group - Soft toggle style */
 .destinationToggle {
   display: flex;
+  gap: 0.25rem;
+  padding: 0.1875rem;
   border-radius: 8px;
-  overflow: hidden;
   background: var(--forge-slot-bg);
   border: 1px solid var(--forge-bar-border-inner);
 }
@@ -230,32 +231,25 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.375rem 0.625rem;
-  background: transparent;
+  background: var(--surface-glass);
   border: none;
+  border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
   white-space: nowrap;
 }
 
-.destButton:first-child {
-  border-right: 1px solid var(--forge-bar-border-inner);
-}
-
-.destButton:hover:not(:disabled) {
+.destButton:hover:not(:disabled):not(.active) {
   color: var(--color-text);
-  background: var(--surface-glass);
+  background: oklch(50% 0 0 / 0.15);
 }
 
 .destButton.active {
   background: var(--color-primary);
   color: white;
-}
-
-.destButton.active:hover:not(:disabled) {
-  background: var(--color-primary-hover);
 }
 
 .destButton:disabled {
