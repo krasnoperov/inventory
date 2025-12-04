@@ -370,7 +370,7 @@ export default function AssetDetailPage() {
     };
 
     fetchAssetDetails();
-  }, [user, spaceId, assetId, navigate]);
+  }, [user, spaceId, assetId, navigate, setSelectedVariantId]);
 
   // Sync session context when asset/variant changes
   useEffect(() => {

@@ -121,7 +121,7 @@ webhookRoutes.post('/api/webhooks/polar', async (c) => {
 
     switch (type) {
       case 'subscription.created':
-        await handleSubscriptionCreated(data as SubscriptionEventData, userDAO);
+        await handleSubscriptionCreated(data as SubscriptionEventData);
         break;
 
       case 'subscription.active':

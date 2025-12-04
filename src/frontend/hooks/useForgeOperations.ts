@@ -139,7 +139,7 @@ export function useForgeOperations({
 
   /**
    * Fork: Copy asset to new asset without AI generation
-   * Needs to resolve assetId to its active variantId
+   * Backend resolves asset ID to its active variant
    */
   const onFork = useCallback((params: {
     sourceAssetId: string;
@@ -151,11 +151,8 @@ export function useForgeOperations({
       console.error('[useForgeOperations] forkAsset not provided');
       return;
     }
-    // Note: forkAsset expects sourceVariantId, but we have sourceAssetId
-    // The caller (ChatWorkflow handler) needs to resolve this
-    // For now, we pass assetId and let the backend resolve
     forkAsset({
-      sourceVariantId: params.sourceAssetId, // Will be resolved by backend
+      sourceAssetId: params.sourceAssetId,
       name: params.name,
       assetType: params.type,
       parentAssetId: params.parentAssetId,

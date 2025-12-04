@@ -107,20 +107,40 @@ export class AssetController extends BaseController {
 
   /**
    * Handle asset:fork WebSocket message
-   * Creates a new asset from an existing variant
+   * Creates a new asset from an existing asset or variant.
+   * If sourceAssetId is provided, resolves to its active variant.
+   * If sourceVariantId is provided, uses it directly.
    */
   async handleFork(
     ws: WebSocket,
     meta: WebSocketMeta,
-    sourceVariantId: string,
+    sourceAssetId: string | undefined,
+    sourceVariantId: string | undefined,
     name: string,
     assetType: string,
     parentAssetId?: string
   ): Promise<void> {
     this.requireEditor(meta);
 
+    // Resolve to variant ID - either directly provided or via asset's active variant
+    let resolvedVariantId: string;
+    if (sourceVariantId) {
+      resolvedVariantId = sourceVariantId;
+    } else if (sourceAssetId) {
+      const sourceAsset = await this.repo.getAssetById(sourceAssetId);
+      if (!sourceAsset) {
+        throw new NotFoundError('Source asset not found');
+      }
+      if (!sourceAsset.active_variant_id) {
+        throw new NotFoundError('Source asset has no active variant');
+      }
+      resolvedVariantId = sourceAsset.active_variant_id;
+    } else {
+      throw new ValidationError('Either sourceAssetId or sourceVariantId must be provided');
+    }
+
     const result = await this.forkAsset({
-      sourceVariantId,
+      sourceVariantId: resolvedVariantId,
       name,
       type: assetType,
       parentAssetId,

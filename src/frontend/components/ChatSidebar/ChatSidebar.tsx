@@ -197,6 +197,10 @@ export function ChatSidebar({
   const metersRef = useRef(meters);
   metersRef.current = meters;
 
+  // Ref for sendChatRequest used in chatResponse effect without triggering re-runs
+  const sendChatRequestRef = useRef(sendChatRequest);
+  sendChatRequestRef.current = sendChatRequest;
+
   // Tool execution hook
   const toolExec = useToolExecution({
     allAssets,
@@ -296,6 +300,12 @@ export function ChatSidebar({
     }
     return { type: 'catalog' };
   }, [currentAsset, currentVariant, allVariants]);
+
+  // Refs for forgeContext and viewingContext used in chatResponse effect
+  const forgeContextRef = useRef(forgeContext);
+  forgeContextRef.current = forgeContext;
+  const viewingContextRef = useRef(viewingContext);
+  viewingContextRef.current = viewingContext;
 
   // Chat history is now loaded via WebSocket in SpacePage/AssetDetailPage
   // See onChatHistory callback in useSpaceWebSocket
@@ -427,7 +437,7 @@ export function ChatSidebar({
       });
 
       // Trigger LLM-based recovery in actor mode (if not already recovering)
-      if (modeToUse === 'actor' && !isRecoveryAttemptRef.current && sendChatRequest) {
+      if (modeToUse === 'actor' && !isRecoveryAttemptRef.current && sendChatRequestRef.current) {
         isRecoveryAttemptRef.current = true;
         setIsRecovering(true);
 
@@ -446,21 +456,22 @@ Please suggest an alternative approach or modified parameters that might work. I
         });
 
         // Send recovery request in advisor mode
+        const currentForgeContext = forgeContextRef.current;
         const wsForgeContext: WsForgeContext = {
-          operation: forgeContext.operation as WsForgeContext['operation'],
-          slots: forgeContext.slots.map(s => ({
+          operation: currentForgeContext.operation as WsForgeContext['operation'],
+          slots: currentForgeContext.slots.map(s => ({
             assetId: s.assetId,
             assetName: s.assetName,
             variantId: s.variantId,
           })),
-          prompt: forgeContext.prompt,
+          prompt: currentForgeContext.prompt,
         };
 
-        const recoveryRequestId = sendChatRequest({
+        const recoveryRequestId = sendChatRequestRef.current({
           message: recoveryPrompt,
           mode: 'advisor', // Use advisor mode for recovery suggestions
           forgeContext: wsForgeContext,
-          viewingContext,
+          viewingContext: viewingContextRef.current,
         });
 
         pendingChatRequestRef.current = {
@@ -858,7 +869,7 @@ Please suggest an alternative approach or modified parameters that might work. I
 
     // Store pending request info for response handler
     pendingChatRequestRef.current = { requestId, messageToSend, modeToUse };
-  }, [inputValue, isLoading, spaceId, mode, forgeContext, viewingContext, setInputBuffer, addMessage, sendChatRequest, allAssets]);
+  }, [inputValue, isLoading, spaceId, mode, forgeContext, viewingContext, setInputBuffer, addMessage, sendChatRequest]);
 
   const retryMessage = useCallback((payload: { message: string; mode: 'advisor' | 'actor' }) => {
     // Remove the last error message

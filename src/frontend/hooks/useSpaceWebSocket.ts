@@ -391,9 +391,11 @@ interface AssetChanges {
   parentAssetId?: string | null;
 }
 
-// Fork params for creating new asset from variant
+// Fork params for creating new asset from an existing asset or variant
+// Provide either sourceAssetId (resolves to active variant) or sourceVariantId (uses directly)
 export interface ForkParams {
-  sourceVariantId: string;
+  sourceAssetId?: string;
+  sourceVariantId?: string;
   name: string;
   assetType: string;
   parentAssetId?: string;
@@ -523,10 +525,11 @@ export function useSpaceWebSocket({
     sendMessage({ type: 'variant:delete', variantId });
   }, [sendMessage]);
 
-  // Fork new asset from variant (copy operation with lineage)
+  // Fork new asset from existing asset or variant (copy operation with lineage)
   const forkAsset = useCallback((params: ForkParams) => {
     sendMessage({
       type: 'asset:fork',
+      sourceAssetId: params.sourceAssetId,
       sourceVariantId: params.sourceVariantId,
       name: params.name,
       assetType: params.assetType,

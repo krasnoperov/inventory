@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Hono } from 'hono';
 import type { Env } from '../../core/types';
+import { loggers } from '../../shared/logger';
 import type {
   ChatRequestMessage,
   GenerateRequestMessage,
@@ -147,7 +148,7 @@ export class SpaceDO extends DurableObject<Env> {
 
       this.initialized = true;
       } catch (error) {
-        console.error('[SpaceDO] Initialization failed:', error);
+        loggers.spaceDO.error('Initialization failed', { spaceId: this.spaceId ?? undefined }, error instanceof Error ? error : new Error(String(error)));
         throw error;
       }
     });
@@ -192,10 +193,12 @@ export class SpaceDO extends DurableObject<Env> {
     // Ensure controllers are initialized (DO may have been restarted)
     await this.ensureInitialized();
 
+    const meta = this.getWebSocketMeta(ws);
+    let parsedMessage: ClientMessage | undefined;
+
     try {
-      const msg = JSON.parse(message) as ClientMessage;
-      const meta = this.getWebSocketMeta(ws);
-      await this.routeWebSocketMessage(ws, meta, msg);
+      parsedMessage = JSON.parse(message) as ClientMessage;
+      await this.routeWebSocketMessage(ws, meta, parsedMessage);
     } catch (error) {
       if (error instanceof PermissionError) {
         this.sendError(ws, 'PERMISSION_DENIED', error.message);
@@ -204,7 +207,11 @@ export class SpaceDO extends DurableObject<Env> {
       } else if (error instanceof ValidationError) {
         this.sendError(ws, 'VALIDATION_ERROR', error.message);
       } else {
-        console.error('[SpaceDO] Error handling WebSocket message:', error);
+        loggers.spaceDO.error('Error handling WebSocket message', {
+          spaceId: this.spaceId ?? undefined,
+          userId: meta.userId,
+          messageType: parsedMessage?.type,
+        }, error instanceof Error ? error : new Error(String(error)));
         this.sendError(ws, 'INTERNAL_ERROR', 'Failed to process message');
       }
     }
@@ -226,7 +233,11 @@ export class SpaceDO extends DurableObject<Env> {
    * Handle WebSocket error
    */
   async webSocketError(ws: WebSocket, error: unknown): Promise<void> {
-    console.error('[SpaceDO] WebSocket error:', error);
+    const meta = this.getWebSocketMeta(ws);
+    loggers.spaceDO.error('WebSocket error', {
+      spaceId: this.spaceId ?? undefined,
+      userId: meta.userId,
+    }, error instanceof Error ? error : new Error(String(error)));
   }
 
   // ============================================================================
@@ -256,6 +267,7 @@ export class SpaceDO extends DurableObject<Env> {
         return this.assetCtrl.handleFork(
           ws,
           meta,
+          msg.sourceAssetId,
           msg.sourceVariantId,
           msg.name,
           msg.assetType,
@@ -299,7 +311,12 @@ export class SpaceDO extends DurableObject<Env> {
           try {
             await this.generationCtrl.executePlanStep(result.step, meta);
           } catch (err) {
-            console.error(`[SpaceDO] Failed to execute plan step:`, err);
+            loggers.spaceDO.error('Failed to execute plan step', {
+              spaceId: this.spaceId ?? undefined,
+              userId: meta.userId,
+              planId: msg.planId,
+              stepId: result.step.id,
+            }, err instanceof Error ? err : new Error(String(err)));
             // The step was marked in_progress but execution failed
             // Mark it as failed
             await this.planCtrl.httpFailStep(
@@ -323,7 +340,11 @@ export class SpaceDO extends DurableObject<Env> {
           try {
             await this.generationCtrl.executePlanStep(result.step, meta);
           } catch (err) {
-            console.error(`[SpaceDO] Failed to execute retry step:`, err);
+            loggers.spaceDO.error('Failed to execute retry step', {
+              spaceId: this.spaceId ?? undefined,
+              userId: meta.userId,
+              stepId: msg.stepId,
+            }, err instanceof Error ? err : new Error(String(err)));
             await this.planCtrl.httpFailStep(
               result.step.id,
               err instanceof Error ? err.message : 'Execution failed'
@@ -429,7 +450,10 @@ export class SpaceDO extends DurableObject<Env> {
     try {
       ws.send(JSON.stringify(message));
     } catch (error) {
-      console.error('[SpaceDO] Failed to send WebSocket message:', error);
+      loggers.spaceDO.error('Failed to send WebSocket message', {
+        spaceId: this.spaceId ?? undefined,
+        messageType: message.type,
+      }, error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -463,7 +487,9 @@ export class SpaceDO extends DurableObject<Env> {
     if (this.ctx.id.name) {
       return this.ctx.id.name;
     }
-    console.error('[SpaceDO] Cannot recover spaceId - neither storage nor id.name available');
+    loggers.spaceDO.error('Cannot recover spaceId', {
+      doId: this.ctx.id.toString(),
+    });
     return null;
   }
 

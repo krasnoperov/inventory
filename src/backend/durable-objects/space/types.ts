@@ -252,7 +252,7 @@ export type ClientMessage =
   | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[]; type?: string; parentAssetId?: string | null } }
   | { type: 'asset:delete'; assetId: string }
   | { type: 'asset:setActive'; assetId: string; variantId: string }
-  | { type: 'asset:fork'; sourceVariantId: string; name: string; assetType: string; parentAssetId?: string }
+  | { type: 'asset:fork'; sourceAssetId?: string; sourceVariantId?: string; name: string; assetType: string; parentAssetId?: string }
   // Variant operations
   | { type: 'variant:delete'; variantId: string }
   | { type: 'variant:star'; variantId: string; starred: boolean }
