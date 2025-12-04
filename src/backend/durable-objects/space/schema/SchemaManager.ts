@@ -190,6 +190,9 @@ export class SchemaManager {
     // Migration: Add chat sessions support
     await this.addChatSessions();
 
+    // Migration: Add plan improvements (auto-advance, dependencies, revisions)
+    await this.addPlanImprovements();
+
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
     // Conversions:
@@ -303,5 +306,73 @@ export class SchemaManager {
         ALTER TABLE user_sessions ADD COLUMN active_chat_session_id TEXT REFERENCES chat_sessions(id) ON DELETE SET NULL;
       `);
     }
+  }
+
+  /**
+   * Add plan improvements:
+   * - auto_advance, max_parallel, active_step_count on plans
+   * - revised_at, revision_count on plans
+   * - depends_on, skipped, original_description, revised_at on plan_steps
+   */
+  private async addPlanImprovements(): Promise<void> {
+    // Check plans table columns
+    const plansResult = await this.sql.exec(`PRAGMA table_info(plans)`);
+    const plansColumns = plansResult.toArray() as Array<{ name: string }>;
+    const planColumnNames = new Set(plansColumns.map(col => col.name));
+
+    // Add auto_advance column
+    if (!planColumnNames.has('auto_advance')) {
+      await this.sql.exec(`ALTER TABLE plans ADD COLUMN auto_advance INTEGER NOT NULL DEFAULT 0`);
+    }
+
+    // Add max_parallel column (default 3)
+    if (!planColumnNames.has('max_parallel')) {
+      await this.sql.exec(`ALTER TABLE plans ADD COLUMN max_parallel INTEGER NOT NULL DEFAULT 3`);
+    }
+
+    // Add active_step_count column
+    if (!planColumnNames.has('active_step_count')) {
+      await this.sql.exec(`ALTER TABLE plans ADD COLUMN active_step_count INTEGER NOT NULL DEFAULT 0`);
+    }
+
+    // Add revised_at column
+    if (!planColumnNames.has('revised_at')) {
+      await this.sql.exec(`ALTER TABLE plans ADD COLUMN revised_at INTEGER`);
+    }
+
+    // Add revision_count column
+    if (!planColumnNames.has('revision_count')) {
+      await this.sql.exec(`ALTER TABLE plans ADD COLUMN revision_count INTEGER NOT NULL DEFAULT 0`);
+    }
+
+    // Check plan_steps table columns
+    const stepsResult = await this.sql.exec(`PRAGMA table_info(plan_steps)`);
+    const stepsColumns = stepsResult.toArray() as Array<{ name: string }>;
+    const stepColumnNames = new Set(stepsColumns.map(col => col.name));
+
+    // Add depends_on column (JSON array of step IDs)
+    if (!stepColumnNames.has('depends_on')) {
+      await this.sql.exec(`ALTER TABLE plan_steps ADD COLUMN depends_on TEXT`);
+    }
+
+    // Add skipped column
+    if (!stepColumnNames.has('skipped')) {
+      await this.sql.exec(`ALTER TABLE plan_steps ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0`);
+    }
+
+    // Add original_description column (for tracking revisions)
+    if (!stepColumnNames.has('original_description')) {
+      await this.sql.exec(`ALTER TABLE plan_steps ADD COLUMN original_description TEXT`);
+    }
+
+    // Add revised_at column
+    if (!stepColumnNames.has('revised_at')) {
+      await this.sql.exec(`ALTER TABLE plan_steps ADD COLUMN revised_at INTEGER`);
+    }
+
+    // Update the CHECK constraint for plan_steps.status to include 'skipped' and 'blocked'
+    // SQLite doesn't support ALTER CONSTRAINT, but the existing constraint won't reject
+    // new values if we insert them - we'll handle validation in application code
+    // and update the constraint in the next major schema version
   }
 }

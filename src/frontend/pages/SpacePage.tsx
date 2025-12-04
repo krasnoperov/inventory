@@ -122,6 +122,9 @@ export default function SpacePage() {
     advancePlan: wsAdvancePlan,
     cancelPlan: wsCancelPlan,
     rejectPlan: wsRejectPlan,
+    setAutoAdvance: wsSetAutoAdvance,
+    skipStep: wsSkipStep,
+    retryStep: wsRetryStep,
     updateSession,
     requestChatHistory,
     startNewSession: wsStartNewSession,
@@ -530,6 +533,9 @@ export default function SpacePage() {
             wsAdvancePlan={wsAdvancePlan}
             wsCancelPlan={wsCancelPlan}
             wsRejectPlan={wsRejectPlan}
+            wsSetAutoAdvance={wsSetAutoAdvance}
+            wsSkipStep={wsSkipStep}
+            wsRetryStep={wsRetryStep}
             wsStartNewSession={wsStartNewSession}
           />
         </div>

@@ -817,6 +817,102 @@
   color: var(--color-text);
 }
 
+/* Skipped and blocked step styles */
+.planStep.skipped {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.planStep.blocked {
+  background: oklch(80% 0.1 50 / 0.15);
+  border-color: oklch(70% 0.1 50);
+  opacity: 0.8;
+}
+
+.planStep.blocked .stepNumber {
+  background: oklch(70% 0.1 50);
+  border-color: transparent;
+  color: white;
+}
+
+/* Step actions (skip/retry buttons) */
+.stepActions {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.stepActionBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.stepActionBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+.stepActionBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Step error text */
+.stepError {
+  color: var(--color-error);
+  font-size: 0.6875rem;
+  font-style: italic;
+}
+
+/* Auto-advance toggle */
+.autoAdvanceLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 0.5rem;
+}
+
+.autoAdvanceLabel input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+/* Plan button row (for side-by-side buttons) */
+.planButtonRow {
+  display: flex;
+  gap: 0.625rem;
+  width: 100%;
+}
+
+/* Warning message (for blocked/failed steps) */
+.planWarning {
+  padding: 0.5rem;
+  background: oklch(80% 0.1 50 / 0.15);
+  border: 1px solid oklch(70% 0.1 50);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  color: oklch(50% 0.1 50);
+  margin-bottom: 0.5rem;
+}
+
 /* =============================================================================
    Message Thumbnails
    ============================================================================= */

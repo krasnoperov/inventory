@@ -143,6 +143,22 @@ export interface InternalApiControllers {
     httpFailStep(stepId: string, error: string): Promise<{ plan: Plan; step: PlanStep }>;
     httpGetActivePlan(): Promise<{ plan: Plan; steps: PlanStep[] } | null>;
     httpGetPlan(planId: string): Promise<{ plan: Plan; steps: PlanStep[] } | null>;
+    httpApplyRevision(data: {
+      planId: string;
+      change: {
+        stepId: string;
+        action: 'update_params' | 'update_description' | 'skip' | 'insert_after';
+        newParams?: Record<string, unknown>;
+        newDescription?: string;
+        newStep?: {
+          id?: string;
+          description: string;
+          action: string;
+          params: Record<string, unknown>;
+          dependsOn?: string[];
+        };
+      };
+    }): Promise<{ success: boolean; step?: PlanStep; newStepId?: string }>;
   };
   session: {
     httpGetSession(userId: string): Promise<UserSession | null>;
@@ -420,6 +436,12 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     const data = (await c.req.json()) as { error: string };
     const result = await controllers.plan.httpFailStep(stepId, data.error);
     return c.json({ success: true, ...result });
+  });
+
+  app.post('/internal/plan/revision', async (c) => {
+    const data = await c.req.json();
+    const result = await controllers.plan.httpApplyRevision(data);
+    return c.json(result);
   });
 
   // ==========================================================================

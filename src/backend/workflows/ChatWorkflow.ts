@@ -14,7 +14,7 @@ import type { Env } from '../../core/types';
 import type { ChatWorkflowInput, ChatWorkflowOutput } from './types';
 import type { BotContext, BotResponseWithUsage } from '../services/claudeService';
 import { ClaudeService } from '../services/claudeService';
-import type { BotResponse, ActorResponse, PlanResponse } from '../../api/types';
+import type { BotResponse, ActorResponse, PlanResponse, RevisionResponse, RevisionResult } from '../../api/types';
 
 export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
   async run(event: WorkflowEvent<ChatWorkflowInput>, step: WorkflowStep): Promise<ChatWorkflowOutput> {
@@ -29,6 +29,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
       viewingContext,
       assets,
       personalizationContext,
+      activePlan,
     } = event.payload;
 
     console.log(`[ChatWorkflow] Starting workflow for requestId: ${requestId}`);
@@ -59,6 +60,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
           forge: forgeContext,
           viewing: viewingContext,
           personalizationContext,
+          activePlan,
         };
 
         return claudeService.processMessage(message, context, history);
@@ -111,11 +113,13 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
             id: planResponse.plan.id,
             goal: planResponse.plan.goal,
             createdBy: userId,
+            autoAdvance: planResponse.plan.autoAdvance ?? false,
             steps: planResponse.plan.steps.map(s => ({
               id: s.id,
               description: s.description,
               action: s.action,
               params: JSON.stringify(s.params),
+              dependsOn: s.dependsOn,
             })),
           }),
         }));
@@ -181,6 +185,83 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
 
         if (approvalIds.length > 0) metadata.approvalIds = approvalIds;
         if (autoExecutedIds.length > 0) metadata.autoExecutedIds = autoExecutedIds;
+      }
+
+      // Handle revision response
+      if (response.type === 'revision') {
+        const revisionResponse = response as RevisionResponse;
+        const autoApplied: RevisionResult[] = [];
+        const pendingApprovalIds: string[] = [];
+
+        // Auto-apply minor changes (update_params, update_description)
+        for (const change of revisionResponse.revision.changes) {
+          if (change.action === 'update_params' || change.action === 'update_description') {
+            try {
+              const revisionResult = await doStub.fetch(new Request('http://do/internal/plan/revision', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  planId: revisionResponse.revision.planId,
+                  change,
+                }),
+              }));
+
+              if (revisionResult.ok) {
+                autoApplied.push({
+                  stepId: change.stepId,
+                  action: change.action,
+                  success: true,
+                });
+              } else {
+                const errorText = await revisionResult.text();
+                console.error('[ChatWorkflow] Failed to apply revision:', errorText);
+                autoApplied.push({
+                  stepId: change.stepId,
+                  action: change.action,
+                  success: false,
+                  error: errorText,
+                });
+              }
+            } catch (err) {
+              console.error('[ChatWorkflow] Error applying revision:', err);
+              autoApplied.push({
+                stepId: change.stepId,
+                action: change.action,
+                success: false,
+                error: err instanceof Error ? err.message : 'Unknown error',
+              });
+            }
+          } else {
+            // Structural changes (skip, insert_after) - store as pending approval
+            const approvalId = `rev_${Date.now()}_${change.stepId}`;
+            const approvalResult = await doStub.fetch(new Request('http://do/internal/approval', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: approvalId,
+                requestId,
+                tool: `revise_plan:${change.action}`,
+                params: JSON.stringify({
+                  planId: revisionResponse.revision.planId,
+                  change,
+                }),
+                description: `${change.action === 'skip' ? 'Skip step' : 'Insert new step after'}: ${change.stepId}`,
+                createdBy: userId,
+              }),
+            }));
+            if (approvalResult.ok) {
+              pendingApprovalIds.push(approvalId);
+            }
+          }
+        }
+
+        // Update response with auto-applied results
+        (revisionResponse as RevisionResponse).autoApplied = autoApplied;
+
+        metadata.revisionPlanId = revisionResponse.revision.planId;
+        metadata.revisionReason = revisionResponse.revision.reason;
+        if (autoApplied.length > 0) metadata.autoAppliedRevisions = autoApplied;
+        if (pendingApprovalIds.length > 0) metadata.pendingRevisionApprovals = pendingApprovalIds;
       }
 
       // Store bot response

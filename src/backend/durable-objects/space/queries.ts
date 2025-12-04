@@ -223,9 +223,10 @@ export const PlanQueries = {
   /** Get recent plans */
   GET_RECENT: 'SELECT * FROM plans ORDER BY created_at DESC LIMIT ?',
 
-  /** Insert new plan */
-  INSERT: `INSERT INTO plans (id, goal, status, current_step_index, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  /** Insert new plan (with auto-advance support) */
+  INSERT: `INSERT INTO plans (id, goal, status, current_step_index, created_by, created_at, updated_at,
+                              auto_advance, max_parallel, active_step_count, revision_count)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
   /** Update plan status */
   UPDATE_STATUS: 'UPDATE plans SET status = ?, updated_at = ? WHERE id = ?',
@@ -235,6 +236,18 @@ export const PlanQueries = {
 
   /** Update plan status and step index */
   UPDATE_STATUS_AND_INDEX: 'UPDATE plans SET status = ?, current_step_index = ?, updated_at = ? WHERE id = ?',
+
+  /** Update auto-advance setting */
+  UPDATE_AUTO_ADVANCE: 'UPDATE plans SET auto_advance = ?, updated_at = ? WHERE id = ?',
+
+  /** Increment active step count */
+  INCREMENT_ACTIVE_STEPS: 'UPDATE plans SET active_step_count = active_step_count + 1, updated_at = ? WHERE id = ?',
+
+  /** Decrement active step count */
+  DECREMENT_ACTIVE_STEPS: 'UPDATE plans SET active_step_count = CASE WHEN active_step_count > 0 THEN active_step_count - 1 ELSE 0 END, updated_at = ? WHERE id = ?',
+
+  /** Mark plan as revised */
+  UPDATE_REVISION: 'UPDATE plans SET revised_at = ?, revision_count = revision_count + 1, updated_at = ? WHERE id = ?',
 
   /** Delete plan by ID */
   DELETE: 'DELETE FROM plans WHERE id = ?',
@@ -251,14 +264,24 @@ export const PlanStepQueries = {
   /** Get step by ID */
   GET_BY_ID: 'SELECT * FROM plan_steps WHERE id = ?',
 
-  /** Get next pending step for a plan */
+  /** Get next pending step for a plan (legacy - use GET_EXECUTABLE for dependency-aware) */
   GET_NEXT_PENDING: `SELECT * FROM plan_steps
                      WHERE plan_id = ? AND status = 'pending'
                      ORDER BY step_index ASC LIMIT 1`,
 
-  /** Insert new plan step */
-  INSERT: `INSERT INTO plan_steps (id, plan_id, step_index, description, action, params, status, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  /** Get all pending steps for a plan (for dependency checking) */
+  GET_ALL_PENDING: `SELECT * FROM plan_steps
+                    WHERE plan_id = ? AND status = 'pending'
+                    ORDER BY step_index ASC`,
+
+  /** Get steps by status */
+  GET_BY_STATUS: `SELECT * FROM plan_steps
+                  WHERE plan_id = ? AND status = ?
+                  ORDER BY step_index ASC`,
+
+  /** Insert new plan step (with dependencies support) */
+  INSERT: `INSERT INTO plan_steps (id, plan_id, step_index, description, action, params, status, created_at, depends_on, skipped)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
   /** Update step status */
   UPDATE_STATUS: 'UPDATE plan_steps SET status = ?, updated_at = ? WHERE id = ?',
@@ -269,8 +292,34 @@ export const PlanStepQueries = {
   /** Update step with error */
   UPDATE_ERROR: 'UPDATE plan_steps SET status = ?, error = ?, updated_at = ? WHERE id = ?',
 
+  /** Skip a step */
+  SKIP: `UPDATE plan_steps SET status = 'skipped', skipped = 1, updated_at = ? WHERE id = ?`,
+
+  /** Block a step (dependency failed) */
+  BLOCK: `UPDATE plan_steps SET status = 'blocked', updated_at = ? WHERE id = ?`,
+
+  /** Unblock a step (restore to pending) */
+  UNBLOCK: `UPDATE plan_steps SET status = 'pending', updated_at = ? WHERE id = ?`,
+
+  /** Update step params (for revision) */
+  UPDATE_PARAMS: `UPDATE plan_steps SET params = ?, revised_at = ?, updated_at = ?,
+                  original_description = CASE WHEN original_description IS NULL THEN description ELSE original_description END
+                  WHERE id = ?`,
+
+  /** Update step description (for revision) */
+  UPDATE_DESCRIPTION: `UPDATE plan_steps SET description = ?, revised_at = ?, updated_at = ?,
+                       original_description = CASE WHEN original_description IS NULL THEN description ELSE original_description END
+                       WHERE id = ?`,
+
+  /** Increment step_index for steps after a given index (for insertion) */
+  REINDEX_AFTER: `UPDATE plan_steps SET step_index = step_index + 1, updated_at = ?
+                  WHERE plan_id = ? AND step_index > ?`,
+
   /** Delete steps for a plan */
   DELETE_BY_PLAN: 'DELETE FROM plan_steps WHERE plan_id = ?',
+
+  /** Get max step_index for a plan */
+  GET_MAX_INDEX: 'SELECT MAX(step_index) as max_index FROM plan_steps WHERE plan_id = ?',
 } as const;
 
 // ============================================================================

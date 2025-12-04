@@ -86,6 +86,31 @@ export class GenerationController extends BaseController {
     // Get assets for context
     const assets = await this.repo.getAssetsWithVariantCount();
 
+    // Get active plan if one exists
+    const activePlanData = await this.repo.getActivePlan();
+    let activePlan;
+    if (activePlanData) {
+      const steps = await this.repo.getPlanSteps(activePlanData.id);
+      activePlan = {
+        id: activePlanData.id,
+        goal: activePlanData.goal,
+        steps: steps.map(s => ({
+          id: s.id,
+          description: s.description,
+          action: s.action,
+          params: JSON.parse(s.params || '{}'),
+          status: s.status,
+          result: s.result || undefined,
+          error: s.error || undefined,
+          dependsOn: s.depends_on ? JSON.parse(s.depends_on) : undefined,
+        })),
+        currentStepIndex: activePlanData.current_step_index,
+        status: activePlanData.status,
+        createdAt: activePlanData.created_at,
+        autoAdvance: activePlanData.auto_advance,
+      };
+    }
+
     // Build workflow input
     const workflowInput: ChatWorkflowInput = {
       requestId: msg.requestId,
@@ -97,6 +122,7 @@ export class GenerationController extends BaseController {
       forgeContext: msg.forgeContext,
       viewingContext: msg.viewingContext,
       assets,
+      activePlan,
     };
 
     // Trigger the workflow

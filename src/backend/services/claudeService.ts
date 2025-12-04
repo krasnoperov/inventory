@@ -8,6 +8,9 @@ import type {
   AdvisorResponse,
   BotResponse,
   PendingApproval,
+  PlanRevision,
+  PlanRevisionChange,
+  RevisionResponse,
 } from '../../api/types';
 import { shouldAutoExecute, getTrustLevel, TOOL_TRUST_MAP } from './trustLevels';
 
@@ -242,7 +245,7 @@ const READ_TOOLS: Anthropic.Tool[] = [
 const ACTION_TOOLS: Anthropic.Tool[] = [
   {
     name: 'create_plan',
-    description: 'Create a multi-step plan to achieve the user\'s goal. Use this when the user wants to create multiple assets, do a series of operations, or achieve a complex creative goal. The plan will be shown to the user for approval before execution.',
+    description: 'Create a multi-step plan to achieve the user\'s goal. Use this when the user wants to create multiple assets, do a series of operations, or achieve a complex creative goal. The plan will be shown to the user for approval before execution. Steps can have dependencies on other steps using step IDs.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -250,11 +253,19 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
           type: 'string',
           description: 'A clear description of what this plan will achieve',
         },
+        autoAdvance: {
+          type: 'boolean',
+          description: 'If true, steps execute automatically after approval without requiring manual advancement. Defaults to false.',
+        },
         steps: {
           type: 'array',
           items: {
             type: 'object',
             properties: {
+              id: {
+                type: 'string',
+                description: 'Unique ID for this step. Use simple IDs like "step_1", "step_2". Required if other steps depend on this one.',
+              },
               description: {
                 type: 'string',
                 description: 'Human-readable description of this step',
@@ -268,13 +279,74 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
                 type: 'object',
                 description: 'Parameters for the action',
               },
+              dependsOn: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Array of step IDs that must complete before this step can execute. Enables parallel execution when dependencies allow.',
+              },
             },
             required: ['description', 'action', 'params'],
           },
-          description: 'The steps to execute in order',
+          description: 'The steps to execute. Steps without dependencies run first; steps with dependencies wait for those steps to complete.',
         },
       },
       required: ['goal', 'steps'],
+    },
+  },
+  {
+    name: 'revise_plan',
+    description: 'Modify pending steps in the active plan based on results so far. Use this when earlier step results suggest adjustments are needed. Can only modify pending steps - completed/in_progress/failed steps are immutable.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        planId: {
+          type: 'string',
+          description: 'The ID of the plan to revise',
+        },
+        changes: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              stepId: {
+                type: 'string',
+                description: 'The ID of the step to modify',
+              },
+              action: {
+                type: 'string',
+                enum: ['update_params', 'update_description', 'skip', 'insert_after'],
+                description: 'Type of change: update_params (modify params), update_description (change description), skip (mark as skipped), insert_after (add new step after this one)',
+              },
+              newParams: {
+                type: 'object',
+                description: 'For update_params: the new parameters object',
+              },
+              newDescription: {
+                type: 'string',
+                description: 'For update_description: the new description text',
+              },
+              newStep: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  description: { type: 'string' },
+                  action: { type: 'string', enum: ['generate', 'fork', 'derive', 'refine', 'add_to_tray', 'set_prompt', 'clear_tray'] },
+                  params: { type: 'object' },
+                  dependsOn: { type: 'array', items: { type: 'string' } },
+                },
+                description: 'For insert_after: the new step to insert after this one',
+              },
+            },
+            required: ['stepId', 'action'],
+          },
+          description: 'Array of changes to apply to the plan',
+        },
+        reason: {
+          type: 'string',
+          description: 'Explanation of why these changes are needed',
+        },
+      },
+      required: ['planId', 'changes', 'reason'],
     },
   },
   {
@@ -543,13 +615,69 @@ To describe this image, use the describe tool with variantId="${variantId}" and 
 
     if (context.activePlan) {
       const plan = context.activePlan;
-      prompt += `ACTIVE PLAN: "${plan.goal}"
-Status: ${plan.status}
-Progress: Step ${plan.currentStepIndex + 1} of ${plan.steps.length}
-Steps:
-${plan.steps.map((s, i) => `${i + 1}. [${s.status}] ${s.description}${s.result ? ` → ${s.result}` : ''}`).join('\n')}
+      const steps = plan.steps;
 
+      // Status icons (TodoWrite-style)
+      const statusIcon = (status: string): string => {
+        switch (status) {
+          case 'completed': return '[x]';
+          case 'in_progress': return '[>]';
+          case 'pending': return '[ ]';
+          case 'failed': return '[!]';
+          case 'skipped': return '[-]';
+          case 'blocked': return '[?]';
+          default: return '[ ]';
+        }
+      };
+
+      // Count by status for summary
+      const completedCount = steps.filter(s => s.status === 'completed').length;
+      const currentStep = steps.find(s => s.status === 'in_progress');
+      const nextPending = steps.find(s => s.status === 'pending');
+
+      // Build compact plan display
+      prompt += `PLAN: ${plan.goal} [${completedCount}/${steps.length}]
 `;
+
+      // Only show full params for current step
+      if (currentStep) {
+        prompt += `CURRENT: ${currentStep.description}
+Params: ${JSON.stringify(currentStep.params)}
+`;
+      }
+
+      // Show next pending step summary if not the same as current
+      if (nextPending && nextPending.id !== currentStep?.id) {
+        prompt += `NEXT: ${nextPending.description}
+`;
+      }
+
+      // Compact step list with icons
+      prompt += `Steps:\n`;
+      for (const s of steps) {
+        const icon = statusIcon(s.status);
+        // Only show result snippet for completed steps
+        const result = s.result ? `: ${s.result.slice(0, 50)}${s.result.length > 50 ? '...' : ''}` : '';
+        const blocked = s.status === 'blocked' ? ' (blocked)' : '';
+        prompt += `${icon} ${s.description}${result}${blocked}\n`;
+      }
+
+      // If there are blocked or failed steps, highlight them
+      const blockedSteps = steps.filter(s => s.status === 'blocked');
+      const failedSteps = steps.filter(s => s.status === 'failed');
+      if (failedSteps.length > 0) {
+        prompt += `\nFAILED: ${failedSteps.map(s => `${s.description} - ${s.error || 'unknown error'}`).join('; ')}\n`;
+      }
+      if (blockedSteps.length > 0) {
+        prompt += `BLOCKED: ${blockedSteps.map(s => s.description).join(', ')}\n`;
+      }
+
+      // Available actions on the plan
+      if (plan.status === 'executing' || plan.status === 'paused') {
+        prompt += `\nYou can use revise_plan to adjust pending steps based on results so far.\n`;
+      }
+
+      prompt += `\n`;
     }
 
     // Inject personalization context (learned patterns)
@@ -636,7 +764,17 @@ Always explain what you're doing and why.`;
       } else if (block.type === 'tool_use') {
         // Check if this is a plan creation
         if (block.name === 'create_plan') {
-          const input = block.input as { goal?: string; steps?: Array<{ description: string; action: string; params: Record<string, unknown> }> };
+          const input = block.input as {
+            goal?: string;
+            autoAdvance?: boolean;
+            steps?: Array<{
+              id?: string;
+              description: string;
+              action: string;
+              params: Record<string, unknown>;
+              dependsOn?: string[];
+            }>;
+          };
 
           // Validate plan structure
           if (!input.goal || !Array.isArray(input.steps) || input.steps.length === 0) {
@@ -646,12 +784,14 @@ Always explain what you're doing and why.`;
             const plan: AssistantPlan = {
               id: `plan_${Date.now()}`,
               goal: input.goal,
+              autoAdvance: input.autoAdvance ?? false,
               steps: input.steps.map((s, i) => ({
-                id: `step_${i}`,
+                id: s.id || `step_${i}`,
                 description: s.description || `Step ${i + 1}`,
                 action: s.action || 'generate',
                 params: s.params || {},
                 status: 'pending' as const,
+                dependsOn: s.dependsOn,
               })),
               currentStepIndex: 0,
               status: 'planning',
@@ -663,6 +803,71 @@ Always explain what you're doing and why.`;
               plan,
               message: textContent || `I've created a plan to: ${input.goal}`,
             };
+          }
+        }
+
+        // Check if this is a plan revision
+        if (block.name === 'revise_plan') {
+          const input = block.input as {
+            planId?: string;
+            changes?: Array<{
+              stepId: string;
+              action: 'update_params' | 'update_description' | 'skip' | 'insert_after';
+              newParams?: Record<string, unknown>;
+              newDescription?: string;
+              newStep?: {
+                id?: string;
+                description: string;
+                action: string;
+                params: Record<string, unknown>;
+                dependsOn?: string[];
+              };
+            }>;
+            reason?: string;
+          };
+
+          // Validate revision structure
+          if (!input.planId || !Array.isArray(input.changes) || input.changes.length === 0) {
+            console.error('[ClaudeService] Invalid revise_plan response:', JSON.stringify(input, null, 2));
+            // Fall through to treat as regular response
+          } else {
+            const revision: PlanRevision = {
+              planId: input.planId,
+              changes: input.changes.map(c => ({
+                stepId: c.stepId,
+                action: c.action,
+                newParams: c.newParams,
+                newDescription: c.newDescription,
+                newStep: c.newStep,
+              })),
+              reason: input.reason || 'Plan adjustment based on results',
+            };
+
+            // Classify changes: minor (auto-apply) vs structural (need approval)
+            const autoApplyChanges: PlanRevisionChange[] = [];
+            const approvalChanges: PlanRevisionChange[] = [];
+
+            for (const change of revision.changes) {
+              if (change.action === 'update_params' || change.action === 'update_description') {
+                // Minor changes - auto-apply
+                autoApplyChanges.push(change);
+              } else {
+                // Structural changes (skip, insert_after) - need approval
+                approvalChanges.push(change);
+              }
+            }
+
+            const response: RevisionResponse = {
+              type: 'revision',
+              message: textContent || `Adjusting plan: ${revision.reason}`,
+              revision,
+              pendingApproval: approvalChanges.length > 0 ? approvalChanges : undefined,
+            };
+
+            // Note: autoApplied will be filled in by the caller after executing changes
+            // We just classify here, execution happens in ChatWorkflow
+
+            return response;
           }
         }
 

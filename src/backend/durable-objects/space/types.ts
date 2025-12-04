@@ -106,8 +106,14 @@ export type PlanStatus = 'planning' | 'executing' | 'paused' | 'completed' | 'fa
 
 /**
  * Plan step status lifecycle
+ * - pending: Not yet started
+ * - in_progress: Currently executing
+ * - completed: Finished successfully
+ * - failed: Execution failed
+ * - skipped: User/LLM chose to skip this step
+ * - blocked: Waiting on failed dependency
  */
-export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked';
 
 /**
  * Plan - A multi-step assistant workflow
@@ -120,6 +126,13 @@ export interface Plan {
   created_by: string;
   created_at: number;
   updated_at: number;
+  // Auto-advance improvements
+  auto_advance: boolean; // Execute steps automatically after approval
+  max_parallel: number; // Maximum concurrent steps (default 3)
+  active_step_count: number; // Currently executing steps
+  // Revision tracking
+  revised_at: number | null; // Last revision timestamp
+  revision_count: number; // Number of revisions made
 }
 
 /**
@@ -137,6 +150,12 @@ export interface PlanStep {
   error: string | null;
   created_at: number;
   updated_at: number | null;
+  // Dependencies
+  depends_on: string | null; // JSON array of step IDs that must complete first
+  // Revision tracking
+  skipped: boolean; // Step was skipped (not failed)
+  original_description: string | null; // Original description before revision
+  revised_at: number | null; // When this step was revised
 }
 
 /**
@@ -261,6 +280,9 @@ export type ClientMessage =
   | { type: 'plan:reject'; planId: string }
   | { type: 'plan:cancel'; planId: string }
   | { type: 'plan:advance'; planId: string } // Execute next step
+  | { type: 'plan:set_auto_advance'; planId: string; autoAdvance: boolean }
+  | { type: 'plan:skip_step'; stepId: string }
+  | { type: 'plan:retry_step'; stepId: string }
   // Approval operations
   | { type: 'approval:approve'; approvalId: string }
   | { type: 'approval:reject'; approvalId: string }
@@ -313,6 +335,7 @@ export type ServerMessage =
   | { type: 'plan:created'; plan: Plan; steps: PlanStep[] }
   | { type: 'plan:updated'; plan: Plan }
   | { type: 'plan:step_updated'; step: PlanStep }
+  | { type: 'plan:step_created'; step: PlanStep }
   | { type: 'plan:deleted'; planId: string }
   // Approval mutations
   | { type: 'approval:created'; approval: PendingApproval }

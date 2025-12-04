@@ -91,6 +91,12 @@ export interface ChatSidebarProps {
   wsCancelPlan?: (planId: string) => void;
   /** WebSocket method to reject a plan (before execution) */
   wsRejectPlan?: (planId: string) => void;
+  /** WebSocket method to toggle auto-advance on a plan */
+  wsSetAutoAdvance?: (planId: string, autoAdvance: boolean) => void;
+  /** WebSocket method to skip a step */
+  wsSkipStep?: (stepId: string) => void;
+  /** WebSocket method to retry a failed step */
+  wsRetryStep?: (stepId: string) => void;
   /** WebSocket method to start a new chat session */
   wsStartNewSession?: () => void;
 }
@@ -127,6 +133,9 @@ export function ChatSidebar({
   wsAdvancePlan,
   wsCancelPlan,
   wsRejectPlan,
+  wsSetAutoAdvance,
+  wsSkipStep,
+  wsRetryStep,
   wsStartNewSession,
 }: ChatSidebarProps) {
   // Store state (persisted) - use hooks that don't recreate selectors
@@ -545,8 +554,13 @@ export function ChatSidebar({
     }
   }, [activePlan, spaceId, startStep, completeStep, failStep, resetPlan, addMessage, toolExec]);
 
-  const handleApprove = useCallback(() => {
+  const handleApprove = useCallback((autoAdvance: boolean) => {
     if (!activePlan) return;
+
+    // Set auto-advance if requested (before approval so server knows)
+    if (autoAdvance && wsSetAutoAdvance) {
+      wsSetAutoAdvance(activePlan.id, true);
+    }
 
     // Notify server to approve and start plan execution
     // Server will set status to 'executing' and broadcast update
@@ -559,15 +573,16 @@ export function ChatSidebar({
 
     addMessage(spaceId, {
       role: 'assistant',
-      content: `Starting plan: "${activePlan.goal}"\nApproved and waiting for execution...`,
+      content: `Starting plan: "${activePlan.goal}"${autoAdvance ? ' (auto-advance enabled)' : ''}\nApproved and waiting for execution...`,
       timestamp: Date.now(),
     });
 
     // After approval, immediately request first step execution
+    // (Server's auto-advance will continue from here if enabled)
     if (wsAdvancePlan) {
       wsAdvancePlan(activePlan.id);
     }
-  }, [spaceId, activePlan, approvePlan, addMessage, wsApprovePlan, wsAdvancePlan]);
+  }, [spaceId, activePlan, approvePlan, addMessage, wsApprovePlan, wsAdvancePlan, wsSetAutoAdvance]);
 
   const handleContinue = useCallback(() => {
     if (!activePlan) return;
@@ -620,6 +635,45 @@ export function ChatSidebar({
     // Also update local state (will be overwritten by server broadcast)
     rejectPlan(spaceId);
   }, [spaceId, activePlan, rejectPlan, wsRejectPlan, addMessage]);
+
+  const handleSkipStep = useCallback((stepId: string) => {
+    if (!activePlan) return;
+
+    if (wsSkipStep) {
+      wsSkipStep(stepId);
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: `Skipping step...`,
+        timestamp: Date.now(),
+      });
+    }
+  }, [activePlan, wsSkipStep, spaceId, addMessage]);
+
+  const handleRetryStep = useCallback((stepId: string) => {
+    if (!activePlan) return;
+
+    if (wsRetryStep) {
+      wsRetryStep(stepId);
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: `Retrying step...`,
+        timestamp: Date.now(),
+      });
+    }
+  }, [activePlan, wsRetryStep, spaceId, addMessage]);
+
+  const handleSetAutoAdvance = useCallback((autoAdvance: boolean) => {
+    if (!activePlan) return;
+
+    if (wsSetAutoAdvance) {
+      wsSetAutoAdvance(activePlan.id, autoAdvance);
+      addMessage(spaceId, {
+        role: 'assistant',
+        content: `Auto-advance ${autoAdvance ? 'enabled' : 'disabled'}`,
+        timestamp: Date.now(),
+      });
+    }
+  }, [activePlan, wsSetAutoAdvance, spaceId, addMessage]);
 
   // ==========================================================================
   // Approval Handlers (Trust Zones)
@@ -900,6 +954,9 @@ export function ChatSidebar({
         onReject={handleReject}
         onContinue={handleContinue}
         onCancel={handleCancel}
+        onSkipStep={handleSkipStep}
+        onRetryStep={handleRetryStep}
+        onSetAutoAdvance={handleSetAutoAdvance}
       />
 
       {/* Approval Panel (Trust Zones) */}

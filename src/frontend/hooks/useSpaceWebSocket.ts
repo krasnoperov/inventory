@@ -447,6 +447,9 @@ export interface UseSpaceWebSocketReturn {
   rejectPlan: (planId: string) => void;
   cancelPlan: (planId: string) => void;
   advancePlan: (planId: string) => void;
+  setAutoAdvance: (planId: string, autoAdvance: boolean) => void;
+  skipStep: (stepId: string) => void;
+  retryStep: (stepId: string) => void;
   // Approval methods
   approveApproval: (approvalId: string) => void;
   rejectApproval: (approvalId: string) => void;
@@ -658,6 +661,18 @@ export function useSpaceWebSocket({
 
   const advancePlan = useCallback((planId: string) => {
     sendMessage({ type: 'plan:advance', planId });
+  }, [sendMessage]);
+
+  const setAutoAdvance = useCallback((planId: string, autoAdvance: boolean) => {
+    sendMessage({ type: 'plan:set_auto_advance', planId, autoAdvance });
+  }, [sendMessage]);
+
+  const skipStep = useCallback((stepId: string) => {
+    sendMessage({ type: 'plan:skip_step', stepId });
+  }, [sendMessage]);
+
+  const retryStep = useCallback((stepId: string) => {
+    sendMessage({ type: 'plan:retry_step', stepId });
   }, [sendMessage]);
 
   // Approval methods
@@ -1253,6 +1268,9 @@ export function useSpaceWebSocket({
     rejectPlan,
     cancelPlan,
     advancePlan,
+    setAutoAdvance,
+    skipStep,
+    retryStep,
     // Approval methods
     approveApproval,
     rejectApproval,

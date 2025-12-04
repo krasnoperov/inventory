@@ -126,6 +126,11 @@ export class SpaceDO extends DurableObject<Env> {
       this.planCtrl = new PlanController(ctx);
       this.sessionCtrl = new SessionController(ctx);
 
+      // Set step executor for auto-advance
+      this.planCtrl.setStepExecutor(async (step, meta) => {
+        await this.generationCtrl.executePlanStep(step, meta);
+      });
+
       // Initialize internal HTTP router
       this.internalApi = createInternalApi({
         asset: this.assetCtrl,
@@ -296,6 +301,28 @@ export class SpaceDO extends DurableObject<Env> {
             console.error(`[SpaceDO] Failed to execute plan step:`, err);
             // The step was marked in_progress but execution failed
             // Mark it as failed
+            await this.planCtrl.httpFailStep(
+              result.step.id,
+              err instanceof Error ? err.message : 'Execution failed'
+            );
+          }
+        }
+        return;
+      }
+      case 'plan:set_auto_advance':
+        await this.planCtrl.handleSetAutoAdvance(ws, meta, msg.planId, msg.autoAdvance);
+        return;
+      case 'plan:skip_step':
+        await this.planCtrl.handleSkipStep(ws, meta, msg.stepId);
+        return;
+      case 'plan:retry_step': {
+        const result = await this.planCtrl.handleRetryStep(ws, meta, msg.stepId);
+        // If there's a step to execute, trigger it
+        if (result?.step) {
+          try {
+            await this.generationCtrl.executePlanStep(result.step, meta);
+          } catch (err) {
+            console.error(`[SpaceDO] Failed to execute retry step:`, err);
             await this.planCtrl.httpFailStep(
               result.step.id,
               err instanceof Error ? err.message : 'Execution failed'
