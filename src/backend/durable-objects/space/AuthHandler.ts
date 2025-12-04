@@ -31,13 +31,14 @@ export class AuthHandler {
   /**
    * Authenticate a WebSocket upgrade request
    *
-   * @param request - The incoming request with cookies
+   * @param request - The incoming request with cookies or Authorization header
    * @returns AuthResult with either WebSocketMeta or error details
    */
   async authenticate(request: Request): Promise<AuthResult> {
-    // Extract JWT from cookie
+    // Try Authorization header first (for CLI), then fall back to cookies (for browser)
+    const authHeader = request.headers.get('Authorization');
     const cookieHeader = request.headers.get('Cookie');
-    const token = this.extractAuthToken(cookieHeader);
+    const token = this.extractBearerToken(authHeader) || this.extractAuthToken(cookieHeader);
 
     if (!token) {
       return { success: false, status: 401, message: 'Missing authentication' };
@@ -69,6 +70,17 @@ export class AuthHandler {
     };
 
     return { success: true, meta };
+  }
+
+  /**
+   * Extract Bearer token from Authorization header
+   */
+  private extractBearerToken(authHeader: string | null): string | null {
+    if (!authHeader) return null;
+    if (authHeader.startsWith('Bearer ')) {
+      return authHeader.substring(7);
+    }
+    return null;
   }
 
   /**
