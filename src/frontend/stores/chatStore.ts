@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useCallback } from 'react';
 import type { AssistantPlan, PlanStep, PendingApproval, AutoExecutedAction } from '../../api/types';
+import type {
+  Plan as ServerPlan,
+  PlanStep as ServerPlanStep,
+  PendingApproval as ServerApproval,
+  AutoExecuted as ServerAutoExecuted,
+} from '../hooks/useSpaceWebSocket';
 
 // =============================================================================
 // Types
@@ -94,6 +100,15 @@ interface ChatState {
   rejectApproval: (spaceId: string, approvalId: string) => void;
   clearPendingApprovals: (spaceId: string) => void;
   setLastAutoExecuted: (spaceId: string, actions: AutoExecutedAction[]) => void;
+
+  // Server sync actions (server-first approach)
+  syncServerPlan: (spaceId: string, plan: ServerPlan, steps: ServerPlanStep[]) => void;
+  updateServerPlan: (spaceId: string, plan: ServerPlan) => void;
+  updateServerPlanStep: (spaceId: string, step: ServerPlanStep) => void;
+  syncServerApproval: (spaceId: string, approval: ServerApproval) => void;
+  updateServerApproval: (spaceId: string, approval: ServerApproval) => void;
+  syncServerApprovals: (spaceId: string, approvals: ServerApproval[]) => void;
+  syncServerAutoExecuted: (spaceId: string, autoExecuted: ServerAutoExecuted) => void;
 }
 
 // =============================================================================
@@ -116,6 +131,49 @@ const createEmptySession = (): ChatSession => ({
 const generateMessageId = (): string => {
   return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 };
+
+// Convert server plan status to client status (cancelled maps to failed for display)
+const serverPlanStatusToClient = (status: ServerPlan['status']): AssistantPlan['status'] => {
+  if (status === 'cancelled') return 'failed'; // Cancelled plans are treated as failed in client
+  return status;
+};
+
+// Convert server plan to client plan
+const serverPlanToClient = (plan: ServerPlan, steps: ServerPlanStep[]): AssistantPlan => ({
+  id: plan.id,
+  goal: plan.goal,
+  currentStepIndex: plan.current_step_index,
+  status: serverPlanStatusToClient(plan.status),
+  createdAt: plan.created_at,
+  steps: steps.map(s => ({
+    id: s.id,
+    description: s.description,
+    action: s.action,
+    params: JSON.parse(s.params) as Record<string, unknown>,
+    status: s.status,
+    result: s.result ?? undefined,
+    error: s.error ?? undefined,
+  })),
+});
+
+// Convert server approval to client approval
+const serverApprovalToClient = (approval: ServerApproval): PendingApproval => ({
+  id: approval.id,
+  tool: approval.tool,
+  params: JSON.parse(approval.params) as Record<string, unknown>,
+  description: approval.description,
+  status: approval.status === 'pending' ? 'pending' : approval.status === 'approved' ? 'approved' : 'rejected',
+  createdAt: approval.created_at,
+});
+
+// Convert server auto-executed to client
+const serverAutoExecutedToClient = (autoExec: ServerAutoExecuted): AutoExecutedAction => ({
+  tool: autoExec.tool,
+  params: JSON.parse(autoExec.params) as Record<string, unknown>,
+  result: JSON.parse(autoExec.result) as unknown,
+  success: autoExec.success,
+  error: autoExec.error ?? undefined,
+});
 
 const updateStepStatus = (
   plan: AssistantPlan,
@@ -494,6 +552,158 @@ export const useChatStore = create<ChatState>()(
             },
           },
         }));
+      },
+
+      // Server sync actions (server-first approach)
+      syncServerPlan: (spaceId, plan, steps) => {
+        const clientPlan = serverPlanToClient(plan, steps);
+        const planStatus = plan.status === 'planning' ? 'awaiting_approval' :
+          plan.status === 'executing' ? 'executing' :
+          plan.status === 'paused' ? 'paused' :
+          plan.status === 'completed' ? 'completed' :
+          plan.status === 'failed' ? 'failed' : 'idle';
+
+        set((state) => ({
+          sessions: {
+            ...state.sessions,
+            [spaceId]: {
+              ...(state.sessions[spaceId] || createEmptySession()),
+              plan: clientPlan,
+              planStatus,
+              planError: undefined,
+              lastUpdated: Date.now(),
+            },
+          },
+        }));
+      },
+
+      updateServerPlan: (spaceId, plan) => {
+        set((state) => {
+          const session = state.sessions[spaceId];
+          if (!session || !session.plan) return state;
+
+          const planStatus = plan.status === 'planning' ? 'awaiting_approval' :
+            plan.status === 'executing' ? 'executing' :
+            plan.status === 'paused' ? 'paused' :
+            plan.status === 'completed' ? 'completed' :
+            plan.status === 'failed' ? 'failed' :
+            plan.status === 'cancelled' ? 'idle' : 'idle';
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [spaceId]: {
+                ...session,
+                plan: plan.status === 'cancelled' ? null : {
+                  ...session.plan,
+                  status: plan.status,
+                  currentStepIndex: plan.current_step_index,
+                },
+                planStatus,
+                lastUpdated: Date.now(),
+              },
+            },
+          };
+        });
+      },
+
+      updateServerPlanStep: (spaceId, step) => {
+        set((state) => {
+          const session = state.sessions[spaceId];
+          if (!session || !session.plan) return state;
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [spaceId]: {
+                ...session,
+                plan: {
+                  ...session.plan,
+                  steps: session.plan.steps.map(s =>
+                    s.id === step.id ? {
+                      ...s,
+                      status: step.status,
+                      result: step.result ?? undefined,
+                      error: step.error ?? undefined,
+                    } : s
+                  ),
+                },
+                lastUpdated: Date.now(),
+              },
+            },
+          };
+        });
+      },
+
+      syncServerApproval: (spaceId, approval) => {
+        const clientApproval = serverApprovalToClient(approval);
+        set((state) => {
+          const session = state.sessions[spaceId] || createEmptySession();
+          const existing = session.pendingApprovals.findIndex(a => a.id === approval.id);
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [spaceId]: {
+                ...session,
+                pendingApprovals: existing >= 0
+                  ? session.pendingApprovals.map((a, i) => i === existing ? clientApproval : a)
+                  : [...session.pendingApprovals, clientApproval],
+                lastUpdated: Date.now(),
+              },
+            },
+          };
+        });
+      },
+
+      updateServerApproval: (spaceId, approval) => {
+        set((state) => {
+          const session = state.sessions[spaceId];
+          if (!session) return state;
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [spaceId]: {
+                ...session,
+                pendingApprovals: session.pendingApprovals.map(a =>
+                  a.id === approval.id ? serverApprovalToClient(approval) : a
+                ),
+                lastUpdated: Date.now(),
+              },
+            },
+          };
+        });
+      },
+
+      syncServerApprovals: (spaceId, approvals) => {
+        set((state) => ({
+          sessions: {
+            ...state.sessions,
+            [spaceId]: {
+              ...(state.sessions[spaceId] || createEmptySession()),
+              pendingApprovals: approvals.map(serverApprovalToClient),
+              lastUpdated: Date.now(),
+            },
+          },
+        }));
+      },
+
+      syncServerAutoExecuted: (spaceId, autoExecuted) => {
+        const clientAutoExec = serverAutoExecutedToClient(autoExecuted);
+        set((state) => {
+          const session = state.sessions[spaceId] || createEmptySession();
+          return {
+            sessions: {
+              ...state.sessions,
+              [spaceId]: {
+                ...session,
+                lastAutoExecuted: [...session.lastAutoExecuted, clientAutoExec],
+                lastUpdated: Date.now(),
+              },
+            },
+          };
+        });
       },
     }),
     {
