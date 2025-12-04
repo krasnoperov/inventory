@@ -62,25 +62,37 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           throw new Error('IMAGES R2 bucket not configured');
         }
 
-        const images: ImageInput[] = [];
-        for (let i = 0; i < sourceImageKeys.length; i++) {
-          const imageKey = sourceImageKeys[i];
-          const imageObject = await this.env.IMAGES.get(imageKey);
-          if (!imageObject) {
-            throw new Error(`Source image not found: ${imageKey}`);
+        const timer = log.startTimer('Fetch source images', {
+          requestId, jobId, imageCount: sourceImageKeys.length,
+        });
+
+        try {
+          const images: ImageInput[] = [];
+          let totalBytes = 0;
+          for (let i = 0; i < sourceImageKeys.length; i++) {
+            const imageKey = sourceImageKeys[i];
+            const imageObject = await this.env.IMAGES.get(imageKey);
+            if (!imageObject) {
+              throw new Error(`Source image not found: ${imageKey}`);
+            }
+
+            const buffer = await imageObject.arrayBuffer();
+            totalBytes += buffer.byteLength;
+            const base64 = arrayBufferToBase64(buffer);
+            const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
+
+            images.push({
+              data: base64,
+              mimeType,
+              label: `Image ${i + 1}:`,
+            });
           }
-
-          const buffer = await imageObject.arrayBuffer();
-          const base64 = arrayBufferToBase64(buffer);
-          const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
-
-          images.push({
-            data: base64,
-            mimeType,
-            label: `Image ${i + 1}:`,
-          });
+          timer(true, { totalBytes, imageCount: images.length });
+          return images;
+        } catch (error) {
+          timer(false, { error: error instanceof Error ? error.message : String(error) });
+          throw error;
         }
-        return images;
       });
     }
 
@@ -99,35 +111,47 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         const modelToUse = (model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image') || 'gemini-3-pro-image-preview';
         const aspectRatioToUse = (aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9') || '1:1';
 
-        // Select Gemini API based on operation + ref count:
-        // - create (0 refs) → generate() - pure text-to-image
-        // - create (1+ refs) → compose() - style transfer / extraction
-        // - refine (1 source) → edit() - single image edit
-        // - refine (source + extras) → compose() - edit with style refs
-        // - combine → compose() - always multiple sources
-        if (operation === 'refine' && sourceImages.length === 1) {
-          log.debug('Using edit() API', { requestId, jobId, operation });
-          return nanoBanana.edit({
-            image: sourceImages[0],
-            prompt,
-            model: modelToUse,
-            aspectRatio: aspectRatioToUse,
-          });
-        } else if (sourceImages.length > 0) {
-          log.debug('Using compose() API', { requestId, jobId, operation, imageCount: sourceImages.length });
-          return nanoBanana.compose({
-            images: sourceImages,
-            prompt,
-            model: modelToUse,
-            aspectRatio: aspectRatioToUse,
-          });
-        } else {
-          log.debug('Using generate() API', { requestId, jobId, operation });
-          return nanoBanana.generate({
-            prompt,
-            model: modelToUse,
-            aspectRatio: aspectRatioToUse,
-          });
+        const timer = log.startTimer('Gemini image generation', {
+          requestId, jobId, spaceId, operation, model: modelToUse,
+        });
+
+        try {
+          // Select Gemini API based on operation + ref count:
+          // - create (0 refs) → generate() - pure text-to-image
+          // - create (1+ refs) → compose() - style transfer / extraction
+          // - refine (1 source) → edit() - single image edit
+          // - refine (source + extras) → compose() - edit with style refs
+          // - combine → compose() - always multiple sources
+          let result: GenerationResult;
+          if (operation === 'refine' && sourceImages.length === 1) {
+            log.debug('Using edit() API', { requestId, jobId, operation });
+            result = await nanoBanana.edit({
+              image: sourceImages[0],
+              prompt,
+              model: modelToUse,
+              aspectRatio: aspectRatioToUse,
+            });
+          } else if (sourceImages.length > 0) {
+            log.debug('Using compose() API', { requestId, jobId, operation, imageCount: sourceImages.length });
+            result = await nanoBanana.compose({
+              images: sourceImages,
+              prompt,
+              model: modelToUse,
+              aspectRatio: aspectRatioToUse,
+            });
+          } else {
+            log.debug('Using generate() API', { requestId, jobId, operation });
+            result = await nanoBanana.generate({
+              prompt,
+              model: modelToUse,
+              aspectRatio: aspectRatioToUse,
+            });
+          }
+          timer(true, { imageSize: result.imageData?.length || 0 });
+          return result;
+        } catch (error) {
+          timer(false, { error: error instanceof Error ? error.message : String(error) });
+          throw error;
         }
       });
     } catch (error) {
@@ -155,54 +179,69 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           throw new Error('IMAGES R2 bucket not configured');
         }
 
-        // Detect actual image type from base64
-        const actualMimeType = detectImageType(generationResult.imageData);
-        const extension = getExtensionForMimeType(actualMimeType);
+        const timer = log.startTimer('Upload to R2', { requestId, jobId });
 
-        const imgKey = `images/${spaceId}/${variantId}.${extension}`;
-        const thmbKey = `images/${spaceId}/${variantId}_thumb.webp`;
-
-        // Convert base64 to buffer
-        const imageBuffer = base64ToBuffer(generationResult.imageData);
-
-        // Upload full image
-        await this.env.IMAGES.put(imgKey, imageBuffer, {
-          httpMetadata: { contentType: actualMimeType },
-        });
-
-        log.debug('Uploaded full image', { requestId, jobId, imageKey: imgKey });
-
-        // Create and upload thumbnail
         try {
-          const baseUrl = getBaseUrl(this.env);
-          const { buffer: thumbBuffer, mimeType: thumbMimeType } = await createThumbnail(
-            imgKey,
-            baseUrl,
-            this.env,
-            {
-              width: 512,
-              height: 512,
-              fit: 'cover',
-              gravity: 'auto',
-              quality: 80,
-              format: 'webp',
-            }
-          );
+          // Detect actual image type from base64
+          const actualMimeType = detectImageType(generationResult.imageData);
+          const extension = getExtensionForMimeType(actualMimeType);
 
-          await this.env.IMAGES.put(thmbKey, thumbBuffer, {
-            httpMetadata: { contentType: thumbMimeType },
-          });
+          const imgKey = `images/${spaceId}/${variantId}.${extension}`;
+          const thmbKey = `images/${spaceId}/${variantId}_thumb.webp`;
 
-          log.debug('Uploaded thumbnail', { requestId, jobId, thumbKey: thmbKey });
-        } catch (thumbError) {
-          // Fallback: use original as thumbnail
-          log.warn('Thumbnail creation failed, using original', { requestId, jobId, error: thumbError instanceof Error ? thumbError.message : String(thumbError) });
-          await this.env.IMAGES.put(thmbKey, imageBuffer, {
+          // Convert base64 to buffer
+          const imageBuffer = base64ToBuffer(generationResult.imageData);
+
+          // Upload full image
+          await this.env.IMAGES.put(imgKey, imageBuffer, {
             httpMetadata: { contentType: actualMimeType },
           });
-        }
 
-        return { imageKey: imgKey, thumbKey: thmbKey };
+          log.debug('Uploaded full image', { requestId, jobId, imageKey: imgKey });
+
+          // Create and upload thumbnail
+          let thumbSize = 0;
+          try {
+            const baseUrl = getBaseUrl(this.env);
+            const { buffer: thumbBuffer, mimeType: thumbMimeType } = await createThumbnail(
+              imgKey,
+              baseUrl,
+              this.env,
+              {
+                width: 512,
+                height: 512,
+                fit: 'cover',
+                gravity: 'auto',
+                quality: 80,
+                format: 'webp',
+              }
+            );
+
+            await this.env.IMAGES.put(thmbKey, thumbBuffer, {
+              httpMetadata: { contentType: thumbMimeType },
+            });
+            thumbSize = thumbBuffer.byteLength;
+
+            log.debug('Uploaded thumbnail', { requestId, jobId, thumbKey: thmbKey });
+          } catch (thumbError) {
+            // Fallback: use original as thumbnail
+            log.warn('Thumbnail creation failed, using original', { requestId, jobId, error: thumbError instanceof Error ? thumbError.message : String(thumbError) });
+            await this.env.IMAGES.put(thmbKey, imageBuffer, {
+              httpMetadata: { contentType: actualMimeType },
+            });
+            thumbSize = imageBuffer.byteLength;
+          }
+
+          timer(true, {
+            imageKey: imgKey,
+            thumbKey: thmbKey,
+            totalBytes: imageBuffer.byteLength + thumbSize,
+          });
+          return { imageKey: imgKey, thumbKey: thmbKey };
+        } catch (error) {
+          timer(false, { error: error instanceof Error ? error.message : String(error) });
+          throw error;
+        }
       });
 
       imageKey = uploadResult.imageKey;
@@ -226,27 +265,35 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           throw new Error('SPACES_DO not configured');
         }
 
-        const doId = this.env.SPACES_DO.idFromName(spaceId);
-        const doStub = this.env.SPACES_DO.get(doId);
+        const timer = log.startTimer('DO completeVariant', { requestId, jobId, spaceId, variantId });
 
-        // Call complete-variant endpoint to finalize the placeholder
-        const response = await doStub.fetch(new Request('http://do/internal/complete-variant', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            variantId,
-            imageKey,
-            thumbKey,
-          }),
-        }));
+        try {
+          const doId = this.env.SPACES_DO.idFromName(spaceId);
+          const doStub = this.env.SPACES_DO.get(doId);
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`DO complete-variant failed: ${errorText}`);
+          // Call complete-variant endpoint to finalize the placeholder
+          const response = await doStub.fetch(new Request('http://do/internal/complete-variant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              variantId,
+              imageKey,
+              thumbKey,
+            }),
+          }));
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`DO complete-variant failed (${response.status}): ${errorText}`);
+          }
+
+          const result = await response.json<{ success: boolean; variant: GeneratedVariant }>();
+          timer(true);
+          return result.variant;
+        } catch (error) {
+          timer(false, { error: error instanceof Error ? error.message : String(error) });
+          throw error;
         }
-
-        const result = await response.json<{ success: boolean; variant: GeneratedVariant }>();
-        return result.variant;
       });
     } catch (error) {
       log.error('Complete variant error', { requestId, jobId, spaceId, error: error instanceof Error ? error.message : String(error) });
@@ -278,14 +325,23 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
   private async updateVariantStatus(spaceId: string, variantId: string, status: string): Promise<void> {
     if (!this.env.SPACES_DO) return;
 
-    const doId = this.env.SPACES_DO.idFromName(spaceId);
-    const doStub = this.env.SPACES_DO.get(doId);
+    const timer = log.startTimer('DO updateVariantStatus', { spaceId, variantId, status });
 
-    await doStub.fetch(new Request('http://do/internal/variant/status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ variantId, status }),
-    }));
+    try {
+      const doId = this.env.SPACES_DO.idFromName(spaceId);
+      const doStub = this.env.SPACES_DO.get(doId);
+
+      await doStub.fetch(new Request('http://do/internal/variant/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variantId, status }),
+      }));
+
+      timer(true);
+    } catch (error) {
+      timer(false, { error: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
   }
 
   /**

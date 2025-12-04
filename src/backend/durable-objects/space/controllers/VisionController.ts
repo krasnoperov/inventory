@@ -94,33 +94,49 @@ export class VisionController extends BaseController {
       return;
     }
 
-    // Build dependencies and process
-    const deps = this.buildVisionDependencies();
-    const result = await processDescribe(
-      {
-        variantId: msg.variantId,
-        assetName: msg.assetName,
-        focus: msg.focus,
-        question: msg.question,
-      },
-      deps
-    );
+    const timer = log.startTimer('Vision describe', {
+      requestId: msg.requestId,
+      spaceId: this.spaceId,
+      variantId: msg.variantId,
+    });
 
-    if (result.success) {
-      this.send(ws, {
-        type: 'describe:response',
-        requestId: msg.requestId,
-        success: true,
-        description: result.description,
-        usage: result.usage,
-      });
-    } else {
-      this.send(ws, {
-        type: 'describe:response',
-        requestId: msg.requestId,
-        success: false,
-        error: result.error,
-      });
+    try {
+      // Build dependencies and process
+      const deps = this.buildVisionDependencies();
+      const result = await processDescribe(
+        {
+          variantId: msg.variantId,
+          assetName: msg.assetName,
+          focus: msg.focus,
+          question: msg.question,
+        },
+        deps
+      );
+
+      if (result.success) {
+        timer(true, {
+          descriptionLength: result.description?.length || 0,
+          outputTokens: result.usage?.outputTokens,
+        });
+        this.send(ws, {
+          type: 'describe:response',
+          requestId: msg.requestId,
+          success: true,
+          description: result.description,
+          usage: result.usage,
+        });
+      } else {
+        timer(false, { error: result.error });
+        this.send(ws, {
+          type: 'describe:response',
+          requestId: msg.requestId,
+          success: false,
+          error: result.error,
+        });
+      }
+    } catch (error) {
+      timer(false, { error: error instanceof Error ? error.message : String(error) });
+      throw error;
     }
   }
 
@@ -146,25 +162,41 @@ export class VisionController extends BaseController {
       return;
     }
 
-    // Build dependencies and process
-    const deps = this.buildVisionDependencies();
-    const result = await processCompare({ variantIds: msg.variantIds, aspects: msg.aspects }, deps);
+    const timer = log.startTimer('Vision compare', {
+      requestId: msg.requestId,
+      spaceId: this.spaceId,
+      variantCount: msg.variantIds.length,
+    });
 
-    if (result.success) {
-      this.send(ws, {
-        type: 'compare:response',
-        requestId: msg.requestId,
-        success: true,
-        comparison: result.comparison,
-        usage: result.usage,
-      });
-    } else {
-      this.send(ws, {
-        type: 'compare:response',
-        requestId: msg.requestId,
-        success: false,
-        error: result.error,
-      });
+    try {
+      // Build dependencies and process
+      const deps = this.buildVisionDependencies();
+      const result = await processCompare({ variantIds: msg.variantIds, aspects: msg.aspects }, deps);
+
+      if (result.success) {
+        timer(true, {
+          comparisonLength: result.comparison?.length || 0,
+          outputTokens: result.usage?.outputTokens,
+        });
+        this.send(ws, {
+          type: 'compare:response',
+          requestId: msg.requestId,
+          success: true,
+          comparison: result.comparison,
+          usage: result.usage,
+        });
+      } else {
+        timer(false, { error: result.error });
+        this.send(ws, {
+          type: 'compare:response',
+          requestId: msg.requestId,
+          success: false,
+          error: result.error,
+        });
+      }
+    } catch (error) {
+      timer(false, { error: error instanceof Error ? error.message : String(error) });
+      throw error;
     }
   }
 

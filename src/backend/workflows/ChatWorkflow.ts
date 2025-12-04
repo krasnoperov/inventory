@@ -52,21 +52,33 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
           throw new Error('ANTHROPIC_API_KEY not configured');
         }
 
-        const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY);
+        const timer = log.startTimer('Claude API call', { requestId, spaceId, mode });
 
-        // Build context for Claude
-        const context: BotContext = {
-          spaceId,
-          spaceName: 'Space', // Could be passed from input if needed
-          assets,
-          mode,
-          forge: forgeContext,
-          viewing: viewingContext,
-          personalizationContext,
-          activePlan,
-        };
+        try {
+          const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY);
 
-        return claudeService.processMessage(message, context, history);
+          // Build context for Claude
+          const context: BotContext = {
+            spaceId,
+            spaceName: 'Space', // Could be passed from input if needed
+            assets,
+            mode,
+            forge: forgeContext,
+            viewing: viewingContext,
+            personalizationContext,
+            activePlan,
+          };
+
+          const result = await claudeService.processMessage(message, context, history);
+          timer(true, {
+            inputTokens: result.usage.inputTokens,
+            outputTokens: result.usage.outputTokens,
+          });
+          return result;
+        } catch (error) {
+          timer(false, { error: error instanceof Error ? error.message : String(error) });
+          throw error;
+        }
       });
     } catch (error) {
       log.error('Claude API error', { requestId, spaceId, error: error instanceof Error ? error.message : String(error) });
