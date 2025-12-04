@@ -37,8 +37,8 @@ interface GenerationRecipe {
   assetType: string;
   aspectRatio?: string;
   sourceImageKeys?: string[];
-  /** Operation type matching user-facing tool name */
-  operation: 'derive' | 'refine';
+  /** Operation type matching user-facing ForgeTray operation */
+  operation: OperationType;
 }
 
 export class GenerationController extends BaseController {
@@ -219,13 +219,16 @@ export class GenerationController extends BaseController {
       parentVariantIds = resolved.parentVariantIds;
     }
 
+    // Determine operation: 'generate' if no refs, 'derive' if using refs
+    const operation: OperationType = parentVariantIds.length > 0 ? 'derive' : 'generate';
+
     // Build recipe for storage (enables retry)
     const recipe: GenerationRecipe = {
       prompt: msg.prompt || `Create a ${msg.assetType} named "${msg.name}"`,
       assetType: msg.assetType,
       aspectRatio: msg.aspectRatio,
       sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
-      operation: 'derive',
+      operation,
     };
 
     // Create placeholder variant (status=pending, no images)
@@ -280,7 +283,7 @@ export class GenerationController extends BaseController {
       aspectRatio: msg.aspectRatio,
       sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
       parentVariantIds: parentVariantIds.length > 0 ? parentVariantIds : undefined,
-      operation: 'derive',
+      operation,
     };
 
     // Trigger the workflow
@@ -295,10 +298,11 @@ export class GenerationController extends BaseController {
       this.broadcast({ type: 'variant:updated', variant: updatedVariant });
     }
 
-    log.info('Started GenerationWorkflow for create', {
+    log.info('Started GenerationWorkflow', {
       requestId: msg.requestId,
       spaceId: this.spaceId,
       userId: meta.userId,
+      operation,
       assetName: msg.name,
       assetId: asset.id,
       variantId,
@@ -887,13 +891,16 @@ export class GenerationController extends BaseController {
       ? await this.resolveReferences(referenceAssetIds)
       : { sourceImageKeys: [], parentVariantIds: [] };
 
+    // Determine operation: 'generate' if no refs, 'derive' if using refs
+    const operation: OperationType = parentVariantIds.length > 0 ? 'derive' : 'generate';
+
     // Build recipe
     const recipe: GenerationRecipe = {
       prompt,
       assetType,
       aspectRatio,
       sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
-      operation: 'derive',
+      operation,
     };
 
     // Create placeholder variant linked to the plan step
@@ -943,7 +950,7 @@ export class GenerationController extends BaseController {
         aspectRatio,
         sourceImageKeys: sourceImageKeys.length > 0 ? sourceImageKeys : undefined,
         parentVariantIds: parentVariantIds.length > 0 ? parentVariantIds : undefined,
-        operation: 'derive',
+        operation,
       };
 
       const instance = await this.env.GENERATION_WORKFLOW.create({
@@ -957,7 +964,7 @@ export class GenerationController extends BaseController {
       }
     }
 
-    log.info('Executed plan step: generate', { spaceId: this.spaceId, stepId, assetName: name, variantId });
+    log.info('Executed plan step', { spaceId: this.spaceId, stepId, operation, assetName: name, variantId });
     return variantId;
   }
 

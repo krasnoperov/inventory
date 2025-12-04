@@ -1,11 +1,17 @@
 /**
  * GenerationWorkflow - Cloudflare Workflow for Gemini Image Generation
  *
+ * User Operations (from ForgeTray):
+ * - generate: Create new asset from prompt only (0 refs) → Gemini generate()
+ * - derive: Create new asset using refs as inspiration → Gemini compose()
+ * - refine: Add variant to existing asset (1 ref) → Gemini edit()
+ * - refine: Add variant to existing asset (2+ refs) → Gemini compose()
+ *
  * Flow (per architecture.md):
  * 1. SpaceDO creates placeholder variant (status='pending') before triggering workflow
  * 2. Workflow updates variant to 'processing' via DO internal endpoint
- * 3. Workflow fetches source images from R2 (for refine/combine operations)
- * 4. Workflow calls Gemini API with retries
+ * 3. Workflow fetches source images from R2 (for derive/refine operations)
+ * 4. Workflow calls appropriate Gemini API (generate/edit/compose) with retries
  * 5. Workflow uploads result to R2 (full + thumbnail)
  * 6. Workflow calls DO /internal/complete-variant → status='completed'
  * 7. SpaceDO broadcasts variant:updated to WebSocket clients
@@ -111,28 +117,35 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         const modelToUse = (model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image') || 'gemini-3-pro-image-preview';
         const aspectRatioToUse = (aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9') || '1:1';
 
+        // Determine which Gemini API to call based on operation and ref count
+        // geminiApi is the actual API method, operation is the user's intent
+        const geminiApi: 'generate' | 'edit' | 'compose' =
+          sourceImages.length === 0 ? 'generate' :
+          (operation === 'refine' && sourceImages.length === 1) ? 'edit' :
+          'compose';
+
         const timer = log.startTimer('Gemini image generation', {
-          requestId, jobId, spaceId, operation, model: modelToUse,
+          requestId, jobId, spaceId, operation, geminiApi, model: modelToUse, refCount: sourceImages.length,
+        });
+
+        log.info('Calling Gemini API', {
+          requestId, jobId, operation, geminiApi, refCount: sourceImages.length,
         });
 
         try {
-          // Select Gemini API based on operation + ref count:
-          // - create (0 refs) → generate() - pure text-to-image
-          // - create (1+ refs) → compose() - style transfer / extraction
-          // - refine (1 source) → edit() - single image edit
-          // - refine (source + extras) → compose() - edit with style refs
-          // - combine → compose() - always multiple sources
+          // Call the appropriate Gemini API:
+          // - generate(): pure text-to-image (0 refs)
+          // - edit(): single image modification (refine with 1 ref)
+          // - compose(): multi-image generation (derive or refine with 2+ refs)
           let result: GenerationResult;
-          if (operation === 'refine' && sourceImages.length === 1) {
-            log.debug('Using edit() API', { requestId, jobId, operation });
+          if (geminiApi === 'edit') {
             result = await nanoBanana.edit({
               image: sourceImages[0],
               prompt,
               model: modelToUse,
               aspectRatio: aspectRatioToUse,
             });
-          } else if (sourceImages.length > 0) {
-            log.debug('Using compose() API', { requestId, jobId, operation, imageCount: sourceImages.length });
+          } else if (geminiApi === 'compose') {
             result = await nanoBanana.compose({
               images: sourceImages,
               prompt,
@@ -140,14 +153,13 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               aspectRatio: aspectRatioToUse,
             });
           } else {
-            log.debug('Using generate() API', { requestId, jobId, operation });
             result = await nanoBanana.generate({
               prompt,
               model: modelToUse,
               aspectRatio: aspectRatioToUse,
             });
           }
-          timer(true, { imageSize: result.imageData?.length || 0 });
+          timer(true, { imageSize: result.imageData?.length || 0, geminiApi });
           return result;
         } catch (error) {
           timer(false, { error: error instanceof Error ? error.message : String(error) });

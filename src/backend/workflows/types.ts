@@ -75,10 +75,18 @@ export interface ChatWorkflowOutput {
 // ============================================================================
 
 /**
- * Operation type - matches user-facing tool names
+ * Operation type - matches user-facing ForgeTray operations
  * Used throughout the pipeline for clarity in logs and tracking
+ *
+ * - generate: Create new asset from prompt only (no references)
+ * - derive: Create new asset using references as inspiration
+ * - refine: Add variant to existing asset
+ * - fork: Copy variant to new asset (no AI generation - handled separately)
+ *
+ * Note: 'fork' is rarely used here since it's synchronous (no workflow).
+ * Lineage uses different terms: 'derived', 'refined', 'forked' for relationships.
  */
-export type OperationType = 'derive' | 'refine';
+export type OperationType = 'generate' | 'derive' | 'refine' | 'fork';
 
 /** Input to GenerationWorkflow - triggered by SpaceDO on generate:request */
 export interface GenerationWorkflowInput {
