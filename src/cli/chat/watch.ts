@@ -11,8 +11,7 @@ import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import {
   WebSocketClient,
-  type Plan,
-  type PlanStep,
+  type SimplePlan,
   type PendingApproval,
   type AutoExecuted,
 } from '../lib/websocket-client';
@@ -35,34 +34,22 @@ export async function handleWatch(parsed: ParsedArgs): Promise<void> {
     wsClient = await WebSocketClient.create(env, spaceId);
 
     // Set up handlers for all event types
-    wsClient.setOnPlanCreated((plan: Plan, steps: PlanStep[]) => {
-      console.log(`\n📋 [PLAN CREATED] ${plan.goal}`);
-      console.log(`   ID: ${plan.id}`);
-      console.log(`   Steps: ${steps.length}`);
-      for (let i = 0; i < steps.length; i++) {
-        console.log(`     ${i + 1}. ${steps[i].description}`);
-      }
-    });
-
-    wsClient.setOnPlanUpdated((plan: Plan) => {
+    wsClient.setOnPlanUpdated((plan: SimplePlan) => {
       console.log(`\n📋 [PLAN UPDATED] ${plan.id}`);
       console.log(`   Status: ${plan.status}`);
-      console.log(`   Current step: ${plan.current_step_index + 1}`);
+      console.log(`   Session: ${plan.sessionId}`);
+      // Show first 3 lines of content
+      const lines = plan.content.split('\n').slice(0, 3);
+      for (const line of lines) {
+        console.log(`   ${truncate(line, 60)}`);
+      }
+      if (plan.content.split('\n').length > 3) {
+        console.log('   ...');
+      }
     });
 
-    wsClient.setOnPlanStepUpdated((step: PlanStep) => {
-      const status = step.status === 'completed' ? '✅' :
-                     step.status === 'failed' ? '❌' :
-                     step.status === 'in_progress' ? '⏳' : '○';
-      console.log(`\n${status} [STEP UPDATED] Step ${step.step_index + 1}`);
-      console.log(`   Description: ${step.description}`);
-      console.log(`   Status: ${step.status}`);
-      if (step.result) {
-        console.log(`   Result: ${truncate(step.result, 80)}`);
-      }
-      if (step.error) {
-        console.log(`   Error: ${step.error}`);
-      }
+    wsClient.setOnPlanArchived((planId: string) => {
+      console.log(`\n📋 [PLAN ARCHIVED] ${planId}`);
     });
 
     wsClient.setOnApprovalCreated((approval: PendingApproval) => {

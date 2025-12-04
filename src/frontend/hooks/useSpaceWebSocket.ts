@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { DescribeFocus, ClaudeUsage } from '../../shared/websocket-types';
+import type { DescribeFocus, ClaudeUsage, SimplePlan } from '../../shared/websocket-types';
 
 // Asset and Variant types based on DO SQLite schema
 export interface Asset {
@@ -223,7 +223,7 @@ export interface RefineRequestParams {
 }
 
 // Re-export shared types
-export type { DescribeFocus, ClaudeUsage } from '../../shared/websocket-types';
+export type { DescribeFocus, ClaudeUsage, SimplePlan } from '../../shared/websocket-types';
 
 // Describe image request parameters
 export interface DescribeRequestParams {
@@ -278,10 +278,6 @@ export interface UseSpaceWebSocketParams {
   onGenerateResult?: (data: { requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }) => void;
   onDescribeResponse?: (response: DescribeResponseResult) => void;
   onCompareResponse?: (response: CompareResponseResult) => void;
-  // Plan lifecycle callbacks
-  onPlanCreated?: (plan: Plan, steps: PlanStep[]) => void;
-  onPlanUpdated?: (plan: Plan) => void;
-  onPlanStepUpdated?: (step: PlanStep) => void;
   // Approval lifecycle callbacks
   onApprovalCreated?: (approval: PendingApproval) => void;
   onApprovalUpdated?: (approval: PendingApproval) => void;
@@ -295,6 +291,9 @@ export interface UseSpaceWebSocketParams {
   onChatHistory?: (messages: Array<{ sender_type: 'user' | 'bot'; content: string; created_at: number }>, sessionId: string | null) => void;
   // Chat session created callback
   onSessionCreated?: (session: ChatSession) => void;
+  // SimplePlan callbacks
+  onPlanUpdated?: (plan: SimplePlan) => void;
+  onPlanArchived?: (planId: string) => void;
 }
 
 // Connection status
@@ -351,11 +350,9 @@ type ServerMessage =
   // Vision (describe/compare) response messages
   | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string; usage?: ClaudeUsage }
   | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage }
-  // Plan lifecycle messages
-  | { type: 'plan:created'; plan: Plan; steps: PlanStep[] }
-  | { type: 'plan:updated'; plan: Plan }
-  | { type: 'plan:step_updated'; step: PlanStep }
-  | { type: 'plan:deleted'; planId: string }
+  // SimplePlan messages (markdown-based plan)
+  | { type: 'simple_plan:updated'; plan: SimplePlan }
+  | { type: 'simple_plan:archived'; planId: string }
   // Approval lifecycle messages
   | { type: 'approval:created'; approval: PendingApproval }
   | { type: 'approval:updated'; approval: PendingApproval }
@@ -435,14 +432,6 @@ export interface UseSpaceWebSocketReturn {
   getChildren: (assetId: string) => Asset[];
   getAncestors: (assetId: string) => Asset[];
   getRootAssets: () => Asset[];
-  // Plan methods
-  approvePlan: (planId: string) => void;
-  rejectPlan: (planId: string) => void;
-  cancelPlan: (planId: string) => void;
-  advancePlan: (planId: string) => void;
-  setAutoAdvance: (planId: string, autoAdvance: boolean) => void;
-  skipStep: (stepId: string) => void;
-  retryStep: (stepId: string) => void;
   // Approval methods
   approveApproval: (approvalId: string) => void;
   rejectApproval: (approvalId: string) => void;
@@ -471,9 +460,6 @@ export function useSpaceWebSocket({
   onGenerateResult,
   onDescribeResponse,
   onCompareResponse,
-  onPlanCreated,
-  onPlanUpdated,
-  onPlanStepUpdated,
   onApprovalCreated,
   onApprovalUpdated,
   onApprovalList,
@@ -481,6 +467,8 @@ export function useSpaceWebSocket({
   onSessionState,
   onChatHistory,
   onSessionCreated,
+  onPlanUpdated,
+  onPlanArchived,
 }: UseSpaceWebSocketParams): UseSpaceWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
@@ -640,35 +628,6 @@ export function useSpaceWebSocket({
     return requestId;
   }, [sendMessage]);
 
-  // Plan methods
-  const approvePlan = useCallback((planId: string) => {
-    sendMessage({ type: 'plan:approve', planId });
-  }, [sendMessage]);
-
-  const rejectPlan = useCallback((planId: string) => {
-    sendMessage({ type: 'plan:reject', planId });
-  }, [sendMessage]);
-
-  const cancelPlan = useCallback((planId: string) => {
-    sendMessage({ type: 'plan:cancel', planId });
-  }, [sendMessage]);
-
-  const advancePlan = useCallback((planId: string) => {
-    sendMessage({ type: 'plan:advance', planId });
-  }, [sendMessage]);
-
-  const setAutoAdvance = useCallback((planId: string, autoAdvance: boolean) => {
-    sendMessage({ type: 'plan:set_auto_advance', planId, autoAdvance });
-  }, [sendMessage]);
-
-  const skipStep = useCallback((stepId: string) => {
-    sendMessage({ type: 'plan:skip_step', stepId });
-  }, [sendMessage]);
-
-  const retryStep = useCallback((stepId: string) => {
-    sendMessage({ type: 'plan:retry_step', stepId });
-  }, [sendMessage]);
-
   // Approval methods
   const approveApproval = useCallback((approvalId: string) => {
     sendMessage({ type: 'approval:approve', approvalId });
@@ -762,9 +721,6 @@ export function useSpaceWebSocket({
   const onGenerateResultRef = useRef(onGenerateResult);
   const onDescribeResponseRef = useRef(onDescribeResponse);
   const onCompareResponseRef = useRef(onCompareResponse);
-  const onPlanCreatedRef = useRef(onPlanCreated);
-  const onPlanUpdatedRef = useRef(onPlanUpdated);
-  const onPlanStepUpdatedRef = useRef(onPlanStepUpdated);
   const onApprovalCreatedRef = useRef(onApprovalCreated);
   const onApprovalUpdatedRef = useRef(onApprovalUpdated);
   const onApprovalListRef = useRef(onApprovalList);
@@ -772,6 +728,8 @@ export function useSpaceWebSocket({
   const onSessionStateRef = useRef(onSessionState);
   const onChatHistoryRef = useRef(onChatHistory);
   const onSessionCreatedRef = useRef(onSessionCreated);
+  const onPlanUpdatedRef = useRef(onPlanUpdated);
+  const onPlanArchivedRef = useRef(onPlanArchived);
 
   // Update refs in useEffect to avoid accessing refs during render
   useEffect(() => {
@@ -784,9 +742,6 @@ export function useSpaceWebSocket({
     onGenerateResultRef.current = onGenerateResult;
     onDescribeResponseRef.current = onDescribeResponse;
     onCompareResponseRef.current = onCompareResponse;
-    onPlanCreatedRef.current = onPlanCreated;
-    onPlanUpdatedRef.current = onPlanUpdated;
-    onPlanStepUpdatedRef.current = onPlanStepUpdated;
     onApprovalCreatedRef.current = onApprovalCreated;
     onApprovalUpdatedRef.current = onApprovalUpdated;
     onApprovalListRef.current = onApprovalList;
@@ -794,6 +749,8 @@ export function useSpaceWebSocket({
     onSessionStateRef.current = onSessionState;
     onChatHistoryRef.current = onChatHistory;
     onSessionCreatedRef.current = onSessionCreated;
+    onPlanUpdatedRef.current = onPlanUpdated;
+    onPlanArchivedRef.current = onPlanArchived;
   });
 
   // Connect on mount, disconnect on unmount
@@ -1116,23 +1073,6 @@ export function useSpaceWebSocket({
                 });
                 break;
 
-              // Plan lifecycle messages
-              case 'plan:created':
-                onPlanCreatedRef.current?.(message.plan, message.steps);
-                break;
-
-              case 'plan:updated':
-                onPlanUpdatedRef.current?.(message.plan);
-                break;
-
-              case 'plan:step_updated':
-                onPlanStepUpdatedRef.current?.(message.step);
-                break;
-
-              case 'plan:deleted':
-                // Plans are not stored locally, just notify callback
-                break;
-
               // Approval lifecycle messages
               case 'approval:created':
                 onApprovalCreatedRef.current?.(message.approval);
@@ -1158,6 +1098,15 @@ export function useSpaceWebSocket({
               // Session state
               case 'session:state':
                 onSessionStateRef.current?.(message.session);
+                break;
+
+              // SimplePlan messages
+              case 'simple_plan:updated':
+                onPlanUpdatedRef.current?.(message.plan);
+                break;
+
+              case 'simple_plan:archived':
+                onPlanArchivedRef.current?.(message.planId);
                 break;
 
               default:
@@ -1257,14 +1206,6 @@ export function useSpaceWebSocket({
     getChildren,
     getAncestors,
     getRootAssets,
-    // Plan methods
-    approvePlan,
-    rejectPlan,
-    cancelPlan,
-    advancePlan,
-    setAutoAdvance,
-    skipStep,
-    retryStep,
     // Approval methods
     approveApproval,
     rejectApproval,

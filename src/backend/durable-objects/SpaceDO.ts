@@ -32,7 +32,6 @@ import {
   VisionController,
 } from './space/controllers';
 import { ApprovalController } from './space/controllers/ApprovalController';
-import { PlanController } from './space/controllers/PlanController';
 import { SessionController } from './space/controllers/SessionController';
 
 // ============================================================================
@@ -55,7 +54,6 @@ export class SpaceDO extends DurableObject<Env> {
   private generationCtrl!: GenerationController;
   private visionCtrl!: VisionController;
   private approvalCtrl!: ApprovalController;
-  private planCtrl!: PlanController;
   private sessionCtrl!: SessionController;
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -125,13 +123,7 @@ export class SpaceDO extends DurableObject<Env> {
       this.generationCtrl = new GenerationController(ctx);
       this.visionCtrl = new VisionController(ctx);
       this.approvalCtrl = new ApprovalController(ctx);
-      this.planCtrl = new PlanController(ctx);
       this.sessionCtrl = new SessionController(ctx);
-
-      // Set step executor for auto-advance
-      this.planCtrl.setStepExecutor(async (step, meta) => {
-        await this.generationCtrl.executePlanStep(step, meta);
-      });
 
       // Initialize internal HTTP router
       this.internalApi = createInternalApi({
@@ -142,8 +134,8 @@ export class SpaceDO extends DurableObject<Env> {
         sync: this.syncCtrl,
         generation: this.generationCtrl,
         approval: this.approvalCtrl,
-        plan: this.planCtrl,
         session: this.sessionCtrl,
+        plan: this.generationCtrl, // Plan methods are on GenerationController
       });
 
       this.initialized = true;
@@ -293,66 +285,6 @@ export class SpaceDO extends DurableObject<Env> {
         return this.chatCtrl.handleHistory(ws, meta, msg.since);
       case 'chat:new_session':
         return this.chatCtrl.handleNewSession(ws, meta);
-
-      // Plan
-      case 'plan:approve':
-        await this.planCtrl.handleApprove(ws, meta, msg.planId);
-        return;
-      case 'plan:reject':
-        await this.planCtrl.handleReject(ws, meta, msg.planId);
-        return;
-      case 'plan:cancel':
-        await this.planCtrl.handleCancel(ws, meta, msg.planId);
-        return;
-      case 'plan:advance': {
-        const result = await this.planCtrl.handleAdvance(ws, meta, msg.planId);
-        // If there's a step to execute, trigger it
-        if (result?.step) {
-          try {
-            await this.generationCtrl.executePlanStep(result.step, meta);
-          } catch (err) {
-            loggers.spaceDO.error('Failed to execute plan step', {
-              spaceId: this.spaceId ?? undefined,
-              userId: meta.userId,
-              planId: msg.planId,
-              stepId: result.step.id,
-            }, err instanceof Error ? err : new Error(String(err)));
-            // The step was marked in_progress but execution failed
-            // Mark it as failed
-            await this.planCtrl.httpFailStep(
-              result.step.id,
-              err instanceof Error ? err.message : 'Execution failed'
-            );
-          }
-        }
-        return;
-      }
-      case 'plan:set_auto_advance':
-        await this.planCtrl.handleSetAutoAdvance(ws, meta, msg.planId, msg.autoAdvance);
-        return;
-      case 'plan:skip_step':
-        await this.planCtrl.handleSkipStep(ws, meta, msg.stepId);
-        return;
-      case 'plan:retry_step': {
-        const result = await this.planCtrl.handleRetryStep(ws, meta, msg.stepId);
-        // If there's a step to execute, trigger it
-        if (result?.step) {
-          try {
-            await this.generationCtrl.executePlanStep(result.step, meta);
-          } catch (err) {
-            loggers.spaceDO.error('Failed to execute retry step', {
-              spaceId: this.spaceId ?? undefined,
-              userId: meta.userId,
-              stepId: msg.stepId,
-            }, err instanceof Error ? err : new Error(String(err)));
-            await this.planCtrl.httpFailStep(
-              result.step.id,
-              err instanceof Error ? err.message : 'Execution failed'
-            );
-          }
-        }
-        return;
-      }
 
       // Approval
       case 'approval:approve':

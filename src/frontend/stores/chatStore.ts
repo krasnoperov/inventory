@@ -1,14 +1,12 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useCallback } from 'react';
-import type { AssistantPlan, PlanStep, PendingApproval, AutoExecutedAction } from '../../api/types';
+import type { PendingApproval, AutoExecutedAction } from '../../api/types';
+import type { SimplePlan } from '../../shared/websocket-types';
 import type {
-  Plan as ServerPlan,
-  PlanStep as ServerPlanStep,
   PendingApproval as ServerApproval,
   AutoExecuted as ServerAutoExecuted,
 } from '../hooks/useSpaceWebSocket';
-import { planStatusToUI, type UIPlanStatus } from '../../shared/websocket-types';
 
 // =============================================================================
 // Types
@@ -53,16 +51,12 @@ export interface ChatMessage {
   };
 }
 
-// Re-export UIPlanStatus as PlanStatus for backward compatibility
-export type PlanStatus = UIPlanStatus;
-
 export interface ChatSession {
   messages: ChatMessage[];
   inputBuffer: string;
   mode: 'advisor' | 'actor';
-  plan: AssistantPlan | null;
-  planStatus: PlanStatus;
-  planError?: string;
+  /** Simple markdown-based plan (Claude Code style) */
+  plan: SimplePlan | null;
   isOpen: boolean;
   showPreferencesPanel: boolean;
   lastUpdated: number;
@@ -86,15 +80,9 @@ interface ChatState {
   setIsOpen: (spaceId: string, isOpen: boolean) => void;
   setShowPreferencesPanel: (spaceId: string, show: boolean) => void;
 
-  // Plan actions
-  setPlan: (spaceId: string, plan: AssistantPlan) => void;
-  approvePlan: (spaceId: string) => void;
-  rejectPlan: (spaceId: string) => void;
-  startStep: (spaceId: string, stepIndex: number) => void;
-  completeStep: (spaceId: string, stepIndex: number, result: string) => void;
-  failStep: (spaceId: string, stepIndex: number, error: string) => void;
-  cancelPlan: (spaceId: string) => void;
-  resetPlan: (spaceId: string) => void;
+  // Simple plan actions (markdown-based)
+  setPlan: (spaceId: string, plan: SimplePlan) => void;
+  clearPlan: (spaceId: string) => void;
 
   // Trust zone actions
   setPendingApprovals: (spaceId: string, approvals: PendingApproval[]) => void;
@@ -103,10 +91,7 @@ interface ChatState {
   clearPendingApprovals: (spaceId: string) => void;
   setLastAutoExecuted: (spaceId: string, actions: AutoExecutedAction[]) => void;
 
-  // Server sync actions (server-first approach)
-  syncServerPlan: (spaceId: string, plan: ServerPlan, steps: ServerPlanStep[]) => void;
-  updateServerPlan: (spaceId: string, plan: ServerPlan) => void;
-  updateServerPlanStep: (spaceId: string, step: ServerPlanStep) => void;
+  // Server sync actions
   syncServerApproval: (spaceId: string, approval: ServerApproval) => void;
   updateServerApproval: (spaceId: string, approval: ServerApproval) => void;
   syncServerApprovals: (spaceId: string, approvals: ServerApproval[]) => void;
@@ -122,7 +107,6 @@ const createEmptySession = (): ChatSession => ({
   inputBuffer: '',
   mode: 'actor',
   plan: null,
-  planStatus: 'idle',
   isOpen: false,
   showPreferencesPanel: false,
   lastUpdated: Date.now(),
@@ -133,36 +117,6 @@ const createEmptySession = (): ChatSession => ({
 const generateMessageId = (): string => {
   return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 };
-
-// Convert server plan status to client status (uses shared planStatusToUI function)
-// Note: For AssistantPlan, cancelled maps to 'failed' for display
-const serverPlanStatusToClient = (status: ServerPlan['status']): AssistantPlan['status'] => {
-  if (status === 'cancelled') return 'failed'; // Cancelled plans are treated as failed in client
-  return status;
-};
-
-// Convert server plan status to UI status (uses shared function)
-const serverStatusToUI = (status: ServerPlan['status']): UIPlanStatus => planStatusToUI(status);
-
-// Convert server plan to client plan
-const serverPlanToClient = (plan: ServerPlan, steps: ServerPlanStep[]): AssistantPlan => ({
-  id: plan.id,
-  goal: plan.goal,
-  currentStepIndex: plan.current_step_index,
-  status: serverPlanStatusToClient(plan.status),
-  createdAt: plan.created_at,
-  autoAdvance: Boolean(plan.auto_advance),
-  steps: steps.map(s => ({
-    id: s.id,
-    description: s.description,
-    action: s.action,
-    params: JSON.parse(s.params) as Record<string, unknown>,
-    status: s.status,
-    result: s.result ?? undefined,
-    error: s.error ?? undefined,
-    dependsOn: s.depends_on ? JSON.parse(s.depends_on) as string[] : undefined,
-  })),
-});
 
 // Convert server approval to client approval
 const serverApprovalToClient = (approval: ServerApproval): PendingApproval => ({
@@ -182,19 +136,6 @@ const serverAutoExecutedToClient = (autoExec: ServerAutoExecuted): AutoExecutedA
   success: autoExec.success,
   error: autoExec.error ?? undefined,
 });
-
-const updateStepStatus = (
-  plan: AssistantPlan,
-  stepIndex: number,
-  updates: Partial<PlanStep>
-): AssistantPlan => {
-  return {
-    ...plan,
-    steps: plan.steps.map((s, i) =>
-      i === stepIndex ? { ...s, ...updates } : s
-    ),
-  };
-};
 
 // =============================================================================
 // Store
@@ -247,8 +188,6 @@ export const useChatStore = create<ChatState>()(
               ...(state.sessions[spaceId] || createEmptySession()),
               messages: [],
               plan: null,
-              planStatus: 'idle',
-              planError: undefined,
               pendingApprovals: [],
               lastAutoExecuted: [],
               lastUpdated: Date.now(),
@@ -309,169 +248,27 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      // Plan actions
+      // Simple plan actions (markdown-based)
       setPlan: (spaceId, plan) => {
         set((state) => ({
           sessions: {
             ...state.sessions,
             [spaceId]: {
               ...(state.sessions[spaceId] || createEmptySession()),
-              plan: { ...plan, status: 'planning' },
-              planStatus: 'awaiting_approval',
-              planError: undefined,
+              plan,
               lastUpdated: Date.now(),
             },
           },
         }));
       },
 
-      approvePlan: (spaceId) => {
-        set((state) => {
-          const session = state.sessions[spaceId];
-          if (!session || session.planStatus !== 'awaiting_approval' || !session.plan) {
-            return state;
-          }
-          return {
-            sessions: {
-              ...state.sessions,
-              [spaceId]: {
-                ...session,
-                plan: { ...session.plan, status: 'executing' },
-                planStatus: 'executing',
-                lastUpdated: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      rejectPlan: (spaceId) => {
-        set((state) => {
-          const session = state.sessions[spaceId];
-          if (!session || session.planStatus !== 'awaiting_approval') {
-            return state;
-          }
-          return {
-            sessions: {
-              ...state.sessions,
-              [spaceId]: {
-                ...session,
-                plan: null,
-                planStatus: 'idle',
-                lastUpdated: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      startStep: (spaceId, stepIndex) => {
-        set((state) => {
-          const session = state.sessions[spaceId];
-          if (!session || !session.plan || (session.planStatus !== 'executing' && session.planStatus !== 'paused')) {
-            return state;
-          }
-          return {
-            sessions: {
-              ...state.sessions,
-              [spaceId]: {
-                ...session,
-                plan: updateStepStatus(session.plan, stepIndex, { status: 'in_progress' }),
-                planStatus: 'executing',
-                lastUpdated: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      completeStep: (spaceId, stepIndex, result) => {
-        set((state) => {
-          const session = state.sessions[spaceId];
-          if (!session || !session.plan || session.planStatus !== 'executing') {
-            return state;
-          }
-
-          const updatedPlan = updateStepStatus(session.plan, stepIndex, {
-            status: 'completed',
-            result,
-          });
-
-          // Check if all steps are done
-          const remainingSteps = updatedPlan.steps.filter(s => s.status === 'pending').length;
-          const newStatus: PlanStatus = remainingSteps === 0 ? 'completed' : 'paused';
-
-          return {
-            sessions: {
-              ...state.sessions,
-              [spaceId]: {
-                ...session,
-                plan: { ...updatedPlan, status: newStatus === 'completed' ? 'completed' : 'paused' },
-                planStatus: newStatus,
-                lastUpdated: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      failStep: (spaceId, stepIndex, error) => {
-        set((state) => {
-          const session = state.sessions[spaceId];
-          if (!session || !session.plan || session.planStatus !== 'executing') {
-            return state;
-          }
-
-          const failedPlan = updateStepStatus(session.plan, stepIndex, {
-            status: 'failed',
-            error,
-          });
-
-          return {
-            sessions: {
-              ...state.sessions,
-              [spaceId]: {
-                ...session,
-                plan: { ...failedPlan, status: 'failed' },
-                planStatus: 'failed',
-                planError: error,
-                lastUpdated: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      cancelPlan: (spaceId) => {
-        set((state) => {
-          const session = state.sessions[spaceId];
-          if (!session || session.planStatus === 'idle') {
-            return state;
-          }
-          return {
-            sessions: {
-              ...state.sessions,
-              [spaceId]: {
-                ...session,
-                plan: null,
-                planStatus: 'idle',
-                planError: undefined,
-                lastUpdated: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      resetPlan: (spaceId) => {
+      clearPlan: (spaceId) => {
         set((state) => ({
           sessions: {
             ...state.sessions,
             [spaceId]: {
               ...(state.sessions[spaceId] || createEmptySession()),
               plan: null,
-              planStatus: 'idle',
-              planError: undefined,
               lastUpdated: Date.now(),
             },
           },
@@ -561,78 +358,7 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      // Server sync actions (server-first approach)
-      syncServerPlan: (spaceId, plan, steps) => {
-        const clientPlan = serverPlanToClient(plan, steps);
-        const planStatus = serverStatusToUI(plan.status);
-
-        set((state) => ({
-          sessions: {
-            ...state.sessions,
-            [spaceId]: {
-              ...(state.sessions[spaceId] || createEmptySession()),
-              plan: clientPlan,
-              planStatus,
-              planError: undefined,
-              lastUpdated: Date.now(),
-            },
-          },
-        }));
-      },
-
-      updateServerPlan: (spaceId, plan) => {
-        set((state) => {
-          const session = state.sessions[spaceId];
-          if (!session || !session.plan) return state;
-
-          const planStatus = serverStatusToUI(plan.status);
-
-          return {
-            sessions: {
-              ...state.sessions,
-              [spaceId]: {
-                ...session,
-                plan: plan.status === 'cancelled' ? null : {
-                  ...session.plan,
-                  status: plan.status,
-                  autoAdvance: Boolean(plan.auto_advance),
-                },
-                planStatus,
-                lastUpdated: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
-      updateServerPlanStep: (spaceId, step) => {
-        set((state) => {
-          const session = state.sessions[spaceId];
-          if (!session || !session.plan) return state;
-
-          return {
-            sessions: {
-              ...state.sessions,
-              [spaceId]: {
-                ...session,
-                plan: {
-                  ...session.plan,
-                  steps: session.plan.steps.map(s =>
-                    s.id === step.id ? {
-                      ...s,
-                      status: step.status,
-                      result: step.result ?? undefined,
-                      error: step.error ?? undefined,
-                    } : s
-                  ),
-                },
-                lastUpdated: Date.now(),
-              },
-            },
-          };
-        });
-      },
-
+      // Server sync actions
       syncServerApproval: (spaceId, approval) => {
         const clientApproval = serverApprovalToClient(approval);
         set((state) => {
@@ -729,7 +455,6 @@ const defaultSession: ChatSession = {
   inputBuffer: '',
   mode: 'actor',
   plan: null,
-  planStatus: 'idle',
   isOpen: false,
   showPreferencesPanel: false,
   lastUpdated: 0,
@@ -776,14 +501,6 @@ export function useChatMode(spaceId: string) {
 export function useChatPlan(spaceId: string) {
   const selector = useCallback(
     (state: ChatState) => state.sessions[spaceId]?.plan ?? null,
-    [spaceId]
-  );
-  return useChatStore(selector);
-}
-
-export function useChatPlanStatus(spaceId: string) {
-  const selector = useCallback(
-    (state: ChatState) => state.sessions[spaceId]?.planStatus ?? 'idle',
     [spaceId]
   );
   return useChatStore(selector);

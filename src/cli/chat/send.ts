@@ -74,20 +74,6 @@ export async function handleSend(parsed: ParsedArgs): Promise<void> {
       console.log(`List all:   npm run cli chat approvals --space ${spaceId}`);
     }
 
-    if (botResponse.type === 'plan') {
-      console.log(`\n📋 Plan: ${botResponse.plan.goal}`);
-      console.log(`Steps: ${botResponse.plan.steps.length}`);
-      for (let i = 0; i < botResponse.plan.steps.length; i++) {
-        const step = botResponse.plan.steps[i];
-        const prompt = step.params.prompt as string | undefined;
-        console.log(`  ${i + 1}. [${step.action}] ${step.description}`);
-        if (prompt) {
-          console.log(`      Prompt: "${truncate(prompt, 60)}"`);
-        }
-      }
-      console.log(`\nPlan stored on server. Use web UI to approve and execute.`);
-    }
-
     // Handle auto-executed actions
     if (botResponse.type === 'action' && botResponse.autoExecuted && botResponse.autoExecuted.length > 0) {
       console.log(`\n✅ Auto-executed: ${botResponse.autoExecuted.length}`);

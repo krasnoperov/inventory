@@ -14,7 +14,7 @@ import type {
   DescribeRequestMessage,
   CompareRequestMessage,
 } from '../../workflows/types';
-import type { ClaudeUsage, ErrorCode } from '../../../shared/websocket-types';
+import type { ClaudeUsage, ErrorCode, SimplePlan } from '../../../shared/websocket-types';
 
 // Re-export plan types from shared module (single source of truth)
 export type { PlanStatus, PlanStepStatus } from '../../../shared/websocket-types';
@@ -265,14 +265,6 @@ export type ClientMessage =
   | { type: 'chat:send'; content: string }
   | { type: 'chat:history'; since?: number } // Request chat history for active session
   | { type: 'chat:new_session' } // Start a new chat session
-  // Plan operations
-  | { type: 'plan:approve'; planId: string }
-  | { type: 'plan:reject'; planId: string }
-  | { type: 'plan:cancel'; planId: string }
-  | { type: 'plan:advance'; planId: string } // Execute next step
-  | { type: 'plan:set_auto_advance'; planId: string; autoAdvance: boolean }
-  | { type: 'plan:skip_step'; stepId: string }
-  | { type: 'plan:retry_step'; stepId: string }
   // Approval operations
   | { type: 'approval:approve'; approvalId: string }
   | { type: 'approval:reject'; approvalId: string }
@@ -321,12 +313,9 @@ export type ServerMessage =
   | { type: 'chat:message'; message: ChatMessage }
   | { type: 'chat:history'; messages: ChatMessage[]; sessionId: string | null }
   | { type: 'chat:session_created'; session: ChatSession }
-  // Plan mutations
-  | { type: 'plan:created'; plan: Plan; steps: PlanStep[] }
-  | { type: 'plan:updated'; plan: Plan }
-  | { type: 'plan:step_updated'; step: PlanStep }
-  | { type: 'plan:step_created'; step: PlanStep }
-  | { type: 'plan:deleted'; planId: string }
+  // SimplePlan mutations (markdown-based)
+  | { type: 'simple_plan:updated'; plan: SimplePlan }
+  | { type: 'simple_plan:archived'; planId: string }
   // Approval mutations
   | { type: 'approval:created'; approval: PendingApproval }
   | { type: 'approval:updated'; approval: PendingApproval }

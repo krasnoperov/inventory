@@ -6,7 +6,6 @@ import {
   useChatInputBuffer,
   useChatMode,
   useChatPlan,
-  useChatPlanStatus,
   usePendingApprovals,
   useLastAutoExecuted,
   useShowPreferencesPanel,
@@ -84,20 +83,6 @@ export interface ChatSidebarProps {
   wsApproveApproval?: (approvalId: string) => void;
   /** WebSocket method to reject a pending approval (notifies server) */
   wsRejectApproval?: (approvalId: string) => void;
-  /** WebSocket method to approve a plan (start execution) */
-  wsApprovePlan?: (planId: string) => void;
-  /** WebSocket method to advance a plan to the next step */
-  wsAdvancePlan?: (planId: string) => void;
-  /** WebSocket method to cancel a plan */
-  wsCancelPlan?: (planId: string) => void;
-  /** WebSocket method to reject a plan (before execution) */
-  wsRejectPlan?: (planId: string) => void;
-  /** WebSocket method to toggle auto-advance on a plan */
-  wsSetAutoAdvance?: (planId: string, autoAdvance: boolean) => void;
-  /** WebSocket method to skip a step */
-  wsSkipStep?: (stepId: string) => void;
-  /** WebSocket method to retry a failed step */
-  wsRetryStep?: (stepId: string) => void;
   /** WebSocket method to start a new chat session */
   wsStartNewSession?: () => void;
 }
@@ -130,13 +115,6 @@ export function ChatSidebar({
   compareResponse,
   wsApproveApproval,
   wsRejectApproval,
-  wsApprovePlan,
-  wsAdvancePlan,
-  wsCancelPlan,
-  wsRejectPlan,
-  wsSetAutoAdvance,
-  wsSkipStep,
-  wsRetryStep,
   wsStartNewSession,
 }: ChatSidebarProps) {
   // Store state (persisted) - use hooks that don't recreate selectors
@@ -144,7 +122,6 @@ export function ChatSidebar({
   const inputValue = useChatInputBuffer(spaceId);
   const mode = useChatMode(spaceId);
   const activePlan = useChatPlan(spaceId);
-  const planStatus = useChatPlanStatus(spaceId);
   const pendingApprovals = usePendingApprovals(spaceId);
   const lastAutoExecuted = useLastAutoExecuted(spaceId);
   const showPreferences = useShowPreferencesPanel(spaceId);
@@ -156,14 +133,7 @@ export function ChatSidebar({
     clearMessages,
     setInputBuffer,
     setMode,
-    setPlan,
-    approvePlan,
-    rejectPlan,
-    startStep,
-    completeStep,
-    failStep,
-    cancelPlan,
-    resetPlan,
+    clearPlan,
     // Trust zone actions
     setPendingApprovals,
     approveApproval,
@@ -177,14 +147,11 @@ export function ChatSidebar({
   // Local state (transient - not persisted)
   const [isLoading, setIsLoading] = useState(false);
   const [isAutoReviewing, setIsAutoReviewing] = useState(false);
-  const [isExecutingStep, setIsExecutingStep] = useState(false);
   const [_isRecovering, setIsRecovering] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   // Track which meters have shown 90% warning this session
   const [warnedMeters, setWarnedMeters] = useState<Set<string>>(new Set());
   const warnedMetersRef = useRef(warnedMeters);
   warnedMetersRef.current = warnedMeters;
-  // Track plan step waiting for ForgeTray completion (step index, or null if none)
-  const [forgeTrayStepIndex, setForgeTrayStepIndex] = useState<number | null>(null);
   // Track pending WebSocket chat request
   const pendingChatRequestRef = useRef<{ requestId: string; messageToSend: string; modeToUse: 'advisor' | 'actor' } | null>(null);
   // Track pending auto-review request
@@ -378,39 +345,6 @@ export function ChatSidebar({
   }, [lastCompletedJob, isOpen, spaceId, toolExec, addMessage, allVariants, sendDescribeRequest]);
 
   // ==========================================================================
-  // ForgeTray Step Completion (when user submits manually from ForgeTray)
-  // ==========================================================================
-
-  useEffect(() => {
-    // If a plan step is waiting for ForgeTray completion and a job just finished
-    if (forgeTrayStepIndex !== null && lastCompletedJob && activePlan) {
-      const step = activePlan.steps[forgeTrayStepIndex];
-      if (step && step.status === 'in_progress') {
-        // Complete the step
-        completeStep(spaceId, forgeTrayStepIndex, `Generated via ForgeTray (job: ${lastCompletedJob.jobId})`);
-        setForgeTrayStepIndex(null);
-
-        // Check for remaining steps
-        const nextIndex = activePlan.steps.findIndex((s, i) => i > forgeTrayStepIndex && s.status === 'pending');
-        if (nextIndex !== -1) {
-          addMessage(spaceId, {
-            role: 'assistant',
-            content: `Step ${forgeTrayStepIndex + 1} completed! Ready for step ${nextIndex + 1}. Click "Next Step" to continue.`,
-            timestamp: Date.now(),
-          });
-        } else {
-          addMessage(spaceId, {
-            role: 'assistant',
-            content: 'Plan completed successfully!',
-            timestamp: Date.now(),
-          });
-          setTimeout(() => resetPlan(spaceId), 2000);
-        }
-      }
-    }
-  }, [lastCompletedJob, forgeTrayStepIndex, activePlan, spaceId, completeStep, addMessage, resetPlan]);
-
-  // ==========================================================================
   // WebSocket Chat Response Handler
   // ==========================================================================
 
@@ -502,16 +436,8 @@ Please suggest an alternative approach or modified parameters that might work. I
       return;
     }
 
-    // Process the bot response (same logic as HTTP handler)
-    if (botResponse.type === 'plan') {
-      // TypeScript narrows to PlanResponse
-      setPlan(spaceId, botResponse.plan);
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: botResponse.message || '',
-        timestamp: Date.now(),
-      });
-    } else if (botResponse.type === 'action') {
+    // Process the bot response
+    if (botResponse.type === 'action') {
       // TypeScript narrows to ActorResponse
       const messageParts: string[] = [botResponse.message || ''];
 
@@ -569,183 +495,20 @@ Please suggest an alternative approach or modified parameters that might work. I
         }
       }
     });
-  }, [chatResponse, spaceId, addMessage, setPlan, setPendingApprovals, toolExec, refreshUsage]);
+  }, [chatResponse, spaceId, addMessage, setPendingApprovals, toolExec, refreshUsage]);
 
   // ==========================================================================
-  // Plan Execution
+  // Simple Plan Handler
   // ==========================================================================
 
-  const _executeStep = useCallback(async (stepIndex: number) => { // eslint-disable-line @typescript-eslint/no-unused-vars
-    if (!activePlan) return;
-
-    setIsExecutingStep(true);
-    startStep(spaceId, stepIndex);
-
-    const step = activePlan.steps[stepIndex];
-    try {
-      const result = await toolExec.executeToolCall({
-        name: step.action,
-        params: step.params,
-      });
-
-      completeStep(spaceId, stepIndex, result);
-
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: `Step ${stepIndex + 1}: ${step.description}\n${result}`,
-        timestamp: Date.now(),
-      });
-
-      // Check if more steps remain
-      const nextIndex = activePlan.steps.findIndex((s, i) => i > stepIndex && s.status === 'pending');
-      if (nextIndex !== -1) {
-        addMessage(spaceId, {
-          role: 'assistant',
-          content: `Ready for step ${nextIndex + 1}. Click "Next Step" to continue or "Cancel" to stop.`,
-          timestamp: Date.now(),
-        });
-      } else {
-        addMessage(spaceId, {
-          role: 'assistant',
-          content: 'Plan completed successfully!',
-          timestamp: Date.now(),
-        });
-        setTimeout(() => resetPlan(spaceId), 2000);
-      }
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Failed';
-      failStep(spaceId, stepIndex, error);
-
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: `Step ${stepIndex + 1} failed: ${error}`,
-        timestamp: Date.now(),
-      });
-    } finally {
-      setIsExecutingStep(false);
-    }
-  }, [activePlan, spaceId, startStep, completeStep, failStep, resetPlan, addMessage, toolExec]);
-
-  const handleApprove = useCallback((autoAdvance: boolean) => {
-    if (!activePlan) return;
-
-    // Set auto-advance if requested (before approval so server knows)
-    if (autoAdvance && wsSetAutoAdvance) {
-      wsSetAutoAdvance(activePlan.id, true);
-    }
-
-    // Notify server to approve and start plan execution
-    // Server will set status to 'executing' and broadcast update
-    if (wsApprovePlan) {
-      wsApprovePlan(activePlan.id);
-    }
-
-    // Also update local state (will be overwritten by server broadcast)
-    approvePlan(spaceId);
-
+  const handleClearPlan = useCallback(() => {
+    clearPlan(spaceId);
     addMessage(spaceId, {
       role: 'assistant',
-      content: `Starting plan: "${activePlan.goal}"${autoAdvance ? ' (auto-advance enabled)' : ''}\nApproved and waiting for execution...`,
+      content: 'Plan cleared.',
       timestamp: Date.now(),
     });
-
-    // After approval, immediately request first step execution
-    // (Server's auto-advance will continue from here if enabled)
-    if (wsAdvancePlan) {
-      wsAdvancePlan(activePlan.id);
-    }
-  }, [spaceId, activePlan, approvePlan, addMessage, wsApprovePlan, wsAdvancePlan, wsSetAutoAdvance]);
-
-  const handleContinue = useCallback(() => {
-    if (!activePlan) return;
-
-    // Server-side execution: just send advance request
-    // Server will mark step as in_progress and trigger generation
-    if (wsAdvancePlan) {
-      wsAdvancePlan(activePlan.id);
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: `Continuing plan execution...`,
-        timestamp: Date.now(),
-      });
-    }
-  }, [activePlan, wsAdvancePlan, spaceId, addMessage]);
-
-  const handleCancel = useCallback(() => {
-    if (!activePlan) return;
-
-    // Notify server to cancel plan
-    if (wsCancelPlan) {
-      wsCancelPlan(activePlan.id);
-    }
-
-    const completedCount = activePlan.steps.filter(s => s.status === 'completed').length;
-    addMessage(spaceId, {
-      role: 'assistant',
-      content: `Plan cancelled. ${completedCount}/${activePlan.steps.length} steps were completed.`,
-      timestamp: Date.now(),
-    });
-
-    // Also update local state (will be overwritten by server broadcast)
-    cancelPlan(spaceId);
-  }, [spaceId, activePlan, cancelPlan, addMessage, wsCancelPlan]);
-
-  const handleReject = useCallback(() => {
-    if (!activePlan) return;
-
-    // Notify server to reject plan (sets status to 'cancelled')
-    if (wsRejectPlan) {
-      wsRejectPlan(activePlan.id);
-    }
-
-    addMessage(spaceId, {
-      role: 'assistant',
-      content: `Plan rejected: "${activePlan.goal}"`,
-      timestamp: Date.now(),
-    });
-
-    // Also update local state (will be overwritten by server broadcast)
-    rejectPlan(spaceId);
-  }, [spaceId, activePlan, rejectPlan, wsRejectPlan, addMessage]);
-
-  const handleSkipStep = useCallback((stepId: string) => {
-    if (!activePlan) return;
-
-    if (wsSkipStep) {
-      wsSkipStep(stepId);
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: `Skipping step...`,
-        timestamp: Date.now(),
-      });
-    }
-  }, [activePlan, wsSkipStep, spaceId, addMessage]);
-
-  const handleRetryStep = useCallback((stepId: string) => {
-    if (!activePlan) return;
-
-    if (wsRetryStep) {
-      wsRetryStep(stepId);
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: `Retrying step...`,
-        timestamp: Date.now(),
-      });
-    }
-  }, [activePlan, wsRetryStep, spaceId, addMessage]);
-
-  const handleSetAutoAdvance = useCallback((autoAdvance: boolean) => {
-    if (!activePlan) return;
-
-    if (wsSetAutoAdvance) {
-      wsSetAutoAdvance(activePlan.id, autoAdvance);
-      addMessage(spaceId, {
-        role: 'assistant',
-        content: `Auto-advance ${autoAdvance ? 'enabled' : 'disabled'}`,
-        timestamp: Date.now(),
-      });
-    }
-  }, [activePlan, wsSetAutoAdvance, spaceId, addMessage]);
+  }, [spaceId, clearPlan, addMessage]);
 
   // ==========================================================================
   // Approval Handlers (Trust Zones)
@@ -899,38 +662,10 @@ Please suggest an alternative approach or modified parameters that might work. I
   }, [spaceId, setMode]);
 
   // ==========================================================================
-  // Plan state adapter for PlanPanel
-  // ==========================================================================
-
-  const planState = useMemo(() => {
-    if (planStatus === 'idle' || !activePlan) {
-      return { status: 'idle' as const };
-    }
-    if (planStatus === 'awaiting_approval') {
-      return { status: 'awaiting_approval' as const, plan: activePlan };
-    }
-    if (planStatus === 'executing') {
-      return { status: 'executing' as const, plan: activePlan };
-    }
-    if (planStatus === 'paused') {
-      return { status: 'paused' as const, plan: activePlan };
-    }
-    if (planStatus === 'completed') {
-      return { status: 'completed' as const, plan: activePlan };
-    }
-    if (planStatus === 'failed') {
-      return { status: 'failed' as const, plan: activePlan, error: 'Plan failed' };
-    }
-    return { status: 'idle' as const };
-  }, [planStatus, activePlan]);
-
-  // ==========================================================================
   // Render
   // ==========================================================================
 
   if (!isOpen) return null;
-
-  const isExecuting = planStatus === 'executing' || isExecutingStep;
 
   return (
     <div className={styles.sidebar}>
@@ -1015,17 +750,10 @@ Please suggest an alternative approach or modified parameters that might work. I
         )}
       </div>
 
-      {/* Plan Panel */}
+      {/* Plan Panel (simple markdown display) */}
       <PlanPanel
-        planState={planState}
-        isExecuting={isExecuting}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onContinue={handleContinue}
-        onCancel={handleCancel}
-        onSkipStep={handleSkipStep}
-        onRetryStep={handleRetryStep}
-        onSetAutoAdvance={handleSetAutoAdvance}
+        plan={activePlan}
+        onClear={handleClearPlan}
       />
 
       {/* Approval Panel (Trust Zones) */}
@@ -1139,7 +867,7 @@ Please suggest an alternative approach or modified parameters that might work. I
         onNewChat={startNewChat}
         mode={mode}
         onModeChange={handleModeChange}
-        disabled={isLoading || isExecuting}
+        disabled={isLoading}
         showNewChat={messages.length > 0}
       />
 

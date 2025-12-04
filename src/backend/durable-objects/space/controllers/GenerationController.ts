@@ -4,8 +4,7 @@
  * Handles workflow triggers for chat, generation, and refinement.
  * Creates placeholder variants upfront and updates them when workflows complete.
  *
- * Uses VariantFactory for shared variant creation logic and PlanExecutor for
- * plan step execution to eliminate duplication.
+ * Uses VariantFactory for shared variant creation logic.
  *
  * Billing:
  * - preCheck quota/rate limits BEFORE triggering workflows
@@ -13,6 +12,7 @@
  */
 
 import type { Variant, WebSocketMeta, ChatMessage } from '../types';
+import type { SimplePlan } from '../../../../shared/websocket-types';
 import type {
   ChatRequestMessage,
   GenerateRequestMessage,
@@ -20,7 +20,6 @@ import type {
   ChatWorkflowInput,
   ChatWorkflowOutput,
   GenerationWorkflowInput,
-  OperationType,
 } from '../../../workflows/types';
 import type { ChatMessage as ApiChatMessage } from '../../../../api/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
@@ -35,19 +34,16 @@ import {
   determineOperation,
   type GenerationRecipe,
 } from '../generation/VariantFactory';
-import { PlanExecutor } from '../generation/PlanExecutor';
 import { loggers } from '../../../../shared/logger';
 
 const log = loggers.generationController;
 
 export class GenerationController extends BaseController {
   private readonly variantFactory: VariantFactory;
-  private readonly planExecutor: PlanExecutor;
 
   constructor(ctx: ControllerContext) {
     super(ctx);
     this.variantFactory = new VariantFactory(ctx.spaceId, ctx.repo, ctx.env, ctx.broadcast);
-    this.planExecutor = new PlanExecutor(ctx.spaceId, ctx.repo, ctx.sql, ctx.env, ctx.broadcast);
   }
 
   // ==========================================================================
@@ -92,30 +88,8 @@ export class GenerationController extends BaseController {
     // Get assets for context
     const assets = await this.repo.getAssetsWithVariantCount();
 
-    // Get active plan if one exists
-    const activePlanData = await this.repo.getActivePlan();
-    let activePlan;
-    if (activePlanData) {
-      const steps = await this.repo.getPlanSteps(activePlanData.id);
-      activePlan = {
-        id: activePlanData.id,
-        goal: activePlanData.goal,
-        steps: steps.map(s => ({
-          id: s.id,
-          description: s.description,
-          action: s.action,
-          params: JSON.parse(s.params || '{}'),
-          status: s.status,
-          result: s.result || undefined,
-          error: s.error || undefined,
-          dependsOn: s.depends_on ? JSON.parse(s.depends_on) : undefined,
-        })),
-        currentStepIndex: activePlanData.current_step_index,
-        status: activePlanData.status,
-        createdAt: activePlanData.created_at,
-        autoAdvance: Boolean(activePlanData.auto_advance),
-      };
-    }
+    // Get active plan if one exists (SimplePlan - markdown-based)
+    const activePlan = await this.repo.getActivePlan();
 
     // Build workflow input
     const workflowInput: ChatWorkflowInput = {
@@ -128,7 +102,7 @@ export class GenerationController extends BaseController {
       forgeContext: msg.forgeContext,
       viewingContext: msg.viewingContext,
       assets,
-      activePlan,
+      activePlan: activePlan ?? undefined,
     };
 
     // Trigger the workflow
@@ -485,27 +459,13 @@ export class GenerationController extends BaseController {
     // Broadcast the variant update
     this.broadcast({ type: 'variant:updated', variant });
 
-    // If this variant was created by a plan step, complete the step
-    if (variant.plan_step_id) {
-      await this.completePlanStep(variant.plan_step_id, data.variantId);
-    }
-
     return { success: true, variant };
-  }
-
-  /**
-   * Complete a plan step when its variant generation succeeds.
-   * Delegates to PlanExecutor for plan lifecycle management.
-   */
-  private async completePlanStep(stepId: string, variantId: string): Promise<void> {
-    await this.planExecutor.completeStep(stepId, variantId);
   }
 
   /**
    * Handle POST /internal/fail-variant HTTP request
    * Marks a variant as failed with an error message.
    * Called by GenerationWorkflow when generation fails.
-   * If the variant was created by a plan step, fails the step and plan.
    */
   async httpFailVariant(data: {
     variantId: string;
@@ -524,36 +484,63 @@ export class GenerationController extends BaseController {
     // Note: jobId === variantId (placeholder variant created before workflow starts)
     this.broadcast({ type: 'job:failed', jobId: data.variantId, error: data.error });
 
-    // If this variant was created by a plan step, fail the step and plan
-    if (variant.plan_step_id) {
-      await this.failPlanStep(variant.plan_step_id, data.error);
-    }
-
     return { success: true, variant };
   }
 
+  // ==========================================================================
+  // HTTP Handlers - Plan Operations (SimplePlan - markdown-based)
+  // ==========================================================================
+
   /**
-   * Fail a plan step when its variant generation fails.
-   * Delegates to PlanExecutor for plan lifecycle management.
+   * Handle POST /internal/plan HTTP request
+   * Creates or updates a plan for a chat session and broadcasts to all clients.
+   * Called by ChatWorkflow when executing update_plan tool.
    */
-  private async failPlanStep(stepId: string, error: string): Promise<void> {
-    await this.planExecutor.failStep(stepId, error);
+  async httpUpsertPlan(data: {
+    sessionId: string;
+    content: string;
+    createdBy: string;
+  }): Promise<SimplePlan> {
+    const plan = await this.repo.upsertPlan({
+      sessionId: data.sessionId,
+      content: data.content,
+      createdBy: data.createdBy,
+    });
+
+    // Broadcast to all clients
+    this.broadcast({ type: 'simple_plan:updated', plan });
+
+    log.info('Plan updated', {
+      spaceId: this.spaceId,
+      planId: plan.id,
+      sessionId: data.sessionId,
+      createdBy: data.createdBy,
+    });
+
+    return plan;
   }
 
-  // ==========================================================================
-  // Plan Step Execution
-  // ==========================================================================
+  /**
+   * Handle GET /internal/plan/:sessionId HTTP request
+   * Gets the active plan for a chat session.
+   */
+  async httpGetActivePlan(sessionId: string): Promise<SimplePlan | null> {
+    return this.repo.getActivePlan(sessionId);
+  }
 
   /**
-   * Execute a plan step by triggering the appropriate generation/operation.
-   * Delegates to PlanExecutor for all plan step logic.
-   *
-   * @returns The variant/job ID if a generation was started, null otherwise
+   * Handle DELETE /internal/plan/:planId HTTP request
+   * Archives a plan (marks as done/dismissed).
    */
-  async executePlanStep(
-    step: { id: string; action: string; params: string },
-    meta: WebSocketMeta
-  ): Promise<string | null> {
-    return this.planExecutor.executeStep(step, meta);
+  async httpArchivePlan(planId: string): Promise<void> {
+    await this.repo.archivePlan(planId);
+
+    // Broadcast to all clients that the plan was archived
+    this.broadcast({ type: 'simple_plan:archived', planId });
+
+    log.info('Plan archived', {
+      spaceId: this.spaceId,
+      planId,
+    });
   }
 }

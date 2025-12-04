@@ -12,8 +12,6 @@ import type {
   ChatResponseResult,
   DescribeResponseResult,
   CompareResponseResult,
-  Plan,
-  PlanStep,
   PendingApproval,
   AutoExecuted,
 } from '../hooks/useSpaceWebSocket';
@@ -92,13 +90,12 @@ export default function SpacePage() {
   const {
     setMessages,
     clearMessages,
-    syncServerPlan,
-    updateServerPlan,
-    updateServerPlanStep,
     syncServerApproval,
     updateServerApproval,
     syncServerApprovals,
     syncServerAutoExecuted,
+    setPlan,
+    clearPlan,
   } = useChatStore();
 
   // WebSocket connection for real-time updates
@@ -118,13 +115,6 @@ export default function SpacePage() {
     updateAsset,
     approveApproval: wsApproveApproval,
     rejectApproval: wsRejectApproval,
-    approvePlan: wsApprovePlan,
-    advancePlan: wsAdvancePlan,
-    cancelPlan: wsCancelPlan,
-    rejectPlan: wsRejectPlan,
-    setAutoAdvance: wsSetAutoAdvance,
-    skipStep: wsSkipStep,
-    retryStep: wsRetryStep,
     updateSession,
     requestChatHistory,
     startNewSession: wsStartNewSession,
@@ -155,22 +145,6 @@ export default function SpacePage() {
     },
     onCompareResponse: (response) => {
       setCompareResponse(response);
-    },
-    // Plan lifecycle callbacks
-    onPlanCreated: (plan: Plan, steps: PlanStep[]) => {
-      if (spaceId) {
-        syncServerPlan(spaceId, plan, steps);
-      }
-    },
-    onPlanUpdated: (plan: Plan) => {
-      if (spaceId) {
-        updateServerPlan(spaceId, plan);
-      }
-    },
-    onPlanStepUpdated: (step: PlanStep) => {
-      if (spaceId) {
-        updateServerPlanStep(spaceId, step);
-      }
     },
     // Approval lifecycle callbacks
     onApprovalCreated: (approval: PendingApproval) => {
@@ -215,6 +189,17 @@ export default function SpacePage() {
     onSessionCreated: () => {
       if (spaceId) {
         clearMessages(spaceId);
+      }
+    },
+    // SimplePlan callbacks
+    onPlanUpdated: (plan) => {
+      if (spaceId) {
+        setPlan(spaceId, plan);
+      }
+    },
+    onPlanArchived: () => {
+      if (spaceId) {
+        clearPlan(spaceId);
       }
     },
   });
@@ -529,13 +514,6 @@ export default function SpacePage() {
             compareResponse={compareResponse}
             wsApproveApproval={wsApproveApproval}
             wsRejectApproval={wsRejectApproval}
-            wsApprovePlan={wsApprovePlan}
-            wsAdvancePlan={wsAdvancePlan}
-            wsCancelPlan={wsCancelPlan}
-            wsRejectPlan={wsRejectPlan}
-            wsSetAutoAdvance={wsSetAutoAdvance}
-            wsSkipStep={wsSkipStep}
-            wsRetryStep={wsRetryStep}
             wsStartNewSession={wsStartNewSession}
           />
         </div>

@@ -14,7 +14,7 @@ import type { Env } from '../../core/types';
 import type { ChatWorkflowInput, ChatWorkflowOutput } from './types';
 import type { BotContext, BotResponseWithUsage } from '../services/claudeService';
 import { ClaudeService } from '../services/claudeService';
-import type { ActorResponse, PlanResponse, RevisionResponse, RevisionResult } from '../../api/types';
+import type { ActorResponse } from '../../api/types';
 import { loggers } from '../../shared/logger';
 
 const log = loggers.chatWorkflow;
@@ -66,7 +66,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
             forge: forgeContext,
             viewing: viewingContext,
             personalizationContext,
-            activePlan,
+            plan: activePlan, // SimplePlan (markdown-based)
           };
 
           const result = await claudeService.processMessage(message, context, history);
@@ -91,7 +91,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
       };
     }
 
-    // Step 3: Store messages, approvals, plans in SpaceDO
+    // Step 3: Execute server-side safe tools (like update_plan) and store messages
     await step.do('store-messages', async () => {
       if (!this.env.SPACES_DO) {
         log.warn('SPACES_DO not available, skipping message storage', { requestId, spaceId });
@@ -117,38 +117,67 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
       const response = claudeResult.response;
       const metadata: Record<string, unknown> = { type: response.type, mode };
 
-      // Handle plan response
-      if (response.type === 'plan') {
-        const planResponse = response as PlanResponse;
-        // Store the plan in the database
-        const planResult = await doStub.fetch(new Request('http://do/internal/plan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: planResponse.plan.id,
-            goal: planResponse.plan.goal,
-            createdBy: userId,
-            autoAdvance: planResponse.plan.autoAdvance ?? false,
-            steps: planResponse.plan.steps.map(s => ({
-              id: s.id,
-              description: s.description,
-              action: s.action,
-              params: JSON.stringify(s.params),
-              dependsOn: s.dependsOn,
-            })),
-          }),
-        }));
-        if (!planResult.ok) {
-          log.error('Failed to store plan', { requestId, spaceId, planId: planResponse.plan.id, error: await planResult.text() });
-        }
-        metadata.planId = planResponse.plan.id;
-      }
-
-      // Handle action response with approvals and auto-executed
+      // Handle action response with approvals and tool calls
       if (response.type === 'action') {
         const actionResponse = response as ActorResponse;
         const approvalIds: string[] = [];
         const autoExecutedIds: string[] = [];
+        const autoExecutedResults: Array<{ tool: string; params: Record<string, unknown>; result: unknown; success: boolean; error?: string }> = [];
+
+        // Execute server-side safe tools (update_plan)
+        // These need to run on the server to persist state and broadcast to all clients
+        if (actionResponse.toolCalls && actionResponse.toolCalls.length > 0) {
+          for (const toolCall of actionResponse.toolCalls) {
+            if (toolCall.name === 'update_plan') {
+              // Execute update_plan server-side
+              const planContent = toolCall.params.content as string;
+              const sessionId = event.payload.sessionId || spaceId; // Default to spaceId if no session
+
+              try {
+                const planResult = await doStub.fetch(new Request('http://do/internal/plan', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    sessionId,
+                    content: planContent,
+                    createdBy: userId,
+                  }),
+                }));
+
+                if (planResult.ok) {
+                  const planData = await planResult.json() as { plan: { id: string } };
+                  autoExecutedResults.push({
+                    tool: 'update_plan',
+                    params: toolCall.params,
+                    result: { planId: planData.plan.id, updated: true },
+                    success: true,
+                  });
+                  log.info('Executed update_plan', { requestId, spaceId, planId: planData.plan.id });
+                } else {
+                  const errorText = await planResult.text();
+                  autoExecutedResults.push({
+                    tool: 'update_plan',
+                    params: toolCall.params,
+                    result: null,
+                    success: false,
+                    error: errorText,
+                  });
+                  log.error('Failed to execute update_plan', { requestId, spaceId, error: errorText });
+                }
+              } catch (err) {
+                autoExecutedResults.push({
+                  tool: 'update_plan',
+                  params: toolCall.params,
+                  result: null,
+                  success: false,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+                log.error('Error executing update_plan', { requestId, spaceId, error: err instanceof Error ? err.message : String(err) });
+              }
+            }
+            // Other safe tools (add_to_tray, etc.) are executed on frontend
+          }
+        }
 
         // Store pending approvals
         if (actionResponse.pendingApprovals && actionResponse.pendingApprovals.length > 0) {
@@ -173,110 +202,44 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
           }
         }
 
-        // Store auto-executed results
-        if (actionResponse.autoExecuted && actionResponse.autoExecuted.length > 0) {
-          for (const autoExec of actionResponse.autoExecuted) {
-            const autoExecId = crypto.randomUUID();
-            const autoExecResult = await doStub.fetch(new Request('http://do/internal/auto-executed', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: autoExecId,
-                requestId,
-                tool: autoExec.tool,
-                params: JSON.stringify(autoExec.params),
-                result: JSON.stringify(autoExec.result),
-                success: autoExec.success,
-                error: autoExec.error,
-              }),
-            }));
-            if (autoExecResult.ok) {
-              autoExecutedIds.push(autoExecId);
-            } else {
-              log.error('Failed to store auto-executed', { requestId, spaceId, autoExecId, error: await autoExecResult.text() });
-            }
+        // Store auto-executed results (from ClaudeService + our server-side executions)
+        const allAutoExecuted = [
+          ...(actionResponse.autoExecuted || []),
+          ...autoExecutedResults,
+        ];
+
+        for (const autoExec of allAutoExecuted) {
+          const autoExecId = crypto.randomUUID();
+          const autoExecResult = await doStub.fetch(new Request('http://do/internal/auto-executed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: autoExecId,
+              requestId,
+              tool: autoExec.tool,
+              params: JSON.stringify(autoExec.params),
+              result: JSON.stringify(autoExec.result),
+              success: autoExec.success,
+              error: autoExec.error,
+            }),
+          }));
+          if (autoExecResult.ok) {
+            autoExecutedIds.push(autoExecId);
+          } else {
+            log.error('Failed to store auto-executed', { requestId, spaceId, autoExecId, error: await autoExecResult.text() });
           }
+        }
+
+        // Add server-executed tools to autoExecuted on response for frontend
+        if (autoExecutedResults.length > 0) {
+          actionResponse.autoExecuted = [
+            ...(actionResponse.autoExecuted || []),
+            ...autoExecutedResults,
+          ];
         }
 
         if (approvalIds.length > 0) metadata.approvalIds = approvalIds;
         if (autoExecutedIds.length > 0) metadata.autoExecutedIds = autoExecutedIds;
-      }
-
-      // Handle revision response
-      if (response.type === 'revision') {
-        const revisionResponse = response as RevisionResponse;
-        const autoApplied: RevisionResult[] = [];
-        const pendingApprovalIds: string[] = [];
-
-        // Auto-apply minor changes (update_params, update_description)
-        for (const change of revisionResponse.revision.changes) {
-          if (change.action === 'update_params' || change.action === 'update_description') {
-            try {
-              const revisionResult = await doStub.fetch(new Request('http://do/internal/plan/revision', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  planId: revisionResponse.revision.planId,
-                  change,
-                }),
-              }));
-
-              if (revisionResult.ok) {
-                autoApplied.push({
-                  stepId: change.stepId,
-                  action: change.action,
-                  success: true,
-                });
-              } else {
-                const errorText = await revisionResult.text();
-                log.error('Failed to apply revision', { requestId, spaceId, stepId: change.stepId, action: change.action, error: errorText });
-                autoApplied.push({
-                  stepId: change.stepId,
-                  action: change.action,
-                  success: false,
-                  error: errorText,
-                });
-              }
-            } catch (err) {
-              log.error('Error applying revision', { requestId, spaceId, stepId: change.stepId, error: err instanceof Error ? err.message : String(err) });
-              autoApplied.push({
-                stepId: change.stepId,
-                action: change.action,
-                success: false,
-                error: err instanceof Error ? err.message : 'Unknown error',
-              });
-            }
-          } else {
-            // Structural changes (skip, insert_after) - store as pending approval
-            const approvalId = `rev_${Date.now()}_${change.stepId}`;
-            const approvalResult = await doStub.fetch(new Request('http://do/internal/approval', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: approvalId,
-                requestId,
-                tool: `revise_plan:${change.action}`,
-                params: JSON.stringify({
-                  planId: revisionResponse.revision.planId,
-                  change,
-                }),
-                description: `${change.action === 'skip' ? 'Skip step' : 'Insert new step after'}: ${change.stepId}`,
-                createdBy: userId,
-              }),
-            }));
-            if (approvalResult.ok) {
-              pendingApprovalIds.push(approvalId);
-            }
-          }
-        }
-
-        // Update response with auto-applied results
-        (revisionResponse as RevisionResponse).autoApplied = autoApplied;
-
-        metadata.revisionPlanId = revisionResponse.revision.planId;
-        metadata.revisionReason = revisionResponse.revision.reason;
-        if (autoApplied.length > 0) metadata.autoAppliedRevisions = autoApplied;
-        if (pendingApprovalIds.length > 0) metadata.pendingRevisionApprovals = pendingApprovalIds;
       }
 
       // Store bot response

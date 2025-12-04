@@ -98,22 +98,20 @@ export const TOOL_TRUST_MAP: Record<string, ToolTrustConfig> = {
     description: 'Fork asset as new copy',
   },
 
-  // === PLANNING: Requires approval (creates execution plan) ===
+  // === PLANNING: Auto-execute (just updates markdown) ===
 
-  create_plan: {
-    level: 'planning',
-    autoExecute: false,
-    description: 'Create multi-step plan',
+  update_plan: {
+    level: 'safe',
+    autoExecute: true,
+    description: 'Update markdown plan',
   },
 
-  // === REVISING: Mixed - minor changes auto-apply, structural need approval ===
-  // Note: The actual auto-execute decision happens in parseToolResponse based on action type
-  // - update_params, update_description → auto-execute
-  // - skip, insert_after → require approval
-  revise_plan: {
-    level: 'planning',
-    autoExecute: false, // Default to approval; parsing may override for minor changes
-    description: 'Revise pending plan steps',
+  // === BATCH GENERATING: Requires approval (multiple AI operations) ===
+
+  batch_generate: {
+    level: 'generating',
+    autoExecute: false,
+    description: 'Generate multiple assets in parallel',
   },
 };
 

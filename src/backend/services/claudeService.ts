@@ -4,13 +4,10 @@ import type {
   ForgeContext,
   ViewingContext,
   ToolCall,
-  AssistantPlan,
   AdvisorResponse,
   BotResponse,
   PendingApproval,
-  PlanRevision,
-  PlanRevisionChange,
-  RevisionResponse,
+  SimplePlan,
 } from '../../api/types';
 import { shouldAutoExecute, TOOL_TRUST_MAP } from './trustLevels';
 
@@ -153,8 +150,8 @@ export interface BotContext {
   mode: 'advisor' | 'actor';
   forge?: ForgeContext;
   viewing?: ViewingContext;
-  // Current plan being executed
-  activePlan?: AssistantPlan;
+  // Current markdown plan (if any)
+  plan?: SimplePlan;
   // Personalization: learned patterns and preferences
   personalizationContext?: string;
 }
@@ -236,6 +233,21 @@ const READ_TOOLS: Anthropic.Tool[] = [
       required: ['variantIds'],
     },
   },
+  // Planning tool - available in both advisor and actor modes
+  {
+    name: 'update_plan',
+    description: 'Update your working plan with markdown content. Use this to create or modify your plan as you work. The plan is visible to the user and helps track progress. Use markdown formatting with checkboxes for actionable items. Mark items as done using [x] when completed.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        content: {
+          type: 'string',
+          description: 'The markdown content for the plan. Use headers, bullet points, and checkboxes. Example:\n\n## Goal: Create a fantasy character set\n\n### Assets to generate:\n- [ ] Hero character - warrior with sword\n- [ ] Villain character - dark mage\n- [ ] Side character - merchant NPC\n\n### Notes:\n- Use consistent fantasy art style\n- Keep similar lighting across all',
+        },
+      },
+      required: ['content'],
+    },
+  },
 ];
 
 /**
@@ -244,109 +256,38 @@ const READ_TOOLS: Anthropic.Tool[] = [
  */
 const ACTION_TOOLS: Anthropic.Tool[] = [
   {
-    name: 'create_plan',
-    description: 'Create a multi-step plan to achieve the user\'s goal. Use this when the user wants to create multiple assets, do a series of operations, or achieve a complex creative goal. The plan will be shown to the user for approval before execution. Steps can have dependencies on other steps using step IDs.',
+    name: 'batch_generate',
+    description: 'Generate multiple assets in parallel. Use this when the user wants several assets created at once. All generations will run simultaneously for faster results. Each item in the batch follows the same rules as the generate tool.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        goal: {
-          type: 'string',
-          description: 'A clear description of what this plan will achieve',
-        },
-        autoAdvance: {
-          type: 'boolean',
-          description: 'If true, steps execute automatically after approval without requiring manual advancement. Defaults to false.',
-        },
-        steps: {
+        requests: {
           type: 'array',
           items: {
             type: 'object',
             properties: {
-              id: {
+              name: {
                 type: 'string',
-                description: 'Unique ID for this step. Use simple IDs like "step_1", "step_2". Required if other steps depend on this one.',
+                description: 'Name for the new asset',
               },
-              description: {
+              type: {
                 type: 'string',
-                description: 'Human-readable description of this step',
+                enum: ['character', 'item', 'scene', 'prop', 'effect', 'ui'],
+                description: 'Type of asset to generate',
               },
-              action: {
+              prompt: {
                 type: 'string',
-                enum: ['generate', 'fork', 'derive', 'refine', 'add_to_tray', 'set_prompt', 'clear_tray'],
-                description: 'The action to perform',
-              },
-              params: {
-                type: 'object',
-                description: 'Parameters for the action',
-              },
-              dependsOn: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Array of step IDs that must complete before this step can execute. Enables parallel execution when dependencies allow.',
+                description: 'Detailed prompt describing what to generate',
               },
             },
-            required: ['description', 'action', 'params'],
+            required: ['name', 'type', 'prompt'],
           },
-          description: 'The steps to execute. Steps without dependencies run first; steps with dependencies wait for those steps to complete.',
+          description: 'Array of generation requests to execute in parallel (2-5 items)',
+          minItems: 2,
+          maxItems: 5,
         },
       },
-      required: ['goal', 'steps'],
-    },
-  },
-  {
-    name: 'revise_plan',
-    description: 'Modify pending steps in the active plan based on results so far. Use this when earlier step results suggest adjustments are needed. Can only modify pending steps - completed/in_progress/failed steps are immutable.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        planId: {
-          type: 'string',
-          description: 'The ID of the plan to revise',
-        },
-        changes: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              stepId: {
-                type: 'string',
-                description: 'The ID of the step to modify',
-              },
-              action: {
-                type: 'string',
-                enum: ['update_params', 'update_description', 'skip', 'insert_after'],
-                description: 'Type of change: update_params (modify params), update_description (change description), skip (mark as skipped), insert_after (add new step after this one)',
-              },
-              newParams: {
-                type: 'object',
-                description: 'For update_params: the new parameters object',
-              },
-              newDescription: {
-                type: 'string',
-                description: 'For update_description: the new description text',
-              },
-              newStep: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string' },
-                  description: { type: 'string' },
-                  action: { type: 'string', enum: ['generate', 'fork', 'derive', 'refine', 'add_to_tray', 'set_prompt', 'clear_tray'] },
-                  params: { type: 'object' },
-                  dependsOn: { type: 'array', items: { type: 'string' } },
-                },
-                description: 'For insert_after: the new step to insert after this one',
-              },
-            },
-            required: ['stepId', 'action'],
-          },
-          description: 'Array of changes to apply to the plan',
-        },
-        reason: {
-          type: 'string',
-          description: 'Explanation of why these changes are needed',
-        },
-      },
-      required: ['planId', 'changes', 'reason'],
+      required: ['requests'],
     },
   },
   {
@@ -613,97 +554,20 @@ To describe this image, use the describe tool with variantId="${variantId}" and 
       }
     }
 
-    if (context.activePlan) {
-      const plan = context.activePlan;
-      const steps = plan.steps;
+    // Show current plan if exists
+    if (context.plan) {
+      const plan = context.plan;
+      const statusLabel = plan.status === 'approved' ? ' [APPROVED]' : ' [DRAFT]';
+      prompt += `YOUR CURRENT PLAN${statusLabel}:
+\`\`\`markdown
+${plan.content}
+\`\`\`
 
-      // Status icons (TodoWrite-style)
-      const statusIcon = (status: string): string => {
-        switch (status) {
-          case 'completed': return '[x]';
-          case 'in_progress': return '[>]';
-          case 'pending': return '[ ]';
-          case 'failed': return '[!]';
-          case 'skipped': return '[-]';
-          case 'blocked': return '[?]';
-          default: return '[ ]';
-        }
-      };
+Use update_plan to modify this plan as you work. Mark items as done with [x].
+When ready to generate, use the appropriate tools (generate, derive, refine, batch_generate).
+${plan.status === 'draft' ? 'The user can approve this plan before you proceed with generation.' : ''}
 
-      // Build step ID to description map for dependency display
-      const stepDescriptions = new Map(steps.map((s, i) => [s.id, `Step ${i + 1}`]));
-
-      // Count by status for summary
-      const completedCount = steps.filter(s => s.status === 'completed').length;
-      const currentStep = steps.find(s => s.status === 'in_progress');
-      const nextPending = steps.find(s => s.status === 'pending');
-
-      // Build compact plan display with execution mode
-      const modeLabel = plan.autoAdvance ? ' [auto]' : ' [manual]';
-      prompt += `PLAN: ${plan.goal} [${completedCount}/${steps.length}]${modeLabel}
 `;
-
-      // Only show full params for current step
-      if (currentStep) {
-        prompt += `CURRENT: ${currentStep.description}
-Params: ${JSON.stringify(currentStep.params)}
-`;
-      }
-
-      // Show next pending step summary if not the same as current
-      if (nextPending && nextPending.id !== currentStep?.id) {
-        prompt += `NEXT: ${nextPending.description}
-`;
-      }
-
-      // Compact step list with icons and dependency info
-      prompt += `Steps:\n`;
-      for (let i = 0; i < steps.length; i++) {
-        const s = steps[i];
-        const icon = statusIcon(s.status);
-        // Only show result snippet for completed steps
-        const result = s.result ? `: ${s.result.slice(0, 50)}${s.result.length > 50 ? '...' : ''}` : '';
-        // Show dependency info for blocked steps
-        let depInfo = '';
-        if (s.status === 'blocked' && s.dependsOn && s.dependsOn.length > 0) {
-          const depNames = s.dependsOn.map(id => stepDescriptions.get(id) || id).join(', ');
-          depInfo = ` (blocked by: ${depNames})`;
-        } else if (s.status === 'blocked') {
-          depInfo = ' (blocked)';
-        }
-        prompt += `${icon} Step ${i + 1}: ${s.description}${result}${depInfo}\n`;
-      }
-
-      // If there are blocked or failed steps, highlight them
-      const blockedSteps = steps.filter(s => s.status === 'blocked');
-      const failedSteps = steps.filter(s => s.status === 'failed');
-      if (failedSteps.length > 0) {
-        prompt += `\nFAILED: ${failedSteps.map(s => `${s.description} - ${s.error || 'unknown error'}`).join('; ')}\n`;
-      }
-      if (blockedSteps.length > 0) {
-        const blockedInfo = blockedSteps.map(s => {
-          if (s.dependsOn && s.dependsOn.length > 0) {
-            const depNames = s.dependsOn.map(id => stepDescriptions.get(id) || id).join(', ');
-            return `${s.description} (needs: ${depNames})`;
-          }
-          return s.description;
-        }).join('; ');
-        prompt += `BLOCKED: ${blockedInfo}\n`;
-      }
-
-      // Available actions on the plan with guidance
-      if (plan.status === 'executing' || plan.status === 'paused') {
-        prompt += `
-PLAN ADJUSTMENTS: You can use revise_plan to modify pending steps based on results so far:
-- update_description: Change what a pending step will do
-- update_params: Adjust parameters for a pending step
-- skip: Mark a step as skipped (won't execute, dependents unblocked)
-- insert_after: Add a new step after an existing one
-Note: Only pending steps can be revised. Completed/failed steps are immutable.
-`;
-      }
-
-      prompt += `\n`;
     }
 
     // Inject personalization context (learned patterns)
@@ -712,18 +576,20 @@ Note: Only pending steps can be revised. Completed/failed steps are immutable.
     }
 
     if (context.mode === 'advisor') {
-      prompt += `MODE: ADVISOR (Read Tools Available)
-You can observe and analyze assets, but cannot modify them.
+      prompt += `MODE: ADVISOR (Read Tools + Planning Available)
+You can observe, analyze, and plan, but cannot generate or modify assets.
 
 AVAILABLE TOOLS:
 - describe: Analyze what's in an image. ALWAYS use this when asked to describe, look at, or analyze any image. You cannot see images without calling this tool.
 - compare: Compare multiple variants side-by-side
 - search: Find assets by name or type
+- update_plan: Create or update a markdown plan. Use this to help the user plan their asset creation workflow.
 
 IMPORTANT: When the user asks you to describe what they're viewing or asks about an image, you MUST use the describe tool. Do not say you cannot see images - use the tool!
 
 GUIDELINES:
 - Answer questions about assets and creative workflow
+- Use update_plan to help users plan complex asset creation before they switch to actor mode
 - Suggest prompts and techniques using the best practices below
 - Explain operations and best practices
 - Help users understand their options
@@ -738,14 +604,21 @@ You can take actions to help the user create and manage assets.
 ${IMAGE_GENERATION_GUIDE}
 
 GUIDELINES:
-1. For complex requests (multiple assets, series, collections), use create_plan to make a step-by-step plan
-2. For simple single actions, use the appropriate tool directly
-3. Always confirm understanding before taking destructive actions
+1. For complex requests, use update_plan to write a markdown plan first
+2. For multiple assets at once, use batch_generate (2-5 items in parallel)
+3. For single actions, use the appropriate tool directly
 4. Apply the best practices above when crafting prompts
 5. For multi-step changes, break them into separate refine calls (one change per step)
 
+PLANNING:
+- Use update_plan to create/update your working plan as markdown
+- Use checkboxes [ ] for items, mark done with [x]
+- The plan is visible to the user in the UI
+- You can update the plan anytime to track progress
+
 COMMON WORKFLOWS:
 - "Create a game character" → generate with appearance, armor, art style; then refine for character sheet variants
+- "Create multiple characters" → update_plan with list, then batch_generate for parallel creation
 - "Create a building" → generate with architecture style, materials, context; then refine for different angles/views
 - "Create a room" → generate with style, materials, lighting; then refine furniture one piece at a time
 - "Create a product shot" → generate on neutral background; then derive with lifestyle scene reference
@@ -757,10 +630,8 @@ COMMON WORKFLOWS:
 - "Make variations" → refine with ONE specific change per call
 - "Place element in scene" → derive: element from image 1 in environment from image 2
 - "Equip/style subject" → derive: subject from image 1 with item/garment from image 2
-- "Create series" → create_plan: generate hero image, then refine for variants maintaining visual anchors
-- "Extract elements from scene" → derive with referenceAssetIds pointing to source scene, prompt describes what to extract (e.g., "Extract the blue slime from image 1, isolate on neutral background")
-- "Match style from reference" → derive with referenceAssetIds, prompt describes new subject in the style of the reference
-- "Extract + match style" → derive with MULTIPLE referenceAssetIds: source scene + style references. Prompt: "Extract [element] from image 1. Match the style of images 2-3."
+- "Create series" → update_plan with list, batch_generate hero images, then refine for variants
+- "Extract elements from scene" → derive with referenceAssetIds pointing to source scene
 
 PROMPT QUALITY CHECKLIST:
 ✓ Specific subject (not "a building" but "Victorian townhouse with red brick and bay windows")
@@ -788,115 +659,6 @@ Always explain what you're doing and why.`;
       if (block.type === 'text') {
         textContent += block.text;
       } else if (block.type === 'tool_use') {
-        // Check if this is a plan creation
-        if (block.name === 'create_plan') {
-          const input = block.input as {
-            goal?: string;
-            autoAdvance?: boolean;
-            steps?: Array<{
-              id?: string;
-              description: string;
-              action: string;
-              params: Record<string, unknown>;
-              dependsOn?: string[];
-            }>;
-          };
-
-          // Validate plan structure
-          if (!input.goal || !Array.isArray(input.steps) || input.steps.length === 0) {
-            console.error('[ClaudeService] Invalid create_plan response:', JSON.stringify(input, null, 2));
-            // Fall through to treat as regular response
-          } else {
-            const plan: AssistantPlan = {
-              id: `plan_${Date.now()}`,
-              goal: input.goal,
-              autoAdvance: input.autoAdvance ?? false,
-              steps: input.steps.map((s, i) => ({
-                id: s.id || `step_${i}`,
-                description: s.description || `Step ${i + 1}`,
-                action: s.action || 'generate',
-                params: s.params || {},
-                status: 'pending' as const,
-                dependsOn: s.dependsOn,
-              })),
-              currentStepIndex: 0,
-              status: 'planning',
-              createdAt: Date.now(),
-            };
-
-            return {
-              type: 'plan',
-              plan,
-              message: textContent || `I've created a plan to: ${input.goal}`,
-            };
-          }
-        }
-
-        // Check if this is a plan revision
-        if (block.name === 'revise_plan') {
-          const input = block.input as {
-            planId?: string;
-            changes?: Array<{
-              stepId: string;
-              action: 'update_params' | 'update_description' | 'skip' | 'insert_after';
-              newParams?: Record<string, unknown>;
-              newDescription?: string;
-              newStep?: {
-                id?: string;
-                description: string;
-                action: string;
-                params: Record<string, unknown>;
-                dependsOn?: string[];
-              };
-            }>;
-            reason?: string;
-          };
-
-          // Validate revision structure
-          if (!input.planId || !Array.isArray(input.changes) || input.changes.length === 0) {
-            console.error('[ClaudeService] Invalid revise_plan response:', JSON.stringify(input, null, 2));
-            // Fall through to treat as regular response
-          } else {
-            const revision: PlanRevision = {
-              planId: input.planId,
-              changes: input.changes.map(c => ({
-                stepId: c.stepId,
-                action: c.action,
-                newParams: c.newParams,
-                newDescription: c.newDescription,
-                newStep: c.newStep,
-              })),
-              reason: input.reason || 'Plan adjustment based on results',
-            };
-
-            // Classify changes: minor (auto-apply) vs structural (need approval)
-            const autoApplyChanges: PlanRevisionChange[] = [];
-            const approvalChanges: PlanRevisionChange[] = [];
-
-            for (const change of revision.changes) {
-              if (change.action === 'update_params' || change.action === 'update_description') {
-                // Minor changes - auto-apply
-                autoApplyChanges.push(change);
-              } else {
-                // Structural changes (skip, insert_after) - need approval
-                approvalChanges.push(change);
-              }
-            }
-
-            const response: RevisionResponse = {
-              type: 'revision',
-              message: textContent || `Adjusting plan: ${revision.reason}`,
-              revision,
-              pendingApproval: approvalChanges.length > 0 ? approvalChanges : undefined,
-            };
-
-            // Note: autoApplied will be filled in by the caller after executing changes
-            // We just classify here, execution happens in ChatWorkflow
-
-            return response;
-          }
-        }
-
         // Classify tool by trust level
         const toolCall: ToolCall = {
           name: block.name,

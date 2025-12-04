@@ -13,7 +13,8 @@
  */
 
 import { Hono } from 'hono';
-import type { Variant, Plan, PlanStep, PendingApproval, AutoExecuted, UserSession } from './types';
+import type { Variant, PendingApproval, AutoExecuted, UserSession } from './types';
+import type { SimplePlan } from '../../../shared/websocket-types';
 import type { ChatWorkflowOutput } from '../../workflows/types';
 import { NotFoundError, ValidationError } from './controllers/types';
 import { loggers } from '../../../shared/logger';
@@ -130,39 +131,6 @@ export interface InternalApiControllers {
       error?: string;
     }): Promise<AutoExecuted>;
   };
-  plan: {
-    httpCreatePlan(data: {
-      id: string;
-      goal: string;
-      createdBy: string;
-      steps: Array<{
-        id: string;
-        description: string;
-        action: string;
-        params: string;
-      }>;
-    }): Promise<{ plan: Plan; steps: PlanStep[] }>;
-    httpCompleteStep(stepId: string, result: string): Promise<{ plan: Plan; step: PlanStep }>;
-    httpFailStep(stepId: string, error: string): Promise<{ plan: Plan; step: PlanStep }>;
-    httpGetActivePlan(): Promise<{ plan: Plan; steps: PlanStep[] } | null>;
-    httpGetPlan(planId: string): Promise<{ plan: Plan; steps: PlanStep[] } | null>;
-    httpApplyRevision(data: {
-      planId: string;
-      change: {
-        stepId: string;
-        action: 'update_params' | 'update_description' | 'skip' | 'insert_after';
-        newParams?: Record<string, unknown>;
-        newDescription?: string;
-        newStep?: {
-          id?: string;
-          description: string;
-          action: string;
-          params: Record<string, unknown>;
-          dependsOn?: string[];
-        };
-      };
-    }): Promise<{ success: boolean; step?: PlanStep; newStepId?: string }>;
-  };
   session: {
     httpGetSession(userId: string): Promise<UserSession | null>;
     httpUpsertSession(data: {
@@ -171,6 +139,15 @@ export interface InternalApiControllers {
       viewingVariantId?: string | null;
       forgeContext?: string | null;
     }): Promise<UserSession>;
+  };
+  plan: {
+    httpUpsertPlan(data: {
+      sessionId: string;
+      content: string;
+      createdBy: string;
+    }): Promise<SimplePlan>;
+    httpGetActivePlan(sessionId: string): Promise<SimplePlan | null>;
+    httpArchivePlan(planId: string): Promise<void>;
   };
 }
 
@@ -404,50 +381,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   });
 
   // ==========================================================================
-  // Plan Routes
-  // ==========================================================================
-
-  app.post('/internal/plan', async (c) => {
-    const data = await c.req.json();
-    const result = await controllers.plan.httpCreatePlan(data);
-    return c.json({ success: true, ...result });
-  });
-
-  app.get('/internal/plan/active', async (c) => {
-    const result = await controllers.plan.httpGetActivePlan();
-    return c.json({ success: true, ...result });
-  });
-
-  app.get('/internal/plan/:planId', async (c) => {
-    const planId = c.req.param('planId');
-    const result = await controllers.plan.httpGetPlan(planId);
-    if (!result) {
-      return c.json({ error: 'Plan not found' }, 404);
-    }
-    return c.json({ success: true, ...result });
-  });
-
-  app.post('/internal/plan/step/:stepId/complete', async (c) => {
-    const stepId = c.req.param('stepId');
-    const data = (await c.req.json()) as { result: string };
-    const result = await controllers.plan.httpCompleteStep(stepId, data.result);
-    return c.json({ success: true, ...result });
-  });
-
-  app.post('/internal/plan/step/:stepId/fail', async (c) => {
-    const stepId = c.req.param('stepId');
-    const data = (await c.req.json()) as { error: string };
-    const result = await controllers.plan.httpFailStep(stepId, data.error);
-    return c.json({ success: true, ...result });
-  });
-
-  app.post('/internal/plan/revision', async (c) => {
-    const data = await c.req.json();
-    const result = await controllers.plan.httpApplyRevision(data);
-    return c.json(result);
-  });
-
-  // ==========================================================================
   // Session Routes
   // ==========================================================================
 
@@ -461,6 +394,32 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     const data = await c.req.json();
     const session = await controllers.session.httpUpsertSession(data);
     return c.json({ success: true, session });
+  });
+
+  // ==========================================================================
+  // Plan Routes (SimplePlan - markdown-based)
+  // ==========================================================================
+
+  app.post('/internal/plan', async (c) => {
+    const data = (await c.req.json()) as {
+      sessionId: string;
+      content: string;
+      createdBy: string;
+    };
+    const plan = await controllers.plan.httpUpsertPlan(data);
+    return c.json({ success: true, plan });
+  });
+
+  app.get('/internal/plan/:sessionId', async (c) => {
+    const sessionId = c.req.param('sessionId');
+    const plan = await controllers.plan.httpGetActivePlan(sessionId);
+    return c.json({ success: true, plan });
+  });
+
+  app.delete('/internal/plan/:planId', async (c) => {
+    const planId = c.req.param('planId');
+    await controllers.plan.httpArchivePlan(planId);
+    return c.json({ success: true });
   });
 
   return app;

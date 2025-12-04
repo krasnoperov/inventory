@@ -23,18 +23,41 @@ export interface ClaudeUsage {
 // ============================================================================
 
 /**
- * Plan status lifecycle:
+ * Plan status lifecycle (legacy - for step-based plans):
  * - planning: Plan created, awaiting user approval
  * - executing: User approved, steps being executed
  * - paused: Execution paused (waiting for user input or step completion)
  * - completed: All steps completed successfully
  * - failed: A step failed and plan was marked as failed
  * - cancelled: User cancelled the plan
+ * @deprecated Use SimplePlanStatus for new markdown-based plans
  */
 export type PlanStatus = 'planning' | 'executing' | 'paused' | 'completed' | 'failed' | 'cancelled';
 
 /**
- * Plan step status lifecycle:
+ * Simplified plan status (markdown-based plans):
+ * - draft: Plan is being written/edited by Claude
+ * - approved: User has approved the plan, generation can proceed
+ * - archived: Plan is no longer active (completed or dismissed)
+ */
+export type SimplePlanStatus = 'draft' | 'approved' | 'archived';
+
+/**
+ * Simplified markdown-based plan
+ * Claude writes the plan as markdown, user reviews and approves
+ */
+export interface SimplePlan {
+  id: string;
+  sessionId: string;
+  content: string; // Markdown content
+  status: SimplePlanStatus;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * Plan step status lifecycle (legacy):
  * - pending: Not yet started
  * - in_progress: Currently executing
  * - completed: Finished successfully

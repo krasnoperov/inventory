@@ -18,8 +18,6 @@ import {
   type ChatResponseResult,
   type DescribeResponseResult,
   type CompareResponseResult,
-  type Plan,
-  type PlanStep,
   type PendingApproval,
   type AutoExecuted,
 } from '../hooks/useSpaceWebSocket';
@@ -121,13 +119,12 @@ export default function AssetDetailPage() {
   const {
     setMessages,
     clearMessages,
-    syncServerPlan,
-    updateServerPlan,
-    updateServerPlanStep,
     syncServerApproval,
     updateServerApproval,
     syncServerApprovals,
     syncServerAutoExecuted,
+    setPlan,
+    clearPlan,
   } = useChatStore();
 
   // WebSocket for real-time updates
@@ -153,13 +150,6 @@ export default function AssetDetailPage() {
     getChildren,
     approveApproval: wsApproveApproval,
     rejectApproval: wsRejectApproval,
-    approvePlan: wsApprovePlan,
-    advancePlan: wsAdvancePlan,
-    cancelPlan: wsCancelPlan,
-    rejectPlan: wsRejectPlan,
-    setAutoAdvance: wsSetAutoAdvance,
-    skipStep: wsSkipStep,
-    retryStep: wsRetryStep,
     updateSession,
     requestChatHistory,
     startNewSession: wsStartNewSession,
@@ -192,22 +182,6 @@ export default function AssetDetailPage() {
     },
     onCompareResponse: (response) => {
       setCompareResponse(response);
-    },
-    // Plan lifecycle callbacks
-    onPlanCreated: (plan: Plan, steps: PlanStep[]) => {
-      if (spaceId) {
-        syncServerPlan(spaceId, plan, steps);
-      }
-    },
-    onPlanUpdated: (plan: Plan) => {
-      if (spaceId) {
-        updateServerPlan(spaceId, plan);
-      }
-    },
-    onPlanStepUpdated: (step: PlanStep) => {
-      if (spaceId) {
-        updateServerPlanStep(spaceId, step);
-      }
     },
     // Approval lifecycle callbacks
     onApprovalCreated: (approval: PendingApproval) => {
@@ -252,6 +226,17 @@ export default function AssetDetailPage() {
     onSessionCreated: () => {
       if (spaceId) {
         clearMessages(spaceId);
+      }
+    },
+    // SimplePlan callbacks
+    onPlanUpdated: (plan) => {
+      if (spaceId) {
+        setPlan(spaceId, plan);
+      }
+    },
+    onPlanArchived: () => {
+      if (spaceId) {
+        clearPlan(spaceId);
       }
     },
   });
@@ -879,13 +864,6 @@ export default function AssetDetailPage() {
             compareResponse={compareResponse}
             wsApproveApproval={wsApproveApproval}
             wsRejectApproval={wsRejectApproval}
-            wsApprovePlan={wsApprovePlan}
-            wsAdvancePlan={wsAdvancePlan}
-            wsCancelPlan={wsCancelPlan}
-            wsRejectPlan={wsRejectPlan}
-            wsSetAutoAdvance={wsSetAutoAdvance}
-            wsSkipStep={wsSkipStep}
-            wsRetryStep={wsRetryStep}
             wsStartNewSession={wsStartNewSession}
           />
         </div>

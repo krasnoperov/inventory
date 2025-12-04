@@ -10,10 +10,7 @@
  *   npm run cli chat approvals --space <id>         # List pending approvals
  *   npm run cli chat approve <id> --space <id>      # Approve an action
  *   npm run cli chat reject <id> --space <id>       # Reject an action
- *   npm run cli chat plan --space <id>              # View active plan
- *   npm run cli chat plan:approve <id> --space <id> # Approve a plan
- *   npm run cli chat plan:advance <id> --space <id> # Advance plan step
- *   npm run cli chat plan:cancel <id> --space <id>  # Cancel a plan
+ *   npm run cli chat plan --space <id>              # View active plan (markdown)
  *   npm run cli chat watch --space <id>             # Watch for updates
  *   npm run cli chat assets --space <id>            # List space assets
  */
@@ -25,7 +22,7 @@ import { handleHistory } from '../chat/history';
 import { handleApprovals, handleApprove, handleReject } from '../chat/approvals';
 import { handleWatch } from '../chat/watch';
 import { handleAssets } from '../chat/assets';
-import { handlePlan, handlePlanApprove, handlePlanAdvance, handlePlanCancel } from '../chat/plan';
+import { handlePlan } from '../chat/plan';
 
 export async function handleChat(parsed: ParsedArgs): Promise<void> {
   const subcommand = parsed.positionals[0];
@@ -53,18 +50,6 @@ export async function handleChat(parsed: ParsedArgs): Promise<void> {
 
     case 'plan':
       await handlePlan(parsed);
-      break;
-
-    case 'plan:approve':
-      await handlePlanApprove(parsed);
-      break;
-
-    case 'plan:advance':
-      await handlePlanAdvance(parsed);
-      break;
-
-    case 'plan:cancel':
-      await handlePlanCancel(parsed);
       break;
 
     case 'watch':
@@ -112,16 +97,7 @@ COMMANDS:
   reject <id>          Reject a pending action
     --space <id>       Space ID (required)
 
-  plan                 View active plan
-    --space <id>       Space ID (required)
-
-  plan:approve <id>    Approve a plan (start execution)
-    --space <id>       Space ID (required)
-
-  plan:advance <id>    Advance to the next step
-    --space <id>       Space ID (required)
-
-  plan:cancel <id>     Cancel a plan
+  plan                 View current plan (markdown)
     --space <id>       Space ID (required)
 
   watch                Watch for real-time updates (Ctrl+C to stop)
@@ -139,14 +115,8 @@ EXAMPLES:
   # View chat history
   npm run cli chat history --space space_abc123
 
-  # View current plan
+  # View current plan (Claude creates/updates plans automatically)
   npm run cli chat plan --space space_abc123
-
-  # Approve and start a plan
-  npm run cli chat plan:approve plan_123 --space space_abc123
-
-  # Continue to next step
-  npm run cli chat plan:advance plan_123 --space space_abc123
 
   # List pending approvals
   npm run cli chat approvals --space space_abc123
@@ -162,6 +132,6 @@ NOTES:
   All state (chat history, plans, approvals) is stored on the server.
   Multiple clients (web, CLI) can interact with the same conversation.
   Use 'watch' to see updates from other clients in real-time.
-  Plans execute on the server - use 'watch' to monitor progress.
+  Plans are simple markdown documents managed by the AI assistant.
 `);
 }

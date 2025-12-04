@@ -9,39 +9,16 @@ import process from 'node:process';
 import https from 'node:https';
 import WebSocket from 'ws';
 import { loadStoredConfig, resolveBaseUrl } from './config';
-import type { DescribeFocus, ClaudeUsage } from '../../shared/websocket-types';
+import type { DescribeFocus, ClaudeUsage, SimplePlan } from '../../shared/websocket-types';
+
+// Re-export SimplePlan for CLI commands
+export type { SimplePlan } from '../../shared/websocket-types';
 
 // =============================================================================
-// Plan Types (matching backend definitions)
+// Types
 // =============================================================================
 
-export type PlanStatus = 'planning' | 'executing' | 'paused' | 'completed' | 'failed' | 'cancelled';
-export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
-
-export interface Plan {
-  id: string;
-  goal: string;
-  status: PlanStatus;
-  current_step_index: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-}
-
-export interface PlanStep {
-  id: string;
-  plan_id: string;
-  step_index: number;
-  description: string;
-  action: string;
-  params: string; // JSON string
-  status: PlanStepStatus;
-  result: string | null;
-  error: string | null;
-  created_at: number;
-  updated_at: number | null;
-}
 
 export interface PendingApproval {
   id: string;
@@ -222,10 +199,9 @@ type SyncStateMessage = { type: 'sync:state'; assets: unknown[]; variants: Varia
 type ErrorMessage = { type: 'error'; code: string; message: string };
 type RefineResult = Omit<GenerateResult, 'type'> & { type: 'refine:result' };
 
-// Plan message types
-type PlanCreatedMessage = { type: 'plan:created'; plan: Plan; steps: PlanStep[] };
-type PlanUpdatedMessage = { type: 'plan:updated'; plan: Plan };
-type PlanStepUpdatedMessage = { type: 'plan:step_updated'; step: PlanStep };
+// SimplePlan message types (markdown-based)
+type SimplePlanUpdatedMessage = { type: 'simple_plan:updated'; plan: SimplePlan };
+type SimplePlanArchivedMessage = { type: 'simple_plan:archived'; planId: string };
 
 // Approval message types
 type ApprovalCreatedMessage = { type: 'approval:created'; approval: PendingApproval };
@@ -248,9 +224,8 @@ type ServerMessage =
   | CompareResponse
   | SyncStateMessage
   | ErrorMessage
-  | PlanCreatedMessage
-  | PlanUpdatedMessage
-  | PlanStepUpdatedMessage
+  | SimplePlanUpdatedMessage
+  | SimplePlanArchivedMessage
   | ApprovalCreatedMessage
   | ApprovalUpdatedMessage
   | ApprovalListMessage
@@ -299,10 +274,9 @@ export class WebSocketClient {
   private onError?: (error: Error) => void;
   private onSyncState?: (data: { assets: unknown[]; variants: unknown[]; lineage: unknown[] }) => void;
 
-  // Plan event handlers
-  private onPlanCreated?: (plan: Plan, steps: PlanStep[]) => void;
-  private onPlanUpdated?: (plan: Plan) => void;
-  private onPlanStepUpdated?: (step: PlanStep) => void;
+  // SimplePlan event handlers
+  private onPlanUpdated?: (plan: SimplePlan) => void;
+  private onPlanArchived?: (planId: string) => void;
 
   // Approval event handlers
   private onApprovalCreated?: (approval: PendingApproval) => void;
@@ -422,18 +396,14 @@ export class WebSocketClient {
   }
 
   /**
-   * Set plan event handlers
+   * Set SimplePlan event handlers
    */
-  setOnPlanCreated(handler: (plan: Plan, steps: PlanStep[]) => void): void {
-    this.onPlanCreated = handler;
-  }
-
-  setOnPlanUpdated(handler: (plan: Plan) => void): void {
+  setOnPlanUpdated(handler: (plan: SimplePlan) => void): void {
     this.onPlanUpdated = handler;
   }
 
-  setOnPlanStepUpdated(handler: (step: PlanStep) => void): void {
-    this.onPlanStepUpdated = handler;
+  setOnPlanArchived(handler: (planId: string) => void): void {
+    this.onPlanArchived = handler;
   }
 
   /**
@@ -569,22 +539,16 @@ export class WebSocketClient {
         break;
       }
 
-      // Plan message handlers
-      case 'plan:created': {
-        const planMsg = message as PlanCreatedMessage;
-        this.onPlanCreated?.(planMsg.plan, planMsg.steps);
-        break;
-      }
-
-      case 'plan:updated': {
-        const planMsg = message as PlanUpdatedMessage;
+      // SimplePlan message handlers
+      case 'simple_plan:updated': {
+        const planMsg = message as SimplePlanUpdatedMessage;
         this.onPlanUpdated?.(planMsg.plan);
         break;
       }
 
-      case 'plan:step_updated': {
-        const stepMsg = message as PlanStepUpdatedMessage;
-        this.onPlanStepUpdated?.(stepMsg.step);
+      case 'simple_plan:archived': {
+        const archivedMsg = message as SimplePlanArchivedMessage;
+        this.onPlanArchived?.(archivedMsg.planId);
         break;
       }
 
@@ -865,38 +829,6 @@ export class WebSocketClient {
    */
   requestSync(): void {
     this.send({ type: 'sync:request' });
-  }
-
-  // ==========================================================================
-  // Plan Methods
-  // ==========================================================================
-
-  /**
-   * Approve a plan (start execution)
-   */
-  approvePlan(planId: string): void {
-    this.send({ type: 'plan:approve', planId });
-  }
-
-  /**
-   * Reject a plan
-   */
-  rejectPlan(planId: string): void {
-    this.send({ type: 'plan:reject', planId });
-  }
-
-  /**
-   * Cancel an executing plan
-   */
-  cancelPlan(planId: string): void {
-    this.send({ type: 'plan:cancel', planId });
-  }
-
-  /**
-   * Advance to the next step in a plan
-   */
-  advancePlan(planId: string): void {
-    this.send({ type: 'plan:advance', planId });
   }
 
   // ==========================================================================

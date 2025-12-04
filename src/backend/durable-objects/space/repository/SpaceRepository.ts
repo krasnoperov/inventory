@@ -17,22 +17,17 @@ import type {
   ChatSession,
   ChatMessage,
   Lineage,
-  Plan,
-  PlanStep,
-  PlanStatus,
-  PlanStepStatus,
   PendingApproval,
   AutoExecuted,
   UserSession,
 } from '../types';
+import type { SimplePlan } from '../../../../shared/websocket-types';
 import {
   AssetQueries,
   VariantQueries,
   LineageQueries,
   ChatQueries,
   ChatSessionQueries,
-  PlanQueries,
-  PlanStepQueries,
   ApprovalQueries,
   AutoExecutedQueries,
   UserSessionQueries,
@@ -623,353 +618,104 @@ export class SpaceRepository {
   }
 
   // ==========================================================================
-  // Plan Operations
+  // Plan Operations (SimplePlan - markdown-based)
   // ==========================================================================
 
-  async getActivePlan(): Promise<Plan | null> {
-    const result = await this.sql.exec(PlanQueries.GET_ACTIVE);
-    return (result.toArray()[0] as Plan) ?? null;
+  /**
+   * Map database row (snake_case) to SimplePlan interface (camelCase)
+   */
+  private mapDbRowToSimplePlan(row: Record<string, unknown>): SimplePlan {
+    return {
+      id: row.id as string,
+      sessionId: row.session_id as string,
+      content: row.content as string,
+      status: row.status as SimplePlan['status'],
+      createdBy: row.created_by as string,
+      createdAt: row.created_at as number,
+      updatedAt: row.updated_at as number,
+    };
   }
 
-  async getPlanById(id: string): Promise<Plan | null> {
-    const result = await this.sql.exec(PlanQueries.GET_BY_ID, id);
-    return (result.toArray()[0] as Plan) ?? null;
+  /**
+   * Get the active plan for the current chat session.
+   * Plans are per-session, linked by session_id.
+   */
+  async getActivePlan(sessionId?: string): Promise<SimplePlan | null> {
+    if (!sessionId) return null;
+    const result = await this.sql.exec(
+      `SELECT * FROM simple_plans WHERE session_id = ? AND status != 'archived' ORDER BY updated_at DESC LIMIT 1`,
+      sessionId
+    );
+    const row = result.toArray()[0] as Record<string, unknown> | undefined;
+    return row ? this.mapDbRowToSimplePlan(row) : null;
   }
 
-  async createPlan(plan: {
-    id: string;
-    goal: string;
-    status?: PlanStatus;
+  /**
+   * Create or update a plan for a session
+   */
+  async upsertPlan(plan: {
+    sessionId: string;
+    content: string;
     createdBy: string;
-    autoAdvance?: boolean;
-    maxParallel?: number;
-  }): Promise<Plan> {
+  }): Promise<SimplePlan> {
+    const existing = await this.getActivePlan(plan.sessionId);
+    const now = Date.now();
+
+    if (existing) {
+      // Update existing plan
+      await this.sql.exec(
+        `UPDATE simple_plans SET content = ?, updated_at = ? WHERE id = ?`,
+        plan.content,
+        now,
+        existing.id
+      );
+      return { ...existing, content: plan.content, updatedAt: now };
+    } else {
+      // Create new plan
+      const id = crypto.randomUUID();
+      await this.sql.exec(
+        `INSERT INTO simple_plans (id, session_id, content, status, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, 'draft', ?, ?, ?)`,
+        id,
+        plan.sessionId,
+        plan.content,
+        plan.createdBy,
+        now,
+        now
+      );
+      return {
+        id,
+        sessionId: plan.sessionId,
+        content: plan.content,
+        status: 'draft',
+        createdBy: plan.createdBy,
+        createdAt: now,
+        updatedAt: now,
+      };
+    }
+  }
+
+  /**
+   * Update plan status (draft -> approved -> archived)
+   */
+  async updatePlanStatus(planId: string, status: SimplePlan['status']): Promise<SimplePlan | null> {
     const now = Date.now();
     await this.sql.exec(
-      PlanQueries.INSERT,
-      plan.id,
-      plan.goal,
-      plan.status ?? 'planning',
-      0, // current_step_index
-      plan.createdBy,
+      `UPDATE simple_plans SET status = ?, updated_at = ? WHERE id = ?`,
+      status,
       now,
-      now,
-      plan.autoAdvance ? 1 : 0,
-      plan.maxParallel ?? 3,
-      0, // active_step_count
-      0 // revision_count
+      planId
     );
-    return (await this.getPlanById(plan.id))!;
-  }
-
-  async updatePlanAutoAdvance(planId: string, autoAdvance: boolean): Promise<Plan | null> {
-    const existing = await this.getPlanById(planId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanQueries.UPDATE_AUTO_ADVANCE, autoAdvance ? 1 : 0, Date.now(), planId);
-    return this.getPlanById(planId);
-  }
-
-  async incrementActiveSteps(planId: string): Promise<Plan | null> {
-    const existing = await this.getPlanById(planId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanQueries.INCREMENT_ACTIVE_STEPS, Date.now(), planId);
-    return this.getPlanById(planId);
-  }
-
-  async decrementActiveSteps(planId: string): Promise<Plan | null> {
-    const existing = await this.getPlanById(planId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanQueries.DECREMENT_ACTIVE_STEPS, Date.now(), planId);
-    return this.getPlanById(planId);
-  }
-
-  async markPlanRevised(planId: string): Promise<Plan | null> {
-    const existing = await this.getPlanById(planId);
-    if (!existing) return null;
-
-    const now = Date.now();
-    await this.sql.exec(PlanQueries.UPDATE_REVISION, now, now, planId);
-    return this.getPlanById(planId);
-  }
-
-  async updatePlanStatus(planId: string, status: PlanStatus): Promise<Plan | null> {
-    const existing = await this.getPlanById(planId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanQueries.UPDATE_STATUS, status, Date.now(), planId);
-    return this.getPlanById(planId);
-  }
-
-  async updatePlanStepIndex(planId: string, stepIndex: number): Promise<Plan | null> {
-    const existing = await this.getPlanById(planId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanQueries.UPDATE_STEP_INDEX, stepIndex, Date.now(), planId);
-    return this.getPlanById(planId);
-  }
-
-  async updatePlanStatusAndIndex(
-    planId: string,
-    status: PlanStatus,
-    stepIndex: number
-  ): Promise<Plan | null> {
-    const existing = await this.getPlanById(planId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanQueries.UPDATE_STATUS_AND_INDEX, status, stepIndex, Date.now(), planId);
-    return this.getPlanById(planId);
-  }
-
-  async deletePlan(planId: string): Promise<boolean> {
-    const existing = await this.getPlanById(planId);
-    if (!existing) return false;
-
-    await this.sql.exec(PlanQueries.DELETE, planId);
-    return true;
-  }
-
-  // ==========================================================================
-  // Plan Step Operations
-  // ==========================================================================
-
-  async getPlanSteps(planId: string): Promise<PlanStep[]> {
-    const result = await this.sql.exec(PlanStepQueries.GET_BY_PLAN, planId);
-    return result.toArray() as PlanStep[];
-  }
-
-  async getPlanStepById(id: string): Promise<PlanStep | null> {
-    const result = await this.sql.exec(PlanStepQueries.GET_BY_ID, id);
-    return (result.toArray()[0] as PlanStep) ?? null;
-  }
-
-  async getNextPendingStep(planId: string): Promise<PlanStep | null> {
-    const result = await this.sql.exec(PlanStepQueries.GET_NEXT_PENDING, planId);
-    return (result.toArray()[0] as PlanStep) ?? null;
-  }
-
-  async createPlanStep(step: {
-    id: string;
-    planId: string;
-    stepIndex: number;
-    description: string;
-    action: string;
-    params: string; // JSON
-    dependsOn?: string[]; // Array of step IDs
-  }): Promise<PlanStep> {
-    const now = Date.now();
-    await this.sql.exec(
-      PlanStepQueries.INSERT,
-      step.id,
-      step.planId,
-      step.stepIndex,
-      step.description,
-      step.action,
-      step.params,
-      'pending',
-      now,
-      step.dependsOn ? JSON.stringify(step.dependsOn) : null,
-      0 // skipped = false
-    );
-    return (await this.getPlanStepById(step.id))!;
-  }
-
-  async updateStepStatus(stepId: string, status: PlanStepStatus): Promise<PlanStep | null> {
-    const existing = await this.getPlanStepById(stepId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanStepQueries.UPDATE_STATUS, status, Date.now(), stepId);
-    return this.getPlanStepById(stepId);
-  }
-
-  async completeStep(stepId: string, result: string): Promise<PlanStep | null> {
-    const existing = await this.getPlanStepById(stepId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanStepQueries.UPDATE_RESULT, 'completed', result, Date.now(), stepId);
-    return this.getPlanStepById(stepId);
-  }
-
-  async failStep(stepId: string, error: string): Promise<PlanStep | null> {
-    const existing = await this.getPlanStepById(stepId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanStepQueries.UPDATE_ERROR, 'failed', error, Date.now(), stepId);
-    return this.getPlanStepById(stepId);
+    const result = await this.sql.exec(`SELECT * FROM simple_plans WHERE id = ?`, planId);
+    const row = result.toArray()[0] as Record<string, unknown> | undefined;
+    return row ? this.mapDbRowToSimplePlan(row) : null;
   }
 
   /**
-   * Get all pending steps for a plan (for dependency checking)
+   * Archive plan (mark as done/dismissed)
    */
-  async getAllPendingSteps(planId: string): Promise<PlanStep[]> {
-    const result = await this.sql.exec(PlanStepQueries.GET_ALL_PENDING, planId);
-    return result.toArray() as PlanStep[];
-  }
-
-  /**
-   * Get executable steps - pending steps with all dependencies completed.
-   * Respects max_parallel limit if plan has auto_advance enabled.
-   */
-  async getExecutableSteps(planId: string, limit?: number): Promise<PlanStep[]> {
-    const allSteps = await this.getPlanSteps(planId);
-
-    // Build set of completed/skipped step IDs
-    const completedIds = new Set(
-      allSteps
-        .filter(s => s.status === 'completed' || s.status === 'skipped')
-        .map(s => s.id)
-    );
-
-    // Filter to executable steps (pending with all dependencies met)
-    const executable = allSteps.filter(step => {
-      if (step.status !== 'pending') return false;
-
-      // Check dependencies
-      if (step.depends_on) {
-        try {
-          const deps = JSON.parse(step.depends_on) as string[];
-          if (!deps.every(depId => completedIds.has(depId))) {
-            return false; // Not all dependencies completed
-          }
-        } catch {
-          // Invalid JSON - treat as no dependencies
-        }
-      }
-
-      return true;
-    });
-
-    // Apply limit if specified
-    return limit ? executable.slice(0, limit) : executable;
-  }
-
-  /**
-   * Skip a step (mark as skipped without failing)
-   */
-  async skipStep(stepId: string): Promise<PlanStep | null> {
-    const existing = await this.getPlanStepById(stepId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanStepQueries.SKIP, Date.now(), stepId);
-    return this.getPlanStepById(stepId);
-  }
-
-  /**
-   * Block a step (dependency failed)
-   */
-  async blockStep(stepId: string): Promise<PlanStep | null> {
-    const existing = await this.getPlanStepById(stepId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanStepQueries.BLOCK, Date.now(), stepId);
-    return this.getPlanStepById(stepId);
-  }
-
-  /**
-   * Unblock a step (restore to pending)
-   */
-  async unblockStep(stepId: string): Promise<PlanStep | null> {
-    const existing = await this.getPlanStepById(stepId);
-    if (!existing) return null;
-
-    await this.sql.exec(PlanStepQueries.UNBLOCK, Date.now(), stepId);
-    return this.getPlanStepById(stepId);
-  }
-
-  /**
-   * Block all steps that depend on a failed step
-   */
-  async blockDependentSteps(planId: string, failedStepId: string): Promise<PlanStep[]> {
-    const allSteps = await this.getPlanSteps(planId);
-    const blockedSteps: PlanStep[] = [];
-
-    for (const step of allSteps) {
-      if (step.status !== 'pending') continue;
-      if (!step.depends_on) continue;
-
-      try {
-        const deps = JSON.parse(step.depends_on) as string[];
-        if (deps.includes(failedStepId)) {
-          const blocked = await this.blockStep(step.id);
-          if (blocked) blockedSteps.push(blocked);
-        }
-      } catch {
-        // Invalid JSON - skip
-      }
-    }
-
-    return blockedSteps;
-  }
-
-  /**
-   * Update step params (for revision)
-   */
-  async updateStepParams(stepId: string, newParams: string): Promise<PlanStep | null> {
-    const existing = await this.getPlanStepById(stepId);
-    if (!existing) return null;
-    if (existing.status !== 'pending') return null; // Can only revise pending steps
-
-    const now = Date.now();
-    await this.sql.exec(PlanStepQueries.UPDATE_PARAMS, newParams, now, now, stepId);
-    return this.getPlanStepById(stepId);
-  }
-
-  /**
-   * Update step description (for revision)
-   */
-  async updateStepDescription(stepId: string, newDescription: string): Promise<PlanStep | null> {
-    const existing = await this.getPlanStepById(stepId);
-    if (!existing) return null;
-    if (existing.status !== 'pending') return null; // Can only revise pending steps
-
-    const now = Date.now();
-    await this.sql.exec(PlanStepQueries.UPDATE_DESCRIPTION, newDescription, now, now, stepId);
-    return this.getPlanStepById(stepId);
-  }
-
-  /**
-   * Insert a new step after an existing step, reindexing subsequent steps
-   */
-  async insertStepAfter(
-    afterStepId: string,
-    newStep: {
-      id: string;
-      description: string;
-      action: string;
-      params: string;
-      dependsOn?: string[];
-    }
-  ): Promise<PlanStep | null> {
-    const afterStep = await this.getPlanStepById(afterStepId);
-    if (!afterStep) return null;
-
-    const now = Date.now();
-    const newIndex = afterStep.step_index + 1;
-
-    // Reindex all steps after the insertion point
-    await this.sql.exec(PlanStepQueries.REINDEX_AFTER, now, afterStep.plan_id, afterStep.step_index);
-
-    // Insert the new step
-    return this.createPlanStep({
-      id: newStep.id,
-      planId: afterStep.plan_id,
-      stepIndex: newIndex,
-      description: newStep.description,
-      action: newStep.action,
-      params: newStep.params,
-      dependsOn: newStep.dependsOn,
-    });
-  }
-
-  /**
-   * Get the maximum step index for a plan
-   */
-  async getMaxStepIndex(planId: string): Promise<number> {
-    const result = await this.sql.exec(PlanStepQueries.GET_MAX_INDEX, planId);
-    const row = result.toArray()[0] as { max_index: number | null } | undefined;
-    return row?.max_index ?? -1;
+  async archivePlan(planId: string): Promise<void> {
+    await this.updatePlanStatus(planId, 'archived');
   }
 
   // ==========================================================================

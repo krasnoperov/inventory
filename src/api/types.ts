@@ -22,6 +22,8 @@ export type {
   ForgeContextSlot,
   ForgeContext,
   ViewingContext,
+  SimplePlanStatus,
+  SimplePlan,
 } from '../shared/websocket-types';
 export { planStatusToUI, uiStatusToPlanStatus, isErrorResponse } from '../shared/websocket-types';
 
@@ -42,30 +44,7 @@ export interface ToolCall {
   params: Record<string, unknown>;
 }
 
-/** Step in an assistant plan */
-export interface PlanStep {
-  id: string;
-  description: string;
-  action: string;
-  params: Record<string, unknown>;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked';
-  result?: string;
-  error?: string;
-  dependsOn?: string[]; // Step IDs that must complete before this step
-}
-
-/** Multi-step plan created by assistant */
-export interface AssistantPlan {
-  id: string;
-  goal: string;
-  steps: PlanStep[];
-  /** @deprecated Use steps.find(s => s.status === 'in_progress') instead */
-  currentStepIndex?: number;
-  status: 'planning' | 'executing' | 'completed' | 'failed' | 'paused' | 'cancelled';
-  createdAt: number;
-  /** Execute steps automatically after approval */
-  autoAdvance?: boolean;
-}
+// Legacy step-based plan types removed - use SimplePlan from shared/websocket-types
 
 /** Advice-only response from Claude */
 export interface AdvisorResponse {
@@ -86,15 +65,8 @@ export interface ActorResponse {
   pendingApprovals?: PendingApproval[];
 }
 
-/** Plan response for multi-step operations */
-export interface PlanResponse {
-  type: 'plan';
-  plan: AssistantPlan;
-  message: string;
-}
-
-/** Union of all bot response types */
-export type BotResponse = AdvisorResponse | ActorResponse | PlanResponse | RevisionResponse;
+/** Union of all bot response types (simplified - no more plan/revision types) */
+export type BotResponse = AdvisorResponse | ActorResponse;
 
 // ============================================================================
 // TRUST ZONES - Auto-execute vs Approval
@@ -123,56 +95,6 @@ export interface PendingApproval {
 export interface ApprovalRequest {
   approvalIds: string[];
   action: 'approve' | 'reject';
-}
-
-// ============================================================================
-// PLAN REVISIONS
-// ============================================================================
-
-/** Types of revision actions */
-export type RevisionAction = 'update_params' | 'update_description' | 'skip' | 'insert_after';
-
-/** A single change to a plan step */
-export interface PlanRevisionChange {
-  stepId: string;
-  action: RevisionAction;
-  newParams?: Record<string, unknown>;
-  newDescription?: string;
-  newStep?: {
-    id?: string;
-    description: string;
-    action: string;
-    params: Record<string, unknown>;
-    dependsOn?: string[];
-  };
-}
-
-/** Revision request from Claude */
-export interface PlanRevision {
-  planId: string;
-  changes: PlanRevisionChange[];
-  reason: string;
-}
-
-/** Result of applying a revision change */
-export interface RevisionResult {
-  stepId: string;
-  action: RevisionAction;
-  success: boolean;
-  error?: string;
-  /** For insert_after, the new step ID */
-  newStepId?: string;
-}
-
-/** Response type for plan revisions */
-export interface RevisionResponse {
-  type: 'revision';
-  message: string;
-  revision: PlanRevision;
-  /** Changes that were auto-applied (update_params, update_description) */
-  autoApplied?: RevisionResult[];
-  /** Changes pending approval (skip, insert_after) */
-  pendingApproval?: PlanRevisionChange[];
 }
 
 /** Result of approval processing */

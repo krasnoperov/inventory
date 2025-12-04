@@ -8,7 +8,7 @@
  * and handleRefineRequest/executePlanRefine.
  */
 
-import type { Asset, Variant, Lineage, WebSocketMeta } from '../types';
+import type { Asset, Variant, WebSocketMeta } from '../types';
 import type { GenerationWorkflowInput, OperationType } from '../../../workflows/types';
 import type { SpaceRepository } from '../repository/SpaceRepository';
 import type { BroadcastFn } from '../controllers/types';

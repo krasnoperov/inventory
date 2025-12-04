@@ -10,7 +10,7 @@ import type {
   ChatMessage,
   ForgeContext,
   ViewingContext,
-  AssistantPlan,
+  SimplePlan,
 } from '../../api/types';
 
 // ============================================================================
@@ -47,8 +47,10 @@ export interface ChatWorkflowInput {
   assets: BotContextAsset[];
   /** Personalization context from memory service */
   personalizationContext?: string;
-  /** Active plan for context (if one exists) */
-  activePlan?: AssistantPlan;
+  /** Active plan for context (if one exists) - markdown-based */
+  activePlan?: SimplePlan;
+  /** Chat session ID for plan persistence (defaults to spaceId if not set) */
+  sessionId?: string;
 }
 
 /** Output from ChatWorkflow - sent back to SpaceDO for broadcast */

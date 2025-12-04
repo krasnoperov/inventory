@@ -87,32 +87,16 @@ export class SchemaManager {
         created_at INTEGER NOT NULL
       );
 
-      -- Assistant plans (multi-step workflows)
-      CREATE TABLE IF NOT EXISTS plans (
+      -- Simple plans (markdown-based, per-session)
+      CREATE TABLE IF NOT EXISTS simple_plans (
         id TEXT PRIMARY KEY,
-        goal TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'planning'
-          CHECK (status IN ('planning', 'executing', 'paused', 'completed', 'failed', 'cancelled')),
-        current_step_index INTEGER NOT NULL DEFAULT 0,
+        session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft'
+          CHECK (status IN ('draft', 'approved', 'archived')),
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
-      );
-
-      -- Plan steps
-      CREATE TABLE IF NOT EXISTS plan_steps (
-        id TEXT PRIMARY KEY,
-        plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
-        step_index INTEGER NOT NULL,
-        description TEXT NOT NULL,
-        action TEXT NOT NULL,
-        params TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending'
-          CHECK (status IN ('pending', 'in_progress', 'completed', 'failed')),
-        result TEXT,
-        error TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER
       );
 
       -- Pending approvals (trust zones - actions awaiting user approval)
@@ -169,9 +153,8 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_lineage_parent ON lineage(parent_variant_id);
       CREATE INDEX IF NOT EXISTS idx_lineage_child ON lineage(child_variant_id);
-      CREATE INDEX IF NOT EXISTS idx_plans_status ON plans(status);
-      CREATE INDEX IF NOT EXISTS idx_plans_created_by ON plans(created_by);
-      CREATE INDEX IF NOT EXISTS idx_plan_steps_plan ON plan_steps(plan_id);
+      CREATE INDEX IF NOT EXISTS idx_simple_plans_session ON simple_plans(session_id);
+      CREATE INDEX IF NOT EXISTS idx_simple_plans_status ON simple_plans(status);
       CREATE INDEX IF NOT EXISTS idx_approvals_status ON pending_approvals(status);
       CREATE INDEX IF NOT EXISTS idx_approvals_request ON pending_approvals(request_id);
       CREATE INDEX IF NOT EXISTS idx_approvals_plan ON pending_approvals(plan_id);
