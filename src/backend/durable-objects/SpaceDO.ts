@@ -9,6 +9,7 @@ import type {
   CompareRequestMessage,
 } from '../workflows/types';
 import type { WebSocketMeta, ClientMessage, ServerMessage } from './space/types';
+import type { ErrorCode } from '../../shared/websocket-types';
 import { SpaceRepository } from './space/repository/SpaceRepository';
 import { SchemaManager } from './space/schema/SchemaManager';
 import { createInternalApi } from './space/InternalApi';
@@ -432,7 +433,7 @@ export class SpaceDO extends DurableObject<Env> {
     }
   }
 
-  private sendError(ws: WebSocket, code: string, message: string): void {
+  private sendError(ws: WebSocket, code: ErrorCode, message: string): void {
     this.send(ws, { type: 'error', code, message });
   }
 

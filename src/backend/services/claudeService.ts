@@ -630,13 +630,17 @@ To describe this image, use the describe tool with variantId="${variantId}" and 
         }
       };
 
+      // Build step ID to description map for dependency display
+      const stepDescriptions = new Map(steps.map((s, i) => [s.id, `Step ${i + 1}`]));
+
       // Count by status for summary
       const completedCount = steps.filter(s => s.status === 'completed').length;
       const currentStep = steps.find(s => s.status === 'in_progress');
       const nextPending = steps.find(s => s.status === 'pending');
 
-      // Build compact plan display
-      prompt += `PLAN: ${plan.goal} [${completedCount}/${steps.length}]
+      // Build compact plan display with execution mode
+      const modeLabel = plan.autoAdvance ? ' [auto]' : ' [manual]';
+      prompt += `PLAN: ${plan.goal} [${completedCount}/${steps.length}]${modeLabel}
 `;
 
       // Only show full params for current step
@@ -652,14 +656,22 @@ Params: ${JSON.stringify(currentStep.params)}
 `;
       }
 
-      // Compact step list with icons
+      // Compact step list with icons and dependency info
       prompt += `Steps:\n`;
-      for (const s of steps) {
+      for (let i = 0; i < steps.length; i++) {
+        const s = steps[i];
         const icon = statusIcon(s.status);
         // Only show result snippet for completed steps
         const result = s.result ? `: ${s.result.slice(0, 50)}${s.result.length > 50 ? '...' : ''}` : '';
-        const blocked = s.status === 'blocked' ? ' (blocked)' : '';
-        prompt += `${icon} ${s.description}${result}${blocked}\n`;
+        // Show dependency info for blocked steps
+        let depInfo = '';
+        if (s.status === 'blocked' && s.dependsOn && s.dependsOn.length > 0) {
+          const depNames = s.dependsOn.map(id => stepDescriptions.get(id) || id).join(', ');
+          depInfo = ` (blocked by: ${depNames})`;
+        } else if (s.status === 'blocked') {
+          depInfo = ' (blocked)';
+        }
+        prompt += `${icon} Step ${i + 1}: ${s.description}${result}${depInfo}\n`;
       }
 
       // If there are blocked or failed steps, highlight them
@@ -669,12 +681,26 @@ Params: ${JSON.stringify(currentStep.params)}
         prompt += `\nFAILED: ${failedSteps.map(s => `${s.description} - ${s.error || 'unknown error'}`).join('; ')}\n`;
       }
       if (blockedSteps.length > 0) {
-        prompt += `BLOCKED: ${blockedSteps.map(s => s.description).join(', ')}\n`;
+        const blockedInfo = blockedSteps.map(s => {
+          if (s.dependsOn && s.dependsOn.length > 0) {
+            const depNames = s.dependsOn.map(id => stepDescriptions.get(id) || id).join(', ');
+            return `${s.description} (needs: ${depNames})`;
+          }
+          return s.description;
+        }).join('; ');
+        prompt += `BLOCKED: ${blockedInfo}\n`;
       }
 
-      // Available actions on the plan
+      // Available actions on the plan with guidance
       if (plan.status === 'executing' || plan.status === 'paused') {
-        prompt += `\nYou can use revise_plan to adjust pending steps based on results so far.\n`;
+        prompt += `
+PLAN ADJUSTMENTS: You can use revise_plan to modify pending steps based on results so far:
+- update_description: Change what a pending step will do
+- update_params: Adjust parameters for a pending step
+- skip: Mark a step as skipped (won't execute, dependents unblocked)
+- insert_after: Add a new step after an existing one
+Note: Only pending steps can be revised. Completed/failed steps are immutable.
+`;
       }
 
       prompt += `\n`;

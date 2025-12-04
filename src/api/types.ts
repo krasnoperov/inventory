@@ -11,64 +11,24 @@
  * - Built on top of database types but may add/transform fields
  */
 
-// ============================================================================
-// BARE FRAMEWORK FOUNDATION
-// Add your domain-specific API types here
-// ============================================================================
-
-// Example: User profile response
-// export type UserProfileResponse = {
-//   id: string;
-//   name: string;
-//   email: string;
-// };
-
-// Example: Asset list response (for future implementation)
-// export type AssetsListResponse = {
-//   assets: Array<{
-//     id: string;
-//     title: string;
-//     imageUrl?: string;
-//   }>;
-//   total: number;
-// };
-
-// Example: Chat response
-// export type ChatResponse = {
-//   message: string;
-//   timestamp: number;
-// };
+// Re-export shared types for convenience
+export type {
+  PlanStatus,
+  PlanStepStatus,
+  UIPlanStatus,
+  ErrorCode,
+  ErrorResponse,
+  ForgeOperation,
+  ForgeContextSlot,
+  ForgeContext,
+  ViewingContext,
+} from '../shared/websocket-types';
+export { planStatusToUI, uiStatusToPlanStatus, isErrorResponse } from '../shared/websocket-types';
 
 // ============================================================================
 // CHAT / ASSISTANT TYPES
 // Shared between frontend (ChatSidebar) and backend (claudeService)
 // ============================================================================
-
-/** Forge Tray slot info for context */
-export interface ForgeContextSlot {
-  assetId: string;
-  assetName: string;
-  variantId: string;
-}
-
-/** Forge Tray state context passed to Claude */
-export interface ForgeContext {
-  operation: 'generate' | 'fork' | 'derive' | 'refine' | string;
-  slots: ForgeContextSlot[];
-  prompt: string;
-}
-
-/** What the user is currently viewing */
-export interface ViewingContext {
-  type: 'catalog' | 'asset' | 'variant';
-  assetId?: string;
-  assetName?: string;
-  variantId?: string;
-  /** Total number of variants for this asset */
-  variantCount?: number;
-  /** Index of the currently selected variant (1-based for display) */
-  variantIndex?: number;
-}
 
 /** Chat message for history */
 export interface ChatMessage {
@@ -99,10 +59,12 @@ export interface AssistantPlan {
   id: string;
   goal: string;
   steps: PlanStep[];
-  currentStepIndex: number;
+  /** @deprecated Use steps.find(s => s.status === 'in_progress') instead */
+  currentStepIndex?: number;
   status: 'planning' | 'executing' | 'completed' | 'failed' | 'paused' | 'cancelled';
   createdAt: number;
-  autoAdvance?: boolean; // Execute steps automatically after approval
+  /** Execute steps automatically after approval */
+  autoAdvance?: boolean;
 }
 
 /** Advice-only response from Claude */

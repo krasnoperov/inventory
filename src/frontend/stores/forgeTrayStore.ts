@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Variant, Asset } from '../hooks/useSpaceWebSocket';
+import type { ForgeOperation, ForgeContext } from '../../shared/websocket-types';
 
 export interface ForgeSlot {
   id: string;
@@ -8,7 +9,8 @@ export interface ForgeSlot {
   position: number;
 }
 
-export type ForgeOperation = 'generate' | 'fork' | 'derive' | 'refine';
+// Re-export ForgeOperation from shared types
+export type { ForgeOperation, ForgeContext } from '../../shared/websocket-types';
 
 export interface ForgeTarget {
   type: 'new_asset' | 'existing_asset';
@@ -16,13 +18,6 @@ export interface ForgeTarget {
   assetName?: string;
   assetType?: string;
   parentAssetId?: string;
-}
-
-// Context for AI assistant integration
-export interface ForgeContext {
-  operation: ForgeOperation;
-  slots: Array<{ assetId: string; assetName: string; variantId: string }>;
-  prompt: string;
 }
 
 interface ForgeTrayState {

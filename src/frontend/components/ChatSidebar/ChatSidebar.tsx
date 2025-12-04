@@ -27,6 +27,7 @@ import {
 } from '../../hooks/useSpaceWebSocket';
 import {
   type ForgeContext,
+  type ForgeOperation,
   type ViewingContext,
   type BotResponse,
 } from '../../../api/types';
@@ -177,6 +178,7 @@ export function ChatSidebar({
   const [isLoading, setIsLoading] = useState(false);
   const [isAutoReviewing, setIsAutoReviewing] = useState(false);
   const [isExecutingStep, setIsExecutingStep] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
   // Track which meters have shown 90% warning this session
   const [warnedMeters, setWarnedMeters] = useState<Set<string>>(new Set());
   const warnedMetersRef = useRef(warnedMeters);
@@ -187,6 +189,8 @@ export function ChatSidebar({
   const pendingChatRequestRef = useRef<{ requestId: string; messageToSend: string; modeToUse: 'advisor' | 'actor' } | null>(null);
   // Track pending auto-review request
   const pendingAutoReviewRef = useRef<{ requestId: string; assetName: string; prompt: string } | null>(null);
+  // Track if last request was a recovery attempt (to prevent infinite loops)
+  const isRecoveryAttemptRef = useRef(false);
 
   // Usage tracking for 90% warnings
   const { meters, refresh: refreshUsage } = useLimitedUsage();
@@ -253,10 +257,11 @@ export function ChatSidebar({
   // Build forge context
   const forgeContext = useMemo<ForgeContext>(() => {
     const slotCount = slots.length;
-    let operation: string;
-    if (slotCount === 0) operation = 'generate';
-    else if (slotCount === 1) operation = prompt ? 'refine' : 'fork';
-    else operation = 'derive';
+    // Determine operation based on slot count and prompt
+    const operation: ForgeOperation =
+      slotCount === 0 ? 'generate' :
+      slotCount === 1 ? (prompt ? 'refine' : 'fork') :
+      'derive';
 
     return {
       operation,
@@ -410,16 +415,70 @@ export function ChatSidebar({
     setIsLoading(false);
 
     if (!chatResponse.success) {
-      // Handle error
+      const errorMessage = chatResponse.error || 'Failed to process message';
+
+      // Add error message
       addMessage(spaceId, {
         role: 'assistant',
-        content: chatResponse.error || 'Failed to process message',
+        content: errorMessage,
         timestamp: Date.now(),
         isError: true,
         retryPayload: { message: messageToSend, mode: modeToUse },
       });
+
+      // Trigger LLM-based recovery in actor mode (if not already recovering)
+      if (modeToUse === 'actor' && !isRecoveryAttemptRef.current && sendChatRequest) {
+        isRecoveryAttemptRef.current = true;
+        setIsRecovering(true);
+
+        // Build recovery prompt
+        const recoveryPrompt = `My last request failed with error: "${errorMessage}"
+
+The original request was: "${messageToSend}"
+
+Please suggest an alternative approach or modified parameters that might work. If this seems like a temporary issue (rate limit, service unavailable), just say so. Otherwise, provide a concrete alternative I can try.`;
+
+        // Add recovery request message
+        addMessage(spaceId, {
+          role: 'user',
+          content: '🔄 Analyzing failure and suggesting alternatives...',
+          timestamp: Date.now(),
+        });
+
+        // Send recovery request in advisor mode
+        const wsForgeContext: WsForgeContext = {
+          operation: forgeContext.operation as WsForgeContext['operation'],
+          slots: forgeContext.slots.map(s => ({
+            assetId: s.assetId,
+            assetName: s.assetName,
+            variantId: s.variantId,
+          })),
+          prompt: forgeContext.prompt,
+        };
+
+        const recoveryRequestId = sendChatRequest({
+          message: recoveryPrompt,
+          mode: 'advisor', // Use advisor mode for recovery suggestions
+          forgeContext: wsForgeContext,
+          viewingContext,
+        });
+
+        pendingChatRequestRef.current = {
+          requestId: recoveryRequestId,
+          messageToSend: recoveryPrompt,
+          modeToUse: 'advisor',
+        };
+        setIsLoading(true);
+      } else {
+        isRecoveryAttemptRef.current = false;
+        setIsRecovering(false);
+      }
       return;
     }
+
+    // Reset recovery flag on success
+    isRecoveryAttemptRef.current = false;
+    setIsRecovering(false);
 
     const botResponse = chatResponse.response as BotResponse | undefined;
     if (!botResponse) {
@@ -433,19 +492,21 @@ export function ChatSidebar({
     }
 
     // Process the bot response (same logic as HTTP handler)
-    if (botResponse.type === 'plan' && (botResponse as any).plan) {
-      setPlan(spaceId, (botResponse as any).plan);
+    if (botResponse.type === 'plan') {
+      // TypeScript narrows to PlanResponse
+      setPlan(spaceId, botResponse.plan);
       addMessage(spaceId, {
         role: 'assistant',
         content: botResponse.message || '',
         timestamp: Date.now(),
       });
     } else if (botResponse.type === 'action') {
+      // TypeScript narrows to ActorResponse
       const messageParts: string[] = [botResponse.message || ''];
 
       // Auto-execute safe tools (toolCalls)
-      if ((botResponse as any).toolCalls && (botResponse as any).toolCalls.length > 0) {
-        toolExec.executeToolCalls((botResponse as any).toolCalls).then(results => {
+      if (botResponse.toolCalls && botResponse.toolCalls.length > 0) {
+        toolExec.executeToolCalls(botResponse.toolCalls).then(results => {
           const updatedParts = [...messageParts, '\n**Auto-executed:**', results.join('\n')];
           addMessage(spaceId, {
             role: 'assistant',
@@ -457,10 +518,10 @@ export function ChatSidebar({
       }
 
       // Store pending approvals
-      if ((botResponse as any).pendingApprovals && (botResponse as any).pendingApprovals.length > 0) {
-        setPendingApprovals(spaceId, (botResponse as any).pendingApprovals);
+      if (botResponse.pendingApprovals && botResponse.pendingApprovals.length > 0) {
+        setPendingApprovals(spaceId, botResponse.pendingApprovals);
         messageParts.push('\n**Awaiting approval:**');
-        (botResponse as any).pendingApprovals.forEach((pa: any) => {
+        botResponse.pendingApprovals.forEach((pa) => {
           messageParts.push(`⏳ ${pa.description}`);
         });
         messageParts.push('\n_Use the approval panel below to approve or reject._');
@@ -784,11 +845,8 @@ export function ChatSidebar({
       prompt: forgeContext.prompt,
     };
 
-    // Convert viewing context to WebSocket format
-    const wsViewingContext: WsViewingContext | undefined = viewingContext.type === 'asset' ? {
-      assetId: viewingContext.assetId,
-      variantId: viewingContext.variantId,
-    } : undefined;
+    // ViewingContext is now unified - just pass it directly
+    const wsViewingContext: WsViewingContext = viewingContext;
 
     // Send via WebSocket - response handled by chatResponse effect
     const requestId = sendChatRequest({
@@ -841,10 +899,10 @@ export function ChatSidebar({
       return { status: 'awaiting_approval' as const, plan: activePlan };
     }
     if (planStatus === 'executing') {
-      return { status: 'executing' as const, plan: activePlan, currentStep: activePlan.currentStepIndex };
+      return { status: 'executing' as const, plan: activePlan };
     }
     if (planStatus === 'paused') {
-      return { status: 'paused' as const, plan: activePlan, currentStep: activePlan.currentStepIndex };
+      return { status: 'paused' as const, plan: activePlan };
     }
     if (planStatus === 'completed') {
       return { status: 'completed' as const, plan: activePlan };

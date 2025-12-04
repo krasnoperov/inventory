@@ -28,6 +28,9 @@ import {
   trackClaudeUsage,
   trackImageGeneration,
 } from '../billing/usageCheck';
+import { loggers } from '../../../../shared/logger';
+
+const log = loggers.generationController;
 
 /** Recipe stored with variant for retry capability */
 interface GenerationRecipe {
@@ -107,7 +110,7 @@ export class GenerationController extends BaseController {
         currentStepIndex: activePlanData.current_step_index,
         status: activePlanData.status,
         createdAt: activePlanData.created_at,
-        autoAdvance: activePlanData.auto_advance,
+        autoAdvance: Boolean(activePlanData.auto_advance),
       };
     }
 
@@ -131,7 +134,13 @@ export class GenerationController extends BaseController {
       params: workflowInput,
     });
 
-    console.log(`[GenerationController] Started ChatWorkflow instance: ${instance.id}`);
+    log.info('Started ChatWorkflow', {
+      requestId: msg.requestId,
+      spaceId: this.spaceId,
+      userId: meta.userId,
+      mode: msg.mode,
+      workflowId: instance.id,
+    });
   }
 
   /**
@@ -287,7 +296,16 @@ export class GenerationController extends BaseController {
       this.broadcast({ type: 'variant:updated', variant: updatedVariant });
     }
 
-    console.log(`[GenerationController] [create] Started workflow for "${msg.name}" (${sourceImageKeys.length} refs)`);
+    log.info('Started GenerationWorkflow for create', {
+      requestId: msg.requestId,
+      spaceId: this.spaceId,
+      userId: meta.userId,
+      assetName: msg.name,
+      assetId: asset.id,
+      variantId,
+      refCount: sourceImageKeys.length,
+      workflowId: instance.id,
+    });
   }
 
   /**

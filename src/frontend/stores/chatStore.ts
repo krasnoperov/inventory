@@ -8,6 +8,7 @@ import type {
   PendingApproval as ServerApproval,
   AutoExecuted as ServerAutoExecuted,
 } from '../hooks/useSpaceWebSocket';
+import { planStatusToUI, type UIPlanStatus } from '../../shared/websocket-types';
 
 // =============================================================================
 // Types
@@ -52,7 +53,8 @@ export interface ChatMessage {
   };
 }
 
-export type PlanStatus = 'idle' | 'awaiting_approval' | 'executing' | 'paused' | 'completed' | 'failed';
+// Re-export UIPlanStatus as PlanStatus for backward compatibility
+export type PlanStatus = UIPlanStatus;
 
 export interface ChatSession {
   messages: ChatMessage[];
@@ -132,11 +134,15 @@ const generateMessageId = (): string => {
   return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 };
 
-// Convert server plan status to client status (cancelled maps to failed for display)
+// Convert server plan status to client status (uses shared planStatusToUI function)
+// Note: For AssistantPlan, cancelled maps to 'failed' for display
 const serverPlanStatusToClient = (status: ServerPlan['status']): AssistantPlan['status'] => {
   if (status === 'cancelled') return 'failed'; // Cancelled plans are treated as failed in client
   return status;
 };
+
+// Convert server plan status to UI status (uses shared function)
+const serverStatusToUI = (status: ServerPlan['status']): UIPlanStatus => planStatusToUI(status);
 
 // Convert server plan to client plan
 const serverPlanToClient = (plan: ServerPlan, steps: ServerPlanStep[]): AssistantPlan => ({
@@ -145,6 +151,7 @@ const serverPlanToClient = (plan: ServerPlan, steps: ServerPlanStep[]): Assistan
   currentStepIndex: plan.current_step_index,
   status: serverPlanStatusToClient(plan.status),
   createdAt: plan.created_at,
+  autoAdvance: Boolean(plan.auto_advance),
   steps: steps.map(s => ({
     id: s.id,
     description: s.description,
@@ -153,6 +160,7 @@ const serverPlanToClient = (plan: ServerPlan, steps: ServerPlanStep[]): Assistan
     status: s.status,
     result: s.result ?? undefined,
     error: s.error ?? undefined,
+    dependsOn: s.depends_on ? JSON.parse(s.depends_on) as string[] : undefined,
   })),
 });
 
@@ -182,7 +190,6 @@ const updateStepStatus = (
 ): AssistantPlan => {
   return {
     ...plan,
-    currentStepIndex: stepIndex,
     steps: plan.steps.map((s, i) =>
       i === stepIndex ? { ...s, ...updates } : s
     ),
@@ -557,11 +564,7 @@ export const useChatStore = create<ChatState>()(
       // Server sync actions (server-first approach)
       syncServerPlan: (spaceId, plan, steps) => {
         const clientPlan = serverPlanToClient(plan, steps);
-        const planStatus = plan.status === 'planning' ? 'awaiting_approval' :
-          plan.status === 'executing' ? 'executing' :
-          plan.status === 'paused' ? 'paused' :
-          plan.status === 'completed' ? 'completed' :
-          plan.status === 'failed' ? 'failed' : 'idle';
+        const planStatus = serverStatusToUI(plan.status);
 
         set((state) => ({
           sessions: {
@@ -582,12 +585,7 @@ export const useChatStore = create<ChatState>()(
           const session = state.sessions[spaceId];
           if (!session || !session.plan) return state;
 
-          const planStatus = plan.status === 'planning' ? 'awaiting_approval' :
-            plan.status === 'executing' ? 'executing' :
-            plan.status === 'paused' ? 'paused' :
-            plan.status === 'completed' ? 'completed' :
-            plan.status === 'failed' ? 'failed' :
-            plan.status === 'cancelled' ? 'idle' : 'idle';
+          const planStatus = serverStatusToUI(plan.status);
 
           return {
             sessions: {
@@ -597,7 +595,7 @@ export const useChatStore = create<ChatState>()(
                 plan: plan.status === 'cancelled' ? null : {
                   ...session.plan,
                   status: plan.status,
-                  currentStepIndex: plan.current_step_index,
+                  autoAdvance: Boolean(plan.auto_advance),
                 },
                 planStatus,
                 lastUpdated: Date.now(),

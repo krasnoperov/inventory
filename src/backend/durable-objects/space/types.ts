@@ -14,7 +14,10 @@ import type {
   DescribeRequestMessage,
   CompareRequestMessage,
 } from '../../workflows/types';
-import type { ClaudeUsage } from '../../../shared/websocket-types';
+import type { ClaudeUsage, ErrorCode } from '../../../shared/websocket-types';
+
+// Re-export plan types from shared module (single source of truth)
+export type { PlanStatus, PlanStepStatus } from '../../../shared/websocket-types';
 
 // ============================================================================
 // DO SQLite Schema Types
@@ -99,21 +102,8 @@ export interface Lineage {
   created_at: number;
 }
 
-/**
- * Plan status lifecycle
- */
-export type PlanStatus = 'planning' | 'executing' | 'paused' | 'completed' | 'failed' | 'cancelled';
-
-/**
- * Plan step status lifecycle
- * - pending: Not yet started
- * - in_progress: Currently executing
- * - completed: Finished successfully
- * - failed: Execution failed
- * - skipped: User/LLM chose to skip this step
- * - blocked: Waiting on failed dependency
- */
-export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked';
+// Import PlanStatus and PlanStepStatus from shared module (re-exported above)
+import type { PlanStatus, PlanStepStatus } from '../../../shared/websocket-types';
 
 /**
  * Plan - A multi-step assistant workflow
@@ -349,7 +339,7 @@ export type ServerMessage =
   // Presence
   | { type: 'presence:update'; presence: UserPresence[] }
   // Errors
-  | { type: 'error'; code: string; message: string }
+  | { type: 'error'; code: ErrorCode; message: string }
   // Workflow response messages
   | { type: 'chat:response'; requestId: string; success: boolean; response?: unknown; error?: string }
   | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }

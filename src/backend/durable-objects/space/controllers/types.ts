@@ -8,6 +8,7 @@
 import type { Env } from '../../../../core/types';
 import type { SpaceRepository, SqlStorage } from '../repository/SpaceRepository';
 import type { ServerMessage, WebSocketMeta } from '../types';
+import type { ErrorCode } from '../../../../shared/websocket-types';
 
 // ============================================================================
 // Function Types
@@ -20,7 +21,7 @@ export type BroadcastFn = (message: ServerMessage, excludeWs?: WebSocket) => voi
 export type SendFn = (ws: WebSocket, message: ServerMessage) => void;
 
 /** Send an error message to a specific WebSocket */
-export type SendErrorFn = (ws: WebSocket, code: string, message: string) => void;
+export type SendErrorFn = (ws: WebSocket, code: ErrorCode, message: string) => void;
 
 // ============================================================================
 // Controller Context (Dependency Container)

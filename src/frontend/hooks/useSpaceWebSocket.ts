@@ -99,9 +99,9 @@ export interface BotResponse {
   }>;
 }
 
-// Plan types (synced from backend)
-export type PlanStatus = 'planning' | 'executing' | 'paused' | 'completed' | 'failed' | 'cancelled';
-export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+// Plan types - import from shared module and re-export (single source of truth)
+import type { PlanStatus, PlanStepStatus } from '../../shared/websocket-types';
+export type { PlanStatus, PlanStepStatus };
 
 export interface Plan {
   id: string;
@@ -111,6 +111,9 @@ export interface Plan {
   created_by: string;
   created_at: number;
   updated_at: number;
+  auto_advance: boolean;
+  max_parallel: number;
+  active_step_count: number;
 }
 
 export interface PlanStep {
@@ -125,6 +128,7 @@ export interface PlanStep {
   error: string | null;
   created_at: number;
   updated_at: number | null;
+  depends_on: string | null; // JSON array of step IDs
 }
 
 // Approval types (synced from backend)
@@ -180,22 +184,9 @@ export interface ChatSession {
   updated_at: number;
 }
 
-// Forge context for chat requests (matches api/types.ts ForgeContext)
-export interface ForgeContext {
-  operation: 'generate' | 'fork' | 'derive' | 'refine';
-  slots: Array<{
-    assetId: string;
-    assetName: string;
-    variantId: string;
-  }>;
-  prompt: string;
-}
-
-// Viewing context for chat requests
-export interface ViewingContext {
-  assetId?: string;
-  variantId?: string;
-}
+// Forge and Viewing context - import from shared module and re-export
+import type { ForgeContext, ViewingContext } from '../../shared/websocket-types';
+export type { ForgeContext, ViewingContext };
 
 // Chat request parameters
 export interface ChatRequestParams {

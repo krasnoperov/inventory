@@ -8,12 +8,13 @@ import styles from './ChatSidebar.module.css';
 
 /**
  * Plan state machine types for PlanPanel display
+ * Note: Current step is derived from steps array (status === 'in_progress')
  */
 export type PlanState =
   | { status: 'idle' }
   | { status: 'awaiting_approval'; plan: AssistantPlan }
-  | { status: 'executing'; plan: AssistantPlan; currentStep: number }
-  | { status: 'paused'; plan: AssistantPlan; currentStep: number }
+  | { status: 'executing'; plan: AssistantPlan }
+  | { status: 'paused'; plan: AssistantPlan }
   | { status: 'completed'; plan: AssistantPlan }
   | { status: 'failed'; plan: AssistantPlan; error: string };
 
@@ -75,6 +76,15 @@ export function PlanPanel({
   const failedStep = plan.steps.find(s => s.status === 'failed');
   const blockedSteps = plan.steps.filter(s => s.status === 'blocked');
   const hasBlockedSteps = blockedSteps.length > 0;
+
+  // Button should be enabled when:
+  // 1. In manual mode (user must click to advance), OR
+  // 2. There are failed/blocked steps needing user action
+  // Button should be disabled when:
+  // 1. Currently executing a step, OR
+  // 2. In auto-advance mode with no issues (will advance automatically)
+  const needsManualAdvance = !plan.autoAdvance || failedStep || hasBlockedSteps;
+  const isNextStepDisabled = isExecuting || !needsManualAdvance;
 
   const handleApprove = () => {
     onApprove(autoAdvance);
@@ -215,7 +225,7 @@ export function PlanPanel({
           <button
             className={styles.nextStepButton}
             onClick={onContinue}
-            disabled={isExecuting || (!plan.autoAdvance && !failedStep && !hasBlockedSteps ? false : true)}
+            disabled={isNextStepDisabled}
           >
             {failedStep ? 'Retry Failed' : hasBlockedSteps ? 'Skip Blocked' : 'Next Step →'}
           </button>
