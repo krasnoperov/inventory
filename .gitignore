@@ -31,3 +31,11 @@ queries-*.md
 # Test reference files (local only)
 test-references/
 tmp/
+
+# CLI test state and logs
+test/*.json
+test/*.log.md
+test/catalog/
+
+# Design proposals (drafts)
+docs/proposals/
