@@ -14,7 +14,10 @@ import type { Env } from '../../core/types';
 import type { ChatWorkflowInput, ChatWorkflowOutput } from './types';
 import type { BotContext, BotResponseWithUsage } from '../services/claudeService';
 import { ClaudeService } from '../services/claudeService';
-import type { BotResponse, ActorResponse, PlanResponse, RevisionResponse, RevisionResult } from '../../api/types';
+import type { ActorResponse, PlanResponse, RevisionResponse, RevisionResult } from '../../api/types';
+import { loggers } from '../../shared/logger';
+
+const log = loggers.chatWorkflow;
 
 export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
   async run(event: WorkflowEvent<ChatWorkflowInput>, step: WorkflowStep): Promise<ChatWorkflowOutput> {
@@ -32,7 +35,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
       activePlan,
     } = event.payload;
 
-    console.log(`[ChatWorkflow] Starting workflow for requestId: ${requestId}`);
+    log.info('Starting workflow', { requestId, spaceId, userId, mode });
 
     // Step 1: Validate and check quota
     // Note: We skip quota check in workflow since it was already done in SpaceDO
@@ -66,7 +69,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
         return claudeService.processMessage(message, context, history);
       });
     } catch (error) {
-      console.error(`[ChatWorkflow] Claude API error:`, error);
+      log.error('Claude API error', { requestId, spaceId, error: error instanceof Error ? error.message : String(error) });
       await this.broadcastError(spaceId, requestId, userId, error instanceof Error ? error.message : 'Claude API error');
       return {
         requestId,
@@ -79,7 +82,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
     // Step 3: Store messages, approvals, plans in SpaceDO
     await step.do('store-messages', async () => {
       if (!this.env.SPACES_DO) {
-        console.warn('[ChatWorkflow] SPACES_DO not available, skipping message storage');
+        log.warn('SPACES_DO not available, skipping message storage', { requestId, spaceId });
         return;
       }
 
@@ -124,7 +127,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
           }),
         }));
         if (!planResult.ok) {
-          console.error('[ChatWorkflow] Failed to store plan:', await planResult.text());
+          log.error('Failed to store plan', { requestId, spaceId, planId: planResponse.plan.id, error: await planResult.text() });
         }
         metadata.planId = planResponse.plan.id;
       }
@@ -153,7 +156,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
             if (approvalResult.ok) {
               approvalIds.push(approval.id);
             } else {
-              console.error('[ChatWorkflow] Failed to store approval:', await approvalResult.text());
+              log.error('Failed to store approval', { requestId, spaceId, approvalId: approval.id, error: await approvalResult.text() });
             }
           }
         }
@@ -178,7 +181,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
             if (autoExecResult.ok) {
               autoExecutedIds.push(autoExecId);
             } else {
-              console.error('[ChatWorkflow] Failed to store auto-executed:', await autoExecResult.text());
+              log.error('Failed to store auto-executed', { requestId, spaceId, autoExecId, error: await autoExecResult.text() });
             }
           }
         }
@@ -214,7 +217,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
                 });
               } else {
                 const errorText = await revisionResult.text();
-                console.error('[ChatWorkflow] Failed to apply revision:', errorText);
+                log.error('Failed to apply revision', { requestId, spaceId, stepId: change.stepId, action: change.action, error: errorText });
                 autoApplied.push({
                   stepId: change.stepId,
                   action: change.action,
@@ -223,7 +226,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
                 });
               }
             } catch (err) {
-              console.error('[ChatWorkflow] Error applying revision:', err);
+              log.error('Error applying revision', { requestId, spaceId, stepId: change.stepId, error: err instanceof Error ? err.message : String(err) });
               autoApplied.push({
                 stepId: change.stepId,
                 action: change.action,
@@ -295,7 +298,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
       });
     });
 
-    console.log(`[ChatWorkflow] Completed workflow for requestId: ${requestId}`);
+    log.info('Completed workflow', { requestId, spaceId, userId, responseType: claudeResult.response.type });
 
     return {
       requestId,
@@ -311,7 +314,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
    */
   private async broadcastResult(spaceId: string, result: ChatWorkflowOutput): Promise<void> {
     if (!this.env.SPACES_DO) {
-      console.warn('[ChatWorkflow] SPACES_DO not available, cannot broadcast result');
+      log.warn('SPACES_DO not available, cannot broadcast result', { requestId: result.requestId, spaceId });
       return;
     }
 
@@ -330,7 +333,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
    */
   private async broadcastError(spaceId: string, requestId: string, userId: string, error: string): Promise<void> {
     if (!this.env.SPACES_DO) {
-      console.warn('[ChatWorkflow] SPACES_DO not available, cannot broadcast error');
+      log.warn('SPACES_DO not available, cannot broadcast error', { requestId, spaceId });
       return;
     }
 

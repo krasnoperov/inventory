@@ -16,6 +16,9 @@ import { Hono } from 'hono';
 import type { Variant, Plan, PlanStep, PendingApproval, AutoExecuted, UserSession } from './types';
 import type { ChatWorkflowOutput } from '../../workflows/types';
 import { NotFoundError, ValidationError } from './controllers/types';
+import { loggers } from '../../../shared/logger';
+
+const log = loggers.internalApi;
 
 // ============================================================================
 // Controller Interface
@@ -190,7 +193,7 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     if (err instanceof ValidationError) {
       return c.json({ error: err.message }, 400);
     }
-    console.error('[InternalApi] Error:', err);
+    log.error('Internal server error', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Internal server error' }, 500);
   });
 

@@ -22,7 +22,6 @@ import type {
   PlanStatus,
   PlanStepStatus,
   PendingApproval,
-  ApprovalStatus,
   AutoExecuted,
   UserSession,
 } from '../types';
@@ -46,6 +45,9 @@ import {
   DELETE_REF_SQL,
   getVariantImageKeys,
 } from '../variant/imageRefs';
+import { loggers } from '../../../../shared/logger';
+
+const log = loggers.spaceRepository;
 
 // ============================================================================
 // Types
@@ -1167,7 +1169,10 @@ export class SpaceRepository {
         try {
           await this.images.delete(imageKey);
         } catch (error) {
-          console.error('Failed to delete image from R2:', error);
+          log.error('Failed to delete image from R2', {
+            imageKey,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
       // Delete ref record

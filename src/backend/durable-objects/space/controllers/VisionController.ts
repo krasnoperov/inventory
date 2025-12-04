@@ -14,7 +14,10 @@ import {
   hasStorage,
   type VisionDependencies,
 } from '../vision/VisionService';
-import { BaseController, type ControllerContext, ValidationError } from './types';
+import { BaseController, type ControllerContext } from './types';
+import { loggers } from '../../../../shared/logger';
+
+const log = loggers.visionController;
 
 export class VisionController extends BaseController {
   constructor(ctx: ControllerContext) {
@@ -28,7 +31,12 @@ export class VisionController extends BaseController {
   async handleDescribe(ws: WebSocket, msg: DescribeRequestMessage): Promise<void> {
     // Process async - don't block the WebSocket handler
     this.processDescribeRequest(ws, msg).catch((error) => {
-      console.error('[VisionController] Error processing describe request:', error);
+      log.error('Error processing describe request', {
+        requestId: msg.requestId,
+        spaceId: this.spaceId,
+        variantId: msg.variantId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       this.send(ws, {
         type: 'describe:response',
         requestId: msg.requestId,
@@ -45,7 +53,12 @@ export class VisionController extends BaseController {
   async handleCompare(ws: WebSocket, msg: CompareRequestMessage): Promise<void> {
     // Process async - don't block the WebSocket handler
     this.processCompareRequest(ws, msg).catch((error) => {
-      console.error('[VisionController] Error processing compare request:', error);
+      log.error('Error processing compare request', {
+        requestId: msg.requestId,
+        spaceId: this.spaceId,
+        variantIds: msg.variantIds,
+        error: error instanceof Error ? error.message : String(error),
+      });
       this.send(ws, {
         type: 'compare:response',
         requestId: msg.requestId,

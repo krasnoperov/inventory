@@ -26,6 +26,9 @@ import {
   getBaseUrl,
   getExtensionForMimeType,
 } from '../utils/image-utils';
+import { loggers } from '../../shared/logger';
+
+const log = loggers.generationWorkflow;
 
 export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkflowInput> {
   async run(event: WorkflowEvent<GenerationWorkflowInput>, step: WorkflowStep): Promise<GenerationWorkflowOutput> {
@@ -33,21 +36,16 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       requestId,
       jobId,
       spaceId,
-      userId,
       prompt,
-      assetId,
       assetName,
-      assetType,
       model,
       aspectRatio,
-      sourceVariantId,
       sourceImageKeys,
-      parentVariantIds,
       operation,
     } = event.payload;
 
     const refCount = sourceImageKeys?.length || 0;
-    console.log(`[GenerationWorkflow] [${operation}] Starting for "${assetName}" (${refCount} refs)`);
+    log.info('Starting workflow', { requestId, jobId, spaceId, assetName, operation, refCount });
 
     // Step 1: Update variant status to processing via DO
     await step.do('update-variant-processing', async () => {
@@ -108,7 +106,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         // - refine (source + extras) → compose() - edit with style refs
         // - combine → compose() - always multiple sources
         if (operation === 'refine' && sourceImages.length === 1) {
-          console.log(`[GenerationWorkflow] [${operation}] Using edit() API`);
+          log.debug('Using edit() API', { requestId, jobId, operation });
           return nanoBanana.edit({
             image: sourceImages[0],
             prompt,
@@ -116,7 +114,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             aspectRatio: aspectRatioToUse,
           });
         } else if (sourceImages.length > 0) {
-          console.log(`[GenerationWorkflow] [${operation}] Using compose() API with ${sourceImages.length} images`);
+          log.debug('Using compose() API', { requestId, jobId, operation, imageCount: sourceImages.length });
           return nanoBanana.compose({
             images: sourceImages,
             prompt,
@@ -124,7 +122,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             aspectRatio: aspectRatioToUse,
           });
         } else {
-          console.log(`[GenerationWorkflow] [${operation}] Using generate() API`);
+          log.debug('Using generate() API', { requestId, jobId, operation });
           return nanoBanana.generate({
             prompt,
             model: modelToUse,
@@ -133,7 +131,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         }
       });
     } catch (error) {
-      console.error(`[GenerationWorkflow] Generation error:`, error);
+      log.error('Generation error', { requestId, jobId, spaceId, error: error instanceof Error ? error.message : String(error) });
       await this.handleFailure(spaceId, jobId, requestId, error instanceof Error ? error.message : 'Generation failed');
       return {
         requestId,
@@ -172,7 +170,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           httpMetadata: { contentType: actualMimeType },
         });
 
-        console.log(`[GenerationWorkflow] Uploaded full image: ${imgKey}`);
+        log.debug('Uploaded full image', { requestId, jobId, imageKey: imgKey });
 
         // Create and upload thumbnail
         try {
@@ -195,10 +193,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             httpMetadata: { contentType: thumbMimeType },
           });
 
-          console.log(`[GenerationWorkflow] Uploaded thumbnail: ${thmbKey}`);
+          log.debug('Uploaded thumbnail', { requestId, jobId, thumbKey: thmbKey });
         } catch (thumbError) {
           // Fallback: use original as thumbnail
-          console.warn(`[GenerationWorkflow] Thumbnail creation failed, using original:`, thumbError);
+          log.warn('Thumbnail creation failed, using original', { requestId, jobId, error: thumbError instanceof Error ? thumbError.message : String(thumbError) });
           await this.env.IMAGES.put(thmbKey, imageBuffer, {
             httpMetadata: { contentType: actualMimeType },
           });
@@ -210,7 +208,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       imageKey = uploadResult.imageKey;
       thumbKey = uploadResult.thumbKey;
     } catch (error) {
-      console.error(`[GenerationWorkflow] Upload error:`, error);
+      log.error('Upload error', { requestId, jobId, spaceId, error: error instanceof Error ? error.message : String(error) });
       await this.handleFailure(spaceId, jobId, requestId, error instanceof Error ? error.message : 'Upload failed');
       return {
         requestId,
@@ -251,7 +249,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         return result.variant;
       });
     } catch (error) {
-      console.error(`[GenerationWorkflow] Complete variant error:`, error);
+      log.error('Complete variant error', { requestId, jobId, spaceId, error: error instanceof Error ? error.message : String(error) });
       await this.handleFailure(spaceId, jobId, requestId, error instanceof Error ? error.message : 'Failed to complete variant');
       return {
         requestId,
@@ -264,7 +262,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     // Note: Usage tracking is handled by SpaceDO when completing the variant
     // The complete-variant endpoint broadcasts variant:updated to all connected clients
 
-    console.log(`[GenerationWorkflow] [${operation}] Completed for "${assetName}" → variantId: ${variantId}`);
+    log.info('Completed workflow', { requestId, jobId, spaceId, assetName, operation, variantId });
 
     return {
       requestId,
@@ -306,7 +304,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         body: JSON.stringify({ variantId, error }),
       }));
     } catch (fetchError) {
-      console.error('[GenerationWorkflow] Failed to mark variant as failed:', fetchError);
+      log.error('Failed to mark variant as failed', { spaceId, variantId, error: fetchError instanceof Error ? fetchError.message : String(fetchError) });
     }
   }
 }

@@ -145,7 +145,7 @@ export function requiresApproval(toolName: string): boolean {
  */
 export function getToolsByTrustLevel(level: TrustLevel): string[] {
   return Object.entries(TOOL_TRUST_MAP)
-    .filter(([_, config]) => config.level === level)
+    .filter(([, config]) => config.level === level)
     .map(([name]) => name);
 }
 

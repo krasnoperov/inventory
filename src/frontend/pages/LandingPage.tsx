@@ -16,7 +16,7 @@ interface Space {
 }
 
 export default function LandingPage() {
-  const navigate = useNavigate();
+  const _navigate = useNavigate(); // eslint-disable-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
   useDocumentTitle();
 

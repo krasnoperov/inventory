@@ -13,6 +13,9 @@
 
 import type { Plan, PlanStep, PlanStatus, WebSocketMeta } from '../types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
+import { loggers } from '../../../../shared/logger';
+
+const log = loggers.planController;
 
 /**
  * Callback to execute a plan step.
@@ -577,7 +580,7 @@ export class PlanController extends BaseController {
         }
         break;
 
-      case 'insert_after':
+      case 'insert_after': {
         if (!change.newStep) {
           throw new ValidationError('insert_after requires newStep');
         }
@@ -595,6 +598,7 @@ export class PlanController extends BaseController {
           this.broadcast({ type: 'plan:step_created', step: insertedStep });
         }
         break;
+      }
     }
 
     if (!updatedStep) {
@@ -630,7 +634,7 @@ export class PlanController extends BaseController {
    */
   private async autoAdvanceSteps(planId: string, meta: WebSocketMeta): Promise<void> {
     if (!this.stepExecutor) {
-      console.warn('[PlanController] autoAdvanceSteps called but no stepExecutor set');
+      log.warn('autoAdvanceSteps called but no stepExecutor set', { planId, spaceId: this.spaceId });
       return;
     }
 
@@ -671,7 +675,12 @@ export class PlanController extends BaseController {
       // Execute step (async - don't await, let it run in background)
       // The step executor should call httpCompleteStep or httpFailStep when done
       this.stepExecutor(updatedStep, meta).catch(err => {
-        console.error(`[PlanController] Step ${step.id} execution error:`, err);
+        log.error('Step execution error', {
+          stepId: step.id,
+          planId,
+          spaceId: this.spaceId,
+          error: err instanceof Error ? err.message : String(err),
+        });
         // Mark step as failed
         this.repo.failStep(step.id, err instanceof Error ? err.message : String(err));
         this.repo.decrementActiveSteps(planId);

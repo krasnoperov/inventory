@@ -29,8 +29,8 @@ export function AssetCard(props: AssetCardProps) {
     childAssets,
     allVariants,
     depth = 0,
-    isGenerating = false,
-    generatingStatus,
+    isGenerating: _isGenerating = false, // eslint-disable-line @typescript-eslint/no-unused-vars
+    generatingStatus: _generatingStatus, // eslint-disable-line @typescript-eslint/no-unused-vars
     onAssetClick,
     onAddToTray,
     onAddChildAsset,

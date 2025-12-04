@@ -12,7 +12,7 @@ import {
 } from '@xyflow/react';
 import dagre from 'dagre';
 import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
-import { AssetNode, type AssetNodeData, type AssetNodeType } from './AssetNode';
+import { AssetNode, type AssetNodeType } from './AssetNode';
 
 import '@xyflow/react/dist/style.css';
 import styles from './AssetCanvas.module.css';
@@ -217,7 +217,7 @@ export function AssetCanvas({
         try {
           const img = new Image();
 
-          await new Promise<void>((resolve, reject) => {
+          await new Promise<void>((resolve) => {
             img.onload = () => {
               const nodeWidth = calculateNodeWidth(img.naturalWidth, img.naturalHeight);
               newDimensions.set(asset.id, { width: nodeWidth, height: DEFAULT_NODE_HEIGHT });

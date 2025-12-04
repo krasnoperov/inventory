@@ -6,7 +6,7 @@
  */
 
 import type { UserPresence, WebSocketMeta } from '../types';
-import { BaseController, type ControllerContext, type BroadcastFn } from './types';
+import { BaseController, type ControllerContext } from './types';
 
 /** Stale presence threshold (5 minutes) */
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;

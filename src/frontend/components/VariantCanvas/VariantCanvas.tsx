@@ -11,7 +11,7 @@ import {
 } from '@xyflow/react';
 import dagre from 'dagre';
 import { type Asset, type Variant, type Lineage, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
-import { VariantNode, type VariantNodeData, type VariantNodeType } from './VariantNode';
+import { VariantNode, type VariantNodeType } from './VariantNode';
 
 import '@xyflow/react/dist/style.css';
 import styles from './VariantCanvas.module.css';
@@ -538,6 +538,14 @@ export function VariantCanvas({
     setEdges(initialEdges);
   }, [initialNodes, initialEdges, setNodes, setEdges]);
 
+  // Adjust fitView padding based on chat sidebar state
+  // When chat is open (380px + margins), add extra right padding
+  const fitViewOptions = useMemo(() => ({
+    padding: 0.3,
+    // Shift content left when chat is open to avoid overlap
+    // Note: padding is uniform, but we position content to account for sidebar
+  }), []);
+
   if (variants.length === 0) {
     return (
       <div className={styles.empty}>
@@ -549,14 +557,6 @@ export function VariantCanvas({
       </div>
     );
   }
-
-  // Adjust fitView padding based on chat sidebar state
-  // When chat is open (380px + margins), add extra right padding
-  const fitViewOptions = useMemo(() => ({
-    padding: 0.3,
-    // Shift content left when chat is open to avoid overlap
-    // Note: padding is uniform, but we position content to account for sidebar
-  }), []);
 
   return (
     <div className={styles.canvas}>

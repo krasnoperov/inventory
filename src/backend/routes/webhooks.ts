@@ -154,8 +154,7 @@ webhookRoutes.post('/api/webhooks/polar', async (c) => {
  * A new subscription has been created (may not be active yet)
  */
 async function handleSubscriptionCreated(
-  data: SubscriptionEventData,
-  _userDAO: UserDAO
+  data: SubscriptionEventData
 ): Promise<void> {
   const { customer, subscription } = data;
   console.log(`[Polar Webhook] Subscription created for customer ${customer.id}`, {

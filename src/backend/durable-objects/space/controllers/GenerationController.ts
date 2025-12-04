@@ -17,7 +17,6 @@ import type {
   ChatWorkflowInput,
   ChatWorkflowOutput,
   GenerationWorkflowInput,
-  BotContextAsset,
   OperationType,
 } from '../../../workflows/types';
 import type { ChatMessage as ApiChatMessage } from '../../../../api/types';
@@ -457,7 +456,17 @@ export class GenerationController extends BaseController {
       this.broadcast({ type: 'variant:updated', variant: updatedVariant });
     }
 
-    console.log(`[GenerationController] [${operation}] Started workflow for "${asset.name}" (${sourceImageKeys.length} refs)`);
+    log.info('Started GenerationWorkflow for refine', {
+      requestId: msg.requestId,
+      spaceId: this.spaceId,
+      userId: meta.userId,
+      assetName: asset.name,
+      assetId: msg.assetId,
+      variantId,
+      operation,
+      refCount: sourceImageKeys.length,
+      workflowId: instance.id,
+    });
   }
 
   /**
@@ -535,7 +544,13 @@ export class GenerationController extends BaseController {
       this.broadcast({ type: 'variant:updated', variant: updatedVariant });
     }
 
-    console.log(`[GenerationController] [${recipe.operation}] Retrying variant ${variantId}`);
+    log.info('Retrying variant', {
+      spaceId: this.spaceId,
+      userId: meta.userId,
+      variantId,
+      operation: recipe.operation,
+      workflowId: instance.id,
+    });
   }
 
   // ==========================================================================
@@ -560,7 +575,12 @@ export class GenerationController extends BaseController {
           result.requestId
         );
       } catch (err) {
-        console.warn('[GenerationController] Failed to track Claude usage:', err);
+        log.warn('Failed to track Claude usage', {
+          requestId: result.requestId,
+          spaceId: this.spaceId,
+          userId: result.userId,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -651,7 +671,11 @@ export class GenerationController extends BaseController {
           operation
         );
       } catch (err) {
-        console.warn('[GenerationController] Failed to track image usage:', err);
+        log.warn('Failed to track image usage', {
+          spaceId: this.spaceId,
+          variantId: data.variantId,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -674,7 +698,7 @@ export class GenerationController extends BaseController {
     try {
       const step = await this.repo.getPlanStepById(stepId);
       if (!step) {
-        console.warn(`[GenerationController] Plan step ${stepId} not found for completion`);
+        log.warn('Plan step not found for completion', { spaceId: this.spaceId, stepId });
         return;
       }
 
@@ -701,9 +725,13 @@ export class GenerationController extends BaseController {
         this.broadcast({ type: 'plan:updated', plan: updatedPlan });
       }
 
-      console.log(`[GenerationController] Completed plan step ${stepId}, plan status: ${newStatus}`);
+      log.info('Completed plan step', { spaceId: this.spaceId, stepId, planStatus: newStatus });
     } catch (err) {
-      console.error(`[GenerationController] Failed to complete plan step ${stepId}:`, err);
+      log.error('Failed to complete plan step', {
+        spaceId: this.spaceId,
+        stepId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -746,7 +774,7 @@ export class GenerationController extends BaseController {
     try {
       const step = await this.repo.getPlanStepById(stepId);
       if (!step) {
-        console.warn(`[GenerationController] Plan step ${stepId} not found for failure`);
+        log.warn('Plan step not found for failure', { spaceId: this.spaceId, stepId });
         return;
       }
 
@@ -762,9 +790,13 @@ export class GenerationController extends BaseController {
         this.broadcast({ type: 'plan:updated', plan: updatedPlan });
       }
 
-      console.log(`[GenerationController] Failed plan step ${stepId} and plan ${step.plan_id}`);
+      log.info('Failed plan step', { spaceId: this.spaceId, stepId, planId: step.plan_id });
     } catch (err) {
-      console.error(`[GenerationController] Failed to fail plan step ${stepId}:`, err);
+      log.error('Failed to mark plan step as failed', {
+        spaceId: this.spaceId,
+        stepId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -801,7 +833,7 @@ export class GenerationController extends BaseController {
       // Non-generation actions (add_to_tray, set_prompt, clear_tray)
       // These should be handled by the frontend for now
       default:
-        console.log(`[GenerationController] Plan step action '${step.action}' not handled server-side`);
+        log.debug('Plan step action not handled server-side', { spaceId: this.spaceId, stepId: step.id, action: step.action });
         return null;
     }
   }
@@ -917,7 +949,7 @@ export class GenerationController extends BaseController {
       }
     }
 
-    console.log(`[GenerationController] Executed plan step ${stepId}: generate "${name}"`);
+    log.info('Executed plan step: generate', { spaceId: this.spaceId, stepId, assetName: name, variantId });
     return variantId;
   }
 
@@ -1033,7 +1065,7 @@ export class GenerationController extends BaseController {
       }
     }
 
-    console.log(`[GenerationController] Executed plan step ${stepId}: refine "${asset.name}"`);
+    log.info('Executed plan step: refine', { spaceId: this.spaceId, stepId, assetName: asset.name, variantId });
     return variantId;
   }
 
@@ -1153,7 +1185,7 @@ export class GenerationController extends BaseController {
       }
     }
 
-    console.log(`[GenerationController] Executed plan step ${stepId}: fork "${name}"`);
+    log.info('Executed plan step: fork', { spaceId: this.spaceId, stepId, assetName: name, newAssetId });
   }
 
   // ==========================================================================

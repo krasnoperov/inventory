@@ -5,7 +5,7 @@
  * Manages image reference counting to ensure proper R2 cleanup.
  */
 
-import type { Asset, Variant, WebSocketMeta } from '../types';
+import type { Variant, WebSocketMeta } from '../types';
 import {
   INCREMENT_REF_SQL,
   DECREMENT_REF_SQL,
@@ -13,6 +13,9 @@ import {
   getVariantImageKeys,
 } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError } from './types';
+import { loggers } from '../../../../shared/logger';
+
+const log = loggers.variantController;
 
 export class VariantController extends BaseController {
   constructor(ctx: ControllerContext) {
@@ -229,7 +232,11 @@ export class VariantController extends BaseController {
       try {
         await this.env.IMAGES.delete(imageKey);
       } catch (error) {
-        console.error('Failed to delete image from R2:', error);
+        log.error('Failed to delete image from R2', {
+          imageKey,
+          spaceId: this.spaceId,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
 
       // Delete ref record

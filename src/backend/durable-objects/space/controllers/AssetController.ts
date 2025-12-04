@@ -6,7 +6,6 @@
  */
 
 import type { Asset, Variant, Lineage, WebSocketMeta } from '../types';
-import type { LineageWithDetails } from '../repository/SpaceRepository';
 import { wouldCreateCycle, getAncestorChain } from '../asset/hierarchy';
 import { INCREMENT_REF_SQL } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';

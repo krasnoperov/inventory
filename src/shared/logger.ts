@@ -128,11 +128,32 @@ export function createLogger(component: string) {
  * Pre-configured loggers for common components
  */
 export const loggers = {
+  // Durable Object
   spaceDO: createLogger('SpaceDO'),
+  authHandler: createLogger('AuthHandler'),
+  spaceRepository: createLogger('SpaceRepository'),
+
+  // Controllers
+  approvalController: createLogger('ApprovalController'),
+  assetController: createLogger('AssetController'),
+  chatController: createLogger('ChatController'),
+  generationController: createLogger('GenerationController'),
+  lineageController: createLogger('LineageController'),
+  planController: createLogger('PlanController'),
+  presenceController: createLogger('PresenceController'),
+  sessionController: createLogger('SessionController'),
+  syncController: createLogger('SyncController'),
+  variantController: createLogger('VariantController'),
+  visionController: createLogger('VisionController'),
+
+  // Workflows
   chatWorkflow: createLogger('ChatWorkflow'),
   generationWorkflow: createLogger('GenerationWorkflow'),
+
+  // Services
   claudeService: createLogger('ClaudeService'),
-  generationController: createLogger('GenerationController'),
-  planController: createLogger('PlanController'),
-  chatController: createLogger('ChatController'),
+  geminiService: createLogger('GeminiService'),
+
+  // Internal API
+  internalApi: createLogger('InternalApi'),
 };

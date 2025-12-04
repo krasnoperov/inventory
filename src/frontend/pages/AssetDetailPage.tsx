@@ -231,7 +231,7 @@ export default function AssetDetailPage() {
       }
     },
     // Chat history via WebSocket (replaces REST)
-    onChatHistory: (messages, _sessionId) => {
+    onChatHistory: (messages, _sessionId) => { // eslint-disable-line @typescript-eslint/no-unused-vars
       if (spaceId) {
         if (messages.length > 0) {
           // Convert server format to client format

@@ -12,7 +12,7 @@ import type {
   PlanRevisionChange,
   RevisionResponse,
 } from '../../api/types';
-import { shouldAutoExecute, getTrustLevel, TOOL_TRUST_MAP } from './trustLevels';
+import { shouldAutoExecute, TOOL_TRUST_MAP } from './trustLevels';
 
 // Re-export types for consumers
 export type { ChatMessage, ForgeContext, ViewingContext, BotResponse };

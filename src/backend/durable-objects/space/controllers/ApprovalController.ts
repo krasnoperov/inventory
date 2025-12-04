@@ -80,7 +80,7 @@ export class ApprovalController extends BaseController {
   /**
    * Handle approval:list - Get all pending approvals
    */
-  async handleList(ws: WebSocket, _meta: WebSocketMeta): Promise<void> {
+  async handleList(ws: WebSocket, _meta: WebSocketMeta): Promise<void> { // eslint-disable-line @typescript-eslint/no-unused-vars
     const approvals = await this.repo.getPendingApprovals();
     this.send(ws, { type: 'approval:list', approvals });
   }

@@ -75,7 +75,7 @@ describe('SpaceRepository', () => {
         { id: 'new-id', name: 'New Asset', type: 'scene', tags: '[]', created_by: 'user1' },
       ]);
 
-      const asset = await repo.createAsset({
+      await repo.createAsset({
         id: 'new-id',
         name: 'New Asset',
         type: 'scene',

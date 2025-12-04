@@ -178,7 +178,7 @@ export function ChatSidebar({
   const [isLoading, setIsLoading] = useState(false);
   const [isAutoReviewing, setIsAutoReviewing] = useState(false);
   const [isExecutingStep, setIsExecutingStep] = useState(false);
-  const [isRecovering, setIsRecovering] = useState(false);
+  const [_isRecovering, setIsRecovering] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   // Track which meters have shown 90% warning this session
   const [warnedMeters, setWarnedMeters] = useState<Set<string>>(new Set());
   const warnedMetersRef = useRef(warnedMeters);
@@ -252,7 +252,7 @@ export function ChatSidebar({
   // Forge tray state for context
   const slots = useForgeTrayStore((state) => state.slots);
   const prompt = useForgeTrayStore((state) => state.prompt);
-  const prefillFromStep = useForgeTrayStore((state) => state.prefillFromStep);
+  const _prefillFromStep = useForgeTrayStore((state) => state.prefillFromStep); // eslint-disable-line @typescript-eslint/no-unused-vars
 
   // Build forge context
   const forgeContext = useMemo<ForgeContext>(() => {
@@ -564,7 +564,7 @@ Please suggest an alternative approach or modified parameters that might work. I
   // Plan Execution
   // ==========================================================================
 
-  const executeStep = useCallback(async (stepIndex: number) => {
+  const _executeStep = useCallback(async (stepIndex: number) => { // eslint-disable-line @typescript-eslint/no-unused-vars
     if (!activePlan) return;
 
     setIsExecutingStep(true);

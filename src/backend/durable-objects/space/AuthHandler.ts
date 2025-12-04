@@ -11,6 +11,9 @@ import { AuthService } from '../../features/auth/auth-service';
 import { getMemberRole } from '../../../dao/member-queries';
 import type { Env } from '../../../core/types';
 import type { WebSocketMeta } from './types';
+import { loggers } from '../../../shared/logger';
+
+const log = loggers.authHandler;
 
 /**
  * Result of authentication attempt
@@ -56,9 +59,9 @@ export class AuthHandler {
     const role = await getMemberRole(this.env.DB, this.spaceId, payload.userId);
 
     if (!role) {
-      console.log('WebSocket auth failed: not a member', {
+      log.warn('WebSocket auth failed: not a member', {
         spaceId: this.spaceId,
-        userId: payload.userId,
+        userId: String(payload.userId),
       });
       return { success: false, status: 403, message: 'Not a member' };
     }
