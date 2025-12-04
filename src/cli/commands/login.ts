@@ -21,11 +21,10 @@ export async function handleLogin(parsed: ParsedArgs) {
   const baseUrl = resolveBaseUrl(env);
   const clientId = DEFAULT_CLIENT_ID;
   const redirectPort = DEFAULT_REDIRECT_PORT;
-  const insecure = isLocal;
+  const insecure = env === 'local';
 
   if (insecure) {
     console.log('⚠️  SSL certificate verification disabled (local dev mode)');
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
   }
 
   console.log(`Starting login for environment "${env}" using ${baseUrl}`);

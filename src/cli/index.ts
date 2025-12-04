@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 import process from 'node:process';
+
+// Must be set BEFORE any fetch calls for self-signed certs in local dev
+if (process.argv.includes('--local') || process.argv.includes('--env') && process.argv[process.argv.indexOf('--env') + 1] === 'local') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
 import { parseArgs } from './lib/utils';
 import { handleLogin } from './commands/login';
 import { handleLogout } from './commands/logout';

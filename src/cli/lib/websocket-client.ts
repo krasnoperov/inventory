@@ -6,9 +6,80 @@
  */
 
 import process from 'node:process';
+import https from 'node:https';
 import WebSocket from 'ws';
 import { loadStoredConfig, resolveBaseUrl } from './config';
 import type { DescribeFocus, ClaudeUsage } from '../../shared/websocket-types';
+
+// =============================================================================
+// Plan Types (matching backend definitions)
+// =============================================================================
+
+export type PlanStatus = 'planning' | 'executing' | 'paused' | 'completed' | 'failed' | 'cancelled';
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+
+export interface Plan {
+  id: string;
+  goal: string;
+  status: PlanStatus;
+  current_step_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface PlanStep {
+  id: string;
+  plan_id: string;
+  step_index: number;
+  description: string;
+  action: string;
+  params: string; // JSON string
+  status: PlanStepStatus;
+  result: string | null;
+  error: string | null;
+  created_at: number;
+  updated_at: number | null;
+}
+
+export interface PendingApproval {
+  id: string;
+  request_id: string;
+  plan_id: string | null;
+  plan_step_id: string | null;
+  tool: string;
+  params: string; // JSON string
+  description: string;
+  status: ApprovalStatus;
+  created_by: string;
+  approved_by: string | null;
+  rejected_by: string | null;
+  error_message: string | null;
+  result_job_id: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface AutoExecuted {
+  id: string;
+  request_id: string;
+  tool: string;
+  params: string; // JSON string
+  result: string; // JSON string
+  success: boolean;
+  error: string | null;
+  created_at: number;
+}
+
+export interface UserSession {
+  user_id: string;
+  viewing_asset_id: string | null;
+  viewing_variant_id: string | null;
+  forge_context: string | null; // JSON string
+  last_seen: number;
+  updated_at: number;
+}
 
 // Message types matching backend definitions
 interface ChatRequestMessage {
@@ -151,6 +222,20 @@ type SyncStateMessage = { type: 'sync:state'; assets: unknown[]; variants: Varia
 type ErrorMessage = { type: 'error'; code: string; message: string };
 type RefineResult = Omit<GenerateResult, 'type'> & { type: 'refine:result' };
 
+// Plan message types
+type PlanCreatedMessage = { type: 'plan:created'; plan: Plan; steps: PlanStep[] };
+type PlanUpdatedMessage = { type: 'plan:updated'; plan: Plan };
+type PlanStepUpdatedMessage = { type: 'plan:step_updated'; step: PlanStep };
+
+// Approval message types
+type ApprovalCreatedMessage = { type: 'approval:created'; approval: PendingApproval };
+type ApprovalUpdatedMessage = { type: 'approval:updated'; approval: PendingApproval };
+type ApprovalListMessage = { type: 'approval:list'; approvals: PendingApproval[] };
+type AutoExecutedMessage = { type: 'auto_executed'; autoExecuted: AutoExecuted };
+
+// Session message types
+type SessionStateMessage = { type: 'session:state'; session: UserSession | null };
+
 // Server message type union (discriminated union for type narrowing)
 type ServerMessage =
   | ChatResponse
@@ -162,7 +247,15 @@ type ServerMessage =
   | DescribeResponse
   | CompareResponse
   | SyncStateMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | PlanCreatedMessage
+  | PlanUpdatedMessage
+  | PlanStepUpdatedMessage
+  | ApprovalCreatedMessage
+  | ApprovalUpdatedMessage
+  | ApprovalListMessage
+  | AutoExecutedMessage
+  | SessionStateMessage;
 
 export class WebSocketClient {
   private ws: WebSocket | null = null;
@@ -205,6 +298,20 @@ export class WebSocketClient {
   // Event handlers
   private onError?: (error: Error) => void;
   private onSyncState?: (data: { assets: unknown[]; variants: unknown[]; lineage: unknown[] }) => void;
+
+  // Plan event handlers
+  private onPlanCreated?: (plan: Plan, steps: PlanStep[]) => void;
+  private onPlanUpdated?: (plan: Plan) => void;
+  private onPlanStepUpdated?: (step: PlanStep) => void;
+
+  // Approval event handlers
+  private onApprovalCreated?: (approval: PendingApproval) => void;
+  private onApprovalUpdated?: (approval: PendingApproval) => void;
+  private onApprovalList?: (approvals: PendingApproval[]) => void;
+  private onAutoExecuted?: (autoExecuted: AutoExecuted) => void;
+
+  // Session event handlers
+  private onSessionState?: (session: UserSession | null) => void;
 
   constructor(baseUrl: string, accessToken: string, env: string, spaceId: string) {
     this.baseUrl = baseUrl;
@@ -255,7 +362,13 @@ export class WebSocketClient {
         'Authorization': `Bearer ${this.accessToken}`,
       };
 
-      this.ws = new WebSocket(url, { headers });
+      // For local dev with self-signed certs, disable certificate verification
+      const wsOptions: WebSocket.ClientOptions = { headers };
+      if (this.env === 'local') {
+        wsOptions.agent = new https.Agent({ rejectUnauthorized: false });
+      }
+
+      this.ws = new WebSocket(url, wsOptions);
 
       this.ws.on('open', () => {
         console.log(`[WebSocketClient] Connected to space ${this.spaceId}`);
@@ -306,6 +419,47 @@ export class WebSocketClient {
    */
   setOnSyncState(handler: (data: { assets: unknown[]; variants: unknown[]; lineage: unknown[] }) => void): void {
     this.onSyncState = handler;
+  }
+
+  /**
+   * Set plan event handlers
+   */
+  setOnPlanCreated(handler: (plan: Plan, steps: PlanStep[]) => void): void {
+    this.onPlanCreated = handler;
+  }
+
+  setOnPlanUpdated(handler: (plan: Plan) => void): void {
+    this.onPlanUpdated = handler;
+  }
+
+  setOnPlanStepUpdated(handler: (step: PlanStep) => void): void {
+    this.onPlanStepUpdated = handler;
+  }
+
+  /**
+   * Set approval event handlers
+   */
+  setOnApprovalCreated(handler: (approval: PendingApproval) => void): void {
+    this.onApprovalCreated = handler;
+  }
+
+  setOnApprovalUpdated(handler: (approval: PendingApproval) => void): void {
+    this.onApprovalUpdated = handler;
+  }
+
+  setOnApprovalList(handler: (approvals: PendingApproval[]) => void): void {
+    this.onApprovalList = handler;
+  }
+
+  setOnAutoExecuted(handler: (autoExecuted: AutoExecuted) => void): void {
+    this.onAutoExecuted = handler;
+  }
+
+  /**
+   * Set session event handler
+   */
+  setOnSessionState(handler: (session: UserSession | null) => void): void {
+    this.onSessionState = handler;
   }
 
   /**
@@ -412,6 +566,57 @@ export class WebSocketClient {
         const errorMsg = message as ErrorMessage;
         console.error(`[WebSocketClient] Server error: ${errorMsg.code} - ${errorMsg.message}`);
         this.onError?.(new Error(errorMsg.message));
+        break;
+      }
+
+      // Plan message handlers
+      case 'plan:created': {
+        const planMsg = message as PlanCreatedMessage;
+        this.onPlanCreated?.(planMsg.plan, planMsg.steps);
+        break;
+      }
+
+      case 'plan:updated': {
+        const planMsg = message as PlanUpdatedMessage;
+        this.onPlanUpdated?.(planMsg.plan);
+        break;
+      }
+
+      case 'plan:step_updated': {
+        const stepMsg = message as PlanStepUpdatedMessage;
+        this.onPlanStepUpdated?.(stepMsg.step);
+        break;
+      }
+
+      // Approval message handlers
+      case 'approval:created': {
+        const approvalMsg = message as ApprovalCreatedMessage;
+        this.onApprovalCreated?.(approvalMsg.approval);
+        break;
+      }
+
+      case 'approval:updated': {
+        const approvalMsg = message as ApprovalUpdatedMessage;
+        this.onApprovalUpdated?.(approvalMsg.approval);
+        break;
+      }
+
+      case 'approval:list': {
+        const listMsg = message as ApprovalListMessage;
+        this.onApprovalList?.(listMsg.approvals);
+        break;
+      }
+
+      case 'auto_executed': {
+        const autoMsg = message as AutoExecutedMessage;
+        this.onAutoExecuted?.(autoMsg.autoExecuted);
+        break;
+      }
+
+      // Session message handler
+      case 'session:state': {
+        const sessionMsg = message as SessionStateMessage;
+        this.onSessionState?.(sessionMsg.session);
         break;
       }
 
@@ -661,6 +866,89 @@ export class WebSocketClient {
   requestSync(): void {
     this.send({ type: 'sync:request' });
   }
+
+  // ==========================================================================
+  // Plan Methods
+  // ==========================================================================
+
+  /**
+   * Approve a plan (start execution)
+   */
+  approvePlan(planId: string): void {
+    this.send({ type: 'plan:approve', planId });
+  }
+
+  /**
+   * Reject a plan
+   */
+  rejectPlan(planId: string): void {
+    this.send({ type: 'plan:reject', planId });
+  }
+
+  /**
+   * Cancel an executing plan
+   */
+  cancelPlan(planId: string): void {
+    this.send({ type: 'plan:cancel', planId });
+  }
+
+  /**
+   * Advance to the next step in a plan
+   */
+  advancePlan(planId: string): void {
+    this.send({ type: 'plan:advance', planId });
+  }
+
+  // ==========================================================================
+  // Approval Methods
+  // ==========================================================================
+
+  /**
+   * Approve a pending approval
+   */
+  approveApproval(approvalId: string): void {
+    this.send({ type: 'approval:approve', approvalId });
+  }
+
+  /**
+   * Reject a pending approval
+   */
+  rejectApproval(approvalId: string): void {
+    this.send({ type: 'approval:reject', approvalId });
+  }
+
+  /**
+   * Request list of pending approvals
+   */
+  listApprovals(): void {
+    this.send({ type: 'approval:list' });
+  }
+
+  // ==========================================================================
+  // Session Methods
+  // ==========================================================================
+
+  /**
+   * Get current session state
+   */
+  getSession(): void {
+    this.send({ type: 'session:get' });
+  }
+
+  /**
+   * Update session context (viewing, forge tray)
+   */
+  updateSession(data: {
+    viewingAssetId?: string | null;
+    viewingVariantId?: string | null;
+    forgeContext?: string | null;
+  }): void {
+    this.send({ type: 'session:update', ...data });
+  }
+
+  // ==========================================================================
+  // Utility Methods
+  // ==========================================================================
 
   /**
    * Check if connected

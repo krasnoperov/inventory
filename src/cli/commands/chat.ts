@@ -1,24 +1,31 @@
 /**
  * Chat Command Handler
  *
- * CLI chat interface that simulates the web chat experience for testing
- * and iteration. Provides step-by-step execution with debugging features
- * like file-based state persistence and human-readable logs.
+ * CLI chat interface for the Inventory Forge assistant.
+ * All state is stored on the server - no local state files required.
  *
  * Usage:
- *   npm run cli chat send <message> --space <id> --state <file>
- *   npm run cli chat execute --state <file>
- *   npm run cli chat show --state <file> [--section <name>]
+ *   npm run cli chat send <message> --space <id>    # Send a message
+ *   npm run cli chat history --space <id>           # View chat history
+ *   npm run cli chat approvals --space <id>         # List pending approvals
+ *   npm run cli chat approve <id> --space <id>      # Approve an action
+ *   npm run cli chat reject <id> --space <id>       # Reject an action
+ *   npm run cli chat plan --space <id>              # View active plan
+ *   npm run cli chat plan:approve <id> --space <id> # Approve a plan
+ *   npm run cli chat plan:advance <id> --space <id> # Advance plan step
+ *   npm run cli chat plan:cancel <id> --space <id>  # Cancel a plan
+ *   npm run cli chat watch --space <id>             # Watch for updates
+ *   npm run cli chat assets --space <id>            # List space assets
  */
 
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import { handleSend } from '../chat/send';
-import { handleExecute } from '../chat/execute';
-import { handleShow } from '../chat/show';
-import { handleAdvance } from '../chat/advance';
-import { handleContext } from '../chat/context';
+import { handleHistory } from '../chat/history';
+import { handleApprovals, handleApprove, handleReject } from '../chat/approvals';
+import { handleWatch } from '../chat/watch';
 import { handleAssets } from '../chat/assets';
+import { handlePlan, handlePlanApprove, handlePlanAdvance, handlePlanCancel } from '../chat/plan';
 
 export async function handleChat(parsed: ParsedArgs): Promise<void> {
   const subcommand = parsed.positionals[0];
@@ -28,20 +35,40 @@ export async function handleChat(parsed: ParsedArgs): Promise<void> {
       await handleSend(parsed);
       break;
 
-    case 'execute':
-      await handleExecute(parsed);
+    case 'history':
+      await handleHistory(parsed);
       break;
 
-    case 'show':
-      await handleShow(parsed);
+    case 'approvals':
+      await handleApprovals(parsed);
       break;
 
-    case 'advance':
-      await handleAdvance(parsed);
+    case 'approve':
+      await handleApprove(parsed);
       break;
 
-    case 'context':
-      await handleContext(parsed);
+    case 'reject':
+      await handleReject(parsed);
+      break;
+
+    case 'plan':
+      await handlePlan(parsed);
+      break;
+
+    case 'plan:approve':
+      await handlePlanApprove(parsed);
+      break;
+
+    case 'plan:advance':
+      await handlePlanAdvance(parsed);
+      break;
+
+    case 'plan:cancel':
+      await handlePlanCancel(parsed);
+      break;
+
+    case 'watch':
+      await handleWatch(parsed);
       break;
 
     case 'assets':
@@ -62,94 +89,79 @@ export async function handleChat(parsed: ParsedArgs): Promise<void> {
 
 function printChatHelp(): void {
   console.log(`
-Chat CLI - Step-by-step chat interface with debugging features
-
-WORKFLOW:
-  1. Send a message → inspect response in state file
-  2. For plan responses → use 'advance' to execute steps
-  3. For direct actions → use 'execute' to run pending actions
-  4. Set context before sending to simulate viewing/forge state
-  5. Continue conversation or start fresh
+Chat CLI - Stateless chat interface (all state stored on server)
 
 COMMANDS:
 
-  send <message>     Send a chat message and save state (no execution)
-    --space <id>     Space ID (required for new conversation)
-    --state <file>   State file path (required)
-    --mode <mode>    advisor | actor (default: actor)
-    --env <env>      production | stage | local (default: stage)
-    --local          Shortcut for local development
+  send <message>       Send a chat message
+    --space <id>       Space ID (required)
+    --mode <mode>      advisor | actor (default: actor)
+    --env <env>        production | stage | local (default: stage)
+    --local            Shortcut for --env local
 
-  advance            Execute next step in active plan (mirrors web UI "Next" button)
-    --state <file>   State file path (required)
-    --all            Execute all remaining steps (default: one step)
-    --wait           Wait for jobs to complete (default: true)
-    --timeout <ms>   Max wait time for jobs (default: 120000)
+  history              View chat history from server
+    --space <id>       Space ID (required)
+    --limit <n>        Max messages to show (default: 50)
 
-  execute            Execute pending direct actions (non-plan tool calls)
-    --state <file>   State file path (required)
-    --action <id>    Execute specific action only (optional)
-    --wait           Wait for jobs to complete (default: true)
-    --timeout <ms>   Max wait time for jobs (default: 120000)
+  approvals            List pending approvals
+    --space <id>       Space ID (required)
 
-  context            Set viewing/forge context (simulates browser UI state)
-    --state <file>   State file path (required)
-    --view <assetId> Set viewing context to an asset
-    --add <assetIds> Add asset(s) to forge tray (comma-separated)
-    --clear-tray     Clear all slots from forge tray
-    --prompt <text>  Set the forge prompt
-    --operation      Set operation type (generate|fork|derive|refine)
+  approve <id>         Approve a pending action
+    --space <id>       Space ID (required)
 
-  assets             List space assets (for getting IDs to use with context)
-    --state <file>   State file path (or use --space)
-    --space <id>     Space ID
-    --format         Output format: table | json | ids (default: table)
+  reject <id>          Reject a pending action
+    --space <id>       Space ID (required)
 
-  show               Pretty-print state for evaluation
-    --state <file>   State file path (required)
-    --section <name> Section to show (default: all)
-                     Options: all, conversation, pending, executed, autoexecuted,
-                              artifacts, gemini, meta, plan, context
+  plan                 View active plan
+    --space <id>       Space ID (required)
+
+  plan:approve <id>    Approve a plan (start execution)
+    --space <id>       Space ID (required)
+
+  plan:advance <id>    Advance to the next step
+    --space <id>       Space ID (required)
+
+  plan:cancel <id>     Cancel a plan
+    --space <id>       Space ID (required)
+
+  watch                Watch for real-time updates (Ctrl+C to stop)
+    --space <id>       Space ID (required)
+
+  assets               List space assets
+    --space <id>       Space ID (required)
+    --format           Output format: table | json | ids (default: table)
 
 EXAMPLES:
 
-  # Start a new conversation
-  npm run cli chat send "Create a warrior character" \\
-    --space space_abc123 --state ./test/warrior.json
+  # Start a conversation
+  npm run cli chat send "Create a warrior character" --space space_abc123
 
-  # List assets to get IDs
-  npm run cli chat assets --state ./test/warrior.json
+  # View chat history
+  npm run cli chat history --space space_abc123
 
-  # Set viewing context (simulate viewing an asset)
-  npm run cli chat context --state ./test/warrior.json --view asset_xyz
+  # View current plan
+  npm run cli chat plan --space space_abc123
 
-  # Add assets to forge tray
-  npm run cli chat context --state ./test/warrior.json \\
-    --add asset_abc,asset_def --prompt "Derive a new character from these"
+  # Approve and start a plan
+  npm run cli chat plan:approve plan_123 --space space_abc123
 
-  # Inspect Claude's plan
-  npm run cli chat show --state ./test/warrior.json --section plan
+  # Continue to next step
+  npm run cli chat plan:advance plan_123 --space space_abc123
 
-  # Execute plan step by step (like clicking "Next" in web UI)
-  npm run cli chat advance --state ./test/warrior.json
+  # List pending approvals
+  npm run cli chat approvals --space space_abc123
 
-  # Or execute entire plan at once
-  npm run cli chat advance --state ./test/warrior.json --all
+  # Approve an action
+  npm run cli chat approve abc123-def456 --space space_abc123
 
-  # For direct actions (non-plan responses)
-  npm run cli chat execute --state ./test/warrior.json
+  # Watch for real-time updates
+  npm run cli chat watch --space space_abc123
 
-  # Continue the conversation
-  npm run cli chat send "Add a flaming sword" --state ./test/warrior.json
+NOTES:
 
-STATE FILE:
-  The state file captures everything for evaluation:
-  - Chat history and context (forgeContext, viewingContext)
-  - Active plan with step-by-step status
-  - Pending actions with full Gemini request details
-  - Executed actions with results
-  - Created artifacts (assets, variants, jobs)
-
-  You can inspect the JSON directly or use 'show' for formatted output.
+  All state (chat history, plans, approvals) is stored on the server.
+  Multiple clients (web, CLI) can interact with the same conversation.
+  Use 'watch' to see updates from other clients in real-time.
+  Plans execute on the server - use 'watch' to monitor progress.
 `);
 }

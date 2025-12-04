@@ -1,51 +1,63 @@
 /**
  * Assets Command - List space assets
  *
- * Usage: npm run cli chat assets --state <file>
- *        npm run cli chat assets --space <id>
+ * Usage: npm run cli chat assets --space <id>
  *
- * Lists assets in a space, useful for getting asset IDs to use with context command.
+ * Lists assets in a space, useful for getting asset IDs.
  */
 
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
-import { ApiClient } from './api-client';
-import { loadState } from './state';
+import { resolveBaseUrl, loadStoredConfig } from '../lib/config';
+
+interface Asset {
+  id: string;
+  name: string;
+  type: string;
+  active_variant_id: string | null;
+  parent_asset_id: string | null;
+  created_at: number;
+}
 
 export async function handleAssets(parsed: ParsedArgs): Promise<void> {
-  // Parse arguments
-  const statePath = parsed.options.state;
-  let spaceId = parsed.options.space;
+  const spaceId = parsed.options.space;
   const isLocal = parsed.options.local === 'true';
   const env = isLocal ? 'local' : (parsed.options.env || 'stage');
   const format = parsed.options.format || 'table';
 
-  // Get space ID from state file or argument
-  if (!spaceId && statePath) {
-    const state = await loadState(statePath);
-    if (state) {
-      spaceId = state.meta.spaceId;
-    }
-  }
-
   if (!spaceId) {
-    console.error('Error: --space <id> or --state <file> is required');
-    console.error('Usage: npm run cli chat assets --space <id>');
-    console.error('   or: npm run cli chat assets --state <file>');
+    console.error('Error: --space <id> is required');
     process.exitCode = 1;
     return;
   }
 
   try {
-    // Create API client
-    const apiClient = await ApiClient.create(env);
+    const config = await loadStoredConfig(env);
+    if (!config) {
+      console.error(`Not logged in to ${env} environment.`);
+      console.error(`Run: npm run cli login --env ${env}`);
+      process.exitCode = 1;
+      return;
+    }
 
-    // Get assets
-    console.log(`Fetching assets for space ${spaceId}...\n`);
-    const { assets } = await apiClient.getSpaceAssets(spaceId);
+    const baseUrl = resolveBaseUrl(env);
+    const response = await fetch(`${baseUrl}/api/spaces/${spaceId}/assets`, {
+      headers: {
+        'Authorization': `Bearer ${config.token.accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json() as { error?: string };
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json() as { success: boolean; assets: Asset[] };
+    const assets = data.assets || [];
 
     if (assets.length === 0) {
-      console.log('No assets found in this space.');
+      console.log('\nNo assets found in this space.');
+      console.log(`\nTo create an asset: npm run cli chat send "Create a character" --space ${spaceId}`);
       return;
     }
 
@@ -53,35 +65,26 @@ export async function handleAssets(parsed: ParsedArgs): Promise<void> {
     if (format === 'json') {
       console.log(JSON.stringify(assets, null, 2));
     } else if (format === 'ids') {
-      // Just output IDs, one per line (useful for scripting)
       for (const asset of assets) {
         console.log(asset.id);
       }
     } else {
       // Table format
-      console.log(`Found ${assets.length} asset(s):\n`);
-      console.log('ID'.padEnd(38) + 'Name'.padEnd(30) + 'Has Variant');
-      console.log('-'.repeat(80));
+      console.log(`\n${'═'.repeat(80)}`);
+      console.log(`Assets (${assets.length})`);
+      console.log(`${'═'.repeat(80)}`);
+      console.log('ID'.padEnd(38) + 'Name'.padEnd(30) + 'Type');
+      console.log('─'.repeat(80));
 
       for (const asset of assets) {
-        const hasVariant = asset.active_variant_id ? 'Yes' : 'No';
         console.log(
           asset.id.padEnd(38) +
           truncatePad(asset.name, 30) +
-          hasVariant
+          asset.type
         );
       }
 
-      console.log(`\nUsage examples:`);
-      if (assets.length > 0) {
-        const firstAsset = assets[0];
-        console.log(`  View asset:    npm run cli chat context --state <file> --view ${firstAsset.id}`);
-        console.log(`  Add to tray:   npm run cli chat context --state <file> --add ${firstAsset.id}`);
-        if (assets.length > 1) {
-          const secondAsset = assets[1];
-          console.log(`  Add multiple:  npm run cli chat context --state <file> --add ${firstAsset.id},${secondAsset.id}`);
-        }
-      }
+      console.log(`${'═'.repeat(80)}`);
     }
 
   } catch (error) {
