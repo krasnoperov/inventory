@@ -79,6 +79,7 @@ export function ForgeTray({
   const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -147,6 +148,44 @@ export function ForgeTray({
       uploadInputRef.current.value = '';
     }
   }, [targetAsset, onUpload]);
+
+  // Drag-and-drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!onUpload || !targetAsset) return;
+    setIsDragOver(true);
+  }, [onUpload, targetAsset]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    if (!onUpload || !targetAsset) return;
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFile = files.find(f =>
+      ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(f.type)
+    );
+
+    if (!imageFile) {
+      console.warn('No valid image file dropped');
+      return;
+    }
+
+    try {
+      await onUpload(imageFile, targetAsset.id);
+    } catch (error) {
+      console.error('Drop upload failed:', error);
+    }
+  }, [onUpload, targetAsset]);
 
   const handleRemoveSlot = useCallback((e: React.MouseEvent, slotId: string) => {
     e.stopPropagation();
@@ -235,13 +274,20 @@ export function ForgeTray({
   // Only show destination toggle on AssetDetailPage (has currentAsset) when slots > 0
   const showDestinationToggle = !!currentAsset && slots.length > 0;
 
-  const trayClass = onBrandBackground
-    ? `${styles.tray} ${styles.onBrandBackground}`
-    : styles.tray;
+  // Build tray class with drag-over state
+  const trayClasses = [styles.tray];
+  if (onBrandBackground) trayClasses.push(styles.onBrandBackground);
+  if (isDragOver) trayClasses.push(styles.dragOver);
+  const trayClass = trayClasses.join(' ');
 
   return (
     <>
-      <div className={trayClass}>
+      <div
+        className={trayClass}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {/* Unified Input Area - Textarea with embedded thumbnails */}
         <div className={styles.inputArea}>
           {/* Prompt Textarea */}

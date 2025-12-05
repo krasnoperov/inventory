@@ -13,6 +13,7 @@ import { handleBilling } from './commands/billing';
 import { handleChat } from './commands/chat';
 import { handleSpaces } from './commands/spaces';
 import { handleListen } from './commands/listen';
+import { handleUpload } from './commands/upload';
 
 async function main() {
   const [, , command, ...args] = process.argv;
@@ -63,6 +64,10 @@ Listen:
   listen --space <id>          Connect to space WebSocket and stream all events
   listen --space <id> --json   Output raw JSON for piping/processing
 
+Upload:
+  upload <file> --space <id> --asset <id>   Upload image to existing asset
+  upload <file> --space <id> --name <name>  Upload and create new asset
+
 Options:
   --env <environment>          Target environment (production|stage|local), default: stage
   --local                      Shortcut for local development
@@ -98,6 +103,9 @@ async function dispatchCommand(command: string, parsed: Parameters<typeof parseA
       break;
     case 'listen':
       await handleListen(parsed);
+      break;
+    case 'upload':
+      await handleUpload(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);

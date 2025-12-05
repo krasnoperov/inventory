@@ -28,6 +28,19 @@
   box-shadow: var(--forge-bar-shadow);
 }
 
+/* Drag-over state for file drop */
+.tray.dragOver {
+  border-color: var(--color-primary);
+  box-shadow:
+    0 0 0 2px var(--color-primary),
+    0 4px 24px oklch(55% 0.18 276 / 0.3);
+}
+
+.tray.dragOver .inputArea {
+  background: oklch(55% 0.18 276 / 0.08);
+  border-color: var(--color-primary);
+}
+
 /* Unified Input Area - Contains textarea, thumbs, and controls */
 .inputArea {
   display: flex;

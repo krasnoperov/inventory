@@ -45,14 +45,27 @@ export const DELETE_REF_SQL = 'DELETE FROM image_refs WHERE image_key = ?';
 
 /**
  * Recipe structure as stored in variant.recipe JSON.
+ * The operation field indicates how the variant was created:
+ * - generate: AI-generated from prompt only
+ * - derive: AI-generated using reference images
+ * - refine: AI refinement of existing asset
+ * - fork: Copy without modification
+ * - upload: User uploaded image (no AI)
  */
 interface Recipe {
-  operation?: 'derive' | 'refine';
+  operation?: 'generate' | 'derive' | 'refine' | 'fork' | 'upload';
   prompt?: string;
+  /** For generated variants: source images used */
   inputs?: Array<{
     variantId?: string;
     imageKey: string;
   }>;
+  /** For uploaded variants: original filename */
+  originalFilename?: string;
+  /** For uploaded variants: upload timestamp */
+  uploadedAt?: string;
+  /** Asset type (character, item, scene, etc.) */
+  assetType?: string;
 }
 
 /**

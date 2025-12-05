@@ -84,11 +84,12 @@ export interface ChatWorkflowOutput {
  * - derive: Create new asset using references as inspiration
  * - refine: Add variant to existing asset
  * - fork: Copy variant to new asset (no AI generation - handled separately)
+ * - upload: User uploaded an image (no AI generation)
  *
- * Note: 'fork' is rarely used here since it's synchronous (no workflow).
+ * Note: 'fork' and 'upload' are rarely used here since they're synchronous (no workflow).
  * Lineage uses different terms: 'derived', 'refined', 'forked' for relationships.
  */
-export type OperationType = 'generate' | 'derive' | 'refine' | 'fork';
+export type OperationType = 'generate' | 'derive' | 'refine' | 'fork' | 'upload';
 
 /** Input to GenerationWorkflow - triggered by SpaceDO on generate:request */
 export interface GenerationWorkflowInput {
