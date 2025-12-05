@@ -64,17 +64,25 @@ export interface InternalApiControllers {
       relationType?: 'derived' | 'refined';
     }): Promise<{ created: boolean; variant: Variant }>;
     httpStar(variantId: string, starred: boolean): Promise<unknown>;
-    httpUploadVariant(data: {
+    // Upload placeholder flow (3-step: create placeholder → upload to R2 → complete/fail)
+    httpCreateUploadPlaceholder(data: {
       variantId: string;
       assetId?: string;
       assetName?: string;
       assetType?: string;
       parentAssetId?: string | null;
-      imageKey: string;
-      thumbKey: string;
       recipe: string;
       createdBy: string;
-    }): Promise<{ variant: Variant; asset?: unknown }>;
+    }): Promise<{ variant: Variant; asset?: unknown; assetId: string }>;
+    httpCompleteUpload(data: {
+      variantId: string;
+      imageKey: string;
+      thumbKey: string;
+    }): Promise<{ variant: Variant }>;
+    httpFailUpload(data: {
+      variantId: string;
+      error: string;
+    }): Promise<{ variant: Variant }>;
   };
   lineage: {
     httpGetLineage(variantId: string): Promise<unknown>;
@@ -249,19 +257,37 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     return c.json({ success: true, variant });
   });
 
-  app.post('/internal/upload-variant', async (c) => {
+  // Upload placeholder flow (3-step: create placeholder → upload to R2 → complete/fail)
+  app.post('/internal/upload-placeholder', async (c) => {
     const data = (await c.req.json()) as {
       variantId: string;
       assetId?: string;
       assetName?: string;
       assetType?: string;
       parentAssetId?: string | null;
-      imageKey: string;
-      thumbKey: string;
       recipe: string;
       createdBy: string;
     };
-    const result = await controllers.variant.httpUploadVariant(data);
+    const result = await controllers.variant.httpCreateUploadPlaceholder(data);
+    return c.json(result);
+  });
+
+  app.post('/internal/complete-upload', async (c) => {
+    const data = (await c.req.json()) as {
+      variantId: string;
+      imageKey: string;
+      thumbKey: string;
+    };
+    const result = await controllers.variant.httpCompleteUpload(data);
+    return c.json(result);
+  });
+
+  app.post('/internal/fail-upload', async (c) => {
+    const data = (await c.req.json()) as {
+      variantId: string;
+      error: string;
+    };
+    const result = await controllers.variant.httpFailUpload(data);
     return c.json(result);
   });
 

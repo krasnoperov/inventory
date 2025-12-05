@@ -127,7 +127,7 @@ interface ChatResponse {
 }
 
 /** Variant status lifecycle */
-type VariantStatus = 'pending' | 'processing' | 'completed' | 'failed';
+type VariantStatus = 'pending' | 'processing' | 'uploading' | 'completed' | 'failed';
 
 /** Variant from backend (placeholder variants architecture) */
 interface Variant {

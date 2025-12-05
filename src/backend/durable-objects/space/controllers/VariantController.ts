@@ -91,22 +91,20 @@ export class VariantController extends BaseController {
   }
 
   /**
-   * Handle POST /internal/upload-variant HTTP request
-   * Creates a variant from a user-uploaded image (no workflow).
-   * Can optionally create a new asset if assetId is not provided.
+   * Handle POST /internal/upload-placeholder HTTP request
+   * Creates a placeholder variant with status='uploading' before R2 upload starts.
+   * This allows all connected clients to see the upload in progress.
    */
-  async httpUploadVariant(data: {
+  async httpCreateUploadPlaceholder(data: {
     variantId: string;
     assetId?: string;
     // For new asset creation
     assetName?: string;
     assetType?: string;
     parentAssetId?: string | null;
-    imageKey: string;
-    thumbKey: string;
     recipe: string;
     createdBy: string;
-  }): Promise<{ variant: Variant; asset?: Asset }> {
+  }): Promise<{ variant: Variant; asset?: Asset; assetId: string }> {
     const now = Date.now();
     let asset: Asset;
     let createdNewAsset = false;
@@ -139,10 +137,10 @@ export class VariantController extends BaseController {
       id: data.variantId,
       asset_id: asset.id,
       workflow_id: null, // No workflow for uploads
-      status: 'completed',
+      status: 'uploading',
       error_message: null,
-      image_key: data.imageKey,
-      thumb_key: data.thumbKey,
+      image_key: null, // Will be set when upload completes
+      thumb_key: null,
       recipe: data.recipe,
       starred: false,
       created_by: data.createdBy,
@@ -151,7 +149,7 @@ export class VariantController extends BaseController {
       plan_step_id: null,
     };
 
-    // Insert variant
+    // Insert placeholder variant
     await this.sql.exec(
       `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -169,40 +167,128 @@ export class VariantController extends BaseController {
       variant.updated_at
     );
 
-    // Increment refs for all images
-    const imageKeys = getVariantImageKeys(variant);
-    for (const key of imageKeys) {
-      await this.sql.exec(INCREMENT_REF_SQL, key);
+    // Broadcast variant creation so all clients see "Uploading" state
+    this.broadcast({ type: 'variant:created', variant });
+
+    log.info('Upload placeholder created', {
+      spaceId: this.spaceId,
+      variantId: variant.id,
+      assetId: asset.id,
+      newAsset: createdNewAsset,
+    });
+
+    return { variant, asset: createdNewAsset ? asset : undefined, assetId: asset.id };
+  }
+
+  /**
+   * Handle POST /internal/complete-upload HTTP request
+   * Completes an uploading variant with image keys after R2 upload succeeds.
+   */
+  async httpCompleteUpload(data: {
+    variantId: string;
+    imageKey: string;
+    thumbKey: string;
+  }): Promise<{ variant: Variant }> {
+    const now = Date.now();
+
+    // Get the variant
+    const existing = await this.repo.getVariantById(data.variantId);
+    if (!existing) {
+      throw new NotFoundError('Variant not found');
     }
 
-    // Set as active variant (always for new assets, or if no active variant)
-    if (createdNewAsset || !asset.active_variant_id) {
+    if (existing.status !== 'uploading') {
+      throw new NotFoundError(`Variant is not uploading (status: ${existing.status})`);
+    }
+
+    // Update variant with image keys and completed status
+    await this.sql.exec(
+      `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, updated_at = ? WHERE id = ?`,
+      data.imageKey,
+      data.thumbKey,
+      now,
+      data.variantId
+    );
+
+    const variant: Variant = {
+      ...existing,
+      status: 'completed',
+      image_key: data.imageKey,
+      thumb_key: data.thumbKey,
+      updated_at: now,
+    };
+
+    // Increment refs for images
+    await this.sql.exec(INCREMENT_REF_SQL, data.imageKey);
+    await this.sql.exec(INCREMENT_REF_SQL, data.thumbKey);
+
+    // Set as active variant if asset has none
+    const asset = await this.repo.getAssetById(variant.asset_id);
+    if (asset && !asset.active_variant_id) {
       const updatedAsset = await this.repo.updateAsset(variant.asset_id, {
         active_variant_id: variant.id,
       });
       if (updatedAsset) {
-        asset = updatedAsset;
         this.broadcast({ type: 'asset:updated', asset: updatedAsset });
       }
-    } else {
+    } else if (asset) {
       // Broadcast asset update so clients see the new variant count
-      const currentAsset = await this.repo.getAssetById(variant.asset_id);
-      if (currentAsset) {
-        this.broadcast({ type: 'asset:updated', asset: currentAsset });
-      }
+      this.broadcast({ type: 'asset:updated', asset });
     }
 
-    // Broadcast variant creation
-    this.broadcast({ type: 'variant:created', variant });
+    // Broadcast variant update
+    this.broadcast({ type: 'variant:updated', variant });
 
-    log.info('Upload variant created', {
+    log.info('Upload completed', {
       spaceId: this.spaceId,
       variantId: variant.id,
       assetId: variant.asset_id,
-      newAsset: createdNewAsset,
     });
 
-    return createdNewAsset ? { variant, asset } : { variant };
+    return { variant };
+  }
+
+  /**
+   * Handle POST /internal/fail-upload HTTP request
+   * Marks an uploading variant as failed if R2 upload fails.
+   */
+  async httpFailUpload(data: {
+    variantId: string;
+    error: string;
+  }): Promise<{ variant: Variant }> {
+    const now = Date.now();
+
+    // Get the variant
+    const existing = await this.repo.getVariantById(data.variantId);
+    if (!existing) {
+      throw new NotFoundError('Variant not found');
+    }
+
+    // Update variant to failed status
+    await this.sql.exec(
+      `UPDATE variants SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
+      data.error,
+      now,
+      data.variantId
+    );
+
+    const variant: Variant = {
+      ...existing,
+      status: 'failed',
+      error_message: data.error,
+      updated_at: now,
+    };
+
+    // Broadcast variant update
+    this.broadcast({ type: 'variant:updated', variant });
+
+    log.info('Upload failed', {
+      spaceId: this.spaceId,
+      variantId: variant.id,
+      error: data.error,
+    });
+
+    return { variant };
   }
 
   // ==========================================================================

@@ -39,7 +39,7 @@ export class SchemaManager {
         id TEXT PRIMARY KEY,
         asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
         workflow_id TEXT UNIQUE,
-        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'uploading', 'completed', 'failed')),
         error_message TEXT,
         image_key TEXT,
         thumb_key TEXT,
@@ -357,5 +357,78 @@ export class SchemaManager {
     // SQLite doesn't support ALTER CONSTRAINT, but the existing constraint won't reject
     // new values if we insert them - we'll handle validation in application code
     // and update the constraint in the next major schema version
+
+    // Migration: Add 'uploading' status to variants CHECK constraint
+    await this.addUploadingStatusToVariants();
+  }
+
+  /**
+   * Migration: Add 'uploading' status to variants table CHECK constraint.
+   * SQLite doesn't support ALTER CONSTRAINT, so we recreate the table.
+   */
+  private async addUploadingStatusToVariants(): Promise<void> {
+    // Check if migration is needed by trying to detect the old constraint
+    // We do this by checking if a table with the new constraint already exists
+    const tableInfo = await this.sql.exec(`PRAGMA table_info(variants)`);
+    const columns = tableInfo.toArray() as Array<{ name: string }>;
+    if (!columns.some(c => c.name === 'status')) {
+      // Table doesn't exist yet or has different structure, skip migration
+      return;
+    }
+
+    // Check if 'uploading' status is already allowed by attempting an insert
+    // If it fails, we need to migrate
+    const testId = `__migration_test_${Date.now()}`;
+    try {
+      await this.sql.exec(`
+        INSERT INTO variants (id, asset_id, status, recipe, created_by, created_at)
+        VALUES (?, '__test__', 'uploading', '{}', '__test__', 0)
+      `, testId);
+      // Success - constraint already allows 'uploading', clean up test row
+      await this.sql.exec(`DELETE FROM variants WHERE id = ?`, testId);
+      return;
+    } catch {
+      // Constraint rejected 'uploading' - need to migrate
+    }
+
+    // Recreate variants table with updated constraint
+    await this.sql.exec(`
+      -- Disable foreign key checks temporarily
+      PRAGMA foreign_keys = OFF;
+
+      -- Create new table with updated constraint
+      CREATE TABLE variants_new (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        workflow_id TEXT UNIQUE,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'uploading', 'completed', 'failed')),
+        error_message TEXT,
+        image_key TEXT,
+        thumb_key TEXT,
+        recipe TEXT NOT NULL,
+        starred INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        plan_step_id TEXT REFERENCES plan_steps(id) ON DELETE SET NULL
+      );
+
+      -- Copy all data
+      INSERT INTO variants_new SELECT * FROM variants;
+
+      -- Drop old table
+      DROP TABLE variants;
+
+      -- Rename new table
+      ALTER TABLE variants_new RENAME TO variants;
+
+      -- Recreate indexes
+      CREATE INDEX IF NOT EXISTS idx_variants_asset ON variants(asset_id);
+      CREATE INDEX IF NOT EXISTS idx_variants_workflow ON variants(workflow_id);
+      CREATE INDEX IF NOT EXISTS idx_variants_plan_step ON variants(plan_step_id);
+
+      -- Re-enable foreign key checks
+      PRAGMA foreign_keys = ON;
+    `);
   }
 }

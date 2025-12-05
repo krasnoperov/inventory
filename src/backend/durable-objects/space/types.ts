@@ -26,7 +26,7 @@ export type { PlanStatus, PlanStepStatus } from '../../../shared/websocket-types
 /**
  * Variant generation status
  */
-export type VariantStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type VariantStatus = 'pending' | 'processing' | 'uploading' | 'completed' | 'failed';
 
 /**
  * Asset - A graphical asset in the inventory (character, item, scene, etc.)

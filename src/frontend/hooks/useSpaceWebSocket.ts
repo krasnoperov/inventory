@@ -15,7 +15,7 @@ export interface Asset {
 }
 
 /** Variant status for placeholder lifecycle */
-export type VariantStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type VariantStatus = 'pending' | 'processing' | 'uploading' | 'completed' | 'failed';
 
 export interface Variant {
   id: string;
@@ -52,7 +52,7 @@ export function isVariantReady(variant: Variant): boolean {
  * Check if a variant is in a loading state
  */
 export function isVariantLoading(variant: Variant): boolean {
-  return variant.status === 'pending' || variant.status === 'processing';
+  return variant.status === 'pending' || variant.status === 'processing' || variant.status === 'uploading';
 }
 
 /**

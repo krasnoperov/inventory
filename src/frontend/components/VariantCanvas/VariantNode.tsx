@@ -128,10 +128,16 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
   // Render thumbnail based on variant status
   const renderThumbnail = () => {
     if (isVariantLoading(variant)) {
+      const loadingLabels: Record<string, string> = {
+        pending: 'Queued',
+        processing: 'Generating',
+        uploading: 'Uploading',
+      };
+      const statusLabel = loadingLabels[variant.status] || 'Loading';
       return (
         <div className={styles.generating}>
           <div className={styles.spinner} />
-          <span>{variant.status === 'pending' ? 'Queued' : 'Generating'}</span>
+          <span>{statusLabel}</span>
         </div>
       );
     }

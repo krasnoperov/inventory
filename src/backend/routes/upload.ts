@@ -118,8 +118,61 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   const imageKey = `images/${spaceId}/${variantId}.${ext}`;
   const thumbKey = `images/${spaceId}/${variantId}_thumb.webp`;
 
+  // Build recipe (consistent with generation recipes)
+  const recipe = JSON.stringify({
+    operation: 'upload',
+    assetType: assetType,
+    originalFilename: file.name,
+    uploadedAt: new Date().toISOString(),
+  });
+
+  const doId = env.SPACES_DO.idFromName(spaceId);
+  const doStub = env.SPACES_DO.get(doId);
+
+  // =========================================================================
+  // Step 1: Create upload placeholder (broadcasts to all clients immediately)
+  // =========================================================================
+  let createdNewAsset: unknown;
   try {
-    // Read file into buffer
+    const placeholderResponse = await doStub.fetch(
+      new Request('http://do/internal/upload-placeholder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variantId,
+          assetId: assetId || undefined,
+          assetName: assetId ? undefined : assetName,
+          assetType: assetId ? undefined : assetType,
+          parentAssetId: assetId ? undefined : parentAssetId,
+          recipe,
+          createdBy: userId,
+        }),
+      })
+    );
+
+    if (!placeholderResponse.ok) {
+      const errorData = await placeholderResponse.json().catch(() => ({})) as { error?: string };
+      return c.json(
+        { error: errorData.error || 'Failed to create upload placeholder' },
+        placeholderResponse.status as 400 | 403 | 404 | 500
+      );
+    }
+
+    const placeholderResult = await placeholderResponse.json() as {
+      variant: unknown;
+      asset?: unknown;
+      assetId: string;
+    };
+    createdNewAsset = placeholderResult.asset;
+  } catch (error) {
+    console.error('Failed to create upload placeholder:', error);
+    return c.json({ error: 'Failed to create upload placeholder' }, 500);
+  }
+
+  // =========================================================================
+  // Step 2: Upload to R2 (clients see "Uploading" state during this)
+  // =========================================================================
+  try {
     const imageBuffer = new Uint8Array(await file.arrayBuffer());
 
     // Upload full image to R2
@@ -155,54 +208,38 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
       });
     }
 
-    // Build recipe (consistent with generation recipes)
-    const recipe = JSON.stringify({
-      operation: 'upload',
-      assetType: assetType,
-      originalFilename: file.name,
-      uploadedAt: new Date().toISOString(),
-    });
-
-    // Call SpaceDO to create variant (and optionally asset)
-    const doId = env.SPACES_DO.idFromName(spaceId);
-    const doStub = env.SPACES_DO.get(doId);
-
-    const doResponse = await doStub.fetch(
-      new Request('http://do/internal/upload-variant', {
+    // =========================================================================
+    // Step 3: Complete the upload (broadcasts completed variant to all clients)
+    // =========================================================================
+    const completeResponse = await doStub.fetch(
+      new Request('http://do/internal/complete-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           variantId,
-          assetId: assetId || undefined,
-          // For new asset creation
-          assetName: assetId ? undefined : assetName,
-          assetType: assetId ? undefined : assetType,
-          parentAssetId: assetId ? undefined : parentAssetId,
           imageKey,
           thumbKey,
-          recipe,
-          createdBy: userId,
         }),
       })
     );
 
-    if (!doResponse.ok) {
-      // Clean up R2 on failure
+    if (!completeResponse.ok) {
+      // R2 upload succeeded but DO update failed - clean up R2
       await env.IMAGES.delete(imageKey);
       await env.IMAGES.delete(thumbKey);
 
-      const errorData = await doResponse.json().catch(() => ({})) as { error?: string };
+      const errorData = await completeResponse.json().catch(() => ({})) as { error?: string };
       return c.json(
-        { error: errorData.error || 'Failed to create variant' },
-        doResponse.status as 400 | 403 | 404 | 500
+        { error: errorData.error || 'Failed to complete upload' },
+        completeResponse.status as 400 | 403 | 404 | 500
       );
     }
 
-    const result = await doResponse.json() as { variant: unknown; asset?: unknown };
+    const result = await completeResponse.json() as { variant: unknown };
     return c.json({
       success: true,
       variant: result.variant,
-      asset: result.asset, // Included when new asset was created
+      asset: createdNewAsset, // Included when new asset was created
     });
   } catch (error) {
     console.error('Upload failed:', error);
@@ -213,6 +250,22 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
       await env.IMAGES.delete(thumbKey);
     } catch {
       // Ignore cleanup errors
+    }
+
+    // Mark the placeholder variant as failed
+    try {
+      await doStub.fetch(
+        new Request('http://do/internal/fail-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            variantId,
+            error: error instanceof Error ? error.message : 'Upload failed',
+          }),
+        })
+      );
+    } catch {
+      // Ignore fail-upload errors
     }
 
     return c.json({ error: 'Upload failed' }, 500);
