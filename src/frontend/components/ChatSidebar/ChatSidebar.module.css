@@ -359,9 +359,6 @@
 .messageContent {
   padding: 0.75rem 1rem;
   border-radius: 14px;
-  font-size: 0.875rem;
-  line-height: 1.6;
-  white-space: pre-wrap;
   word-wrap: break-word;
 }
 
@@ -1644,19 +1641,10 @@
 
 .planContent {
   margin-top: 0.5rem;
-}
-
-.planMarkdown {
-  margin: 0;
-  padding: 0.75rem;
+  padding: 0.5rem;
   background: oklch(100% 0 0 / 0.04);
   border-radius: var(--radius-sm);
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--color-text);
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 200px;
+  max-height: 250px;
   overflow-y: auto;
 }
 

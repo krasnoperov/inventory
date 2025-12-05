@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import styles from './ChatSidebar.module.css';
 import { RateLimitCountdown } from './RateLimitCountdown';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 // =============================================================================
 // Types
@@ -77,7 +78,11 @@ export function MessageList({
                     <span className={styles.thumbnailLabel}>{msg.thumbnail.assetName}</span>
                   </div>
                 )}
-                {msg.content}
+                <MarkdownRenderer
+                  content={msg.content}
+                  isUser={msg.role === 'user'}
+                  maxCollapsedHeight={msg.role === 'assistant' ? 400 : undefined}
+                />
 
                 {/**
                  * Quota Exceeded Card (HTTP 402)

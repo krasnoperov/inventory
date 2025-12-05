@@ -1,4 +1,5 @@
 import type { SimplePlan } from '../../../shared/websocket-types';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import styles from './ChatSidebar.module.css';
 
 // =============================================================================
@@ -19,7 +20,7 @@ export interface PlanPanelProps {
 /**
  * Simple markdown-based plan display.
  * Claude can update the plan content via update_plan tool.
- * The plan is displayed as-is (markdown rendered).
+ * The plan is displayed with full markdown rendering.
  */
 export function PlanPanel({ plan, onClear }: PlanPanelProps) {
   // Don't render if no plan or plan is archived
@@ -47,9 +48,10 @@ export function PlanPanel({ plan, onClear }: PlanPanelProps) {
       </div>
 
       <div className={styles.planContent}>
-        {/* Render markdown content as pre-formatted text for now */}
-        {/* In the future, could use a markdown renderer */}
-        <pre className={styles.planMarkdown}>{plan.content}</pre>
+        <MarkdownRenderer
+          content={plan.content}
+          maxCollapsedHeight={200}
+        />
       </div>
     </div>
   );
