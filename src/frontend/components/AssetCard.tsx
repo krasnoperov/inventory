@@ -104,11 +104,13 @@ export function AssetCard(props: AssetCardProps) {
     >
       {/* Thumbnail Area */}
       <div className={styles.thumbnailArea} onClick={handleCardClick}>
-        {/* Show loading state for pending/processing variants */}
+        {/* Show loading state for pending/processing/uploading variants */}
         {primaryVariant && isVariantLoading(primaryVariant) ? (
           <div className={styles.generatingPlaceholder}>
             <div className={styles.spinner} />
-            <span>{primaryVariant.status === 'pending' ? 'Queued' : 'Generating'}</span>
+            <span>
+              {({ pending: 'Queued', processing: 'Generating', uploading: 'Uploading' } as Record<string, string>)[primaryVariant.status] || 'Loading'}
+            </span>
           </div>
         ) : primaryVariant && isVariantFailed(primaryVariant) ? (
           <div className={styles.generatingPlaceholder}>

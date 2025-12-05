@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
-import { type Asset, type Variant, getVariantThumbnailUrl } from '../hooks/useSpaceWebSocket';
+import { type Asset, type Variant } from '../hooks/useSpaceWebSocket';
+import { Thumbnail } from './Thumbnail';
 import styles from './AssetPicker.module.css';
 
 export interface AssetPickerProps {
@@ -36,22 +37,21 @@ export function AssetPicker({
     return filteredAssets.filter(a => !a.parent_asset_id);
   }, [filteredAssets]);
 
-  // Get the active variant thumbnail for an asset
-  const getAssetThumbnail = useCallback((asset: Asset) => {
+  // Get the active variant for an asset (for thumbnail display)
+  const getAssetVariant = useCallback((asset: Asset): Variant | null => {
+    // Prefer the active variant
     const activeVariant = variants.find(v => v.id === asset.active_variant_id);
     if (activeVariant) {
-      return getVariantThumbnailUrl(activeVariant);
+      return activeVariant;
     }
+    // Fall back to any variant for this asset
     const anyVariant = variants.find(v => v.asset_id === asset.id);
-    if (anyVariant) {
-      return getVariantThumbnailUrl(anyVariant);
-    }
-    return null;
+    return anyVariant || null;
   }, [variants]);
 
   // Render a single asset option
   const renderAssetOption = (asset: Asset, depth: number = 0) => {
-    const thumbnailUrl = getAssetThumbnail(asset);
+    const variant = getAssetVariant(asset);
     const isSelected = selectedAssetId === asset.id;
     const children = filteredAssets.filter(a => a.parent_asset_id === asset.id);
 
@@ -62,19 +62,7 @@ export function AssetPicker({
           style={{ paddingLeft: `${0.75 + depth * 1.25}rem` }}
           onClick={() => onSelect(asset.id)}
         >
-          <div className={styles.thumbnail}>
-            {thumbnailUrl ? (
-              <img src={thumbnailUrl} alt="" className={styles.thumbnailImage} />
-            ) : (
-              <div className={styles.thumbnailPlaceholder}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-              </div>
-            )}
-          </div>
+          <Thumbnail variant={variant} size="xs" className={styles.thumbnail} />
           <div className={styles.optionInfo}>
             <span className={styles.optionName}>{asset.name}</span>
             <span className={styles.optionType}>{asset.type}</span>
@@ -141,10 +129,22 @@ export function AssetPicker({
         {/* Asset options */}
         {rootAssets.map(asset => renderAssetOption(asset))}
 
-        {/* Empty state */}
+        {/* Empty state - no search results */}
         {filteredAssets.length === 0 && searchQuery && (
           <div className={styles.empty}>
             No assets matching "{searchQuery}"
+          </div>
+        )}
+
+        {/* Empty state - no assets at all */}
+        {assets.length === 0 && !searchQuery && (
+          <div className={styles.empty}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            <span>No assets yet</span>
           </div>
         )}
       </div>
