@@ -20,6 +20,7 @@ import { websocketRoutes } from './websocket';
 import { exportRoutes } from './export';
 import { billingRoutes } from './billing';
 import { webhookRoutes } from './webhooks';
+import { uploadRoutes } from './upload';
 
 /**
  * Register all routes with the main app
@@ -64,6 +65,9 @@ export function registerRoutes(app: Hono<AppContext>) {
 
   // Webhook routes (Polar.sh, etc.)
   app.route('/', webhookRoutes);
+
+  // Upload routes (image upload to create variants)
+  app.route('/', uploadRoutes);
 
   // --- Domain routes will be added per ARCHITECTURE.md ---
 }

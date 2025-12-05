@@ -30,6 +30,10 @@ export interface ForgeTrayProps {
   onBrandBackground?: boolean;
   /** Current asset context (for Asset Detail page) */
   currentAsset?: Asset | null;
+  /** Callback for uploading an image file to create a variant */
+  onUpload?: (file: File, assetId: string) => Promise<void>;
+  /** Whether an upload is in progress */
+  isUploading?: boolean;
 }
 
 // Determine operation based on state
@@ -69,11 +73,14 @@ export function ForgeTray({
   onSubmit,
   onBrandBackground = true,
   currentAsset,
+  onUpload,
+  isUploading = false,
 }: ForgeTrayProps) {
   const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   // Destination state
   const [destinationType, setDestinationType] = useState<DestinationType>('existing_asset');
@@ -120,6 +127,26 @@ export function ForgeTray({
   const handleCloseAssetPicker = useCallback(() => {
     setShowAssetPicker(false);
   }, []);
+
+  const handleUploadClick = useCallback(() => {
+    uploadInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !targetAsset || !onUpload) return;
+
+    try {
+      await onUpload(file, targetAsset.id);
+    } catch (error) {
+      console.error('Upload failed:', error);
+    }
+
+    // Reset file input so same file can be selected again
+    if (uploadInputRef.current) {
+      uploadInputRef.current.value = '';
+    }
+  }, [targetAsset, onUpload]);
 
   const handleRemoveSlot = useCallback((e: React.MouseEvent, slotId: string) => {
     e.stopPropagation();
@@ -262,6 +289,24 @@ export function ForgeTray({
                   </svg>
                 </button>
               )}
+              {onUpload && targetAsset && (
+                <button
+                  className={styles.addThumbButton}
+                  onClick={handleUploadClick}
+                  title={`Upload image to "${targetAsset.name}"`}
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <span className={styles.spinner} />
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                  )}
+                </button>
+              )}
             </div>
           )}
 
@@ -341,6 +386,15 @@ export function ForgeTray({
           onClose={handleCloseAssetPicker}
         />
       )}
+
+      {/* Hidden file input for uploads */}
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+      />
     </>
   );
 }

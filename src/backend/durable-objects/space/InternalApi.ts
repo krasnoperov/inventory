@@ -64,6 +64,17 @@ export interface InternalApiControllers {
       relationType?: 'derived' | 'refined';
     }): Promise<{ created: boolean; variant: Variant }>;
     httpStar(variantId: string, starred: boolean): Promise<unknown>;
+    httpUploadVariant(data: {
+      variantId: string;
+      assetId?: string;
+      assetName?: string;
+      assetType?: string;
+      parentAssetId?: string | null;
+      imageKey: string;
+      thumbKey: string;
+      recipe: string;
+      createdBy: string;
+    }): Promise<{ variant: Variant; asset?: unknown }>;
   };
   lineage: {
     httpGetLineage(variantId: string): Promise<unknown>;
@@ -236,6 +247,22 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     const data = (await c.req.json()) as { starred: boolean };
     const variant = await controllers.variant.httpStar(variantId, data.starred);
     return c.json({ success: true, variant });
+  });
+
+  app.post('/internal/upload-variant', async (c) => {
+    const data = (await c.req.json()) as {
+      variantId: string;
+      assetId?: string;
+      assetName?: string;
+      assetType?: string;
+      parentAssetId?: string | null;
+      imageKey: string;
+      thumbKey: string;
+      recipe: string;
+      createdBy: string;
+    };
+    const result = await controllers.variant.httpUploadVariant(data);
+    return c.json(result);
   });
 
   // ==========================================================================

@@ -25,6 +25,7 @@ import { ChatSidebar } from '../components/ChatSidebar';
 import { ForgeTray } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
 import { useForgeOperations } from '../hooks/useForgeOperations';
+import { useImageUpload } from '../hooks/useImageUpload';
 import styles from './AssetDetailPage.module.css';
 
 interface AssetDetailsResponse {
@@ -520,6 +521,15 @@ export default function AssetDetailPage() {
     forkAsset,
   });
 
+  // Image upload hook
+  const { upload: uploadImage, isUploading } = useImageUpload({
+    spaceId: spaceId || '',
+  });
+
+  const handleUpload = useCallback(async (file: File, assetId: string) => {
+    await uploadImage(file, assetId);
+  }, [uploadImage]);
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
   };
@@ -900,6 +910,8 @@ export default function AssetDetailPage() {
         onSubmit={handleForgeSubmit}
         onBrandBackground={false}
         currentAsset={asset}
+        onUpload={handleUpload}
+        isUploading={isUploading}
       />
     </div>
   );

@@ -5,7 +5,7 @@
  * Manages image reference counting to ensure proper R2 cleanup.
  */
 
-import type { Variant, WebSocketMeta } from '../types';
+import type { Asset, Variant, WebSocketMeta } from '../types';
 import {
   INCREMENT_REF_SQL,
   DECREMENT_REF_SQL,
@@ -88,6 +88,121 @@ export class VariantController extends BaseController {
 
     this.broadcast({ type: 'variant:updated', variant });
     return variant;
+  }
+
+  /**
+   * Handle POST /internal/upload-variant HTTP request
+   * Creates a variant from a user-uploaded image (no workflow).
+   * Can optionally create a new asset if assetId is not provided.
+   */
+  async httpUploadVariant(data: {
+    variantId: string;
+    assetId?: string;
+    // For new asset creation
+    assetName?: string;
+    assetType?: string;
+    parentAssetId?: string | null;
+    imageKey: string;
+    thumbKey: string;
+    recipe: string;
+    createdBy: string;
+  }): Promise<{ variant: Variant; asset?: Asset }> {
+    const now = Date.now();
+    let asset: Asset;
+    let createdNewAsset = false;
+
+    if (data.assetId) {
+      // Adding variant to existing asset
+      const existingAsset = await this.repo.getAssetById(data.assetId);
+      if (!existingAsset) {
+        throw new NotFoundError('Asset not found');
+      }
+      asset = existingAsset;
+    } else if (data.assetName) {
+      // Create new asset for the upload
+      const newAssetId = crypto.randomUUID();
+      asset = await this.repo.createAsset({
+        id: newAssetId,
+        name: data.assetName,
+        type: data.assetType || 'character',
+        tags: [],
+        parentAssetId: data.parentAssetId || null,
+        createdBy: data.createdBy,
+      });
+      createdNewAsset = true;
+      this.broadcast({ type: 'asset:created', asset });
+    } else {
+      throw new NotFoundError('Either assetId or assetName is required');
+    }
+
+    const variant: Variant = {
+      id: data.variantId,
+      asset_id: asset.id,
+      workflow_id: null, // No workflow for uploads
+      status: 'completed',
+      error_message: null,
+      image_key: data.imageKey,
+      thumb_key: data.thumbKey,
+      recipe: data.recipe,
+      starred: false,
+      created_by: data.createdBy,
+      created_at: now,
+      updated_at: now,
+      plan_step_id: null,
+    };
+
+    // Insert variant
+    await this.sql.exec(
+      `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      variant.id,
+      variant.asset_id,
+      variant.workflow_id,
+      variant.status,
+      variant.error_message,
+      variant.image_key,
+      variant.thumb_key,
+      variant.recipe,
+      0, // starred = false
+      variant.created_by,
+      variant.created_at,
+      variant.updated_at
+    );
+
+    // Increment refs for all images
+    const imageKeys = getVariantImageKeys(variant);
+    for (const key of imageKeys) {
+      await this.sql.exec(INCREMENT_REF_SQL, key);
+    }
+
+    // Set as active variant (always for new assets, or if no active variant)
+    if (createdNewAsset || !asset.active_variant_id) {
+      const updatedAsset = await this.repo.updateAsset(variant.asset_id, {
+        active_variant_id: variant.id,
+      });
+      if (updatedAsset) {
+        asset = updatedAsset;
+        this.broadcast({ type: 'asset:updated', asset: updatedAsset });
+      }
+    } else {
+      // Broadcast asset update so clients see the new variant count
+      const currentAsset = await this.repo.getAssetById(variant.asset_id);
+      if (currentAsset) {
+        this.broadcast({ type: 'asset:updated', asset: currentAsset });
+      }
+    }
+
+    // Broadcast variant creation
+    this.broadcast({ type: 'variant:created', variant });
+
+    log.info('Upload variant created', {
+      spaceId: this.spaceId,
+      variantId: variant.id,
+      assetId: variant.asset_id,
+      newAsset: createdNewAsset,
+    });
+
+    return createdNewAsset ? { variant, asset } : { variant };
   }
 
   // ==========================================================================
