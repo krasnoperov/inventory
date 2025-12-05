@@ -344,7 +344,7 @@
   right: 1px;
   width: 14px;
   height: 14px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   border: none;
   background: var(--color-primary);
   color: white;

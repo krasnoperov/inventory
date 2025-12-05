@@ -47,7 +47,7 @@
   flex-direction: column;
   gap: 0;
   padding: 0.75rem;
-  border-radius: 14px;
+  border-radius: var(--radius-xl);
   background: var(--forge-input-bg);
   border: 1px solid var(--forge-bar-border-inner);
   margin: 0.5rem;
@@ -234,7 +234,7 @@
   display: flex;
   gap: 0.25rem;
   padding: 0.1875rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--forge-slot-bg);
   border: 1px solid var(--forge-bar-border-inner);
 }
@@ -246,7 +246,7 @@
   padding: 0.375rem 0.625rem;
   background: var(--surface-glass);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-text-muted);
@@ -287,7 +287,7 @@
   padding: 0.375rem 0.625rem;
   background: var(--forge-slot-bg);
   border: 1px solid var(--forge-bar-border-inner);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   outline: none;
   font-size: 0.8125rem;
   font-family: inherit;

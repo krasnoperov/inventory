@@ -95,7 +95,7 @@
   gap: 0.375rem;
   margin: 0.875rem 1rem 0;
   padding: 0.25rem;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--forge-slot-bg);
   border: 1px solid var(--forge-bar-border-inner);
 }
@@ -105,7 +105,7 @@
   padding: 0.5rem 0.75rem;
   background: var(--surface-glass);
   border: none;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--color-text-muted);
@@ -358,7 +358,7 @@
 
 .messageContent {
   padding: 0.75rem 1rem;
-  border-radius: 14px;
+  border-radius: var(--radius-xl);
   word-wrap: break-word;
 }
 
@@ -478,7 +478,7 @@
 .input {
   flex: 1;
   padding: 0.75rem;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   border: none;
   background: transparent;
   color: var(--color-text);
@@ -1523,7 +1523,7 @@
   height: 100%;
   background: var(--color-warning);
   border-radius: 2px;
-  transition: width 1s linear;
+  transition: width 1s ease;
 }
 
 .countdownReady {

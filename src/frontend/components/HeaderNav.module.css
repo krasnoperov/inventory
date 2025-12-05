@@ -8,6 +8,7 @@
   color: var(--color-text);
   font-weight: 600;
   text-decoration: none;
+  transition: color 0.15s ease;
 }
 
 .navLink:hover {
