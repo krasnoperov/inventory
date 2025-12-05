@@ -80,14 +80,18 @@ export interface ChatWorkflowOutput {
  * Operation type - matches user-facing ForgeTray operations
  * Used throughout the pipeline for clarity in logs and tracking
  *
+ * Recipe operations (stored in variant.recipe.operation):
  * - generate: Create new asset from prompt only (no references)
  * - derive: Create new asset using references as inspiration
  * - refine: Add variant to existing asset
- * - fork: Copy variant to new asset (no AI generation - handled separately)
  * - upload: User uploaded an image (no AI generation)
  *
- * Note: 'fork' and 'upload' are rarely used here since they're synchronous (no workflow).
- * Lineage uses different terms: 'derived', 'refined', 'forked' for relationships.
+ * UI/tracking operations (not stored in recipe):
+ * - fork: Copy variant to new asset (copies source recipe, not stored as operation)
+ *
+ * Note: 'fork' doesn't appear in recipes - forked variants copy source recipe.
+ * The lineage.relation_type = 'forked' tracks the fork relationship.
+ * Lineage uses: 'derived', 'refined', 'forked' for relationships.
  */
 export type OperationType = 'generate' | 'derive' | 'refine' | 'fork' | 'upload';
 

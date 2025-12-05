@@ -49,11 +49,16 @@ export const DELETE_REF_SQL = 'DELETE FROM image_refs WHERE image_key = ?';
  * - generate: AI-generated from prompt only
  * - derive: AI-generated using reference images
  * - refine: AI refinement of existing asset
- * - fork: Copy without modification
  * - upload: User uploaded image (no AI)
+ *
+ * Note: 'fork' is NOT a recipe operation. Forked variants copy the source
+ * variant's recipe. The lineage.relation_type = 'forked' tracks the fork.
+ *
+ * Legacy operations ('create', 'combine') may exist in old database records
+ * and are treated as 'derive' for usage tracking.
  */
 interface Recipe {
-  operation?: 'generate' | 'derive' | 'refine' | 'fork' | 'upload';
+  operation?: 'generate' | 'derive' | 'refine' | 'upload';
   prompt?: string;
   /** For generated variants: source images used */
   inputs?: Array<{
