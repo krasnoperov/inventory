@@ -518,6 +518,17 @@
     oklch(70% 0.18 25 / 0.1)
   );
 
+  /* Typography Scale */
+  --font-size-display: 2rem;       /* 32px - Page titles */
+  --font-size-h2: 1.5rem;          /* 24px - Modal titles */
+  --font-size-h3: 1.25rem;         /* 20px - Section titles */
+  --font-size-body: 1rem;          /* 16px - UI text */
+  --font-size-body-sm: 0.9375rem;  /* 15px - UI text alt */
+  --font-size-small: 0.875rem;     /* 14px - Metadata */
+  --font-size-small-sm: 0.8125rem; /* 13px - Labels */
+  --font-size-micro: 0.75rem;      /* 12px - Badges, timestamps */
+  --font-size-micro-sm: 0.6875rem; /* 11px - Small labels */
+
   /* Border radius scale */
   --radius-xs: 4px;
   --radius-sm: 6px;
