@@ -73,6 +73,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          userId,
           senderType: 'user',
           senderId: userId,
           content: message,
@@ -442,6 +443,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          userId,  // Store in the user's session, not 'claude's
           senderType: 'bot',
           senderId: 'claude',
           content: botContent,

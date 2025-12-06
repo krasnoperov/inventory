@@ -97,6 +97,7 @@ export interface InternalApiControllers {
   };
   chat: {
     httpStoreMessage(data: {
+      userId: string;
       senderType: 'user' | 'bot';
       senderId: string;
       content: string;

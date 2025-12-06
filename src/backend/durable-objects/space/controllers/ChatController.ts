@@ -103,15 +103,20 @@ export class ChatController extends BaseController {
   /**
    * Handle POST /internal/chat HTTP request
    * Stores a chat message (used by workflows for bot responses)
+   *
+   * @param userId - The user whose session should store this message.
+   *                 For user messages, this equals senderId.
+   *                 For bot messages, this is the user who triggered the workflow.
    */
   async httpStoreMessage(data: {
+    userId: string;
     senderType: 'user' | 'bot';
     senderId: string;
     content: string;
     metadata?: string | null;
   }): Promise<ChatMessage> {
-    // Get sender's active session (for bot messages, use the user who triggered the workflow)
-    const session = await this.getOrCreateActiveSession(data.senderId);
+    // Use userId to find the session (not senderId, which is 'claude' for bot messages)
+    const session = await this.getOrCreateActiveSession(data.userId);
 
     const message = await this.repo.createChatMessage({
       id: crypto.randomUUID(),
