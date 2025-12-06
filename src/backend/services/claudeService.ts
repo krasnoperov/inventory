@@ -203,8 +203,8 @@ const READ_TOOLS: Anthropic.Tool[] = [
         },
         focus: {
           type: 'string',
-          enum: ['general', 'style', 'composition', 'details', 'compare'],
-          description: 'Optional fallback focus if no question provided: general overview, artistic style, composition, fine details, or comparison to prompt',
+          enum: ['general', 'style', 'composition', 'details', 'compare', 'prompt'],
+          description: 'Optional fallback focus if no question provided: general overview, artistic style, composition, fine details, comparison to prompt, or reverse-engineer a generation prompt',
         },
       },
       required: ['assetId', 'assetName'],
@@ -790,7 +790,7 @@ Always explain what you're doing and why.`;
     imageBase64: string,
     mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
     assetName: string,
-    focus: 'general' | 'style' | 'composition' | 'details' | 'compare' = 'general',
+    focus: 'general' | 'style' | 'composition' | 'details' | 'compare' | 'prompt' = 'general',
     question?: string
   ): Promise<{ description: string; usage: ClaudeUsage }> {
     // System prompt to avoid brand/studio references
@@ -846,6 +846,15 @@ Always explain what you're doing and why.`;
       composition: `Analyze the composition of this image. Describe the layout, focal points, use of space, visual balance, and how elements guide the viewer's eye.`,
       details: `Examine the fine details in this image. Look for textures, small elements, patterns, accessories, and subtle features that might be missed at first glance.`,
       compare: `Describe this image objectively, focusing on elements that could be compared to other versions or variants. Note specific visual features, poses, expressions, and distinguishing characteristics.`,
+      prompt: `Reverse-engineer the generation prompt that could have created this image. Write a detailed text-to-image prompt that would reproduce this result. Include:
+- Subject description (who/what, pose, expression, clothing/features)
+- Art style (rendering technique, line quality, shading approach - use generic terms, not studio names)
+- Color palette (specific colors, saturation, contrast)
+- Lighting (direction, quality, mood)
+- Composition (framing, camera angle, background)
+- Any text or UI elements visible
+
+Format your response as a ready-to-use generation prompt, not a description. Start directly with the prompt text.`,
     };
 
     const userPrompt = `This is an image of "${assetName}" from a visual asset library. ${focusPrompts[focus]}`;
