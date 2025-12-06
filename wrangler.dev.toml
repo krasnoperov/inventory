@@ -51,12 +51,7 @@ class_name = "SpaceDO"
 tag = "v1"
 new_sqlite_classes = ["SpaceDO"]
 
-# Cloudflare Workflows - Chat and Generation (local)
-[[workflows]]
-binding = "CHAT_WORKFLOW"
-name = "inventory-chat-workflow-local"
-class_name = "ChatWorkflow"
-
+# Cloudflare Workflows - Generation (local)
 [[workflows]]
 binding = "GENERATION_WORKFLOW"
 name = "inventory-generation-workflow-local"

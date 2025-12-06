@@ -36,12 +36,7 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "stage"
 ENVIRONMENT = "stage"
 
-# Cloudflare Workflows - Chat and Generation
-[[workflows]]
-binding = "CHAT_WORKFLOW"
-name = "inventory-chat-workflow-stage"
-class_name = "ChatWorkflow"
-
+# Cloudflare Workflows - Generation
 [[workflows]]
 binding = "GENERATION_WORKFLOW"
 name = "inventory-generation-workflow-stage"
@@ -86,11 +81,6 @@ NODE_ENV = "production"
 ENVIRONMENT = "production"
 
 # Cloudflare Workflows - Production
-[[env.production.workflows]]
-binding = "CHAT_WORKFLOW"
-name = "inventory-chat-workflow-production"
-class_name = "ChatWorkflow"
-
 [[env.production.workflows]]
 binding = "GENERATION_WORKFLOW"
 name = "inventory-generation-workflow-production"
