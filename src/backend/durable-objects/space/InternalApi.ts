@@ -63,6 +63,7 @@ export interface InternalApiControllers {
       parentVariantIds?: string[];
       relationType?: 'derived' | 'refined';
     }): Promise<{ created: boolean; variant: Variant }>;
+    httpGetById(variantId: string): Promise<Variant & { asset_name?: string }>;
     httpStar(variantId: string, starred: boolean): Promise<unknown>;
     // Upload placeholder flow (3-step: create placeholder → upload to R2 → complete/fail)
     httpCreateUploadPlaceholder(data: {
@@ -110,6 +111,14 @@ export interface InternalApiControllers {
   generation: {
     // Chat workflow
     httpChatResult(result: ChatWorkflowOutput): void;
+    httpChatProgress(progress: {
+      requestId: string;
+      toolName: string;
+      toolParams: Record<string, unknown>;
+      status: 'executing' | 'complete' | 'failed';
+      result?: string;
+      error?: string;
+    }): void;
     // Variant lifecycle (GenerationWorkflow)
     httpUpdateVariantStatus(data: {
       variantId: string;
@@ -250,6 +259,12 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     return c.json(result);
   });
 
+  app.get('/internal/variant/:variantId', async (c) => {
+    const variantId = c.req.param('variantId');
+    const variant = await controllers.variant.httpGetById(variantId);
+    return c.json(variant);
+  });
+
   app.patch('/internal/variant/:variantId/star', async (c) => {
     const variantId = c.req.param('variantId');
     const data = (await c.req.json()) as { starred: boolean };
@@ -385,6 +400,19 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   app.post('/internal/chat-result', async (c) => {
     const result = (await c.req.json()) as ChatWorkflowOutput;
     await controllers.generation.httpChatResult(result);
+    return c.json({ success: true });
+  });
+
+  app.post('/internal/chat-progress', async (c) => {
+    const progress = (await c.req.json()) as {
+      requestId: string;
+      toolName: string;
+      toolParams: Record<string, unknown>;
+      status: 'executing' | 'complete' | 'failed';
+      result?: string;
+      error?: string;
+    };
+    await controllers.generation.httpChatProgress(progress);
     return c.json({ success: true });
   });
 

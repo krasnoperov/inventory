@@ -12,6 +12,10 @@ import type {
   ViewingContext,
   SimplePlan,
 } from '../../api/types';
+import type { DeferredAction } from '../../shared/websocket-types';
+
+// Re-export DeferredAction for consumers of this module
+export type { DeferredAction };
 
 // ============================================================================
 // CHAT WORKFLOW TYPES
@@ -70,6 +74,8 @@ export interface ChatWorkflowOutput {
     inputTokens: number;
     outputTokens: number;
   };
+  /** Deferred actions for frontend (tray operations) */
+  deferredActions?: DeferredAction[];
 }
 
 // ============================================================================

@@ -367,6 +367,30 @@ export class GenerationController extends BaseController {
       success: result.success,
       response: result.response,
       error: result.error,
+      deferredActions: result.deferredActions,
+    });
+  }
+
+  /**
+   * Handle POST /internal/chat-progress HTTP request
+   * Broadcasts tool execution progress during agentic loop
+   */
+  async httpChatProgress(progress: {
+    requestId: string;
+    toolName: string;
+    toolParams: Record<string, unknown>;
+    status: 'executing' | 'complete' | 'failed';
+    result?: string;
+    error?: string;
+  }): Promise<void> {
+    this.broadcast({
+      type: 'chat:progress',
+      requestId: progress.requestId,
+      toolName: progress.toolName,
+      toolParams: progress.toolParams,
+      status: progress.status,
+      result: progress.result,
+      error: progress.error,
     });
   }
 

@@ -134,6 +134,30 @@ export interface BotResponseWithUsage {
   usage: ClaudeUsage;
 }
 
+/** Tool use block from Claude API for agentic loop */
+export interface ToolUseBlock {
+  type: 'tool_use';
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+/** Response for agentic loop - includes raw tool_use blocks */
+export interface AgenticLoopResponse {
+  /** Parsed response (may be partial if tools need execution) */
+  response: BotResponse;
+  /** Raw tool_use blocks for backend execution */
+  toolUseBlocks: ToolUseBlock[];
+  /** Text content from the response */
+  textContent: string;
+  /** Whether Claude wants to stop (stop_reason !== 'tool_use') */
+  isComplete: boolean;
+  /** Usage for billing */
+  usage: ClaudeUsage;
+  /** Raw content blocks for continuing the conversation */
+  rawContent: Anthropic.ContentBlock[];
+}
+
 // =============================================================================
 // Types (Extended for internal use)
 // =============================================================================
@@ -511,6 +535,114 @@ export class ClaudeService {
   }
 
   /**
+   * Process message for agentic loop - returns raw tool_use blocks for backend execution.
+   * Use this when you need to execute tools and continue the conversation.
+   */
+  async processMessageForAgenticLoop(
+    userMessage: string,
+    context: BotContext,
+    history: ChatMessage[] = []
+  ): Promise<AgenticLoopResponse> {
+    const systemPrompt = this.buildSystemPrompt(context);
+
+    const messages: Anthropic.MessageParam[] = [
+      ...history.map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+      })),
+      { role: 'user', content: userMessage },
+    ];
+
+    const tools = context.mode === 'actor' ? ALL_TOOLS : READ_TOOLS;
+    const maxTokens = context.mode === 'actor' ? 2048 : 1024;
+
+    const response = await this.client.messages.create({
+      model: 'claude-opus-4-5-20251101',
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      tools,
+      messages,
+    });
+
+    return this.parseAgenticResponse(response);
+  }
+
+  /**
+   * Continue agentic loop with tool results.
+   * Sends assistant message + tool results back to Claude.
+   */
+  async continueWithToolResults(
+    context: BotContext,
+    conversationHistory: Anthropic.MessageParam[],
+    assistantContent: Anthropic.ContentBlock[],
+    toolResults: Anthropic.ToolResultBlockParam[]
+  ): Promise<AgenticLoopResponse> {
+    const systemPrompt = this.buildSystemPrompt(context);
+    const tools = context.mode === 'actor' ? ALL_TOOLS : READ_TOOLS;
+    const maxTokens = context.mode === 'actor' ? 2048 : 1024;
+
+    // Build messages with assistant response and tool results
+    const messages: Anthropic.MessageParam[] = [
+      ...conversationHistory,
+      { role: 'assistant', content: assistantContent },
+      { role: 'user', content: toolResults },
+    ];
+
+    const response = await this.client.messages.create({
+      model: 'claude-opus-4-5-20251101',
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      tools,
+      messages,
+    });
+
+    return this.parseAgenticResponse(response);
+  }
+
+  /**
+   * Parse Claude response for agentic loop
+   */
+  private parseAgenticResponse(response: Anthropic.Message): AgenticLoopResponse {
+    const toolUseBlocks: ToolUseBlock[] = [];
+    let textContent = '';
+
+    for (const block of response.content) {
+      if (block.type === 'text') {
+        textContent += block.text;
+      } else if (block.type === 'tool_use') {
+        toolUseBlocks.push({
+          type: 'tool_use',
+          id: block.id,
+          name: block.name,
+          input: block.input as Record<string, unknown>,
+        });
+      }
+    }
+
+    // Check if Claude wants to continue with tools
+    const isComplete = response.stop_reason !== 'tool_use';
+
+    return {
+      response: this.parseToolResponse(response),
+      toolUseBlocks,
+      textContent,
+      isComplete,
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      },
+      rawContent: response.content,
+    };
+  }
+
+  /**
+   * Get tools for a given mode (exposed for workflow use)
+   */
+  getToolsForMode(mode: 'advisor' | 'actor'): Anthropic.Tool[] {
+    return mode === 'actor' ? ALL_TOOLS : READ_TOOLS;
+  }
+
+  /**
    * Build system prompt based on context
    */
   private buildSystemPrompt(context: BotContext): string {
@@ -525,10 +657,16 @@ ${context.assets.length > 0
 
     if (context.forge) {
       const { operation = 'generate', slots = [], prompt: forgePrompt } = context.forge;
+      const slotDetails = slots.length > 0
+        ? slots.map((s, i) => `[${i}] "${s.assetName}" (assetId: ${s.assetId}, variantId: ${s.variantId})`).join('\n  ')
+        : 'empty';
       prompt += `FORGE TRAY STATE:
 - Current operation: ${operation.toUpperCase()}
-- References in tray: ${slots.length > 0 ? slots.map((s, i) => `[${i}] ${s.assetName}`).join(', ') : 'empty'}
+- References in tray:
+  ${slotDetails}
 - Prompt: ${forgePrompt ? `"${forgePrompt}"` : '(none)'}
+
+To describe a reference image, use the describe tool with assetId and assetName from the slot info above.
 
 Operations explained:
 - GENERATE: Create from prompt only (0 refs)

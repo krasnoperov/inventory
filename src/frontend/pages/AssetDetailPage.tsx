@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
-import { useChatStore, useChatIsOpen } from '../stores/chatStore';
+import { useChatStore, useChatIsOpen, type ToolProgress } from '../stores/chatStore';
 import { useAssetDetailStore, useSelectedVariantId, useShowDetailsPanel } from '../stores/assetDetailStore';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
@@ -126,6 +126,8 @@ export default function AssetDetailPage() {
     syncServerAutoExecuted,
     setPlan,
     clearPlan,
+    addToolProgress,
+    updateToolProgress,
   } = useChatStore();
 
   // WebSocket for real-time updates
@@ -238,6 +240,25 @@ export default function AssetDetailPage() {
     onPlanArchived: () => {
       if (spaceId) {
         clearPlan(spaceId);
+      }
+    },
+    // Tool progress during agentic loop
+    onChatProgress: (progress) => {
+      if (spaceId) {
+        const toolProgress: ToolProgress = {
+          requestId: progress.requestId,
+          toolName: progress.toolName,
+          toolParams: progress.toolParams,
+          status: progress.status,
+          result: progress.result,
+          error: progress.error,
+          timestamp: Date.now(),
+        };
+        if (progress.status === 'executing') {
+          addToolProgress(spaceId, toolProgress);
+        } else {
+          updateToolProgress(spaceId, progress.requestId, progress.toolName, toolProgress);
+        }
       }
     },
   });

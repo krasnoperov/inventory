@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
-import { useChatStore, useChatIsOpen } from '../stores/chatStore';
+import { useChatStore, useChatIsOpen, type ToolProgress } from '../stores/chatStore';
 import type {
   Asset,
   Variant,
@@ -97,6 +97,8 @@ export default function SpacePage() {
     syncServerAutoExecuted,
     setPlan,
     clearPlan,
+    addToolProgress,
+    updateToolProgress,
   } = useChatStore();
 
   // WebSocket connection for real-time updates
@@ -201,6 +203,25 @@ export default function SpacePage() {
     onPlanArchived: () => {
       if (spaceId) {
         clearPlan(spaceId);
+      }
+    },
+    // Tool progress during agentic loop
+    onChatProgress: (progress) => {
+      if (spaceId) {
+        const toolProgress: ToolProgress = {
+          requestId: progress.requestId,
+          toolName: progress.toolName,
+          toolParams: progress.toolParams,
+          status: progress.status,
+          result: progress.result,
+          error: progress.error,
+          timestamp: Date.now(),
+        };
+        if (progress.status === 'executing') {
+          addToolProgress(spaceId, toolProgress);
+        } else {
+          updateToolProgress(spaceId, progress.requestId, progress.toolName, toolProgress);
+        }
       }
     },
   });

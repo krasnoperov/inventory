@@ -51,6 +51,19 @@ export interface ChatMessage {
   };
 }
 
+/**
+ * Tool progress for agentic loop feedback
+ */
+export interface ToolProgress {
+  requestId: string;
+  toolName: string;
+  toolParams: Record<string, unknown>;
+  status: 'executing' | 'complete' | 'failed';
+  result?: string;
+  error?: string;
+  timestamp: number;
+}
+
 export interface ChatSession {
   messages: ChatMessage[];
   inputBuffer: string;
@@ -64,6 +77,10 @@ export interface ChatSession {
   pendingApprovals: PendingApproval[];
   /** Results of auto-executed safe tools (trust zones) */
   lastAutoExecuted: AutoExecutedAction[];
+  /** Tool execution progress for active request */
+  toolProgress: ToolProgress[];
+  /** Active request ID (for showing progress) */
+  activeRequestId: string | null;
 }
 
 interface ChatState {
@@ -97,6 +114,12 @@ interface ChatState {
   updateServerApproval: (spaceId: string, approval: ServerApproval) => void;
   syncServerApprovals: (spaceId: string, approvals: ServerApproval[]) => void;
   syncServerAutoExecuted: (spaceId: string, autoExecuted: ServerAutoExecuted) => void;
+
+  // Tool progress actions (agentic loop)
+  setActiveRequest: (spaceId: string, requestId: string | null) => void;
+  addToolProgress: (spaceId: string, progress: Omit<ToolProgress, 'timestamp'>) => void;
+  updateToolProgress: (spaceId: string, requestId: string, toolName: string, update: Partial<ToolProgress>) => void;
+  clearToolProgress: (spaceId: string) => void;
 }
 
 // =============================================================================
@@ -113,6 +136,8 @@ const createEmptySession = (): ChatSession => ({
   lastUpdated: Date.now(),
   pendingApprovals: [],
   lastAutoExecuted: [],
+  toolProgress: [],
+  activeRequestId: null,
 });
 
 const generateMessageId = (): string => {
@@ -467,6 +492,78 @@ export const useChatStore = create<ChatState>()(
           };
         });
       },
+
+      // Tool progress actions (agentic loop)
+      setActiveRequest: (spaceId, requestId) => {
+        set((state) => ({
+          sessions: {
+            ...state.sessions,
+            [spaceId]: {
+              ...(state.sessions[spaceId] || createEmptySession()),
+              activeRequestId: requestId,
+              // Clear progress when setting a new request
+              toolProgress: requestId ? [] : state.sessions[spaceId]?.toolProgress || [],
+              lastUpdated: Date.now(),
+            },
+          },
+        }));
+      },
+
+      addToolProgress: (spaceId, progress) => {
+        set((state) => {
+          const session = state.sessions[spaceId] || createEmptySession();
+          const newProgress: ToolProgress = {
+            ...progress,
+            timestamp: Date.now(),
+          };
+          return {
+            sessions: {
+              ...state.sessions,
+              [spaceId]: {
+                ...session,
+                toolProgress: [...session.toolProgress, newProgress],
+                lastUpdated: Date.now(),
+              },
+            },
+          };
+        });
+      },
+
+      updateToolProgress: (spaceId, requestId, toolName, update) => {
+        set((state) => {
+          const session = state.sessions[spaceId];
+          if (!session) return state;
+
+          return {
+            sessions: {
+              ...state.sessions,
+              [spaceId]: {
+                ...session,
+                toolProgress: session.toolProgress.map(p =>
+                  p.requestId === requestId && p.toolName === toolName
+                    ? { ...p, ...update, timestamp: Date.now() }
+                    : p
+                ),
+                lastUpdated: Date.now(),
+              },
+            },
+          };
+        });
+      },
+
+      clearToolProgress: (spaceId) => {
+        set((state) => ({
+          sessions: {
+            ...state.sessions,
+            [spaceId]: {
+              ...(state.sessions[spaceId] || createEmptySession()),
+              toolProgress: [],
+              activeRequestId: null,
+              lastUpdated: Date.now(),
+            },
+          },
+        }));
+      },
     }),
     {
       name: 'chat-storage',
@@ -488,6 +585,7 @@ export const useChatStore = create<ChatState>()(
 const emptyMessages: ChatMessage[] = [];
 const emptyApprovals: PendingApproval[] = [];
 const emptyAutoExecuted: AutoExecutedAction[] = [];
+const emptyToolProgress: ToolProgress[] = [];
 const defaultSession: ChatSession = {
   messages: emptyMessages,
   inputBuffer: '',
@@ -498,6 +596,8 @@ const defaultSession: ChatSession = {
   lastUpdated: 0,
   pendingApprovals: emptyApprovals,
   lastAutoExecuted: emptyAutoExecuted,
+  toolProgress: emptyToolProgress,
+  activeRequestId: null,
 };
 
 // =============================================================================
@@ -571,6 +671,22 @@ export function usePendingApprovals(spaceId: string) {
 export function useLastAutoExecuted(spaceId: string) {
   const selector = useCallback(
     (state: ChatState) => state.sessions[spaceId]?.lastAutoExecuted ?? emptyAutoExecuted,
+    [spaceId]
+  );
+  return useChatStore(selector);
+}
+
+export function useToolProgress(spaceId: string) {
+  const selector = useCallback(
+    (state: ChatState) => state.sessions[spaceId]?.toolProgress ?? emptyToolProgress,
+    [spaceId]
+  );
+  return useChatStore(selector);
+}
+
+export function useActiveRequestId(spaceId: string) {
+  const selector = useCallback(
+    (state: ChatState) => state.sessions[spaceId]?.activeRequestId ?? null,
     [spaceId]
   );
   return useChatStore(selector);

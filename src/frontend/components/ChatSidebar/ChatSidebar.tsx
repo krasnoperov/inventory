@@ -9,6 +9,8 @@ import {
   usePendingApprovals,
   useLastAutoExecuted,
   useShowPreferencesPanel,
+  useToolProgress,
+  useActiveRequestId,
   type ChatMessage,
 } from '../../stores/chatStore';
 import {
@@ -17,6 +19,7 @@ import {
   getVariantThumbnailUrl,
   type ChatRequestParams,
   type ChatResponseResult,
+  type DeferredAction,
   type DescribeRequestParams,
   type CompareRequestParams,
   type DescribeResponseResult,
@@ -36,6 +39,7 @@ import { MessageList } from './MessageList';
 import { PlanPanel } from './PlanPanel';
 import { ChatInput } from './ChatInput';
 import { PreferencesPanel } from './PreferencesPanel';
+import { ToolProgressList } from './ToolProgressCard';
 import styles from './ChatSidebar.module.css';
 
 // =============================================================================
@@ -125,6 +129,8 @@ export function ChatSidebar({
   const pendingApprovals = usePendingApprovals(spaceId);
   const lastAutoExecuted = useLastAutoExecuted(spaceId);
   const showPreferences = useShowPreferencesPanel(spaceId);
+  const toolProgress = useToolProgress(spaceId);
+  const activeRequestId = useActiveRequestId(spaceId);
 
   // Store actions
   const {
@@ -143,6 +149,9 @@ export function ChatSidebar({
     setLastAutoExecuted,
     // Preferences panel
     setShowPreferencesPanel,
+    // Tool progress actions
+    setActiveRequest,
+    clearToolProgress,
   } = useChatStore();
 
   // Local state (transient - not persisted)
@@ -230,6 +239,10 @@ export function ChatSidebar({
   const slots = useForgeTrayStore((state) => state.slots);
   const prompt = useForgeTrayStore((state) => state.prompt);
   const _prefillFromStep = useForgeTrayStore((state) => state.prefillFromStep); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const addSlot = useForgeTrayStore((state) => state.addSlot);
+  const removeSlot = useForgeTrayStore((state) => state.removeSlot);
+  const clearSlots = useForgeTrayStore((state) => state.clearSlots);
+  const setPromptInTray = useForgeTrayStore((state) => state.setPrompt);
 
   // Build forge context
   const forgeContext = useMemo<ForgeContext>(() => {
@@ -355,6 +368,44 @@ export function ChatSidebar({
   }, [lastCompletedJob, isOpen, spaceId, toolExec, addMessage, allVariants, sendDescribeRequest]);
 
   // ==========================================================================
+  // Apply Deferred Actions (tray operations from agentic loop)
+  // ==========================================================================
+
+  const applyDeferredActions = useCallback((actions: DeferredAction[]) => {
+    for (const action of actions) {
+      switch (action.tool) {
+        case 'add_to_tray': {
+          const assetId = action.params.assetId as string;
+          const asset = allAssets.find(a => a.id === assetId);
+          if (asset) {
+            const targetVariantId = asset.active_variant_id;
+            const variant = allVariants.find(v => v.id === targetVariantId);
+            if (variant) {
+              addSlot(variant, asset);
+            }
+          }
+          break;
+        }
+        case 'remove_from_tray': {
+          const slotIndex = action.params.slotIndex as number;
+          if (slots[slotIndex]) {
+            removeSlot(slots[slotIndex].id);
+          }
+          break;
+        }
+        case 'clear_tray':
+          clearSlots();
+          break;
+        case 'set_prompt': {
+          const newPrompt = action.params.prompt as string;
+          setPromptInTray(newPrompt);
+          break;
+        }
+      }
+    }
+  }, [allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPromptInTray]);
+
+  // ==========================================================================
   // WebSocket Chat Response Handler
   // ==========================================================================
 
@@ -428,6 +479,8 @@ Please suggest an alternative approach or modified parameters that might work. I
       } else {
         isRecoveryAttemptRef.current = false;
         setIsRecovering(false);
+        // Clear tool progress on error (no recovery)
+        clearToolProgress(spaceId);
       }
       return;
     }
@@ -435,6 +488,14 @@ Please suggest an alternative approach or modified parameters that might work. I
     // Reset recovery flag on success
     isRecoveryAttemptRef.current = false;
     setIsRecovering(false);
+
+    // Clear tool progress - response is complete
+    clearToolProgress(spaceId);
+
+    // Apply deferred actions (tray operations from agentic loop)
+    if (chatResponse.deferredActions && chatResponse.deferredActions.length > 0) {
+      applyDeferredActions(chatResponse.deferredActions);
+    }
 
     const botResponse = chatResponse.response as BotResponse | undefined;
     if (!botResponse) {
@@ -524,7 +585,7 @@ Please suggest an alternative approach or modified parameters that might work. I
         }
       }
     });
-  }, [chatResponse, spaceId, addMessage, setPendingApprovals, toolExec, refreshUsage]);
+  }, [chatResponse, spaceId, addMessage, setPendingApprovals, toolExec, refreshUsage, clearToolProgress, applyDeferredActions]);
 
   // ==========================================================================
   // Simple Plan Handler
@@ -661,7 +722,10 @@ Please suggest an alternative approach or modified parameters that might work. I
 
     // Store pending request info for response handler
     pendingChatRequestRef.current = { requestId, messageToSend, modeToUse };
-  }, [inputValue, isLoading, spaceId, mode, forgeContext, viewingContext, setInputBuffer, addMessage, sendChatRequest]);
+
+    // Set active request for progress tracking
+    setActiveRequest(spaceId, requestId);
+  }, [inputValue, isLoading, spaceId, mode, forgeContext, viewingContext, setInputBuffer, addMessage, sendChatRequest, setActiveRequest]);
 
   const retryMessage = useCallback((payload: { message: string; mode: 'advisor' | 'actor' }) => {
     // Remove the last error message
@@ -690,6 +754,24 @@ Please suggest an alternative approach or modified parameters that might work. I
     setMode(spaceId, newMode);
   }, [spaceId, setMode]);
 
+  // Copy conversation to clipboard
+  const [copySuccess, setCopySuccess] = useState(false);
+  const handleCopyConversation = useCallback(async () => {
+    if (messages.length === 0) return;
+
+    const formatted = messages
+      .map(msg => `${msg.role === 'user' ? 'You' : 'Assistant'}:\n${msg.content}`)
+      .join('\n\n---\n\n');
+
+    try {
+      await navigator.clipboard.writeText(formatted);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy conversation:', err);
+    }
+  }, [messages]);
+
   // ==========================================================================
   // Render
   // ==========================================================================
@@ -707,6 +789,23 @@ Please suggest an alternative approach or modified parameters that might work. I
           <h3>Assistant</h3>
         </div>
         <div className={styles.headerActions}>
+          <button
+            className={`${styles.settingsButton} ${copySuccess ? styles.copySuccess : ''}`}
+            onClick={handleCopyConversation}
+            disabled={messages.length === 0}
+            title={copySuccess ? 'Copied!' : 'Copy conversation'}
+          >
+            {copySuccess ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            )}
+          </button>
           <button
             className={styles.settingsButton}
             onClick={() => setShowPreferencesPanel(spaceId, true)}
@@ -876,6 +975,13 @@ Please suggest an alternative approach or modified parameters that might work. I
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Tool Progress - shows during agentic loop execution */}
+      {toolProgress.length > 0 && (
+        <div className={styles.toolProgressContainer}>
+          <ToolProgressList progress={toolProgress} requestId={activeRequestId} />
         </div>
       )}
 

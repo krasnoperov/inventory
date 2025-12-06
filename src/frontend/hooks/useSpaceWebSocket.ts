@@ -240,12 +240,20 @@ export interface CompareRequestParams {
   aspects?: string[];
 }
 
+// Deferred action from agentic loop (tray operations)
+export interface DeferredAction {
+  tool: string;
+  params: Record<string, unknown>;
+  acknowledgment: string;
+}
+
 // Chat response from workflow
 export interface ChatResponseResult {
   requestId: string;
   success: boolean;
   response?: BotResponse;
   error?: string;
+  deferredActions?: DeferredAction[];
 }
 
 // Describe response from server
@@ -266,6 +274,16 @@ export interface CompareResponseResult {
   usage?: ClaudeUsage;
 }
 
+// Chat progress update (agentic loop tool execution)
+export interface ChatProgressResult {
+  requestId: string;
+  toolName: string;
+  toolParams: Record<string, unknown>;
+  status: 'executing' | 'complete' | 'failed';
+  result?: string;
+  error?: string;
+}
+
 // WebSocket connection parameters
 export interface UseSpaceWebSocketParams {
   spaceId: string;
@@ -274,6 +292,7 @@ export interface UseSpaceWebSocketParams {
   onJobComplete?: (job: JobStatus, variant: Variant) => void;
   onChatMessage?: (message: ChatMessage) => void;
   onChatResponse?: (response: ChatResponseResult) => void;
+  onChatProgress?: (progress: ChatProgressResult) => void;
   onGenerateStarted?: (data: { requestId: string; jobId: string; assetId: string; assetName: string }) => void;
   onGenerateResult?: (data: { requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }) => void;
   onDescribeResponse?: (response: DescribeResponseResult) => void;
@@ -343,7 +362,8 @@ type ServerMessage =
   | { type: 'presence:update'; presence: UserPresence[] }
   | { type: 'error'; code: string; message: string }
   // Workflow response messages
-  | { type: 'chat:response'; requestId: string; success: boolean; response?: BotResponse; error?: string }
+  | { type: 'chat:response'; requestId: string; success: boolean; response?: BotResponse; error?: string; deferredActions?: DeferredAction[] }
+  | { type: 'chat:progress'; requestId: string; toolName: string; toolParams: Record<string, unknown>; status: 'executing' | 'complete' | 'failed'; result?: string; error?: string }
   | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }
   | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
@@ -456,6 +476,7 @@ export function useSpaceWebSocket({
   onJobComplete,
   onChatMessage,
   onChatResponse,
+  onChatProgress,
   onGenerateStarted,
   onGenerateResult,
   onDescribeResponse,
@@ -717,6 +738,7 @@ export function useSpaceWebSocket({
   const onJobCompleteRef = useRef(onJobComplete);
   const onChatMessageRef = useRef(onChatMessage);
   const onChatResponseRef = useRef(onChatResponse);
+  const onChatProgressRef = useRef(onChatProgress);
   const onGenerateStartedRef = useRef(onGenerateStarted);
   const onGenerateResultRef = useRef(onGenerateResult);
   const onDescribeResponseRef = useRef(onDescribeResponse);
@@ -738,6 +760,7 @@ export function useSpaceWebSocket({
     onJobCompleteRef.current = onJobComplete;
     onChatMessageRef.current = onChatMessage;
     onChatResponseRef.current = onChatResponse;
+    onChatProgressRef.current = onChatProgress;
     onGenerateStartedRef.current = onGenerateStarted;
     onGenerateResultRef.current = onGenerateResult;
     onDescribeResponseRef.current = onDescribeResponse;
@@ -943,6 +966,18 @@ export function useSpaceWebSocket({
                   requestId: message.requestId,
                   success: message.success,
                   response: message.response,
+                  error: message.error,
+                  deferredActions: message.deferredActions,
+                });
+                break;
+
+              case 'chat:progress':
+                onChatProgressRef.current?.({
+                  requestId: message.requestId,
+                  toolName: message.toolName,
+                  toolParams: message.toolParams,
+                  status: message.status,
+                  result: message.result,
                   error: message.error,
                 });
                 break;

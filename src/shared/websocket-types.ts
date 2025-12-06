@@ -204,3 +204,37 @@ export interface ViewingContext {
   /** Index of the currently selected variant (1-based for display) */
   variantIndex?: number;
 }
+
+// ============================================================================
+// CHAT PROGRESS TYPES - For agentic loop tool execution feedback
+// ============================================================================
+
+/**
+ * Progress message for tool execution during agentic loop.
+ * Sent by ChatWorkflow as tools are executed.
+ */
+export interface ChatProgressMessage {
+  type: 'chat:progress';
+  /** Request ID for correlation */
+  requestId: string;
+  /** Name of the tool being executed */
+  toolName: string;
+  /** Tool parameters (for display context) */
+  toolParams: Record<string, unknown>;
+  /** Current status */
+  status: 'executing' | 'complete' | 'failed';
+  /** Preview of result (truncated for UI) */
+  result?: string;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Deferred action for frontend to execute after chat response.
+ * Tray operations are deferred to frontend for state management.
+ */
+export interface DeferredAction {
+  tool: string;
+  params: Record<string, unknown>;
+  acknowledgment: string;
+}

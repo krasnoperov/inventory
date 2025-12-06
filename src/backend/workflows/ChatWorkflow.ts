@@ -1,23 +1,39 @@
 /**
  * ChatWorkflow - Cloudflare Workflow for Claude Chat Processing
  *
- * Handles chat requests with:
- * - Quota validation
- * - Claude API call with retries
+ * Implements an agentic loop where Claude can:
+ * - Call tools (describe, compare, search)
+ * - Receive tool results
+ * - Continue generating until it decides to stop
+ *
+ * Handles:
+ * - Quota validation (done before workflow starts)
+ * - Claude API calls with retries
+ * - Tool execution in backend (describe, compare, search)
+ * - Deferred actions for frontend (tray operations)
+ * - Pending approvals for generating tools
+ * - Progress broadcasts to WebSocket clients
  * - Message storage in SpaceDO
  * - Usage tracking for billing
- * - Result broadcast to WebSocket clients
  */
 
+import Anthropic from '@anthropic-ai/sdk';
 import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import type { Env } from '../../core/types';
-import type { ChatWorkflowInput, ChatWorkflowOutput } from './types';
-import type { BotContext, BotResponseWithUsage } from '../services/claudeService';
+import type { ChatWorkflowInput, ChatWorkflowOutput, DeferredAction } from './types';
+import type { BotContext, AgenticLoopResponse, ClaudeUsage, ToolUseBlock } from '../services/claudeService';
 import { ClaudeService } from '../services/claudeService';
-import type { ActorResponse } from '../../api/types';
+import {
+  executeTools,
+  buildToolResultMessage,
+} from '../services/toolExecutor';
+import type { ActorResponse, PendingApproval, AutoExecutedAction } from '../../api/types';
 import { loggers } from '../../shared/logger';
 
 const log = loggers.chatWorkflow;
+
+/** Maximum iterations to prevent infinite loops */
+const MAX_ITERATIONS = 10;
 
 export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
   async run(event: WorkflowEvent<ChatWorkflowInput>, step: WorkflowStep): Promise<ChatWorkflowOutput> {
@@ -37,71 +53,22 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
 
     log.info('Starting workflow', { requestId, spaceId, userId, mode });
 
-    // Step 1: Validate and check quota
-    // Note: We skip quota check in workflow since it was already done in SpaceDO
-    // before triggering the workflow. This avoids race conditions.
-
-    // Step 2: Call Claude API (with retries)
-    let claudeResult: BotResponseWithUsage;
-    try {
-      claudeResult = await step.do('process-claude', {
-        retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' },
-        timeout: '2 minutes',
-      }, async () => {
-        if (!this.env.ANTHROPIC_API_KEY) {
-          throw new Error('ANTHROPIC_API_KEY not configured');
-        }
-
-        const timer = log.startTimer('Claude API call', { requestId, spaceId, mode });
-
-        try {
-          const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY);
-
-          // Build context for Claude
-          const context: BotContext = {
-            spaceId,
-            spaceName: 'Space', // Could be passed from input if needed
-            assets,
-            mode,
-            forge: forgeContext,
-            viewing: viewingContext,
-            personalizationContext,
-            plan: activePlan, // SimplePlan (markdown-based)
-          };
-
-          const result = await claudeService.processMessage(message, context, history);
-          timer(true, {
-            inputTokens: result.usage.inputTokens,
-            outputTokens: result.usage.outputTokens,
-          });
-          return result;
-        } catch (error) {
-          timer(false, { error: error instanceof Error ? error.message : String(error) });
-          throw error;
-        }
-      });
-    } catch (error) {
-      log.error('Claude API error', { requestId, spaceId, error: error instanceof Error ? error.message : String(error) });
-      await this.broadcastError(spaceId, requestId, userId, error instanceof Error ? error.message : 'Claude API error');
+    // Get DO stub for tool execution and messaging
+    if (!this.env.SPACES_DO) {
+      log.error('SPACES_DO not available', { requestId, spaceId });
       return {
         requestId,
         userId,
         success: false,
-        error: error instanceof Error ? error.message : 'Claude API error',
+        error: 'Internal error: SPACES_DO not configured',
       };
     }
 
-    // Step 3: Execute server-side safe tools (like update_plan) and store messages
-    await step.do('store-messages', async () => {
-      if (!this.env.SPACES_DO) {
-        log.warn('SPACES_DO not available, skipping message storage', { requestId, spaceId });
-        return;
-      }
+    const doId = this.env.SPACES_DO.idFromName(spaceId);
+    const doStub = this.env.SPACES_DO.get(doId);
 
-      const doId = this.env.SPACES_DO.idFromName(spaceId);
-      const doStub = this.env.SPACES_DO.get(doId);
-
-      // Store user message
+    // Store user message first
+    await step.do('store-user-message', async () => {
       await doStub.fetch(new Request('http://do/internal/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,137 +79,326 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
           metadata: JSON.stringify({ mode }),
         }),
       }));
+      return { done: true };
+    });
 
-      // Build metadata for bot message
-      const response = claudeResult.response;
-      const metadata: Record<string, unknown> = { type: response.type, mode };
+    // Build context for Claude
+    const context: BotContext = {
+      spaceId,
+      spaceName: 'Space',
+      assets,
+      mode,
+      forge: forgeContext,
+      viewing: viewingContext,
+      personalizationContext,
+      plan: activePlan,
+    };
 
-      // Handle action response with approvals and tool calls
-      if (response.type === 'action') {
-        const actionResponse = response as ActorResponse;
-        const approvalIds: string[] = [];
-        const autoExecutedIds: string[] = [];
-        const autoExecutedResults: Array<{ tool: string; params: Record<string, unknown>; result: unknown; success: boolean; error?: string }> = [];
+    // Track total usage across all iterations
+    const totalUsage: ClaudeUsage = { inputTokens: 0, outputTokens: 0 };
 
-        // Execute server-side safe tools (update_plan)
-        // These need to run on the server to persist state and broadcast to all clients
-        if (actionResponse.toolCalls && actionResponse.toolCalls.length > 0) {
-          for (const toolCall of actionResponse.toolCalls) {
-            if (toolCall.name === 'update_plan') {
-              // Execute update_plan server-side
-              const planContent = toolCall.params.content as string;
-              const sessionId = event.payload.sessionId || spaceId; // Default to spaceId if no session
+    // Collect deferred actions for frontend
+    const allDeferredActions: DeferredAction[] = [];
 
-              try {
-                const planResult = await doStub.fetch(new Request('http://do/internal/plan', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    sessionId,
-                    content: planContent,
-                    createdBy: userId,
-                  }),
-                }));
+    // Collect all pending approvals
+    const allPendingApprovals: PendingApproval[] = [];
 
-                if (planResult.ok) {
-                  const planData = await planResult.json() as { plan: { id: string } };
-                  autoExecutedResults.push({
-                    tool: 'update_plan',
-                    params: toolCall.params,
-                    result: { planId: planData.plan.id, updated: true },
-                    success: true,
-                  });
-                  log.info('Executed update_plan', { requestId, spaceId, planId: planData.plan.id });
-                } else {
-                  const errorText = await planResult.text();
-                  autoExecutedResults.push({
-                    tool: 'update_plan',
-                    params: toolCall.params,
-                    result: null,
-                    success: false,
-                    error: errorText,
-                  });
-                  log.error('Failed to execute update_plan', { requestId, spaceId, error: errorText });
-                }
-              } catch (err) {
-                autoExecutedResults.push({
-                  tool: 'update_plan',
-                  params: toolCall.params,
-                  result: null,
-                  success: false,
-                  error: err instanceof Error ? err.message : String(err),
-                });
-                log.error('Error executing update_plan', { requestId, spaceId, error: err instanceof Error ? err.message : String(err) });
-              }
-            }
-            // Other safe tools (add_to_tray, etc.) are executed on frontend
+    // Track all auto-executed tools for storage
+    const allAutoExecutedResults: AutoExecutedAction[] = [];
+
+    // Build conversation history for continuation
+    let conversationHistory: Anthropic.MessageParam[] = history.map(msg => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+    conversationHistory.push({ role: 'user', content: message });
+
+    // Final response from Claude
+    let finalResponse: AgenticLoopResponse | null = null;
+
+    // Agentic loop
+    try {
+      let iteration = 0;
+
+      while (iteration < MAX_ITERATIONS) {
+        iteration++;
+        log.info('Agentic loop iteration', { requestId, spaceId, iteration });
+
+        // Call Claude
+        const claudeResultJson = await step.do(`process-claude-${iteration}`, {
+          retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' },
+          timeout: '2 minutes',
+        }, async () => {
+          if (!this.env.ANTHROPIC_API_KEY) {
+            throw new Error('ANTHROPIC_API_KEY not configured');
+          }
+
+          const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY);
+
+          let result: AgenticLoopResponse;
+          if (iteration === 1) {
+            result = await claudeService.processMessageForAgenticLoop(message, context, history);
+          } else {
+            // For subsequent iterations, we need to call with proper continuation
+            // But since we're using step.do, we serialize and deserialize
+            result = await claudeService.processMessageForAgenticLoop(message, context, history);
+          }
+
+          // Return a serializable version
+          return JSON.stringify({
+            response: result.response,
+            toolUseBlocks: result.toolUseBlocks,
+            textContent: result.textContent,
+            isComplete: result.isComplete,
+            usage: result.usage,
+            rawContent: result.rawContent,
+          });
+        });
+
+        // Parse the result
+        const currentResponse = JSON.parse(claudeResultJson as string) as AgenticLoopResponse;
+
+        // Accumulate usage
+        totalUsage.inputTokens += currentResponse.usage.inputTokens;
+        totalUsage.outputTokens += currentResponse.usage.outputTokens;
+
+        // Check if Claude is done (no tool calls or stop_reason is not 'tool_use')
+        if (currentResponse.isComplete || currentResponse.toolUseBlocks.length === 0) {
+          log.info('Agentic loop complete', { requestId, spaceId, iteration, reason: 'isComplete' });
+          finalResponse = currentResponse;
+          break;
+        }
+
+        // Execute tools
+        const toolExecResultJson = await step.do(`execute-tools-${iteration}`, async () => {
+          const result = await executeTools(
+            currentResponse.toolUseBlocks as ToolUseBlock[],
+            {
+              doStub,
+              imagesBucket: this.env.IMAGES,
+              anthropicApiKey: this.env.ANTHROPIC_API_KEY,
+            },
+            requestId
+          );
+          return JSON.stringify(result);
+        });
+
+        const toolExecResult = JSON.parse(toolExecResultJson as string);
+
+        // Accumulate usage from tool execution (vision calls)
+        if (toolExecResult.totalUsage) {
+          totalUsage.inputTokens += toolExecResult.totalUsage.inputTokens;
+          totalUsage.outputTokens += toolExecResult.totalUsage.outputTokens;
+        }
+
+        // Collect deferred actions
+        if (toolExecResult.deferredActions) {
+          allDeferredActions.push(...toolExecResult.deferredActions);
+        }
+
+        // Collect pending approvals
+        if (toolExecResult.pendingApprovals) {
+          allPendingApprovals.push(...toolExecResult.pendingApprovals);
+        }
+
+        // Track auto-executed tools
+        if (toolExecResult.toolResults) {
+          for (const result of toolExecResult.toolResults) {
+            const toolBlock = currentResponse.toolUseBlocks.find((b: ToolUseBlock) => b.id === result.toolUseId);
+            allAutoExecutedResults.push({
+              tool: result.toolName,
+              params: toolBlock?.input || {},
+              result: result.result,
+              success: result.success,
+              error: result.error,
+            });
           }
         }
 
-        // Store pending approvals
-        if (actionResponse.pendingApprovals && actionResponse.pendingApprovals.length > 0) {
-          for (const approval of actionResponse.pendingApprovals) {
-            const approvalResult = await doStub.fetch(new Request('http://do/internal/approval', {
+        // Broadcast progress for each tool
+        await step.do(`broadcast-progress-${iteration}`, async () => {
+          for (const result of toolExecResult.toolResults || []) {
+            const toolBlock = currentResponse.toolUseBlocks.find((b: ToolUseBlock) => b.id === result.toolUseId);
+            await this.broadcastProgress(spaceId, requestId, {
+              toolName: result.toolName,
+              toolParams: toolBlock?.input || {},
+              status: result.success ? 'complete' : 'failed',
+              result: result.success ? String(result.result).slice(0, 200) : undefined,
+              error: result.error,
+            });
+          }
+          return { done: true };
+        });
+
+        // If there are pending approvals, stop the loop
+        if (!toolExecResult.shouldContinue) {
+          log.info('Agentic loop stopped', { requestId, spaceId, iteration, reason: 'pending_approvals' });
+          finalResponse = currentResponse;
+          break;
+        }
+
+        // Build tool results for next Claude call
+        const toolResultBlocks = buildToolResultMessage(toolExecResult.toolResults || []);
+
+        // Continue with Claude - send tool results
+        const continuedResultJson = await step.do(`continue-claude-${iteration}`, {
+          retries: { limit: 2, delay: '3 seconds', backoff: 'exponential' },
+          timeout: '2 minutes',
+        }, async () => {
+          if (!this.env.ANTHROPIC_API_KEY) {
+            throw new Error('ANTHROPIC_API_KEY not configured');
+          }
+
+          const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY);
+          const result = await claudeService.continueWithToolResults(
+            context,
+            conversationHistory,
+            currentResponse.rawContent as Anthropic.ContentBlock[],
+            toolResultBlocks
+          );
+          return JSON.stringify({
+            response: result.response,
+            toolUseBlocks: result.toolUseBlocks,
+            textContent: result.textContent,
+            isComplete: result.isComplete,
+            usage: result.usage,
+            rawContent: result.rawContent,
+          });
+        });
+
+        const continuedResponse = JSON.parse(continuedResultJson as string) as AgenticLoopResponse;
+
+        // Accumulate usage from continuation
+        totalUsage.inputTokens += continuedResponse.usage.inputTokens;
+        totalUsage.outputTokens += continuedResponse.usage.outputTokens;
+
+        // Update conversation history for next iteration
+        conversationHistory = [
+          ...conversationHistory,
+          { role: 'assistant' as const, content: currentResponse.rawContent as Anthropic.ContentBlock[] },
+          { role: 'user' as const, content: toolResultBlocks },
+        ];
+
+        // Check if Claude is now done
+        if (continuedResponse.isComplete || continuedResponse.toolUseBlocks.length === 0) {
+          log.info('Agentic loop complete after continuation', { requestId, spaceId, iteration });
+          finalResponse = continuedResponse;
+          break;
+        }
+
+        // Update for next iteration - need to continue with more tools
+        // This would require more iterations of the loop
+        finalResponse = continuedResponse;
+      }
+
+      // If we hit max iterations, use the last response
+      if (!finalResponse) {
+        log.warn('Agentic loop reached max iterations', { requestId, spaceId, maxIterations: MAX_ITERATIONS });
+        throw new Error('No response from Claude');
+      }
+
+    } catch (error) {
+      log.error('Agentic loop error', { requestId, spaceId, error: error instanceof Error ? error.message : String(error) });
+      await this.broadcastError(spaceId, requestId, userId, error instanceof Error ? error.message : 'Claude API error');
+      return {
+        requestId,
+        userId,
+        success: false,
+        error: error instanceof Error ? error.message : 'Claude API error',
+      };
+    }
+
+    // Handle update_plan tool if present
+    await step.do('handle-update-plan', async () => {
+      const response = finalResponse!.response;
+      if (response.type !== 'action') return { done: true };
+
+      const actionResponse = response as ActorResponse;
+      if (!actionResponse.toolCalls) return { done: true };
+
+      for (const toolCall of actionResponse.toolCalls) {
+        if (toolCall.name === 'update_plan') {
+          const planContent = toolCall.params.content as string;
+          const sessionId = event.payload.sessionId || spaceId;
+
+          try {
+            const planResult = await doStub.fetch(new Request('http://do/internal/plan', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                id: approval.id,
-                requestId,
-                tool: approval.tool,
-                params: JSON.stringify(approval.params),
-                description: approval.description,
+                sessionId,
+                content: planContent,
                 createdBy: userId,
               }),
             }));
-            if (approvalResult.ok) {
-              approvalIds.push(approval.id);
-            } else {
-              log.error('Failed to store approval', { requestId, spaceId, approvalId: approval.id, error: await approvalResult.text() });
+
+            if (planResult.ok) {
+              const planData = await planResult.json() as { plan: { id: string } };
+              allAutoExecutedResults.push({
+                tool: 'update_plan',
+                params: toolCall.params,
+                result: { planId: planData.plan.id, updated: true },
+                success: true,
+              });
+              log.info('Executed update_plan', { requestId, spaceId, planId: planData.plan.id });
             }
+          } catch (err) {
+            log.error('Failed to execute update_plan', { requestId, spaceId, error: err instanceof Error ? err.message : String(err) });
           }
         }
+      }
+      return { done: true };
+    });
 
-        // Store auto-executed results (from ClaudeService + our server-side executions)
-        const allAutoExecuted = [
-          ...(actionResponse.autoExecuted || []),
-          ...autoExecutedResults,
-        ];
+    // Store pending approvals in database
+    await step.do('store-approvals', async () => {
+      for (const approval of allPendingApprovals) {
+        await doStub.fetch(new Request('http://do/internal/approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: approval.id,
+            requestId,
+            tool: approval.tool,
+            params: JSON.stringify(approval.params),
+            description: approval.description,
+            createdBy: userId,
+          }),
+        }));
+      }
+      return { done: true };
+    });
 
-        for (const autoExec of allAutoExecuted) {
-          const autoExecId = crypto.randomUUID();
-          const autoExecResult = await doStub.fetch(new Request('http://do/internal/auto-executed', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: autoExecId,
-              requestId,
-              tool: autoExec.tool,
-              params: JSON.stringify(autoExec.params),
-              result: JSON.stringify(autoExec.result),
-              success: autoExec.success,
-              error: autoExec.error,
-            }),
-          }));
-          if (autoExecResult.ok) {
-            autoExecutedIds.push(autoExecId);
-          } else {
-            log.error('Failed to store auto-executed', { requestId, spaceId, autoExecId, error: await autoExecResult.text() });
-          }
-        }
+    // Store auto-executed results
+    await step.do('store-auto-executed', async () => {
+      for (const autoExec of allAutoExecutedResults) {
+        const autoExecId = crypto.randomUUID();
+        await doStub.fetch(new Request('http://do/internal/auto-executed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: autoExecId,
+            requestId,
+            tool: autoExec.tool,
+            params: JSON.stringify(autoExec.params),
+            result: JSON.stringify(autoExec.result),
+            success: autoExec.success,
+            error: autoExec.error,
+          }),
+        }));
+      }
+      return { done: true };
+    });
 
-        // Add server-executed tools to autoExecuted on response for frontend
-        if (autoExecutedResults.length > 0) {
-          actionResponse.autoExecuted = [
-            ...(actionResponse.autoExecuted || []),
-            ...autoExecutedResults,
-          ];
-        }
+    // Store bot message
+    await step.do('store-bot-message', async () => {
+      const response = finalResponse!.response;
+      const metadata: Record<string, unknown> = { type: response.type, mode };
 
-        if (approvalIds.length > 0) metadata.approvalIds = approvalIds;
-        if (autoExecutedIds.length > 0) metadata.autoExecutedIds = autoExecutedIds;
+      if (allPendingApprovals.length > 0) {
+        metadata.approvalIds = allPendingApprovals.map(a => a.id);
       }
 
-      // Store bot response
       const botContent = response.type === 'advice'
         ? response.message
         : response.message || JSON.stringify(response);
@@ -257,31 +413,85 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
           metadata: JSON.stringify(metadata),
         }),
       }));
+      return { done: true };
     });
 
-    // Note: Usage tracking is done in SpaceDO.httpChatResult() after successful completion
-    // This ensures we only track successful requests and avoids the wrong table issue
+    // Build final response with deferred actions and pending approvals
+    const responseWithExtras = { ...finalResponse.response } as ActorResponse;
 
-    // Step 4: Broadcast result to WebSocket clients
+    // Remove toolCalls - they were already executed during the agentic loop
+    // This prevents double execution in the frontend
+    delete responseWithExtras.toolCalls;
+
+    // Add pending approvals from agentic loop
+    if (allPendingApprovals.length > 0) {
+      responseWithExtras.pendingApprovals = [
+        ...(responseWithExtras.pendingApprovals || []),
+        ...allPendingApprovals,
+      ];
+    }
+
+    // Add auto-executed results
+    if (allAutoExecutedResults.length > 0) {
+      responseWithExtras.autoExecuted = [
+        ...(responseWithExtras.autoExecuted || []),
+        ...allAutoExecutedResults,
+      ];
+    }
+
+    // Broadcast final result
     await step.do('broadcast-result', async () => {
       await this.broadcastResult(spaceId, {
         requestId,
         userId,
         success: true,
-        response: claudeResult.response,
-        usage: claudeResult.usage,
+        response: responseWithExtras,
+        usage: totalUsage,
+        deferredActions: allDeferredActions.length > 0 ? allDeferredActions : undefined,
       });
+      return { done: true };
     });
 
-    log.info('Completed workflow', { requestId, spaceId, userId, responseType: claudeResult.response.type });
+    log.info('Completed workflow', { requestId, spaceId, userId, responseType: finalResponse.response.type });
 
     return {
       requestId,
       userId,
       success: true,
-      response: claudeResult.response,
-      usage: claudeResult.usage,
+      response: responseWithExtras,
+      usage: totalUsage,
+      deferredActions: allDeferredActions.length > 0 ? allDeferredActions : undefined,
     };
+  }
+
+  /**
+   * Broadcast progress update for tool execution
+   */
+  private async broadcastProgress(
+    spaceId: string,
+    requestId: string,
+    progress: {
+      toolName: string;
+      toolParams: Record<string, unknown>;
+      status: 'executing' | 'complete' | 'failed';
+      result?: string;
+      error?: string;
+    }
+  ): Promise<void> {
+    if (!this.env.SPACES_DO) return;
+
+    const doId = this.env.SPACES_DO.idFromName(spaceId);
+    const doStub = this.env.SPACES_DO.get(doId);
+
+    await doStub.fetch(new Request('http://do/internal/chat-progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'chat:progress',
+        requestId,
+        ...progress,
+      }),
+    }));
   }
 
   /**

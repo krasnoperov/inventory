@@ -91,6 +91,24 @@ export class VariantController extends BaseController {
   }
 
   /**
+   * Handle GET /internal/variant/:variantId HTTP request
+   * Returns variant with associated asset info for vision operations.
+   */
+  async httpGetById(variantId: string): Promise<Variant & { asset_name?: string }> {
+    const variant = await this.repo.getVariantById(variantId);
+    if (!variant) {
+      throw new NotFoundError('Variant not found');
+    }
+
+    // Get associated asset name for vision context
+    const asset = await this.repo.getAssetById(variant.asset_id);
+    return {
+      ...variant,
+      asset_name: asset?.name,
+    };
+  }
+
+  /**
    * Handle POST /internal/upload-placeholder HTTP request
    * Creates a placeholder variant with status='uploading' before R2 upload starts.
    * This allows all connected clients to see the upload in progress.

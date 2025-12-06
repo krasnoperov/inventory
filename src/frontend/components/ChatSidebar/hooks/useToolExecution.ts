@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect, useMemo } from 'react';
 import { useForgeTrayStore } from '../../../stores/forgeTrayStore';
-import type { Asset, Variant, DescribeRequestParams, CompareRequestParams, DescribeResponseResult, CompareResponseResult, DescribeFocus } from '../../../hooks/useSpaceWebSocket';
+import type { Asset, Variant, DescribeRequestParams, CompareRequestParams, DescribeResponseResult, CompareResponseResult } from '../../../hooks/useSpaceWebSocket';
 import type { ToolCall } from '../../../../api/types';
 
 // =============================================================================
@@ -67,7 +67,7 @@ interface PendingVisionRequest {
 }
 
 export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionReturn {
-  const { allAssets, allVariants, onGenerate, onFork, onDerive, onRefine, sendDescribeRequest, sendCompareRequest } = deps;
+  const { allAssets, allVariants, onGenerate, onFork, onDerive, onRefine } = deps;
 
   // Forge tray state
   const slots = useForgeTrayStore((state) => state.slots);
@@ -330,83 +330,14 @@ export function useToolExecution(deps: ToolExecutionDeps): UseToolExecutionRetur
         return `Started refining "${asset.name}"`;
       }
 
-      case 'search': {
-        const query = (params.query as string || '').toLowerCase();
-        const matches = allAssets.filter(a =>
-          a.name.toLowerCase().includes(query) ||
-          a.type.toLowerCase().includes(query)
-        );
-        if (matches.length === 0) return `No assets found matching "${params.query}"`;
-        return `Found: ${matches.map(a => a.name).join(', ')}`;
-      }
-
-      case 'describe': {
-        if (!sendDescribeRequest) return 'Describe not available (WebSocket not connected)';
-
-        const assetId = params.assetId as string;
-        const variantId = params.variantId as string | undefined;
-        const assetName = params.assetName as string;
-        const focus = (params.focus as DescribeFocus | undefined) || 'general';
-        const question = params.question as string | undefined;
-
-        // Resolve variantId if not provided
-        let targetVariantId = variantId;
-        if (!targetVariantId && assetId) {
-          const asset = allAssets.find(a => a.id === assetId);
-          targetVariantId = asset?.active_variant_id || undefined;
-        }
-
-        if (!targetVariantId) {
-          return 'No variant found for this asset';
-        }
-
-        // Send WebSocket request and wait for response
-        return new Promise<string>((resolve, reject) => {
-          const requestId = sendDescribeRequest({
-            assetId,
-            variantId: targetVariantId!,
-            assetName,
-            focus,
-            question,
-          });
-
-          pendingDescribeRef.current.set(requestId, {
-            resolve,
-            reject,
-            createdAt: Date.now(),
-          });
-        });
-      }
-
-      case 'compare': {
-        if (!sendCompareRequest) return 'Compare not available (WebSocket not connected)';
-
-        const variantIds = params.variantIds as string[];
-        const aspects = (params.aspectsToCompare as string[]) || ['style', 'composition', 'colors'];
-
-        if (!variantIds || variantIds.length < 2 || variantIds.length > 4) {
-          return 'Must provide 2-4 variants to compare';
-        }
-
-        // Send WebSocket request and wait for response
-        return new Promise<string>((resolve, reject) => {
-          const requestId = sendCompareRequest({
-            variantIds,
-            aspects,
-          });
-
-          pendingCompareRef.current.set(requestId, {
-            resolve,
-            reject,
-            createdAt: Date.now(),
-          });
-        });
-      }
+      // Note: 'search', 'describe', and 'compare' are now executed in the backend
+      // during the agentic loop (see toolExecutor.ts). They're not handled here
+      // because toolCalls are removed from the response before reaching the frontend.
 
       default:
         return `Unknown action: ${name}`;
     }
-  }, [allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPrompt, onGenerate, onFork, onDerive, onRefine, sendDescribeRequest, sendCompareRequest, trackJob]);
+  }, [allAssets, allVariants, slots, addSlot, removeSlot, clearSlots, setPrompt, onGenerate, onFork, onDerive, onRefine, trackJob]);
 
   // Execute all tool calls, collecting results
   const executeToolCalls = useCallback(async (toolCalls: ToolCall[]): Promise<string[]> => {

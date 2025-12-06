@@ -14,7 +14,7 @@ import type {
   DescribeRequestMessage,
   CompareRequestMessage,
 } from '../../workflows/types';
-import type { ClaudeUsage, ErrorCode, SimplePlan } from '../../../shared/websocket-types';
+import type { ClaudeUsage, DeferredAction, ErrorCode, SimplePlan } from '../../../shared/websocket-types';
 
 // Re-export plan types from shared module (single source of truth)
 export type { PlanStatus, PlanStepStatus } from '../../../shared/websocket-types';
@@ -330,7 +330,7 @@ export type ServerMessage =
   // Errors
   | { type: 'error'; code: ErrorCode; message: string }
   // Workflow response messages
-  | { type: 'chat:response'; requestId: string; success: boolean; response?: unknown; error?: string }
+  | { type: 'chat:response'; requestId: string; success: boolean; response?: unknown; error?: string; deferredActions?: DeferredAction[] }
   | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }
   | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   | { type: 'refine:started'; requestId: string; jobId: string; assetId: string; assetName: string }
@@ -338,6 +338,8 @@ export type ServerMessage =
   // Vision (describe/compare) response messages
   | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string; usage?: ClaudeUsage }
   | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage }
+  // Chat progress messages (agentic loop tool execution)
+  | { type: 'chat:progress'; requestId: string; toolName: string; toolParams: Record<string, unknown>; status: 'executing' | 'complete' | 'failed'; result?: string; error?: string }
   // Pre-check error messages (quota/rate limit exceeded)
   | { type: 'chat:error'; requestId: string; error: string; code: string }
   | { type: 'generate:error'; requestId: string; error: string; code: string }
