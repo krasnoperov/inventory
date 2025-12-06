@@ -654,8 +654,9 @@ ${context.assets.length > 0
 
     if (context.forge) {
       const { operation = 'generate', slots = [], prompt: forgePrompt } = context.forge;
+      // Include asset IDs so Claude can use them directly for derive/refine calls
       const slotList = slots.length > 0
-        ? slots.map((s, i) => `[${i}] ${s.assetName}`).join(', ')
+        ? slots.map((s, i) => `[${i}] ${s.assetName} (id: ${s.assetId})`).join(', ')
         : '(empty)';
       prompt += `FORGE TRAY: ${slotList} | Prompt: ${forgePrompt ? `"${forgePrompt}"` : '(none)'} | Mode: ${operation.toUpperCase()}
 

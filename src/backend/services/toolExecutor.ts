@@ -300,29 +300,44 @@ async function resolveReference(
 /**
  * Execute describe tool - analyze an image
  * Supports reference-based params: slot, viewing, asset
+ *
+ * IMPORTANT: Results include asset name prefix to help Claude correlate
+ * which description belongs to which asset when multiple describes are executed.
  */
 async function executeDescribe(
   params: Record<string, unknown>,
   deps: ToolExecutorDeps
 ): Promise<BackendToolResult> {
-  const { question, focus } = params as {
+  const { slot, viewing, asset, question, focus } = params as {
+    slot?: number;
+    viewing?: boolean;
+    asset?: string;
     question?: string;
     focus?: string;
   };
 
+  // Build reference label for error messages
+  const refLabel = typeof slot === 'number'
+    ? `slot ${slot}`
+    : viewing
+      ? 'viewing'
+      : asset
+        ? `"${asset}"`
+        : 'unknown reference';
+
   if (!deps.anthropicApiKey) {
-    return { success: false, error: 'Vision API not configured' };
+    return { success: false, error: `Cannot describe ${refLabel}: Vision API not configured` };
   }
 
   if (!deps.imagesBucket) {
-    return { success: false, error: 'Image storage not configured' };
+    return { success: false, error: `Cannot describe ${refLabel}: Image storage not configured` };
   }
 
   try {
     // Resolve reference to variantId
     const resolved = await resolveReference(params, deps);
     if ('error' in resolved) {
-      return { success: false, error: resolved.error };
+      return { success: false, error: `Cannot describe ${refLabel}: ${resolved.error}` };
     }
 
     const { variantId, assetName } = resolved;
@@ -332,14 +347,14 @@ async function executeDescribe(
       new Request(`http://do/internal/variant/${variantId}`)
     );
     if (!variantResp.ok) {
-      return { success: false, error: `Variant not found: ${variantId}` };
+      return { success: false, error: `Cannot describe "${assetName}": Variant not found` };
     }
     const variant = await variantResp.json() as VariantInfo;
 
     // Fetch image from R2
     const imageObj = await deps.imagesBucket.get(variant.image_key);
     if (!imageObj) {
-      return { success: false, error: 'Image not found in storage' };
+      return { success: false, error: `Cannot describe "${assetName}": Image not found in storage` };
     }
     const imageBuffer = await imageObj.arrayBuffer();
 
@@ -359,15 +374,17 @@ async function executeDescribe(
       question
     );
 
+    // Include asset name in result so Claude knows which asset was described
+    // This is critical when multiple describes run - Claude needs to correlate results
     return {
       success: true,
-      result: description,
+      result: `[${assetName}]\n${description}`,
       usage,
     };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to describe image',
+      error: `Cannot describe ${refLabel}: ${error instanceof Error ? error.message : 'Failed to describe image'}`,
     };
   }
 }
