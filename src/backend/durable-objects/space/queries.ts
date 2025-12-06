@@ -391,14 +391,17 @@ export const UserSessionQueries = {
   /** Get session by user ID */
   GET_BY_USER: 'SELECT * FROM user_sessions WHERE user_id = ?',
 
-  /** Upsert user session */
+  /** Upsert user session
+   * Note: active_chat_session_id uses COALESCE to preserve existing value when NULL is passed.
+   * This prevents updateSession() calls (e.g., on connect) from wiping out the chat session.
+   */
   UPSERT: `INSERT INTO user_sessions (user_id, viewing_asset_id, viewing_variant_id, forge_context, active_chat_session_id, last_seen, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(user_id) DO UPDATE SET
              viewing_asset_id = excluded.viewing_asset_id,
              viewing_variant_id = excluded.viewing_variant_id,
              forge_context = excluded.forge_context,
-             active_chat_session_id = excluded.active_chat_session_id,
+             active_chat_session_id = COALESCE(excluded.active_chat_session_id, user_sessions.active_chat_session_id),
              last_seen = excluded.last_seen,
              updated_at = excluded.updated_at`,
 

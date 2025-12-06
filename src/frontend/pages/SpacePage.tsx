@@ -98,7 +98,6 @@ export default function SpacePage() {
     setPlan,
     clearPlan,
     addToolProgress,
-    updateToolProgress,
   } = useChatStore();
 
   // WebSocket connection for real-time updates

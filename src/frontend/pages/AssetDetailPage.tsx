@@ -127,7 +127,6 @@ export default function AssetDetailPage() {
     setPlan,
     clearPlan,
     addToolProgress,
-    updateToolProgress,
   } = useChatStore();
 
   // WebSocket for real-time updates
