@@ -30,8 +30,10 @@ export interface ForgeTrayProps {
   onBrandBackground?: boolean;
   /** Current asset context (for Asset Detail page) */
   currentAsset?: Asset | null;
-  /** Callback for uploading an image file to create a variant */
+  /** Callback for uploading an image file to create a variant on existing asset */
   onUpload?: (file: File, assetId: string) => Promise<void>;
+  /** Callback for uploading an image file to create a NEW asset (SpacePage) */
+  onUploadNewAsset?: (file: File, assetName: string) => Promise<void>;
   /** Whether an upload is in progress */
   isUploading?: boolean;
 }
@@ -74,12 +76,16 @@ export function ForgeTray({
   onBrandBackground = true,
   currentAsset,
   onUpload,
+  onUploadNewAsset,
   isUploading = false,
 }: ForgeTrayProps) {
   const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showUploadPrompt, setShowUploadPrompt] = useState(false);
+  const [uploadAssetName, setUploadAssetName] = useState('');
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -135,27 +141,63 @@ export function ForgeTray({
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !targetAsset || !onUpload) return;
-
-    try {
-      await onUpload(file, targetAsset.id);
-    } catch (error) {
-      console.error('Upload failed:', error);
-    }
+    if (!file) return;
 
     // Reset file input so same file can be selected again
     if (uploadInputRef.current) {
       uploadInputRef.current.value = '';
     }
-  }, [targetAsset, onUpload]);
+
+    // If we have a target asset, upload to it directly
+    if (targetAsset && onUpload) {
+      try {
+        await onUpload(file, targetAsset.id);
+      } catch (error) {
+        console.error('Upload failed:', error);
+      }
+      return;
+    }
+
+    // No target asset - need to create new asset
+    if (onUploadNewAsset) {
+      // Use filename (without extension) as default name
+      const defaultName = file.name.replace(/\.[^/.]+$/, '');
+      setPendingUploadFile(file);
+      setUploadAssetName(defaultName);
+      setShowUploadPrompt(true);
+    }
+  }, [targetAsset, onUpload, onUploadNewAsset]);
+
+  const handleUploadPromptSubmit = useCallback(async () => {
+    if (!pendingUploadFile || !onUploadNewAsset || !uploadAssetName.trim()) return;
+
+    try {
+      await onUploadNewAsset(pendingUploadFile, uploadAssetName.trim());
+    } catch (error) {
+      console.error('Upload failed:', error);
+    }
+
+    // Clean up
+    setPendingUploadFile(null);
+    setUploadAssetName('');
+    setShowUploadPrompt(false);
+  }, [pendingUploadFile, onUploadNewAsset, uploadAssetName]);
+
+  const handleUploadPromptCancel = useCallback(() => {
+    setPendingUploadFile(null);
+    setUploadAssetName('');
+    setShowUploadPrompt(false);
+  }, []);
 
   // Drag-and-drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!onUpload || !targetAsset) return;
+    // Allow drag if we can upload to existing asset OR create new asset
+    if (!onUpload && !onUploadNewAsset) return;
+    if (!targetAsset && !onUploadNewAsset) return;
     setIsDragOver(true);
-  }, [onUpload, targetAsset]);
+  }, [onUpload, onUploadNewAsset, targetAsset]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -168,8 +210,6 @@ export function ForgeTray({
     e.stopPropagation();
     setIsDragOver(false);
 
-    if (!onUpload || !targetAsset) return;
-
     const files = Array.from(e.dataTransfer.files);
     const imageFile = files.find(f =>
       ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(f.type)
@@ -180,12 +220,24 @@ export function ForgeTray({
       return;
     }
 
-    try {
-      await onUpload(imageFile, targetAsset.id);
-    } catch (error) {
-      console.error('Drop upload failed:', error);
+    // If we have a target asset, upload to it directly
+    if (targetAsset && onUpload) {
+      try {
+        await onUpload(imageFile, targetAsset.id);
+      } catch (error) {
+        console.error('Drop upload failed:', error);
+      }
+      return;
     }
-  }, [onUpload, targetAsset]);
+
+    // No target asset - need to create new asset
+    if (onUploadNewAsset) {
+      const defaultName = imageFile.name.replace(/\.[^/.]+$/, '');
+      setPendingUploadFile(imageFile);
+      setUploadAssetName(defaultName);
+      setShowUploadPrompt(true);
+    }
+  }, [onUpload, onUploadNewAsset, targetAsset]);
 
   const handleRemoveSlot = useCallback((e: React.MouseEvent, slotId: string) => {
     e.stopPropagation();
@@ -335,11 +387,11 @@ export function ForgeTray({
                   </svg>
                 </button>
               )}
-              {onUpload && targetAsset && (
+              {((onUpload && targetAsset) || onUploadNewAsset) && (
                 <button
                   className={styles.addThumbButton}
                   onClick={handleUploadClick}
-                  title={`Upload image to "${targetAsset.name}"`}
+                  title={targetAsset ? `Upload image to "${targetAsset.name}"` : 'Upload image to create new asset'}
                   disabled={isUploading}
                 >
                   {isUploading ? (
@@ -441,6 +493,45 @@ export function ForgeTray({
         onChange={handleFileChange}
         style={{ display: 'none' }}
       />
+
+      {/* Upload prompt modal for creating new asset */}
+      {showUploadPrompt && (
+        <div className={styles.uploadPromptOverlay} onClick={handleUploadPromptCancel}>
+          <div className={styles.uploadPromptModal} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.uploadPromptTitle}>Create New Asset</h3>
+            <p className={styles.uploadPromptDescription}>
+              Enter a name for the new asset that will be created from your uploaded image.
+            </p>
+            <input
+              type="text"
+              className={styles.uploadPromptInput}
+              value={uploadAssetName}
+              onChange={(e) => setUploadAssetName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleUploadPromptSubmit();
+                if (e.key === 'Escape') handleUploadPromptCancel();
+              }}
+              placeholder="Asset name"
+              autoFocus
+            />
+            <div className={styles.uploadPromptActions}>
+              <button
+                className={styles.uploadPromptCancel}
+                onClick={handleUploadPromptCancel}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.uploadPromptSubmit}
+                onClick={handleUploadPromptSubmit}
+                disabled={!uploadAssetName.trim() || isUploading}
+              >
+                {isUploading ? 'Uploading...' : 'Create Asset'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

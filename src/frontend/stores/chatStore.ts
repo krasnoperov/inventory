@@ -73,7 +73,8 @@ interface ChatState {
   // Actions
   getSession: (spaceId: string) => ChatSession;
   setMessages: (spaceId: string, messages: ChatMessage[]) => void;
-  addMessage: (spaceId: string, message: Omit<ChatMessage, 'id'>) => void;
+  addMessage: (spaceId: string, message: Omit<ChatMessage, 'id'> & { id?: string }) => void;
+  replaceMessage: (spaceId: string, messageId: string, message: Omit<ChatMessage, 'id'>) => void;
   clearMessages: (spaceId: string) => void;
   setInputBuffer: (spaceId: string, value: string) => void;
   setMode: (spaceId: string, mode: 'advisor' | 'actor') => void;
@@ -167,12 +168,49 @@ export const useChatStore = create<ChatState>()(
       addMessage: (spaceId, message) => {
         set((state) => {
           const session = state.sessions[spaceId] || createEmptySession();
+          const newMessage = { ...message, id: message.id || generateMessageId() };
           return {
             sessions: {
               ...state.sessions,
               [spaceId]: {
                 ...session,
-                messages: [...session.messages, { ...message, id: generateMessageId() }],
+                messages: [...session.messages, newMessage],
+                lastUpdated: Date.now(),
+              },
+            },
+          };
+        });
+      },
+
+      replaceMessage: (spaceId, messageId, message) => {
+        set((state) => {
+          const session = state.sessions[spaceId];
+          if (!session) return state;
+
+          const messageIndex = session.messages.findIndex(m => m.id === messageId);
+          if (messageIndex === -1) {
+            // Message not found, just add it
+            return {
+              sessions: {
+                ...state.sessions,
+                [spaceId]: {
+                  ...session,
+                  messages: [...session.messages, { ...message, id: messageId }],
+                  lastUpdated: Date.now(),
+                },
+              },
+            };
+          }
+
+          // Replace existing message
+          const newMessages = [...session.messages];
+          newMessages[messageIndex] = { ...message, id: messageId };
+          return {
+            sessions: {
+              ...state.sessions,
+              [spaceId]: {
+                ...session,
+                messages: newMessages,
                 lastUpdated: Date.now(),
               },
             },

@@ -130,6 +130,7 @@ export function ChatSidebar({
   const {
     setMessages,
     addMessage,
+    replaceMessage,
     clearMessages,
     setInputBuffer,
     setMode,
@@ -453,11 +454,29 @@ Please suggest an alternative approach or modified parameters that might work. I
 
       // Auto-execute safe tools (toolCalls)
       if (botResponse.toolCalls && botResponse.toolCalls.length > 0) {
+        // Show immediate loading message so user knows something is happening
+        const toolNames = botResponse.toolCalls.map(t => t.name).join(', ');
+        const loadingMsgId = `loading-${Date.now()}`;
+        addMessage(spaceId, {
+          id: loadingMsgId,
+          role: 'assistant',
+          content: `${messageParts[0] ? messageParts[0] + '\n\n' : ''}⏳ *Executing: ${toolNames}...*`,
+          timestamp: Date.now(),
+        });
+
         toolExec.executeToolCalls(botResponse.toolCalls).then(results => {
           const updatedParts = [...messageParts, '\n**Auto-executed:**', results.join('\n')];
-          addMessage(spaceId, {
+          // Replace loading message with results
+          replaceMessage(spaceId, loadingMsgId, {
             role: 'assistant',
             content: updatedParts.join('\n'),
+            timestamp: Date.now(),
+          });
+        }).catch(err => {
+          // Replace loading message with error
+          replaceMessage(spaceId, loadingMsgId, {
+            role: 'assistant',
+            content: `${messageParts[0] ? messageParts[0] + '\n\n' : ''}❌ Tool execution failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
             timestamp: Date.now(),
           });
         });

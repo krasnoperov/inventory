@@ -277,13 +277,17 @@ export default function SpacePage() {
   });
 
   // Image upload hook
-  const { upload: uploadImage, isUploading } = useImageUpload({
+  const { upload: uploadImage, uploadNewAsset, isUploading } = useImageUpload({
     spaceId: spaceId || '',
   });
 
   const handleUpload = useCallback(async (file: File, assetId: string) => {
     await uploadImage(file, assetId);
   }, [uploadImage]);
+
+  const handleUploadNewAsset = useCallback(async (file: File, assetName: string) => {
+    await uploadNewAsset({ file, assetName });
+  }, [uploadNewAsset]);
 
   // Handle add to forge tray
   const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
@@ -580,6 +584,7 @@ export default function SpacePage() {
           onSubmit={handleForgeSubmit}
           onBrandBackground={false}
           onUpload={handleUpload}
+          onUploadNewAsset={handleUploadNewAsset}
           isUploading={isUploading}
         />
       )}
