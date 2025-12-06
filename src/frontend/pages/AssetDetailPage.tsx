@@ -514,19 +514,27 @@ export default function AssetDetailPage() {
 
   // Handle retry recipe - restore ForgeTray state from variant's recipe and lineage
   const handleRetryRecipe = useCallback((variant: Variant) => {
-    // Parse the recipe to get the prompt
+    // Parse the recipe to get the prompt and parentVariantIds (fallback)
     let prompt = '';
+    let recipeParentVariantIds: string[] = [];
     try {
       const recipe = JSON.parse(variant.recipe);
       prompt = recipe.prompt || '';
+      // Recipe stores parentVariantIds for retry support (in case lineage is missing)
+      recipeParentVariantIds = recipe.parentVariantIds || [];
     } catch {
       // Ignore parse errors
     }
 
-    // Find parent variant IDs from lineage
-    const parentVariantIds = lineage
+    // Find parent variant IDs from lineage first, fall back to recipe
+    let parentVariantIds = lineage
       .filter(l => l.child_variant_id === variant.id)
       .map(l => l.parent_variant_id);
+
+    // If lineage is empty, use recipe's parentVariantIds (legacy/retry support)
+    if (parentVariantIds.length === 0 && recipeParentVariantIds.length > 0) {
+      parentVariantIds = recipeParentVariantIds;
+    }
 
     // Prefill the forge tray with the same state
     prefillFromVariant(parentVariantIds, prompt, wsAssets, wsVariants);

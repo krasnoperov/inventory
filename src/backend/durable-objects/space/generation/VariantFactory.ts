@@ -27,6 +27,8 @@ export interface GenerationRecipe {
   assetType: string;
   aspectRatio?: string;
   sourceImageKeys?: string[];
+  /** Parent variant IDs for retry support (in case lineage records are missing) */
+  parentVariantIds?: string[];
   /** Operation type matching user-facing tool name */
   operation: OperationType;
 }
@@ -148,12 +150,13 @@ export class VariantFactory {
     // Determine operation: 'generate' if no refs, 'derive' if using refs
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
 
-    // Build recipe
+    // Build recipe (includes parentVariantIds for retry support)
     const recipe: GenerationRecipe = {
       prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
       assetType: input.assetType,
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
+      parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
     };
 
@@ -215,12 +218,13 @@ export class VariantFactory {
       throw new Error('No source images available');
     }
 
-    // Build recipe
+    // Build recipe (includes parentVariantIds for retry support)
     const recipe: GenerationRecipe = {
       prompt: input.prompt,
       assetType: asset.type,
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys,
+      parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation: 'refine',
     };
 
