@@ -458,20 +458,22 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
     // This prevents double execution in the frontend
     delete responseWithExtras.toolCalls;
 
-    // Add pending approvals from agentic loop
+    // Replace pending approvals with ones from agentic loop
+    // Note: parseResponse() also creates approvals, but toolExecutor is authoritative
+    // since it handles the actual tool execution. Using both would cause duplicates.
     if (allPendingApprovals.length > 0) {
-      responseWithExtras.pendingApprovals = [
-        ...(responseWithExtras.pendingApprovals || []),
-        ...allPendingApprovals,
-      ];
+      responseWithExtras.pendingApprovals = allPendingApprovals;
+    } else {
+      // Clear any approvals from parseResponse to avoid duplicates
+      delete responseWithExtras.pendingApprovals;
     }
 
-    // Add auto-executed results
+    // Replace auto-executed results with ones from agentic loop
+    // Same reasoning as pendingApprovals - toolExecutor is authoritative
     if (allAutoExecutedResults.length > 0) {
-      responseWithExtras.autoExecuted = [
-        ...(responseWithExtras.autoExecuted || []),
-        ...allAutoExecutedResults,
-      ];
+      responseWithExtras.autoExecuted = allAutoExecutedResults;
+    } else {
+      delete responseWithExtras.autoExecuted;
     }
 
     // Broadcast final result
