@@ -5,7 +5,7 @@
  * Non-blocking async processing with responses sent via WebSocket.
  */
 
-import type { DescribeRequestMessage, CompareRequestMessage } from '../../../workflows/types';
+import type { DescribeRequestMessage, CompareRequestMessage, EnhanceRequestMessage } from '../../../workflows/types';
 import { ClaudeService } from '../../../services/claudeService';
 import {
   processDescribe,
@@ -64,6 +64,28 @@ export class VisionController extends BaseController {
         requestId: msg.requestId,
         success: false,
         error: error instanceof Error ? error.message : 'Failed to compare images',
+      });
+    });
+  }
+
+  /**
+   * Handle enhance:request WebSocket message
+   * Non-blocking: processes async and sends response when ready
+   */
+  async handleEnhance(ws: WebSocket, msg: EnhanceRequestMessage): Promise<void> {
+    // Process async - don't block the WebSocket handler
+    this.processEnhanceRequest(ws, msg).catch((error) => {
+      log.error('Error processing enhance request', {
+        requestId: msg.requestId,
+        spaceId: this.spaceId,
+        enhanceType: msg.enhanceType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      this.send(ws, {
+        type: 'enhance:response',
+        requestId: msg.requestId,
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to enhance prompt',
       });
     });
   }
@@ -194,6 +216,58 @@ export class VisionController extends BaseController {
           error: result.error,
         });
       }
+    } catch (error) {
+      timer(false, { error: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+  }
+
+  private async processEnhanceRequest(ws: WebSocket, msg: EnhanceRequestMessage): Promise<void> {
+    // Check prerequisites
+    if (!hasApiKey(this.env.ANTHROPIC_API_KEY)) {
+      this.send(ws, {
+        type: 'enhance:response',
+        requestId: msg.requestId,
+        success: false,
+        error: 'Claude API not configured',
+      });
+      return;
+    }
+
+    // Validate prompt is not empty
+    if (!msg.prompt || msg.prompt.trim().length === 0) {
+      this.send(ws, {
+        type: 'enhance:response',
+        requestId: msg.requestId,
+        success: false,
+        error: 'Prompt cannot be empty',
+      });
+      return;
+    }
+
+    const timer = log.startTimer('Prompt enhance', {
+      requestId: msg.requestId,
+      spaceId: this.spaceId,
+      enhanceType: msg.enhanceType,
+    });
+
+    try {
+      const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY!);
+      const result = await claudeService.enhancePromptForGemini(msg.prompt.trim());
+
+      timer(true, {
+        originalLength: msg.prompt.length,
+        enhancedLength: result.enhancedPrompt.length,
+        outputTokens: result.usage.outputTokens,
+      });
+
+      this.send(ws, {
+        type: 'enhance:response',
+        requestId: msg.requestId,
+        success: true,
+        enhancedPrompt: result.enhancedPrompt,
+        usage: result.usage,
+      });
     } catch (error) {
       timer(false, { error: error instanceof Error ? error.message : String(error) });
       throw error;

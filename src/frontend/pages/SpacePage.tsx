@@ -8,6 +8,7 @@ import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import type {
   Asset,
   Variant,
+  EnhanceResponseResult,
 } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
@@ -53,7 +54,20 @@ export default function SpacePage() {
   useDocumentTitle(space?.name);
 
   // Forge tray store
-  const { addSlot } = useForgeTrayStore();
+  const { addSlot, setPrompt } = useForgeTrayStore();
+
+  // Enhance state
+  const [isEnhancing, setIsEnhancing] = useState(false);
+
+  // Handle enhance response
+  const handleEnhanceResponse = useCallback((response: EnhanceResponseResult) => {
+    setIsEnhancing(false);
+    if (response.success && response.enhancedPrompt) {
+      setPrompt(response.enhancedPrompt);
+    } else if (response.error) {
+      console.error('Enhance failed:', response.error);
+    }
+  }, [setPrompt]);
 
   // WebSocket connection for real-time updates
   const {
@@ -65,6 +79,7 @@ export default function SpacePage() {
     clearJob,
     sendGenerateRequest,
     sendRefineRequest,
+    sendEnhanceRequest,
     forkAsset,
     updateAsset,
     updateSession,
@@ -78,6 +93,7 @@ export default function SpacePage() {
     onJobComplete: () => {
       // Job completed - variant is now visible on canvas
     },
+    onEnhanceResponse: handleEnhanceResponse,
   });
 
   // Export/Import state
@@ -158,6 +174,12 @@ export default function SpacePage() {
   const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
     addSlot(variant, asset);
   }, [addSlot]);
+
+  // Handle enhance request - wraps sendEnhanceRequest to manage isEnhancing state
+  const handleSendEnhanceRequest = useCallback((params: { prompt: string; enhanceType: 'geminify' }) => {
+    setIsEnhancing(true);
+    return sendEnhanceRequest(params);
+  }, [sendEnhanceRequest]);
 
   // Handle asset reparenting via drag-and-drop on canvas
   const handleReparent = useCallback((childAssetId: string, newParentAssetId: string | null) => {
@@ -412,6 +434,8 @@ export default function SpacePage() {
           onUpload={handleUpload}
           onUploadNewAsset={handleUploadNewAsset}
           isUploading={isUploading}
+          sendEnhanceRequest={handleSendEnhanceRequest}
+          isEnhancing={isEnhancing}
         />
       )}
     </div>

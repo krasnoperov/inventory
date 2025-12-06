@@ -7,6 +7,7 @@ import type {
   RefineRequestMessage,
   DescribeRequestMessage,
   CompareRequestMessage,
+  EnhanceRequestMessage,
 } from '../workflows/types';
 import type { WebSocketMeta, ClientMessage, ServerMessage } from './space/types';
 import type { ErrorCode } from '../../shared/websocket-types';
@@ -308,6 +309,10 @@ export class SpaceDO extends DurableObject<Env> {
         return this.visionCtrl.handleDescribe(ws, msg as DescribeRequestMessage);
       case 'compare:request':
         return this.visionCtrl.handleCompare(ws, msg as CompareRequestMessage);
+
+      // Prompt enhancement
+      case 'enhance:request':
+        return this.visionCtrl.handleEnhance(ws, msg as EnhanceRequestMessage);
 
       default:
         this.sendError(ws, 'UNKNOWN_MESSAGE_TYPE', `Unknown message type: ${(msg as { type: string }).type}`);

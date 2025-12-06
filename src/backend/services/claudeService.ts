@@ -898,6 +898,51 @@ Always explain what you're doing and why.`;
   }
 
   /**
+   * Enhance a prompt for Gemini image generation ("Geminify")
+   * Adds style, lighting, technical details, color palette, texture, and atmosphere
+   * Returns both the enhanced prompt and token usage for billing
+   */
+  async enhancePromptForGemini(
+    originalPrompt: string
+  ): Promise<{ enhancedPrompt: string; usage: ClaudeUsage }> {
+    const systemPrompt = `You are a prompt enhancement specialist for AI image generation with Google Gemini.
+Your job is to take a user's basic prompt and enhance it for optimal Gemini output.
+
+ENHANCEMENT GUIDELINES:
+1. PRESERVE the user's core intent and subject matter exactly
+2. ADD rich visual details in these categories:
+   - Style: art style, rendering technique, visual aesthetic
+   - Lighting: direction, quality, mood, time of day
+   - Color Palette: specific colors, saturation, contrast, harmony
+   - Texture: surface qualities, materials, tactile details
+   - Atmosphere: mood, environment, ambient elements
+   - Technical: camera angle, framing, depth of field, focus
+3. KEEP the enhanced prompt concise but detailed (aim for 50-100 words)
+4. DO NOT add characters or elements the user didn't mention
+5. DO NOT reference specific brands, studios, or copyrighted names
+6. FORMAT as a single paragraph, ready for direct use
+
+Return ONLY the enhanced prompt text, nothing else.`;
+
+    const response = await this.client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 300,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: `Enhance this prompt for Gemini image generation:\n\n"${originalPrompt}"` }],
+    });
+
+    return {
+      enhancedPrompt: response.content[0].type === 'text'
+        ? response.content[0].text.trim()
+        : originalPrompt,
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      },
+    };
+  }
+
+  /**
    * Describe an image using multimodal Claude
    * Returns both the description and token usage for billing
    */

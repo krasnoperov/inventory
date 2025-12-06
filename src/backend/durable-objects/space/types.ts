@@ -12,6 +12,7 @@ import type {
   RefineRequestMessage,
   DescribeRequestMessage,
   CompareRequestMessage,
+  EnhanceRequestMessage,
 } from '../../workflows/types';
 import type { ClaudeUsage, DeferredAction, ErrorCode, SimplePlan } from '../../../shared/websocket-types';
 
@@ -276,7 +277,9 @@ export type ClientMessage =
   | RefineRequestMessage
   // Vision (describe/compare) messages
   | DescribeRequestMessage
-  | CompareRequestMessage;
+  | CompareRequestMessage
+  // Enhance prompt messages
+  | EnhanceRequestMessage;
 
 // ============================================================================
 // Message Types (Server → Client)
@@ -336,6 +339,8 @@ export type ServerMessage =
   // Vision (describe/compare) response messages
   | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string; usage?: ClaudeUsage }
   | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage }
+  // Enhance prompt response messages
+  | { type: 'enhance:response'; requestId: string; success: boolean; enhancedPrompt?: string; error?: string; usage?: ClaudeUsage }
   // Chat progress messages (agentic loop tool execution)
   | { type: 'chat:progress'; requestId: string; toolName: string; toolParams: Record<string, unknown>; status: 'executing' | 'complete' | 'failed'; result?: string; error?: string }
   // Pre-check error messages (quota/rate limit exceeded)

@@ -1,8 +1,9 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
 import type { ForgeOperation } from '../../stores/forgeTrayStore';
-import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl, type EnhanceRequestParams } from '../../hooks/useSpaceWebSocket';
 import { AssetPickerModal } from './AssetPickerModal';
+import { EnhanceButton, type EnhanceType } from './EnhanceButton';
 import styles from './ForgeTray.module.css';
 
 export type DestinationType = 'existing_asset' | 'new_asset';
@@ -36,6 +37,10 @@ export interface ForgeTrayProps {
   onUploadNewAsset?: (file: File, assetName: string) => Promise<void>;
   /** Whether an upload is in progress */
   isUploading?: boolean;
+  /** Handler to send enhance request - passed from parent */
+  sendEnhanceRequest?: (params: EnhanceRequestParams) => string;
+  /** Whether an enhancement is in progress */
+  isEnhancing?: boolean;
 }
 
 // Determine operation based on state
@@ -78,6 +83,8 @@ export function ForgeTray({
   onUpload,
   onUploadNewAsset,
   isUploading = false,
+  sendEnhanceRequest,
+  isEnhancing = false,
 }: ForgeTrayProps) {
   const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
   const [showAssetPicker, setShowAssetPicker] = useState(false);
@@ -297,6 +304,12 @@ export function ForgeTray({
     }
   }, [handleSubmit]);
 
+  // Handle prompt enhancement
+  const handleEnhance = useCallback((type: EnhanceType) => {
+    if (!prompt.trim() || !sendEnhanceRequest) return;
+    sendEnhanceRequest({ prompt: prompt.trim(), enhanceType: type });
+  }, [prompt, sendEnhanceRequest]);
+
   // Determine if submit is allowed
   const canSubmit = useMemo(() => {
     if (isSubmitting) return false;
@@ -450,6 +463,15 @@ export function ForgeTray({
                 onChange={(e) => setNewAssetName(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Asset name"
+                disabled={isSubmitting}
+              />
+            )}
+
+            {/* Enhance Button - Only show if there's a prompt and handler */}
+            {sendEnhanceRequest && prompt.trim().length > 0 && (
+              <EnhanceButton
+                onEnhance={handleEnhance}
+                isEnhancing={isEnhancing}
                 disabled={isSubmitting}
               />
             )}

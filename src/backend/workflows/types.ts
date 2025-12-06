@@ -232,3 +232,31 @@ export interface CompareResponseMessage {
   error?: string;
   usage?: ClaudeUsage;
 }
+
+// ============================================================================
+// ENHANCE PROMPT WEBSOCKET MESSAGE TYPES
+// ============================================================================
+
+/** Enhance type for prompt enhancement options */
+export type EnhanceType = 'geminify';
+
+/** Enhance prompt request from client */
+export interface EnhanceRequestMessage {
+  type: 'enhance:request';
+  requestId: string;
+  /** The prompt to enhance */
+  prompt: string;
+  /** Type of enhancement to apply */
+  enhanceType: EnhanceType;
+}
+
+/** Enhance prompt response to client */
+export interface EnhanceResponseMessage {
+  type: 'enhance:response';
+  requestId: string;
+  success: boolean;
+  /** The enhanced prompt (if success) */
+  enhancedPrompt?: string;
+  error?: string;
+  usage?: ClaudeUsage;
+}

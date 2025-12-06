@@ -14,6 +14,7 @@ import {
   type Asset,
   type Variant,
   type Lineage,
+  type EnhanceResponseResult,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
@@ -71,7 +72,20 @@ export default function AssetDetailPage() {
   const [editNameValue, setEditNameValue] = useState('');
 
   // Forge tray store
-  const { addSlot, prefillFromVariant } = useForgeTrayStore();
+  const { addSlot, prefillFromVariant, setPrompt } = useForgeTrayStore();
+
+  // Enhance state
+  const [isEnhancing, setIsEnhancing] = useState(false);
+
+  // Handle enhance response
+  const handleEnhanceResponse = useCallback((response: EnhanceResponseResult) => {
+    setIsEnhancing(false);
+    if (response.success && response.enhancedPrompt) {
+      setPrompt(response.enhancedPrompt);
+    } else if (response.error) {
+      console.error('Enhance failed:', response.error);
+    }
+  }, [setPrompt]);
 
   // WebSocket for real-time updates
   const {
@@ -89,6 +103,7 @@ export default function AssetDetailPage() {
     status: wsStatus,
     sendGenerateRequest,
     sendRefineRequest,
+    sendEnhanceRequest,
     forkAsset,
     getChildren,
     updateSession,
@@ -103,6 +118,7 @@ export default function AssetDetailPage() {
         navigate(`/spaces/${spaceId}/assets/${completedJob.assetId}`);
       }
     },
+    onEnhanceResponse: handleEnhanceResponse,
   });
 
   // Compute parent asset
@@ -400,6 +416,12 @@ export default function AssetDetailPage() {
   const handleUpload = useCallback(async (file: File, assetId: string) => {
     await uploadImage(file, assetId);
   }, [uploadImage]);
+
+  // Handle enhance request - wraps sendEnhanceRequest to manage isEnhancing state
+  const handleSendEnhanceRequest = useCallback((params: { prompt: string; enhanceType: 'geminify' }) => {
+    setIsEnhancing(true);
+    return sendEnhanceRequest(params);
+  }, [sendEnhanceRequest]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
@@ -744,6 +766,8 @@ export default function AssetDetailPage() {
         currentAsset={asset}
         onUpload={handleUpload}
         isUploading={isUploading}
+        sendEnhanceRequest={handleSendEnhanceRequest}
+        isEnhancing={isEnhancing}
       />
     </div>
   );

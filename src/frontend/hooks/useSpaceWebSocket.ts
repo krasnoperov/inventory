@@ -240,6 +240,12 @@ export interface CompareRequestParams {
   aspects?: string[];
 }
 
+// Enhance prompt request parameters
+export interface EnhanceRequestParams {
+  prompt: string;
+  enhanceType: 'geminify';
+}
+
 // Deferred action from agentic loop (tray operations)
 export interface DeferredAction {
   tool: string;
@@ -274,6 +280,15 @@ export interface CompareResponseResult {
   usage?: ClaudeUsage;
 }
 
+// Enhance prompt response from server
+export interface EnhanceResponseResult {
+  requestId: string;
+  success: boolean;
+  enhancedPrompt?: string;
+  error?: string;
+  usage?: ClaudeUsage;
+}
+
 // Chat progress update (agentic loop tool execution)
 export interface ChatProgressResult {
   requestId: string;
@@ -297,6 +312,7 @@ export interface UseSpaceWebSocketParams {
   onGenerateResult?: (data: { requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }) => void;
   onDescribeResponse?: (response: DescribeResponseResult) => void;
   onCompareResponse?: (response: CompareResponseResult) => void;
+  onEnhanceResponse?: (response: EnhanceResponseResult) => void;
   // Approval lifecycle callbacks
   onApprovalCreated?: (approval: PendingApproval) => void;
   onApprovalUpdated?: (approval: PendingApproval) => void;
@@ -370,6 +386,8 @@ type ServerMessage =
   // Vision (describe/compare) response messages
   | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string; usage?: ClaudeUsage }
   | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage }
+  // Enhance prompt response message
+  | { type: 'enhance:response'; requestId: string; success: boolean; enhancedPrompt?: string; error?: string; usage?: ClaudeUsage }
   // SimplePlan messages (markdown-based plan)
   | { type: 'simple_plan:updated'; plan: SimplePlan }
   | { type: 'simple_plan:archived'; planId: string }
@@ -448,6 +466,7 @@ export interface UseSpaceWebSocketReturn {
   sendRefineRequest: (params: RefineRequestParams) => string;  // Returns requestId
   sendDescribeRequest: (params: DescribeRequestParams) => string;  // Returns requestId
   sendCompareRequest: (params: CompareRequestParams) => string;  // Returns requestId
+  sendEnhanceRequest: (params: EnhanceRequestParams) => string;  // Returns requestId
   // Helper methods for hierarchy navigation
   getChildren: (assetId: string) => Asset[];
   getAncestors: (assetId: string) => Asset[];
@@ -481,6 +500,7 @@ export function useSpaceWebSocket({
   onGenerateResult,
   onDescribeResponse,
   onCompareResponse,
+  onEnhanceResponse,
   onApprovalCreated,
   onApprovalUpdated,
   onApprovalList,
@@ -649,6 +669,18 @@ export function useSpaceWebSocket({
     return requestId;
   }, [sendMessage]);
 
+  // Send enhance request to enhance a prompt via Claude
+  const sendEnhanceRequest = useCallback((params: EnhanceRequestParams): string => {
+    const requestId = crypto.randomUUID();
+    sendMessage({
+      type: 'enhance:request',
+      requestId,
+      prompt: params.prompt,
+      enhanceType: params.enhanceType,
+    });
+    return requestId;
+  }, [sendMessage]);
+
   // Approval methods
   const approveApproval = useCallback((approvalId: string) => {
     sendMessage({ type: 'approval:approve', approvalId });
@@ -743,6 +775,7 @@ export function useSpaceWebSocket({
   const onGenerateResultRef = useRef(onGenerateResult);
   const onDescribeResponseRef = useRef(onDescribeResponse);
   const onCompareResponseRef = useRef(onCompareResponse);
+  const onEnhanceResponseRef = useRef(onEnhanceResponse);
   const onApprovalCreatedRef = useRef(onApprovalCreated);
   const onApprovalUpdatedRef = useRef(onApprovalUpdated);
   const onApprovalListRef = useRef(onApprovalList);
@@ -765,6 +798,7 @@ export function useSpaceWebSocket({
     onGenerateResultRef.current = onGenerateResult;
     onDescribeResponseRef.current = onDescribeResponse;
     onCompareResponseRef.current = onCompareResponse;
+    onEnhanceResponseRef.current = onEnhanceResponse;
     onApprovalCreatedRef.current = onApprovalCreated;
     onApprovalUpdatedRef.current = onApprovalUpdated;
     onApprovalListRef.current = onApprovalList;
@@ -1108,6 +1142,16 @@ export function useSpaceWebSocket({
                 });
                 break;
 
+              case 'enhance:response':
+                onEnhanceResponseRef.current?.({
+                  requestId: message.requestId,
+                  success: message.success,
+                  enhancedPrompt: message.enhancedPrompt,
+                  error: message.error,
+                  usage: message.usage,
+                });
+                break;
+
               // Approval lifecycle messages
               case 'approval:created':
                 onApprovalCreatedRef.current?.(message.approval);
@@ -1238,6 +1282,7 @@ export function useSpaceWebSocket({
     sendRefineRequest,
     sendDescribeRequest,
     sendCompareRequest,
+    sendEnhanceRequest,
     getChildren,
     getAncestors,
     getRootAssets,
