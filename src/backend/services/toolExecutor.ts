@@ -230,7 +230,18 @@ async function executeBackendTool(
 
 /**
  * Resolve a reference to variantId and assetName
- * Supports: slot (tray index), viewing (current view), asset (by name)
+ *
+ * Reference types (in priority order):
+ * 1. slot: N     - Index into ForgeTray slots (0, 1, 2...)
+ * 2. viewing     - What user is currently viewing on AssetDetailPage
+ * 3. asset: Name - Lookup by asset name (case-insensitive)
+ *
+ * This allows Claude to reference images semantically without needing UUIDs.
+ * Frontend sends forgeContext (tray slots) and viewingContext with each request.
+ *
+ * @example Claude tool call: describe({ slot: 0, focus: "style" })
+ * @example Claude tool call: describe({ viewing: true })
+ * @example Claude tool call: compare({ slots: [0, 1] })
  */
 async function resolveReference(
   params: Record<string, unknown>,

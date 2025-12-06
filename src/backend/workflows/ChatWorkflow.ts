@@ -116,7 +116,24 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
     // Final response from Claude
     let finalResponse: AgenticLoopResponse | null = null;
 
-    // Agentic loop
+    // =========================================================================
+    // AGENTIC LOOP
+    // =========================================================================
+    // Claude may respond with tool_use blocks requesting tool execution.
+    // We execute tools in the backend and send results back to Claude.
+    // The loop continues until Claude responds with text only (no tool_use).
+    //
+    // Tool categories:
+    // - EXECUTABLE: describe, compare, search - execute and return results
+    // - DEFERRED: add_to_tray, set_prompt, etc - acknowledge, queue for frontend
+    // - GENERATING: generate, derive, refine - break loop, create approval
+    //
+    // Flow per iteration:
+    // 1. Call Claude API
+    // 2. If tool_use blocks → execute tools → broadcast progress → continue
+    // 3. If generating tool → break loop, return pending approval
+    // 4. If text only → done, return final response
+    // =========================================================================
     try {
       let iteration = 0;
 
@@ -193,17 +210,21 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
           totalUsage.outputTokens += toolExecResult.totalUsage.outputTokens;
         }
 
-        // Collect deferred actions
+        // Collect deferred actions (tray ops) - these are acknowledged to Claude
+        // but actual state changes happen on frontend after response is received.
+        // Example: add_to_tray returns "Added Hero to tray" to Claude, but
+        // the ForgeTray UI update happens when frontend applies deferredActions.
         if (toolExecResult.deferredActions) {
           allDeferredActions.push(...toolExecResult.deferredActions);
         }
 
-        // Collect pending approvals
+        // Collect pending approvals (generating tools) - these break the loop
+        // and return to user for approval before execution
         if (toolExecResult.pendingApprovals) {
           allPendingApprovals.push(...toolExecResult.pendingApprovals);
         }
 
-        // Track auto-executed tools
+        // Track auto-executed tools for history display
         if (toolExecResult.toolResults) {
           for (const result of toolExecResult.toolResults) {
             const toolBlock = currentResponse.toolUseBlocks.find((b: ToolUseBlock) => b.id === result.toolUseId);

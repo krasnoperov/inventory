@@ -4,6 +4,16 @@
  * Usage: npm run cli chat send <message> --space <id>
  *
  * All state is stored on the server. No local state files required.
+ *
+ * Log format (aligned with watch.ts/listen.ts):
+ *   {emoji} Section: count
+ *      {status} item details
+ *
+ * Icons:
+ *   ⏳ = pending approval
+ *   ✓/✅ = complete/success
+ *   ✗/❌ = failed/error
+ *   🔄 = deferred (tray ops)
  */
 
 import process from 'node:process';
@@ -64,31 +74,50 @@ export async function handleSend(parsed: ParsedArgs): Promise<void> {
 
     // Handle different response types
     if (botResponse.type === 'action' && botResponse.pendingApprovals && botResponse.pendingApprovals.length > 0) {
-      console.log(`\n⏳ Pending approvals: ${botResponse.pendingApprovals.length}`);
+      console.log(`\n⏳ [PENDING APPROVALS] ${botResponse.pendingApprovals.length}`);
       for (const approval of botResponse.pendingApprovals) {
         const params = approval.params as Record<string, unknown>;
-        console.log(`  - [${approval.id.slice(0, 8)}] ${approval.tool}: ${truncate(String(params.name || params.prompt || ''), 50)}`);
+        console.log(`   - [${approval.id.slice(0, 8)}] ${approval.tool}: ${truncate(String(params.name || params.prompt || ''), 50)}`);
       }
-      console.log(`\nTo approve: npm run cli chat approve <id> --space ${spaceId}`);
-      console.log(`To reject:  npm run cli chat reject <id> --space ${spaceId}`);
-      console.log(`List all:   npm run cli chat approvals --space ${spaceId}`);
+      console.log(`\n   To approve: npm run cli chat approve <id> --space ${spaceId}`);
+      console.log(`   To reject:  npm run cli chat reject <id> --space ${spaceId}`);
+      console.log(`   List all:   npm run cli chat approvals --space ${spaceId}`);
     }
 
     // Handle auto-executed actions
     if (botResponse.type === 'action' && botResponse.autoExecuted && botResponse.autoExecuted.length > 0) {
-      console.log(`\n✅ Auto-executed: ${botResponse.autoExecuted.length}`);
+      console.log(`\n✅ [AUTO-EXECUTED] ${botResponse.autoExecuted.length}`);
       for (const executed of botResponse.autoExecuted) {
         const status = executed.success ? '✓' : '✗';
-        console.log(`  ${status} ${executed.tool}`);
+        console.log(`   ${status} ${executed.tool}`);
 
         if (executed.success && executed.result) {
           const resultStr = formatAutoExecutedResult(executed.tool, executed.result);
           if (resultStr) {
-            console.log(`    → ${resultStr}`);
+            console.log(`      → ${resultStr}`);
           }
         } else if (executed.error) {
-          console.log(`    → Error: ${executed.error}`);
+          console.log(`      → Error: ${executed.error}`);
         }
+      }
+    }
+
+    // Handle deferred actions (tray operations from agentic loop)
+    // These are acknowledged to Claude but UI changes happen on frontend
+    const deferredActions = (response.response as Record<string, unknown> | undefined)?.deferredActions as Array<{ tool: string; params: Record<string, unknown>; acknowledgment: string }> | undefined;
+    if (!deferredActions && response.deferredActions) {
+      // Check top-level response for deferredActions
+      const topLevelDeferred = response.deferredActions as Array<{ tool: string; params: Record<string, unknown>; acknowledgment: string }> | undefined;
+      if (topLevelDeferred && topLevelDeferred.length > 0) {
+        console.log(`\n🔄 [DEFERRED] ${topLevelDeferred.length}`);
+        for (const action of topLevelDeferred) {
+          console.log(`   • ${action.acknowledgment || action.tool}`);
+        }
+      }
+    } else if (deferredActions && deferredActions.length > 0) {
+      console.log(`\n🔄 [DEFERRED] ${deferredActions.length}`);
+      for (const action of deferredActions) {
+        console.log(`   • ${action.acknowledgment || action.tool}`);
       }
     }
 

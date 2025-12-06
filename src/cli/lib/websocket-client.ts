@@ -124,6 +124,11 @@ interface ChatResponse {
   success: boolean;
   response?: unknown;
   error?: string;
+  deferredActions?: Array<{
+    tool: string;
+    params: Record<string, unknown>;
+    acknowledgment: string;
+  }>;
 }
 
 /** Variant status lifecycle */
@@ -199,6 +204,17 @@ type SyncStateMessage = { type: 'sync:state'; assets: unknown[]; variants: Varia
 type ErrorMessage = { type: 'error'; code: string; message: string };
 type RefineResult = Omit<GenerateResult, 'type'> & { type: 'refine:result' };
 
+// Chat progress message (agentic loop tool execution)
+export interface ChatProgress {
+  requestId: string;
+  toolName: string;
+  toolParams: Record<string, unknown>;
+  status: 'executing' | 'complete' | 'failed';
+  result?: string;
+  error?: string;
+}
+type ChatProgressMessage = { type: 'chat:progress' } & ChatProgress;
+
 // SimplePlan message types (markdown-based)
 type SimplePlanUpdatedMessage = { type: 'simple_plan:updated'; plan: SimplePlan };
 type SimplePlanArchivedMessage = { type: 'simple_plan:archived'; planId: string };
@@ -215,6 +231,7 @@ type SessionStateMessage = { type: 'session:state'; session: UserSession | null 
 // Server message type union (discriminated union for type narrowing)
 type ServerMessage =
   | ChatResponse
+  | ChatProgressMessage
   | GenerateStarted
   | RefineStarted
   | GenerateResult
@@ -273,6 +290,7 @@ export class WebSocketClient {
   // Event handlers
   private onError?: (error: Error) => void;
   private onSyncState?: (data: { assets: unknown[]; variants: unknown[]; lineage: unknown[] }) => void;
+  private onChatProgress?: (progress: ChatProgress) => void;
 
   // SimplePlan event handlers
   private onPlanUpdated?: (plan: SimplePlan) => void;
@@ -396,6 +414,13 @@ export class WebSocketClient {
   }
 
   /**
+   * Set chat progress handler (agentic loop tool execution)
+   */
+  setOnChatProgress(handler: (progress: ChatProgress) => void): void {
+    this.onChatProgress = handler;
+  }
+
+  /**
    * Set SimplePlan event handlers
    */
   setOnPlanUpdated(handler: (plan: SimplePlan) => void): void {
@@ -444,6 +469,12 @@ export class WebSocketClient {
           this.chatHandlers.delete(chatMsg.requestId);
           handler.resolve(chatMsg);
         }
+        break;
+      }
+
+      case 'chat:progress': {
+        const progressMsg = message as ChatProgressMessage;
+        this.onChatProgress?.(progressMsg);
         break;
       }
 

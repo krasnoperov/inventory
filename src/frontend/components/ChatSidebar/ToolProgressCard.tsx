@@ -33,14 +33,38 @@ function getToolDisplayName(toolName: string): string {
   return displayNames[toolName] || toolName;
 }
 
-/** Get context from tool params */
+/**
+ * Get context string from tool params for display
+ *
+ * Tool params use reference-based addressing (not UUIDs):
+ * - slot: N      → "slot 0", "slot 1" (index into ForgeTray)
+ * - viewing: true → "viewing" (what user is looking at)
+ * - asset: Name  → "Hero", "Heroina" (asset name)
+ *
+ * This matches the reference system in toolExecutor.ts
+ */
 function getToolContext(toolName: string, params: Record<string, unknown>): string | null {
+  // Handle reference-based params (priority: slot > viewing > asset)
+  const getReference = (): string | null => {
+    if (typeof params.slot === 'number') return `slot ${params.slot}`;
+    if (params.viewing === true) return 'viewing';
+    if (params.asset) return params.asset as string;
+    if (params.assetName) return params.assetName as string; // Legacy support
+    return null;
+  };
+
   switch (toolName) {
     case 'describe':
-    case 'add_to_tray':
-      return params.assetName as string | null;
-    case 'compare':
+      return getReference();
+    case 'compare': {
+      // New: slots array, or old: variantIds
+      if (Array.isArray(params.slots)) {
+        return `slots ${(params.slots as number[]).join(', ')}`;
+      }
       return `${(params.variantIds as string[] | undefined)?.length || 0} variants`;
+    }
+    case 'add_to_tray':
+      return getReference();
     case 'search':
       return params.query as string | null;
     case 'set_prompt': {

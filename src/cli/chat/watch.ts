@@ -5,6 +5,18 @@
  *
  * Keeps WebSocket connection open and displays updates as they arrive.
  * Press Ctrl+C to stop watching.
+ *
+ * Log format (aligned with listen.ts):
+ *   {emoji} [EVENT_TYPE] {context}
+ *      Detail: value
+ *      Detail: value
+ *
+ * Icons:
+ *   ⏳ = executing/pending
+ *   ✓/✅ = complete/success
+ *   ✗/❌ = failed/error
+ *   📋 = plan
+ *   📦 = sync
  */
 
 import process from 'node:process';
@@ -14,6 +26,7 @@ import {
   type SimplePlan,
   type PendingApproval,
   type AutoExecuted,
+  type ChatProgress,
 } from '../lib/websocket-client';
 import { truncate } from '../lib/utils';
 
@@ -92,6 +105,29 @@ export async function handleWatch(parsed: ParsedArgs): Promise<void> {
       }
       if (autoExec.error) {
         console.log(`   Error: ${autoExec.error}`);
+      }
+    });
+
+    wsClient.setOnChatProgress((progress: ChatProgress) => {
+      const statusIcon = progress.status === 'executing' ? '⏳' :
+                         progress.status === 'complete' ? '✓' : '✗';
+      const statusColor = progress.status === 'complete' ? '' :
+                          progress.status === 'failed' ? '❌ ' : '';
+      console.log(`\n${statusColor}${statusIcon} [TOOL] ${progress.toolName}`);
+      if (progress.toolParams) {
+        const paramStr = Object.entries(progress.toolParams)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => `${k}=${typeof v === 'string' ? truncate(v, 30) : v}`)
+          .join(', ');
+        if (paramStr) {
+          console.log(`   Params: ${paramStr}`);
+        }
+      }
+      if (progress.status === 'complete' && progress.result) {
+        console.log(`   Result: ${truncate(progress.result, 80)}`);
+      }
+      if (progress.error) {
+        console.log(`   Error: ${progress.error}`);
       }
     });
 
