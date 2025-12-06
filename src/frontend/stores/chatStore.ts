@@ -516,12 +516,19 @@ export const useChatStore = create<ChatState>()(
             ...progress,
             timestamp: Date.now(),
           };
+          // Upsert: update if exists (same requestId + toolName), otherwise add
+          const existingIndex = session.toolProgress.findIndex(
+            p => p.requestId === progress.requestId && p.toolName === progress.toolName
+          );
+          const updatedProgress = existingIndex >= 0
+            ? session.toolProgress.map((p, i) => i === existingIndex ? newProgress : p)
+            : [...session.toolProgress, newProgress];
           return {
             sessions: {
               ...state.sessions,
               [spaceId]: {
                 ...session,
-                toolProgress: [...session.toolProgress, newProgress],
+                toolProgress: updatedProgress,
                 lastUpdated: Date.now(),
               },
             },

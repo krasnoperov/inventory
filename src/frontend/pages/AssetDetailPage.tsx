@@ -243,6 +243,7 @@ export default function AssetDetailPage() {
       }
     },
     // Tool progress during agentic loop
+    // Note: Backend may send 'complete'/'failed' without 'executing' first
     onChatProgress: (progress) => {
       if (spaceId) {
         const toolProgress: ToolProgress = {
@@ -254,11 +255,8 @@ export default function AssetDetailPage() {
           error: progress.error,
           timestamp: Date.now(),
         };
-        if (progress.status === 'executing') {
-          addToolProgress(spaceId, toolProgress);
-        } else {
-          updateToolProgress(spaceId, progress.requestId, progress.toolName, toolProgress);
-        }
+        // Always add - store handles upsert (add or update)
+        addToolProgress(spaceId, toolProgress);
       }
     },
   });

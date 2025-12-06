@@ -894,35 +894,44 @@ Please suggest an alternative approach or modified parameters that might work. I
             </span>
           </div>
           <div className={styles.approvalList}>
-            {pendingApprovals.map(approval => (
-              <div key={approval.id} className={styles.approvalItem}>
-                <div className={styles.approvalDescription}>
-                  <span className={styles.approvalTool}>{approval.description}</span>
-                  {typeof approval.params.prompt === 'string' && approval.params.prompt && (
-                    <span className={styles.approvalPrompt}>
-                      "{approval.params.prompt.slice(0, 50)}
-                      {approval.params.prompt.length > 50 ? '...' : ''}"
-                    </span>
+            {pendingApprovals.map(approval => {
+              const params = approval.params as Record<string, unknown>;
+              const name = params.name as string | undefined;
+              const prompt = params.prompt as string | undefined;
+              return (
+                <div key={approval.id} className={styles.approvalItem}>
+                  <div className={styles.approvalItemHeader}>
+                    <div className={styles.approvalDescription}>
+                      <span className={styles.approvalTool}>{approval.description}</span>
+                      {name && (
+                        <span className={styles.approvalName}>"{name}"</span>
+                      )}
+                    </div>
+                    <div className={styles.approvalActions}>
+                      <button
+                        className={styles.approveButton}
+                        onClick={() => handleApproveToolCall(approval.id)}
+                        title="Approve"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        className={styles.rejectButton}
+                        onClick={() => handleRejectToolCall(approval.id)}
+                        title="Reject"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                  {prompt && (
+                    <div className={styles.approvalPromptFull}>
+                      {prompt}
+                    </div>
                   )}
                 </div>
-                <div className={styles.approvalActions}>
-                  <button
-                    className={styles.approveButton}
-                    onClick={() => handleApproveToolCall(approval.id)}
-                    title="Approve"
-                  >
-                    ✓
-                  </button>
-                  <button
-                    className={styles.rejectButton}
-                    onClick={() => handleRejectToolCall(approval.id)}
-                    title="Reject"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {pendingApprovals.length > 1 && (
             <div className={styles.approvalBulkActions}>

@@ -206,6 +206,7 @@ export default function SpacePage() {
       }
     },
     // Tool progress during agentic loop
+    // Note: Backend may send 'complete'/'failed' without 'executing' first
     onChatProgress: (progress) => {
       if (spaceId) {
         const toolProgress: ToolProgress = {
@@ -217,11 +218,8 @@ export default function SpacePage() {
           error: progress.error,
           timestamp: Date.now(),
         };
-        if (progress.status === 'executing') {
-          addToolProgress(spaceId, toolProgress);
-        } else {
-          updateToolProgress(spaceId, progress.requestId, progress.toolName, toolProgress);
-        }
+        // Always add - store will handle duplicates via update
+        addToolProgress(spaceId, toolProgress);
       }
     },
   });

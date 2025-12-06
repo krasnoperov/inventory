@@ -186,6 +186,18 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
           break;
         }
 
+        // Broadcast 'executing' status for each tool before execution
+        await step.do(`broadcast-executing-${iteration}`, async () => {
+          for (const block of currentResponse.toolUseBlocks as ToolUseBlock[]) {
+            await this.broadcastProgress(spaceId, requestId, {
+              toolName: block.name,
+              toolParams: block.input || {},
+              status: 'executing',
+            });
+          }
+          return { done: true };
+        });
+
         // Execute tools
         const toolExecResultJson = await step.do(`execute-tools-${iteration}`, async () => {
           const result = await executeTools(
