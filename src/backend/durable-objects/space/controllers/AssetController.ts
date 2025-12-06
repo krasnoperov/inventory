@@ -82,8 +82,19 @@ export class AssetController extends BaseController {
   async handleDelete(ws: WebSocket, meta: WebSocketMeta, assetId: string): Promise<void> {
     this.requireOwner(meta);
 
+    // Get child assets before deletion - they will be reparented to root
+    const childAssets = await this.repo.getAssetsByParent(assetId);
+
     await this.repo.deleteAsset(assetId);
     this.broadcast({ type: 'asset:deleted', assetId });
+
+    // Broadcast updates for reparented children (now at root level)
+    for (const child of childAssets) {
+      const updatedChild = await this.repo.getAssetById(child.id);
+      if (updatedChild) {
+        this.broadcast({ type: 'asset:updated', asset: updatedChild });
+      }
+    }
   }
 
   /**

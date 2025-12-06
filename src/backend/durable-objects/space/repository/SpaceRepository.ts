@@ -194,6 +194,14 @@ export class SpaceRepository {
       }
     }
 
+    // Reparent child assets to root (set parent_asset_id to NULL)
+    // This prevents orphaned children with invalid parent references
+    await this.sql.exec(
+      'UPDATE assets SET parent_asset_id = NULL, updated_at = ? WHERE parent_asset_id = ?',
+      Date.now(),
+      id
+    );
+
     // Delete asset (cascades to variants via FK)
     await this.sql.exec(AssetQueries.DELETE, id);
   }

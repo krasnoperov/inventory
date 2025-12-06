@@ -406,10 +406,29 @@ export class VariantController extends BaseController {
   /**
    * Delete a variant and decrement image refs.
    * Images with 0 refs are deleted from R2.
+   * If the variant is the active variant, reassign to another variant or NULL.
    */
   private async deleteVariant(variantId: string): Promise<void> {
     const variant = await this.repo.getVariantById(variantId);
     if (!variant) return;
+
+    // Check if this variant is the active variant for its asset
+    const asset = await this.repo.getAssetById(variant.asset_id);
+    if (asset && asset.active_variant_id === variantId) {
+      // Find another variant to set as active (prefer completed variants)
+      const otherVariants = await this.repo.getVariantsByAsset(variant.asset_id);
+      const candidates = otherVariants.filter((v) => v.id !== variantId);
+      const newActiveVariant =
+        candidates.find((v) => v.status === 'completed') ?? candidates[0];
+
+      // Update asset's active variant (to another variant or NULL)
+      const updatedAsset = await this.repo.updateAsset(variant.asset_id, {
+        active_variant_id: newActiveVariant?.id ?? null,
+      });
+      if (updatedAsset) {
+        this.broadcast({ type: 'asset:updated', asset: updatedAsset });
+      }
+    }
 
     // Decrement refs for all images
     const imageKeys = getVariantImageKeys(variant);
