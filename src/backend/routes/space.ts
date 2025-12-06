@@ -50,6 +50,7 @@ spaceRoutes.post('/api/spaces', async (c) => {
       id: space.id,
       name: space.name,
       owner_id: space.owner_id,
+      role: 'owner', // Creator is always the owner
       created_at: space.created_at,
     },
   }, 201);

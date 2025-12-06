@@ -105,8 +105,8 @@ export default function LandingPage() {
     });
   };
 
-  const getRoleBadgeClass = (role: string) => {
-    switch (role.toLowerCase()) {
+  const getRoleBadgeClass = (role: string | undefined) => {
+    switch (role?.toLowerCase()) {
       case 'owner':
         return styles.roleBadgeOwner;
       case 'admin':
