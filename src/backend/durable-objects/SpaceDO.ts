@@ -3,7 +3,6 @@ import type { Hono } from 'hono';
 import type { Env } from '../../core/types';
 import { loggers } from '../../shared/logger';
 import type {
-  ChatRequestMessage,
   GenerateRequestMessage,
   RefineRequestMessage,
   DescribeRequestMessage,
@@ -24,7 +23,6 @@ import {
   ValidationError,
   PresenceController,
   SyncController,
-  ChatController,
   LineageController,
   AssetController,
   VariantController,
@@ -47,7 +45,6 @@ export class SpaceDO extends DurableObject<Env> {
   // Controllers
   private presenceCtrl!: PresenceController;
   private syncCtrl!: SyncController;
-  private chatCtrl!: ChatController;
   private lineageCtrl!: LineageController;
   private assetCtrl!: AssetController;
   private variantCtrl!: VariantController;
@@ -116,7 +113,6 @@ export class SpaceDO extends DurableObject<Env> {
       // Initialize controllers
       this.presenceCtrl = new PresenceController(ctx);
       this.syncCtrl = new SyncController(ctx, this.presenceCtrl);
-      this.chatCtrl = new ChatController(ctx);
       this.lineageCtrl = new LineageController(ctx);
       this.assetCtrl = new AssetController(ctx);
       this.variantCtrl = new VariantController(ctx);
@@ -130,12 +126,10 @@ export class SpaceDO extends DurableObject<Env> {
         asset: this.assetCtrl,
         variant: this.variantCtrl,
         lineage: this.lineageCtrl,
-        chat: this.chatCtrl,
         sync: this.syncCtrl,
         generation: this.generationCtrl,
         approval: this.approvalCtrl,
         session: this.sessionCtrl,
-        plan: this.generationCtrl, // Plan methods are on GenerationController
       });
 
       this.initialized = true;
@@ -278,14 +272,6 @@ export class SpaceDO extends DurableObject<Env> {
       case 'lineage:sever':
         return this.lineageCtrl.handleSever(ws, meta, msg.lineageId);
 
-      // Chat
-      case 'chat:send':
-        return this.chatCtrl.handleSend(ws, meta, msg.content);
-      case 'chat:history':
-        return this.chatCtrl.handleHistory(ws, meta, msg.since);
-      case 'chat:new_session':
-        return this.chatCtrl.handleNewSession(ws, meta);
-
       // Approval
       case 'approval:approve':
         await this.approvalCtrl.handleApprove(ws, meta, msg.approvalId);
@@ -312,8 +298,6 @@ export class SpaceDO extends DurableObject<Env> {
         return this.presenceCtrl.handleUpdate(meta, msg.viewing);
 
       // Workflow triggers
-      case 'chat:request':
-        return this.generationCtrl.handleChatRequest(ws, meta, msg as ChatRequestMessage);
       case 'generate:request':
         return this.generationCtrl.handleGenerateRequest(ws, meta, msg as GenerateRequestMessage);
       case 'refine:request':

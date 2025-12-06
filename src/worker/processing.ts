@@ -8,26 +8,6 @@ import type { Env } from '../core/types';
 // Simple Hono app for health checks and future workflow status endpoints
 const app = new Hono<{ Bindings: Env }>();
 
-// Workflow status endpoint - check chat workflow status
-app.get('/api/workflow/chat/:instanceId', async (c) => {
-  const { instanceId } = c.req.param();
-  try {
-    if (!c.env.CHAT_WORKFLOW) {
-      return c.json({ error: 'CHAT_WORKFLOW not configured' }, 500);
-    }
-    const instance = await c.env.CHAT_WORKFLOW.get(instanceId);
-    const status = await instance.status();
-    return c.json({ instanceId, type: 'chat', status });
-  } catch (error) {
-    console.error('Error fetching chat workflow status:', error);
-    return c.json({
-      error: 'Failed to fetch workflow status',
-      instanceId,
-      details: error instanceof Error ? error.message : String(error)
-    }, 500);
-  }
-});
-
 // Workflow status endpoint - check generation workflow status
 app.get('/api/workflow/generation/:instanceId', async (c) => {
   const { instanceId } = c.req.param();
@@ -61,5 +41,4 @@ export default {
 };
 
 // Export Workflow classes
-export { ChatWorkflow } from '../backend/workflows/ChatWorkflow';
 export { GenerationWorkflow } from '../backend/workflows/GenerationWorkflow';

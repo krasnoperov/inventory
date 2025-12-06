@@ -1,7 +1,7 @@
 /**
  * Generation Controller
  *
- * Handles workflow triggers for chat, generation, and refinement.
+ * Handles workflow triggers for generation and refinement.
  * Creates placeholder variants upfront and updates them when workflows complete.
  *
  * Uses VariantFactory for shared variant creation logic.
@@ -11,22 +11,16 @@
  * - Track usage AFTER successful completion (not during workflow)
  */
 
-import type { Variant, WebSocketMeta, ChatMessage } from '../types';
-import type { SimplePlan } from '../../../../shared/websocket-types';
+import type { Variant, WebSocketMeta } from '../types';
 import type {
-  ChatRequestMessage,
   GenerateRequestMessage,
   RefineRequestMessage,
-  ChatWorkflowInput,
-  ChatWorkflowOutput,
   GenerationWorkflowInput,
 } from '../../../workflows/types';
-import type { ChatMessage as ApiChatMessage } from '../../../../api/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import {
   preCheck,
   incrementRateLimit,
-  trackClaudeUsage,
   trackImageGeneration,
 } from '../billing/usageCheck';
 import {
@@ -49,76 +43,6 @@ export class GenerationController extends BaseController {
   // ==========================================================================
   // WebSocket Handlers - Workflow Triggers
   // ==========================================================================
-
-  /**
-   * Handle chat:request WebSocket message
-   * Triggers ChatWorkflow for bot conversation
-   */
-  async handleChatRequest(ws: WebSocket, meta: WebSocketMeta, msg: ChatRequestMessage): Promise<void> {
-    if (!this.env.CHAT_WORKFLOW) {
-      throw new ValidationError('Chat workflow not configured');
-    }
-
-    // Check quota and rate limits before triggering workflow
-    if (this.env.DB) {
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), 'claude');
-      if (!check.allowed) {
-        this.send(ws, {
-          type: 'chat:error',
-          requestId: msg.requestId,
-          error: check.denyMessage || 'Request denied',
-          code: check.denyReason === 'rate_limited' ? 'RATE_LIMITED' : 'QUOTA_EXCEEDED',
-        });
-        return;
-      }
-      // Increment rate limit counter
-      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
-    }
-
-    // Get chat history from local storage
-    const historyResult = await this.sql.exec(
-      'SELECT * FROM chat_messages ORDER BY created_at DESC LIMIT 20'
-    );
-    const historyRows = historyResult.toArray() as unknown as ChatMessage[];
-    const history: ApiChatMessage[] = historyRows.reverse().map((row) => ({
-      role: row.sender_type === 'user' ? ('user' as const) : ('assistant' as const),
-      content: row.content,
-    }));
-
-    // Get assets for context
-    const assets = await this.repo.getAssetsWithVariantCount();
-
-    // Get active plan if one exists (SimplePlan - markdown-based)
-    const activePlan = await this.repo.getActivePlan();
-
-    // Build workflow input
-    const workflowInput: ChatWorkflowInput = {
-      requestId: msg.requestId,
-      spaceId: this.spaceId,
-      userId: meta.userId,
-      message: msg.message,
-      mode: msg.mode,
-      history,
-      forgeContext: msg.forgeContext,
-      viewingContext: msg.viewingContext,
-      assets,
-      activePlan: activePlan ?? undefined,
-    };
-
-    // Trigger the workflow
-    const instance = await this.env.CHAT_WORKFLOW.create({
-      id: msg.requestId,
-      params: workflowInput,
-    });
-
-    log.info('Started ChatWorkflow', {
-      requestId: msg.requestId,
-      spaceId: this.spaceId,
-      userId: meta.userId,
-      mode: msg.mode,
-      workflowId: instance.id,
-    });
-  }
 
   /**
    * Handle generate:request WebSocket message
@@ -331,70 +255,6 @@ export class GenerationController extends BaseController {
   }
 
   // ==========================================================================
-  // HTTP Handlers - Chat Workflow
-  // ==========================================================================
-
-  /**
-   * Handle POST /internal/chat-result HTTP request
-   * Broadcasts chat workflow result to all clients
-   * Tracks usage for successful requests
-   */
-  async httpChatResult(result: ChatWorkflowOutput): Promise<void> {
-    // Track usage only for successful requests
-    if (result.success && result.usage && this.env.DB) {
-      try {
-        await trackClaudeUsage(
-          this.env.DB,
-          parseInt(result.userId),
-          result.usage.inputTokens,
-          result.usage.outputTokens,
-          'claude-sonnet-4-20250514',
-          result.requestId
-        );
-      } catch (err) {
-        log.warn('Failed to track Claude usage', {
-          requestId: result.requestId,
-          spaceId: this.spaceId,
-          userId: result.userId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
-    this.broadcast({
-      type: 'chat:response',
-      requestId: result.requestId,
-      success: result.success,
-      response: result.response,
-      error: result.error,
-      deferredActions: result.deferredActions,
-    });
-  }
-
-  /**
-   * Handle POST /internal/chat-progress HTTP request
-   * Broadcasts tool execution progress during agentic loop
-   */
-  async httpChatProgress(progress: {
-    requestId: string;
-    toolName: string;
-    toolParams: Record<string, unknown>;
-    status: 'executing' | 'complete' | 'failed';
-    result?: string;
-    error?: string;
-  }): Promise<void> {
-    this.broadcast({
-      type: 'chat:progress',
-      requestId: progress.requestId,
-      toolName: progress.toolName,
-      toolParams: progress.toolParams,
-      status: progress.status,
-      result: progress.result,
-      error: progress.error,
-    });
-  }
-
-  // ==========================================================================
   // HTTP Handlers - Variant Lifecycle (GenerationWorkflow)
   // ==========================================================================
 
@@ -509,62 +369,5 @@ export class GenerationController extends BaseController {
     this.broadcast({ type: 'job:failed', jobId: data.variantId, error: data.error });
 
     return { success: true, variant };
-  }
-
-  // ==========================================================================
-  // HTTP Handlers - Plan Operations (SimplePlan - markdown-based)
-  // ==========================================================================
-
-  /**
-   * Handle POST /internal/plan HTTP request
-   * Creates or updates a plan for a chat session and broadcasts to all clients.
-   * Called by ChatWorkflow when executing update_plan tool.
-   */
-  async httpUpsertPlan(data: {
-    sessionId: string;
-    content: string;
-    createdBy: string;
-  }): Promise<SimplePlan> {
-    const plan = await this.repo.upsertPlan({
-      sessionId: data.sessionId,
-      content: data.content,
-      createdBy: data.createdBy,
-    });
-
-    // Broadcast to all clients
-    this.broadcast({ type: 'simple_plan:updated', plan });
-
-    log.info('Plan updated', {
-      spaceId: this.spaceId,
-      planId: plan.id,
-      sessionId: data.sessionId,
-      createdBy: data.createdBy,
-    });
-
-    return plan;
-  }
-
-  /**
-   * Handle GET /internal/plan/:sessionId HTTP request
-   * Gets the active plan for a chat session.
-   */
-  async httpGetActivePlan(sessionId: string): Promise<SimplePlan | null> {
-    return this.repo.getActivePlan(sessionId);
-  }
-
-  /**
-   * Handle DELETE /internal/plan/:planId HTTP request
-   * Archives a plan (marks as done/dismissed).
-   */
-  async httpArchivePlan(planId: string): Promise<void> {
-    await this.repo.archivePlan(planId);
-
-    // Broadcast to all clients that the plan was archived
-    this.broadcast({ type: 'simple_plan:archived', planId });
-
-    log.info('Plan archived', {
-      spaceId: this.spaceId,
-      planId,
-    });
   }
 }

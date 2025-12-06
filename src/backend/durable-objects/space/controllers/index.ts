@@ -19,7 +19,6 @@ export {
 // Domain controllers
 export { PresenceController } from './PresenceController';
 export { SyncController } from './SyncController';
-export { ChatController } from './ChatController';
 export { LineageController } from './LineageController';
 export { AssetController } from './AssetController';
 export { VariantController } from './VariantController';

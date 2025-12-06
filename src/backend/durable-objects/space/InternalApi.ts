@@ -8,14 +8,11 @@
  * - Asset: CRUD, fork, set-active
  * - Variant: apply, star, status lifecycle (pending → processing → completed/failed)
  * - Lineage: queries, add, sever
- * - Chat: store messages, history, chat-result (for ChatWorkflow)
  * - State: sync state for clients
  */
 
 import { Hono } from 'hono';
 import type { Variant, PendingApproval, AutoExecuted, UserSession } from './types';
-import type { SimplePlan } from '../../../shared/websocket-types';
-import type { ChatWorkflowOutput } from '../../workflows/types';
 import { NotFoundError, ValidationError } from './controllers/types';
 import { loggers } from '../../../shared/logger';
 
@@ -95,31 +92,10 @@ export interface InternalApiControllers {
     }): Promise<unknown>;
     httpSever(lineageId: string): Promise<void>;
   };
-  chat: {
-    httpStoreMessage(data: {
-      userId: string;
-      senderType: 'user' | 'bot';
-      senderId: string;
-      content: string;
-      metadata?: string | null;
-    }): Promise<unknown>;
-    // httpGetHistory removed - chat history now via WebSocket
-    httpClearHistory(): Promise<void>;
-  };
   sync: {
     httpGetState(): Promise<unknown>;
   };
   generation: {
-    // Chat workflow
-    httpChatResult(result: ChatWorkflowOutput): void;
-    httpChatProgress(progress: {
-      requestId: string;
-      toolName: string;
-      toolParams: Record<string, unknown>;
-      status: 'executing' | 'complete' | 'failed';
-      result?: string;
-      error?: string;
-    }): void;
     // Variant lifecycle (GenerationWorkflow)
     httpUpdateVariantStatus(data: {
       variantId: string;
@@ -168,15 +144,6 @@ export interface InternalApiControllers {
       viewingVariantId?: string | null;
       forgeContext?: string | null;
     }): Promise<UserSession>;
-  };
-  plan: {
-    httpUpsertPlan(data: {
-      sessionId: string;
-      content: string;
-      createdBy: string;
-    }): Promise<SimplePlan>;
-    httpGetActivePlan(sessionId: string): Promise<SimplePlan | null>;
-    httpArchivePlan(planId: string): Promise<void>;
   };
 }
 
@@ -336,24 +303,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   });
 
   // ==========================================================================
-  // Chat Routes
-  // ==========================================================================
-
-  app.post('/internal/chat', async (c) => {
-    const data = await c.req.json();
-    const message = await controllers.chat.httpStoreMessage(data);
-    return c.json({ success: true, message });
-  });
-
-  // NOTE: GET /internal/chat/history has been removed.
-  // Chat history is now fetched via WebSocket chat:history messages.
-
-  app.delete('/internal/chat/history', async (c) => {
-    await controllers.chat.httpClearHistory();
-    return c.json({ success: true });
-  });
-
-  // ==========================================================================
   // State Route
   // ==========================================================================
 
@@ -392,29 +341,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     };
     const result = await controllers.generation.httpFailVariant(data);
     return c.json(result);
-  });
-
-  // ==========================================================================
-  // Chat Workflow Result Route
-  // ==========================================================================
-
-  app.post('/internal/chat-result', async (c) => {
-    const result = (await c.req.json()) as ChatWorkflowOutput;
-    await controllers.generation.httpChatResult(result);
-    return c.json({ success: true });
-  });
-
-  app.post('/internal/chat-progress', async (c) => {
-    const progress = (await c.req.json()) as {
-      requestId: string;
-      toolName: string;
-      toolParams: Record<string, unknown>;
-      status: 'executing' | 'complete' | 'failed';
-      result?: string;
-      error?: string;
-    };
-    await controllers.generation.httpChatProgress(progress);
-    return c.json({ success: true });
   });
 
   // ==========================================================================
@@ -476,32 +402,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     const data = await c.req.json();
     const session = await controllers.session.httpUpsertSession(data);
     return c.json({ success: true, session });
-  });
-
-  // ==========================================================================
-  // Plan Routes (SimplePlan - markdown-based)
-  // ==========================================================================
-
-  app.post('/internal/plan', async (c) => {
-    const data = (await c.req.json()) as {
-      sessionId: string;
-      content: string;
-      createdBy: string;
-    };
-    const plan = await controllers.plan.httpUpsertPlan(data);
-    return c.json({ success: true, plan });
-  });
-
-  app.get('/internal/plan/:sessionId', async (c) => {
-    const sessionId = c.req.param('sessionId');
-    const plan = await controllers.plan.httpGetActivePlan(sessionId);
-    return c.json({ success: true, plan });
-  });
-
-  app.delete('/internal/plan/:planId', async (c) => {
-    const planId = c.req.param('planId');
-    await controllers.plan.httpArchivePlan(planId);
-    return c.json({ success: true });
   });
 
   return app;

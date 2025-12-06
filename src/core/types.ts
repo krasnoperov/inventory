@@ -3,7 +3,7 @@
 // ============================================================================
 // Define your Cloudflare Workers bindings here
 
-import type { ChatWorkflowInput, GenerationWorkflowInput } from '../backend/workflows/types';
+import type { GenerationWorkflowInput } from '../backend/workflows/types';
 
 /** Cloudflare Workflow instance handle */
 export interface WorkflowInstance {
@@ -65,7 +65,6 @@ export interface Env {
   SPACES_DO?: DurableObjectNamespace;
 
   // Inventory Forge: Cloudflare Workflows
-  CHAT_WORKFLOW?: WorkflowBinding<ChatWorkflowInput>;
   GENERATION_WORKFLOW?: WorkflowBinding<GenerationWorkflowInput>;
 
   // Inventory Forge: Rate limiting for bots

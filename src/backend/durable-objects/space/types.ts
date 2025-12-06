@@ -8,7 +8,6 @@
  */
 
 import type {
-  ChatRequestMessage,
   GenerateRequestMessage,
   RefineRequestMessage,
   DescribeRequestMessage,
@@ -273,7 +272,6 @@ export type ClientMessage =
   | { type: 'session:get' }
   | { type: 'session:update'; viewingAssetId?: string | null; viewingVariantId?: string | null; forgeContext?: string | null }
   // Workflow-triggering messages
-  | ChatRequestMessage
   | GenerateRequestMessage
   | RefineRequestMessage
   // Vision (describe/compare) messages

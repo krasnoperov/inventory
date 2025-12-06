@@ -5,79 +5,6 @@
  * These define the contract between SpaceDO (trigger) and Workflows (execution).
  */
 
-import type {
-  BotResponse,
-  ChatMessage,
-  ForgeContext,
-  ViewingContext,
-  SimplePlan,
-} from '../../api/types';
-import type { DeferredAction } from '../../shared/websocket-types';
-
-// Re-export DeferredAction for consumers of this module
-export type { DeferredAction };
-
-// ============================================================================
-// CHAT WORKFLOW TYPES
-// ============================================================================
-
-/** Asset context for Claude (simplified view of space assets) */
-export interface BotContextAsset {
-  id: string;
-  name: string;
-  type: string;
-  variantCount: number;
-}
-
-/** Input to ChatWorkflow - triggered by SpaceDO on chat:request */
-export interface ChatWorkflowInput {
-  /** Client-generated UUID for response correlation */
-  requestId: string;
-  /** Space ID */
-  spaceId: string;
-  /** User ID (string) */
-  userId: string;
-  /** User's chat message */
-  message: string;
-  /** Chat mode */
-  mode: 'advisor' | 'actor';
-  /** Conversation history (last N messages) */
-  history: ChatMessage[];
-  /** Current forge tray state */
-  forgeContext?: ForgeContext;
-  /** What user is currently viewing */
-  viewingContext?: ViewingContext;
-  /** Space assets for Claude context */
-  assets: BotContextAsset[];
-  /** Personalization context from memory service */
-  personalizationContext?: string;
-  /** Active plan for context (if one exists) - markdown-based */
-  activePlan?: SimplePlan;
-  /** Chat session ID for plan persistence (defaults to spaceId if not set) */
-  sessionId?: string;
-}
-
-/** Output from ChatWorkflow - sent back to SpaceDO for broadcast */
-export interface ChatWorkflowOutput {
-  /** Echo back requestId for correlation */
-  requestId: string;
-  /** User ID for billing tracking */
-  userId: string;
-  /** Whether the workflow succeeded */
-  success: boolean;
-  /** Claude's response (if success) */
-  response?: BotResponse;
-  /** Error message (if failure) */
-  error?: string;
-  /** Token usage for billing tracking */
-  usage?: {
-    inputTokens: number;
-    outputTokens: number;
-  };
-  /** Deferred actions for frontend (tray operations) */
-  deferredActions?: DeferredAction[];
-}
-
 // ============================================================================
 // GENERATION WORKFLOW TYPES
 // ============================================================================
@@ -197,17 +124,6 @@ export interface RefineWorkflowInput {
 // WEBSOCKET MESSAGE TYPES (additions to SpaceDO)
 // ============================================================================
 
-/** Chat request from client (replaces HTTP POST /api/spaces/:id/chat) */
-export interface ChatRequestMessage {
-  type: 'chat:request';
-  requestId: string;
-  message: string;
-  mode: 'advisor' | 'actor';
-  history?: ChatMessage[];
-  forgeContext?: ForgeContext;
-  viewingContext?: ViewingContext;
-}
-
 /** Generate request from client (replaces HTTP POST /api/spaces/:id/assets) */
 export interface GenerateRequestMessage {
   type: 'generate:request';
@@ -236,15 +152,6 @@ export interface RefineRequestMessage {
   /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
   aspectRatio?: string;
-}
-
-/** Chat response to client */
-export interface ChatResponseMessage {
-  type: 'chat:response';
-  requestId: string;
-  success: boolean;
-  response?: BotResponse;
-  error?: string;
 }
 
 /** Generation started notification (broadcast to all) */

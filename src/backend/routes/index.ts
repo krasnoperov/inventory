@@ -14,7 +14,6 @@ import { spaceRoutes } from './space';
 import { memberRoutes } from './member';
 import { jobRoutes } from './job';
 import { imageRoutes } from './image';
-import { chatRoutes } from './chat';
 import { memoryRoutes } from './memory';
 import { websocketRoutes } from './websocket';
 import { exportRoutes } from './export';
@@ -47,9 +46,6 @@ export function registerRoutes(app: Hono<AppContext>) {
 
   // Image serving routes
   app.route('/', imageRoutes);
-
-  // Bot assistant chat routes (Phase 5)
-  app.route('/', chatRoutes);
 
   // Memory & personalization routes (Phase 2)
   app.route('/', memoryRoutes);

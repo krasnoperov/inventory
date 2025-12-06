@@ -5,21 +5,14 @@ import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
-import { useChatStore, useChatIsOpen, type ToolProgress } from '../stores/chatStore';
 import type {
   Asset,
   Variant,
-  ChatResponseResult,
-  DescribeResponseResult,
-  CompareResponseResult,
-  PendingApproval,
-  AutoExecuted,
 } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
-import { ChatSidebar } from '../components/ChatSidebar';
 import { AssetCanvas } from '../components/AssetCanvas';
 import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
@@ -56,49 +49,11 @@ export default function SpacePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Chat sidebar state (persisted in store)
-  const isChatOpen = useChatIsOpen(spaceId || '');
-  const setIsOpen = useChatStore((state) => state.setIsOpen);
-  const toggleChat = useCallback(() => {
-    setIsOpen(spaceId || '', !isChatOpen);
-  }, [setIsOpen, spaceId, isChatOpen]);
-  const closeChat = useCallback(() => {
-    setIsOpen(spaceId || '', false);
-  }, [setIsOpen, spaceId]);
-
-  // Initialize chat to open on first visit to a space
-  useEffect(() => {
-    if (!spaceId) return;
-    const session = useChatStore.getState().sessions[spaceId];
-    if (!session) {
-      setIsOpen(spaceId, true);
-    }
-  }, [spaceId, setIsOpen]);
-
   // Set page title
   useDocumentTitle(space?.name);
 
   // Forge tray store
   const { addSlot } = useForgeTrayStore();
-
-  // Track chat response for ChatSidebar
-  const [chatResponse, setChatResponse] = useState<ChatResponseResult | null>(null);
-  // Track describe/compare responses for ChatSidebar tool execution
-  const [describeResponse, setDescribeResponse] = useState<DescribeResponseResult | null>(null);
-  const [compareResponse, setCompareResponse] = useState<CompareResponseResult | null>(null);
-
-  // Get chatStore sync methods
-  const {
-    setMessages,
-    clearMessages,
-    syncServerApproval,
-    updateServerApproval,
-    syncServerApprovals,
-    syncServerAutoExecuted,
-    setPlan,
-    clearPlan,
-    addToolProgress,
-  } = useChatStore();
 
   // WebSocket connection for real-time updates
   const {
@@ -108,130 +63,22 @@ export default function SpacePage() {
     jobs,
     requestSync,
     clearJob,
-    sendChatRequest,
     sendGenerateRequest,
     sendRefineRequest,
-    sendDescribeRequest,
-    sendCompareRequest,
     forkAsset,
     updateAsset,
-    approveApproval: wsApproveApproval,
-    rejectApproval: wsRejectApproval,
     updateSession,
-    requestChatHistory,
-    startNewSession: wsStartNewSession,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
-      // Request chat history via WebSocket (replaces REST)
-      requestChatHistory();
       // Sync session: user is viewing space overview (no specific asset)
       updateSession({ viewingAssetId: null, viewingVariantId: null });
     },
-    onJobComplete: (completedJob, variant) => {
-      setLastCompletedJob({
-        jobId: completedJob.jobId,
-        variantId: variant.id,
-        assetId: completedJob.assetId,
-        assetName: completedJob.assetName,
-        prompt: completedJob.prompt,
-        thumbKey: variant.thumb_key ?? variant.image_key ?? undefined,
-      });
-    },
-    onChatResponse: (response) => {
-      setChatResponse(response);
-    },
-    onDescribeResponse: (response) => {
-      setDescribeResponse(response);
-    },
-    onCompareResponse: (response) => {
-      setCompareResponse(response);
-    },
-    // Approval lifecycle callbacks
-    onApprovalCreated: (approval: PendingApproval) => {
-      if (spaceId) {
-        syncServerApproval(spaceId, approval);
-      }
-    },
-    onApprovalUpdated: (approval: PendingApproval) => {
-      if (spaceId) {
-        updateServerApproval(spaceId, approval);
-      }
-    },
-    onApprovalList: (approvals: PendingApproval[]) => {
-      if (spaceId) {
-        syncServerApprovals(spaceId, approvals);
-      }
-    },
-    onAutoExecuted: (autoExecuted: AutoExecuted) => {
-      if (spaceId) {
-        syncServerAutoExecuted(spaceId, autoExecuted);
-      }
-    },
-    // Chat history via WebSocket (replaces REST)
-    onChatHistory: (messages, _sessionId) => { // eslint-disable-line @typescript-eslint/no-unused-vars
-      if (spaceId) {
-        if (messages.length > 0) {
-          // Convert server format to client format
-          const formattedMessages = messages.map((msg, idx) => ({
-            id: `history_${idx}_${msg.created_at}`,
-            role: msg.sender_type === 'user' ? 'user' as const : 'assistant' as const,
-            content: msg.content,
-            timestamp: msg.created_at,
-          }));
-          setMessages(spaceId, formattedMessages);
-        } else {
-          // Empty history (new session) - clear messages
-          clearMessages(spaceId);
-        }
-      }
-    },
-    // New session created - clear local messages
-    onSessionCreated: () => {
-      if (spaceId) {
-        clearMessages(spaceId);
-      }
-    },
-    // SimplePlan callbacks
-    onPlanUpdated: (plan) => {
-      if (spaceId) {
-        setPlan(spaceId, plan);
-      }
-    },
-    onPlanArchived: () => {
-      if (spaceId) {
-        clearPlan(spaceId);
-      }
-    },
-    // Tool progress during agentic loop
-    // Note: Backend may send 'complete'/'failed' without 'executing' first
-    onChatProgress: (progress) => {
-      if (spaceId) {
-        const toolProgress: ToolProgress = {
-          requestId: progress.requestId,
-          toolName: progress.toolName,
-          toolParams: progress.toolParams,
-          status: progress.status,
-          result: progress.result,
-          error: progress.error,
-          timestamp: Date.now(),
-        };
-        // Always add - store will handle duplicates via update
-        addToolProgress(spaceId, toolProgress);
-      }
+    onJobComplete: () => {
+      // Job completed - variant is now visible on canvas
     },
   });
-
-  // Track last completed job for assistant auto-review
-  const [lastCompletedJob, setLastCompletedJob] = useState<{
-    jobId: string;
-    variantId: string;
-    assetId?: string;
-    assetName?: string;
-    prompt?: string;
-    thumbKey?: string;
-  } | null>(null);
 
   // Export/Import state
   const [isExporting, setIsExporting] = useState(false);
@@ -288,7 +135,7 @@ export default function SpacePage() {
   }, [user, spaceId, navigate]);
 
   // Use shared forge operations hook (all operations via WebSocket)
-  const { handleForgeSubmit, onGenerate, onFork, onDerive, onRefine } = useForgeOperations({
+  const { handleForgeSubmit } = useForgeOperations({
     sendGenerateRequest,
     sendRefineRequest,
     forkAsset,
@@ -478,76 +325,37 @@ export default function SpacePage() {
           </div>
         </div>
 
-        {/* Tools overlay - top right (when chat is closed) */}
-        {!isChatOpen && (
-          <div className={styles.toolsOverlay}>
-            <button
-              className={styles.toolButton}
-              onClick={handleExport}
-              disabled={isExporting || assets.length === 0}
-              title={assets.length === 0 ? 'No assets to export' : 'Export all assets as ZIP'}
-            >
-              {isExporting ? 'Exporting...' : 'Export'}
-            </button>
-            {canEdit && (
-              <>
-                <button
-                  className={styles.toolButton}
-                  onClick={() => importInputRef.current?.click()}
-                  disabled={isImporting}
-                >
-                  {isImporting ? 'Importing...' : 'Import'}
-                </button>
-                <input
-                  ref={importInputRef}
-                  type="file"
-                  accept=".zip"
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImport(file);
-                  }}
-                />
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Chat toggle button */}
-        <button
-          className={`${styles.chatToggle} ${isChatOpen ? styles.active : ''}`}
-          onClick={toggleChat}
-          title={isChatOpen ? 'Hide chat' : 'Show chat'}
-          style={{ right: isChatOpen ? 'calc(380px + 1.5rem)' : '1rem' }}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-        </button>
-
-        {/* Floating chat panel */}
-        <div className={`${styles.chatPanel} ${!isChatOpen ? styles.collapsed : ''}`}>
-          <ChatSidebar
-            spaceId={spaceId || ''}
-            isOpen={true}
-            onClose={closeChat}
-            allAssets={assets}
-            allVariants={variants}
-            lastCompletedJob={lastCompletedJob}
-            onGenerate={onGenerate}
-            onFork={onFork}
-            onDerive={onDerive}
-            onRefine={onRefine}
-            sendChatRequest={sendChatRequest}
-            chatResponse={chatResponse}
-            sendDescribeRequest={sendDescribeRequest}
-            sendCompareRequest={sendCompareRequest}
-            describeResponse={describeResponse}
-            compareResponse={compareResponse}
-            wsApproveApproval={wsApproveApproval}
-            wsRejectApproval={wsRejectApproval}
-            wsStartNewSession={wsStartNewSession}
-          />
+        {/* Tools overlay - top right */}
+        <div className={styles.toolsOverlay}>
+          <button
+            className={styles.toolButton}
+            onClick={handleExport}
+            disabled={isExporting || assets.length === 0}
+            title={assets.length === 0 ? 'No assets to export' : 'Export all assets as ZIP'}
+          >
+            {isExporting ? 'Exporting...' : 'Export'}
+          </button>
+          {canEdit && (
+            <>
+              <button
+                className={styles.toolButton}
+                onClick={() => importInputRef.current?.click()}
+                disabled={isImporting}
+              >
+                {isImporting ? 'Importing...' : 'Import'}
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".zip"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImport(file);
+                }}
+              />
+            </>
+          )}
         </div>
 
         {/* Jobs overlay - bottom left */}
