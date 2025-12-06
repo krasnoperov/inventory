@@ -793,6 +793,14 @@ Always explain what you're doing and why.`;
     focus: 'general' | 'style' | 'composition' | 'details' | 'compare' = 'general',
     question?: string
   ): Promise<{ description: string; usage: ClaudeUsage }> {
+    // System prompt to avoid brand/studio references
+    const describeSystemPrompt = `You are an image analyst for a visual asset library. When describing images:
+- NEVER reference specific studios, brands, or copyrighted names (e.g., no "Ghibli", "Disney", "Pixar", "Marvel", etc.)
+- Instead, describe the actual visual characteristics: line quality, color palette, shading technique, rendering style
+- Use generic art terminology: "soft watercolor shading", "cel-shaded", "painterly", "flat color", "detailed linework"
+- Focus on what you actually see, not what it reminds you of
+- Be accurate and objective in your descriptions`;
+
     // If a specific question is provided, use it directly
     if (question) {
       const userPrompt = `This is an image of "${assetName}" from a visual asset library.\n\nQuestion: ${question}\n\nPlease answer the question based on what you see in the image.`;
@@ -800,6 +808,7 @@ Always explain what you're doing and why.`;
       const response = await this.client.messages.create({
         model: 'claude-opus-4-5-20251101',
         max_tokens: 1024,
+        system: describeSystemPrompt,
         messages: [{
           role: 'user',
           content: [
@@ -833,7 +842,7 @@ Always explain what you're doing and why.`;
     // Fallback to focus-based prompts
     const focusPrompts: Record<string, string> = {
       general: `Describe this image in detail. What do you see? Include the subject, setting, colors, mood, and any notable details.`,
-      style: `Analyze the artistic style of this image. Describe the art style, techniques used, color palette, and visual aesthetic. Compare to known art styles if applicable.`,
+      style: `Analyze the artistic style of this image. Describe the rendering technique, line quality, color palette, shading approach, and visual aesthetic using generic art terminology.`,
       composition: `Analyze the composition of this image. Describe the layout, focal points, use of space, visual balance, and how elements guide the viewer's eye.`,
       details: `Examine the fine details in this image. Look for textures, small elements, patterns, accessories, and subtle features that might be missed at first glance.`,
       compare: `Describe this image objectively, focusing on elements that could be compared to other versions or variants. Note specific visual features, poses, expressions, and distinguishing characteristics.`,
@@ -844,6 +853,7 @@ Always explain what you're doing and why.`;
     const response = await this.client.messages.create({
       model: 'claude-opus-4-5-20251101',
       max_tokens: 1024,
+      system: describeSystemPrompt,
       messages: [{
         role: 'user',
         content: [
@@ -882,6 +892,14 @@ Always explain what you're doing and why.`;
     images: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; label: string }>,
     aspects: string[] = ['style', 'composition', 'colors']
   ): Promise<{ comparison: string; usage: ClaudeUsage }> {
+    // System prompt to avoid brand/studio references
+    const compareSystemPrompt = `You are an image analyst for a visual asset library. When comparing images:
+- NEVER reference specific studios, brands, or copyrighted names (e.g., no "Ghibli", "Disney", "Pixar", "Marvel", etc.)
+- Instead, describe the actual visual characteristics: line quality, color palette, shading technique, rendering style
+- Use generic art terminology: "soft watercolor shading", "cel-shaded", "painterly", "flat color", "detailed linework"
+- Focus on what you actually see, not what it reminds you of
+- Be accurate and objective in your comparisons`;
+
     const imageBlocks: Anthropic.ImageBlockParam[] = images.map((img) => ({
       type: 'image',
       source: {
@@ -897,6 +915,7 @@ Always explain what you're doing and why.`;
     const response = await this.client.messages.create({
       model: 'claude-opus-4-5-20251101',
       max_tokens: 1024,
+      system: compareSystemPrompt,
       messages: [{
         role: 'user',
         content: [
