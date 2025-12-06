@@ -205,56 +205,53 @@ const READ_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'describe',
-    description: 'Analyze and describe what is in an asset image. Use this when the user asks what is in an image, wants you to analyze a generated result, or needs a detailed description. IMPORTANT: Use this tool whenever asked to describe, analyze, or look at an image - you cannot see images without calling this tool. Provide assetId (resolves to default variant) OR variantId (specific variant).',
+    description: 'Analyze an image. Use ONE reference method: slot (tray index), viewing (current view), or asset (by name). You cannot see images directly - always use this tool.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        assetId: {
-          type: 'string',
-          description: 'The ID of the asset to analyze (will use the default/latest variant)',
+        slot: {
+          type: 'number',
+          description: 'Tray slot index (0, 1, 2...) - use to analyze a reference in the forge tray',
         },
-        variantId: {
-          type: 'string',
-          description: 'Optional: specific variant ID to analyze (if not provided, uses default variant for the asset)',
+        viewing: {
+          type: 'boolean',
+          description: 'Set to true to analyze what the user is currently viewing',
         },
-        assetName: {
+        asset: {
           type: 'string',
-          description: 'The name of the asset (for context)',
+          description: 'Asset name - use to analyze any asset by name',
         },
         question: {
           type: 'string',
-          description: 'The specific question to answer about the image. Pass through the user\'s question or your own analytical question. Examples: "What separate assets can we extract from this scene?", "What is the character wearing?", "Describe the lighting and mood."',
+          description: 'Question about the image. Examples: "What is the character wearing?", "Describe the lighting"',
         },
         focus: {
           type: 'string',
-          enum: ['general', 'style', 'composition', 'details', 'compare', 'prompt'],
-          description: 'Optional fallback focus if no question provided: general overview, artistic style, composition, fine details, comparison to prompt, or reverse-engineer a generation prompt',
+          enum: ['general', 'style', 'composition', 'details', 'prompt'],
+          description: 'Analysis focus if no question: general overview, style, composition, details, or reverse-engineer prompt',
         },
       },
-      required: ['assetId', 'assetName'],
+      required: [],
     },
   },
   {
     name: 'compare',
-    description: 'Compare two or more variants of the same or different assets, highlighting differences and similarities.',
+    description: 'Compare images. Use slots (tray indices) to specify which references to compare.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        variantIds: {
+        slots: {
+          type: 'array',
+          items: { type: 'number' },
+          description: 'Tray slot indices to compare (e.g., [0, 1] to compare first two slots)',
+        },
+        aspects: {
           type: 'array',
           items: { type: 'string' },
-          description: 'IDs of variants to compare (2-4)',
-        },
-        aspectsToCompare: {
-          type: 'array',
-          items: {
-            type: 'string',
-            enum: ['style', 'composition', 'colors', 'details', 'mood'],
-          },
-          description: 'Aspects to focus comparison on',
+          description: 'Aspects to compare: style, composition, colors, details, mood',
         },
       },
-      required: ['variantIds'],
+      required: ['slots'],
     },
   },
   // Planning tool - available in both advisor and actor modes
@@ -657,38 +654,23 @@ ${context.assets.length > 0
 
     if (context.forge) {
       const { operation = 'generate', slots = [], prompt: forgePrompt } = context.forge;
-      const slotDetails = slots.length > 0
-        ? slots.map((s, i) => `[${i}] "${s.assetName}" (assetId: ${s.assetId}, variantId: ${s.variantId})`).join('\n  ')
-        : 'empty';
-      prompt += `FORGE TRAY STATE:
-- Current operation: ${operation.toUpperCase()}
-- References in tray:
-  ${slotDetails}
-- Prompt: ${forgePrompt ? `"${forgePrompt}"` : '(none)'}
-
-To describe a reference image, use the describe tool with assetId and assetName from the slot info above.
-
-Operations explained:
-- GENERATE: Create from prompt only (0 refs)
-- FORK: Copy ref to new asset without changes (1 ref, no prompt)
-- DERIVE: Create new asset using refs as inspiration (1+ refs + prompt)
-- REFINE: Add variant to existing asset (1+ refs + prompt)
+      const slotList = slots.length > 0
+        ? slots.map((s, i) => `[${i}] ${s.assetName}`).join(', ')
+        : '(empty)';
+      prompt += `FORGE TRAY: ${slotList} | Prompt: ${forgePrompt ? `"${forgePrompt}"` : '(none)'} | Mode: ${operation.toUpperCase()}
 
 `;
     }
 
     if (context.viewing) {
-      const { type, assetName, variantId, variantCount, variantIndex } = context.viewing;
+      const { type, assetName, variantCount, variantIndex } = context.viewing;
       if (type === 'asset' && assetName) {
-        const variantInfo = variantCount && variantCount > 0
-          ? ` (viewing variant ${variantIndex || 1} of ${variantCount}${variantId ? `, variantId: ${variantId}` : ''})`
+        const variantInfo = variantCount && variantCount > 1
+          ? ` (variant ${variantIndex || 1}/${variantCount})`
           : '';
-        prompt += `USER IS VIEWING: Asset "${assetName}"${variantInfo}
-To describe this image, use the describe tool with variantId="${variantId}" and assetName="${assetName}".
+        prompt += `VIEWING: "${assetName}"${variantInfo}
 
 `;
-      } else {
-        prompt += `USER IS VIEWING: Space catalog\n\n`;
       }
     }
 
@@ -714,23 +696,17 @@ ${plan.status === 'draft' ? 'The user can approve this plan before you proceed w
     }
 
     if (context.mode === 'advisor') {
-      prompt += `MODE: ADVISOR (Read Tools + Planning Available)
-You can observe, analyze, and plan, but cannot generate or modify assets.
+      prompt += `MODE: ADVISOR (Read-only + Planning)
 
-AVAILABLE TOOLS:
-- describe: Analyze what's in an image. ALWAYS use this when asked to describe, look at, or analyze any image. You cannot see images without calling this tool.
-- compare: Compare multiple variants side-by-side
-- search: Find assets by name or type
-- update_plan: Create or update a markdown plan. Use this to help the user plan their asset creation workflow.
+TOOLS:
+- describe(slot: N) → analyze tray slot N
+- describe(viewing: true) → analyze current view
+- describe(asset: "Name") → analyze asset by name
+- compare(slots: [0, 1]) → compare tray items
+- search(query: "...") → find assets
+- update_plan(content: "...") → create/update plan
 
-IMPORTANT: When the user asks you to describe what they're viewing or asks about an image, you MUST use the describe tool. Do not say you cannot see images - use the tool!
-
-GUIDELINES:
-- Answer questions about assets and creative workflow
-- Use update_plan to help users plan complex asset creation before they switch to actor mode
-- Suggest prompts and techniques using the best practices below
-- Explain operations and best practices
-- Help users understand their options
+IMPORTANT: You cannot see images directly. Use describe() to analyze any image.
 
 ${IMAGE_GENERATION_GUIDE}
 

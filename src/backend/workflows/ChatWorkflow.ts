@@ -177,6 +177,8 @@ export class ChatWorkflow extends WorkflowEntrypoint<Env, ChatWorkflowInput> {
               doStub,
               imagesBucket: this.env.IMAGES,
               anthropicApiKey: this.env.ANTHROPIC_API_KEY,
+              forgeContext,
+              viewingContext,
             },
             requestId
           );

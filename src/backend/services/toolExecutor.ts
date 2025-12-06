@@ -11,7 +11,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { ClaudeUsage } from './claudeService';
 import { TOOL_TRUST_MAP } from './trustLevels';
-import type { PendingApproval } from '../../api/types';
+import type { PendingApproval, ForgeContext, ViewingContext } from '../../api/types';
 import type { DeferredAction } from '../../shared/websocket-types';
 
 // ============================================================================
@@ -59,6 +59,10 @@ export interface ToolExecutorDeps {
   imagesBucket?: R2Bucket;
   /** Anthropic API key for vision operations */
   anthropicApiKey?: string;
+  /** Forge tray context for slot resolution */
+  forgeContext?: ForgeContext;
+  /** Viewing context for "viewing: true" resolution */
+  viewingContext?: ViewingContext;
 }
 
 /** Variant info from SpaceDO */
@@ -225,16 +229,72 @@ async function executeBackendTool(
 }
 
 /**
+ * Resolve a reference to variantId and assetName
+ * Supports: slot (tray index), viewing (current view), asset (by name)
+ */
+async function resolveReference(
+  params: Record<string, unknown>,
+  deps: ToolExecutorDeps
+): Promise<{ variantId: string; assetName: string } | { error: string }> {
+  const { slot, viewing, asset } = params as {
+    slot?: number;
+    viewing?: boolean;
+    asset?: string;
+  };
+
+  // Priority: slot > viewing > asset
+  if (typeof slot === 'number') {
+    // Resolve from forge tray slot
+    if (!deps.forgeContext?.slots || slot < 0 || slot >= deps.forgeContext.slots.length) {
+      return { error: `Invalid tray slot: ${slot}. Tray has ${deps.forgeContext?.slots?.length || 0} slots.` };
+    }
+    const slotData = deps.forgeContext.slots[slot];
+    return { variantId: slotData.variantId, assetName: slotData.assetName };
+  }
+
+  if (viewing === true) {
+    // Resolve from viewing context
+    if (!deps.viewingContext || deps.viewingContext.type !== 'asset') {
+      return { error: 'User is not viewing an asset. Use slot or asset reference instead.' };
+    }
+    if (!deps.viewingContext.variantId) {
+      return { error: 'No variant available for the viewed asset.' };
+    }
+    return {
+      variantId: deps.viewingContext.variantId,
+      assetName: deps.viewingContext.assetName || 'Unknown',
+    };
+  }
+
+  if (asset) {
+    // Resolve by asset name - fetch from DO
+    const stateResp = await deps.doStub.fetch(new Request('http://do/internal/state'));
+    if (!stateResp.ok) {
+      return { error: 'Failed to fetch space state' };
+    }
+    const state = await stateResp.json() as { assets: AssetWithVariant[] };
+    const found = state.assets.find(a => a.name.toLowerCase() === asset.toLowerCase());
+    if (!found) {
+      return { error: `Asset not found: "${asset}"` };
+    }
+    if (!found.active_variant_id) {
+      return { error: `Asset "${asset}" has no variant yet.` };
+    }
+    return { variantId: found.active_variant_id, assetName: found.name };
+  }
+
+  return { error: 'No reference provided. Use slot, viewing, or asset parameter.' };
+}
+
+/**
  * Execute describe tool - analyze an image
+ * Supports reference-based params: slot, viewing, asset
  */
 async function executeDescribe(
   params: Record<string, unknown>,
   deps: ToolExecutorDeps
 ): Promise<BackendToolResult> {
-  const { assetId, assetName, variantId, question, focus } = params as {
-    assetId: string;
-    assetName: string;
-    variantId?: string;
+  const { question, focus } = params as {
     question?: string;
     focus?: string;
   };
@@ -248,30 +308,20 @@ async function executeDescribe(
   }
 
   try {
-    // Resolve variantId if not provided
-    let resolvedVariantId = variantId;
-    if (!resolvedVariantId && assetId) {
-      // Get default variant for asset
-      const assetResp = await deps.doStub.fetch(
-        new Request(`http://do/internal/asset/${assetId}`)
-      );
-      if (!assetResp.ok) {
-        return { success: false, error: `Asset not found: ${assetId}` };
-      }
-      const asset = await assetResp.json() as AssetWithVariant;
-      resolvedVariantId = asset.active_variant_id || undefined;
+    // Resolve reference to variantId
+    const resolved = await resolveReference(params, deps);
+    if ('error' in resolved) {
+      return { success: false, error: resolved.error };
     }
 
-    if (!resolvedVariantId) {
-      return { success: false, error: 'No variant available for this asset' };
-    }
+    const { variantId, assetName } = resolved;
 
     // Get variant info
     const variantResp = await deps.doStub.fetch(
-      new Request(`http://do/internal/variant/${resolvedVariantId}`)
+      new Request(`http://do/internal/variant/${variantId}`)
     );
     if (!variantResp.ok) {
-      return { success: false, error: `Variant not found: ${resolvedVariantId}` };
+      return { success: false, error: `Variant not found: ${variantId}` };
     }
     const variant = await variantResp.json() as VariantInfo;
 
@@ -294,7 +344,7 @@ async function executeDescribe(
       base64,
       mediaType,
       assetName,
-      (focus as 'general' | 'style' | 'composition' | 'details' | 'compare' | 'prompt') || 'general',
+      (focus as 'general' | 'style' | 'composition' | 'details' | 'prompt') || 'general',
       question
     );
 
@@ -313,14 +363,15 @@ async function executeDescribe(
 
 /**
  * Execute compare tool - compare multiple images
+ * Supports slots (tray indices) for reference
  */
 async function executeCompare(
   params: Record<string, unknown>,
   deps: ToolExecutorDeps
 ): Promise<BackendToolResult> {
-  const { variantIds, aspectsToCompare } = params as {
-    variantIds: string[];
-    aspectsToCompare?: string[];
+  const { slots, aspects } = params as {
+    slots: number[];
+    aspects?: string[];
   };
 
   if (!deps.anthropicApiKey) {
@@ -331,8 +382,16 @@ async function executeCompare(
     return { success: false, error: 'Image storage not configured' };
   }
 
-  if (!variantIds || variantIds.length < 2 || variantIds.length > 4) {
-    return { success: false, error: 'Must provide 2-4 variants to compare' };
+  if (!slots || slots.length < 2 || slots.length > 4) {
+    return { success: false, error: 'Must provide 2-4 slot indices to compare' };
+  }
+
+  // Validate all slots exist
+  const traySlots = deps.forgeContext?.slots || [];
+  for (const slotIdx of slots) {
+    if (slotIdx < 0 || slotIdx >= traySlots.length) {
+      return { error: `Invalid tray slot: ${slotIdx}. Tray has ${traySlots.length} slots.`, success: false };
+    }
   }
 
   try {
@@ -342,19 +401,20 @@ async function executeCompare(
       label: string;
     }> = [];
 
-    // Fetch all images
-    for (const vId of variantIds) {
+    // Fetch all images from slots
+    for (const slotIdx of slots) {
+      const slotData = traySlots[slotIdx];
       const variantResp = await deps.doStub.fetch(
-        new Request(`http://do/internal/variant/${vId}`)
+        new Request(`http://do/internal/variant/${slotData.variantId}`)
       );
       if (!variantResp.ok) {
-        return { success: false, error: `Variant not found: ${vId}` };
+        return { success: false, error: `Variant not found for slot ${slotIdx}` };
       }
-      const variant = await variantResp.json() as VariantInfo & { asset_name?: string };
+      const variant = await variantResp.json() as VariantInfo;
 
       const imageObj = await deps.imagesBucket.get(variant.image_key);
       if (!imageObj) {
-        return { success: false, error: `Image not found for variant ${vId}` };
+        return { success: false, error: `Image not found for slot ${slotIdx}` };
       }
       const imageBuffer = await imageObj.arrayBuffer();
       const base64 = arrayBufferToBase64(imageBuffer);
@@ -362,7 +422,7 @@ async function executeCompare(
       images.push({
         base64,
         mediaType: detectImageType(base64),
-        label: variant.asset_name || `Variant ${vId.slice(0, 8)}`,
+        label: slotData.assetName,
       });
     }
 
@@ -372,7 +432,7 @@ async function executeCompare(
 
     const { comparison, usage } = await claudeService.compareImages(
       images,
-      aspectsToCompare || ['style', 'composition', 'colors']
+      aspects || ['style', 'composition', 'colors']
     );
 
     return {
