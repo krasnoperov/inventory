@@ -8,8 +8,8 @@ import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import type {
   Asset,
   Variant,
-  EnhanceResponseResult,
-  ForgeChatResponseResult,
+  ChatMessageClient,
+  ChatForgeContext,
   ForgeChatProgressResult,
 } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
@@ -56,37 +56,37 @@ export default function SpacePage() {
   useDocumentTitle(space?.name);
 
   // Forge tray store
-  const { addSlot, setPrompt } = useForgeTrayStore();
+  const { addSlot } = useForgeTrayStore();
 
-  // Enhance state
-  const [isEnhancing, setIsEnhancing] = useState(false);
-
-  // Forge chat state
+  // Persistent chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessageClient[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [forgeChatResponse, setForgeChatResponse] = useState<ForgeChatResponseResult | null>(null);
-  const [forgeChatProgress, setForgeChatProgress] = useState<ForgeChatProgressResult | null>(null);
+  const [chatProgress, setChatProgress] = useState<ForgeChatProgressResult | null>(null);
 
-  // Handle enhance response
-  const handleEnhanceResponse = useCallback((response: EnhanceResponseResult) => {
-    setIsEnhancing(false);
-    if (response.success && response.enhancedPrompt) {
-      setPrompt(response.enhancedPrompt);
-    } else if (response.error) {
-      console.error('Enhance failed:', response.error);
-    }
-  }, [setPrompt]);
-
-  // Handle forge chat progress
-  const handleForgeChatProgress = useCallback((progress: ForgeChatProgressResult) => {
-    setForgeChatProgress(progress);
+  // Handle chat history loaded
+  const handleChatHistory = useCallback((messages: ChatMessageClient[]) => {
+    setChatMessages(messages);
   }, []);
 
-  // Handle forge chat response
-  const handleForgeChatResponse = useCallback((response: ForgeChatResponseResult) => {
-    setIsChatLoading(false);
-    setForgeChatResponse(response);
-    // Clear progress when response arrives
-    setForgeChatProgress(null);
+  // Handle new chat message (user confirmation or bot response)
+  const handleChatMessage = useCallback((message: ChatMessageClient) => {
+    if (message.role === 'user') {
+      // User message confirmation from server - replace temp message with real one
+      setChatMessages(prev => {
+        const filtered = prev.filter(m => !m.id.startsWith('temp-'));
+        return [...filtered, message];
+      });
+    } else {
+      // Bot response - append and clear loading state
+      setIsChatLoading(false);
+      setChatProgress(null);
+      setChatMessages(prev => [...prev, message]);
+    }
+  }, []);
+
+  // Handle chat progress (description phase)
+  const handleChatProgress = useCallback((progress: ForgeChatProgressResult) => {
+    setChatProgress(progress);
   }, []);
 
   // WebSocket connection for real-time updates
@@ -99,8 +99,9 @@ export default function SpacePage() {
     clearJob,
     sendGenerateRequest,
     sendRefineRequest,
-    sendEnhanceRequest,
-    sendForgeChatRequest,
+    sendPersistentChatMessage,
+    requestChatHistory,
+    clearChatSession,
     forkAsset,
     updateAsset,
     updateSession,
@@ -114,9 +115,9 @@ export default function SpacePage() {
     onJobComplete: () => {
       // Job completed - variant is now visible on canvas
     },
-    onEnhanceResponse: handleEnhanceResponse,
-    onForgeChatProgress: handleForgeChatProgress,
-    onForgeChatResponse: handleForgeChatResponse,
+    onChatHistory: handleChatHistory,
+    onPersistentChatMessage: handleChatMessage,
+    onPersistentChatProgress: handleChatProgress,
   });
 
   // Export/Import state
@@ -198,18 +199,19 @@ export default function SpacePage() {
     addSlot(variant, asset);
   }, [addSlot]);
 
-  // Handle enhance request - wraps sendEnhanceRequest to manage isEnhancing state
-  const handleSendEnhanceRequest = useCallback((params: { prompt: string; enhanceType: 'geminify'; slotVariantIds?: string[] }) => {
-    setIsEnhancing(true);
-    return sendEnhanceRequest(params);
-  }, [sendEnhanceRequest]);
-
-  // Handle forge chat request - wraps sendForgeChatRequest to manage loading state
-  const handleSendForgeChatRequest = useCallback((params: Parameters<typeof sendForgeChatRequest>[0]) => {
+  // Handle persistent chat message - wraps sendPersistentChatMessage to manage loading state
+  const handleSendChatMessage = useCallback((content: string, forgeContext?: ChatForgeContext) => {
     setIsChatLoading(true);
-    setForgeChatResponse(null); // Clear previous response
-    return sendForgeChatRequest(params);
-  }, [sendForgeChatRequest]);
+    // Add user message to UI immediately (optimistic)
+    const userMessage: ChatMessageClient = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      content,
+      createdAt: Date.now(),
+    };
+    setChatMessages(prev => [...prev, userMessage]);
+    sendPersistentChatMessage(content, forgeContext);
+  }, [sendPersistentChatMessage]);
 
   // Handle asset reparenting via drag-and-drop on canvas
   const handleReparent = useCallback((childAssetId: string, newParentAssetId: string | null) => {
@@ -464,12 +466,12 @@ export default function SpacePage() {
           onUpload={handleUpload}
           onUploadNewAsset={handleUploadNewAsset}
           isUploading={isUploading}
-          sendEnhanceRequest={handleSendEnhanceRequest}
-          isEnhancing={isEnhancing}
-          sendForgeChatRequest={handleSendForgeChatRequest}
+          chatMessages={chatMessages}
           isChatLoading={isChatLoading}
-          forgeChatResponse={forgeChatResponse}
-          forgeChatProgress={forgeChatProgress}
+          chatProgress={chatProgress}
+          sendChatMessage={handleSendChatMessage}
+          requestChatHistory={requestChatHistory}
+          clearChatSession={clearChatSession}
         />
       )}
     </div>

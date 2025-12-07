@@ -14,8 +14,8 @@ import {
   type Asset,
   type Variant,
   type Lineage,
-  type EnhanceResponseResult,
-  type ForgeChatResponseResult,
+  type ChatMessageClient,
+  type ChatForgeContext,
   type ForgeChatProgressResult,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
@@ -72,37 +72,37 @@ export default function AssetDetailPage() {
   const [editNameValue, setEditNameValue] = useState('');
 
   // Forge tray store
-  const { addSlot, prefillFromVariant, setPrompt } = useForgeTrayStore();
+  const { addSlot, prefillFromVariant } = useForgeTrayStore();
 
-  // Enhance state
-  const [isEnhancing, setIsEnhancing] = useState(false);
-
-  // Forge chat state
+  // Persistent chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessageClient[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [forgeChatResponse, setForgeChatResponse] = useState<ForgeChatResponseResult | null>(null);
-  const [forgeChatProgress, setForgeChatProgress] = useState<ForgeChatProgressResult | null>(null);
+  const [chatProgress, setChatProgress] = useState<ForgeChatProgressResult | null>(null);
 
-  // Handle enhance response
-  const handleEnhanceResponse = useCallback((response: EnhanceResponseResult) => {
-    setIsEnhancing(false);
-    if (response.success && response.enhancedPrompt) {
-      setPrompt(response.enhancedPrompt);
-    } else if (response.error) {
-      console.error('Enhance failed:', response.error);
-    }
-  }, [setPrompt]);
-
-  // Handle forge chat progress
-  const handleForgeChatProgress = useCallback((progress: ForgeChatProgressResult) => {
-    setForgeChatProgress(progress);
+  // Handle chat history loaded
+  const handleChatHistory = useCallback((messages: ChatMessageClient[]) => {
+    setChatMessages(messages);
   }, []);
 
-  // Handle forge chat response
-  const handleForgeChatResponse = useCallback((response: ForgeChatResponseResult) => {
-    setIsChatLoading(false);
-    setForgeChatResponse(response);
-    // Clear progress when response arrives
-    setForgeChatProgress(null);
+  // Handle new chat message (user confirmation or bot response)
+  const handleChatMessage = useCallback((message: ChatMessageClient) => {
+    if (message.role === 'user') {
+      // User message confirmation from server - replace temp message with real one
+      setChatMessages(prev => {
+        const filtered = prev.filter(m => !m.id.startsWith('temp-'));
+        return [...filtered, message];
+      });
+    } else {
+      // Bot response - append and clear loading state
+      setIsChatLoading(false);
+      setChatProgress(null);
+      setChatMessages(prev => [...prev, message]);
+    }
+  }, []);
+
+  // Handle chat progress (description phase)
+  const handleChatProgress = useCallback((progress: ForgeChatProgressResult) => {
+    setChatProgress(progress);
   }, []);
 
   // WebSocket for real-time updates
@@ -121,8 +121,9 @@ export default function AssetDetailPage() {
     status: wsStatus,
     sendGenerateRequest,
     sendRefineRequest,
-    sendEnhanceRequest,
-    sendForgeChatRequest,
+    sendPersistentChatMessage,
+    requestChatHistory,
+    clearChatSession,
     forkAsset,
     getChildren,
     updateSession,
@@ -137,9 +138,9 @@ export default function AssetDetailPage() {
         navigate(`/spaces/${spaceId}/assets/${completedJob.assetId}`);
       }
     },
-    onEnhanceResponse: handleEnhanceResponse,
-    onForgeChatProgress: handleForgeChatProgress,
-    onForgeChatResponse: handleForgeChatResponse,
+    onChatHistory: handleChatHistory,
+    onPersistentChatMessage: handleChatMessage,
+    onPersistentChatProgress: handleChatProgress,
   });
 
   // Compute parent asset
@@ -437,18 +438,19 @@ export default function AssetDetailPage() {
     await uploadImage(file, assetId);
   }, [uploadImage]);
 
-  // Handle enhance request - wraps sendEnhanceRequest to manage isEnhancing state
-  const handleSendEnhanceRequest = useCallback((params: { prompt: string; enhanceType: 'geminify'; slotVariantIds?: string[] }) => {
-    setIsEnhancing(true);
-    return sendEnhanceRequest(params);
-  }, [sendEnhanceRequest]);
-
-  // Handle forge chat request - wraps sendForgeChatRequest to manage loading state
-  const handleSendForgeChatRequest = useCallback((params: Parameters<typeof sendForgeChatRequest>[0]) => {
+  // Handle persistent chat message - wraps sendPersistentChatMessage to manage loading state
+  const handleSendChatMessage = useCallback((content: string, forgeContext?: ChatForgeContext) => {
     setIsChatLoading(true);
-    setForgeChatResponse(null); // Clear previous response
-    return sendForgeChatRequest(params);
-  }, [sendForgeChatRequest]);
+    // Add user message to UI immediately (optimistic)
+    const userMessage: ChatMessageClient = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      content,
+      createdAt: Date.now(),
+    };
+    setChatMessages(prev => [...prev, userMessage]);
+    sendPersistentChatMessage(content, forgeContext);
+  }, [sendPersistentChatMessage]);
 
   const headerRightSlot = user ? (
     <div className={styles.headerRight}>
@@ -685,12 +687,12 @@ export default function AssetDetailPage() {
         currentAsset={asset}
         onUpload={handleUpload}
         isUploading={isUploading}
-        sendEnhanceRequest={handleSendEnhanceRequest}
-        isEnhancing={isEnhancing}
-        sendForgeChatRequest={handleSendForgeChatRequest}
+        chatMessages={chatMessages}
         isChatLoading={isChatLoading}
-        forgeChatResponse={forgeChatResponse}
-        forgeChatProgress={forgeChatProgress}
+        chatProgress={chatProgress}
+        sendChatMessage={handleSendChatMessage}
+        requestChatHistory={requestChatHistory}
+        clearChatSession={clearChatSession}
       />
     </div>
   );

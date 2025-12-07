@@ -5,13 +5,11 @@ import {
   type Asset,
   type Variant,
   getVariantThumbnailUrl,
-  type EnhanceRequestParams,
-  type ForgeChatRequestParams,
-  type ForgeChatResponseResult,
+  type ChatMessageClient,
+  type ChatForgeContext,
   type ForgeChatProgressResult,
 } from '../../hooks/useSpaceWebSocket';
 import { AssetPickerModal } from './AssetPickerModal';
-import { EnhanceButton, type EnhanceType } from './EnhanceButton';
 import { ForgeChat } from './ForgeChat';
 import styles from './ForgeTray.module.css';
 
@@ -46,18 +44,18 @@ export interface ForgeTrayProps {
   onUploadNewAsset?: (file: File, assetName: string) => Promise<void>;
   /** Whether an upload is in progress */
   isUploading?: boolean;
-  /** Handler to send enhance request - passed from parent */
-  sendEnhanceRequest?: (params: EnhanceRequestParams) => string;
-  /** Whether an enhancement is in progress */
-  isEnhancing?: boolean;
-  /** Handler to send forge chat request */
-  sendForgeChatRequest?: (params: ForgeChatRequestParams) => string;
-  /** Whether a forge chat request is in progress */
+  /** Persistent chat messages */
+  chatMessages?: ChatMessageClient[];
+  /** Whether a chat request is in progress */
   isChatLoading?: boolean;
-  /** Last forge chat response */
-  forgeChatResponse?: ForgeChatResponseResult | null;
-  /** Last forge chat progress update */
-  forgeChatProgress?: ForgeChatProgressResult | null;
+  /** Last chat progress update (description phase) */
+  chatProgress?: ForgeChatProgressResult | null;
+  /** Handler to send persistent chat message */
+  sendChatMessage?: (content: string, forgeContext?: ChatForgeContext) => void;
+  /** Handler to request chat history */
+  requestChatHistory?: () => void;
+  /** Handler to clear chat session */
+  clearChatSession?: () => void;
 }
 
 // Determine operation based on state
@@ -100,12 +98,12 @@ export function ForgeTray({
   onUpload,
   onUploadNewAsset,
   isUploading = false,
-  sendEnhanceRequest,
-  isEnhancing = false,
-  sendForgeChatRequest,
+  chatMessages = [],
   isChatLoading = false,
-  forgeChatResponse,
-  forgeChatProgress,
+  chatProgress,
+  sendChatMessage,
+  requestChatHistory,
+  clearChatSession,
 }: ForgeTrayProps) {
   const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
   const [showAssetPicker, setShowAssetPicker] = useState(false);
@@ -329,16 +327,6 @@ export function ForgeTray({
     }
   }, [handleSubmit]);
 
-  // Handle prompt enhancement (vision-aware when slots have descriptions)
-  const handleEnhance = useCallback((type: EnhanceType) => {
-    if (!prompt.trim() || !sendEnhanceRequest) return;
-    sendEnhanceRequest({
-      prompt: prompt.trim(),
-      enhanceType: type,
-      slotVariantIds: slotVariantIds.length > 0 ? slotVariantIds : undefined,
-    });
-  }, [prompt, sendEnhanceRequest, slotVariantIds]);
-
   // Toggle chat panel
   const handleToggleChat = useCallback(() => {
     setShowChat(prev => !prev);
@@ -506,17 +494,8 @@ export function ForgeTray({
               />
             )}
 
-            {/* Enhance Button - Only show if there's a prompt and handler */}
-            {sendEnhanceRequest && prompt.trim().length > 0 && (
-              <EnhanceButton
-                onEnhance={handleEnhance}
-                isEnhancing={isEnhancing}
-                disabled={isSubmitting}
-              />
-            )}
-
             {/* Chat Toggle Button - Only show if handler is available */}
-            {sendForgeChatRequest && (
+            {sendChatMessage && (
               <button
                 type="button"
                 className={`${styles.destButton} ${showChat ? styles.active : ''}`}
@@ -553,14 +532,16 @@ export function ForgeTray({
         </div>
 
         {/* ForgeChat Panel - Positioned absolutely above the tray */}
-        {showChat && sendForgeChatRequest && (
+        {showChat && sendChatMessage && requestChatHistory && clearChatSession && (
           <ForgeChat
             currentPrompt={prompt}
             slotVariantIds={slotVariantIds}
-            sendForgeChatRequest={sendForgeChatRequest}
+            messages={chatMessages}
             isLoading={isChatLoading}
-            lastResponse={forgeChatResponse}
-            lastProgress={forgeChatProgress}
+            lastProgress={chatProgress}
+            sendMessage={sendChatMessage}
+            requestHistory={requestChatHistory}
+            clearChat={clearChatSession}
             onApplyPrompt={handleApplyPrompt}
             onClose={() => setShowChat(false)}
           />

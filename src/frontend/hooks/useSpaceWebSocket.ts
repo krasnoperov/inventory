@@ -89,6 +89,22 @@ export interface ChatMessage {
   createdAt: number;
 }
 
+/** Chat message in client format (from persistent chat) */
+export interface ChatMessageClient {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: number;
+  suggestedPrompt?: string;
+  descriptions?: Array<{ variantId: string; assetName: string; description: string; cached: boolean }>;
+}
+
+/** Forge context sent with chat messages */
+export interface ChatForgeContext {
+  prompt: string;
+  slotVariantIds: string[];
+}
+
 // Bot response type from Claude
 export interface BotResponse {
   type: 'advice' | 'action' | 'clarification' | 'rejection';
@@ -241,25 +257,9 @@ export interface CompareRequestParams {
   aspects?: string[];
 }
 
-// Enhance prompt request parameters
-export interface EnhanceRequestParams {
-  prompt: string;
-  enhanceType: 'geminify';
-  /** Variant IDs from ForgeTray slots for vision-aware enhancement */
-  slotVariantIds?: string[];
-}
-
 // Auto-describe request parameters (lazy description caching)
 export interface AutoDescribeRequestParams {
   variantId: string;
-}
-
-// ForgeChat request parameters (multi-turn prompt refinement)
-export interface ForgeChatRequestParams {
-  message: string;
-  currentPrompt: string;
-  slotVariantIds: string[];
-  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
 // Deferred action from agentic loop (tray operations)
@@ -296,15 +296,6 @@ export interface CompareResponseResult {
   usage?: ClaudeUsage;
 }
 
-// Enhance prompt response from server
-export interface EnhanceResponseResult {
-  requestId: string;
-  success: boolean;
-  enhancedPrompt?: string;
-  error?: string;
-  usage?: ClaudeUsage;
-}
-
 // Auto-describe response from server
 export interface AutoDescribeResponseResult {
   requestId: string;
@@ -324,25 +315,6 @@ export interface ForgeChatProgressResult {
   description?: string;
   index: number;
   total: number;
-}
-
-// ForgeChat description info
-export interface ForgeChatDescription {
-  variantId: string;
-  assetName: string;
-  description: string;
-  cached: boolean;
-}
-
-// ForgeChat response from server
-export interface ForgeChatResponseResult {
-  requestId: string;
-  success: boolean;
-  message?: string;
-  suggestedPrompt?: string;
-  error?: string;
-  usage?: ClaudeUsage;
-  descriptions?: ForgeChatDescription[];
 }
 
 // Chat progress update (agentic loop tool execution)
@@ -368,9 +340,6 @@ export interface UseSpaceWebSocketParams {
   onGenerateResult?: (data: { requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }) => void;
   onDescribeResponse?: (response: DescribeResponseResult) => void;
   onCompareResponse?: (response: CompareResponseResult) => void;
-  onEnhanceResponse?: (response: EnhanceResponseResult) => void;
-  onForgeChatProgress?: (progress: ForgeChatProgressResult) => void;
-  onForgeChatResponse?: (response: ForgeChatResponseResult) => void;
   // Approval lifecycle callbacks
   onApprovalCreated?: (approval: PendingApproval) => void;
   onApprovalUpdated?: (approval: PendingApproval) => void;
@@ -379,9 +348,12 @@ export interface UseSpaceWebSocketParams {
   onAutoExecuted?: (autoExecuted: AutoExecuted) => void;
   // Session state callback
   onSessionState?: (session: UserSession | null) => void;
-  // Chat history callback (WebSocket-based, replaces REST)
-  // Messages are in server format with sender_type/created_at fields
-  onChatHistory?: (messages: Array<{ sender_type: 'user' | 'bot'; content: string; created_at: number }>, sessionId: string | null) => void;
+  // Persistent chat history callback (WebSocket-based)
+  onChatHistory?: (messages: ChatMessageClient[], sessionId: string | null) => void;
+  // Persistent chat message callback (new message received)
+  onPersistentChatMessage?: (message: ChatMessageClient) => void;
+  // Persistent chat progress callback (description phase)
+  onPersistentChatProgress?: (progress: ForgeChatProgressResult) => void;
   // Chat session created callback
   onSessionCreated?: (session: ChatSession) => void;
   // SimplePlan callbacks
@@ -432,26 +404,21 @@ type ServerMessage =
   | { type: 'job:progress'; jobId: string; status: string }
   | { type: 'job:completed'; jobId: string; variant: Variant }
   | { type: 'job:failed'; jobId: string; error: string }
-  | { type: 'chat:message'; message: ChatMessage }
+  | { type: 'chat:message'; message: ChatMessage | ChatMessageClient }
   | { type: 'presence:update'; presence: UserPresence[] }
   | { type: 'error'; code: string; message: string }
   // Workflow response messages
   | { type: 'chat:response'; requestId: string; success: boolean; response?: BotResponse; error?: string; deferredActions?: DeferredAction[] }
   | { type: 'chat:progress'; requestId: string; toolName: string; toolParams: Record<string, unknown>; status: 'executing' | 'complete' | 'failed'; result?: string; error?: string }
+  | { type: 'chat:progress'; requestId: string; phase: 'describing'; variantId: string; assetName: string; status: 'started' | 'completed' | 'cached'; description?: string; index: number; total: number }
   | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }
   | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   // Vision (describe/compare) response messages
   | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string; usage?: ClaudeUsage }
   | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage }
-  // Enhance prompt response message
-  | { type: 'enhance:response'; requestId: string; success: boolean; enhancedPrompt?: string; error?: string; usage?: ClaudeUsage }
   // Auto-describe response message
   | { type: 'auto-describe:response'; requestId: string; variantId: string; success: boolean; description?: string; error?: string }
-  // ForgeChat progress message (description phase)
-  | { type: 'forge-chat:progress'; requestId: string; phase: 'describing'; variantId: string; assetName: string; status: 'started' | 'completed' | 'cached'; description?: string; index: number; total: number }
-  // ForgeChat response message
-  | { type: 'forge-chat:response'; requestId: string; success: boolean; message?: string; suggestedPrompt?: string; error?: string; usage?: ClaudeUsage; descriptions?: ForgeChatDescription[] }
   // SimplePlan messages (markdown-based plan)
   | { type: 'simple_plan:updated'; plan: SimplePlan }
   | { type: 'simple_plan:archived'; planId: string }
@@ -464,8 +431,8 @@ type ServerMessage =
   | { type: 'auto_executed'; autoExecuted: AutoExecuted }
   // Session state
   | { type: 'session:state'; session: UserSession | null }
-  // Chat history (WebSocket-based sync) - uses server format with sender_type/created_at
-  | { type: 'chat:history'; messages: Array<{ sender_type: 'user' | 'bot'; content: string; created_at: number }>; sessionId: string | null }
+  // Chat history (WebSocket-based sync) - uses client format
+  | { type: 'chat:history'; messages: ChatMessageClient[]; sessionId: string | null }
   // Chat session created
   | { type: 'chat:session_created'; session: ChatSession };
 
@@ -530,9 +497,7 @@ export interface UseSpaceWebSocketReturn {
   sendRefineRequest: (params: RefineRequestParams) => string;  // Returns requestId
   sendDescribeRequest: (params: DescribeRequestParams) => string;  // Returns requestId
   sendCompareRequest: (params: CompareRequestParams) => string;  // Returns requestId
-  sendEnhanceRequest: (params: EnhanceRequestParams) => string;  // Returns requestId
   sendAutoDescribeRequest: (params: AutoDescribeRequestParams) => string;  // Returns requestId
-  sendForgeChatRequest: (params: ForgeChatRequestParams) => string;  // Returns requestId
   // Helper methods for hierarchy navigation
   getChildren: (assetId: string) => Asset[];
   getAncestors: (assetId: string) => Asset[];
@@ -548,6 +513,9 @@ export interface UseSpaceWebSocketReturn {
   requestChatHistory: (since?: number) => void;
   // Chat session methods
   startNewSession: () => void;
+  // Persistent chat methods
+  sendPersistentChatMessage: (content: string, forgeContext?: ChatForgeContext) => void;
+  clearChatSession: () => void;
 }
 
 /**
@@ -566,15 +534,14 @@ export function useSpaceWebSocket({
   onGenerateResult,
   onDescribeResponse,
   onCompareResponse,
-  onEnhanceResponse,
-  onForgeChatProgress,
-  onForgeChatResponse,
   onApprovalCreated,
   onApprovalUpdated,
   onApprovalList,
   onAutoExecuted,
   onSessionState,
   onChatHistory,
+  onPersistentChatMessage,
+  onPersistentChatProgress,
   onSessionCreated,
   onPlanUpdated,
   onPlanArchived,
@@ -737,19 +704,6 @@ export function useSpaceWebSocket({
     return requestId;
   }, [sendMessage]);
 
-  // Send enhance request to enhance a prompt via Claude
-  const sendEnhanceRequest = useCallback((params: EnhanceRequestParams): string => {
-    const requestId = crypto.randomUUID();
-    sendMessage({
-      type: 'enhance:request',
-      requestId,
-      prompt: params.prompt,
-      enhanceType: params.enhanceType,
-      slotVariantIds: params.slotVariantIds,
-    });
-    return requestId;
-  }, [sendMessage]);
-
   // Send auto-describe request to lazily cache variant description
   const sendAutoDescribeRequest = useCallback((params: AutoDescribeRequestParams): string => {
     const requestId = crypto.randomUUID();
@@ -757,20 +711,6 @@ export function useSpaceWebSocket({
       type: 'auto-describe:request',
       requestId,
       variantId: params.variantId,
-    });
-    return requestId;
-  }, [sendMessage]);
-
-  // Send forge-chat request for multi-turn prompt refinement
-  const sendForgeChatRequest = useCallback((params: ForgeChatRequestParams): string => {
-    const requestId = crypto.randomUUID();
-    sendMessage({
-      type: 'forge-chat:request',
-      requestId,
-      message: params.message,
-      currentPrompt: params.currentPrompt,
-      slotVariantIds: params.slotVariantIds,
-      conversationHistory: params.conversationHistory,
     });
     return requestId;
   }, [sendMessage]);
@@ -809,6 +749,16 @@ export function useSpaceWebSocket({
   // Start a new chat session
   const startNewSession = useCallback(() => {
     sendMessage({ type: 'chat:new_session' });
+  }, [sendMessage]);
+
+  // Send persistent chat message with forge context
+  const sendPersistentChatMessage = useCallback((content: string, forgeContext?: ChatForgeContext) => {
+    sendMessage({ type: 'chat:send', content, forgeContext });
+  }, [sendMessage]);
+
+  // Clear chat session (start fresh)
+  const clearChatSession = useCallback(() => {
+    sendMessage({ type: 'chat:clear' });
   }, [sendMessage]);
 
   // Helper methods for hierarchy navigation
@@ -869,15 +819,14 @@ export function useSpaceWebSocket({
   const onGenerateResultRef = useRef(onGenerateResult);
   const onDescribeResponseRef = useRef(onDescribeResponse);
   const onCompareResponseRef = useRef(onCompareResponse);
-  const onEnhanceResponseRef = useRef(onEnhanceResponse);
-  const onForgeChatProgressRef = useRef(onForgeChatProgress);
-  const onForgeChatResponseRef = useRef(onForgeChatResponse);
   const onApprovalCreatedRef = useRef(onApprovalCreated);
   const onApprovalUpdatedRef = useRef(onApprovalUpdated);
   const onApprovalListRef = useRef(onApprovalList);
   const onAutoExecutedRef = useRef(onAutoExecuted);
   const onSessionStateRef = useRef(onSessionState);
   const onChatHistoryRef = useRef(onChatHistory);
+  const onPersistentChatMessageRef = useRef(onPersistentChatMessage);
+  const onPersistentChatProgressRef = useRef(onPersistentChatProgress);
   const onSessionCreatedRef = useRef(onSessionCreated);
   const onPlanUpdatedRef = useRef(onPlanUpdated);
   const onPlanArchivedRef = useRef(onPlanArchived);
@@ -894,15 +843,14 @@ export function useSpaceWebSocket({
     onGenerateResultRef.current = onGenerateResult;
     onDescribeResponseRef.current = onDescribeResponse;
     onCompareResponseRef.current = onCompareResponse;
-    onEnhanceResponseRef.current = onEnhanceResponse;
-    onForgeChatProgressRef.current = onForgeChatProgress;
-    onForgeChatResponseRef.current = onForgeChatResponse;
     onApprovalCreatedRef.current = onApprovalCreated;
     onApprovalUpdatedRef.current = onApprovalUpdated;
     onApprovalListRef.current = onApprovalList;
     onAutoExecutedRef.current = onAutoExecuted;
     onSessionStateRef.current = onSessionState;
     onChatHistoryRef.current = onChatHistory;
+    onPersistentChatMessageRef.current = onPersistentChatMessage;
+    onPersistentChatProgressRef.current = onPersistentChatProgress;
     onSessionCreatedRef.current = onSessionCreated;
     onPlanUpdatedRef.current = onPlanUpdated;
     onPlanArchivedRef.current = onPlanArchived;
@@ -1070,7 +1018,12 @@ export function useSpaceWebSocket({
 
               case 'chat:message':
                 // Notify callback for real-time chat sync
-                onChatMessageRef.current?.(message.message);
+                // Check if it's the new client format (has 'role' property)
+                if ('role' in message.message) {
+                  onPersistentChatMessageRef.current?.(message.message as ChatMessageClient);
+                } else {
+                  onChatMessageRef.current?.(message.message as ChatMessage);
+                }
                 break;
 
               case 'chat:history':
@@ -1104,14 +1057,28 @@ export function useSpaceWebSocket({
                 break;
 
               case 'chat:progress':
-                onChatProgressRef.current?.({
-                  requestId: message.requestId,
-                  toolName: message.toolName,
-                  toolParams: message.toolParams,
-                  status: message.status,
-                  result: message.result,
-                  error: message.error,
-                });
+                // Check if it's the new description phase format or old agentic format
+                if ('phase' in message && message.phase === 'describing') {
+                  onPersistentChatProgressRef.current?.({
+                    requestId: message.requestId,
+                    phase: message.phase,
+                    variantId: message.variantId,
+                    assetName: message.assetName,
+                    status: message.status,
+                    description: message.description,
+                    index: message.index,
+                    total: message.total,
+                  });
+                } else if ('toolName' in message) {
+                  onChatProgressRef.current?.({
+                    requestId: message.requestId,
+                    toolName: message.toolName,
+                    toolParams: message.toolParams,
+                    status: message.status,
+                    result: message.result,
+                    error: message.error,
+                  });
+                }
                 break;
 
               case 'generate:started':
@@ -1237,41 +1204,6 @@ export function useSpaceWebSocket({
                   comparison: message.comparison,
                   error: message.error,
                   usage: message.usage,
-                });
-                break;
-
-              case 'enhance:response':
-                onEnhanceResponseRef.current?.({
-                  requestId: message.requestId,
-                  success: message.success,
-                  enhancedPrompt: message.enhancedPrompt,
-                  error: message.error,
-                  usage: message.usage,
-                });
-                break;
-
-              case 'forge-chat:progress':
-                onForgeChatProgressRef.current?.({
-                  requestId: message.requestId,
-                  phase: message.phase,
-                  variantId: message.variantId,
-                  assetName: message.assetName,
-                  status: message.status,
-                  description: message.description,
-                  index: message.index,
-                  total: message.total,
-                });
-                break;
-
-              case 'forge-chat:response':
-                onForgeChatResponseRef.current?.({
-                  requestId: message.requestId,
-                  success: message.success,
-                  message: message.message,
-                  suggestedPrompt: message.suggestedPrompt,
-                  error: message.error,
-                  usage: message.usage,
-                  descriptions: message.descriptions,
                 });
                 break;
 
@@ -1405,9 +1337,7 @@ export function useSpaceWebSocket({
     sendRefineRequest,
     sendDescribeRequest,
     sendCompareRequest,
-    sendEnhanceRequest,
     sendAutoDescribeRequest,
-    sendForgeChatRequest,
     getChildren,
     getAncestors,
     getRootAssets,
@@ -1422,6 +1352,9 @@ export function useSpaceWebSocket({
     requestChatHistory,
     // Chat session methods
     startNewSession,
+    // Persistent chat methods
+    sendPersistentChatMessage,
+    clearChatSession,
   };
 }
 

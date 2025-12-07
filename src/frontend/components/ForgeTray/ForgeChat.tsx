@@ -1,19 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type {
-  ForgeChatRequestParams,
-  ForgeChatResponseResult,
+  ChatMessageClient,
+  ChatForgeContext,
   ForgeChatProgressResult,
-  ForgeChatDescription,
 } from '../../hooks/useSpaceWebSocket';
 import styles from './ForgeChat.module.css';
-
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  suggestedPrompt?: string;
-  /** Descriptions collected during this message (shown as collapsible) */
-  descriptions?: ForgeChatDescription[];
-}
 
 /** Progress state for description phase */
 interface DescriptionProgress {
@@ -30,14 +21,18 @@ export interface ForgeChatProps {
   currentPrompt: string;
   /** Variant IDs from ForgeTray slots */
   slotVariantIds: string[];
-  /** Handler to send forge chat request */
-  sendForgeChatRequest: (params: ForgeChatRequestParams) => string;
+  /** Messages loaded from persistent storage */
+  messages: ChatMessageClient[];
   /** Whether a chat request is in progress */
   isLoading: boolean;
-  /** Last response from the server */
-  lastResponse?: ForgeChatResponseResult | null;
-  /** Last progress update from the server */
+  /** Last progress update from the server (description phase) */
   lastProgress?: ForgeChatProgressResult | null;
+  /** Handler to send persistent chat message */
+  sendMessage: (content: string, forgeContext?: ChatForgeContext) => void;
+  /** Handler to request chat history (called on mount) */
+  requestHistory: () => void;
+  /** Handler to clear chat session */
+  clearChat: () => void;
   /** Callback when user applies a suggested prompt */
   onApplyPrompt: (prompt: string) => void;
   /** Callback to close the chat panel */
@@ -47,19 +42,28 @@ export interface ForgeChatProps {
 export function ForgeChat({
   currentPrompt,
   slotVariantIds,
-  sendForgeChatRequest,
+  messages,
   isLoading,
-  lastResponse,
   lastProgress,
+  sendMessage,
+  requestHistory,
+  clearChat,
   onApplyPrompt,
   onClose,
 }: ForgeChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [descriptionProgress, setDescriptionProgress] = useState<DescriptionProgress[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const lastRequestIdRef = useRef<string | null>(null);
+  const hasLoadedRef = useRef(false);
+
+  // Request history on mount (once)
+  useEffect(() => {
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      requestHistory();
+    }
+  }, [requestHistory]);
 
   // Auto-focus input on mount
   useEffect(() => {
@@ -73,7 +77,7 @@ export function ForgeChat({
 
   // Handle progress updates from server (description phase)
   useEffect(() => {
-    if (!lastProgress || lastProgress.requestId !== lastRequestIdRef.current) return;
+    if (!lastProgress) return;
 
     setDescriptionProgress(prev => {
       const existing = prev.find(p => p.variantId === lastProgress.variantId);
@@ -98,58 +102,27 @@ export function ForgeChat({
     });
   }, [lastProgress]);
 
-  // Handle response from server
+  // Clear progress when not loading
   useEffect(() => {
-    if (!lastResponse || lastResponse.requestId !== lastRequestIdRef.current) return;
-
-    // Clear progress state when response arrives
-    setDescriptionProgress([]);
-
-    if (lastResponse.success && lastResponse.message) {
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: lastResponse.message!,
-          suggestedPrompt: lastResponse.suggestedPrompt,
-          descriptions: lastResponse.descriptions,
-        },
-      ]);
-    } else if (!lastResponse.success && lastResponse.error) {
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `Sorry, I encountered an error: ${lastResponse.error}`,
-        },
-      ]);
+    if (!isLoading) {
+      setDescriptionProgress([]);
     }
-  }, [lastResponse]);
+  }, [isLoading]);
 
   // Handle sending a message
   const handleSend = useCallback(() => {
     const trimmed = inputValue.trim();
     if (!trimmed || isLoading) return;
 
-    // Add user message to UI
-    setMessages(prev => [...prev, { role: 'user', content: trimmed }]);
     setInputValue('');
 
-    // Build conversation history (exclude suggestedPrompt from history)
-    const conversationHistory = messages.map(m => ({
-      role: m.role,
-      content: m.content,
-    }));
-
-    // Send request
-    const requestId = sendForgeChatRequest({
-      message: trimmed,
-      currentPrompt,
+    // Send message with current forge context
+    const forgeContext: ChatForgeContext = {
+      prompt: currentPrompt,
       slotVariantIds,
-      conversationHistory,
-    });
-    lastRequestIdRef.current = requestId;
-  }, [inputValue, isLoading, messages, currentPrompt, slotVariantIds, sendForgeChatRequest]);
+    };
+    sendMessage(trimmed, forgeContext);
+  }, [inputValue, isLoading, currentPrompt, slotVariantIds, sendMessage]);
 
   // Handle keyboard events
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -168,20 +141,39 @@ export function ForgeChat({
     onClose();
   }, [onApplyPrompt, onClose]);
 
+  // Handle clear chat
+  const handleClear = useCallback(() => {
+    clearChat();
+  }, [clearChat]);
+
   return (
     <div className={styles.chatPanel}>
       {/* Header */}
       <div className={styles.header}>
         <h3 className={styles.title}>Chat with Claude</h3>
-        <button
-          className={styles.closeButton}
-          onClick={onClose}
-          title="Close (Esc)"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {messages.length > 0 && (
+            <button
+              className={styles.closeButton}
+              onClick={handleClear}
+              title="Clear chat"
+              style={{ opacity: 0.7 }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                <path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" />
+              </svg>
+            </button>
+          )}
+          <button
+            className={styles.closeButton}
+            onClick={onClose}
+            title="Close (Esc)"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Messages Area */}
@@ -198,8 +190,8 @@ export function ForgeChat({
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div key={i} className={`${styles.message} ${styles[msg.role]}`}>
+        {messages.map((msg) => (
+          <div key={msg.id} className={`${styles.message} ${styles[msg.role]}`}>
             <div className={styles.messageBubble}>
               {msg.content}
             </div>

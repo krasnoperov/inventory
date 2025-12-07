@@ -81,7 +81,7 @@ export interface ChatSession {
 }
 
 /**
- * ChatMessage - A message in the space chat
+ * ChatMessage - A message in the space chat (DB format with snake_case)
  */
 export interface ChatMessage {
   id: string;
@@ -91,6 +91,18 @@ export interface ChatMessage {
   content: string;
   metadata: string | null; // JSON
   created_at: number;
+}
+
+/**
+ * ChatMessageClient - A message formatted for the client (camelCase)
+ */
+export interface ChatMessageClient {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: number;
+  suggestedPrompt?: string;
+  descriptions?: Array<{ variantId: string; assetName: string; description: string; cached: boolean }>;
 }
 
 /**
@@ -264,10 +276,10 @@ export type ClientMessage =
   | { type: 'lineage:sever'; lineageId: string }
   // Presence
   | { type: 'presence:update'; viewing?: string }
-  // Chat
-  | { type: 'chat:send'; content: string }
-  | { type: 'chat:history'; since?: number } // Request chat history for active session
-  | { type: 'chat:new_session' } // Start a new chat session
+  // Chat (persistent space chat with ForgeTray context)
+  | { type: 'chat:send'; content: string; forgeContext?: { prompt: string; slotVariantIds: string[] } }
+  | { type: 'chat:history' } // Request chat history for active session
+  | { type: 'chat:clear' } // Clear chat (create new session)
   // Approval operations
   | { type: 'approval:approve'; approvalId: string }
   | { type: 'approval:reject'; approvalId: string }
@@ -317,9 +329,9 @@ export type ServerMessage =
   | { type: 'job:progress'; jobId: string; status: string }
   | { type: 'job:completed'; jobId: string; variant: Variant }
   | { type: 'job:failed'; jobId: string; error: string }
-  // Chat
-  | { type: 'chat:message'; message: ChatMessage }
-  | { type: 'chat:history'; messages: ChatMessage[]; sessionId: string | null }
+  // Chat (persistent space chat)
+  | { type: 'chat:message'; message: ChatMessageClient }
+  | { type: 'chat:history'; messages: ChatMessageClient[]; sessionId: string | null }
   | { type: 'chat:session_created'; session: ChatSession }
   // SimplePlan mutations (markdown-based)
   | { type: 'simple_plan:updated'; plan: SimplePlan }
@@ -353,8 +365,9 @@ export type ServerMessage =
   // ForgeChat progress and response messages
   | { type: 'forge-chat:progress'; requestId: string; phase: 'describing'; variantId: string; assetName: string; status: 'started' | 'completed' | 'cached'; description?: string; index: number; total: number }
   | { type: 'forge-chat:response'; requestId: string; success: boolean; message?: string; suggestedPrompt?: string; error?: string; usage?: ClaudeUsage; descriptions?: Array<{ variantId: string; assetName: string; description: string; cached: boolean }> }
-  // Chat progress messages (agentic loop tool execution)
-  | { type: 'chat:progress'; requestId: string; toolName: string; toolParams: Record<string, unknown>; status: 'executing' | 'complete' | 'failed'; result?: string; error?: string }
+  // Chat progress messages
+  | { type: 'chat:progress'; requestId: string; toolName: string; toolParams: Record<string, unknown>; status: 'executing' | 'complete' | 'failed'; result?: string; error?: string } // Agentic loop tool execution
+  | { type: 'chat:progress'; requestId: string; phase: 'describing'; variantId: string; assetName: string; status: 'started' | 'completed' | 'cached'; description?: string; index: number; total: number } // Description progress
   // Pre-check error messages (quota/rate limit exceeded)
   | { type: 'chat:error'; requestId: string; error: string; code: string }
   | { type: 'generate:error'; requestId: string; error: string; code: string }

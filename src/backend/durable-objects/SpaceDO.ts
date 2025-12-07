@@ -7,9 +7,7 @@ import type {
   RefineRequestMessage,
   DescribeRequestMessage,
   CompareRequestMessage,
-  EnhanceRequestMessage,
   AutoDescribeRequestMessage,
-  ForgeChatRequestMessage,
 } from '../workflows/types';
 import type { WebSocketMeta, ClientMessage, ServerMessage } from './space/types';
 import type { ErrorCode } from '../../shared/websocket-types';
@@ -34,6 +32,7 @@ import {
 } from './space/controllers';
 import { ApprovalController } from './space/controllers/ApprovalController';
 import { SessionController } from './space/controllers/SessionController';
+import { ChatController } from './space/controllers/ChatController';
 
 // ============================================================================
 // SpaceDO - Durable Object for Space State & WebSocket Hub
@@ -55,6 +54,7 @@ export class SpaceDO extends DurableObject<Env> {
   private visionCtrl!: VisionController;
   private approvalCtrl!: ApprovalController;
   private sessionCtrl!: SessionController;
+  private chatCtrl!: ChatController;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -123,6 +123,7 @@ export class SpaceDO extends DurableObject<Env> {
       this.visionCtrl = new VisionController(ctx);
       this.approvalCtrl = new ApprovalController(ctx);
       this.sessionCtrl = new SessionController(ctx);
+      this.chatCtrl = new ChatController(ctx);
 
       // Initialize internal HTTP router
       this.internalApi = createInternalApi({
@@ -312,17 +313,17 @@ export class SpaceDO extends DurableObject<Env> {
       case 'compare:request':
         return this.visionCtrl.handleCompare(ws, msg as CompareRequestMessage);
 
-      // Prompt enhancement
-      case 'enhance:request':
-        return this.visionCtrl.handleEnhance(ws, msg as EnhanceRequestMessage);
-
       // Auto-describe (lazy description caching for ForgeTray)
       case 'auto-describe:request':
         return this.visionCtrl.handleAutoDescribe(ws, msg as AutoDescribeRequestMessage);
 
-      // ForgeChat (multi-turn prompt refinement)
-      case 'forge-chat:request':
-        return this.visionCtrl.handleForgeChat(ws, msg as ForgeChatRequestMessage);
+      // Chat (persistent space chat with ForgeTray context)
+      case 'chat:history':
+        return this.chatCtrl.handleChatHistory(ws, meta.userId);
+      case 'chat:send':
+        return this.chatCtrl.handleChatSend(ws, meta.userId, msg as { type: 'chat:send'; content: string; forgeContext?: { prompt: string; slotVariantIds: string[] } });
+      case 'chat:clear':
+        return this.chatCtrl.handleChatClear(ws, meta.userId);
 
       default:
         this.sendError(ws, 'UNKNOWN_MESSAGE_TYPE', `Unknown message type: ${(msg as { type: string }).type}`);
