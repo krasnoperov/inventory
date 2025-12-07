@@ -29,9 +29,11 @@ export interface ForgeChatProps {
   lastProgress?: ForgeChatProgressResult | null;
   /** Error message to display */
   error?: string | null;
+  /** Whether history has already been loaded from the store */
+  historyLoaded?: boolean;
   /** Handler to send persistent chat message */
   sendMessage: (content: string, forgeContext?: ChatForgeContext) => void;
-  /** Handler to request chat history (called on mount) */
+  /** Handler to request chat history (called on mount if not already loaded) */
   requestHistory: () => void;
   /** Handler to clear chat session */
   clearChat: () => void;
@@ -48,6 +50,7 @@ export function ForgeChat({
   isLoading,
   lastProgress,
   error,
+  historyLoaded = false,
   sendMessage,
   requestHistory,
   clearChat,
@@ -58,15 +61,13 @@ export function ForgeChat({
   const [descriptionProgress, setDescriptionProgress] = useState<DescriptionProgress[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const hasLoadedRef = useRef(false);
 
-  // Request history on mount (once)
+  // Request history on mount if not already loaded from store
   useEffect(() => {
-    if (!hasLoadedRef.current) {
-      hasLoadedRef.current = true;
+    if (!historyLoaded) {
       requestHistory();
     }
-  }, [requestHistory]);
+  }, [historyLoaded, requestHistory]);
 
   // Auto-focus input on mount
   useEffect(() => {

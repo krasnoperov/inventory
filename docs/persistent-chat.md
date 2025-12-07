@@ -4,18 +4,22 @@ Comprehensive documentation of the persistent chat feature implementation.
 
 ## Overview
 
-The persistent chat system provides ForgeTray-aware conversations that persist across sessions. Each user has one active chat session per space, with messages stored in the SpaceDO SQLite database.
+The persistent chat system provides ForgeTray-aware conversations that persist across sessions. Each user has one active chat session per space, with messages stored in the SpaceDO SQLite database. **Chat state is shared via Zustand store** enabling seamless navigation between SpacePage and AssetDetailPage.
 
 ## Capabilities
 
 | Feature | Description |
 |---------|-------------|
-| **Persistent History** | Messages survive page refresh and reconnection |
+| **Persistent History** | Messages survive page refresh, reconnection, and navigation |
+| **Shared State** | Chat state shared across SpacePage and AssetDetailPage via Zustand |
+| **Space-Scoped** | Chat automatically clears when navigating to a different space |
 | **ForgeTray Context** | Each message includes current prompt + slot variant IDs |
 | **Image Analysis** | Auto-describes images on first message with progress UI |
 | **Suggested Prompts** | Claude can suggest prompts with "Apply" button |
 | **Multi-turn Conversation** | Full conversation history sent to Claude |
 | **Clear Chat** | Creates new session, old messages remain in DB |
+| **Error Handling** | Errors displayed inline, loading states reset on disconnect |
+| **Smart History Loading** | History only fetched once per space (cached in store) |
 
 ## Architecture
 
@@ -312,22 +316,25 @@ const result = await claudeService.forgeChat(
 | Component | File | Key Methods |
 |-----------|------|-------------|
 | **ChatController** | `src/backend/durable-objects/space/controllers/ChatController.ts` | `handleChatHistory`, `handleChatSend`, `handleChatClear` |
+| **ChatStore** | `src/frontend/stores/chatStore.ts` | Zustand store for shared chat state |
 | **SpaceDO routing** | `src/backend/durable-objects/SpaceDO.ts:321-326` | Routes `chat:*` to ChatController |
 | **WebSocket hook** | `src/frontend/hooks/useSpaceWebSocket.ts` | `sendPersistentChatMessage`, `requestChatHistory`, `clearChatSession` |
 | **ForgeChat UI** | `src/frontend/components/ForgeTray/ForgeChat.tsx` | Chat panel component |
-| **SpacePage** | `src/frontend/pages/SpacePage.tsx:62-85` | Chat state management |
-| **AssetDetailPage** | `src/frontend/pages/AssetDetailPage.tsx:77-101` | Chat state management |
+| **SpacePage** | `src/frontend/pages/SpacePage.tsx` | Calls `initForSpace`, wires callbacks |
+| **AssetDetailPage** | `src/frontend/pages/AssetDetailPage.tsx` | Calls `initForSpace`, wires callbacks |
 | **ClaudeService** | `src/backend/services/claudeService.ts` | `forgeChat()` method |
 
 ## Key Design Decisions
 
 1. **One active session per user** - Simplifies UX, no session picker needed
 2. **Context sent fresh each message** - Not stored in session, always current
-3. **Lazy history loading** - Only fetch when panel opens
+3. **Lazy history loading** - Only fetch when panel opens (once per space)
 4. **Optimistic UI** - User message appears immediately, replaced on confirmation
 5. **No multi-user broadcast** - Chat is personal to each user
 6. **Old sessions preserved** - Clear creates new session, doesn't delete old
 7. **50 message limit** - Prevents context overflow, balances cost/utility
+8. **Space-scoped store** - `initForSpace()` clears chat when navigating to different space
+9. **Smart history caching** - `historyLoaded` flag prevents redundant fetches
 
 ## Error Handling
 

@@ -78,6 +78,7 @@ export default function AssetDetailPage() {
   const isChatLoading = useChatStore((state) => state.isLoading);
   const chatProgress = useChatStore((state) => state.progress);
   const chatError = useChatStore((state) => state.error);
+  const historyLoaded = useChatStore((state) => state.historyLoaded);
   const {
     setMessages: setChatMessages,
     replaceTemporaryMessage,
@@ -87,7 +88,15 @@ export default function AssetDetailPage() {
     setProgress: setChatProgress,
     setError: setChatError,
     resetOnDisconnect: resetChatOnDisconnect,
+    initForSpace,
   } = useChatStore();
+
+  // Initialize chat store for this space (clears if different space)
+  useEffect(() => {
+    if (spaceId) {
+      initForSpace(spaceId);
+    }
+  }, [spaceId, initForSpace]);
 
   // WebSocket for real-time updates
   const {
@@ -695,6 +704,7 @@ export default function AssetDetailPage() {
         isChatLoading={isChatLoading}
         chatProgress={chatProgress}
         chatError={chatError}
+        chatHistoryLoaded={historyLoaded}
         sendChatMessage={handleSendChatMessage}
         requestChatHistory={requestChatHistory}
         clearChatSession={clearChatSession}

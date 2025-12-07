@@ -3,6 +3,7 @@ import type { ChatMessageClient, ForgeChatProgressResult } from '../hooks/useSpa
 
 interface ChatState {
   // Per-space chat state
+  spaceId: string | null; // Track which space the chat belongs to
   messages: ChatMessageClient[];
   sessionId: string | null;
   isLoading: boolean;
@@ -22,9 +23,12 @@ interface ChatState {
   setHistoryLoaded: (loaded: boolean) => void;
   clearChat: () => void;
   resetOnDisconnect: () => void;
+  /** Called when entering a space - clears if different space */
+  initForSpace: (spaceId: string) => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
+  spaceId: null,
   messages: [],
   sessionId: null,
   isLoading: false,
@@ -107,5 +111,21 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       isLoading: false,
       progress: null,
     });
+  },
+
+  initForSpace: (spaceId: string) => {
+    const currentSpaceId = get().spaceId;
+    if (currentSpaceId !== spaceId) {
+      // Different space - clear everything and reset
+      set({
+        spaceId,
+        messages: [],
+        sessionId: null,
+        isLoading: false,
+        progress: null,
+        error: null,
+        historyLoaded: false,
+      });
+    }
   },
 }));
