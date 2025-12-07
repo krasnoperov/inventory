@@ -450,6 +450,22 @@ export function VariantCanvas({
 
     const allNodes = [...nodes, ...ghostNodes];
     const allVariantIds = new Set([...variantIds, ...ghostVariantIds]);
+    const knownVariantIds = new Set([
+      ...allVariantIds,
+      ...(allVariants ?? []).map(v => v.id),
+    ]);
+    const missingVariantIds = lineage.flatMap(l => {
+      const missing: string[] = [];
+      if (!knownVariantIds.has(l.parent_variant_id)) missing.push(l.parent_variant_id);
+      if (!knownVariantIds.has(l.child_variant_id)) missing.push(l.child_variant_id);
+      return missing;
+    });
+    if (missingVariantIds.length > 0) {
+      // Edges referencing variants we don't have yet will not render; log for debugging.
+      console.warn('[VariantCanvas] Lineage references missing variants; edges may be incomplete', {
+        missingVariantIds: Array.from(new Set(missingVariantIds)),
+      });
+    }
 
     // Create edges from lineage (parent -> child)
     // Include edges where both endpoints exist (including ghost nodes)
@@ -540,6 +556,17 @@ export function VariantCanvas({
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Debug logging only when lineage changes (avoid firing on selection/keyboard changes)
+  const lineageDebugSig = useMemo(() => lineage.map(l => `${l.id}:${l.relation_type}:${l.severed ? 1 : 0}`).join('|'), [lineage]);
+  useEffect(() => {
+    console.log('[VariantCanvas] lineage snapshot', {
+      lineage: lineage.length,
+      ghosts: initialNodes.filter(n => n.data.isGhost).length,
+      edges: initialEdges.length,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lineageDebugSig]);
 
   // Update when layout changes
   useEffect(() => {

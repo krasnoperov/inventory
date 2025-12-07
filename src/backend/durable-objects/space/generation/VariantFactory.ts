@@ -147,6 +147,14 @@ export class VariantFactory {
       input.referenceVariantIds
     );
 
+    // Debug: Log resolved references to trace lineage creation
+    log.info('Resolved references for new asset', {
+      inputRefVariantIds: input.referenceVariantIds,
+      inputRefAssetIds: input.referenceAssetIds,
+      resolvedParentVariantIds: resolved.parentVariantIds,
+      sourceImageKeysCount: resolved.sourceImageKeys.length,
+    });
+
     // Determine operation: 'generate' if no refs, 'derive' if using refs
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
 
@@ -451,6 +459,14 @@ export class VariantFactory {
     childVariantId: string,
     relationType: 'derived' | 'refined' | 'forked'
   ): Promise<void> {
+    // Debug: Log lineage creation attempt
+    log.info('Creating lineage records', {
+      parentVariantIds,
+      childVariantId,
+      relationType,
+      count: parentVariantIds.length,
+    });
+
     for (const parentId of parentVariantIds) {
       const lineage = await this.repo.createLineage({
         id: crypto.randomUUID(),
@@ -458,6 +474,7 @@ export class VariantFactory {
         childVariantId,
         relationType,
       });
+      log.info('Created lineage record', { lineageId: lineage.id, parentId, childVariantId });
       this.broadcast({ type: 'lineage:created', lineage });
     }
   }

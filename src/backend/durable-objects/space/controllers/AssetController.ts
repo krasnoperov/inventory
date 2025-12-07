@@ -9,6 +9,9 @@ import type { Asset, Variant, Lineage, WebSocketMeta } from '../types';
 import { wouldCreateCycle, getAncestorChain } from '../asset/hierarchy';
 import { INCREMENT_REF_SQL } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
+import { loggers } from '../../../../shared/logger';
+
+const log = loggers.spaceDO;
 
 export class AssetController extends BaseController {
   constructor(ctx: ControllerContext) {
@@ -206,6 +209,19 @@ export class AssetController extends BaseController {
     const variants = await this.repo.getVariantsByAsset(assetId);
     const variantIds = variants.map((v) => v.id);
     const lineage = await this.repo.getLineageForVariants(variantIds);
+
+    // Debug: Log lineage fetch results
+    log.info('httpGetDetails lineage', {
+      assetId,
+      variantIds,
+      lineageCount: lineage.length,
+      lineageRecords: lineage.map(l => ({
+        id: l.id,
+        parent: l.parent_variant_id,
+        child: l.child_variant_id,
+        type: l.relation_type,
+      })),
+    });
 
     return { asset, variants, lineage };
   }

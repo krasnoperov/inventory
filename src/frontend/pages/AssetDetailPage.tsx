@@ -293,11 +293,14 @@ export default function AssetDetailPage() {
     // Include lineage where EITHER parent OR child variant belongs to this asset
     // - child in this asset: allows cross-asset parents to be shown as ghost nodes
     // - parent in this asset: allows derivative children to be shown as ghost nodes
-    const variantIds = new Set(assetVariants.map(v => v.id));
-    const assetLineage = wsLineage.filter(
-      l => variantIds.has(l.child_variant_id) || variantIds.has(l.parent_variant_id)
-    );
-    setLineage(assetLineage);
+    // Only update if we have both variants and lineage data to avoid overwriting REST data
+    if (assetVariants.length > 0 && wsLineage.length > 0) {
+      const variantIds = new Set(assetVariants.map(v => v.id));
+      const assetLineage = wsLineage.filter(
+        l => variantIds.has(l.child_variant_id) || variantIds.has(l.parent_variant_id)
+      );
+      setLineage(assetLineage);
+    }
   }, [wsStatus, wsAssets, wsVariants, wsLineage, assetId, selectedVariantId, setSelectedVariantId]);
 
   // Action handlers

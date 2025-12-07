@@ -173,11 +173,11 @@ export class SchemaManager {
     // Migration: Add chat sessions support
     await this.addChatSessions();
 
+    // Migration: Add description column before altering variant status constraint
+    await this.addDescriptionToVariants();
+
     // Migration: Add plan improvements (auto-advance, dependencies, revisions)
     await this.addPlanImprovements();
-
-    // Migration: Add description column to variants for cached AI descriptions
-    await this.addDescriptionToVariants();
 
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
@@ -308,29 +308,20 @@ export class SchemaManager {
    * SQLite doesn't support ALTER CONSTRAINT, so we recreate the table.
    */
   private async addUploadingStatusToVariants(): Promise<void> {
-    // Check if migration is needed by trying to detect the old constraint
-    // We do this by checking if a table with the new constraint already exists
-    const tableInfo = await this.sql.exec(`PRAGMA table_info(variants)`);
-    const columns = tableInfo.toArray() as Array<{ name: string }>;
-    if (!columns.some(c => c.name === 'status')) {
-      // Table doesn't exist yet or has different structure, skip migration
-      return;
+    // Inspect table schema to see if 'uploading' is already allowed (avoid FK issues with dummy inserts)
+    const schemaResult = await this.sql.exec(
+      `SELECT sql FROM sqlite_schema WHERE name = 'variants' AND type = 'table'`
+    );
+    const schemaRow = schemaResult.toArray()[0] as { sql?: string } | undefined;
+    const schemaSql = schemaRow?.sql ?? '';
+    if (schemaSql.toLowerCase().includes('uploading')) {
+      return; // Already supports uploading
     }
 
-    // Check if 'uploading' status is already allowed by attempting an insert
-    // If it fails, we need to migrate
-    const testId = `__migration_test_${Date.now()}`;
-    try {
-      await this.sql.exec(`
-        INSERT INTO variants (id, asset_id, status, recipe, created_by, created_at)
-        VALUES (?, '__test__', 'uploading', '{}', '__test__', 0)
-      `, testId);
-      // Success - constraint already allows 'uploading', clean up test row
-      await this.sql.exec(`DELETE FROM variants WHERE id = ?`, testId);
-      return;
-    } catch {
-      // Constraint rejected 'uploading' - need to migrate
-    }
+    // Check whether description column exists so we can copy data safely
+    const tableInfo = await this.sql.exec(`PRAGMA table_info(variants)`);
+    const columns = tableInfo.toArray() as Array<{ name: string }>;
+    const hasDescription = columns.some(c => c.name === 'description');
 
     // Recreate variants table with updated constraint
     await this.sql.exec(`
@@ -356,7 +347,23 @@ export class SchemaManager {
       );
 
       -- Copy all data
-      INSERT INTO variants_new SELECT * FROM variants;
+      INSERT INTO variants_new (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at, plan_step_id, description)
+      SELECT
+        id,
+        asset_id,
+        workflow_id,
+        status,
+        error_message,
+        image_key,
+        thumb_key,
+        recipe,
+        starred,
+        created_by,
+        created_at,
+        updated_at,
+        plan_step_id,
+        ${hasDescription ? 'description' : 'NULL as description'}
+      FROM variants;
 
       -- Drop old table
       DROP TABLE variants;

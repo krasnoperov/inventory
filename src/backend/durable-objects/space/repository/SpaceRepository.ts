@@ -478,6 +478,20 @@ export class SpaceRepository {
     relationType: 'derived' | 'refined' | 'forked';
   }): Promise<Lineage> {
     const now = Date.now();
+
+    // Verify parent and child variants exist before insert
+    const parentExists = await this.getVariantById(lineage.parentVariantId);
+    const childExists = await this.getVariantById(lineage.childVariantId);
+
+    if (!parentExists || !childExists) {
+      log.error('createLineage FK violation - variant does not exist', {
+        lineageId: lineage.id,
+        parentExists: !!parentExists,
+        childExists: !!childExists,
+      });
+      throw new Error(`Cannot create lineage: parent=${!!parentExists}, child=${!!childExists}`);
+    }
+
     await this.sql.exec(
       LineageQueries.INSERT,
       lineage.id,
@@ -487,7 +501,14 @@ export class SpaceRepository {
       0, // severed = false
       now
     );
-    return (await this.getLineageById(lineage.id))!;
+
+    // Verify insert succeeded (minimal logging)
+    const created = await this.getLineageById(lineage.id);
+    if (!created) {
+      log.error('createLineage failed - record not found after INSERT', { lineageId: lineage.id });
+      throw new Error(`Lineage INSERT failed: ${lineage.id}`);
+    }
+    return created;
   }
 
   async severLineage(lineageId: string): Promise<boolean> {

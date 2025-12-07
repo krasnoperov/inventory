@@ -412,6 +412,7 @@ type ServerMessage =
   | { type: 'chat:progress'; requestId: string; toolName: string; toolParams: Record<string, unknown>; status: 'executing' | 'complete' | 'failed'; result?: string; error?: string }
   | { type: 'chat:progress'; requestId: string; phase: 'describing'; variantId: string; assetName: string; status: 'started' | 'completed' | 'cached'; description?: string; index: number; total: number }
   | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }
+  | { type: 'refine:started'; requestId: string; jobId: string; assetId: string; assetName: string }
   | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   // Vision (describe/compare) response messages
@@ -1089,6 +1090,26 @@ export function useSpaceWebSocket({
                   assetName: message.assetName,
                 });
                 // Also track the job
+                setJobs((prev) => {
+                  const next = new Map(prev);
+                  next.set(message.jobId, {
+                    jobId: message.jobId,
+                    status: 'pending',
+                    assetId: message.assetId,
+                    assetName: message.assetName,
+                  });
+                  return next;
+                });
+                break;
+
+              case 'refine:started':
+                // Mirror generate:started handling for refinements
+                onGenerateStartedRef.current?.({
+                  requestId: message.requestId,
+                  jobId: message.jobId,
+                  assetId: message.assetId,
+                  assetName: message.assetName,
+                });
                 setJobs((prev) => {
                   const next = new Map(prev);
                   next.set(message.jobId, {
