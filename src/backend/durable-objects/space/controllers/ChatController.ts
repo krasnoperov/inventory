@@ -120,6 +120,7 @@ export class ChatController extends BaseController {
       // Get or create active chat session
       let userSession = await this.repo.getUserSession(userId);
       let sessionId = userSession?.active_chat_session_id;
+      let isFirstMessage = false;
 
       if (!sessionId) {
         // Create new session
@@ -131,6 +132,21 @@ export class ChatController extends BaseController {
         });
         sessionId = newSession.id;
         await this.repo.updateUserActiveChatSession(userId, sessionId);
+        isFirstMessage = true;
+      } else {
+        // Check if this is the first message in the session
+        const existingMessages = await this.repo.getChatHistoryBySession(sessionId, 1);
+        isFirstMessage = existingMessages.length === 0;
+
+        // If first message, update session title from "New Chat" to actual content
+        if (isFirstMessage) {
+          const title = content.substring(0, 50) + (content.length > 50 ? '...' : '');
+          await this.sql.exec(
+            'UPDATE chat_sessions SET title = ? WHERE id = ?',
+            title,
+            sessionId
+          );
+        }
       }
 
       // Store user message
@@ -163,8 +179,7 @@ export class ChatController extends BaseController {
           content: m.content,
         }));
 
-      // Check if this is first message (for image description)
-      const isFirstMessage = conversationHistory.length === 0;
+      // Check if we need to analyze images (first message in session with images)
       const slotVariantIds = msg.forgeContext?.slotVariantIds ?? [];
       const hasImages = slotVariantIds.length > 0 && hasStorage(this.env.IMAGES);
 

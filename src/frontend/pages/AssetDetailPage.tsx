@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
+import { useChatStore } from '../stores/chatStore';
 import { useAssetDetailStore, useSelectedVariantId } from '../stores/assetDetailStore';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
@@ -14,9 +15,7 @@ import {
   type Asset,
   type Variant,
   type Lineage,
-  type ChatMessageClient,
   type ChatForgeContext,
-  type ForgeChatProgressResult,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
@@ -74,36 +73,21 @@ export default function AssetDetailPage() {
   // Forge tray store
   const { addSlot, prefillFromVariant } = useForgeTrayStore();
 
-  // Persistent chat state
-  const [chatMessages, setChatMessages] = useState<ChatMessageClient[]>([]);
-  const [isChatLoading, setIsChatLoading] = useState(false);
-  const [chatProgress, setChatProgress] = useState<ForgeChatProgressResult | null>(null);
-
-  // Handle chat history loaded
-  const handleChatHistory = useCallback((messages: ChatMessageClient[]) => {
-    setChatMessages(messages);
-  }, []);
-
-  // Handle new chat message (user confirmation or bot response)
-  const handleChatMessage = useCallback((message: ChatMessageClient) => {
-    if (message.role === 'user') {
-      // User message confirmation from server - replace temp message with real one
-      setChatMessages(prev => {
-        const filtered = prev.filter(m => !m.id.startsWith('temp-'));
-        return [...filtered, message];
-      });
-    } else {
-      // Bot response - append and clear loading state
-      setIsChatLoading(false);
-      setChatProgress(null);
-      setChatMessages(prev => [...prev, message]);
-    }
-  }, []);
-
-  // Handle chat progress (description phase)
-  const handleChatProgress = useCallback((progress: ForgeChatProgressResult) => {
-    setChatProgress(progress);
-  }, []);
+  // Persistent chat state from Zustand store (shared across pages)
+  const chatMessages = useChatStore((state) => state.messages);
+  const isChatLoading = useChatStore((state) => state.isLoading);
+  const chatProgress = useChatStore((state) => state.progress);
+  const chatError = useChatStore((state) => state.error);
+  const {
+    setMessages: setChatMessages,
+    replaceTemporaryMessage,
+    addMessage: addChatMessage,
+    addTemporaryUserMessage,
+    setLoading: setChatLoading,
+    setProgress: setChatProgress,
+    setError: setChatError,
+    resetOnDisconnect: resetChatOnDisconnect,
+  } = useChatStore();
 
   // WebSocket for real-time updates
   const {
@@ -132,15 +116,39 @@ export default function AssetDetailPage() {
     onConnect: () => {
       requestSync();
     },
+    onDisconnect: () => {
+      // Reset chat loading states on disconnect
+      resetChatOnDisconnect();
+    },
     onJobComplete: (completedJob) => {
       // Navigate to new asset if this job created one (different from current)
       if (completedJob.assetId && completedJob.assetId !== assetId) {
         navigate(`/spaces/${spaceId}/assets/${completedJob.assetId}`);
       }
     },
-    onChatHistory: handleChatHistory,
-    onPersistentChatMessage: handleChatMessage,
-    onPersistentChatProgress: handleChatProgress,
+    onChatHistory: (messages) => {
+      setChatMessages(messages);
+    },
+    onPersistentChatMessage: (message) => {
+      if (message.role === 'user') {
+        // User message confirmation from server - replace temp message
+        replaceTemporaryMessage(message);
+      } else {
+        // Bot response - append and clear loading state
+        setChatLoading(false);
+        setChatProgress(null);
+        addChatMessage(message);
+      }
+    },
+    onPersistentChatProgress: (progress) => {
+      setChatProgress(progress);
+    },
+    onError: (error) => {
+      // Handle WebSocket errors - clear chat loading state
+      if (isChatLoading) {
+        setChatError(error.message || 'Chat request failed');
+      }
+    },
   });
 
   // Compute parent asset
@@ -443,17 +451,10 @@ export default function AssetDetailPage() {
 
   // Handle persistent chat message - wraps sendPersistentChatMessage to manage loading state
   const handleSendChatMessage = useCallback((content: string, forgeContext?: ChatForgeContext) => {
-    setIsChatLoading(true);
-    // Add user message to UI immediately (optimistic)
-    const userMessage: ChatMessageClient = {
-      id: `temp-${Date.now()}`,
-      role: 'user',
-      content,
-      createdAt: Date.now(),
-    };
-    setChatMessages(prev => [...prev, userMessage]);
+    // Add user message to UI immediately (optimistic) and set loading
+    addTemporaryUserMessage(content);
     sendPersistentChatMessage(content, forgeContext);
-  }, [sendPersistentChatMessage]);
+  }, [sendPersistentChatMessage, addTemporaryUserMessage]);
 
   const headerRightSlot = user ? (
     <div className={styles.headerRight}>
@@ -693,6 +694,7 @@ export default function AssetDetailPage() {
         chatMessages={chatMessages}
         isChatLoading={isChatLoading}
         chatProgress={chatProgress}
+        chatError={chatError}
         sendChatMessage={handleSendChatMessage}
         requestChatHistory={requestChatHistory}
         clearChatSession={clearChatSession}

@@ -359,6 +359,8 @@ export interface UseSpaceWebSocketParams {
   // SimplePlan callbacks
   onPlanUpdated?: (plan: SimplePlan) => void;
   onPlanArchived?: (planId: string) => void;
+  // Error callback for WebSocket errors
+  onError?: (error: { code: string; message: string }) => void;
 }
 
 // Connection status
@@ -546,6 +548,7 @@ export function useSpaceWebSocket({
   onSessionCreated,
   onPlanUpdated,
   onPlanArchived,
+  onError,
 }: UseSpaceWebSocketParams): UseSpaceWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
@@ -831,6 +834,7 @@ export function useSpaceWebSocket({
   const onSessionCreatedRef = useRef(onSessionCreated);
   const onPlanUpdatedRef = useRef(onPlanUpdated);
   const onPlanArchivedRef = useRef(onPlanArchived);
+  const onErrorRef = useRef(onError);
 
   // Update refs in useEffect to avoid accessing refs during render
   useEffect(() => {
@@ -855,6 +859,7 @@ export function useSpaceWebSocket({
     onSessionCreatedRef.current = onSessionCreated;
     onPlanUpdatedRef.current = onPlanUpdated;
     onPlanArchivedRef.current = onPlanArchived;
+    onErrorRef.current = onError;
   });
 
   // Connect on mount, disconnect on unmount
@@ -1044,6 +1049,7 @@ export function useSpaceWebSocket({
               case 'error':
                 setError(message.message);
                 console.error('WebSocket error from server:', message.code, message.message);
+                onErrorRef.current?.({ code: message.code, message: message.message });
                 break;
 
               // Workflow response messages

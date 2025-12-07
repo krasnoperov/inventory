@@ -27,6 +27,8 @@ export interface ForgeChatProps {
   isLoading: boolean;
   /** Last progress update from the server (description phase) */
   lastProgress?: ForgeChatProgressResult | null;
+  /** Error message to display */
+  error?: string | null;
   /** Handler to send persistent chat message */
   sendMessage: (content: string, forgeContext?: ChatForgeContext) => void;
   /** Handler to request chat history (called on mount) */
@@ -45,6 +47,7 @@ export function ForgeChat({
   messages,
   isLoading,
   lastProgress,
+  error,
   sendMessage,
   requestHistory,
   clearChat,
@@ -269,6 +272,18 @@ export function ForgeChat({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Error message */}
+        {error && !isLoading && (
+          <div className={styles.errorMessage}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{error}</span>
           </div>
         )}
 

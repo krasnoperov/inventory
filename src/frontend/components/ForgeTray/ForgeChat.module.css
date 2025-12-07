@@ -433,6 +433,25 @@
   color: var(--color-text);
 }
 
+/* Error Message */
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  background: oklch(60% 0.2 25 / 0.1);
+  border: 1px solid oklch(60% 0.2 25 / 0.3);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  color: oklch(50% 0.2 25);
+  align-self: stretch;
+}
+
+.errorMessage svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .chatPanel {

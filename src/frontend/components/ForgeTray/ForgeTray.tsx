@@ -50,6 +50,8 @@ export interface ForgeTrayProps {
   isChatLoading?: boolean;
   /** Last chat progress update (description phase) */
   chatProgress?: ForgeChatProgressResult | null;
+  /** Chat error message */
+  chatError?: string | null;
   /** Handler to send persistent chat message */
   sendChatMessage?: (content: string, forgeContext?: ChatForgeContext) => void;
   /** Handler to request chat history */
@@ -101,6 +103,7 @@ export function ForgeTray({
   chatMessages = [],
   isChatLoading = false,
   chatProgress,
+  chatError,
   sendChatMessage,
   requestChatHistory,
   clearChatSession,
@@ -539,6 +542,7 @@ export function ForgeTray({
             messages={chatMessages}
             isLoading={isChatLoading}
             lastProgress={chatProgress}
+            error={chatError}
             sendMessage={sendChatMessage}
             requestHistory={requestChatHistory}
             clearChat={clearChatSession}
