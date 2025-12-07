@@ -1,19 +1,23 @@
 /* Asset Node - Individual node in the canvas */
+/* --rf-zoom is set on .canvas container by React Flow zoom subscription */
 
 .node {
+  position: relative;
   background: var(--color-surface);
-  border: 2px solid var(--color-border);
+  /* Counter-scale border to stay visually constant */
+  border: calc(2px / var(--rf-zoom, 1)) solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 6px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
   cursor: pointer;
   box-shadow: 0 2px 8px oklch(0% 0 0 / 0.08);
+  /* Allow label to overflow outside node bounds */
+  overflow: visible;
 }
 
 .node:hover {
   border-color: var(--color-primary);
   box-shadow: 0 4px 20px oklch(55% 0.18 276 / 0.25);
-  transform: translateY(-2px);
 }
 
 .node.selected {
@@ -21,12 +25,12 @@
   box-shadow: 0 0 0 3px oklch(55% 0.18 276 / 0.3);
 }
 
-/* Handles (connection points) */
+/* Handles (connection points) - counter-scaled to stay clickable */
 .handle {
-  width: 10px !important;
-  height: 10px !important;
+  width: calc(10px / var(--rf-zoom, 1)) !important;
+  height: calc(10px / var(--rf-zoom, 1)) !important;
   background: var(--color-border) !important;
-  border: 2px solid var(--color-surface) !important;
+  border: calc(2px / var(--rf-zoom, 1)) solid var(--color-surface) !important;
   transition: background 0.15s ease;
 }
 
@@ -102,7 +106,7 @@
   font-weight: 500;
 }
 
-/* Add to tray button */
+/* Add to tray button - counter-scaled to stay clickable */
 .addButton {
   position: absolute;
   top: 6px;
@@ -118,8 +122,10 @@
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.15s ease;
   box-shadow: 0 2px 8px oklch(55% 0.18 276 / 0.4);
+  transform: scale(calc(1 / var(--rf-zoom, 1)));
+  transform-origin: top right;
 }
 
 .thumbnail:hover .addButton {
@@ -127,16 +133,26 @@
 }
 
 .addButton:hover {
-  transform: scale(1.1);
+  opacity: 1;
 }
 
-/* Label */
+/* Label - positioned below node, counter-scaled */
 .label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) scale(calc(1 / var(--rf-zoom, 1)));
+  transform-origin: center top;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 6px 4px 4px;
+  padding: 4px 8px;
+  margin-top: 4px;
+  background: var(--color-surface);
+  border: calc(1px / var(--rf-zoom, 1)) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
 }
 
 .name {

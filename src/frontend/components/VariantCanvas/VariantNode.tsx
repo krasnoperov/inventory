@@ -23,8 +23,6 @@ export interface VariantNodeData extends Record<string, unknown> {
   isDerivative?: boolean;
   /** Callback for ghost node click (navigate to source asset) */
   onGhostClick?: (assetId: string) => void;
-  /** Scale factor for active variant (default 1) */
-  scale?: number;
   /** Whether this node has incoming edges */
   hasIncoming?: boolean;
   /** Whether this node has outgoing edges */
@@ -59,7 +57,6 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     isGhost,
     isDerivative,
     onGhostClick,
-    scale = 1,
     hasIncoming,
     hasOutgoing,
     forkedTo,
@@ -236,11 +233,8 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
   const showTopHandle = hasIncoming || (isGhost && !isDerivative);
   const showBottomHandle = hasOutgoing || !isGhost || isDerivative; // Non-ghost and derivative ghost nodes can have edges
 
-  // Apply CSS custom property for scaling (used by CSS for proportional sizing)
-  const nodeStyle = scale !== 1 ? { '--node-scale': scale } as React.CSSProperties : undefined;
-
   return (
-    <div className={nodeClasses} onClick={handleClick} style={nodeStyle}>
+    <div className={nodeClasses} onClick={handleClick}>
       {/* Input handle (for incoming edges from parent variants) - hidden when no connections */}
       {showTopHandle && (
         <Handle type="target" position={targetPosition} className={styles.handle} />

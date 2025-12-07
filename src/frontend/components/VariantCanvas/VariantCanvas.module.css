@@ -6,6 +6,16 @@
   background: var(--color-bg);
 }
 
+/* Hide canvas until dimensions are ready to prevent blink */
+.canvas.loading {
+  opacity: 0;
+}
+
+.canvas.ready {
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
 /* Controls styling */
 .controls {
   background: var(--color-surface) !important;

@@ -1,24 +1,23 @@
 /* Variant Node - Individual node in the variant canvas */
+/* --rf-zoom is set on .canvas container by React Flow zoom subscription */
 
 .node {
-  --node-scale: 1;
+  position: relative;
   background: var(--color-surface);
-  border: 2px solid var(--color-border);
+  /* Counter-scale border to stay visually constant */
+  border: calc(2px / var(--rf-zoom, 1)) solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: calc(6px * var(--node-scale));
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  padding: 6px;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
   cursor: pointer;
   box-shadow: 0 2px 8px oklch(0% 0 0 / 0.08);
-  /* Fill React Flow's allocated space */
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
+  /* Allow label to overflow outside node bounds */
+  overflow: visible;
 }
 
 .node:hover {
   border-color: var(--color-primary);
   box-shadow: 0 4px 20px oklch(55% 0.18 276 / 0.25);
-  transform: translateY(-2px);
 }
 
 .node.selected {
@@ -33,7 +32,7 @@
 
 .node.active {
   border-color: var(--color-success);
-  border-width: 3px;
+  border-width: calc(3px / var(--rf-zoom, 1));
   box-shadow: 0 4px 20px oklch(70% 0.2 145 / 0.3);
 }
 
@@ -41,12 +40,12 @@
   border-color: var(--color-star-border);
 }
 
-/* Handles (connection points) */
+/* Handles (connection points) - counter-scaled to stay clickable */
 .handle {
-  width: 10px !important;
-  height: 10px !important;
+  width: calc(10px / var(--rf-zoom, 1)) !important;
+  height: calc(10px / var(--rf-zoom, 1)) !important;
   background: var(--color-border) !important;
-  border: 2px solid var(--color-surface) !important;
+  border: calc(2px / var(--rf-zoom, 1)) solid var(--color-surface) !important;
   transition: background 0.15s ease;
 }
 
@@ -54,20 +53,18 @@
   background: var(--color-primary) !important;
 }
 
-/* Thumbnail container */
+/* Thumbnail container - fixed height, flexible width with max */
 .thumbnail {
   position: relative;
-  min-width: calc(100px * var(--node-scale, 1));
-  max-width: calc(240px * var(--node-scale, 1));
-  height: calc(140px * var(--node-scale, 1));
+  min-width: 100px;
+  max-width: 240px;
+  height: 140px;
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Fill available space */
-  flex: 1;
 }
 
 /* Image with preserved aspect ratio */
@@ -109,7 +106,7 @@
   font-weight: 500;
 }
 
-/* Indicators */
+/* Indicators - counter-scaled to stay readable */
 .activeIndicator {
   position: absolute;
   top: 6px;
@@ -122,6 +119,8 @@
   font-weight: 600;
   text-transform: uppercase;
   box-shadow: 0 1px 3px oklch(0% 0 0 / 0.2);
+  transform: scale(calc(1 / var(--rf-zoom, 1)));
+  transform-origin: top right;
 }
 
 .starIndicator {
@@ -132,9 +131,11 @@
   color: var(--color-star);
   text-shadow: 0 1px 3px oklch(0% 0 0 / 0.4);
   filter: drop-shadow(0 1px 2px oklch(0% 0 0 / 0.3));
+  transform: scale(calc(1 / var(--rf-zoom, 1)));
+  transform-origin: top left;
 }
 
-/* Hover actions */
+/* Hover actions - counter-scaled to stay clickable */
 .actions {
   position: absolute;
   bottom: 6px;
@@ -143,6 +144,8 @@
   gap: 4px;
   opacity: 0;
   transition: opacity 0.15s ease;
+  transform: scale(calc(1 / var(--rf-zoom, 1)));
+  transform-origin: bottom right;
 }
 
 .thumbnail:hover .actions {
@@ -160,23 +163,32 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
   box-shadow: 0 2px 6px oklch(0% 0 0 / 0.15);
 }
 
 .actionButton:hover {
   background: var(--color-primary);
   color: white;
-  transform: scale(1.1);
 }
 
-/* Label */
+/* Label - positioned below node, counter-scaled */
 .label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) scale(calc(1 / var(--rf-zoom, 1)));
+  transform-origin: center top;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 4px 4px 2px;
+  padding: 4px 8px;
+  background: var(--color-surface);
+  border: calc(1px / var(--rf-zoom, 1)) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  margin-top: 4px;
 }
 
 .variantId {

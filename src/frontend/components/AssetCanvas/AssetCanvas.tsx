@@ -1,10 +1,13 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  useStore,
   type Edge,
   type Connection,
   MarkerType,
@@ -175,7 +178,8 @@ function getLayoutedElements(
   };
 }
 
-export function AssetCanvas({
+/** Inner component that has access to ReactFlow hooks */
+function AssetCanvasInner({
   assets,
   variants,
   jobs,
@@ -183,9 +187,25 @@ export function AssetCanvas({
   onAddToTray,
   onReparent,
   layoutDirection = 'LR',
-}: AssetCanvasProps) {
-  // Track loaded image dimensions
-  const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
+  dimensionsReady,
+  imageDimensions,
+}: AssetCanvasProps & {
+  dimensionsReady: boolean;
+  imageDimensions: Map<string, { width: number; height: number }>;
+}) {
+  const { fitView } = useReactFlow();
+  const [isReady, setIsReady] = useState(false);
+
+  // Update CSS custom property when zoom changes (via DOM, not React state)
+  // This avoids re-rendering nodes while still enabling CSS counter-scaling
+  const zoom = useStore((state) => state.transform[2]);
+  useEffect(() => {
+    // Set zoom as CSS custom property on the canvas container
+    const container = document.querySelector(`.${styles.canvas}`);
+    if (container) {
+      (container as HTMLElement).style.setProperty('--rf-zoom', String(zoom));
+    }
+  }, [zoom]);
 
   // Get variant for an asset
   const getAssetVariant = useCallback((asset: Asset): Variant | null => {
@@ -194,54 +214,6 @@ export function AssetCanvas({
     }
     return variants.find(v => v.asset_id === asset.id) || null;
   }, [variants]);
-
-  // Load image dimensions for all variants
-  useEffect(() => {
-    const loadDimensions = async () => {
-      const newDimensions = new Map<string, { width: number; height: number }>();
-
-      const promises = assets.map(async (asset) => {
-        const variant = getAssetVariant(asset);
-        if (!variant) {
-          newDimensions.set(asset.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
-          return;
-        }
-
-        const url = getVariantThumbnailUrl(variant);
-        if (!url) {
-          // Pending/failed variant - use default dimensions
-          newDimensions.set(asset.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
-          return;
-        }
-
-        try {
-          const img = new Image();
-
-          await new Promise<void>((resolve) => {
-            img.onload = () => {
-              const nodeWidth = calculateNodeWidth(img.naturalWidth, img.naturalHeight);
-              newDimensions.set(asset.id, { width: nodeWidth, height: DEFAULT_NODE_HEIGHT });
-              resolve();
-            };
-            img.onerror = () => {
-              newDimensions.set(asset.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
-              resolve(); // Don't fail, just use default
-            };
-            img.src = url;
-          });
-        } catch {
-          newDimensions.set(asset.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
-        }
-      });
-
-      await Promise.all(promises);
-      setImageDimensions(newDimensions);
-    };
-
-    if (assets.length > 0) {
-      loadDimensions();
-    }
-  }, [assets, getAssetVariant]);
 
   // Check if asset is generating
   const isAssetGenerating = useCallback((assetId: string): boolean => {
@@ -303,6 +275,20 @@ export function AssetCanvas({
     setEdges(initialEdges);
   }, [initialNodes, initialEdges, setNodes, setEdges]);
 
+  // Fit view once dimensions are ready (prevents blink from multiple fitView calls)
+  useEffect(() => {
+    if (dimensionsReady && nodes.length > 0) {
+      // Small delay to ensure nodes are rendered, then show canvas
+      requestAnimationFrame(() => {
+        fitView({ padding: 0.2 });
+        // Mark as ready after fitView to prevent blink
+        requestAnimationFrame(() => {
+          setIsReady(true);
+        });
+      });
+    }
+  }, [dimensionsReady, nodes.length, fitView]);
+
   // Handle new connections (reparenting via drag)
   // User drags from parent's bottom handle (source) to child's top handle (target)
   const handleConnect = useCallback((connection: Connection) => {
@@ -341,8 +327,10 @@ export function AssetCanvas({
     );
   }
 
+  const canvasClassName = `${styles.canvas} ${isReady ? styles.ready : styles.loading}`;
+
   return (
-    <div className={styles.canvas}>
+    <div className={canvasClassName}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -351,8 +339,6 @@ export function AssetCanvas({
         onConnect={onReparent ? handleConnect : undefined}
         onEdgesDelete={onReparent ? handleEdgesDelete : undefined}
         nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
         minZoom={0.3}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
@@ -362,5 +348,98 @@ export function AssetCanvas({
         <Controls className={styles.controls} position="bottom-left" />
       </ReactFlow>
     </div>
+  );
+}
+
+/** Main exported component - handles dimension loading and provides ReactFlow context */
+export function AssetCanvas({
+  assets,
+  variants,
+  jobs,
+  onAssetClick,
+  onAddToTray,
+  onReparent,
+  layoutDirection = 'LR',
+}: AssetCanvasProps) {
+  // Track loaded image dimensions
+  const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
+  const [dimensionsReady, setDimensionsReady] = useState(false);
+
+  // Get variant for an asset (for dimension loading)
+  const getAssetVariant = useCallback((asset: Asset): Variant | null => {
+    if (asset.active_variant_id) {
+      return variants.find(v => v.id === asset.active_variant_id) || null;
+    }
+    return variants.find(v => v.asset_id === asset.id) || null;
+  }, [variants]);
+
+  // Load image dimensions for all variants
+  useEffect(() => {
+    if (assets.length === 0) {
+      setDimensionsReady(true);
+      return;
+    }
+
+    setDimensionsReady(false);
+
+    const loadDimensions = async () => {
+      const newDimensions = new Map<string, { width: number; height: number }>();
+
+      const promises = assets.map(async (asset) => {
+        const variant = getAssetVariant(asset);
+        if (!variant) {
+          newDimensions.set(asset.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+          return;
+        }
+
+        const url = getVariantThumbnailUrl(variant);
+        if (!url) {
+          // Pending/failed variant - use default dimensions
+          newDimensions.set(asset.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+          return;
+        }
+
+        try {
+          const img = new Image();
+
+          await new Promise<void>((resolve) => {
+            img.onload = () => {
+              const nodeWidth = calculateNodeWidth(img.naturalWidth, img.naturalHeight);
+              newDimensions.set(asset.id, { width: nodeWidth, height: DEFAULT_NODE_HEIGHT });
+              resolve();
+            };
+            img.onerror = () => {
+              newDimensions.set(asset.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+              resolve(); // Don't fail, just use default
+            };
+            img.src = url;
+          });
+        } catch {
+          newDimensions.set(asset.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+        }
+      });
+
+      await Promise.all(promises);
+      setImageDimensions(newDimensions);
+      setDimensionsReady(true);
+    };
+
+    loadDimensions();
+  }, [assets, getAssetVariant]);
+
+  return (
+    <ReactFlowProvider>
+      <AssetCanvasInner
+        assets={assets}
+        variants={variants}
+        jobs={jobs}
+        onAssetClick={onAssetClick}
+        onAddToTray={onAddToTray}
+        onReparent={onReparent}
+        layoutDirection={layoutDirection}
+        dimensionsReady={dimensionsReady}
+        imageDimensions={imageDimensions}
+      />
+    </ReactFlowProvider>
   );
 }

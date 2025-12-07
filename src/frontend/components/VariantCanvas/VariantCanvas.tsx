@@ -1,10 +1,13 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  useStore,
   type Edge,
   MarkerType,
   BackgroundVariant,
@@ -21,20 +24,13 @@ const THUMB_HEIGHT = 140;
 const THUMB_MIN_WIDTH = 100;
 const THUMB_MAX_WIDTH = 240;
 const NODE_PADDING = 20;
-const LABEL_HEIGHT = 24; // Extra height for nodes with labels (ghost/forked)
 
 // Active variant is larger
 const ACTIVE_SCALE = 1.5;
 
-// Default node dimensions (without label - labels added dynamically for ghost/forked nodes)
+// Default node dimensions (labels are positioned outside node bounds via CSS)
 const DEFAULT_NODE_WIDTH = 160;
 const DEFAULT_NODE_HEIGHT = THUMB_HEIGHT + NODE_PADDING;
-
-/** Check if a node will render a label */
-function nodeHasLabel(node: VariantNodeType): boolean {
-  const { isGhost, forkedFrom, forkedTo } = node.data;
-  return Boolean(isGhost || forkedFrom || (forkedTo && forkedTo.length > 0));
-}
 
 // Custom node types
 const nodeTypes = {
@@ -114,9 +110,8 @@ function getLayoutedElements(
     treeNodes.forEach((node) => {
       const isActive = node.id === activeVariantId;
       const baseDims = nodeDimensions.get(node.id) || { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
-      const labelExtra = nodeHasLabel(node) ? LABEL_HEIGHT : 0;
       const scale = isActive ? ACTIVE_SCALE : 1;
-      const dims = { width: baseDims.width * scale, height: (baseDims.height + labelExtra) * scale };
+      const dims = { width: baseDims.width * scale, height: baseDims.height * scale };
       dagreGraph.setNode(node.id, { width: dims.width, height: dims.height });
     });
 
@@ -134,23 +129,15 @@ function getLayoutedElements(
       const nodeWithPosition = dagreGraph.node(node.id);
       const isActive = node.id === activeVariantId;
       const baseDims = nodeDimensions.get(node.id) || { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
-      const labelExtra = nodeHasLabel(node) ? LABEL_HEIGHT : 0;
       const scale = isActive ? ACTIVE_SCALE : 1;
-      const dims = { width: baseDims.width * scale, height: (baseDims.height + labelExtra) * scale };
+      const dims = { width: baseDims.width * scale, height: baseDims.height * scale };
       return {
         ...node,
         position: {
           x: nodeWithPosition.x - dims.width / 2,
           y: nodeWithPosition.y - dims.height / 2,
         },
-        // Use actual width/height instead of CSS transform for proper React Flow edge positioning
-        width: dims.width,
-        height: dims.height,
         style: isActive ? { zIndex: 10 } : undefined,
-        data: {
-          ...node.data,
-          scale, // Pass scale to node for internal sizing
-        },
       };
     });
   }
@@ -185,9 +172,8 @@ function getLayoutedElements(
     layoutedOrphanNodes = sortedOrphans.map((node) => {
       const isActive = node.id === activeVariantId;
       const baseDims = nodeDimensions.get(node.id) || { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
-      const labelExtra = nodeHasLabel(node) ? LABEL_HEIGHT : 0;
       const scale = isActive ? ACTIVE_SCALE : 1;
-      const dims = { width: baseDims.width * scale, height: (baseDims.height + labelExtra) * scale };
+      const dims = { width: baseDims.width * scale, height: baseDims.height * scale };
 
       if (currentX > startX && currentX + dims.width > startX + maxRowWidth) {
         currentX = startX;
@@ -202,14 +188,7 @@ function getLayoutedElements(
       return {
         ...node,
         position,
-        // Use actual width/height instead of CSS transform for proper React Flow edge positioning
-        width: dims.width,
-        height: dims.height,
         style: isActive ? { zIndex: 10 } : undefined,
-        data: {
-          ...node.data,
-          scale, // Pass scale to node for internal sizing
-        },
       };
     });
   }
@@ -230,7 +209,8 @@ function getLayoutedElements(
   };
 }
 
-export function VariantCanvas({
+/** Inner component that has access to ReactFlow hooks */
+function VariantCanvasInner({
   asset,
   variants,
   lineage,
@@ -246,50 +226,25 @@ export function VariantCanvas({
   layoutDirection = 'LR',
   onStarVariant,
   onDeleteVariant,
-}: VariantCanvasProps) {
-  const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
+  dimensionsReady,
+  imageDimensions,
+}: VariantCanvasProps & {
+  dimensionsReady: boolean;
+  imageDimensions: Map<string, { width: number; height: number }>;
+}) {
+  const { fitView } = useReactFlow();
+  const [isReady, setIsReady] = useState(false);
 
-  // Load image dimensions for all variants
+  // Update CSS custom property when zoom changes (via DOM, not React state)
+  // This avoids re-rendering nodes while still enabling CSS counter-scaling
+  const zoom = useStore((state) => state.transform[2]);
   useEffect(() => {
-    const loadDimensions = async () => {
-      const newDimensions = new Map<string, { width: number; height: number }>();
-
-      const promises = variants.map(async (variant) => {
-        const url = getVariantThumbnailUrl(variant);
-        if (!url) {
-          // Pending/failed variant - use default dimensions
-          newDimensions.set(variant.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
-          return;
-        }
-
-        try {
-          const img = new Image();
-
-          await new Promise<void>((resolve) => {
-            img.onload = () => {
-              const nodeWidth = calculateNodeWidth(img.naturalWidth, img.naturalHeight);
-              newDimensions.set(variant.id, { width: nodeWidth, height: DEFAULT_NODE_HEIGHT });
-              resolve();
-            };
-            img.onerror = () => {
-              newDimensions.set(variant.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
-              resolve();
-            };
-            img.src = url;
-          });
-        } catch {
-          newDimensions.set(variant.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
-        }
-      });
-
-      await Promise.all(promises);
-      setImageDimensions(newDimensions);
-    };
-
-    if (variants.length > 0) {
-      loadDimensions();
+    // Set zoom as CSS custom property on the canvas container
+    const container = document.querySelector(`.${styles.canvas}`);
+    if (container) {
+      (container as HTMLElement).style.setProperty('--rf-zoom', String(zoom));
     }
-  }, [variants]);
+  }, [zoom]);
 
   // Check if variant is generating
   const isVariantGenerating = useCallback((variantId: string): boolean => {
@@ -574,13 +529,19 @@ export function VariantCanvas({
     setEdges(initialEdges);
   }, [initialNodes, initialEdges, setNodes, setEdges]);
 
-  // Adjust fitView padding based on chat sidebar state
-  // When chat is open (380px + margins), add extra right padding
-  const fitViewOptions = useMemo(() => ({
-    padding: 0.3,
-    // Shift content left when chat is open to avoid overlap
-    // Note: padding is uniform, but we position content to account for sidebar
-  }), []);
+  // Fit view once dimensions are ready (prevents blink from multiple fitView calls)
+  useEffect(() => {
+    if (dimensionsReady && nodes.length > 0) {
+      // Small delay to ensure nodes are rendered, then show canvas
+      requestAnimationFrame(() => {
+        fitView({ padding: 0.3 });
+        // Mark as ready after fitView to prevent blink
+        requestAnimationFrame(() => {
+          setIsReady(true);
+        });
+      });
+    }
+  }, [dimensionsReady, nodes.length, fitView]);
 
   if (variants.length === 0) {
     return (
@@ -594,16 +555,16 @@ export function VariantCanvas({
     );
   }
 
+  const canvasClassName = `${styles.canvas} ${isReady ? styles.ready : styles.loading}`;
+
   return (
-    <div className={styles.canvas}>
+    <div className={canvasClassName}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={fitViewOptions}
         minZoom={0.3}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
@@ -612,5 +573,100 @@ export function VariantCanvas({
         <Controls className={styles.controls} position="bottom-left" />
       </ReactFlow>
     </div>
+  );
+}
+
+/** Main exported component - handles dimension loading and provides ReactFlow context */
+export function VariantCanvas({
+  asset,
+  variants,
+  lineage,
+  selectedVariantId,
+  jobs,
+  onVariantClick,
+  onAddToTray,
+  onSetActive,
+  onRetryRecipe,
+  allVariants,
+  allAssets,
+  onGhostNodeClick,
+  layoutDirection = 'LR',
+  onStarVariant,
+  onDeleteVariant,
+}: VariantCanvasProps) {
+  // Track loaded image dimensions
+  const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
+  const [dimensionsReady, setDimensionsReady] = useState(false);
+
+  // Load image dimensions for all variants
+  useEffect(() => {
+    if (variants.length === 0) {
+      setDimensionsReady(true);
+      return;
+    }
+
+    setDimensionsReady(false);
+
+    const loadDimensions = async () => {
+      const newDimensions = new Map<string, { width: number; height: number }>();
+
+      const promises = variants.map(async (variant) => {
+        const url = getVariantThumbnailUrl(variant);
+        if (!url) {
+          // Pending/failed variant - use default dimensions
+          newDimensions.set(variant.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+          return;
+        }
+
+        try {
+          const img = new Image();
+
+          await new Promise<void>((resolve) => {
+            img.onload = () => {
+              const nodeWidth = calculateNodeWidth(img.naturalWidth, img.naturalHeight);
+              newDimensions.set(variant.id, { width: nodeWidth, height: DEFAULT_NODE_HEIGHT });
+              resolve();
+            };
+            img.onerror = () => {
+              newDimensions.set(variant.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+              resolve();
+            };
+            img.src = url;
+          });
+        } catch {
+          newDimensions.set(variant.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
+        }
+      });
+
+      await Promise.all(promises);
+      setImageDimensions(newDimensions);
+      setDimensionsReady(true);
+    };
+
+    loadDimensions();
+  }, [variants]);
+
+  return (
+    <ReactFlowProvider>
+      <VariantCanvasInner
+        asset={asset}
+        variants={variants}
+        lineage={lineage}
+        selectedVariantId={selectedVariantId}
+        jobs={jobs}
+        onVariantClick={onVariantClick}
+        onAddToTray={onAddToTray}
+        onSetActive={onSetActive}
+        onRetryRecipe={onRetryRecipe}
+        allVariants={allVariants}
+        allAssets={allAssets}
+        onGhostNodeClick={onGhostNodeClick}
+        layoutDirection={layoutDirection}
+        onStarVariant={onStarVariant}
+        onDeleteVariant={onDeleteVariant}
+        dimensionsReady={dimensionsReady}
+        imageDimensions={imageDimensions}
+      />
+    </ReactFlowProvider>
   );
 }

@@ -368,36 +368,47 @@ export default function SpacePage() {
           onReparent={canEdit ? handleReparent : undefined}
         />
 
-        {/* Space info overlay - top left */}
-        <div className={styles.spaceOverlay}>
-          <div className={styles.spaceHeader}>
-            <h1 className={styles.spaceTitle}>{space.name}</h1>
-          </div>
-          <div className={styles.spaceMeta}>
-            <span className={`${styles.roleBadge} ${styles[space.role]}`}>
-              {space.role}
+        {/* Compact floating toolbar - top left */}
+        <div className={styles.toolbar}>
+          <h1 className={styles.spaceTitle}>{space.name}</h1>
+          <span className={`${styles.roleBadge} ${styles[space.role]}`}>
+            {space.role}
+          </span>
+          <div className={styles.divider} />
+          <div className={styles.statGroup}>
+            <span className={styles.stat}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              {members.length}
             </span>
-            <span className={styles.metaBadge}>
-              {members.length} member{members.length !== 1 ? 's' : ''}
-            </span>
-            <span className={styles.metaBadge}>
-              {assets.length} asset{assets.length !== 1 ? 's' : ''}
+            <span className={styles.stat}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              {assets.length}
             </span>
             {wsStatus === 'connected' && (
               <span className={styles.liveIndicator}>Live</span>
             )}
           </div>
-        </div>
-
-        {/* Tools overlay - top right */}
-        <div className={styles.toolsOverlay}>
+          <div className={styles.divider} />
           <button
             className={styles.toolButton}
             onClick={handleExport}
             disabled={isExporting || assets.length === 0}
             title={assets.length === 0 ? 'No assets to export' : 'Export all assets as ZIP'}
           >
-            {isExporting ? 'Exporting...' : 'Export'}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
           </button>
           {canEdit && (
             <>
@@ -405,8 +416,13 @@ export default function SpacePage() {
                 className={styles.toolButton}
                 onClick={() => importInputRef.current?.click()}
                 disabled={isImporting}
+                title="Import from ZIP"
               >
-                {isImporting ? 'Importing...' : 'Import'}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
               </button>
               <input
                 ref={importInputRef}
@@ -422,30 +438,19 @@ export default function SpacePage() {
           )}
         </div>
 
-        {/* Jobs overlay - bottom left */}
+        {/* Jobs overlay - compact toast-style at bottom left */}
         {jobs.size > 0 && (
           <div className={styles.jobsOverlay}>
             {Array.from(jobs.values()).map((job) => {
-              const operationLabel = {
-                derive: 'Deriving',
-                refine: 'Refining',
-              }[job.operation || 'derive'] || 'Processing';
-
               return (
                 <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
                   <div className={styles.jobStatus}>
                     {job.status === 'pending' && '⏳'}
-                    {job.status === 'processing' && '🎨'}
+                    {job.status === 'processing' && '🔄'}
                     {job.status === 'completed' && '✓'}
                     {job.status === 'failed' && '✗'}
                   </div>
                   <div className={styles.jobInfo}>
-                    <span className={styles.jobTitle}>
-                      {job.status === 'pending' && `${operationLabel} queued`}
-                      {job.status === 'processing' && `${operationLabel}...`}
-                      {job.status === 'completed' && 'Done'}
-                      {job.status === 'failed' && 'Failed'}
-                    </span>
                     {job.assetName && (
                       <span className={styles.jobAssetName}>{job.assetName}</span>
                     )}
@@ -455,8 +460,9 @@ export default function SpacePage() {
                     <button
                       className={styles.dismissButton}
                       onClick={() => clearJob(job.jobId)}
+                      title="Dismiss"
                     >
-                      Dismiss
+                      ×
                     </button>
                   )}
                 </div>
