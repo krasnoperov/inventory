@@ -63,6 +63,10 @@ export interface VariantCanvasProps {
   onGhostNodeClick?: (assetId: string) => void;
   /** Layout direction: TB (top-bottom), LR (left-right), BT, RL. Default: LR */
   layoutDirection?: LayoutDirection;
+  /** Handler for starring/unstarring a variant */
+  onStarVariant?: (variantId: string, starred: boolean) => void;
+  /** Handler for deleting a variant */
+  onDeleteVariant?: (variant: Variant) => void;
 }
 
 /** Calculate node width from image dimensions */
@@ -240,6 +244,8 @@ export function VariantCanvas({
   allAssets,
   onGhostNodeClick,
   layoutDirection = 'LR',
+  onStarVariant,
+  onDeleteVariant,
 }: VariantCanvasProps) {
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
 
@@ -363,6 +369,9 @@ export function VariantCanvas({
         forkedTo: forkedToMap.get(variant.id),
         forkedFrom: forkedFromMap.get(variant.id),
         onGhostClick: onGhostNodeClick, // For forked-to/from navigation
+        onStarVariant,
+        onDeleteVariant,
+        variantCount: variants.length,
       },
     }));
 
@@ -527,7 +536,7 @@ export function VariantCanvas({
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection]);
+  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, onStarVariant, onDeleteVariant]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);

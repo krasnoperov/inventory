@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
-import { useAssetDetailStore, useSelectedVariantId, useShowDetailsPanel } from '../stores/assetDetailStore';
+import { useAssetDetailStore, useSelectedVariantId } from '../stores/assetDetailStore';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import {
@@ -54,11 +54,9 @@ export default function AssetDetailPage() {
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
 
-  // Variant selection and details panel state (persisted in store)
+  // Variant selection state (persisted in store)
   const selectedVariantId = useSelectedVariantId(assetId || '');
-  const showDetails = useShowDetailsPanel(assetId || '');
   const setSelectedVariantId = useAssetDetailStore((state) => state.setSelectedVariantId);
-  const setShowDetailsPanel = useAssetDetailStore((state) => state.setShowDetailsPanel);
 
   // Derive selectedVariant from variants array
   const selectedVariant = useMemo(() => {
@@ -384,8 +382,7 @@ export default function AssetDetailPage() {
 
   const handleVariantClick = useCallback((variant: Variant) => {
     setSelectedVariantId(assetId!, variant.id);
-    setShowDetailsPanel(assetId!, true);
-  }, [assetId, setSelectedVariantId, setShowDetailsPanel]);
+  }, [assetId, setSelectedVariantId]);
 
   // Handle add to forge tray
   const handleAddToTray = useCallback((variant: Variant, targetAsset?: Asset) => {
@@ -453,18 +450,6 @@ export default function AssetDetailPage() {
     return sendForgeChatRequest(params);
   }, [sendForgeChatRequest]);
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
-  const parseRecipe = (recipe: string) => {
-    try {
-      return JSON.parse(recipe);
-    } catch {
-      return null;
-    }
-  };
-
   const headerRightSlot = user ? (
     <div className={styles.headerRight}>
       <HeaderNav userName={user.name} userEmail={user.email} />
@@ -505,8 +490,6 @@ export default function AssetDetailPage() {
     );
   }
 
-  const selectedRecipe = selectedVariant ? parseRecipe(selectedVariant.recipe) : null;
-
   return (
     <div className={styles.page}>
       <AppHeader
@@ -530,6 +513,8 @@ export default function AssetDetailPage() {
           allVariants={wsVariants}
           allAssets={wsAssets}
           onGhostNodeClick={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
+          onStarVariant={handleStarVariant}
+          onDeleteVariant={handleDeleteVariant}
         />
 
         {/* Asset info overlay - top left */}
@@ -665,109 +650,6 @@ export default function AssetDetailPage() {
           );
         })()}
 
-        {/* Variant details panel - bottom right (when variant selected and showDetails) */}
-        {selectedVariant && showDetails && (
-          <div className={styles.detailsPanel}>
-            <div className={styles.detailsHeader}>
-              <h3>Variant Details</h3>
-              <button
-                className={styles.closeDetails}
-                onClick={() => setShowDetailsPanel(assetId!, false)}
-                title="Close"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Large preview */}
-            <div className={styles.detailsPreview}>
-              <img
-                src={`/api/images/${selectedVariant.image_key}`}
-                alt={asset.name}
-                className={styles.previewImage}
-              />
-            </div>
-
-            {/* Actions */}
-            <div className={styles.detailsActions}>
-              <button
-                className={`${styles.starButton} ${selectedVariant.starred ? styles.starred : ''}`}
-                onClick={() => handleStarVariant(selectedVariant.id, !selectedVariant.starred)}
-                title={selectedVariant.starred ? 'Unstar' : 'Star'}
-              >
-                {selectedVariant.starred ? '★' : '☆'}
-              </button>
-              <a
-                className={styles.downloadButton}
-                href={`/api/images/${selectedVariant.image_key}`}
-                download={`${asset.name}-${selectedVariant.id.slice(0, 8)}.png`}
-                title="Download full image"
-              >
-                Download
-              </a>
-              <button
-                className={styles.addToTrayButton}
-                onClick={() => handleAddToTray(selectedVariant)}
-                title="Add to Forge Tray"
-              >
-                Add to Tray
-              </button>
-              {selectedVariant.id !== asset.active_variant_id && (
-                <button
-                  className={styles.setActiveButton}
-                  onClick={() => handleSetActiveVariant(selectedVariant.id)}
-                  disabled={actionInProgress}
-                >
-                  Set Active
-                </button>
-              )}
-              <button
-                className={styles.deleteVariantButton}
-                onClick={() => handleDeleteVariant(selectedVariant)}
-                disabled={actionInProgress || variants.length <= 1}
-                title={variants.length <= 1 ? 'Cannot delete the only variant' : 'Delete'}
-              >
-                Delete
-              </button>
-            </div>
-
-            {/* Metadata */}
-            <div className={styles.detailsGrid}>
-              <div className={styles.detailItem}>
-                <span className={styles.detailLabel}>Created</span>
-                <span className={styles.detailValue}>{formatDate(selectedVariant.created_at)}</span>
-              </div>
-              {selectedRecipe && (
-                <>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Type</span>
-                    <span className={styles.detailValue}>{selectedRecipe.type}</span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Model</span>
-                    <span className={styles.detailValue}>{selectedRecipe.model}</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {selectedRecipe?.prompt && (
-              <div className={styles.promptSection}>
-                <span className={styles.detailLabel}>Prompt</span>
-                <p className={styles.promptText}>{selectedRecipe.prompt}</p>
-              </div>
-            )}
-
-            {selectedVariant.description && (
-              <div className={styles.promptSection}>
-                <span className={styles.detailLabel}>AI Description</span>
-                <p className={styles.promptText}>{selectedVariant.description}</p>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Confirmation Dialog */}

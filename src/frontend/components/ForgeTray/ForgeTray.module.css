@@ -2,8 +2,7 @@
 .tray {
   position: fixed;
   bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 1rem;
   z-index: 500;
 
   /* Solid background for non-brand pages */
@@ -12,9 +11,7 @@
   border-radius: var(--radius-xl);
   box-shadow: 0 4px 24px oklch(0% 0 0 / 0.15);
 
-  min-width: 420px;
-  max-width: 640px;
-  width: 90vw;
+  width: 380px;
 
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -381,9 +378,6 @@
   .tray {
     left: 0.5rem;
     right: 0.5rem;
-    transform: none;
-    min-width: 0;
-    max-width: none;
     width: auto;
   }
 

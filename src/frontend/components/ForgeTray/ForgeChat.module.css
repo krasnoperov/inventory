@@ -1,16 +1,16 @@
-/* ForgeChat - Floating Chat Panel */
+/* ForgeChat - Chat Panel extending upward from ForgeTray */
 .chatPanel {
   position: absolute;
   bottom: calc(100% + 0.5rem);
   left: 0;
   right: 0;
-  max-height: 400px;
+  height: 360px;
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px oklch(0% 0 0 / 0.2);
+  box-shadow: 0 -4px 24px oklch(0% 0 0 / 0.15);
   overflow: hidden;
   animation: slideUp 0.2s ease-out;
   z-index: 10;
@@ -72,8 +72,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  min-height: 100px;
-  max-height: 280px;
+  min-height: 0;
 }
 
 /* Custom scrollbar */
@@ -442,7 +441,7 @@
     top: 0;
     left: 0;
     right: 0;
-    max-height: 60vh;
+    height: 60vh;
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     animation: slideDown 0.2s ease-out;
   }

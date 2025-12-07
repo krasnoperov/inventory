@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import styles from './VariantNode.module.css';
@@ -35,6 +35,12 @@ export interface VariantNodeData extends Record<string, unknown> {
   forkedFrom?: { assetId: string; assetName: string };
   /** Layout direction for handle positioning */
   layoutDirection?: LayoutDirection;
+  /** Handler for starring/unstarring a variant */
+  onStarVariant?: (variantId: string, starred: boolean) => void;
+  /** Handler for deleting a variant */
+  onDeleteVariant?: (variant: Variant) => void;
+  /** Total number of variants (to disable delete when only 1) */
+  variantCount?: number;
 }
 
 export type VariantNodeType = Node<VariantNodeData, 'variant'>;
@@ -59,7 +65,13 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     forkedTo,
     forkedFrom,
     layoutDirection = 'LR',
+    onStarVariant,
+    onDeleteVariant,
+    variantCount = 0,
   } = data;
+
+  // Expanded state for showing details
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Determine handle positions based on layout direction
   const getHandlePositions = () => {
@@ -77,9 +89,46 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     if (isGhost && onGhostClick) {
       onGhostClick(asset.id);
     } else {
+      // Toggle expanded state on click
+      setIsExpanded(prev => !prev);
       onVariantClick?.(variant);
     }
   }, [variant, isGhost, asset.id, onVariantClick, onGhostClick]);
+
+  const handleStarClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onStarVariant?.(variant.id, !variant.starred);
+  }, [variant.id, variant.starred, onStarVariant]);
+
+  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDeleteVariant?.(variant);
+  }, [variant, onDeleteVariant]);
+
+  const handleCloseExpanded = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExpanded(false);
+  }, []);
+
+  // Parse recipe for details
+  const parseRecipe = (recipe: string) => {
+    try {
+      return JSON.parse(recipe);
+    } catch {
+      return null;
+    }
+  };
+
+  const recipe = parseRecipe(variant.recipe);
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   const handleAddToTray = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -123,6 +172,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     isGhost ? styles.ghost : '',
     isVariantLoading(variant) ? styles.loading : '',
     isVariantFailed(variant) ? styles.failed : '',
+    isExpanded ? styles.expanded : '',
   ].filter(Boolean).join(' ');
 
   // Render thumbnail based on variant status
@@ -284,6 +334,97 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
               ↘ {fork.assetName}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Expanded Details Panel */}
+      {isExpanded && isVariantReady(variant) && !isGhost && (
+        <div className={styles.detailsPanel} onClick={(e) => e.stopPropagation()}>
+          <button className={styles.closeButton} onClick={handleCloseExpanded} title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Actions Row */}
+          <div className={styles.detailsActions}>
+            <button
+              className={`${styles.detailActionButton} ${variant.starred ? styles.starred : ''}`}
+              onClick={handleStarClick}
+              title={variant.starred ? 'Unstar' : 'Star'}
+            >
+              {variant.starred ? '★' : '☆'}
+            </button>
+            <a
+              className={styles.detailActionButton}
+              href={`/api/images/${variant.image_key}`}
+              download={`${asset.name}-${variant.id.slice(0, 8)}.png`}
+              title="Download"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </a>
+            {onAddToTray && (
+              <button
+                className={styles.detailActionButton}
+                onClick={handleAddToTray}
+                title="Add to Tray"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            )}
+            {!isActive && onSetActive && (
+              <button
+                className={`${styles.detailActionButton} ${styles.setActive}`}
+                onClick={handleSetActive}
+                title="Set Active"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
+            )}
+            {onDeleteVariant && variantCount > 1 && (
+              <button
+                className={`${styles.detailActionButton} ${styles.delete}`}
+                onClick={handleDeleteClick}
+                title="Delete"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Metadata */}
+          <div className={styles.detailsMeta}>
+            <span className={styles.detailsDate}>{formatDate(variant.created_at)}</span>
+            {recipe?.model && (
+              <span className={styles.detailsModel}>{recipe.model}</span>
+            )}
+          </div>
+
+          {/* Prompt */}
+          {recipe?.prompt && (
+            <div className={styles.detailsPrompt}>
+              {recipe.prompt.length > 100 ? recipe.prompt.slice(0, 100) + '...' : recipe.prompt}
+            </div>
+          )}
+
+          {/* Description */}
+          {variant.description && (
+            <div className={styles.detailsDescription}>
+              {variant.description.length > 80 ? variant.description.slice(0, 80) + '...' : variant.description}
+            </div>
+          )}
         </div>
       )}
 
