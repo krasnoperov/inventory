@@ -8,7 +8,7 @@ import {
   type EnhanceRequestParams,
   type ForgeChatRequestParams,
   type ForgeChatResponseResult,
-  type AutoDescribeRequestParams,
+  type ForgeChatProgressResult,
 } from '../../hooks/useSpaceWebSocket';
 import { AssetPickerModal } from './AssetPickerModal';
 import { EnhanceButton, type EnhanceType } from './EnhanceButton';
@@ -56,8 +56,8 @@ export interface ForgeTrayProps {
   isChatLoading?: boolean;
   /** Last forge chat response */
   forgeChatResponse?: ForgeChatResponseResult | null;
-  /** Handler to send auto-describe request for variants without cached descriptions */
-  sendAutoDescribeRequest?: (params: AutoDescribeRequestParams) => string;
+  /** Last forge chat progress update */
+  forgeChatProgress?: ForgeChatProgressResult | null;
 }
 
 // Determine operation based on state
@@ -105,7 +105,7 @@ export function ForgeTray({
   sendForgeChatRequest,
   isChatLoading = false,
   forgeChatResponse,
-  sendAutoDescribeRequest,
+  forgeChatProgress,
 }: ForgeTrayProps) {
   const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
   const [showAssetPicker, setShowAssetPicker] = useState(false);
@@ -117,7 +117,6 @@ export function ForgeTray({
   const [showChat, setShowChat] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const describedVariantsRef = useRef<Set<string>>(new Set());
 
   // Destination state
   const [destinationType, setDestinationType] = useState<DestinationType>('existing_asset');
@@ -149,25 +148,6 @@ export function ForgeTray({
 
   // Slot variant IDs for vision-aware operations
   const slotVariantIds = useMemo(() => slots.map(s => s.variant.id), [slots]);
-
-  // Auto-describe variants when added to slots (if no cached description)
-  useEffect(() => {
-    if (!sendAutoDescribeRequest) return;
-
-    for (const slot of slots) {
-      const variantId = slot.variant.id;
-      // Skip if already described or description is cached
-      if (describedVariantsRef.current.has(variantId)) continue;
-      if (slot.variant.description) {
-        describedVariantsRef.current.add(variantId);
-        continue;
-      }
-
-      // Request description
-      describedVariantsRef.current.add(variantId);
-      sendAutoDescribeRequest({ variantId });
-    }
-  }, [slots, sendAutoDescribeRequest]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -580,6 +560,7 @@ export function ForgeTray({
             sendForgeChatRequest={sendForgeChatRequest}
             isLoading={isChatLoading}
             lastResponse={forgeChatResponse}
+            lastProgress={forgeChatProgress}
             onApplyPrompt={handleApplyPrompt}
             onClose={() => setShowChat(false)}
           />

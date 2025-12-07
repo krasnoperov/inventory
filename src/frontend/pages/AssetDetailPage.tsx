@@ -16,7 +16,7 @@ import {
   type Lineage,
   type EnhanceResponseResult,
   type ForgeChatResponseResult,
-  type AutoDescribeResponseResult,
+  type ForgeChatProgressResult,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
@@ -82,6 +82,7 @@ export default function AssetDetailPage() {
   // Forge chat state
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [forgeChatResponse, setForgeChatResponse] = useState<ForgeChatResponseResult | null>(null);
+  const [forgeChatProgress, setForgeChatProgress] = useState<ForgeChatProgressResult | null>(null);
 
   // Handle enhance response
   const handleEnhanceResponse = useCallback((response: EnhanceResponseResult) => {
@@ -93,17 +94,17 @@ export default function AssetDetailPage() {
     }
   }, [setPrompt]);
 
+  // Handle forge chat progress
+  const handleForgeChatProgress = useCallback((progress: ForgeChatProgressResult) => {
+    setForgeChatProgress(progress);
+  }, []);
+
   // Handle forge chat response
   const handleForgeChatResponse = useCallback((response: ForgeChatResponseResult) => {
     setIsChatLoading(false);
     setForgeChatResponse(response);
-  }, []);
-
-  // Handle auto-describe response (description is cached server-side, no action needed)
-  const handleAutoDescribeResponse = useCallback((response: AutoDescribeResponseResult) => {
-    if (!response.success && response.error) {
-      console.error('Auto-describe failed:', response.error);
-    }
+    // Clear progress when response arrives
+    setForgeChatProgress(null);
   }, []);
 
   // WebSocket for real-time updates
@@ -124,7 +125,6 @@ export default function AssetDetailPage() {
     sendRefineRequest,
     sendEnhanceRequest,
     sendForgeChatRequest,
-    sendAutoDescribeRequest,
     forkAsset,
     getChildren,
     updateSession,
@@ -140,8 +140,8 @@ export default function AssetDetailPage() {
       }
     },
     onEnhanceResponse: handleEnhanceResponse,
+    onForgeChatProgress: handleForgeChatProgress,
     onForgeChatResponse: handleForgeChatResponse,
-    onAutoDescribeResponse: handleAutoDescribeResponse,
   });
 
   // Compute parent asset
@@ -808,7 +808,7 @@ export default function AssetDetailPage() {
         sendForgeChatRequest={handleSendForgeChatRequest}
         isChatLoading={isChatLoading}
         forgeChatResponse={forgeChatResponse}
-        sendAutoDescribeRequest={sendAutoDescribeRequest}
+        forgeChatProgress={forgeChatProgress}
       />
     </div>
   );

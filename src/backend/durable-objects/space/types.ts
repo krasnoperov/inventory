@@ -350,8 +350,9 @@ export type ServerMessage =
   | { type: 'enhance:response'; requestId: string; success: boolean; enhancedPrompt?: string; error?: string; usage?: ClaudeUsage }
   // Auto-describe response messages
   | { type: 'auto-describe:response'; requestId: string; success: boolean; variantId: string; description?: string; error?: string }
-  // ForgeChat response messages
-  | { type: 'forge-chat:response'; requestId: string; success: boolean; message?: string; suggestedPrompt?: string; error?: string; usage?: ClaudeUsage }
+  // ForgeChat progress and response messages
+  | { type: 'forge-chat:progress'; requestId: string; phase: 'describing'; variantId: string; assetName: string; status: 'started' | 'completed' | 'cached'; description?: string; index: number; total: number }
+  | { type: 'forge-chat:response'; requestId: string; success: boolean; message?: string; suggestedPrompt?: string; error?: string; usage?: ClaudeUsage; descriptions?: Array<{ variantId: string; assetName: string; description: string; cached: boolean }> }
   // Chat progress messages (agentic loop tool execution)
   | { type: 'chat:progress'; requestId: string; toolName: string; toolParams: Record<string, unknown>; status: 'executing' | 'complete' | 'failed'; result?: string; error?: string }
   // Pre-check error messages (quota/rate limit exceeded)

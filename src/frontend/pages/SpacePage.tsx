@@ -10,7 +10,7 @@ import type {
   Variant,
   EnhanceResponseResult,
   ForgeChatResponseResult,
-  AutoDescribeResponseResult,
+  ForgeChatProgressResult,
 } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
@@ -64,6 +64,7 @@ export default function SpacePage() {
   // Forge chat state
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [forgeChatResponse, setForgeChatResponse] = useState<ForgeChatResponseResult | null>(null);
+  const [forgeChatProgress, setForgeChatProgress] = useState<ForgeChatProgressResult | null>(null);
 
   // Handle enhance response
   const handleEnhanceResponse = useCallback((response: EnhanceResponseResult) => {
@@ -75,17 +76,17 @@ export default function SpacePage() {
     }
   }, [setPrompt]);
 
+  // Handle forge chat progress
+  const handleForgeChatProgress = useCallback((progress: ForgeChatProgressResult) => {
+    setForgeChatProgress(progress);
+  }, []);
+
   // Handle forge chat response
   const handleForgeChatResponse = useCallback((response: ForgeChatResponseResult) => {
     setIsChatLoading(false);
     setForgeChatResponse(response);
-  }, []);
-
-  // Handle auto-describe response (description is cached server-side, no action needed)
-  const handleAutoDescribeResponse = useCallback((response: AutoDescribeResponseResult) => {
-    if (!response.success && response.error) {
-      console.error('Auto-describe failed:', response.error);
-    }
+    // Clear progress when response arrives
+    setForgeChatProgress(null);
   }, []);
 
   // WebSocket connection for real-time updates
@@ -100,7 +101,6 @@ export default function SpacePage() {
     sendRefineRequest,
     sendEnhanceRequest,
     sendForgeChatRequest,
-    sendAutoDescribeRequest,
     forkAsset,
     updateAsset,
     updateSession,
@@ -115,8 +115,8 @@ export default function SpacePage() {
       // Job completed - variant is now visible on canvas
     },
     onEnhanceResponse: handleEnhanceResponse,
+    onForgeChatProgress: handleForgeChatProgress,
     onForgeChatResponse: handleForgeChatResponse,
-    onAutoDescribeResponse: handleAutoDescribeResponse,
   });
 
   // Export/Import state
@@ -469,7 +469,7 @@ export default function SpacePage() {
           sendForgeChatRequest={handleSendForgeChatRequest}
           isChatLoading={isChatLoading}
           forgeChatResponse={forgeChatResponse}
-          sendAutoDescribeRequest={sendAutoDescribeRequest}
+          forgeChatProgress={forgeChatProgress}
         />
       )}
     </div>

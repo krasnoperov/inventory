@@ -1,11 +1,28 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { ForgeChatRequestParams, ForgeChatResponseResult } from '../../hooks/useSpaceWebSocket';
+import type {
+  ForgeChatRequestParams,
+  ForgeChatResponseResult,
+  ForgeChatProgressResult,
+  ForgeChatDescription,
+} from '../../hooks/useSpaceWebSocket';
 import styles from './ForgeChat.module.css';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   suggestedPrompt?: string;
+  /** Descriptions collected during this message (shown as collapsible) */
+  descriptions?: ForgeChatDescription[];
+}
+
+/** Progress state for description phase */
+interface DescriptionProgress {
+  variantId: string;
+  assetName: string;
+  status: 'started' | 'completed' | 'cached';
+  description?: string;
+  index: number;
+  total: number;
 }
 
 export interface ForgeChatProps {
@@ -19,6 +36,8 @@ export interface ForgeChatProps {
   isLoading: boolean;
   /** Last response from the server */
   lastResponse?: ForgeChatResponseResult | null;
+  /** Last progress update from the server */
+  lastProgress?: ForgeChatProgressResult | null;
   /** Callback when user applies a suggested prompt */
   onApplyPrompt: (prompt: string) => void;
   /** Callback to close the chat panel */
@@ -31,11 +50,13 @@ export function ForgeChat({
   sendForgeChatRequest,
   isLoading,
   lastResponse,
+  lastProgress,
   onApplyPrompt,
   onClose,
 }: ForgeChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [descriptionProgress, setDescriptionProgress] = useState<DescriptionProgress[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastRequestIdRef = useRef<string | null>(null);
@@ -45,14 +66,44 @@ export function ForgeChat({
     inputRef.current?.focus();
   }, []);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change or progress updates
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, descriptionProgress]);
+
+  // Handle progress updates from server (description phase)
+  useEffect(() => {
+    if (!lastProgress || lastProgress.requestId !== lastRequestIdRef.current) return;
+
+    setDescriptionProgress(prev => {
+      const existing = prev.find(p => p.variantId === lastProgress.variantId);
+      if (existing) {
+        // Update existing progress
+        return prev.map(p =>
+          p.variantId === lastProgress.variantId
+            ? { ...p, status: lastProgress.status, description: lastProgress.description }
+            : p
+        );
+      } else {
+        // Add new progress entry
+        return [...prev, {
+          variantId: lastProgress.variantId,
+          assetName: lastProgress.assetName,
+          status: lastProgress.status,
+          description: lastProgress.description,
+          index: lastProgress.index,
+          total: lastProgress.total,
+        }];
+      }
+    });
+  }, [lastProgress]);
 
   // Handle response from server
   useEffect(() => {
     if (!lastResponse || lastResponse.requestId !== lastRequestIdRef.current) return;
+
+    // Clear progress state when response arrives
+    setDescriptionProgress([]);
 
     if (lastResponse.success && lastResponse.message) {
       setMessages(prev => [
@@ -61,6 +112,7 @@ export function ForgeChat({
           role: 'assistant',
           content: lastResponse.message!,
           suggestedPrompt: lastResponse.suggestedPrompt,
+          descriptions: lastResponse.descriptions,
         },
       ]);
     } else if (!lastResponse.success && lastResponse.error) {
@@ -151,6 +203,29 @@ export function ForgeChat({
             <div className={styles.messageBubble}>
               {msg.content}
             </div>
+            {/* Collapsible descriptions section */}
+            {msg.descriptions && msg.descriptions.length > 0 && (
+              <details className={styles.descriptionsDetails}>
+                <summary className={styles.descriptionsSummary}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  Image analysis ({msg.descriptions.length})
+                </summary>
+                <div className={styles.descriptionsContent}>
+                  {msg.descriptions.map((desc) => (
+                    <div key={desc.variantId} className={styles.descriptionItem}>
+                      <div className={styles.descriptionName}>
+                        {desc.assetName}
+                        {desc.cached && <span className={styles.cachedBadge}>cached</span>}
+                      </div>
+                      <div className={styles.descriptionText}>{desc.description}</div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
             {msg.suggestedPrompt && (
               <div className={styles.suggestedPrompt}>
                 <div className={styles.suggestedLabel}>Suggested Prompt</div>
@@ -169,15 +244,38 @@ export function ForgeChat({
           </div>
         ))}
 
-        {/* Loading indicator */}
+        {/* Loading indicator with description progress */}
         {isLoading && (
           <div className={styles.loadingMessage}>
             <div className={styles.loadingBubble}>
-              <div className={styles.loadingDots}>
-                <span className={styles.loadingDot} />
-                <span className={styles.loadingDot} />
-                <span className={styles.loadingDot} />
-              </div>
+              {descriptionProgress.length > 0 ? (
+                <div className={styles.descriptionProgress}>
+                  <div className={styles.progressHeader}>
+                    Analyzing images ({descriptionProgress.filter(p => p.status !== 'started').length}/{descriptionProgress[0]?.total || 0})
+                  </div>
+                  {descriptionProgress.map((p) => (
+                    <div key={p.variantId} className={styles.progressItem}>
+                      {p.status === 'started' ? (
+                        <span className={styles.progressSpinner} />
+                      ) : (
+                        <svg className={styles.progressCheck} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                      <span className={styles.progressLabel}>
+                        {p.assetName}
+                        {p.status === 'cached' && <span className={styles.cachedBadge}>cached</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.loadingDots}>
+                  <span className={styles.loadingDot} />
+                  <span className={styles.loadingDot} />
+                  <span className={styles.loadingDot} />
+                </div>
+              )}
             </div>
           </div>
         )}

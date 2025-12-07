@@ -518,18 +518,124 @@ export class VisionController extends BaseController {
     });
 
     try {
-      // Fetch descriptions for all slot variants
-      const variantDescriptions = await this.getVariantDescriptions(msg.slotVariantIds);
+      const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY!);
+      const isFirstMessage = msg.conversationHistory.length === 0;
+      const hasImages = msg.slotVariantIds.length > 0 && hasStorage(this.env.IMAGES);
 
-      // For the first message, also fetch the actual images if we have image storage
-      // This allows Claude to see the images directly for better analysis
+      // Collect descriptions and images for context
+      const variantDescriptions: Array<{ variantId: string; assetName: string; description: string }> = [];
+      const collectedDescriptions: Array<{ variantId: string; assetName: string; description: string; cached: boolean }> = [];
       let images: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; assetName: string }> | undefined;
 
-      if (msg.conversationHistory.length === 0 && msg.slotVariantIds.length > 0 && hasStorage(this.env.IMAGES)) {
+      // For first message with images, generate descriptions on-demand with progress updates
+      if (isFirstMessage && hasImages) {
+        const total = msg.slotVariantIds.length;
+
+        for (let i = 0; i < msg.slotVariantIds.length; i++) {
+          const variantId = msg.slotVariantIds[i];
+          const index = i + 1;
+
+          // Get variant info and check for cached description
+          const result = await this.sql.exec(
+            `SELECT v.description, v.image_key, a.name as asset_name
+             FROM variants v
+             JOIN assets a ON v.asset_id = a.id
+             WHERE v.id = ?`,
+            variantId
+          );
+          const row = result.toArray()[0] as { description: string | null; image_key: string | null; asset_name: string } | undefined;
+
+          if (!row) continue;
+
+          const assetName = row.asset_name;
+
+          if (row.description) {
+            // Use cached description
+            this.send(ws, {
+              type: 'forge-chat:progress',
+              requestId: msg.requestId,
+              phase: 'describing',
+              variantId,
+              assetName,
+              status: 'cached',
+              description: row.description,
+              index,
+              total,
+            });
+            variantDescriptions.push({ variantId, assetName, description: row.description });
+            collectedDescriptions.push({ variantId, assetName, description: row.description, cached: true });
+          } else if (row.image_key) {
+            // Need to generate description
+            this.send(ws, {
+              type: 'forge-chat:progress',
+              requestId: msg.requestId,
+              phase: 'describing',
+              variantId,
+              assetName,
+              status: 'started',
+              index,
+              total,
+            });
+
+            // Fetch image and describe
+            const imageObj = await this.env.IMAGES!.get(row.image_key);
+            if (imageObj) {
+              const buffer = await imageObj.arrayBuffer();
+              const bytes = new Uint8Array(buffer);
+              let binary = '';
+              const chunkSize = 8192;
+              for (let j = 0; j < bytes.length; j += chunkSize) {
+                const chunk = bytes.subarray(j, Math.min(j + chunkSize, bytes.length));
+                binary += String.fromCharCode.apply(null, Array.from(chunk));
+              }
+              const base64 = btoa(binary);
+
+              // Determine media type
+              let mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' = 'image/jpeg';
+              if (row.image_key.endsWith('.png')) mediaType = 'image/png';
+              else if (row.image_key.endsWith('.gif')) mediaType = 'image/gif';
+              else if (row.image_key.endsWith('.webp')) mediaType = 'image/webp';
+
+              // Generate description
+              const descResult = await claudeService.describeImage(base64, mediaType, assetName, 'prompt');
+              const description = descResult.description;
+
+              // Cache the description
+              await this.sql.exec(
+                'UPDATE variants SET description = ?, updated_at = ? WHERE id = ?',
+                description,
+                Date.now(),
+                variantId
+              );
+
+              // Send completion progress
+              this.send(ws, {
+                type: 'forge-chat:progress',
+                requestId: msg.requestId,
+                phase: 'describing',
+                variantId,
+                assetName,
+                status: 'completed',
+                description,
+                index,
+                total,
+              });
+
+              variantDescriptions.push({ variantId, assetName, description });
+              collectedDescriptions.push({ variantId, assetName, description, cached: false });
+            }
+          }
+        }
+
+        // Also fetch images for direct visual analysis
         images = await this.getVariantImages(msg.slotVariantIds);
+      } else {
+        // Follow-up message: just get cached descriptions (no progress needed)
+        const cached = await this.getVariantDescriptions(msg.slotVariantIds);
+        variantDescriptions.push(...cached);
       }
 
-      const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY!);
+      // Now call Claude with all context
       const result = await claudeService.forgeChat(
         msg.message.trim(),
         msg.currentPrompt,
@@ -544,6 +650,7 @@ export class VisionController extends BaseController {
         outputTokens: result.usage.outputTokens,
         descriptionsUsed: variantDescriptions.length,
         imagesAttached: images?.length ?? 0,
+        descriptionsGenerated: collectedDescriptions.filter(d => !d.cached).length,
       });
 
       this.send(ws, {
@@ -553,6 +660,7 @@ export class VisionController extends BaseController {
         message: result.message,
         suggestedPrompt: result.suggestedPrompt,
         usage: result.usage,
+        descriptions: collectedDescriptions.length > 0 ? collectedDescriptions : undefined,
       });
     } catch (error) {
       timer(false, { error: error instanceof Error ? error.message : String(error) });

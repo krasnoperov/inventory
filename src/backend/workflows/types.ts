@@ -305,6 +305,26 @@ export interface ForgeChatRequestMessage {
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
+/** ForgeChat progress - sent during description phase before main response */
+export interface ForgeChatProgressMessage {
+  type: 'forge-chat:progress';
+  requestId: string;
+  /** Which phase we're in */
+  phase: 'describing';
+  /** Variant being described */
+  variantId: string;
+  /** Asset name for display */
+  assetName: string;
+  /** Current status */
+  status: 'started' | 'completed' | 'cached';
+  /** Description text (when completed) */
+  description?: string;
+  /** Progress index (1-based) */
+  index: number;
+  /** Total count */
+  total: number;
+}
+
 /** ForgeChat response - assistant's reply with optional prompt suggestion */
 export interface ForgeChatResponseMessage {
   type: 'forge-chat:response';
@@ -316,4 +336,11 @@ export interface ForgeChatResponseMessage {
   suggestedPrompt?: string;
   error?: string;
   usage?: ClaudeUsage;
+  /** Descriptions generated during this request (for UI display) */
+  descriptions?: Array<{
+    variantId: string;
+    assetName: string;
+    description: string;
+    cached: boolean;
+  }>;
 }

@@ -314,6 +314,26 @@ export interface AutoDescribeResponseResult {
   error?: string;
 }
 
+// ForgeChat progress update (description phase)
+export interface ForgeChatProgressResult {
+  requestId: string;
+  phase: 'describing';
+  variantId: string;
+  assetName: string;
+  status: 'started' | 'completed' | 'cached';
+  description?: string;
+  index: number;
+  total: number;
+}
+
+// ForgeChat description info
+export interface ForgeChatDescription {
+  variantId: string;
+  assetName: string;
+  description: string;
+  cached: boolean;
+}
+
 // ForgeChat response from server
 export interface ForgeChatResponseResult {
   requestId: string;
@@ -322,6 +342,7 @@ export interface ForgeChatResponseResult {
   suggestedPrompt?: string;
   error?: string;
   usage?: ClaudeUsage;
+  descriptions?: ForgeChatDescription[];
 }
 
 // Chat progress update (agentic loop tool execution)
@@ -348,7 +369,7 @@ export interface UseSpaceWebSocketParams {
   onDescribeResponse?: (response: DescribeResponseResult) => void;
   onCompareResponse?: (response: CompareResponseResult) => void;
   onEnhanceResponse?: (response: EnhanceResponseResult) => void;
-  onAutoDescribeResponse?: (response: AutoDescribeResponseResult) => void;
+  onForgeChatProgress?: (progress: ForgeChatProgressResult) => void;
   onForgeChatResponse?: (response: ForgeChatResponseResult) => void;
   // Approval lifecycle callbacks
   onApprovalCreated?: (approval: PendingApproval) => void;
@@ -427,8 +448,10 @@ type ServerMessage =
   | { type: 'enhance:response'; requestId: string; success: boolean; enhancedPrompt?: string; error?: string; usage?: ClaudeUsage }
   // Auto-describe response message
   | { type: 'auto-describe:response'; requestId: string; variantId: string; success: boolean; description?: string; error?: string }
+  // ForgeChat progress message (description phase)
+  | { type: 'forge-chat:progress'; requestId: string; phase: 'describing'; variantId: string; assetName: string; status: 'started' | 'completed' | 'cached'; description?: string; index: number; total: number }
   // ForgeChat response message
-  | { type: 'forge-chat:response'; requestId: string; success: boolean; message?: string; suggestedPrompt?: string; error?: string; usage?: ClaudeUsage }
+  | { type: 'forge-chat:response'; requestId: string; success: boolean; message?: string; suggestedPrompt?: string; error?: string; usage?: ClaudeUsage; descriptions?: ForgeChatDescription[] }
   // SimplePlan messages (markdown-based plan)
   | { type: 'simple_plan:updated'; plan: SimplePlan }
   | { type: 'simple_plan:archived'; planId: string }
@@ -544,7 +567,7 @@ export function useSpaceWebSocket({
   onDescribeResponse,
   onCompareResponse,
   onEnhanceResponse,
-  onAutoDescribeResponse,
+  onForgeChatProgress,
   onForgeChatResponse,
   onApprovalCreated,
   onApprovalUpdated,
@@ -847,7 +870,7 @@ export function useSpaceWebSocket({
   const onDescribeResponseRef = useRef(onDescribeResponse);
   const onCompareResponseRef = useRef(onCompareResponse);
   const onEnhanceResponseRef = useRef(onEnhanceResponse);
-  const onAutoDescribeResponseRef = useRef(onAutoDescribeResponse);
+  const onForgeChatProgressRef = useRef(onForgeChatProgress);
   const onForgeChatResponseRef = useRef(onForgeChatResponse);
   const onApprovalCreatedRef = useRef(onApprovalCreated);
   const onApprovalUpdatedRef = useRef(onApprovalUpdated);
@@ -872,7 +895,7 @@ export function useSpaceWebSocket({
     onDescribeResponseRef.current = onDescribeResponse;
     onCompareResponseRef.current = onCompareResponse;
     onEnhanceResponseRef.current = onEnhanceResponse;
-    onAutoDescribeResponseRef.current = onAutoDescribeResponse;
+    onForgeChatProgressRef.current = onForgeChatProgress;
     onForgeChatResponseRef.current = onForgeChatResponse;
     onApprovalCreatedRef.current = onApprovalCreated;
     onApprovalUpdatedRef.current = onApprovalUpdated;
@@ -1227,13 +1250,16 @@ export function useSpaceWebSocket({
                 });
                 break;
 
-              case 'auto-describe:response':
-                onAutoDescribeResponseRef.current?.({
+              case 'forge-chat:progress':
+                onForgeChatProgressRef.current?.({
                   requestId: message.requestId,
+                  phase: message.phase,
                   variantId: message.variantId,
-                  success: message.success,
+                  assetName: message.assetName,
+                  status: message.status,
                   description: message.description,
-                  error: message.error,
+                  index: message.index,
+                  total: message.total,
                 });
                 break;
 
@@ -1245,6 +1271,7 @@ export function useSpaceWebSocket({
                   suggestedPrompt: message.suggestedPrompt,
                   error: message.error,
                   usage: message.usage,
+                  descriptions: message.descriptions,
                 });
                 break;
 
