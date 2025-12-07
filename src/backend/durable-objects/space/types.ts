@@ -13,6 +13,8 @@ import type {
   DescribeRequestMessage,
   CompareRequestMessage,
   EnhanceRequestMessage,
+  AutoDescribeRequestMessage,
+  ForgeChatRequestMessage,
 } from '../../workflows/types';
 import type { ClaudeUsage, DeferredAction, ErrorCode, SimplePlan } from '../../../shared/websocket-types';
 
@@ -64,6 +66,7 @@ export interface Variant {
   created_at: number;
   updated_at: number | null; // Track status changes
   plan_step_id: string | null; // If this variant was created by a plan step
+  description: string | null; // Cached AI-generated description for vision-aware enhancement
 }
 
 /**
@@ -279,7 +282,11 @@ export type ClientMessage =
   | DescribeRequestMessage
   | CompareRequestMessage
   // Enhance prompt messages
-  | EnhanceRequestMessage;
+  | EnhanceRequestMessage
+  // Auto-describe messages (lazy description caching)
+  | AutoDescribeRequestMessage
+  // ForgeChat messages (multi-turn prompt refinement)
+  | ForgeChatRequestMessage;
 
 // ============================================================================
 // Message Types (Server → Client)
@@ -341,6 +348,10 @@ export type ServerMessage =
   | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage }
   // Enhance prompt response messages
   | { type: 'enhance:response'; requestId: string; success: boolean; enhancedPrompt?: string; error?: string; usage?: ClaudeUsage }
+  // Auto-describe response messages
+  | { type: 'auto-describe:response'; requestId: string; success: boolean; variantId: string; description?: string; error?: string }
+  // ForgeChat response messages
+  | { type: 'forge-chat:response'; requestId: string; success: boolean; message?: string; suggestedPrompt?: string; error?: string; usage?: ClaudeUsage }
   // Chat progress messages (agentic loop tool execution)
   | { type: 'chat:progress'; requestId: string; toolName: string; toolParams: Record<string, unknown>; status: 'executing' | 'complete' | 'failed'; result?: string; error?: string }
   // Pre-check error messages (quota/rate limit exceeded)

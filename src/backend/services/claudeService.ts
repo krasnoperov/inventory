@@ -1112,4 +1112,152 @@ For each aspect, describe similarities and differences between the images. Which
       },
     };
   }
+
+  /**
+   * Enhance a prompt with context from reference image descriptions (vision-aware)
+   * Uses cached variant descriptions to inform prompt enhancement
+   */
+  async enhancePromptWithContext(
+    originalPrompt: string,
+    variantDescriptions: Array<{ variantId: string; assetName: string; description: string }>
+  ): Promise<{ enhancedPrompt: string; usage: ClaudeUsage }> {
+    const contextBlock = variantDescriptions.length > 0
+      ? `\n\nREFERENCE IMAGES IN FORGE TRAY:\n${variantDescriptions.map((v, i) =>
+          `[Slot ${i + 1}] "${v.assetName}":\n${v.description}`
+        ).join('\n\n')}`
+      : '';
+
+    const systemPrompt = `You are a prompt enhancement specialist for AI image generation with Google Gemini.
+Your job is to take a user's prompt and enhance it for optimal Gemini output.
+${contextBlock}
+
+ENHANCEMENT GUIDELINES:
+1. PRESERVE the user's core intent and subject matter exactly
+2. If reference images are provided, incorporate their visual characteristics:
+   - Match the art style, rendering technique, and visual aesthetic
+   - Use similar color palettes and lighting approaches
+   - Maintain consistency with the reference materials
+3. ADD rich visual details: style, lighting, color palette, texture, atmosphere, composition
+4. KEEP the enhanced prompt concise but detailed (aim for 50-100 words)
+5. For derive operations with references, maintain visual consistency with the source
+6. DO NOT add characters or elements not implied by the user or references
+7. DO NOT reference specific brands, studios, or copyrighted names
+8. FORMAT as a single paragraph, ready for direct use
+
+Return ONLY the enhanced prompt text, nothing else.`;
+
+    const response = await this.client.messages.create({
+      model: 'claude-opus-4-5-20251101',
+      max_tokens: 400,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: `Enhance this prompt for Gemini image generation:\n\n"${originalPrompt}"` }],
+    });
+
+    return {
+      enhancedPrompt: response.content[0].type === 'text'
+        ? response.content[0].text.trim()
+        : originalPrompt,
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      },
+    };
+  }
+
+  /**
+   * Multi-turn conversation for prompt refinement (ForgeChat)
+   * Maintains conversation context and provides suggestions based on reference images
+   * When images are provided, they are attached to the first user message for visual analysis
+   */
+  async forgeChat(
+    userMessage: string,
+    currentPrompt: string,
+    variantContext: Array<{ variantId: string; assetName: string; description: string }>,
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+    images?: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; assetName: string }>
+  ): Promise<{ message: string; suggestedPrompt?: string; usage: ClaudeUsage }> {
+    // Build context block with slot descriptions (for text reference in system prompt)
+    const contextBlock = variantContext.length > 0
+      ? `\n\nREFERENCE IMAGES IN FORGE TRAY (you can see these images attached to the first message):
+${variantContext.map((v, i) =>
+          `[Slot ${i + 1}] "${v.assetName}": ${v.description || '(no description yet)'}`
+        ).join('\n')}`
+      : '';
+
+    const systemPrompt = `You are a creative assistant helping refine image generation prompts for Google Gemini.
+${contextBlock}
+
+CURRENT PROMPT: "${currentPrompt || '(empty)'}"
+
+Your role:
+1. Help the user refine their prompt through conversation
+2. When you suggest a new prompt, wrap it in <suggested-prompt>...</suggested-prompt> tags
+3. Analyze the reference images directly when making suggestions - maintain visual consistency
+4. Keep suggestions focused on improving the prompt for Gemini
+5. Be concise and helpful
+6. NEVER reference specific brands, studios, or copyrighted names
+
+Guidelines for good Gemini prompts:
+- Be specific: subject, style, lighting, mood, composition
+- Include materials/textures when relevant
+- Specify art style using generic terms (not studio names)
+- For references: "Character matching the style of slot 1, in the environment from slot 2"`;
+
+    // Build messages array
+    const messages: Anthropic.MessageParam[] = [];
+
+    // Add conversation history
+    for (const msg of conversationHistory) {
+      messages.push({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+      });
+    }
+
+    // Build the current user message with images if this is the first message and images are provided
+    if (images && images.length > 0 && conversationHistory.length === 0) {
+      // First message: attach images + text
+      const content: Anthropic.ContentBlockParam[] = images.map((img, i) => ({
+        type: 'image' as const,
+        source: {
+          type: 'base64' as const,
+          media_type: img.mediaType,
+          data: img.base64,
+        },
+      }));
+      content.push({
+        type: 'text' as const,
+        text: userMessage,
+      });
+      messages.push({ role: 'user', content });
+    } else {
+      // Follow-up messages or no images: just text
+      messages.push({ role: 'user', content: userMessage });
+    }
+
+    const response = await this.client.messages.create({
+      model: 'claude-opus-4-5-20251101',
+      max_tokens: 600,
+      system: systemPrompt,
+      messages,
+    });
+
+    const responseText = response.content[0].type === 'text'
+      ? response.content[0].text
+      : '';
+
+    // Extract suggested prompt if present
+    const suggestedPromptMatch = responseText.match(/<suggested-prompt>([\s\S]*?)<\/suggested-prompt>/);
+    const suggestedPrompt = suggestedPromptMatch ? suggestedPromptMatch[1].trim() : undefined;
+    const message = responseText.replace(/<suggested-prompt>[\s\S]*?<\/suggested-prompt>/g, '').trim();
+
+    return {
+      message,
+      suggestedPrompt,
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      },
+    };
+  }
 }

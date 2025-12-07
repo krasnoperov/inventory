@@ -8,6 +8,8 @@ import type {
   DescribeRequestMessage,
   CompareRequestMessage,
   EnhanceRequestMessage,
+  AutoDescribeRequestMessage,
+  ForgeChatRequestMessage,
 } from '../workflows/types';
 import type { WebSocketMeta, ClientMessage, ServerMessage } from './space/types';
 import type { ErrorCode } from '../../shared/websocket-types';
@@ -313,6 +315,14 @@ export class SpaceDO extends DurableObject<Env> {
       // Prompt enhancement
       case 'enhance:request':
         return this.visionCtrl.handleEnhance(ws, msg as EnhanceRequestMessage);
+
+      // Auto-describe (lazy description caching for ForgeTray)
+      case 'auto-describe:request':
+        return this.visionCtrl.handleAutoDescribe(ws, msg as AutoDescribeRequestMessage);
+
+      // ForgeChat (multi-turn prompt refinement)
+      case 'forge-chat:request':
+        return this.visionCtrl.handleForgeChat(ws, msg as ForgeChatRequestMessage);
 
       default:
         this.sendError(ws, 'UNKNOWN_MESSAGE_TYPE', `Unknown message type: ${(msg as { type: string }).type}`);

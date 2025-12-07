@@ -248,6 +248,8 @@ export interface EnhanceRequestMessage {
   prompt: string;
   /** Type of enhancement to apply */
   enhanceType: EnhanceType;
+  /** Optional variant IDs in ForgeTray for vision-aware enhancement */
+  slotVariantIds?: string[];
 }
 
 /** Enhance prompt response to client */
@@ -257,6 +259,61 @@ export interface EnhanceResponseMessage {
   success: boolean;
   /** The enhanced prompt (if success) */
   enhancedPrompt?: string;
+  error?: string;
+  usage?: ClaudeUsage;
+}
+
+// ============================================================================
+// AUTO-DESCRIBE WEBSOCKET MESSAGE TYPES (lazy description caching)
+// ============================================================================
+
+/** Auto-describe request - triggered when variant added to ForgeTray */
+export interface AutoDescribeRequestMessage {
+  type: 'auto-describe:request';
+  requestId: string;
+  /** Variant ID to describe */
+  variantId: string;
+}
+
+/** Auto-describe response - returns cached or newly generated description */
+export interface AutoDescribeResponseMessage {
+  type: 'auto-describe:response';
+  requestId: string;
+  success: boolean;
+  /** Variant ID that was described */
+  variantId: string;
+  /** AI-generated description (if success) */
+  description?: string;
+  error?: string;
+}
+
+// ============================================================================
+// FORGE CHAT WEBSOCKET MESSAGE TYPES (multi-turn prompt refinement)
+// ============================================================================
+
+/** ForgeChat request - multi-turn conversation for prompt refinement */
+export interface ForgeChatRequestMessage {
+  type: 'forge-chat:request';
+  requestId: string;
+  /** User's message in the conversation */
+  message: string;
+  /** Current prompt in ForgeTray */
+  currentPrompt: string;
+  /** Variant IDs in ForgeTray slots (for context) */
+  slotVariantIds: string[];
+  /** Conversation history for multi-turn */
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+}
+
+/** ForgeChat response - assistant's reply with optional prompt suggestion */
+export interface ForgeChatResponseMessage {
+  type: 'forge-chat:response';
+  requestId: string;
+  success: boolean;
+  /** Assistant's response message */
+  message?: string;
+  /** Suggested enhanced prompt (if applicable) */
+  suggestedPrompt?: string;
   error?: string;
   usage?: ClaudeUsage;
 }

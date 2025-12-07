@@ -6,3 +6,6 @@ export type { ForgeSlotsProps } from './ForgeSlots';
 
 export { AssetPickerModal } from './AssetPickerModal';
 export type { AssetPickerModalProps } from './AssetPickerModal';
+
+export { ForgeChat } from './ForgeChat';
+export type { ForgeChatProps, ChatMessage } from './ForgeChat';

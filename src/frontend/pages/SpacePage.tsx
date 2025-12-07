@@ -9,6 +9,8 @@ import type {
   Asset,
   Variant,
   EnhanceResponseResult,
+  ForgeChatResponseResult,
+  AutoDescribeResponseResult,
 } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
@@ -59,6 +61,10 @@ export default function SpacePage() {
   // Enhance state
   const [isEnhancing, setIsEnhancing] = useState(false);
 
+  // Forge chat state
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [forgeChatResponse, setForgeChatResponse] = useState<ForgeChatResponseResult | null>(null);
+
   // Handle enhance response
   const handleEnhanceResponse = useCallback((response: EnhanceResponseResult) => {
     setIsEnhancing(false);
@@ -68,6 +74,19 @@ export default function SpacePage() {
       console.error('Enhance failed:', response.error);
     }
   }, [setPrompt]);
+
+  // Handle forge chat response
+  const handleForgeChatResponse = useCallback((response: ForgeChatResponseResult) => {
+    setIsChatLoading(false);
+    setForgeChatResponse(response);
+  }, []);
+
+  // Handle auto-describe response (description is cached server-side, no action needed)
+  const handleAutoDescribeResponse = useCallback((response: AutoDescribeResponseResult) => {
+    if (!response.success && response.error) {
+      console.error('Auto-describe failed:', response.error);
+    }
+  }, []);
 
   // WebSocket connection for real-time updates
   const {
@@ -80,6 +99,8 @@ export default function SpacePage() {
     sendGenerateRequest,
     sendRefineRequest,
     sendEnhanceRequest,
+    sendForgeChatRequest,
+    sendAutoDescribeRequest,
     forkAsset,
     updateAsset,
     updateSession,
@@ -94,6 +115,8 @@ export default function SpacePage() {
       // Job completed - variant is now visible on canvas
     },
     onEnhanceResponse: handleEnhanceResponse,
+    onForgeChatResponse: handleForgeChatResponse,
+    onAutoDescribeResponse: handleAutoDescribeResponse,
   });
 
   // Export/Import state
@@ -176,10 +199,17 @@ export default function SpacePage() {
   }, [addSlot]);
 
   // Handle enhance request - wraps sendEnhanceRequest to manage isEnhancing state
-  const handleSendEnhanceRequest = useCallback((params: { prompt: string; enhanceType: 'geminify' }) => {
+  const handleSendEnhanceRequest = useCallback((params: { prompt: string; enhanceType: 'geminify'; slotVariantIds?: string[] }) => {
     setIsEnhancing(true);
     return sendEnhanceRequest(params);
   }, [sendEnhanceRequest]);
+
+  // Handle forge chat request - wraps sendForgeChatRequest to manage loading state
+  const handleSendForgeChatRequest = useCallback((params: Parameters<typeof sendForgeChatRequest>[0]) => {
+    setIsChatLoading(true);
+    setForgeChatResponse(null); // Clear previous response
+    return sendForgeChatRequest(params);
+  }, [sendForgeChatRequest]);
 
   // Handle asset reparenting via drag-and-drop on canvas
   const handleReparent = useCallback((childAssetId: string, newParentAssetId: string | null) => {
@@ -436,6 +466,10 @@ export default function SpacePage() {
           isUploading={isUploading}
           sendEnhanceRequest={handleSendEnhanceRequest}
           isEnhancing={isEnhancing}
+          sendForgeChatRequest={handleSendForgeChatRequest}
+          isChatLoading={isChatLoading}
+          forgeChatResponse={forgeChatResponse}
+          sendAutoDescribeRequest={sendAutoDescribeRequest}
         />
       )}
     </div>

@@ -30,6 +30,7 @@ export interface Variant {
   created_by: string;
   created_at: number;
   updated_at: number | null;  // Track status changes
+  description: string | null;  // Cached AI-generated description for vision-aware enhancement
 }
 
 /**
@@ -244,6 +245,21 @@ export interface CompareRequestParams {
 export interface EnhanceRequestParams {
   prompt: string;
   enhanceType: 'geminify';
+  /** Variant IDs from ForgeTray slots for vision-aware enhancement */
+  slotVariantIds?: string[];
+}
+
+// Auto-describe request parameters (lazy description caching)
+export interface AutoDescribeRequestParams {
+  variantId: string;
+}
+
+// ForgeChat request parameters (multi-turn prompt refinement)
+export interface ForgeChatRequestParams {
+  message: string;
+  currentPrompt: string;
+  slotVariantIds: string[];
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
 // Deferred action from agentic loop (tray operations)
@@ -289,6 +305,25 @@ export interface EnhanceResponseResult {
   usage?: ClaudeUsage;
 }
 
+// Auto-describe response from server
+export interface AutoDescribeResponseResult {
+  requestId: string;
+  variantId: string;
+  success: boolean;
+  description?: string;
+  error?: string;
+}
+
+// ForgeChat response from server
+export interface ForgeChatResponseResult {
+  requestId: string;
+  success: boolean;
+  message?: string;
+  suggestedPrompt?: string;
+  error?: string;
+  usage?: ClaudeUsage;
+}
+
 // Chat progress update (agentic loop tool execution)
 export interface ChatProgressResult {
   requestId: string;
@@ -313,6 +348,8 @@ export interface UseSpaceWebSocketParams {
   onDescribeResponse?: (response: DescribeResponseResult) => void;
   onCompareResponse?: (response: CompareResponseResult) => void;
   onEnhanceResponse?: (response: EnhanceResponseResult) => void;
+  onAutoDescribeResponse?: (response: AutoDescribeResponseResult) => void;
+  onForgeChatResponse?: (response: ForgeChatResponseResult) => void;
   // Approval lifecycle callbacks
   onApprovalCreated?: (approval: PendingApproval) => void;
   onApprovalUpdated?: (approval: PendingApproval) => void;
@@ -388,6 +425,10 @@ type ServerMessage =
   | { type: 'compare:response'; requestId: string; success: boolean; comparison?: string; error?: string; usage?: ClaudeUsage }
   // Enhance prompt response message
   | { type: 'enhance:response'; requestId: string; success: boolean; enhancedPrompt?: string; error?: string; usage?: ClaudeUsage }
+  // Auto-describe response message
+  | { type: 'auto-describe:response'; requestId: string; variantId: string; success: boolean; description?: string; error?: string }
+  // ForgeChat response message
+  | { type: 'forge-chat:response'; requestId: string; success: boolean; message?: string; suggestedPrompt?: string; error?: string; usage?: ClaudeUsage }
   // SimplePlan messages (markdown-based plan)
   | { type: 'simple_plan:updated'; plan: SimplePlan }
   | { type: 'simple_plan:archived'; planId: string }
@@ -467,6 +508,8 @@ export interface UseSpaceWebSocketReturn {
   sendDescribeRequest: (params: DescribeRequestParams) => string;  // Returns requestId
   sendCompareRequest: (params: CompareRequestParams) => string;  // Returns requestId
   sendEnhanceRequest: (params: EnhanceRequestParams) => string;  // Returns requestId
+  sendAutoDescribeRequest: (params: AutoDescribeRequestParams) => string;  // Returns requestId
+  sendForgeChatRequest: (params: ForgeChatRequestParams) => string;  // Returns requestId
   // Helper methods for hierarchy navigation
   getChildren: (assetId: string) => Asset[];
   getAncestors: (assetId: string) => Asset[];
@@ -501,6 +544,8 @@ export function useSpaceWebSocket({
   onDescribeResponse,
   onCompareResponse,
   onEnhanceResponse,
+  onAutoDescribeResponse,
+  onForgeChatResponse,
   onApprovalCreated,
   onApprovalUpdated,
   onApprovalList,
@@ -677,6 +722,32 @@ export function useSpaceWebSocket({
       requestId,
       prompt: params.prompt,
       enhanceType: params.enhanceType,
+      slotVariantIds: params.slotVariantIds,
+    });
+    return requestId;
+  }, [sendMessage]);
+
+  // Send auto-describe request to lazily cache variant description
+  const sendAutoDescribeRequest = useCallback((params: AutoDescribeRequestParams): string => {
+    const requestId = crypto.randomUUID();
+    sendMessage({
+      type: 'auto-describe:request',
+      requestId,
+      variantId: params.variantId,
+    });
+    return requestId;
+  }, [sendMessage]);
+
+  // Send forge-chat request for multi-turn prompt refinement
+  const sendForgeChatRequest = useCallback((params: ForgeChatRequestParams): string => {
+    const requestId = crypto.randomUUID();
+    sendMessage({
+      type: 'forge-chat:request',
+      requestId,
+      message: params.message,
+      currentPrompt: params.currentPrompt,
+      slotVariantIds: params.slotVariantIds,
+      conversationHistory: params.conversationHistory,
     });
     return requestId;
   }, [sendMessage]);
@@ -776,6 +847,8 @@ export function useSpaceWebSocket({
   const onDescribeResponseRef = useRef(onDescribeResponse);
   const onCompareResponseRef = useRef(onCompareResponse);
   const onEnhanceResponseRef = useRef(onEnhanceResponse);
+  const onAutoDescribeResponseRef = useRef(onAutoDescribeResponse);
+  const onForgeChatResponseRef = useRef(onForgeChatResponse);
   const onApprovalCreatedRef = useRef(onApprovalCreated);
   const onApprovalUpdatedRef = useRef(onApprovalUpdated);
   const onApprovalListRef = useRef(onApprovalList);
@@ -799,6 +872,8 @@ export function useSpaceWebSocket({
     onDescribeResponseRef.current = onDescribeResponse;
     onCompareResponseRef.current = onCompareResponse;
     onEnhanceResponseRef.current = onEnhanceResponse;
+    onAutoDescribeResponseRef.current = onAutoDescribeResponse;
+    onForgeChatResponseRef.current = onForgeChatResponse;
     onApprovalCreatedRef.current = onApprovalCreated;
     onApprovalUpdatedRef.current = onApprovalUpdated;
     onApprovalListRef.current = onApprovalList;
@@ -1152,6 +1227,27 @@ export function useSpaceWebSocket({
                 });
                 break;
 
+              case 'auto-describe:response':
+                onAutoDescribeResponseRef.current?.({
+                  requestId: message.requestId,
+                  variantId: message.variantId,
+                  success: message.success,
+                  description: message.description,
+                  error: message.error,
+                });
+                break;
+
+              case 'forge-chat:response':
+                onForgeChatResponseRef.current?.({
+                  requestId: message.requestId,
+                  success: message.success,
+                  message: message.message,
+                  suggestedPrompt: message.suggestedPrompt,
+                  error: message.error,
+                  usage: message.usage,
+                });
+                break;
+
               // Approval lifecycle messages
               case 'approval:created':
                 onApprovalCreatedRef.current?.(message.approval);
@@ -1283,6 +1379,8 @@ export function useSpaceWebSocket({
     sendDescribeRequest,
     sendCompareRequest,
     sendEnhanceRequest,
+    sendAutoDescribeRequest,
+    sendForgeChatRequest,
     getChildren,
     getAncestors,
     getRootAssets,

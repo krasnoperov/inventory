@@ -1,9 +1,18 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
 import type { ForgeOperation } from '../../stores/forgeTrayStore';
-import { type Asset, type Variant, getVariantThumbnailUrl, type EnhanceRequestParams } from '../../hooks/useSpaceWebSocket';
+import {
+  type Asset,
+  type Variant,
+  getVariantThumbnailUrl,
+  type EnhanceRequestParams,
+  type ForgeChatRequestParams,
+  type ForgeChatResponseResult,
+  type AutoDescribeRequestParams,
+} from '../../hooks/useSpaceWebSocket';
 import { AssetPickerModal } from './AssetPickerModal';
 import { EnhanceButton, type EnhanceType } from './EnhanceButton';
+import { ForgeChat } from './ForgeChat';
 import styles from './ForgeTray.module.css';
 
 export type DestinationType = 'existing_asset' | 'new_asset';
@@ -41,6 +50,14 @@ export interface ForgeTrayProps {
   sendEnhanceRequest?: (params: EnhanceRequestParams) => string;
   /** Whether an enhancement is in progress */
   isEnhancing?: boolean;
+  /** Handler to send forge chat request */
+  sendForgeChatRequest?: (params: ForgeChatRequestParams) => string;
+  /** Whether a forge chat request is in progress */
+  isChatLoading?: boolean;
+  /** Last forge chat response */
+  forgeChatResponse?: ForgeChatResponseResult | null;
+  /** Handler to send auto-describe request for variants without cached descriptions */
+  sendAutoDescribeRequest?: (params: AutoDescribeRequestParams) => string;
 }
 
 // Determine operation based on state
@@ -85,6 +102,10 @@ export function ForgeTray({
   isUploading = false,
   sendEnhanceRequest,
   isEnhancing = false,
+  sendForgeChatRequest,
+  isChatLoading = false,
+  forgeChatResponse,
+  sendAutoDescribeRequest,
 }: ForgeTrayProps) {
   const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
   const [showAssetPicker, setShowAssetPicker] = useState(false);
@@ -93,8 +114,10 @@ export function ForgeTray({
   const [showUploadPrompt, setShowUploadPrompt] = useState(false);
   const [uploadAssetName, setUploadAssetName] = useState('');
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+  const [showChat, setShowChat] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const describedVariantsRef = useRef<Set<string>>(new Set());
 
   // Destination state
   const [destinationType, setDestinationType] = useState<DestinationType>('existing_asset');
@@ -123,6 +146,28 @@ export function ForgeTray({
   const operation = getOperation(slots.length, hasPrompt, effectiveDestinationType);
   const operationLabel = getOperationLabel(operation);
   const placeholder = getPlaceholder(slots.length, operation);
+
+  // Slot variant IDs for vision-aware operations
+  const slotVariantIds = useMemo(() => slots.map(s => s.variant.id), [slots]);
+
+  // Auto-describe variants when added to slots (if no cached description)
+  useEffect(() => {
+    if (!sendAutoDescribeRequest) return;
+
+    for (const slot of slots) {
+      const variantId = slot.variant.id;
+      // Skip if already described or description is cached
+      if (describedVariantsRef.current.has(variantId)) continue;
+      if (slot.variant.description) {
+        describedVariantsRef.current.add(variantId);
+        continue;
+      }
+
+      // Request description
+      describedVariantsRef.current.add(variantId);
+      sendAutoDescribeRequest({ variantId });
+    }
+  }, [slots, sendAutoDescribeRequest]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -304,11 +349,25 @@ export function ForgeTray({
     }
   }, [handleSubmit]);
 
-  // Handle prompt enhancement
+  // Handle prompt enhancement (vision-aware when slots have descriptions)
   const handleEnhance = useCallback((type: EnhanceType) => {
     if (!prompt.trim() || !sendEnhanceRequest) return;
-    sendEnhanceRequest({ prompt: prompt.trim(), enhanceType: type });
-  }, [prompt, sendEnhanceRequest]);
+    sendEnhanceRequest({
+      prompt: prompt.trim(),
+      enhanceType: type,
+      slotVariantIds: slotVariantIds.length > 0 ? slotVariantIds : undefined,
+    });
+  }, [prompt, sendEnhanceRequest, slotVariantIds]);
+
+  // Toggle chat panel
+  const handleToggleChat = useCallback(() => {
+    setShowChat(prev => !prev);
+  }, []);
+
+  // Handle applying suggested prompt from chat
+  const handleApplyPrompt = useCallback((newPrompt: string) => {
+    setPrompt(newPrompt);
+  }, [setPrompt]);
 
   // Determine if submit is allowed
   const canSubmit = useMemo(() => {
@@ -476,6 +535,21 @@ export function ForgeTray({
               />
             )}
 
+            {/* Chat Toggle Button - Only show if handler is available */}
+            {sendForgeChatRequest && (
+              <button
+                type="button"
+                className={`${styles.destButton} ${showChat ? styles.active : ''}`}
+                onClick={handleToggleChat}
+                disabled={isSubmitting}
+                title="Chat with Claude about your prompt"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                </svg>
+              </button>
+            )}
+
             {/* Spacer */}
             <div className={styles.controlsSpacer} />
 
@@ -497,6 +571,19 @@ export function ForgeTray({
             </button>
           </div>
         </div>
+
+        {/* ForgeChat Panel - Positioned absolutely above the tray */}
+        {showChat && sendForgeChatRequest && (
+          <ForgeChat
+            currentPrompt={prompt}
+            slotVariantIds={slotVariantIds}
+            sendForgeChatRequest={sendForgeChatRequest}
+            isLoading={isChatLoading}
+            lastResponse={forgeChatResponse}
+            onApplyPrompt={handleApplyPrompt}
+            onClose={() => setShowChat(false)}
+          />
+        )}
       </div>
 
       {showAssetPicker && (

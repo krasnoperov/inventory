@@ -10,7 +10,7 @@
 // ============================================================================
 
 /** Focus options for image description */
-export type DescribeFocus = 'general' | 'style' | 'composition' | 'details' | 'compare';
+export type DescribeFocus = 'general' | 'style' | 'composition' | 'details' | 'compare' | 'prompt';
 
 /** Claude API usage metrics */
 export interface ClaudeUsage {

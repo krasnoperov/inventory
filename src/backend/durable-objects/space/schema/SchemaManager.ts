@@ -176,6 +176,9 @@ export class SchemaManager {
     // Migration: Add plan improvements (auto-advance, dependencies, revisions)
     await this.addPlanImprovements();
 
+    // Migration: Add description column to variants for cached AI descriptions
+    await this.addDescriptionToVariants();
+
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
     // Conversions:
@@ -348,7 +351,8 @@ export class SchemaManager {
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER,
-        plan_step_id TEXT
+        plan_step_id TEXT,
+        description TEXT
       );
 
       -- Copy all data
@@ -368,5 +372,21 @@ export class SchemaManager {
       -- Re-enable foreign key checks
       PRAGMA foreign_keys = ON;
     `);
+  }
+
+  /**
+   * Add description column to variants table for cached AI-generated descriptions.
+   * Used for vision-aware prompt enhancement in ForgeChat.
+   */
+  private async addDescriptionToVariants(): Promise<void> {
+    const result = await this.sql.exec(`PRAGMA table_info(variants)`);
+    const columns = result.toArray() as Array<{ name: string }>;
+    const hasColumn = columns.some(col => col.name === 'description');
+
+    if (!hasColumn) {
+      await this.sql.exec(`
+        ALTER TABLE variants ADD COLUMN description TEXT;
+      `);
+    }
   }
 }

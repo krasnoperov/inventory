@@ -58,51 +58,9 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       await this.updateVariantStatus(spaceId, jobId, 'processing');
     });
 
-    // Step 2: Fetch source images (for refine/combine operations)
-    let sourceImages: ImageInput[] = [];
-    if (sourceImageKeys && sourceImageKeys.length > 0) {
-      sourceImages = await step.do('fetch-sources', {
-        retries: { limit: 2, delay: '3 seconds' },
-      }, async () => {
-        if (!this.env.IMAGES) {
-          throw new Error('IMAGES R2 bucket not configured');
-        }
-
-        const timer = log.startTimer('Fetch source images', {
-          requestId, jobId, imageCount: sourceImageKeys.length,
-        });
-
-        try {
-          const images: ImageInput[] = [];
-          let totalBytes = 0;
-          for (let i = 0; i < sourceImageKeys.length; i++) {
-            const imageKey = sourceImageKeys[i];
-            const imageObject = await this.env.IMAGES.get(imageKey);
-            if (!imageObject) {
-              throw new Error(`Source image not found: ${imageKey}`);
-            }
-
-            const buffer = await imageObject.arrayBuffer();
-            totalBytes += buffer.byteLength;
-            const base64 = arrayBufferToBase64(buffer);
-            const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
-
-            images.push({
-              data: base64,
-              mimeType,
-              label: `Image ${i + 1}:`,
-            });
-          }
-          timer(true, { totalBytes, imageCount: images.length });
-          return images;
-        } catch (error) {
-          timer(false, { error: error instanceof Error ? error.message : String(error) });
-          throw error;
-        }
-      });
-    }
-
-    // Step 3: Generate image with retries
+    // Step 2: Generate image with retries
+    // Note: Source images are fetched inside this step to avoid persisting large blobs
+    // in workflow state (which has SQLite size limits)
     let generationResult: GenerationResult;
     try {
       generationResult = await step.do('generate-image', {
@@ -111,6 +69,45 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       }, async () => {
         if (!this.env.GOOGLE_AI_API_KEY) {
           throw new Error('GOOGLE_AI_API_KEY not configured');
+        }
+
+        // Fetch source images inline (not as a separate step) to avoid
+        // persisting large blobs in workflow state which has SQLite size limits
+        let sourceImages: ImageInput[] = [];
+        if (sourceImageKeys && sourceImageKeys.length > 0) {
+          if (!this.env.IMAGES) {
+            throw new Error('IMAGES R2 bucket not configured');
+          }
+
+          const fetchTimer = log.startTimer('Fetch source images', {
+            requestId, jobId, imageCount: sourceImageKeys.length,
+          });
+
+          try {
+            let totalBytes = 0;
+            for (let i = 0; i < sourceImageKeys.length; i++) {
+              const imageKey = sourceImageKeys[i];
+              const imageObject = await this.env.IMAGES.get(imageKey);
+              if (!imageObject) {
+                throw new Error(`Source image not found: ${imageKey}`);
+              }
+
+              const buffer = await imageObject.arrayBuffer();
+              totalBytes += buffer.byteLength;
+              const base64 = arrayBufferToBase64(buffer);
+              const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
+
+              sourceImages.push({
+                data: base64,
+                mimeType,
+                label: `Image ${i + 1}:`,
+              });
+            }
+            fetchTimer(true, { totalBytes, imageCount: sourceImages.length });
+          } catch (error) {
+            fetchTimer(false, { error: error instanceof Error ? error.message : String(error) });
+            throw error;
+          }
         }
 
         const nanoBanana = new NanoBananaService(this.env.GOOGLE_AI_API_KEY);
@@ -177,7 +174,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       };
     }
 
-    // Step 4: Upload to R2
+    // Step 3: Upload to R2
     // Note: variantId === jobId (placeholder variant created before workflow started)
     const variantId = jobId;
     let imageKey: string;

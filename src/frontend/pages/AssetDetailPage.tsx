@@ -15,6 +15,8 @@ import {
   type Variant,
   type Lineage,
   type EnhanceResponseResult,
+  type ForgeChatResponseResult,
+  type AutoDescribeResponseResult,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
@@ -77,6 +79,10 @@ export default function AssetDetailPage() {
   // Enhance state
   const [isEnhancing, setIsEnhancing] = useState(false);
 
+  // Forge chat state
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [forgeChatResponse, setForgeChatResponse] = useState<ForgeChatResponseResult | null>(null);
+
   // Handle enhance response
   const handleEnhanceResponse = useCallback((response: EnhanceResponseResult) => {
     setIsEnhancing(false);
@@ -86,6 +92,19 @@ export default function AssetDetailPage() {
       console.error('Enhance failed:', response.error);
     }
   }, [setPrompt]);
+
+  // Handle forge chat response
+  const handleForgeChatResponse = useCallback((response: ForgeChatResponseResult) => {
+    setIsChatLoading(false);
+    setForgeChatResponse(response);
+  }, []);
+
+  // Handle auto-describe response (description is cached server-side, no action needed)
+  const handleAutoDescribeResponse = useCallback((response: AutoDescribeResponseResult) => {
+    if (!response.success && response.error) {
+      console.error('Auto-describe failed:', response.error);
+    }
+  }, []);
 
   // WebSocket for real-time updates
   const {
@@ -104,6 +123,8 @@ export default function AssetDetailPage() {
     sendGenerateRequest,
     sendRefineRequest,
     sendEnhanceRequest,
+    sendForgeChatRequest,
+    sendAutoDescribeRequest,
     forkAsset,
     getChildren,
     updateSession,
@@ -119,6 +140,8 @@ export default function AssetDetailPage() {
       }
     },
     onEnhanceResponse: handleEnhanceResponse,
+    onForgeChatResponse: handleForgeChatResponse,
+    onAutoDescribeResponse: handleAutoDescribeResponse,
   });
 
   // Compute parent asset
@@ -418,10 +441,17 @@ export default function AssetDetailPage() {
   }, [uploadImage]);
 
   // Handle enhance request - wraps sendEnhanceRequest to manage isEnhancing state
-  const handleSendEnhanceRequest = useCallback((params: { prompt: string; enhanceType: 'geminify' }) => {
+  const handleSendEnhanceRequest = useCallback((params: { prompt: string; enhanceType: 'geminify'; slotVariantIds?: string[] }) => {
     setIsEnhancing(true);
     return sendEnhanceRequest(params);
   }, [sendEnhanceRequest]);
+
+  // Handle forge chat request - wraps sendForgeChatRequest to manage loading state
+  const handleSendForgeChatRequest = useCallback((params: Parameters<typeof sendForgeChatRequest>[0]) => {
+    setIsChatLoading(true);
+    setForgeChatResponse(null); // Clear previous response
+    return sendForgeChatRequest(params);
+  }, [sendForgeChatRequest]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
@@ -729,6 +759,13 @@ export default function AssetDetailPage() {
                 <p className={styles.promptText}>{selectedRecipe.prompt}</p>
               </div>
             )}
+
+            {selectedVariant.description && (
+              <div className={styles.promptSection}>
+                <span className={styles.detailLabel}>AI Description</span>
+                <p className={styles.promptText}>{selectedVariant.description}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -768,6 +805,10 @@ export default function AssetDetailPage() {
         isUploading={isUploading}
         sendEnhanceRequest={handleSendEnhanceRequest}
         isEnhancing={isEnhancing}
+        sendForgeChatRequest={handleSendForgeChatRequest}
+        isChatLoading={isChatLoading}
+        forgeChatResponse={forgeChatResponse}
+        sendAutoDescribeRequest={sendAutoDescribeRequest}
       />
     </div>
   );
