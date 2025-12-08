@@ -13,9 +13,9 @@ import {
   MarkerType,
   BackgroundVariant,
 } from '@xyflow/react';
-import dagre from 'dagre';
 import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
 import { AssetNode, type AssetNodeType } from './AssetNode';
+import { applyLayout, type LayoutAlgorithm } from './layouts';
 
 import '@xyflow/react/dist/style.css';
 import styles from './AssetCanvas.module.css';
@@ -49,6 +49,8 @@ export interface AssetCanvasProps {
   onReparent?: (childAssetId: string, newParentAssetId: string | null) => void;
   /** Layout direction: TB (top-bottom), LR (left-right), BT, RL. Default: LR */
   layoutDirection?: LayoutDirection;
+  /** Layout algorithm to use */
+  layoutAlgorithm?: LayoutAlgorithm;
 }
 
 /** Calculate node width from image dimensions */
@@ -56,126 +58,6 @@ function calculateNodeWidth(imgWidth: number, imgHeight: number): number {
   const aspectRatio = imgWidth / imgHeight;
   const thumbWidth = Math.min(THUMB_MAX_WIDTH, Math.max(THUMB_MIN_WIDTH, THUMB_HEIGHT * aspectRatio));
   return thumbWidth + NODE_PADDING;
-}
-
-/** Apply dagre layout to nodes with dynamic widths */
-function getLayoutedElements(
-  nodes: AssetNodeType[],
-  edges: Edge[],
-  nodeDimensions: Map<string, { width: number; height: number }>,
-  direction: LayoutDirection = 'LR'
-): { nodes: AssetNodeType[]; edges: Edge[] } {
-  if (nodes.length === 0) {
-    return { nodes: [], edges: [] };
-  }
-
-  // Identify connected components (trees) and orphan nodes
-  const sourceIds = new Set(edges.map(e => e.source));
-  const targetIds = new Set(edges.map(e => e.target));
-  const connectedIds = new Set([...sourceIds, ...targetIds]);
-
-  // Orphan nodes: not connected to any edge
-  const orphanNodes = nodes.filter(n => !connectedIds.has(n.id));
-  const treeNodes = nodes.filter(n => connectedIds.has(n.id));
-
-  // Layout tree nodes with dagre
-  let layoutedTreeNodes: AssetNodeType[] = [];
-
-  if (treeNodes.length > 0) {
-    const dagreGraph = new dagre.graphlib.Graph();
-    dagreGraph.setDefaultEdgeLabel(() => ({}));
-
-    dagreGraph.setGraph({
-      rankdir: direction,
-      nodesep: 30,  // Horizontal spacing between siblings
-      ranksep: 40,  // Vertical spacing between parent and child
-      marginx: 20,
-      marginy: 20,
-    });
-
-    // Add tree nodes with their actual dimensions
-    treeNodes.forEach((node) => {
-      const dims = nodeDimensions.get(node.id) || { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
-      dagreGraph.setNode(node.id, { width: dims.width, height: dims.height });
-    });
-
-    // Add edges
-    edges.forEach((edge) => {
-      dagreGraph.setEdge(edge.source, edge.target);
-    });
-
-    dagre.layout(dagreGraph);
-
-    layoutedTreeNodes = treeNodes.map((node) => {
-      const nodeWithPosition = dagreGraph.node(node.id);
-      const dims = nodeDimensions.get(node.id) || { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
-      return {
-        ...node,
-        position: {
-          x: nodeWithPosition.x - dims.width / 2,
-          y: nodeWithPosition.y - dims.height / 2,
-        },
-      };
-    });
-  }
-
-  // Layout orphan nodes in a grid
-  let layoutedOrphanNodes: AssetNodeType[] = [];
-
-  if (orphanNodes.length > 0) {
-    const sortedOrphans = [...orphanNodes].sort((a, b) =>
-      a.data.asset.name.toLowerCase().localeCompare(b.data.asset.name.toLowerCase())
-    );
-
-    // Find where to position orphan grid
-    let startX = 0;
-    let startY = 0;
-
-    if (layoutedTreeNodes.length > 0) {
-      const maxTreeX = Math.max(...layoutedTreeNodes.map(n => {
-        const dims = nodeDimensions.get(n.id) || { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
-        return n.position.x + dims.width;
-      }));
-      startX = maxTreeX + 60;
-      startY = Math.min(...layoutedTreeNodes.map(n => n.position.y));
-    }
-
-    // Simple row-based layout for orphans
-    let currentX = startX;
-    let currentY = startY;
-    let rowMaxHeight = 0;
-    const maxRowWidth = 800; // Max width before wrapping
-
-    layoutedOrphanNodes = sortedOrphans.map((node) => {
-      const dims = nodeDimensions.get(node.id) || { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
-
-      // Wrap to next row if needed
-      if (currentX > startX && currentX + dims.width > startX + maxRowWidth) {
-        currentX = startX;
-        currentY += rowMaxHeight + 40;
-        rowMaxHeight = 0;
-      }
-
-      const position = { x: currentX, y: currentY };
-      currentX += dims.width + 30;
-      rowMaxHeight = Math.max(rowMaxHeight, dims.height);
-
-      return { ...node, position };
-    });
-  }
-
-  // Add layout direction to all nodes
-  const allNodes = [...layoutedTreeNodes, ...layoutedOrphanNodes];
-  return {
-    nodes: allNodes.map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        layoutDirection: direction,
-      },
-    })),
-    edges
-  };
 }
 
 /** Inner component that has access to ReactFlow hooks */
@@ -187,6 +69,7 @@ function AssetCanvasInner({
   onAddToTray,
   onReparent,
   layoutDirection = 'LR',
+  layoutAlgorithm = 'dagre',
   dimensionsReady,
   imageDimensions,
 }: AssetCanvasProps & {
@@ -258,13 +141,16 @@ function AssetCanvasInner({
         },
       }));
 
-    // Apply layout with dynamic dimensions (default: LR for better sidebar/tray coexistence)
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      nodes, edges, imageDimensions, layoutDirection
-    );
+    // Apply layout algorithm
+    const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayout(nodes, edges, {
+      algorithm: layoutAlgorithm,
+      direction: layoutDirection,
+      nodeDimensions: imageDimensions,
+      defaultDimensions: { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT },
+    });
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, onAddToTray, imageDimensions, layoutDirection]);
+  }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, onAddToTray, imageDimensions, layoutDirection, layoutAlgorithm]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<AssetNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -360,6 +246,7 @@ export function AssetCanvas({
   onAddToTray,
   onReparent,
   layoutDirection = 'LR',
+  layoutAlgorithm = 'dagre',
 }: AssetCanvasProps) {
   // Track loaded image dimensions
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
@@ -437,6 +324,7 @@ export function AssetCanvas({
         onAddToTray={onAddToTray}
         onReparent={onReparent}
         layoutDirection={layoutDirection}
+        layoutAlgorithm={layoutAlgorithm}
         dimensionsReady={dimensionsReady}
         imageDimensions={imageDimensions}
       />

@@ -150,6 +150,42 @@
   height: 14px;
 }
 
+/* Layout switcher in toolbar */
+.layoutSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+}
+
+.layoutButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: var(--radius-xs);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+}
+
+.layoutButton:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.layoutButton.active {
+  background: var(--color-primary);
+  color: white;
+}
+
 /* Floating chat panel */
 .chatPanel {
   position: absolute;

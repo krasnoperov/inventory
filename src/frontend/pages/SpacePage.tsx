@@ -15,7 +15,7 @@ import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
-import { AssetCanvas } from '../components/AssetCanvas';
+import { AssetCanvas, layoutAlgorithms, type LayoutAlgorithm } from '../components/AssetCanvas';
 import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -141,6 +141,9 @@ export default function SpacePage() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  // Layout algorithm state
+  const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('dagre');
 
   useEffect(() => {
     if (!user) {
@@ -366,6 +369,7 @@ export default function SpacePage() {
           }}
           onAddToTray={canEdit ? handleAddToTray : undefined}
           onReparent={canEdit ? handleReparent : undefined}
+          layoutAlgorithm={layoutAlgorithm}
         />
 
         {/* Compact floating toolbar - top left */}
@@ -396,6 +400,20 @@ export default function SpacePage() {
             {wsStatus === 'connected' && (
               <span className={styles.liveIndicator}>Live</span>
             )}
+          </div>
+          <div className={styles.divider} />
+          {/* Layout switcher */}
+          <div className={styles.layoutSwitcher}>
+            {layoutAlgorithms.map((algo) => (
+              <button
+                key={algo.id}
+                className={`${styles.layoutButton} ${layoutAlgorithm === algo.id ? styles.active : ''}`}
+                onClick={() => setLayoutAlgorithm(algo.id)}
+                title={`${algo.name}: ${algo.description}`}
+              >
+                {algo.icon}
+              </button>
+            ))}
           </div>
           <div className={styles.divider} />
           <button
