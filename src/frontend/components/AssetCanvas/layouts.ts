@@ -60,6 +60,54 @@ export function applyLayout(
   }
 }
 
+/** Find connected components in a graph */
+function findConnectedComponents(
+  nodes: AssetNodeType[],
+  edges: Edge[]
+): AssetNodeType[][] {
+  const adjacency = new Map<string, Set<string>>();
+  nodes.forEach(n => adjacency.set(n.id, new Set()));
+
+  edges.forEach(e => {
+    adjacency.get(e.source)?.add(e.target);
+    adjacency.get(e.target)?.add(e.source);
+  });
+
+  const visited = new Set<string>();
+  const components: AssetNodeType[][] = [];
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+  for (const node of nodes) {
+    if (visited.has(node.id)) continue;
+
+    // BFS to find all nodes in this component
+    const component: AssetNodeType[] = [];
+    const queue = [node.id];
+
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+
+      const n = nodeMap.get(id);
+      if (n) component.push(n);
+
+      const neighbors = adjacency.get(id) || new Set();
+      for (const neighbor of neighbors) {
+        if (!visited.has(neighbor)) {
+          queue.push(neighbor);
+        }
+      }
+    }
+
+    if (component.length > 0) {
+      components.push(component);
+    }
+  }
+
+  return components;
+}
+
 /** Dagre hierarchical layout - best for tree structures */
 function layoutDagre(
   nodes: AssetNodeType[],
@@ -68,7 +116,7 @@ function layoutDagre(
   defaultDimensions: { width: number; height: number },
   direction: 'TB' | 'LR' | 'BT' | 'RL'
 ): LayoutResult {
-  // Identify connected components (trees) and orphan nodes
+  // Identify connected nodes vs orphans
   const sourceIds = new Set(edges.map(e => e.source));
   const targetIds = new Set(edges.map(e => e.target));
   const connectedIds = new Set([...sourceIds, ...targetIds]);
@@ -76,46 +124,73 @@ function layoutDagre(
   const orphanNodes = nodes.filter(n => !connectedIds.has(n.id));
   const treeNodes = nodes.filter(n => connectedIds.has(n.id));
 
-  let layoutedTreeNodes: AssetNodeType[] = [];
+  // Find separate connected components (individual trees)
+  const components = findConnectedComponents(treeNodes, edges);
 
-  if (treeNodes.length > 0) {
+  let layoutedTreeNodes: AssetNodeType[] = [];
+  let currentOffsetX = 0;
+  const componentGap = 80; // Gap between trees
+
+  // Layout each tree separately, then arrange side by side
+  for (const component of components) {
+    const componentIds = new Set(component.map(n => n.id));
+    const componentEdges = edges.filter(
+      e => componentIds.has(e.source) && componentIds.has(e.target)
+    );
+
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     dagreGraph.setGraph({
       rankdir: direction,
       nodesep: 40,
       ranksep: 50,
-      marginx: 20,
-      marginy: 20,
+      marginx: 0,
+      marginy: 0,
     });
 
-    treeNodes.forEach((node) => {
+    component.forEach((node) => {
       const dims = nodeDimensions.get(node.id) || defaultDimensions;
       dagreGraph.setNode(node.id, { width: dims.width, height: dims.height });
     });
 
-    edges.forEach((edge) => {
-      if (connectedIds.has(edge.source) && connectedIds.has(edge.target)) {
-        dagreGraph.setEdge(edge.source, edge.target);
-      }
+    componentEdges.forEach((edge) => {
+      dagreGraph.setEdge(edge.source, edge.target);
     });
 
     dagre.layout(dagreGraph);
 
-    layoutedTreeNodes = treeNodes.map((node) => {
+    // Find bounds of this component
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity;
+
+    component.forEach((node) => {
+      const nodeWithPosition = dagreGraph.node(node.id);
+      const dims = nodeDimensions.get(node.id) || defaultDimensions;
+      minX = Math.min(minX, nodeWithPosition.x - dims.width / 2);
+      maxX = Math.max(maxX, nodeWithPosition.x + dims.width / 2);
+      minY = Math.min(minY, nodeWithPosition.y - dims.height / 2);
+    });
+
+    // Position nodes with offset, aligning tops
+    const layoutedComponent = component.map((node) => {
       const nodeWithPosition = dagreGraph.node(node.id);
       const dims = nodeDimensions.get(node.id) || defaultDimensions;
       return {
         ...node,
         position: {
-          x: nodeWithPosition.x - dims.width / 2,
-          y: nodeWithPosition.y - dims.height / 2,
+          x: currentOffsetX + (nodeWithPosition.x - minX) - dims.width / 2 + dims.width / 2,
+          y: nodeWithPosition.y - minY,
         },
       };
     });
+
+    layoutedTreeNodes.push(...layoutedComponent);
+
+    // Move offset for next tree
+    currentOffsetX += (maxX - minX) + componentGap;
   }
 
-  // Layout orphan nodes in a grid next to the tree
+  // Layout orphan nodes in a grid next to the trees
   const layoutedOrphanNodes = layoutOrphansGrid(
     orphanNodes,
     layoutedTreeNodes,
