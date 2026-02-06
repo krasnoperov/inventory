@@ -184,6 +184,9 @@ export default function SpacePage() {
   const [isImporting, setIsImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
+  // Tile Set panel state
+  const [showTileSetPanel, setShowTileSetPanel] = useState(false);
+
   // Layout algorithm state
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('dagre');
 
@@ -495,6 +498,19 @@ export default function SpacePage() {
                   if (file) handleImport(file);
                 }}
               />
+              <div className={styles.divider} />
+              <button
+                className={styles.toolButton}
+                onClick={() => setShowTileSetPanel(true)}
+                title="Create Tile Set"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="8" height="8" rx="1" />
+                  <rect x="13" y="3" width="8" height="8" rx="1" />
+                  <rect x="3" y="13" width="8" height="8" rx="1" />
+                  <rect x="13" y="13" width="8" height="8" rx="1" />
+                </svg>
+              </button>
             </>
           )}
         </div>
@@ -555,6 +571,22 @@ export default function SpacePage() {
           sendStyleSet={sendStyleSet}
           sendStyleDelete={sendStyleDelete}
           sendStyleToggle={sendStyleToggle}
+        />
+      )}
+
+      {/* Tile Set Panel modal */}
+      {showTileSetPanel && (
+        <TileSetPanel
+          tileSets={tileSets}
+          tilePositions={tilePositions}
+          variants={variants}
+          onSubmit={(params) => {
+            sendTileSetRequest(params);
+          }}
+          onCancel={(tileSetId) => {
+            sendTileSetCancel(tileSetId);
+          }}
+          onClose={() => setShowTileSetPanel(false)}
         />
       )}
     </div>

@@ -416,6 +416,81 @@ export const UserSessionQueries = {
 } as const;
 
 // ============================================================================
+// Rotation Set Queries
+// ============================================================================
+
+export const RotationSetQueries = {
+  GET_ALL: 'SELECT * FROM rotation_sets ORDER BY created_at DESC',
+  GET_BY_ID: 'SELECT * FROM rotation_sets WHERE id = ?',
+  INSERT: `INSERT INTO rotation_sets (id, asset_id, source_variant_id, config, status, current_step, total_steps, error_message, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  UPDATE_STATUS: 'UPDATE rotation_sets SET status = ?, updated_at = ? WHERE id = ?',
+  UPDATE_STEP: 'UPDATE rotation_sets SET current_step = ?, updated_at = ? WHERE id = ?',
+  FAIL: `UPDATE rotation_sets SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
+  CANCEL: `UPDATE rotation_sets SET status = 'cancelled', updated_at = ? WHERE id = ?`,
+} as const;
+
+// ============================================================================
+// Rotation View Queries
+// ============================================================================
+
+export const RotationViewQueries = {
+  GET_BY_SET: 'SELECT * FROM rotation_views WHERE rotation_set_id = ? ORDER BY step_index ASC',
+  GET_ALL: 'SELECT * FROM rotation_views ORDER BY created_at DESC',
+  GET_BY_VARIANT: 'SELECT * FROM rotation_views WHERE variant_id = ?',
+  GET_COMPLETED_WITH_IMAGES: `
+    SELECT rv.*, v.image_key, v.thumb_key, v.status as variant_status
+    FROM rotation_views rv
+    JOIN variants v ON rv.variant_id = v.id
+    WHERE rv.rotation_set_id = ? AND v.status = 'completed'
+    ORDER BY rv.step_index ASC`,
+  INSERT: `INSERT INTO rotation_views (id, rotation_set_id, variant_id, direction, step_index, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+} as const;
+
+// ============================================================================
+// Tile Set Queries
+// ============================================================================
+
+export const TileSetQueries = {
+  GET_ALL: 'SELECT * FROM tile_sets ORDER BY created_at DESC',
+  GET_BY_ID: 'SELECT * FROM tile_sets WHERE id = ?',
+  INSERT: `INSERT INTO tile_sets (id, asset_id, tile_type, grid_width, grid_height, status, seed_variant_id, config, current_step, total_steps, error_message, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  UPDATE_STATUS: 'UPDATE tile_sets SET status = ?, updated_at = ? WHERE id = ?',
+  UPDATE_STEP: 'UPDATE tile_sets SET current_step = ?, updated_at = ? WHERE id = ?',
+  FAIL: `UPDATE tile_sets SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
+  CANCEL: `UPDATE tile_sets SET status = 'cancelled', updated_at = ? WHERE id = ?`,
+} as const;
+
+// ============================================================================
+// Tile Position Queries
+// ============================================================================
+
+export const TilePositionQueries = {
+  GET_BY_SET: 'SELECT * FROM tile_positions WHERE tile_set_id = ? ORDER BY grid_y, grid_x',
+  GET_ALL: 'SELECT * FROM tile_positions ORDER BY created_at DESC',
+  GET_BY_VARIANT: 'SELECT * FROM tile_positions WHERE variant_id = ?',
+  GET_ADJACENT: `
+    SELECT tp.*, v.image_key, v.thumb_key,
+      CASE
+        WHEN tp.grid_y = ? - 1 AND tp.grid_x = ? THEN 'N'
+        WHEN tp.grid_x = ? + 1 AND tp.grid_y = ? THEN 'E'
+        WHEN tp.grid_y = ? + 1 AND tp.grid_x = ? THEN 'S'
+        WHEN tp.grid_x = ? - 1 AND tp.grid_y = ? THEN 'W'
+      END as direction
+    FROM tile_positions tp
+    JOIN variants v ON tp.variant_id = v.id
+    WHERE tp.tile_set_id = ? AND v.status = 'completed'
+      AND ((tp.grid_x = ? AND tp.grid_y = ? - 1)
+        OR (tp.grid_x = ? + 1 AND tp.grid_y = ?)
+        OR (tp.grid_x = ? AND tp.grid_y = ? + 1)
+        OR (tp.grid_x = ? - 1 AND tp.grid_y = ?))`,
+  INSERT: `INSERT INTO tile_positions (id, tile_set_id, variant_id, grid_x, grid_y, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+} as const;
+
+// ============================================================================
 // Query Builders
 // ============================================================================
 

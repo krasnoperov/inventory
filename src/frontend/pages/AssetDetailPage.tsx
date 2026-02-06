@@ -23,6 +23,8 @@ import { ForgeTray } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
+import { RotationPanel } from '../components/RotationPanel/RotationPanel';
+import { TileGrid } from '../components/TileGrid/TileGrid';
 import styles from './AssetDetailPage.module.css';
 
 interface AssetDetailsResponse {
@@ -67,6 +69,9 @@ export default function AssetDetailPage() {
 
   // Set page title
   useDocumentTitle(asset?.name);
+
+  // Rotation panel state
+  const [showRotationPanel, setShowRotationPanel] = useState(false);
 
   // Inline editing state
   const [editingName, setEditingName] = useState(false);
@@ -142,6 +147,12 @@ export default function AssetDetailPage() {
     sendStyleDelete,
     sendStyleToggle,
     sendBatchRequest,
+    rotationSets,
+    rotationViews,
+    sendRotationRequest,
+    sendRotationCancel,
+    tileSets,
+    tilePositions,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
@@ -569,6 +580,23 @@ export default function AssetDetailPage() {
           onDeleteVariant={handleDeleteVariant}
         />
 
+        {/* Tile Grid overlay for tile-set assets */}
+        {(() => {
+          const tileSet = tileSets.find(ts => ts.asset_id === assetId);
+          if (!tileSet) return null;
+          return (
+            <div className={styles.tileGridOverlay}>
+              <TileGrid
+                tileSet={tileSet}
+                tilePositions={tilePositions}
+                variants={wsVariants}
+                selectedVariantId={selectedVariant?.id}
+                onCellClick={(variantId) => setSelectedVariantId(assetId!, variantId)}
+              />
+            </div>
+          );
+        })()}
+
         {/* Asset info overlay - top left */}
         <div className={styles.assetOverlay}>
           {/* Breadcrumb */}
@@ -646,6 +674,15 @@ export default function AssetDetailPage() {
           )}
 
           <div className={styles.assetActions}>
+            {selectedVariant?.status === 'completed' && selectedVariant?.image_key && (
+              <button
+                className={styles.actionButton}
+                onClick={() => setShowRotationPanel(true)}
+                title="Generate rotation views from selected variant"
+              >
+                Rotation Set
+              </button>
+            )}
             <button
               className={styles.deleteAssetButton}
               onClick={handleDeleteAsset}
@@ -750,6 +787,24 @@ export default function AssetDetailPage() {
         sendStyleDelete={sendStyleDelete}
         sendStyleToggle={sendStyleToggle}
       />
+
+      {/* Rotation Panel modal */}
+      {showRotationPanel && selectedVariant && asset && (
+        <RotationPanel
+          sourceVariant={selectedVariant}
+          sourceAsset={asset}
+          rotationSets={rotationSets}
+          rotationViews={rotationViews}
+          variants={wsVariants}
+          onSubmit={(params) => {
+            sendRotationRequest(params);
+          }}
+          onCancel={(rotationSetId) => {
+            sendRotationCancel(rotationSetId);
+          }}
+          onClose={() => setShowRotationPanel(false)}
+        />
+      )}
     </div>
   );
 }

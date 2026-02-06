@@ -31,6 +31,10 @@ export class SyncController extends BaseController {
       variants: state.variants,
       lineage: state.lineage,
       presence,
+      rotationSets: state.rotationSets,
+      rotationViews: state.rotationViews,
+      tileSets: state.tileSets,
+      tilePositions: state.tilePositions,
     });
   }
 
