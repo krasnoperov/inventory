@@ -56,6 +56,7 @@ export default function AssetDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
+  const [forgeError, setForgeError] = useState<string | null>(null);
 
   // Variant selection state (persisted in store)
   const selectedVariantId = useSelectedVariantId(assetId || '');
@@ -188,16 +189,36 @@ export default function AssetDetailPage() {
     },
     onStyleState: (raw) => {
       if (raw) {
-        setStyle(parseStyle(raw));
+        const parsed = parseStyle(raw);
+        setStyle(parsed);
+        const imageCount = parsed.enabled ? parsed.imageKeys.length : 0;
+        useForgeTrayStore.getState().setMaxSlots(14 - imageCount);
       } else {
         clearStyle();
+        useForgeTrayStore.getState().setMaxSlots(14);
       }
     },
     onStyleUpdated: (raw) => {
-      setStyle(parseStyle(raw));
+      const parsed = parseStyle(raw);
+      setStyle(parsed);
+      const imageCount = parsed.enabled ? parsed.imageKeys.length : 0;
+      useForgeTrayStore.getState().setMaxSlots(14 - imageCount);
     },
     onStyleDeleted: () => {
       clearStyle();
+      useForgeTrayStore.getState().setMaxSlots(14);
+    },
+    onGenerateError: (data) => {
+      setForgeError(data.error);
+      setTimeout(() => setForgeError(null), 5000);
+    },
+    onRefineError: (data) => {
+      setForgeError(data.error);
+      setTimeout(() => setForgeError(null), 5000);
+    },
+    onBatchError: (data) => {
+      setForgeError(data.error);
+      setTimeout(() => setForgeError(null), 5000);
     },
     onError: (error) => {
       // Handle WebSocket errors - clear chat loading state
@@ -786,6 +807,7 @@ export default function AssetDetailPage() {
         sendStyleSet={sendStyleSet}
         sendStyleDelete={sendStyleDelete}
         sendStyleToggle={sendStyleToggle}
+        forgeError={forgeError}
       />
 
       {/* Rotation Panel modal */}

@@ -32,6 +32,7 @@ interface ForgeTrayState {
   hasVariant: (variantId: string) => boolean;
   reorderSlots: (fromIndex: number, toIndex: number) => void;
   setPrompt: (prompt: string) => void;
+  setMaxSlots: (n: number) => void;
 
   // Prefill from plan step (resolves asset IDs to slots)
   prefillFromStep: (
@@ -122,6 +123,10 @@ export const useForgeTrayStore = create<ForgeTrayState>()((set, get) => ({
 
   setPrompt: (prompt) => {
     set({ prompt });
+  },
+
+  setMaxSlots: (n) => {
+    set({ maxSlots: n });
   },
 
   prefillFromStep: (referenceAssetIds, prompt, allAssets, allVariants) => {

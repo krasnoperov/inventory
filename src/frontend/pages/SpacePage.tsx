@@ -53,6 +53,7 @@ export default function SpacePage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [forgeError, setForgeError] = useState<string | null>(null);
 
   // Set page title
   useDocumentTitle(space?.name);
@@ -160,16 +161,36 @@ export default function SpacePage() {
     },
     onStyleState: (raw) => {
       if (raw) {
-        setStyle(parseStyle(raw));
+        const parsed = parseStyle(raw);
+        setStyle(parsed);
+        const imageCount = parsed.enabled ? parsed.imageKeys.length : 0;
+        useForgeTrayStore.getState().setMaxSlots(14 - imageCount);
       } else {
         clearStyle();
+        useForgeTrayStore.getState().setMaxSlots(14);
       }
     },
     onStyleUpdated: (raw) => {
-      setStyle(parseStyle(raw));
+      const parsed = parseStyle(raw);
+      setStyle(parsed);
+      const imageCount = parsed.enabled ? parsed.imageKeys.length : 0;
+      useForgeTrayStore.getState().setMaxSlots(14 - imageCount);
     },
     onStyleDeleted: () => {
       clearStyle();
+      useForgeTrayStore.getState().setMaxSlots(14);
+    },
+    onGenerateError: (data) => {
+      setForgeError(data.error);
+      setTimeout(() => setForgeError(null), 5000);
+    },
+    onRefineError: (data) => {
+      setForgeError(data.error);
+      setTimeout(() => setForgeError(null), 5000);
+    },
+    onBatchError: (data) => {
+      setForgeError(data.error);
+      setTimeout(() => setForgeError(null), 5000);
     },
     onError: (error) => {
       // Handle WebSocket errors - clear chat loading state
@@ -571,6 +592,7 @@ export default function SpacePage() {
           sendStyleSet={sendStyleSet}
           sendStyleDelete={sendStyleDelete}
           sendStyleToggle={sendStyleToggle}
+          forgeError={forgeError}
         />
       )}
 

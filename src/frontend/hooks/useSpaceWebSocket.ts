@@ -512,6 +512,10 @@ export interface UseSpaceWebSocketParams {
   onTileSetCompleted?: (tileSetId: string) => void;
   onTileSetFailed?: (data: { tileSetId: string; error: string; failedStep: number }) => void;
   onTileSetCancelled?: (tileSetId: string) => void;
+  // Generation/refine/batch error callbacks
+  onGenerateError?: (data: { requestId: string; error: string; code: string }) => void;
+  onRefineError?: (data: { requestId: string; error: string; code: string }) => void;
+  onBatchError?: (data: { requestId: string; error: string; code: string }) => void;
   // Error callback for WebSocket errors
   onError?: (error: { code: string; message: string }) => void;
 }
@@ -610,7 +614,11 @@ type ServerMessage =
   | { type: 'tileset:tile_completed'; tileSetId: string; gridX: number; gridY: number; stepIndex: number; totalSteps: number; variantId: string }
   | { type: 'tileset:completed'; tileSetId: string }
   | { type: 'tileset:failed'; tileSetId: string; error: string; failedStep: number }
-  | { type: 'tileset:cancelled'; tileSetId: string };
+  | { type: 'tileset:cancelled'; tileSetId: string }
+  // Generation/refine/batch error messages
+  | { type: 'generate:error'; requestId: string; error: string; code: string }
+  | { type: 'refine:error'; requestId: string; error: string; code: string }
+  | { type: 'batch:error'; requestId: string; error: string; code: string };
 
 // Predefined asset types (user can also create custom)
 export const PREDEFINED_ASSET_TYPES = [
@@ -754,6 +762,9 @@ export function useSpaceWebSocket({
   onTileSetCompleted,
   onTileSetFailed,
   onTileSetCancelled,
+  onGenerateError,
+  onRefineError,
+  onBatchError,
   onError,
 }: UseSpaceWebSocketParams): UseSpaceWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -1133,6 +1144,9 @@ export function useSpaceWebSocket({
   const onTileSetCompletedRef = useRef(onTileSetCompleted);
   const onTileSetFailedRef = useRef(onTileSetFailed);
   const onTileSetCancelledRef = useRef(onTileSetCancelled);
+  const onGenerateErrorRef = useRef(onGenerateError);
+  const onRefineErrorRef = useRef(onRefineError);
+  const onBatchErrorRef = useRef(onBatchError);
   const onErrorRef = useRef(onError);
 
   // Update refs in useEffect to avoid accessing refs during render
@@ -1174,6 +1188,9 @@ export function useSpaceWebSocket({
     onTileSetCompletedRef.current = onTileSetCompleted;
     onTileSetFailedRef.current = onTileSetFailed;
     onTileSetCancelledRef.current = onTileSetCancelled;
+    onGenerateErrorRef.current = onGenerateError;
+    onRefineErrorRef.current = onRefineError;
+    onBatchErrorRef.current = onBatchError;
     onErrorRef.current = onError;
   });
 
@@ -1638,6 +1655,31 @@ export function useSpaceWebSocket({
                   completedCount: message.completedCount,
                   failedCount: message.failedCount,
                   totalCount: message.totalCount,
+                });
+                break;
+
+              // Generation/refine/batch error messages
+              case 'generate:error':
+                onGenerateErrorRef.current?.({
+                  requestId: message.requestId,
+                  error: message.error,
+                  code: message.code,
+                });
+                break;
+
+              case 'refine:error':
+                onRefineErrorRef.current?.({
+                  requestId: message.requestId,
+                  error: message.error,
+                  code: message.code,
+                });
+                break;
+
+              case 'batch:error':
+                onBatchErrorRef.current?.({
+                  requestId: message.requestId,
+                  error: message.error,
+                  code: message.code,
                 });
                 break;
 

@@ -103,7 +103,7 @@ export function useForgeOperations({
         mode: batchMode || 'explore',
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
         referenceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
-        aspectRatio: undefined,
+        aspectRatio: params.aspectRatio,
         parentAssetId: destination.parentAssetId || undefined,
         disableStyle,
       });

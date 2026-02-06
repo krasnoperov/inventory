@@ -35,6 +35,8 @@ export interface ForgeSubmitParams {
   batchCount?: number;
   /** Batch mode: 'explore' = 1 asset N variants, 'set' = N assets */
   batchMode?: 'explore' | 'set';
+  /** Aspect ratio for generation */
+  aspectRatio?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
 }
@@ -76,6 +78,8 @@ export interface ForgeTrayProps {
   sendStyleToggle?: (enabled: boolean) => void;
   /** Batch send function */
   sendBatchRequest?: (params: import('../../hooks/useSpaceWebSocket').BatchRequestParams) => string;
+  /** Forge error (generate/refine/batch failure) */
+  forgeError?: string | null;
 }
 
 // Determine operation based on state
@@ -130,6 +134,7 @@ export function ForgeTray({
   sendStyleSet,
   sendStyleDelete,
   sendStyleToggle,
+  forgeError,
 }: ForgeTrayProps) {
   const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
   const style = useStyleStore((s) => s.style);
@@ -641,6 +646,11 @@ export function ForgeTray({
               <span className={styles.buttonLabel}>{operationLabel}</span>
             </button>
           </div>
+
+          {/* Forge error message */}
+          {forgeError && (
+            <div className={styles.forgeError}>{forgeError}</div>
+          )}
         </div>
 
         {/* StylePanel - Positioned absolutely above the tray */}

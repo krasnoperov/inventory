@@ -271,3 +271,119 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
     return c.json({ error: 'Upload failed' }, 500);
   }
 });
+
+/**
+ * POST /api/spaces/:id/style-images
+ *
+ * Upload a style reference image to R2.
+ * Returns the imageKey — StylePanel sends it to the DO via sendStyleSet().
+ *
+ * FormData:
+ * - file: Image file (JPEG, PNG, WebP, GIF) - max 10MB
+ */
+uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const spaceId = c.req.param('id');
+
+  // Verify user is editor/owner
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (member.role === 'viewer') {
+    return c.json({ error: 'Editor or owner role required' }, 403);
+  }
+
+  // Parse FormData
+  let formData: FormData;
+  try {
+    formData = await c.req.formData();
+  } catch {
+    return c.json({ error: 'Invalid form data' }, 400);
+  }
+
+  // Get file
+  const file = formData.get('file') as File | null;
+  if (!file) {
+    return c.json({ error: 'No file provided' }, 400);
+  }
+
+  // Validate file type
+  const mimeType = file.type as ImageMimeType;
+  if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+    return c.json({
+      error: `Invalid file type. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`,
+    }, 400);
+  }
+
+  // Validate file size
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return c.json({
+      error: `File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB`,
+    }, 400);
+  }
+
+  // Check R2 binding
+  if (!env.IMAGES) {
+    return c.json({ error: 'Image storage not available' }, 503);
+  }
+
+  // Generate key under styles/ prefix
+  const id = crypto.randomUUID();
+  const ext = MIME_TO_EXT[mimeType] || 'png';
+  const imageKey = `styles/${spaceId}/${id}.${ext}`;
+  const thumbKey = `styles/${spaceId}/${id}_thumb.webp`;
+
+  try {
+    const imageBuffer = new Uint8Array(await file.arrayBuffer());
+
+    // Upload full image to R2
+    await env.IMAGES.put(imageKey, imageBuffer, {
+      httpMetadata: { contentType: mimeType },
+    });
+
+    // Create and upload thumbnail
+    const baseUrl = getBaseUrl(env);
+    try {
+      const { buffer: thumbBuffer, mimeType: thumbMimeType } = await createThumbnail(
+        imageKey,
+        baseUrl,
+        env,
+        {
+          width: 512,
+          height: 512,
+          fit: 'cover',
+          gravity: 'auto',
+          quality: 80,
+          format: 'webp',
+        }
+      );
+
+      await env.IMAGES.put(thumbKey, thumbBuffer, {
+        httpMetadata: { contentType: thumbMimeType },
+      });
+    } catch (thumbError) {
+      // Fallback: use original image as thumbnail
+      console.warn('Style thumbnail creation failed, using original:', thumbError);
+      await env.IMAGES.put(thumbKey, imageBuffer, {
+        httpMetadata: { contentType: mimeType },
+      });
+    }
+
+    return c.json({ success: true, imageKey });
+  } catch (error) {
+    console.error('Style image upload failed:', error);
+
+    // Try to clean up R2
+    try {
+      await env.IMAGES.delete(imageKey);
+      await env.IMAGES.delete(thumbKey);
+    } catch {
+      // Ignore cleanup errors
+    }
+
+    return c.json({ error: 'Upload failed' }, 500);
+  }
+});

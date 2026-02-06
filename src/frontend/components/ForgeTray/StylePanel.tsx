@@ -33,10 +33,10 @@ export function StylePanel({
     if (style) {
       sendStyleToggle(!style.enabled);
     } else {
-      // Create a new style if none exists
-      sendStyleSet({ description, enabled: true });
+      // Create a new style if none exists — include description and imageKeys
+      sendStyleSet({ description, imageKeys, enabled: true });
     }
-  }, [style, description, sendStyleToggle, sendStyleSet]);
+  }, [style, description, imageKeys, sendStyleToggle, sendStyleSet]);
 
   const handleDelete = useCallback(() => {
     sendStyleDelete();
