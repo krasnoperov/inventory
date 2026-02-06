@@ -8,8 +8,8 @@
  * and handleRefineRequest/executePlanRefine.
  */
 
-import type { Asset, Variant, WebSocketMeta } from '../types';
-import type { GenerationWorkflowInput, OperationType } from '../../../workflows/types';
+import type { Asset, Variant, WebSocketMeta, SpaceStyle } from '../types';
+import type { GenerationWorkflowInput, OperationType, BatchMode } from '../../../workflows/types';
 import type { SpaceRepository } from '../repository/SpaceRepository';
 import type { BroadcastFn } from '../controllers/types';
 import type { Env } from '../../../../core/types';
@@ -31,6 +31,10 @@ export interface GenerationRecipe {
   parentVariantIds?: string[];
   /** Operation type matching user-facing tool name */
   operation: OperationType;
+  /** Style ID if a space style was applied */
+  styleId?: string;
+  /** True if style was explicitly disabled for this generation */
+  styleOverride?: boolean;
 }
 
 /** Determine operation type based on references */
@@ -56,6 +60,8 @@ export interface CreateAssetVariantInput {
   referenceVariantIds?: string[];
   /** Plan step ID if created by a plan */
   planStepId?: string;
+  /** Disable style anchoring for this generation */
+  disableStyle?: boolean;
 }
 
 /** Input for refining an existing asset */
@@ -74,6 +80,8 @@ export interface RefineVariantInput {
   referenceAssetIds?: string[];
   /** Plan step ID if created by a plan */
   planStepId?: string;
+  /** Disable style anchoring for this generation */
+  disableStyle?: boolean;
 }
 
 /** Result of variant creation */
@@ -84,6 +92,8 @@ export interface VariantCreationResult {
   assetId: string;
   parentVariantIds: string[];
   sourceImageKeys: string[];
+  /** Style image keys injected (if style anchoring was active) */
+  styleImageKeys?: string[];
 }
 
 /** Resolved references (image keys and variant IDs) */
@@ -159,7 +169,7 @@ export class VariantFactory {
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
 
     // Build recipe (includes parentVariantIds for retry support)
-    const recipe: GenerationRecipe = {
+    let recipe: GenerationRecipe = {
       prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
       assetType: input.assetType,
       aspectRatio: input.aspectRatio,
@@ -167,6 +177,11 @@ export class VariantFactory {
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
     };
+
+    // Inject style anchoring
+    const styleResult = await this.injectStyle(recipe, resolved.sourceImageKeys, input.disableStyle);
+    recipe = styleResult.recipe;
+    const effectiveSourceImageKeys = styleResult.sourceImageKeys;
 
     // Create placeholder variant
     const variant = await this.repo.createPlaceholderVariant({
@@ -194,7 +209,8 @@ export class VariantFactory {
       variantId,
       assetId,
       parentVariantIds: resolved.parentVariantIds,
-      sourceImageKeys: resolved.sourceImageKeys,
+      sourceImageKeys: effectiveSourceImageKeys,
+      styleImageKeys: styleResult.styleImageKeys,
     };
   }
 
@@ -227,7 +243,7 @@ export class VariantFactory {
     }
 
     // Build recipe (includes parentVariantIds for retry support)
-    const recipe: GenerationRecipe = {
+    let recipe: GenerationRecipe = {
       prompt: input.prompt,
       assetType: asset.type,
       aspectRatio: input.aspectRatio,
@@ -235,6 +251,11 @@ export class VariantFactory {
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation: 'refine',
     };
+
+    // Inject style anchoring
+    const styleResult = await this.injectStyle(recipe, resolved.sourceImageKeys, input.disableStyle);
+    recipe = styleResult.recipe;
+    const effectiveSourceImageKeys = styleResult.sourceImageKeys;
 
     // Create placeholder variant
     const variant = await this.repo.createPlaceholderVariant({
@@ -257,7 +278,8 @@ export class VariantFactory {
       variantId,
       assetId: input.assetId,
       parentVariantIds: resolved.parentVariantIds,
-      sourceImageKeys: resolved.sourceImageKeys,
+      sourceImageKeys: effectiveSourceImageKeys,
+      styleImageKeys: styleResult.styleImageKeys,
     };
   }
 
@@ -274,7 +296,8 @@ export class VariantFactory {
     variantId: string,
     result: VariantCreationResult,
     meta: WebSocketMeta,
-    operation: OperationType
+    operation: OperationType,
+    styleImageKeys?: string[]
   ): Promise<string | null> {
     if (!this.env.GENERATION_WORKFLOW) {
       log.warn('Generation workflow not configured', { spaceId: this.spaceId });
@@ -283,6 +306,9 @@ export class VariantFactory {
 
     // Parse recipe to get prompt
     const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+
+    // Use styleImageKeys from argument or from result
+    const effectiveStyleImageKeys = styleImageKeys || result.styleImageKeys;
 
     const workflowInput: GenerationWorkflowInput = {
       requestId,
@@ -297,6 +323,7 @@ export class VariantFactory {
       sourceImageKeys: result.sourceImageKeys.length > 0 ? result.sourceImageKeys : undefined,
       parentVariantIds: result.parentVariantIds.length > 0 ? result.parentVariantIds : undefined,
       operation,
+      styleImageKeys: effectiveStyleImageKeys?.length ? effectiveStyleImageKeys : undefined,
     };
 
     const instance = await this.env.GENERATION_WORKFLOW.create({
@@ -389,8 +416,239 @@ export class VariantFactory {
   }
 
   // ==========================================================================
+  // Public Methods - Batch Generation
+  // ==========================================================================
+
+  /**
+   * Create multiple variants/assets for batch generation.
+   * Resolves refs once, builds recipe once, injects style once, then creates N placeholders.
+   */
+  async createBatchVariants(
+    input: CreateAssetVariantInput & { count: number; mode: BatchMode },
+    meta: WebSocketMeta
+  ): Promise<{ batchId: string; results: VariantCreationResult[] }> {
+    const batchId = crypto.randomUUID();
+    const results: VariantCreationResult[] = [];
+
+    // Resolve references ONCE
+    const resolved = await this.resolveAllReferences(
+      input.referenceAssetIds,
+      input.referenceVariantIds
+    );
+
+    const operation = determineOperation(resolved.parentVariantIds.length > 0);
+
+    // Build recipe ONCE
+    let recipe: GenerationRecipe = {
+      prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
+      assetType: input.assetType,
+      aspectRatio: input.aspectRatio,
+      sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
+      parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
+      operation,
+    };
+
+    // Inject style ONCE
+    const styleResult = await this.injectStyle(recipe, resolved.sourceImageKeys, input.disableStyle);
+    recipe = styleResult.recipe;
+    const effectiveSourceImageKeys = styleResult.sourceImageKeys;
+
+    // Auto-set parentAssetId from first reference
+    let effectiveParentAssetId = input.parentAssetId;
+    if (!effectiveParentAssetId && input.referenceAssetIds?.length) {
+      effectiveParentAssetId = input.referenceAssetIds[0];
+    } else if (!effectiveParentAssetId && input.referenceVariantIds?.length) {
+      const firstVariant = await this.repo.getVariantById(input.referenceVariantIds[0]);
+      if (firstVariant) {
+        effectiveParentAssetId = firstVariant.asset_id;
+      }
+    }
+
+    const recipeJson = JSON.stringify(recipe);
+
+    if (input.mode === 'explore') {
+      // Explore: 1 asset, N variants
+      const assetId = crypto.randomUUID();
+      const asset = await this.repo.createAsset({
+        id: assetId,
+        name: input.name,
+        type: input.assetType,
+        tags: [],
+        parentAssetId: effectiveParentAssetId,
+        createdBy: meta.userId,
+      });
+      this.broadcast({ type: 'asset:created', asset });
+
+      for (let i = 0; i < input.count; i++) {
+        const variantId = crypto.randomUUID();
+        const variant = await this.repo.createPlaceholderVariant({
+          id: variantId,
+          assetId,
+          recipe: recipeJson,
+          createdBy: meta.userId,
+          planStepId: input.planStepId,
+          batchId,
+        });
+
+        // First variant is active
+        if (i === 0) {
+          await this.repo.updateAsset(assetId, { active_variant_id: variantId });
+          asset.active_variant_id = variantId;
+          this.broadcast({ type: 'asset:updated', asset });
+        }
+
+        this.broadcast({ type: 'variant:created', variant });
+
+        // Create lineage records
+        await this.createLineageRecords(resolved.parentVariantIds, variantId, 'derived');
+
+        results.push({
+          asset,
+          variant,
+          variantId,
+          assetId,
+          parentVariantIds: resolved.parentVariantIds,
+          sourceImageKeys: effectiveSourceImageKeys,
+          styleImageKeys: styleResult.styleImageKeys,
+        });
+      }
+    } else {
+      // Set: N assets, 1 variant each
+      for (let i = 0; i < input.count; i++) {
+        const assetId = crypto.randomUUID();
+        const variantId = crypto.randomUUID();
+        const assetName = `${input.name} #${i + 1}`;
+
+        const asset = await this.repo.createAsset({
+          id: assetId,
+          name: assetName,
+          type: input.assetType,
+          tags: [],
+          parentAssetId: effectiveParentAssetId,
+          createdBy: meta.userId,
+        });
+        this.broadcast({ type: 'asset:created', asset });
+
+        const variant = await this.repo.createPlaceholderVariant({
+          id: variantId,
+          assetId,
+          recipe: recipeJson,
+          createdBy: meta.userId,
+          planStepId: input.planStepId,
+          batchId,
+        });
+
+        await this.repo.updateAsset(assetId, { active_variant_id: variantId });
+        asset.active_variant_id = variantId;
+
+        this.broadcast({ type: 'variant:created', variant });
+        this.broadcast({ type: 'asset:updated', asset });
+
+        // Create lineage records
+        await this.createLineageRecords(resolved.parentVariantIds, variantId, 'derived');
+
+        results.push({
+          asset,
+          variant,
+          variantId,
+          assetId,
+          parentVariantIds: resolved.parentVariantIds,
+          sourceImageKeys: effectiveSourceImageKeys,
+          styleImageKeys: styleResult.styleImageKeys,
+        });
+      }
+    }
+
+    return { batchId, results };
+  }
+
+  /**
+   * Trigger workflows for all variants in a batch (in parallel).
+   */
+  async triggerBatchWorkflows(
+    requestId: string,
+    results: VariantCreationResult[],
+    meta: WebSocketMeta,
+    styleImageKeys?: string[]
+  ): Promise<void> {
+    const operation = results.length > 0 && results[0].parentVariantIds.length > 0 ? 'derive' as OperationType : 'generate' as OperationType;
+
+    await Promise.all(results.map(r =>
+      this.triggerWorkflow(requestId, r.variantId, r, meta, operation, styleImageKeys)
+    ));
+  }
+
+  // ==========================================================================
   // Private Helpers
   // ==========================================================================
+
+  /**
+   * Inject style anchoring into a recipe.
+   * Prepends style description to prompt and style image keys to source images.
+   */
+  private async injectStyle(
+    recipe: GenerationRecipe,
+    sourceImageKeys: string[],
+    disableStyle?: boolean
+  ): Promise<{
+    recipe: GenerationRecipe;
+    sourceImageKeys: string[];
+    styleImageKeys?: string[];
+  }> {
+    // If explicitly disabled, mark and return unchanged
+    if (disableStyle) {
+      return {
+        recipe: { ...recipe, styleOverride: true },
+        sourceImageKeys,
+      };
+    }
+
+    // Fetch active style
+    const style = await this.repo.getActiveStyle();
+    if (!style || !style.enabled) {
+      return { recipe, sourceImageKeys };
+    }
+
+    // Parse style image keys
+    let styleImageKeys: string[] = [];
+    try {
+      styleImageKeys = JSON.parse(style.image_keys);
+    } catch {
+      // Ignore parse errors
+    }
+
+    // Validate total image count (Gemini limit: ~14-16 images)
+    if (styleImageKeys.length + sourceImageKeys.length > 14) {
+      log.warn('Style + source images exceed limit, skipping style images', {
+        styleImages: styleImageKeys.length,
+        sourceImages: sourceImageKeys.length,
+      });
+      // Still prepend description but skip style images
+      styleImageKeys = [];
+    }
+
+    // Prepend style description to prompt
+    const styledPrompt = style.description
+      ? `[Style: ${style.description}]\n\n${recipe.prompt}`
+      : recipe.prompt;
+
+    // Prepend style image keys to source images (style refs come first)
+    const combinedSourceImageKeys = [...styleImageKeys, ...sourceImageKeys];
+
+    // Update recipe
+    const updatedRecipe: GenerationRecipe = {
+      ...recipe,
+      prompt: styledPrompt,
+      sourceImageKeys: combinedSourceImageKeys.length > 0 ? combinedSourceImageKeys : undefined,
+      styleId: style.id,
+    };
+
+    return {
+      recipe: updatedRecipe,
+      sourceImageKeys: combinedSourceImageKeys,
+      styleImageKeys: styleImageKeys.length > 0 ? styleImageKeys : undefined,
+    };
+  }
 
   /**
    * Resolve all references, preferring explicit variant IDs over asset IDs.

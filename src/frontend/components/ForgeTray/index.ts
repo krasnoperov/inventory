@@ -9,3 +9,6 @@ export type { AssetPickerModalProps } from './AssetPickerModal';
 
 export { ForgeChat } from './ForgeChat';
 export type { ForgeChatProps } from './ForgeChat';
+
+export { StylePanel } from './StylePanel';
+export type { StylePanelProps } from './StylePanel';

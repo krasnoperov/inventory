@@ -531,3 +531,102 @@
   cursor: not-allowed;
   transform: none;
 }
+
+/* Style Badge */
+.styleBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.625rem;
+  background: var(--surface-glass);
+  border: 1px solid var(--forge-bar-border-inner);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.styleBadge:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+
+.styleBadge.active {
+  color: var(--color-primary);
+  border-color: oklch(55% 0.18 276 / 0.3);
+  background: oklch(55% 0.18 276 / 0.08);
+}
+
+.styleBadge.open {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.styleBadge:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.styleBadge svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+/* No Style Checkbox */
+.noStyleCheck {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.noStyleCheck input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.noStyleCheck:hover {
+  color: var(--color-text);
+}
+
+/* Batch Count Selector */
+.batchSelect {
+  padding: 0.375rem 0.5rem;
+  background: var(--forge-slot-bg);
+  border: 1px solid var(--forge-bar-border-inner);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.batchSelect:focus {
+  border-color: var(--color-primary);
+}
+
+.batchSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Batch Mode Toggle */
+.batchModeToggle {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.1875rem;
+  border-radius: var(--radius-md);
+  background: var(--forge-slot-bg);
+  border: 1px solid var(--forge-bar-border-inner);
+}

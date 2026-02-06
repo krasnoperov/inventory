@@ -179,6 +179,18 @@ export class SchemaManager {
     // Migration: Add plan improvements (auto-advance, dependencies, revisions)
     await this.addPlanImprovements();
 
+    // Migration: Add space_styles table for style anchoring
+    await this.addSpaceStyles();
+
+    // Migration: Add batch_id column to variants for batch generation
+    await this.addBatchIdToVariants();
+
+    // Migration: Add rotation_sets and rotation_views tables for multi-view pipelines
+    await this.addRotationSets();
+
+    // Migration: Add tile_sets and tile_positions tables for tile map pipelines
+    await this.addTileSets();
+
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
     // Conversions:
@@ -393,6 +405,129 @@ export class SchemaManager {
     if (!hasColumn) {
       await this.sql.exec(`
         ALTER TABLE variants ADD COLUMN description TEXT;
+      `);
+    }
+  }
+
+  /**
+   * Add space_styles table for style anchoring.
+   * Each space can have one active style with a description and reference images.
+   */
+  private async addSpaceStyles(): Promise<void> {
+    await this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS space_styles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT 'Default Style',
+        description TEXT NOT NULL DEFAULT '',
+        image_keys TEXT NOT NULL DEFAULT '[]',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `);
+  }
+
+  /**
+   * Add rotation_sets and rotation_views tables for multi-view character sprite pipelines.
+   */
+  private async addRotationSets(): Promise<void> {
+    // Check if table already exists
+    const result = await this.sql.exec(
+      `SELECT name FROM sqlite_schema WHERE type = 'table' AND name = 'rotation_sets'`
+    );
+    if (result.toArray().length > 0) return;
+
+    await this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS rotation_sets (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        source_variant_id TEXT NOT NULL,
+        config TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'generating', 'completed', 'failed', 'cancelled')),
+        current_step INTEGER NOT NULL DEFAULT 0,
+        total_steps INTEGER NOT NULL,
+        error_message TEXT,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_rotation_sets_asset ON rotation_sets(asset_id);
+
+      CREATE TABLE IF NOT EXISTS rotation_views (
+        id TEXT PRIMARY KEY,
+        rotation_set_id TEXT NOT NULL REFERENCES rotation_sets(id) ON DELETE CASCADE,
+        variant_id TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        step_index INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_rotation_views_set ON rotation_views(rotation_set_id);
+      CREATE INDEX IF NOT EXISTS idx_rotation_views_variant ON rotation_views(variant_id);
+    `);
+  }
+
+  /**
+   * Add tile_sets and tile_positions tables for seamless tile map pipelines.
+   */
+  private async addTileSets(): Promise<void> {
+    // Check if table already exists
+    const result = await this.sql.exec(
+      `SELECT name FROM sqlite_schema WHERE type = 'table' AND name = 'tile_sets'`
+    );
+    if (result.toArray().length > 0) return;
+
+    await this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS tile_sets (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        tile_type TEXT NOT NULL CHECK (tile_type IN ('terrain', 'building', 'decoration', 'custom')),
+        grid_width INTEGER NOT NULL DEFAULT 3,
+        grid_height INTEGER NOT NULL DEFAULT 3,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'generating', 'completed', 'failed', 'cancelled')),
+        seed_variant_id TEXT,
+        config TEXT NOT NULL DEFAULT '{}',
+        current_step INTEGER NOT NULL DEFAULT 0,
+        total_steps INTEGER NOT NULL,
+        error_message TEXT,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_tile_sets_asset ON tile_sets(asset_id);
+
+      CREATE TABLE IF NOT EXISTS tile_positions (
+        id TEXT PRIMARY KEY,
+        tile_set_id TEXT NOT NULL REFERENCES tile_sets(id) ON DELETE CASCADE,
+        variant_id TEXT NOT NULL,
+        grid_x INTEGER NOT NULL,
+        grid_y INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        UNIQUE(tile_set_id, grid_x, grid_y)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_tile_positions_set ON tile_positions(tile_set_id);
+      CREATE INDEX IF NOT EXISTS idx_tile_positions_variant ON tile_positions(variant_id);
+    `);
+  }
+
+  /**
+   * Add batch_id column to variants for batch generation grouping.
+   */
+  private async addBatchIdToVariants(): Promise<void> {
+    const result = await this.sql.exec(`PRAGMA table_info(variants)`);
+    const columns = result.toArray() as Array<{ name: string }>;
+    const hasColumn = columns.some(col => col.name === 'batch_id');
+
+    if (!hasColumn) {
+      await this.sql.exec(`
+        ALTER TABLE variants ADD COLUMN batch_id TEXT;
+        CREATE INDEX IF NOT EXISTS idx_variants_batch ON variants(batch_id);
       `);
     }
   }

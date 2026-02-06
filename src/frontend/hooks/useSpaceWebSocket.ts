@@ -72,6 +72,80 @@ export interface Lineage {
   created_at: number;
 }
 
+// Rotation & Tile Set types
+
+export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
+export type TileType = 'terrain' | 'building' | 'decoration' | 'custom';
+
+export interface RotationSet {
+  id: string;
+  asset_id: string;
+  source_variant_id: string;
+  config: string;
+  status: 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
+  current_step: number;
+  total_steps: number;
+  error_message: string | null;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface RotationView {
+  id: string;
+  rotation_set_id: string;
+  variant_id: string;
+  direction: string;
+  step_index: number;
+  created_at: number;
+}
+
+export interface TileSet {
+  id: string;
+  asset_id: string;
+  tile_type: TileType;
+  grid_width: number;
+  grid_height: number;
+  status: 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
+  seed_variant_id: string | null;
+  config: string;
+  current_step: number;
+  total_steps: number;
+  error_message: string | null;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface TilePosition {
+  id: string;
+  tile_set_id: string;
+  variant_id: string;
+  grid_x: number;
+  grid_y: number;
+  created_at: number;
+}
+
+// Rotation/Tile request params
+
+export interface RotationRequestParams {
+  sourceVariantId: string;
+  config: RotationConfig;
+  subjectDescription?: string;
+  aspectRatio?: string;
+  disableStyle?: boolean;
+}
+
+export interface TileSetRequestParams {
+  tileType: TileType;
+  gridWidth: number;
+  gridHeight: number;
+  prompt: string;
+  seedVariantId?: string;
+  aspectRatio?: string;
+  disableStyle?: boolean;
+}
+
 export interface UserPresence {
   userId: string;
   displayName: string;
@@ -224,6 +298,8 @@ export interface GenerateRequestParams {
   referenceVariantIds?: string[];
   aspectRatio?: string;
   parentAssetId?: string;
+  /** Disable style anchoring */
+  disableStyle?: boolean;
 }
 
 // Refine request parameters
@@ -237,6 +313,63 @@ export interface RefineRequestParams {
   /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
   aspectRatio?: string;
+  /** Disable style anchoring */
+  disableStyle?: boolean;
+}
+
+// Batch request parameters
+export type BatchMode = 'explore' | 'set';
+
+export interface BatchRequestParams {
+  name: string;
+  assetType: string;
+  prompt?: string;
+  count: number;
+  mode: BatchMode;
+  referenceAssetIds?: string[];
+  referenceVariantIds?: string[];
+  aspectRatio?: string;
+  parentAssetId?: string;
+  disableStyle?: boolean;
+}
+
+// Style data from server (raw format)
+export interface SpaceStyleRaw {
+  id: string;
+  name: string;
+  description: string;
+  image_keys: string; // JSON array
+  enabled: number; // 0/1
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+// Batch started event
+export interface BatchStartedResult {
+  requestId: string;
+  batchId: string;
+  jobIds: string[];
+  assetIds: string[];
+  count: number;
+  mode: BatchMode;
+}
+
+// Batch progress event
+export interface BatchProgressResult {
+  batchId: string;
+  completedCount: number;
+  failedCount: number;
+  totalCount: number;
+  variant: Variant;
+}
+
+// Batch completed event
+export interface BatchCompletedResult {
+  batchId: string;
+  completedCount: number;
+  failedCount: number;
+  totalCount: number;
 }
 
 // Re-export shared types
@@ -359,6 +492,26 @@ export interface UseSpaceWebSocketParams {
   // SimplePlan callbacks
   onPlanUpdated?: (plan: SimplePlan) => void;
   onPlanArchived?: (planId: string) => void;
+  // Style callbacks
+  onStyleState?: (style: SpaceStyleRaw | null) => void;
+  onStyleUpdated?: (style: SpaceStyleRaw) => void;
+  onStyleDeleted?: () => void;
+  // Batch callbacks
+  onBatchStarted?: (data: BatchStartedResult) => void;
+  onBatchProgress?: (data: BatchProgressResult) => void;
+  onBatchCompleted?: (data: BatchCompletedResult) => void;
+  // Rotation pipeline callbacks
+  onRotationStarted?: (data: { rotationSetId: string; assetId: string; config: RotationConfig; totalSteps: number }) => void;
+  onRotationStepCompleted?: (data: { rotationSetId: string; direction: string; stepIndex: number; totalSteps: number; variantId: string }) => void;
+  onRotationCompleted?: (rotationSetId: string) => void;
+  onRotationFailed?: (data: { rotationSetId: string; error: string; failedStep: number }) => void;
+  onRotationCancelled?: (rotationSetId: string) => void;
+  // Tile set pipeline callbacks
+  onTileSetStarted?: (data: { tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalSteps: number }) => void;
+  onTileSetTileCompleted?: (data: { tileSetId: string; gridX: number; gridY: number; stepIndex: number; totalSteps: number; variantId: string }) => void;
+  onTileSetCompleted?: (tileSetId: string) => void;
+  onTileSetFailed?: (data: { tileSetId: string; error: string; failedStep: number }) => void;
+  onTileSetCancelled?: (tileSetId: string) => void;
   // Error callback for WebSocket errors
   onError?: (error: { code: string; message: string }) => void;
 }
@@ -393,7 +546,7 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence?: UserPresence[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -437,7 +590,27 @@ type ServerMessage =
   // Chat history (WebSocket-based sync) - uses client format
   | { type: 'chat:history'; messages: ChatMessageClient[]; sessionId: string | null }
   // Chat session created
-  | { type: 'chat:session_created'; session: ChatSession };
+  | { type: 'chat:session_created'; session: ChatSession }
+  // Style messages
+  | { type: 'style:state'; style: SpaceStyleRaw | null }
+  | { type: 'style:updated'; style: SpaceStyleRaw }
+  | { type: 'style:deleted' }
+  // Batch messages
+  | { type: 'batch:started'; requestId: string; batchId: string; jobIds: string[]; assetIds: string[]; count: number; mode: BatchMode }
+  | { type: 'batch:progress'; batchId: string; completedCount: number; failedCount: number; totalCount: number; variant: Variant }
+  | { type: 'batch:completed'; batchId: string; completedCount: number; failedCount: number; totalCount: number }
+  // Rotation pipeline messages
+  | { type: 'rotation:started'; rotationSetId: string; assetId: string; config: RotationConfig; totalSteps: number }
+  | { type: 'rotation:step_completed'; rotationSetId: string; direction: string; stepIndex: number; totalSteps: number; variantId: string }
+  | { type: 'rotation:completed'; rotationSetId: string }
+  | { type: 'rotation:failed'; rotationSetId: string; error: string; failedStep: number }
+  | { type: 'rotation:cancelled'; rotationSetId: string }
+  // Tile set pipeline messages
+  | { type: 'tileset:started'; tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalSteps: number }
+  | { type: 'tileset:tile_completed'; tileSetId: string; gridX: number; gridY: number; stepIndex: number; totalSteps: number; variantId: string }
+  | { type: 'tileset:completed'; tileSetId: string }
+  | { type: 'tileset:failed'; tileSetId: string; error: string; failedStep: number }
+  | { type: 'tileset:cancelled'; tileSetId: string };
 
 // Predefined asset types (user can also create custom)
 export const PREDEFINED_ASSET_TYPES = [
@@ -519,6 +692,23 @@ export interface UseSpaceWebSocketReturn {
   // Persistent chat methods
   sendPersistentChatMessage: (content: string, forgeContext?: ChatForgeContext) => void;
   clearChatSession: () => void;
+  // Style methods
+  sendStyleGet: () => void;
+  sendStyleSet: (data: { name?: string; description?: string; imageKeys?: string[]; enabled?: boolean }) => void;
+  sendStyleDelete: () => void;
+  sendStyleToggle: (enabled: boolean) => void;
+  // Batch methods
+  sendBatchRequest: (params: BatchRequestParams) => string;
+  // Rotation pipeline
+  rotationSets: RotationSet[];
+  rotationViews: RotationView[];
+  sendRotationRequest: (params: RotationRequestParams) => void;
+  sendRotationCancel: (rotationSetId: string) => void;
+  // Tile set pipeline
+  tileSets: TileSet[];
+  tilePositions: TilePosition[];
+  sendTileSetRequest: (params: TileSetRequestParams) => void;
+  sendTileSetCancel: (tileSetId: string) => void;
 }
 
 /**
@@ -548,6 +738,22 @@ export function useSpaceWebSocket({
   onSessionCreated,
   onPlanUpdated,
   onPlanArchived,
+  onStyleState,
+  onStyleUpdated,
+  onStyleDeleted,
+  onBatchStarted,
+  onBatchProgress,
+  onBatchCompleted,
+  onRotationStarted,
+  onRotationStepCompleted,
+  onRotationCompleted,
+  onRotationFailed,
+  onRotationCancelled,
+  onTileSetStarted,
+  onTileSetTileCompleted,
+  onTileSetCompleted,
+  onTileSetFailed,
+  onTileSetCancelled,
   onError,
 }: UseSpaceWebSocketParams): UseSpaceWebSocketReturn {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -557,6 +763,10 @@ export function useSpaceWebSocket({
   const [lineage, setLineage] = useState<Lineage[]>([]);
   const [jobs, setJobs] = useState<Map<string, JobStatus>>(new Map());
   const [presence, setPresence] = useState<UserPresence[]>([]);
+  const [rotationSets, setRotationSets] = useState<RotationSet[]>([]);
+  const [rotationViews, setRotationViews] = useState<RotationView[]>([]);
+  const [tileSets, setTileSets] = useState<TileSet[]>([]);
+  const [tilePositions, setTilePositions] = useState<TilePosition[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
@@ -661,6 +871,7 @@ export function useSpaceWebSocket({
       referenceVariantIds: params.referenceVariantIds,
       aspectRatio: params.aspectRatio,
       parentAssetId: params.parentAssetId,
+      disableStyle: params.disableStyle,
     });
     return requestId;
   }, [sendMessage]);
@@ -677,6 +888,7 @@ export function useSpaceWebSocket({
       sourceVariantIds: params.sourceVariantIds,
       referenceAssetIds: params.referenceAssetIds,
       aspectRatio: params.aspectRatio,
+      disableStyle: params.disableStyle,
     });
     return requestId;
   }, [sendMessage]);
@@ -765,6 +977,77 @@ export function useSpaceWebSocket({
     sendMessage({ type: 'chat:clear' });
   }, [sendMessage]);
 
+  // Style methods
+  const sendStyleGet = useCallback(() => {
+    sendMessage({ type: 'style:get' });
+  }, [sendMessage]);
+
+  const sendStyleSet = useCallback((data: { name?: string; description?: string; imageKeys?: string[]; enabled?: boolean }) => {
+    sendMessage({ type: 'style:set', ...data });
+  }, [sendMessage]);
+
+  const sendStyleDelete = useCallback(() => {
+    sendMessage({ type: 'style:delete' });
+  }, [sendMessage]);
+
+  const sendStyleToggle = useCallback((enabled: boolean) => {
+    sendMessage({ type: 'style:toggle', enabled });
+  }, [sendMessage]);
+
+  // Batch request
+  const sendBatchRequest = useCallback((params: BatchRequestParams): string => {
+    const requestId = crypto.randomUUID();
+    sendMessage({
+      type: 'batch:request',
+      requestId,
+      name: params.name,
+      assetType: params.assetType,
+      prompt: params.prompt,
+      count: params.count,
+      mode: params.mode,
+      referenceAssetIds: params.referenceAssetIds,
+      referenceVariantIds: params.referenceVariantIds,
+      aspectRatio: params.aspectRatio,
+      parentAssetId: params.parentAssetId,
+      disableStyle: params.disableStyle,
+    });
+    return requestId;
+  }, [sendMessage]);
+
+  // Rotation pipeline methods
+  const sendRotationRequest = useCallback((params: RotationRequestParams) => {
+    sendMessage({
+      type: 'rotation:request',
+      sourceVariantId: params.sourceVariantId,
+      config: params.config,
+      subjectDescription: params.subjectDescription,
+      aspectRatio: params.aspectRatio,
+      disableStyle: params.disableStyle,
+    });
+  }, [sendMessage]);
+
+  const sendRotationCancel = useCallback((rotationSetId: string) => {
+    sendMessage({ type: 'rotation:cancel', rotationSetId });
+  }, [sendMessage]);
+
+  // Tile set pipeline methods
+  const sendTileSetRequest = useCallback((params: TileSetRequestParams) => {
+    sendMessage({
+      type: 'tileset:request',
+      tileType: params.tileType,
+      gridWidth: params.gridWidth,
+      gridHeight: params.gridHeight,
+      prompt: params.prompt,
+      seedVariantId: params.seedVariantId,
+      aspectRatio: params.aspectRatio,
+      disableStyle: params.disableStyle,
+    });
+  }, [sendMessage]);
+
+  const sendTileSetCancel = useCallback((tileSetId: string) => {
+    sendMessage({ type: 'tileset:cancel', tileSetId });
+  }, [sendMessage]);
+
   // Helper methods for hierarchy navigation
   const getChildren = useCallback((assetId: string): Asset[] => {
     return assets.filter(a => a.parent_asset_id === assetId);
@@ -834,6 +1117,22 @@ export function useSpaceWebSocket({
   const onSessionCreatedRef = useRef(onSessionCreated);
   const onPlanUpdatedRef = useRef(onPlanUpdated);
   const onPlanArchivedRef = useRef(onPlanArchived);
+  const onStyleStateRef = useRef(onStyleState);
+  const onStyleUpdatedRef = useRef(onStyleUpdated);
+  const onStyleDeletedRef = useRef(onStyleDeleted);
+  const onBatchStartedRef = useRef(onBatchStarted);
+  const onBatchProgressRef = useRef(onBatchProgress);
+  const onBatchCompletedRef = useRef(onBatchCompleted);
+  const onRotationStartedRef = useRef(onRotationStarted);
+  const onRotationStepCompletedRef = useRef(onRotationStepCompleted);
+  const onRotationCompletedRef = useRef(onRotationCompleted);
+  const onRotationFailedRef = useRef(onRotationFailed);
+  const onRotationCancelledRef = useRef(onRotationCancelled);
+  const onTileSetStartedRef = useRef(onTileSetStarted);
+  const onTileSetTileCompletedRef = useRef(onTileSetTileCompleted);
+  const onTileSetCompletedRef = useRef(onTileSetCompleted);
+  const onTileSetFailedRef = useRef(onTileSetFailed);
+  const onTileSetCancelledRef = useRef(onTileSetCancelled);
   const onErrorRef = useRef(onError);
 
   // Update refs in useEffect to avoid accessing refs during render
@@ -859,6 +1158,22 @@ export function useSpaceWebSocket({
     onSessionCreatedRef.current = onSessionCreated;
     onPlanUpdatedRef.current = onPlanUpdated;
     onPlanArchivedRef.current = onPlanArchived;
+    onStyleStateRef.current = onStyleState;
+    onStyleUpdatedRef.current = onStyleUpdated;
+    onStyleDeletedRef.current = onStyleDeleted;
+    onBatchStartedRef.current = onBatchStarted;
+    onBatchProgressRef.current = onBatchProgress;
+    onBatchCompletedRef.current = onBatchCompleted;
+    onRotationStartedRef.current = onRotationStarted;
+    onRotationStepCompletedRef.current = onRotationStepCompleted;
+    onRotationCompletedRef.current = onRotationCompleted;
+    onRotationFailedRef.current = onRotationFailed;
+    onRotationCancelledRef.current = onRotationCancelled;
+    onTileSetStartedRef.current = onTileSetStarted;
+    onTileSetTileCompletedRef.current = onTileSetTileCompleted;
+    onTileSetCompletedRef.current = onTileSetCompleted;
+    onTileSetFailedRef.current = onTileSetFailed;
+    onTileSetCancelledRef.current = onTileSetCancelled;
     onErrorRef.current = onError;
   });
 
@@ -905,6 +1220,10 @@ export function useSpaceWebSocket({
                 setVariants(message.variants);
                 setLineage(message.lineage || []);
                 setPresence(message.presence || []);
+                setRotationSets(message.rotationSets || []);
+                setRotationViews(message.rotationViews || []);
+                setTileSets(message.tileSets || []);
+                setTilePositions(message.tilePositions || []);
                 setError(null);
                 break;
 
@@ -1270,6 +1589,200 @@ export function useSpaceWebSocket({
                 onPlanArchivedRef.current?.(message.planId);
                 break;
 
+              // Style messages
+              case 'style:state':
+                onStyleStateRef.current?.(message.style);
+                break;
+
+              case 'style:updated':
+                onStyleUpdatedRef.current?.(message.style);
+                break;
+
+              case 'style:deleted':
+                onStyleDeletedRef.current?.();
+                break;
+
+              // Batch messages
+              case 'batch:started':
+                onBatchStartedRef.current?.({
+                  requestId: message.requestId,
+                  batchId: message.batchId,
+                  jobIds: message.jobIds,
+                  assetIds: message.assetIds,
+                  count: message.count,
+                  mode: message.mode,
+                });
+                // Track all batch jobs
+                setJobs((prev) => {
+                  const next = new Map(prev);
+                  for (const jobId of message.jobIds) {
+                    next.set(jobId, { jobId, status: 'pending' });
+                  }
+                  return next;
+                });
+                break;
+
+              case 'batch:progress':
+                onBatchProgressRef.current?.({
+                  batchId: message.batchId,
+                  completedCount: message.completedCount,
+                  failedCount: message.failedCount,
+                  totalCount: message.totalCount,
+                  variant: message.variant,
+                });
+                break;
+
+              case 'batch:completed':
+                onBatchCompletedRef.current?.({
+                  batchId: message.batchId,
+                  completedCount: message.completedCount,
+                  failedCount: message.failedCount,
+                  totalCount: message.totalCount,
+                });
+                break;
+
+              // Rotation pipeline messages
+              case 'rotation:started':
+                setRotationSets((prev) => {
+                  const existing = prev.find(rs => rs.id === message.rotationSetId);
+                  if (existing) {
+                    return prev.map(rs => rs.id === message.rotationSetId
+                      ? { ...rs, status: 'generating' as const, total_steps: message.totalSteps }
+                      : rs
+                    );
+                  }
+                  return prev;
+                });
+                onRotationStartedRef.current?.({
+                  rotationSetId: message.rotationSetId,
+                  assetId: message.assetId,
+                  config: message.config,
+                  totalSteps: message.totalSteps,
+                });
+                break;
+
+              case 'rotation:step_completed':
+                setRotationSets((prev) =>
+                  prev.map(rs => rs.id === message.rotationSetId
+                    ? { ...rs, current_step: message.stepIndex + 1 }
+                    : rs
+                  )
+                );
+                onRotationStepCompletedRef.current?.({
+                  rotationSetId: message.rotationSetId,
+                  direction: message.direction,
+                  stepIndex: message.stepIndex,
+                  totalSteps: message.totalSteps,
+                  variantId: message.variantId,
+                });
+                break;
+
+              case 'rotation:completed':
+                setRotationSets((prev) =>
+                  prev.map(rs => rs.id === message.rotationSetId
+                    ? { ...rs, status: 'completed' as const }
+                    : rs
+                  )
+                );
+                onRotationCompletedRef.current?.(message.rotationSetId);
+                break;
+
+              case 'rotation:failed':
+                setRotationSets((prev) =>
+                  prev.map(rs => rs.id === message.rotationSetId
+                    ? { ...rs, status: 'failed' as const, error_message: message.error }
+                    : rs
+                  )
+                );
+                onRotationFailedRef.current?.({
+                  rotationSetId: message.rotationSetId,
+                  error: message.error,
+                  failedStep: message.failedStep,
+                });
+                break;
+
+              case 'rotation:cancelled':
+                setRotationSets((prev) =>
+                  prev.map(rs => rs.id === message.rotationSetId
+                    ? { ...rs, status: 'cancelled' as const }
+                    : rs
+                  )
+                );
+                onRotationCancelledRef.current?.(message.rotationSetId);
+                break;
+
+              // Tile set pipeline messages
+              case 'tileset:started':
+                setTileSets((prev) => {
+                  const existing = prev.find(ts => ts.id === message.tileSetId);
+                  if (existing) {
+                    return prev.map(ts => ts.id === message.tileSetId
+                      ? { ...ts, status: 'generating' as const, total_steps: message.totalSteps }
+                      : ts
+                    );
+                  }
+                  return prev;
+                });
+                onTileSetStartedRef.current?.({
+                  tileSetId: message.tileSetId,
+                  assetId: message.assetId,
+                  gridWidth: message.gridWidth,
+                  gridHeight: message.gridHeight,
+                  totalSteps: message.totalSteps,
+                });
+                break;
+
+              case 'tileset:tile_completed':
+                setTileSets((prev) =>
+                  prev.map(ts => ts.id === message.tileSetId
+                    ? { ...ts, current_step: message.stepIndex + 1 }
+                    : ts
+                  )
+                );
+                onTileSetTileCompletedRef.current?.({
+                  tileSetId: message.tileSetId,
+                  gridX: message.gridX,
+                  gridY: message.gridY,
+                  stepIndex: message.stepIndex,
+                  totalSteps: message.totalSteps,
+                  variantId: message.variantId,
+                });
+                break;
+
+              case 'tileset:completed':
+                setTileSets((prev) =>
+                  prev.map(ts => ts.id === message.tileSetId
+                    ? { ...ts, status: 'completed' as const }
+                    : ts
+                  )
+                );
+                onTileSetCompletedRef.current?.(message.tileSetId);
+                break;
+
+              case 'tileset:failed':
+                setTileSets((prev) =>
+                  prev.map(ts => ts.id === message.tileSetId
+                    ? { ...ts, status: 'failed' as const, error_message: message.error }
+                    : ts
+                  )
+                );
+                onTileSetFailedRef.current?.({
+                  tileSetId: message.tileSetId,
+                  error: message.error,
+                  failedStep: message.failedStep,
+                });
+                break;
+
+              case 'tileset:cancelled':
+                setTileSets((prev) =>
+                  prev.map(ts => ts.id === message.tileSetId
+                    ? { ...ts, status: 'cancelled' as const }
+                    : ts
+                  )
+                );
+                onTileSetCancelledRef.current?.(message.tileSetId);
+                break;
+
               default:
                 console.warn('Unknown message type:', message);
             }
@@ -1382,6 +1895,23 @@ export function useSpaceWebSocket({
     // Persistent chat methods
     sendPersistentChatMessage,
     clearChatSession,
+    // Style methods
+    sendStyleGet,
+    sendStyleSet,
+    sendStyleDelete,
+    sendStyleToggle,
+    // Batch methods
+    sendBatchRequest,
+    // Rotation pipeline
+    rotationSets,
+    rotationViews,
+    sendRotationRequest,
+    sendRotationCancel,
+    // Tile set pipeline
+    tileSets,
+    tilePositions,
+    sendTileSetRequest,
+    sendTileSetCancel,
   };
 }
 

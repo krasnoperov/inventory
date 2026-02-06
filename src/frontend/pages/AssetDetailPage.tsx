@@ -6,6 +6,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore } from '../stores/chatStore';
+import { useStyleStore, type SpaceStyleClient } from '../stores/styleStore';
 import { useAssetDetailStore, useSelectedVariantId } from '../stores/assetDetailStore';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
@@ -16,6 +17,7 @@ import {
   type Variant,
   type Lineage,
   type ChatForgeContext,
+  type SpaceStyleRaw,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
@@ -73,6 +75,21 @@ export default function AssetDetailPage() {
   // Forge tray store
   const { addSlot, prefillFromVariant } = useForgeTrayStore();
 
+  // Style store
+  const setStyle = useStyleStore((s) => s.setStyle);
+  const clearStyle = useStyleStore((s) => s.clearStyle);
+
+  const parseStyle = useCallback((raw: SpaceStyleRaw): SpaceStyleClient => ({
+    id: raw.id,
+    name: raw.name,
+    description: raw.description,
+    imageKeys: JSON.parse(raw.image_keys || '[]'),
+    enabled: raw.enabled === 1,
+    createdBy: raw.created_by,
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
+  }), []);
+
   // Persistent chat state from Zustand store (shared across pages)
   const chatMessages = useChatStore((state) => state.messages);
   const isChatLoading = useChatStore((state) => state.isLoading);
@@ -120,10 +137,16 @@ export default function AssetDetailPage() {
     forkAsset,
     getChildren,
     updateSession,
+    sendStyleGet,
+    sendStyleSet,
+    sendStyleDelete,
+    sendStyleToggle,
+    sendBatchRequest,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
+      sendStyleGet();
     },
     onDisconnect: () => {
       // Reset chat loading states on disconnect
@@ -151,6 +174,19 @@ export default function AssetDetailPage() {
     },
     onPersistentChatProgress: (progress) => {
       setChatProgress(progress);
+    },
+    onStyleState: (raw) => {
+      if (raw) {
+        setStyle(parseStyle(raw));
+      } else {
+        clearStyle();
+      }
+    },
+    onStyleUpdated: (raw) => {
+      setStyle(parseStyle(raw));
+    },
+    onStyleDeleted: () => {
+      clearStyle();
     },
     onError: (error) => {
       // Handle WebSocket errors - clear chat loading state
@@ -447,6 +483,7 @@ export default function AssetDetailPage() {
     sendGenerateRequest,
     sendRefineRequest,
     forkAsset,
+    sendBatchRequest,
   });
 
   // Image upload hook
@@ -708,6 +745,10 @@ export default function AssetDetailPage() {
         sendChatMessage={handleSendChatMessage}
         requestChatHistory={requestChatHistory}
         clearChatSession={clearChatSession}
+        spaceId={spaceId}
+        sendStyleSet={sendStyleSet}
+        sendStyleDelete={sendStyleDelete}
+        sendStyleToggle={sendStyleToggle}
       />
     </div>
   );

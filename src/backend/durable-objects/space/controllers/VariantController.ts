@@ -166,6 +166,7 @@ export class VariantController extends BaseController {
       updated_at: now,
       plan_step_id: null,
       description: null, // No cached description for uploaded variants
+      batch_id: null,
     };
 
     // Insert placeholder variant
@@ -355,6 +356,7 @@ export class VariantController extends BaseController {
       updated_at: now,
       plan_step_id: null, // This variant is not created by a plan step
       description: null, // No cached description for generated variants
+      batch_id: null,
     };
 
     // Insert variant

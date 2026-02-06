@@ -12,9 +12,12 @@
  */
 
 import type { Variant, WebSocketMeta } from '../types';
+import type { RotationController } from './RotationController';
+import type { TileController } from './TileController';
 import type {
   GenerateRequestMessage,
   RefineRequestMessage,
+  BatchRequestMessage,
   GenerationWorkflowInput,
 } from '../../../workflows/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
@@ -34,10 +37,18 @@ const log = loggers.generationController;
 
 export class GenerationController extends BaseController {
   private readonly variantFactory: VariantFactory;
+  private rotationCtrl?: RotationController;
+  private tileCtrl?: TileController;
 
   constructor(ctx: ControllerContext) {
     super(ctx);
     this.variantFactory = new VariantFactory(ctx.spaceId, ctx.repo, ctx.env, ctx.broadcast);
+  }
+
+  /** Set pipeline controllers (called after all controllers are initialized to avoid circular deps) */
+  setPipelineControllers(rotation: RotationController, tile: TileController): void {
+    this.rotationCtrl = rotation;
+    this.tileCtrl = tile;
   }
 
   // ==========================================================================
@@ -84,6 +95,7 @@ export class GenerationController extends BaseController {
         parentAssetId: msg.parentAssetId,
         referenceAssetIds: msg.referenceAssetIds,
         referenceVariantIds: msg.referenceVariantIds,
+        disableStyle: msg.disableStyle,
       },
       meta
     );
@@ -147,6 +159,7 @@ export class GenerationController extends BaseController {
         sourceVariantId: msg.sourceVariantId,
         sourceVariantIds: msg.sourceVariantIds,
         referenceAssetIds: msg.referenceAssetIds,
+        disableStyle: msg.disableStyle,
       },
       meta
     );
@@ -167,6 +180,78 @@ export class GenerationController extends BaseController {
       result,
       meta,
       'refine'
+    );
+  }
+
+  /**
+   * Handle batch:request WebSocket message
+   * Creates multiple variants/assets and triggers workflows in parallel
+   */
+  async handleBatchRequest(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    msg: BatchRequestMessage
+  ): Promise<void> {
+    this.requireEditor(meta);
+
+    if (!this.env.GENERATION_WORKFLOW) {
+      throw new ValidationError('Generation workflow not configured');
+    }
+
+    // Validate count
+    if (msg.count < 2 || msg.count > 8) {
+      throw new ValidationError('Batch count must be between 2 and 8');
+    }
+
+    // Check quota for the entire batch
+    if (this.env.DB) {
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), 'nanobanana');
+      if (!check.allowed) {
+        this.send(ws, {
+          type: 'batch:error',
+          requestId: msg.requestId,
+          error: check.denyMessage || 'Request denied',
+          code: check.denyReason === 'rate_limited' ? 'RATE_LIMITED' : 'QUOTA_EXCEEDED',
+        });
+        return;
+      }
+      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
+    }
+
+    // Use factory to create batch variants
+    const { batchId, results } = await this.variantFactory.createBatchVariants(
+      {
+        name: msg.name,
+        assetType: msg.assetType,
+        prompt: msg.prompt,
+        aspectRatio: msg.aspectRatio,
+        parentAssetId: msg.parentAssetId,
+        referenceAssetIds: msg.referenceAssetIds,
+        referenceVariantIds: msg.referenceVariantIds,
+        disableStyle: msg.disableStyle,
+        count: msg.count,
+        mode: msg.mode,
+      },
+      meta
+    );
+
+    // Broadcast batch:started
+    this.broadcast({
+      type: 'batch:started',
+      requestId: msg.requestId,
+      batchId,
+      jobIds: results.map(r => r.variantId),
+      assetIds: [...new Set(results.map(r => r.assetId))],
+      count: msg.count,
+      mode: msg.mode,
+    });
+
+    // Trigger all workflows in parallel
+    await this.variantFactory.triggerBatchWorkflows(
+      msg.requestId,
+      results,
+      meta,
+      results[0]?.styleImageKeys
     );
   }
 
@@ -343,6 +428,47 @@ export class GenerationController extends BaseController {
     // Broadcast the variant update
     this.broadcast({ type: 'variant:updated', variant });
 
+    // Batch progress tracking
+    if (variant.batch_id) {
+      const progress = await this.repo.getBatchProgress(variant.batch_id);
+      this.broadcast({
+        type: 'batch:progress',
+        batchId: variant.batch_id,
+        completedCount: progress.completedCount,
+        failedCount: progress.failedCount,
+        totalCount: progress.totalCount,
+        variant,
+      });
+      if (progress.pendingCount === 0) {
+        this.broadcast({
+          type: 'batch:completed',
+          batchId: variant.batch_id,
+          completedCount: progress.completedCount,
+          failedCount: progress.failedCount,
+          totalCount: progress.totalCount,
+        });
+      }
+    }
+
+    // Pipeline advancement hooks (rotation/tile sets)
+    try {
+      const rotView = await this.repo.getRotationViewByVariant(data.variantId);
+      if (rotView && this.rotationCtrl) {
+        await this.rotationCtrl.advanceRotation(rotView.rotation_set_id);
+      }
+
+      const tilePos = await this.repo.getTilePositionByVariant(data.variantId);
+      if (tilePos && this.tileCtrl) {
+        await this.tileCtrl.advanceTileSet(tilePos.tile_set_id);
+      }
+    } catch (hookErr) {
+      log.error('Pipeline advancement hook failed', {
+        variantId: data.variantId,
+        error: hookErr instanceof Error ? hookErr.message : String(hookErr),
+      });
+      // Don't fail the variant completion for hook errors
+    }
+
     return { success: true, variant };
   }
 
@@ -367,6 +493,58 @@ export class GenerationController extends BaseController {
     // Also broadcast job:failed for frontend job tracking
     // Note: jobId === variantId (placeholder variant created before workflow starts)
     this.broadcast({ type: 'job:failed', jobId: data.variantId, error: data.error });
+
+    // Batch progress tracking
+    if (variant.batch_id) {
+      const progress = await this.repo.getBatchProgress(variant.batch_id);
+      this.broadcast({
+        type: 'batch:progress',
+        batchId: variant.batch_id,
+        completedCount: progress.completedCount,
+        failedCount: progress.failedCount,
+        totalCount: progress.totalCount,
+        variant,
+      });
+      if (progress.pendingCount === 0) {
+        this.broadcast({
+          type: 'batch:completed',
+          batchId: variant.batch_id,
+          completedCount: progress.completedCount,
+          failedCount: progress.failedCount,
+          totalCount: progress.totalCount,
+        });
+      }
+    }
+
+    // Pipeline failure hooks (rotation/tile sets)
+    try {
+      const rotView = await this.repo.getRotationViewByVariant(data.variantId);
+      if (rotView && this.rotationCtrl) {
+        await this.repo.failRotationSet(rotView.rotation_set_id, data.error);
+        this.broadcast({
+          type: 'rotation:failed',
+          rotationSetId: rotView.rotation_set_id,
+          error: data.error,
+          failedStep: rotView.step_index,
+        });
+      }
+
+      const tilePos = await this.repo.getTilePositionByVariant(data.variantId);
+      if (tilePos && this.tileCtrl) {
+        await this.repo.failTileSet(tilePos.tile_set_id, data.error);
+        this.broadcast({
+          type: 'tileset:failed',
+          tileSetId: tilePos.tile_set_id,
+          error: data.error,
+          failedStep: tilePos.grid_x * 100 + tilePos.grid_y,
+        });
+      }
+    } catch (hookErr) {
+      log.error('Pipeline failure hook failed', {
+        variantId: data.variantId,
+        error: hookErr instanceof Error ? hookErr.message : String(hookErr),
+      });
+    }
 
     return { success: true, variant };
   }

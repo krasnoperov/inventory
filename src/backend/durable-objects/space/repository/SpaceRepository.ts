@@ -20,6 +20,11 @@ import type {
   PendingApproval,
   AutoExecuted,
   UserSession,
+  SpaceStyle,
+  RotationSet,
+  RotationView,
+  TileSet,
+  TilePosition,
 } from '../types';
 import type { SimplePlan } from '../../../../shared/websocket-types';
 import {
@@ -31,6 +36,10 @@ import {
   ApprovalQueries,
   AutoExecutedQueries,
   UserSessionQueries,
+  RotationSetQueries,
+  RotationViewQueries,
+  TileSetQueries,
+  TilePositionQueries,
   buildAssetUpdateQuery,
   buildInClause,
 } from '../queries';
@@ -68,6 +77,10 @@ export interface SpaceState {
   assets: Asset[];
   variants: Variant[];
   lineage: Lineage[];
+  rotationSets: RotationSet[];
+  rotationViews: RotationView[];
+  tileSets: TileSet[];
+  tilePositions: TilePosition[];
 }
 
 /** Asset with variant count for bot context */
@@ -329,18 +342,35 @@ export class SpaceRepository {
     recipe: string;
     createdBy: string;
     planStepId?: string;
+    batchId?: string;
   }): Promise<Variant> {
     const now = Date.now();
-    await this.sql.exec(
-      VariantQueries.INSERT_PLACEHOLDER,
-      data.id,
-      data.assetId,
-      data.recipe,
-      data.createdBy,
-      now,
-      now,
-      data.planStepId ?? null
-    );
+    if (data.batchId) {
+      // Use extended INSERT with batch_id
+      await this.sql.exec(
+        `INSERT INTO variants (id, asset_id, status, recipe, created_by, created_at, updated_at, plan_step_id, batch_id)
+         VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
+        data.id,
+        data.assetId,
+        data.recipe,
+        data.createdBy,
+        now,
+        now,
+        data.planStepId ?? null,
+        data.batchId
+      );
+    } else {
+      await this.sql.exec(
+        VariantQueries.INSERT_PLACEHOLDER,
+        data.id,
+        data.assetId,
+        data.recipe,
+        data.createdBy,
+        now,
+        now,
+        data.planStepId ?? null
+      );
+    }
     return (await this.getVariantById(data.id))!;
   }
 
@@ -638,12 +668,16 @@ export class SpaceRepository {
   // ==========================================================================
 
   async getFullState(): Promise<SpaceState> {
-    const [assets, variants, lineage] = await Promise.all([
+    const [assets, variants, lineage, rotationSets, rotationViews, tileSets, tilePositions] = await Promise.all([
       this.getAllAssets(),
       this.getAllVariants(),
       this.getAllLineage(),
+      this.getAllRotationSets(),
+      this.getAllRotationViews(),
+      this.getAllTileSets(),
+      this.getAllTilePositions(),
     ]);
-    return { assets, variants, lineage };
+    return { assets, variants, lineage, rotationSets, rotationViews, tileSets, tilePositions };
   }
 
   // ==========================================================================
@@ -924,6 +958,406 @@ export class SpaceRepository {
 
   async updateUserLastSeen(userId: string): Promise<void> {
     await this.sql.exec(UserSessionQueries.UPDATE_LAST_SEEN, Date.now(), userId);
+  }
+
+  // ==========================================================================
+  // Style Operations
+  // ==========================================================================
+
+  async getActiveStyle(): Promise<SpaceStyle | null> {
+    const result = await this.sql.exec('SELECT * FROM space_styles LIMIT 1');
+    return (result.toArray()[0] as SpaceStyle) ?? null;
+  }
+
+  async getStyleById(id: string): Promise<SpaceStyle | null> {
+    const result = await this.sql.exec('SELECT * FROM space_styles WHERE id = ?', id);
+    return (result.toArray()[0] as SpaceStyle) ?? null;
+  }
+
+  async createStyle(data: {
+    id: string;
+    name?: string;
+    description: string;
+    imageKeys: string[];
+    enabled?: boolean;
+    createdBy: string;
+  }): Promise<SpaceStyle> {
+    const now = Date.now();
+    await this.sql.exec(
+      `INSERT INTO space_styles (id, name, description, image_keys, enabled, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      data.id,
+      data.name || 'Default Style',
+      data.description,
+      JSON.stringify(data.imageKeys),
+      data.enabled !== false ? 1 : 0,
+      data.createdBy,
+      now,
+      now
+    );
+
+    // Increment image refs for style images
+    for (const key of data.imageKeys) {
+      await this.incrementImageRef(key);
+    }
+
+    return (await this.getStyleById(data.id))!;
+  }
+
+  async updateStyle(id: string, changes: {
+    name?: string;
+    description?: string;
+    imageKeys?: string[];
+    enabled?: boolean;
+  }): Promise<SpaceStyle | null> {
+    const existing = await this.getStyleById(id);
+    if (!existing) return null;
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+
+    if (changes.name !== undefined) {
+      updates.push('name = ?');
+      values.push(changes.name);
+    }
+    if (changes.description !== undefined) {
+      updates.push('description = ?');
+      values.push(changes.description);
+    }
+    if (changes.imageKeys !== undefined) {
+      updates.push('image_keys = ?');
+      values.push(JSON.stringify(changes.imageKeys));
+
+      // Diff old vs new image keys for ref counting
+      const oldKeys: string[] = JSON.parse(existing.image_keys);
+      const newKeys = changes.imageKeys;
+      const added = newKeys.filter(k => !oldKeys.includes(k));
+      const removed = oldKeys.filter(k => !newKeys.includes(k));
+
+      for (const key of added) {
+        await this.incrementImageRef(key);
+      }
+      for (const key of removed) {
+        await this.decrementImageRef(key);
+      }
+    }
+    if (changes.enabled !== undefined) {
+      updates.push('enabled = ?');
+      values.push(changes.enabled ? 1 : 0);
+    }
+
+    if (updates.length === 0) return existing;
+
+    updates.push('updated_at = ?');
+    values.push(Date.now());
+
+    await this.sql.exec(
+      `UPDATE space_styles SET ${updates.join(', ')} WHERE id = ?`,
+      ...values,
+      id
+    );
+
+    return this.getStyleById(id);
+  }
+
+  async deleteStyle(id: string): Promise<boolean> {
+    const existing = await this.getStyleById(id);
+    if (!existing) return false;
+
+    // Decrement image refs for style images
+    const imageKeys: string[] = JSON.parse(existing.image_keys);
+    for (const key of imageKeys) {
+      await this.decrementImageRef(key);
+    }
+
+    await this.sql.exec('DELETE FROM space_styles WHERE id = ?', id);
+    return true;
+  }
+
+  async toggleStyle(id: string, enabled: boolean): Promise<SpaceStyle | null> {
+    return this.updateStyle(id, { enabled });
+  }
+
+  // ==========================================================================
+  // Batch Operations
+  // ==========================================================================
+
+  async getBatchProgress(batchId: string): Promise<{
+    totalCount: number;
+    completedCount: number;
+    failedCount: number;
+    pendingCount: number;
+  }> {
+    const result = await this.sql.exec(
+      `SELECT status, COUNT(*) as count FROM variants WHERE batch_id = ? GROUP BY status`,
+      batchId
+    );
+    const rows = result.toArray() as Array<{ status: string; count: number }>;
+
+    let totalCount = 0;
+    let completedCount = 0;
+    let failedCount = 0;
+    let pendingCount = 0;
+
+    for (const row of rows) {
+      totalCount += row.count;
+      if (row.status === 'completed') completedCount = row.count;
+      else if (row.status === 'failed') failedCount = row.count;
+      else pendingCount += row.count; // pending, processing, uploading
+    }
+
+    return { totalCount, completedCount, failedCount, pendingCount };
+  }
+
+  // ==========================================================================
+  // Rotation Set Operations
+  // ==========================================================================
+
+  async getAllRotationSets(): Promise<RotationSet[]> {
+    try {
+      const result = await this.sql.exec(RotationSetQueries.GET_ALL);
+      return result.toArray() as RotationSet[];
+    } catch {
+      // Table may not exist yet (pre-migration)
+      return [];
+    }
+  }
+
+  async getRotationSetById(id: string): Promise<RotationSet | null> {
+    const result = await this.sql.exec(RotationSetQueries.GET_BY_ID, id);
+    return (result.toArray()[0] as RotationSet) ?? null;
+  }
+
+  async createRotationSet(data: {
+    id: string;
+    assetId: string;
+    sourceVariantId: string;
+    config: string;
+    totalSteps: number;
+    createdBy: string;
+  }): Promise<RotationSet> {
+    const now = Date.now();
+    await this.sql.exec(
+      RotationSetQueries.INSERT,
+      data.id,
+      data.assetId,
+      data.sourceVariantId,
+      data.config,
+      'generating',
+      0,
+      data.totalSteps,
+      null,
+      data.createdBy,
+      now,
+      now
+    );
+    return (await this.getRotationSetById(data.id))!;
+  }
+
+  async updateRotationSetStatus(id: string, status: string): Promise<RotationSet | null> {
+    await this.sql.exec(RotationSetQueries.UPDATE_STATUS, status, Date.now(), id);
+    return this.getRotationSetById(id);
+  }
+
+  async updateRotationSetStep(id: string, step: number): Promise<RotationSet | null> {
+    await this.sql.exec(RotationSetQueries.UPDATE_STEP, step, Date.now(), id);
+    return this.getRotationSetById(id);
+  }
+
+  async failRotationSet(id: string, error: string): Promise<RotationSet | null> {
+    await this.sql.exec(RotationSetQueries.FAIL, error, Date.now(), id);
+    return this.getRotationSetById(id);
+  }
+
+  async cancelRotationSet(id: string): Promise<RotationSet | null> {
+    await this.sql.exec(RotationSetQueries.CANCEL, Date.now(), id);
+    return this.getRotationSetById(id);
+  }
+
+  // ==========================================================================
+  // Rotation View Operations
+  // ==========================================================================
+
+  async getAllRotationViews(): Promise<RotationView[]> {
+    try {
+      const result = await this.sql.exec(RotationViewQueries.GET_ALL);
+      return result.toArray() as RotationView[];
+    } catch {
+      return [];
+    }
+  }
+
+  async getRotationViewsBySet(setId: string): Promise<RotationView[]> {
+    const result = await this.sql.exec(RotationViewQueries.GET_BY_SET, setId);
+    return result.toArray() as RotationView[];
+  }
+
+  async getRotationViewByVariant(variantId: string): Promise<RotationView | null> {
+    const result = await this.sql.exec(RotationViewQueries.GET_BY_VARIANT, variantId);
+    return (result.toArray()[0] as RotationView) ?? null;
+  }
+
+  async getCompletedRotationViews(setId: string): Promise<Array<RotationView & { image_key: string; thumb_key: string }>> {
+    const result = await this.sql.exec(RotationViewQueries.GET_COMPLETED_WITH_IMAGES, setId);
+    return result.toArray() as Array<RotationView & { image_key: string; thumb_key: string }>;
+  }
+
+  async createRotationView(data: {
+    id: string;
+    rotationSetId: string;
+    variantId: string;
+    direction: string;
+    stepIndex: number;
+  }): Promise<RotationView> {
+    const now = Date.now();
+    await this.sql.exec(
+      RotationViewQueries.INSERT,
+      data.id,
+      data.rotationSetId,
+      data.variantId,
+      data.direction,
+      data.stepIndex,
+      now
+    );
+    return {
+      id: data.id,
+      rotation_set_id: data.rotationSetId,
+      variant_id: data.variantId,
+      direction: data.direction,
+      step_index: data.stepIndex,
+      created_at: now,
+    };
+  }
+
+  // ==========================================================================
+  // Tile Set Operations
+  // ==========================================================================
+
+  async getAllTileSets(): Promise<TileSet[]> {
+    try {
+      const result = await this.sql.exec(TileSetQueries.GET_ALL);
+      return result.toArray() as TileSet[];
+    } catch {
+      return [];
+    }
+  }
+
+  async getTileSetById(id: string): Promise<TileSet | null> {
+    const result = await this.sql.exec(TileSetQueries.GET_BY_ID, id);
+    return (result.toArray()[0] as TileSet) ?? null;
+  }
+
+  async createTileSet(data: {
+    id: string;
+    assetId: string;
+    tileType: string;
+    gridWidth: number;
+    gridHeight: number;
+    seedVariantId?: string;
+    config: string;
+    totalSteps: number;
+    createdBy: string;
+  }): Promise<TileSet> {
+    const now = Date.now();
+    await this.sql.exec(
+      TileSetQueries.INSERT,
+      data.id,
+      data.assetId,
+      data.tileType,
+      data.gridWidth,
+      data.gridHeight,
+      'generating',
+      data.seedVariantId ?? null,
+      data.config,
+      0,
+      data.totalSteps,
+      null,
+      data.createdBy,
+      now,
+      now
+    );
+    return (await this.getTileSetById(data.id))!;
+  }
+
+  async updateTileSetStatus(id: string, status: string): Promise<TileSet | null> {
+    await this.sql.exec(TileSetQueries.UPDATE_STATUS, status, Date.now(), id);
+    return this.getTileSetById(id);
+  }
+
+  async updateTileSetStep(id: string, step: number): Promise<TileSet | null> {
+    await this.sql.exec(TileSetQueries.UPDATE_STEP, step, Date.now(), id);
+    return this.getTileSetById(id);
+  }
+
+  async failTileSet(id: string, error: string): Promise<TileSet | null> {
+    await this.sql.exec(TileSetQueries.FAIL, error, Date.now(), id);
+    return this.getTileSetById(id);
+  }
+
+  async cancelTileSet(id: string): Promise<TileSet | null> {
+    await this.sql.exec(TileSetQueries.CANCEL, Date.now(), id);
+    return this.getTileSetById(id);
+  }
+
+  // ==========================================================================
+  // Tile Position Operations
+  // ==========================================================================
+
+  async getAllTilePositions(): Promise<TilePosition[]> {
+    try {
+      const result = await this.sql.exec(TilePositionQueries.GET_ALL);
+      return result.toArray() as TilePosition[];
+    } catch {
+      return [];
+    }
+  }
+
+  async getTilePositionsBySet(setId: string): Promise<TilePosition[]> {
+    const result = await this.sql.exec(TilePositionQueries.GET_BY_SET, setId);
+    return result.toArray() as TilePosition[];
+  }
+
+  async getTilePositionByVariant(variantId: string): Promise<TilePosition | null> {
+    const result = await this.sql.exec(TilePositionQueries.GET_BY_VARIANT, variantId);
+    return (result.toArray()[0] as TilePosition) ?? null;
+  }
+
+  async getAdjacentTiles(setId: string, x: number, y: number): Promise<Array<TilePosition & { image_key: string; thumb_key: string; direction: string }>> {
+    const result = await this.sql.exec(
+      TilePositionQueries.GET_ADJACENT,
+      // CASE params: N(y,x), E(x,y), S(y,x), W(x,y)
+      y, x, x, y, y, x, x, y,
+      // WHERE params: setId, then N(x,y-1), E(x+1,y), S(x,y+1), W(x-1,y)
+      setId, x, y, x, y, x, y, x, y
+    );
+    return result.toArray() as Array<TilePosition & { image_key: string; thumb_key: string; direction: string }>;
+  }
+
+  async createTilePosition(data: {
+    id: string;
+    tileSetId: string;
+    variantId: string;
+    gridX: number;
+    gridY: number;
+  }): Promise<TilePosition> {
+    const now = Date.now();
+    await this.sql.exec(
+      TilePositionQueries.INSERT,
+      data.id,
+      data.tileSetId,
+      data.variantId,
+      data.gridX,
+      data.gridY,
+      now
+    );
+    return {
+      id: data.id,
+      tile_set_id: data.tileSetId,
+      variant_id: data.variantId,
+      grid_x: data.gridX,
+      grid_y: data.gridY,
+      created_at: now,
+    };
   }
 
   // ==========================================================================

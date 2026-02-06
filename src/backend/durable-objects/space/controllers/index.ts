@@ -24,3 +24,6 @@ export { AssetController } from './AssetController';
 export { VariantController } from './VariantController';
 export { GenerationController } from './GenerationController';
 export { VisionController } from './VisionController';
+export { StyleController } from './StyleController';
+export { RotationController } from './RotationController';
+export { TileController } from './TileController';

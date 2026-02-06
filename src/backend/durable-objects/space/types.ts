@@ -15,6 +15,8 @@ import type {
   EnhanceRequestMessage,
   AutoDescribeRequestMessage,
   ForgeChatRequestMessage,
+  BatchRequestMessage,
+  BatchMode,
 } from '../../workflows/types';
 import type { ClaudeUsage, DeferredAction, ErrorCode, SimplePlan } from '../../../shared/websocket-types';
 
@@ -24,6 +26,20 @@ export type { PlanStatus, PlanStepStatus } from '../../../shared/websocket-types
 // ============================================================================
 // DO SQLite Schema Types
 // ============================================================================
+
+/**
+ * SpaceStyle - Visual identity for style anchoring
+ */
+export interface SpaceStyle {
+  id: string;
+  name: string;
+  description: string;
+  image_keys: string; // JSON array of R2 image keys
+  enabled: number; // SQLite boolean (0/1)
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
 
 /**
  * Variant generation status
@@ -67,6 +83,7 @@ export interface Variant {
   updated_at: number | null; // Track status changes
   plan_step_id: string | null; // If this variant was created by a plan step
   description: string | null; // Cached AI-generated description for vision-aware enhancement
+  batch_id: string | null; // Batch generation group ID
 }
 
 /**
@@ -103,6 +120,72 @@ export interface ChatMessageClient {
   createdAt: number;
   suggestedPrompt?: string;
   descriptions?: Array<{ variantId: string; assetName: string; description: string; cached: boolean }>;
+}
+
+// ============================================================================
+// Rotation & Tile Set Types
+// ============================================================================
+
+export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
+
+export const ROTATION_DIRECTIONS: Record<RotationConfig, string[]> = {
+  '4-directional': ['S', 'E', 'N', 'W'],
+  '8-directional': ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'],
+  'turnaround': ['front', '3/4-front', 'side', '3/4-back', 'back'],
+};
+
+export type RotationSetStatus = 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
+
+export interface RotationSet {
+  id: string;
+  asset_id: string;
+  source_variant_id: string;
+  config: string; // JSON: { type: RotationConfig, subjectDescription?: string }
+  status: RotationSetStatus;
+  current_step: number;
+  total_steps: number;
+  error_message: string | null;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface RotationView {
+  id: string;
+  rotation_set_id: string;
+  variant_id: string;
+  direction: string;
+  step_index: number;
+  created_at: number;
+}
+
+export type TileType = 'terrain' | 'building' | 'decoration' | 'custom';
+export type TileSetStatus = 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
+
+export interface TileSet {
+  id: string;
+  asset_id: string;
+  tile_type: TileType;
+  grid_width: number;
+  grid_height: number;
+  status: TileSetStatus;
+  seed_variant_id: string | null;
+  config: string; // JSON: { prompt: string }
+  current_step: number;
+  total_steps: number;
+  error_message: string | null;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface TilePosition {
+  id: string;
+  tile_set_id: string;
+  variant_id: string;
+  grid_x: number;
+  grid_y: number;
+  created_at: number;
 }
 
 /**
@@ -298,7 +381,20 @@ export type ClientMessage =
   // Auto-describe messages (lazy description caching)
   | AutoDescribeRequestMessage
   // ForgeChat messages (multi-turn prompt refinement)
-  | ForgeChatRequestMessage;
+  | ForgeChatRequestMessage
+  // Style anchoring messages
+  | { type: 'style:get' }
+  | { type: 'style:set'; name?: string; description: string; imageKeys: string[]; enabled?: boolean }
+  | { type: 'style:delete' }
+  | { type: 'style:toggle'; enabled: boolean }
+  // Batch generation messages
+  | BatchRequestMessage
+  // Rotation pipeline messages
+  | { type: 'rotation:request'; requestId: string; sourceVariantId: string; config: RotationConfig; subjectDescription?: string; aspectRatio?: string; disableStyle?: boolean }
+  | { type: 'rotation:cancel'; rotationSetId: string }
+  // Tile pipeline messages
+  | { type: 'tileset:request'; requestId: string; tileType: TileType; gridWidth: number; gridHeight: number; prompt: string; seedVariantId?: string; aspectRatio?: string; disableStyle?: boolean }
+  | { type: 'tileset:cancel'; tileSetId: string };
 
 // ============================================================================
 // Message Types (Server → Client)
@@ -309,7 +405,7 @@ export type ClientMessage =
  */
 export type ServerMessage =
   // Sync (full state)
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[] }
   // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
   // Consider implementing for WebSocket reconnection state recovery.
   // | { type: 'sync:chat_state'; messages: ChatMessage[]; plan: Plan | null; planSteps: PlanStep[]; approvals: PendingApproval[]; autoExecuted: AutoExecuted[] }
@@ -371,7 +467,28 @@ export type ServerMessage =
   // Pre-check error messages (quota/rate limit exceeded)
   | { type: 'chat:error'; requestId: string; error: string; code: string }
   | { type: 'generate:error'; requestId: string; error: string; code: string }
-  | { type: 'refine:error'; requestId: string; error: string; code: string };
+  | { type: 'refine:error'; requestId: string; error: string; code: string }
+  // Style anchoring messages
+  | { type: 'style:state'; style: SpaceStyle | null }
+  | { type: 'style:updated'; style: SpaceStyle }
+  | { type: 'style:deleted' }
+  // Batch generation messages
+  | { type: 'batch:started'; requestId: string; batchId: string; jobIds: string[]; assetIds: string[]; count: number; mode: BatchMode }
+  | { type: 'batch:progress'; batchId: string; completedCount: number; failedCount: number; totalCount: number; variant: Variant }
+  | { type: 'batch:completed'; batchId: string; completedCount: number; failedCount: number; totalCount: number }
+  | { type: 'batch:error'; requestId: string; error: string; code: string }
+  // Rotation pipeline responses
+  | { type: 'rotation:started'; requestId: string; rotationSetId: string; assetId: string; totalSteps: number; directions: string[] }
+  | { type: 'rotation:step_completed'; rotationSetId: string; direction: string; variantId: string; step: number; total: number }
+  | { type: 'rotation:completed'; rotationSetId: string; views: RotationView[] }
+  | { type: 'rotation:failed'; rotationSetId: string; error: string; failedStep: number }
+  | { type: 'rotation:cancelled'; rotationSetId: string }
+  // Tile pipeline responses
+  | { type: 'tileset:started'; requestId: string; tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalTiles: number }
+  | { type: 'tileset:tile_completed'; tileSetId: string; variantId: string; gridX: number; gridY: number; step: number; total: number }
+  | { type: 'tileset:completed'; tileSetId: string; positions: TilePosition[] }
+  | { type: 'tileset:failed'; tileSetId: string; error: string; failedStep: number }
+  | { type: 'tileset:cancelled'; tileSetId: string };
 
 // ============================================================================
 // Helper Types

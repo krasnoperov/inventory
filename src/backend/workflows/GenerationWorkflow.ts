@@ -48,6 +48,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       aspectRatio,
       sourceImageKeys,
       operation,
+      styleImageKeys,
     } = event.payload;
 
     const refCount = sourceImageKeys?.length || 0;
@@ -97,10 +98,19 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               const base64 = arrayBufferToBase64(buffer);
               const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
 
+              // Label style reference images distinctly from content references
+              const styleKeyCount = styleImageKeys?.length || 0;
+              let label: string;
+              if (styleKeyCount > 0 && i < styleKeyCount) {
+                label = `Style ref ${i + 1}:`;
+              } else {
+                label = `Image ${i + 1 - styleKeyCount}:`;
+              }
+
               sourceImages.push({
                 data: base64,
                 mimeType,
-                label: `Image ${i + 1}:`,
+                label,
               });
             }
             fetchTimer(true, { totalBytes, imageCount: sourceImages.length });

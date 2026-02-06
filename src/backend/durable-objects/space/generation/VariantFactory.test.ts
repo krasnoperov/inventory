@@ -20,6 +20,7 @@ function createMockRepo(): SpaceRepository {
     getAssetById: mock.fn(async () => null),
     getVariantById: mock.fn(async () => null),
     getVariantImageKey: mock.fn(async () => null),
+    getActiveStyle: mock.fn(async () => null),
     createAsset: mock.fn(async (input) => ({
       id: input.id,
       name: input.name,

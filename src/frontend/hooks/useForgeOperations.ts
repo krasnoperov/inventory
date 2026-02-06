@@ -11,7 +11,7 @@
 
 import { useCallback } from 'react';
 import type { ForgeSubmitParams } from '../components/ForgeTray';
-import type { GenerateRequestParams, RefineRequestParams, ForkParams } from './useSpaceWebSocket';
+import type { GenerateRequestParams, RefineRequestParams, ForkParams, BatchRequestParams } from './useSpaceWebSocket';
 
 export interface UseForgeOperationsParams {
   /** WebSocket function to send generate requests */
@@ -20,6 +20,8 @@ export interface UseForgeOperationsParams {
   sendRefineRequest: (params: RefineRequestParams) => string;
   /** WebSocket function to fork an asset - creates 'forked' lineage */
   forkAsset?: (params: ForkParams) => void;
+  /** WebSocket function to send batch requests */
+  sendBatchRequest?: (params: BatchRequestParams) => string;
 }
 
 export interface UseForgeOperationsReturn {
@@ -62,6 +64,7 @@ export function useForgeOperations({
   sendGenerateRequest,
   sendRefineRequest,
   forkAsset,
+  sendBatchRequest,
 }: UseForgeOperationsParams): UseForgeOperationsReturn {
 
   /**
@@ -75,7 +78,7 @@ export function useForgeOperations({
    * Returns requestId for tracking the operation (or empty string for fork).
    */
   const handleForgeSubmit = useCallback((params: ForgeSubmitParams): string => {
-    const { prompt, referenceVariantIds = [], referenceAssetIds, destination, operation } = params;
+    const { prompt, referenceVariantIds = [], referenceAssetIds, destination, operation, batchCount, batchMode, disableStyle } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
 
@@ -90,6 +93,22 @@ export function useForgeOperations({
       return ''; // forkAsset is synchronous, no requestId
     }
 
+    // Batch request: create multiple variants/assets in parallel
+    if (batchCount && batchCount > 1 && destination.type === 'new_asset' && sendBatchRequest) {
+      return sendBatchRequest({
+        name: destination.assetName || 'Generated Asset',
+        assetType: destination.assetType || 'character',
+        prompt,
+        count: batchCount,
+        mode: batchMode || 'explore',
+        referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
+        referenceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
+        aspectRatio: undefined,
+        parentAssetId: destination.parentAssetId || undefined,
+        disableStyle,
+      });
+    }
+
     if (destination.type === 'existing_asset' && destination.assetId) {
       // Add variant to existing asset (refine/combine operation) - prompt is required
       if (!prompt) {
@@ -102,6 +121,7 @@ export function useForgeOperations({
         // Pass all source variants for combine-into-existing scenarios
         sourceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
+        disableStyle,
       });
     } else {
       // Create new asset (generate, create, or combine)
@@ -112,9 +132,10 @@ export function useForgeOperations({
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
         referenceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
         parentAssetId: destination.parentAssetId || undefined,
+        disableStyle,
       });
     }
-  }, [sendGenerateRequest, sendRefineRequest, forkAsset]);
+  }, [sendGenerateRequest, sendRefineRequest, forkAsset, sendBatchRequest]);
 
   /**
    * Generate: Create new asset from prompt only (no references)

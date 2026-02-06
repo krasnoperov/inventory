@@ -9,8 +9,10 @@ import {
   type ChatForgeContext,
   type ForgeChatProgressResult,
 } from '../../hooks/useSpaceWebSocket';
+import { useStyleStore } from '../../stores/styleStore';
 import { AssetPickerModal } from './AssetPickerModal';
 import { ForgeChat } from './ForgeChat';
+import { StylePanel } from './StylePanel';
 import styles from './ForgeTray.module.css';
 
 export type DestinationType = 'existing_asset' | 'new_asset';
@@ -29,6 +31,12 @@ export interface ForgeSubmitParams {
     parentAssetId?: string | null;
   };
   operation: ForgeOperation;
+  /** Number of batch variants to generate (2-8) */
+  batchCount?: number;
+  /** Batch mode: 'explore' = 1 asset N variants, 'set' = N assets */
+  batchMode?: 'explore' | 'set';
+  /** Disable style anchoring for this generation */
+  disableStyle?: boolean;
 }
 
 export interface ForgeTrayProps {
@@ -60,6 +68,14 @@ export interface ForgeTrayProps {
   requestChatHistory?: () => void;
   /** Handler to clear chat session */
   clearChatSession?: () => void;
+  /** Space ID for style panel upload */
+  spaceId?: string;
+  /** Style methods */
+  sendStyleSet?: (data: { name?: string; description?: string; imageKeys?: string[]; enabled?: boolean }) => void;
+  sendStyleDelete?: () => void;
+  sendStyleToggle?: (enabled: boolean) => void;
+  /** Batch send function */
+  sendBatchRequest?: (params: import('../../hooks/useSpaceWebSocket').BatchRequestParams) => string;
 }
 
 // Determine operation based on state
@@ -110,8 +126,13 @@ export function ForgeTray({
   sendChatMessage,
   requestChatHistory,
   clearChatSession,
+  spaceId,
+  sendStyleSet,
+  sendStyleDelete,
+  sendStyleToggle,
 }: ForgeTrayProps) {
   const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
+  const style = useStyleStore((s) => s.style);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -119,6 +140,10 @@ export function ForgeTray({
   const [uploadAssetName, setUploadAssetName] = useState('');
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const [showChat, setShowChat] = useState(false);
+  const [showStylePanel, setShowStylePanel] = useState(false);
+  const [noStyle, setNoStyle] = useState(false);
+  const [batchCount, setBatchCount] = useState(1);
+  const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -145,9 +170,14 @@ export function ForgeTray({
     return destinationType;
   }, [slots.length, currentAsset, destinationType]);
 
+  // Dynamic max slots accounting for style images
+  const styleImageCount = style?.enabled ? style.imageKeys.length : 0;
+  const effectiveMaxSlots = maxSlots - styleImageCount;
+
   const hasPrompt = prompt.trim().length > 0;
   const operation = getOperation(slots.length, hasPrompt, effectiveDestinationType);
-  const operationLabel = getOperationLabel(operation);
+  const baseLabel = getOperationLabel(operation);
+  const operationLabel = batchCount > 1 ? `${baseLabel} x${batchCount}` : baseLabel;
   const placeholder = getPlaceholder(slots.length, operation);
 
   // Slot variant IDs for vision-aware operations
@@ -312,6 +342,9 @@ export function ForgeTray({
           parentAssetId,
         },
         operation,
+        batchCount: batchCount > 1 ? batchCount : undefined,
+        batchMode: batchCount > 1 ? batchMode : undefined,
+        disableStyle: noStyle || undefined,
       });
 
       // Clear on success
@@ -319,6 +352,8 @@ export function ForgeTray({
       setPrompt('');
       setNewAssetName('');
       setDestinationType('existing_asset');
+      setNoStyle(false);
+      setBatchCount(1);
     } catch (error) {
       console.error('Forge submit failed:', error);
     } finally {
@@ -368,7 +403,7 @@ export function ForgeTray({
     return true;
   }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, newAssetName]);
 
-  const canAddMore = slots.length < maxSlots;
+  const canAddMore = slots.length < effectiveMaxSlots;
   // Only show destination toggle on AssetDetailPage (has currentAsset) when slots > 0
   const showDestinationToggle = !!currentAsset && slots.length > 0;
 
@@ -500,6 +535,37 @@ export function ForgeTray({
               />
             )}
 
+            {/* Style Badge - clickable to open StylePanel */}
+            {sendStyleSet && (
+              <button
+                type="button"
+                className={`${styles.styleBadge} ${style?.enabled ? styles.active : ''} ${showStylePanel ? styles.open : ''}`}
+                onClick={() => setShowStylePanel(prev => !prev)}
+                disabled={isSubmitting}
+                title={style?.enabled ? `Style active (${style.imageKeys.length} images)` : 'Configure style'}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                  <path d="M2 17l10 5 10-5" />
+                  <path d="M2 12l10 5 10-5" />
+                </svg>
+                <span>Style{style?.enabled ? ` · ${style.imageKeys.length}` : ''}</span>
+              </button>
+            )}
+
+            {/* No Style checkbox - only show when style is active */}
+            {style?.enabled && (
+              <label className={styles.noStyleCheck}>
+                <input
+                  type="checkbox"
+                  checked={noStyle}
+                  onChange={(e) => setNoStyle(e.target.checked)}
+                  disabled={isSubmitting}
+                />
+                <span>No style</span>
+              </label>
+            )}
+
             {/* Chat Toggle Button - Only show if handler is available */}
             {sendChatMessage && (
               <button
@@ -517,6 +583,46 @@ export function ForgeTray({
 
             {/* Spacer */}
             <div className={styles.controlsSpacer} />
+
+            {/* Batch Count Selector */}
+            {effectiveDestinationType === 'new_asset' && (
+              <select
+                className={styles.batchSelect}
+                value={batchCount}
+                onChange={(e) => setBatchCount(Number(e.target.value))}
+                disabled={isSubmitting}
+                title="Number of variants to generate"
+              >
+                <option value={1}>x1</option>
+                <option value={2}>x2</option>
+                <option value={4}>x4</option>
+                <option value={8}>x8</option>
+              </select>
+            )}
+
+            {/* Batch Mode Toggle - only when count > 1 and new_asset */}
+            {batchCount > 1 && effectiveDestinationType === 'new_asset' && (
+              <div className={styles.batchModeToggle}>
+                <button
+                  type="button"
+                  className={`${styles.destButton} ${batchMode === 'explore' ? styles.active : ''}`}
+                  onClick={() => setBatchMode('explore')}
+                  disabled={isSubmitting}
+                  title="Explore: 1 asset, multiple variants"
+                >
+                  <span>Explore</span>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.destButton} ${batchMode === 'set' ? styles.active : ''}`}
+                  onClick={() => setBatchMode('set')}
+                  disabled={isSubmitting}
+                  title="Set: multiple assets, 1 variant each"
+                >
+                  <span>Set</span>
+                </button>
+              </div>
+            )}
 
             {/* Submit Button */}
             <button
@@ -536,6 +642,17 @@ export function ForgeTray({
             </button>
           </div>
         </div>
+
+        {/* StylePanel - Positioned absolutely above the tray */}
+        {showStylePanel && spaceId && sendStyleSet && sendStyleDelete && sendStyleToggle && (
+          <StylePanel
+            spaceId={spaceId}
+            onClose={() => setShowStylePanel(false)}
+            sendStyleSet={sendStyleSet}
+            sendStyleDelete={sendStyleDelete}
+            sendStyleToggle={sendStyleToggle}
+          />
+        )}
 
         {/* ForgeChat Panel - Positioned absolutely above the tray */}
         {showChat && sendChatMessage && requestChatHistory && clearChatSession && (

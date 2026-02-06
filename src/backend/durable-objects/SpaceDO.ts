@@ -8,6 +8,7 @@ import type {
   DescribeRequestMessage,
   CompareRequestMessage,
   AutoDescribeRequestMessage,
+  BatchRequestMessage,
 } from '../workflows/types';
 import type { WebSocketMeta, ClientMessage, ServerMessage } from './space/types';
 import type { ErrorCode } from '../../shared/websocket-types';
@@ -29,6 +30,9 @@ import {
   VariantController,
   GenerationController,
   VisionController,
+  StyleController,
+  RotationController,
+  TileController,
 } from './space/controllers';
 import { ApprovalController } from './space/controllers/ApprovalController';
 import { SessionController } from './space/controllers/SessionController';
@@ -52,9 +56,12 @@ export class SpaceDO extends DurableObject<Env> {
   private variantCtrl!: VariantController;
   private generationCtrl!: GenerationController;
   private visionCtrl!: VisionController;
+  private styleCtrl!: StyleController;
   private approvalCtrl!: ApprovalController;
   private sessionCtrl!: SessionController;
   private chatCtrl!: ChatController;
+  private rotationCtrl!: RotationController;
+  private tileCtrl!: TileController;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -121,9 +128,15 @@ export class SpaceDO extends DurableObject<Env> {
       this.variantCtrl = new VariantController(ctx);
       this.generationCtrl = new GenerationController(ctx);
       this.visionCtrl = new VisionController(ctx);
+      this.styleCtrl = new StyleController(ctx);
       this.approvalCtrl = new ApprovalController(ctx);
       this.sessionCtrl = new SessionController(ctx);
       this.chatCtrl = new ChatController(ctx);
+      this.rotationCtrl = new RotationController(ctx);
+      this.tileCtrl = new TileController(ctx);
+
+      // Wire pipeline controllers to generation controller (avoids circular deps)
+      this.generationCtrl.setPipelineControllers(this.rotationCtrl, this.tileCtrl);
 
       // Initialize internal HTTP router
       this.internalApi = createInternalApi({
@@ -301,11 +314,35 @@ export class SpaceDO extends DurableObject<Env> {
       case 'presence:update':
         return this.presenceCtrl.handleUpdate(meta, msg.viewing);
 
+      // Style anchoring
+      case 'style:get':
+        return this.styleCtrl.handleGetStyle(ws);
+      case 'style:set':
+        return this.styleCtrl.handleSetStyle(ws, meta, msg as { type: 'style:set'; name?: string; description: string; imageKeys: string[]; enabled?: boolean });
+      case 'style:delete':
+        return this.styleCtrl.handleDeleteStyle(ws, meta);
+      case 'style:toggle':
+        return this.styleCtrl.handleToggleStyle(ws, meta, (msg as { type: 'style:toggle'; enabled: boolean }).enabled);
+
       // Workflow triggers
       case 'generate:request':
         return this.generationCtrl.handleGenerateRequest(ws, meta, msg as GenerateRequestMessage);
       case 'refine:request':
         return this.generationCtrl.handleRefineRequest(ws, meta, msg as RefineRequestMessage);
+      case 'batch:request':
+        return this.generationCtrl.handleBatchRequest(ws, meta, msg as BatchRequestMessage);
+
+      // Rotation pipeline
+      case 'rotation:request':
+        return this.rotationCtrl.handleRotationRequest(ws, meta, msg as ClientMessage & { type: 'rotation:request' });
+      case 'rotation:cancel':
+        return this.rotationCtrl.handleRotationCancel(ws, meta, (msg as { type: 'rotation:cancel'; rotationSetId: string }).rotationSetId);
+
+      // Tile set pipeline
+      case 'tileset:request':
+        return this.tileCtrl.handleTileSetRequest(ws, meta, msg as ClientMessage & { type: 'tileset:request' });
+      case 'tileset:cancel':
+        return this.tileCtrl.handleTileSetCancel(ws, meta, (msg as { type: 'tileset:cancel'; tileSetId: string }).tileSetId);
 
       // Vision
       case 'describe:request':

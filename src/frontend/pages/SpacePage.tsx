@@ -6,10 +6,12 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRouteStore } from '../stores/routeStore';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore } from '../stores/chatStore';
+import { useStyleStore, type SpaceStyleClient } from '../stores/styleStore';
 import type {
   Asset,
   Variant,
   ChatForgeContext,
+  SpaceStyleRaw,
 } from '../hooks/useSpaceWebSocket';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
@@ -19,6 +21,7 @@ import { AssetCanvas, layoutAlgorithms, type LayoutAlgorithm } from '../componen
 import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
+import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import styles from './SpacePage.module.css';
 
 interface Space {
@@ -56,6 +59,22 @@ export default function SpacePage() {
 
   // Forge tray store
   const { addSlot } = useForgeTrayStore();
+
+  // Style store
+  const setStyle = useStyleStore((s) => s.setStyle);
+  const clearStyle = useStyleStore((s) => s.clearStyle);
+
+  // Parse raw style from server into client format
+  const parseStyle = useCallback((raw: SpaceStyleRaw): SpaceStyleClient => ({
+    id: raw.id,
+    name: raw.name,
+    description: raw.description,
+    imageKeys: JSON.parse(raw.image_keys || '[]'),
+    enabled: raw.enabled === 1,
+    createdBy: raw.created_by,
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
+  }), []);
 
   // Persistent chat state from Zustand store (shared across pages)
   const chatMessages = useChatStore((state) => state.messages);
@@ -98,10 +117,20 @@ export default function SpacePage() {
     forkAsset,
     updateAsset,
     updateSession,
+    sendStyleGet,
+    sendStyleSet,
+    sendStyleDelete,
+    sendStyleToggle,
+    sendBatchRequest,
+    tileSets,
+    tilePositions,
+    sendTileSetRequest,
+    sendTileSetCancel,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
+      sendStyleGet();
       // Sync session: user is viewing space overview (no specific asset)
       updateSession({ viewingAssetId: null, viewingVariantId: null });
     },
@@ -128,6 +157,19 @@ export default function SpacePage() {
     },
     onPersistentChatProgress: (progress) => {
       setChatProgress(progress);
+    },
+    onStyleState: (raw) => {
+      if (raw) {
+        setStyle(parseStyle(raw));
+      } else {
+        clearStyle();
+      }
+    },
+    onStyleUpdated: (raw) => {
+      setStyle(parseStyle(raw));
+    },
+    onStyleDeleted: () => {
+      clearStyle();
     },
     onError: (error) => {
       // Handle WebSocket errors - clear chat loading state
@@ -199,6 +241,7 @@ export default function SpacePage() {
     sendGenerateRequest,
     sendRefineRequest,
     forkAsset,
+    sendBatchRequest,
   });
 
   // Image upload hook
@@ -508,6 +551,10 @@ export default function SpacePage() {
           sendChatMessage={handleSendChatMessage}
           requestChatHistory={requestChatHistory}
           clearChatSession={clearChatSession}
+          spaceId={spaceId}
+          sendStyleSet={sendStyleSet}
+          sendStyleDelete={sendStyleDelete}
+          sendStyleToggle={sendStyleToggle}
         />
       )}
     </div>

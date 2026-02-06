@@ -58,6 +58,10 @@ export interface GenerationWorkflowInput {
   parentVariantIds?: string[];
   /** Operation type (derive/refine) - matches user-facing tool name */
   operation: OperationType;
+  /** Style description prepended to prompt (if style anchoring active) */
+  styleDescription?: string;
+  /** Style reference image R2 keys (prepended to source images) */
+  styleImageKeys?: string[];
 }
 
 /** Variant data returned after generation */
@@ -137,6 +141,8 @@ export interface GenerateRequestMessage {
   referenceVariantIds?: string[];
   aspectRatio?: string;
   parentAssetId?: string;
+  /** Disable style anchoring for this generation */
+  disableStyle?: boolean;
 }
 
 /** Refine request from client (replaces HTTP POST /api/spaces/:id/assets/:id/variants) */
@@ -152,6 +158,36 @@ export interface RefineRequestMessage {
   /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
   aspectRatio?: string;
+  /** Disable style anchoring for this generation */
+  disableStyle?: boolean;
+}
+
+// ============================================================================
+// BATCH GENERATION TYPES
+// ============================================================================
+
+/** Batch mode: 'explore' = 1 asset N variants, 'set' = N assets 1 variant each */
+export type BatchMode = 'explore' | 'set';
+
+/** Batch generation request from client */
+export interface BatchRequestMessage {
+  type: 'batch:request';
+  requestId: string;
+  name: string;
+  assetType: string;
+  prompt?: string;
+  /** Number of variants/assets to generate (2-8) */
+  count: number;
+  /** Batch mode */
+  mode: BatchMode;
+  /** Asset-level references */
+  referenceAssetIds?: string[];
+  /** Explicit variant references from ForgeTray UI */
+  referenceVariantIds?: string[];
+  aspectRatio?: string;
+  parentAssetId?: string;
+  /** Disable style anchoring for this batch */
+  disableStyle?: boolean;
 }
 
 /** Generation started notification (broadcast to all) */
