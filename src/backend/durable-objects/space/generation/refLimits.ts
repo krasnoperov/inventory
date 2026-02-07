@@ -5,6 +5,8 @@
  * Gemini's per-request limit (14 images).
  */
 
+import type { SpaceRepository } from '../repository/SpaceRepository';
+
 /**
  * Cap pipeline refs to fit within Gemini's limit alongside style refs.
  * Always keeps the source image, then fills with most recent views.
@@ -24,13 +26,16 @@ export function capRefs(
 
 /**
  * Get style image keys for the current space.
- * Returns empty arrays until Tier 1 (Style Anchoring) is implemented.
+ * Fetches the active style and returns its image keys + description.
  */
 export async function getStyleImageKeys(
-  _repo: unknown,
-  _disableStyle?: boolean
+  repo: SpaceRepository,
+  disableStyle?: boolean
 ): Promise<{ styleKeys: string[]; styleDescription: string | null }> {
-  // TODO: Tier 1 integration — when StyleController lands with generation support,
-  // fetch active style here and return its image_keys + description
-  return { styleKeys: [], styleDescription: null };
+  if (disableStyle) return { styleKeys: [], styleDescription: null };
+  const style = await repo.getActiveStyle();
+  if (!style || !style.enabled) return { styleKeys: [], styleDescription: null };
+  let keys: string[] = [];
+  try { keys = JSON.parse(style.image_keys); } catch { /* ignore malformed JSON */ }
+  return { styleKeys: keys, styleDescription: style.description || null };
 }

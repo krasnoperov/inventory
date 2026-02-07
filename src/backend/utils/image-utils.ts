@@ -62,6 +62,80 @@ export function base64ToBuffer(base64: string): Uint8Array {
 }
 
 /**
+ * Parse image dimensions from raw bytes.
+ * Supports PNG, JPEG, GIF, and WebP headers.
+ * Returns null if dimensions cannot be determined.
+ */
+export function getImageDimensions(
+  data: Uint8Array
+): { width: number; height: number } | null {
+  if (data.length < 12) return null;
+
+  // PNG: bytes 16-23 contain width/height as big-endian uint32
+  if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4E && data[3] === 0x47) {
+    if (data.length < 24) return null;
+    const width = (data[16] << 24) | (data[17] << 16) | (data[18] << 8) | data[19];
+    const height = (data[20] << 24) | (data[21] << 16) | (data[22] << 8) | data[23];
+    return { width, height };
+  }
+
+  // GIF: bytes 6-9 contain width/height as little-endian uint16
+  if (data[0] === 0x47 && data[1] === 0x49 && data[2] === 0x46) {
+    if (data.length < 10) return null;
+    const width = data[6] | (data[7] << 8);
+    const height = data[8] | (data[9] << 8);
+    return { width, height };
+  }
+
+  // JPEG: scan for SOF0/SOF2 markers (0xFF 0xC0 or 0xFF 0xC2)
+  if (data[0] === 0xFF && data[1] === 0xD8) {
+    let offset = 2;
+    while (offset < data.length - 9) {
+      if (data[offset] !== 0xFF) { offset++; continue; }
+      const marker = data[offset + 1];
+      if (marker === 0xC0 || marker === 0xC2) {
+        const height = (data[offset + 5] << 8) | data[offset + 6];
+        const width = (data[offset + 7] << 8) | data[offset + 8];
+        return { width, height };
+      }
+      // Skip to next marker using segment length
+      const segLen = (data[offset + 2] << 8) | data[offset + 3];
+      offset += 2 + segLen;
+    }
+    return null;
+  }
+
+  // WebP: RIFF header, then check VP8/VP8L/VP8X
+  if (data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46 &&
+      data[8] === 0x57 && data[9] === 0x45 && data[10] === 0x42 && data[11] === 0x50) {
+    // VP8X (extended): width at 24-26, height at 27-29 (24-bit LE, +1)
+    if (data[12] === 0x56 && data[13] === 0x50 && data[14] === 0x38 && data[15] === 0x58) {
+      if (data.length < 30) return null;
+      const width = ((data[24]) | (data[25] << 8) | (data[26] << 16)) + 1;
+      const height = ((data[27]) | (data[28] << 8) | (data[29] << 16)) + 1;
+      return { width, height };
+    }
+    // VP8L (lossless): dimensions packed in bytes 21-24
+    if (data[12] === 0x56 && data[13] === 0x50 && data[14] === 0x38 && data[15] === 0x4C) {
+      if (data.length < 25) return null;
+      const bits = (data[21]) | (data[22] << 8) | (data[23] << 16) | (data[24] << 24);
+      const width = (bits & 0x3FFF) + 1;
+      const height = ((bits >> 14) & 0x3FFF) + 1;
+      return { width, height };
+    }
+    // VP8 (lossy): width/height at bytes 26-29 (little-endian uint16)
+    if (data[12] === 0x56 && data[13] === 0x50 && data[14] === 0x38 && data[15] === 0x20) {
+      if (data.length < 30) return null;
+      const width = (data[26] | (data[27] << 8)) & 0x3FFF;
+      const height = (data[28] | (data[29] << 8)) & 0x3FFF;
+      return { width, height };
+    }
+  }
+
+  return null;
+}
+
+/**
  * Thumbnail options for createThumbnail
  */
 export interface ThumbnailOptions {

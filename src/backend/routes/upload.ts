@@ -10,6 +10,7 @@ import { MemberDAO } from '../../dao/member-dao';
 import {
   createThumbnail,
   getBaseUrl,
+  getImageDimensions,
   type ImageMimeType,
 } from '../utils/image-utils';
 
@@ -325,6 +326,15 @@ uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
     }, 400);
   }
 
+  // Validate minimum resolution for style reference images
+  const styleImageBuffer = new Uint8Array(await file.arrayBuffer());
+  const dimensions = getImageDimensions(styleImageBuffer);
+  if (dimensions && (dimensions.width < 256 || dimensions.height < 256)) {
+    return c.json({
+      error: `Style image too small (${dimensions.width}x${dimensions.height}). Minimum resolution is 256x256.`,
+    }, 400);
+  }
+
   // Check R2 binding
   if (!env.IMAGES) {
     return c.json({ error: 'Image storage not available' }, 503);
@@ -337,10 +347,8 @@ uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
   const thumbKey = `styles/${spaceId}/${id}_thumb.webp`;
 
   try {
-    const imageBuffer = new Uint8Array(await file.arrayBuffer());
-
-    // Upload full image to R2
-    await env.IMAGES.put(imageKey, imageBuffer, {
+    // Upload full image to R2 (reuse buffer from dimension check)
+    await env.IMAGES.put(imageKey, styleImageBuffer, {
       httpMetadata: { contentType: mimeType },
     });
 
@@ -367,12 +375,21 @@ uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
     } catch (thumbError) {
       // Fallback: use original image as thumbnail
       console.warn('Style thumbnail creation failed, using original:', thumbError);
-      await env.IMAGES.put(thumbKey, imageBuffer, {
+      await env.IMAGES.put(thumbKey, styleImageBuffer, {
         httpMetadata: { contentType: mimeType },
       });
     }
 
-    return c.json({ success: true, imageKey });
+    // Include dimension warning in response if aspect ratio is unusual
+    let warning: string | undefined;
+    if (dimensions) {
+      const ratio = dimensions.width / dimensions.height;
+      if (ratio > 2.5 || ratio < 0.4) {
+        warning = `Unusual aspect ratio (${dimensions.width}x${dimensions.height}). Style references work best with standard aspect ratios.`;
+      }
+    }
+
+    return c.json({ success: true, imageKey, warning });
   } catch (error) {
     console.error('Style image upload failed:', error);
 
