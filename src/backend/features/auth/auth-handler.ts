@@ -28,19 +28,19 @@ export class AuthHandler {
     const originalState = url.searchParams.get('state');
 
     if (!clientId || !redirectUri || responseType !== 'code') {
-      return c.json({ error: 'invalid_request' }, 400);
+      return this.renderErrorPage(c, 'Invalid Request', 'Missing required parameters (client_id, redirect_uri, or response_type).', 400);
     }
 
     if (!this.authService.isClientAllowed(clientId)) {
-      return c.json({ error: 'unauthorized_client' }, 401);
+      return this.renderErrorPage(c, 'Unauthorized Client', `The client "${clientId}" is not authorized to access this service.`, 401);
     }
 
     if (codeChallengeMethod && codeChallengeMethod !== 'S256' && codeChallengeMethod !== 'plain') {
-      return c.json({ error: 'invalid_request' }, 400);
+      return this.renderErrorPage(c, 'Invalid Request', 'Unsupported code_challenge_method. Use S256 or plain.', 400);
     }
 
     if (codeChallengeMethod && !codeChallenge) {
-      return c.json({ error: 'invalid_request' }, 400);
+      return this.renderErrorPage(c, 'Invalid Request', 'code_challenge is required when code_challenge_method is specified.', 400);
     }
 
     // Check if user is already authenticated
@@ -61,7 +61,7 @@ export class AuthHandler {
 
       const googleClientId = c.env.GOOGLE_CLIENT_ID;
       if (!googleClientId) {
-        return c.json({ error: 'server_error' }, 500);
+        return this.renderErrorPage(c, 'Server Error', 'OAuth is not configured on this server.', 500);
       }
 
       const callbackUrl = `${this.authService.getIssuerUrl().replace(/\/$/, '')}/api/oauth/callback`;
@@ -96,12 +96,12 @@ export class AuthHandler {
     const state = url.searchParams.get('state');
 
     if (!code || !state) {
-      return c.json({ error: 'invalid_request' }, 400);
+      return this.renderErrorPage(c, 'Invalid Callback', 'Missing authorization code or state parameter.', 400);
     }
 
     const pending = await consumeAuthorizationRequest(c.env.OAUTH_KV, state);
     if (!pending) {
-      return c.json({ error: 'invalid_request' }, 400);
+      return this.renderErrorPage(c, 'Expired Request', 'This authorization request has expired or already been used. Please try again.', 400);
     }
 
     try {
@@ -113,7 +113,7 @@ export class AuthHandler {
 
       const result = await this.authController.authenticateWithGoogle(googleTokens.access_token);
       if (!result.success || !result.user || !result.token) {
-        return c.json({ error: 'invalid_grant' }, 400);
+        return this.renderErrorPage(c, 'Authentication Failed', 'Could not verify your Google account. Please try again.', 400);
       }
 
       // Create session JWT and set cookie
@@ -256,6 +256,36 @@ export class AuthHandler {
     }
 
     return c.json({ redirectUrl: callbackUrl.toString() });
+  }
+
+  private renderErrorPage(c: Context, title: string, message: string, status: number): Response {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f5f5f7; font-family: system-ui, -apple-system, sans-serif; padding: 2rem 1rem; color: #1a1a2e; }
+    @media (prefers-color-scheme: dark) { body { background: #1a1a2e; color: #e8e8f0; } }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 16px; padding: 2.25rem 2.5rem; max-width: 440px; width: 100%; box-shadow: 0 24px 40px rgba(0,0,0,0.1); }
+    @media (prefers-color-scheme: dark) { .card { background: #2a2a3e; border-color: #3a3a4e; } }
+    h1 { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 1rem; }
+    .error-box { background: #fef2f2; border: 1px solid #f87171; border-radius: 8px; padding: 1rem 1.25rem; color: #b91c1c; line-height: 1.5; }
+    @media (prefers-color-scheme: dark) { .error-box { background: #3b1c1c; border-color: #dc2626; color: #fca5a5; } }
+    .code { text-align: center; margin-top: 1rem; font-size: 0.875rem; color: #888; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>${title}</h1>
+    <div class="error-box">${message}</div>
+    <p class="code">HTTP ${status}</p>
+  </div>
+</body>
+</html>`;
+    return c.html(html, status);
   }
 
   private getClientName(clientId: string): string {

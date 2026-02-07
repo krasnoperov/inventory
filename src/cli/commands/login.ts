@@ -52,11 +52,11 @@ export async function handleLogin(parsed: ParsedArgs) {
   authUrl.searchParams.set('access_type', 'offline');
 
   console.log('Opening browser for Google authentication...');
+  console.log(`\nAuth URL: ${authUrl.toString()}\n`);
   try {
     await openBrowser(authUrl.toString());
-  } catch (error) {
-    console.warn('Unable to open browser automatically. Please copy the URL below into your browser:');
-    console.log(authUrl.toString());
+  } catch {
+    console.warn('Unable to open browser automatically. Please open the URL above in your browser.');
   }
 
   const { code } = await waitForAuthorizationCode(redirectPort, state);

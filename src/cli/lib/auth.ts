@@ -189,77 +189,31 @@ export async function waitForAuthorizationCode(port: number, expectedState: stri
 
 function getSuccessPage(): string {
   return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login Successful - Inventory CLI</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-    .container {
-      text-align: center;
-      padding: 2rem;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 1rem;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    }
-    h1 { font-size: 2rem; margin-bottom: 1rem; }
-    p { font-size: 1.1rem; opacity: 0.9; }
-    .checkmark {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      display: inline-block;
-      stroke-width: 3;
-      stroke: #fff;
-      stroke-miterlimit: 10;
-      box-shadow: inset 0px 0px 0px #fff;
-      animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
-      margin-bottom: 1rem;
-    }
-    .checkmark__circle {
-      stroke-dasharray: 166;
-      stroke-dashoffset: 166;
-      stroke-width: 3;
-      stroke-miterlimit: 10;
-      stroke: #fff;
-      fill: none;
-      animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
-    }
-    .checkmark__check {
-      transform-origin: 50% 50%;
-      stroke-dasharray: 48;
-      stroke-dashoffset: 48;
-      animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
-    }
-    @keyframes stroke {
-      100% { stroke-dashoffset: 0; }
-    }
-    @keyframes scale {
-      0%, 100% { transform: none; }
-      50% { transform: scale3d(1.1, 1.1, 1); }
-    }
-    @keyframes fill {
-      100% { box-shadow: inset 0px 0px 0px 40px #fff; }
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f5f5f7; font-family: system-ui, -apple-system, sans-serif; padding: 2rem 1rem; color: #1a1a2e; }
+    @media (prefers-color-scheme: dark) { body { background: #1a1a2e; color: #e8e8f0; } }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 16px; padding: 2.25rem 2.5rem; max-width: 440px; width: 100%; box-shadow: 0 24px 40px rgba(0,0,0,0.1); text-align: center; }
+    @media (prefers-color-scheme: dark) { .card { background: #2a2a3e; border-color: #3a3a4e; } }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; }
+    p { font-size: 1rem; color: #666; line-height: 1.5; }
+    @media (prefers-color-scheme: dark) { p { color: #aaa; } }
+    .success-icon { width: 64px; height: 64px; margin: 0 auto 1.25rem; border-radius: 50%; background: #f0fdf4; display: flex; align-items: center; justify-content: center; }
+    @media (prefers-color-scheme: dark) { .success-icon { background: #1a3a2a; } }
+    .success-icon svg { width: 32px; height: 32px; stroke: #22c55e; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-      <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
-      <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-    </svg>
-    <h1>Login Successful!</h1>
+  <div class="card">
+    <div class="success-icon">
+      <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+    </div>
+    <h1>Login Successful</h1>
     <p>You can close this window and return to the terminal.</p>
   </div>
 </body>
@@ -268,41 +222,30 @@ function getSuccessPage(): string {
 
 function getErrorPage(error: string, description?: string): string {
   return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login Failed - Inventory CLI</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      color: white;
-    }
-    .container {
-      text-align: center;
-      padding: 2rem;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 1rem;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-      max-width: 500px;
-    }
-    h1 { font-size: 2rem; margin-bottom: 1rem; }
-    p { font-size: 1.1rem; opacity: 0.9; margin-bottom: 0.5rem; }
-    .error-code { font-family: monospace; font-size: 0.9rem; opacity: 0.7; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f5f5f7; font-family: system-ui, -apple-system, sans-serif; padding: 2rem 1rem; color: #1a1a2e; }
+    @media (prefers-color-scheme: dark) { body { background: #1a1a2e; color: #e8e8f0; } }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 16px; padding: 2.25rem 2.5rem; max-width: 440px; width: 100%; box-shadow: 0 24px 40px rgba(0,0,0,0.1); text-align: center; }
+    @media (prefers-color-scheme: dark) { .card { background: #2a2a3e; border-color: #3a3a4e; } }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; }
+    .error-box { background: #fef2f2; border: 1px solid #f87171; border-radius: 8px; padding: 1rem 1.25rem; color: #b91c1c; line-height: 1.5; text-align: left; }
+    @media (prefers-color-scheme: dark) { .error-box { background: #3b1c1c; border-color: #dc2626; color: #fca5a5; } }
+    .hint { margin-top: 1rem; font-size: 0.875rem; color: #888; }
+    .code { margin-top: 0.5rem; font-size: 0.8rem; color: #aaa; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>❌ Login Failed</h1>
-    <p>${description || 'Authorization was denied or failed.'}</p>
-    <p class="error-code">Error: ${error}</p>
-    <p>Please return to the terminal and try again.</p>
+  <div class="card">
+    <h1>Login Failed</h1>
+    <div class="error-box">${description || 'Authorization was denied or failed.'}</div>
+    <p class="hint">Please return to the terminal and try again.</p>
+    <p class="code">${error}</p>
   </div>
 </body>
 </html>`;
