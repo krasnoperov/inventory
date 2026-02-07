@@ -92,7 +92,10 @@ export function RotationPanel({
           <div className={styles.content}>
             <div className={styles.progressSection}>
               <div className={styles.progressHeader}>
-                <span className={styles.progressLabel}>{activeSet.config}</span>
+                <span className={styles.progressLabel}>{(() => {
+                  try { return JSON.parse(activeSet.config).type || activeSet.config; }
+                  catch { return activeSet.config; }
+                })()}</span>
                 <span className={styles.progressCount}>
                   {activeSet.current_step} / {activeSet.total_steps}
                 </span>

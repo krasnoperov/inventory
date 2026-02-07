@@ -304,28 +304,35 @@ export class TileController extends BaseController {
 
     // Trigger GenerationWorkflow
     if (this.env.GENERATION_WORKFLOW) {
-      const workflowInput: GenerationWorkflowInput = {
-        requestId: crypto.randomUUID(),
-        jobId: variantId,
-        spaceId: this.spaceId,
-        userId,
-        prompt,
-        assetId: set.asset_id,
-        assetName: `Tile (${gridX},${gridY})`,
-        assetType: 'tile-set',
-        aspectRatio: config.aspectRatio || '1:1',
-        sourceImageKeys: cappedKeys.length > 0 ? [...styleKeys, ...cappedKeys] : undefined,
-        operation: adjacents.length > 0 ? 'derive' : 'generate',
-      };
+      try {
+        const workflowInput: GenerationWorkflowInput = {
+          requestId: crypto.randomUUID(),
+          jobId: variantId,
+          spaceId: this.spaceId,
+          userId,
+          prompt,
+          assetId: set.asset_id,
+          assetName: `Tile (${gridX},${gridY})`,
+          assetType: 'tile-set',
+          aspectRatio: config.aspectRatio || '1:1',
+          sourceImageKeys: cappedKeys.length > 0 ? [...styleKeys, ...cappedKeys] : undefined,
+          operation: adjacents.length > 0 ? 'derive' : 'generate',
+        };
 
-      const instance = await this.env.GENERATION_WORKFLOW.create({
-        id: variantId,
-        params: workflowInput,
-      });
+        const instance = await this.env.GENERATION_WORKFLOW.create({
+          id: variantId,
+          params: workflowInput,
+        });
 
-      const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
-      if (updatedVariant) {
-        this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+        const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
+        if (updatedVariant) {
+          this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+        }
+      } catch (err) {
+        log.error('Failed to create tile workflow', { tileSetId, variantId, gridX, gridY, error: String(err) });
+        await this.repo.failTileSet(tileSetId, `Workflow creation failed: ${String(err)}`);
+        this.broadcast({ type: 'tileset:failed', tileSetId, error: String(err), failedStep: (await this.repo.getTilePositionsBySet(tileSetId)).length });
+        return;
       }
     }
 

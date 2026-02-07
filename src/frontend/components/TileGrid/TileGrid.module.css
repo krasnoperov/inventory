@@ -100,3 +100,8 @@
   background: oklch(55% 0.2 25 / 0.9);
   color: white;
 }
+
+.cell.failed {
+  background: oklch(from var(--color-error) l c h / 0.1);
+  border-color: var(--color-error);
+}

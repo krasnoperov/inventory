@@ -264,28 +264,35 @@ export class RotationController extends BaseController {
 
     // Trigger GenerationWorkflow
     if (this.env.GENERATION_WORKFLOW) {
-      const workflowInput: GenerationWorkflowInput = {
-        requestId: crypto.randomUUID(),
-        jobId: variantId,
-        spaceId: this.spaceId,
-        userId: set.created_by,
-        prompt,
-        assetId: set.asset_id,
-        assetName: `${subject} — ${direction}`,
-        assetType: (await this.repo.getAssetById(set.asset_id))?.type || 'character',
-        aspectRatio: config.aspectRatio,
-        sourceImageKeys: [...styleKeys, ...cappedKeys],
-        operation: 'derive',
-      };
+      try {
+        const workflowInput: GenerationWorkflowInput = {
+          requestId: crypto.randomUUID(),
+          jobId: variantId,
+          spaceId: this.spaceId,
+          userId: set.created_by,
+          prompt,
+          assetId: set.asset_id,
+          assetName: `${subject} — ${direction}`,
+          assetType: (await this.repo.getAssetById(set.asset_id))?.type || 'character',
+          aspectRatio: config.aspectRatio,
+          sourceImageKeys: [...styleKeys, ...cappedKeys],
+          operation: 'derive',
+        };
 
-      const instance = await this.env.GENERATION_WORKFLOW.create({
-        id: variantId,
-        params: workflowInput,
-      });
+        const instance = await this.env.GENERATION_WORKFLOW.create({
+          id: variantId,
+          params: workflowInput,
+        });
 
-      const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
-      if (updatedVariant) {
-        this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+        const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
+        if (updatedVariant) {
+          this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+        }
+      } catch (err) {
+        log.error('Failed to create rotation workflow', { rotationSetId, variantId, error: String(err) });
+        await this.repo.failRotationSet(rotationSetId, `Workflow creation failed: ${String(err)}`);
+        this.broadcast({ type: 'rotation:failed', rotationSetId, error: String(err), failedStep: currentStep });
+        return;
       }
     }
 

@@ -501,15 +501,15 @@ export interface UseSpaceWebSocketParams {
   onBatchProgress?: (data: BatchProgressResult) => void;
   onBatchCompleted?: (data: BatchCompletedResult) => void;
   // Rotation pipeline callbacks
-  onRotationStarted?: (data: { rotationSetId: string; assetId: string; config: RotationConfig; totalSteps: number }) => void;
-  onRotationStepCompleted?: (data: { rotationSetId: string; direction: string; stepIndex: number; totalSteps: number; variantId: string }) => void;
-  onRotationCompleted?: (rotationSetId: string) => void;
+  onRotationStarted?: (data: { rotationSetId: string; assetId: string; directions: string[]; totalSteps: number }) => void;
+  onRotationStepCompleted?: (data: { rotationSetId: string; direction: string; step: number; total: number; variantId: string }) => void;
+  onRotationCompleted?: (data: { rotationSetId: string; views: RotationView[] }) => void;
   onRotationFailed?: (data: { rotationSetId: string; error: string; failedStep: number }) => void;
   onRotationCancelled?: (rotationSetId: string) => void;
   // Tile set pipeline callbacks
-  onTileSetStarted?: (data: { tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalSteps: number }) => void;
-  onTileSetTileCompleted?: (data: { tileSetId: string; gridX: number; gridY: number; stepIndex: number; totalSteps: number; variantId: string }) => void;
-  onTileSetCompleted?: (tileSetId: string) => void;
+  onTileSetStarted?: (data: { tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalTiles: number }) => void;
+  onTileSetTileCompleted?: (data: { tileSetId: string; gridX: number; gridY: number; step: number; total: number; variantId: string }) => void;
+  onTileSetCompleted?: (data: { tileSetId: string; positions: TilePosition[] }) => void;
   onTileSetFailed?: (data: { tileSetId: string; error: string; failedStep: number }) => void;
   onTileSetCancelled?: (tileSetId: string) => void;
   // Generation/refine/batch error callbacks
@@ -604,15 +604,15 @@ type ServerMessage =
   | { type: 'batch:progress'; batchId: string; completedCount: number; failedCount: number; totalCount: number; variant: Variant }
   | { type: 'batch:completed'; batchId: string; completedCount: number; failedCount: number; totalCount: number }
   // Rotation pipeline messages
-  | { type: 'rotation:started'; rotationSetId: string; assetId: string; config: RotationConfig; totalSteps: number }
-  | { type: 'rotation:step_completed'; rotationSetId: string; direction: string; stepIndex: number; totalSteps: number; variantId: string }
-  | { type: 'rotation:completed'; rotationSetId: string }
+  | { type: 'rotation:started'; requestId: string; rotationSetId: string; assetId: string; totalSteps: number; directions: string[] }
+  | { type: 'rotation:step_completed'; rotationSetId: string; direction: string; variantId: string; step: number; total: number }
+  | { type: 'rotation:completed'; rotationSetId: string; views: RotationView[] }
   | { type: 'rotation:failed'; rotationSetId: string; error: string; failedStep: number }
   | { type: 'rotation:cancelled'; rotationSetId: string }
   // Tile set pipeline messages
-  | { type: 'tileset:started'; tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalSteps: number }
-  | { type: 'tileset:tile_completed'; tileSetId: string; gridX: number; gridY: number; stepIndex: number; totalSteps: number; variantId: string }
-  | { type: 'tileset:completed'; tileSetId: string }
+  | { type: 'tileset:started'; requestId: string; tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalTiles: number }
+  | { type: 'tileset:tile_completed'; tileSetId: string; variantId: string; gridX: number; gridY: number; step: number; total: number }
+  | { type: 'tileset:completed'; tileSetId: string; positions: TilePosition[] }
   | { type: 'tileset:failed'; tileSetId: string; error: string; failedStep: number }
   | { type: 'tileset:cancelled'; tileSetId: string }
   // Generation/refine/batch error messages
@@ -1027,8 +1027,10 @@ export function useSpaceWebSocket({
 
   // Rotation pipeline methods
   const sendRotationRequest = useCallback((params: RotationRequestParams) => {
+    const requestId = crypto.randomUUID();
     sendMessage({
       type: 'rotation:request',
+      requestId,
       sourceVariantId: params.sourceVariantId,
       config: params.config,
       subjectDescription: params.subjectDescription,
@@ -1043,8 +1045,10 @@ export function useSpaceWebSocket({
 
   // Tile set pipeline methods
   const sendTileSetRequest = useCallback((params: TileSetRequestParams) => {
+    const requestId = crypto.randomUUID();
     sendMessage({
       type: 'tileset:request',
+      requestId,
       tileType: params.tileType,
       gridWidth: params.gridWidth,
       gridHeight: params.gridHeight,
@@ -1693,12 +1697,25 @@ export function useSpaceWebSocket({
                       : rs
                     );
                   }
-                  return prev;
+                  // Add new set from broadcast data
+                  return [...prev, {
+                    id: message.rotationSetId,
+                    asset_id: message.assetId,
+                    source_variant_id: '',
+                    config: '',
+                    status: 'generating' as const,
+                    current_step: 0,
+                    total_steps: message.totalSteps,
+                    error_message: null,
+                    created_by: '',
+                    created_at: Date.now(),
+                    updated_at: Date.now(),
+                  }];
                 });
                 onRotationStartedRef.current?.({
                   rotationSetId: message.rotationSetId,
                   assetId: message.assetId,
-                  config: message.config,
+                  directions: message.directions,
                   totalSteps: message.totalSteps,
                 });
                 break;
@@ -1706,15 +1723,15 @@ export function useSpaceWebSocket({
               case 'rotation:step_completed':
                 setRotationSets((prev) =>
                   prev.map(rs => rs.id === message.rotationSetId
-                    ? { ...rs, current_step: message.stepIndex + 1 }
+                    ? { ...rs, current_step: message.step + 1 }
                     : rs
                   )
                 );
                 onRotationStepCompletedRef.current?.({
                   rotationSetId: message.rotationSetId,
                   direction: message.direction,
-                  stepIndex: message.stepIndex,
-                  totalSteps: message.totalSteps,
+                  step: message.step,
+                  total: message.total,
                   variantId: message.variantId,
                 });
                 break;
@@ -1726,7 +1743,12 @@ export function useSpaceWebSocket({
                     : rs
                   )
                 );
-                onRotationCompletedRef.current?.(message.rotationSetId);
+                setRotationViews((prev) => {
+                  const existingIds = new Set(prev.map(rv => rv.id));
+                  const newViews = message.views.filter(v => !existingIds.has(v.id));
+                  return newViews.length > 0 ? [...prev, ...newViews] : prev;
+                });
+                onRotationCompletedRef.current?.({ rotationSetId: message.rotationSetId, views: message.views });
                 break;
 
               case 'rotation:failed':
@@ -1759,25 +1781,41 @@ export function useSpaceWebSocket({
                   const existing = prev.find(ts => ts.id === message.tileSetId);
                   if (existing) {
                     return prev.map(ts => ts.id === message.tileSetId
-                      ? { ...ts, status: 'generating' as const, total_steps: message.totalSteps }
+                      ? { ...ts, status: 'generating' as const, total_steps: message.totalTiles }
                       : ts
                     );
                   }
-                  return prev;
+                  // Add new set from broadcast data
+                  return [...prev, {
+                    id: message.tileSetId,
+                    asset_id: message.assetId,
+                    tile_type: 'custom' as const,
+                    grid_width: message.gridWidth,
+                    grid_height: message.gridHeight,
+                    status: 'generating' as const,
+                    seed_variant_id: null,
+                    config: '',
+                    current_step: 0,
+                    total_steps: message.totalTiles,
+                    error_message: null,
+                    created_by: '',
+                    created_at: Date.now(),
+                    updated_at: Date.now(),
+                  }];
                 });
                 onTileSetStartedRef.current?.({
                   tileSetId: message.tileSetId,
                   assetId: message.assetId,
                   gridWidth: message.gridWidth,
                   gridHeight: message.gridHeight,
-                  totalSteps: message.totalSteps,
+                  totalTiles: message.totalTiles,
                 });
                 break;
 
               case 'tileset:tile_completed':
                 setTileSets((prev) =>
                   prev.map(ts => ts.id === message.tileSetId
-                    ? { ...ts, current_step: message.stepIndex + 1 }
+                    ? { ...ts, current_step: message.step + 1 }
                     : ts
                   )
                 );
@@ -1785,8 +1823,8 @@ export function useSpaceWebSocket({
                   tileSetId: message.tileSetId,
                   gridX: message.gridX,
                   gridY: message.gridY,
-                  stepIndex: message.stepIndex,
-                  totalSteps: message.totalSteps,
+                  step: message.step,
+                  total: message.total,
                   variantId: message.variantId,
                 });
                 break;
@@ -1798,7 +1836,12 @@ export function useSpaceWebSocket({
                     : ts
                   )
                 );
-                onTileSetCompletedRef.current?.(message.tileSetId);
+                setTilePositions((prev) => {
+                  const existingIds = new Set(prev.map(tp => tp.id));
+                  const newPositions = message.positions.filter(p => !existingIds.has(p.id));
+                  return newPositions.length > 0 ? [...prev, ...newPositions] : prev;
+                });
+                onTileSetCompletedRef.current?.({ tileSetId: message.tileSetId, positions: message.positions });
                 break;
 
               case 'tileset:failed':

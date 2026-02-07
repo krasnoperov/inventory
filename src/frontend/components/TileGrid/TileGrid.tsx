@@ -60,7 +60,7 @@ export function TileGrid({
             return (
               <div
                 key={`${x}-${y}`}
-                className={`${styles.cell} ${isSelected ? styles.selected : ''} ${isGenerating ? styles.generating : ''}`}
+                className={`${styles.cell} ${isSelected ? styles.selected : ''} ${isGenerating ? styles.generating : ''} ${isFailed ? styles.failed : ''}`}
                 onClick={() => handleCellClick(variant?.id)}
               >
                 {imageUrl && isCompleted ? (
