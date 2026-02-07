@@ -89,7 +89,11 @@ function getOperation(
   hasPrompt: boolean,
   destinationType: DestinationType
 ): ForgeOperation {
-  if (slotCount === 0) return 'generate';
+  if (slotCount === 0) {
+    // No references: generate new asset or refine existing
+    if (destinationType === 'existing_asset') return 'refine';
+    return 'generate';
+  }
   if (slotCount >= 1 && !hasPrompt && destinationType === 'new_asset') return 'fork';
   if (destinationType === 'existing_asset') return 'refine';
   return 'derive'; // has prompt, new asset (1+ refs)
@@ -107,6 +111,7 @@ function getOperationLabel(operation: ForgeOperation): string {
 
 // Get placeholder text based on state
 function getPlaceholder(slotCount: number, operation: ForgeOperation): string {
+  if (slotCount === 0 && operation === 'refine') return 'Describe a new variant to generate...';
   if (slotCount === 0) return 'Describe what to generate...';
   if (operation === 'fork') return 'Leave empty to fork, or describe changes...';
   if (operation === 'derive') return 'Describe what to derive from these references...';
@@ -169,11 +174,8 @@ export function ForgeTray({
     if (!currentAsset) {
       return 'new_asset'; // SpacePage: always creates new assets
     }
-    if (slots.length === 0) {
-      return 'new_asset'; // Generate: always creates new
-    }
     return destinationType;
-  }, [slots.length, currentAsset, destinationType]);
+  }, [currentAsset, destinationType]);
 
   // Dynamic max slots accounting for style images
   const styleImageCount = style?.enabled ? style.imageKeys.length : 0;
@@ -409,8 +411,8 @@ export function ForgeTray({
   }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, newAssetName]);
 
   const canAddMore = slots.length < effectiveMaxSlots;
-  // Only show destination toggle on AssetDetailPage (has currentAsset) when slots > 0
-  const showDestinationToggle = !!currentAsset && slots.length > 0;
+  // Show destination toggle on AssetDetailPage (has currentAsset) so user can choose existing vs new
+  const showDestinationToggle = !!currentAsset;
 
   // Build tray class with drag-over state
   const trayClasses = [styles.tray];
