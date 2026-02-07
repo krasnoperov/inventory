@@ -627,6 +627,7 @@ export const PREDEFINED_ASSET_TYPES = [
   'scene',
   'environment',
   'sprite-sheet',
+  'tile-set',
   'animation',
   'style-sheet',
   'reference',

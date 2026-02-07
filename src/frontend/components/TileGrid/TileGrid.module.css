@@ -105,3 +105,19 @@
   background: oklch(from var(--color-error) l c h / 0.1);
   border-color: var(--color-error);
 }
+
+.gridInfoFailed {
+  font-size: 0.75rem;
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+.errorBanner {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: oklch(from var(--color-error) l c h / 0.08);
+  border: 1px solid oklch(from var(--color-error) l c h / 0.2);
+  color: var(--color-error);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
