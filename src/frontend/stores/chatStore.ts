@@ -107,9 +107,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   resetOnDisconnect: () => {
     // Reset loading states on WebSocket disconnect
+    // Also reset historyLoaded so chat history is re-fetched on reconnect
     set({
       isLoading: false,
       progress: null,
+      historyLoaded: false,
     });
   },
 

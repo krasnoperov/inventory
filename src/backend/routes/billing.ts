@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
+import { adminMiddleware } from '../middleware/admin-middleware';
 import { UsageService } from '../services/usageService';
 import { PolarService } from '../services/polarService';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
@@ -145,18 +146,11 @@ billingRoutes.get('/api/billing/quota/:service', async (c) => {
  *
  * Returns counts of pending, failed, and synced events
  * Plus count of users without Polar customer ID
- *
- * TODO: Add admin role check when implementing roles
  */
-billingRoutes.get('/api/billing/sync-status', async (c) => {
-  const userId = c.get('userId')!;
+billingRoutes.get('/api/billing/sync-status', adminMiddleware, async (c) => {
   const container = c.get('container');
   const usageEventDAO = container.get(UsageEventDAO);
   const userDAO = container.get(UserDAO);
-
-  // TODO: Check if user is admin when roles are implemented
-  // For now, any authenticated user can view sync status
-  void userId; // Acknowledge userId is available but not used for admin check yet
 
   const eventStats = await usageEventDAO.getSyncStats();
   const usersWithoutPolar = await userDAO.countWithoutPolarCustomer();
@@ -175,15 +169,9 @@ billingRoutes.get('/api/billing/sync-status', async (c) => {
  *
  * Resets sync_attempts for all failed events so they'll be
  * picked up by the next cron sync
- *
- * TODO: Add admin role check when implementing roles
  */
-billingRoutes.post('/api/billing/retry-failed', async (c) => {
-  const userId = c.get('userId')!;
+billingRoutes.post('/api/billing/retry-failed', adminMiddleware, async (c) => {
   const usageEventDAO = c.get('container').get(UsageEventDAO);
-
-  // TODO: Check if user is admin when roles are implemented
-  void userId; // Acknowledge userId is available but not used for admin check yet
 
   // Find and reset failed events
   const failedEvents = await usageEventDAO.findFailed(1000);

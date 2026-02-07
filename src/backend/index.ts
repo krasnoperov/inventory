@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import type { Env } from '../core/types';
 import { createContainer } from '../core/container';
 import { registerRoutes } from './routes';
-import { uploadSecurityMiddleware } from './middleware/upload-security';
 import type { AppContext } from './routes/types';
 import { UsageService } from './services/usageService';
 
@@ -22,9 +21,6 @@ app.onError((err, c) => {
   console.error('Unhandled route error:', err);
   return c.json({ error: 'Internal server error' }, 500);
 });
-
-// Apply upload security middleware to upload routes
-app.use('/api/upload/*', uploadSecurityMiddleware());
 
 // Register all routes
 registerRoutes(app);

@@ -42,6 +42,8 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "stage"
 ENVIRONMENT = "stage"
 POLAR_ENVIRONMENT = "sandbox"
+# Comma-separated user IDs allowed to access billing admin routes
+ADMIN_USER_IDS = ""
 
 # Durable Objects - Space state and WebSocket
 [[durable_objects.bindings]]
@@ -98,6 +100,8 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "production"
 ENVIRONMENT = "production"
 POLAR_ENVIRONMENT = "production"
+# Comma-separated user IDs allowed to access billing admin routes
+ADMIN_USER_IDS = ""
 
 # Durable Objects - Production
 [[env.production.durable_objects.bindings]]

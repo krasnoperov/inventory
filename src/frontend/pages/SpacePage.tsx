@@ -132,6 +132,7 @@ export default function SpacePage() {
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
+      requestChatHistory();
       // Style is now included in sync:state, no need for separate sendStyleGet()
       // Sync session: user is viewing space overview (no specific asset)
       updateSession({ viewingAssetId: null, viewingVariantId: null });
