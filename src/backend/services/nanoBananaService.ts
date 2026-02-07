@@ -2,12 +2,55 @@ import { injectable } from 'inversify';
 import { GoogleGenAI, createPartFromBase64, createPartFromText, type Part } from '@google/genai';
 
 // =============================================================================
+// Error Classes - Typed errors for Gemini API failure modes
+// =============================================================================
+
+export class GeminiGenerationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GeminiGenerationError';
+  }
+}
+
+export class GeminiSafetyError extends GeminiGenerationError {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly safetyRatings: any[];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(message: string, safetyRatings: any[] = []) {
+    super(message);
+    this.name = 'GeminiSafetyError';
+    this.safetyRatings = safetyRatings;
+  }
+}
+
+export class GeminiRecitationError extends GeminiGenerationError {
+  constructor(message: string = 'Generation blocked: content matched existing material') {
+    super(message);
+    this.name = 'GeminiRecitationError';
+  }
+}
+
+export class GeminiRateLimitError extends GeminiGenerationError {
+  constructor(message: string = 'Gemini API rate limit exceeded') {
+    super(message);
+    this.name = 'GeminiRateLimitError';
+  }
+}
+
+// =============================================================================
 // Core Types - Pure data, no framework dependencies
 // =============================================================================
 
 export type ImageModel = 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image';
+export type ModelSelection = 'pro' | 'flash';
 export type AspectRatio = '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9';
 export type ImageSize = '1K' | '2K' | '4K';
+
+export function resolveImageModel(selection?: ModelSelection): ImageModel {
+  if (selection === 'flash') return 'gemini-2.5-flash-image';
+  return 'gemini-3-pro-image-preview';
+}
 
 export interface ImageInput {
   data: string;      // base64 encoded
@@ -93,13 +136,17 @@ export class NanoBananaService {
       throw new Error('Prompt is required');
     }
 
-    const response = await this.ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: this.buildConfig(aspectRatio, imageSize),
-    });
+    try {
+      const response = await this.ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: this.buildConfig(aspectRatio, imageSize),
+      });
 
-    return this.extractResult(response, model, aspectRatio, imageSize);
+      return this.extractResult(response, model, aspectRatio, imageSize);
+    } catch (error) {
+      this.wrapApiError(error);
+    }
   }
 
   /**
@@ -120,13 +167,17 @@ export class NanoBananaService {
       createPartFromText(prompt),
     ];
 
-    const response = await this.ai.models.generateContent({
-      model,
-      contents: parts,
-      config: this.buildConfig(aspectRatio, imageSize),
-    });
+    try {
+      const response = await this.ai.models.generateContent({
+        model,
+        contents: parts,
+        config: this.buildConfig(aspectRatio, imageSize),
+      });
 
-    return this.extractResult(response, model, aspectRatio, imageSize);
+      return this.extractResult(response, model, aspectRatio, imageSize);
+    } catch (error) {
+      this.wrapApiError(error);
+    }
   }
 
   /**
@@ -163,21 +214,27 @@ export class NanoBananaService {
       createPartFromText(labeledPrompt),
     ];
 
-    const response = await this.ai.models.generateContent({
-      model,
-      contents: parts,
-      config: this.buildConfig(aspectRatio, imageSize),
-    });
+    try {
+      const response = await this.ai.models.generateContent({
+        model,
+        contents: parts,
+        config: this.buildConfig(aspectRatio, imageSize),
+      });
 
-    return this.extractResult(response, model, aspectRatio, imageSize);
+      return this.extractResult(response, model, aspectRatio, imageSize);
+    } catch (error) {
+      this.wrapApiError(error);
+    }
   }
 
   // ===========================================================================
   // Private helpers
   // ===========================================================================
 
-  private buildConfig(aspectRatio?: AspectRatio, imageSize?: ImageSize): Record<string, unknown> | undefined {
-    const config: Record<string, unknown> = {};
+  private buildConfig(aspectRatio?: AspectRatio, imageSize?: ImageSize): Record<string, unknown> {
+    const config: Record<string, unknown> = {
+      responseModalities: ['IMAGE', 'TEXT'],
+    };
 
     if (aspectRatio) {
       config.aspectRatio = aspectRatio;
@@ -186,7 +243,7 @@ export class NanoBananaService {
       config.imageSize = imageSize;
     }
 
-    return Object.keys(config).length > 0 ? config : undefined;
+    return config;
   }
 
   private buildLabeledPrompt(images: ImageInput[], prompt: string): string {
@@ -207,18 +264,36 @@ export class NanoBananaService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private extractResult(response: any, model: ImageModel, aspectRatio?: AspectRatio, imageSize?: ImageSize): GenerationResult {
     if (!response.candidates || response.candidates.length === 0) {
-      throw new Error('No image generated: empty response');
+      throw new GeminiGenerationError('No image generated: empty response');
     }
 
     const candidate = response.candidates[0];
+
+    // Check finishReason before content inspection
+    if (candidate.finishReason === 'SAFETY') {
+      const ratings = candidate.safetyRatings || [];
+      const details = ratings
+        .filter((r: { probability?: string }) => r.probability && r.probability !== 'NEGLIGIBLE')
+        .map((r: { category?: string; probability?: string }) => `${r.category}: ${r.probability}`)
+        .join(', ');
+      throw new GeminiSafetyError(
+        `Prompt blocked for safety reasons${details ? ` (${details})` : ''}`,
+        ratings
+      );
+    }
+
+    if (candidate.finishReason === 'RECITATION') {
+      throw new GeminiRecitationError();
+    }
+
     if (!candidate.content?.parts || candidate.content.parts.length === 0) {
-      throw new Error('No image generated: no content parts');
+      throw new GeminiGenerationError('No image generated: no content parts');
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const imagePart = candidate.content.parts.find((part: any) => part.inlineData);
     if (!imagePart?.inlineData?.data) {
-      throw new Error('No image generated: no inline data');
+      throw new GeminiGenerationError('No image generated: no inline data');
     }
 
     const { mimeType, data } = imagePart.inlineData;
@@ -241,5 +316,19 @@ export class NanoBananaService {
       imageSize,
       usage,
     };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private wrapApiError(error: any): never {
+    if (error instanceof GeminiGenerationError) {
+      throw error;
+    }
+    // Detect HTTP 429 from the SDK error
+    const status = error?.status ?? error?.httpStatusCode ?? error?.code;
+    const message = error?.message || String(error);
+    if (status === 429 || message.includes('429') || message.toLowerCase().includes('rate limit') || message.toLowerCase().includes('resource exhausted')) {
+      throw new GeminiRateLimitError(message);
+    }
+    throw error;
   }
 }

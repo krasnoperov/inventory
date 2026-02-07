@@ -8,11 +8,13 @@
  * and handleRefineRequest/executePlanRefine.
  */
 
-import type { Asset, Variant, WebSocketMeta, SpaceStyle } from '../types';
+import type { Asset, Variant, WebSocketMeta } from '../types';
 import type { GenerationWorkflowInput, OperationType, BatchMode } from '../../../workflows/types';
 import type { SpaceRepository } from '../repository/SpaceRepository';
 import type { BroadcastFn } from '../controllers/types';
 import type { Env } from '../../../../core/types';
+import { resolveImageModel } from '../../../services/nanoBananaService';
+import { PromptBuilder } from './PromptBuilder';
 import { loggers } from '../../../../shared/logger';
 
 const log = loggers.generationController;
@@ -25,7 +27,9 @@ const log = loggers.generationController;
 export interface GenerationRecipe {
   prompt: string;
   assetType: string;
+  model?: string;
   aspectRatio?: string;
+  imageSize?: string;
   sourceImageKeys?: string[];
   /** Parent variant IDs for retry support (in case lineage records are missing) */
   parentVariantIds?: string[];
@@ -319,7 +323,9 @@ export class VariantFactory {
       assetId: result.assetId,
       assetName: result.asset.name,
       assetType: recipe.assetType,
+      model: recipe.model,
       aspectRatio: recipe.aspectRatio,
+      imageSize: recipe.imageSize,
       sourceImageKeys: result.sourceImageKeys.length > 0 ? result.sourceImageKeys : undefined,
       parentVariantIds: result.parentVariantIds.length > 0 ? result.parentVariantIds : undefined,
       operation,
@@ -438,10 +444,11 @@ export class VariantFactory {
 
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
 
-    // Build recipe ONCE
+    // Build recipe ONCE — batch/explore defaults to flash model
     let recipe: GenerationRecipe = {
       prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
       assetType: input.assetType,
+      model: resolveImageModel('flash'),
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
@@ -628,9 +635,12 @@ export class VariantFactory {
     }
 
     // Prepend style description to prompt
-    const styledPrompt = style.description
-      ? `[Style: ${style.description}]\n\n${recipe.prompt}`
-      : recipe.prompt;
+    let styledPrompt = recipe.prompt;
+    if (style.description) {
+      const builder = new PromptBuilder();
+      builder.withStyle(style.description);
+      styledPrompt = builder.build() + '\n\n' + recipe.prompt;
+    }
 
     // Prepend style image keys to source images (style refs come first)
     const combinedSourceImageKeys = [...styleImageKeys, ...sourceImageKeys];

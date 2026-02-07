@@ -50,6 +50,8 @@ export interface GenerationWorkflowInput {
   model?: string;
   /** Aspect ratio */
   aspectRatio?: string;
+  /** Image output size (1K, 2K, 4K) — defaults to '1K' */
+  imageSize?: string;
   /** Source variant ID (for derive - single source edit) */
   sourceVariantId?: string;
   /** Source image R2 keys (resolved from variants) */

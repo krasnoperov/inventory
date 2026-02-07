@@ -21,9 +21,18 @@
  */
 
 import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { NonRetryableError } from 'cloudflare:workflows';
 import type { Env } from '../../core/types';
 import type { GenerationWorkflowInput, GenerationWorkflowOutput, GeneratedVariant } from './types';
-import { NanoBananaService, type GenerationResult, type ImageInput } from '../services/nanoBananaService';
+import {
+  NanoBananaService,
+  GeminiSafetyError,
+  GeminiRecitationError,
+  GeminiRateLimitError,
+  type GenerationResult,
+  type ImageInput,
+  type ImageSize,
+} from '../services/nanoBananaService';
 import {
   detectImageType,
   base64ToBuffer,
@@ -46,6 +55,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       assetName,
       model,
       aspectRatio,
+      imageSize,
       sourceImageKeys,
       operation,
       styleImageKeys,
@@ -123,6 +133,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         const nanoBanana = new NanoBananaService(this.env.GOOGLE_AI_API_KEY);
         const modelToUse = (model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image') || 'gemini-3-pro-image-preview';
         const aspectRatioToUse = (aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9') || '1:1';
+        const imageSizeToUse = (imageSize as ImageSize) || undefined;
 
         // Determine which Gemini API to call based on operation and ref count
         // geminiApi is the actual API method, operation is the user's intent
@@ -151,6 +162,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               prompt,
               model: modelToUse,
               aspectRatio: aspectRatioToUse,
+              imageSize: imageSizeToUse,
             });
           } else if (geminiApi === 'compose') {
             result = await nanoBanana.compose({
@@ -158,29 +170,46 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               prompt,
               model: modelToUse,
               aspectRatio: aspectRatioToUse,
+              imageSize: imageSizeToUse,
             });
           } else {
             result = await nanoBanana.generate({
               prompt,
               model: modelToUse,
               aspectRatio: aspectRatioToUse,
+              imageSize: imageSizeToUse,
             });
           }
-          timer(true, { imageSize: result.imageData?.length || 0, geminiApi });
+          timer(true, { resultSize: result.imageData?.length || 0, geminiApi });
           return result;
         } catch (error) {
           timer(false, { error: error instanceof Error ? error.message : String(error) });
+
+          // Safety and recitation errors should NOT be retried — the prompt itself is the problem
+          if (error instanceof GeminiSafetyError || error instanceof GeminiRecitationError) {
+            throw new NonRetryableError(error.message);
+          }
+
+          // Rate limit errors: add extra delay before the workflow retry kicks in
+          if (error instanceof GeminiRateLimitError) {
+            await new Promise(resolve => setTimeout(resolve, 20_000));
+          }
+
           throw error;
         }
       });
     } catch (error) {
-      log.error('Generation error', { requestId, jobId, spaceId, error: error instanceof Error ? error.message : String(error) });
-      await this.handleFailure(spaceId, jobId, requestId, error instanceof Error ? error.message : 'Generation failed');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isSafetyBlock = errorMessage.includes('Prompt blocked for safety') || errorMessage.includes('content matched existing material');
+      const userMessage = isSafetyBlock ? errorMessage : 'Generation failed';
+
+      log.error('Generation error', { requestId, jobId, spaceId, error: errorMessage, isSafetyBlock });
+      await this.handleFailure(spaceId, jobId, requestId, isSafetyBlock ? errorMessage : (error instanceof Error ? error.message : userMessage));
       return {
         requestId,
         jobId,
         success: false,
-        error: error instanceof Error ? error.message : 'Generation failed',
+        error: isSafetyBlock ? errorMessage : (error instanceof Error ? error.message : userMessage),
       };
     }
 

@@ -313,7 +313,9 @@ export class GenerationController extends BaseController {
       assetId: variant.asset_id,
       assetName: asset.name,
       assetType: recipe.assetType,
+      model: recipe.model,
       aspectRatio: recipe.aspectRatio,
+      imageSize: recipe.imageSize,
       sourceImageKeys: recipe.sourceImageKeys,
       operation: recipe.operation,
     };
