@@ -12,6 +12,7 @@ Technical documentation for Inventory Forge.
 | [design.md](./design.md) | Visual design system and patterns |
 | [billing.md](./billing.md) | Usage-based billing with Polar.sh |
 | [cli.md](./cli.md) | Command-line interface usage |
+| [rotation-and-tiles.md](./rotation-and-tiles.md) | Rotation views and tile set pipelines |
 
 ## Quick Links
 
