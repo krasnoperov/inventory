@@ -162,11 +162,17 @@
 }
 
 .progressBar.warning {
-  background: linear-gradient(90deg, oklch(80% 0.15 90), oklch(85% 0.18 90));
+  background: linear-gradient(90deg,
+    light-dark(oklch(80% 0.15 90), oklch(75% 0.13 90)),
+    light-dark(oklch(85% 0.18 90), oklch(80% 0.15 90))
+  );
 }
 
 .progressBar.critical {
-  background: linear-gradient(90deg, oklch(70% 0.18 50), oklch(75% 0.16 50));
+  background: linear-gradient(90deg,
+    light-dark(oklch(70% 0.18 50), oklch(65% 0.15 50)),
+    light-dark(oklch(75% 0.16 50), oklch(70% 0.14 50))
+  );
 }
 
 .progressBar.exceeded {
@@ -194,13 +200,13 @@
 }
 
 .statusBadge.warning {
-  background: oklch(80% 0.15 90 / 0.15);
-  color: oklch(60% 0.12 85);
+  background: light-dark(oklch(80% 0.15 90 / 0.15), oklch(75% 0.13 90 / 0.2));
+  color: light-dark(oklch(60% 0.12 85), oklch(80% 0.15 90));
 }
 
 .statusBadge.critical {
-  background: oklch(70% 0.18 50 / 0.15);
-  color: oklch(60% 0.16 50);
+  background: light-dark(oklch(70% 0.18 50 / 0.15), oklch(65% 0.15 50 / 0.2));
+  color: light-dark(oklch(60% 0.16 50), oklch(75% 0.16 50));
 }
 
 .statusBadge.exceeded {

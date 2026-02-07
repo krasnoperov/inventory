@@ -100,7 +100,7 @@
   color: var(--color-success);
   padding: 0.125rem 0.375rem;
   border-radius: var(--radius-xs);
-  background: oklch(70% 0.2 145 / 0.1);
+  background: var(--color-status-completed-bg);
 }
 
 .liveIndicator::before {

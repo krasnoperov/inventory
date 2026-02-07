@@ -193,7 +193,7 @@
 .textArea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px oklch(55% 0.18 276 / 0.15);
+  box-shadow: var(--focus-ring);
 }
 
 .inputHint {
@@ -317,6 +317,63 @@
   object-fit: cover;
   position: absolute;
   inset: 0;
+}
+
+/* Error section */
+.errorSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+
+.errorIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: oklch(from var(--color-error) l c h / 0.12);
+  color: var(--color-error);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.errorMessage {
+  font-size: 0.875rem;
+  color: var(--color-error);
+  line-height: 1.5;
+  max-width: 360px;
+}
+
+.errorHint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* No Style Checkbox */
+.noStyleCheck {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.noStyleCheck input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.noStyleCheck:hover {
+  color: var(--color-text);
 }
 
 @media (max-width: 768px) {

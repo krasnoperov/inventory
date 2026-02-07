@@ -35,8 +35,10 @@
 .authButton {
   padding: 0.5rem 1rem;
   border-radius: var(--radius-md);
-  background: var(--color-primary);
-  color: white;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  border: var(--button-primary-border);
+  box-shadow: var(--button-primary-shadow);
   text-decoration: none;
   font-weight: 600;
   cursor: pointer;
@@ -44,7 +46,7 @@
 }
 
 .authButton:hover {
-  background: var(--color-primary-hover);
+  background: var(--button-primary-bg-hover);
   transform: translateY(-1px);
 }
 
@@ -67,9 +69,10 @@
 .createButton {
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-md);
-  background: var(--color-primary);
-  color: white;
-  border: none;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  border: var(--button-primary-border);
+  box-shadow: var(--button-primary-shadow);
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
@@ -78,7 +81,7 @@
 }
 
 .createButton:hover {
-  background: var(--color-primary-hover);
+  background: var(--button-primary-bg-hover);
   transform: translateY(-1px);
 }
 
@@ -120,9 +123,10 @@
 .emptyCreateButton {
   padding: 0.875rem 2rem;
   border-radius: var(--radius-md);
-  background: var(--color-primary);
-  color: white;
-  border: none;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  border: var(--button-primary-border);
+  box-shadow: var(--button-primary-shadow);
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
@@ -130,7 +134,7 @@
 }
 
 .emptyCreateButton:hover {
-  background: var(--color-primary-hover);
+  background: var(--button-primary-bg-hover);
   transform: translateY(-1px);
 }
 
@@ -228,7 +232,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: oklch(0% 0 0 / 0.6);
+  background: oklch(0% 0 0 / 0.5);
   backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;

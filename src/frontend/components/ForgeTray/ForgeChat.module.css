@@ -267,7 +267,7 @@
 
 .input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px oklch(55% 0.18 276 / 0.15);
+  box-shadow: var(--focus-ring);
 }
 
 .input::placeholder {
@@ -439,11 +439,11 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 0.875rem;
-  background: oklch(60% 0.2 25 / 0.1);
-  border: 1px solid oklch(60% 0.2 25 / 0.3);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-error);
   border-radius: var(--radius-md);
   font-size: 0.8125rem;
-  color: oklch(50% 0.2 25);
+  color: var(--color-error);
   align-self: stretch;
 }
 

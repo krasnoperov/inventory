@@ -109,7 +109,7 @@
 .searchInput:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px oklch(55% 0.18 276 / 0.15);
+  box-shadow: var(--focus-ring);
 }
 
 .typeFilter {
