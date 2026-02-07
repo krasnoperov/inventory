@@ -8,7 +8,6 @@
 
 import type {
   RotationConfig,
-  RotationView,
   WebSocketMeta,
 } from '../types';
 import { ROTATION_DIRECTIONS } from '../types';
@@ -16,6 +15,7 @@ import type { GenerationWorkflowInput } from '../../../workflows/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { INCREMENT_REF_SQL } from '../variant/imageRefs';
 import { capRefs, getStyleImageKeys } from '../generation/refLimits';
+import { PromptBuilder } from '../generation/PromptBuilder';
 import { loggers } from '../../../../shared/logger';
 
 const log = loggers.rotationController;
@@ -219,21 +219,12 @@ export class RotationController extends BaseController {
       || (await this.repo.getAssetById(set.asset_id))?.name
       || 'the subject';
 
-    let prompt = '';
+    const builder = new PromptBuilder();
     if (styleDescription) {
-      prompt += `[Style: ${styleDescription}]\n\n`;
+      builder.withStyle(styleDescription);
     }
-    prompt += `You are creating a consistent multi-view character reference sheet.\n`;
-    prompt += `The reference images show the same subject from previously generated angles.\n`;
-    for (let i = 0; i < completedViews.length; i++) {
-      prompt += `Image ${i + 1}: ${subject} ${completedViews[i].direction} view\n`;
-    }
-    prompt += `\nGenerate: Show the EXACT SAME ${subject} from the ${direction} view.\n`;
-    prompt += `- Maintain identical design, proportions, colors, clothing, and style\n`;
-    prompt += `- Keep the same level of detail and artistic rendering\n`;
-    prompt += `- Neutral standing/display pose\n`;
-    prompt += `- Plain background\n`;
-    prompt += `- Match the exact art style of all reference images`;
+    builder.withRotationContext(completedViews, direction, subject);
+    const prompt = builder.build();
 
     // Create placeholder variant
     const variantId = crypto.randomUUID();

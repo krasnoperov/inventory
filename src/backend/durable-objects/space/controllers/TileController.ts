@@ -8,7 +8,6 @@
 
 import type {
   TileType,
-  TilePosition,
   WebSocketMeta,
 } from '../types';
 import type { GenerationWorkflowInput } from '../../../workflows/types';
@@ -16,6 +15,7 @@ import { BaseController, type ControllerContext, NotFoundError, ValidationError 
 import { INCREMENT_REF_SQL } from '../variant/imageRefs';
 import { capRefs, getStyleImageKeys } from '../generation/refLimits';
 import { getSpiralOrder } from '../generation/spiralOrder';
+import { PromptBuilder } from '../generation/PromptBuilder';
 import { loggers } from '../../../../shared/logger';
 
 const log = loggers.tileController;
@@ -254,26 +254,14 @@ export class TileController extends BaseController {
     const cappedKeys = capRefs(styleKeys, adjacentKeys, adjacentKeys[0] || '');
 
     // Build adjacency-aware prompt
-    let prompt = '';
+    const builder = new PromptBuilder();
     if (styleDescription) {
-      prompt += `[Style: ${styleDescription}]\n\n`;
+      builder.withStyle(styleDescription);
     }
-    prompt += `Create an isometric ${set.tile_type} game tile for a seamless tile map.\n`;
-    prompt += `Theme: ${config.prompt}\n\n`;
-
-    if (adjacents.length > 0) {
-      prompt += `The following reference images are adjacent tiles that this new tile must connect to seamlessly:\n`;
-      for (let i = 0; i < adjacents.length; i++) {
-        prompt += `Image ${i + 1}: tile to the ${adjacents[i].direction}\n`;
-      }
-      prompt += `\nCRITICAL: The edges facing these adjacent tiles must match perfectly — same ground level, same terrain features, same color palette at the boundary. The transition should be invisible.\n\n`;
-    } else {
-      prompt += `This is the seed tile. It should have edges that are designed to be extended in all four cardinal directions.\n\n`;
-    }
-
-    prompt += `- Consistent isometric perspective (standard 2:1 ratio)\n`;
-    prompt += `- Clean edges suitable for seamless tiling\n`;
-    prompt += `- ${set.tile_type}-appropriate content`;
+    builder
+      .withTileContext(adjacents, set.tile_type as TileType)
+      .withTheme(config.prompt);
+    const prompt = builder.build();
 
     // Create placeholder variant
     const variantId = crypto.randomUUID();
