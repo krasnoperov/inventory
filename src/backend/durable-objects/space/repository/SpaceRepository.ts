@@ -81,6 +81,7 @@ export interface SpaceState {
   rotationViews: RotationView[];
   tileSets: TileSet[];
   tilePositions: TilePosition[];
+  style: SpaceStyle | null;
 }
 
 /** Asset with variant count for bot context */
@@ -668,7 +669,7 @@ export class SpaceRepository {
   // ==========================================================================
 
   async getFullState(): Promise<SpaceState> {
-    const [assets, variants, lineage, rotationSets, rotationViews, tileSets, tilePositions] = await Promise.all([
+    const [assets, variants, lineage, rotationSets, rotationViews, tileSets, tilePositions, style] = await Promise.all([
       this.getAllAssets(),
       this.getAllVariants(),
       this.getAllLineage(),
@@ -676,8 +677,9 @@ export class SpaceRepository {
       this.getAllRotationViews(),
       this.getAllTileSets(),
       this.getAllTilePositions(),
+      this.getActiveStyle(),
     ]);
-    return { assets, variants, lineage, rotationSets, rotationViews, tileSets, tilePositions };
+    return { assets, variants, lineage, rotationSets, rotationViews, tileSets, tilePositions, style };
   }
 
   // ==========================================================================

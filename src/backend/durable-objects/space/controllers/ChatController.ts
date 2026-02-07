@@ -298,6 +298,14 @@ export class ChatController extends BaseController {
         variantDescriptions.push(...cached);
       }
 
+      // Fetch active style for context
+      const activeStyle = await this.repo.getActiveStyle();
+      const styleContext = activeStyle ? {
+        description: activeStyle.description,
+        imageCount: JSON.parse(activeStyle.image_keys || '[]').length,
+        enabled: activeStyle.enabled === 1,
+      } : undefined;
+
       // Call Claude with all context
       const currentPrompt = msg.forgeContext?.prompt ?? '';
       const result = await claudeService.forgeChat(
@@ -305,7 +313,8 @@ export class ChatController extends BaseController {
         currentPrompt,
         variantDescriptions,
         conversationHistory,
-        images
+        images,
+        styleContext
       );
 
       // Store bot response

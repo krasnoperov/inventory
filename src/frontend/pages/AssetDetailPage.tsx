@@ -158,7 +158,7 @@ export default function AssetDetailPage() {
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
-      sendStyleGet();
+      // Style is now included in sync:state, no need for separate sendStyleGet()
     },
     onDisconnect: () => {
       // Reset chat loading states on disconnect

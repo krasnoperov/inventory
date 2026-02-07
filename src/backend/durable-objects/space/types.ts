@@ -405,7 +405,7 @@ export type ClientMessage =
  */
 export type ServerMessage =
   // Sync (full state)
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null }
   // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
   // Consider implementing for WebSocket reconnection state recovery.
   // | { type: 'sync:chat_state'; messages: ChatMessage[]; plan: Plan | null; planSteps: PlanStep[]; approvals: PendingApproval[]; autoExecuted: AutoExecuted[] }

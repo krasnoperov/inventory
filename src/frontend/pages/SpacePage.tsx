@@ -22,6 +22,7 @@ import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
+import { StylePanel } from '../components/ForgeTray/StylePanel';
 import styles from './SpacePage.module.css';
 
 interface Space {
@@ -131,7 +132,7 @@ export default function SpacePage() {
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
-      sendStyleGet();
+      // Style is now included in sync:state, no need for separate sendStyleGet()
       // Sync session: user is viewing space overview (no specific asset)
       updateSession({ viewingAssetId: null, viewingVariantId: null });
     },
@@ -207,6 +208,10 @@ export default function SpacePage() {
 
   // Tile Set panel state
   const [showTileSetPanel, setShowTileSetPanel] = useState(false);
+
+  // Style panel state
+  const [showStylePanel, setShowStylePanel] = useState(false);
+  const currentStyle = useStyleStore((s) => s.style);
 
   // Layout algorithm state
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('dagre');
@@ -532,6 +537,18 @@ export default function SpacePage() {
                   <rect x="13" y="13" width="8" height="8" rx="1" />
                 </svg>
               </button>
+              <button
+                className={`${styles.toolButton} ${currentStyle?.enabled ? styles.styleActive : ''}`}
+                onClick={() => setShowStylePanel(v => !v)}
+                title={currentStyle?.enabled ? `Style: ${currentStyle.description}` : 'Configure space style'}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.8-.1 2.6-.4.5-.2.8-.7.7-1.2-.1-.4-.3-.7-.6-.9-.4-.3-.6-.8-.6-1.3 0-1 .8-1.8 1.8-1.8h2.1c3 0 5.5-2.5 5.5-5.5C23.5 5.5 18.5 2 12 2z" />
+                  <circle cx="8" cy="10" r="1.5" fill="currentColor" stroke="none" />
+                  <circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none" />
+                  <circle cx="16" cy="10" r="1.5" fill="currentColor" stroke="none" />
+                </svg>
+              </button>
             </>
           )}
         </div>
@@ -610,6 +627,19 @@ export default function SpacePage() {
           }}
           onClose={() => setShowTileSetPanel(false)}
         />
+      )}
+
+      {/* Style Panel - floating panel from toolbar */}
+      {showStylePanel && spaceId && (
+        <div className={styles.stylePanelContainer}>
+          <StylePanel
+            spaceId={spaceId}
+            onClose={() => setShowStylePanel(false)}
+            sendStyleSet={sendStyleSet}
+            sendStyleDelete={sendStyleDelete}
+            sendStyleToggle={sendStyleToggle}
+          />
+        </div>
       )}
     </div>
   );

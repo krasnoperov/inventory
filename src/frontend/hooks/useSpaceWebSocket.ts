@@ -550,7 +550,7 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -1245,6 +1245,10 @@ export function useSpaceWebSocket({
                 setRotationViews(message.rotationViews || []);
                 setTileSets(message.tileSets || []);
                 setTilePositions(message.tilePositions || []);
+                // Handle style included in sync:state
+                if (message.style !== undefined) {
+                  onStyleStateRef.current?.(message.style ?? null);
+                }
                 setError(null);
                 break;
 
