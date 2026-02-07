@@ -1,5 +1,6 @@
 import { inject, injectable } from 'inversify';
 import { Context } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { AuthController } from './auth-controller';
 import { AuthService } from './auth-service';
 import { createAuthCookie, clearAuthCookie, getAuthToken } from '../../auth';
@@ -258,7 +259,7 @@ export class AuthHandler {
     return c.json({ redirectUrl: callbackUrl.toString() });
   }
 
-  private renderErrorPage(c: Context, title: string, message: string, status: number): Response {
+  private renderErrorPage(c: Context, title: string, message: string, status: ContentfulStatusCode): Response {
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
