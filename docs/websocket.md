@@ -79,8 +79,9 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 | `chat:request` | `requestId`, `message`, `mode: 'advisor'|'actor'`, `forgeContext?`, `viewingContext?` | Send chat message (triggers ChatWorkflow) |
 | `chat:history` | `since?` | Request chat history |
 | `chat:new_session` | - | Start new chat session |
-| `generate:request` | `requestId`, `name`, `assetType`, `prompt?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?` | Generate new asset (triggers GenerationWorkflow) |
-| `refine:request` | `requestId`, `assetId`, `prompt`, `sourceVariantId?`, `sourceVariantIds?`, `aspectRatio?`, `referenceAssetIds?` | Refine existing asset |
+| `generate:request` | `requestId`, `name`, `assetType`, `prompt?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Generate new asset (triggers GenerationWorkflow) |
+| `refine:request` | `requestId`, `assetId`, `prompt`, `sourceVariantId?`, `sourceVariantIds?`, `aspectRatio?`, `referenceAssetIds?`, `disableStyle?` | Refine existing asset |
+| `batch:request` | `requestId`, `name`, `assetType`, `prompt`, `count`, `mode: 'explore'\|'set'`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Batch generate (see [style-and-batch.md](./style-and-batch.md)) |
 | `describe:request` | `requestId`, `variantId`, `assetName`, `focus?`, `question?` | Describe image with Claude Vision |
 | `compare:request` | `requestId`, `variantIds`, `aspects?` | Compare images with Claude Vision |
 
@@ -103,6 +104,15 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 | `approval:approve` | `approvalId` | Approve pending tool call |
 | `approval:reject` | `approvalId` | Reject pending tool call |
 | `approval:list` | - | List pending approvals |
+
+### Style
+
+| Message | Fields | Description |
+|---------|--------|-------------|
+| `style:get` | — | Request current style |
+| `style:set` | `description`, `imageKeys[]`, `name?`, `enabled?` | Create or update style |
+| `style:delete` | — | Delete style |
+| `style:toggle` | `enabled: boolean` | Enable/disable style |
 
 ### Session
 
@@ -179,6 +189,16 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 | `refine:started` | `requestId`, `jobId`, `assetId`, `assetName` | Refinement started |
 | `refine:result` | `requestId`, `jobId`, `success`, `variant?`, `error?` | Refinement result |
 | `refine:error` | `requestId`, `error`, `code` | Refinement pre-check error |
+| `batch:started` | `requestId`, `batchId`, `results[]` | Batch generation started |
+| `batch:error` | `requestId`, `error`, `code` | Batch pre-check error |
+
+### Style
+
+| Message | Fields | Description |
+|---------|--------|-------------|
+| `style:state` | `style` (or null) | Current style (unicast to requester) |
+| `style:updated` | `style` | Style created/updated (broadcast) |
+| `style:deleted` | — | Style deleted (broadcast) |
 
 ### Vision
 
