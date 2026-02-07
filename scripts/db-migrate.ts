@@ -21,8 +21,8 @@ type Environment = keyof typeof ENVIRONMENTS;
 function migrate(env: Environment, remote: boolean = false) {
   const dbName = ENVIRONMENTS[env];
   const configFile = env === 'local' ? 'wrangler.dev.toml' : 'wrangler.toml';
-  const envFlag = env === 'local' ? '' : `--env ${env}`;
-  const localFlag = remote ? '' : '--local';
+  const envFlag = (env === 'local' || env === 'stage') ? '' : `--env ${env}`;
+  const localFlag = remote ? '--remote' : '--local';
 
   const command = `npx wrangler d1 migrations apply ${dbName} ${envFlag} ${localFlag} --config ${configFile}`.replace(/\s+/g, ' ').trim();
 

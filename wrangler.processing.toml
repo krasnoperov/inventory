@@ -23,7 +23,7 @@ custom_domain = true
 [[d1_databases]]
 binding = "DB"
 database_name = "inventory-stage"
-database_id = "fe3cb23a-2286-4a10-a21b-217fb0be999d"
+database_id = "6619b429-e8e8-4e93-9f36-b2bdeab78a9a"
 migrations_dir = "db/migrations"
 
 # KV namespace for OAuth state (same as main worker)
@@ -68,7 +68,7 @@ custom_domain = true
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "inventory-production"
-database_id = "239df1be-1499-4d03-80bf-7341545b4547"
+database_id = "16597a9f-efd7-4b61-b62f-8962da51b782"
 migrations_dir = "db/migrations"
 
 # KV namespace for OAuth state - Production (same as main worker)
