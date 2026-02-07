@@ -6,6 +6,7 @@ import type {
   Variant,
   TileSetRequestParams,
 } from '../../hooks/useSpaceWebSocket';
+import { useStyleStore } from '../../stores/styleStore';
 import styles from './TileSetPanel.module.css';
 
 const TILE_TYPES: { value: TileType; label: string; icon: string }[] = [
@@ -37,9 +38,32 @@ export function TileSetPanel({
   const [tileType, setTileType] = useState<TileType>('terrain');
   const [gridSize, setGridSize] = useState(3);
   const [prompt, setPrompt] = useState('');
+  const [disableStyle, setDisableStyle] = useState(false);
+  const [dismissedFailedSetId, setDismissedFailedSetId] = useState<string | null>(null);
+  const style = useStyleStore((s) => s.style);
 
   // Check for active tile sets
   const activeSet = tileSets.find((ts) => ts.status === 'generating');
+
+  // Check for failed sets (most recent first)
+  const failedSet = [...tileSets].reverse().find(
+    (ts) => ts.status === 'failed' && ts.id !== dismissedFailedSetId
+  );
+
+  // Pre-fill form state from the failed set so "Try Again" works
+  useEffect(() => {
+    if (!failedSet) return;
+    setTileType(failedSet.tile_type);
+    setGridSize(failedSet.grid_width);
+    try {
+      const parsed = JSON.parse(failedSet.config) as {
+        prompt?: string;
+        disableStyle?: boolean;
+      };
+      if (parsed.prompt) setPrompt(parsed.prompt);
+      if (parsed.disableStyle) setDisableStyle(true);
+    } catch { /* ignore malformed config */ }
+  }, [failedSet?.id]);
 
   // Close on Escape
   useEffect(() => {
@@ -64,8 +88,9 @@ export function TileSetPanel({
       gridWidth: gridSize,
       gridHeight: gridSize,
       prompt: prompt.trim(),
+      disableStyle: disableStyle || undefined,
     });
-  }, [onSubmit, tileType, gridSize, prompt]);
+  }, [onSubmit, tileType, gridSize, prompt, disableStyle]);
 
   // Progress view for active tile set
   if (activeSet) {
@@ -140,6 +165,57 @@ export function TileSetPanel({
     );
   }
 
+  // Error view for failed tile set
+  if (failedSet) {
+    const positions = tilePositions.filter((tp) => tp.tile_set_id === failedSet.id);
+    const completedCount = positions.filter((p) => {
+      const variant = variants.find((v) => v.id === p.variant_id);
+      return variant?.status === 'completed';
+    }).length;
+
+    return (
+      <div className={styles.backdrop} onClick={handleBackdropClick}>
+        <div className={styles.modal}>
+          <div className={styles.header}>
+            <h2 className={styles.title}>Tile Set Failed</h2>
+            <button className={styles.closeButton} onClick={onClose}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div className={styles.content}>
+            <div className={styles.errorSection}>
+              <div className={styles.errorIcon}>!</div>
+              <div className={styles.errorMessage}>
+                {failedSet.error_message || 'An error occurred during tile set generation.'}
+              </div>
+              <div className={styles.errorHint}>
+                {completedCount} of {failedSet.total_steps} tiles completed before failure.
+              </div>
+            </div>
+          </div>
+          <div className={styles.footer}>
+            <button
+              className={styles.cancelButton}
+              onClick={() => setDismissedFailedSetId(failedSet.id)}
+            >
+              Configure New
+            </button>
+            <button
+              className={styles.startButton}
+              onClick={handleStart}
+              disabled={!prompt.trim()}
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Setup view
   return (
     <div className={styles.backdrop} onClick={handleBackdropClick}>
@@ -202,6 +278,18 @@ export function TileSetPanel({
               Describe the overall theme. Each tile will be generated with adjacency context.
             </span>
           </div>
+
+          {/* No style checkbox */}
+          {style?.enabled && (
+            <label className={styles.noStyleCheck}>
+              <input
+                type="checkbox"
+                checked={disableStyle}
+                onChange={(e) => setDisableStyle(e.target.checked)}
+              />
+              <span>No style</span>
+            </label>
+          )}
         </div>
 
         <div className={styles.footer}>

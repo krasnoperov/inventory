@@ -32,12 +32,23 @@ export function TileGrid({
         <span className={styles.gridTitle}>
           {tileSet.tile_type} &middot; {tileSet.grid_width}x{tileSet.grid_height}
         </span>
-        <span className={styles.gridInfo}>
+        <span className={tileSet.status === 'failed' ? styles.gridInfoFailed : styles.gridInfo}>
           {tileSet.status === 'generating'
             ? `${tileSet.current_step}/${tileSet.total_steps} tiles`
-            : tileSet.status}
+            : tileSet.status === 'failed'
+              ? 'Failed'
+              : tileSet.status === 'completed'
+                ? 'Completed'
+                : tileSet.status === 'cancelled'
+                  ? 'Cancelled'
+                  : tileSet.status === 'pending'
+                    ? 'Pending'
+                    : tileSet.status}
         </span>
       </div>
+      {tileSet.status === 'failed' && tileSet.error_message && (
+        <div className={styles.errorBanner}>{tileSet.error_message}</div>
+      )}
       <div
         className={styles.grid}
         style={{ gridTemplateColumns: `repeat(${tileSet.grid_width}, 1fr)` }}

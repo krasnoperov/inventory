@@ -7,12 +7,13 @@ import type {
   RotationView,
   RotationRequestParams,
 } from '../../hooks/useSpaceWebSocket';
+import { useStyleStore } from '../../stores/styleStore';
 import styles from './RotationPanel.module.css';
 
 const CONFIGS: { value: RotationConfig; label: string; icon: string; count: number }[] = [
   { value: '4-directional', label: '4-Dir', icon: '???', count: 4 },
   { value: '8-directional', label: '8-Dir', icon: '???', count: 8 },
-  { value: 'turnaround', label: 'Turnaround', icon: '????', count: 24 },
+  { value: 'turnaround', label: 'Turnaround', icon: '????', count: 5 },
 ];
 
 interface RotationPanelProps {
@@ -40,11 +41,38 @@ export function RotationPanel({
   const [subjectDescription, setSubjectDescription] = useState(
     sourceVariant.description || sourceAsset.name
   );
+  const [disableStyle, setDisableStyle] = useState(false);
+  const [dismissedFailedSetId, setDismissedFailedSetId] = useState<string | null>(null);
+  const style = useStyleStore((s) => s.style);
 
   // Check if there's an active rotation set for this variant
   const activeSet = rotationSets.find(
     (rs) => rs.source_variant_id === sourceVariant.id && rs.status === 'generating'
   );
+
+  // Check for failed/completed sets (most recent first)
+  const failedSet = [...rotationSets].reverse().find(
+    (rs) => rs.source_variant_id === sourceVariant.id && rs.status === 'failed' && rs.id !== dismissedFailedSetId
+  );
+  const completedSet = [...rotationSets].reverse().find(
+    (rs) => rs.source_variant_id === sourceVariant.id && rs.status === 'completed'
+  );
+
+  // Pre-fill config from the most relevant existing set (failed > completed)
+  const prefillSet = failedSet || completedSet;
+  useEffect(() => {
+    if (!prefillSet) return;
+    try {
+      const parsed = JSON.parse(prefillSet.config) as {
+        type?: RotationConfig;
+        subjectDescription?: string;
+        disableStyle?: boolean;
+      };
+      if (parsed.type) setConfig(parsed.type);
+      if (parsed.subjectDescription) setSubjectDescription(parsed.subjectDescription);
+      if (parsed.disableStyle) setDisableStyle(true);
+    } catch { /* ignore malformed config */ }
+  }, [prefillSet?.id]);
 
   // Close on Escape
   useEffect(() => {
@@ -67,8 +95,9 @@ export function RotationPanel({
       sourceVariantId: sourceVariant.id,
       config,
       subjectDescription: subjectDescription || undefined,
+      disableStyle: disableStyle || undefined,
     });
-  }, [onSubmit, sourceVariant.id, config, subjectDescription]);
+  }, [onSubmit, sourceVariant.id, config, subjectDescription, disableStyle]);
 
   const thumbUrl = sourceVariant.image_key
     ? `/api/images/${sourceVariant.thumb_key || sourceVariant.image_key}`
@@ -138,6 +167,109 @@ export function RotationPanel({
     );
   }
 
+  // Error view for failed rotation
+  if (failedSet) {
+    const views = rotationViews.filter((rv) => rv.rotation_set_id === failedSet.id);
+    const completedViewCount = views.filter((v) => {
+      const variant = variants.find((vr) => vr.id === v.variant_id);
+      return variant?.status === 'completed';
+    }).length;
+
+    return (
+      <div className={styles.backdrop} onClick={handleBackdropClick}>
+        <div className={styles.modal}>
+          <div className={styles.header}>
+            <h2 className={styles.title}>Rotation Failed</h2>
+            <button className={styles.closeButton} onClick={onClose}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div className={styles.content}>
+            <div className={styles.errorSection}>
+              <div className={styles.errorIcon}>!</div>
+              <div className={styles.errorMessage}>
+                {failedSet.error_message || 'An error occurred during rotation generation.'}
+              </div>
+              <div className={styles.errorHint}>
+                {completedViewCount} of {failedSet.total_steps} views completed before failure.
+              </div>
+            </div>
+          </div>
+          <div className={styles.footer}>
+            <button
+              className={styles.cancelButton}
+              onClick={() => setDismissedFailedSetId(failedSet.id)}
+            >
+              Configure New
+            </button>
+            <button
+              className={styles.startButton}
+              onClick={handleStart}
+              disabled={!sourceVariant.image_key}
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Completed view
+  if (completedSet) {
+    const views = rotationViews.filter((rv) => rv.rotation_set_id === completedSet.id);
+    return (
+      <div className={styles.backdrop} onClick={handleBackdropClick}>
+        <div className={styles.modal}>
+          <div className={styles.header}>
+            <h2 className={styles.title}>Rotation Complete</h2>
+            <button className={styles.closeButton} onClick={onClose}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div className={styles.content}>
+            <div className={styles.compassGrid}>
+              {views.map((view) => {
+                const variant = variants.find((v) => v.id === view.variant_id);
+                const viewThumb = variant?.image_key
+                  ? `/api/images/${variant.thumb_key || variant.image_key}`
+                  : undefined;
+
+                return (
+                  <div
+                    key={view.id}
+                    className={`${styles.directionCell} ${styles.completed}`}
+                  >
+                    {viewThumb && <img src={viewThumb} alt={view.direction} className={styles.directionThumb} />}
+                    <span className={styles.directionLabel}>{view.direction}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className={styles.footer}>
+            <button className={styles.cancelButton} onClick={onClose}>
+              Close
+            </button>
+            <button
+              className={styles.startButton}
+              onClick={handleStart}
+              disabled={!sourceVariant.image_key}
+            >
+              Generate New Set
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Setup view
   return (
     <div className={styles.backdrop} onClick={handleBackdropClick}>
@@ -198,6 +330,18 @@ export function RotationPanel({
               Helps the AI maintain consistency across views
             </span>
           </div>
+
+          {/* No style checkbox */}
+          {style?.enabled && (
+            <label className={styles.noStyleCheck}>
+              <input
+                type="checkbox"
+                checked={disableStyle}
+                onChange={(e) => setDisableStyle(e.target.checked)}
+              />
+              <span>No style</span>
+            </label>
+          )}
         </div>
 
         <div className={styles.footer}>
