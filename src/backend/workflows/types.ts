@@ -64,6 +64,8 @@ export interface GenerationWorkflowInput {
   styleDescription?: string;
   /** Style reference image R2 keys (prepended to source images) */
   styleImageKeys?: string[];
+  /** Model provider to use ('gemini' or 'custom'). Defaults to 'gemini'. */
+  modelProvider?: 'gemini' | 'custom';
 }
 
 /** Variant data returned after generation */

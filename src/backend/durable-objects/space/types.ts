@@ -84,6 +84,8 @@ export interface Variant {
   plan_step_id: string | null; // If this variant was created by a plan step
   description: string | null; // Cached AI-generated description for vision-aware enhancement
   batch_id: string | null; // Batch generation group ID
+  quality_rating: 'approved' | 'rejected' | null; // Curation rating for training data
+  rated_at: number | null; // Timestamp of rating
 }
 
 /**
@@ -179,12 +181,15 @@ export interface TileSet {
   updated_at: number;
 }
 
+export type TilePositionStatus = 'pending' | 'generating' | 'completed' | 'failed';
+
 export interface TilePosition {
   id: string;
   tile_set_id: string;
   variant_id: string;
   grid_x: number;
   grid_y: number;
+  status: TilePositionStatus;
   created_at: number;
 }
 
@@ -390,11 +395,16 @@ export type ClientMessage =
   // Batch generation messages
   | BatchRequestMessage
   // Rotation pipeline messages
-  | { type: 'rotation:request'; requestId: string; sourceVariantId: string; config: RotationConfig; subjectDescription?: string; aspectRatio?: string; disableStyle?: boolean }
+  | { type: 'rotation:request'; requestId: string; sourceVariantId: string; config: RotationConfig; subjectDescription?: string; aspectRatio?: string; disableStyle?: boolean; generationMode?: 'sequential' | 'single-shot' }
   | { type: 'rotation:cancel'; rotationSetId: string }
   // Tile pipeline messages
-  | { type: 'tileset:request'; requestId: string; tileType: TileType; gridWidth: number; gridHeight: number; prompt: string; seedVariantId?: string; aspectRatio?: string; disableStyle?: boolean }
-  | { type: 'tileset:cancel'; tileSetId: string };
+  | { type: 'tileset:request'; requestId: string; tileType: TileType; gridWidth: number; gridHeight: number; prompt: string; seedVariantId?: string; aspectRatio?: string; disableStyle?: boolean; generationMode?: 'sequential' | 'single-shot' }
+  | { type: 'tileset:cancel'; tileSetId: string }
+  | { type: 'tileset:retry_tile'; tileSetId: string; gridX: number; gridY: number }
+  | { type: 'tileset:refine_edges'; tileSetId: string }
+  | { type: 'tileset:refine_tile'; tileSetId: string; gridX: number; gridY: number }
+  // Variant quality rating
+  | { type: 'variant:rate'; variantId: string; rating: 'approved' | 'rejected' };
 
 // ============================================================================
 // Message Types (Server → Client)
@@ -486,6 +496,7 @@ export type ServerMessage =
   // Tile pipeline responses
   | { type: 'tileset:started'; requestId: string; tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalTiles: number }
   | { type: 'tileset:tile_completed'; tileSetId: string; variantId: string; gridX: number; gridY: number; step: number; total: number }
+  | { type: 'tileset:tile_failed'; tileSetId: string; variantId: string; gridX: number; gridY: number; error: string }
   | { type: 'tileset:completed'; tileSetId: string; positions: TilePosition[] }
   | { type: 'tileset:failed'; tileSetId: string; error: string; failedStep: number }
   | { type: 'tileset:cancelled'; tileSetId: string };

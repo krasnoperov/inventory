@@ -31,6 +31,8 @@ export interface Variant {
   created_at: number;
   updated_at: number | null;  // Track status changes
   description: string | null;  // Cached AI-generated description for vision-aware enhancement
+  quality_rating?: 'approved' | 'rejected' | null;  // Curation rating for training data
+  rated_at?: number | null;  // Timestamp of rating
 }
 
 /**
@@ -123,6 +125,7 @@ export interface TilePosition {
   variant_id: string;
   grid_x: number;
   grid_y: number;
+  status?: 'pending' | 'generating' | 'completed' | 'failed';
   created_at: number;
 }
 
@@ -144,6 +147,11 @@ export interface TileSetRequestParams {
   seedVariantId?: string;
   aspectRatio?: string;
   disableStyle?: boolean;
+  generationMode?: 'sequential' | 'single-shot';
+}
+
+export interface RotationRequestParamsExtended extends RotationRequestParams {
+  generationMode?: 'sequential' | 'single-shot';
 }
 
 export interface UserPresence {
@@ -718,6 +726,10 @@ export interface UseSpaceWebSocketReturn {
   tilePositions: TilePosition[];
   sendTileSetRequest: (params: TileSetRequestParams) => void;
   sendTileSetCancel: (tileSetId: string) => void;
+  sendRetryTile: (tileSetId: string, gridX: number, gridY: number) => void;
+  sendRefineEdges: (tileSetId: string) => void;
+  sendRefineTile: (tileSetId: string, gridX: number, gridY: number) => void;
+  sendVariantRate: (variantId: string, rating: 'approved' | 'rejected') => void;
 }
 
 /**
@@ -1027,7 +1039,7 @@ export function useSpaceWebSocket({
   }, [sendMessage]);
 
   // Rotation pipeline methods
-  const sendRotationRequest = useCallback((params: RotationRequestParams) => {
+  const sendRotationRequest = useCallback((params: RotationRequestParams & { generationMode?: 'sequential' | 'single-shot' }) => {
     const requestId = crypto.randomUUID();
     sendMessage({
       type: 'rotation:request',
@@ -1037,6 +1049,7 @@ export function useSpaceWebSocket({
       subjectDescription: params.subjectDescription,
       aspectRatio: params.aspectRatio,
       disableStyle: params.disableStyle,
+      generationMode: params.generationMode,
     });
   }, [sendMessage]);
 
@@ -1062,6 +1075,22 @@ export function useSpaceWebSocket({
 
   const sendTileSetCancel = useCallback((tileSetId: string) => {
     sendMessage({ type: 'tileset:cancel', tileSetId });
+  }, [sendMessage]);
+
+  const sendRetryTile = useCallback((tileSetId: string, gridX: number, gridY: number) => {
+    sendMessage({ type: 'tileset:retry_tile', tileSetId, gridX, gridY });
+  }, [sendMessage]);
+
+  const sendRefineEdges = useCallback((tileSetId: string) => {
+    sendMessage({ type: 'tileset:refine_edges', tileSetId });
+  }, [sendMessage]);
+
+  const sendRefineTile = useCallback((tileSetId: string, gridX: number, gridY: number) => {
+    sendMessage({ type: 'tileset:refine_tile', tileSetId, gridX, gridY });
+  }, [sendMessage]);
+
+  const sendVariantRate = useCallback((variantId: string, rating: 'approved' | 'rejected') => {
+    sendMessage({ type: 'variant:rate', variantId, rating });
   }, [sendMessage]);
 
   // Helper methods for hierarchy navigation
@@ -2002,6 +2031,10 @@ export function useSpaceWebSocket({
     tilePositions,
     sendTileSetRequest,
     sendTileSetCancel,
+    sendRetryTile,
+    sendRefineEdges,
+    sendRefineTile,
+    sendVariantRate,
   };
 }
 

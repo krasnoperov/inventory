@@ -109,6 +109,7 @@ export class PromptBuilder {
     const cameraSpec = ROTATION_CAMERA_SPECS[direction];
     const cameraLine = cameraSpec ? ` (${cameraSpec})` : '';
     this.parts.push(`\nGenerate: Show the EXACT SAME ${subject} from the ${direction} view${cameraLine}.`);
+    this.parts.push(`IDENTICAL design: same ${subject}, same proportions, same color palette.`);
     this.parts.push('- Maintain identical design, proportions, colors, clothing, and style');
     this.parts.push('- Keep the same level of detail and artistic rendering');
     this.parts.push('- Neutral standing/display pose');

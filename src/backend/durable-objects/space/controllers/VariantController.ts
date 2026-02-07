@@ -37,6 +37,25 @@ export class VariantController extends BaseController {
   }
 
   /**
+   * Handle variant:rate WebSocket message (approve/reject for quality curation)
+   */
+  async handleRate(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    variantId: string,
+    rating: 'approved' | 'rejected'
+  ): Promise<void> {
+    this.requireEditor(meta);
+
+    const variant = await this.repo.updateVariantRating(variantId, rating);
+    if (!variant) {
+      throw new NotFoundError('Variant not found');
+    }
+
+    this.broadcast({ type: 'variant:updated', variant });
+  }
+
+  /**
    * Handle variant:star WebSocket message
    */
   async handleStar(
@@ -167,6 +186,8 @@ export class VariantController extends BaseController {
       plan_step_id: null,
       description: null, // No cached description for uploaded variants
       batch_id: null,
+      quality_rating: null,
+      rated_at: null,
     };
 
     // Insert placeholder variant
@@ -357,6 +378,8 @@ export class VariantController extends BaseController {
       plan_step_id: null, // This variant is not created by a plan step
       description: null, // No cached description for generated variants
       batch_id: null,
+      quality_rating: null,
+      rated_at: null,
     };
 
     // Insert variant

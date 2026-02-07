@@ -22,9 +22,11 @@ interface RotationPanelProps {
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
   variants: Variant[];
-  onSubmit: (params: RotationRequestParams) => void;
+  onSubmit: (params: RotationRequestParams & { generationMode?: 'sequential' | 'single-shot' }) => void;
   onCancel: (rotationSetId: string) => void;
   onClose: () => void;
+  onRateVariant?: (variantId: string, rating: 'approved' | 'rejected') => void;
+  onExportTrainingData?: () => void;
 }
 
 export function RotationPanel({
@@ -36,12 +38,15 @@ export function RotationPanel({
   onSubmit,
   onCancel,
   onClose,
+  onRateVariant,
+  onExportTrainingData,
 }: RotationPanelProps) {
   const [config, setConfig] = useState<RotationConfig>('4-directional');
   const [subjectDescription, setSubjectDescription] = useState(
     sourceVariant.description || sourceAsset.name
   );
   const [disableStyle, setDisableStyle] = useState(false);
+  const [generationMode, setGenerationMode] = useState<'sequential' | 'single-shot'>('sequential');
   const [dismissedFailedSetId, setDismissedFailedSetId] = useState<string | null>(null);
   const style = useStyleStore((s) => s.style);
 
@@ -96,8 +101,9 @@ export function RotationPanel({
       config,
       subjectDescription: subjectDescription || undefined,
       disableStyle: disableStyle || undefined,
+      generationMode,
     });
-  }, [onSubmit, sourceVariant.id, config, subjectDescription, disableStyle]);
+  }, [onSubmit, sourceVariant.id, config, subjectDescription, disableStyle, generationMode]);
 
   const thumbUrl = sourceVariant.image_key
     ? `/api/images/${sourceVariant.thumb_key || sourceVariant.image_key}`
@@ -240,6 +246,7 @@ export function RotationPanel({
                 const viewThumb = variant?.image_key
                   ? `/api/images/${variant.thumb_key || variant.image_key}`
                   : undefined;
+                const rating = variant?.quality_rating;
 
                 return (
                   <div
@@ -248,6 +255,24 @@ export function RotationPanel({
                   >
                     {viewThumb && <img src={viewThumb} alt={view.direction} className={styles.directionThumb} />}
                     <span className={styles.directionLabel}>{view.direction}</span>
+                    {rating === 'approved' && (
+                      <span className={styles.ratingBadge} data-rating="approved">&#10003;</span>
+                    )}
+                    {rating === 'rejected' && (
+                      <span className={styles.ratingBadge} data-rating="rejected">&#10007;</span>
+                    )}
+                    {onRateVariant && variant && (
+                      <div className={styles.ratingButtons}>
+                        <button
+                          className={`${styles.rateBtn} ${styles.rateBtnApprove}`}
+                          onClick={(e) => { e.stopPropagation(); onRateVariant(variant.id, 'approved'); }}
+                        >&#10003;</button>
+                        <button
+                          className={`${styles.rateBtn} ${styles.rateBtnReject}`}
+                          onClick={(e) => { e.stopPropagation(); onRateVariant(variant.id, 'rejected'); }}
+                        >&#10007;</button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -257,6 +282,11 @@ export function RotationPanel({
             <button className={styles.cancelButton} onClick={onClose}>
               Close
             </button>
+            {onExportTrainingData && (
+              <button className={styles.cancelButton} onClick={onExportTrainingData}>
+                Export Training Data
+              </button>
+            )}
             <button
               className={styles.startButton}
               onClick={handleStart}
@@ -328,6 +358,30 @@ export function RotationPanel({
             />
             <span className={styles.inputHint}>
               Helps the AI maintain consistency across views
+            </span>
+          </div>
+
+          {/* Generation mode toggle */}
+          <div className={styles.inputGroup}>
+            <span className={styles.sectionLabel}>Generation Mode</span>
+            <div className={styles.modeButtons}>
+              <button
+                className={`${styles.modeButton} ${generationMode === 'sequential' ? styles.selected : ''}`}
+                onClick={() => setGenerationMode('sequential')}
+              >
+                Sequential
+              </button>
+              <button
+                className={`${styles.modeButton} ${generationMode === 'single-shot' ? styles.selected : ''}`}
+                onClick={() => setGenerationMode('single-shot')}
+              >
+                Single-Shot
+              </button>
+            </div>
+            <span className={styles.inputHint}>
+              {generationMode === 'sequential'
+                ? 'Generates views one-by-one with reference context (higher consistency).'
+                : 'Generates all views as one sprite sheet then slices (faster, no inter-step drift).'}
             </span>
           </div>
 

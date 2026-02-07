@@ -8,6 +8,11 @@ interface TileGridProps {
   variants: Variant[];
   selectedVariantId?: string;
   onCellClick?: (variantId: string) => void;
+  onRetryTile?: (tileSetId: string, gridX: number, gridY: number) => void;
+  onRefineTile?: (tileSetId: string, gridX: number, gridY: number) => void;
+  onRefineEdges?: (tileSetId: string) => void;
+  onRateVariant?: (variantId: string, rating: 'approved' | 'rejected') => void;
+  onExportTrainingData?: () => void;
 }
 
 export function TileGrid({
@@ -16,6 +21,11 @@ export function TileGrid({
   variants,
   selectedVariantId,
   onCellClick,
+  onRetryTile,
+  onRefineTile,
+  onRefineEdges,
+  onRateVariant,
+  onExportTrainingData,
 }: TileGridProps) {
   const handleCellClick = useCallback(
     (variantId: string | undefined) => {
@@ -25,6 +35,10 @@ export function TileGrid({
   );
 
   const positions = tilePositions.filter((tp) => tp.tile_set_id === tileSet.id);
+  const hasFailedTiles = positions.some((p) => {
+    const variant = variants.find((v) => v.id === p.variant_id);
+    return variant?.status === 'failed';
+  });
 
   return (
     <div className={styles.container}>
@@ -49,6 +63,33 @@ export function TileGrid({
       {tileSet.status === 'failed' && tileSet.error_message && (
         <div className={styles.errorBanner}>{tileSet.error_message}</div>
       )}
+      {/* Action bar for completed sets */}
+      {tileSet.status === 'completed' && (onRefineEdges || onExportTrainingData) && (
+        <div className={styles.actionBar}>
+          {onRefineEdges && (
+            <button
+              className={styles.refineButton}
+              onClick={() => onRefineEdges(tileSet.id)}
+            >
+              Refine Edges
+            </button>
+          )}
+          {onExportTrainingData && (
+            <button
+              className={styles.refineButton}
+              onClick={onExportTrainingData}
+            >
+              Export Training Data
+            </button>
+          )}
+        </div>
+      )}
+      {/* Retry all failed tiles hint */}
+      {hasFailedTiles && tileSet.status !== 'cancelled' && (
+        <div className={styles.failedHint}>
+          Some tiles failed. Click the retry button on failed cells.
+        </div>
+      )}
       <div
         className={styles.grid}
         style={{ gridTemplateColumns: `repeat(${tileSet.grid_width}, 1fr)` }}
@@ -67,6 +108,7 @@ export function TileGrid({
               ? `/api/images/${variant.image_key}`
               : undefined;
             const isSelected = variant?.id === selectedVariantId;
+            const qualityRating = (variant as Variant & { quality_rating?: string })?.quality_rating;
 
             return (
               <div
@@ -75,11 +117,35 @@ export function TileGrid({
                 onClick={() => handleCellClick(variant?.id)}
               >
                 {imageUrl && isCompleted ? (
-                  <img
-                    src={imageUrl}
-                    alt={`Tile ${x},${y}`}
-                    className={styles.cellImage}
-                  />
+                  <>
+                    <img
+                      src={imageUrl}
+                      alt={`Tile ${x},${y}`}
+                      className={styles.cellImage}
+                    />
+                    {/* Quality rating overlay */}
+                    {qualityRating === 'approved' && (
+                      <span className={styles.ratingApproved} title="Approved">&#10003;</span>
+                    )}
+                    {qualityRating === 'rejected' && (
+                      <span className={styles.ratingRejected} title="Rejected">&#10005;</span>
+                    )}
+                    {/* Rating buttons (on hover) */}
+                    {onRateVariant && variant && (
+                      <div className={styles.ratingButtons}>
+                        <button
+                          className={`${styles.rateBtn} ${styles.rateBtnApprove}`}
+                          onClick={(e) => { e.stopPropagation(); onRateVariant(variant.id, 'approved'); }}
+                          title="Approve"
+                        >&#9650;</button>
+                        <button
+                          className={`${styles.rateBtn} ${styles.rateBtnReject}`}
+                          onClick={(e) => { e.stopPropagation(); onRateVariant(variant.id, 'rejected'); }}
+                          title="Reject"
+                        >&#9660;</button>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className={styles.cellEmpty}>
                     {isGenerating && (
@@ -88,9 +154,23 @@ export function TileGrid({
                       </span>
                     )}
                     {isFailed && (
-                      <span className={`${styles.statusBadge} ${styles.failed}`}>
-                        err
-                      </span>
+                      <>
+                        <span className={`${styles.statusBadge} ${styles.failed}`}>
+                          err
+                        </span>
+                        {onRetryTile && (
+                          <button
+                            className={styles.retryButton}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRetryTile(tileSet.id, x, y);
+                            }}
+                            title="Retry this tile"
+                          >
+                            Retry
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

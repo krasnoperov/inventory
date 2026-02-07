@@ -210,6 +210,38 @@
   color: var(--color-text-muted);
 }
 
+/* Mode toggle buttons */
+.modeButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.modeButton {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modeButton:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+.modeButton.selected {
+  border-color: var(--color-primary);
+  background: oklch(55% 0.18 276 / 0.08);
+  color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+  font-weight: 600;
+}
+
 /* Footer */
 .footer {
   display: flex;
@@ -398,6 +430,75 @@
 
 .noStyleCheck:hover {
   color: var(--color-text);
+}
+
+/* Rating badges */
+.ratingBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ratingBadge[data-rating="approved"] {
+  background: oklch(65% 0.2 145 / 0.9);
+}
+
+.ratingBadge[data-rating="rejected"] {
+  background: oklch(55% 0.2 25 / 0.9);
+}
+
+/* Rating buttons (visible on hover) */
+.ratingButtons {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 3;
+}
+
+.directionCell:hover .ratingButtons {
+  opacity: 1;
+}
+
+.rateBtn {
+  width: 20px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.5rem;
+  color: white;
+  padding: 0;
+}
+
+.rateBtnApprove {
+  background: oklch(65% 0.2 145 / 0.8);
+}
+
+.rateBtnReject {
+  background: oklch(55% 0.2 25 / 0.8);
+}
+
+.rateBtn:hover {
+  opacity: 0.85;
 }
 
 @media (max-width: 768px) {

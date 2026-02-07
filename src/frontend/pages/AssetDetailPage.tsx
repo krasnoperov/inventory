@@ -152,12 +152,17 @@ export default function AssetDetailPage() {
     rotationViews,
     sendRotationRequest,
     sendRotationCancel,
+    sendVariantRate,
     tileSets,
     tilePositions,
+    sendRetryTile,
+    sendRefineEdges,
+    sendRefineTile,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
       requestSync();
+      requestChatHistory();
       // Style is now included in sync:state, no need for separate sendStyleGet()
     },
     onDisconnect: () => {
@@ -527,6 +532,11 @@ export default function AssetDetailPage() {
     await uploadImage(file, assetId);
   }, [uploadImage]);
 
+  const handleExportTrainingData = useCallback((pipeline: 'tiles' | 'rotations' | 'all') => {
+    if (!spaceId) return;
+    window.open(`/api/spaces/${spaceId}/training-data?pipeline=${pipeline}`, '_blank');
+  }, [spaceId]);
+
   // Handle persistent chat message - wraps sendPersistentChatMessage to manage loading state
   const handleSendChatMessage = useCallback((content: string, forgeContext?: ChatForgeContext) => {
     // Add user message to UI immediately (optimistic) and set loading
@@ -613,6 +623,11 @@ export default function AssetDetailPage() {
                 variants={wsVariants}
                 selectedVariantId={selectedVariant?.id}
                 onCellClick={(variantId) => setSelectedVariantId(assetId!, variantId)}
+                onRetryTile={sendRetryTile}
+                onRefineTile={sendRefineTile}
+                onRefineEdges={sendRefineEdges}
+                onRateVariant={sendVariantRate}
+                onExportTrainingData={() => handleExportTrainingData('tiles')}
               />
             </div>
           );
@@ -825,6 +840,8 @@ export default function AssetDetailPage() {
             sendRotationCancel(rotationSetId);
           }}
           onClose={() => setShowRotationPanel(false)}
+          onRateVariant={sendVariantRate}
+          onExportTrainingData={() => handleExportTrainingData('rotations')}
         />
       )}
     </div>

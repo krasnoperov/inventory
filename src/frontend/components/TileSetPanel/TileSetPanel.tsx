@@ -39,6 +39,7 @@ export function TileSetPanel({
   const [gridSize, setGridSize] = useState(3);
   const [prompt, setPrompt] = useState('');
   const [disableStyle, setDisableStyle] = useState(false);
+  const [generationMode, setGenerationMode] = useState<'sequential' | 'single-shot'>('sequential');
   const [dismissedFailedSetId, setDismissedFailedSetId] = useState<string | null>(null);
   const style = useStyleStore((s) => s.style);
 
@@ -89,6 +90,7 @@ export function TileSetPanel({
       gridHeight: gridSize,
       prompt: prompt.trim(),
       disableStyle: disableStyle || undefined,
+      generationMode,
     });
   }, [onSubmit, tileType, gridSize, prompt, disableStyle]);
 
@@ -276,6 +278,30 @@ export function TileSetPanel({
             />
             <span className={styles.inputHint}>
               Describe the overall theme. Each tile will be generated with adjacency context.
+            </span>
+          </div>
+
+          {/* Generation mode toggle */}
+          <div className={styles.inputGroup}>
+            <span className={styles.sectionLabel}>Generation Mode</span>
+            <div className={styles.sizeButtons}>
+              <button
+                className={`${styles.sizeButton} ${generationMode === 'sequential' ? styles.selected : ''}`}
+                onClick={() => setGenerationMode('sequential')}
+              >
+                Sequential
+              </button>
+              <button
+                className={`${styles.sizeButton} ${generationMode === 'single-shot' ? styles.selected : ''}`}
+                onClick={() => setGenerationMode('single-shot')}
+              >
+                Single-Shot
+              </button>
+            </div>
+            <span className={styles.inputHint}>
+              {generationMode === 'sequential'
+                ? 'Generates tiles one-by-one with adjacency context (higher quality).'
+                : 'Generates entire grid as one image then slices (faster, no inter-step drift).'}
             </span>
           </div>
 

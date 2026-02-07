@@ -15,7 +15,7 @@ import { BaseController, type ControllerContext, NotFoundError, ValidationError 
 import { INCREMENT_REF_SQL } from '../variant/imageRefs';
 import { capRefs, getStyleImageKeys } from '../generation/refLimits';
 import { getSpiralOrder } from '../generation/spiralOrder';
-import { PromptBuilder } from '../generation/PromptBuilder';
+import { PromptBuilder, NEGATIVE_PROMPTS } from '../generation/PromptBuilder';
 import { loggers } from '../../../../shared/logger';
 
 const log = loggers.tileController;
@@ -42,9 +42,15 @@ export class TileController extends BaseController {
       seedVariantId?: string;
       aspectRatio?: string;
       disableStyle?: boolean;
+      generationMode?: 'sequential' | 'single-shot';
     }
   ): Promise<void> {
     this.requireEditor(meta);
+
+    // Route to single-shot mode if requested
+    if (msg.generationMode === 'single-shot') {
+      return this.handleSingleShotTileSet(ws, meta, msg);
+    }
 
     // Validate grid size
     if (msg.gridWidth < 2 || msg.gridWidth > 5 || msg.gridHeight < 2 || msg.gridHeight > 5) {
@@ -75,7 +81,7 @@ export class TileController extends BaseController {
     const tileSetId = crypto.randomUUID();
     const configJson = JSON.stringify({
       prompt: msg.prompt,
-      aspectRatio: msg.aspectRatio,
+      aspectRatio: msg.aspectRatio || '1:1',
       disableStyle: msg.disableStyle,
       spiralOrder,
     });
@@ -176,12 +182,13 @@ export class TileController extends BaseController {
 
   /**
    * Advance the tile set pipeline to the next position.
-   * Called after each tile completes via the completion hook.
+   * Called after each tile completes or fails via the completion/failure hook.
+   * Skips failed positions and continues to the next one.
    */
   async advanceTileSet(tileSetId: string): Promise<void> {
     const set = await this.repo.getTileSetById(tileSetId);
     if (!set) return;
-    if (set.status === 'cancelled' || set.status === 'failed') return;
+    if (set.status === 'cancelled') return;
 
     const config = JSON.parse(set.config) as {
       prompt: string;
@@ -190,15 +197,17 @@ export class TileController extends BaseController {
       spiralOrder: [number, number][];
     };
 
-    // Count completed positions
-    const completedPositions = await this.repo.getTilePositionsBySet(tileSetId);
-    const completedSet = new Set(completedPositions.map(p => `${p.grid_x},${p.grid_y}`));
-    const completedCount = completedPositions.length;
+    // Get all positions (completed + failed + generating)
+    const allPositions = await this.repo.getTilePositionsBySet(tileSetId);
+    const occupiedSet = new Set(allPositions.map(p => `${p.grid_x},${p.grid_y}`));
+    const completedCount = allPositions.filter(p => {
+      // A position is "done" if it exists and its variant is completed, or it is marked failed
+      return p.status === 'completed' || p.status === 'failed';
+    }).length;
 
-    // All tiles done?
+    // All positions accounted for (completed or failed)?
     if (completedCount >= set.total_steps) {
       await this.repo.updateTileSetStatus(tileSetId, 'completed');
-      const allPositions = await this.repo.getTilePositionsBySet(tileSetId);
       this.broadcast({
         type: 'tileset:completed',
         tileSetId,
@@ -208,11 +217,15 @@ export class TileController extends BaseController {
       return;
     }
 
-    // Find next unoccupied position in spiral order
-    const nextPos = config.spiralOrder.find(([x, y]) => !completedSet.has(`${x},${y}`));
+    // Find next unoccupied position in spiral order (skip occupied = completed, failed, generating)
+    const nextPos = config.spiralOrder.find(([x, y]) => !occupiedSet.has(`${x},${y}`));
     if (!nextPos) {
-      // Shouldn't happen, but handle gracefully
-      await this.repo.updateTileSetStatus(tileSetId, 'completed');
+      // All positions occupied — check if we're just waiting for generating ones
+      const generatingCount = allPositions.filter(p => p.status === 'pending' || p.status === 'generating').length;
+      if (generatingCount === 0) {
+        await this.repo.updateTileSetStatus(tileSetId, 'completed');
+        this.broadcast({ type: 'tileset:completed', tileSetId, positions: allPositions });
+      }
       return;
     }
 
@@ -223,6 +236,41 @@ export class TileController extends BaseController {
 
     // Update step counter
     await this.repo.updateTileSetStep(tileSetId, completedCount);
+  }
+
+  /**
+   * Handle tileset:retry_tile WebSocket message.
+   * Retries generation for a single failed tile position.
+   */
+  async handleRetryTile(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    msg: { type: 'tileset:retry_tile'; tileSetId: string; gridX: number; gridY: number }
+  ): Promise<void> {
+    this.requireEditor(meta);
+
+    const set = await this.repo.getTileSetById(msg.tileSetId);
+    if (!set) throw new NotFoundError('Tile set not found');
+
+    const pos = await this.repo.getTilePositionAt(msg.tileSetId, msg.gridX, msg.gridY);
+    if (!pos) throw new NotFoundError('Tile position not found');
+    if (pos.status !== 'failed') throw new ValidationError('Can only retry failed tiles');
+
+    // Delete the old failed position entry so a new one can be created
+    await this.sql.exec(`DELETE FROM tile_positions WHERE id = ?`, pos.id);
+
+    // Also delete the failed variant
+    await this.sql.exec(`DELETE FROM variants WHERE id = ?`, pos.variant_id);
+    this.broadcast({ type: 'variant:deleted', variantId: pos.variant_id });
+
+    // Generate a new tile at this position
+    await this.generateTileAtPosition(msg.tileSetId, msg.gridX, msg.gridY, meta.userId);
+
+    log.info('Retrying failed tile', {
+      tileSetId: msg.tileSetId,
+      gridX: msg.gridX,
+      gridY: msg.gridY,
+    });
   }
 
   /**
@@ -363,5 +411,311 @@ export class TileController extends BaseController {
     this.broadcast({ type: 'tileset:cancelled', tileSetId });
 
     log.info('Tile set pipeline cancelled', { tileSetId });
+  }
+
+  /**
+   * Handle single-shot tile set generation.
+   * Generates the entire grid as one image, then slices into individual tiles.
+   */
+  async handleSingleShotTileSet(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    msg: {
+      type: 'tileset:request';
+      requestId: string;
+      tileType: TileType;
+      gridWidth: number;
+      gridHeight: number;
+      prompt: string;
+      aspectRatio?: string;
+      disableStyle?: boolean;
+    }
+  ): Promise<void> {
+    this.requireEditor(meta);
+
+    if (msg.gridWidth < 2 || msg.gridWidth > 5 || msg.gridHeight < 2 || msg.gridHeight > 5) {
+      throw new ValidationError('Grid size must be between 2 and 5');
+    }
+
+    const totalTiles = msg.gridWidth * msg.gridHeight;
+    const cellSize = 256; // Default cell size for single-shot grid
+
+    // Create parent asset
+    const tileAssetId = crypto.randomUUID();
+    const promptSummary = msg.prompt.length > 40 ? msg.prompt.slice(0, 40) + '...' : msg.prompt;
+    const tileAsset = await this.repo.createAsset({
+      id: tileAssetId,
+      name: `${promptSummary} — Tile Set (single-shot)`,
+      type: 'tile-set',
+      tags: [],
+      createdBy: meta.userId,
+    });
+    this.broadcast({ type: 'asset:created', asset: tileAsset });
+
+    // Create tile_sets record
+    const tileSetId = crypto.randomUUID();
+    const configJson = JSON.stringify({
+      prompt: msg.prompt,
+      aspectRatio: msg.aspectRatio || '1:1',
+      disableStyle: msg.disableStyle,
+      generationMode: 'single-shot',
+      cellSize,
+    });
+
+    await this.repo.createTileSet({
+      id: tileSetId,
+      assetId: tileAssetId,
+      tileType: msg.tileType,
+      gridWidth: msg.gridWidth,
+      gridHeight: msg.gridHeight,
+      config: configJson,
+      totalSteps: totalTiles,
+      createdBy: meta.userId,
+    });
+
+    this.broadcast({
+      type: 'tileset:started',
+      requestId: msg.requestId,
+      tileSetId,
+      assetId: tileAssetId,
+      gridWidth: msg.gridWidth,
+      gridHeight: msg.gridHeight,
+      totalTiles,
+    });
+
+    // Build single-shot prompt
+    const canvasW = msg.gridWidth * cellSize;
+    const canvasH = msg.gridHeight * cellSize;
+
+    const { styleKeys, styleDescription } = await getStyleImageKeys(this.repo, msg.disableStyle);
+
+    const builder = new PromptBuilder();
+    if (styleDescription) {
+      builder.withStyle(styleDescription);
+    }
+
+    const gridPrompt = [
+      `A seamless ${msg.tileType} tile set grid for an isometric game.`,
+      `Canvas: ${canvasW}px wide x ${canvasH}px tall.`,
+      `Grid: ${msg.gridHeight} rows x ${msg.gridWidth} columns. Each tile: ${cellSize}x${cellSize}px.`,
+      `Theme: ${msg.prompt}`,
+      `CRITICAL: All tiles must seamlessly connect at their edges.`,
+      `Consistent isometric perspective. Clean pixel boundaries between cells.`,
+      NEGATIVE_PROMPTS.tiles,
+    ].join('\n');
+
+    builder.withTheme(gridPrompt);
+    const prompt = builder.build();
+
+    // Create a single placeholder variant for the grid image
+    const variantId = crypto.randomUUID();
+    const recipe = JSON.stringify({
+      prompt,
+      assetType: 'tile-set',
+      aspectRatio: msg.aspectRatio || '1:1',
+      sourceImageKeys: styleKeys,
+      operation: 'generate',
+      generationMode: 'single-shot',
+      gridWidth: msg.gridWidth,
+      gridHeight: msg.gridHeight,
+      cellSize,
+    });
+
+    const variant = await this.repo.createPlaceholderVariant({
+      id: variantId,
+      assetId: tileAssetId,
+      recipe,
+      createdBy: meta.userId,
+    });
+    this.broadcast({ type: 'variant:created', variant });
+
+    // Trigger workflow for the single grid image
+    if (this.env.GENERATION_WORKFLOW) {
+      try {
+        const workflowInput: GenerationWorkflowInput = {
+          requestId: msg.requestId,
+          jobId: variantId,
+          spaceId: this.spaceId,
+          userId: meta.userId,
+          prompt,
+          assetId: tileAssetId,
+          assetName: `Grid — ${msg.gridWidth}x${msg.gridHeight}`,
+          assetType: 'tile-set',
+          aspectRatio: msg.aspectRatio || '1:1',
+          sourceImageKeys: styleKeys.length > 0 ? styleKeys : undefined,
+          operation: 'generate',
+        };
+
+        const instance = await this.env.GENERATION_WORKFLOW.create({
+          id: variantId,
+          params: workflowInput,
+        });
+
+        const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
+        if (updatedVariant) {
+          this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+        }
+      } catch (err) {
+        log.error('Failed to create single-shot tile workflow', { tileSetId, error: String(err) });
+        await this.repo.failTileSet(tileSetId, `Workflow creation failed: ${String(err)}`);
+        this.broadcast({ type: 'tileset:failed', tileSetId, error: String(err), failedStep: 0 });
+      }
+    }
+
+    log.info('Single-shot tile set started', {
+      spaceId: this.spaceId,
+      tileSetId,
+      gridSize: `${msg.gridWidth}x${msg.gridHeight}`,
+      totalTiles,
+    });
+  }
+
+  /**
+   * Handle tileset:refine_edges WebSocket message.
+   * Post-processing pass that refines tile edges for seamless blending.
+   */
+  async handleRefineEdges(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    msg: { type: 'tileset:refine_edges'; tileSetId: string }
+  ): Promise<void> {
+    this.requireEditor(meta);
+
+    const set = await this.repo.getTileSetById(msg.tileSetId);
+    if (!set) throw new NotFoundError('Tile set not found');
+    if (set.status !== 'completed') throw new ValidationError('Tile set must be completed before refining edges');
+
+    const positions = await this.repo.getTilePositionsBySet(msg.tileSetId);
+
+    // Refine each non-edge-only tile (tiles with at least one adjacent neighbor)
+    for (const pos of positions) {
+      await this.refineSingleTileEdge(msg.tileSetId, pos.grid_x, pos.grid_y, meta.userId);
+    }
+
+    log.info('Edge refinement started for all tiles', { tileSetId: msg.tileSetId, tileCount: positions.length });
+  }
+
+  /**
+   * Handle tileset:refine_tile WebSocket message.
+   * Refines edges of a single tile.
+   */
+  async handleRefineTile(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    msg: { type: 'tileset:refine_tile'; tileSetId: string; gridX: number; gridY: number }
+  ): Promise<void> {
+    this.requireEditor(meta);
+
+    const set = await this.repo.getTileSetById(msg.tileSetId);
+    if (!set) throw new NotFoundError('Tile set not found');
+
+    await this.refineSingleTileEdge(msg.tileSetId, msg.gridX, msg.gridY, meta.userId);
+  }
+
+  /**
+   * Refine a single tile's edges by composing it with adjacent tiles.
+   */
+  private async refineSingleTileEdge(
+    tileSetId: string,
+    gridX: number,
+    gridY: number,
+    userId: string
+  ): Promise<void> {
+    const set = await this.repo.getTileSetById(tileSetId);
+    if (!set) return;
+
+    const config = JSON.parse(set.config) as {
+      prompt: string;
+      aspectRatio?: string;
+      disableStyle?: boolean;
+    };
+
+    // Get the tile variant
+    const pos = await this.repo.getTilePositionAt(tileSetId, gridX, gridY);
+    if (!pos) return;
+
+    const tileVariant = await this.repo.getVariantById(pos.variant_id);
+    if (!tileVariant?.image_key) return;
+
+    // Get adjacent completed tiles
+    const adjacents = await this.repo.getAdjacentTiles(tileSetId, gridX, gridY);
+    if (adjacents.length === 0) return; // No neighbors to blend with
+
+    const { styleKeys, styleDescription } = await getStyleImageKeys(this.repo, config.disableStyle);
+
+    // Build compose prompt with tile + adjacents
+    const allKeys = [tileVariant.image_key, ...adjacents.map(a => a.image_key)];
+    const cappedKeys = capRefs(styleKeys, allKeys, tileVariant.image_key);
+
+    const refLabels = adjacents.map((a, i) => `Image ${i + 2}: adjacent tile to the ${a.direction}`).join('\n');
+    const prompt = [
+      `Image 1: the tile to refine`,
+      refLabels,
+      `Refine Image 1 so its edges seamlessly match the adjacent tiles.`,
+      `Blend colors, textures, and features at the boundaries.`,
+      `Keep the interior of the tile unchanged.`,
+      styleDescription ? `[Style: ${styleDescription}]` : '',
+    ].filter(Boolean).join('\n');
+
+    // Create placeholder variant for refined tile
+    const variantId = crypto.randomUUID();
+    const recipe = JSON.stringify({
+      prompt,
+      assetType: 'tile-set',
+      aspectRatio: config.aspectRatio || '1:1',
+      sourceImageKeys: [...styleKeys, ...cappedKeys],
+      operation: 'refine',
+    });
+
+    const variant = await this.repo.createPlaceholderVariant({
+      id: variantId,
+      assetId: set.asset_id,
+      recipe,
+      createdBy: userId,
+    });
+    this.broadcast({ type: 'variant:created', variant });
+
+    // Update tile position to point to new variant
+    await this.sql.exec(
+      `UPDATE tile_positions SET variant_id = ? WHERE id = ?`,
+      variantId,
+      pos.id
+    );
+
+    // Trigger workflow
+    if (this.env.GENERATION_WORKFLOW) {
+      try {
+        const workflowInput: GenerationWorkflowInput = {
+          requestId: crypto.randomUUID(),
+          jobId: variantId,
+          spaceId: this.spaceId,
+          userId,
+          prompt,
+          assetId: set.asset_id,
+          assetName: `Tile (${gridX},${gridY}) — refined`,
+          assetType: 'tile-set',
+          aspectRatio: config.aspectRatio || '1:1',
+          sourceImageKeys: [...styleKeys, ...cappedKeys],
+          operation: 'refine',
+        };
+
+        const instance = await this.env.GENERATION_WORKFLOW.create({
+          id: variantId,
+          params: workflowInput,
+        });
+
+        const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
+        if (updatedVariant) {
+          this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+        }
+      } catch (err) {
+        log.error('Failed to create edge refinement workflow', {
+          tileSetId,
+          gridX,
+          gridY,
+          error: String(err),
+        });
+      }
+    }
   }
 }

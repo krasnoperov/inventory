@@ -533,13 +533,18 @@ export class GenerationController extends BaseController {
 
       const tilePos = await this.repo.getTilePositionByVariant(data.variantId);
       if (tilePos && this.tileCtrl) {
-        await this.repo.failTileSet(tilePos.tile_set_id, data.error);
+        // Mark individual tile position as failed (not the entire set)
+        await this.repo.updateTilePositionStatus(tilePos.id, 'failed');
         this.broadcast({
-          type: 'tileset:failed',
+          type: 'tileset:tile_failed',
           tileSetId: tilePos.tile_set_id,
+          variantId: data.variantId,
+          gridX: tilePos.grid_x,
+          gridY: tilePos.grid_y,
           error: data.error,
-          failedStep: tilePos.grid_x * 100 + tilePos.grid_y,
         });
+        // Continue pipeline — advance to next tile
+        await this.tileCtrl.advanceTileSet(tilePos.tile_set_id);
       }
     } catch (hookErr) {
       log.error('Pipeline failure hook failed', {

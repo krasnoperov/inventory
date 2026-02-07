@@ -456,6 +456,44 @@ export class SpaceRepository {
     return this.getVariantById(variantId);
   }
 
+  /**
+   * Update quality rating for a variant (approve/reject for training data curation).
+   */
+  async updateVariantRating(
+    variantId: string,
+    rating: 'approved' | 'rejected' | null
+  ): Promise<Variant | null> {
+    const existing = await this.getVariantById(variantId);
+    if (!existing) return null;
+
+    const now = rating ? Date.now() : null;
+    await this.sql.exec(
+      `UPDATE variants SET quality_rating = ?, rated_at = ?, updated_at = ? WHERE id = ?`,
+      rating,
+      now,
+      Date.now(),
+      variantId
+    );
+    return this.getVariantById(variantId);
+  }
+
+  /**
+   * Get all approved variants, optionally filtered by asset.
+   */
+  async getApprovedVariants(assetId?: string): Promise<Variant[]> {
+    if (assetId) {
+      const result = await this.sql.exec(
+        `SELECT * FROM variants WHERE quality_rating = 'approved' AND asset_id = ? ORDER BY rated_at DESC`,
+        assetId
+      );
+      return result.toArray() as Variant[];
+    }
+    const result = await this.sql.exec(
+      `SELECT * FROM variants WHERE quality_rating = 'approved' ORDER BY rated_at DESC`
+    );
+    return result.toArray() as Variant[];
+  }
+
   // ==========================================================================
   // Lineage Operations
   // ==========================================================================
@@ -1358,8 +1396,27 @@ export class SpaceRepository {
       variant_id: data.variantId,
       grid_x: data.gridX,
       grid_y: data.gridY,
+      status: 'pending',
       created_at: now,
     };
+  }
+
+  async updateTilePositionStatus(positionId: string, status: string): Promise<void> {
+    await this.sql.exec(
+      `UPDATE tile_positions SET status = ? WHERE id = ?`,
+      status,
+      positionId
+    );
+  }
+
+  async getTilePositionAt(tileSetId: string, gridX: number, gridY: number): Promise<TilePosition | null> {
+    const result = await this.sql.exec(
+      `SELECT * FROM tile_positions WHERE tile_set_id = ? AND grid_x = ? AND grid_y = ?`,
+      tileSetId,
+      gridX,
+      gridY
+    );
+    return (result.toArray()[0] as TilePosition) ?? null;
   }
 
   // ==========================================================================

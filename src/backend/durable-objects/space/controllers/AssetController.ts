@@ -386,6 +386,8 @@ export class AssetController extends BaseController {
       plan_step_id: null, // Forked variants are not created by plan steps
       description: null, // No cached description for forked variants
       batch_id: null, // Forked variants are not part of a batch
+      quality_rating: null,
+      rated_at: null,
     };
 
     await this.sql.exec(

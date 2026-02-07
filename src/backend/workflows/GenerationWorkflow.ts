@@ -33,6 +33,8 @@ import {
   type ImageInput,
   type ImageSize,
 } from '../services/nanoBananaService';
+import { CustomModelProvider } from '../services/customModelProvider';
+import type { ImageGenerationProvider } from '../services/imageProvider';
 import {
   detectImageType,
   base64ToBuffer,
@@ -59,6 +61,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       sourceImageKeys,
       operation,
       styleImageKeys,
+      modelProvider,
     } = event.payload;
 
     const refCount = sourceImageKeys?.length || 0;
@@ -130,7 +133,16 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           }
         }
 
-        const nanoBanana = new NanoBananaService(this.env.GOOGLE_AI_API_KEY);
+        // Select image generation provider
+        let provider: ImageGenerationProvider;
+        if (modelProvider === 'custom' && this.env.CUSTOM_MODEL_ENDPOINT) {
+          provider = new CustomModelProvider(
+            this.env.CUSTOM_MODEL_ENDPOINT,
+            this.env.CUSTOM_MODEL_API_KEY
+          );
+        } else {
+          provider = new NanoBananaService(this.env.GOOGLE_AI_API_KEY);
+        }
         const modelToUse = (model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image') || 'gemini-3-pro-image-preview';
         const aspectRatioToUse = (aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9') || '1:1';
         const imageSizeToUse = (imageSize as ImageSize) || undefined;
@@ -157,7 +169,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           // - compose(): multi-image generation (derive or refine with 2+ refs)
           let result: GenerationResult;
           if (geminiApi === 'edit') {
-            result = await nanoBanana.edit({
+            result = await provider.edit({
               image: sourceImages[0],
               prompt,
               model: modelToUse,
@@ -165,7 +177,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               imageSize: imageSizeToUse,
             });
           } else if (geminiApi === 'compose') {
-            result = await nanoBanana.compose({
+            result = await provider.compose({
               images: sourceImages,
               prompt,
               model: modelToUse,
@@ -173,7 +185,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               imageSize: imageSizeToUse,
             });
           } else {
-            result = await nanoBanana.generate({
+            result = await provider.generate({
               prompt,
               model: modelToUse,
               aspectRatio: aspectRatioToUse,

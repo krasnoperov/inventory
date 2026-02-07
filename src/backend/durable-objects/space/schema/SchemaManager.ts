@@ -191,6 +191,12 @@ export class SchemaManager {
     // Migration: Add tile_sets and tile_positions tables for tile map pipelines
     await this.addTileSets();
 
+    // Migration: Add status column to tile_positions for per-tile retry
+    await this.addTilePositionStatus();
+
+    // Migration: Add quality_rating and rated_at columns to variants for curation
+    await this.addVariantQualityRating();
+
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
     // Conversions:
@@ -528,6 +534,47 @@ export class SchemaManager {
       await this.sql.exec(`
         ALTER TABLE variants ADD COLUMN batch_id TEXT;
         CREATE INDEX IF NOT EXISTS idx_variants_batch ON variants(batch_id);
+      `);
+    }
+  }
+
+  /**
+   * Add status column to tile_positions for per-tile retry-and-continue.
+   * Allows individual tile failures without failing the entire set.
+   */
+  private async addTilePositionStatus(): Promise<void> {
+    try {
+      const result = await this.sql.exec(`PRAGMA table_info(tile_positions)`);
+      const columns = result.toArray() as Array<{ name: string }>;
+      const hasColumn = columns.some(col => col.name === 'status');
+
+      if (!hasColumn) {
+        await this.sql.exec(`
+          ALTER TABLE tile_positions ADD COLUMN status TEXT DEFAULT 'pending'
+            CHECK (status IN ('pending', 'generating', 'completed', 'failed'));
+        `);
+      }
+    } catch {
+      // Table may not exist yet (pre-migration)
+    }
+  }
+
+  /**
+   * Add quality_rating and rated_at columns to variants for curation.
+   * Allows users to approve/reject generated variants for training data export.
+   */
+  private async addVariantQualityRating(): Promise<void> {
+    const result = await this.sql.exec(`PRAGMA table_info(variants)`);
+    const columns = result.toArray() as Array<{ name: string }>;
+    const hasColumn = columns.some(col => col.name === 'quality_rating');
+
+    if (!hasColumn) {
+      await this.sql.exec(`
+        ALTER TABLE variants ADD COLUMN quality_rating TEXT DEFAULT NULL
+          CHECK (quality_rating IN ('approved', 'rejected'));
+      `);
+      await this.sql.exec(`
+        ALTER TABLE variants ADD COLUMN rated_at INTEGER DEFAULT NULL;
       `);
     }
   }

@@ -9,19 +9,34 @@ import type { SpaceRepository } from '../repository/SpaceRepository';
 
 /**
  * Cap pipeline refs to fit within Gemini's limit alongside style refs.
- * Always keeps the source image, then fills with most recent views.
+ * Always keeps the source image AND the front/first generated view (masterKey),
+ * then fills remaining budget with most recent views.
+ *
+ * Pinning the front view ensures later steps in rotation/tile pipelines
+ * always have the canonical reference, reducing inter-step drift.
  */
 export function capRefs(
   styleKeys: string[],
   pipelineKeys: string[],
   sourceKey: string,
-  maxTotal: number = 14
+  maxTotal: number = 14,
+  masterKey?: string
 ): string[] {
   const budget = maxTotal - styleKeys.length;
   if (budget <= 0) return [];
   if (pipelineKeys.length <= budget) return pipelineKeys;
-  // Always keep source (first), then most recent views
-  return [sourceKey, ...pipelineKeys.slice(-(budget - 1))];
+
+  // Build pinned set: source + master (front view), deduplicating
+  const pinned: string[] = [sourceKey];
+  if (masterKey && masterKey !== sourceKey) {
+    pinned.push(masterKey);
+  }
+
+  const pinnedSet = new Set(pinned);
+  const remaining = pipelineKeys.filter(k => !pinnedSet.has(k));
+  const fillCount = budget - pinned.length;
+
+  return [...pinned, ...remaining.slice(-fillCount)];
 }
 
 /**

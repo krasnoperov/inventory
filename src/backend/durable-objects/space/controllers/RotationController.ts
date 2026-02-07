@@ -15,7 +15,8 @@ import type { GenerationWorkflowInput } from '../../../workflows/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { INCREMENT_REF_SQL } from '../variant/imageRefs';
 import { capRefs, getStyleImageKeys } from '../generation/refLimits';
-import { PromptBuilder } from '../generation/PromptBuilder';
+import { PromptBuilder, ROTATION_CAMERA_SPECS, NEGATIVE_PROMPTS } from '../generation/PromptBuilder';
+import { ROTATION_GRID_LAYOUTS } from '../generation/gridSlice';
 import { loggers } from '../../../../shared/logger';
 
 const log = loggers.rotationController;
@@ -40,9 +41,15 @@ export class RotationController extends BaseController {
       subjectDescription?: string;
       aspectRatio?: string;
       disableStyle?: boolean;
+      generationMode?: 'sequential' | 'single-shot';
     }
   ): Promise<void> {
     this.requireEditor(meta);
+
+    // Route to single-shot mode if requested
+    if (msg.generationMode === 'single-shot') {
+      return this.handleSingleShotRotation(ws, meta, msg);
+    }
 
     // Validate source variant exists and is completed
     const sourceVariant = await this.repo.getVariantById(msg.sourceVariantId);
@@ -210,8 +217,10 @@ export class RotationController extends BaseController {
     const { styleKeys, styleDescription } = await getStyleImageKeys(this.repo, config.disableStyle);
 
     // Cap refs to fit Gemini limit
+    // Pin both the source image and the front/first generated view
     const sourceKey = completedViews[0]?.image_key || '';
-    const cappedKeys = capRefs(styleKeys, viewImageKeys, sourceKey);
+    const masterKey = completedViews.length > 1 ? completedViews[0].image_key : undefined;
+    const cappedKeys = capRefs(styleKeys, viewImageKeys, sourceKey, 14, masterKey);
 
     // Build directional prompt
     const subject = config.subjectDescription
@@ -327,5 +336,201 @@ export class RotationController extends BaseController {
     this.broadcast({ type: 'rotation:cancelled', rotationSetId });
 
     log.info('Rotation pipeline cancelled', { rotationSetId });
+  }
+
+  /**
+   * Handle single-shot rotation generation.
+   * Generates all views as a single sprite sheet image, then slices.
+   */
+  private async handleSingleShotRotation(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    msg: {
+      type: 'rotation:request';
+      requestId: string;
+      sourceVariantId: string;
+      config: RotationConfig;
+      subjectDescription?: string;
+      aspectRatio?: string;
+      disableStyle?: boolean;
+    }
+  ): Promise<void> {
+    // Validate source variant
+    const sourceVariant = await this.repo.getVariantById(msg.sourceVariantId);
+    if (!sourceVariant || sourceVariant.status !== 'completed' || !sourceVariant.image_key) {
+      throw new ValidationError('Source variant must be completed with an image');
+    }
+
+    const sourceAsset = await this.repo.getAssetById(sourceVariant.asset_id);
+    if (!sourceAsset) throw new NotFoundError('Source asset not found');
+
+    const directions = ROTATION_DIRECTIONS[msg.config];
+    if (!directions) throw new ValidationError(`Invalid rotation config: ${msg.config}`);
+
+    const layout = ROTATION_GRID_LAYOUTS[msg.config];
+    if (!layout) throw new ValidationError(`No grid layout for config: ${msg.config}`);
+
+    const cellSize = 256;
+    const canvasW = layout.cols * cellSize;
+    const canvasH = layout.rows * cellSize;
+
+    // Create child asset
+    const rotationAssetId = crypto.randomUUID();
+    const rotationAsset = await this.repo.createAsset({
+      id: rotationAssetId,
+      name: `${sourceAsset.name} — Rotation (single-shot)`,
+      type: sourceAsset.type,
+      tags: [],
+      parentAssetId: sourceAsset.id,
+      createdBy: meta.userId,
+    });
+    this.broadcast({ type: 'asset:created', asset: rotationAsset });
+
+    // Fork source variant
+    const forkedVariantId = crypto.randomUUID();
+    const now = Date.now();
+    await this.sql.exec(
+      `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      forkedVariantId, rotationAssetId, null, 'completed', null,
+      sourceVariant.image_key, sourceVariant.thumb_key, sourceVariant.recipe,
+      0, meta.userId, now, now
+    );
+
+    if (sourceVariant.image_key) await this.sql.exec(INCREMENT_REF_SQL, sourceVariant.image_key);
+    if (sourceVariant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, sourceVariant.thumb_key);
+
+    const lineage = await this.repo.createLineage({
+      id: crypto.randomUUID(),
+      parentVariantId: msg.sourceVariantId,
+      childVariantId: forkedVariantId,
+      relationType: 'forked',
+    });
+
+    await this.repo.updateAsset(rotationAssetId, { active_variant_id: forkedVariantId });
+    rotationAsset.active_variant_id = forkedVariantId;
+
+    const forkedVariant = await this.repo.getVariantById(forkedVariantId);
+    if (forkedVariant) {
+      this.broadcast({ type: 'variant:created', variant: forkedVariant });
+      this.broadcast({ type: 'asset:updated', asset: rotationAsset });
+      this.broadcast({ type: 'lineage:created', lineage });
+    }
+
+    // Create rotation set
+    const rotationSetId = crypto.randomUUID();
+    const subject = msg.subjectDescription || sourceVariant.description || sourceAsset.name || 'the subject';
+    const configJson = JSON.stringify({
+      type: msg.config,
+      subjectDescription: msg.subjectDescription,
+      aspectRatio: msg.aspectRatio,
+      disableStyle: msg.disableStyle,
+      generationMode: 'single-shot',
+      cellSize,
+    });
+
+    await this.repo.createRotationSet({
+      id: rotationSetId,
+      assetId: rotationAssetId,
+      sourceVariantId: msg.sourceVariantId,
+      config: configJson,
+      totalSteps: directions.length,
+      createdBy: meta.userId,
+    });
+
+    this.broadcast({
+      type: 'rotation:started',
+      requestId: msg.requestId,
+      rotationSetId,
+      assetId: rotationAssetId,
+      totalSteps: directions.length,
+      directions,
+    });
+
+    // Build sprite sheet prompt
+    const { styleKeys, styleDescription } = await getStyleImageKeys(this.repo, msg.disableStyle);
+
+    const directionDescs = layout.directions.map((dir, i) => {
+      const col = i % layout.cols;
+      const row = Math.floor(i / layout.cols);
+      const spec = ROTATION_CAMERA_SPECS[dir] || dir;
+      return `Cell (row ${row + 1}, col ${col + 1}): ${dir} view — ${spec}`;
+    }).join('\n');
+
+    const promptParts = [
+      `A multi-view character reference sheet of ${subject}.`,
+      `Canvas: ${canvasW}px wide x ${canvasH}px tall.`,
+      `Grid: ${layout.rows} row(s) x ${layout.cols} columns. Each view: ${cellSize}x${cellSize}px.`,
+      `Background: Plain solid color.`,
+      `Direction rule:`,
+      directionDescs,
+      `The reference image shows the character. Generate the EXACT SAME character from each specified angle.`,
+      `CRITICAL: IDENTICAL design, proportions, colors, clothing across ALL views.`,
+      styleDescription ? `[Style: ${styleDescription}]` : '',
+      NEGATIVE_PROMPTS.characters,
+    ].filter(Boolean).join('\n');
+
+    const prompt = promptParts;
+
+    // Create placeholder variant for the sprite sheet
+    const variantId = crypto.randomUUID();
+    const recipe = JSON.stringify({
+      prompt,
+      assetType: sourceAsset.type || 'character',
+      aspectRatio: msg.aspectRatio,
+      sourceImageKeys: [sourceVariant.image_key, ...styleKeys],
+      operation: 'derive',
+      generationMode: 'single-shot',
+      gridLayout: layout,
+      cellSize,
+    });
+
+    const variant = await this.repo.createPlaceholderVariant({
+      id: variantId,
+      assetId: rotationAssetId,
+      recipe,
+      createdBy: meta.userId,
+    });
+    this.broadcast({ type: 'variant:created', variant });
+
+    // Trigger workflow
+    if (this.env.GENERATION_WORKFLOW) {
+      try {
+        const workflowInput: GenerationWorkflowInput = {
+          requestId: msg.requestId,
+          jobId: variantId,
+          spaceId: this.spaceId,
+          userId: meta.userId,
+          prompt,
+          assetId: rotationAssetId,
+          assetName: `${subject} — Sprite Sheet`,
+          assetType: sourceAsset.type || 'character',
+          aspectRatio: msg.aspectRatio,
+          sourceImageKeys: [sourceVariant.image_key, ...styleKeys],
+          operation: 'derive',
+        };
+
+        const instance = await this.env.GENERATION_WORKFLOW.create({
+          id: variantId,
+          params: workflowInput,
+        });
+
+        const updatedVariant = await this.repo.updateVariantWorkflow(variantId, instance.id, 'processing');
+        if (updatedVariant) {
+          this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+        }
+      } catch (err) {
+        log.error('Failed to create single-shot rotation workflow', { rotationSetId, error: String(err) });
+        await this.repo.failRotationSet(rotationSetId, `Workflow creation failed: ${String(err)}`);
+        this.broadcast({ type: 'rotation:failed', rotationSetId, error: String(err), failedStep: 0 });
+      }
+    }
+
+    log.info('Single-shot rotation started', {
+      spaceId: this.spaceId,
+      rotationSetId,
+      config: msg.config,
+      totalSteps: directions.length,
+    });
   }
 }

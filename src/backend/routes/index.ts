@@ -20,6 +20,7 @@ import { exportRoutes } from './export';
 import { billingRoutes } from './billing';
 import { webhookRoutes } from './webhooks';
 import { uploadRoutes } from './upload';
+import { trainingExportRoutes } from './training-export';
 
 /**
  * Register all routes with the main app
@@ -64,6 +65,9 @@ export function registerRoutes(app: Hono<AppContext>) {
 
   // Upload routes (image upload to create variants)
   app.route('/', uploadRoutes);
+
+  // Training data export routes
+  app.route('/', trainingExportRoutes);
 
   // --- Domain routes will be added per ARCHITECTURE.md ---
 }

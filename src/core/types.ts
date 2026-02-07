@@ -55,6 +55,10 @@ export interface Env {
   // Optional: OpenAI for future use
   OPENAI_API_KEY?: string;
 
+  // Custom model endpoint for fine-tuned models (Phase 6)
+  CUSTOM_MODEL_ENDPOINT?: string;
+  CUSTOM_MODEL_API_KEY?: string;
+
   // Environment
   ENVIRONMENT?: 'local' | 'development' | 'stage' | 'staging' | 'production';
 
@@ -81,6 +85,9 @@ export interface Env {
 
   // Internal API authentication (for cron jobs, internal services)
   INTERNAL_API_SECRET?: string;
+
+  // Admin user IDs (comma-separated) for billing admin routes
+  ADMIN_USER_IDS?: string;
 
   // --- FUTURE: Add your domain-specific bindings here ---
   // Example for queues:

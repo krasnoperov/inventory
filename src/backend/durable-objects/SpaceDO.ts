@@ -282,6 +282,8 @@ export class SpaceDO extends DurableObject<Env> {
         return this.variantCtrl.handleDelete(ws, meta, msg.variantId);
       case 'variant:star':
         return this.variantCtrl.handleStar(ws, meta, msg.variantId, msg.starred);
+      case 'variant:rate':
+        return this.variantCtrl.handleRate(ws, meta, (msg as { type: 'variant:rate'; variantId: string; rating: 'approved' | 'rejected' }).variantId, (msg as { type: 'variant:rate'; variantId: string; rating: 'approved' | 'rejected' }).rating);
       case 'variant:retry':
         return this.generationCtrl.handleRetryRequest(ws, meta, msg.variantId);
 
@@ -343,6 +345,12 @@ export class SpaceDO extends DurableObject<Env> {
         return this.tileCtrl.handleTileSetRequest(ws, meta, msg as ClientMessage & { type: 'tileset:request' });
       case 'tileset:cancel':
         return this.tileCtrl.handleTileSetCancel(ws, meta, (msg as { type: 'tileset:cancel'; tileSetId: string }).tileSetId);
+      case 'tileset:retry_tile':
+        return this.tileCtrl.handleRetryTile(ws, meta, msg as ClientMessage & { type: 'tileset:retry_tile' });
+      case 'tileset:refine_edges':
+        return this.tileCtrl.handleRefineEdges(ws, meta, msg as ClientMessage & { type: 'tileset:refine_edges' });
+      case 'tileset:refine_tile':
+        return this.tileCtrl.handleRefineTile(ws, meta, msg as ClientMessage & { type: 'tileset:refine_tile' });
 
       // Vision
       case 'describe:request':

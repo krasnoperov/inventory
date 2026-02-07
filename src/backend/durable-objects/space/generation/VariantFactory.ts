@@ -39,6 +39,8 @@ export interface GenerationRecipe {
   styleId?: string;
   /** True if style was explicitly disabled for this generation */
   styleOverride?: boolean;
+  /** Model provider ('gemini' or 'custom') */
+  modelProvider?: 'gemini' | 'custom';
 }
 
 /** Determine operation type based on references */
@@ -330,6 +332,7 @@ export class VariantFactory {
       parentVariantIds: result.parentVariantIds.length > 0 ? result.parentVariantIds : undefined,
       operation,
       styleImageKeys: effectiveStyleImageKeys?.length ? effectiveStyleImageKeys : undefined,
+      modelProvider: recipe.modelProvider,
     };
 
     const instance = await this.env.GENERATION_WORKFLOW.create({
