@@ -85,7 +85,7 @@ Uses Claude API for reasoning and planning:
 | Advisor | Analyze board state, suggest improvements | Chat message with suggestions |
 | Actor | Plan and execute generation tasks | Action plan → user confirms → job created |
 
-**LLM:** Claude (claude-sonnet-4-20250514) for reasoning. Gemini for image understanding when needed.
+**LLM:** Claude (claude-opus-4-5-20251101) for reasoning. Gemini for image understanding when needed.
 
 **Rate limit:** 10 bot invocations per user per hour (MVP).
 

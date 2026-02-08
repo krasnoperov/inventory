@@ -282,6 +282,9 @@ extended in all four cardinal directions.
 |---------|--------|-------------|
 | `tileset:request` | `requestId`, `tileType`, `gridWidth`, `gridHeight`, `prompt`, `seedVariantId?`, `aspectRatio?`, `disableStyle?` | Start tile set generation |
 | `tileset:cancel` | `tileSetId` | Cancel in-progress tile set |
+| `tileset:retry_tile` | `tileSetId`, `gridX`, `gridY` | Retry a single failed tile position |
+| `tileset:refine_edges` | `tileSetId` | Refine all tile edges for seamless blending |
+| `tileset:refine_tile` | `tileSetId`, `gridX`, `gridY` | Refine edges of a single tile |
 
 ### Server → Client
 

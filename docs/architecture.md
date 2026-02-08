@@ -70,6 +70,16 @@ CREATE TABLE variants (
 
 ---
 
+## Workers
+
+| Worker | Config | Purpose |
+|--------|--------|---------|
+| **Main** | `wrangler.toml` | HTTP API, frontend, WebSocket connections |
+| **Processing** | `wrangler.processing.toml` | Cloudflare Workflows (GenerationWorkflow) |
+| **Polar** | `wrangler.polar.toml` | Billing cron sync (every 5 minutes) |
+
+---
+
 ## Key Concepts
 
 ### Two-Tier Database Architecture
@@ -131,11 +141,11 @@ pending → processing → completed
 
 ### Bot Chat Flow
 
-1. Client sends `chat:request` via WebSocket
-2. SpaceDO triggers `ChatWorkflow`
-3. Workflow calls Claude API with space context
-4. Workflow stores message, broadcasts response
-5. Actor mode: returns tool calls for user approval
+1. Client sends `chat:send` via WebSocket
+2. SpaceDO routes to `ChatController`
+3. ChatController calls Claude API synchronously with space context
+4. ChatController stores message in DO SQLite, broadcasts response
+5. Actor mode: returns tool calls for user approval via approval system
 
 ---
 
@@ -145,7 +155,7 @@ pending → processing → completed
 src/
 ├── backend/
 │   ├── durable-objects/space/   # SpaceDO + controllers
-│   ├── workflows/               # ChatWorkflow, GenerationWorkflow
+│   ├── workflows/               # GenerationWorkflow
 │   ├── routes/                  # REST API endpoints
 │   └── services/                # Claude, Gemini, Usage services
 ├── frontend/

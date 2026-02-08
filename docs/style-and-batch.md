@@ -29,7 +29,7 @@ Stored in per-space DO SQLite (same as assets, variants, lineage).
 
 ### How Injection Works
 
-When `VariantFactory` creates a variant (generate, derive, refine, or batch), it calls `injectStyle()`:
+When `VariantFactory` creates a variant (generate, derive, refine, or batch), it handles style injection:
 
 1. Fetch the space's active style via `repo.getActiveStyle()`
 2. If no style exists, or `enabled = 0`, or `disableStyle = true` → skip
@@ -161,6 +161,9 @@ interface GenerationRecipe {
   operation: 'generate' | 'derive' | 'refine';
   styleId?: string;            // Style that was active at generation time
   styleOverride?: boolean;     // True if style was explicitly disabled
+  model?: string;              // Gemini model name
+  imageSize?: string;          // Output resolution (1K, 2K, 4K)
+  modelProvider?: string;      // Model provider identifier
 }
 ```
 

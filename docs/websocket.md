@@ -24,8 +24,8 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
        │──── sync:request ────────────────▶│
        │◀─── sync:state ──────────────────│
        │                                   │
-       │──── chat:request ────────────────▶│ (triggers ChatWorkflow)
-       │◀─── chat:response ───────────────│
+       │──── chat:send ─────────────────────▶│ (persistent chat)
+       │◀─── chat:message ──────────────────│
        │                                   │
        │──── generate:request ────────────▶│ (triggers GenerationWorkflow)
        │◀─── generate:started ────────────│
@@ -64,6 +64,7 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 |---------|--------|-------------|
 | `variant:delete` | `variantId` | Delete variant |
 | `variant:star` | `variantId`, `starred: boolean` | Star/unstar variant |
+| `variant:rate` | `variantId`, `rating: 'approved'\|'rejected'` | Rate variant quality (training data) |
 | `variant:retry` | `variantId` | Retry failed generation |
 
 ### Lineage
@@ -76,7 +77,7 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 
 | Message | Fields | Description |
 |---------|--------|-------------|
-| `chat:request` | `requestId`, `message`, `mode: 'advisor'|'actor'`, `forgeContext?`, `viewingContext?` | Send chat message (triggers ChatWorkflow) |
+| `chat:send` | `message`, `mode: 'advisor'\|'actor'`, `forgeContext?`, `viewingContext?` | Send chat message (persistent chat) |
 | `chat:history` | `since?` | Request chat history |
 | `chat:new_session` | - | Start new chat session |
 | `generate:request` | `requestId`, `name`, `assetType`, `prompt?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Generate new asset (triggers GenerationWorkflow) |
@@ -84,6 +85,7 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 | `batch:request` | `requestId`, `name`, `assetType`, `prompt`, `count`, `mode: 'explore'\|'set'`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Batch generate (see [style-and-batch.md](./style-and-batch.md)) |
 | `describe:request` | `requestId`, `variantId`, `assetName`, `focus?`, `question?` | Describe image with Claude Vision |
 | `compare:request` | `requestId`, `variantIds`, `aspects?` | Compare images with Claude Vision |
+| `auto-describe:request` | `variantId` | Auto-describe variant (cached, for Forge Tray context) |
 
 ### Plans
 
@@ -317,7 +319,7 @@ type ChatMode = 'advisor' | 'actor';
 
 ## Forge Context
 
-When sending `chat:request` or `generate:request`, include forge context:
+When sending `chat:send` or `generate:request`, include forge context:
 
 ```typescript
 interface ForgeContext {

@@ -58,6 +58,8 @@ User Request → Worker
 | `claude_input_tokens` | SUM | Claude API input |
 | `claude_output_tokens` | SUM | Claude API output (5x cost) |
 | `gemini_images` | COUNT | Generated images |
+| `gemini_input_tokens` | SUM | Gemini API input |
+| `gemini_output_tokens` | SUM | Gemini API output |
 
 ---
 
@@ -114,4 +116,4 @@ status: ok | warning | critical | exceeded
 - `src/backend/services/polarService.ts` — Polar SDK wrapper
 - `src/backend/routes/billing.ts` — Billing API endpoints
 - `src/dao/usage-event-dao.ts` — Local event storage
-- `db/migrations/0004_polar_billing.sql` — Schema
+- `db/migrations/0001_initial_schema.sql` — Schema (billing tables included)

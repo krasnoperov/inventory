@@ -19,7 +19,7 @@ Graphical asset management for game development. Users build collections of **As
 
 A named catalog entry representing a conceptual thing (character, item, scene, style reference).
 
-- **Type** describes what it represents: `character`, `item`, `scene`, `sprite-sheet`, `style-sheet`, `reference`
+- **Type** describes what it represents: `character`, `item`, `scene`, `sprite-sheet`, `style-sheet`, `reference`, `tile-set`, `animation` (unconstrained string — additional types can be added freely)
 - **Hierarchy** via `parent_asset_id` — assets can nest under other assets
 - **Active variant** — one variant represents the asset in catalog view
 - Users select Assets (not variants) when composing

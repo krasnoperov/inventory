@@ -61,12 +61,13 @@ wrangler deploy --config wrangler.processing.toml --env production   # Productio
 
 One Durable Object (SpaceDO) per space with embedded SQLite. Real-time sync via WebSocket.
 
-### Dual-Worker Architecture
+### Three-Worker Architecture
 
 | Worker | Purpose | Config |
 |--------|---------|--------|
 | **Main** | HTTP API, frontend, WebSocket | `wrangler.toml` |
-| **Processing** | Workflows (chat, generation) | `wrangler.processing.toml` |
+| **Processing** | Workflows (generation) | `wrangler.processing.toml` |
+| **Polar** | Billing cron sync (every 5 min) | `wrangler.polar.toml` |
 
 ### Directory Structure
 
@@ -74,7 +75,7 @@ One Durable Object (SpaceDO) per space with embedded SQLite. Real-time sync via 
 src/
 ├── backend/
 │   ├── durable-objects/space/  # SpaceDO + controllers
-│   ├── workflows/              # ChatWorkflow, GenerationWorkflow
+│   ├── workflows/              # GenerationWorkflow
 │   ├── routes/                 # REST API endpoints
 │   └── services/               # Claude, Gemini, Usage services
 ├── frontend/
