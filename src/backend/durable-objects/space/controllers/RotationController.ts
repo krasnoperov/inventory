@@ -8,6 +8,7 @@
 
 import type {
   RotationConfig,
+  Variant,
   WebSocketMeta,
 } from '../types';
 import { ROTATION_DIRECTIONS } from '../types';
@@ -16,7 +17,13 @@ import { BaseController, type ControllerContext, NotFoundError, ValidationError 
 import { INCREMENT_REF_SQL } from '../variant/imageRefs';
 import { capRefs, getStyleImageKeys } from '../generation/refLimits';
 import { PromptBuilder, ROTATION_CAMERA_SPECS, NEGATIVE_PROMPTS } from '../generation/PromptBuilder';
-import { ROTATION_GRID_LAYOUTS } from '../generation/gridSlice';
+import { ROTATION_GRID_LAYOUTS, sliceGridCell } from '../generation/gridSlice';
+import {
+  getBaseUrl,
+  getImageDimensions,
+  getExtensionForMimeType,
+  type ImageMimeType,
+} from '../../../utils/image-utils';
 import { loggers } from '../../../../shared/logger';
 
 const log = loggers.rotationController;
@@ -531,6 +538,136 @@ export class RotationController extends BaseController {
       rotationSetId,
       config: msg.config,
       totalSteps: directions.length,
+    });
+  }
+
+  /**
+   * Slice a completed single-shot sprite sheet into individual rotation view variants.
+   * Called from the GenerationController completion hook when a single-shot
+   * sheet variant finishes generating.
+   */
+  async sliceSingleShotSheet(variant: Variant): Promise<void> {
+    if (!variant.image_key) return;
+
+    const recipe = JSON.parse(variant.recipe);
+    const layout = recipe.gridLayout as { rows: number; cols: number; directions: string[] } | undefined;
+    if (!layout) return;
+
+    const rotationSet = await this.repo.getRotationSetByAssetId(variant.asset_id);
+    if (!rotationSet) return;
+
+    const isLocal = !this.env.ENVIRONMENT || this.env.ENVIRONMENT === 'local' || this.env.ENVIRONMENT === 'development';
+
+    // Get actual image dimensions for accurate slicing
+    let imageWidth: number;
+    let imageHeight: number;
+
+    if (!isLocal && this.env.IMAGES) {
+      const imageObj = await this.env.IMAGES.get(variant.image_key);
+      if (!imageObj) {
+        log.error('Sheet image not found in R2', { variantId: variant.id, imageKey: variant.image_key });
+        return;
+      }
+      const buffer = new Uint8Array(await imageObj.arrayBuffer());
+      const dims = getImageDimensions(buffer);
+      if (!dims) {
+        log.error('Cannot determine sheet image dimensions', { variantId: variant.id });
+        return;
+      }
+      imageWidth = dims.width;
+      imageHeight = dims.height;
+    } else {
+      const cellSize = recipe.cellSize || 256;
+      imageWidth = layout.cols * cellSize;
+      imageHeight = layout.rows * cellSize;
+    }
+
+    const baseUrl = getBaseUrl(this.env);
+
+    for (let i = 0; i < layout.directions.length; i++) {
+      const direction = layout.directions[i];
+      const col = i % layout.cols;
+      const row = Math.floor(i / layout.cols);
+
+      const cellVariantId = crypto.randomUUID();
+      let cellImageKey: string;
+      let cellThumbKey: string;
+
+      if (isLocal) {
+        // Local dev: all cells reference the sheet image (frontend uses CSS)
+        cellImageKey = variant.image_key;
+        cellThumbKey = variant.thumb_key || variant.image_key;
+        await this.sql.exec(INCREMENT_REF_SQL, cellImageKey);
+        if (variant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, variant.thumb_key);
+      } else {
+        // Production: slice using CF Image Resizing
+        const sheetImageUrl = `${baseUrl}/api/images/${variant.image_key}`;
+        const { buffer, mimeType } = await sliceGridCell(
+          sheetImageUrl, col, row, layout.cols, layout.rows, imageWidth, imageHeight
+        );
+
+        const ext = getExtensionForMimeType(mimeType as ImageMimeType);
+        cellImageKey = `images/${this.spaceId}/${cellVariantId}.${ext}`;
+        cellThumbKey = cellImageKey;
+
+        await this.env.IMAGES!.put(cellImageKey, buffer, {
+          httpMetadata: { contentType: mimeType },
+        });
+      }
+
+      // Create completed variant for this view
+      const cellRecipe = JSON.stringify({
+        ...recipe,
+        slicedFromSheet: true,
+        direction,
+        gridCol: col,
+        gridRow: row,
+        sheetVariantId: variant.id,
+      });
+
+      await this.repo.createPlaceholderVariant({
+        id: cellVariantId,
+        assetId: rotationSet.asset_id,
+        recipe: cellRecipe,
+        createdBy: rotationSet.created_by,
+      });
+
+      const completedVariant = await this.repo.completeVariant(cellVariantId, cellImageKey, cellThumbKey);
+      if (completedVariant) {
+        this.broadcast({ type: 'variant:created', variant: completedVariant });
+      }
+
+      // Register as rotation view (step 0..N-1, since no pre-registered forked view in single-shot)
+      await this.repo.createRotationView({
+        id: crypto.randomUUID(),
+        rotationSetId: rotationSet.id,
+        variantId: cellVariantId,
+        direction,
+        stepIndex: i,
+      });
+
+      this.broadcast({
+        type: 'rotation:step_completed',
+        rotationSetId: rotationSet.id,
+        direction,
+        variantId: cellVariantId,
+        step: i,
+        total: rotationSet.total_steps,
+      });
+    }
+
+    // Mark rotation set as completed
+    await this.repo.updateRotationSetStatus(rotationSet.id, 'completed');
+    const allViews = await this.repo.getRotationViewsBySet(rotationSet.id);
+    this.broadcast({
+      type: 'rotation:completed',
+      rotationSetId: rotationSet.id,
+      views: allViews,
+    });
+
+    log.info('Single-shot rotation sheet sliced', {
+      rotationSetId: rotationSet.id,
+      totalViews: layout.directions.length,
     });
   }
 }

@@ -7,31 +7,42 @@
 
 /**
  * Slice a single cell from a grid image using Cloudflare Image Resizing.
- * In production, fetches the grid image URL with cf.image crop parameters.
+ * Uses `trim` to remove all pixels except the target cell region.
  *
- * @param gridImageUrl - Full URL to the grid image stored in R2
+ * @param gridImageUrl - Full URL to the grid image (served via Worker/R2)
  * @param col - Column index (0-based)
  * @param row - Row index (0-based)
- * @param cellW - Width of each cell in pixels
- * @param cellH - Height of each cell in pixels
+ * @param gridCols - Total columns in the grid
+ * @param gridRows - Total rows in the grid
+ * @param imageWidth - Actual width of the grid image in pixels
+ * @param imageHeight - Actual height of the grid image in pixels
  * @returns ArrayBuffer of the cropped cell image
  */
 export async function sliceGridCell(
   gridImageUrl: string,
   col: number,
   row: number,
-  cellW: number,
-  cellH: number
+  gridCols: number,
+  gridRows: number,
+  imageWidth: number,
+  imageHeight: number
 ): Promise<{ buffer: ArrayBuffer; mimeType: string }> {
+  const cellW = imageWidth / gridCols;
+  const cellH = imageHeight / gridRows;
+
+  const trimLeft = Math.round(col * cellW);
+  const trimTop = Math.round(row * cellH);
+  const trimRight = Math.round(imageWidth - (col + 1) * cellW);
+  const trimBottom = Math.round(imageHeight - (row + 1) * cellH);
+
   const resp = await fetch(gridImageUrl, {
     cf: {
       image: {
-        width: cellW,
-        height: cellH,
-        fit: 'crop',
-        gravity: {
-          x: col * cellW + cellW / 2,
-          y: row * cellH + cellH / 2,
+        trim: {
+          top: trimTop,
+          left: trimLeft,
+          bottom: trimBottom,
+          right: trimRight,
         },
       },
     },

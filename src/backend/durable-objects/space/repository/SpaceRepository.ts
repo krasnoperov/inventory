@@ -1168,6 +1168,14 @@ export class SpaceRepository {
     return (result.toArray()[0] as RotationSet) ?? null;
   }
 
+  async getRotationSetByAssetId(assetId: string): Promise<RotationSet | null> {
+    const result = await this.sql.exec(
+      'SELECT * FROM rotation_sets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 1',
+      assetId
+    );
+    return (result.toArray()[0] as RotationSet) ?? null;
+  }
+
   async createRotationSet(data: {
     id: string;
     assetId: string;
@@ -1284,6 +1292,14 @@ export class SpaceRepository {
 
   async getTileSetById(id: string): Promise<TileSet | null> {
     const result = await this.sql.exec(TileSetQueries.GET_BY_ID, id);
+    return (result.toArray()[0] as TileSet) ?? null;
+  }
+
+  async getTileSetByAssetId(assetId: string): Promise<TileSet | null> {
+    const result = await this.sql.exec(
+      'SELECT * FROM tile_sets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 1',
+      assetId
+    );
     return (result.toArray()[0] as TileSet) ?? null;
   }
 

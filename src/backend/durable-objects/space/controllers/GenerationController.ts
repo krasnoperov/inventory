@@ -463,6 +463,26 @@ export class GenerationController extends BaseController {
       if (tilePos && this.tileCtrl) {
         await this.tileCtrl.advanceTileSet(tilePos.tile_set_id);
       }
+
+      // Single-shot grid/sheet slicing: the grid/sheet variant has no
+      // tile_position or rotation_view, so the above hooks won't match.
+      // Detect via recipe.generationMode and slice into individual cells.
+      if (!rotView && !tilePos) {
+        try {
+          const recipe = JSON.parse(variant.recipe);
+          if (recipe.generationMode === 'single-shot') {
+            if (recipe.gridWidth && recipe.gridHeight && this.tileCtrl) {
+              // Single-shot tile grid — slice into individual tile variants
+              await this.tileCtrl.sliceSingleShotGrid(variant);
+            } else if (recipe.gridLayout && this.rotationCtrl) {
+              // Single-shot rotation sheet — slice into individual view variants
+              await this.rotationCtrl.sliceSingleShotSheet(variant);
+            }
+          }
+        } catch {
+          // Not a single-shot variant or parse error — ignore
+        }
+      }
     } catch (hookErr) {
       log.error('Pipeline advancement hook failed', {
         variantId: data.variantId,

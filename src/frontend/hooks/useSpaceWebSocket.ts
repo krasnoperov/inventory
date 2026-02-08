@@ -1070,6 +1070,7 @@ export function useSpaceWebSocket({
       seedVariantId: params.seedVariantId,
       aspectRatio: params.aspectRatio,
       disableStyle: params.disableStyle,
+      generationMode: params.generationMode,
     });
   }, [sendMessage]);
 

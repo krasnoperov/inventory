@@ -8,6 +8,7 @@
 
 import type {
   TileType,
+  Variant,
   WebSocketMeta,
 } from '../types';
 import type { GenerationWorkflowInput } from '../../../workflows/types';
@@ -16,6 +17,13 @@ import { INCREMENT_REF_SQL } from '../variant/imageRefs';
 import { capRefs, getStyleImageKeys } from '../generation/refLimits';
 import { getSpiralOrder } from '../generation/spiralOrder';
 import { PromptBuilder, NEGATIVE_PROMPTS } from '../generation/PromptBuilder';
+import { sliceGridCell } from '../generation/gridSlice';
+import {
+  getBaseUrl,
+  getImageDimensions,
+  getExtensionForMimeType,
+  type ImageMimeType,
+} from '../../../utils/image-utils';
 import { loggers } from '../../../../shared/logger';
 
 const log = loggers.tileController;
@@ -717,5 +725,141 @@ export class TileController extends BaseController {
         });
       }
     }
+  }
+
+  /**
+   * Slice a completed single-shot grid image into individual tile variants.
+   * Called from the GenerationController completion hook when a single-shot
+   * grid variant finishes generating.
+   */
+  async sliceSingleShotGrid(variant: Variant): Promise<void> {
+    if (!variant.image_key) return;
+
+    const recipe = JSON.parse(variant.recipe);
+    const { gridWidth, gridHeight } = recipe;
+    if (!gridWidth || !gridHeight) return;
+
+    const tileSet = await this.repo.getTileSetByAssetId(variant.asset_id);
+    if (!tileSet) return;
+
+    const isLocal = !this.env.ENVIRONMENT || this.env.ENVIRONMENT === 'local' || this.env.ENVIRONMENT === 'development';
+
+    // Get actual image dimensions for accurate slicing
+    let imageWidth: number;
+    let imageHeight: number;
+
+    if (!isLocal && this.env.IMAGES) {
+      const imageObj = await this.env.IMAGES.get(variant.image_key);
+      if (!imageObj) {
+        log.error('Grid image not found in R2', { variantId: variant.id, imageKey: variant.image_key });
+        return;
+      }
+      const buffer = new Uint8Array(await imageObj.arrayBuffer());
+      const dims = getImageDimensions(buffer);
+      if (!dims) {
+        log.error('Cannot determine grid image dimensions', { variantId: variant.id });
+        return;
+      }
+      imageWidth = dims.width;
+      imageHeight = dims.height;
+    } else {
+      // Local dev: assume prompted dimensions
+      const cellSize = recipe.cellSize || 256;
+      imageWidth = gridWidth * cellSize;
+      imageHeight = gridHeight * cellSize;
+    }
+
+    const baseUrl = getBaseUrl(this.env);
+
+    for (let row = 0; row < gridHeight; row++) {
+      for (let col = 0; col < gridWidth; col++) {
+        const cellVariantId = crypto.randomUUID();
+        let cellImageKey: string;
+        let cellThumbKey: string;
+
+        if (isLocal) {
+          // Local dev: all cells reference the grid image (frontend uses CSS background-position)
+          cellImageKey = variant.image_key;
+          cellThumbKey = variant.thumb_key || variant.image_key;
+          await this.sql.exec(INCREMENT_REF_SQL, cellImageKey);
+          if (variant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, variant.thumb_key);
+        } else {
+          // Production: slice the grid image using CF Image Resizing
+          const gridImageUrl = `${baseUrl}/api/images/${variant.image_key}`;
+          const { buffer, mimeType } = await sliceGridCell(
+            gridImageUrl, col, row, gridWidth, gridHeight, imageWidth, imageHeight
+          );
+
+          const ext = getExtensionForMimeType(mimeType as ImageMimeType);
+          cellImageKey = `images/${this.spaceId}/${cellVariantId}.${ext}`;
+          cellThumbKey = cellImageKey; // Cell is small enough to be its own thumbnail
+
+          await this.env.IMAGES!.put(cellImageKey, buffer, {
+            httpMetadata: { contentType: mimeType },
+          });
+        }
+
+        // Create completed variant for this cell
+        const cellRecipe = JSON.stringify({
+          ...recipe,
+          slicedFromGrid: true,
+          gridCol: col,
+          gridRow: row,
+          gridVariantId: variant.id,
+        });
+
+        await this.repo.createPlaceholderVariant({
+          id: cellVariantId,
+          assetId: tileSet.asset_id,
+          recipe: cellRecipe,
+          createdBy: tileSet.created_by,
+        });
+
+        const completedVariant = await this.repo.completeVariant(cellVariantId, cellImageKey, cellThumbKey);
+        if (completedVariant) {
+          this.broadcast({ type: 'variant:created', variant: completedVariant });
+        }
+
+        // Create tile position
+        await this.repo.createTilePosition({
+          id: crypto.randomUUID(),
+          tileSetId: tileSet.id,
+          variantId: cellVariantId,
+          gridX: col,
+          gridY: row,
+        });
+
+        // Mark position as completed
+        const pos = await this.repo.getTilePositionAt(tileSet.id, col, row);
+        if (pos) {
+          await this.repo.updateTilePositionStatus(pos.id, 'completed');
+        }
+
+        this.broadcast({
+          type: 'tileset:tile_completed',
+          tileSetId: tileSet.id,
+          variantId: cellVariantId,
+          gridX: col,
+          gridY: row,
+          step: row * gridWidth + col + 1,
+          total: tileSet.total_steps,
+        });
+      }
+    }
+
+    // Mark tile set as completed
+    await this.repo.updateTileSetStatus(tileSet.id, 'completed');
+    const allPositions = await this.repo.getTilePositionsBySet(tileSet.id);
+    this.broadcast({
+      type: 'tileset:completed',
+      tileSetId: tileSet.id,
+      positions: allPositions,
+    });
+
+    log.info('Single-shot tile grid sliced', {
+      tileSetId: tileSet.id,
+      gridSize: `${gridWidth}x${gridHeight}`,
+      totalCells: gridWidth * gridHeight,
+    });
   }
 }
