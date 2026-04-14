@@ -601,10 +601,12 @@ export function VariantCanvas({
   // Load image dimensions for all variants
   useEffect(() => {
     if (variants.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing readiness from external image-load state
       setDimensionsReady(true);
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing readiness from external image-load state
     setDimensionsReady(false);
 
     const loadDimensions = async () => {

@@ -1,4 +1,3 @@
-import process from 'node:process';
 import type { ParsedArgs, StoredConfig } from '../lib/types';
 import {
   DEFAULT_CLIENT_ID,

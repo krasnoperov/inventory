@@ -1,5 +1,5 @@
 import type { ParsedArgs } from '../lib/types';
-import { removeConfig, DEFAULT_ENVIRONMENT } from '../lib/config';
+import { removeConfig } from '../lib/config';
 
 export async function handleLogout(parsed: ParsedArgs) {
   // Determine environment from flags

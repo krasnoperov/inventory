@@ -73,9 +73,11 @@ export function RotationPanel({
         subjectDescription?: string;
         disableStyle?: boolean;
       };
+      /* eslint-disable react-hooks/set-state-in-effect -- prefilling form state from an upstream set change */
       if (parsed.type) setConfig(parsed.type);
       if (parsed.subjectDescription) setSubjectDescription(parsed.subjectDescription);
       if (parsed.disableStyle) setDisableStyle(true);
+      /* eslint-enable react-hooks/set-state-in-effect */
     } catch { /* ignore malformed config */ }
   }, [prefillSet?.id]);
 

@@ -494,11 +494,12 @@ function printMessageDetails(message: Record<string, unknown>, type: string): vo
       console.log(`   ${colors.red}${message.code}: ${message.message}${colors.reset}`);
       break;
 
-    default:
+    default: {
       // Print first few keys for unknown types
       const keys = Object.keys(message).filter(k => k !== 'type').slice(0, 5);
       if (keys.length > 0) {
         console.log(`   Keys: ${keys.join(', ')}`);
       }
+    }
   }
 }

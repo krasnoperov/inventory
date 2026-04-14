@@ -45,7 +45,13 @@ export default tseslint.config(
   },
   {
     ...sharedTypescript,
-    files: ["src/backend/**/*.{ts,tsx}", "src/shared/**/*.{ts,tsx}", "scripts/**/*.ts"],
+    files: [
+      "src/backend/**/*.{ts,tsx}",
+      "src/shared/**/*.{ts,tsx}",
+      "src/cli/**/*.{ts,tsx}",
+      "src/dao/**/*.{ts,tsx}",
+      "scripts/**/*.ts",
+    ],
     languageOptions: {
       ...sharedTypescript.languageOptions,
       globals: {
@@ -58,6 +64,14 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+    },
+  },
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx", "test/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/ban-ts-comment": "off",
     },
   },
 );

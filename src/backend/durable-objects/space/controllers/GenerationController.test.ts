@@ -54,6 +54,7 @@ function createMockRepo(): SpaceRepository {
     failRotationSet: mock.fn(async () => null),
     failTileSet: mock.fn(async () => null),
     getBatchProgress: mock.fn(async () => ({ completedCount: 0, failedCount: 0, totalCount: 1, pendingCount: 1 })),
+    getActiveStyle: mock.fn(async () => null),
   } as unknown as SpaceRepository;
 }
 
@@ -250,7 +251,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(failBroadcast.error, 'generation failed');
     });
 
-    test('marks tile set failed and broadcasts', async () => {
+    test('marks tile position failed and advances tile set', async () => {
       const tilePos: TilePosition = {
         id: 'tp-1',
         tile_set_id: 'tileset-1',
@@ -262,12 +263,14 @@ describe('GenerationController pipeline hooks', () => {
 
       const { ctx, broadcasts } = createMockContext({
         getTilePositionByVariant: mock.fn(async () => tilePos),
+        updateTilePositionStatus: mock.fn(async () => tilePos),
       });
 
+      const advanceTileSetMock = mock.fn();
       const controller = new GenerationController(ctx);
       controller.setPipelineControllers(
         { advanceRotation: mock.fn() } as any,
-        { advanceTileSet: mock.fn() } as any
+        { advanceTileSet: advanceTileSetMock } as any
       );
 
       await controller.httpFailVariant({
@@ -275,12 +278,20 @@ describe('GenerationController pipeline hooks', () => {
         error: 'tile failed',
       });
 
-      assert.strictEqual(asMock(ctx.repo.failTileSet).mock.calls.length, 1);
-      assert.strictEqual(asMock(ctx.repo.failTileSet).mock.calls[0].arguments[0], 'tileset-1');
+      assert.strictEqual(asMock(ctx.repo.updateTilePositionStatus).mock.calls.length, 1);
+      assert.deepStrictEqual(
+        asMock(ctx.repo.updateTilePositionStatus).mock.calls[0].arguments,
+        ['tp-1', 'failed']
+      );
+      assert.strictEqual(advanceTileSetMock.mock.calls.length, 1);
+      assert.strictEqual(advanceTileSetMock.mock.calls[0].arguments[0], 'tileset-1');
 
-      const failBroadcast = broadcasts.find((b) => b.type === 'tileset:failed');
+      const failBroadcast = broadcasts.find((b) => b.type === 'tileset:tile_failed');
       assert.ok(failBroadcast);
       assert.strictEqual(failBroadcast.tileSetId, 'tileset-1');
+      assert.strictEqual(failBroadcast.variantId, 'variant-1');
+      assert.strictEqual(failBroadcast.gridX, 2);
+      assert.strictEqual(failBroadcast.gridY, 1);
       assert.strictEqual(failBroadcast.error, 'tile failed');
     });
 

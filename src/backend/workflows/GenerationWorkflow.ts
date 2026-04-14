@@ -87,7 +87,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
 
         // Fetch source images inline (not as a separate step) to avoid
         // persisting large blobs in workflow state which has SQLite size limits
-        let sourceImages: ImageInput[] = [];
+        const sourceImages: ImageInput[] = [];
         if (sourceImageKeys && sourceImageKeys.length > 0) {
           if (!this.env.IMAGES) {
             throw new Error('IMAGES R2 bucket not configured');

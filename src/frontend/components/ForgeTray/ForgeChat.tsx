@@ -83,6 +83,7 @@ export function ForgeChat({
   useEffect(() => {
     if (!lastProgress) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- merging server-pushed progress into local list
     setDescriptionProgress(prev => {
       const existing = prev.find(p => p.variantId === lastProgress.variantId);
       if (existing) {
@@ -109,6 +110,7 @@ export function ForgeChat({
   // Clear progress when not loading
   useEffect(() => {
     if (!isLoading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting local list when loading flag clears
       setDescriptionProgress([]);
     }
   }, [isLoading]);

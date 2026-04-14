@@ -143,7 +143,6 @@ export default function AssetDetailPage() {
     forkAsset,
     getChildren,
     updateSession,
-    sendStyleGet,
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,

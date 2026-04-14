@@ -1,7 +1,7 @@
 import { injectable, inject } from 'inversify';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
-import type { Database, UsageEvent, NewUsageEvent } from '../db/types';
+import type { Database, UsageEvent } from '../db/types';
 import { TYPES } from '../core/di-types';
 
 /**
