@@ -145,57 +145,76 @@ export default function LandingPage() {
           {!user ? (
             // Logged out: Show hero and features
             <div className={styles.hero}>
-              <h2 className={styles.headline}>Build Your Next Project</h2>
+              <h2 className={styles.headline}>
+                An inventory for AI-generated game art.
+              </h2>
               <p className={styles.subtitle}>
-                A modern, authenticated web application framework on Cloudflare Workers.
-                Multi-user support, dual-worker architecture, real-time chat, and ready for your domain logic.
+                Generate, refine, and forge visual assets with full lineage,
+                real-time collaboration, and pipelines built for sprite sheets
+                and turnarounds.
               </p>
 
               <div className={styles.features}>
                 <div className={styles.featureItem}>
                   <span className={styles.featureIcon} aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="4" y="11" width="16" height="9" rx="2" />
-                      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                      <circle cx="12" cy="5" r="2.5" />
+                      <circle cx="6" cy="13" r="2.5" />
+                      <circle cx="18" cy="13" r="2.5" />
+                      <circle cx="12" cy="20" r="2.5" />
+                      <path d="M12 7.5v2M12 16.5v1M10 6.75 7.5 11.25M14 6.75 16.5 11.25M8 14.5l3 4M16 14.5l-3 4" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Authentication</span>
-                  <span className={styles.featureDescription}>Google OAuth with JWT tokens, secure user sessions</span>
+                  <span className={styles.featureText}>Lineage &amp; recipes</span>
+                  <span className={styles.featureDescription}>
+                    Every variant remembers the prompt and source assets that made it.
+                  </span>
                 </div>
                 <div className={styles.featureItem}>
                   <span className={styles.featureIcon} aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="9" cy="8" r="3.25" />
-                      <circle cx="17" cy="9" r="2.5" />
-                      <path d="M2.75 19c.5-3 3-5 6.25-5s5.75 2 6.25 5" />
-                      <path d="M15 19c.5-2.5 2.5-4 5-4" />
+                      <path d="M6 4h4v4H6zM14 4h4v4h-4zM6 12h4v4H6zM14 12h4v4h-4z" />
+                      <path d="M9 18h6l-1 3h-4z" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Multi-User</span>
-                  <span className={styles.featureDescription}>User profiles, role-based access, complete user management</span>
+                  <span className={styles.featureText}>Forge</span>
+                  <span className={styles.featureDescription}>
+                    Combine existing assets into new ones. Lineage is computed automatically.
+                  </span>
                 </div>
                 <div className={styles.featureItem}>
                   <span className={styles.featureIcon} aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
+                      <rect x="3" y="3" width="6" height="6" rx="1" />
+                      <rect x="11" y="3" width="6" height="6" rx="1" />
+                      <rect x="3" y="11" width="6" height="6" rx="1" />
+                      <path d="M14 11.5a4.5 4.5 0 1 1 0 7" />
+                      <path d="M13 15.5 14 18l2.5-.5" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Dual Workers</span>
-                  <span className={styles.featureDescription}>HTTP worker for API + frontend, processing worker for async jobs</span>
+                  <span className={styles.featureText}>Tile &amp; rotation pipelines</span>
+                  <span className={styles.featureDescription}>
+                    Spritesheets, directional turnarounds, and seamless tiles in one flow.
+                  </span>
                 </div>
                 <div className={styles.featureItem}>
                   <span className={styles.featureIcon} aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-5 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
+                      <circle cx="8" cy="9" r="3" />
+                      <circle cx="16" cy="9" r="3" />
+                      <path d="M2.5 20c.5-3 2.75-5 5.5-5s5 2 5.5 5" />
+                      <path d="M10.5 20c.5-3 2.75-5 5.5-5s5 2 5.5 5" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Real-Time Chat</span>
-                  <span className={styles.featureDescription}>Chat components ready for AI integration or messaging</span>
+                  <span className={styles.featureText}>Real-time spaces</span>
+                  <span className={styles.featureDescription}>
+                    Bring your art director into the same session. Full-state sync over WebSockets.
+                  </span>
                 </div>
               </div>
 
               <div className={styles.ctaButtons}>
-                <Link to="/login" className={styles.ctaButton}>Get Started</Link>
+                <Link to="/login" className={styles.ctaButton}>Sign in with Google</Link>
               </div>
             </div>
           ) : (

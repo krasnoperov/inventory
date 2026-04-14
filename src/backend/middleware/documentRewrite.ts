@@ -31,7 +31,7 @@ interface RouteDef {
 
 const SITE_NAME = 'Inventory Forge';
 const LANDING_DESCRIPTION =
-  'Inventory Forge is a collaborative web application for creating, refining, and composing AI-generated image assets. Track every variant\'s lineage and forge new assets from existing ones.';
+  'An inventory for AI-generated game art. Generate, refine, and forge visual assets with full lineage, real-time collaboration, and pipelines built for sprite sheets and turnarounds.';
 
 // Patterns are intentionally strict (no optional trailing slash) so the
 // server's notion of "known route" matches the client routeStore
