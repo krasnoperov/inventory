@@ -9,7 +9,7 @@ import styles from './LoginPage.module.css';
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  useDocumentTitle('Login');
+  useDocumentTitle('Sign in');
 
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {

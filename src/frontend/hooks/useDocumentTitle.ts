@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const BASE_TITLE = 'Inventory';
+const BASE_TITLE = 'Inventory Forge';
 
 export function useDocumentTitle(title?: string) {
   useEffect(() => {
