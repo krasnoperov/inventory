@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
+# Thin wrapper over `npm run bootstrap:worktree` so humans and patchrelay
+# use the same worktree setup path. All logic (drift-detected npm ci,
+# NODE_ENV scrubbing) lives in scripts/bootstrap-worktree.mjs.
 set -euo pipefail
-
-if [ ! -d node_modules ]; then
-  npm ci
-fi
+exec npm run --silent bootstrap:worktree

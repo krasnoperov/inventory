@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "bootstrap:worktree": "node ./scripts/bootstrap-worktree.mjs",
     "dev": "concurrently \"npm:dev:worker\" \"npm:dev:frontend\"",
     "dev:frontend": "vite",
     "dev:worker": "wrangler dev --config wrangler.dev.toml --port 8788 --persist-to .wrangler/state",
