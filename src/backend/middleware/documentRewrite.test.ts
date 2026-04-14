@@ -117,4 +117,34 @@ describe('handleDocumentNavigation', () => {
     const body = await res.text();
     assert.strictEqual(body, 'not found');
   });
+
+  it('passes .txt files through to ASSETS even with text/html Accept', async () => {
+    // Stub ASSETS that serves /llms.txt successfully.
+    const app = new Hono<AppContext>();
+    app.use('*', async (c, next) => {
+      const fakeAssets = {
+        fetch: async (req: Request) => {
+          const u = new URL(req.url);
+          if (u.pathname === '/llms.txt') {
+            return new Response('# Inventory Forge', {
+              status: 200,
+              headers: { 'content-type': 'text/plain' },
+            });
+          }
+          return new Response('not found', { status: 404 });
+        },
+      };
+      c.env = { ASSETS: fakeAssets } as unknown as AppContext['Bindings'];
+      await next();
+    });
+    app.all('*', handleDocumentNavigation);
+
+    const res = await app.fetch(new Request('https://app.example/llms.txt', {
+      headers: { accept: 'text/html,application/xhtml+xml,*/*' },
+    }));
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.headers.get('content-type'), 'text/plain');
+    const body = await res.text();
+    assert.strictEqual(body, '# Inventory Forge');
+  });
 });

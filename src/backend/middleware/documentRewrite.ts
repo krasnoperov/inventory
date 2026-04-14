@@ -169,12 +169,33 @@ function isDocumentNavigation(c: Context<AppContext>): boolean {
   return accept.includes('text/html');
 }
 
+/**
+ * Heuristic: does the pathname target a concrete static file rather than
+ * a client-routed page? Any trailing `.<ext>` segment counts as a file
+ * (e.g. /robots.txt, /llms.txt, /assets/app.js, /favicon.ico). SPA routes
+ * like `/login`, `/spaces/abc`, `/` don't hit this branch.
+ */
+function looksLikeStaticFile(pathname: string): boolean {
+  return /\.[a-z0-9]+$/i.test(pathname);
+}
+
 export async function handleDocumentNavigation(c: Context<AppContext>): Promise<Response> {
   const url = new URL(c.req.url);
   const origin = url.origin;
 
+  // Static files (including publicly served /robots.txt, /llms.txt, JS
+  // chunks, images) must pass through to ASSETS regardless of the Accept
+  // header — browsers direct-navigating to a .txt file send text/html too,
+  // and we still want them to receive the actual file, not a rewritten
+  // HTML shell.
+  if (looksLikeStaticFile(url.pathname)) {
+    return c.env.ASSETS.fetch(c.req.raw);
+  }
+
   if (!isDocumentNavigation(c)) {
-    // Delegate static asset serving to the ASSETS binding.
+    // Non-document request for a non-file path (e.g. fetch('/api/...')
+    // is handled by an earlier route; anything that falls through here
+    // is delegated to ASSETS unchanged).
     return c.env.ASSETS.fetch(c.req.raw);
   }
 
