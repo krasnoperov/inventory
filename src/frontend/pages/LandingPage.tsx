@@ -6,6 +6,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { ErrorMessage } from '../components/forms';
+import { useRouteStore } from '../stores/routeStore';
 import styles from './LandingPage.module.css';
 
 interface Space {
@@ -18,7 +19,11 @@ interface Space {
 export default function LandingPage() {
   const _navigate = useNavigate(); // eslint-disable-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
-  useDocumentTitle();
+  // `/dashboard` is aliased to LandingPage (logged-in variant). Use the
+  // route-specific title so the client matches the worker's rewritten
+  // <title> after hydration instead of overwriting it.
+  const routePage = useRouteStore((state) => state.page);
+  useDocumentTitle(routePage === 'dashboard' ? 'Dashboard' : undefined);
 
   // Spaces state (only used when logged in)
   const [spaces, setSpaces] = useState<Space[]>([]);
