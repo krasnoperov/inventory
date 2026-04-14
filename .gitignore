@@ -39,3 +39,11 @@ test/catalog/
 
 # Design proposals (drafts)
 docs/proposals/
+
+# Screenshot-audit outputs (audit.spec.ts + config are committed; outputs are not)
+audit-out/
+playwright-report/
+test-results/
+
+# Local agent / tool state
+.claude/
