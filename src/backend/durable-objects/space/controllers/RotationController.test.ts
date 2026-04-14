@@ -122,6 +122,7 @@ function createMockRepo(): SpaceRepository {
     updateRotationSetStep: mock.fn(async () => createMockRotationSet()),
     failRotationSet: mock.fn(async () => createMockRotationSet()),
     cancelRotationSet: mock.fn(async () => createMockRotationSet()),
+    getActiveStyle: mock.fn(async () => null),
   } as unknown as SpaceRepository;
 }
 

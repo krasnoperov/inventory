@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { useStyleStore, type SpaceStyleClient } from '../../stores/styleStore';
+import { useStyleStore } from '../../stores/styleStore';
 import styles from './StylePanel.module.css';
 
 export interface StylePanelProps {

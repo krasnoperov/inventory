@@ -127,7 +127,7 @@ function layoutDagre(
   // Find separate connected components (individual trees)
   const components = findConnectedComponents(treeNodes, edges);
 
-  let layoutedTreeNodes: AssetNodeType[] = [];
+  const layoutedTreeNodes: AssetNodeType[] = [];
   let currentOffsetX = 0;
   const componentGap = 80; // Gap between trees
 
@@ -284,10 +284,6 @@ function layoutGrid(
   nodeDimensions: Map<string, { width: number; height: number }>,
   defaultDimensions: { width: number; height: number }
 ): LayoutResult {
-  // Sort nodes: connected nodes first (by connectivity), then orphans alphabetically
-  const sourceIds = new Set(edges.map(e => e.source));
-  const targetIds = new Set(edges.map(e => e.target));
-
   // Count connections per node
   const connectionCount = new Map<string, number>();
   nodes.forEach(n => connectionCount.set(n.id, 0));
@@ -304,7 +300,6 @@ function layoutGrid(
   });
 
   // Calculate optimal grid dimensions
-  const avgWidth = Array.from(nodeDimensions.values()).reduce((sum, d) => sum + d.width, 0) / Math.max(nodeDimensions.size, 1) || defaultDimensions.width;
   const cols = Math.ceil(Math.sqrt(nodes.length * 1.5)); // Slightly wider than square
   const gapX = 40;
   const gapY = 40;

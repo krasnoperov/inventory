@@ -119,7 +119,6 @@ export default function SpacePage() {
     forkAsset,
     updateAsset,
     updateSession,
-    sendStyleGet,
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,

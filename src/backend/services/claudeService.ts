@@ -1253,7 +1253,7 @@ Guidelines for good Gemini prompts:
     // Build the current user message with images if this is the first message and images are provided
     if (images && images.length > 0 && conversationHistory.length === 0) {
       // First message: attach images + text
-      const content: Anthropic.ContentBlockParam[] = images.map((img, i) => ({
+      const content: Anthropic.ContentBlockParam[] = images.map((img) => ({
         type: 'image' as const,
         source: {
           type: 'base64' as const,

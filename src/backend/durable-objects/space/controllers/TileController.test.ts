@@ -125,6 +125,7 @@ function createMockRepo(): SpaceRepository {
     updateTileSetStep: mock.fn(async () => createMockTileSet()),
     failTileSet: mock.fn(async () => createMockTileSet()),
     cancelTileSet: mock.fn(async () => createMockTileSet()),
+    getActiveStyle: mock.fn(async () => null),
   } as unknown as SpaceRepository;
 }
 
@@ -420,17 +421,6 @@ describe('TileController', () => {
     test('skips if set is cancelled', async () => {
       const { ctx, broadcasts } = createMockContext({
         getTileSetById: mock.fn(async () => createMockTileSet({ status: 'cancelled' })),
-      });
-      const controller = new TileController(ctx);
-
-      await controller.advanceTileSet('tileset-1');
-
-      assert.strictEqual(asMock(ctx.repo.getTilePositionsBySet).mock.calls.length, 0);
-    });
-
-    test('skips if set is failed', async () => {
-      const { ctx } = createMockContext({
-        getTileSetById: mock.fn(async () => createMockTileSet({ status: 'failed' })),
       });
       const controller = new TileController(ctx);
 

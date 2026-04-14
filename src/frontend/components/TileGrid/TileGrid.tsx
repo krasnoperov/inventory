@@ -22,7 +22,6 @@ export function TileGrid({
   selectedVariantId,
   onCellClick,
   onRetryTile,
-  onRefineTile,
   onRefineEdges,
   onRateVariant,
   onExportTrainingData,

@@ -45,16 +45,6 @@ interface ChatSendMessage {
   forgeContext?: ForgeContext;
 }
 
-/** Chat history request from client */
-interface ChatHistoryMessage {
-  type: 'chat:history';
-}
-
-/** Chat clear request from client */
-interface ChatClearMessage {
-  type: 'chat:clear';
-}
-
 const HISTORY_LIMIT = 50;
 
 export class ChatController extends BaseController {
@@ -118,7 +108,7 @@ export class ChatController extends BaseController {
 
     try {
       // Get or create active chat session
-      let userSession = await this.repo.getUserSession(userId);
+      const userSession = await this.repo.getUserSession(userId);
       let sessionId = userSession?.active_chat_session_id;
       let isFirstMessage = false;
 

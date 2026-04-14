@@ -54,6 +54,7 @@ export function TileSetPanel({
   // Pre-fill form state from the failed set so "Try Again" works
   useEffect(() => {
     if (!failedSet) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- prefilling form state when a failed set appears */
     setTileType(failedSet.tile_type);
     setGridSize(failedSet.grid_width);
     try {
@@ -64,6 +65,7 @@ export function TileSetPanel({
       if (parsed.prompt) setPrompt(parsed.prompt);
       if (parsed.disableStyle) setDisableStyle(true);
     } catch { /* ignore malformed config */ }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [failedSet?.id]);
 
   // Close on Escape
@@ -92,7 +94,7 @@ export function TileSetPanel({
       disableStyle: disableStyle || undefined,
       generationMode,
     });
-  }, [onSubmit, tileType, gridSize, prompt, disableStyle]);
+  }, [onSubmit, tileType, gridSize, prompt, disableStyle, generationMode]);
 
   // Progress view for active tile set
   if (activeSet) {

@@ -1,7 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
-import type { StoredConfig } from './types';
 
 export const DEFAULT_CLIENT_ID = 'forgetray-cli';
 export const DEFAULT_REDIRECT_PORT = 8765;
@@ -47,7 +46,7 @@ export async function fetchOidcConfiguration(baseUrl: string, insecure = false):
 
   // For local dev with self-signed certificates
   if (insecure) {
-    (fetchOptions as any).rejectUnauthorized = false;
+    (fetchOptions as RequestInit & { rejectUnauthorized?: boolean }).rejectUnauthorized = false;
   }
 
   const response = await fetch(`${baseUrl}/.well-known/openid-configuration`, fetchOptions);
