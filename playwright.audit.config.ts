@@ -10,7 +10,7 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
   ],
   use: {
-    baseURL: process.env.AUDIT_BASE_URL ?? 'http://localhost:3000',
+    baseURL: process.env.AUDIT_BASE_URL ?? 'https://local.krasnoperov.me:3001',
     // Default: only keep heavy artefacts on failure.
     // Override per run: AUDIT_KEEP_VIDEO=1 / AUDIT_KEEP_TRACE=1 to retain on success too.
     trace:      process.env.AUDIT_KEEP_TRACE ? 'on' : 'retain-on-failure',
