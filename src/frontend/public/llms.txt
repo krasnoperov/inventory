@@ -1,6 +1,6 @@
 # Inventory Forge
 
-> A collaborative web application for creating, refining, and composing AI-generated image assets. Users maintain an inventory of visual assets, iteratively refine them with prompts, and forge new assets by combining existing ones.
+> An inventory for AI-generated game art. Teams generate, refine, and forge visual assets with full lineage, real-time collaboration, and pipelines built for sprite sheets and turnarounds. Aimed at indie game developers, small studios, and concept artists doing rapid visual iteration — not a single-prompt image generator.
 
 ## Core concepts
 
