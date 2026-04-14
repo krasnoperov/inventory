@@ -88,6 +88,24 @@ describe('handleDocumentNavigation', () => {
     assert.match(body, /<title>Asset \| Inventory Forge<\/title>/);
   });
 
+  it('301-redirects trailing-slash document paths to canonical non-slash form', async () => {
+    const app = buildApp();
+    const res = await app.fetch(new Request('https://app.example/login/?next=x', {
+      headers: { accept: 'text/html' },
+      redirect: 'manual',
+    }));
+    assert.strictEqual(res.status, 301);
+    assert.strictEqual(res.headers.get('location'), 'https://app.example/login?next=x');
+  });
+
+  it('root `/` is not redirected', async () => {
+    const app = buildApp();
+    const res = await app.fetch(new Request('https://app.example/', {
+      headers: { accept: 'text/html' },
+    }));
+    assert.strictEqual(res.status, 200);
+  });
+
   it('delegates non-document requests straight to ASSETS', async () => {
     const app = buildApp();
     const res = await app.fetch(new Request('https://app.example/assets/main.js', {

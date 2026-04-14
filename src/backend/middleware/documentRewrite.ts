@@ -33,20 +33,24 @@ const SITE_NAME = 'Inventory Forge';
 const LANDING_DESCRIPTION =
   'Inventory Forge is a collaborative web application for creating, refining, and composing AI-generated image assets. Track every variant\'s lineage and forge new assets from existing ones.';
 
+// Patterns are intentionally strict (no optional trailing slash) so the
+// server's notion of "known route" matches the client routeStore
+// parseRoute exactly. Trailing-slash variants are canonicalised via 301
+// redirect before this table is consulted.
 const SPA_ROUTES: RouteDef[] = [
   {
     pattern: /^\/$/,
     meta: { title: SITE_NAME, description: LANDING_DESCRIPTION },
   },
   {
-    pattern: /^\/login\/?$/,
+    pattern: /^\/login$/,
     meta: {
       title: `Sign in | ${SITE_NAME}`,
       description: 'Sign in to Inventory Forge with your Google account.',
     },
   },
   {
-    pattern: /^\/dashboard\/?$/,
+    pattern: /^\/dashboard$/,
     meta: {
       title: `Dashboard | ${SITE_NAME}`,
       description: 'Your Inventory Forge dashboard.',
@@ -54,7 +58,7 @@ const SPA_ROUTES: RouteDef[] = [
     },
   },
   {
-    pattern: /^\/profile\/?$/,
+    pattern: /^\/profile$/,
     meta: {
       title: `Profile | ${SITE_NAME}`,
       description: 'Your Inventory Forge profile.',
@@ -62,7 +66,7 @@ const SPA_ROUTES: RouteDef[] = [
     },
   },
   {
-    pattern: /^\/oauth\/approve\/?$/,
+    pattern: /^\/oauth\/approve$/,
     meta: {
       title: `Authorize App | ${SITE_NAME}`,
       description: 'Authorize an application to access your Inventory Forge account.',
@@ -70,7 +74,7 @@ const SPA_ROUTES: RouteDef[] = [
     },
   },
   {
-    pattern: /^\/spaces\/[^/]+\/?$/,
+    pattern: /^\/spaces\/[^/]+$/,
     meta: {
       title: `Space | ${SITE_NAME}`,
       description: 'Collaborative asset space in Inventory Forge.',
@@ -78,7 +82,7 @@ const SPA_ROUTES: RouteDef[] = [
     },
   },
   {
-    pattern: /^\/spaces\/[^/]+\/assets\/[^/]+\/?$/,
+    pattern: /^\/spaces\/[^/]+\/assets\/[^/]+$/,
     meta: {
       title: `Asset | ${SITE_NAME}`,
       description: 'Asset detail in Inventory Forge.',
@@ -172,6 +176,14 @@ export async function handleDocumentNavigation(c: Context<AppContext>): Promise<
   if (!isDocumentNavigation(c)) {
     // Delegate static asset serving to the ASSETS binding.
     return c.env.ASSETS.fetch(c.req.raw);
+  }
+
+  // Canonicalise trailing slashes on non-root document paths with a 301
+  // so server + client agree on the effective path before we decide
+  // known vs 404. Preserves query string.
+  if (url.pathname.length > 1 && url.pathname.endsWith('/')) {
+    const canonical = url.pathname.replace(/\/+$/, '');
+    return Response.redirect(`${origin}${canonical}${url.search}`, 301);
   }
 
   const match = SPA_ROUTES.find((r) => r.pattern.test(url.pathname));
