@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /llms.txt
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /oauth/
+Disallow: /spaces/
+
+Sitemap: https://inventory.krasnoperov.me/sitemap.xml

@@ -7,6 +7,7 @@ import ProfilePage from './pages/ProfilePage';
 import AuthorizationApprovalPage from './pages/AuthorizationApprovalPage';
 import SpacePage from './pages/SpacePage';
 import AssetDetailPage from './pages/AssetDetailPage';
+import UnknownPage from './pages/UnknownPage';
 import { loadSession } from './config';
 import type { User } from './contexts/AuthContext';
 import { useRouteStore } from './stores/routeStore';
@@ -33,8 +34,7 @@ function AppRouter() {
     case 'asset':
       return <AssetDetailPage />;
     default:
-      // Unknown route - show 404 or redirect to home
-      return <LandingPage />;
+      return <UnknownPage />;
   }
 }
 

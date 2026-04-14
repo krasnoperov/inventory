@@ -1,0 +1,43 @@
+# Inventory Forge
+
+> A collaborative web application for creating, refining, and composing AI-generated image assets. Users maintain an inventory of visual assets, iteratively refine them with prompts, and forge new assets by combining existing ones.
+
+## Core concepts
+
+- **Space** — a collaborative container for assets. One Durable Object per space; members are owner / editor / viewer.
+- **Asset** — a visual entity (character, item, scene) with mutable metadata and multiple variants.
+- **Variant** — an immutable generated image. Assets have many variants; one is "active".
+- **Recipe** — the generation instructions stored with each variant (prompt, model, source images).
+- **Lineage** — the computed ancestry of an asset: what assets/variants were used to make it.
+- **Forge** — compose multiple source assets into a new derived asset with a shared prompt.
+- **Tile set** — a grid of tiles generated with a spiral fill order, for seamless textures or sprite sheets.
+- **Rotation set** — a directional or turnaround set of views of the same subject (4/8-way, full turnaround).
+
+## AI integrations
+
+- **Image generation:** Google Gemini (`gemini-3-pro-image-preview`, `gemini-2.5-flash-image`). Supports generate, edit, and compose primitives.
+- **Assistant:** Anthropic Claude for advisor mode (suggests next steps) and actor mode (plans and executes generation tasks with user confirmation).
+
+## Architecture
+
+- **Runtime:** Cloudflare Workers + Durable Objects + D1 + R2 + Workflows.
+- **Frontend:** React 19 + Vite, Zustand for state, custom SPA router.
+- **Real-time:** WebSocket + full-state sync on connect, broadcast mutations per Durable Object space.
+
+## Pages (public)
+
+- `/` — landing.
+- `/login` — Google OAuth sign-in.
+
+## Pages (authenticated)
+
+- `/dashboard` — list of spaces.
+- `/spaces/:id` — space view with real-time asset grid.
+- `/spaces/:id/assets/:assetId` — asset detail with variants, refinement, and lineage.
+- `/profile` — user profile and settings.
+
+## Constraints
+
+- Sources for composition must be from the same space.
+- Lineage depth capped at 5, node count capped at 50.
+- Bot invocations rate-limited to 10 per user per hour.
