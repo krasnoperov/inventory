@@ -21,6 +21,7 @@ import { billingRoutes } from './billing';
 import { webhookRoutes } from './webhooks';
 import { uploadRoutes } from './upload';
 import { trainingExportRoutes } from './training-export';
+import { handleDocumentNavigation } from '../middleware/documentRewrite';
 
 /**
  * Register all routes with the main app
@@ -70,4 +71,11 @@ export function registerRoutes(app: Hono<AppContext>) {
   app.route('/', trainingExportRoutes);
 
   // --- Domain routes will be added per ARCHITECTURE.md ---
+
+  // Catch-all: document navigations get per-route SEO + real 404 status;
+  // static asset requests are delegated to the ASSETS binding unchanged.
+  // Requires wrangler's run_worker_first = ["/*"] so the worker sees all
+  // traffic — API routes above still match first because they're registered
+  // earlier on the Hono app.
+  app.all('*', handleDocumentNavigation);
 }

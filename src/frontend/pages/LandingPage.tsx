@@ -6,6 +6,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { ErrorMessage } from '../components/forms';
+import { useRouteStore } from '../stores/routeStore';
 import styles from './LandingPage.module.css';
 
 interface Space {
@@ -18,7 +19,11 @@ interface Space {
 export default function LandingPage() {
   const _navigate = useNavigate(); // eslint-disable-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
-  useDocumentTitle();
+  // `/dashboard` is aliased to LandingPage (logged-in variant). Use the
+  // route-specific title so the client matches the worker's rewritten
+  // <title> after hydration instead of overwriting it.
+  const routePage = useRouteStore((state) => state.page);
+  useDocumentTitle(routePage === 'dashboard' ? 'Dashboard' : undefined);
 
   // Spaces state (only used when logged in)
   const [spaces, setSpaces] = useState<Space[]>([]);
@@ -148,22 +153,42 @@ export default function LandingPage() {
 
               <div className={styles.features}>
                 <div className={styles.featureItem}>
-                  <span className={styles.featureIcon}>🔐</span>
+                  <span className={styles.featureIcon} aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="4" y="11" width="16" height="9" rx="2" />
+                      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                    </svg>
+                  </span>
                   <span className={styles.featureText}>Authentication</span>
                   <span className={styles.featureDescription}>Google OAuth with JWT tokens, secure user sessions</span>
                 </div>
                 <div className={styles.featureItem}>
-                  <span className={styles.featureIcon}>👥</span>
+                  <span className={styles.featureIcon} aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="9" cy="8" r="3.25" />
+                      <circle cx="17" cy="9" r="2.5" />
+                      <path d="M2.75 19c.5-3 3-5 6.25-5s5.75 2 6.25 5" />
+                      <path d="M15 19c.5-2.5 2.5-4 5-4" />
+                    </svg>
+                  </span>
                   <span className={styles.featureText}>Multi-User</span>
                   <span className={styles.featureDescription}>User profiles, role-based access, complete user management</span>
                 </div>
                 <div className={styles.featureItem}>
-                  <span className={styles.featureIcon}>⚡</span>
+                  <span className={styles.featureIcon} aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
+                    </svg>
+                  </span>
                   <span className={styles.featureText}>Dual Workers</span>
                   <span className={styles.featureDescription}>HTTP worker for API + frontend, processing worker for async jobs</span>
                 </div>
                 <div className={styles.featureItem}>
-                  <span className={styles.featureIcon}>💬</span>
+                  <span className={styles.featureIcon} aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-5 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
+                    </svg>
+                  </span>
                   <span className={styles.featureText}>Real-Time Chat</span>
                   <span className={styles.featureDescription}>Chat components ready for AI integration or messaging</span>
                 </div>
