@@ -85,11 +85,63 @@ function rejectOversizedRequest(c: Context<AppContext>): Response | null {
   if (!contentLength) return null;
 
   const size = Number(contentLength);
-  if (!Number.isFinite(size) || size <= MAX_UPLOAD_BODY_SIZE_BYTES) return null;
+  if (!Number.isFinite(size) || size < 0) {
+    return c.json({ error: 'Invalid Content-Length' }, 400);
+  }
+  if (size <= MAX_UPLOAD_BODY_SIZE_BYTES) return null;
 
   return c.json({
     error: `Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`,
   }, 413);
+}
+
+async function readRequestBodyWithLimit(c: Context<AppContext>): Promise<ArrayBuffer | Response> {
+  const reader = c.req.raw.body?.getReader();
+  if (!reader) return new ArrayBuffer(0);
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    total += value.byteLength;
+    if (total > MAX_UPLOAD_BODY_SIZE_BYTES) {
+      await reader.cancel().catch(() => undefined);
+      return c.json({
+        error: `Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`,
+      }, 413);
+    }
+    chunks.push(value);
+  }
+
+  const rawBody = new ArrayBuffer(total);
+  const body = new Uint8Array(rawBody);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return rawBody;
+}
+
+async function parseBoundedFormData(c: Context<AppContext>): Promise<FormData | Response> {
+  const oversized = rejectOversizedRequest(c);
+  if (oversized) return oversized;
+
+  const body = await readRequestBodyWithLimit(c);
+  if (body instanceof Response) return body;
+
+  try {
+    return await new Request(c.req.raw.url, {
+      method: c.req.raw.method,
+      headers: c.req.raw.headers,
+      body,
+    }).formData();
+  } catch {
+    return c.json({ error: 'Invalid form data' }, 400);
+  }
 }
 
 async function deleteUploadedKeys(env: AppContext['Bindings'], keys: Array<string | null>): Promise<void> {
@@ -130,12 +182,8 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   }
 
   // Parse FormData
-  let formData: FormData;
-  try {
-    formData = await c.req.formData();
-  } catch {
-    return c.json({ error: 'Invalid form data' }, 400);
-  }
+  const formData = await parseBoundedFormData(c);
+  if (formData instanceof Response) return formData;
 
   // Get file
   const file = formData.get('file') as File | null;
@@ -399,12 +447,8 @@ uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
   }
 
   // Parse FormData
-  let formData: FormData;
-  try {
-    formData = await c.req.formData();
-  } catch {
-    return c.json({ error: 'Invalid form data' }, 400);
-  }
+  const formData = await parseBoundedFormData(c);
+  if (formData instanceof Response) return formData;
 
   // Get file
   const file = formData.get('file') as File | null;

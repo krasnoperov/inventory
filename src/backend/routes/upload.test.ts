@@ -171,6 +171,28 @@ function oversizedUploadRequest(path: string): Request {
   });
 }
 
+function oversizedUploadRequestWithoutLength(path: string): Request {
+  return new Request(`https://app.example${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer test-token',
+      'Content-Type': 'multipart/form-data; boundary=test',
+    },
+    body: new Uint8Array(12 * 1024 * 1024),
+  });
+}
+
+function invalidLengthUploadRequest(path: string): Request {
+  return new Request(`https://app.example${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer test-token',
+      'Content-Length': 'not-a-number',
+    },
+    body: '',
+  });
+}
+
 function styleUploadRequest(spaceId: string, formData: FormData): Request {
   return new Request(`https://app.example/api/spaces/${spaceId}/style-images`, {
     method: 'POST',
@@ -280,6 +302,30 @@ describe('uploadRoutes', () => {
 
     assert.strictEqual(res.status, 413);
     assert.match(body.error, /limited to 10MB/);
+    assert.strictEqual(puts.length, 0);
+    assert.strictEqual(doCalls.length, 0);
+  });
+
+  it('rejects oversized upload bodies without relying on Content-Length', async () => {
+    const { app, puts, doCalls } = buildApp();
+
+    const res = await app.fetch(oversizedUploadRequestWithoutLength('/api/spaces/space-1/upload'));
+    const body = await res.json() as { error: string };
+
+    assert.strictEqual(res.status, 413);
+    assert.match(body.error, /limited to 10MB/);
+    assert.strictEqual(puts.length, 0);
+    assert.strictEqual(doCalls.length, 0);
+  });
+
+  it('rejects invalid Content-Length upload headers before parsing form data', async () => {
+    const { app, puts, doCalls } = buildApp();
+
+    const res = await app.fetch(invalidLengthUploadRequest('/api/spaces/space-1/upload'));
+    const body = await res.json() as { error: string };
+
+    assert.strictEqual(res.status, 400);
+    assert.match(body.error, /Invalid Content-Length/);
     assert.strictEqual(puts.length, 0);
     assert.strictEqual(doCalls.length, 0);
   });
