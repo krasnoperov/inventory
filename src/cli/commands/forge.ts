@@ -3,6 +3,7 @@ import path from 'node:path';
 import process from 'node:process';
 import type { ParsedArgs, StoredConfig } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
+import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
 import {
   downloadImage,
   looksLikeFilePath,
@@ -48,6 +49,7 @@ interface ForgeClient {
 
 interface CommandDeps {
   loadConfig: (env: string) => Promise<StoredConfig | null>;
+  loadProjectConfig: () => Promise<ProjectConfig | null>;
   resolveBaseUrl: (env: string) => string;
   createClient: (env: string, spaceId: string) => Promise<ForgeClient>;
   uploadLocalReference: (input: {
@@ -69,6 +71,7 @@ interface CommandDeps {
 
 const defaultDeps: CommandDeps = {
   loadConfig: loadStoredConfig,
+  loadProjectConfig,
   resolveBaseUrl,
   createClient: WebSocketClient.create,
   uploadLocalReference: uploadLocalImageAsReference,
@@ -230,8 +233,14 @@ async function executeDerive(
 }
 
 async function buildContext(parsed: ParsedArgs, deps: CommandDeps): Promise<CommandContext> {
-  const env = parsed.options.local === 'true' ? 'local' : (parsed.options.env || 'stage');
-  const spaceId = requireOption(parsed, 'space');
+  const projectConfig = await deps.loadProjectConfig();
+  const env = parsed.options.local === 'true'
+    ? 'local'
+    : parsed.options.env || projectConfig?.environment || 'stage';
+  const spaceId = parsed.options.space || projectConfig?.spaceId;
+  if (!spaceId || spaceId === 'true') {
+    throw new Error('--space is required, or run: npm run cli -- init --space <id>');
+  }
   const config = await deps.loadConfig(env);
 
   if (!config) {

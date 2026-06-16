@@ -5,13 +5,25 @@ The website remains the source of truth: assets, variants, recipes, lineage, and
 stored images live in the Space Durable Object and R2. The CLI sends requests,
 waits for completion, and downloads local copies of completed images.
 
+## Project Binding
+
+Bind a local directory to a website space:
+
+```bash
+npm run cli -- init --space SPACE_ID --env stage
+```
+
+This writes `.inventory/config.json` with the target environment and space ID.
+It does not store assets, prompts, images, generation keys, or auth tokens.
+Inside an initialized project, Forge commands can omit `--space` and `--env`.
+Explicit command flags override the project config.
+
 ## Commands
 
 Generate a new asset from text:
 
 ```bash
 npm run cli -- generate "A watercolor background of Russafa market" \
-  --space SPACE_ID \
   --name "Russafa Market Background" \
   --type scene \
   -o backgrounds/russafa-market.png
@@ -21,7 +33,6 @@ Refine an existing variant:
 
 ```bash
 npm run cli -- refine \
-  --space SPACE_ID \
   --variant VARIANT_ID \
   "make it evening, warmer lights" \
   -o backgrounds/russafa-market-evening.png
@@ -31,7 +42,6 @@ Derive a new asset from references:
 
 ```bash
 npm run cli -- derive \
-  --space SPACE_ID \
   --refs CHARACTER_VARIANT_ID,BACKGROUND_VARIANT_ID \
   --name "Lucia in Market Scene" \
   --type scene \
@@ -45,7 +55,6 @@ npm run cli -- derive \
 
 ```bash
 npm run cli -- derive \
-  --space SPACE_ID \
   --refs ./lucia.png,VARIANT_BACKGROUND_ID \
   --name "Lucia in Market Scene" \
   --type scene \
@@ -66,7 +75,7 @@ The CLI downloads the completed R2 image to the path passed with `-o` or
 
 | Option | Commands | Description |
 |--------|----------|-------------|
-| `--space <id>` | all | Target website space |
+| `--space <id>` | all | Target website space; overrides project binding |
 | `--name <name>` | `generate`, `derive` | New asset name |
 | `--type <type>` | `generate`, `derive` | New asset type |
 | `--variant <id>` | `refine` | Source variant to refine |
@@ -76,7 +85,7 @@ The CLI downloads the completed R2 image to the path passed with `-o` or
 | `--aspect <ratio>` | all | Optional generation aspect ratio |
 | `--parent <assetId>` | `generate`, `derive` | Optional parent asset |
 | `--no-style` | all | Disable active space style for this request |
-| `--env <env>` | all | `production`, `stage`, or `local` |
+| `--env <env>` | all | `production`, `stage`, or `local`; overrides project binding |
 | `--local` | all | Shortcut for `--env local` |
 
 Direct use of `gemini-images` or other generators remains intentionally

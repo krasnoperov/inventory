@@ -105,6 +105,7 @@ function depsFor(client: FakeClient) {
   return {
     deps: {
       loadConfig: async () => config,
+      loadProjectConfig: async () => null,
       resolveBaseUrl: () => 'https://inventory-stage.example.test',
       createClient: async () => client,
       uploadLocalReference: async () => {
@@ -259,6 +260,97 @@ test('generate sends generate request and downloads completed image', async () =
   }]);
 });
 
+test('generate resolves missing space and env from project config', async () => {
+  const client = new FakeClient();
+  let loadedEnv = '';
+  let clientEnv = '';
+  let clientSpace = '';
+  const downloads: unknown[] = [];
+
+  await executeForgeCommand('generate', {
+    positionals: ['A', 'market', 'background'],
+    options: {
+      name: 'Market',
+      type: 'scene',
+      o: 'market.png',
+    },
+  }, {
+    loadConfig: async (env) => {
+      loadedEnv = env;
+      return config;
+    },
+    loadProjectConfig: async () => ({
+      version: 1,
+      environment: 'production',
+      spaceId: 'space-project',
+      updatedAt: new Date().toISOString(),
+    }),
+    resolveBaseUrl: () => 'https://inventory.example.test',
+    createClient: async (env, spaceId) => {
+      clientEnv = env;
+      clientSpace = spaceId;
+      return client;
+    },
+    uploadLocalReference: async () => {
+      throw new Error('unexpected upload');
+    },
+    downloadImage: async (input: unknown) => {
+      downloads.push(input);
+    },
+    fileExists: async () => false,
+  });
+
+  assert.equal(loadedEnv, 'production');
+  assert.equal(clientEnv, 'production');
+  assert.equal(clientSpace, 'space-project');
+  assert.equal(downloads.length, 1);
+});
+
+test('generate command flags override project config', async () => {
+  const client = new FakeClient();
+  let loadedEnv = '';
+  let clientSpace = '';
+  const downloads: unknown[] = [];
+
+  await executeForgeCommand('generate', {
+    positionals: ['A', 'market', 'background'],
+    options: {
+      env: 'stage',
+      space: 'space-flag',
+      name: 'Market',
+      type: 'scene',
+      o: 'market.png',
+    },
+  }, {
+    loadConfig: async (env) => {
+      loadedEnv = env;
+      return config;
+    },
+    loadProjectConfig: async () => ({
+      version: 1,
+      environment: 'production',
+      spaceId: 'space-project',
+      updatedAt: new Date().toISOString(),
+    }),
+    resolveBaseUrl: () => 'https://inventory-stage.example.test',
+    createClient: async (_env, spaceId) => {
+      clientSpace = spaceId;
+      return client;
+    },
+    uploadLocalReference: async () => {
+      throw new Error('unexpected upload');
+    },
+    downloadImage: async (input: unknown) => {
+      downloads.push(input);
+    },
+    fileExists: async () => false,
+  });
+
+  assert.equal(loadedEnv, 'stage');
+  assert.equal(clientSpace, 'space-flag');
+  assert.equal(downloads.length, 1);
+});
+
 test('refine resolves variant asset from sync state and sends refine request', async () => {
   const sourceVariant = completedVariant({
     id: 'variant-source',
@@ -297,6 +389,7 @@ test('derive sends uploaded and existing refs as referenceVariantIds', async () 
   const downloads: unknown[] = [];
   const deps = {
     loadConfig: async () => config,
+    loadProjectConfig: async () => null,
     resolveBaseUrl: () => 'https://inventory-stage.example.test',
     createClient: async () => client,
     uploadLocalReference: async () => ({
