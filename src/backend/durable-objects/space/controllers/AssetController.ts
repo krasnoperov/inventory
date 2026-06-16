@@ -402,6 +402,15 @@ export class AssetController extends BaseController {
       media_width: sourceVariant.media_width,
       media_height: sourceVariant.media_height,
       media_duration_ms: sourceVariant.media_duration_ms,
+      transcript_key: sourceVariant.transcript_key,
+      transcript_mime_type: sourceVariant.transcript_mime_type,
+      transcript_size_bytes: sourceVariant.transcript_size_bytes,
+      word_timings_key: sourceVariant.word_timings_key,
+      word_timings_mime_type: sourceVariant.word_timings_mime_type,
+      word_timings_size_bytes: sourceVariant.word_timings_size_bytes,
+      render_metadata_key: sourceVariant.render_metadata_key,
+      render_metadata_mime_type: sourceVariant.render_metadata_mime_type,
+      render_metadata_size_bytes: sourceVariant.render_metadata_size_bytes,
       recipe: sourceVariant.recipe,
       starred: false,
       created_by: data.createdBy,
@@ -415,8 +424,8 @@ export class AssetController extends BaseController {
     };
 
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, transcript_key, transcript_mime_type, transcript_size_bytes, word_timings_key, word_timings_mime_type, word_timings_size_bytes, render_metadata_key, render_metadata_mime_type, render_metadata_size_bytes, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       variant.id,
       variant.asset_id,
       variant.media_kind,
@@ -431,6 +440,15 @@ export class AssetController extends BaseController {
       variant.media_width,
       variant.media_height,
       variant.media_duration_ms,
+      variant.transcript_key,
+      variant.transcript_mime_type,
+      variant.transcript_size_bytes,
+      variant.word_timings_key,
+      variant.word_timings_mime_type,
+      variant.word_timings_size_bytes,
+      variant.render_metadata_key,
+      variant.render_metadata_mime_type,
+      variant.render_metadata_size_bytes,
       variant.recipe,
       variant.starred ? 1 : 0,
       variant.created_by,

@@ -173,6 +173,15 @@ export const VariantSchema = z
     media_width: z.number().nullable().optional(),
     media_height: z.number().nullable().optional(),
     media_duration_ms: z.number().nullable().optional(),
+    transcript_key: z.string().nullable().optional(),
+    transcript_mime_type: z.string().nullable().optional(),
+    transcript_size_bytes: z.number().nullable().optional(),
+    word_timings_key: z.string().nullable().optional(),
+    word_timings_mime_type: z.string().nullable().optional(),
+    word_timings_size_bytes: z.number().nullable().optional(),
+    render_metadata_key: z.string().nullable().optional(),
+    render_metadata_mime_type: z.string().nullable().optional(),
+    render_metadata_size_bytes: z.number().nullable().optional(),
     recipe: z.string(),
     starred: BooleanFromSqliteSchema,
     created_by: z.string(),
@@ -211,6 +220,9 @@ export const UploadMediaRequestSchema = z
     assetType: z.string().optional(),
     mediaKind: MediaKindSchema.optional(),
     parentAssetId: z.string().optional(),
+    transcript: UploadFileSchema.optional(),
+    wordTimings: UploadFileSchema.optional(),
+    renderMetadata: UploadFileSchema.optional(),
   })
   .openapi('UploadMediaRequest');
 

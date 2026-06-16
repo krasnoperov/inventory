@@ -27,6 +27,12 @@ interface VariantMediaFixture {
   media_key?: string | null;
   media_mime_type?: string | null;
   poster_key?: string | null;
+  transcript_key?: string | null;
+  transcript_mime_type?: string | null;
+  word_timings_key?: string | null;
+  word_timings_mime_type?: string | null;
+  render_metadata_key?: string | null;
+  render_metadata_mime_type?: string | null;
 }
 
 function makeObject(input: FakeObjectInput): R2ObjectBody {
@@ -246,6 +252,64 @@ describe('imageRoutes', () => {
     assert.strictEqual(res.headers.get('content-type'), 'image/webp');
     assert.strictEqual(res.headers.get('accept-ranges'), null);
     assert.strictEqual(await res.text(), 'poster');
+  });
+
+  it('serves authenticated audio sidecar artifacts without range support', async () => {
+    const { app, calls } = buildApp({
+      variants: {
+        'variant-1': {
+          id: 'variant-1',
+          status: 'completed',
+          media_key: 'media/space/variant.mp3',
+          transcript_key: 'sidecars/space/variant-1/transcript.txt',
+          transcript_mime_type: 'text/plain',
+          word_timings_key: 'sidecars/space/variant-1/word_timings.json',
+          word_timings_mime_type: 'application/json',
+          render_metadata_key: 'sidecars/space/variant-1/render_metadata.json',
+          render_metadata_mime_type: 'application/json',
+        },
+      },
+      objects: {
+        'sidecars/space/variant-1/transcript.txt': makeObject({
+          key: 'sidecars/space/variant-1/transcript.txt',
+          body: 'hello world',
+        }),
+        'sidecars/space/variant-1/word_timings.json': makeObject({
+          key: 'sidecars/space/variant-1/word_timings.json',
+          body: '[]',
+        }),
+        'sidecars/space/variant-1/render_metadata.json': makeObject({
+          key: 'sidecars/space/variant-1/render_metadata.json',
+          body: '{}',
+        }),
+      },
+    });
+
+    const transcript = await app.fetch(new Request('https://app.example/api/spaces/space-1/variants/variant-1/transcript', {
+      headers: { Authorization: 'Bearer test-token' },
+    }));
+    const timings = await app.fetch(new Request('https://app.example/api/spaces/space-1/variants/variant-1/word-timings', {
+      headers: { Authorization: 'Bearer test-token' },
+    }));
+    const metadata = await app.fetch(new Request('https://app.example/api/spaces/space-1/variants/variant-1/render-metadata', {
+      headers: { Authorization: 'Bearer test-token' },
+    }));
+
+    assert.strictEqual(transcript.status, 200);
+    assert.strictEqual(transcript.headers.get('content-type'), 'text/plain');
+    assert.strictEqual(transcript.headers.get('accept-ranges'), null);
+    assert.strictEqual(await transcript.text(), 'hello world');
+    assert.strictEqual(timings.status, 200);
+    assert.strictEqual(timings.headers.get('content-type'), 'application/json');
+    assert.strictEqual(await timings.text(), '[]');
+    assert.strictEqual(metadata.status, 200);
+    assert.strictEqual(metadata.headers.get('content-type'), 'application/json');
+    assert.strictEqual(await metadata.text(), '{}');
+    assert.deepStrictEqual(calls.map((call) => call.key), [
+      'sidecars/space/variant-1/transcript.txt',
+      'sidecars/space/variant-1/word_timings.json',
+      'sidecars/space/variant-1/render_metadata.json',
+    ]);
   });
 
   it('preserves stored metadata content type for authenticated variant media', async () => {

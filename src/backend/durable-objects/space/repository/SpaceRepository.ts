@@ -115,6 +115,15 @@ export interface VariantMediaMetadata {
   width?: number | null;
   height?: number | null;
   durationMs?: number | null;
+  transcriptKey?: string | null;
+  transcriptMimeType?: string | null;
+  transcriptSizeBytes?: number | null;
+  wordTimingsKey?: string | null;
+  wordTimingsMimeType?: string | null;
+  wordTimingsSizeBytes?: number | null;
+  renderMetadataKey?: string | null;
+  renderMetadataMimeType?: string | null;
+  renderMetadataSizeBytes?: number | null;
 }
 
 // ============================================================================
@@ -308,6 +317,15 @@ export class SpaceRepository {
       mediaMetadata.width ?? null,
       mediaMetadata.height ?? null,
       mediaMetadata.durationMs ?? null,
+      mediaMetadata.transcriptKey ?? null,
+      mediaMetadata.transcriptMimeType ?? null,
+      mediaMetadata.transcriptSizeBytes ?? null,
+      mediaMetadata.wordTimingsKey ?? null,
+      mediaMetadata.wordTimingsMimeType ?? null,
+      mediaMetadata.wordTimingsSizeBytes ?? null,
+      mediaMetadata.renderMetadataKey ?? null,
+      mediaMetadata.renderMetadataMimeType ?? null,
+      mediaMetadata.renderMetadataSizeBytes ?? null,
       variant.recipe,
       0, // starred = false
       variant.createdBy,
@@ -457,6 +475,15 @@ export class SpaceRepository {
       mediaMetadata.width ?? null,
       mediaMetadata.height ?? null,
       mediaMetadata.durationMs ?? null,
+      mediaMetadata.transcriptKey ?? null,
+      mediaMetadata.transcriptMimeType ?? null,
+      mediaMetadata.transcriptSizeBytes ?? null,
+      mediaMetadata.wordTimingsKey ?? null,
+      mediaMetadata.wordTimingsMimeType ?? null,
+      mediaMetadata.wordTimingsSizeBytes ?? null,
+      mediaMetadata.renderMetadataKey ?? null,
+      mediaMetadata.renderMetadataMimeType ?? null,
+      mediaMetadata.renderMetadataSizeBytes ?? null,
       Date.now(),
       variantId
     );
@@ -466,6 +493,9 @@ export class SpaceRepository {
       media_key: mediaKey,
       image_key: imageKey,
       thumb_key: thumbKey,
+      transcript_key: mediaMetadata.transcriptKey ?? null,
+      word_timings_key: mediaMetadata.wordTimingsKey ?? null,
+      render_metadata_key: mediaMetadata.renderMetadataKey ?? null,
       recipe: existing.recipe,
     });
     for (const key of imageKeys) {

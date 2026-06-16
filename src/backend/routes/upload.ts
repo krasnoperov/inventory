@@ -21,14 +21,27 @@ import type { MediaKind } from '../../shared/websocket-types';
 // Configuration
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_SIDECAR_FILE_SIZE_MB = 2;
+const MAX_SIDECAR_FILE_SIZE_BYTES = MAX_SIDECAR_FILE_SIZE_MB * 1024 * 1024;
+const MAX_AUDIO_SIDECAR_COUNT = 3;
 const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
-const MAX_UPLOAD_BODY_SIZE_BYTES = MAX_FILE_SIZE_BYTES + MAX_MULTIPART_OVERHEAD_BYTES;
+const MAX_UPLOAD_BODY_SIZE_BYTES =
+  MAX_FILE_SIZE_BYTES +
+  (MAX_AUDIO_SIDECAR_COUNT * MAX_SIDECAR_FILE_SIZE_BYTES) +
+  MAX_MULTIPART_OVERHEAD_BYTES;
+const MAX_STYLE_UPLOAD_BODY_SIZE_BYTES = MAX_FILE_SIZE_BYTES + MAX_MULTIPART_OVERHEAD_BYTES;
+const MEDIA_UPLOAD_LIMIT_MESSAGE =
+  `Request too large. Media uploads are limited to ${MAX_FILE_SIZE_MB}MB plus up to ` +
+  `${MAX_AUDIO_SIDECAR_COUNT} sidecars of ${MAX_SIDECAR_FILE_SIZE_MB}MB each`;
+const FILE_UPLOAD_LIMIT_MESSAGE = `Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`;
 
 const MIME_TO_EXT: Record<string, string> = {
+  'application/json': 'json',
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/gif': 'gif',
   'image/webp': 'webp',
+  'text/plain': 'txt',
   'audio/aac': 'aac',
   'audio/flac': 'flac',
   'audio/mpeg': 'mp3',
@@ -70,6 +83,17 @@ const IMAGE_MIME_TYPES = new Set<ImageMimeType>([
 ]);
 const ALLOWED_IMAGE_MIME_TYPES = [...IMAGE_MIME_TYPES];
 const ALLOWED_MIME_TYPES = Object.keys(MIME_TO_MEDIA_KIND);
+const TRANSCRIPT_MIME_TYPES = new Set(['text/plain', 'application/json']);
+const JSON_SIDECAR_MIME_TYPES = new Set(['application/json']);
+
+type AudioSidecarKind = 'transcript' | 'wordTimings' | 'renderMetadata';
+
+interface AudioSidecarUpload {
+  kind: AudioSidecarKind;
+  file: File;
+  key: string;
+  mimeType: string;
+}
 
 function parseMediaKind(value: FormDataEntryValue | null): MediaKind | undefined {
   if (value === null || typeof value !== 'string' || value === '') return undefined;
@@ -82,6 +106,11 @@ function getOptionalString(formData: FormData, key: string): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
+function getOptionalFile(formData: FormData, key: string): File | null {
+  const value = formData.get(key);
+  return value instanceof File && value.size > 0 ? value : null;
+}
+
 class UploadRequestError extends Error {
   constructor(
     message: string,
@@ -91,7 +120,11 @@ class UploadRequestError extends Error {
   }
 }
 
-function getUploadRequestError(c: Context<AppContext>): UploadRequestError | null {
+function getUploadRequestError(
+  c: Context<AppContext>,
+  maxBodySizeBytes: number,
+  limitMessage: string
+): UploadRequestError | null {
   const contentLength = c.req.header('Content-Length');
   if (!contentLength) return null;
 
@@ -99,16 +132,20 @@ function getUploadRequestError(c: Context<AppContext>): UploadRequestError | nul
   if (!Number.isFinite(size) || size < 0) {
     return new UploadRequestError('Invalid Content-Length', 400);
   }
-  if (size <= MAX_UPLOAD_BODY_SIZE_BYTES) return null;
+  if (size <= maxBodySizeBytes) return null;
 
-  return new UploadRequestError(`Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`, 413);
+  return new UploadRequestError(limitMessage, 413);
 }
 
 function uploadRequestErrorResponse(c: Context<AppContext>, error: UploadRequestError): Response {
   return c.json({ error: error.message }, error.status);
 }
 
-async function readRequestBodyWithLimit(c: Context<AppContext>): Promise<ArrayBuffer> {
+async function readRequestBodyWithLimit(
+  c: Context<AppContext>,
+  maxBodySizeBytes: number,
+  limitMessage: string
+): Promise<ArrayBuffer> {
   const reader = c.req.raw.body?.getReader();
   if (!reader) return new ArrayBuffer(0);
 
@@ -120,9 +157,9 @@ async function readRequestBodyWithLimit(c: Context<AppContext>): Promise<ArrayBu
     if (done) break;
 
     total += value.byteLength;
-    if (total > MAX_UPLOAD_BODY_SIZE_BYTES) {
+    if (total > maxBodySizeBytes) {
       await reader.cancel().catch(() => undefined);
-      throw new UploadRequestError(`Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`, 413);
+      throw new UploadRequestError(limitMessage, 413);
     }
     chunks.push(value);
   }
@@ -137,11 +174,15 @@ async function readRequestBodyWithLimit(c: Context<AppContext>): Promise<ArrayBu
   return rawBody;
 }
 
-async function bufferUploadRequest(c: Context<AppContext>): Promise<void> {
-  const uploadRequestError = getUploadRequestError(c);
+async function bufferUploadRequest(
+  c: Context<AppContext>,
+  maxBodySizeBytes: number,
+  limitMessage: string
+): Promise<void> {
+  const uploadRequestError = getUploadRequestError(c, maxBodySizeBytes, limitMessage);
   if (uploadRequestError) throw uploadRequestError;
 
-  const body = await readRequestBodyWithLimit(c);
+  const body = await readRequestBodyWithLimit(c, maxBodySizeBytes, limitMessage);
   c.req.raw = new Request(c.req.raw.url, {
     method: c.req.raw.method,
     headers: c.req.raw.headers,
@@ -163,13 +204,77 @@ async function deleteUploadedKeys(env: AppContext['Bindings'], keys: Array<strin
   await Promise.all(uniqueKeys.map((key) => env.IMAGES.delete(key)));
 }
 
+function validateSidecarFile(
+  kind: AudioSidecarKind,
+  file: File,
+): { ok: true; mimeType: string } | { ok: false; error: string } {
+  const mimeType = file.type;
+  const allowed = kind === 'transcript' ? TRANSCRIPT_MIME_TYPES : JSON_SIDECAR_MIME_TYPES;
+
+  if (!allowed.has(mimeType)) {
+    const label = kind === 'wordTimings' ? 'wordTimings' : kind;
+    return {
+      ok: false,
+      error: `Invalid ${label} sidecar type. Allowed: ${[...allowed].join(', ')}`,
+    };
+  }
+
+  if (file.size > MAX_SIDECAR_FILE_SIZE_BYTES) {
+    return {
+      ok: false,
+      error: `${kind} sidecar too large. Maximum size is ${MAX_SIDECAR_FILE_SIZE_MB}MB`,
+    };
+  }
+
+  return { ok: true, mimeType };
+}
+
+function buildAudioSidecarUploads(formData: FormData, spaceId: string, variantId: string): AudioSidecarUpload[] {
+  const specs: Array<{ kind: AudioSidecarKind; field: string; suffix: string }> = [
+    { kind: 'transcript', field: 'transcript', suffix: 'transcript' },
+    { kind: 'wordTimings', field: 'wordTimings', suffix: 'word_timings' },
+    { kind: 'renderMetadata', field: 'renderMetadata', suffix: 'render_metadata' },
+  ];
+
+  return specs.flatMap(({ kind, field, suffix }) => {
+    const file = getOptionalFile(formData, field);
+    if (!file) return [];
+    const ext = MIME_TO_EXT[file.type] || 'json';
+    return [{
+      kind,
+      file,
+      key: `sidecars/${spaceId}/${variantId}/${suffix}.${ext}`,
+      mimeType: file.type,
+    }];
+  });
+}
+
+function getSidecarCompletionFields(sidecars: AudioSidecarUpload[], sidecarBytes: Map<AudioSidecarKind, number>): Record<string, string | number | null> {
+  const get = (kind: AudioSidecarKind) => sidecars.find((sidecar) => sidecar.kind === kind);
+  const transcript = get('transcript');
+  const wordTimings = get('wordTimings');
+  const renderMetadata = get('renderMetadata');
+
+  return {
+    transcriptKey: transcript?.key ?? null,
+    transcriptMimeType: transcript?.mimeType ?? null,
+    transcriptSizeBytes: transcript ? sidecarBytes.get('transcript') ?? null : null,
+    wordTimingsKey: wordTimings?.key ?? null,
+    wordTimingsMimeType: wordTimings?.mimeType ?? null,
+    wordTimingsSizeBytes: wordTimings ? sidecarBytes.get('wordTimings') ?? null : null,
+    renderMetadataKey: renderMetadata?.key ?? null,
+    renderMetadataMimeType: renderMetadata?.mimeType ?? null,
+    renderMetadataSizeBytes: renderMetadata ? sidecarBytes.get('renderMetadata') ?? null : null,
+  };
+}
+
 export const uploadRoutes = createOpenApiRouter();
 
 // All upload routes require authentication
 uploadRoutes.use('/api/spaces/*', authMiddleware);
 uploadRoutes.use('/api/spaces/:id/upload', async (c, next) => {
   try {
-    await bufferUploadRequest(c);
+    await bufferUploadRequest(c, MAX_UPLOAD_BODY_SIZE_BYTES, MEDIA_UPLOAD_LIMIT_MESSAGE);
   } catch (error) {
     if (error instanceof UploadRequestError) return uploadRequestErrorResponse(c, error);
     throw error;
@@ -178,7 +283,7 @@ uploadRoutes.use('/api/spaces/:id/upload', async (c, next) => {
 });
 uploadRoutes.use('/api/spaces/:id/style-images', async (c, next) => {
   try {
-    await bufferUploadRequest(c);
+    await bufferUploadRequest(c, MAX_STYLE_UPLOAD_BODY_SIZE_BYTES, FILE_UPLOAD_LIMIT_MESSAGE);
   } catch (error) {
     if (error instanceof UploadRequestError) return uploadRequestErrorResponse(c, error);
     throw error;
@@ -194,6 +299,9 @@ uploadRoutes.use('/api/spaces/:id/style-images', async (c, next) => {
  * FormData:
  * - file: Media file - max 10MB
  * - assetId: Target asset UUID, or assetName for a new asset
+ * - transcript: Optional audio transcript sidecar (text/plain or application/json)
+ * - wordTimings: Optional audio word timing sidecar (application/json)
+ * - renderMetadata: Optional audio render metadata sidecar (application/json)
  */
 uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   const userId = String(c.get('userId')!);
@@ -290,6 +398,18 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
     : `media/${spaceId}/${variantId}.${ext}`;
   const imageKey = isImageUpload ? mediaKey : null;
   const thumbKey = isImageUpload ? `images/${spaceId}/${variantId}_thumb.webp` : null;
+  const audioSidecars = buildAudioSidecarUploads(formData, spaceId, variantId);
+
+  if (audioSidecars.length > 0 && mediaKind !== 'audio') {
+    return c.json({ error: 'Audio sidecars can only be attached to audio uploads' }, 400);
+  }
+
+  for (const sidecar of audioSidecars) {
+    const validation = validateSidecarFile(sidecar.kind, sidecar.file);
+    if (!validation.ok) {
+      return c.json({ error: validation.error }, 400);
+    }
+  }
 
   // Build recipe (consistent with generation recipes)
   const recipe = JSON.stringify({
@@ -298,6 +418,7 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
     mediaKind,
     mimeType,
     originalFilename: file.name,
+    sidecars: audioSidecars.map(({ kind, key, mimeType }) => ({ kind, key, mimeType })),
     uploadedAt: new Date().toISOString(),
   });
 
@@ -351,11 +472,20 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   try {
     const mediaBuffer = new Uint8Array(await file.arrayBuffer());
     const dimensions = isImageUpload ? getImageDimensions(mediaBuffer) : null;
+    const sidecarBytes = new Map<AudioSidecarKind, number>();
 
     // Upload primary media to R2
     await env.IMAGES.put(mediaKey, mediaBuffer, {
       httpMetadata: { contentType: mimeType },
     });
+
+    for (const sidecar of audioSidecars) {
+      const sidecarBuffer = new Uint8Array(await sidecar.file.arrayBuffer());
+      sidecarBytes.set(sidecar.kind, sidecarBuffer.byteLength);
+      await env.IMAGES.put(sidecar.key, sidecarBuffer, {
+        httpMetadata: { contentType: sidecar.mimeType },
+      });
+    }
 
     if (isImageUpload && imageKey && thumbKey) {
       // Create and upload thumbnail
@@ -404,13 +534,14 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
           mediaWidth: dimensions?.width ?? null,
           mediaHeight: dimensions?.height ?? null,
           mediaDurationMs: null,
+          ...getSidecarCompletionFields(audioSidecars, sidecarBytes),
         }),
       })
     );
 
     if (!completeResponse.ok) {
       // R2 upload succeeded but DO update failed - clean up R2
-      await deleteUploadedKeys(env, [mediaKey, imageKey, thumbKey]);
+      await deleteUploadedKeys(env, [mediaKey, imageKey, thumbKey, ...audioSidecars.map((sidecar) => sidecar.key)]);
 
       const errorData = await completeResponse.json().catch(() => ({})) as { error?: string };
       return c.json(
@@ -433,6 +564,7 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
     // Try to clean up R2
     try {
       await deleteUploadedKeys(env, [mediaKey, imageKey, thumbKey]);
+      await deleteUploadedKeys(env, audioSidecars.map((sidecar) => sidecar.key));
     } catch {
       // Ignore cleanup errors
     }

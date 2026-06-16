@@ -32,6 +32,15 @@ interface Variant {
   media_width?: number | null;
   media_height?: number | null;
   media_duration_ms?: number | null;
+  transcript_key?: string | null;
+  transcript_mime_type?: string | null;
+  transcript_size_bytes?: number | null;
+  word_timings_key?: string | null;
+  word_timings_mime_type?: string | null;
+  word_timings_size_bytes?: number | null;
+  render_metadata_key?: string | null;
+  render_metadata_mime_type?: string | null;
+  render_metadata_size_bytes?: number | null;
   recipe?: string;
   starred?: boolean;
   error_message?: string | null;
@@ -323,6 +332,9 @@ function printAssetDetails(details: AssetDetails, ctx: AssetsContext, print: (me
       print(`     File:   ${variant.media_key || variant.image_key || '-'}`);
       if (variant.image_key) print(`     Image:  ${variant.image_key}`);
       if (variant.media_mime_type) print(`     MIME:   ${variant.media_mime_type}`);
+      if (variant.transcript_key) print(`     Transcript:      ${variant.transcript_key}`);
+      if (variant.word_timings_key) print(`     Word timings:    ${variant.word_timings_key}`);
+      if (variant.render_metadata_key) print(`     Render metadata: ${variant.render_metadata_key}`);
     }
   }
 

@@ -104,6 +104,25 @@ describe('Image Reference Utilities', () => {
       ]);
     });
 
+    test('extracts audio sidecar artifact keys', () => {
+      const keys = getVariantImageKeys({
+        media_key: 'media/space1/var1.mp3',
+        image_key: null,
+        thumb_key: null,
+        transcript_key: 'sidecars/space1/var1/transcript.txt',
+        word_timings_key: 'sidecars/space1/var1/word_timings.json',
+        render_metadata_key: 'sidecars/space1/var1/render_metadata.json',
+        recipe: '{}',
+      });
+
+      assert.deepStrictEqual(keys, [
+        'media/space1/var1.mp3',
+        'sidecars/space1/var1/transcript.txt',
+        'sidecars/space1/var1/word_timings.json',
+        'sidecars/space1/var1/render_metadata.json',
+      ]);
+    });
+
     test('handles empty recipe', () => {
       const keys = getVariantImageKeys({
         image_key: 'img',
