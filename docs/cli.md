@@ -213,6 +213,7 @@ pnpm run cli upload hero.png --space abc123 --name "Hero" --local
 The CLI can act as a ForgeTray controller for an existing website space. The
 website remains authoritative for assets, variants, recipes, lineage, and R2
 storage; the CLI sends generation requests and downloads completed images.
+These generation commands are explicitly image-only and send `mediaKind: "image"`.
 
 ```bash
 pnpm run cli generate "A watercolor background of Russafa market" \

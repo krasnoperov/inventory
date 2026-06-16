@@ -91,6 +91,7 @@ interface GenerateRequestMessage {
   aspectRatio?: string;
   parentAssetId?: string;
   disableStyle?: boolean;
+  mediaKind?: MediaKind;
 }
 
 interface RefineRequestMessage {
@@ -103,6 +104,7 @@ interface RefineRequestMessage {
   referenceAssetIds?: string[];
   aspectRatio?: string;
   disableStyle?: boolean;
+  mediaKind?: MediaKind;
 }
 
 interface BatchRequestMessage {
@@ -117,6 +119,7 @@ interface BatchRequestMessage {
   aspectRatio?: string;
   parentAssetId?: string;
   disableStyle?: boolean;
+  mediaKind?: MediaKind;
 }
 
 interface DescribeRequestMessage {
@@ -836,6 +839,7 @@ export class WebSocketClient {
     aspectRatio?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
+    mediaKind?: MediaKind;
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
@@ -878,6 +882,7 @@ export class WebSocketClient {
         aspectRatio: params.aspectRatio,
         parentAssetId: params.parentAssetId,
         disableStyle: params.disableStyle,
+        mediaKind: params.mediaKind,
       };
 
       try {
@@ -901,6 +906,7 @@ export class WebSocketClient {
     referenceAssetIds?: string[];
     aspectRatio?: string;
     disableStyle?: boolean;
+    mediaKind?: MediaKind;
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
@@ -942,6 +948,7 @@ export class WebSocketClient {
         referenceAssetIds: params.referenceAssetIds,
         aspectRatio: params.aspectRatio,
         disableStyle: params.disableStyle,
+        mediaKind: params.mediaKind,
       };
 
       try {
@@ -967,6 +974,7 @@ export class WebSocketClient {
     aspectRatio?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
+    mediaKind?: MediaKind;
     onStarted?: (data: BatchStarted) => void;
   }): Promise<BatchResult> {
     const requestId = crypto.randomUUID();
@@ -1005,6 +1013,7 @@ export class WebSocketClient {
         aspectRatio: params.aspectRatio,
         parentAssetId: params.parentAssetId,
         disableStyle: params.disableStyle,
+        mediaKind: params.mediaKind,
       };
 
       try {
