@@ -40,7 +40,11 @@ async function saveMultiEnvConfig(multiConfig: MultiEnvConfig): Promise<void> {
 
 export async function saveConfig(config: StoredConfig): Promise<void> {
   const multiConfig = await loadMultiEnvConfig() || { configs: {} };
-  multiConfig.configs[config.environment] = config;
+  const environment = normalizeStoredEnvironment(config.environment);
+  multiConfig.configs[environment] = {
+    ...config,
+    environment,
+  };
   await saveMultiEnvConfig(multiConfig);
 }
 
@@ -49,8 +53,11 @@ export async function loadStoredConfig(environment?: string): Promise<StoredConf
   if (!multiConfig) return null;
 
   // Always use the provided environment, never fall back to a stored default
-  const env = environment || DEFAULT_ENVIRONMENT;
-  return multiConfig.configs[env] || null;
+  for (const env of storedEnvironmentLookupKeys(environment)) {
+    const config = multiConfig.configs[env];
+    if (config) return config;
+  }
+  return null;
 }
 
 export async function removeConfig(environment?: string): Promise<void> {
@@ -64,7 +71,9 @@ export async function removeConfig(environment?: string): Promise<void> {
   // Remove specific environment config
   const multiConfig = await loadMultiEnvConfig();
   if (multiConfig) {
-    delete multiConfig.configs[environment];
+    for (const env of storedEnvironmentLookupKeys(environment)) {
+      delete multiConfig.configs[env];
+    }
 
     if (Object.keys(multiConfig.configs).length === 0) {
       // If no configs left, remove the file
@@ -74,6 +83,16 @@ export async function removeConfig(environment?: string): Promise<void> {
       await saveMultiEnvConfig(multiConfig);
     }
   }
+}
+
+function normalizeStoredEnvironment(environment?: string): string {
+  const env = environment || DEFAULT_ENVIRONMENT;
+  return env === 'staging' ? 'stage' : env;
+}
+
+function storedEnvironmentLookupKeys(environment?: string): string[] {
+  const env = normalizeStoredEnvironment(environment);
+  return env === 'stage' ? ['stage', 'staging'] : [env];
 }
 
 export async function getConfigPath(): Promise<string> {
