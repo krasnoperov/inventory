@@ -213,6 +213,41 @@ describe('SpaceRepository', () => {
       assert.strictEqual(insertQuery.bindings[8], 'images/v1.png');
     });
 
+    test('createVariant increments refs for audio sidecars', async () => {
+      mockSql.setMockResult('WHERE id = ?', [
+        { id: 'v1', asset_id: 'a1', media_kind: 'audio' },
+      ]);
+
+      await repo.createVariant({
+        id: 'v1',
+        assetId: 'a1',
+        mediaKind: 'audio',
+        imageKey: 'images/v1.png',
+        thumbKey: 'images/v1_thumb.webp',
+        mediaMetadata: {
+          mediaKey: 'media/v1.mp3',
+          transcriptKey: 'sidecars/v1/transcript.txt',
+          wordTimingsKey: 'sidecars/v1/word_timings.json',
+          renderMetadataKey: 'sidecars/v1/render_metadata.json',
+        },
+        recipe: '{}',
+        createdBy: 'user1',
+      });
+
+      const refKeys = mockSql.queries
+        .filter((q) => q.query.includes('INSERT INTO image_refs'))
+        .map((q) => q.bindings[0]);
+
+      assert.deepStrictEqual(refKeys, [
+        'media/v1.mp3',
+        'images/v1.png',
+        'images/v1_thumb.webp',
+        'sidecars/v1/transcript.txt',
+        'sidecars/v1/word_timings.json',
+        'sidecars/v1/render_metadata.json',
+      ]);
+    });
+
     test('completeVariant writes canonical media metadata', async () => {
       mockSql.setMockResult('WHERE id = ?', [
         { id: 'v1', asset_id: 'a1', recipe: '{}', media_kind: 'image' },

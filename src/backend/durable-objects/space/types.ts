@@ -84,6 +84,15 @@ export interface Variant {
   media_width: number | null; // Pixel width for image/video artifacts
   media_height: number | null; // Pixel height for image/video artifacts
   media_duration_ms: number | null; // Duration for time-based media artifacts
+  transcript_key: string | null; // R2 key for audio transcript sidecar
+  transcript_mime_type: string | null;
+  transcript_size_bytes: number | null;
+  word_timings_key: string | null; // R2 key for word-level timing sidecar
+  word_timings_mime_type: string | null;
+  word_timings_size_bytes: number | null;
+  render_metadata_key: string | null; // R2 key for render metadata sidecar
+  render_metadata_mime_type: string | null;
+  render_metadata_size_bytes: number | null;
   recipe: string; // JSON - generation parameters stored upfront for retry
   starred: boolean; // User marks important versions
   created_by: string;

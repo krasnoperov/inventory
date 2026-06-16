@@ -124,6 +124,15 @@ function buildApp(options: { role?: 'owner' | 'editor' | 'viewer' | null } = {})
                   media_width: null,
                   media_height: null,
                   media_duration_ms: null,
+                  transcript_key: null,
+                  transcript_mime_type: null,
+                  transcript_size_bytes: null,
+                  word_timings_key: null,
+                  word_timings_mime_type: null,
+                  word_timings_size_bytes: null,
+                  render_metadata_key: null,
+                  render_metadata_mime_type: null,
+                  render_metadata_size_bytes: null,
                   recipe: String(body.recipe ?? '{}'),
                   starred: false,
                   created_by: '7',
@@ -168,6 +177,15 @@ function buildApp(options: { role?: 'owner' | 'editor' | 'viewer' | null } = {})
                   media_width: body.mediaWidth,
                   media_height: body.mediaHeight,
                   media_duration_ms: body.mediaDurationMs,
+                  transcript_key: body.transcriptKey,
+                  transcript_mime_type: body.transcriptMimeType,
+                  transcript_size_bytes: body.transcriptSizeBytes,
+                  word_timings_key: body.wordTimingsKey,
+                  word_timings_mime_type: body.wordTimingsMimeType,
+                  word_timings_size_bytes: body.wordTimingsSizeBytes,
+                  render_metadata_key: body.renderMetadataKey,
+                  render_metadata_mime_type: body.renderMetadataMimeType,
+                  render_metadata_size_bytes: body.renderMetadataSizeBytes,
                   recipe: String(placeholder.recipe ?? '{}'),
                   starred: false,
                   created_by: '7',
@@ -220,7 +238,7 @@ function oversizedUploadRequest(path: string): Request {
     method: 'POST',
     headers: {
       Authorization: 'Bearer test-token',
-      'Content-Length': String(12 * 1024 * 1024),
+      'Content-Length': String(18 * 1024 * 1024),
     },
     body: '',
   });
@@ -233,7 +251,7 @@ function oversizedUploadRequestWithoutLength(path: string): Request {
       Authorization: 'Bearer test-token',
       'Content-Type': 'multipart/form-data; boundary=test',
     },
-    body: new Uint8Array(12 * 1024 * 1024),
+    body: new Uint8Array(18 * 1024 * 1024),
   });
 }
 
@@ -317,6 +335,74 @@ describe('uploadRoutes', () => {
     assert.strictEqual(complete.body.mediaKey, puts[0].key);
   });
 
+  it('uploads audio transcript, word timings, and render metadata sidecars', async () => {
+    const { app, puts, doCalls } = buildApp();
+    const formData = new FormData();
+    formData.append('file', new File([new Uint8Array([9, 8])], 'theme.mp3', { type: 'audio/mpeg' }));
+    formData.append('assetId', 'asset-audio');
+    formData.append('transcript', new File(['hello world'], 'transcript.txt', { type: 'text/plain' }));
+    formData.append('wordTimings', new File(['[{"word":"hello","start":0}]'], 'words.json', { type: 'application/json' }));
+    formData.append('renderMetadata', new File(['{"engine":"test"}'], 'render.json', { type: 'application/json' }));
+
+    const res = await app.fetch(uploadRequest('space-1', formData));
+    const body = await res.json() as {
+      success: boolean;
+      variant: {
+        transcript_key: string;
+        word_timings_key: string;
+        render_metadata_key: string;
+      };
+    };
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(body.success, true);
+    assert.strictEqual(puts.length, 4);
+    assert.match(puts[1].key, /^sidecars\/space-1\/.+\/transcript\.txt$/);
+    assert.strictEqual(puts[1].contentType, 'text/plain');
+    assert.match(puts[2].key, /^sidecars\/space-1\/.+\/word_timings\.json$/);
+    assert.strictEqual(puts[2].contentType, 'application/json');
+    assert.match(puts[3].key, /^sidecars\/space-1\/.+\/render_metadata\.json$/);
+    assert.strictEqual(puts[3].contentType, 'application/json');
+
+    const placeholder = doCalls.find((call) => call.path === '/internal/upload-placeholder');
+    assert.ok(placeholder);
+    const recipe = JSON.parse(String(placeholder.body.recipe)) as { sidecars: Array<{ kind: string; key: string }> };
+    assert.deepStrictEqual(recipe.sidecars.map((sidecar) => sidecar.kind), [
+      'transcript',
+      'wordTimings',
+      'renderMetadata',
+    ]);
+
+    const complete = doCalls.find((call) => call.path === '/internal/complete-upload');
+    assert.ok(complete);
+    assert.strictEqual(complete.body.transcriptKey, puts[1].key);
+    assert.strictEqual(complete.body.transcriptMimeType, 'text/plain');
+    assert.strictEqual(complete.body.transcriptSizeBytes, 11);
+    assert.strictEqual(complete.body.wordTimingsKey, puts[2].key);
+    assert.strictEqual(complete.body.wordTimingsMimeType, 'application/json');
+    assert.strictEqual(complete.body.renderMetadataKey, puts[3].key);
+    assert.strictEqual(complete.body.renderMetadataMimeType, 'application/json');
+    assert.strictEqual(body.variant.transcript_key, puts[1].key);
+    assert.strictEqual(body.variant.word_timings_key, puts[2].key);
+    assert.strictEqual(body.variant.render_metadata_key, puts[3].key);
+  });
+
+  it('rejects sidecar files on non-audio uploads', async () => {
+    const { app, puts, doCalls } = buildApp();
+    const formData = new FormData();
+    formData.append('file', new File([new Uint8Array([1, 2, 3])], 'clip.mp4', { type: 'video/mp4' }));
+    formData.append('assetName', 'Combat Clip');
+    formData.append('transcript', new File(['hello'], 'transcript.txt', { type: 'text/plain' }));
+
+    const res = await app.fetch(uploadRequest('space-1', formData));
+    const body = await res.json() as { error: string };
+
+    assert.strictEqual(res.status, 400);
+    assert.match(body.error, /Audio sidecars/);
+    assert.strictEqual(puts.length, 0);
+    assert.strictEqual(doCalls.length, 0);
+  });
+
   it('rejects mediaKind values that do not match the uploaded file', async () => {
     const { app, puts, doCalls } = buildApp();
     const formData = new FormData();
@@ -356,7 +442,7 @@ describe('uploadRoutes', () => {
     const body = await res.json() as { error: string };
 
     assert.strictEqual(res.status, 413);
-    assert.match(body.error, /limited to 10MB/);
+    assert.match(body.error, /10MB plus up to 3 sidecars of 2MB each/);
     assert.strictEqual(puts.length, 0);
     assert.strictEqual(doCalls.length, 0);
   });
@@ -368,7 +454,7 @@ describe('uploadRoutes', () => {
     const body = await res.json() as { error: string };
 
     assert.strictEqual(res.status, 413);
-    assert.match(body.error, /limited to 10MB/);
+    assert.match(body.error, /10MB plus up to 3 sidecars of 2MB each/);
     assert.strictEqual(puts.length, 0);
     assert.strictEqual(doCalls.length, 0);
   });

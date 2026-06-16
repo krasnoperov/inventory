@@ -97,8 +97,8 @@ export class RotationController extends BaseController {
     const forkedVariantId = crypto.randomUUID();
     const now = Date.now();
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, transcript_key, transcript_mime_type, transcript_size_bytes, word_timings_key, word_timings_mime_type, word_timings_size_bytes, render_metadata_key, render_metadata_mime_type, render_metadata_size_bytes, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       forkedVariantId,
       rotationAssetId,
       sourceMediaKind,
@@ -113,6 +113,15 @@ export class RotationController extends BaseController {
       sourceVariant.media_width,
       sourceVariant.media_height,
       sourceVariant.media_duration_ms,
+      sourceVariant.transcript_key,
+      sourceVariant.transcript_mime_type,
+      sourceVariant.transcript_size_bytes,
+      sourceVariant.word_timings_key,
+      sourceVariant.word_timings_mime_type,
+      sourceVariant.word_timings_size_bytes,
+      sourceVariant.render_metadata_key,
+      sourceVariant.render_metadata_mime_type,
+      sourceVariant.render_metadata_size_bytes,
       sourceVariant.recipe,
       0,
       meta.userId,
@@ -417,8 +426,8 @@ export class RotationController extends BaseController {
     const forkedVariantId = crypto.randomUUID();
     const now = Date.now();
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, transcript_key, transcript_mime_type, transcript_size_bytes, word_timings_key, word_timings_mime_type, word_timings_size_bytes, render_metadata_key, render_metadata_mime_type, render_metadata_size_bytes, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       forkedVariantId, rotationAssetId, sourceMediaKind, null, 'completed', null,
       sourceVariant.image_key, sourceVariant.thumb_key,
       sourceVariant.media_key ?? sourceVariant.image_key,
@@ -427,6 +436,15 @@ export class RotationController extends BaseController {
       sourceVariant.media_width,
       sourceVariant.media_height,
       sourceVariant.media_duration_ms,
+      sourceVariant.transcript_key,
+      sourceVariant.transcript_mime_type,
+      sourceVariant.transcript_size_bytes,
+      sourceVariant.word_timings_key,
+      sourceVariant.word_timings_mime_type,
+      sourceVariant.word_timings_size_bytes,
+      sourceVariant.render_metadata_key,
+      sourceVariant.render_metadata_mime_type,
+      sourceVariant.render_metadata_size_bytes,
       sourceVariant.recipe,
       0, meta.userId, now, now
     );

@@ -53,6 +53,15 @@ export class SchemaManager {
         media_width INTEGER,
         media_height INTEGER,
         media_duration_ms INTEGER,
+        transcript_key TEXT,
+        transcript_mime_type TEXT,
+        transcript_size_bytes INTEGER,
+        word_timings_key TEXT,
+        word_timings_mime_type TEXT,
+        word_timings_size_bytes INTEGER,
+        render_metadata_key TEXT,
+        render_metadata_mime_type TEXT,
+        render_metadata_size_bytes INTEGER,
         recipe TEXT NOT NULL,
         starred INTEGER NOT NULL DEFAULT 0,
         created_by TEXT NOT NULL,
@@ -212,6 +221,9 @@ export class SchemaManager {
 
     // Migration: Add canonical media key and basic media metadata to variants
     await this.addMediaMetadataToVariants();
+
+    // Migration: Add audio sidecar artifact metadata to variants
+    await this.addAudioSidecarMetadataToVariants();
 
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
@@ -650,6 +662,35 @@ export class SchemaManager {
     }
     if (!hasColumn('media_duration_ms')) {
       await this.sql.exec(`ALTER TABLE variants ADD COLUMN media_duration_ms INTEGER;`);
+    }
+  }
+
+  /**
+   * Add audio sidecar artifact fields to variants.
+   * Sidecars are stored as separate R2 objects so transcript text, word timings,
+   * and render metadata can be fetched independently of the primary audio media.
+   */
+  private async addAudioSidecarMetadataToVariants(): Promise<void> {
+    const result = await this.sql.exec(`PRAGMA table_info(variants)`);
+    const columns = result.toArray() as Array<{ name: string }>;
+    const hasColumn = (name: string) => columns.some(col => col.name === name);
+
+    const sidecarColumns: Array<[string, string]> = [
+      ['transcript_key', 'TEXT'],
+      ['transcript_mime_type', 'TEXT'],
+      ['transcript_size_bytes', 'INTEGER'],
+      ['word_timings_key', 'TEXT'],
+      ['word_timings_mime_type', 'TEXT'],
+      ['word_timings_size_bytes', 'INTEGER'],
+      ['render_metadata_key', 'TEXT'],
+      ['render_metadata_mime_type', 'TEXT'],
+      ['render_metadata_size_bytes', 'INTEGER'],
+    ];
+
+    for (const [name, type] of sidecarColumns) {
+      if (!hasColumn(name)) {
+        await this.sql.exec(`ALTER TABLE variants ADD COLUMN ${name} ${type};`);
+      }
     }
   }
 }

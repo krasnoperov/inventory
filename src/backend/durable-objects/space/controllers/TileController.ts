@@ -140,8 +140,8 @@ export class TileController extends BaseController {
       const forkedVariantId = crypto.randomUUID();
       const now = Date.now();
       await this.sql.exec(
-        `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, transcript_key, transcript_mime_type, transcript_size_bytes, word_timings_key, word_timings_mime_type, word_timings_size_bytes, render_metadata_key, render_metadata_mime_type, render_metadata_size_bytes, recipe, starred, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         forkedVariantId,
         tileAssetId,
         tileMediaKind,
@@ -156,6 +156,15 @@ export class TileController extends BaseController {
         seed.media_width,
         seed.media_height,
         seed.media_duration_ms,
+        seed.transcript_key,
+        seed.transcript_mime_type,
+        seed.transcript_size_bytes,
+        seed.word_timings_key,
+        seed.word_timings_mime_type,
+        seed.word_timings_size_bytes,
+        seed.render_metadata_key,
+        seed.render_metadata_mime_type,
+        seed.render_metadata_size_bytes,
         seed.recipe,
         0,
         meta.userId,

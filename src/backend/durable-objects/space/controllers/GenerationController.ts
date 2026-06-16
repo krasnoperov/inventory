@@ -31,6 +31,7 @@ import {
   determineOperation,
   type GenerationRecipe,
 } from '../generation/VariantFactory';
+import type { VariantMediaMetadata } from '../repository/SpaceRepository';
 import { loggers } from '../../../../shared/logger';
 
 const log = loggers.generationController;
@@ -386,6 +387,15 @@ export class GenerationController extends BaseController {
     mediaWidth?: number | null;
     mediaHeight?: number | null;
     mediaDurationMs?: number | null;
+    transcriptKey?: string | null;
+    transcriptMimeType?: string | null;
+    transcriptSizeBytes?: number | null;
+    wordTimingsKey?: string | null;
+    wordTimingsMimeType?: string | null;
+    wordTimingsSizeBytes?: number | null;
+    renderMetadataKey?: string | null;
+    renderMetadataMimeType?: string | null;
+    renderMetadataSizeBytes?: number | null;
   }): Promise<{ success: boolean; variant: Variant }> {
     // Idempotency: if already completed with same keys, return success
     const existing = await this.repo.getVariantById(data.variantId);
@@ -406,19 +416,33 @@ export class GenerationController extends BaseController {
     ) {
       return { success: true, variant: existing };
     }
+    if (hasAudioSidecarKeys(data) && existing.media_kind !== 'audio') {
+      throw new ValidationError('Audio sidecars can only be attached to audio variants');
+    }
+
+    const mediaMetadata: VariantMediaMetadata = {
+      mediaKey,
+      mimeType: data.mediaMimeType,
+      sizeBytes: data.mediaSizeBytes,
+      width: data.mediaWidth,
+      height: data.mediaHeight,
+      durationMs: data.mediaDurationMs,
+    };
+    if (data.transcriptKey !== undefined) mediaMetadata.transcriptKey = data.transcriptKey;
+    if (data.transcriptMimeType !== undefined) mediaMetadata.transcriptMimeType = data.transcriptMimeType;
+    if (data.transcriptSizeBytes !== undefined) mediaMetadata.transcriptSizeBytes = data.transcriptSizeBytes;
+    if (data.wordTimingsKey !== undefined) mediaMetadata.wordTimingsKey = data.wordTimingsKey;
+    if (data.wordTimingsMimeType !== undefined) mediaMetadata.wordTimingsMimeType = data.wordTimingsMimeType;
+    if (data.wordTimingsSizeBytes !== undefined) mediaMetadata.wordTimingsSizeBytes = data.wordTimingsSizeBytes;
+    if (data.renderMetadataKey !== undefined) mediaMetadata.renderMetadataKey = data.renderMetadataKey;
+    if (data.renderMetadataMimeType !== undefined) mediaMetadata.renderMetadataMimeType = data.renderMetadataMimeType;
+    if (data.renderMetadataSizeBytes !== undefined) mediaMetadata.renderMetadataSizeBytes = data.renderMetadataSizeBytes;
 
     const variant = await this.repo.completeVariant(
       data.variantId,
       imageKey,
       thumbKey,
-      {
-        mediaKey,
-        mimeType: data.mediaMimeType,
-        sizeBytes: data.mediaSizeBytes,
-        width: data.mediaWidth,
-        height: data.mediaHeight,
-        durationMs: data.mediaDurationMs,
-      }
+      mediaMetadata
     );
 
     if (!variant) {
@@ -603,4 +627,12 @@ export class GenerationController extends BaseController {
 
     return { success: true, variant };
   }
+}
+
+function hasAudioSidecarKeys(data: {
+  transcriptKey?: string | null;
+  wordTimingsKey?: string | null;
+  renderMetadataKey?: string | null;
+}): boolean {
+  return Boolean(data.transcriptKey || data.wordTimingsKey || data.renderMetadataKey);
 }

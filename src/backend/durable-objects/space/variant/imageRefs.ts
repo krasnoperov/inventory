@@ -80,7 +80,8 @@ interface Recipe {
  * 1. Its own media_key (the canonical primary artifact)
  * 2. Its own image_key (the legacy image artifact)
  * 3. Its own thumb_key (the thumbnail)
- * 4. Any input images from the recipe (source images used in generation)
+ * 4. Audio sidecar artifacts (transcript, word timings, render metadata)
+ * 5. Any input images from the recipe (source images used in generation)
  *
  * Note: Only call this for completed variants. Placeholder variants
  * (pending/failed) have null image keys and should not be ref-counted.
@@ -103,6 +104,9 @@ export function getVariantImageKeys(variant: {
   media_key?: string | null;
   image_key: string | null;
   thumb_key: string | null;
+  transcript_key?: string | null;
+  word_timings_key?: string | null;
+  render_metadata_key?: string | null;
   recipe: string;
 }): string[] {
   const keys: string[] = [];
@@ -111,6 +115,9 @@ export function getVariantImageKeys(variant: {
   if (variant.media_key) keys.push(variant.media_key);
   if (variant.image_key) keys.push(variant.image_key);
   if (variant.thumb_key) keys.push(variant.thumb_key);
+  if (variant.transcript_key) keys.push(variant.transcript_key);
+  if (variant.word_timings_key) keys.push(variant.word_timings_key);
+  if (variant.render_metadata_key) keys.push(variant.render_metadata_key);
 
   try {
     const recipe = JSON.parse(variant.recipe) as Recipe;

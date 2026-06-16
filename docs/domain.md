@@ -56,6 +56,7 @@ Contract invariants:
 - CLI generation commands are currently image-only controller commands. Future CLI audio/video support should call the website API/WebSocket flow instead of creating local-only media records.
 - Variants expose `media_key` as the canonical primary artifact key plus basic media metadata. Image flows still populate `image_key` and `thumb_key` for existing artifact and preview consumers.
 - Authenticated API clients should retrieve canonical artifacts via `GET /api/spaces/:spaceId/variants/:variantId/media`, not by dereferencing raw R2 keys. That route resolves `media_key` with `image_key` as a legacy fallback, returns private immutable responses, and supports range requests for the media artifact. Direct `/api/images/*` reads are legacy image/style/thumb only; generic `media/...` keys must go through the variant media route. A `poster_key` artifact uses the sibling `/poster` endpoint when present.
+- Audio variants may attach sidecar artifacts for transcripts, word timings, and render metadata. Sidecars are stored under `sidecars/{spaceId}/{variantId}/...`, are ref-counted with the variant, and are served after the same auth checks through `/transcript`, `/word-timings`, and `/render-metadata` sibling endpoints.
 
 ### Lineage
 

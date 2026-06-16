@@ -32,6 +32,15 @@ export interface UploadedImage {
     media_width?: number | null;
     media_height?: number | null;
     media_duration_ms?: number | null;
+    transcript_key?: string | null;
+    transcript_mime_type?: string | null;
+    transcript_size_bytes?: number | null;
+    word_timings_key?: string | null;
+    word_timings_mime_type?: string | null;
+    word_timings_size_bytes?: number | null;
+    render_metadata_key?: string | null;
+    render_metadata_mime_type?: string | null;
+    render_metadata_size_bytes?: number | null;
     status: string;
     recipe: string;
   };

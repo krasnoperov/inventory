@@ -332,3 +332,66 @@ export const getVariantPosterRoute = createRoute({
     503: errorResponse,
   },
 });
+
+export const getVariantTranscriptRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{spaceId}/variants/{variantId}/transcript',
+  request: {
+    params: VariantMediaParamsSchema,
+  },
+  responses: {
+    200: {
+      ...binary,
+      description: 'Variant transcript sidecar artifact',
+    },
+    304: {
+      description: 'Variant transcript sidecar artifact not modified',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const getVariantWordTimingsRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{spaceId}/variants/{variantId}/word-timings',
+  request: {
+    params: VariantMediaParamsSchema,
+  },
+  responses: {
+    200: {
+      ...binary,
+      description: 'Variant word timings sidecar artifact',
+    },
+    304: {
+      description: 'Variant word timings sidecar artifact not modified',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const getVariantRenderMetadataRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{spaceId}/variants/{variantId}/render-metadata',
+  request: {
+    params: VariantMediaParamsSchema,
+  },
+  responses: {
+    200: {
+      ...binary,
+      description: 'Variant render metadata sidecar artifact',
+    },
+    304: {
+      description: 'Variant render metadata sidecar artifact not modified',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
