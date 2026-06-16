@@ -17,6 +17,7 @@
     "deploy:production": "pnpm run build && pnpm exec wrangler deploy --env production",
     "deploy:stage": "pnpm run build && pnpm exec wrangler deploy",
     "test": "node --import @swc-node/register/esm-register --test",
+    "test:e2e:media-foundation": "pnpm run build && node scripts/e2e-media-foundation.mjs",
     "test:e2e:cli-forge": "pnpm run build:cli && node scripts/e2e-cli-forge.mjs",
     "lint": "eslint \"{src,scripts}/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
