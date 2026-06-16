@@ -25,6 +25,7 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
   return {
     id: 'variant-1',
     asset_id: 'asset-1',
+    media_kind: 'image',
     workflow_id: null,
     status: 'completed',
     error_message: null,
@@ -46,9 +47,33 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
   };
 }
 
+function createMockD1() {
+  const statements: Array<{ sql: string; bindings: unknown[] }> = [];
+  return {
+    db: {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn((...bindings: unknown[]) => ({
+          run: mock.fn(async () => {
+            statements.push({ sql, bindings });
+            return { success: true };
+          }),
+        })),
+      })),
+    },
+    statements,
+  };
+}
+
 function createMockRepo(): SpaceRepository {
   return {
     getVariantById: mock.fn(async () => createMockVariant()),
+    getAssetById: mock.fn(async () => ({
+      id: 'asset-1',
+      name: 'Asset',
+      type: 'music',
+      media_kind: 'audio',
+      active_variant_id: 'variant-1',
+    })),
     completeVariant: mock.fn(async (id, imageKey, thumbKey, mediaMetadata = {}) =>
       createMockVariant({
         id,
@@ -65,6 +90,10 @@ function createMockRepo(): SpaceRepository {
     ),
     failVariant: mock.fn(async (id, error) =>
       createMockVariant({ id, status: 'failed', error_message: error })
+    ),
+    resetVariantForRetry: mock.fn(async (id) => createMockVariant({ id, status: 'pending' })),
+    updateVariantWorkflow: mock.fn(async (id, workflowId, status) =>
+      createMockVariant({ id, workflow_id: workflowId, status })
     ),
     getRotationViewByVariant: mock.fn(async () => null),
     getTilePositionByVariant: mock.fn(async () => null),
@@ -305,6 +334,78 @@ describe('GenerationController pipeline hooks', () => {
       });
     });
 
+    test('tracks ElevenLabs audio usage on successful audio completion', async () => {
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          media_kind: 'audio',
+          recipe: JSON.stringify({ operation: 'generate', assetType: 'music' }),
+          created_by: '42',
+        })),
+        completeVariant: mock.fn(async () => createMockVariant({
+          media_kind: 'audio',
+          recipe: JSON.stringify({ operation: 'generate', assetType: 'music' }),
+          created_by: '42',
+          media_key: 'media/space-1/variant-1.mp3',
+          media_mime_type: 'audio/mpeg',
+          media_size_bytes: 4096,
+          status: 'completed',
+        })),
+      });
+      ctx.env.DB = db as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-1.mp3',
+        mediaMimeType: 'audio/mpeg',
+        mediaSizeBytes: 4096,
+        audioProvider: 'elevenlabs',
+        audioModel: 'music_v1',
+        audioUsage: {
+          inputTokens: 37,
+          outputTokens: 0,
+          totalTokens: 37,
+        },
+      });
+
+      assert.strictEqual(statements.length, 1);
+      assert.match(statements[0].sql, /INSERT INTO usage_events/);
+      assert.strictEqual(statements[0].bindings[1], 42);
+      assert.strictEqual(statements[0].bindings[2], 'elevenlabs_audio');
+      assert.strictEqual(statements[0].bindings[3], 37);
+      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      assert.strictEqual(metadata.provider, 'elevenlabs');
+      assert.strictEqual(metadata.model, 'music_v1');
+      assert.strictEqual(metadata.operation, 'generate');
+      assert.strictEqual(metadata.asset_type, 'music');
+      assert.strictEqual(metadata.total_tokens, 37);
+    });
+
+    test('does not track fake audio completions as ElevenLabs usage', async () => {
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({ media_kind: 'audio', created_by: '42' })),
+        completeVariant: mock.fn(async () => createMockVariant({ media_kind: 'audio', created_by: '42' })),
+      });
+      ctx.env.DB = db as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-1.wav',
+        mediaMimeType: 'audio/wav',
+        mediaSizeBytes: 4096,
+        audioProvider: 'fake',
+      });
+
+      assert.strictEqual(statements.length, 0);
+    });
+
     test('hook errors do not fail completion', async () => {
       const rotView: RotationView = {
         id: 'rv-1',
@@ -438,6 +539,47 @@ describe('GenerationController pipeline hooks', () => {
       });
 
       assert.ok(result.success);
+    });
+  });
+
+  describe('handleRetryRequest', () => {
+    test('blocks ElevenLabs audio retry when quota is exhausted', async () => {
+      const db = {
+        prepare: mock.fn((sql: string) => ({
+          bind: mock.fn(() => ({
+            first: mock.fn(async () => {
+              if (sql.includes('FROM users')) {
+                return {
+                  quota_limits: JSON.stringify({ elevenlabs_audio: 0 }),
+                  rate_limit_count: 0,
+                  rate_limit_window_start: null,
+                };
+              }
+              return { total_used: 0 };
+            }),
+            run: mock.fn(async () => ({ success: true })),
+          })),
+        })),
+      };
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      asMock(repo.getVariantById).mock.mockImplementation(async () => createMockVariant({
+        status: 'failed',
+        media_kind: 'audio',
+        recipe: JSON.stringify({ prompt: 'Retry audio', operation: 'generate', assetType: 'music' }),
+      }));
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = db as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRetryRequest({} as WebSocket, { userId: '42', role: 'editor' } as any, 'variant-1');
+
+      assert.strictEqual(asMock(ctx.sendError).mock.calls.length, 1);
+      assert.strictEqual(asMock(ctx.sendError).mock.calls[0].arguments[1], 'QUOTA_EXCEEDED');
+      assert.strictEqual(asMock(repo.resetVariantForRetry).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
     });
   });
 });

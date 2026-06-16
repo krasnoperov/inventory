@@ -15,6 +15,8 @@ export const USAGE_EVENTS = {
   GEMINI_IMAGES: 'gemini_images',
   GEMINI_INPUT_TOKENS: 'gemini_input_tokens',
   GEMINI_OUTPUT_TOKENS: 'gemini_output_tokens',
+  // ElevenLabs - audio generation credits/units
+  ELEVENLABS_AUDIO: 'elevenlabs_audio',
 } as const;
 
 export type UsageEventName = (typeof USAGE_EVENTS)[keyof typeof USAGE_EVENTS];
@@ -86,6 +88,7 @@ export interface CustomerSyncResult {
 export const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
   claude: { windowSeconds: 60, maxRequests: 20 },
   nanobanana: { windowSeconds: 60, maxRequests: 10 },
+  elevenlabs: { windowSeconds: 60, maxRequests: 10 },
 };
 
 @injectable()
@@ -187,6 +190,35 @@ export class UsageService {
   }
 
   /**
+   * Track ElevenLabs audio generation.
+   * Quantity is the provider-reported usage unit when available, otherwise one
+   * successful generation so paid calls are never invisible to billing.
+   */
+  async trackElevenLabsAudioGeneration(
+    userId: number,
+    quantity: number,
+    model: string,
+    operation?: string,
+    assetType?: string,
+    tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number }
+  ): Promise<void> {
+    await this.usageEventDAO.create({
+      userId,
+      eventName: USAGE_EVENTS.ELEVENLABS_AUDIO,
+      quantity,
+      metadata: {
+        provider: 'elevenlabs',
+        model,
+        operation,
+        asset_type: assetType,
+        input_tokens: tokenUsage?.inputTokens,
+        output_tokens: tokenUsage?.outputTokens,
+        total_tokens: tokenUsage?.totalTokens,
+      },
+    });
+  }
+
+  /**
    * Sync pending local events to Polar
    * Called by the Polar worker cron job every 5 minutes
    *
@@ -233,6 +265,9 @@ export class UsageService {
       );
       const geminiImageEvents = pendingEvents.filter((e) =>
         e.event_name === USAGE_EVENTS.GEMINI_IMAGES
+      );
+      const genericMeterEvents = pendingEvents.filter((e) =>
+        e.event_name === USAGE_EVENTS.ELEVENLABS_AUDIO
       );
 
       // Sync Claude LLM events - group by user and timestamp (within same second)
@@ -294,6 +329,25 @@ export class UsageService {
               eventName: event.event_name,
               timestamp: new Date(event.created_at),
               externalId: event.id, // Use local event ID for deduplication
+              metadata: {
+                ...metadata,
+                quantity: event.quantity,
+              },
+            };
+          })
+        );
+      }
+
+      // Sync other metered events with quantity in metadata
+      if (genericMeterEvents.length > 0) {
+        await this.polarService.ingestEventsBatch(
+          genericMeterEvents.map((event) => {
+            const metadata = event.metadata ? JSON.parse(event.metadata) : {};
+            return {
+              userId: event.user_id,
+              eventName: event.event_name,
+              timestamp: new Date(event.created_at),
+              externalId: event.id,
               metadata: {
                 ...metadata,
                 quantity: event.quantity,
@@ -438,12 +492,14 @@ export class UsageService {
    */
   async preCheck(
     userId: number,
-    service: 'claude' | 'nanobanana',
+    service: 'claude' | 'nanobanana' | 'elevenlabs',
     rateLimit?: RateLimitConfig
   ): Promise<PreCheckResult> {
     const eventName = service === 'claude'
       ? USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS
-      : USAGE_EVENTS.GEMINI_IMAGES;
+      : service === 'elevenlabs'
+        ? USAGE_EVENTS.ELEVENLABS_AUDIO
+        : USAGE_EVENTS.GEMINI_IMAGES;
 
     const rateLimitConfig = rateLimit || DEFAULT_RATE_LIMITS[service];
     const now = new Date();
@@ -585,7 +641,7 @@ export class UsageService {
    */
   async checkQuota(
     userId: number,
-    service: 'claude' | 'nanobanana'
+    service: 'claude' | 'nanobanana' | 'elevenlabs'
   ): Promise<QuotaCheck> {
     const result = await this.preCheck(userId, service);
 

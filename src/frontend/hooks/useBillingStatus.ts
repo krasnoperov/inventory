@@ -81,6 +81,7 @@ export function formatMeterName(name: string): string {
     'gemini_input_tokens': 'Gemini Input',
     'gemini_output_tokens': 'Gemini Output',
     'gemini_usage': 'Gemini Tokens',
+    'elevenlabs_audio': 'Audio Generations',
   };
   return nameMap[name] || name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }

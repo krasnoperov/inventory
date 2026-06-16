@@ -28,12 +28,14 @@ export interface RateLimitConfig {
 const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
   claude: { windowSeconds: 60, maxRequests: 20 },
   nanobanana: { windowSeconds: 60, maxRequests: 10 },
+  elevenlabs: { windowSeconds: 60, maxRequests: 10 },
 };
 
 // Event names for quota checking
 const QUOTA_EVENT_NAMES: Record<string, string> = {
   claude: 'claude_output_tokens',
   nanobanana: 'gemini_images',
+  elevenlabs: 'elevenlabs_audio',
 };
 
 /**
@@ -43,7 +45,7 @@ const QUOTA_EVENT_NAMES: Record<string, string> = {
 export async function preCheck(
   db: D1Database,
   userId: number,
-  service: 'claude' | 'nanobanana',
+  service: 'claude' | 'nanobanana' | 'elevenlabs',
   rateLimit?: RateLimitConfig
 ): Promise<PreCheckResult> {
   const eventName = QUOTA_EVENT_NAMES[service];
@@ -222,4 +224,27 @@ export async function trackImageGeneration(
   operation?: string
 ): Promise<void> {
   await trackUsage(db, userId, 'gemini_images', imageCount, { model, operation });
+}
+
+/**
+ * Track ElevenLabs audio generation.
+ */
+export async function trackElevenLabsAudioGeneration(
+  db: D1Database,
+  userId: number,
+  quantity: number,
+  model: string,
+  operation?: string,
+  assetType?: string,
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number },
+): Promise<void> {
+  await trackUsage(db, userId, 'elevenlabs_audio', quantity, {
+    provider: 'elevenlabs',
+    model,
+    operation,
+    asset_type: assetType,
+    input_tokens: usage?.inputTokens,
+    output_tokens: usage?.outputTokens,
+    total_tokens: usage?.totalTokens,
+  });
 }

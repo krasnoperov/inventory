@@ -479,6 +479,9 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     let mediaMimeType: string;
     let mediaSizeBytes: number;
     let mediaDurationMs: number | null;
+    let audioProvider: string | null = null;
+    let audioModel: string | null = null;
+    let audioUsage: AudioGenerationResult['usage'] | null = null;
     let transcriptKey: string | null = null;
     let transcriptMimeType: string | null = null;
     let transcriptSizeBytes: number | null = null;
@@ -523,6 +526,9 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             mediaMimeType: result.audioMimeType,
             mediaSizeBytes: result.audioData.byteLength,
             mediaDurationMs: result.durationMs,
+            audioProvider: providerName.startsWith('elevenlabs') ? 'elevenlabs' : providerName,
+            audioModel: result.model,
+            audioUsage: result.usage ?? null,
             ...sidecars,
           };
         } catch (error) {
@@ -538,6 +544,9 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       mediaMimeType = uploadResult.mediaMimeType;
       mediaSizeBytes = uploadResult.mediaSizeBytes;
       mediaDurationMs = uploadResult.mediaDurationMs;
+      audioProvider = uploadResult.audioProvider;
+      audioModel = uploadResult.audioModel;
+      audioUsage = uploadResult.audioUsage;
       transcriptKey = uploadResult.transcriptKey;
       transcriptMimeType = uploadResult.transcriptMimeType;
       transcriptSizeBytes = uploadResult.transcriptSizeBytes;
@@ -587,6 +596,9 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               renderMetadataKey,
               renderMetadataMimeType,
               renderMetadataSizeBytes,
+              audioProvider,
+              audioModel,
+              audioUsage,
             }),
           }));
 

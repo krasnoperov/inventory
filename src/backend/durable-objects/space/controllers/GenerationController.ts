@@ -25,6 +25,7 @@ import {
   preCheck,
   incrementRateLimit,
   trackImageGeneration,
+  trackElevenLabsAudioGeneration,
 } from '../billing/usageCheck';
 import {
   VariantFactory,
@@ -35,6 +36,14 @@ import type { VariantMediaMetadata } from '../repository/SpaceRepository';
 import { loggers } from '../../../../shared/logger';
 
 const log = loggers.generationController;
+
+type GenerationBillingService = 'nanobanana' | 'elevenlabs';
+
+function getGenerationBillingService(env: ControllerContext['env'], mediaKind?: string): GenerationBillingService {
+  return mediaKind === 'audio' && env.INVENTORY_AUDIO_PROVIDER === 'elevenlabs'
+    ? 'elevenlabs'
+    : 'nanobanana';
+}
 
 export class GenerationController extends BaseController {
   private readonly variantFactory: VariantFactory;
@@ -73,7 +82,8 @@ export class GenerationController extends BaseController {
 
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), 'nanobanana');
+      const billingService = getGenerationBillingService(this.env, msg.mediaKind);
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService);
       if (!check.allowed) {
         this.send(ws, {
           type: 'generate:error',
@@ -139,7 +149,8 @@ export class GenerationController extends BaseController {
 
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), 'nanobanana');
+      const billingService = getGenerationBillingService(this.env, msg.mediaKind);
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService);
       if (!check.allowed) {
         this.send(ws, {
           type: 'refine:error',
@@ -208,7 +219,8 @@ export class GenerationController extends BaseController {
 
     // Check quota for the entire batch
     if (this.env.DB) {
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), 'nanobanana');
+      const billingService = getGenerationBillingService(this.env, msg.mediaKind);
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService);
       if (!check.allowed) {
         this.send(ws, {
           type: 'batch:error',
@@ -298,6 +310,21 @@ export class GenerationController extends BaseController {
       throw new NotFoundError('Asset not found');
     }
 
+    const retryMediaKind = variant.media_kind ?? asset.media_kind;
+    const billingService = getGenerationBillingService(this.env, retryMediaKind);
+    if (this.env.DB && billingService === 'elevenlabs') {
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService);
+      if (!check.allowed) {
+        this.sendError(
+          ws,
+          check.denyReason === 'rate_limited' ? 'RATE_LIMITED' : 'QUOTA_EXCEEDED',
+          check.denyMessage || 'Request denied'
+        );
+        return;
+      }
+      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
+    }
+
     // Reset variant for retry
     const resetVariant = await this.repo.resetVariantForRetry(variantId);
     if (!resetVariant) {
@@ -317,7 +344,7 @@ export class GenerationController extends BaseController {
       assetId: variant.asset_id,
       assetName: asset.name,
       assetType: recipe.assetType,
-      mediaKind: variant.media_kind ?? asset.media_kind,
+      mediaKind: retryMediaKind,
       model: recipe.model,
       aspectRatio: recipe.aspectRatio,
       imageSize: recipe.imageSize,
@@ -396,6 +423,13 @@ export class GenerationController extends BaseController {
     renderMetadataKey?: string | null;
     renderMetadataMimeType?: string | null;
     renderMetadataSizeBytes?: number | null;
+    audioProvider?: string | null;
+    audioModel?: string | null;
+    audioUsage?: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    } | null;
   }): Promise<{ success: boolean; variant: Variant }> {
     // Idempotency: if already completed with same keys, return success
     const existing = await this.repo.getVariantById(data.variantId);
@@ -472,6 +506,40 @@ export class GenerationController extends BaseController {
         );
       } catch (err) {
         log.warn('Failed to track image usage', {
+          spaceId: this.spaceId,
+          variantId: data.variantId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    if (
+      this.env.DB &&
+      variant.created_by &&
+      variant.media_kind === 'audio' &&
+      data.audioProvider === 'elevenlabs'
+    ) {
+      try {
+        let operation = 'generate';
+        let assetType: string | undefined;
+        try {
+          const recipe = JSON.parse(variant.recipe);
+          operation = recipe.operation || operation;
+          assetType = recipe.assetType;
+        } catch {
+          // Ignore parse errors
+        }
+
+        await trackElevenLabsAudioGeneration(
+          this.env.DB,
+          parseInt(variant.created_by),
+          data.audioUsage?.totalTokens && data.audioUsage.totalTokens > 0 ? data.audioUsage.totalTokens : 1,
+          data.audioModel || 'unknown',
+          operation,
+          assetType,
+          data.audioUsage ?? undefined
+        );
+      } catch (err) {
+        log.warn('Failed to track ElevenLabs audio usage', {
           spaceId: this.spaceId,
           variantId: data.variantId,
           error: err instanceof Error ? err.message : String(err),

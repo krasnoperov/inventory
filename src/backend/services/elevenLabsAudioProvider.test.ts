@@ -149,7 +149,10 @@ describe('ElevenLabsAudioProvider', () => {
       calls.push({ url: String(url), init: init ?? {} });
       return new Response(new Uint8Array([1, 2, 3]), {
         status: 200,
-        headers: { 'Content-Type': 'audio/mpeg' },
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'character-cost': '41',
+        },
       });
     }) as unknown as typeof fetch;
     const provider = new ElevenLabsMusicProvider({
@@ -167,6 +170,11 @@ describe('ElevenLabsAudioProvider', () => {
     assert.strictEqual(result.audioMimeType, 'audio/mpeg');
     assert.strictEqual(result.model, 'music_v2');
     assert.strictEqual(result.durationMs, null);
+    assert.deepStrictEqual(result.usage, {
+      inputTokens: 41,
+      outputTokens: 0,
+      totalTokens: 41,
+    });
     assert.strictEqual(calls[0].url, 'https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128');
     assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)), {
       prompt: 'short heroic orchestral loop',
