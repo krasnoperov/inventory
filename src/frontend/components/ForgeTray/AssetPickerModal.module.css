@@ -175,8 +175,7 @@
   transform: translateY(-2px);
 }
 
-.assetItem:hover .assetImage,
-.assetItem:hover .emptyImage {
+.assetItem:hover .assetThumbnail {
   border-color: var(--color-border-hover, var(--color-border));
 }
 
@@ -192,25 +191,11 @@
   transition: all 0.2s ease;
 }
 
-.assetImage {
+.assetThumbnail {
   width: 100%;
   aspect-ratio: 1;
   border-radius: var(--thumb-radius);
   border: 1px solid var(--color-border);
-  object-fit: cover;
-  display: block;
-}
-
-.emptyImage {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: var(--thumb-radius);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-muted);
 }
 
 /* Asset info - name, type, breadcrumb */

@@ -86,6 +86,16 @@ export function isVariantAudioReady(variant: Variant): boolean {
 }
 
 /**
+ * Check if a variant can be used as a Forge Tray reference.
+ */
+export function isVariantForgeTrayReady(variant: Variant): boolean {
+  if (variant.media_kind === 'audio') {
+    return isVariantAudioReady(variant);
+  }
+  return isVariantImageReady(variant);
+}
+
+/**
  * Check if a variant has a completed video artifact for native playback.
  */
 export function isVariantVideoReady(variant: Variant): boolean {
@@ -340,6 +350,7 @@ export interface ChatRequestParams {
 export interface GenerateRequestParams {
   name: string;
   assetType: string;
+  mediaKind?: MediaKind;
   prompt?: string;
   /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
@@ -354,6 +365,7 @@ export interface GenerateRequestParams {
 // Refine request parameters
 export interface RefineRequestParams {
   assetId: string;
+  mediaKind?: MediaKind;
   prompt: string;
   /** Single source variant (legacy, for simple refine) */
   sourceVariantId?: string;
@@ -372,6 +384,7 @@ export type BatchMode = 'explore' | 'set';
 export interface BatchRequestParams {
   name: string;
   assetType: string;
+  mediaKind?: MediaKind;
   prompt?: string;
   count: number;
   mode: BatchMode;
@@ -698,6 +711,7 @@ export interface ForkParams {
   sourceVariantId?: string;
   name: string;
   assetType: string;
+  mediaKind?: MediaKind;
   parentAssetId?: string;
 }
 
@@ -876,6 +890,7 @@ export function useSpaceWebSocket({
       sourceVariantId: params.sourceVariantId,
       name: params.name,
       assetType: params.assetType,
+      mediaKind: params.mediaKind,
       parentAssetId: params.parentAssetId,
     });
   }, [sendMessage]);
@@ -931,6 +946,7 @@ export function useSpaceWebSocket({
       requestId,
       name: params.name,
       assetType: params.assetType,
+      mediaKind: params.mediaKind,
       prompt: params.prompt,
       referenceAssetIds: params.referenceAssetIds,
       referenceVariantIds: params.referenceVariantIds,
@@ -948,6 +964,7 @@ export function useSpaceWebSocket({
       type: 'refine:request',
       requestId,
       assetId: params.assetId,
+      mediaKind: params.mediaKind,
       prompt: params.prompt,
       sourceVariantId: params.sourceVariantId,
       sourceVariantIds: params.sourceVariantIds,
@@ -1067,6 +1084,7 @@ export function useSpaceWebSocket({
       requestId,
       name: params.name,
       assetType: params.assetType,
+      mediaKind: params.mediaKind,
       prompt: params.prompt,
       count: params.count,
       mode: params.mode,

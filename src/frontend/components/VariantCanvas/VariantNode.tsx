@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantForgeTrayReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
 import { Thumbnail } from '../Thumbnail';
 import styles from './VariantNode.module.css';
@@ -134,7 +134,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
   const handleAddToTray = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isVariantImageReady(variant)) {
+    if (isVariantForgeTrayReady(variant)) {
       onAddToTray?.(variant, asset);
     }
   }, [variant, asset, onAddToTray]);
@@ -212,9 +212,9 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         ) : null}
 
         {/* Hover actions - only for completed variants */}
-        {isVariantImageReady(variant) ? (
+        {isVariantForgeTrayReady(variant) ? (
           <div className={styles.actions}>
-            {onAddToTray && isVariantImageReady(variant) && (
+            {onAddToTray && isVariantForgeTrayReady(variant) && (
               <button
                 className={styles.actionButton}
                 onClick={handleAddToTray}
@@ -321,7 +321,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
             </a>
-            {onAddToTray && isVariantImageReady(variant) && (
+            {onAddToTray && isVariantForgeTrayReady(variant) && (
               <button
                 className={styles.detailActionButton}
                 onClick={handleAddToTray}
