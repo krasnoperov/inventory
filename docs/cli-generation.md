@@ -4,6 +4,8 @@ The CLI can drive an existing Inventory space as a ForgeTray controller.
 The website remains the source of truth: assets, variants, recipes, lineage, and
 stored images live in the Space Durable Object and R2. The CLI sends requests,
 waits for completion, and downloads local copies of completed images.
+`generate`, `refine`, `derive`, and `batch` are image-only commands and send
+`mediaKind: "image"` with generation requests.
 
 ## Project Binding
 

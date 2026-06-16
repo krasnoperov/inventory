@@ -1,5 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { DEFAULT_MEDIA_KIND } from '../../shared/websocket-types';
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -78,6 +79,7 @@ export async function uploadLocalImageAsReference(input: {
   formData.append('file', new Blob([fileBuffer], { type: mimeType }), filename);
   formData.append('assetName', assetName);
   formData.append('assetType', 'reference');
+  formData.append('mediaKind', DEFAULT_MEDIA_KIND);
 
   const response = await fetch(`${input.baseUrl}/api/spaces/${input.spaceId}/upload`, {
     method: 'POST',

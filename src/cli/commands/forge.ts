@@ -24,6 +24,7 @@ import {
 } from '../lib/websocket-client';
 
 type ForgeCommand = 'generate' | 'refine' | 'derive' | 'batch';
+const CLI_GENERATION_MEDIA_KIND = 'image' as const;
 
 interface SpaceState {
   assets: unknown[];
@@ -44,6 +45,7 @@ interface ForgeClient {
     aspectRatio?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
+    mediaKind?: 'image';
   }): Promise<GenerateResult>;
   sendRefineRequest(params: {
     assetId: string;
@@ -51,6 +53,7 @@ interface ForgeClient {
     sourceVariantIds?: string[];
     aspectRatio?: string;
     disableStyle?: boolean;
+    mediaKind?: 'image';
   }): Promise<GenerateResult>;
   sendBatchRequest(params: {
     name: string;
@@ -62,6 +65,7 @@ interface ForgeClient {
     aspectRatio?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
+    mediaKind?: 'image';
   }): Promise<BatchResult>;
 }
 
@@ -192,6 +196,7 @@ async function executeGenerate(
     aspectRatio: parsed.options.aspect,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
+    mediaKind: CLI_GENERATION_MEDIA_KIND,
   });
 
   await downloadResult(result, outputPath, ctx, deps);
@@ -222,6 +227,7 @@ async function executeRefine(
     sourceVariantIds: [sourceVariantId],
     aspectRatio: parsed.options.aspect,
     disableStyle: parsed.options['no-style'] === 'true',
+    mediaKind: CLI_GENERATION_MEDIA_KIND,
   });
 
   await downloadResult(result, outputPath, ctx, deps);
@@ -257,6 +263,7 @@ async function executeDerive(
     aspectRatio: parsed.options.aspect,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
+    mediaKind: CLI_GENERATION_MEDIA_KIND,
   });
 
   await downloadResult(result, outputPath, ctx, deps);
@@ -295,6 +302,7 @@ async function executeBatch(
     aspectRatio: parsed.options.aspect,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
+    mediaKind: CLI_GENERATION_MEDIA_KIND,
   });
 
   const sortedVariants = [...result.variants].sort((a, b) => a.created_at - b.created_at);

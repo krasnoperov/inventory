@@ -289,6 +289,7 @@ test('generate sends generate request and downloads completed image', async () =
     aspectRatio: undefined,
     parentAssetId: undefined,
     disableStyle: false,
+    mediaKind: 'image',
   });
   assert.deepEqual(downloads, [{
     baseUrl: 'https://inventory-stage.example.test',
@@ -419,6 +420,7 @@ test('refine resolves variant asset from sync state and sends refine request', a
     sourceVariantIds: ['variant-source'],
     aspectRatio: undefined,
     disableStyle: false,
+    mediaKind: 'image',
   });
 });
 
@@ -473,6 +475,7 @@ test('derive sends uploaded and existing refs as referenceVariantIds', async () 
     aspectRatio: undefined,
     parentAssetId: undefined,
     disableStyle: false,
+    mediaKind: 'image',
   });
   assert.equal(downloads.length, 1);
 });
@@ -509,6 +512,7 @@ test('batch sends batch request, downloads outputs, and writes manifest', async 
     aspectRatio: undefined,
     parentAssetId: undefined,
     disableStyle: false,
+    mediaKind: 'image',
   });
   assert.deepEqual(downloads, [
     {
