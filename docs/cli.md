@@ -209,7 +209,8 @@ are used in the derive request.
 
 `batch` downloads every completed image and writes `.inventory/runs/<run-id>.json`
 with local paths, website asset/variant IDs, image keys, prompt, refs, command
-options, and timestamps for downstream Remotion or video tooling.
+options, timestamps, run success, and failed variant errors for downstream
+Remotion or video tooling.
 
 See [cli-generation.md](./cli-generation.md) for the full command reference.
 

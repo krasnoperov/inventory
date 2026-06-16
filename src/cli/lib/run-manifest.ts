@@ -12,10 +12,16 @@ export type RunManifestImage = {
   webUrl: string;
 };
 
+export type RunManifestFailure = {
+  variantId: string;
+  error: string;
+};
+
 export type RunManifest = {
   version: 1;
   runId: string;
   command: 'batch';
+  success: boolean;
   environment: string;
   spaceId: string;
   baseUrl: string;
@@ -30,6 +36,7 @@ export type RunManifest = {
   createdAt: string;
   completedAt: string;
   images: RunManifestImage[];
+  failed: RunManifestFailure[];
 };
 
 export function createRunId(date = new Date()): string {

@@ -293,11 +293,6 @@ async function executeBatch(
     disableStyle: parsed.options['no-style'] === 'true',
   });
 
-  if (!result.success) {
-    const failures = result.failed.map((failure) => `${failure.variantId}: ${failure.error}`).join('; ');
-    throw new Error(`Batch generation failed: ${failures || 'unknown error'}`);
-  }
-
   const sortedVariants = [...result.variants].sort((a, b) => a.created_at - b.created_at);
   const images = [];
   for (let index = 0; index < sortedVariants.length; index += 1) {
@@ -317,6 +312,7 @@ async function executeBatch(
     version: 1,
     runId,
     command: 'batch',
+    success: result.success,
     environment: ctx.env,
     spaceId: ctx.spaceId,
     baseUrl: ctx.baseUrl,
@@ -331,9 +327,15 @@ async function executeBatch(
     createdAt: startedAt,
     completedAt: new Date().toISOString(),
     images,
+    failed: result.failed,
   });
 
   printBatchResult(result, outputDir, manifestPath, ctx);
+  if (!result.success) {
+    const failures = result.failed.map((failure) => `${failure.variantId}: ${failure.error}`).join('; ');
+    throw new Error(`Batch generation completed with ${result.failed.length} failure(s): ${failures || 'unknown error'}`);
+  }
+
   return result;
 }
 
@@ -558,6 +560,9 @@ function printBatchResult(
   console.log('\nDone.\n');
   console.log(`  Batch:   ${result.batchId}`);
   console.log(`  Images:  ${result.variants.length}`);
+  if (result.failed.length > 0) {
+    console.log(`  Failed:  ${result.failed.length}`);
+  }
   console.log(`  Local:   ${outputDir}`);
   console.log(`  Manifest: ${manifestPath}`);
   if (result.variants[0]) {

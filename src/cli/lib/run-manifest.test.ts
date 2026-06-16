@@ -50,6 +50,7 @@ test('saveRunManifest writes JSON under .inventory/runs', async () => {
       version: 1,
       runId: 'run-1',
       command: 'batch',
+      success: true,
       environment: 'stage',
       spaceId: 'space-1',
       baseUrl: 'https://inventory.example.test',
@@ -64,6 +65,7 @@ test('saveRunManifest writes JSON under .inventory/runs', async () => {
       createdAt: '2026-06-16T00:00:00.000Z',
       completedAt: '2026-06-16T00:00:01.000Z',
       images: [],
+      failed: [],
     };
 
     const manifestPath = await saveRunManifest(manifest, dir);

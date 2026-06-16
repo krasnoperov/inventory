@@ -110,9 +110,11 @@ references through these commands.
 
 `batch` writes a JSON manifest to `.inventory/runs/<run-id>.json`. The manifest
 maps downloaded local files to website asset IDs, variant IDs, image keys,
-prompt, refs, command options, and timestamps. It is a handoff artifact for
-Remotion, Kling, or other video tooling; it is not a local asset database and
-the website remains the source of truth.
+prompt, refs, command options, timestamps, run success, and any failed variant
+errors. Completed images are still downloaded and recorded when another batch
+member fails. It is a handoff artifact for Remotion, Kling, or other video
+tooling; it is not a local asset database and the website remains the source of
+truth.
 
 ## End-To-End Test Loop
 

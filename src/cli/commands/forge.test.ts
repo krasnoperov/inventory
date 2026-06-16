@@ -70,7 +70,8 @@ class FakeClient {
       assets: [],
       variants: [],
       lineage: [],
-    }
+    },
+    private batchResult?: BatchResult
   ) {}
 
   async connect(): Promise<void> {
@@ -101,7 +102,7 @@ class FakeClient {
 
   async sendBatchRequest(params: unknown): Promise<BatchResult> {
     this.batchParams = params;
-    return {
+    return this.batchResult || {
       type: 'batch:result',
       requestId: 'request-batch',
       batchId: 'batch-1',
@@ -521,6 +522,8 @@ test('batch sends batch request, downloads outputs, and writes manifest', async 
     },
   ]);
   assert.equal(manifests.length, 1);
+  assert.equal((manifests[0] as { success: boolean }).success, true);
+  assert.deepEqual((manifests[0] as { failed: unknown[] }).failed, []);
   assert.deepEqual((manifests[0] as { referenceVariantIds: string[] }).referenceVariantIds, ['variant-existing']);
   assert.deepEqual((manifests[0] as { images: Array<{ variantId: string; localPath: string }> }).images.map((image) => ({
     variantId: image.variantId,
@@ -528,5 +531,67 @@ test('batch sends batch request, downloads outputs, and writes manifest', async 
   })), [
     { variantId: 'variant-batch-1', localPath: 'keyframes/market-keyframe-01.png' },
     { variantId: 'variant-batch-2', localPath: 'keyframes/market-keyframe-02.png' },
+  ]);
+});
+
+test('batch keeps completed outputs and manifest when a sibling variant fails', async () => {
+  const existingVariant = completedVariant({
+    id: 'variant-existing',
+    image_key: 'images/existing.png',
+    thumb_key: 'images/existing_thumb.webp',
+  });
+  const client = new FakeClient(
+    { assets: [], variants: [existingVariant], lineage: [] },
+    {
+      type: 'batch:result',
+      requestId: 'request-batch',
+      batchId: 'batch-1',
+      success: false,
+      variants: [
+        completedVariant({
+          id: 'variant-batch-1',
+          asset_id: 'asset-batch',
+          image_key: 'images/space/variant-batch-1.png',
+          created_at: 1,
+        }),
+      ],
+      failed: [{ variantId: 'variant-batch-2', error: 'model refused frame' }],
+    }
+  );
+  const { deps, downloads, manifests } = depsFor(client);
+
+  await assert.rejects(
+    () => executeForgeCommand('batch', {
+      positionals: ['make', 'two', 'keyframes'],
+      options: {
+        space: 'space-1',
+        refs: 'variant-existing',
+        name: 'Market Keyframe',
+        type: 'scene',
+        count: '2',
+        mode: 'set',
+        'output-dir': 'keyframes',
+      },
+    }, deps),
+    /Batch generation completed with 1 failure/
+  );
+
+  assert.deepEqual(downloads, [{
+    baseUrl: 'https://inventory-stage.example.test',
+    accessToken: 'token',
+    imageKey: 'images/space/variant-batch-1.png',
+    outputPath: 'keyframes/market-keyframe-01.png',
+    force: false,
+  }]);
+  assert.equal(manifests.length, 1);
+  assert.equal((manifests[0] as { success: boolean }).success, false);
+  assert.deepEqual((manifests[0] as { failed: unknown[] }).failed, [
+    { variantId: 'variant-batch-2', error: 'model refused frame' },
+  ]);
+  assert.deepEqual((manifests[0] as { images: Array<{ variantId: string; localPath: string }> }).images.map((image) => ({
+    variantId: image.variantId,
+    localPath: image.localPath,
+  })), [
+    { variantId: 'variant-batch-1', localPath: 'keyframes/market-keyframe-01.png' },
   ]);
 });
