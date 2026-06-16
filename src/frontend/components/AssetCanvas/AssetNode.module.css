@@ -59,6 +59,13 @@
   object-fit: contain;
 }
 
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: black;
+}
+
 .placeholder {
   width: 100%;
   height: 100%;

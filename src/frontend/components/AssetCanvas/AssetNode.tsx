@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, getVariantThumbnailUrl, isVariantImageReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantMediaUrl, getVariantThumbnailUrl, isVariantImageReady, isVariantVideoReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
 import styles from './AssetNode.module.css';
 
@@ -14,12 +14,14 @@ export interface AssetNodeData extends Record<string, unknown> {
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   /** Layout direction for handle positioning */
   layoutDirection?: LayoutDirection;
+  /** Space ID for authenticated media preview URLs */
+  spaceId?: string;
 }
 
 export type AssetNodeType = Node<AssetNodeData, 'asset'>;
 
 function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
-  const { asset, variant, onAssetClick, onAddToTray, layoutDirection = 'LR' } = data;
+  const { asset, variant, onAssetClick, onAddToTray, layoutDirection = 'LR', spaceId } = data;
 
   // Determine handle positions based on layout direction
   const getHandlePositions = () => {
@@ -74,6 +76,21 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
           <span>Failed</span>
         </div>
       );
+    }
+
+    if (isVariantVideoReady(variant)) {
+      const mediaUrl = getVariantMediaUrl(variant, spaceId);
+      if (mediaUrl) {
+        return (
+          <video
+            src={mediaUrl}
+            className={`${styles.video} nodrag nopan`}
+            controls
+            preload="metadata"
+            onClick={(e) => e.stopPropagation()}
+          />
+        );
+      }
     }
 
     const url = getVariantThumbnailUrl(variant);

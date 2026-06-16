@@ -79,6 +79,13 @@ export function isVariantImageReady(variant: Variant): boolean {
 }
 
 /**
+ * Check if a variant has a completed video artifact for native playback.
+ */
+export function isVariantVideoReady(variant: Variant): boolean {
+  return variant.status === 'completed' && variant.media_kind === 'video' && variant.media_key !== null;
+}
+
+/**
  * Check if a variant is in a loading state
  */
 export function isVariantLoading(variant: Variant): boolean {

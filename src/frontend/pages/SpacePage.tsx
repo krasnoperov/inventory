@@ -429,6 +429,7 @@ export default function SpacePage() {
       <div className={styles.canvasContainer}>
         {/* Asset Canvas - fills entire container */}
         <AssetCanvas
+          spaceId={spaceId}
           assets={assets}
           variants={variants}
           jobs={jobs}

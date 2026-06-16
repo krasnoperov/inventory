@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantImageReady, isVariantLoading, isVariantFailed } from '../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantMediaUrl, getVariantThumbnailUrl, isVariantReady, isVariantImageReady, isVariantVideoReady, isVariantLoading, isVariantFailed } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
 import styles from './AssetCard.module.css';
@@ -29,6 +29,7 @@ export function AssetCard(props: AssetCardProps) {
     variants,
     childAssets,
     allVariants,
+    spaceId,
     depth = 0,
     isGenerating: _isGenerating = false, // eslint-disable-line @typescript-eslint/no-unused-vars
     generatingStatus: _generatingStatus, // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -120,7 +121,15 @@ export function AssetCard(props: AssetCardProps) {
           </div>
         ) : primaryVariant && isVariantReady(primaryVariant) ? (
           <div className={styles.thumbnailWrapper}>
-            {getVariantThumbnailUrl(primaryVariant) ? (
+            {isVariantVideoReady(primaryVariant) && getVariantMediaUrl(primaryVariant, spaceId) ? (
+              <video
+                src={getVariantMediaUrl(primaryVariant, spaceId)}
+                className={styles.thumbnailVideo}
+                controls
+                preload="metadata"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : getVariantThumbnailUrl(primaryVariant) ? (
               <img
                 src={getVariantThumbnailUrl(primaryVariant)}
                 alt={asset.name}
@@ -136,7 +145,7 @@ export function AssetCard(props: AssetCardProps) {
               </div>
             )}
             {/* Hover overlay with actions */}
-            {isHovered && (
+            {isHovered && !isVariantVideoReady(primaryVariant) && (
               <div className={styles.hoverOverlay}>
                 <div className={styles.overlayActions}>
                   <button

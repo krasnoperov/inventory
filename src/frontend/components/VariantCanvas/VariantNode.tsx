@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, getVariantMediaUrl, getVariantThumbnailUrl, isVariantReady, isVariantImageReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantMediaUrl, getVariantThumbnailUrl, isVariantReady, isVariantImageReady, isVariantVideoReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
 import styles from './VariantNode.module.css';
 
@@ -205,6 +205,21 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
           )}
         </div>
       );
+    }
+
+    if (isVariantVideoReady(variant)) {
+      const mediaUrl = getVariantMediaUrl(variant, spaceId);
+      if (mediaUrl) {
+        return (
+          <video
+            src={mediaUrl}
+            className={`${styles.video} nodrag nopan`}
+            controls
+            preload="metadata"
+            onClick={(e) => e.stopPropagation()}
+          />
+        );
+      }
     }
 
     const url = getVariantThumbnailUrl(variant);
