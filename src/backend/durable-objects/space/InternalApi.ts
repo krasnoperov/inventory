@@ -137,8 +137,8 @@ export interface InternalApiControllers {
     }): Promise<{ success: boolean }>;
     httpCompleteVariant(data: {
       variantId: string;
-      imageKey: string;
-      thumbKey: string;
+      imageKey?: string | null;
+      thumbKey?: string | null;
       mediaKey?: string | null;
       mediaMimeType?: string | null;
       mediaSizeBytes?: number | null;
@@ -392,8 +392,8 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   app.post('/internal/complete-variant', async (c) => {
     const data = (await c.req.json()) as {
       variantId: string;
-      imageKey: string;
-      thumbKey: string;
+      imageKey?: string | null;
+      thumbKey?: string | null;
       mediaKey?: string | null;
       mediaMimeType?: string | null;
       mediaSizeBytes?: number | null;

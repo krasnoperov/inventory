@@ -87,8 +87,8 @@ export class VariantController extends BaseController {
     jobId: string;
     variantId: string;
     assetId: string;
-    imageKey: string;
-    thumbKey: string;
+    imageKey: string | null;
+    thumbKey: string | null;
     mediaKey?: string | null;
     mediaMimeType?: string | null;
     mediaSizeBytes?: number | null;
@@ -434,8 +434,8 @@ export class VariantController extends BaseController {
     jobId: string;
     variantId: string;
     assetId: string;
-    imageKey: string;
-    thumbKey: string;
+    imageKey: string | null;
+    thumbKey: string | null;
     mediaKey?: string | null;
     mediaMimeType?: string | null;
     mediaSizeBytes?: number | null;

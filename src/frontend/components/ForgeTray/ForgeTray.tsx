@@ -8,14 +8,15 @@ import {
   type ChatForgeContext,
   type ForgeChatProgressResult,
 } from '../../hooks/useSpaceWebSocket';
-import type { MediaKind } from '../../../shared/websocket-types';
 import { useStyleStore } from '../../stores/styleStore';
+import type { MediaKind } from '../../../shared/websocket-types';
 import { AssetPickerModal } from './AssetPickerModal';
 import { ForgeChat } from './ForgeChat';
 import { StylePanel } from './StylePanel';
 import { Thumbnail } from '../Thumbnail';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
+  canUseSlotMediaKindForForgeMode,
   type ForgeMediaMode,
   getAssetTypeForForgeMode,
   getForgeMediaModeConfig,
@@ -107,6 +108,10 @@ const ACCEPTED_UPLOAD_MIME_TYPES = [
   'audio/wav',
   'audio/webm',
   'audio/x-wav',
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+  'video/x-m4v',
 ];
 
 const ACCEPTED_UPLOAD_TYPES = ACCEPTED_UPLOAD_MIME_TYPES.join(',');
@@ -216,21 +221,31 @@ export function ForgeTray({
   useEffect(() => {
     if (currentAssetMediaKind === 'audio') {
       setMediaMode(getForgeModeForAudioAssetType(currentAssetType));
+    } else if (currentAssetMediaKind === 'video') {
+      setMediaMode('video');
     } else if (currentAssetId) {
       setMediaMode('image');
     }
   }, [currentAssetId, currentAssetMediaKind, currentAssetType]);
 
   useEffect(() => {
-    if (!currentAsset && slots[0]?.variant.media_kind === 'audio' && mediaMode === 'image') {
+    if (currentAsset || mediaMode !== 'image') {
+      return;
+    }
+    const firstSlotMediaKind = slots[0]?.variant.media_kind;
+    if (firstSlotMediaKind === 'audio') {
       setMediaMode(getForgeModeForAudioAssetType(slots[0].asset.type));
+    } else if (firstSlotMediaKind === 'video') {
+      setMediaMode('video');
     }
   }, [currentAsset, mediaMode, slots]);
 
   const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
   const selectedMediaKind = getMediaKindForForgeMode(mediaMode);
   const isAudioMode = isAudioForgeMode(mediaMode);
-  const hasIncompatibleMediaSlots = slots.some((slot) => slot.variant.media_kind !== selectedMediaKind);
+  const hasIncompatibleMediaSlots = slots.some(
+    (slot) => !canUseSlotMediaKindForForgeMode(mediaMode, slot.variant.media_kind)
+  );
   const canUseExistingDestination = !targetAsset || targetAsset.media_kind === selectedMediaKind;
 
   useEffect(() => {
@@ -242,11 +257,12 @@ export function ForgeTray({
   // Dynamic max slots accounting for style images
   const styleImageCount = !isAudioMode && style?.enabled ? style.imageKeys.length : 0;
   const effectiveMaxSlots = maxSlots - styleImageCount;
+  const effectiveBatchCount = selectedMediaKind === 'video' ? 1 : batchCount;
 
   const hasPrompt = prompt.trim().length > 0;
   const operation = getOperation(slots.length, hasPrompt, effectiveDestinationType);
   const baseLabel = getOperationLabel(operation, mediaMode);
-  const operationLabel = batchCount > 1 ? `${baseLabel} x${batchCount}` : baseLabel;
+  const operationLabel = effectiveBatchCount > 1 ? `${baseLabel} x${effectiveBatchCount}` : baseLabel;
   const placeholder = getPlaceholder(slots.length, operation, mediaMode);
 
   // Slot variant IDs for vision-aware operations
@@ -261,6 +277,12 @@ export function ForgeTray({
       textarea.style.height = `${newHeight}px`;
     }
   }, [prompt]);
+
+  useEffect(() => {
+    if (selectedMediaKind === 'video' && batchCount > 1) {
+      setBatchCount(1);
+    }
+  }, [selectedMediaKind, batchCount]);
 
   const handleAddClick = useCallback(() => {
     setShowAssetPicker(true);
@@ -411,8 +433,8 @@ export function ForgeTray({
           parentAssetId,
         },
         operation,
-        batchCount: batchCount > 1 ? batchCount : undefined,
-        batchMode: batchCount > 1 ? batchMode : undefined,
+        batchCount: effectiveBatchCount > 1 ? effectiveBatchCount : undefined,
+        batchMode: effectiveBatchCount > 1 ? batchMode : undefined,
         disableStyle: isAudioMode || noStyle || undefined,
       });
 
@@ -428,7 +450,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, newAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, batchCount, batchMode, noStyle]);
+  }, [prompt, effectiveDestinationType, newAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, noStyle]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -677,7 +699,7 @@ export function ForgeTray({
             <div className={styles.controlsSpacer} />
 
             {/* Batch Count Selector */}
-            {effectiveDestinationType === 'new_asset' && (
+            {effectiveDestinationType === 'new_asset' && selectedMediaKind !== 'video' && (
               <select
                 className={styles.batchSelect}
                 value={batchCount}
@@ -693,7 +715,7 @@ export function ForgeTray({
             )}
 
             {/* Batch Mode Toggle - only when count > 1 and new_asset */}
-            {batchCount > 1 && effectiveDestinationType === 'new_asset' && (
+            {effectiveBatchCount > 1 && effectiveDestinationType === 'new_asset' && (
               <div className={styles.batchModeToggle}>
                 <button
                   type="button"

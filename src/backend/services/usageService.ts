@@ -11,8 +11,9 @@ export const USAGE_EVENTS = {
   // Claude (Anthropic) - split by token type for accurate pricing
   CLAUDE_INPUT_TOKENS: 'claude_input_tokens',
   CLAUDE_OUTPUT_TOKENS: 'claude_output_tokens',
-  // Gemini (NanoBanana) - images + tokens
+  // Gemini - images, videos, and tokens
   GEMINI_IMAGES: 'gemini_images',
+  GEMINI_VIDEOS: 'gemini_videos',
   GEMINI_INPUT_TOKENS: 'gemini_input_tokens',
   GEMINI_OUTPUT_TOKENS: 'gemini_output_tokens',
   // ElevenLabs - audio generation credits/units
@@ -89,6 +90,7 @@ export const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
   claude: { windowSeconds: 60, maxRequests: 20 },
   nanobanana: { windowSeconds: 60, maxRequests: 10 },
   elevenlabs: { windowSeconds: 60, maxRequests: 10 },
+  veo: { windowSeconds: 60, maxRequests: 10 },
 };
 
 @injectable()
@@ -219,6 +221,29 @@ export class UsageService {
   }
 
   /**
+   * Track Gemini/Veo video generation.
+   * Events are synced to Polar via the cron job (syncPendingEvents) for reliability.
+   */
+  async trackVideoGeneration(
+    userId: number,
+    videoCount: number,
+    model: string,
+    operation?: string,
+    aspectRatio?: string
+  ): Promise<void> {
+    await this.usageEventDAO.create({
+      userId,
+      eventName: USAGE_EVENTS.GEMINI_VIDEOS,
+      quantity: videoCount,
+      metadata: {
+        model,
+        operation,
+        aspect_ratio: aspectRatio,
+      },
+    });
+  }
+
+  /**
    * Sync pending local events to Polar
    * Called by the Polar worker cron job every 5 minutes
    *
@@ -263,8 +288,9 @@ export class UsageService {
         e.event_name === USAGE_EVENTS.GEMINI_INPUT_TOKENS ||
         e.event_name === USAGE_EVENTS.GEMINI_OUTPUT_TOKENS
       );
-      const geminiImageEvents = pendingEvents.filter((e) =>
-        e.event_name === USAGE_EVENTS.GEMINI_IMAGES
+      const geminiMediaEvents = pendingEvents.filter((e) =>
+        e.event_name === USAGE_EVENTS.GEMINI_IMAGES ||
+        e.event_name === USAGE_EVENTS.GEMINI_VIDEOS
       );
       const genericMeterEvents = pendingEvents.filter((e) =>
         e.event_name === USAGE_EVENTS.ELEVENLABS_AUDIO
@@ -319,10 +345,10 @@ export class UsageService {
         );
       }
 
-      // Sync Gemini image events with quantity in metadata
-      if (geminiImageEvents.length > 0) {
+      // Sync Gemini media count events with quantity in metadata
+      if (geminiMediaEvents.length > 0) {
         await this.polarService.ingestEventsBatch(
-          geminiImageEvents.map((event) => {
+          geminiMediaEvents.map((event) => {
             const metadata = event.metadata ? JSON.parse(event.metadata) : {};
             return {
               userId: event.user_id,
@@ -484,7 +510,7 @@ export class UsageService {
    * 2. Rate limit: Fixed-window request counter
    *
    * @param userId - User ID
-   * @param service - Service to check ('claude' or 'nanobanana')
+   * @param service - Service to check ('claude', 'nanobanana', 'elevenlabs', or 'veo')
    * @param rateLimit - Optional rate limit config (defaults per service)
    * @returns PreCheckResult with allowed status and detailed info
    *
@@ -492,14 +518,16 @@ export class UsageService {
    */
   async preCheck(
     userId: number,
-    service: 'claude' | 'nanobanana' | 'elevenlabs',
+    service: 'claude' | 'nanobanana' | 'elevenlabs' | 'veo',
     rateLimit?: RateLimitConfig
   ): Promise<PreCheckResult> {
     const eventName = service === 'claude'
       ? USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS
       : service === 'elevenlabs'
         ? USAGE_EVENTS.ELEVENLABS_AUDIO
-        : USAGE_EVENTS.GEMINI_IMAGES;
+        : service === 'veo'
+          ? USAGE_EVENTS.GEMINI_VIDEOS
+          : USAGE_EVENTS.GEMINI_IMAGES;
 
     const rateLimitConfig = rateLimit || DEFAULT_RATE_LIMITS[service];
     const now = new Date();
@@ -641,7 +669,7 @@ export class UsageService {
    */
   async checkQuota(
     userId: number,
-    service: 'claude' | 'nanobanana' | 'elevenlabs'
+    service: 'claude' | 'nanobanana' | 'elevenlabs' | 'veo'
   ): Promise<QuotaCheck> {
     const result = await this.preCheck(userId, service);
 

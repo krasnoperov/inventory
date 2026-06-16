@@ -278,6 +278,15 @@
   border: 1px solid var(--forge-bar-border-inner);
 }
 
+.mediaKindToggle {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.1875rem;
+  border-radius: var(--radius-md);
+  background: var(--forge-slot-bg);
+  border: 1px solid var(--forge-bar-border-inner);
+}
+
 .destButton {
   display: flex;
   align-items: center;

@@ -26,6 +26,7 @@ import {
   incrementRateLimit,
   trackImageGeneration,
   trackElevenLabsAudioGeneration,
+  trackVideoGeneration,
 } from '../billing/usageCheck';
 import {
   VariantFactory,
@@ -37,12 +38,16 @@ import { loggers } from '../../../../shared/logger';
 
 const log = loggers.generationController;
 
-type GenerationBillingService = 'nanobanana' | 'elevenlabs';
+type GenerationBillingService = 'nanobanana' | 'elevenlabs' | 'veo';
 
 function getGenerationBillingService(env: ControllerContext['env'], mediaKind?: string): GenerationBillingService {
-  return mediaKind === 'audio' && env.INVENTORY_AUDIO_PROVIDER === 'elevenlabs'
-    ? 'elevenlabs'
-    : 'nanobanana';
+  if (mediaKind === 'video') {
+    return 'veo';
+  }
+  if (mediaKind === 'audio' && env.INVENTORY_AUDIO_PROVIDER === 'elevenlabs') {
+    return 'elevenlabs';
+  }
+  return 'nanobanana';
 }
 
 export class GenerationController extends BaseController {
@@ -149,7 +154,15 @@ export class GenerationController extends BaseController {
 
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
-      const billingService = getGenerationBillingService(this.env, msg.mediaKind);
+      let billingMediaKind = msg.mediaKind;
+      if (!billingMediaKind) {
+        const asset = await this.repo.getAssetById(msg.assetId);
+        if (!asset) {
+          throw new NotFoundError('Asset not found');
+        }
+        billingMediaKind = asset.media_kind;
+      }
+      const billingService = getGenerationBillingService(this.env, billingMediaKind);
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService);
       if (!check.allowed) {
         this.send(ws, {
@@ -215,6 +228,16 @@ export class GenerationController extends BaseController {
     // Validate count
     if (msg.count < 2 || msg.count > 8) {
       throw new ValidationError('Batch count must be between 2 and 8');
+    }
+
+    if (msg.mediaKind === 'video') {
+      this.send(ws, {
+        type: 'batch:error',
+        requestId: msg.requestId,
+        error: 'Video batch generation is not supported',
+        code: 'VALIDATION_ERROR',
+      });
+      return;
     }
 
     // Check quota for the entire batch
@@ -349,7 +372,10 @@ export class GenerationController extends BaseController {
       aspectRatio: recipe.aspectRatio,
       imageSize: recipe.imageSize,
       sourceImageKeys: recipe.sourceImageKeys,
+      parentVariantIds: recipe.parentVariantIds,
+      styleImageKeys: recipe.styleImageKeys,
       operation: recipe.operation,
+      modelProvider: recipe.modelProvider,
     };
 
     // Trigger the workflow
@@ -484,28 +510,46 @@ export class GenerationController extends BaseController {
     }
 
     // Track usage for successful generation
-    if (this.env.DB && variant.created_by && variant.media_kind === 'image') {
+    if (
+      this.env.DB &&
+      variant.created_by &&
+      (variant.media_kind === 'image' || variant.media_kind === 'video')
+    ) {
       try {
         // Parse recipe to get operation type
         let operation = 'derive';
+        let usageModel = 'gemini-3-pro-image-preview';
         try {
           const recipe = JSON.parse(variant.recipe);
           // Handle legacy 'create'/'combine' operations
           const recipeOp = recipe.operation || 'derive';
           operation = recipeOp === 'create' || recipeOp === 'combine' ? 'derive' : recipeOp;
+          if (typeof recipe.model === 'string' && recipe.model.length > 0) {
+            usageModel = recipe.model;
+          }
         } catch {
           // Ignore parse errors
         }
 
-        await trackImageGeneration(
-          this.env.DB,
-          parseInt(variant.created_by),
-          1, // 1 image generated
-          'gemini-3-pro-image-preview',
-          operation
-        );
+        if (variant.media_kind === 'video') {
+          await trackVideoGeneration(
+            this.env.DB,
+            parseInt(variant.created_by),
+            1,
+            usageModel,
+            operation
+          );
+        } else {
+          await trackImageGeneration(
+            this.env.DB,
+            parseInt(variant.created_by),
+            1,
+            usageModel,
+            operation
+          );
+        }
       } catch (err) {
-        log.warn('Failed to track image usage', {
+        log.warn('Failed to track generation usage', {
           spaceId: this.spaceId,
           variantId: data.variantId,
           error: err instanceof Error ? err.message : String(err),

@@ -142,6 +142,143 @@ function createMockContext(
 
 describe('GenerationController pipeline hooks', () => {
   // ==========================================================================
+  // handleRefineRequest
+  // ==========================================================================
+
+  describe('handleRefineRequest', () => {
+    test('uses target asset media kind for video quota checks when request omits mediaKind', async () => {
+      const bindArgs: unknown[][] = [];
+      const prepare = mock.fn((sql: string) => ({
+        bind: mock.fn((...args: unknown[]) => {
+          bindArgs.push(args);
+          return {
+            first: sql.includes('FROM users')
+              ? mock.fn(async () => ({
+                  quota_limits: JSON.stringify({
+                    gemini_images: 100,
+                    gemini_videos: 0,
+                  }),
+                  rate_limit_count: 0,
+                  rate_limit_window_start: null,
+                }))
+              : mock.fn(async () => ({ total_used: 0 })),
+          };
+        }),
+      }));
+      const { ctx } = createMockContext({
+        getAssetById: mock.fn(async () => ({
+          id: 'asset-video',
+          name: 'Video Asset',
+          type: 'animation',
+          media_kind: 'video',
+          active_variant_id: 'variant-video',
+        })),
+      });
+      ctx.env = {
+        DB: { prepare },
+        GENERATION_WORKFLOW: { create: mock.fn() },
+      } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRefineRequest(
+        {} as WebSocket,
+        { userId: '123', role: 'editor' },
+        {
+          type: 'refine:request',
+          requestId: 'request-1',
+          assetId: 'asset-video',
+          prompt: 'Animate this',
+        }
+      );
+
+      assert.strictEqual(ctx.send.mock.calls.length, 1);
+      assert.deepStrictEqual(ctx.send.mock.calls[0].arguments[1], {
+        type: 'refine:error',
+        requestId: 'request-1',
+        error: 'Monthly quota exceeded for veo. Please upgrade your plan.',
+        code: 'QUOTA_EXCEEDED',
+      });
+      assert.ok(bindArgs.some((args) => args[1] === 'gemini_videos'));
+    });
+  });
+
+  // ==========================================================================
+  // handleRetryRequest
+  // ==========================================================================
+
+  describe('handleRetryRequest', () => {
+    test('preserves styled video reference semantics when retrying', async () => {
+      const createWorkflow = mock.fn(async () => ({ id: 'workflow-retry-1' }));
+      const recipe = {
+        prompt: '[Style: painterly]\n\nAnimate the hero',
+        assetType: 'animation',
+        mediaKind: 'video',
+        model: 'veo-3.1-generate-preview',
+        aspectRatio: '16:9',
+        sourceImageKeys: ['styles/style-1.png', 'images/asset-1.png'],
+        styleImageKeys: ['styles/style-1.png'],
+        parentVariantIds: ['source-var-1'],
+        operation: 'derive',
+        modelProvider: 'custom',
+      };
+      const failedVariant = createMockVariant({
+        id: 'variant-video',
+        asset_id: 'asset-video',
+        media_kind: 'video',
+        status: 'failed',
+        recipe: JSON.stringify(recipe),
+      });
+      const resetVariant = createMockVariant({
+        ...failedVariant,
+        status: 'pending',
+        error_message: null,
+      });
+      const processingVariant = createMockVariant({
+        ...failedVariant,
+        workflow_id: 'workflow-retry-1',
+        status: 'processing',
+        error_message: null,
+      });
+      const { ctx, broadcasts } = createMockContext({
+        getVariantById: mock.fn(async () => failedVariant),
+        getAssetById: mock.fn(async () => ({
+          id: 'asset-video',
+          name: 'Video Asset',
+          type: 'animation',
+          media_kind: 'video',
+          active_variant_id: 'variant-video',
+        })),
+        resetVariantForRetry: mock.fn(async () => resetVariant),
+        updateVariantWorkflow: mock.fn(async () => processingVariant),
+      });
+      ctx.env = {
+        GENERATION_WORKFLOW: { create: createWorkflow },
+      } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRetryRequest(
+        {} as WebSocket,
+        { userId: 'user-1', role: 'editor' },
+        'variant-video'
+      );
+
+      assert.strictEqual(createWorkflow.mock.calls.length, 1);
+      assert.strictEqual(createWorkflow.mock.calls[0].arguments[0].id, 'variant-video');
+      const workflowInput = createWorkflow.mock.calls[0].arguments[0].params;
+      assert.deepStrictEqual(workflowInput.sourceImageKeys, recipe.sourceImageKeys);
+      assert.deepStrictEqual(workflowInput.styleImageKeys, recipe.styleImageKeys);
+      assert.deepStrictEqual(workflowInput.parentVariantIds, recipe.parentVariantIds);
+      assert.strictEqual(workflowInput.mediaKind, 'video');
+      assert.strictEqual(workflowInput.modelProvider, 'custom');
+      assert.strictEqual(workflowInput.operation, 'derive');
+      assert.strictEqual(asMock(ctx.repo.resetVariantForRetry).mock.calls[0].arguments[0], 'variant-video');
+      assert.strictEqual(asMock(ctx.repo.updateVariantWorkflow).mock.calls[0].arguments[1], 'workflow-retry-1');
+      assert.ok(broadcasts.some((msg) => msg.type === 'variant:updated' && msg.variant.status === 'pending'));
+      assert.ok(broadcasts.some((msg) => msg.type === 'variant:updated' && msg.variant.status === 'processing'));
+    });
+  });
+
+  // ==========================================================================
   // httpCompleteVariant
   // ==========================================================================
 
@@ -290,6 +427,77 @@ describe('GenerationController pipeline hooks', () => {
         width: undefined,
         height: undefined,
         durationMs: 250,
+      });
+    });
+
+    test('completes media-only video variants without image keys and tracks video usage', async () => {
+      const run = mock.fn(async () => ({}));
+      const bind = mock.fn(() => ({ run }));
+      const prepare = mock.fn(() => ({ bind }));
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          id: 'variant-video',
+          media_kind: 'video',
+          image_key: null,
+          thumb_key: null,
+          media_key: null,
+        })),
+        completeVariant: mock.fn(async (id, imageKey, thumbKey, mediaMetadata = {}) =>
+          createMockVariant({
+            id,
+            media_kind: 'video',
+            image_key: imageKey,
+            thumb_key: thumbKey,
+            media_key: mediaMetadata.mediaKey,
+            media_mime_type: mediaMetadata.mimeType,
+            media_size_bytes: mediaMetadata.sizeBytes,
+            media_duration_ms: mediaMetadata.durationMs,
+            status: 'completed',
+            created_by: '123',
+            recipe: JSON.stringify({
+              mediaKind: 'video',
+              model: 'veo-3.1-generate-preview',
+              operation: 'generate',
+            }),
+          })
+        ),
+      });
+      ctx.env = { DB: { prepare } } as any;
+      const controller = new GenerationController(ctx);
+
+      const result = await controller.httpCompleteVariant({
+        variantId: 'variant-video',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-video.mp4',
+        mediaMimeType: 'video/mp4',
+        mediaSizeBytes: 4096,
+        mediaDurationMs: 8000,
+      });
+
+      assert.strictEqual(result.variant.image_key, null);
+      assert.strictEqual(result.variant.thumb_key, null);
+      assert.strictEqual(result.variant.media_key, 'media/space-1/variant-video.mp4');
+      assert.strictEqual(result.variant.media_mime_type, 'video/mp4');
+      assert.strictEqual(result.variant.media_duration_ms, 8000);
+      assert.strictEqual(prepare.mock.calls.length, 1);
+      assert.strictEqual(bind.mock.calls[0].arguments[1], 123);
+      assert.strictEqual(bind.mock.calls[0].arguments[2], 'gemini_videos');
+      assert.strictEqual(bind.mock.calls[0].arguments[3], 1);
+      assert.deepStrictEqual(JSON.parse(bind.mock.calls[0].arguments[4]), {
+        model: 'veo-3.1-generate-preview',
+        operation: 'generate',
+      });
+      assert.strictEqual(run.mock.calls.length, 1);
+
+      const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
+      assert.deepStrictEqual(completeCall.arguments[3], {
+        mediaKey: 'media/space-1/variant-video.mp4',
+        mimeType: 'video/mp4',
+        sizeBytes: 4096,
+        width: undefined,
+        height: undefined,
+        durationMs: 8000,
       });
     });
 

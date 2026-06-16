@@ -158,6 +158,28 @@ describe('VariantFactory', () => {
       assert.strictEqual(result.sourceImageKeys.length, 1);
       assert.strictEqual(result.parentVariantIds.length, 1);
     });
+
+    test('preserves media-only video asset references as parents without image refs', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+
+      asMock(repo.getAssetById).mock.mockImplementation(async (id: string) => ({
+        id,
+        active_variant_id: `variant-${id}`,
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async (id: string) => ({
+        id,
+        image_key: null,
+        media_key: 'media/space-1/video.mp4',
+      }));
+
+      const result = await factory.resolveAssetReferences(['asset-1'], 'video');
+
+      assert.deepStrictEqual(result.sourceImageKeys, []);
+      assert.deepStrictEqual(result.parentVariantIds, ['variant-asset-1']);
+    });
   });
 
   describe('resolveVariantReferences', () => {
@@ -376,6 +398,65 @@ describe('VariantFactory', () => {
 
       const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
       assert.strictEqual(recipe.mediaKind, 'audio');
+    });
+
+    test('creates video refine variant from media-only active variant without image refs', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
+        id: 'asset-video',
+        name: 'Existing Video',
+        type: 'animation',
+        media_kind: 'video',
+        tags: '[]',
+        parent_asset_id: null,
+        active_variant_id: 'existing-video-var',
+        created_by: 'user-123',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async () => ({
+        id: 'existing-video-var',
+        asset_id: 'asset-video',
+        media_kind: 'video',
+        workflow_id: null,
+        status: 'completed',
+        error_message: null,
+        image_key: null,
+        thumb_key: null,
+        media_key: 'media/space-1/existing-video-var.mp4',
+        media_mime_type: 'video/mp4',
+        media_size_bytes: 4096,
+        media_width: null,
+        media_height: null,
+        media_duration_ms: 8000,
+        recipe: '{}',
+        starred: false,
+        created_by: 'user-123',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        plan_step_id: null,
+      }));
+
+      const result = await factory.createRefineVariant(
+        {
+          assetId: 'asset-video',
+          prompt: 'Create a new animated take',
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.strictEqual(recipe.mediaKind, 'video');
+      assert.strictEqual(recipe.operation, 'refine');
+      assert.strictEqual(recipe.sourceImageKeys, undefined);
+      assert.deepStrictEqual(result.sourceImageKeys, []);
+      assert.deepStrictEqual(result.parentVariantIds, ['existing-video-var']);
+      assert.strictEqual(asMock(repo.createLineage).mock.calls.length, 1);
     });
 
     test('keeps audio source lineage when refining without an image key', async () => {

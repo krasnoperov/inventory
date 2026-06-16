@@ -1,6 +1,6 @@
 import type { MediaKind } from '../../../shared/websocket-types';
 
-export type ForgeMediaMode = 'image' | 'speech' | 'dialogue' | 'music' | 'sfx';
+export type ForgeMediaMode = 'image' | 'video' | 'speech' | 'dialogue' | 'music' | 'sfx';
 
 export interface ForgeMediaModeConfig {
   mode: ForgeMediaMode;
@@ -19,6 +19,14 @@ export const FORGE_MEDIA_MODE_CONFIGS: ForgeMediaModeConfig[] = [
     mediaKind: 'image',
     assetType: 'character',
     promptNoun: 'asset',
+  },
+  {
+    mode: 'video',
+    label: 'Video',
+    shortLabel: 'Video',
+    mediaKind: 'video',
+    assetType: 'animation',
+    promptNoun: 'video',
   },
   {
     mode: 'speech',
@@ -68,9 +76,16 @@ export function isAudioForgeMode(mode: ForgeMediaMode): boolean {
   return getMediaKindForForgeMode(mode) === 'audio';
 }
 
+export function canUseSlotMediaKindForForgeMode(mode: ForgeMediaMode, slotMediaKind: MediaKind): boolean {
+  if (mode === 'video') {
+    return slotMediaKind === 'image' || slotMediaKind === 'video';
+  }
+  return slotMediaKind === getMediaKindForForgeMode(mode);
+}
+
 export function getAssetTypeForForgeMode(mode: ForgeMediaMode, inheritedType?: string): string {
-  if (mode === 'image') {
-    return inheritedType || 'character';
+  if (mode === 'image' || mode === 'video') {
+    return inheritedType || getForgeMediaModeConfig(mode).assetType;
   }
   return getForgeMediaModeConfig(mode).assetType;
 }
