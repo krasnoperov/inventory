@@ -166,11 +166,11 @@ function createMockContext(
 
 describe('GenerationController pipeline hooks', () => {
   describe('handleGenerateRequest', () => {
-    test('blocks ElevenLabs audio generation when remaining quota is less than prompt characters', async () => {
+    test('blocks ElevenLabs music generation when remaining quota can cover prompt but not provider cost', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();
       const { ctx } = createMockContext(repo);
-      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 10 }) as any;
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 40 }) as any;
       ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
       ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
       const controller = new GenerationController(ctx);
@@ -184,7 +184,7 @@ describe('GenerationController pipeline hooks', () => {
           name: 'Music cue',
           assetType: 'music',
           mediaKind: 'audio',
-          prompt: '12345678901234567890123456789012345678901',
+          prompt: 'short heroic orchestral loop',
         } as any
       );
 
@@ -198,6 +198,39 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
       assert.strictEqual(workflowCreate.mock.calls.length, 0);
     });
+
+    test('blocks ElevenLabs sound effect generation when remaining quota can cover prompt but not provider cost', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 40 }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-2',
+          name: 'Footstep',
+          assetType: 'sfx',
+          mediaKind: 'audio',
+          prompt: 'heavy boot step on wet stone',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'generate:error',
+        requestId: 'request-2',
+        error: 'Monthly quota exceeded for elevenlabs. Please upgrade your plan.',
+        code: 'QUOTA_EXCEEDED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
   });
 
   // ==========================================================================
@@ -205,11 +238,11 @@ describe('GenerationController pipeline hooks', () => {
   // ==========================================================================
 
   describe('handleRefineRequest', () => {
-    test('blocks ElevenLabs audio refinement when remaining quota is less than prompt characters', async () => {
+    test('blocks ElevenLabs music refinement when remaining quota can cover prompt but not provider cost', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();
       const { ctx } = createMockContext(repo);
-      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 10 }) as any;
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 40 }) as any;
       ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
       ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
       const controller = new GenerationController(ctx);
@@ -222,7 +255,7 @@ describe('GenerationController pipeline hooks', () => {
           requestId: 'request-1',
           assetId: 'asset-1',
           mediaKind: 'audio',
-          prompt: '12345678901234567890123456789012345678901',
+          prompt: 'short heroic orchestral loop',
         } as any
       );
 
@@ -891,11 +924,11 @@ describe('GenerationController pipeline hooks', () => {
   });
 
   describe('handleBatchRequest', () => {
-    test('blocks ElevenLabs audio batch when remaining quota is less than prompt characters times batch count', async () => {
+    test('blocks ElevenLabs music batch when remaining quota can cover prompts but not provider costs', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();
       const { ctx } = createMockContext(repo);
-      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 20 }) as any;
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 60 }) as any;
       ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
       ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
       const controller = new GenerationController(ctx);
@@ -909,7 +942,7 @@ describe('GenerationController pipeline hooks', () => {
           name: 'Batch Music',
           assetType: 'music',
           mediaKind: 'audio',
-          prompt: '12345678901',
+          prompt: 'short heroic orchestral loop',
           count: 2,
           mode: 'set',
         } as any
@@ -980,20 +1013,20 @@ describe('GenerationController pipeline hooks', () => {
   });
 
   describe('handleRetryRequest', () => {
-    test('blocks ElevenLabs audio retry when remaining quota is less than prompt characters', async () => {
+    test('blocks ElevenLabs music retry when remaining quota can cover prompt but not provider cost', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();
       asMock(repo.getVariantById).mock.mockImplementation(async () => createMockVariant({
         status: 'failed',
         media_kind: 'audio',
         recipe: JSON.stringify({
-          prompt: '12345678901234567890123456789012345678901',
+          prompt: 'short heroic orchestral loop',
           operation: 'generate',
           assetType: 'music',
         }),
       }));
       const { ctx } = createMockContext(repo);
-      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 10 }) as any;
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 40 }) as any;
       ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
       ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
       const controller = new GenerationController(ctx);

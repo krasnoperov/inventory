@@ -46,6 +46,8 @@ type AudioUsage = {
   totalTokens: number;
 };
 
+const ELEVENLABS_GENERATED_AUDIO_COST_BUFFER = 50;
+
 function getGenerationBillingService(env: ControllerContext['env'], mediaKind?: string): GenerationBillingService {
   if (mediaKind === 'video') {
     return 'veo';
@@ -78,13 +80,19 @@ function getElevenLabsAudioUsage(audioUsage: AudioUsage | null | undefined, prom
 function getQuotaCheckQuantity(
   service: GenerationBillingService,
   prompt: string | undefined,
-  count = 1
+  count = 1,
+  assetType?: string
 ): number {
   const requestedCount = Math.max(1, Math.floor(count));
   if (service !== 'elevenlabs') {
     return requestedCount;
   }
-  return getElevenLabsAudioUsage(undefined, prompt).totalTokens * requestedCount;
+  const promptCharacters = getElevenLabsAudioUsage(undefined, prompt).totalTokens;
+  const generatedAudioEstimate = promptCharacters + ELEVENLABS_GENERATED_AUDIO_COST_BUFFER;
+  const perRequestQuantity = assetType === 'music' || assetType === 'sfx'
+    ? generatedAudioEstimate
+    : promptCharacters;
+  return perRequestQuantity * requestedCount;
 }
 
 export class GenerationController extends BaseController {
@@ -125,7 +133,7 @@ export class GenerationController extends BaseController {
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind);
-      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt);
+      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, msg.assetType);
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity);
       if (!check.allowed) {
         this.send(ws, {
@@ -193,15 +201,17 @@ export class GenerationController extends BaseController {
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
       let billingMediaKind = msg.mediaKind;
-      if (!billingMediaKind) {
+      let billingAssetType: string | undefined;
+      if (!billingMediaKind || billingMediaKind === 'audio') {
         const asset = await this.repo.getAssetById(msg.assetId);
         if (!asset) {
           throw new NotFoundError('Asset not found');
         }
-        billingMediaKind = asset.media_kind;
+        billingMediaKind = billingMediaKind ?? asset.media_kind;
+        billingAssetType = asset.type;
       }
       const billingService = getGenerationBillingService(this.env, billingMediaKind);
-      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt);
+      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, billingAssetType);
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity);
       if (!check.allowed) {
         this.send(ws, {
@@ -282,7 +292,7 @@ export class GenerationController extends BaseController {
     // Check quota for the entire batch
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind);
-      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, msg.count);
+      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, msg.count, msg.assetType);
       const check = await preCheck(
         this.env.DB,
         parseInt(meta.userId),
@@ -383,7 +393,7 @@ export class GenerationController extends BaseController {
     const retryMediaKind = variant.media_kind ?? asset.media_kind;
     const billingService = getGenerationBillingService(this.env, retryMediaKind);
     if (this.env.DB && billingService === 'elevenlabs') {
-      const quotaQuantity = getQuotaCheckQuantity(billingService, recipe.prompt);
+      const quotaQuantity = getQuotaCheckQuantity(billingService, recipe.prompt, 1, recipe.assetType);
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity);
       if (!check.allowed) {
         this.sendError(
