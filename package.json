@@ -10,7 +10,8 @@
   "scripts": {
     "bootstrap:worktree": "node ./scripts/bootstrap-worktree.mjs",
     "dev": "vite",
-    "build": "vite build && pnpm run build:cli",
+    "build": "vite build && pnpm run build:frontend-ssr && pnpm run build:cli",
+    "build:frontend-ssr": "vite build --ssr ssr.tsx --outDir ../../dist/frontend-ssr --emptyOutDir",
     "build:cli": "node scripts/build-cli.mjs",
     "deploy": "pnpm run build && pnpm exec wrangler deploy",
     "deploy:production": "pnpm run build && pnpm exec wrangler deploy --env production",

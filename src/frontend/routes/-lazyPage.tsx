@@ -1,13 +1,22 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 
 export const lazyPage = (loadPage: () => Promise<{ default: ComponentType }>) => {
-  const Page = lazy(loadPage);
+  let loadPromise: Promise<{ default: ComponentType }> | undefined;
+  const load = () => {
+    loadPromise ??= loadPage();
+    return loadPromise;
+  };
+  const Page = lazy(load);
 
-  return function LazyRoutePage() {
+  function LazyRoutePage() {
     return (
       <Suspense fallback={null}>
         <Page />
       </Suspense>
     );
-  };
+  }
+
+  LazyRoutePage.preload = () => load().then(() => undefined);
+
+  return LazyRoutePage;
 };

@@ -17,6 +17,8 @@
 
 import type { Context } from 'hono';
 import type { AppContext } from '../routes/types';
+import { AuthHandler } from '../features/auth/auth-handler';
+import type { AuthSessionResponse } from '../../shared/api/schemas';
 
 interface RouteMeta {
   title: string;
@@ -97,6 +99,11 @@ const NOT_FOUND_META: RouteMeta = {
   robots: 'noindex,nofollow',
 };
 
+interface DocumentRouteMatch {
+  meta: RouteMeta;
+  status: 200 | 404;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -161,6 +168,89 @@ function rewriteMeta(html: string, meta: RouteMeta, canonicalUrl: string): strin
   return out;
 }
 
+function matchDocumentRoute(pathname: string): DocumentRouteMatch {
+  const match = SPA_ROUTES.find((r) => r.pattern.test(pathname));
+  return match
+    ? { meta: match.meta, status: 200 }
+    : { meta: NOT_FOUND_META, status: 404 };
+}
+
+function isTanStackStartSsrEnabled(c: Context<AppContext>): boolean {
+  const flag = c.env.INVENTORY_TANSTACK_SSR;
+  return flag === '1' || flag === 'true' || flag === 'enabled';
+}
+
+function serializeJsonForInlineScript(value: unknown): string {
+  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (char) => {
+    switch (char) {
+      case '<':
+        return '\\u003c';
+      case '>':
+        return '\\u003e';
+      case '&':
+        return '\\u0026';
+      case '\u2028':
+        return '\\u2028';
+      case '\u2029':
+        return '\\u2029';
+      default:
+        return char;
+    }
+  });
+}
+
+async function resolveStartSession(c: Context<AppContext>): Promise<AuthSessionResponse> {
+  const baseSession: AuthSessionResponse = {
+    user: null,
+    config: {
+      googleClientId: c.env.GOOGLE_CLIENT_ID || '',
+      environment: c.env.ENVIRONMENT || 'development',
+    },
+  };
+
+  if (!c.req.header('Cookie')) {
+    return baseSession;
+  }
+
+  const container = c.get('container');
+  if (!container) {
+    return baseSession;
+  }
+
+  const authHandler = container.get(AuthHandler);
+  const response = await authHandler.getSession(c);
+  return (response as unknown as Response).json<AuthSessionResponse>();
+}
+
+async function renderTanStackStartDocument(
+  c: Context<AppContext>,
+  shellHtml: string,
+  meta: RouteMeta,
+  canonicalUrl: string,
+): Promise<string> {
+  // Built by `pnpm run build:frontend-ssr` so server-rendered CSS module
+  // class names match the client Vite bundle during hydration.
+  // @ts-expect-error generated build output is absent before `pnpm run build`
+  const { renderTanStackStartRoute } = await import('../../../dist/frontend-ssr/ssr.js') as typeof import('../../frontend/ssr');
+  const session = await resolveStartSession(c);
+  const appHtml = await renderTanStackStartRoute(c.req.raw, session);
+  const sessionScript = `<script>window.__INVENTORY_START_SESSION__=${serializeJsonForInlineScript(session)};</script>`;
+
+  let out = shellHtml.replace(
+    /<html\b([^>]*)>/i,
+    (full, attrs: string) => (
+      /\bdata-inventory-ssr=/i.test(full)
+        ? full
+        : `<html${attrs} data-inventory-ssr="tanstack-start">`
+    ),
+  );
+
+  out = out.replace(/<div id="root"><\/div>/, `<div id="root">${appHtml}</div>`);
+  out = out.replace(/<\/body>/i, `    ${sessionScript}\n  </body>`);
+
+  return rewriteMeta(out, meta, canonicalUrl);
+}
+
 function isDocumentNavigation(c: Context<AppContext>): boolean {
   if (c.req.method !== 'GET' && c.req.method !== 'HEAD') return false;
   const accept = c.req.header('accept') ?? '';
@@ -207,9 +297,7 @@ export async function handleDocumentNavigation(c: Context<AppContext>): Promise<
     return Response.redirect(`${origin}${canonical}${url.search}`, 301);
   }
 
-  const match = SPA_ROUTES.find((r) => r.pattern.test(url.pathname));
-  const meta = match ? match.meta : NOT_FOUND_META;
-  const status = match ? 200 : 404;
+  const { meta, status } = matchDocumentRoute(url.pathname);
 
   const shellRes = await c.env.ASSETS.fetch(new Request(`${origin}/index.html`));
   if (!shellRes.ok) {
@@ -218,13 +306,16 @@ export async function handleDocumentNavigation(c: Context<AppContext>): Promise<
   }
 
   const html = await shellRes.text();
-  const rewritten = rewriteMeta(html, meta, `${origin}${url.pathname}`);
+  const rewritten = isTanStackStartSsrEnabled(c)
+    ? await renderTanStackStartDocument(c, html, meta, `${origin}${url.pathname}`)
+    : rewriteMeta(html, meta, `${origin}${url.pathname}`);
 
   return new Response(rewritten, {
     status,
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'public, max-age=0, must-revalidate',
+      ...(isTanStackStartSsrEnabled(c) ? { 'x-inventory-ssr': 'tanstack-start' } : {}),
     },
   });
 }

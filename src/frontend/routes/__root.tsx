@@ -4,6 +4,7 @@ import { Outlet, createRootRoute } from '@tanstack/react-router';
 import { AuthProvider } from '../contexts/AuthContext';
 import { loadSession } from '../config';
 import type { User } from '../contexts/AuthContext';
+import { useStartSession, type StartSession } from '../startSession';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -18,24 +19,27 @@ function RootComponent() {
 }
 
 function StartProviders({ children }: { children: ReactNode }) {
-  const [sessionLoaded, setSessionLoaded] = useState(false);
-  const [clientId, setClientId] = useState('');
-  const [initialUser, setInitialUser] = useState<User | null>(null);
+  const providedSession = useStartSession();
+  const [session, setSession] = useState<StartSession | undefined>(providedSession);
 
   useEffect(() => {
+    if (session) {
+      return;
+    }
     loadSession().then((session) => {
-      setClientId(session.config.googleClientId);
-      setInitialUser(session.user);
-      setSessionLoaded(true);
       if (!session.config.googleClientId) {
         console.error('Google Client ID not provided by backend');
       }
+      setSession(session);
     });
-  }, []);
+  }, [session]);
 
-  if (!sessionLoaded) {
+  if (!session) {
     return null;
   }
+
+  const clientId = session.config.googleClientId;
+  const initialUser: User | null = session.user;
 
   if (!clientId) {
     return (

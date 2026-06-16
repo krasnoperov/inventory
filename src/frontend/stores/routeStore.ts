@@ -50,6 +50,10 @@ export const useRouteStore = create<RouteState>()((set, get) => ({
   },
 }));
 
+export function setSsrRouteLocation(path: string, search: string) {
+  useRouteStore.getState().setLocation(path, search);
+}
+
 // Initialize navigation system and connect to store
 if (typeof window !== 'undefined') {
   initNavigator();
