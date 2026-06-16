@@ -474,13 +474,14 @@ export class VariantFactory {
     );
 
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
+    const mediaKind = input.mediaKind ?? DEFAULT_MEDIA_KIND;
 
-    // Build recipe ONCE — batch/explore defaults to flash model
+    // Build recipe ONCE — image batch/explore defaults to flash model
     let recipe: GenerationRecipe = {
       prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
       assetType: input.assetType,
       mediaKind: input.mediaKind,
-      model: resolveImageModel('flash'),
+      model: mediaKind === 'image' ? resolveImageModel('flash') : undefined,
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,

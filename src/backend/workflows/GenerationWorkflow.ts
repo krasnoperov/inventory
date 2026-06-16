@@ -38,7 +38,12 @@ import { FakeImageProvider } from '../services/fakeImageProvider';
 import type { ImageGenerationProvider } from '../services/imageProvider';
 import { FakeAudioProvider } from '../services/fakeAudioProvider';
 import type { AudioGenerationProvider, AudioGenerationResult, AudioSidecar } from '../services/audioProvider';
-import { ElevenLabsApiError, ElevenLabsAudioProvider } from '../services/elevenLabsAudioProvider';
+import {
+  ElevenLabsApiError,
+  ElevenLabsAudioProvider,
+  ElevenLabsMusicProvider,
+  ElevenLabsSoundEffectProvider,
+} from '../services/elevenLabsAudioProvider';
 import {
   detectImageType,
   base64ToBuffer,
@@ -457,6 +462,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       spaceId,
       prompt,
       assetName,
+      assetType,
       model,
       operation,
       sourceImageKeys,
@@ -486,16 +492,15 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     try {
       const uploadResult = await step.do('generate-and-upload-audio', {
         retries: { limit: 2, delay: '3 seconds' },
-        timeout: '2 minutes',
+        timeout: '10 minutes',
       }, async () => {
         if (!this.env.IMAGES) {
           throw new Error('IMAGES R2 bucket not configured');
         }
 
-        const provider = this.createAudioProvider();
-        const providerName = this.env.INVENTORY_AUDIO_PROVIDER || 'fake';
+        const { provider, providerName } = this.createAudioProvider(assetType);
         const timer = log.startTimer('Audio generation', {
-          requestId, jobId, spaceId, operation, provider: providerName, model,
+          requestId, jobId, spaceId, operation, provider: providerName, assetType, model,
         });
 
         try {
@@ -511,6 +516,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             totalBytes: result.audioData.byteLength,
             durationMs: result.durationMs,
             provider: providerName,
+            model: result.model,
           });
           return {
             mediaKey: key,
@@ -614,22 +620,45 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     };
   }
 
-  private createAudioProvider(): AudioGenerationProvider {
+  private createAudioProvider(assetType: string): { provider: AudioGenerationProvider; providerName: string } {
     const provider = this.env.INVENTORY_AUDIO_PROVIDER || 'fake';
     if (provider === 'fake') {
-      return new FakeAudioProvider();
+      return { provider: new FakeAudioProvider(), providerName: 'fake' };
     }
     if (provider === 'elevenlabs') {
       if (!this.env.ELEVENLABS_API_KEY) {
         throw new NonRetryableError('ELEVENLABS_API_KEY not configured');
       }
-      return new ElevenLabsAudioProvider({
-        apiKey: this.env.ELEVENLABS_API_KEY,
-        voiceId: this.env.ELEVENLABS_VOICE_ID || '',
-        dialogueVoiceIds: parseCommaSeparated(this.env.ELEVENLABS_DIALOGUE_VOICE_IDS),
-        modelId: this.env.ELEVENLABS_MODEL_ID,
-        outputFormat: this.env.ELEVENLABS_AUDIO_OUTPUT_FORMAT,
-      });
+      if (assetType === 'music') {
+        return {
+          provider: new ElevenLabsMusicProvider({
+            apiKey: this.env.ELEVENLABS_API_KEY,
+            modelId: this.env.ELEVENLABS_MUSIC_MODEL_ID,
+            outputFormat: this.env.ELEVENLABS_MUSIC_OUTPUT_FORMAT,
+          }),
+          providerName: 'elevenlabs:music',
+        };
+      }
+      if (assetType === 'sfx') {
+        return {
+          provider: new ElevenLabsSoundEffectProvider({
+            apiKey: this.env.ELEVENLABS_API_KEY,
+            modelId: this.env.ELEVENLABS_SOUND_EFFECT_MODEL_ID,
+            outputFormat: this.env.ELEVENLABS_SOUND_EFFECT_OUTPUT_FORMAT,
+          }),
+          providerName: 'elevenlabs:sfx',
+        };
+      }
+      return {
+        provider: new ElevenLabsAudioProvider({
+          apiKey: this.env.ELEVENLABS_API_KEY,
+          voiceId: this.env.ELEVENLABS_VOICE_ID || '',
+          dialogueVoiceIds: parseCommaSeparated(this.env.ELEVENLABS_DIALOGUE_VOICE_IDS),
+          modelId: this.env.ELEVENLABS_MODEL_ID,
+          outputFormat: this.env.ELEVENLABS_AUDIO_OUTPUT_FORMAT,
+        }),
+        providerName: 'elevenlabs:speech',
+      };
     }
     throw new NonRetryableError(`Unsupported INVENTORY_AUDIO_PROVIDER: ${provider}`);
   }

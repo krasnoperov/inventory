@@ -57,6 +57,8 @@ export class ElevenLabsApiError extends Error {
 
 const BASE_URL = 'https://api.elevenlabs.io/v1';
 const DEFAULT_OUTPUT_FORMAT = 'mp3_44100_128';
+const DEFAULT_MUSIC_MODEL = 'music_v1';
+const DEFAULT_SOUND_EFFECT_MODEL = 'eleven_text_to_sound_v2';
 const TEXT_ENCODER = new TextEncoder();
 
 export function parseElevenLabsDialoguePrompt(prompt: string): ParsedDialogueLine[] | null {
@@ -207,19 +209,7 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
   }
 
   private async toApiError(response: Response): Promise<ElevenLabsApiError> {
-    let body = '';
-    try {
-      body = await response.text();
-    } catch {
-      // Ignore body read errors; status is still enough to classify retries.
-    }
-    const detail = extractErrorDetail(body);
-    const retryable = response.status === 429 || response.status >= 500;
-    return new ElevenLabsApiError(
-      `ElevenLabs audio generation failed (${response.status})${detail ? `: ${detail}` : ''}`,
-      response.status,
-      retryable
-    );
+    return elevenLabsApiErrorFromResponse(response);
   }
 
   private toAudioResult(
@@ -260,6 +250,116 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
   }
 }
 
+export interface ElevenLabsGeneratedAudioProviderConfig {
+  apiKey: string;
+  modelId?: string;
+  outputFormat?: string;
+  fetcher?: Fetcher;
+  baseUrl?: string;
+}
+
+abstract class BaseElevenLabsGeneratedAudioProvider implements AudioGenerationProvider {
+  protected readonly fetcher: Fetcher;
+  protected readonly baseUrl: string;
+  protected readonly outputFormat: string;
+  protected readonly modelId: string;
+
+  constructor(
+    protected readonly config: ElevenLabsGeneratedAudioProviderConfig,
+    defaultModel: string
+  ) {
+    this.fetcher = config.fetcher ?? fetch;
+    this.baseUrl = config.baseUrl?.replace(/\/$/, '') ?? BASE_URL;
+    this.outputFormat = config.outputFormat ?? DEFAULT_OUTPUT_FORMAT;
+    this.modelId = config.modelId ?? defaultModel;
+  }
+
+  abstract generate(options: AudioGenerateOptions): Promise<AudioGenerationResult>;
+
+  protected async postAudio(
+    path: string,
+    body: Record<string, unknown>
+  ): Promise<{ audioData: Uint8Array; audioMimeType: string; characterCost: number | null }> {
+    const url = new URL(`${this.baseUrl}${path}`);
+    url.searchParams.set('output_format', this.outputFormat);
+
+    const response = await this.fetcher(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'xi-api-key': this.config.apiKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw await elevenLabsApiErrorFromResponse(response);
+    }
+
+    const contentType = response.headers.get('content-type')?.split(';', 1)[0].trim()
+      || getMimeTypeForElevenLabsOutputFormat(this.outputFormat);
+    const characterCostHeader = response.headers.get('character-cost');
+    const characterCost = characterCostHeader ? Number.parseInt(characterCostHeader, 10) : null;
+
+    return {
+      audioData: new Uint8Array(await response.arrayBuffer()),
+      audioMimeType: contentType,
+      characterCost: Number.isFinite(characterCost) ? characterCost : null,
+    };
+  }
+
+  protected usageFromCharacterCost(characterCost: number | null): AudioGenerationResult['usage'] {
+    if (characterCost === null) return undefined;
+    return {
+      inputTokens: characterCost,
+      outputTokens: 0,
+      totalTokens: characterCost,
+    };
+  }
+}
+
+export class ElevenLabsMusicProvider extends BaseElevenLabsGeneratedAudioProvider {
+  constructor(config: ElevenLabsGeneratedAudioProviderConfig) {
+    super(config, DEFAULT_MUSIC_MODEL);
+  }
+
+  async generate(options: AudioGenerateOptions): Promise<AudioGenerationResult> {
+    const result = await this.postAudio('/music', {
+      prompt: options.prompt,
+      model_id: this.modelId,
+    });
+
+    return {
+      audioData: result.audioData,
+      audioMimeType: result.audioMimeType,
+      model: this.modelId,
+      durationMs: null,
+      usage: this.usageFromCharacterCost(result.characterCost),
+    };
+  }
+}
+
+export class ElevenLabsSoundEffectProvider extends BaseElevenLabsGeneratedAudioProvider {
+  constructor(config: ElevenLabsGeneratedAudioProviderConfig) {
+    super(config, DEFAULT_SOUND_EFFECT_MODEL);
+  }
+
+  async generate(options: AudioGenerateOptions): Promise<AudioGenerationResult> {
+    const result = await this.postAudio('/sound-generation', {
+      text: options.prompt,
+      model_id: this.modelId,
+    });
+
+    return {
+      audioData: result.audioData,
+      audioMimeType: result.audioMimeType,
+      model: this.modelId,
+      durationMs: null,
+      usage: this.usageFromCharacterCost(result.characterCost),
+    };
+  }
+}
+
 function defaultModelForKind(kind: 'speech' | 'dialogue'): string {
   return kind === 'dialogue' ? 'eleven_v3' : 'eleven_multilingual_v2';
 }
@@ -286,6 +386,22 @@ function textSidecar(text: string, mimeType: string): AudioSidecar {
 
 function jsonSidecar(value: unknown): AudioSidecar {
   return textSidecar(JSON.stringify(value, null, 2), 'application/json');
+}
+
+async function elevenLabsApiErrorFromResponse(response: Response): Promise<ElevenLabsApiError> {
+  let body = '';
+  try {
+    body = await response.text();
+  } catch {
+    // Ignore body read errors; status is still enough to classify retries.
+  }
+  const detail = extractErrorDetail(body);
+  const retryable = response.status === 429 || response.status >= 500;
+  return new ElevenLabsApiError(
+    `ElevenLabs audio generation failed (${response.status})${detail ? `: ${detail}` : ''}`,
+    response.status,
+    retryable
+  );
 }
 
 function extractErrorDetail(body: string): string | null {

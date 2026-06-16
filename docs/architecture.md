@@ -54,8 +54,11 @@ Variants track generation and upload status via placeholder lifecycle.
 allowed values are `image`, `audio`, and `video`, with `image` as the default
 for legacy and omitted values. Image generation uses the image provider path.
 Audio generation uses the same placeholder workflow lifecycle with the
-configured audio provider. Upload flows accept image, audio, and video files;
-video generation is reserved for future generators.
+configured audio provider. ElevenLabs audio generation routes website-created
+`music` assets to music generation, `sfx` assets to sound-effect generation,
+and other audio asset types to speech/dialogue generation. Upload flows accept
+image, audio, and video files; video generation is reserved for future
+generators.
 
 ```sql
 CREATE TABLE variants (

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   ElevenLabsApiError,
   ElevenLabsAudioProvider,
+  ElevenLabsMusicProvider,
+  ElevenLabsSoundEffectProvider,
   getMimeTypeForElevenLabsOutputFormat,
   parseElevenLabsDialoguePrompt,
 } from './elevenLabsAudioProvider';
@@ -139,6 +141,74 @@ describe('ElevenLabsAudioProvider', () => {
       () => provider.generate({ prompt: 'Hello' }),
       (error) => error instanceof ElevenLabsApiError && error.status === 422 && !error.retryable
     );
+  });
+
+  test('generates music through the music endpoint with server-configured model', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { 'Content-Type': 'audio/mpeg' },
+      });
+    }) as unknown as typeof fetch;
+    const provider = new ElevenLabsMusicProvider({
+      apiKey: 'key-1',
+      modelId: 'music_v2',
+      fetcher,
+    });
+
+    const result = await provider.generate({
+      prompt: 'short heroic orchestral loop',
+      model: 'client-selected-model',
+    });
+
+    assert.deepStrictEqual([...result.audioData], [1, 2, 3]);
+    assert.strictEqual(result.audioMimeType, 'audio/mpeg');
+    assert.strictEqual(result.model, 'music_v2');
+    assert.strictEqual(result.durationMs, null);
+    assert.strictEqual(calls[0].url, 'https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128');
+    assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)), {
+      prompt: 'short heroic orchestral loop',
+      model_id: 'music_v2',
+    });
+  });
+
+  test('generates sound effects through the sound-generation endpoint', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(new Uint8Array([4, 5, 6]), {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/mpeg; charset=binary',
+          'character-cost': '29',
+        },
+      });
+    }) as unknown as typeof fetch;
+    const provider = new ElevenLabsSoundEffectProvider({
+      apiKey: 'key-1',
+      fetcher,
+    });
+
+    const result = await provider.generate({
+      prompt: 'heavy boot step on wet stone',
+      model: 'client-selected-model',
+    });
+
+    assert.deepStrictEqual([...result.audioData], [4, 5, 6]);
+    assert.strictEqual(result.audioMimeType, 'audio/mpeg');
+    assert.strictEqual(result.model, 'eleven_text_to_sound_v2');
+    assert.deepStrictEqual(result.usage, {
+      inputTokens: 29,
+      outputTokens: 0,
+      totalTokens: 29,
+    });
+    assert.strictEqual(calls[0].url, 'https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_128');
+    assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)), {
+      text: 'heavy boot step on wet stone',
+      model_id: 'eleven_text_to_sound_v2',
+    });
   });
 
   test('parses dialogue prompts conservatively', () => {

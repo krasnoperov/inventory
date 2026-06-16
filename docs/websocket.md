@@ -144,6 +144,8 @@ selector. Keep using `assetType`/`type` for catalog categories such as
 `character`, `tile-set`, or `animation`. Audio and future Google video
 generation should remain website-controlled SpaceDO workflows: set `mediaKind`
 explicitly and choose the capable provider/model through provider/model fields.
+When `INVENTORY_AUDIO_PROVIDER=elevenlabs`, website-created `music` assets use
+ElevenLabs music generation and `sfx` assets use ElevenLabs sound generation.
 
 The backend enforces homogeneous assets. Variants inherit their asset's
 `media_kind`, and requests that try to create a variant or forked asset with a
