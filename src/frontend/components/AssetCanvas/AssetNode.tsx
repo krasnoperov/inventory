@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { formatMediaKind } from '../../mediaKind';
 import styles from './AssetNode.module.css';
 
 /** Layout direction for handle positioning */
@@ -124,7 +125,9 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
       {/* Name label */}
       <div className={styles.label}>
         <span className={styles.name}>{asset.name}</span>
-        <span className={styles.type}>{asset.type}</span>
+        <span className={styles.type}>
+          {asset.type} / {formatMediaKind(asset.media_kind)}
+        </span>
       </div>
 
       {/* Output handle (for outgoing edges to children) */}

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { type Asset, type Variant } from '../hooks/useSpaceWebSocket';
+import { formatMediaKind } from '../mediaKind';
 import { Thumbnail } from './Thumbnail';
 import styles from './AssetPicker.module.css';
 
@@ -28,7 +29,8 @@ export function AssetPicker({
     const query = searchQuery.toLowerCase();
     return assets.filter(a =>
       a.name.toLowerCase().includes(query) ||
-      a.type.toLowerCase().includes(query)
+      a.type.toLowerCase().includes(query) ||
+      formatMediaKind(a.media_kind).toLowerCase().includes(query)
     );
   }, [assets, searchQuery]);
 
@@ -65,7 +67,9 @@ export function AssetPicker({
           <Thumbnail variant={variant} size="xs" className={styles.thumbnail} />
           <div className={styles.optionInfo}>
             <span className={styles.optionName}>{asset.name}</span>
-            <span className={styles.optionType}>{asset.type}</span>
+            <span className={styles.optionType}>
+              {asset.type} / {formatMediaKind(asset.media_kind)}
+            </span>
           </div>
           {isSelected && (
             <span className={styles.checkmark}>

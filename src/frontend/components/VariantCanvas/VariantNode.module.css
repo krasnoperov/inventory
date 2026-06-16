@@ -383,6 +383,7 @@
   color: var(--color-text-muted);
 }
 
+.detailsKind,
 .detailsModel {
   font-size: 0.6875rem;
   color: var(--color-text-muted);

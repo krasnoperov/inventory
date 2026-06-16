@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../hooks/useSpaceWebSocket';
+import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
 import styles from './AssetCard.module.css';
 
@@ -173,7 +174,9 @@ export function AssetCard(props: AssetCardProps) {
       <div className={styles.infoRow}>
         <div className={styles.nameRow} onClick={handleCardClick}>
           <span className={styles.name}>{asset.name}</span>
-          <span className={styles.type}>{asset.type}</span>
+          <span className={styles.type}>
+            {asset.type} / {formatMediaKind(asset.media_kind)}
+          </span>
         </div>
         {onAddToTray && primaryVariant && (
           <button

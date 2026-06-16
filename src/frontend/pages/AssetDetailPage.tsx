@@ -25,6 +25,7 @@ import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { TileGrid } from '../components/TileGrid/TileGrid';
+import { formatMediaKind } from '../mediaKind';
 import styles from './AssetDetailPage.module.css';
 
 interface AssetDetailsResponse {
@@ -683,6 +684,9 @@ export default function AssetDetailPage() {
                 </option>
               ))}
             </select>
+            <span className={styles.metaBadge}>
+              {formatMediaKind(asset.media_kind)}
+            </span>
             <span className={styles.metaBadge}>
               {variants.length} variant{variants.length !== 1 ? 's' : ''}
             </span>

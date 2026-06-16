@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import type { Asset } from '../hooks/useSpaceWebSocket';
+import { formatMediaKind } from '../mediaKind';
 import styles from './AssetMenu.module.css';
 
 export interface AssetMenuProps {
@@ -84,7 +85,10 @@ export function AssetMenu({
     >
       <div className={styles.header}>
         <span className={styles.assetName}>{asset.name}</span>
-        <span className={styles.assetType}>{asset.type}</span>
+        <span className={styles.assetBadges}>
+          <span className={styles.assetType}>{asset.type}</span>
+          <span className={styles.assetType}>{formatMediaKind(asset.media_kind)}</span>
+        </span>
       </div>
 
       <div className={styles.section}>

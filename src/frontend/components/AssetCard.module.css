@@ -173,6 +173,10 @@
   font-size: 11px;
   color: var(--color-text-muted);
   text-transform: capitalize;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Add to Tray Button */

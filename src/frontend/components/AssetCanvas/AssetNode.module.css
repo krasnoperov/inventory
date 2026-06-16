@@ -167,4 +167,8 @@
   font-size: 10px;
   color: var(--color-text-muted);
   text-transform: capitalize;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
