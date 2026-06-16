@@ -155,7 +155,6 @@ export function useForgeOperations({
     prompt: string;
     mediaKind?: MediaKind;
     parentAssetId?: string;
-    mediaKind?: MediaKind;
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
@@ -204,13 +203,11 @@ export function useForgeOperations({
     prompt: string;
     referenceAssetIds: string[];
     parentAssetId?: string;
-    mediaKind?: MediaKind;
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
       mediaKind: params.mediaKind,
       referenceAssetIds: params.referenceAssetIds,
-      mediaKind: params.mediaKind,
       destination: {
         type: 'new_asset',
         assetName: params.name,
