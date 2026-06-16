@@ -1,7 +1,7 @@
 # Inventory CLI
 
 Command-line interface for the Inventory Forge platform. Provides space
-management, website asset inspection, real-time event monitoring, image
+management, website asset inspection, real-time event monitoring, media
 uploading, Forge generation control, and billing management.
 
 ## Quick Start
@@ -27,8 +27,10 @@ pnpm run cli init --space YOUR_SPACE_ID --env stage
 # 4. Listen to real-time events (in a separate terminal)
 pnpm run cli listen --space YOUR_SPACE_ID
 
-# 5. Upload an image to create a new asset
+# 5. Upload image, audio, or video to create a new asset
 pnpm run cli upload hero.png --space YOUR_SPACE_ID --name "Hero Character"
+pnpm run cli upload theme.mp3 --space YOUR_SPACE_ID --name "Theme Music" --type audio
+pnpm run cli upload cutscene.mp4 --space YOUR_SPACE_ID --name "Cutscene" --type video
 
 # 6. Upload a variant to an existing asset
 pnpm run cli upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
@@ -36,7 +38,7 @@ pnpm run cli upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
 # 7. Generate through the website and download the completed image
 pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
 
-# 8. Inspect website assets and download an existing variant
+# 8. Inspect website assets and download an existing variant's media
 pnpm run cli assets
 pnpm run cli assets download VARIANT_ID -o references/variant.png
 ```
@@ -51,7 +53,7 @@ pnpm run cli assets download VARIANT_ID -o references/variant.png
 | `spaces` | List, view, or create spaces |
 | `assets` | List website assets, show variants/lineage, download variants |
 | `listen` | Connect to WebSocket and stream all events |
-| `upload` | Upload images to create assets or add variants |
+| `upload` | Upload image, audio, or video files to create assets or add variants |
 | `generate` | Create a new asset through the website generation workflow |
 | `refine` | Refine an existing variant through the website generation workflow |
 | `derive` | Create a new asset from variant IDs and/or local image refs |
@@ -111,11 +113,13 @@ pnpm run cli assets show ASSET_ID --json
 Asset inspection displays each asset's `media_kind`; `assets show` also displays
 each variant's `media_kind`.
 
-Download an existing completed variant or direct image key to a local file:
+Download an existing completed variant or direct media key to a local file:
 
 ```bash
 pnpm run cli assets download VARIANT_ID -o references/variant.png
 pnpm run cli assets download images/space/variant.png -o references/variant.png
+pnpm run cli assets download VARIANT_ID -o audio/theme.mp3
+pnpm run cli assets download media/space/theme.mp3 -o audio/theme.mp3
 ```
 
 `assets` calls the website API every time. It does not scan local files, create
@@ -168,7 +172,8 @@ Press Ctrl+C to exit
 
 ## Upload
 
-Upload images to create new assets or add variants to existing assets.
+Upload image, audio, or video files to create new assets or add variants to
+existing assets.
 
 ### Create New Asset
 
@@ -185,18 +190,21 @@ pnpm run cli upload <file> --space <id> --asset <id>
 **Arguments:**
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `<file>` | Yes | Path to image file |
+| `<file>` | Yes | Path to image, audio, or video file |
 | `--space <id>` | Yes | Target space ID |
 | `--asset <id>` | * | Target asset ID (upload as new variant) |
 | `--name <name>` | * | New asset name (creates asset + variant) |
 | `--type <type>` | No | Asset type for new assets (default: `character`) |
+| `--media-kind <kind>` | No | Optional explicit kind: `image`, `audio`, or `video` |
 | `--parent <id>` | No | Parent asset ID for new assets |
 | `--env <env>` | No | `production`, `stage`, or `local` (default: `stage`) |
 | `--local` | No | Shortcut for `--env local` |
 
 \* Either `--asset` or `--name` is required.
 
-**Supported formats:** `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp` (max 10MB)
+**Supported formats:** `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.mp3`,
+`.m4a`, `.aac`, `.wav`, `.ogg`, `.flac`, `.mp4`, `.m4v`, `.mov`, `.webm`
+(max 10MB). `.webm` uploads default to video.
 
 **Examples:**
 ```bash
@@ -208,6 +216,10 @@ pnpm run cli upload sword.png --space abc123 --name "Sword" --type item --parent
 
 # Add a variant to an existing asset
 pnpm run cli upload variant.jpg --space abc123 --asset def456
+
+# Upload audio and video assets
+pnpm run cli upload theme.mp3 --space abc123 --name "Theme Music" --type audio
+pnpm run cli upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
 
 # Upload against local dev server
 pnpm run cli upload hero.png --space abc123 --name "Hero" --local

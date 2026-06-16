@@ -1,5 +1,5 @@
 /**
- * Upload Command - Upload images to create variants
+ * Upload Command - Upload media to create variants
  *
  * Usage:
  *   pnpm run cli upload <file> --space <id> --asset <id>     Upload to existing asset
@@ -12,26 +12,43 @@ import path from 'node:path';
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
+import type { MediaKind } from '../../shared/websocket-types';
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-const EXT_TO_MIME: Record<string, string> = {
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.png': 'image/png',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
+interface MediaType {
+  mediaKind: MediaKind;
+  mimeType: string;
+}
+
+const EXT_TO_MEDIA_TYPE: Record<string, MediaType> = {
+  '.aac': { mediaKind: 'audio', mimeType: 'audio/aac' },
+  '.flac': { mediaKind: 'audio', mimeType: 'audio/flac' },
+  '.gif': { mediaKind: 'image', mimeType: 'image/gif' },
+  '.jpg': { mediaKind: 'image', mimeType: 'image/jpeg' },
+  '.jpeg': { mediaKind: 'image', mimeType: 'image/jpeg' },
+  '.m4a': { mediaKind: 'audio', mimeType: 'audio/mp4' },
+  '.m4v': { mediaKind: 'video', mimeType: 'video/x-m4v' },
+  '.mov': { mediaKind: 'video', mimeType: 'video/quicktime' },
+  '.mp3': { mediaKind: 'audio', mimeType: 'audio/mpeg' },
+  '.mp4': { mediaKind: 'video', mimeType: 'video/mp4' },
+  '.ogg': { mediaKind: 'audio', mimeType: 'audio/ogg' },
+  '.png': { mediaKind: 'image', mimeType: 'image/png' },
+  '.wav': { mediaKind: 'audio', mimeType: 'audio/wav' },
+  '.webm': { mediaKind: 'video', mimeType: 'video/webm' },
+  '.webp': { mediaKind: 'image', mimeType: 'image/webp' },
 };
+const ALLOWED_EXTENSIONS = Object.keys(EXT_TO_MEDIA_TYPE).sort();
 
 interface UploadResponse {
   success: boolean;
   variant?: {
     id: string;
     asset_id: string;
-    image_key: string;
-    thumb_key: string;
+    media_kind?: MediaKind;
+    image_key: string | null;
+    thumb_key: string | null;
     media_key?: string | null;
     media_mime_type?: string | null;
     media_size_bytes?: number | null;
@@ -49,7 +66,47 @@ interface UploadResponse {
   error?: string;
 }
 
+interface UploadResult {
+  asset?: UploadResponse['asset'];
+  variant: NonNullable<UploadResponse['variant']>;
+}
+
+interface UploadDeps {
+  loadConfig: typeof loadStoredConfig;
+  resolveBaseUrl: typeof resolveBaseUrl;
+  fetch: typeof fetch;
+  readFile: typeof readFile;
+  stat: typeof stat;
+  print: (message: string) => void;
+}
+
+const defaultDeps: UploadDeps = {
+  loadConfig: loadStoredConfig,
+  resolveBaseUrl,
+  fetch,
+  readFile,
+  stat,
+  print: console.log,
+};
+
+class UploadUsageError extends Error {}
+
 export async function handleUpload(parsed: ParsedArgs): Promise<void> {
+  try {
+    await executeUpload(parsed);
+  } catch (error) {
+    console.error(error instanceof Error ? `Error: ${error.message}` : 'Error: Upload failed');
+    if (error instanceof UploadUsageError) {
+      printUsage();
+    }
+    process.exitCode = 1;
+  }
+}
+
+export async function executeUpload(
+  parsed: ParsedArgs,
+  deps: UploadDeps = defaultDeps
+): Promise<UploadResult> {
   const isLocal = parsed.options.local === 'true';
   const env = isLocal ? 'local' : (parsed.options.env || 'stage');
   const spaceId = parsed.options.space;
@@ -57,57 +114,38 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
   const assetName = parsed.options.name;
   const assetType = parsed.options.type || 'character';
   const parentAssetId = parsed.options.parent;
+  const requestedMediaKind = parsed.options['media-kind'] || parsed.options.mediaKind;
   const filePath = parsed.positionals[0];
 
   // Validate required args
   if (!filePath) {
-    console.error('Error: File path is required');
-    printUsage();
-    process.exitCode = 1;
-    return;
+    throw new UploadUsageError('File path is required');
   }
 
   if (!spaceId) {
-    console.error('Error: --space is required');
-    printUsage();
-    process.exitCode = 1;
-    return;
+    throw new UploadUsageError('--space is required');
   }
 
   if (!assetId && !assetName) {
-    console.error('Error: Either --asset or --name is required');
-    printUsage();
-    process.exitCode = 1;
-    return;
+    throw new UploadUsageError('Either --asset or --name is required');
   }
 
   // Validate file extension
   const ext = path.extname(filePath).toLowerCase();
-  if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    console.error(`Error: Invalid file type "${ext}"`);
-    console.error(`Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`);
-    process.exitCode = 1;
-    return;
-  }
+  const mediaType = resolveMediaType(ext, requestedMediaKind);
 
   // Load config
-  const config = await loadStoredConfig(env);
+  const config = await deps.loadConfig(env);
   if (!config) {
-    console.error(`Not logged in to ${env} environment.`);
-    console.error(`Run: pnpm run cli login --env ${env}`);
-    process.exitCode = 1;
-    return;
+    throw new Error(`Not logged in to ${env} environment. Run: pnpm run cli login --env ${env}`);
   }
 
   // Check token expiry
   if (config.token.expiresAt < Date.now()) {
-    console.error(`Token expired for ${env} environment.`);
-    console.error(`Run: pnpm run cli login --env ${env}`);
-    process.exitCode = 1;
-    return;
+    throw new Error(`Token expired for ${env} environment. Run: pnpm run cli login --env ${env}`);
   }
 
-  const baseUrl = resolveBaseUrl(env);
+  const baseUrl = deps.resolveBaseUrl(env);
   const accessToken = config.token.accessToken;
 
   // Disable SSL verification for local dev
@@ -117,29 +155,24 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
 
   try {
     // Check file exists and size
-    const fileStat = await stat(filePath);
+    const fileStat = await deps.stat(filePath);
     if (!fileStat.isFile()) {
-      console.error(`Error: "${filePath}" is not a file`);
-      process.exitCode = 1;
-      return;
+      throw new Error(`"${filePath}" is not a file`);
     }
 
     if (fileStat.size > MAX_FILE_SIZE_BYTES) {
-      console.error(`Error: File too large (${(fileStat.size / 1024 / 1024).toFixed(2)}MB)`);
-      console.error(`Maximum size: ${MAX_FILE_SIZE_MB}MB`);
-      process.exitCode = 1;
-      return;
+      throw new Error(`File too large (${(fileStat.size / 1024 / 1024).toFixed(2)}MB). Maximum size: ${MAX_FILE_SIZE_MB}MB`);
     }
 
     // Read file
-    const fileBuffer = await readFile(filePath);
+    const fileBuffer = await deps.readFile(filePath);
     const fileName = path.basename(filePath);
-    const mimeType = EXT_TO_MIME[ext] || 'image/png';
 
     // Build FormData
     const formData = new FormData();
-    const blob = new Blob([fileBuffer], { type: mimeType });
+    const blob = new Blob([fileBuffer], { type: mediaType.mimeType });
     formData.append('file', blob, fileName);
+    formData.append('mediaKind', mediaType.mediaKind);
 
     if (assetId) {
       formData.append('assetId', assetId);
@@ -151,15 +184,16 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
       }
     }
 
-    console.log(`\nUploading "${fileName}" to space ${spaceId}...`);
+    deps.print(`\nUploading "${fileName}" to space ${spaceId}...`);
+    deps.print(`  Media kind: ${mediaType.mediaKind}`);
     if (assetId) {
-      console.log(`  Target asset: ${assetId}`);
+      deps.print(`  Target asset: ${assetId}`);
     } else {
-      console.log(`  Creating asset: "${assetName}" (${assetType})`);
+      deps.print(`  Creating asset: "${assetName}" (${assetType})`);
     }
 
     // Upload
-    const response = await fetch(`${baseUrl}/api/spaces/${spaceId}/upload`, {
+    const response = await deps.fetch(`${baseUrl}/api/spaces/${spaceId}/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -169,61 +203,88 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
 
     const data = await response.json() as UploadResponse;
 
-    if (!response.ok || !data.success) {
-      console.error(`\nUpload failed: ${data.error || response.statusText}`);
-      process.exitCode = 1;
-      return;
+    if (!response.ok || !data.success || !data.variant) {
+      throw new Error(`Upload failed: ${data.error || response.statusText}`);
     }
 
-    console.log('\n✓ Upload successful!\n');
+    deps.print('\nUpload successful!\n');
 
     if (data.asset) {
-      console.log('New Asset:');
-      console.log(`  ID:   ${data.asset.id}`);
-      console.log(`  Name: ${data.asset.name}`);
-      console.log(`  Type: ${data.asset.type}`);
-      console.log('');
+      deps.print('New Asset:');
+      deps.print(`  ID:   ${data.asset.id}`);
+      deps.print(`  Name: ${data.asset.name}`);
+      deps.print(`  Type: ${data.asset.type}`);
+      deps.print('');
     }
 
     if (data.variant) {
-      console.log('Variant:');
-      console.log(`  ID:       ${data.variant.id}`);
-      console.log(`  Asset:    ${data.variant.asset_id}`);
-      console.log(`  Status:   ${data.variant.status}`);
-      console.log(`  Image:    ${data.variant.image_key}`);
-      console.log(`  Thumb:    ${data.variant.thumb_key}`);
+      deps.print('Variant:');
+      deps.print(`  ID:       ${data.variant.id}`);
+      deps.print(`  Asset:    ${data.variant.asset_id}`);
+      deps.print(`  Status:   ${data.variant.status}`);
+      deps.print(`  Media:    ${data.variant.media_kind || mediaType.mediaKind}`);
+      deps.print(`  File:     ${data.variant.media_key || data.variant.image_key || '-'}`);
+      if (data.variant.image_key) deps.print(`  Image:    ${data.variant.image_key}`);
+      if (data.variant.thumb_key) deps.print(`  Thumb:    ${data.variant.thumb_key}`);
+      if (data.variant.media_mime_type) deps.print(`  MIME:     ${data.variant.media_mime_type}`);
     }
 
     // Parse and show recipe
     if (data.variant?.recipe) {
       try {
         const recipe = JSON.parse(data.variant.recipe);
-        console.log('\nRecipe:');
-        console.log(`  Operation: ${recipe.operation}`);
-        console.log(`  Original:  ${recipe.originalFilename}`);
-        console.log(`  Uploaded:  ${recipe.uploadedAt}`);
+        deps.print('\nRecipe:');
+        deps.print(`  Operation: ${recipe.operation}`);
+        deps.print(`  Original:  ${recipe.originalFilename}`);
+        deps.print(`  Uploaded:  ${recipe.uploadedAt}`);
       } catch {
         // Ignore parse errors
       }
     }
 
-    console.log('\nTo use in chat:');
-    console.log(`  pnpm run cli chat send "Describe this image" --space ${spaceId}`);
+    deps.print('\nTo inspect:');
+    deps.print(`  pnpm run cli assets show ${data.variant.asset_id} --space ${spaceId}`);
+
+    return { asset: data.asset, variant: data.variant };
 
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      console.error(`Error: File not found: ${filePath}`);
-    } else {
-      console.error('Error:', error instanceof Error ? error.message : error);
+      throw new Error(`File not found: ${filePath}`);
     }
-    process.exitCode = 1;
+    throw error;
   }
+}
+
+function resolveMediaType(ext: string, requestedMediaKind?: string): MediaType {
+  const mediaType = EXT_TO_MEDIA_TYPE[ext];
+  if (!mediaType) {
+    throw new Error(`Invalid file type "${ext}". Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`);
+  }
+
+  if (
+    requestedMediaKind !== undefined &&
+    requestedMediaKind !== 'image' &&
+    requestedMediaKind !== 'audio' &&
+    requestedMediaKind !== 'video'
+  ) {
+    throw new Error('Invalid --media-kind. Expected image, audio, or video');
+  }
+
+  if (ext === '.webm' && requestedMediaKind === 'audio') {
+    return { mediaKind: 'audio', mimeType: 'audio/webm' };
+  }
+
+  if (requestedMediaKind && requestedMediaKind !== mediaType.mediaKind) {
+    throw new Error(`--media-kind ${requestedMediaKind} does not match ${ext} (${mediaType.mediaKind})`);
+  }
+
+  return mediaType;
 }
 
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli upload <file> --space <id> --asset <id>     Upload to existing asset
+  pnpm run cli upload <file> --space <id> --asset <id>     Upload media to existing asset
   pnpm run cli upload <file> --space <id> --name <name>    Create new asset
 
 Options:
@@ -231,12 +292,15 @@ Options:
   --asset <id>      Target asset ID (upload as new variant)
   --name <name>     New asset name (creates asset + variant)
   --type <type>     Asset type for new assets (default: character)
+  --media-kind <k>  Optional explicit kind: image, audio, or video
   --parent <id>     Parent asset ID for new assets
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
 
 Examples:
   pnpm run cli upload hero.png --space abc123 --name "Hero Character"
+  pnpm run cli upload theme.mp3 --space abc123 --name "Theme Music" --type audio
+  pnpm run cli upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
   pnpm run cli upload variant.jpg --space abc123 --asset def456
   pnpm run cli upload sword.png --space abc123 --name "Sword" --type item --parent abc789
 `);

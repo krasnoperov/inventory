@@ -25,6 +25,8 @@ const variant = {
   status: 'completed',
   image_key: 'images/space-1/variant-1.png',
   thumb_key: 'thumbs/space-1/variant-1.webp',
+  media_key: 'media/space-1/variant-1.mp4',
+  media_mime_type: 'video/mp4',
   recipe: '{}',
   starred: false,
   error_message: null,
@@ -93,7 +95,7 @@ function depsFor(output: string[], downloads: unknown[] = []) {
       }
       return jsonResponse({ error: 'not found' }, 404);
     },
-    downloadImage: async (input: unknown) => {
+    downloadFile: async (input: unknown) => {
       downloads.push(input);
     },
     print: (message: string) => output.push(message),
@@ -175,6 +177,7 @@ test('assets list and show support JSON output', async () => {
   assert.equal(details.asset.media_kind, 'video');
   assert.equal(details.variants[0].id, 'variant-1');
   assert.equal(details.variants[0].media_kind, 'video');
+  assert.equal(details.variants[0].media_key, 'media/space-1/variant-1.mp4');
   assert.equal(details.lineage[0].relation_type, 'derived');
 });
 
@@ -188,9 +191,10 @@ test('assets show prints asset and variant media kind', async () => {
   const text = output.join('\n');
   assert.ok(text.includes('  Media:    video'));
   assert.ok(text.includes('     Media:  video'));
+  assert.ok(text.includes('     File:   media/space-1/variant-1.mp4'));
 });
 
-test('assets download resolves a variant ID to its image key', async () => {
+test('assets download resolves a variant ID to its canonical media key', async () => {
   const output: string[] = [];
   const downloads: unknown[] = [];
   const { deps } = depsFor(output, downloads);
@@ -201,25 +205,60 @@ test('assets download resolves a variant ID to its image key', async () => {
   }, deps);
 
   assert.equal(result.type, 'download');
-  assert.equal(result.imageKey, 'images/space-1/variant-1.png');
+  assert.equal(result.mediaKey, 'media/space-1/variant-1.mp4');
   assert.deepEqual(downloads, [{
     baseUrl: 'https://inventory.example.test',
     accessToken: 'token-1',
-    imageKey: 'images/space-1/variant-1.png',
+    requestPath: '/api/spaces/space-1/variants/variant-1/media',
     outputPath: path.normalize('references/variant.png'),
     force: false,
   }]);
-  assert.match(output.join('\n'), /Downloaded images\/space-1\/variant-1.png/);
+  assert.match(output.join('\n'), /Downloaded media\/space-1\/variant-1.mp4/);
 });
 
-test('assets download accepts a direct image key without asset lookup', async () => {
+test('assets download falls back to a legacy image key when no media key exists', async () => {
+  const output: string[] = [];
+  const downloads: unknown[] = [];
+  const { deps } = depsFor(output, downloads);
+
+  const legacyDeps = {
+    ...deps,
+    fetch: async (url: string | URL | Request, init?: RequestInit) => {
+      const response = await deps.fetch(url, init);
+      const pathname = new URL(String(url)).pathname;
+      if (pathname !== '/api/spaces/space-1/assets/asset-1') return response;
+      const body = await response.json() as { asset: typeof asset; variants: Array<typeof variant>; lineage: unknown[] };
+      return jsonResponse({
+        ...body,
+        variants: [{ ...variant, media_key: null, media_mime_type: null }],
+      });
+    },
+  };
+
+  const result = await executeAssets({
+    positionals: ['download', 'variant-1'],
+    options: { o: 'references/variant.png' },
+  }, legacyDeps);
+
+  assert.equal(result.type, 'download');
+  assert.equal(result.mediaKey, 'images/space-1/variant-1.png');
+  assert.deepEqual(downloads, [{
+    baseUrl: 'https://inventory.example.test',
+    accessToken: 'token-1',
+    requestPath: '/api/images/images/space-1/variant-1.png',
+    outputPath: path.normalize('references/variant.png'),
+    force: false,
+  }]);
+});
+
+test('assets download accepts a direct media key without asset lookup', async () => {
   const output: string[] = [];
   const downloads: unknown[] = [];
   const { deps, requests } = depsFor(output, downloads);
 
   const result = await executeAssets({
-    positionals: ['download', 'images/space-1/direct.png'],
-    options: { output: 'direct.png', force: 'true' },
+    positionals: ['download', 'media/space-1/direct.mp3'],
+    options: { output: 'direct.mp3', force: 'true' },
   }, deps);
 
   assert.equal(result.type, 'download');
@@ -227,8 +266,8 @@ test('assets download accepts a direct image key without asset lookup', async ()
   assert.deepEqual(downloads, [{
     baseUrl: 'https://inventory.example.test',
     accessToken: 'token-1',
-    imageKey: 'images/space-1/direct.png',
-    outputPath: 'direct.png',
+    requestPath: '/api/images/media/space-1/direct.mp3',
+    outputPath: 'direct.mp3',
     force: true,
   }]);
 });

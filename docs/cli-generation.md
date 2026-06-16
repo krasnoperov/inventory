@@ -31,8 +31,8 @@ pnpm run cli assets show ASSET_ID --json
 ```
 
 This is the CLI read side of the ForgeTray control loop. External agents can
-list assets, select variant IDs for `--refs`, inspect lineage, and download a
-completed variant without direct database access:
+list assets, select image variant IDs for `--refs`, inspect lineage, and
+download a completed variant's media without direct database access:
 
 ```bash
 pnpm run cli assets download VARIANT_ID -o references/variant.png
