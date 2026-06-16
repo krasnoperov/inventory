@@ -12,6 +12,12 @@ import path from 'node:path';
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
+import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
+import {
+  loginCommandForEnvironment,
+  resolveCommandEnvironment,
+  resolveCommandSpace,
+} from '../lib/command-context';
 import type { ErrorResponse, UploadMediaResponse } from '../../api/types';
 import type { MediaKind } from '../../shared/websocket-types';
 
@@ -49,6 +55,7 @@ interface UploadResult {
 
 interface UploadDeps {
   loadConfig: typeof loadStoredConfig;
+  loadProjectConfig: () => Promise<ProjectConfig | null>;
   resolveBaseUrl: typeof resolveBaseUrl;
   fetch: typeof fetch;
   readFile: typeof readFile;
@@ -58,6 +65,7 @@ interface UploadDeps {
 
 const defaultDeps: UploadDeps = {
   loadConfig: loadStoredConfig,
+  loadProjectConfig,
   resolveBaseUrl,
   fetch,
   readFile,
@@ -83,9 +91,9 @@ export async function executeUpload(
   parsed: ParsedArgs,
   deps: UploadDeps = defaultDeps
 ): Promise<UploadResult> {
-  const isLocal = parsed.options.local === 'true';
-  const env = isLocal ? 'local' : (parsed.options.env || 'stage');
-  const spaceId = parsed.options.space;
+  const projectConfig = await deps.loadProjectConfig();
+  const env = resolveCommandEnvironment(parsed, projectConfig);
+  const spaceId = resolveCommandSpace(parsed, projectConfig);
   const assetId = parsed.options.asset;
   const assetName = parsed.options.name;
   const assetType = parsed.options.type || 'character';
@@ -99,7 +107,7 @@ export async function executeUpload(
   }
 
   if (!spaceId) {
-    throw new UploadUsageError('--space is required');
+    throw new UploadUsageError('--space is required, or run: pnpm run cli init --space <id>');
   }
 
   if (!assetId && !assetName) {
@@ -113,12 +121,12 @@ export async function executeUpload(
   // Load config
   const config = await deps.loadConfig(env);
   if (!config) {
-    throw new Error(`Not logged in to ${env} environment. Run: pnpm run cli login --env ${env}`);
+    throw new Error(`Not logged in to ${env} environment. Run: ${loginCommandForEnvironment(env)}`);
   }
 
   // Check token expiry
   if (config.token.expiresAt < Date.now()) {
-    throw new Error(`Token expired for ${env} environment. Run: pnpm run cli login --env ${env}`);
+    throw new Error(`Token expired for ${env} environment. Run: ${loginCommandForEnvironment(env)}`);
   }
 
   const baseUrl = deps.resolveBaseUrl(env);
@@ -260,11 +268,11 @@ function resolveMediaType(ext: string, requestedMediaKind?: string): MediaType {
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli upload <file> --space <id> --asset <id>     Upload media to existing asset
-  pnpm run cli upload <file> --space <id> --name <name>    Create new asset
+  pnpm run cli upload <file> --asset <id> [--space <id>]     Upload media to existing asset
+  pnpm run cli upload <file> --name <name> [--space <id>]    Create new asset
 
 Options:
-  --space <id>      Target space ID (required)
+  --space <id>      Target space ID; defaults from initialized project
   --asset <id>      Target asset ID (upload as new variant)
   --name <name>     New asset name (creates asset + variant)
   --type <type>     Asset type for new assets (default: character)

@@ -22,6 +22,12 @@ import process from 'node:process';
 import WebSocket from 'ws';
 import type { ParsedArgs } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
+import { loadProjectConfig } from '../lib/project-config';
+import {
+  loginCommandForEnvironment,
+  resolveCommandEnvironment,
+  resolveCommandSpace,
+} from '../lib/command-context';
 
 // Color codes for terminal output
 const colors = {
@@ -87,13 +93,14 @@ const eventColors: Record<string, string> = {
 };
 
 export async function handleListen(parsed: ParsedArgs): Promise<void> {
-  const isLocal = parsed.options.local === 'true';
-  const env = isLocal ? 'local' : (parsed.options.env || 'stage');
-  const spaceId = parsed.options.space;
+  const projectConfig = await loadProjectConfig();
+  const env = resolveCommandEnvironment(parsed, projectConfig);
+  const spaceId = resolveCommandSpace(parsed, projectConfig);
   const jsonOutput = parsed.options.json === 'true';
+  const statusLog = jsonOutput ? console.error : console.log;
 
   if (!spaceId) {
-    console.error('Error: --space <id> is required');
+    console.error('Error: --space <id> is required, or run: pnpm run cli init --space <id>');
     console.error('Usage: pnpm run cli listen --space <space_id>');
     process.exitCode = 1;
     return;
@@ -103,7 +110,7 @@ export async function handleListen(parsed: ParsedArgs): Promise<void> {
   const config = await loadStoredConfig(env);
   if (!config) {
     console.error(`Not logged in to ${env} environment.`);
-    console.error(`Run: pnpm run cli login --env ${env}`);
+    console.error(`Run: ${loginCommandForEnvironment(env)}`);
     process.exitCode = 1;
     return;
   }
@@ -111,7 +118,7 @@ export async function handleListen(parsed: ParsedArgs): Promise<void> {
   // Check token expiry
   if (config.token.expiresAt < Date.now()) {
     console.error(`Token expired for ${env} environment.`);
-    console.error(`Run: pnpm run cli login --env ${env}`);
+    console.error(`Run: ${loginCommandForEnvironment(env)}`);
     process.exitCode = 1;
     return;
   }
@@ -129,9 +136,9 @@ export async function handleListen(parsed: ParsedArgs): Promise<void> {
   const host = baseUrl.replace(/^https?:\/\//, '');
   const wsUrl = `${protocol}://${host}/api/spaces/${spaceId}/ws`;
 
-  console.log(`Connecting to space ${spaceId} on ${env}...`);
-  console.log(`WebSocket URL: ${wsUrl}`);
-  console.log('');
+  statusLog(`Connecting to space ${spaceId} on ${env}...`);
+  statusLog(`WebSocket URL: ${wsUrl}`);
+  statusLog('');
 
   const ws = new WebSocket(wsUrl, {
     headers: {
@@ -144,9 +151,11 @@ export async function handleListen(parsed: ParsedArgs): Promise<void> {
 
   ws.on('open', () => {
     connected = true;
-    console.log(`${colors.green}Connected!${colors.reset} Listening for events...`);
-    console.log(`${colors.dim}Press Ctrl+C to exit${colors.reset}`);
-    console.log('');
+    statusLog(jsonOutput
+      ? 'Connected! Listening for events...'
+      : `${colors.green}Connected!${colors.reset} Listening for events...`);
+    statusLog(jsonOutput ? 'Press Ctrl+C to exit' : `${colors.dim}Press Ctrl+C to exit${colors.reset}`);
+    statusLog('');
 
     // Request initial sync
     ws.send(JSON.stringify({ type: 'sync:request' }));
@@ -188,9 +197,11 @@ export async function handleListen(parsed: ParsedArgs): Promise<void> {
   });
 
   ws.on('close', (code, reason) => {
-    console.log('');
-    console.log(`${colors.yellow}Disconnected${colors.reset} (code: ${code}${reason ? `, reason: ${reason}` : ''})`);
-    console.log(`Total messages received: ${messageCount}`);
+    statusLog('');
+    statusLog(jsonOutput
+      ? `Disconnected (code: ${code}${reason ? `, reason: ${reason}` : ''})`
+      : `${colors.yellow}Disconnected${colors.reset} (code: ${code}${reason ? `, reason: ${reason}` : ''})`);
+    statusLog(`Total messages received: ${messageCount}`);
 
     if (!connected) {
       console.error(`${colors.red}Failed to connect. Check space ID and permissions.${colors.reset}`);
