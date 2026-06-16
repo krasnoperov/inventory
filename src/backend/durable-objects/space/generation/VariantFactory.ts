@@ -170,7 +170,8 @@ export class VariantFactory {
     // Resolve references
     const resolved = await this.resolveAllReferences(
       input.referenceAssetIds,
-      input.referenceVariantIds
+      input.referenceVariantIds,
+      input.mediaKind
     );
 
     // Debug: Log resolved references to trace lineage creation
@@ -259,12 +260,13 @@ export class VariantFactory {
     // Resolve source variants
     const resolved = await this.resolveRefineReferences(
       asset,
+      mediaKind,
       input.sourceVariantId,
       input.sourceVariantIds,
       input.referenceAssetIds
     );
 
-    if (resolved.sourceImageKeys.length === 0) {
+    if (mediaKind === 'image' && resolved.sourceImageKeys.length === 0) {
       throw new Error('No source images available');
     }
 
@@ -275,7 +277,7 @@ export class VariantFactory {
       mediaKind,
       model: mediaKind === 'video' ? DEFAULT_VIDEO_MODEL : undefined,
       aspectRatio: input.aspectRatio,
-      sourceImageKeys: resolved.sourceImageKeys,
+      sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation: 'refine',
     };
@@ -393,18 +395,23 @@ export class VariantFactory {
    * Resolve reference asset IDs to image keys and variant IDs.
    * Uses active variant of each referenced asset.
    */
-  async resolveAssetReferences(referenceAssetIds: string[]): Promise<ResolvedReferences> {
+  async resolveAssetReferences(
+    referenceAssetIds: string[],
+    mediaKind: MediaKind = DEFAULT_MEDIA_KIND
+  ): Promise<ResolvedReferences> {
     const sourceImageKeys: string[] = [];
     const parentVariantIds: string[] = [];
+    const includeMediaOnlyParents = mediaKind !== 'image';
 
     for (const refAssetId of referenceAssetIds) {
       const asset = await this.repo.getAssetById(refAssetId);
       if (asset?.active_variant_id) {
-        const imageKey = await this.repo.getVariantImageKey(asset.active_variant_id);
-        if (imageKey) {
-          sourceImageKeys.push(imageKey);
-          parentVariantIds.push(asset.active_variant_id);
-        }
+        const resolved = await this.resolveVariantReference(
+          asset.active_variant_id,
+          includeMediaOnlyParents
+        );
+        sourceImageKeys.push(...resolved.sourceImageKeys);
+        parentVariantIds.push(...resolved.parentVariantIds);
       }
     }
 
@@ -414,16 +421,18 @@ export class VariantFactory {
   /**
    * Resolve explicit variant IDs to image keys (for ForgeTray UI).
    */
-  async resolveVariantReferences(referenceVariantIds: string[]): Promise<ResolvedReferences> {
+  async resolveVariantReferences(
+    referenceVariantIds: string[],
+    mediaKind: MediaKind = DEFAULT_MEDIA_KIND
+  ): Promise<ResolvedReferences> {
     const sourceImageKeys: string[] = [];
     const parentVariantIds: string[] = [];
+    const includeMediaOnlyParents = mediaKind !== 'image';
 
     for (const variantId of referenceVariantIds) {
-      const imageKey = await this.repo.getVariantImageKey(variantId);
-      if (imageKey) {
-        sourceImageKeys.push(imageKey);
-        parentVariantIds.push(variantId);
-      }
+      const resolved = await this.resolveVariantReference(variantId, includeMediaOnlyParents);
+      sourceImageKeys.push(...resolved.sourceImageKeys);
+      parentVariantIds.push(...resolved.parentVariantIds);
     }
 
     return { sourceImageKeys, parentVariantIds };
@@ -466,7 +475,8 @@ export class VariantFactory {
     // Resolve references ONCE
     const resolved = await this.resolveAllReferences(
       input.referenceAssetIds,
-      input.referenceVariantIds
+      input.referenceVariantIds,
+      input.mediaKind
     );
 
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
@@ -716,13 +726,14 @@ export class VariantFactory {
    */
   private async resolveAllReferences(
     referenceAssetIds?: string[],
-    referenceVariantIds?: string[]
+    referenceVariantIds?: string[],
+    mediaKind: MediaKind = DEFAULT_MEDIA_KIND
   ): Promise<ResolvedReferences> {
     if (referenceVariantIds?.length) {
-      return this.resolveVariantReferences(referenceVariantIds);
+      return this.resolveVariantReferences(referenceVariantIds, mediaKind);
     }
     if (referenceAssetIds?.length) {
-      return this.resolveAssetReferences(referenceAssetIds);
+      return this.resolveAssetReferences(referenceAssetIds, mediaKind);
     }
     return { sourceImageKeys: [], parentVariantIds: [] };
   }
@@ -732,6 +743,7 @@ export class VariantFactory {
    */
   private async resolveRefineReferences(
     asset: Asset,
+    mediaKind: MediaKind,
     sourceVariantId?: string,
     sourceVariantIds?: string[],
     referenceAssetIds?: string[]
@@ -741,7 +753,7 @@ export class VariantFactory {
 
     if (sourceVariantIds?.length) {
       // ForgeTray path: use explicit variant IDs
-      const resolved = await this.resolveVariantReferences(sourceVariantIds);
+      const resolved = await this.resolveVariantReferences(sourceVariantIds, mediaKind);
       sourceImageKeys = resolved.sourceImageKeys;
       parentVariantIds = resolved.parentVariantIds;
     } else {
@@ -751,23 +763,42 @@ export class VariantFactory {
         return { sourceImageKeys: [], parentVariantIds: [] };
       }
 
-      const sourceVariant = await this.repo.getVariantById(resolvedId);
-      if (!sourceVariant?.image_key) {
-        return { sourceImageKeys: [], parentVariantIds: [] };
-      }
-
-      sourceImageKeys = [sourceVariant.image_key];
-      parentVariantIds = [resolvedId];
+      const resolved = await this.resolveVariantReference(resolvedId, mediaKind !== 'image');
+      sourceImageKeys = resolved.sourceImageKeys;
+      parentVariantIds = resolved.parentVariantIds;
     }
 
     // Add additional asset references
     if (referenceAssetIds?.length) {
-      const additionalRefs = await this.resolveAssetReferences(referenceAssetIds);
+      const additionalRefs = await this.resolveAssetReferences(referenceAssetIds, mediaKind);
       sourceImageKeys = [...sourceImageKeys, ...additionalRefs.sourceImageKeys];
       parentVariantIds = [...parentVariantIds, ...additionalRefs.parentVariantIds];
     }
 
     return { sourceImageKeys, parentVariantIds };
+  }
+
+  /**
+   * Resolve a variant as an image reference when possible. Media-only variants
+   * can still be lineage parents for non-image generation, but they are not
+   * passed to image-reference model inputs.
+   */
+  private async resolveVariantReference(
+    variantId: string,
+    includeMediaOnlyParent: boolean
+  ): Promise<ResolvedReferences> {
+    const variant = await this.repo.getVariantById(variantId);
+    const imageKey = variant?.image_key ?? await this.repo.getVariantImageKey(variantId);
+
+    if (imageKey) {
+      return { sourceImageKeys: [imageKey], parentVariantIds: [variantId] };
+    }
+
+    if (includeMediaOnlyParent && variant?.media_key) {
+      return { sourceImageKeys: [], parentVariantIds: [variantId] };
+    }
+
+    return { sourceImageKeys: [], parentVariantIds: [] };
   }
 
   /**
