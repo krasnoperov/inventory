@@ -122,6 +122,76 @@ describe('VariantFactory - Style Injection', () => {
       assert.strictEqual(recipe.styleId, undefined);
       assert.strictEqual(result.styleImageKeys, undefined);
     });
+
+    test('video generation caps user references to Veo limit without active style', async () => {
+      const repo = createMockRepo();
+      const variantIds = ['var-1', 'var-2', 'var-3', 'var-4'];
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
+        async (variantId: string) => `images/${variantId}.png`
+      );
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Video Test',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'A slow camera orbit',
+          referenceVariantIds: variantIds,
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'images/var-1.png',
+        'images/var-2.png',
+        'images/var-3.png',
+      ]);
+      assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
+      assert.strictEqual(result.styleImageKeys, undefined);
+    });
+
+    test('video refine caps ForgeTray references to Veo limit without active style', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
+        id: 'asset-video',
+        name: 'Video Asset',
+        type: 'animation',
+        media_kind: 'video',
+        tags: '[]',
+        parent_asset_id: null,
+        active_variant_id: 'var-1',
+        created_by: 'user-123',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      }));
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
+        async (variantId: string) => `images/${variantId}.png`
+      );
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createRefineVariant(
+        {
+          assetId: 'asset-video',
+          mediaKind: 'video',
+          prompt: 'Animate this set',
+          sourceVariantIds: ['var-1', 'var-2', 'var-3', 'var-4'],
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'images/var-1.png',
+        'images/var-2.png',
+        'images/var-3.png',
+      ]);
+      assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
+      assert.strictEqual(result.styleImageKeys, undefined);
+    });
   });
 
   describe('style with description only', () => {
@@ -354,6 +424,41 @@ describe('VariantFactory - Style Injection', () => {
       // Prompt should NOT have style prepended
       assert.strictEqual(recipe.prompt, 'A warrior');
       assert.strictEqual(recipe.styleId, undefined);
+      assert.strictEqual(result.styleImageKeys, undefined);
+    });
+
+    test('video generation caps user references when style is disabled', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
+        createMockStyle({ description: 'Should not appear' })
+      );
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
+        async (variantId: string) => `images/${variantId}.png`
+      );
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Video Test',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'A slow camera orbit',
+          referenceVariantIds: ['var-1', 'var-2', 'var-3', 'var-4'],
+          disableStyle: true,
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'images/var-1.png',
+        'images/var-2.png',
+        'images/var-3.png',
+      ]);
+      assert.strictEqual(recipe.styleOverride, true);
+      assert.strictEqual(recipe.styleId, undefined);
+      assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
       assert.strictEqual(result.styleImageKeys, undefined);
     });
   });

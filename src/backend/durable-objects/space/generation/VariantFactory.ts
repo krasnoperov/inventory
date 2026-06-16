@@ -649,18 +649,26 @@ export class VariantFactory {
       return { recipe, sourceImageKeys };
     }
 
-    // If explicitly disabled, mark and return unchanged
+    let effectiveRecipe = recipe;
+    let effectiveSourceImageKeys = sourceImageKeys;
+    if (mediaKind === 'video') {
+      const capped = this.capVeoSourceImageKeys(recipe, sourceImageKeys);
+      effectiveRecipe = capped.recipe;
+      effectiveSourceImageKeys = capped.sourceImageKeys;
+    }
+
+    // If explicitly disabled, mark and return unchanged except media limits
     if (disableStyle) {
       return {
-        recipe: { ...recipe, styleOverride: true },
-        sourceImageKeys,
+        recipe: { ...effectiveRecipe, styleOverride: true },
+        sourceImageKeys: effectiveSourceImageKeys,
       };
     }
 
     // Fetch active style
     const style = await this.repo.getActiveStyle();
     if (!style || !style.enabled) {
-      return { recipe, sourceImageKeys };
+      return { recipe: effectiveRecipe, sourceImageKeys: effectiveSourceImageKeys };
     }
 
     // Parse style image keys
@@ -671,20 +679,18 @@ export class VariantFactory {
       // Ignore parse errors
     }
 
-    let effectiveSourceImageKeys = sourceImageKeys;
-    if (recipe.mediaKind === 'video') {
-      const sourceBudget = Math.min(sourceImageKeys.length, MAX_VEO_REFERENCE_IMAGES);
+    if (mediaKind === 'video') {
+      const sourceBudget = effectiveSourceImageKeys.length;
       const styleBudget = MAX_VEO_REFERENCE_IMAGES - sourceBudget;
 
-      if (styleImageKeys.length + sourceImageKeys.length > MAX_VEO_REFERENCE_IMAGES) {
+      if (styleImageKeys.length + effectiveSourceImageKeys.length > MAX_VEO_REFERENCE_IMAGES) {
         log.warn('Style + source images exceed Veo limit, capping reference images', {
           styleImages: styleImageKeys.length,
-          sourceImages: sourceImageKeys.length,
+          sourceImages: effectiveSourceImageKeys.length,
           maxImages: MAX_VEO_REFERENCE_IMAGES,
         });
       }
 
-      effectiveSourceImageKeys = sourceImageKeys.slice(0, MAX_VEO_REFERENCE_IMAGES);
       styleImageKeys = styleImageKeys.slice(0, styleBudget);
     } else if (styleImageKeys.length + sourceImageKeys.length > MAX_GEMINI_REFERENCE_IMAGES) {
       log.warn('Style + source images exceed limit, skipping style images', {
@@ -696,11 +702,11 @@ export class VariantFactory {
     }
 
     // Prepend style description to prompt
-    let styledPrompt = recipe.prompt;
+    let styledPrompt = effectiveRecipe.prompt;
     if (style.description) {
       const builder = new PromptBuilder();
       builder.withStyle(style.description);
-      styledPrompt = builder.build() + '\n\n' + recipe.prompt;
+      styledPrompt = builder.build() + '\n\n' + effectiveRecipe.prompt;
     }
 
     // Prepend style image keys to source images (style refs come first)
@@ -708,7 +714,7 @@ export class VariantFactory {
 
     // Update recipe
     const updatedRecipe: GenerationRecipe = {
-      ...recipe,
+      ...effectiveRecipe,
       prompt: styledPrompt,
       sourceImageKeys: combinedSourceImageKeys.length > 0 ? combinedSourceImageKeys : undefined,
       styleId: style.id,
@@ -718,6 +724,32 @@ export class VariantFactory {
       recipe: updatedRecipe,
       sourceImageKeys: combinedSourceImageKeys,
       styleImageKeys: styleImageKeys.length > 0 ? styleImageKeys : undefined,
+    };
+  }
+
+  private capVeoSourceImageKeys(
+    recipe: GenerationRecipe,
+    sourceImageKeys: string[]
+  ): {
+    recipe: GenerationRecipe;
+    sourceImageKeys: string[];
+  } {
+    if (sourceImageKeys.length <= MAX_VEO_REFERENCE_IMAGES) {
+      return { recipe, sourceImageKeys };
+    }
+
+    const cappedSourceImageKeys = sourceImageKeys.slice(0, MAX_VEO_REFERENCE_IMAGES);
+    log.warn('Source images exceed Veo limit, capping reference images', {
+      sourceImages: sourceImageKeys.length,
+      maxImages: MAX_VEO_REFERENCE_IMAGES,
+    });
+
+    return {
+      recipe: {
+        ...recipe,
+        sourceImageKeys: cappedSourceImageKeys,
+      },
+      sourceImageKeys: cappedSourceImageKeys,
     };
   }
 
