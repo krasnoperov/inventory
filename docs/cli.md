@@ -6,6 +6,13 @@ uploading, Forge generation control, and billing management.
 
 ## Quick Start
 
+Build the distributable CLI first:
+
+```bash
+pnpm run build:cli
+dist/cli/inventory.mjs --version
+```
+
 ```bash
 # 1. Login first (if not already)
 pnpm run cli login --env stage

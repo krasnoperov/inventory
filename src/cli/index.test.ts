@@ -36,3 +36,11 @@ test('help command displays available commands', async () => {
   assert.ok(result.stdout.includes('login'), 'Help output should include login command');
   assert.ok(result.stdout.includes('logout'), 'Help output should include logout command');
 });
+
+test('version command prints the development fallback when unbundled', async () => {
+  const cwd = process.cwd();
+  const result = await runCli(['--version'], cwd);
+
+  assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
+  assert.equal(result.stdout.trim(), '0.0.0-dev');
+});
