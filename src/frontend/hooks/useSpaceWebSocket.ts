@@ -1419,6 +1419,9 @@ export function useSpaceWebSocket({
                   variantIdsRef.current = new Set(next.map((variant) => variant.id));
                   return next;
                 });
+                if (syncModeRef.current === 'overview') {
+                  sendMessage({ type: 'sync:overview' });
+                }
                 break;
 
               case 'lineage:created':
