@@ -8,14 +8,13 @@ import './styles/theme.css';
 import './styles/global.css';
 
 const root = document.getElementById('root') as HTMLElement;
-const router = getRouter();
+const session = getBrowserStartSession();
+const router = getRouter({ initialSession: session });
 
 setNavigationBridge((url, options) => router.navigate({
   href: `${url.pathname}${url.search}${url.hash}`,
   replace: options?.replace,
 }));
-
-const session = getBrowserStartSession();
 
 if (document.documentElement.dataset.inventorySsr === 'tanstack-router' && session) {
   startTransition(() => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
@@ -9,44 +10,39 @@ import { FormContainer, FormTitle, ErrorMessage, formStyles } from '../component
 import { BillingSection } from '../components/BillingSection';
 import { apiFetch } from '../../api/client';
 import type { UserProfile } from '../../api/types';
+import { userProfileQueryOptions } from '../queries';
 import styles from './ProfilePage.module.css';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   useDocumentTitle('Profile');
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const profileQuery = useQuery({
+    ...userProfileQueryOptions(),
+    enabled: Boolean(user),
+  });
+  const profile = profileQuery.data ?? null;
+  const isLoading = profileQuery.isPending;
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const [name, setName] = useState('');
+  const [name, setName] = useState(profile?.name ?? '');
 
   useEffect(() => {
     if (!user) {
       navigate('/login');
-      return;
     }
-
-    fetchProfile();
   }, [user, navigate]);
 
-  const fetchProfile = async () => {
-    try {
-      setIsLoading(true);
-      const data = await apiFetch('GET /api/user/profile');
-      setProfile(data);
-      setName(data.name);
-    } catch (err) {
-      console.error('Profile fetch error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load profile');
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    if (profile) {
+      setName(profile.name);
     }
-  };
+  }, [profile]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -66,7 +62,7 @@ export default function ProfilePage() {
           name: name.trim(),
         },
       });
-      setProfile(data.user);
+      queryClient.setQueryData<UserProfile>(userProfileQueryOptions().queryKey, data.user);
       setSuccessMessage('Profile updated successfully!');
 
       // Clear success message after 3 seconds
@@ -107,7 +103,9 @@ export default function ProfilePage() {
           <FormContainer maxWidth={640}>
             <FormTitle>Your Profile</FormTitle>
 
-            <ErrorMessage message={error} />
+            <ErrorMessage
+              message={error || (profileQuery.error instanceof Error ? profileQuery.error.message : null)}
+            />
 
             <form onSubmit={handleSubmit}>
               <div className={formStyles.formGroup}>

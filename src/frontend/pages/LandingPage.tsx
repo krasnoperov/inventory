@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLocation } from '@tanstack/react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '../components/Link';
-import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
@@ -9,43 +9,28 @@ import { HeaderNav } from '../components/HeaderNav';
 import { ErrorMessage } from '../components/forms';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
+import { spacesQueryOptions } from '../queries';
 import styles from './LandingPage.module.css';
 
 export default function LandingPage() {
-  const _navigate = useNavigate(); // eslint-disable-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
   const location = useLocation();
+  const queryClient = useQueryClient();
   // `/dashboard` is aliased to LandingPage (logged-in variant). Use the
   // route-specific title after hydration.
   useDocumentTitle(location.pathname === '/dashboard' ? 'Dashboard' : undefined);
 
   // Spaces state (only used when logged in)
-  const [spaces, setSpaces] = useState<Space[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const spacesQuery = useQuery({
+    ...spacesQueryOptions(),
+    enabled: Boolean(user),
+  });
+  const spaces = spacesQuery.data || [];
+  const isLoading = spacesQuery.isPending && Boolean(user);
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSpaceName, setNewSpaceName] = useState('');
-
-  useEffect(() => {
-    if (user) {
-      fetchSpaces();
-    }
-  }, [user]);
-
-  const fetchSpaces = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await apiFetch('GET /api/spaces');
-      setSpaces(data.spaces || []);
-    } catch (err) {
-      console.error('Spaces fetch error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load spaces');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleCreateSpace = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -64,7 +49,10 @@ export default function LandingPage() {
           name: newSpaceName.trim(),
         },
       });
-      setSpaces([data.space, ...spaces]);
+      queryClient.setQueryData<Space[]>(spacesQueryOptions().queryKey, (current) => [
+        data.space,
+        ...(current || []),
+      ]);
       setNewSpaceName('');
       setShowCreateModal(false);
     } catch (err) {
@@ -204,7 +192,9 @@ export default function LandingPage() {
                 </button>
               </div>
 
-              <ErrorMessage message={error} />
+              <ErrorMessage
+                message={error || (spacesQuery.error instanceof Error ? spacesQuery.error.message : null)}
+              />
 
               {isLoading ? (
                 <div className={styles.loading}>Loading your spaces...</div>

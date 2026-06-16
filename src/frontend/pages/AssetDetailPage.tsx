@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
@@ -15,7 +16,6 @@ import {
   PREDEFINED_ASSET_TYPES,
   type Asset,
   type Variant,
-  type Lineage,
   type ChatForgeContext,
   type SpaceStyleRaw,
 } from '../hooks/useSpaceWebSocket';
@@ -26,14 +26,8 @@ import { useImageUpload } from '../hooks/useImageUpload';
 import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { TileGrid } from '../components/TileGrid/TileGrid';
 import { formatMediaKind } from '../mediaKind';
+import { assetDetailsQueryOptions } from '../queries';
 import styles from './AssetDetailPage.module.css';
-
-interface AssetDetailsResponse {
-  success: boolean;
-  asset: Asset;
-  variants: Variant[];
-  lineage: Lineage[];
-}
 
 // Confirmation dialog types
 interface ConfirmDialog {
@@ -49,12 +43,18 @@ export default function AssetDetailPage() {
   const params = useParams();
   const spaceId = params.spaceId;
   const assetId = params.assetId;
+  const assetDetailsQuery = useQuery({
+    ...assetDetailsQueryOptions(spaceId || '', assetId || ''),
+    enabled: Boolean(user && spaceId && assetId),
+  });
 
-  const [asset, setAsset] = useState<Asset | null>(null);
-  const [variants, setVariants] = useState<Variant[]>([]);
-  const [lineage, setLineage] = useState<Lineage[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryAsset = assetDetailsQuery.data?.asset ?? null;
+  const queryVariants = assetDetailsQuery.data?.variants ?? [];
+  const queryLineage = useMemo(
+    () => assetDetailsQuery.data?.lineage ?? [],
+    [assetDetailsQuery.data?.lineage],
+  );
+  const error = assetDetailsQuery.error instanceof Error ? assetDetailsQuery.error.message : null;
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [forgeError, setForgeError] = useState<string | null>(null);
@@ -62,15 +62,6 @@ export default function AssetDetailPage() {
   // Variant selection state (persisted in store)
   const selectedVariantId = useSelectedVariantId(assetId || '');
   const setSelectedVariantId = useAssetDetailStore((state) => state.setSelectedVariantId);
-
-  // Derive selectedVariant from variants array
-  const selectedVariant = useMemo(() => {
-    if (!selectedVariantId) return null;
-    return variants.find(v => v.id === selectedVariantId) || null;
-  }, [selectedVariantId, variants]);
-
-  // Set page title
-  useDocumentTitle(asset?.name);
 
   // Rotation panel state
   const [showRotationPanel, setShowRotationPanel] = useState(false);
@@ -233,11 +224,45 @@ export default function AssetDetailPage() {
     },
   });
 
+  const wsAsset = wsStatus === 'connected' && assetId
+    ? wsAssets.find(a => a.id === assetId)
+    : undefined;
+  const asset = wsAsset ?? queryAsset;
+  const wsAssetVariants = useMemo(
+    () => (
+      wsStatus === 'connected' && assetId
+        ? wsVariants.filter(v => v.asset_id === assetId)
+        : []
+    ),
+    [assetId, wsStatus, wsVariants],
+  );
+  const variants = wsAssetVariants.length > 0 ? wsAssetVariants : queryVariants;
+  const lineage = useMemo(() => {
+    if (wsStatus !== 'connected' || wsAssetVariants.length === 0 || wsLineage.length === 0) {
+      return queryLineage;
+    }
+
+    const variantIds = new Set(wsAssetVariants.map(v => v.id));
+    return wsLineage.filter(
+      l => variantIds.has(l.child_variant_id) || variantIds.has(l.parent_variant_id)
+    );
+  }, [queryLineage, wsStatus, wsAssetVariants, wsLineage]);
+  const isLoading = assetDetailsQuery.isPending && !asset;
+
+  // Derive selectedVariant from variants array
+  const selectedVariant = useMemo(() => {
+    if (!selectedVariantId) return null;
+    return variants.find(v => v.id === selectedVariantId) || null;
+  }, [selectedVariantId, variants]);
+
+  // Set page title
+  useDocumentTitle(asset?.name);
+
   // Compute parent asset
   const parentAsset = useMemo(() => {
     if (!asset?.parent_asset_id) return null;
     return wsAssets.find(a => a.id === asset.parent_asset_id) || null;
-  }, [asset?.parent_asset_id, wsAssets]);
+  }, [asset, wsAssets]);
 
   // Build breadcrumb path (ancestors)
   const ancestorPath = useMemo(() => {
@@ -296,58 +321,31 @@ export default function AssetDetailPage() {
       navigate('/dashboard');
       return;
     }
+  }, [user, spaceId, assetId, navigate]);
 
-    const fetchAssetDetails = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+  useEffect(() => {
+    const data = assetDetailsQuery.data;
+    if (!data || !assetId) {
+      return;
+    }
 
-        const response = await fetch(`/api/spaces/${spaceId}/assets/${assetId}`, {
-          credentials: 'include',
-        });
+    const variantsData = data.variants || [];
 
-        if (!response.ok) {
-          if (response.status === 403) {
-            throw new Error('You do not have access to this asset');
-          }
-          if (response.status === 404) {
-            throw new Error('Asset not found');
-          }
-          throw new Error('Failed to fetch asset');
+    // Select active variant by default (only if no stored selection)
+    const storedSelection = useAssetDetailStore.getState().sessions[assetId]?.selectedVariantId;
+    const hasValidStoredSelection = storedSelection && variantsData.some(v => v.id === storedSelection);
+
+    if (!hasValidStoredSelection) {
+      if (data.asset.active_variant_id) {
+        const activeVariant = variantsData.find(v => v.id === data.asset.active_variant_id);
+        if (activeVariant) {
+          setSelectedVariantId(assetId, activeVariant.id);
         }
-
-        const data = await response.json() as AssetDetailsResponse;
-        const variantsData = data.variants || [];
-        const lineageData = data.lineage || [];
-
-        setAsset(data.asset);
-        setVariants(variantsData);
-        setLineage(lineageData);
-
-        // Select active variant by default (only if no stored selection)
-        const storedSelection = useAssetDetailStore.getState().sessions[assetId!]?.selectedVariantId;
-        const hasValidStoredSelection = storedSelection && variantsData.some(v => v.id === storedSelection);
-
-        if (!hasValidStoredSelection) {
-          if (data.asset.active_variant_id) {
-            const activeVariant = variantsData.find(v => v.id === data.asset.active_variant_id);
-            if (activeVariant) {
-              setSelectedVariantId(assetId!, activeVariant.id);
-            }
-          } else if (variantsData.length > 0) {
-            setSelectedVariantId(assetId!, variantsData[0].id);
-          }
-        }
-      } catch (err) {
-        console.error('Asset fetch error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load asset');
-      } finally {
-        setIsLoading(false);
+      } else if (variantsData.length > 0) {
+        setSelectedVariantId(assetId, variantsData[0].id);
       }
-    };
-
-    fetchAssetDetails();
-  }, [user, spaceId, assetId, navigate, setSelectedVariantId]);
+    }
+  }, [assetDetailsQuery.data, assetId, setSelectedVariantId]);
 
   // Sync session context when asset/variant changes
   useEffect(() => {
@@ -358,40 +356,19 @@ export default function AssetDetailPage() {
     });
   }, [wsStatus, assetId, selectedVariantId, updateSession]);
 
-  // Sync WebSocket updates with local state
+  // Keep variant selection valid as WebSocket state replaces the initial REST payload.
   useEffect(() => {
     if (wsStatus !== 'connected' || !assetId) return;
 
-    // Update asset from WebSocket
-    const wsAsset = wsAssets.find(a => a.id === assetId);
-    if (wsAsset) {
-      setAsset(wsAsset);
-    }
-
-    // Update variants from WebSocket (filter to current asset)
     const assetVariants = wsVariants.filter(v => v.asset_id === assetId);
-    if (assetVariants.length > 0) {
-      setVariants(assetVariants);
-
-      // If selected variant was deleted, select first available
-      if (selectedVariantId && !assetVariants.some(v => v.id === selectedVariantId)) {
-        setSelectedVariantId(assetId!, assetVariants[0]?.id || null);
-      }
+    if (
+      assetVariants.length > 0 &&
+      selectedVariantId &&
+      !assetVariants.some(v => v.id === selectedVariantId)
+    ) {
+      setSelectedVariantId(assetId, assetVariants[0]?.id || null);
     }
-
-    // Update lineage from WebSocket
-    // Include lineage where EITHER parent OR child variant belongs to this asset
-    // - child in this asset: allows cross-asset parents to be shown as ghost nodes
-    // - parent in this asset: allows derivative children to be shown as ghost nodes
-    // Only update if we have both variants and lineage data to avoid overwriting REST data
-    if (assetVariants.length > 0 && wsLineage.length > 0) {
-      const variantIds = new Set(assetVariants.map(v => v.id));
-      const assetLineage = wsLineage.filter(
-        l => variantIds.has(l.child_variant_id) || variantIds.has(l.parent_variant_id)
-      );
-      setLineage(assetLineage);
-    }
-  }, [wsStatus, wsAssets, wsVariants, wsLineage, assetId, selectedVariantId, setSelectedVariantId]);
+  }, [wsStatus, wsVariants, assetId, selectedVariantId, setSelectedVariantId]);
 
   // Action handlers
   const handleSetActiveVariant = useCallback((variantId: string) => {
