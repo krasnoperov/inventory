@@ -14,7 +14,7 @@ import type {
 import { ROTATION_DIRECTIONS } from '../types';
 import type { GenerationWorkflowInput } from '../../../workflows/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
-import { INCREMENT_REF_SQL } from '../variant/imageRefs';
+import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
 import { capRefs, getStyleImageKeys } from '../generation/refLimits';
 import { PromptBuilder, ROTATION_CAMERA_SPECS, NEGATIVE_PROMPTS } from '../generation/PromptBuilder';
 import { ROTATION_GRID_LAYOUTS, sliceGridCell } from '../generation/gridSlice';
@@ -97,8 +97,8 @@ export class RotationController extends BaseController {
     const forkedVariantId = crypto.randomUUID();
     const now = Date.now();
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       forkedVariantId,
       rotationAssetId,
       sourceMediaKind,
@@ -107,6 +107,12 @@ export class RotationController extends BaseController {
       null,
       sourceVariant.image_key,
       sourceVariant.thumb_key,
+      sourceVariant.media_key ?? sourceVariant.image_key,
+      sourceVariant.media_mime_type,
+      sourceVariant.media_size_bytes,
+      sourceVariant.media_width,
+      sourceVariant.media_height,
+      sourceVariant.media_duration_ms,
       sourceVariant.recipe,
       0,
       meta.userId,
@@ -114,9 +120,10 @@ export class RotationController extends BaseController {
       now
     );
 
-    // Increment refs for copied images
-    if (sourceVariant.image_key) await this.sql.exec(INCREMENT_REF_SQL, sourceVariant.image_key);
-    if (sourceVariant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, sourceVariant.thumb_key);
+    // Increment refs for copied artifacts.
+    for (const key of getVariantImageKeys(sourceVariant)) {
+      await this.sql.exec(INCREMENT_REF_SQL, key);
+    }
 
     // Create forked lineage
     const lineage = await this.repo.createLineage({
@@ -410,15 +417,23 @@ export class RotationController extends BaseController {
     const forkedVariantId = crypto.randomUUID();
     const now = Date.now();
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       forkedVariantId, rotationAssetId, sourceMediaKind, null, 'completed', null,
-      sourceVariant.image_key, sourceVariant.thumb_key, sourceVariant.recipe,
+      sourceVariant.image_key, sourceVariant.thumb_key,
+      sourceVariant.media_key ?? sourceVariant.image_key,
+      sourceVariant.media_mime_type,
+      sourceVariant.media_size_bytes,
+      sourceVariant.media_width,
+      sourceVariant.media_height,
+      sourceVariant.media_duration_ms,
+      sourceVariant.recipe,
       0, meta.userId, now, now
     );
 
-    if (sourceVariant.image_key) await this.sql.exec(INCREMENT_REF_SQL, sourceVariant.image_key);
-    if (sourceVariant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, sourceVariant.thumb_key);
+    for (const key of getVariantImageKeys(sourceVariant)) {
+      await this.sql.exec(INCREMENT_REF_SQL, key);
+    }
 
     const lineage = await this.repo.createLineage({
       id: crypto.randomUUID(),
@@ -608,6 +623,10 @@ export class RotationController extends BaseController {
       const cellVariantId = crypto.randomUUID();
       let cellImageKey: string;
       let cellThumbKey: string;
+      let cellMimeType: string | null = variant.media_mime_type;
+      let cellSizeBytes: number | null = variant.media_size_bytes;
+      let cellWidth: number | null = variant.media_width;
+      let cellHeight: number | null = variant.media_height;
 
       if (isLocal) {
         // Local dev: all cells reference the sheet image (frontend uses CSS)
@@ -621,10 +640,15 @@ export class RotationController extends BaseController {
         const { buffer, mimeType } = await sliceGridCell(
           sheetImageUrl, col, row, layout.cols, layout.rows, imageWidth, imageHeight
         );
+        const dimensions = getImageDimensions(new Uint8Array(buffer));
 
         const ext = getExtensionForMimeType(mimeType as ImageMimeType);
         cellImageKey = `images/${this.spaceId}/${cellVariantId}.${ext}`;
         cellThumbKey = cellImageKey;
+        cellMimeType = mimeType;
+        cellSizeBytes = buffer.byteLength;
+        cellWidth = dimensions?.width ?? null;
+        cellHeight = dimensions?.height ?? null;
 
         await this.env.IMAGES!.put(cellImageKey, buffer, {
           httpMetadata: { contentType: mimeType },
@@ -649,7 +673,13 @@ export class RotationController extends BaseController {
         createdBy: rotationSet.created_by,
       });
 
-      const completedVariant = await this.repo.completeVariant(cellVariantId, cellImageKey, cellThumbKey);
+      const completedVariant = await this.repo.completeVariant(cellVariantId, cellImageKey, cellThumbKey, {
+        mediaKey: cellImageKey,
+        mimeType: cellMimeType,
+        sizeBytes: cellSizeBytes,
+        width: cellWidth,
+        height: cellHeight,
+      });
       if (completedVariant) {
         this.broadcast({ type: 'variant:created', variant: completedVariant });
       }

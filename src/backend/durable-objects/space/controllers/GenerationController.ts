@@ -380,6 +380,12 @@ export class GenerationController extends BaseController {
     variantId: string;
     imageKey: string;
     thumbKey: string;
+    mediaKey?: string | null;
+    mediaMimeType?: string | null;
+    mediaSizeBytes?: number | null;
+    mediaWidth?: number | null;
+    mediaHeight?: number | null;
+    mediaDurationMs?: number | null;
   }): Promise<{ success: boolean; variant: Variant }> {
     // Idempotency: if already completed with same keys, return success
     const existing = await this.repo.getVariantById(data.variantId);
@@ -394,7 +400,15 @@ export class GenerationController extends BaseController {
     const variant = await this.repo.completeVariant(
       data.variantId,
       data.imageKey,
-      data.thumbKey
+      data.thumbKey,
+      {
+        mediaKey: data.mediaKey,
+        mimeType: data.mediaMimeType,
+        sizeBytes: data.mediaSizeBytes,
+        width: data.mediaWidth,
+        height: data.mediaHeight,
+        durationMs: data.mediaDurationMs,
+      }
     );
 
     if (!variant) {

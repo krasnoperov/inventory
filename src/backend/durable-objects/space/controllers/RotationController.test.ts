@@ -49,6 +49,12 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
     error_message: null,
     image_key: 'images/test.png',
     thumb_key: 'thumbs/test.png',
+    media_key: 'images/test.png',
+    media_mime_type: 'image/png',
+    media_size_bytes: 1234,
+    media_width: 512,
+    media_height: 512,
+    media_duration_ms: null,
     recipe: '{}',
     starred: false,
     created_by: 'user-1',
@@ -272,6 +278,13 @@ describe('RotationController', () => {
 
     test('forks variant via SQL', async () => {
       const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () =>
+          createMockVariant({
+            media_key: 'media/source.mp4',
+            image_key: 'images/source.png',
+            thumb_key: 'thumbs/source.png',
+          })
+        ),
         getRotationSetById: mock.fn(async () => createMockRotationSet({ status: 'cancelled' })),
       });
       const controller = new RotationController(ctx);
@@ -287,6 +300,14 @@ describe('RotationController', () => {
       assert.ok(asMock(ctx.sql.exec).mock.calls.length >= 1);
       const insertCall = asMock(ctx.sql.exec).mock.calls[0].arguments[0];
       assert.ok(insertCall.includes('INSERT INTO variants'));
+
+      const refCalls = asMock(ctx.sql.exec).mock.calls.filter((c) =>
+        String(c.arguments[0]).includes('INSERT INTO image_refs')
+      );
+      assert.deepStrictEqual(
+        refCalls.map((c) => c.arguments[1]),
+        ['media/source.mp4', 'images/source.png', 'thumbs/source.png']
+      );
     });
 
     test('creates rotation_set with correct totalSteps for 4-directional', async () => {

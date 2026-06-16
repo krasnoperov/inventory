@@ -30,6 +30,12 @@ interface ExportVariant {
   id: string;
   assetId: string;
   mediaKind?: MediaKind;
+  mediaKey?: string | null;
+  mediaMimeType?: string | null;
+  mediaSizeBytes?: number | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationMs?: number | null;
   imageFile: string; // filename in ZIP
   thumbFile: string; // filename in ZIP
   recipe: Record<string, unknown> | null;
@@ -91,6 +97,12 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       media_kind?: MediaKind;
       image_key: string;
       thumb_key: string;
+      media_key?: string | null;
+      media_mime_type?: string | null;
+      media_size_bytes?: number | null;
+      media_width?: number | null;
+      media_height?: number | null;
+      media_duration_ms?: number | null;
       recipe: string;
       created_at: number;
     }>;
@@ -166,6 +178,12 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
         id: variant.id,
         assetId: asset.id,
         mediaKind: variant.media_kind ?? asset.media_kind ?? DEFAULT_MEDIA_KIND,
+        mediaKey: variant.media_key ?? variant.image_key,
+        mediaMimeType: variant.media_mime_type ?? null,
+        mediaSizeBytes: variant.media_size_bytes ?? null,
+        mediaWidth: variant.media_width ?? null,
+        mediaHeight: variant.media_height ?? null,
+        mediaDurationMs: variant.media_duration_ms ?? null,
         imageFile,
         thumbFile,
         recipe,
@@ -289,9 +307,10 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
       // Upload images to R2
       const imageKey = `images/${spaceId}/${newVariantId}.png`;
       const thumbKey = `images/${spaceId}/${newVariantId}_thumb.png`;
+      const mediaMimeType = variant.mediaMimeType ?? 'image/png';
 
       await env.IMAGES.put(imageKey, imageData, {
-        httpMetadata: { contentType: 'image/png' },
+        httpMetadata: { contentType: mediaMimeType },
       });
 
       if (thumbData) {
@@ -316,6 +335,12 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
           imageKey,
           thumbKey,
           mediaKind: variant.mediaKind ?? asset.mediaKind ?? DEFAULT_MEDIA_KIND,
+          mediaKey: variant.mediaKey ? imageKey : undefined,
+          mediaMimeType: variant.mediaMimeType ?? null,
+          mediaSizeBytes: variant.mediaSizeBytes,
+          mediaWidth: variant.mediaWidth,
+          mediaHeight: variant.mediaHeight,
+          mediaDurationMs: variant.mediaDurationMs,
           recipe: JSON.stringify({
             type: 'import',
             originalRecipe: variant.recipe,

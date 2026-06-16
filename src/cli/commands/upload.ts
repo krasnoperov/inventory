@@ -32,6 +32,12 @@ interface UploadResponse {
     asset_id: string;
     image_key: string;
     thumb_key: string;
+    media_key?: string | null;
+    media_mime_type?: string | null;
+    media_size_bytes?: number | null;
+    media_width?: number | null;
+    media_height?: number | null;
+    media_duration_ms?: number | null;
     status: string;
     recipe: string;
   };

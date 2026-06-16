@@ -7,7 +7,7 @@
 
 import type { Asset, Variant, Lineage, MediaKind, WebSocketMeta } from '../types';
 import { wouldCreateCycle, getAncestorChain } from '../asset/hierarchy';
-import { INCREMENT_REF_SQL } from '../variant/imageRefs';
+import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
@@ -396,6 +396,12 @@ export class AssetController extends BaseController {
       error_message: null,
       image_key: sourceVariant.image_key,
       thumb_key: sourceVariant.thumb_key,
+      media_key: sourceVariant.media_key ?? sourceVariant.image_key,
+      media_mime_type: sourceVariant.media_mime_type,
+      media_size_bytes: sourceVariant.media_size_bytes,
+      media_width: sourceVariant.media_width,
+      media_height: sourceVariant.media_height,
+      media_duration_ms: sourceVariant.media_duration_ms,
       recipe: sourceVariant.recipe,
       starred: false,
       created_by: data.createdBy,
@@ -409,8 +415,8 @@ export class AssetController extends BaseController {
     };
 
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       variant.id,
       variant.asset_id,
       variant.media_kind,
@@ -419,6 +425,12 @@ export class AssetController extends BaseController {
       variant.error_message,
       variant.image_key,
       variant.thumb_key,
+      variant.media_key,
+      variant.media_mime_type,
+      variant.media_size_bytes,
+      variant.media_width,
+      variant.media_height,
+      variant.media_duration_ms,
       variant.recipe,
       variant.starred ? 1 : 0,
       variant.created_by,
@@ -426,9 +438,10 @@ export class AssetController extends BaseController {
       variant.updated_at
     );
 
-    // Increment refs for copied images (reuses existing images)
-    if (variant.image_key) await this.sql.exec(INCREMENT_REF_SQL, variant.image_key);
-    if (variant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, variant.thumb_key);
+    // Increment refs for copied artifacts (reuses existing media).
+    for (const key of getVariantImageKeys(variant)) {
+      await this.sql.exec(INCREMENT_REF_SQL, key);
+    }
 
     // Create forked lineage
     const lineage = await this.repo.createLineage({

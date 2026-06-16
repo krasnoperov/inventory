@@ -79,6 +79,7 @@ describe('Image Reference Utilities', () => {
 
     test('deduplicates keys', () => {
       const keys = getVariantImageKeys({
+        media_key: 'same-key',
         image_key: 'same-key',
         thumb_key: 'same-key', // Same as image_key
         recipe: JSON.stringify({
@@ -87,6 +88,20 @@ describe('Image Reference Utilities', () => {
       });
       assert.strictEqual(keys.length, 1);
       assert.strictEqual(keys[0], 'same-key');
+    });
+
+    test('extracts canonical media_key when it differs from image_key', () => {
+      const keys = getVariantImageKeys({
+        media_key: 'media/space1/var1.mp4',
+        image_key: 'images/space1/var1.png',
+        thumb_key: 'thumbs/space1/var1.png',
+        recipe: '{}',
+      });
+      assert.deepStrictEqual(keys, [
+        'media/space1/var1.mp4',
+        'images/space1/var1.png',
+        'thumbs/space1/var1.png',
+      ]);
     });
 
     test('handles empty recipe', () => {

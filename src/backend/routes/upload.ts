@@ -189,6 +189,7 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   // =========================================================================
   try {
     const imageBuffer = new Uint8Array(await file.arrayBuffer());
+    const dimensions = getImageDimensions(imageBuffer);
 
     // Upload full image to R2
     await env.IMAGES.put(imageKey, imageBuffer, {
@@ -234,6 +235,11 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
           variantId,
           imageKey,
           thumbKey,
+          mediaKey: imageKey,
+          mediaMimeType: mimeType,
+          mediaSizeBytes: imageBuffer.byteLength,
+          mediaWidth: dimensions?.width ?? null,
+          mediaHeight: dimensions?.height ?? null,
         }),
       })
     );

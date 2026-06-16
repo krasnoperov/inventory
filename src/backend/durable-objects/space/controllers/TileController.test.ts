@@ -49,6 +49,12 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
     error_message: null,
     image_key: 'images/test.png',
     thumb_key: 'thumbs/test.png',
+    media_key: 'images/test.png',
+    media_mime_type: 'image/png',
+    media_size_bytes: 1234,
+    media_width: 512,
+    media_height: 512,
+    media_duration_ms: null,
     recipe: '{}',
     starred: false,
     created_by: 'user-1',
@@ -338,9 +344,15 @@ describe('TileController', () => {
     });
 
     test('handles seed variant fork path', async () => {
-      const seedVariant = createMockVariant({ id: 'seed-v', status: 'completed', image_key: 'img/seed.png' });
+      const seedVariant = createMockVariant({
+        id: 'seed-v',
+        status: 'completed',
+        media_key: 'media/seed.mp4',
+        image_key: 'images/seed.png',
+        thumb_key: 'thumbs/seed.png',
+      });
       const { ctx, broadcasts } = createMockContext({
-        getVariantById: mock.fn(async (id) => id === 'seed-v' ? seedVariant : createMockVariant({ id })),
+        getVariantById: mock.fn(async (id) => (id === 'seed-v' ? seedVariant : createMockVariant({ id }))),
         getTileSetById: mock.fn(async () => createMockTileSet({ status: 'cancelled' })),
       });
       const controller = new TileController(ctx);
@@ -359,6 +371,14 @@ describe('TileController', () => {
       assert.ok(asMock(ctx.sql.exec).mock.calls.length >= 1);
       const insertCall = asMock(ctx.sql.exec).mock.calls[0].arguments[0];
       assert.ok(insertCall.includes('INSERT INTO variants'));
+
+      const refCalls = asMock(ctx.sql.exec).mock.calls.filter((c) =>
+        String(c.arguments[0]).includes('INSERT INTO image_refs')
+      );
+      assert.deepStrictEqual(
+        refCalls.map((c) => c.arguments[1]),
+        ['media/seed.mp4', 'images/seed.png', 'thumbs/seed.png']
+      );
 
       // Should create lineage
       assert.strictEqual(asMock(ctx.repo.createLineage).mock.calls.length, 1);

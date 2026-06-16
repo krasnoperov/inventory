@@ -30,6 +30,12 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
     error_message: null,
     image_key: 'images/test.png',
     thumb_key: 'thumbs/test.png',
+    media_key: 'images/test.png',
+    media_mime_type: 'image/png',
+    media_size_bytes: 1234,
+    media_width: 512,
+    media_height: 512,
+    media_duration_ms: null,
     recipe: '{}',
     starred: false,
     created_by: 'user-1',
@@ -43,8 +49,19 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
 function createMockRepo(): SpaceRepository {
   return {
     getVariantById: mock.fn(async () => createMockVariant()),
-    completeVariant: mock.fn(async (id, imageKey, thumbKey) =>
-      createMockVariant({ id, image_key: imageKey, thumb_key: thumbKey, status: 'completed' })
+    completeVariant: mock.fn(async (id, imageKey, thumbKey, mediaMetadata = {}) =>
+      createMockVariant({
+        id,
+        image_key: imageKey,
+        thumb_key: thumbKey,
+        media_key: mediaMetadata.mediaKey ?? imageKey,
+        media_mime_type: mediaMetadata.mimeType ?? null,
+        media_size_bytes: mediaMetadata.sizeBytes ?? null,
+        media_width: mediaMetadata.width ?? null,
+        media_height: mediaMetadata.height ?? null,
+        media_duration_ms: mediaMetadata.durationMs ?? null,
+        status: 'completed',
+      })
     ),
     failVariant: mock.fn(async (id, error) =>
       createMockVariant({ id, status: 'failed', error_message: error })
@@ -178,6 +195,37 @@ describe('GenerationController pipeline hooks', () => {
 
       assert.strictEqual(advanceRotation.mock.calls.length, 0);
       assert.strictEqual(advanceTileSet.mock.calls.length, 0);
+    });
+
+    test('passes media metadata to repository completion', async () => {
+      const { ctx } = createMockContext();
+      const controller = new GenerationController(ctx);
+
+      const result = await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: 'img/done.png',
+        thumbKey: 'thumb/done.png',
+        mediaMimeType: 'image/png',
+        mediaSizeBytes: 2048,
+        mediaWidth: 1024,
+        mediaHeight: 768,
+      });
+
+      assert.strictEqual(result.variant.media_key, 'img/done.png');
+      assert.strictEqual(result.variant.media_mime_type, 'image/png');
+      assert.strictEqual(result.variant.media_size_bytes, 2048);
+      assert.strictEqual(result.variant.media_width, 1024);
+      assert.strictEqual(result.variant.media_height, 768);
+
+      const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
+      assert.deepStrictEqual(completeCall.arguments[3], {
+        mediaKey: undefined,
+        mimeType: 'image/png',
+        sizeBytes: 2048,
+        width: 1024,
+        height: 768,
+        durationMs: undefined,
+      });
     });
 
     test('hook errors do not fail completion', async () => {

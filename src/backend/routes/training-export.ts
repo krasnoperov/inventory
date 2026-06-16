@@ -65,6 +65,12 @@ trainingExportRoutes.get('/api/spaces/:id/training-data', async (c) => {
       asset_id: string;
       image_key: string | null;
       thumb_key: string | null;
+      media_key?: string | null;
+      media_mime_type?: string | null;
+      media_size_bytes?: number | null;
+      media_width?: number | null;
+      media_height?: number | null;
+      media_duration_ms?: number | null;
       recipe: string;
       status: string;
       quality_rating: string | null;

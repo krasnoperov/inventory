@@ -89,6 +89,12 @@ export class VariantController extends BaseController {
     assetId: string;
     imageKey: string;
     thumbKey: string;
+    mediaKey?: string | null;
+    mediaMimeType?: string | null;
+    mediaSizeBytes?: number | null;
+    mediaWidth?: number | null;
+    mediaHeight?: number | null;
+    mediaDurationMs?: number | null;
     recipe: string;
     createdBy: string;
     mediaKind?: MediaKind;
@@ -184,6 +190,12 @@ export class VariantController extends BaseController {
       error_message: null,
       image_key: null, // Will be set when upload completes
       thumb_key: null,
+      media_key: null,
+      media_mime_type: null,
+      media_size_bytes: null,
+      media_width: null,
+      media_height: null,
+      media_duration_ms: null,
       recipe: data.recipe,
       starred: false,
       created_by: data.createdBy,
@@ -236,6 +248,12 @@ export class VariantController extends BaseController {
     variantId: string;
     imageKey: string;
     thumbKey: string;
+    mediaKey?: string | null;
+    mediaMimeType?: string | null;
+    mediaSizeBytes?: number | null;
+    mediaWidth?: number | null;
+    mediaHeight?: number | null;
+    mediaDurationMs?: number | null;
   }): Promise<{ variant: Variant }> {
     const now = Date.now();
 
@@ -251,9 +269,15 @@ export class VariantController extends BaseController {
 
     // Update variant with image keys and completed status
     await this.sql.exec(
-      `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, updated_at = ? WHERE id = ?`,
+      `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, media_key = ?, media_mime_type = ?, media_size_bytes = ?, media_width = ?, media_height = ?, media_duration_ms = ?, updated_at = ? WHERE id = ?`,
       data.imageKey,
       data.thumbKey,
+      data.mediaKey ?? data.imageKey,
+      data.mediaMimeType ?? null,
+      data.mediaSizeBytes ?? null,
+      data.mediaWidth ?? null,
+      data.mediaHeight ?? null,
+      data.mediaDurationMs ?? null,
       now,
       data.variantId
     );
@@ -263,12 +287,20 @@ export class VariantController extends BaseController {
       status: 'completed',
       image_key: data.imageKey,
       thumb_key: data.thumbKey,
+      media_key: data.mediaKey ?? data.imageKey,
+      media_mime_type: data.mediaMimeType ?? null,
+      media_size_bytes: data.mediaSizeBytes ?? null,
+      media_width: data.mediaWidth ?? null,
+      media_height: data.mediaHeight ?? null,
+      media_duration_ms: data.mediaDurationMs ?? null,
       updated_at: now,
     };
 
-    // Increment refs for images
-    await this.sql.exec(INCREMENT_REF_SQL, data.imageKey);
-    await this.sql.exec(INCREMENT_REF_SQL, data.thumbKey);
+    // Increment refs for all stored artifact keys.
+    const imageKeys = getVariantImageKeys(variant);
+    for (const key of imageKeys) {
+      await this.sql.exec(INCREMENT_REF_SQL, key);
+    }
 
     // Set as active variant if asset has none
     const asset = await this.repo.getAssetById(variant.asset_id);
@@ -356,6 +388,12 @@ export class VariantController extends BaseController {
     assetId: string;
     imageKey: string;
     thumbKey: string;
+    mediaKey?: string | null;
+    mediaMimeType?: string | null;
+    mediaSizeBytes?: number | null;
+    mediaWidth?: number | null;
+    mediaHeight?: number | null;
+    mediaDurationMs?: number | null;
     recipe: string;
     createdBy: string;
     mediaKind?: MediaKind;
@@ -385,6 +423,12 @@ export class VariantController extends BaseController {
       error_message: null,
       image_key: data.imageKey,
       thumb_key: data.thumbKey,
+      media_key: data.mediaKey ?? data.imageKey,
+      media_mime_type: data.mediaMimeType ?? null,
+      media_size_bytes: data.mediaSizeBytes ?? null,
+      media_width: data.mediaWidth ?? null,
+      media_height: data.mediaHeight ?? null,
+      media_duration_ms: data.mediaDurationMs ?? null,
       recipe: data.recipe,
       starred: false,
       created_by: data.createdBy,
@@ -399,8 +443,8 @@ export class VariantController extends BaseController {
 
     // Insert variant
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       variant.id,
       variant.asset_id,
       variant.media_kind,
@@ -409,6 +453,12 @@ export class VariantController extends BaseController {
       variant.error_message,
       variant.image_key,
       variant.thumb_key,
+      variant.media_key,
+      variant.media_mime_type,
+      variant.media_size_bytes,
+      variant.media_width,
+      variant.media_height,
+      variant.media_duration_ms,
       variant.recipe,
       0, // starred = false
       variant.created_by,

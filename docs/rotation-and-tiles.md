@@ -49,7 +49,7 @@ The first direction is always the seed — it uses the source variant's existing
 
 1. **Validate** — Source variant must be `completed` with an `image_key`
 2. **Create child asset** — Named `"{sourceName} -- Rotation"` with `parent = sourceAsset.id`
-3. **Fork source variant** — Direct SQL copy of image_key, thumb_key, recipe; increment R2 refs
+3. **Fork source variant** — Direct SQL copy of image/thumb keys, media metadata, and recipe; increment R2 refs
 4. **Create forked lineage** — `relation_type: 'forked'`
 5. **Set as active** — Forked variant becomes the new asset's active variant
 6. **Create rotation_set record** — Status `pending`, config JSON: `{ type, subjectDescription, aspectRatio, disableStyle }`

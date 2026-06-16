@@ -43,6 +43,7 @@ import {
   createThumbnail,
   getBaseUrl,
   getExtensionForMimeType,
+  getImageDimensions,
 } from '../utils/image-utils';
 import { loggers } from '../../shared/logger';
 
@@ -234,6 +235,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     const variantId = jobId;
     let imageKey: string;
     let thumbKey: string;
+    let mediaMimeType: string | null = null;
+    let mediaSizeBytes: number | null = null;
+    let mediaWidth: number | null = null;
+    let mediaHeight: number | null = null;
 
     try {
       const uploadResult = await step.do('upload-r2', {
@@ -255,6 +260,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
 
           // Convert base64 to buffer
           const imageBuffer = base64ToBuffer(generationResult.imageData);
+          const dimensions = getImageDimensions(imageBuffer);
 
           // Upload full image
           await this.env.IMAGES.put(imgKey, imageBuffer, {
@@ -301,7 +307,14 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             thumbKey: thmbKey,
             totalBytes: imageBuffer.byteLength + thumbSize,
           });
-          return { imageKey: imgKey, thumbKey: thmbKey };
+          return {
+            imageKey: imgKey,
+            thumbKey: thmbKey,
+            mediaMimeType: actualMimeType,
+            mediaSizeBytes: imageBuffer.byteLength,
+            mediaWidth: dimensions?.width ?? null,
+            mediaHeight: dimensions?.height ?? null,
+          };
         } catch (error) {
           timer(false, { error: error instanceof Error ? error.message : String(error) });
           throw error;
@@ -310,6 +323,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
 
       imageKey = uploadResult.imageKey;
       thumbKey = uploadResult.thumbKey;
+      mediaMimeType = uploadResult.mediaMimeType;
+      mediaSizeBytes = uploadResult.mediaSizeBytes;
+      mediaWidth = uploadResult.mediaWidth;
+      mediaHeight = uploadResult.mediaHeight;
     } catch (error) {
       log.error('Upload error', { requestId, jobId, spaceId, error: error instanceof Error ? error.message : String(error) });
       await this.handleFailure(spaceId, jobId, requestId, error instanceof Error ? error.message : 'Upload failed');
@@ -343,6 +360,11 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               variantId,
               imageKey,
               thumbKey,
+              mediaKey: imageKey,
+              mediaMimeType,
+              mediaSizeBytes,
+              mediaWidth,
+              mediaHeight,
             }),
           }));
 

@@ -42,6 +42,12 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
     error_message: null,
     image_key: 'images/test.png',
     thumb_key: 'thumbs/test.png',
+    media_key: 'images/test.png',
+    media_mime_type: 'image/png',
+    media_size_bytes: 1234,
+    media_width: 512,
+    media_height: 512,
+    media_duration_ms: null,
     recipe: '{}',
     starred: false,
     created_by: 'user-1',
@@ -592,6 +598,36 @@ describe('VariantController', () => {
       assert.strictEqual(result.variant.media_kind, 'video');
     });
 
+    test('preserves media metadata on applied variant', async () => {
+      const { ctx } = createMockContext({
+        getVariantByWorkflowId: mock.fn(async () => null),
+      });
+      const controller = new VariantController(ctx);
+
+      const result = await controller.httpApplyVariant({
+        jobId: 'job-123',
+        variantId: 'var-new',
+        assetId: 'asset-1',
+        imageKey: 'images/new.png',
+        thumbKey: 'thumbs/new.png',
+        mediaKey: 'images/new.png',
+        mediaMimeType: 'image/png',
+        mediaSizeBytes: 2048,
+        mediaWidth: 1024,
+        mediaHeight: 768,
+        mediaDurationMs: null,
+        recipe: '{}',
+        createdBy: 'user-1',
+      });
+
+      assert.strictEqual(result.variant.media_key, 'images/new.png');
+      assert.strictEqual(result.variant.media_mime_type, 'image/png');
+      assert.strictEqual(result.variant.media_size_bytes, 2048);
+      assert.strictEqual(result.variant.media_width, 1024);
+      assert.strictEqual(result.variant.media_height, 768);
+      assert.strictEqual(result.variant.media_duration_ms, null);
+    });
+
     test('rejects applied variant media kind that differs from target asset', async () => {
       const { ctx } = createMockContext({
         getAssetById: mock.fn(async () => createMockAsset({ media_kind: 'image' })),
@@ -840,11 +876,35 @@ describe('VariantController', () => {
         variantId: 'upload-var',
         imageKey: 'images/uploaded.png',
         thumbKey: 'thumbs/uploaded.png',
+        mediaMimeType: 'image/png',
+        mediaSizeBytes: 2048,
+        mediaWidth: 1024,
+        mediaHeight: 768,
       });
 
       assert.strictEqual(result.variant.status, 'completed');
       assert.strictEqual(result.variant.image_key, 'images/uploaded.png');
       assert.strictEqual(result.variant.thumb_key, 'thumbs/uploaded.png');
+      assert.strictEqual(result.variant.media_key, 'images/uploaded.png');
+      assert.strictEqual(result.variant.media_mime_type, 'image/png');
+      assert.strictEqual(result.variant.media_size_bytes, 2048);
+      assert.strictEqual(result.variant.media_width, 1024);
+      assert.strictEqual(result.variant.media_height, 768);
+
+      const updateCall = asMock(ctx.sql.exec).mock.calls.find((c) =>
+        String(c.arguments[0]).includes("UPDATE variants SET status = 'completed'")
+      );
+      assert.ok(updateCall);
+      assert.deepStrictEqual(updateCall.arguments.slice(1, 9), [
+        'images/uploaded.png',
+        'thumbs/uploaded.png',
+        'images/uploaded.png',
+        'image/png',
+        2048,
+        1024,
+        768,
+        null,
+      ]);
 
       // Verify variant:updated broadcast
       assert.ok(broadcasts.some((b) => b.type === 'variant:updated'));
@@ -936,15 +996,20 @@ describe('VariantController', () => {
 
       await controller.httpCompleteUpload({
         variantId: 'upload-var',
+        mediaKey: 'media/uploaded.mp4',
         imageKey: 'images/uploaded.png',
         thumbKey: 'thumbs/uploaded.png',
       });
 
-      // Should have INSERT calls for both image keys
+      // Should have INSERT calls for the canonical media key plus image keys.
       const insertCalls = sqlExec.mock.calls.filter((c) =>
         String(c.arguments[0]).includes('INSERT INTO image_refs')
       );
-      assert.strictEqual(insertCalls.length, 2);
+      assert.strictEqual(insertCalls.length, 3);
+      assert.deepStrictEqual(
+        insertCalls.map((c) => c.arguments[1]),
+        ['media/uploaded.mp4', 'images/uploaded.png', 'thumbs/uploaded.png']
+      );
     });
   });
 

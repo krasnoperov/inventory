@@ -47,6 +47,12 @@ export class SchemaManager {
         error_message TEXT,
         image_key TEXT,
         thumb_key TEXT,
+        media_key TEXT,
+        media_mime_type TEXT,
+        media_size_bytes INTEGER,
+        media_width INTEGER,
+        media_height INTEGER,
+        media_duration_ms INTEGER,
         recipe TEXT NOT NULL,
         starred INTEGER NOT NULL DEFAULT 0,
         created_by TEXT NOT NULL,
@@ -203,6 +209,9 @@ export class SchemaManager {
 
     // Migration: Add media_kind to assets and variants
     await this.addMediaKindToAssetsAndVariants();
+
+    // Migration: Add canonical media key and basic media metadata to variants
+    await this.addMediaMetadataToVariants();
 
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
@@ -610,6 +619,37 @@ export class SchemaManager {
         ALTER TABLE variants ADD COLUMN media_kind TEXT NOT NULL DEFAULT 'image'
           CHECK (media_kind IN ('image', 'audio', 'video'));
       `);
+    }
+  }
+
+  /**
+   * Add canonical media artifact fields to variants.
+   * Existing image variants continue to expose image_key/thumb_key, with
+   * media_key backfilled from image_key for compatibility.
+   */
+  private async addMediaMetadataToVariants(): Promise<void> {
+    const result = await this.sql.exec(`PRAGMA table_info(variants)`);
+    const columns = result.toArray() as Array<{ name: string }>;
+    const hasColumn = (name: string) => columns.some(col => col.name === name);
+
+    if (!hasColumn('media_key')) {
+      await this.sql.exec(`ALTER TABLE variants ADD COLUMN media_key TEXT;`);
+      await this.sql.exec(`UPDATE variants SET media_key = image_key WHERE media_key IS NULL AND image_key IS NOT NULL;`);
+    }
+    if (!hasColumn('media_mime_type')) {
+      await this.sql.exec(`ALTER TABLE variants ADD COLUMN media_mime_type TEXT;`);
+    }
+    if (!hasColumn('media_size_bytes')) {
+      await this.sql.exec(`ALTER TABLE variants ADD COLUMN media_size_bytes INTEGER;`);
+    }
+    if (!hasColumn('media_width')) {
+      await this.sql.exec(`ALTER TABLE variants ADD COLUMN media_width INTEGER;`);
+    }
+    if (!hasColumn('media_height')) {
+      await this.sql.exec(`ALTER TABLE variants ADD COLUMN media_height INTEGER;`);
+    }
+    if (!hasColumn('media_duration_ms')) {
+      await this.sql.exec(`ALTER TABLE variants ADD COLUMN media_duration_ms INTEGER;`);
     }
   }
 }

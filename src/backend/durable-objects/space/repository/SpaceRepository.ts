@@ -108,6 +108,15 @@ export interface LineageWithDetails {
   asset_name: string;
 }
 
+export interface VariantMediaMetadata {
+  mediaKey?: string | null;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+  width?: number | null;
+  height?: number | null;
+  durationMs?: number | null;
+}
+
 // ============================================================================
 // Repository
 // ============================================================================
@@ -276,10 +285,13 @@ export class SpaceRepository {
     workflowId?: string | null;
     imageKey: string;
     thumbKey: string;
+    mediaMetadata?: VariantMediaMetadata;
     recipe: string;
     createdBy: string;
   }): Promise<Variant> {
     const now = Date.now();
+    const mediaMetadata = variant.mediaMetadata ?? {};
+    const mediaKey = mediaMetadata.mediaKey ?? variant.imageKey;
     await this.sql.exec(
       VariantQueries.INSERT,
       variant.id,
@@ -290,6 +302,12 @@ export class SpaceRepository {
       null, // error_message
       variant.imageKey,
       variant.thumbKey,
+      mediaKey,
+      mediaMetadata.mimeType ?? null,
+      mediaMetadata.sizeBytes ?? null,
+      mediaMetadata.width ?? null,
+      mediaMetadata.height ?? null,
+      mediaMetadata.durationMs ?? null,
       variant.recipe,
       0, // starred = false
       variant.createdBy,
@@ -299,6 +317,7 @@ export class SpaceRepository {
 
     // Increment refs for all images
     const imageKeys = getVariantImageKeys({
+      media_key: mediaKey,
       image_key: variant.imageKey,
       thumb_key: variant.thumbKey,
       recipe: variant.recipe,
@@ -421,15 +440,29 @@ export class SpaceRepository {
   async completeVariant(
     variantId: string,
     imageKey: string,
-    thumbKey: string
+    thumbKey: string,
+    mediaMetadata: VariantMediaMetadata = {}
   ): Promise<Variant | null> {
     const existing = await this.getVariantById(variantId);
     if (!existing) return null;
 
-    await this.sql.exec(VariantQueries.COMPLETE, imageKey, thumbKey, Date.now(), variantId);
+    await this.sql.exec(
+      VariantQueries.COMPLETE,
+      imageKey,
+      thumbKey,
+      mediaMetadata.mediaKey ?? imageKey,
+      mediaMetadata.mimeType ?? null,
+      mediaMetadata.sizeBytes ?? null,
+      mediaMetadata.width ?? null,
+      mediaMetadata.height ?? null,
+      mediaMetadata.durationMs ?? null,
+      Date.now(),
+      variantId
+    );
 
     // Increment refs for new images
     const imageKeys = getVariantImageKeys({
+      media_key: mediaMetadata.mediaKey ?? imageKey,
       image_key: imageKey,
       thumb_key: thumbKey,
       recipe: existing.recipe,

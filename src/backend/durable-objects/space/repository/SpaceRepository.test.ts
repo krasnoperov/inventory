@@ -209,6 +209,35 @@ describe('SpaceRepository', () => {
       assert(insertQuery !== undefined);
       assert(insertQuery.query.includes('media_kind'));
       assert.strictEqual(insertQuery.bindings[2], 'image');
+      assert(insertQuery.query.includes('media_key'));
+      assert.strictEqual(insertQuery.bindings[8], 'images/v1.png');
+    });
+
+    test('completeVariant writes canonical media metadata', async () => {
+      mockSql.setMockResult('WHERE id = ?', [
+        { id: 'v1', asset_id: 'a1', recipe: '{}', media_kind: 'image' },
+      ]);
+
+      await repo.completeVariant('v1', 'images/v1.png', 'images/v1_thumb.webp', {
+        mimeType: 'image/png',
+        sizeBytes: 2048,
+        width: 1024,
+        height: 768,
+      });
+
+      const updateQuery = mockSql.queries.find((q) => q.query.includes("UPDATE variants SET status = 'completed'"));
+      assert(updateQuery !== undefined);
+      assert(updateQuery.query.includes('media_key'));
+      assert.deepStrictEqual(updateQuery.bindings.slice(0, 8), [
+        'images/v1.png',
+        'images/v1_thumb.webp',
+        'images/v1.png',
+        'image/png',
+        2048,
+        1024,
+        768,
+        null,
+      ]);
     });
 
     test('createPlaceholderVariant inserts default media kind', async () => {

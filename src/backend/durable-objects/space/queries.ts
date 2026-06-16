@@ -73,11 +73,11 @@ export const VariantQueries = {
                        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
 
   /** Insert new completed variant (legacy - for forks/imports) */
-  INSERT: `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  INSERT: `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
   /** Update variant to completed status with images */
-  COMPLETE: `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, updated_at = ? WHERE id = ?`,
+  COMPLETE: `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, media_key = ?, media_mime_type = ?, media_size_bytes = ?, media_width = ?, media_height = ?, media_duration_ms = ?, updated_at = ? WHERE id = ?`,
 
   /** Update variant to failed status with error */
   FAIL: `UPDATE variants SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
