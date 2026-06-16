@@ -10,20 +10,14 @@ export const AUTH_SCOPES = 'openid profile email';
  * Detect how the CLI was invoked and return the appropriate command string.
  * Examples:
  * - "pnpm run cli" when run via package.json script
- * - "npx inventory-cli" when run via npx
  * - "inventory-cli" when installed globally
  */
 function detectCliCommand(): string {
   const argv = process.argv;
 
-  // Check if run via npm/yarn run
-  if (argv[1]?.includes('npm') || process.env.npm_lifecycle_event) {
+  // Package manager script invocations should follow the repo's pnpm convention.
+  if (process.env.npm_lifecycle_event || process.env.npm_execpath?.includes('pnpm')) {
     return 'pnpm run cli';
-  }
-
-  // Check if run via npx
-  if (argv[0]?.includes('npx') || process.env.npm_execpath?.includes('npx')) {
-    return 'npx inventory-cli';
   }
 
   // Check if run as a global binary
