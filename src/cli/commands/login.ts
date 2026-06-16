@@ -11,12 +11,11 @@ import {
   waitForAuthorizationCode,
   openBrowser,
 } from '../lib/auth';
-import { DEFAULT_ENVIRONMENT, resolveBaseUrl, saveConfig, getConfigPath } from '../lib/config';
+import { resolveBaseUrl, saveConfig, getConfigPath } from '../lib/config';
+import { resolveCommandEnvironment } from '../lib/command-context';
 
 export async function handleLogin(parsed: ParsedArgs) {
-  // Handle --local flag
-  const isLocal = parsed.options.local === 'true';
-  const env = isLocal ? 'local' : (parsed.options.env ?? DEFAULT_ENVIRONMENT);
+  const env = resolveCommandEnvironment(parsed);
   const baseUrl = resolveBaseUrl(env);
   const clientId = DEFAULT_CLIENT_ID;
   const redirectPort = DEFAULT_REDIRECT_PORT;

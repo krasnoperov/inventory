@@ -10,6 +10,7 @@ import http from 'node:http';
 import https from 'node:https';
 import WebSocket from 'ws';
 import { loadStoredConfig, resolveBaseUrl } from './config';
+import { loginCommandForEnvironment } from './command-context';
 import type { DescribeFocus, ClaudeUsage, MediaKind, SimplePlan } from '../../shared/websocket-types';
 
 // Re-export SimplePlan for CLI commands
@@ -417,14 +418,14 @@ export class WebSocketClient {
     if (!config) {
       throw new Error(
         `Not logged in to ${env} environment.\n` +
-        `Run: pnpm run cli login --env ${env}`
+        `Run: ${loginCommandForEnvironment(env)}`
       );
     }
 
     if (config.token.expiresAt < Date.now()) {
       throw new Error(
         `Token expired for ${env} environment.\n` +
-        `Run: pnpm run cli login --env ${env}`
+        `Run: ${loginCommandForEnvironment(env)}`
       );
     }
 

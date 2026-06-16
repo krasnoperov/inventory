@@ -15,14 +15,14 @@ dist/cli/inventory.mjs --version
 
 ```bash
 # 1. Login first (if not already)
-pnpm run cli login --env stage
+pnpm run cli login
 
 # 2. Create or list spaces
 pnpm run cli spaces                          # List all spaces
-pnpm run cli spaces create "My Game Assets"  # Create new space
+pnpm run cli spaces create "My Game Assets" --init  # Create new space and bind this directory
 
 # 3. Bind this directory to a website space
-pnpm run cli init --space YOUR_SPACE_ID --env stage
+pnpm run cli init --space YOUR_SPACE_ID
 
 # 4. Listen to real-time events (in a separate terminal)
 pnpm run cli listen --space YOUR_SPACE_ID
@@ -72,13 +72,18 @@ pnpm run cli assets download VARIANT_ID -o references/variant.png
 Bind a filesystem workspace to a website space:
 
 ```bash
-pnpm run cli init --space <space_id> [--env stage|production|local]
+pnpm run cli init --space <space_id> [--env production|stage|local] [--json]
 ```
 
 This writes `.inventory/config.json` with only the target environment and space
 ID. It does not store assets, prompts, images, generation keys, or auth tokens.
 Forge commands use this binding when `--space` or `--env` are omitted. Explicit
 flags still override the project defaults.
+
+The CLI defaults to production when no initialized project or `--env` flag is
+present. Use `--env stage` for staging and `--local` for a local dev server.
+Pass `--json` to `init` or `spaces create` when another agent or script needs
+stable machine-readable output.
 
 ---
 
@@ -184,26 +189,26 @@ existing assets.
 ### Create New Asset
 
 ```bash
-pnpm run cli upload <file> --space <id> --name <name> [options]
+pnpm run cli upload <file> --name <name> [--space <id>] [options]
 ```
 
 ### Add Variant to Existing Asset
 
 ```bash
-pnpm run cli upload <file> --space <id> --asset <id>
+pnpm run cli upload <file> --asset <id> [--space <id>]
 ```
 
 **Arguments:**
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `<file>` | Yes | Path to image, audio, or video file |
-| `--space <id>` | Yes | Target space ID |
+| `--space <id>` | No | Target space ID; defaults from initialized project |
 | `--asset <id>` | * | Target asset ID (upload as new variant) |
 | `--name <name>` | * | New asset name (creates asset + variant) |
 | `--type <type>` | No | Asset type for new assets (default: `character`) |
 | `--media-kind <kind>` | No | Optional explicit kind: `image`, `audio`, or `video` |
 | `--parent <id>` | No | Parent asset ID for new assets |
-| `--env <env>` | No | `production`, `stage`, or `local` (default: `stage`) |
+| `--env <env>` | No | `production`, `stage`, or `local` (default: `production`) |
 | `--local` | No | Shortcut for `--env local` |
 
 \* Either `--asset` or `--name` is required.
@@ -324,7 +329,7 @@ See [cli-generation.md](./cli-generation.md) for the full command reference.
 View billing sync status and manage usage.
 
 ```bash
-pnpm run cli billing --env stage
+pnpm run cli billing status
 ```
 
 ---
@@ -334,11 +339,11 @@ pnpm run cli billing --env stage
 ### "Not logged in" Error
 
 ```bash
-pnpm run cli login --env stage
+pnpm run cli login
 ```
 
 ### "Token expired" Error
 
 ```bash
-pnpm run cli login --env stage
+pnpm run cli login
 ```

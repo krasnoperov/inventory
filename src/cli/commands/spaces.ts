@@ -11,6 +11,11 @@
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
+import { saveProjectConfig } from '../lib/project-config';
+import {
+  loginCommandForEnvironment,
+  resolveCommandEnvironment,
+} from '../lib/command-context';
 import type { MediaKind } from '../../shared/websocket-types';
 
 interface Space {
@@ -30,17 +35,17 @@ interface Asset {
 }
 
 export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
-  const isLocal = parsed.options.local === 'true';
-  const env = isLocal ? 'local' : (parsed.options.env || 'stage');
+  const env = resolveCommandEnvironment(parsed);
   const showDetails = parsed.options.details === 'true';
   const spaceId = parsed.options.id;
   const subcommand = parsed.positionals[0];
+  const jsonOutput = parsed.options.json === 'true';
 
   // Load config
   const config = await loadStoredConfig(env);
   if (!config) {
     console.error(`Not logged in to ${env} environment.`);
-    console.error(`Run: pnpm run cli login --env ${env}`);
+    console.error(`Run: ${loginCommandForEnvironment(env)}`);
     process.exitCode = 1;
     return;
   }
@@ -48,7 +53,7 @@ export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
   // Check token expiry
   if (config.token.expiresAt < Date.now()) {
     console.error(`Token expired for ${env} environment.`);
-    console.error(`Run: pnpm run cli login --env ${env}`);
+    console.error(`Run: ${loginCommandForEnvironment(env)}`);
     process.exitCode = 1;
     return;
   }
@@ -72,7 +77,20 @@ export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
         process.exitCode = 1;
         return;
       }
-      await createSpace(baseUrl, accessToken, spaceName);
+      const space = await createSpace(baseUrl, accessToken, spaceName);
+      const project = parsed.options.init === 'true'
+        ? {
+          configPath: await saveProjectConfig({ environment: env, spaceId: space.id }),
+          environment: env,
+          spaceId: space.id,
+        }
+        : undefined;
+
+      if (jsonOutput) {
+        console.log(JSON.stringify({ space, project }, null, 2));
+      } else {
+        printCreatedSpace(space, env, project?.configPath);
+      }
     } else if (spaceId) {
       // Show details for a specific space
       await showSpaceDetails(baseUrl, accessToken, spaceId);
@@ -89,7 +107,7 @@ export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
   }
 }
 
-async function createSpace(baseUrl: string, accessToken: string, name: string): Promise<void> {
+async function createSpace(baseUrl: string, accessToken: string, name: string): Promise<Space> {
   const response = await fetch(`${baseUrl}/api/spaces`, {
     method: 'POST',
     headers: {
@@ -105,16 +123,23 @@ async function createSpace(baseUrl: string, accessToken: string, name: string): 
   }
 
   const data = await response.json() as { space: Space };
-  const space = data.space;
+  return data.space;
+}
+
+function printCreatedSpace(space: Space, env: string, configPath?: string): void {
+  const envFlag = env === 'production' ? '' : env === 'local' ? ' --local' : ` --env ${env}`;
 
   console.log(`\nSpace created successfully!\n`);
   console.log(`  ID:   ${space.id}`);
   console.log(`  Name: ${space.name}`);
   console.log(`  Role: ${space.role}`);
-  console.log(`\nTo start a chat session:`);
-  console.log(`  pnpm run cli chat send "Hello" --space ${space.id} --state ./test/${name.toLowerCase().replace(/\s+/g, '-')}.json`);
+  if (configPath) {
+    console.log(`  Config: ${configPath}`);
+  }
+  console.log(`\nTo bind this directory:`);
+  console.log(`  pnpm run cli init --space ${space.id}${envFlag}`);
   console.log(`\nTo listen for events:`);
-  console.log(`  pnpm run cli listen --space ${space.id}`);
+  console.log(`  pnpm run cli listen --space ${space.id}${envFlag}`);
 }
 
 async function listSpaces(baseUrl: string, accessToken: string): Promise<void> {

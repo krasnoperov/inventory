@@ -1,12 +1,11 @@
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
+import { loginCommandForEnvironment, resolveCommandEnvironment } from '../lib/command-context';
 
 export async function handleBilling(parsed: ParsedArgs) {
   const subcommand = parsed.positionals[0];
-  // Handle --local flag
-  const isLocal = parsed.options.local === 'true';
-  const env = isLocal ? 'local' : (parsed.options.env ?? 'stage');
+  const env = resolveCommandEnvironment(parsed);
 
   switch (subcommand) {
     case 'status':
@@ -37,12 +36,12 @@ Subcommands:
   retry-failed     Reset failed events for retry (next cron will sync them)
 
 Options:
-  --env <env>      Target environment (production|stage|local), default: stage
+  --env <env>      Target environment (production|stage|local), default: production
   --local          Shortcut for local development
 
 Examples:
-  pnpm run cli billing status                    Show stage sync status
-  pnpm run cli billing status --env production   Show production sync status
+  pnpm run cli billing status                    Show production sync status
+  pnpm run cli billing status --env stage        Show stage sync status
   pnpm run cli billing retry-failed              Reset failed events for retry
 
 Note: Requires login first. Run 'pnpm run cli login' to authenticate.
@@ -54,7 +53,7 @@ async function callBillingApi(env: string, path: string, method: 'GET' | 'POST' 
   if (!config) {
     throw new Error(
       `Not logged in to ${env} environment.\n` +
-      `Run: pnpm run cli login --env ${env}`
+      `Run: ${loginCommandForEnvironment(env)}`
     );
   }
 
@@ -62,7 +61,7 @@ async function callBillingApi(env: string, path: string, method: 'GET' | 'POST' 
   if (config.token.expiresAt < Date.now()) {
     throw new Error(
       `Token expired for ${env} environment.\n` +
-      `Run: pnpm run cli login --env ${env}`
+      `Run: ${loginCommandForEnvironment(env)}`
     );
   }
 
@@ -85,7 +84,7 @@ async function callBillingApi(env: string, path: string, method: 'GET' | 'POST' 
     if (response.status === 401) {
       throw new Error(
         `Authentication failed. Token may have expired.\n` +
-        `Run: pnpm run cli login --env ${env}`
+        `Run: ${loginCommandForEnvironment(env)}`
       );
     }
     const text = await response.text();

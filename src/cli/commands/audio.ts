@@ -28,7 +28,7 @@ function parseAudioCommand(value: string | undefined): AudioForgeCommand {
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli audio generate "prompt" --space <id> --name <name> --type <type> -o <file>
-  pnpm run cli audio batch "prompt" --space <id> --name <name> --type <type> --count <2-8> --output-dir <dir>
+  pnpm run cli audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  pnpm run cli audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--space <id>]
 `);
 }

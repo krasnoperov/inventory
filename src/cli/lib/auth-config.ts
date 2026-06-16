@@ -2,6 +2,7 @@ import process from 'node:process';
 import type { ParsedArgs, StoredConfig } from './types';
 import { CLI_COMMAND } from './auth';
 import { loadStoredConfig, DEFAULT_ENVIRONMENT } from './config';
+import { normalizeEnvironment } from './command-context';
 
 export function determineEnvironment(parsed: ParsedArgs): string {
   // Priority order: --local flag, --env flag, default to production
@@ -10,14 +11,13 @@ export function determineEnvironment(parsed: ParsedArgs): string {
 
   const envFlag = parsed.options.env;
   if (envFlag) {
-    // Validate environment
-    if (!['production', 'stage', 'staging', 'local'].includes(envFlag)) {
-      console.error(`Error: Invalid environment "${envFlag}". Valid options: production, stage, local`);
+    try {
+      return normalizeEnvironment(envFlag);
+    } catch (error) {
+      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
       process.exitCode = 1;
       process.exit(1);
     }
-    // Normalize staging to stage
-    return envFlag === 'staging' ? 'stage' : envFlag;
   }
 
   return DEFAULT_ENVIRONMENT; // Always default to production

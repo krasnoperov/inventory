@@ -24,6 +24,7 @@ function storedConfig(): StoredConfig {
 function depsFor(capturedBodies: BodyInit[], output: string[]) {
   return {
     loadConfig: async () => storedConfig(),
+    loadProjectConfig: async () => null,
     resolveBaseUrl: () => 'https://inventory.example.test',
     fetch: async (url: string | URL | Request, init?: RequestInit) => {
       assert.equal(String(url), 'https://inventory.example.test/api/spaces/space-1/upload');
@@ -150,6 +151,39 @@ test('upload rejects explicit media kind mismatches before sending a request', a
       /does not match/
     );
     assert.equal(capturedBodies.length, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload resolves missing space and env from project config', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'clip.mp4');
+  const capturedBodies: BodyInit[] = [];
+  const output: string[] = [];
+  let loadedEnv = '';
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await executeUpload({
+      positionals: [filePath],
+      options: { name: 'Combat Clip', type: 'video' },
+    }, {
+      ...depsFor(capturedBodies, output),
+      loadProjectConfig: async () => ({
+        version: 1,
+        environment: 'production',
+        spaceId: 'space-1',
+        updatedAt: '2026-06-16T00:00:00.000Z',
+      }),
+      loadConfig: async (env) => {
+        loadedEnv = env || '';
+        return storedConfig();
+      },
+    });
+
+    assert.equal(loadedEnv, 'production');
+    assert.equal(capturedBodies.length, 1);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

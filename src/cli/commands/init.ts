@@ -1,6 +1,7 @@
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import { saveProjectConfig } from '../lib/project-config';
+import { resolveCommandEnvironment, resolveCommandSpace } from '../lib/command-context';
 
 interface InitDeps {
   saveProjectConfig: typeof saveProjectConfig;
@@ -24,22 +25,24 @@ export async function executeInit(
   parsed: ParsedArgs,
   deps: InitDeps = defaultDeps
 ): Promise<{ configPath: string; environment: string; spaceId: string }> {
-  const environment = parsed.options.local === 'true'
-    ? 'local'
-    : parsed.options.env || 'stage';
-  const spaceId = parsed.options.space || parsed.options['space-id'];
+  const environment = resolveCommandEnvironment(parsed);
+  const spaceId = resolveCommandSpace(parsed);
 
-  if (!spaceId || spaceId === 'true') {
+  if (!spaceId) {
     throw new Error('--space is required');
   }
 
   const configPath = await deps.saveProjectConfig({ environment, spaceId });
 
-  console.log('\nInventory project initialized.\n');
-  console.log(`  Config: ${configPath}`);
-  console.log(`  Env:    ${environment}`);
-  console.log(`  Space:  ${spaceId}`);
-  console.log('\nForge commands can now omit --space inside this project.');
+  if (parsed.options.json === 'true') {
+    console.log(JSON.stringify({ configPath, environment, spaceId }, null, 2));
+  } else {
+    console.log('\nInventory project initialized.\n');
+    console.log(`  Config: ${configPath}`);
+    console.log(`  Env:    ${environment}`);
+    console.log(`  Space:  ${spaceId}`);
+    console.log('\nForge, asset, upload, and listen commands can now omit --space inside this project.');
+  }
 
   return { configPath, environment, spaceId };
 }
@@ -47,6 +50,7 @@ export async function executeInit(
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli init --space <id> [--env stage|production|local]
+  pnpm run cli init --space <id> [--env production|stage|local]
+  pnpm run cli init --space <id> --json
 `);
 }

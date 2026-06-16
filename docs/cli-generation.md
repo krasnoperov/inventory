@@ -13,13 +13,17 @@ send `mediaKind: "audio"` and use the same website job lifecycle.
 Bind a local directory to a website space:
 
 ```bash
-pnpm run cli init --space SPACE_ID --env stage
+pnpm run cli init --space SPACE_ID
 ```
 
 This writes `.inventory/config.json` with the target environment and space ID.
 It does not store assets, prompts, images, generation keys, or auth tokens.
 Inside an initialized project, Forge commands can omit `--space` and `--env`.
 Explicit command flags override the project config.
+
+Without an initialized project or explicit `--env`, the CLI targets production.
+Use `--env stage` for staging and `--local` for a local dev server. `init` and
+`spaces create` accept `--json` for script- and agent-friendly handoffs.
 
 ## Website Asset Inventory
 

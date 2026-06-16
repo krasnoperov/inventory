@@ -1,10 +1,11 @@
 import type { ParsedArgs } from '../lib/types';
 import { removeConfig } from '../lib/config';
+import { resolveCommandEnvironment } from '../lib/command-context';
 
 export async function handleLogout(parsed: ParsedArgs) {
-  // Determine environment from flags
-  const isLocal = parsed.options.local === 'true';
-  const environment = isLocal ? 'local' : (parsed.options.env || undefined);
+  const environment = parsed.options.local === 'true' || parsed.options.env
+    ? resolveCommandEnvironment(parsed)
+    : undefined;
 
   try {
     if (environment) {

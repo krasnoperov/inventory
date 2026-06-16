@@ -3,6 +3,11 @@ import path from 'node:path';
 import type { ParsedArgs, StoredConfig } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
 import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
+import {
+  loginCommandForEnvironment,
+  resolveCommandEnvironment,
+  resolveCommandSpace,
+} from '../lib/command-context';
 import { downloadFile } from '../lib/image-transfer';
 import { truncate } from '../lib/utils';
 import type { MediaKind } from '../../shared/websocket-types';
@@ -158,20 +163,18 @@ export async function executeAssets(
 
 async function buildContext(parsed: ParsedArgs, deps: AssetsDeps): Promise<AssetsContext> {
   const projectConfig = await deps.loadProjectConfig();
-  const env = parsed.options.local === 'true'
-    ? 'local'
-    : parsed.options.env || projectConfig?.environment || 'stage';
-  const spaceId = parsed.options.space || projectConfig?.spaceId;
-  if (!spaceId || spaceId === 'true') {
+  const env = resolveCommandEnvironment(parsed, projectConfig);
+  const spaceId = resolveCommandSpace(parsed, projectConfig);
+  if (!spaceId) {
     throw new Error('--space is required, or run: pnpm run cli init --space <id>');
   }
 
   const config = await deps.loadConfig(env);
   if (!config) {
-    throw new Error(`Not logged in to ${env} environment. Run: pnpm run cli login --env ${env}`);
+    throw new Error(`Not logged in to ${env} environment. Run: ${loginCommandForEnvironment(env)}`);
   }
   if (config.token.expiresAt < Date.now()) {
-    throw new Error(`Token expired for ${env} environment. Run: pnpm run cli login --env ${env}`);
+    throw new Error(`Token expired for ${env} environment. Run: ${loginCommandForEnvironment(env)}`);
   }
   if (env === 'local') {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';

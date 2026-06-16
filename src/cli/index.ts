@@ -87,8 +87,8 @@ Listen:
   listen --space <id> --json   Output raw JSON for piping/processing
 
 Upload:
-  upload <file> --space <id> --asset <id>   Upload image, audio, or video to existing asset
-  upload <file> --space <id> --name <name>  Upload media and create new asset
+  upload <file> --asset <id> [--space <id>]   Upload image, audio, or video to existing asset
+  upload <file> --name <name> [--space <id>]  Upload media and create new asset
 
 Forge:
   generate "prompt" --name <name> --type <type> -o <file>
@@ -101,17 +101,18 @@ Audio:
   audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
 
 Options:
-  --env <environment>          Target environment (production|stage|local), default: stage
+  --env <environment>          Target environment (production|stage|local), default: production
   --local                      Shortcut for local development
 
 Examples:
   pnpm run cli init --space space_123
-  pnpm run cli login            Authenticate with stage environment
-  pnpm run cli login --env production
+  pnpm run cli init --space space_123 --json
+  pnpm run cli login            Authenticate with production environment
+  pnpm run cli login --env stage
   pnpm run cli logout
   pnpm run cli billing status   Show billing sync status
   pnpm run cli spaces --details List spaces with asset summaries
-  pnpm run cli spaces create "My Game Assets"
+  pnpm run cli spaces create "My Game Assets" --init
   pnpm run cli listen --space space_123
   pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
   pnpm run cli batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
