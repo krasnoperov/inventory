@@ -141,6 +141,27 @@ describe('SpaceRepository', () => {
       assert.strictEqual(variants[0].id, 'v1');
     });
 
+    test('getOverviewVariants selects display variants without leaking ranking column', async () => {
+      mockSql.setMockResult('ROW_NUMBER() OVER', [
+        { id: 'v-active', asset_id: 'a1', image_key: 'img-active', overview_rank: 1 },
+        { id: 'v-newest', asset_id: 'a2', image_key: 'img-newest', overview_rank: 1 },
+      ]);
+
+      const variants = await repo.getOverviewVariants();
+
+      assert.strictEqual(variants.length, 2);
+      assert.deepStrictEqual(
+        variants.map((variant) => variant.id),
+        ['v-active', 'v-newest']
+      );
+      assert.ok(!('overview_rank' in variants[0]));
+
+      const query = mockSql.getLastQuery();
+      assert(query !== undefined);
+      assert(query.query.includes('CASE WHEN v.id = a.active_variant_id'));
+      assert(query.query.includes('v.created_at DESC'));
+    });
+
     test('getVariantById returns null when not found', async () => {
       const variant = await repo.getVariantById('nonexistent');
       assert.strictEqual(variant, null);
@@ -457,6 +478,57 @@ describe('SpaceRepository', () => {
       assert(Array.isArray(state.assets));
       assert(Array.isArray(state.variants));
       assert(Array.isArray(state.lineage));
+    });
+
+    test('getOverviewState skips full variant and lineage queries', async () => {
+      mockSql.setMockResult('ROW_NUMBER() OVER', [{ id: 'v1', asset_id: 'a1', overview_rank: 1 }]);
+
+      const state = await repo.getOverviewState();
+
+      assert(Array.isArray(state.assets));
+      assert(Array.isArray(state.variants));
+      assert.strictEqual(state.variants.length, 1);
+      assert.ok(!('lineage' in state));
+      assert.ok(mockSql.queries.some((q) => q.query.includes('ROW_NUMBER() OVER')));
+      assert.ok(!mockSql.queries.some((q) => q.query === 'SELECT * FROM variants'));
+      assert.ok(!mockSql.queries.some((q) => q.query === 'SELECT * FROM lineage'));
+    });
+
+    test('getOverviewState includes variants referenced by tile and rotation rows', async () => {
+      mockSql.setMockResult('ROW_NUMBER() OVER', [{ id: 'active-v1', asset_id: 'a1', overview_rank: 1 }]);
+      mockSql.setMockResult('SELECT * FROM rotation_sets', [
+        { id: 'rs1', source_variant_id: 'rotation-source-v1' },
+      ]);
+      mockSql.setMockResult('SELECT * FROM rotation_views', [
+        { id: 'rv1', variant_id: 'rotation-view-v1' },
+      ]);
+      mockSql.setMockResult('SELECT * FROM tile_sets', [
+        { id: 'ts1', seed_variant_id: 'tile-seed-v1' },
+      ]);
+      mockSql.setMockResult('SELECT * FROM tile_positions', [
+        { id: 'tp1', variant_id: 'tile-position-v1' },
+      ]);
+      mockSql.setMockResult('WHERE id IN', [
+        { id: 'rotation-source-v1', asset_id: 'a1' },
+        { id: 'rotation-view-v1', asset_id: 'a1' },
+        { id: 'tile-seed-v1', asset_id: 'a1' },
+        { id: 'tile-position-v1', asset_id: 'a1' },
+      ]);
+
+      const state = await repo.getOverviewState();
+
+      assert.deepStrictEqual(
+        state.variants.map((variant) => variant.id),
+        ['active-v1', 'rotation-source-v1', 'rotation-view-v1', 'tile-seed-v1', 'tile-position-v1']
+      );
+      const referencedVariantQuery = mockSql.queries.find((q) => q.query.includes('WHERE id IN'));
+      assert(referencedVariantQuery !== undefined);
+      assert.deepStrictEqual(referencedVariantQuery.bindings, [
+        'rotation-source-v1',
+        'rotation-view-v1',
+        'tile-seed-v1',
+        'tile-position-v1',
+      ]);
     });
   });
 });

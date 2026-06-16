@@ -40,6 +40,27 @@ export class SyncController extends BaseController {
   }
 
   /**
+   * Handle sync:overview WebSocket message.
+   * Sends overview state for large spaces: all assets plus one display variant per asset.
+   */
+  async handleOverviewRequest(ws: WebSocket): Promise<void> {
+    const state = await this.repo.getOverviewState();
+    const presence = this.presenceCtrl.getPresenceData();
+
+    this.send(ws, {
+      type: 'sync:overview',
+      assets: state.assets,
+      variants: state.variants,
+      presence,
+      rotationSets: state.rotationSets,
+      rotationViews: state.rotationViews,
+      tileSets: state.tileSets,
+      tilePositions: state.tilePositions,
+      style: state.style ?? null,
+    });
+  }
+
+  /**
    * Handle GET /internal/state HTTP request
    * Returns full state for bot context or external queries
    */

@@ -86,6 +86,17 @@ export interface SpaceState {
   style: SpaceStyle | null;
 }
 
+/** Lightweight state for the space overview canvas */
+export interface SpaceOverviewState {
+  assets: Asset[];
+  variants: Variant[];
+  rotationSets: RotationSet[];
+  rotationViews: RotationView[];
+  tileSets: TileSet[];
+  tilePositions: TilePosition[];
+  style: SpaceStyle | null;
+}
+
 /** Asset with variant count for bot context */
 export interface AssetWithVariantCount {
   id: string;
@@ -252,6 +263,26 @@ export class SpaceRepository {
 
   async getAllVariants(): Promise<Variant[]> {
     const result = await this.sql.exec(VariantQueries.GET_ALL);
+    return result.toArray() as Variant[];
+  }
+
+  async getOverviewVariants(): Promise<Variant[]> {
+    const result = await this.sql.exec(VariantQueries.GET_OVERVIEW);
+    return (result.toArray() as Array<Variant & { overview_rank?: number }>).map((row) => {
+      const variant = { ...row };
+      delete variant.overview_rank;
+      return variant;
+    });
+  }
+
+  async getVariantsByIds(ids: string[]): Promise<Variant[]> {
+    if (ids.length === 0) return [];
+    const uniqueIds = Array.from(new Set(ids));
+    const { placeholders } = buildInClause(uniqueIds);
+    const result = await this.sql.exec(
+      `SELECT * FROM variants WHERE id IN (${placeholders})`,
+      ...uniqueIds
+    );
     return result.toArray() as Variant[];
   }
 
@@ -794,6 +825,28 @@ export class SpaceRepository {
       this.getActiveStyle(),
     ]);
     return { assets, variants, lineage, rotationSets, rotationViews, tileSets, tilePositions, style };
+  }
+
+  async getOverviewState(): Promise<SpaceOverviewState> {
+    const [assets, overviewVariants, rotationSets, rotationViews, tileSets, tilePositions, style] = await Promise.all([
+      this.getAllAssets(),
+      this.getOverviewVariants(),
+      this.getAllRotationSets(),
+      this.getAllRotationViews(),
+      this.getAllTileSets(),
+      this.getAllTilePositions(),
+      this.getActiveStyle(),
+    ]);
+    const variantIds = new Set(overviewVariants.map((variant) => variant.id));
+    const referencedVariantIds = [
+      ...rotationSets.map((set) => set.source_variant_id),
+      ...rotationViews.map((view) => view.variant_id),
+      ...tileSets.flatMap((set) => set.seed_variant_id ? [set.seed_variant_id] : []),
+      ...tilePositions.map((position) => position.variant_id),
+    ].filter((variantId) => !variantIds.has(variantId));
+    const referencedVariants = await this.getVariantsByIds(referencedVariantIds);
+    const variants = [...overviewVariants, ...referencedVariants.filter((variant) => !variantIds.has(variant.id))];
+    return { assets, variants, rotationSets, rotationViews, tileSets, tilePositions, style };
   }
 
   // ==========================================================================
