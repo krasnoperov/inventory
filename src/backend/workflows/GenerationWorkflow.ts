@@ -38,6 +38,8 @@ import { CustomModelProvider } from '../services/customModelProvider';
 import { FakeImageProvider } from '../services/fakeImageProvider';
 import type { ImageGenerationProvider } from '../services/imageProvider';
 import { FakeAudioProvider } from '../services/fakeAudioProvider';
+import type { AudioGenerationProvider, AudioGenerationResult, AudioSidecar } from '../services/audioProvider';
+import { ElevenLabsApiError, ElevenLabsAudioProvider } from '../services/elevenLabsAudioProvider';
 import {
   detectImageType,
   base64ToBuffer,
@@ -61,6 +63,32 @@ function getVideoExtensionForMimeType(mimeType: string): string {
 
 function isVideoGenerationResult(result: GenerationResult | VideoGenerationResult): result is VideoGenerationResult {
   return 'videoData' in result;
+}
+
+function getAudioExtensionForMimeType(mimeType: string): string {
+  switch (mimeType) {
+    case 'audio/mpeg':
+      return 'mp3';
+    case 'audio/mp4':
+      return 'm4a';
+    case 'audio/aac':
+      return 'aac';
+    case 'audio/ogg':
+      return 'ogg';
+    case 'audio/flac':
+      return 'flac';
+    case 'audio/wav':
+    case 'audio/x-wav':
+      return 'wav';
+    case 'audio/webm':
+      return 'webm';
+    case 'audio/L16':
+      return 'pcm';
+    case 'audio/basic':
+      return 'ulaw';
+    default:
+      return 'bin';
+  }
 }
 
 export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkflowInput> {
@@ -531,6 +559,15 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     let mediaMimeType: string;
     let mediaSizeBytes: number;
     let mediaDurationMs: number | null;
+    let transcriptKey: string | null = null;
+    let transcriptMimeType: string | null = null;
+    let transcriptSizeBytes: number | null = null;
+    let wordTimingsKey: string | null = null;
+    let wordTimingsMimeType: string | null = null;
+    let wordTimingsSizeBytes: number | null = null;
+    let renderMetadataKey: string | null = null;
+    let renderMetadataMimeType: string | null = null;
+    let renderMetadataSizeBytes: number | null = null;
 
     try {
       const uploadResult = await step.do('generate-and-upload-audio', {
@@ -540,34 +577,39 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         if (!this.env.IMAGES) {
           throw new Error('IMAGES R2 bucket not configured');
         }
-        if (this.env.INVENTORY_AUDIO_PROVIDER !== 'fake') {
-          throw new NonRetryableError('INVENTORY_AUDIO_PROVIDER=fake is required for audio generation');
-        }
 
-        const provider = new FakeAudioProvider();
-        const timer = log.startTimer('Fake audio generation', {
-          requestId, jobId, spaceId, operation, model: model || 'fake-audio-v1',
+        const provider = this.createAudioProvider();
+        const providerName = this.env.INVENTORY_AUDIO_PROVIDER || 'fake';
+        const timer = log.startTimer('Audio generation', {
+          requestId, jobId, spaceId, operation, provider: providerName, model,
         });
 
         try {
           const result = await provider.generate({ prompt, model });
-          const key = `media/${spaceId}/${variantId}.wav`;
+          const extension = getAudioExtensionForMimeType(result.audioMimeType);
+          const key = `media/${spaceId}/${variantId}.${extension}`;
           await this.env.IMAGES.put(key, result.audioData, {
             httpMetadata: { contentType: result.audioMimeType },
           });
+          const sidecars = await this.uploadAudioSidecars(spaceId, variantId, result);
           timer(true, {
             mediaKey: key,
             totalBytes: result.audioData.byteLength,
             durationMs: result.durationMs,
+            provider: providerName,
           });
           return {
             mediaKey: key,
             mediaMimeType: result.audioMimeType,
             mediaSizeBytes: result.audioData.byteLength,
             mediaDurationMs: result.durationMs,
+            ...sidecars,
           };
         } catch (error) {
           timer(false, { error: error instanceof Error ? error.message : String(error) });
+          if (error instanceof ElevenLabsApiError && !error.retryable) {
+            throw new NonRetryableError(error.message);
+          }
           throw error;
         }
       });
@@ -576,6 +618,15 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       mediaMimeType = uploadResult.mediaMimeType;
       mediaSizeBytes = uploadResult.mediaSizeBytes;
       mediaDurationMs = uploadResult.mediaDurationMs;
+      transcriptKey = uploadResult.transcriptKey;
+      transcriptMimeType = uploadResult.transcriptMimeType;
+      transcriptSizeBytes = uploadResult.transcriptSizeBytes;
+      wordTimingsKey = uploadResult.wordTimingsKey;
+      wordTimingsMimeType = uploadResult.wordTimingsMimeType;
+      wordTimingsSizeBytes = uploadResult.wordTimingsSizeBytes;
+      renderMetadataKey = uploadResult.renderMetadataKey;
+      renderMetadataMimeType = uploadResult.renderMetadataMimeType;
+      renderMetadataSizeBytes = uploadResult.renderMetadataSizeBytes;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Audio generation failed';
       log.error('Audio generation error', { requestId, jobId, spaceId, error: errorMessage });
@@ -607,6 +658,15 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               mediaMimeType,
               mediaSizeBytes,
               mediaDurationMs,
+              transcriptKey,
+              transcriptMimeType,
+              transcriptSizeBytes,
+              wordTimingsKey,
+              wordTimingsMimeType,
+              wordTimingsSizeBytes,
+              renderMetadataKey,
+              renderMetadataMimeType,
+              renderMetadataSizeBytes,
             }),
           }));
 
@@ -637,6 +697,85 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       jobId,
       success: true,
       variant,
+    };
+  }
+
+  private createAudioProvider(): AudioGenerationProvider {
+    const provider = this.env.INVENTORY_AUDIO_PROVIDER || 'fake';
+    if (provider === 'fake') {
+      return new FakeAudioProvider();
+    }
+    if (provider === 'elevenlabs') {
+      if (!this.env.ELEVENLABS_API_KEY) {
+        throw new NonRetryableError('ELEVENLABS_API_KEY not configured');
+      }
+      return new ElevenLabsAudioProvider({
+        apiKey: this.env.ELEVENLABS_API_KEY,
+        voiceId: this.env.ELEVENLABS_VOICE_ID || '',
+        dialogueVoiceIds: parseCommaSeparated(this.env.ELEVENLABS_DIALOGUE_VOICE_IDS),
+        modelId: this.env.ELEVENLABS_MODEL_ID,
+        outputFormat: this.env.ELEVENLABS_AUDIO_OUTPUT_FORMAT,
+      });
+    }
+    throw new NonRetryableError(`Unsupported INVENTORY_AUDIO_PROVIDER: ${provider}`);
+  }
+
+  private async uploadAudioSidecars(
+    spaceId: string,
+    variantId: string,
+    result: AudioGenerationResult
+  ): Promise<{
+    transcriptKey: string | null;
+    transcriptMimeType: string | null;
+    transcriptSizeBytes: number | null;
+    wordTimingsKey: string | null;
+    wordTimingsMimeType: string | null;
+    wordTimingsSizeBytes: number | null;
+    renderMetadataKey: string | null;
+    renderMetadataMimeType: string | null;
+    renderMetadataSizeBytes: number | null;
+  }> {
+    if (!this.env.IMAGES) {
+      throw new Error('IMAGES R2 bucket not configured');
+    }
+
+    const transcript = await this.uploadAudioSidecar(spaceId, variantId, 'transcript.txt', result.transcript);
+    const wordTimings = await this.uploadAudioSidecar(spaceId, variantId, 'word_timings.json', result.wordTimings);
+    const renderMetadata = await this.uploadAudioSidecar(spaceId, variantId, 'render_metadata.json', result.renderMetadata);
+
+    return {
+      transcriptKey: transcript.key,
+      transcriptMimeType: transcript.mimeType,
+      transcriptSizeBytes: transcript.sizeBytes,
+      wordTimingsKey: wordTimings.key,
+      wordTimingsMimeType: wordTimings.mimeType,
+      wordTimingsSizeBytes: wordTimings.sizeBytes,
+      renderMetadataKey: renderMetadata.key,
+      renderMetadataMimeType: renderMetadata.mimeType,
+      renderMetadataSizeBytes: renderMetadata.sizeBytes,
+    };
+  }
+
+  private async uploadAudioSidecar(
+    spaceId: string,
+    variantId: string,
+    filename: string,
+    sidecar: AudioSidecar | undefined
+  ): Promise<{ key: string | null; mimeType: string | null; sizeBytes: number | null }> {
+    if (!sidecar) {
+      return { key: null, mimeType: null, sizeBytes: null };
+    }
+    if (!this.env.IMAGES) {
+      throw new Error('IMAGES R2 bucket not configured');
+    }
+    const key = `sidecars/${spaceId}/${variantId}/${filename}`;
+    await this.env.IMAGES.put(key, sidecar.data, {
+      httpMetadata: { contentType: sidecar.mimeType },
+    });
+    return {
+      key,
+      mimeType: sidecar.mimeType,
+      sizeBytes: sidecar.data.byteLength,
     };
   }
 
@@ -684,4 +823,12 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       log.error('Failed to mark variant as failed', { spaceId, variantId, error: fetchError instanceof Error ? fetchError.message : String(fetchError) });
     }
   }
+}
+
+function parseCommaSeparated(value: string | undefined): string[] | undefined {
+  const values = value
+    ?.split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+  return values?.length ? values : undefined;
 }

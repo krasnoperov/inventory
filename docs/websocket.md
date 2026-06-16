@@ -143,8 +143,8 @@ default to `image`.
 `assetType`/`type` for catalog categories such as `character`, `tile-set`, or
 `animation`. Website video generation remains a SpaceDO-controlled workflow:
 set `mediaKind: "video"` explicitly and the stored recipe records the capable
-Google Veo model. Audio generation uses the same lifecycle when the fake audio
-provider is enabled.
+Google Veo model. Audio generation uses the same lifecycle when a configured
+audio provider is enabled.
 
 The backend enforces homogeneous assets. Variants inherit their asset's
 `media_kind`, and requests that try to create a variant or forked asset with a

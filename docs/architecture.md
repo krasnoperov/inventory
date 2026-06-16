@@ -53,8 +53,8 @@ Variants track generation and upload status via placeholder lifecycle.
 `media_kind` is the stored medium discriminator shared with the parent asset;
 allowed values are `image`, `audio`, and `video`, with `image` as the default
 for legacy and omitted values. Website generation can produce images through
-Gemini image models, audio through the fake audio provider when enabled, and
-videos through Google Veo. Upload flows accept image, audio, and video files.
+Gemini image models, audio through the configured audio provider, and videos
+through Google Veo. Upload flows accept image, audio, and video files.
 
 ```sql
 CREATE TABLE variants (
