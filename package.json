@@ -12,14 +12,14 @@
     "deploy": "npm run build && wrangler deploy",
     "deploy:production": "npm run build && wrangler deploy --env production",
     "deploy:stage": "npm run build && wrangler deploy",
-    "test": "node --env-file .env --import @swc-node/register/esm-register --test",
+    "test": "node --import @swc-node/register/esm-register --test",
     "test:e2e:cli-forge": "node scripts/e2e-cli-forge.mjs",
     "lint": "eslint \"{src,scripts}/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "db:migrate": "node --import @swc-node/register/esm-register scripts/db-migrate.ts",
     "db:migrate:stage": "node --import @swc-node/register/esm-register scripts/db-migrate.ts stage remote",
     "db:migrate:production": "node --import @swc-node/register/esm-register scripts/db-migrate.ts production remote",
-    "cli": "node --env-file .env --import @swc-node/register/esm-register src/cli/index.ts"
+    "cli": "node --import @swc-node/register/esm-register src/cli/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",

@@ -9,6 +9,9 @@ const tmpRoot = path.join(root, 'tmp', 'cli-forge-e2e');
 const persistDir = path.join(tmpRoot, 'wrangler-state');
 const configHome = path.join(tmpRoot, 'config');
 const outputDir = path.join(tmpRoot, 'out');
+const projectDir = path.join(tmpRoot, 'project');
+const swcRegister = path.join(root, 'node_modules', '@swc-node', 'register', 'esm', 'esm-register.mjs');
+const cliEntrypoint = path.join(root, 'src', 'cli', 'index.ts');
 const port = process.env.INVENTORY_E2E_PORT || String(await findFreePort());
 const baseUrl = `http://127.0.0.1:${port}`;
 const token = process.env.INVENTORY_E2E_TOKEN || 'inventory-dev-token';
@@ -38,7 +41,7 @@ function findFreePort() {
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
-      cwd: root,
+      cwd: options.cwd || root,
       env: { ...process.env, ...options.env },
       stdio: options.stdio || ['ignore', 'pipe', 'pipe'],
     });
@@ -147,13 +150,15 @@ async function createSpace() {
 async function runCli(args) {
   return await run('node', [
     '--import',
-    '@swc-node/register/esm-register',
-    'src/cli/index.ts',
+    swcRegister,
+    cliEntrypoint,
     ...args,
   ], {
+    cwd: projectDir,
     env: {
       XDG_CONFIG_HOME: configHome,
       INVENTORY_CLI_BASE_URL: baseUrl,
+      SWC_NODE_PROJECT: path.join(root, 'tsconfig.json'),
     },
   });
 }
@@ -183,6 +188,7 @@ async function assertPng(filePath) {
 
 await rm(tmpRoot, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
+await mkdir(projectDir, { recursive: true });
 await createCliConfig();
 
 console.log('Applying local D1 migrations...');
@@ -228,13 +234,18 @@ try {
   const spaceId = await createSpace();
   console.log(`Space: ${spaceId}`);
 
+  await runCli([
+    'init',
+    '--local',
+    '--space',
+    spaceId,
+  ]);
+
   const generatedPath = path.join(outputDir, 'generated.png');
   const generated = await runCli([
     'generate',
     'A simple local test background',
     '--local',
-    '--space',
-    spaceId,
     '--name',
     'Generated Background',
     '--type',
@@ -250,8 +261,6 @@ try {
   const refined = await runCli([
     'refine',
     '--local',
-    '--space',
-    spaceId,
     '--variant',
     generatedVariantId,
     'Make the local test background warmer',
@@ -269,8 +278,6 @@ try {
   const derived = await runCli([
     'derive',
     '--local',
-    '--space',
-    spaceId,
     '--refs',
     `${generatedVariantId},${referencePath}`,
     '--name',

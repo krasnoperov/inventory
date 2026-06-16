@@ -14,6 +14,7 @@ import { handleSpaces } from './commands/spaces';
 import { handleListen } from './commands/listen';
 import { handleUpload } from './commands/upload';
 import { handleGenerate, handleRefine, handleDerive } from './commands/forge';
+import { handleInit } from './commands/init';
 
 async function main() {
   const [, , command, ...args] = process.argv;
@@ -44,6 +45,9 @@ Authentication:
   login                        Authenticate with the API and store access token
   logout                       Remove stored credentials
 
+Project:
+  init --space <id>             Bind this directory to a website space
+
 Billing (Polar.sh):
   billing status               Show sync status (pending, failed, synced events)
   billing sync                 Trigger manual sync of pending events
@@ -64,15 +68,16 @@ Upload:
   upload <file> --space <id> --name <name>  Upload and create new asset
 
 Forge:
-  generate "prompt" --space <id> --name <name> --type <type> -o <file>
-  refine --space <id> --variant <variant_id> "prompt" -o <file>
-  derive --space <id> --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file>
+  generate "prompt" --name <name> --type <type> -o <file>
+  refine --variant <variant_id> "prompt" -o <file>
+  derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file>
 
 Options:
   --env <environment>          Target environment (production|stage|local), default: stage
   --local                      Shortcut for local development
 
 Examples:
+  npm run cli -- init --space space_123
   npm run cli -- login            Authenticate with stage environment
   npm run cli -- login --env production
   npm run cli -- logout
@@ -80,12 +85,15 @@ Examples:
   npm run cli -- spaces --details List spaces with asset summaries
   npm run cli -- spaces create "My Game Assets"
   npm run cli -- listen --space space_123
-  npm run cli -- generate "A market background" --space space_123 --name "Market" --type scene -o market.png
+  npm run cli -- generate "A market background" --name "Market" --type scene -o market.png
 `);
 }
 
 async function dispatchCommand(command: string, parsed: Parameters<typeof parseArgs>[0] extends string[] ? ReturnType<typeof parseArgs> : never) {
   switch (command) {
+    case 'init':
+      await handleInit(parsed);
+      break;
     case 'login':
       await handleLogin(parsed);
       break;

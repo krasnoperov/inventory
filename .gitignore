@@ -33,6 +33,7 @@ test-references/
 tmp/
 
 # CLI test state and logs
+.inventory/
 test/*.json
 test/*.log.md
 test/catalog/
