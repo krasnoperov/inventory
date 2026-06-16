@@ -229,7 +229,8 @@ export class SpaceDO extends DurableObject<Env> {
 
     const meta = this.getWebSocketMeta(ws);
     this.presenceCtrl.handleDisconnect(meta);
-    ws.close(code, reason);
+    const validCloseCode = code === 1000 || (code >= 3000 && code <= 4999) ? code : 1000;
+    ws.close(validCloseCode, reason);
   }
 
   /**

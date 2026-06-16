@@ -8,6 +8,7 @@
  */
 
 import { AuthService } from '../../features/auth/auth-service';
+import { ensureDevAuthUser, getDevAuthUserId } from '../../features/auth/dev-auth';
 import { getMemberRole } from '../../../dao/member-queries';
 import type { Env } from '../../../core/types';
 import type { WebSocketMeta } from './types';
@@ -47,28 +48,37 @@ export class AuthHandler {
       return { success: false, status: 401, message: 'Missing authentication' };
     }
 
+    const devUserId = getDevAuthUserId(this.env, token);
+    if (devUserId !== null) {
+      await ensureDevAuthUser(this.env, devUserId);
+      return await this.authenticateUserId(devUserId);
+    }
+
     // Verify JWT
     const authService = new AuthService(this.env);
     const payload = await authService.verifyJWT(token);
-
     if (!payload) {
       return { success: false, status: 401, message: 'Invalid token' };
     }
 
+    return await this.authenticateUserId(payload.userId);
+  }
+
+  private async authenticateUserId(userId: number): Promise<AuthResult> {
     // Check membership in D1
-    const role = await getMemberRole(this.env.DB, this.spaceId, payload.userId);
+    const role = await getMemberRole(this.env.DB, this.spaceId, userId);
 
     if (!role) {
       log.warn('WebSocket auth failed: not a member', {
         spaceId: this.spaceId,
-        userId: String(payload.userId),
+        userId: String(userId),
       });
       return { success: false, status: 403, message: 'Not a member' };
     }
 
     // Build WebSocket metadata
     const meta: WebSocketMeta = {
-      userId: String(payload.userId),
+      userId: String(userId),
       role,
     };
 

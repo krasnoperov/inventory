@@ -1,6 +1,7 @@
 import type { Context, Next } from 'hono';
 import type { AppContext } from '../routes/types';
 import { AuthService } from '../features/auth/auth-service';
+import { ensureDevAuthUser, getDevAuthUserId } from '../features/auth/dev-auth';
 
 /**
  * Extract token from request headers (Bearer token or cookie)
@@ -40,6 +41,14 @@ export const authMiddleware = async (c: Context<AppContext>, next: Next) => {
 
   if (!token) {
     return c.json({ error: 'Authentication required' }, 401);
+  }
+
+  const devUserId = getDevAuthUserId(c.env, token);
+  if (devUserId !== null) {
+    await ensureDevAuthUser(c.env, devUserId);
+    c.set('userId', devUserId);
+    await next();
+    return;
   }
 
   const payload = await authService.verifyJWT(token);

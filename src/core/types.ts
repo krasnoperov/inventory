@@ -49,6 +49,7 @@ export interface Env {
 
   // AI services (for NanoBananaService and future use)
   GOOGLE_AI_API_KEY?: string;
+  INVENTORY_IMAGE_PROVIDER?: 'fake' | 'gemini';
   AI?: Ai;
   AI_GATEWAY_URL?: string;
 
@@ -61,6 +62,8 @@ export interface Env {
 
   // Environment
   ENVIRONMENT?: 'local' | 'development' | 'stage' | 'staging' | 'production';
+  INVENTORY_DEV_AUTH_TOKEN?: string;
+  INVENTORY_DEV_USER_ID?: string;
 
   // R2 Storage for generated images (required for Inventory Forge)
   IMAGES: R2Bucket;

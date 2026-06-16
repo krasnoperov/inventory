@@ -13,6 +13,7 @@ import { handleBilling } from './commands/billing';
 import { handleSpaces } from './commands/spaces';
 import { handleListen } from './commands/listen';
 import { handleUpload } from './commands/upload';
+import { handleGenerate, handleRefine, handleDerive } from './commands/forge';
 
 async function main() {
   const [, , command, ...args] = process.argv;
@@ -62,18 +63,24 @@ Upload:
   upload <file> --space <id> --asset <id>   Upload image to existing asset
   upload <file> --space <id> --name <name>  Upload and create new asset
 
+Forge:
+  generate "prompt" --space <id> --name <name> --type <type> -o <file>
+  refine --space <id> --variant <variant_id> "prompt" -o <file>
+  derive --space <id> --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file>
+
 Options:
   --env <environment>          Target environment (production|stage|local), default: stage
   --local                      Shortcut for local development
 
 Examples:
-  npm run cli login            Authenticate with stage environment
-  npm run cli login --env production
-  npm run cli logout
-  npm run cli billing status   Show billing sync status
-  npm run cli spaces --details List spaces with asset summaries
-  npm run cli spaces create "My Game Assets"
-  npm run cli listen --space space_123
+  npm run cli -- login            Authenticate with stage environment
+  npm run cli -- login --env production
+  npm run cli -- logout
+  npm run cli -- billing status   Show billing sync status
+  npm run cli -- spaces --details List spaces with asset summaries
+  npm run cli -- spaces create "My Game Assets"
+  npm run cli -- listen --space space_123
+  npm run cli -- generate "A market background" --space space_123 --name "Market" --type scene -o market.png
 `);
 }
 
@@ -96,6 +103,15 @@ async function dispatchCommand(command: string, parsed: Parameters<typeof parseA
       break;
     case 'upload':
       await handleUpload(parsed);
+      break;
+    case 'generate':
+      await handleGenerate(parsed);
+      break;
+    case 'refine':
+      await handleRefine(parsed);
+      break;
+    case 'derive':
+      await handleDerive(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);

@@ -6,6 +6,7 @@
  */
 
 import process from 'node:process';
+import http from 'node:http';
 import https from 'node:https';
 import WebSocket from 'ws';
 import { loadStoredConfig, resolveBaseUrl } from './config';
@@ -86,8 +87,10 @@ interface GenerateRequestMessage {
   assetType: string;
   prompt?: string;
   referenceAssetIds?: string[];
+  referenceVariantIds?: string[];
   aspectRatio?: string;
   parentAssetId?: string;
+  disableStyle?: boolean;
 }
 
 interface RefineRequestMessage {
@@ -96,8 +99,10 @@ interface RefineRequestMessage {
   assetId: string;
   prompt: string;
   sourceVariantId?: string;
+  sourceVariantIds?: string[];
   referenceAssetIds?: string[];
   aspectRatio?: string;
+  disableStyle?: boolean;
 }
 
 interface DescribeRequestMessage {
@@ -135,7 +140,7 @@ interface ChatResponse {
 type VariantStatus = 'pending' | 'processing' | 'uploading' | 'completed' | 'failed';
 
 /** Variant from backend (placeholder variants architecture) */
-interface Variant {
+export interface Variant {
   id: string;
   asset_id: string;
   workflow_id: string | null;
@@ -150,12 +155,26 @@ interface Variant {
   updated_at: number | null;
 }
 
-interface GenerateStarted {
+export interface GenerateStarted {
   type: 'generate:started';
   requestId: string;
   jobId: string; // This is the variantId
   assetId: string;
   assetName: string;
+}
+
+interface GenerateError {
+  type: 'generate:error';
+  requestId: string;
+  error: string;
+  code: string;
+}
+
+interface RefineError {
+  type: 'refine:error';
+  requestId: string;
+  error: string;
+  code: string;
 }
 
 interface RefineStarted {
@@ -172,7 +191,7 @@ interface VariantUpdated {
 }
 
 // Legacy result types (deprecated, but kept for compatibility)
-interface GenerateResult {
+export interface GenerateResult {
   type: 'generate:result';
   requestId: string;
   jobId: string;
@@ -234,6 +253,8 @@ type ServerMessage =
   | ChatProgressMessage
   | GenerateStarted
   | RefineStarted
+  | GenerateError
+  | RefineError
   | GenerateResult
   | RefineResult
   | VariantUpdated
@@ -266,6 +287,7 @@ export class WebSocketClient {
     onStarted?: (data: GenerateStarted) => void;
     onResult: (result: GenerateResult) => void;
     reject: (error: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
   }> = new Map();
 
   // Track pending variant completions (variantId → callbacks)
@@ -275,6 +297,7 @@ export class WebSocketClient {
     assetName: string;
     onResult: (result: GenerateResult) => void;
     reject: (error: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
   }> = new Map();
 
   private describeHandlers: Map<string, {
@@ -356,8 +379,10 @@ export class WebSocketClient {
 
       // For local dev with self-signed certs, disable certificate verification
       const wsOptions: WebSocket.ClientOptions = { headers };
-      if (this.env === 'local') {
+      if (this.env === 'local' && protocol === 'wss') {
         wsOptions.agent = new https.Agent({ rejectUnauthorized: false });
+      } else if (this.env === 'local' && protocol === 'ws') {
+        wsOptions.agent = new http.Agent();
       }
 
       this.ws = new WebSocket(url, wsOptions);
@@ -494,9 +519,22 @@ export class WebSocketClient {
             assetName: startedMsg.assetName,
             onResult: handler.onResult,
             reject: handler.reject,
+            timeout: handler.timeout,
           });
           // Remove from request-based handlers (we'll resolve via variant:updated)
           this.generateHandlers.delete(startedMsg.requestId);
+        }
+        break;
+      }
+
+      case 'generate:error':
+      case 'refine:error': {
+        const errorMsg = message as GenerateError | RefineError;
+        const handler = this.generateHandlers.get(errorMsg.requestId);
+        if (handler) {
+          this.generateHandlers.delete(errorMsg.requestId);
+          clearTimeout(handler.timeout);
+          handler.reject(new Error(`${errorMsg.code}: ${errorMsg.error}`));
         }
         break;
       }
@@ -507,6 +545,7 @@ export class WebSocketClient {
         const handler = this.variantCompletionHandlers.get(variant.id);
         if (handler && (variant.status === 'completed' || variant.status === 'failed')) {
           this.variantCompletionHandlers.delete(variant.id);
+          clearTimeout(handler.timeout);
           // Convert to GenerateResult format for compatibility
           const result: GenerateResult = {
             type: 'generate:result',
@@ -528,6 +567,7 @@ export class WebSocketClient {
         const handler = this.generateHandlers.get(resultMsg.requestId);
         if (handler) {
           this.generateHandlers.delete(resultMsg.requestId);
+          clearTimeout(handler.timeout);
           handler.onResult(resultMsg);
         }
         break;
@@ -681,18 +721,38 @@ export class WebSocketClient {
     assetType: string;
     prompt?: string;
     referenceAssetIds?: string[];
+    referenceVariantIds?: string[];
     aspectRatio?: string;
     parentAssetId?: string;
+    disableStyle?: boolean;
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
 
     return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        const requestHandler = this.generateHandlers.get(requestId);
+        if (requestHandler) {
+          this.generateHandlers.delete(requestId);
+          reject(new Error('Generate request timed out'));
+          return;
+        }
+
+        for (const [variantId, handler] of this.variantCompletionHandlers) {
+          if (handler.requestId === requestId) {
+            this.variantCompletionHandlers.delete(variantId);
+            reject(new Error('Generate request timed out'));
+            return;
+          }
+        }
+      }, 300000);
+
       // Set up handler for response
       this.generateHandlers.set(requestId, {
         onStarted: params.onStarted,
         onResult: resolve,
         reject,
+        timeout,
       });
 
       // Send the request
@@ -703,24 +763,19 @@ export class WebSocketClient {
         assetType: params.assetType,
         prompt: params.prompt,
         referenceAssetIds: params.referenceAssetIds,
+        referenceVariantIds: params.referenceVariantIds,
         aspectRatio: params.aspectRatio,
         parentAssetId: params.parentAssetId,
+        disableStyle: params.disableStyle,
       };
 
       try {
         this.send(message);
       } catch (err) {
         this.generateHandlers.delete(requestId);
+        clearTimeout(timeout);
         reject(err);
       }
-
-      // Timeout after 5 minutes (generation can take a while)
-      setTimeout(() => {
-        if (this.generateHandlers.has(requestId)) {
-          this.generateHandlers.delete(requestId);
-          reject(new Error('Generate request timed out'));
-        }
-      }, 300000);
     });
   }
 
@@ -731,18 +786,38 @@ export class WebSocketClient {
     assetId: string;
     prompt: string;
     sourceVariantId?: string;
+    sourceVariantIds?: string[];
     referenceAssetIds?: string[];
     aspectRatio?: string;
+    disableStyle?: boolean;
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
 
     return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        const requestHandler = this.generateHandlers.get(requestId);
+        if (requestHandler) {
+          this.generateHandlers.delete(requestId);
+          reject(new Error('Refine request timed out'));
+          return;
+        }
+
+        for (const [variantId, handler] of this.variantCompletionHandlers) {
+          if (handler.requestId === requestId) {
+            this.variantCompletionHandlers.delete(variantId);
+            reject(new Error('Refine request timed out'));
+            return;
+          }
+        }
+      }, 300000);
+
       // Set up handler for response
       this.generateHandlers.set(requestId, {
         onStarted: params.onStarted,
         onResult: resolve,
         reject,
+        timeout,
       });
 
       // Send the request
@@ -752,24 +827,19 @@ export class WebSocketClient {
         assetId: params.assetId,
         prompt: params.prompt,
         sourceVariantId: params.sourceVariantId,
+        sourceVariantIds: params.sourceVariantIds,
         referenceAssetIds: params.referenceAssetIds,
         aspectRatio: params.aspectRatio,
+        disableStyle: params.disableStyle,
       };
 
       try {
         this.send(message);
       } catch (err) {
         this.generateHandlers.delete(requestId);
+        clearTimeout(timeout);
         reject(err);
       }
-
-      // Timeout after 5 minutes
-      setTimeout(() => {
-        if (this.generateHandlers.has(requestId)) {
-          this.generateHandlers.delete(requestId);
-          reject(new Error('Refine request timed out'));
-        }
-      }, 300000);
     });
   }
 
