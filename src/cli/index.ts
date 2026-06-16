@@ -16,6 +16,7 @@ import { handleUpload } from './commands/upload';
 import { handleGenerate, handleRefine, handleDerive, handleBatch } from './commands/forge';
 import { handleInit } from './commands/init';
 import { handleRuns } from './commands/runs';
+import { handleAssets } from './commands/assets';
 
 async function main() {
   const [, , command, ...args] = process.argv;
@@ -51,6 +52,10 @@ Project:
   runs                           List local generation run manifests
   runs show --latest             Show the newest local run manifest
   runs export --latest -o <file> Export keyframes for Remotion/video tools
+  assets                         List website assets for the initialized space
+  assets show <asset-id>          Show website asset variants and lineage
+  assets download <variant-id> -o <file>
+                                 Download a website variant image locally
 
 Billing (Polar.sh):
   billing status               Show sync status (pending, failed, synced events)
@@ -93,6 +98,8 @@ Examples:
   pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
   pnpm run cli batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
   pnpm run cli runs export --latest --format remotion -o keyframes.json
+  pnpm run cli assets
+  pnpm run cli assets download variant_123 -o variant.png
 `);
 }
 
@@ -133,6 +140,9 @@ async function dispatchCommand(command: string, parsed: Parameters<typeof parseA
       break;
     case 'runs':
       await handleRuns(parsed);
+      break;
+    case 'assets':
+      await handleAssets(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);
