@@ -160,6 +160,17 @@ function uploadRequest(spaceId: string, formData: FormData): Request {
   });
 }
 
+function oversizedUploadRequest(path: string): Request {
+  return new Request(`https://app.example${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer test-token',
+      'Content-Length': String(12 * 1024 * 1024),
+    },
+    body: '',
+  });
+}
+
 function styleUploadRequest(spaceId: string, formData: FormData): Request {
   return new Request(`https://app.example/api/spaces/${spaceId}/style-images`, {
     method: 'POST',
@@ -257,6 +268,30 @@ describe('uploadRoutes', () => {
     assert.match(body.error, /Invalid file type/);
     assert.match(body.error, /image\/png/);
     assert.doesNotMatch(body.error, /audio\/mpeg/);
+    assert.strictEqual(puts.length, 0);
+    assert.strictEqual(doCalls.length, 0);
+  });
+
+  it('rejects oversized upload bodies before parsing form data', async () => {
+    const { app, puts, doCalls } = buildApp();
+
+    const res = await app.fetch(oversizedUploadRequest('/api/spaces/space-1/upload'));
+    const body = await res.json() as { error: string };
+
+    assert.strictEqual(res.status, 413);
+    assert.match(body.error, /limited to 10MB/);
+    assert.strictEqual(puts.length, 0);
+    assert.strictEqual(doCalls.length, 0);
+  });
+
+  it('rejects oversized style image bodies before parsing form data', async () => {
+    const { app, puts, doCalls } = buildApp();
+
+    const res = await app.fetch(oversizedUploadRequest('/api/spaces/space-1/style-images'));
+    const body = await res.json() as { error: string };
+
+    assert.strictEqual(res.status, 413);
+    assert.match(body.error, /limited to 10MB/);
     assert.strictEqual(puts.length, 0);
     assert.strictEqual(doCalls.length, 0);
   });

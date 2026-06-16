@@ -23,6 +23,7 @@ interface GetCall {
 interface VariantMediaFixture {
   id: string;
   status: string;
+  image_key?: string | null;
   media_key?: string | null;
   media_mime_type?: string | null;
   poster_key?: string | null;
@@ -134,6 +135,24 @@ describe('imageRoutes', () => {
     assert.strictEqual(await res.text(), 'png-data');
   });
 
+  it('does not serve generic media keys through the legacy image route', async () => {
+    const { app, calls } = buildApp({
+      objects: {
+        'media/space/variant.mp4': makeObject({
+          key: 'media/space/variant.mp4',
+          body: 'video-data',
+          contentType: 'video/mp4',
+        }),
+      },
+    });
+
+    const res = await app.fetch(new Request('https://app.example/api/images/media/space/variant.mp4'));
+
+    assert.strictEqual(res.status, 404);
+    assert.deepStrictEqual(await res.json(), { error: 'Image not found' });
+    assert.strictEqual(calls.length, 0);
+  });
+
   it('keeps image/png as the legacy image content-type fallback', async () => {
     const { app } = buildApp({
       objects: {
@@ -170,8 +189,39 @@ describe('imageRoutes', () => {
     assert.strictEqual(res.status, 200);
     assert.strictEqual(calls[0].key, 'media/space/variant.mp4');
     assert.strictEqual(res.headers.get('content-type'), 'video/mp4');
+    assert.strictEqual(res.headers.get('cache-control'), 'private, max-age=31536000, immutable');
     assert.strictEqual(res.headers.get('accept-ranges'), 'bytes');
     assert.strictEqual(await res.text(), 'video-data');
+  });
+
+  it('serves legacy image_key objects through authenticated variant media', async () => {
+    const { app, calls } = buildApp({
+      variants: {
+        'variant-1': {
+          id: 'variant-1',
+          status: 'completed',
+          image_key: 'images/space/variant.png',
+          media_key: null,
+        },
+      },
+      objects: {
+        'images/space/variant.png': makeObject({
+          key: 'images/space/variant.png',
+          body: 'png-data',
+          contentType: 'image/png',
+        }),
+      },
+    });
+
+    const res = await app.fetch(new Request('https://app.example/api/spaces/space-1/variants/variant-1/media', {
+      headers: { Authorization: 'Bearer test-token' },
+    }));
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(calls[0].key, 'images/space/variant.png');
+    assert.strictEqual(res.headers.get('content-type'), 'image/png');
+    assert.strictEqual(res.headers.get('cache-control'), 'private, max-age=31536000, immutable');
+    assert.strictEqual(await res.text(), 'png-data');
   });
 
   it('serves authenticated variant poster_key objects when present', async () => {
@@ -338,6 +388,42 @@ describe('imageRoutes', () => {
     }));
     assert.strictEqual(poster.status, 404);
     assert.deepStrictEqual(await poster.json(), { error: 'Variant poster not available' });
+  });
+
+  it('does not serve artifacts for variants that are not completed', async () => {
+    const { app, calls } = buildApp({
+      variants: {
+        'variant-1': {
+          id: 'variant-1',
+          status: 'uploading',
+          media_key: 'media/space/uploading.mp4',
+          poster_key: 'posters/space/uploading.webp',
+        },
+      },
+      objects: {
+        'media/space/uploading.mp4': makeObject({
+          key: 'media/space/uploading.mp4',
+          body: 'video',
+        }),
+        'posters/space/uploading.webp': makeObject({
+          key: 'posters/space/uploading.webp',
+          body: 'poster',
+        }),
+      },
+    });
+
+    const media = await app.fetch(new Request('https://app.example/api/spaces/space-1/variants/variant-1/media', {
+      headers: { Authorization: 'Bearer test-token' },
+    }));
+    assert.strictEqual(media.status, 404);
+    assert.deepStrictEqual(await media.json(), { error: 'Variant media not available' });
+
+    const poster = await app.fetch(new Request('https://app.example/api/spaces/space-1/variants/variant-1/poster', {
+      headers: { Authorization: 'Bearer test-token' },
+    }));
+    assert.strictEqual(poster.status, 404);
+    assert.deepStrictEqual(await poster.json(), { error: 'Variant poster not available' });
+    assert.strictEqual(calls.length, 0);
   });
 
   it('returns media-specific errors when storage is unavailable or missing a key', async () => {

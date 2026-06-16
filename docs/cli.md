@@ -113,14 +113,16 @@ pnpm run cli assets show ASSET_ID --json
 Asset inspection displays each asset's `media_kind`; `assets show` also displays
 each variant's `media_kind`.
 
-Download an existing completed variant or direct media key to a local file:
+Download an existing completed variant or legacy image key to a local file:
 
 ```bash
 pnpm run cli assets download VARIANT_ID -o references/variant.png
 pnpm run cli assets download images/space/variant.png -o references/variant.png
 pnpm run cli assets download VARIANT_ID -o audio/theme.mp3
-pnpm run cli assets download media/space/theme.mp3 -o audio/theme.mp3
 ```
+
+Generic `media/...` artifacts must be downloaded by variant ID so the website
+can authorize the space membership before resolving the R2 key.
 
 `assets` calls the website API every time. It does not scan local files, create
 a local asset database, or sync state into `.inventory`; the website remains the
