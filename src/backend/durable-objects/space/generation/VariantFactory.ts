@@ -20,6 +20,8 @@ import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../../../shared/websocket
 
 const log = loggers.generationController;
 const DEFAULT_VIDEO_MODEL = 'veo-3.1-generate-preview';
+const MAX_GEMINI_REFERENCE_IMAGES = 14;
+const MAX_VEO_REFERENCE_IMAGES = 3;
 
 // ============================================================================
 // Types
@@ -658,8 +660,22 @@ export class VariantFactory {
       // Ignore parse errors
     }
 
-    // Validate total image count (Gemini limit: ~14-16 images)
-    if (styleImageKeys.length + sourceImageKeys.length > 14) {
+    let effectiveSourceImageKeys = sourceImageKeys;
+    if (recipe.mediaKind === 'video') {
+      const sourceBudget = Math.min(sourceImageKeys.length, MAX_VEO_REFERENCE_IMAGES);
+      const styleBudget = MAX_VEO_REFERENCE_IMAGES - sourceBudget;
+
+      if (styleImageKeys.length + sourceImageKeys.length > MAX_VEO_REFERENCE_IMAGES) {
+        log.warn('Style + source images exceed Veo limit, capping reference images', {
+          styleImages: styleImageKeys.length,
+          sourceImages: sourceImageKeys.length,
+          maxImages: MAX_VEO_REFERENCE_IMAGES,
+        });
+      }
+
+      effectiveSourceImageKeys = sourceImageKeys.slice(0, MAX_VEO_REFERENCE_IMAGES);
+      styleImageKeys = styleImageKeys.slice(0, styleBudget);
+    } else if (styleImageKeys.length + sourceImageKeys.length > MAX_GEMINI_REFERENCE_IMAGES) {
       log.warn('Style + source images exceed limit, skipping style images', {
         styleImages: styleImageKeys.length,
         sourceImages: sourceImageKeys.length,
@@ -677,7 +693,7 @@ export class VariantFactory {
     }
 
     // Prepend style image keys to source images (style refs come first)
-    const combinedSourceImageKeys = [...styleImageKeys, ...sourceImageKeys];
+    const combinedSourceImageKeys = [...styleImageKeys, ...effectiveSourceImageKeys];
 
     // Update recipe
     const updatedRecipe: GenerationRecipe = {

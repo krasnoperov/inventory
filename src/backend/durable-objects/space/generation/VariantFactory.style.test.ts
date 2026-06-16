@@ -233,6 +233,105 @@ describe('VariantFactory - Style Injection', () => {
       assert.strictEqual(recipe.sourceImageKeys![0], 'styles/space-1/ref1.png');
       assert.strictEqual(recipe.sourceImageKeys![1], 'images/user-ref.png');
     });
+
+    test('video generation caps style-only references to Veo limit', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
+        createMockStyle({
+          image_keys: '["styles/ref1.png","styles/ref2.png","styles/ref3.png","styles/ref4.png"]',
+        })
+      );
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Video Test',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'A slow camera orbit',
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'styles/ref1.png',
+        'styles/ref2.png',
+        'styles/ref3.png',
+      ]);
+      assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
+      assert.deepStrictEqual(result.styleImageKeys, recipe.sourceImageKeys);
+    });
+
+    test('video refine preserves source reference before filling style budget', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
+        createMockStyle({
+          image_keys: '["styles/ref1.png","styles/ref2.png","styles/ref3.png","styles/ref4.png"]',
+        })
+      );
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
+        id: 'asset-video',
+        name: 'Video Asset',
+        type: 'animation',
+        media_kind: 'video',
+        tags: '[]',
+        parent_asset_id: null,
+        active_variant_id: 'variant-source',
+        created_by: 'user-123',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async () => ({
+        id: 'variant-source',
+        asset_id: 'asset-video',
+        media_kind: 'video',
+        workflow_id: null,
+        status: 'completed',
+        error_message: null,
+        image_key: 'images/source.png',
+        thumb_key: 'images/source_thumb.webp',
+        media_key: 'images/source.png',
+        media_mime_type: 'image/png',
+        media_size_bytes: 1234,
+        media_width: 512,
+        media_height: 512,
+        media_duration_ms: null,
+        recipe: '{}',
+        starred: false,
+        created_by: 'user-123',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        plan_step_id: null,
+        description: null,
+        batch_id: null,
+        quality_rating: null,
+        rated_at: null,
+      }));
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createRefineVariant(
+        {
+          assetId: 'asset-video',
+          mediaKind: 'video',
+          prompt: 'Animate this asset',
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'styles/ref1.png',
+        'styles/ref2.png',
+        'images/source.png',
+      ]);
+      assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
+      assert.deepStrictEqual(result.styleImageKeys, ['styles/ref1.png', 'styles/ref2.png']);
+    });
   });
 
   describe('disableStyle', () => {
