@@ -230,6 +230,7 @@ export function ForgeTray({
   const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
   const selectedMediaKind = getMediaKindForForgeMode(mediaMode);
   const isAudioMode = isAudioForgeMode(mediaMode);
+  const hasIncompatibleAudioSlots = isAudioMode && slots.some((slot) => slot.variant.media_kind !== 'audio');
   const canUseExistingDestination = !targetAsset || targetAsset.media_kind === selectedMediaKind;
 
   useEffect(() => {
@@ -383,6 +384,8 @@ export function ForgeTray({
     if (effectiveDestinationType === 'new_asset' && !newAssetName.trim()) return;
     // Refine with no prompt is a no-op
     if (operation === 'refine' && !prompt.trim()) return;
+    // Audio workflows cannot consume image/video slot media as references.
+    if (hasIncompatibleAudioSlots) return;
 
     setIsSubmitting(true);
     try {
@@ -425,7 +428,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, newAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, batchCount, batchMode, noStyle]);
+  }, [prompt, effectiveDestinationType, newAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleAudioSlots, batchCount, batchMode, noStyle]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -448,6 +451,7 @@ export function ForgeTray({
   const canSubmit = useMemo(() => {
     if (isSubmitting) return false;
     if (effectiveDestinationType === 'existing_asset' && !canUseExistingDestination) return false;
+    if (hasIncompatibleAudioSlots) return false;
 
     // Fork: 1 slot, no prompt needed, but need new asset name
     if (operation === 'fork') {
@@ -468,7 +472,7 @@ export function ForgeTray({
     }
 
     return true;
-  }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, newAssetName, canUseExistingDestination]);
+  }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, newAssetName, canUseExistingDestination, hasIncompatibleAudioSlots]);
 
   const canAddMore = slots.length < effectiveMaxSlots;
   // Show destination toggle on AssetDetailPage (has currentAsset) so user can choose existing vs new
