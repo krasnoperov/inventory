@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, isVariantImageReady } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, isVariantForgeTrayReady } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
 import { Thumbnail } from '../Thumbnail';
 import styles from './AssetNode.module.css';
@@ -42,7 +42,7 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
 
   const handleAddToTray = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (variant && isVariantImageReady(variant)) {
+    if (variant && isVariantForgeTrayReady(variant)) {
       onAddToTray?.(variant, asset);
     }
   }, [variant, asset, onAddToTray]);
@@ -71,7 +71,7 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
         {renderThumbnail()}
 
         {/* Add to tray button on hover - only for ready variants */}
-        {variant && isVariantImageReady(variant) && onAddToTray && (
+        {variant && isVariantForgeTrayReady(variant) && onAddToTray && (
           <button
             className={styles.addButton}
             onClick={handleAddToTray}

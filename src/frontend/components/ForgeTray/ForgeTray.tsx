@@ -4,21 +4,33 @@ import type { ForgeOperation } from '../../stores/forgeTrayStore';
 import {
   type Asset,
   type Variant,
-  getVariantThumbnailUrl,
   type ChatMessageClient,
   type ChatForgeContext,
   type ForgeChatProgressResult,
 } from '../../hooks/useSpaceWebSocket';
+import type { MediaKind } from '../../../shared/websocket-types';
 import { useStyleStore } from '../../stores/styleStore';
 import { AssetPickerModal } from './AssetPickerModal';
 import { ForgeChat } from './ForgeChat';
 import { StylePanel } from './StylePanel';
+import { Thumbnail } from '../Thumbnail';
+import {
+  FORGE_MEDIA_MODE_CONFIGS,
+  type ForgeMediaMode,
+  getAssetTypeForForgeMode,
+  getForgeMediaModeConfig,
+  getForgeModeForAudioAssetType,
+  getMediaKindForForgeMode,
+  isAudioForgeMode,
+} from './forgeMediaMode';
 import styles from './ForgeTray.module.css';
 
 export type DestinationType = 'existing_asset' | 'new_asset';
 
 export interface ForgeSubmitParams {
   prompt?: string;  // undefined for fork (copy without modification)
+  /** Media kind requested by the selected Forge Tray mode */
+  mediaKind?: MediaKind;
   // Use referenceVariantIds for explicit variant selection (ForgeTray UI)
   // Use referenceAssetIds for asset-level references (Chat/Claude) - backend resolves to default variants
   referenceVariantIds?: string[];
@@ -117,22 +129,25 @@ function getOperation(
 }
 
 // Get button label for operation
-function getOperationLabel(operation: ForgeOperation): string {
+function getOperationLabel(operation: ForgeOperation, mediaMode: ForgeMediaMode): string {
+  const modeConfig = getForgeMediaModeConfig(mediaMode);
+  const mediaSuffix = mediaMode === 'image' ? '' : ` ${modeConfig.shortLabel}`;
   switch (operation) {
-    case 'generate': return 'Generate';
-    case 'fork': return 'Fork';
-    case 'derive': return 'Derive';
-    case 'refine': return 'Refine';
+    case 'generate': return `Generate${mediaSuffix}`;
+    case 'fork': return `Fork${mediaSuffix}`;
+    case 'derive': return `Derive${mediaSuffix}`;
+    case 'refine': return `Refine${mediaSuffix}`;
   }
 }
 
 // Get placeholder text based on state
-function getPlaceholder(slotCount: number, operation: ForgeOperation): string {
-  if (slotCount === 0 && operation === 'refine') return 'Describe a new variant to generate...';
-  if (slotCount === 0) return 'Describe what to generate...';
+function getPlaceholder(slotCount: number, operation: ForgeOperation, mediaMode: ForgeMediaMode): string {
+  const noun = getForgeMediaModeConfig(mediaMode).promptNoun;
+  if (slotCount === 0 && operation === 'refine') return `Describe a new ${noun} variant...`;
+  if (slotCount === 0) return `Describe the ${noun} to generate...`;
   if (operation === 'fork') return 'Leave empty to fork, or describe changes...';
-  if (operation === 'derive') return 'Describe what to derive from these references...';
-  return 'Describe the refinement or transformation...';
+  if (operation === 'derive') return `Describe the ${noun} to derive from these references...`;
+  return `Describe the ${noun} refinement or transformation...`;
 }
 
 export function ForgeTray({
@@ -171,6 +186,7 @@ export function ForgeTray({
   const [noStyle, setNoStyle] = useState(false);
   const [batchCount, setBatchCount] = useState(1);
   const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
+  const [mediaMode, setMediaMode] = useState<ForgeMediaMode>('image');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -184,6 +200,9 @@ export function ForgeTray({
     if (slots.length > 0) return slots[0].asset;
     return null;
   }, [currentAsset, slots]);
+  const currentAssetId = currentAsset?.id;
+  const currentAssetMediaKind = currentAsset?.media_kind;
+  const currentAssetType = currentAsset?.type;
 
   // SpacePage (no currentAsset): always new_asset, no toggle
   // AssetDetailPage (has currentAsset): user can toggle between existing and new
@@ -194,15 +213,41 @@ export function ForgeTray({
     return destinationType;
   }, [currentAsset, destinationType]);
 
+  useEffect(() => {
+    if (currentAssetMediaKind === 'audio') {
+      setMediaMode(getForgeModeForAudioAssetType(currentAssetType));
+    } else if (currentAssetId) {
+      setMediaMode('image');
+    }
+  }, [currentAssetId, currentAssetMediaKind, currentAssetType]);
+
+  useEffect(() => {
+    if (!currentAsset && slots[0]?.variant.media_kind === 'audio' && mediaMode === 'image') {
+      setMediaMode(getForgeModeForAudioAssetType(slots[0].asset.type));
+    }
+  }, [currentAsset, mediaMode, slots]);
+
+  const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
+  const selectedMediaKind = getMediaKindForForgeMode(mediaMode);
+  const isAudioMode = isAudioForgeMode(mediaMode);
+  const hasIncompatibleMediaSlots = slots.some((slot) => slot.variant.media_kind !== selectedMediaKind);
+  const canUseExistingDestination = !targetAsset || targetAsset.media_kind === selectedMediaKind;
+
+  useEffect(() => {
+    if (currentAsset && destinationType === 'existing_asset' && !canUseExistingDestination) {
+      setDestinationType('new_asset');
+    }
+  }, [canUseExistingDestination, currentAsset, destinationType]);
+
   // Dynamic max slots accounting for style images
-  const styleImageCount = style?.enabled ? style.imageKeys.length : 0;
+  const styleImageCount = !isAudioMode && style?.enabled ? style.imageKeys.length : 0;
   const effectiveMaxSlots = maxSlots - styleImageCount;
 
   const hasPrompt = prompt.trim().length > 0;
   const operation = getOperation(slots.length, hasPrompt, effectiveDestinationType);
-  const baseLabel = getOperationLabel(operation);
+  const baseLabel = getOperationLabel(operation, mediaMode);
   const operationLabel = batchCount > 1 ? `${baseLabel} x${batchCount}` : baseLabel;
-  const placeholder = getPlaceholder(slots.length, operation);
+  const placeholder = getPlaceholder(slots.length, operation, mediaMode);
 
   // Slot variant IDs for vision-aware operations
   const slotVariantIds = useMemo(() => slots.map(s => s.variant.id), [slots]);
@@ -339,6 +384,8 @@ export function ForgeTray({
     if (effectiveDestinationType === 'new_asset' && !newAssetName.trim()) return;
     // Refine with no prompt is a no-op
     if (operation === 'refine' && !prompt.trim()) return;
+    // Forge operations cannot consume references from a different media mode.
+    if (hasIncompatibleMediaSlots) return;
 
     setIsSubmitting(true);
     try {
@@ -347,14 +394,14 @@ export function ForgeTray({
       const parentAssetId = effectiveDestinationType === 'new_asset' && sourceAsset
         ? sourceAsset.id
         : undefined;
-      // Inherit type from source asset, or default to 'character'
-      const assetType = sourceAsset?.type || 'character';
+      const assetType = getAssetTypeForForgeMode(mediaMode, sourceAsset?.type);
 
       // For fork operation, prompt should be undefined (copy without modification)
       const trimmedPrompt = prompt.trim();
 
       onSubmit({
         prompt: trimmedPrompt || undefined,
+        mediaKind: selectedMediaKind,
         referenceVariantIds: slots.map(s => s.variant.id),
         destination: {
           type: effectiveDestinationType,
@@ -366,7 +413,7 @@ export function ForgeTray({
         operation,
         batchCount: batchCount > 1 ? batchCount : undefined,
         batchMode: batchCount > 1 ? batchMode : undefined,
-        disableStyle: noStyle || undefined,
+        disableStyle: isAudioMode || noStyle || undefined,
       });
 
       // Clear on success
@@ -381,7 +428,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, newAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation]);
+  }, [prompt, effectiveDestinationType, newAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, batchCount, batchMode, noStyle]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -403,6 +450,8 @@ export function ForgeTray({
   // Determine if submit is allowed
   const canSubmit = useMemo(() => {
     if (isSubmitting) return false;
+    if (effectiveDestinationType === 'existing_asset' && !canUseExistingDestination) return false;
+    if (hasIncompatibleMediaSlots) return false;
 
     // Fork: 1 slot, no prompt needed, but need new asset name
     if (operation === 'fork') {
@@ -423,7 +472,7 @@ export function ForgeTray({
     }
 
     return true;
-  }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, newAssetName]);
+  }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, newAssetName, canUseExistingDestination, hasIncompatibleMediaSlots]);
 
   const canAddMore = slots.length < effectiveMaxSlots;
   // Show destination toggle on AssetDetailPage (has currentAsset) so user can choose existing vs new
@@ -462,10 +511,11 @@ export function ForgeTray({
             <div className={styles.thumbsRow}>
               {slots.map((slot) => (
                 <div key={slot.id} className={styles.slotThumb}>
-                  <img
-                    src={getVariantThumbnailUrl(slot.variant) || ''}
-                    alt={slot.asset.name}
-                    className={styles.slotImage}
+                  <Thumbnail
+                    variant={slot.variant}
+                    size="fill"
+                    spaceId={spaceId}
+                    className={styles.slotPreview}
                   />
                   <button
                     className={styles.removeButton}
@@ -494,7 +544,7 @@ export function ForgeTray({
                 <button
                   className={styles.addThumbButton}
                   onClick={handleUploadClick}
-                  title={targetAsset ? `Upload image to "${targetAsset.name}"` : 'Upload image to create new asset'}
+                  title={targetAsset ? `Upload media to "${targetAsset.name}"` : 'Upload media to create new asset'}
                   disabled={isUploading}
                 >
                   {isUploading ? (
@@ -513,6 +563,22 @@ export function ForgeTray({
 
           {/* Controls Row - Bottom of input area */}
           <div className={styles.controlsRow}>
+            {/* Media Mode Toggle */}
+            <div className={styles.mediaModeToggle} title={`Forge ${mediaModeConfig.promptNoun}`}>
+              {FORGE_MEDIA_MODE_CONFIGS.map((config) => (
+                <button
+                  key={config.mode}
+                  type="button"
+                  className={`${styles.modeButton} ${mediaMode === config.mode ? styles.active : ''}`}
+                  onClick={() => setMediaMode(config.mode)}
+                  disabled={isSubmitting}
+                  title={`${config.label} mode`}
+                >
+                  <span>{config.shortLabel}</span>
+                </button>
+              ))}
+            </div>
+
             {/* Destination Toggle */}
             {showDestinationToggle && (
               <div className={styles.destinationToggle}>
@@ -520,8 +586,12 @@ export function ForgeTray({
                   type="button"
                   className={`${styles.destButton} ${destinationType === 'existing_asset' ? styles.active : ''}`}
                   onClick={() => setDestinationType('existing_asset')}
-                  disabled={isSubmitting}
-                  title={targetAsset ? `Add to "${targetAsset.name}"` : 'Add to existing'}
+                  disabled={isSubmitting || !canUseExistingDestination}
+                  title={
+                    !canUseExistingDestination
+                      ? `${mediaModeConfig.label} mode creates ${selectedMediaKind} assets`
+                      : targetAsset ? `Add to "${targetAsset.name}"` : 'Add to existing'
+                  }
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
                     <path d="M12 5v14M5 12h14" />
@@ -552,13 +622,13 @@ export function ForgeTray({
                 value={newAssetName}
                 onChange={(e) => setNewAssetName(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Asset name"
+                placeholder={`${mediaModeConfig.label} name`}
                 disabled={isSubmitting}
               />
             )}
 
             {/* Style Badge - clickable to open StylePanel */}
-            {sendStyleSet && (
+            {sendStyleSet && !isAudioMode && (
               <button
                 type="button"
                 className={`${styles.styleBadge} ${style?.enabled ? styles.active : ''} ${showStylePanel ? styles.open : ''}`}
@@ -576,7 +646,7 @@ export function ForgeTray({
             )}
 
             {/* No Style checkbox - only show when style is active */}
-            {style?.enabled && (
+            {style?.enabled && !isAudioMode && (
               <label className={styles.noStyleCheck}>
                 <input
                   type="checkbox"
@@ -671,7 +741,7 @@ export function ForgeTray({
         </div>
 
         {/* StylePanel - Positioned absolutely above the tray */}
-        {showStylePanel && spaceId && sendStyleSet && sendStyleDelete && sendStyleToggle && (
+        {showStylePanel && !isAudioMode && spaceId && sendStyleSet && sendStyleDelete && sendStyleToggle && (
           <StylePanel
             spaceId={spaceId}
             onClose={() => setShowStylePanel(false)}
@@ -705,6 +775,7 @@ export function ForgeTray({
           allAssets={allAssets}
           allVariants={allVariants}
           onClose={handleCloseAssetPicker}
+          spaceId={spaceId}
         />
       )}
 

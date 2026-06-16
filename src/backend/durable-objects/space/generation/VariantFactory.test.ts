@@ -7,7 +7,6 @@ import type { Env } from '../../../../core/types';
 import type { WebSocketMeta, Asset, Variant } from '../types';
 
 // Helper to get mock from a function
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MockFn = Mock<(...args: any[]) => any>;
 const asMock = (fn: unknown): MockFn => fn as MockFn;
 
@@ -379,6 +378,75 @@ describe('VariantFactory', () => {
       assert.strictEqual(recipe.mediaKind, 'audio');
     });
 
+    test('keeps audio source lineage when refining without an image key', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
+        id: 'asset-1',
+        name: 'Existing Audio',
+        type: 'music',
+        media_kind: 'audio',
+        active_variant_id: 'existing-audio-var',
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async () => ({
+        id: 'existing-audio-var',
+        asset_id: 'asset-1',
+        media_kind: 'audio',
+        image_key: null,
+        media_key: 'media/existing.mp3',
+      }));
+
+      const result = await factory.createRefineVariant(
+        {
+          assetId: 'asset-1',
+          prompt: 'Make the loop more tense',
+        },
+        meta
+      );
+
+      assert.deepStrictEqual(result.parentVariantIds, ['existing-audio-var']);
+      assert.deepStrictEqual(result.sourceImageKeys, []);
+      assert.strictEqual(result.variant.media_kind, 'audio');
+      assert.strictEqual(asMock(repo.createLineage).mock.calls[0].arguments[0].parentVariantId, 'existing-audio-var');
+    });
+
+    test('keeps explicit audio references as lineage-only references', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      asMock(repo.getVariantById).mock.mockImplementation(async (variantId: string) => ({
+        id: variantId,
+        asset_id: 'audio-source-asset',
+        media_kind: 'audio',
+        image_key: null,
+        media_key: 'media/source.wav',
+      }));
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Footstep Sweetener',
+          assetType: 'sfx',
+          mediaKind: 'audio',
+          prompt: 'Layer heavier boot impact on this footstep',
+          referenceVariantIds: ['audio-source-var'],
+        },
+        meta
+      );
+
+      assert.deepStrictEqual(result.parentVariantIds, ['audio-source-var']);
+      assert.deepStrictEqual(result.sourceImageKeys, []);
+      assert.strictEqual(result.asset.media_kind, 'audio');
+      assert.strictEqual(result.asset.parent_asset_id, 'audio-source-asset');
+      assert.strictEqual(asMock(repo.createLineage).mock.calls[0].arguments[0].parentVariantId, 'audio-source-var');
+    });
+
     test('rejects explicit media kind that differs from target asset when refining', async () => {
       const repo = createMockRepo();
       const env = createMockEnv();
@@ -428,7 +496,7 @@ describe('VariantFactory', () => {
       );
     });
 
-    test('throws when no source images available', async () => {
+    test('throws when no source media available', async () => {
       const repo = createMockRepo();
       const env = createMockEnv();
       const broadcast = createMockBroadcast();
@@ -449,7 +517,7 @@ describe('VariantFactory', () => {
           },
           meta
         ),
-        /No source images/
+        /No source media/
       );
     });
   });

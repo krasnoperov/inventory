@@ -4,6 +4,7 @@ import {
   getVariantMediaUrl,
   getVariantThumbnailUrl,
   isVariantAudioReady,
+  isVariantForgeTrayReady,
   isVariantImageReady,
   isVariantReady,
   isVariantVideoReady,
@@ -53,6 +54,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(imageVariant), true);
     assert.equal(isVariantImageReady(imageVariant), true);
+    assert.equal(isVariantForgeTrayReady(imageVariant), true);
     assert.equal(isVariantAudioReady(imageVariant), false);
     assert.equal(isVariantVideoReady(imageVariant), false);
     assert.equal(getVariantThumbnailUrl(imageVariant), '/api/images/images/space/variant_thumb.webp');
@@ -72,6 +74,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(audioVariant), true);
     assert.equal(isVariantImageReady(audioVariant), false);
+    assert.equal(isVariantForgeTrayReady(audioVariant), true);
     assert.equal(isVariantAudioReady(audioVariant), true);
     assert.equal(isVariantVideoReady(audioVariant), false);
     assert.equal(getVariantThumbnailUrl(audioVariant), undefined);
@@ -91,6 +94,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(audioWithoutMedia), true);
     assert.equal(isVariantAudioReady(audioWithoutMedia), false);
+    assert.equal(isVariantForgeTrayReady(audioWithoutMedia), false);
   });
 
   test('treats completed video variants as ready for native playback', () => {
@@ -105,6 +109,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(videoVariant), true);
     assert.equal(isVariantImageReady(videoVariant), false);
+    assert.equal(isVariantForgeTrayReady(videoVariant), false);
     assert.equal(isVariantAudioReady(videoVariant), false);
     assert.equal(isVariantVideoReady(videoVariant), true);
     assert.equal(getVariantThumbnailUrl(videoVariant), undefined);
@@ -121,6 +126,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(pendingVariant), false);
     assert.equal(isVariantImageReady(pendingVariant), false);
+    assert.equal(isVariantForgeTrayReady(pendingVariant), false);
     assert.equal(isVariantAudioReady(pendingVariant), false);
     assert.equal(isVariantVideoReady(pendingVariant), false);
     assert.equal(getVariantMediaUrl(pendingVariant, 'space-1'), undefined);

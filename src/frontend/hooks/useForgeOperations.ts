@@ -12,6 +12,7 @@
 import { useCallback } from 'react';
 import type { ForgeSubmitParams } from '../components/ForgeTray';
 import type { GenerateRequestParams, RefineRequestParams, ForkParams, BatchRequestParams } from './useSpaceWebSocket';
+import type { MediaKind } from '../../shared/websocket-types';
 
 export interface UseForgeOperationsParams {
   /** WebSocket function to send generate requests */
@@ -32,6 +33,7 @@ export interface UseForgeOperationsReturn {
   onGenerate: (params: {
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     prompt: string;
     parentAssetId?: string;
   }) => string;
@@ -41,6 +43,7 @@ export interface UseForgeOperationsReturn {
     sourceAssetId: string;
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     parentAssetId?: string;
   }) => void;
 
@@ -48,6 +51,7 @@ export interface UseForgeOperationsReturn {
   onDerive: (params: {
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     prompt: string;
     referenceAssetIds: string[];
     parentAssetId?: string;
@@ -56,6 +60,7 @@ export interface UseForgeOperationsReturn {
   /** Refine: Add variant to existing asset */
   onRefine: (params: {
     assetId: string;
+    mediaKind?: MediaKind;
     prompt: string;
   }) => string;
 }
@@ -78,7 +83,7 @@ export function useForgeOperations({
    * Returns requestId for tracking the operation (or empty string for fork).
    */
   const handleForgeSubmit = useCallback((params: ForgeSubmitParams): string => {
-    const { prompt, referenceVariantIds = [], referenceAssetIds, destination, operation, batchCount, batchMode, disableStyle } = params;
+    const { prompt, referenceVariantIds = [], referenceAssetIds, destination, operation, mediaKind, batchCount, batchMode, disableStyle } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
 
@@ -88,6 +93,7 @@ export function useForgeOperations({
         sourceVariantId: referenceVariantIds[0],
         name: destination.assetName || 'Forked Asset',
         assetType: destination.assetType || 'character',
+        mediaKind,
         parentAssetId: destination.parentAssetId || undefined,
       });
       return ''; // forkAsset is synchronous, no requestId
@@ -98,6 +104,7 @@ export function useForgeOperations({
       return sendBatchRequest({
         name: destination.assetName || 'Generated Asset',
         assetType: destination.assetType || 'character',
+        mediaKind,
         prompt,
         count: batchCount,
         mode: batchMode || 'explore',
@@ -117,6 +124,7 @@ export function useForgeOperations({
 
       return sendRefineRequest({
         assetId: destination.assetId,
+        mediaKind,
         prompt,
         // Pass all source variants for combine-into-existing scenarios
         sourceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
@@ -128,6 +136,7 @@ export function useForgeOperations({
       return sendGenerateRequest({
         name: destination.assetName || 'Generated Asset',
         assetType: destination.assetType || 'character',
+        mediaKind,
         prompt,
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
         referenceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
@@ -144,10 +153,12 @@ export function useForgeOperations({
     name: string;
     type: string;
     prompt: string;
+    mediaKind?: MediaKind;
     parentAssetId?: string;
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
+      mediaKind: params.mediaKind,
       destination: {
         type: 'new_asset',
         assetName: params.name,
@@ -166,6 +177,7 @@ export function useForgeOperations({
     sourceAssetId: string;
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     parentAssetId?: string;
   }): void => {
     if (!forkAsset) {
@@ -176,6 +188,7 @@ export function useForgeOperations({
       sourceAssetId: params.sourceAssetId,
       name: params.name,
       assetType: params.type,
+      mediaKind: params.mediaKind,
       parentAssetId: params.parentAssetId,
     });
   }, [forkAsset]);
@@ -186,12 +199,14 @@ export function useForgeOperations({
   const onDerive = useCallback((params: {
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     prompt: string;
     referenceAssetIds: string[];
     parentAssetId?: string;
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
+      mediaKind: params.mediaKind,
       referenceAssetIds: params.referenceAssetIds,
       destination: {
         type: 'new_asset',
@@ -208,10 +223,12 @@ export function useForgeOperations({
    */
   const onRefine = useCallback((params: {
     assetId: string;
+    mediaKind?: MediaKind;
     prompt: string;
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
+      mediaKind: params.mediaKind,
       destination: {
         type: 'existing_asset',
         assetId: params.assetId,
