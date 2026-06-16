@@ -4,6 +4,7 @@ import {
   ReactFlowProvider,
   Background,
   Controls,
+  MiniMap,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -574,6 +575,16 @@ function VariantCanvasInner({
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
         <Controls className={styles.controls} position="bottom-left" />
+        {/* Minimap: shows every variant regardless of zoom; click/drag to jump
+            to off-screen nodes without zooming the main view out. */}
+        <MiniMap
+          className={styles.minimap}
+          position="bottom-right"
+          pannable
+          zoomable
+          nodeColor="var(--color-accent, #6ea8fe)"
+          maskColor="rgba(0, 0, 0, 0.5)"
+        />
       </ReactFlow>
     </div>
   );
