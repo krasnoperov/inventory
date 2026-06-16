@@ -3,7 +3,7 @@ import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { useRouteStore } from '../stores/routeStore';
+import { useRouteParams } from '../routeLocation';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore } from '../stores/chatStore';
 import { useStyleStore, type SpaceStyleClient } from '../stores/styleStore';
@@ -42,7 +42,7 @@ interface Member {
 export default function SpacePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const params = useRouteStore((state) => state.params);
+  const params = useRouteParams();
   const spaceId = params.id;
 
   const [space, setSpace] = useState<Space | null>(null);

@@ -6,7 +6,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { ErrorMessage } from '../components/forms';
-import { useRouteStore } from '../stores/routeStore';
+import { useRoutePage } from '../routeLocation';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
 import styles from './LandingPage.module.css';
@@ -17,7 +17,7 @@ export default function LandingPage() {
   // `/dashboard` is aliased to LandingPage (logged-in variant). Use the
   // route-specific title so the client matches the worker's rewritten
   // <title> after hydration instead of overwriting it.
-  const routePage = useRouteStore((state) => state.page);
+  const routePage = useRoutePage();
   useDocumentTitle(routePage === 'dashboard' ? 'Dashboard' : undefined);
 
   // Spaces state (only used when logged in)

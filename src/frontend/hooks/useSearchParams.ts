@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
-import { useRouteStore } from '../stores/routeStore';
+import { navigate } from '../navigation/navigator';
+import { useRouteSearch } from '../routeLocation';
 
 /**
  * Hook to access URL search params
  * Replacement for React Router's useSearchParams
  */
 export function useSearchParams(): [URLSearchParams, (params: URLSearchParams) => void] {
-  const search = useRouteStore((state) => state.search);
+  const search = useRouteSearch();
 
   const searchParams = useMemo(
     () => new URLSearchParams(search),
@@ -18,8 +19,7 @@ export function useSearchParams(): [URLSearchParams, (params: URLSearchParams) =
   const setSearchParams = (params: URLSearchParams) => {
     const newSearch = params.toString();
     const newUrl = `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`;
-    window.history.pushState({}, '', newUrl);
-    useRouteStore.getState().setLocation(window.location.pathname, newSearch ? `?${newSearch}` : '');
+    navigate(newUrl);
   };
 
   return [searchParams, setSearchParams];

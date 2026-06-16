@@ -1,9 +1,11 @@
 // Simple navigation handler using modern Navigation API with History API fallback
 
 type NavigationListener = (url: URL) => void;
+type NavigationBridge = (url: URL, options?: { replace?: boolean }) => void | Promise<void>;
 
 const listeners = new Set<NavigationListener>();
 let initialized = false;
+let navigationBridge: NavigationBridge | undefined;
 
 // Notify all listeners of URL change
 const notifyListeners = (url: URL) => {
@@ -66,9 +68,20 @@ export const subscribeToNavigation = (listener: NavigationListener): (() => void
   return () => listeners.delete(listener);
 };
 
+export const setNavigationBridge = (bridge: NavigationBridge | undefined) => {
+  navigationBridge = bridge;
+};
+
 // Navigate programmatically
 export const navigate = (href: string, options?: { replace?: boolean }) => {
   const url = new URL(href, window.location.origin);
+
+  if (navigationBridge) {
+    void Promise.resolve(navigationBridge(url, options)).then(() => {
+      notifyListeners(url);
+    });
+    return;
+  }
 
   if ('navigation' in window && typeof window.navigation?.navigate === 'function') {
     // Use Navigation API
