@@ -1,6 +1,7 @@
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { formatMediaKind } from '../../mediaKind';
 import styles from './VariantNode.module.css';
 
 /** Layout direction for handle positioning */
@@ -401,6 +402,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
           {/* Metadata */}
           <div className={styles.detailsMeta}>
             <span className={styles.detailsDate}>{formatDate(variant.created_at)}</span>
+            <span className={styles.detailsKind}>{formatMediaKind(variant.media_kind)}</span>
             {recipe?.model && (
               <span className={styles.detailsModel}>{recipe.model}</span>
             )}
