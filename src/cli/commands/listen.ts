@@ -211,8 +211,8 @@ export async function handleListen(parsed: ParsedArgs): Promise<void> {
 
   // Handle Ctrl+C
   process.on('SIGINT', () => {
-    console.log('');
-    console.log('Closing connection...');
+    statusLog('');
+    statusLog('Closing connection...');
     ws.close();
   });
 
