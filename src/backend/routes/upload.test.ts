@@ -160,6 +160,14 @@ function uploadRequest(spaceId: string, formData: FormData): Request {
   });
 }
 
+function styleUploadRequest(spaceId: string, formData: FormData): Request {
+  return new Request(`https://app.example/api/spaces/${spaceId}/style-images`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test-token' },
+    body: formData,
+  });
+}
+
 describe('uploadRoutes', () => {
   it('uploads video as canonical media for a new asset', async () => {
     const { app, puts, doCalls } = buildApp();
@@ -233,6 +241,22 @@ describe('uploadRoutes', () => {
 
     assert.strictEqual(res.status, 400);
     assert.match(body.error, /does not match/);
+    assert.strictEqual(puts.length, 0);
+    assert.strictEqual(doCalls.length, 0);
+  });
+
+  it('keeps style image uploads image-only', async () => {
+    const { app, puts, doCalls } = buildApp();
+    const formData = new FormData();
+    formData.append('file', new File([new Uint8Array([9, 8])], 'theme.mp3', { type: 'audio/mpeg' }));
+
+    const res = await app.fetch(styleUploadRequest('space-1', formData));
+    const body = await res.json() as { error: string };
+
+    assert.strictEqual(res.status, 400);
+    assert.match(body.error, /Invalid file type/);
+    assert.match(body.error, /image\/png/);
+    assert.doesNotMatch(body.error, /audio\/mpeg/);
     assert.strictEqual(puts.length, 0);
     assert.strictEqual(doCalls.length, 0);
   });

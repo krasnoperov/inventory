@@ -63,6 +63,7 @@ const IMAGE_MIME_TYPES = new Set<ImageMimeType>([
   'image/gif',
   'image/webp',
 ]);
+const ALLOWED_IMAGE_MIME_TYPES = [...IMAGE_MIME_TYPES];
 const ALLOWED_MIME_TYPES = Object.keys(MIME_TO_MEDIA_KIND);
 
 function parseMediaKind(value: FormDataEntryValue | null): MediaKind | undefined {
@@ -392,9 +393,9 @@ uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
 
   // Validate file type
   const mimeType = file.type as ImageMimeType;
-  if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+  if (!IMAGE_MIME_TYPES.has(mimeType)) {
     return c.json({
-      error: `Invalid file type. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`,
+      error: `Invalid file type. Allowed: ${ALLOWED_IMAGE_MIME_TYPES.join(', ')}`,
     }, 400);
   }
 
