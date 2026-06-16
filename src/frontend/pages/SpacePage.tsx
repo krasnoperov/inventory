@@ -23,15 +23,9 @@ import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import { StylePanel } from '../components/ForgeTray/StylePanel';
+import { apiFetch } from '../../api/client';
+import type { Space } from '../../api/types';
 import styles from './SpacePage.module.css';
-
-interface Space {
-  id: string;
-  name: string;
-  role: string;
-  owner_id: string;
-  created_at: number;
-}
 
 interface Member {
   user_id: string;
@@ -232,26 +226,28 @@ export default function SpacePage() {
         setIsLoading(true);
         setError(null);
 
-        const [spaceResponse, membersResponse] = await Promise.all([
-          fetch(`/api/spaces/${spaceId}`, { credentials: 'include' }),
+        const [spaceResult, membersResponse] = await Promise.allSettled([
+          apiFetch('GET /api/spaces/:id', { params: { id: spaceId } }),
           fetch(`/api/spaces/${spaceId}/members`, { credentials: 'include' }),
         ]);
 
-        if (!spaceResponse.ok) {
-          if (spaceResponse.status === 403) {
+        if (spaceResult.status === 'rejected') {
+          const status = typeof spaceResult.reason === 'object' && spaceResult.reason !== null && 'status' in spaceResult.reason
+            ? spaceResult.reason.status
+            : undefined;
+          if (status === 403) {
             throw new Error('You do not have access to this space');
           }
-          if (spaceResponse.status === 404) {
+          if (status === 404) {
             throw new Error('Space not found');
           }
           throw new Error('Failed to fetch space');
         }
 
-        const spaceData = await spaceResponse.json() as { success: boolean; space: Space };
-        setSpace(spaceData.space);
+        setSpace(spaceResult.value.space);
 
-        if (membersResponse.ok) {
-          const membersData = await membersResponse.json() as { success: boolean; members: Member[] };
+        if (membersResponse.status === 'fulfilled' && membersResponse.value.ok) {
+          const membersData = await membersResponse.value.json() as { success: boolean; members: Member[] };
           setMembers(membersData.members || []);
         }
       } catch (err) {

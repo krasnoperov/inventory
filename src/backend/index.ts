@@ -1,13 +1,12 @@
-import { Hono } from 'hono';
 import type { Env } from '../core/types';
 import { createContainer } from '../core/container';
 import { registerRoutes } from './routes';
-import type { AppContext } from './routes/types';
 import { UsageService } from './services/usageService';
+import { createOpenApiRouter } from './routes/openapi';
 
 export type Bindings = Env;
 
-const app = new Hono<AppContext>();
+const app = createOpenApiRouter();
 
 // Middleware to set up container
 app.use('*', async (c, next) => {

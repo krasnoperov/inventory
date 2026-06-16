@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { Hono } from 'hono';
 import { registerRoutes } from './index';
 import type { AppContext } from './types';
+import { createOpenApiRouter } from './openapi';
 
 // Minimal index.html shell so handleDocumentNavigation has something to rewrite.
 const SHELL_HTML = `<!doctype html>
@@ -20,7 +20,7 @@ const SHELL_HTML = `<!doctype html>
 // needs to answer `.get()` without throwing — auth middleware rejects on the
 // missing token before it touches any service.
 function buildApp() {
-  const app = new Hono<AppContext>();
+  const app = createOpenApiRouter();
   app.use('*', async (c, next) => {
     const fakeAssets = {
       fetch: async (req: Request) => {
@@ -48,7 +48,7 @@ function buildApp() {
   return app;
 }
 
-function get(app: Hono<AppContext>, path: string, accept = 'text/html') {
+function get(app: ReturnType<typeof createOpenApiRouter>, path: string, accept = 'text/html') {
   return app.fetch(new Request(`https://app.example${path}`, { headers: { accept } }));
 }
 

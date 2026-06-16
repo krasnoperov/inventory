@@ -1,20 +1,24 @@
-import { Hono } from 'hono';
-import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { UserDAO } from '../../dao/user-dao';
+import { createOpenApiRouter, toApiUser, toUserProfile } from './openapi';
+import {
+  getUserProfileRoute,
+  patchUserProfileRoute,
+  putUserSettingsRoute,
+} from '../../shared/api/routes';
 
-const userRoutes = new Hono<AppContext>();
+const userRoutes = createOpenApiRouter();
 
 // All user routes require authentication
 userRoutes.use('/api/user/*', authMiddleware);
 
 // User settings endpoint
-userRoutes.put('/api/user/settings', async (c) => {
+userRoutes.openapi(putUserSettingsRoute, async (c) => {
   const userId = c.get('userId')!;
   const userDAO = c.get('container').get(UserDAO);
 
   // Get and validate request body
-  const body = await c.req.json();
+  const body = c.req.valid('json');
   const { name } = body;
 
   // Update user settings
@@ -27,20 +31,13 @@ userRoutes.put('/api/user/settings', async (c) => {
   }
 
   return c.json({
-    success: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      google_id: user.google_id,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-    }
-  });
+    success: true as const,
+    user: toApiUser(user),
+  }, 200);
 });
 
 // User profile endpoints
-userRoutes.get('/api/user/profile', async (c) => {
+userRoutes.openapi(getUserProfileRoute, async (c) => {
   const userId = c.get('userId')!;
   const userDAO = c.get('container').get(UserDAO);
 
@@ -49,14 +46,10 @@ userRoutes.get('/api/user/profile', async (c) => {
     return c.json({ error: 'User not found' }, 404);
   }
 
-  return c.json({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-  });
+  return c.json(toUserProfile(user), 200);
 });
 
-userRoutes.patch('/api/user/profile', async (c) => {
+userRoutes.openapi(patchUserProfileRoute, async (c) => {
   const userId = c.get('userId')!;
   const userDAO = c.get('container').get(UserDAO);
 
@@ -65,7 +58,7 @@ userRoutes.patch('/api/user/profile', async (c) => {
     return c.json({ error: 'User not found' }, 404);
   }
 
-  const body = await c.req.json();
+  const body = c.req.valid('json');
   const { name } = body;
 
   // Validate name if provided
@@ -82,13 +75,9 @@ userRoutes.patch('/api/user/profile', async (c) => {
   const updatedUser = await userDAO.findById(user.id);
 
   return c.json({
-    success: true,
-    user: {
-      id: updatedUser!.id,
-      email: updatedUser!.email,
-      name: updatedUser!.name,
-    },
-  });
+    success: true as const,
+    user: toUserProfile(updatedUser!),
+  }, 200);
 });
 
 export { userRoutes };

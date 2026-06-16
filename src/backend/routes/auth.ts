@@ -1,22 +1,26 @@
-import { Hono } from 'hono';
-import type { AppContext } from './types';
 import { AuthHandler } from '../features/auth/auth-handler';
+import { createOpenApiRouter } from './openapi';
+import {
+  getAuthSessionRoute,
+  postAuthLogoutRoute,
+  postGoogleAuthRoute,
+} from '../../shared/api/routes';
 
-const authRoutes = new Hono<AppContext>();
+const authRoutes = createOpenApiRouter();
 
-authRoutes.get('/api/auth/session', async (c) => {
+authRoutes.openapi(getAuthSessionRoute, async (c) => {
   const container = c.get('container');
   const authHandler = container.get(AuthHandler);
   return authHandler.getSession(c);
 });
 
-authRoutes.post('/api/auth/google', async (c) => {
+authRoutes.openapi(postGoogleAuthRoute, async (c) => {
   const container = c.get('container');
   const authHandler = container.get(AuthHandler);
   return authHandler.googleAuth(c);
 });
 
-authRoutes.post('/api/auth/logout', async (c) => {
+authRoutes.openapi(postAuthLogoutRoute, async (c) => {
   const container = c.get('container');
   const authHandler = container.get(AuthHandler);
   return authHandler.logout(c);

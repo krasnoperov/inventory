@@ -7,20 +7,16 @@ import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { FormContainer, FormTitle, ErrorMessage, formStyles } from '../components/forms';
 import { BillingSection } from '../components/BillingSection';
+import { apiFetch } from '../../api/client';
+import type { UserProfile } from '../../api/types';
 import styles from './ProfilePage.module.css';
-
-interface ProfileData {
-  id: number;
-  email: string;
-  name: string;
-}
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   useDocumentTitle('Profile');
 
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,15 +37,7 @@ export default function ProfilePage() {
   const fetchProfile = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/user/profile', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch profile');
-      }
-
-      const data = await response.json() as ProfileData;
+      const data = await apiFetch('GET /api/user/profile');
       setProfile(data);
       setName(data.name);
     } catch (err) {
@@ -73,23 +61,11 @@ export default function ProfilePage() {
     setSuccessMessage(null);
 
     try {
-      const response = await fetch('/api/user/profile', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const data = await apiFetch('PATCH /api/user/profile', {
+        json: {
           name: name.trim(),
-        }),
+        },
       });
-
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to update profile');
-      }
-
-      const data = await response.json() as { success: boolean; user: ProfileData };
       setProfile(data.user);
       setSuccessMessage('Profile updated successfully!');
 
