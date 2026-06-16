@@ -71,6 +71,20 @@ async function loadBuiltRouteRenderer(): Promise<RouteRenderer> {
   return renderTanStackStartRoute;
 }
 
+/**
+ * Local dev runs the worker through Vite's module runner, which cannot load
+ * the production SSR bundle (it re-resolves the bundle's own imports and
+ * fails, 500-ing every document request). Bundling the SSR source into the
+ * worker instead isn't viable either — the prod worker is bundled by wrangler,
+ * which would try to pull the whole frontend (CSS imports included) in. So in
+ * local dev we skip SSR and serve the shell: the client renders the SPA and
+ * Vite loads CSS, matching the pre-SSR behaviour (`StartProviders` fetches the
+ * session client-side when none is injected).
+ */
+function shouldServeUnrenderedShell(c: Context<AppContext>): boolean {
+  return c.env.ENVIRONMENT === 'local';
+}
+
 async function renderSsrDocument(
   c: Context<AppContext>,
   shellHtml: string,
@@ -127,6 +141,13 @@ export function createDocumentNavigationHandler(
     const shellRes = await c.env.ASSETS.fetch(new Request(`${origin}/index.html`));
     if (!shellRes.ok) {
       return shellRes;
+    }
+
+    if (shouldServeUnrenderedShell(c)) {
+      return new Response(await shellRes.text(), {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+      });
     }
 
     const renderRoute = await loadRouteRenderer();
