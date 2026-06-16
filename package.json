@@ -16,7 +16,7 @@
     "deploy": "pnpm run build && pnpm exec wrangler deploy",
     "deploy:production": "pnpm run build && pnpm exec wrangler deploy --env production",
     "deploy:stage": "pnpm run build && pnpm exec wrangler deploy",
-    "test": "NODE_COMPILE_CACHE=node_modules/.cache/node-compile node --env-file-if-exists=.env --import ./scripts/register-test-hooks.mjs --test",
+    "test": "node ./scripts/run-node-tests.mjs",
     "test:components": "playwright test --config playwright.component.config.ts",
     "test:components:ci": "node ./scripts/run-component-ci.mjs",
     "test:e2e:media-foundation": "pnpm run build && node scripts/e2e-media-foundation.mjs",
