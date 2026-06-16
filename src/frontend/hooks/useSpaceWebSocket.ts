@@ -1393,6 +1393,10 @@ export function useSpaceWebSocket({
                 break;
 
               case 'variant:created':
+                if (syncModeRef.current === 'overview') {
+                  sendMessage({ type: 'sync:overview' });
+                  break;
+                }
                 setVariants((prev) => {
                   // Avoid duplicates (variant may already exist from job:completed)
                   if (prev.some(v => v.id === message.variant.id)) {
@@ -1453,16 +1457,20 @@ export function useSpaceWebSocket({
                 break;
 
               case 'job:completed':
-                setVariants((prev) => {
-                  // Avoid duplicates (variant may already exist from variant:created)
-                  if (prev.some(v => v.id === message.variant.id)) {
-                    variantIdsRef.current.add(message.variant.id);
-                    return prev;
-                  }
-                  const next = [...prev, message.variant];
-                  variantIdsRef.current = new Set(next.map((variant) => variant.id));
-                  return next;
-                });
+                if (syncModeRef.current === 'overview') {
+                  sendMessage({ type: 'sync:overview' });
+                } else {
+                  setVariants((prev) => {
+                    // Avoid duplicates (variant may already exist from variant:created)
+                    if (prev.some(v => v.id === message.variant.id)) {
+                      variantIdsRef.current.add(message.variant.id);
+                      return prev;
+                    }
+                    const next = [...prev, message.variant];
+                    variantIdsRef.current = new Set(next.map((variant) => variant.id));
+                    return next;
+                  });
+                }
                 setJobs((prev) => {
                   const next = new Map(prev);
                   const existing = next.get(message.jobId);
@@ -1637,10 +1645,14 @@ export function useSpaceWebSocket({
                 });
                 // Add variant to state if successful
                 if (message.success && message.variant) {
-                  setVariants((prev) => {
-                    if (prev.some(v => v.id === message.variant!.id)) return prev;
-                    return [...prev, message.variant!];
-                  });
+                  if (syncModeRef.current === 'overview') {
+                    sendMessage({ type: 'sync:overview' });
+                  } else {
+                    setVariants((prev) => {
+                      if (prev.some(v => v.id === message.variant!.id)) return prev;
+                      return [...prev, message.variant!];
+                    });
+                  }
                 }
                 break;
 
@@ -1679,10 +1691,14 @@ export function useSpaceWebSocket({
                   return next;
                 });
                 if (message.success && message.variant) {
-                  setVariants((prev) => {
-                    if (prev.some(v => v.id === message.variant!.id)) return prev;
-                    return [...prev, message.variant!];
-                  });
+                  if (syncModeRef.current === 'overview') {
+                    sendMessage({ type: 'sync:overview' });
+                  } else {
+                    setVariants((prev) => {
+                      if (prev.some(v => v.id === message.variant!.id)) return prev;
+                      return [...prev, message.variant!];
+                    });
+                  }
                 }
                 break;
 
