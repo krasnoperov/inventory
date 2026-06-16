@@ -257,6 +257,8 @@ export class SpaceDO extends DurableObject<Env> {
       // Sync
       case 'sync:request':
         return this.syncCtrl.handleSyncRequest(ws);
+      case 'sync:overview':
+        return this.syncCtrl.handleOverviewRequest(ws);
 
       // Asset
       case 'asset:create':

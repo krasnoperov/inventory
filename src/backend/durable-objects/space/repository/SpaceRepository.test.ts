@@ -141,6 +141,27 @@ describe('SpaceRepository', () => {
       assert.strictEqual(variants[0].id, 'v1');
     });
 
+    test('getOverviewVariants selects display variants without leaking ranking column', async () => {
+      mockSql.setMockResult('ROW_NUMBER() OVER', [
+        { id: 'v-active', asset_id: 'a1', image_key: 'img-active', overview_rank: 1 },
+        { id: 'v-newest', asset_id: 'a2', image_key: 'img-newest', overview_rank: 1 },
+      ]);
+
+      const variants = await repo.getOverviewVariants();
+
+      assert.strictEqual(variants.length, 2);
+      assert.deepStrictEqual(
+        variants.map((variant) => variant.id),
+        ['v-active', 'v-newest']
+      );
+      assert.ok(!('overview_rank' in variants[0]));
+
+      const query = mockSql.getLastQuery();
+      assert(query !== undefined);
+      assert(query.query.includes('CASE WHEN v.id = a.active_variant_id'));
+      assert(query.query.includes('v.created_at DESC'));
+    });
+
     test('getVariantById returns null when not found', async () => {
       const variant = await repo.getVariantById('nonexistent');
       assert.strictEqual(variant, null);
@@ -392,6 +413,20 @@ describe('SpaceRepository', () => {
       assert(Array.isArray(state.assets));
       assert(Array.isArray(state.variants));
       assert(Array.isArray(state.lineage));
+    });
+
+    test('getOverviewState skips full variant and lineage queries', async () => {
+      mockSql.setMockResult('ROW_NUMBER() OVER', [{ id: 'v1', asset_id: 'a1', overview_rank: 1 }]);
+
+      const state = await repo.getOverviewState();
+
+      assert(Array.isArray(state.assets));
+      assert(Array.isArray(state.variants));
+      assert.strictEqual(state.variants.length, 1);
+      assert.ok(!('lineage' in state));
+      assert.ok(mockSql.queries.some((q) => q.query.includes('ROW_NUMBER() OVER')));
+      assert.ok(!mockSql.queries.some((q) => q.query === 'SELECT * FROM variants'));
+      assert.ok(!mockSql.queries.some((q) => q.query === 'SELECT * FROM lineage'));
     });
   });
 });

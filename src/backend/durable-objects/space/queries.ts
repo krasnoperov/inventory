@@ -52,6 +52,23 @@ export const VariantQueries = {
   /** Get all variants */
   GET_ALL: 'SELECT * FROM variants',
 
+  /** Get one overview variant per asset: the active variant, or the newest variant when no active variant is set */
+  GET_OVERVIEW: `
+    SELECT *
+    FROM (
+      SELECT
+        v.*,
+        ROW_NUMBER() OVER (
+          PARTITION BY v.asset_id
+          ORDER BY
+            CASE WHEN v.id = a.active_variant_id THEN 0 ELSE 1 END,
+            v.created_at DESC
+        ) as overview_rank
+      FROM variants v
+      JOIN assets a ON a.id = v.asset_id
+    )
+    WHERE overview_rank = 1`,
+
   /** Get variant by ID */
   GET_BY_ID: 'SELECT * FROM variants WHERE id = ?',
 

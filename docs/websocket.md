@@ -47,6 +47,7 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 | Message | Description |
 |---------|-------------|
 | `sync:request` | Request full state sync |
+| `sync:overview` | Request lightweight overview state: assets plus one display variant per asset |
 
 ### Assets
 
@@ -175,6 +176,7 @@ present, is served through
 | Message | Fields | Description |
 |---------|--------|-------------|
 | `sync:state` | `assets[]`, `variants[]`, `lineage[]`, `presence[]` | Full state snapshot |
+| `sync:overview` | `assets[]`, `variants[]`, `presence[]` | Lightweight overview snapshot with active-or-newest variants only |
 
 ### Asset Mutations
 

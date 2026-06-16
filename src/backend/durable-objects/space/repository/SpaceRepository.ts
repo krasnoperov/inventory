@@ -86,6 +86,17 @@ export interface SpaceState {
   style: SpaceStyle | null;
 }
 
+/** Lightweight state for the space overview canvas */
+export interface SpaceOverviewState {
+  assets: Asset[];
+  variants: Variant[];
+  rotationSets: RotationSet[];
+  rotationViews: RotationView[];
+  tileSets: TileSet[];
+  tilePositions: TilePosition[];
+  style: SpaceStyle | null;
+}
+
 /** Asset with variant count for bot context */
 export interface AssetWithVariantCount {
   id: string;
@@ -244,6 +255,15 @@ export class SpaceRepository {
   async getAllVariants(): Promise<Variant[]> {
     const result = await this.sql.exec(VariantQueries.GET_ALL);
     return result.toArray() as Variant[];
+  }
+
+  async getOverviewVariants(): Promise<Variant[]> {
+    const result = await this.sql.exec(VariantQueries.GET_OVERVIEW);
+    return (result.toArray() as Array<Variant & { overview_rank?: number }>).map((row) => {
+      const variant = { ...row };
+      delete variant.overview_rank;
+      return variant;
+    });
   }
 
   async getVariantById(id: string): Promise<Variant | null> {
@@ -760,6 +780,19 @@ export class SpaceRepository {
       this.getActiveStyle(),
     ]);
     return { assets, variants, lineage, rotationSets, rotationViews, tileSets, tilePositions, style };
+  }
+
+  async getOverviewState(): Promise<SpaceOverviewState> {
+    const [assets, variants, rotationSets, rotationViews, tileSets, tilePositions, style] = await Promise.all([
+      this.getAllAssets(),
+      this.getOverviewVariants(),
+      this.getAllRotationSets(),
+      this.getAllRotationViews(),
+      this.getAllTileSets(),
+      this.getAllTilePositions(),
+      this.getActiveStyle(),
+    ]);
+    return { assets, variants, rotationSets, rotationViews, tileSets, tilePositions, style };
   }
 
   // ==========================================================================
