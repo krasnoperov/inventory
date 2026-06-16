@@ -8,7 +8,7 @@ import { createOpenApiRouter } from './openapi';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
 import { uploadMediaRoute, uploadStyleImageRoute } from '../../shared/api/routes';
-import type { UploadMediaResponse } from '../../shared/api/schemas';
+import { UploadMediaResponseSchema, type UploadMediaResponse } from '../../shared/api/schemas';
 import {
   createThumbnail,
   getBaseUrl,
@@ -320,11 +320,13 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
     }
 
     const result = await completeResponse.json() as { variant: UploadMediaResponse['variant'] };
-    return c.json({
+    const responseBody = UploadMediaResponseSchema.parse({
       success: true as const,
       variant: result.variant,
       ...(createdNewAsset ? { asset: createdNewAsset } : {}), // Included when new asset was created
-    }, 200);
+    });
+
+    return c.json(responseBody, 200);
   } catch (error) {
     console.error('Upload failed:', error);
 

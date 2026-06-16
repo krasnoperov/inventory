@@ -351,6 +351,7 @@ describe('API contracts', () => {
                 media_key: body.mediaKey,
                 media_mime_type: body.mediaMimeType,
                 media_size_bytes: body.mediaSizeBytes,
+                starred: 0,
               },
             });
           }
@@ -389,6 +390,7 @@ describe('API contracts', () => {
 
     assert.equal(uploaded.success, true);
     assert.equal(uploaded.asset?.media_kind, 'video');
+    assert.equal(uploaded.variant.starred, false);
     assert.equal(uploaded.variant.media_mime_type, 'video/mp4');
     assert.equal(stored.get(uploaded.variant.media_key!)?.contentType, 'video/mp4');
   });

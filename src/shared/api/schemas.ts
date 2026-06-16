@@ -134,6 +134,12 @@ export const GetSpaceResponseSchema = z
 
 export const MediaKindSchema = z.enum(['image', 'audio', 'video']);
 export const VariantStatusSchema = z.enum(['pending', 'processing', 'uploading', 'completed', 'failed']);
+export const BooleanFromSqliteSchema = z
+  .union([z.boolean(), z.literal(0), z.literal(1)])
+  .transform((value) => value === true || value === 1)
+  .openapi({
+    type: 'boolean',
+  });
 
 export const AssetSchema = z
   .object({
@@ -168,7 +174,7 @@ export const VariantSchema = z
     media_height: z.number().nullable().optional(),
     media_duration_ms: z.number().nullable().optional(),
     recipe: z.string(),
-    starred: z.boolean(),
+    starred: BooleanFromSqliteSchema,
     created_by: z.string(),
     created_at: z.number(),
     updated_at: z.number().nullable(),
