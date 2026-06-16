@@ -6,7 +6,7 @@ A graphical assets forging inventory with nano-banana pro, built on Cloudflare W
 
 - **Authentication**: Google OAuth with JWT tokens, OIDC-compliant
 - **Dual-Worker Architecture**: Separate workers for HTTP/frontend and background processing
-- **React 19 Frontend**: Vite, Zustand, CSS Modules, custom SPA router
+- **React 19 Frontend**: Vite, TanStack Router, Zustand, CSS Modules
 - **D1 Database**: SQLite with migrations and Kysely query builder
 - **Dependency Injection**: InversifyJS for clean architecture
 - **CLI Tool**: Foundation for command-line access to your platform

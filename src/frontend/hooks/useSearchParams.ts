@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
+import { useLocation } from '@tanstack/react-router';
 import { navigate } from '../navigation/navigator';
-import { useRouteSearch } from '../routeLocation';
 
 /**
  * Hook to access URL search params
- * Replacement for React Router's useSearchParams
  */
 export function useSearchParams(): [URLSearchParams, (params: URLSearchParams) => void] {
-  const search = useRouteSearch();
+  const location = useLocation();
+  const search = location.searchStr;
 
   const searchParams = useMemo(
     () => new URLSearchParams(search),
@@ -18,7 +18,8 @@ export function useSearchParams(): [URLSearchParams, (params: URLSearchParams) =
   // In the future, this could be enhanced to work with the navigation system
   const setSearchParams = (params: URLSearchParams) => {
     const newSearch = params.toString();
-    const newUrl = `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`;
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : location.pathname;
+    const newUrl = `${pathname}${newSearch ? `?${newSearch}` : ''}`;
     navigate(newUrl);
   };
 

@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { registerRoutes } from './index';
 import type { AppContext } from './types';
 import { createOpenApiRouter } from './openapi';
+import { createDocumentNavigationHandler, type RouteRenderer } from '../middleware/documentNavigation';
 
-// Minimal index.html shell so handleDocumentNavigation has something to rewrite.
+// Minimal index.html shell so document navigation has something to hydrate.
 const SHELL_HTML = `<!doctype html>
 <html lang="en">
   <head>
@@ -14,6 +15,11 @@ const SHELL_HTML = `<!doctype html>
   </head>
   <body><div id="root"></div></body>
 </html>`;
+
+const renderRoute: RouteRenderer = async (request) => ({
+  html: `<main>${new URL(request.url).pathname}</main>`,
+  status: 200,
+});
 
 // Build the real app exactly as the worker wires it: a container + ASSETS
 // binding, then every route group via registerRoutes. The container only ever
@@ -44,7 +50,7 @@ function buildApp() {
     c.set('container', { get: () => ({}) } as never);
     await next();
   });
-  registerRoutes(app);
+  registerRoutes(app, createDocumentNavigationHandler(async () => renderRoute));
   return app;
 }
 
@@ -54,15 +60,15 @@ function get(app: ReturnType<typeof createOpenApiRouter>, path: string, accept =
 
 describe('route auth scoping', () => {
   // Regression: auth middleware registered as `.use('*', authMiddleware)` on a
-  // sub-app mounted at '/' leaks onto every path, so the landing page, SPA
-  // routes and static assets all returned 401 and the whole site went dark.
+  // sub-app mounted at '/' leaks onto every path, so the landing page,
+  // document routes and static assets all returned 401 and the whole site went dark.
   it('does not gate the landing page', async () => {
     const res = await get(buildApp(), '/');
     assert.notStrictEqual(res.status, 401);
     assert.strictEqual(res.status, 200);
   });
 
-  it('does not gate public SPA routes (/login)', async () => {
+  it('does not gate public document routes (/login)', async () => {
     const res = await get(buildApp(), '/login');
     assert.notStrictEqual(res.status, 401);
     assert.strictEqual(res.status, 200);

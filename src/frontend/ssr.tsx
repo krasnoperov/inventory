@@ -2,7 +2,6 @@ import ReactDOMServer from 'react-dom/server';
 import { RouterProvider } from '@tanstack/react-router';
 import { createRequestHandler } from '@tanstack/react-router/ssr/server';
 import { getRouter } from './router';
-import { RouteLocationProvider } from './routeLocation';
 import { StartSessionProvider, type StartSession } from './startSession';
 
 type SsrRouter = ReturnType<typeof getRouter>;
@@ -19,9 +18,7 @@ async function preloadMatchedRouteComponents(router: SsrRouter): Promise<void> {
 export async function renderTanStackStartRoute(
   request: Request,
   session: StartSession,
-): Promise<string> {
-  const url = new URL(request.url);
-
+): Promise<{ html: string; status: number }> {
   const handler = createRequestHandler({
     createRouter: getRouter,
     request,
@@ -31,11 +28,9 @@ export async function renderTanStackStartRoute(
     await preloadMatchedRouteComponents(router);
 
     const stream = await ReactDOMServer.renderToReadableStream(
-      <RouteLocationProvider path={url.pathname} search={url.search}>
-        <StartSessionProvider session={session}>
-          <RouterProvider router={router} />
-        </StartSessionProvider>
-      </RouteLocationProvider>,
+      <StartSessionProvider session={session}>
+        <RouterProvider router={router} />
+      </StartSessionProvider>,
       { signal: request.signal },
     );
     await stream.allReady;
@@ -50,5 +45,8 @@ export async function renderTanStackStartRoute(
     });
   });
 
-  return response.text();
+  return {
+    html: await response.text(),
+    status: response.status,
+  };
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from '@tanstack/react-router';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
@@ -6,7 +7,6 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { ErrorMessage } from '../components/forms';
-import { useRoutePage } from '../routeLocation';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
 import styles from './LandingPage.module.css';
@@ -14,11 +14,10 @@ import styles from './LandingPage.module.css';
 export default function LandingPage() {
   const _navigate = useNavigate(); // eslint-disable-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
+  const location = useLocation();
   // `/dashboard` is aliased to LandingPage (logged-in variant). Use the
-  // route-specific title so the client matches the worker's rewritten
-  // <title> after hydration instead of overwriting it.
-  const routePage = useRoutePage();
-  useDocumentTitle(routePage === 'dashboard' ? 'Dashboard' : undefined);
+  // route-specific title after hydration.
+  useDocumentTitle(location.pathname === '/dashboard' ? 'Dashboard' : undefined);
 
   // Spaces state (only used when logged in)
   const [spaces, setSpaces] = useState<Space[]>([]);

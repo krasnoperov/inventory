@@ -3,6 +3,7 @@
  * Organizes all API routes into logical groups
  */
 import type { OpenAPIHono } from '@hono/zod-openapi';
+import type { Handler } from 'hono';
 import type { AppContext } from './types';
 
 // Import route modules
@@ -21,12 +22,15 @@ import { billingRoutes } from './billing';
 import { webhookRoutes } from './webhooks';
 import { uploadRoutes } from './upload';
 import { trainingExportRoutes } from './training-export';
-import { handleDocumentNavigation } from '../middleware/documentRewrite';
+import { handleDocumentNavigation } from '../middleware/documentNavigation';
 
 /**
  * Register all routes with the main app
  */
-export function registerRoutes(app: OpenAPIHono<AppContext>) {
+export function registerRoutes(
+  app: OpenAPIHono<AppContext>,
+  documentHandler: Handler<AppContext> = handleDocumentNavigation,
+) {
   // Health check routes
   app.route('/', healthRoutes);
 
@@ -80,10 +84,10 @@ export function registerRoutes(app: OpenAPIHono<AppContext>) {
     },
   });
 
-  // Catch-all: document navigations get per-route SEO + real 404 status;
+  // Catch-all: document navigations are SSR-rendered through TanStack Router;
   // static asset requests are delegated to the ASSETS binding unchanged.
   // Requires wrangler's run_worker_first = ["/*"] so the worker sees all
   // traffic — API routes above still match first because they're registered
   // earlier on the Hono app.
-  app.all('*', handleDocumentNavigation);
+  app.all('*', documentHandler);
 }
