@@ -260,8 +260,8 @@ export class VariantFactory {
       input.referenceAssetIds
     );
 
-    if (resolved.sourceImageKeys.length === 0) {
-      throw new Error('No source images available');
+    if (resolved.sourceImageKeys.length === 0 && resolved.parentVariantIds.length === 0) {
+      throw new Error('No source media available');
     }
 
     // Build recipe (includes parentVariantIds for retry support)
@@ -395,9 +395,13 @@ export class VariantFactory {
     for (const refAssetId of referenceAssetIds) {
       const asset = await this.repo.getAssetById(refAssetId);
       if (asset?.active_variant_id) {
-        const imageKey = await this.repo.getVariantImageKey(asset.active_variant_id);
+        const variant = await this.repo.getVariantById(asset.active_variant_id);
+        const imageKey = variant?.image_key ?? await this.repo.getVariantImageKey(asset.active_variant_id);
         if (imageKey) {
           sourceImageKeys.push(imageKey);
+        }
+
+        if (imageKey || (variant?.media_kind === 'audio' && variant.media_key)) {
           parentVariantIds.push(asset.active_variant_id);
         }
       }
@@ -408,15 +412,20 @@ export class VariantFactory {
 
   /**
    * Resolve explicit variant IDs to image keys (for ForgeTray UI).
+   * Audio references are lineage-only until an audio provider consumes media keys.
    */
   async resolveVariantReferences(referenceVariantIds: string[]): Promise<ResolvedReferences> {
     const sourceImageKeys: string[] = [];
     const parentVariantIds: string[] = [];
 
     for (const variantId of referenceVariantIds) {
-      const imageKey = await this.repo.getVariantImageKey(variantId);
+      const variant = await this.repo.getVariantById(variantId);
+      const imageKey = variant?.image_key ?? await this.repo.getVariantImageKey(variantId);
       if (imageKey) {
         sourceImageKeys.push(imageKey);
+      }
+
+      if (imageKey || (variant?.media_kind === 'audio' && variant.media_key)) {
         parentVariantIds.push(variantId);
       }
     }
@@ -732,12 +741,16 @@ export class VariantFactory {
       }
 
       const sourceVariant = await this.repo.getVariantById(resolvedId);
-      if (!sourceVariant?.image_key) {
+      if (!sourceVariant) {
         return { sourceImageKeys: [], parentVariantIds: [] };
       }
 
-      sourceImageKeys = [sourceVariant.image_key];
-      parentVariantIds = [resolvedId];
+      if (sourceVariant.image_key) {
+        sourceImageKeys = [sourceVariant.image_key];
+      }
+      if (sourceVariant.image_key || (sourceVariant.media_kind === 'audio' && sourceVariant.media_key)) {
+        parentVariantIds = [resolvedId];
+      }
     }
 
     // Add additional asset references

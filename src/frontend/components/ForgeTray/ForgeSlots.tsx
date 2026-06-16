@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
-import { getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
+import { Thumbnail } from '../Thumbnail';
 import styles from './ForgeSlots.module.css';
 
 export interface ForgeSlotsProps {
@@ -21,10 +21,10 @@ export function ForgeSlots({ onAddClick }: ForgeSlotsProps) {
     <div className={styles.slots}>
       {slots.map((slot) => (
         <div key={slot.id} className={styles.slot}>
-          <img
-            src={getVariantThumbnailUrl(slot.variant) || ''}
-            alt={slot.asset.name}
-            className={styles.slotImage}
+          <Thumbnail
+            variant={slot.variant}
+            size="fill"
+            className={styles.slotPreview}
           />
           <button
             className={styles.removeButton}
