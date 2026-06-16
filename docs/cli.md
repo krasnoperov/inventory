@@ -38,7 +38,10 @@ pnpm run cli upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
 # 7. Generate through the website and download the completed image
 pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
 
-# 8. Inspect website assets and download an existing variant's media
+# 8. Generate audio through website jobs and download the completed file
+pnpm run cli audio generate "A short brass victory sting" --name "Victory Sting" --type audio -o audio/victory.wav
+
+# 9. Inspect website assets and download an existing variant's media
 pnpm run cli assets
 pnpm run cli assets download VARIANT_ID -o references/variant.png
 ```
@@ -58,6 +61,7 @@ pnpm run cli assets download VARIANT_ID -o references/variant.png
 | `refine` | Refine an existing variant through the website generation workflow |
 | `derive` | Create a new asset from variant IDs and/or local image refs |
 | `batch` | Generate multiple images and write a local run manifest |
+| `audio` | Generate audio assets through website jobs |
 | `runs` | List, inspect, and export local run manifests |
 | `billing` | Billing sync status and management |
 
@@ -233,8 +237,9 @@ pnpm run cli upload hero.png --space abc123 --name "Hero" --local
 
 The CLI can act as a ForgeTray controller for an existing website space. The
 website remains authoritative for assets, variants, recipes, lineage, and R2
-storage; the CLI sends generation requests and downloads completed images.
-These generation commands are explicitly image-only and send `mediaKind: "image"`.
+storage; the CLI sends generation requests and downloads completed media.
+The top-level `generate`, `refine`, `derive`, and `batch` commands are
+image-only and send `mediaKind: "image"`.
 
 ```bash
 pnpm run cli generate "A watercolor background of Russafa market" \
@@ -271,7 +276,31 @@ paths, website asset/variant IDs, image keys, prompt, refs, command options,
 timestamps, run success, and failed variant errors for downstream Remotion or
 video tooling.
 
-### Run Manifests
+## Audio Generation
+
+Audio controller commands use the same website Space Durable Object and
+GenerationWorkflow job lifecycle as image generation. They send
+`mediaKind: "audio"` and download the completed variant through the
+authenticated variant media endpoint.
+
+```bash
+pnpm run cli audio generate "A short brass victory sting" \
+  --name "Victory Sting" \
+  --type audio \
+  -o audio/victory.wav
+
+pnpm run cli audio batch "Three short UI notification sounds" \
+  --name "Notification Sound" \
+  --type audio \
+  --count 3 \
+  --output-dir audio/notifications
+```
+
+Audio generation currently does not accept `--refs`, `derive`, or `refine`
+commands. Audio batch downloads completed files into the requested directory but
+does not write image keyframe run manifests.
+
+## Run Manifests
 
 ```bash
 pnpm run cli runs

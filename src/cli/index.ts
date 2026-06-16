@@ -14,6 +14,7 @@ import { handleSpaces } from './commands/spaces';
 import { handleListen } from './commands/listen';
 import { handleUpload } from './commands/upload';
 import { handleGenerate, handleRefine, handleDerive, handleBatch } from './commands/forge';
+import { handleAudio } from './commands/audio';
 import { handleInit } from './commands/init';
 import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
@@ -95,6 +96,10 @@ Forge:
   derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file>
   batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
 
+Audio:
+  audio generate "prompt" --name <name> --type <type> -o <file>
+  audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
+
 Options:
   --env <environment>          Target environment (production|stage|local), default: stage
   --local                      Shortcut for local development
@@ -110,6 +115,7 @@ Examples:
   pnpm run cli listen --space space_123
   pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
   pnpm run cli batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
+  pnpm run cli audio generate "A short brass victory sting" --name "Victory Sting" --type audio -o victory.wav
   pnpm run cli runs export --latest --format remotion -o keyframes.json
   pnpm run cli assets
   pnpm run cli assets download variant_123 -o variant.mp4
@@ -150,6 +156,9 @@ async function dispatchCommand(command: string, parsed: Parameters<typeof parseA
       break;
     case 'batch':
       await handleBatch(parsed);
+      break;
+    case 'audio':
+      await handleAudio(parsed);
       break;
     case 'runs':
       await handleRuns(parsed);

@@ -140,7 +140,7 @@ default to `image`.
 
 `mediaKind` is a medium discriminator, not an asset taxonomy or provider
 selector. Keep using `assetType`/`type` for catalog categories such as
-`character`, `tile-set`, or `animation`. Future audio and Google video
+`character`, `tile-set`, or `animation`. Audio and future Google video
 generation should remain website-controlled SpaceDO workflows: set `mediaKind`
 explicitly and choose the capable provider/model through provider/model fields.
 
@@ -150,9 +150,10 @@ different media kind are rejected. Generation, batch generation, upload, fork,
 export, CLI inspection, recipes, workflow inputs, and WebSocket broadcasts must
 preserve the stored value.
 
-CLI generation commands are currently image-only controller commands. Future
-CLI audio/video support should drive this same website API/WebSocket flow rather
-than creating local-only media records.
+Top-level CLI generation commands are image-only controller commands. CLI audio
+generation uses explicit `audio` subcommands that drive this same website
+API/WebSocket flow. Future CLI video support should follow the same pattern
+rather than creating local-only media records.
 
 Variant payloads expose `media_key` as the canonical primary artifact key plus
 basic metadata: `media_mime_type`, `media_size_bytes`, `media_width`,
