@@ -129,7 +129,7 @@ export async function executeAssets(
   if (subcommand === 'download') {
     const ref = parsed.positionals[1];
     if (!ref) {
-      throw new Error('Variant ID or image key is required: pnpm run cli assets download <variant-or-image-key> -o <file>');
+      throw new Error('Variant ID or legacy image key is required: pnpm run cli assets download <variant-id-or-legacy-image-key> -o <file>');
     }
     const outputPath = getOutputPath(parsed);
     const resolved = await resolveDownloadRef(ref, ctx, deps);
@@ -216,6 +216,9 @@ async function resolveDownloadRef(
   deps: Pick<AssetsDeps, 'fetch'>
 ): Promise<{ mediaKey: string; requestPath: string; variant?: Variant }> {
   if (looksLikeStorageKey(ref)) {
+    if (!isLegacyImageStorageKey(ref)) {
+      throw new Error('Direct media key downloads are not supported. Pass a variant ID so the authenticated media endpoint can authorize the download.');
+    }
     return { mediaKey: ref, requestPath: `/api/images/${ref}` };
   }
 
@@ -224,15 +227,13 @@ async function resolveDownloadRef(
     const details = await getAssetDetails(ctx, deps, asset.id);
     const variant = details.variants.find((candidate) => candidate.id === ref);
     if (!variant) continue;
-    if (variant.media_key) {
+    const mediaKey = variant.media_key || variant.image_key;
+    if (mediaKey) {
       return {
-        mediaKey: variant.media_key,
+        mediaKey,
         requestPath: `/api/spaces/${encodeURIComponent(ctx.spaceId)}/variants/${encodeURIComponent(variant.id)}/media`,
         variant,
       };
-    }
-    if (variant.image_key) {
-      return { mediaKey: variant.image_key, requestPath: `/api/images/${variant.image_key}`, variant };
     }
     throw new Error(`Variant ${ref} has no downloadable media; status is ${variant.status}`);
   }
@@ -258,6 +259,10 @@ function looksLikeStorageKey(value: string): boolean {
     '.webm',
     '.webp',
   ].includes(path.extname(value).toLowerCase());
+}
+
+function isLegacyImageStorageKey(value: string): boolean {
+  return value.startsWith('images/') || value.startsWith('styles/') || value.startsWith('thumbs/');
 }
 
 function getOutputPath(parsed: ParsedArgs): string {
@@ -356,6 +361,6 @@ Usage:
   pnpm run cli assets --json
   pnpm run cli assets show <asset-id>
   pnpm run cli assets show <asset-id> --json
-  pnpm run cli assets download <variant-id|media-key> -o output-file
+  pnpm run cli assets download <variant-id|legacy-image-key> -o output-file
 `);
 }

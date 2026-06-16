@@ -245,20 +245,20 @@ test('assets download falls back to a legacy image key when no media key exists'
   assert.deepEqual(downloads, [{
     baseUrl: 'https://inventory.example.test',
     accessToken: 'token-1',
-    requestPath: '/api/images/images/space-1/variant-1.png',
+    requestPath: '/api/spaces/space-1/variants/variant-1/media',
     outputPath: path.normalize('references/variant.png'),
     force: false,
   }]);
 });
 
-test('assets download accepts a direct media key without asset lookup', async () => {
+test('assets download accepts a direct legacy image key without asset lookup', async () => {
   const output: string[] = [];
   const downloads: unknown[] = [];
   const { deps, requests } = depsFor(output, downloads);
 
   const result = await executeAssets({
-    positionals: ['download', 'media/space-1/direct.mp3'],
-    options: { output: 'direct.mp3', force: 'true' },
+    positionals: ['download', 'images/space-1/direct.png'],
+    options: { output: 'direct.png', force: 'true' },
   }, deps);
 
   assert.equal(result.type, 'download');
@@ -266,8 +266,25 @@ test('assets download accepts a direct media key without asset lookup', async ()
   assert.deepEqual(downloads, [{
     baseUrl: 'https://inventory.example.test',
     accessToken: 'token-1',
-    requestPath: '/api/images/media/space-1/direct.mp3',
-    outputPath: 'direct.mp3',
+    requestPath: '/api/images/images/space-1/direct.png',
+    outputPath: 'direct.png',
     force: true,
   }]);
+});
+
+test('assets download rejects direct media keys that cannot be variant-authorized', async () => {
+  const output: string[] = [];
+  const downloads: unknown[] = [];
+  const { deps, requests } = depsFor(output, downloads);
+
+  await assert.rejects(
+    () => executeAssets({
+      positionals: ['download', 'media/space-1/direct.mp3'],
+      options: { output: 'direct.mp3', force: 'true' },
+    }, deps),
+    /Pass a variant ID/
+  );
+
+  assert.equal(requests.length, 0);
+  assert.deepEqual(downloads, []);
 });
