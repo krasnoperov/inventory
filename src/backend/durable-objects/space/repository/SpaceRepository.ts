@@ -266,6 +266,17 @@ export class SpaceRepository {
     });
   }
 
+  async getVariantsByIds(ids: string[]): Promise<Variant[]> {
+    if (ids.length === 0) return [];
+    const uniqueIds = Array.from(new Set(ids));
+    const { placeholders } = buildInClause(uniqueIds);
+    const result = await this.sql.exec(
+      `SELECT * FROM variants WHERE id IN (${placeholders})`,
+      ...uniqueIds
+    );
+    return result.toArray() as Variant[];
+  }
+
   async getVariantById(id: string): Promise<Variant | null> {
     const result = await this.sql.exec(VariantQueries.GET_BY_ID, id);
     return (result.toArray()[0] as Variant) ?? null;
@@ -783,7 +794,7 @@ export class SpaceRepository {
   }
 
   async getOverviewState(): Promise<SpaceOverviewState> {
-    const [assets, variants, rotationSets, rotationViews, tileSets, tilePositions, style] = await Promise.all([
+    const [assets, overviewVariants, rotationSets, rotationViews, tileSets, tilePositions, style] = await Promise.all([
       this.getAllAssets(),
       this.getOverviewVariants(),
       this.getAllRotationSets(),
@@ -792,6 +803,15 @@ export class SpaceRepository {
       this.getAllTilePositions(),
       this.getActiveStyle(),
     ]);
+    const variantIds = new Set(overviewVariants.map((variant) => variant.id));
+    const referencedVariantIds = [
+      ...rotationSets.map((set) => set.source_variant_id),
+      ...rotationViews.map((view) => view.variant_id),
+      ...tileSets.flatMap((set) => set.seed_variant_id ? [set.seed_variant_id] : []),
+      ...tilePositions.map((position) => position.variant_id),
+    ].filter((variantId) => !variantIds.has(variantId));
+    const referencedVariants = await this.getVariantsByIds(referencedVariantIds);
+    const variants = [...overviewVariants, ...referencedVariants.filter((variant) => !variantIds.has(variant.id))];
     return { assets, variants, rotationSets, rotationViews, tileSets, tilePositions, style };
   }
 
