@@ -30,7 +30,7 @@
 │         ▼                                        ▼              │
 │  ┌─────────────┐                       ┌─────────────────────┐  │
 │  │     R2      │◀──────────────────────│   Gemini / Claude   │  │
-│  │  (images)   │                       │       APIs          │  │
+│  │   (media)   │                       │       APIs          │  │
 │  └─────────────┘                       └─────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -44,16 +44,17 @@
 | Assets, Variants, Lineage | DO SQLite | Per-space. Authoritative. Real-time via WebSocket. |
 | Users, Spaces, Members | D1 | Global. Auth and access control. |
 | Chat Messages | DO SQLite | Per-space conversation history. |
-| Media artifacts | R2 | Existing image path format: `images/{spaceId}/{variantId}.{ext}`; authenticated generic artifacts are served through `/api/spaces/{spaceId}/variants/{variantId}/media`. |
+| Media artifacts | R2 | Image uploads and generated images use the legacy `images/{spaceId}/{variantId}.{ext}` path and image thumbnails use `images/{spaceId}/{variantId}_thumb.webp`. Audio/video uploads use `media/{spaceId}/{variantId}.{ext}`. Canonical artifacts are served through `/api/spaces/{spaceId}/variants/{variantId}/media` after auth and membership checks. |
 | Usage Events | D1 | Billing tracking for Polar.sh. |
 
 ### Variant Schema
 
-Variants track generation status via placeholder lifecycle. `media_kind` is the
-stored medium discriminator shared with the parent asset; allowed values are
-`image`, `audio`, and `video`, with `image` as the default for legacy and
-omitted values. Existing generation flows produce images, while `audio` and
-`video` reserve the contract for future generators.
+Variants track generation and upload status via placeholder lifecycle.
+`media_kind` is the stored medium discriminator shared with the parent asset;
+allowed values are `image`, `audio`, and `video`, with `image` as the default
+for legacy and omitted values. Existing generation flows produce images.
+Upload flows accept image, audio, and video files; audio/video generation is
+reserved for future generators.
 
 ```sql
 CREATE TABLE variants (
@@ -83,8 +84,11 @@ CREATE TABLE variants (
 
 Clients should retrieve the canonical artifact through the authenticated
 variant media API (`GET /api/spaces/:spaceId/variants/:variantId/media`) rather
-than dereferencing raw R2 keys. The sibling `/poster` endpoint is reserved for
-a future `poster_key` artifact when video poster storage is added.
+than dereferencing raw R2 keys. The media endpoint resolves `media_key` with
+`image_key` as a legacy fallback, uses private immutable caching, and supports
+range requests for canonical media. The legacy `/api/images/*` route only
+serves `images/`, `styles/`, and `thumbs/` keys. The sibling `/poster` endpoint
+serves `poster_key` when that artifact exists.
 
 ---
 
