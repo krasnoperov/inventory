@@ -169,9 +169,23 @@ export function HyperbolicCanvas({
     (e: React.PointerEvent) => {
       const drag = dragRef.current;
       if (!drag) return;
+      // No button held means a release happened off-stage (e.g. over the
+      // floating toolbar layered above us), so the stage never saw pointerup.
+      // Abandon the drag instead of panning the disk with no button pressed.
+      if (e.buttons === 0) {
+        dragRef.current = null;
+        return;
+      }
       const now = toDisk(e.clientX, e.clientY);
-      if (cabs({ x: now.x - drag.startView.x, y: now.y - drag.startView.y }) * viewport.r > CLICK_THRESHOLD) {
+      if (
+        !movedRef.current &&
+        cabs({ x: now.x - drag.startView.x, y: now.y - drag.startView.y }) * viewport.r > CLICK_THRESHOLD
+      ) {
         movedRef.current = true;
+        // Capture once a real drag begins (not on press, so node clicks still
+        // fire) so the pan keeps tracking — and reliably ends — even when the
+        // pointer crosses floating controls above the stage.
+        e.currentTarget.setPointerCapture?.(e.pointerId);
       }
       // Recompute from the drag start so the grabbed point tracks the cursor.
       setCam(compose(dragTransform(drag.startView, now), drag.startCam));
