@@ -2,6 +2,7 @@ import { createRoute } from '@hono/zod-openapi';
 import {
   AuthGoogleResponseSchema,
   AuthSessionResponseSchema,
+  BinaryResponseSchema,
   CreateSpaceRequestSchema,
   CreateSpaceResponseSchema,
   DeleteSpaceResponseSchema,
@@ -14,9 +15,14 @@ import {
   SuccessResponseSchema,
   UpdateUserProfileRequestSchema,
   UpdateUserSettingsRequestSchema,
+  UploadMediaRequestSchema,
+  UploadMediaResponseSchema,
+  UploadStyleImageRequestSchema,
+  UploadStyleImageResponseSchema,
   UserProfileSchema,
   UserProfileUpdateResponseSchema,
   UserSettingsResponseSchema,
+  VariantMediaParamsSchema,
 } from './schemas';
 
 const json = <T>(schema: T) => ({
@@ -30,6 +36,22 @@ const json = <T>(schema: T) => ({
 const errorResponse = {
   ...json(ErrorResponseSchema),
   description: 'Error response',
+};
+
+const multipart = <T>(schema: T) => ({
+  content: {
+    'multipart/form-data': {
+      schema,
+    },
+  },
+});
+
+const binary = {
+  content: {
+    'application/octet-stream': {
+      schema: BinaryResponseSchema,
+    },
+  },
 };
 
 export const getAuthSessionRoute = createRoute({
@@ -215,5 +237,96 @@ export const deleteSpaceRoute = createRoute({
     403: errorResponse,
     404: errorResponse,
     500: errorResponse,
+  },
+});
+
+export const uploadMediaRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/upload',
+  request: {
+    params: SpaceIdParamsSchema,
+    body: {
+      ...multipart(UploadMediaRequestSchema),
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(UploadMediaResponseSchema),
+      description: 'Uploaded media variant',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const uploadStyleImageRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/style-images',
+  request: {
+    params: SpaceIdParamsSchema,
+    body: {
+      ...multipart(UploadStyleImageRequestSchema),
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(UploadStyleImageResponseSchema),
+      description: 'Uploaded style reference image',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const getVariantMediaRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{spaceId}/variants/{variantId}/media',
+  request: {
+    params: VariantMediaParamsSchema,
+  },
+  responses: {
+    200: {
+      ...binary,
+      description: 'Variant media artifact',
+    },
+    206: {
+      ...binary,
+      description: 'Partial variant media artifact',
+    },
+    304: {
+      description: 'Variant media artifact not modified',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const getVariantPosterRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{spaceId}/variants/{variantId}/poster',
+  request: {
+    params: VariantMediaParamsSchema,
+  },
+  responses: {
+    200: {
+      ...binary,
+      description: 'Variant poster artifact',
+    },
+    304: {
+      description: 'Variant poster artifact not modified',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
   },
 });

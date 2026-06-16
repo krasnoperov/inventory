@@ -3,10 +3,12 @@
  *
  * Handles media uploads to create new variants on existing assets.
  */
-import { Hono } from 'hono';
 import type { AppContext } from './types';
+import { createOpenApiRouter } from './openapi';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
+import { uploadMediaRoute, uploadStyleImageRoute } from '../../shared/api/routes';
+import type { UploadMediaResponse } from '../../shared/api/schemas';
 import {
   createThumbnail,
   getBaseUrl,
@@ -82,7 +84,7 @@ async function deleteUploadedKeys(env: AppContext['Bindings'], keys: Array<strin
   await Promise.all(uniqueKeys.map((key) => env.IMAGES.delete(key)));
 }
 
-export const uploadRoutes = new Hono<AppContext>();
+export const uploadRoutes = createOpenApiRouter();
 
 // All upload routes require authentication
 uploadRoutes.use('/api/spaces/*', authMiddleware);
@@ -96,7 +98,7 @@ uploadRoutes.use('/api/spaces/*', authMiddleware);
  * - file: Media file - max 10MB
  * - assetId: Target asset UUID, or assetName for a new asset
  */
-uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
+uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const memberDAO = c.get('container').get(MemberDAO);
   const env = c.env;
@@ -205,7 +207,7 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   // =========================================================================
   // Step 1: Create upload placeholder (broadcasts to all clients immediately)
   // =========================================================================
-  let createdNewAsset: unknown;
+  let createdNewAsset: UploadMediaResponse['asset'];
   try {
     const placeholderResponse = await doStub.fetch(
       new Request('http://do/internal/upload-placeholder', {
@@ -237,7 +239,7 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
       asset?: unknown;
       assetId: string;
     };
-    createdNewAsset = placeholderResult.asset;
+    createdNewAsset = placeholderResult.asset as UploadMediaResponse['asset'];
   } catch (error) {
     console.error('Failed to create upload placeholder:', error);
     return c.json({ error: 'Failed to create upload placeholder' }, 500);
@@ -317,12 +319,12 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
       );
     }
 
-    const result = await completeResponse.json() as { variant: unknown };
+    const result = await completeResponse.json() as { variant: UploadMediaResponse['variant'] };
     return c.json({
-      success: true,
+      success: true as const,
       variant: result.variant,
-      asset: createdNewAsset, // Included when new asset was created
-    });
+      ...(createdNewAsset ? { asset: createdNewAsset } : {}), // Included when new asset was created
+    }, 200);
   } catch (error) {
     console.error('Upload failed:', error);
 
@@ -362,7 +364,7 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
  * FormData:
  * - file: Image file (JPEG, PNG, WebP, GIF) - max 10MB
  */
-uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
+uploadRoutes.openapi(uploadStyleImageRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const memberDAO = c.get('container').get(MemberDAO);
   const env = c.env;
@@ -469,7 +471,11 @@ uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
       }
     }
 
-    return c.json({ success: true, imageKey, warning });
+    return c.json({
+      success: true as const,
+      imageKey,
+      ...(warning ? { warning } : {}),
+    }, 200);
   } catch (error) {
     console.error('Style image upload failed:', error);
 

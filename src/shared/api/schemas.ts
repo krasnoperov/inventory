@@ -133,6 +133,7 @@ export const GetSpaceResponseSchema = z
   .openapi('GetSpaceResponse');
 
 export const MediaKindSchema = z.enum(['image', 'audio', 'video']);
+export const VariantStatusSchema = z.enum(['pending', 'processing', 'uploading', 'completed', 'failed']);
 
 export const AssetSchema = z
   .object({
@@ -150,6 +151,31 @@ export const AssetSchema = z
   .passthrough()
   .openapi('Asset');
 
+export const VariantSchema = z
+  .object({
+    id: z.string(),
+    asset_id: z.string(),
+    media_kind: MediaKindSchema,
+    workflow_id: z.string().nullable(),
+    status: VariantStatusSchema,
+    error_message: z.string().nullable(),
+    image_key: z.string().nullable(),
+    thumb_key: z.string().nullable(),
+    media_key: z.string().nullable().optional(),
+    media_mime_type: z.string().nullable().optional(),
+    media_size_bytes: z.number().nullable().optional(),
+    media_width: z.number().nullable().optional(),
+    media_height: z.number().nullable().optional(),
+    media_duration_ms: z.number().nullable().optional(),
+    recipe: z.string(),
+    starred: z.boolean(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number().nullable(),
+  })
+  .passthrough()
+  .openapi('Variant');
+
 export const ListSpaceAssetsResponseSchema = z
   .object({
     success: z.literal(true),
@@ -163,6 +189,66 @@ export const DeleteSpaceResponseSchema = z
     message: z.string(),
   })
   .openapi('DeleteSpaceResponse');
+
+const UploadFileSchema = z.custom<File>((value) => value instanceof File, {
+  message: 'Expected file upload',
+}).openapi({
+  type: 'string',
+  format: 'binary',
+});
+
+export const UploadMediaRequestSchema = z
+  .object({
+    file: UploadFileSchema,
+    assetId: z.string().optional(),
+    assetName: z.string().optional(),
+    assetType: z.string().optional(),
+    mediaKind: MediaKindSchema.optional(),
+    parentAssetId: z.string().optional(),
+  })
+  .openapi('UploadMediaRequest');
+
+export const UploadMediaResponseSchema = z
+  .object({
+    success: z.literal(true),
+    variant: VariantSchema,
+    asset: AssetSchema.optional(),
+  })
+  .openapi('UploadMediaResponse');
+
+export const UploadStyleImageRequestSchema = z
+  .object({
+    file: UploadFileSchema,
+  })
+  .openapi('UploadStyleImageRequest');
+
+export const UploadStyleImageResponseSchema = z
+  .object({
+    success: z.literal(true),
+    imageKey: z.string(),
+    warning: z.string().optional(),
+  })
+  .openapi('UploadStyleImageResponse');
+
+export const VariantMediaParamsSchema = z.object({
+  spaceId: z.string().openapi({
+    param: {
+      name: 'spaceId',
+      in: 'path',
+    },
+  }),
+  variantId: z.string().openapi({
+    param: {
+      name: 'variantId',
+      in: 'path',
+    },
+  }),
+});
+
+export const BinaryResponseSchema = z.string().openapi({
+  type: 'string',
+  format: 'binary',
+});
 
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
 export type ApiUser = z.infer<typeof ApiUserSchema>;
@@ -182,3 +268,8 @@ export type ListSpacesResponse = z.infer<typeof ListSpacesResponseSchema>;
 export type GetSpaceResponse = z.infer<typeof GetSpaceResponseSchema>;
 export type ListSpaceAssetsResponse = z.infer<typeof ListSpaceAssetsResponseSchema>;
 export type DeleteSpaceResponse = z.infer<typeof DeleteSpaceResponseSchema>;
+export type Variant = z.infer<typeof VariantSchema>;
+export type UploadMediaRequest = z.infer<typeof UploadMediaRequestSchema>;
+export type UploadMediaResponse = z.infer<typeof UploadMediaResponseSchema>;
+export type UploadStyleImageRequest = z.infer<typeof UploadStyleImageRequestSchema>;
+export type UploadStyleImageResponse = z.infer<typeof UploadStyleImageResponseSchema>;

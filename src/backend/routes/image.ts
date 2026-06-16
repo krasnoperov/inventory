@@ -1,10 +1,11 @@
-import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { AppContext } from './types';
+import { createOpenApiRouter } from './openapi';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
+import { getVariantMediaRoute, getVariantPosterRoute } from '../../shared/api/routes';
 
-const imageRoutes = new Hono<AppContext>();
+const imageRoutes = createOpenApiRouter();
 
 type StorageKind = 'image' | 'media';
 type VariantMediaArtifact = 'media' | 'poster';
@@ -186,11 +187,10 @@ imageRoutes.get('/api/images/*', async (c) => {
 // server resolves the stored R2 key after membership checks.
 imageRoutes.use('/api/spaces/*', authMiddleware);
 
-imageRoutes.get('/api/spaces/:spaceId/variants/:variantId/:artifact{media|poster}', async (c) => {
+async function serveVariantArtifact(c: Context<AppContext>, artifact: VariantMediaArtifact): Promise<Response> {
   try {
-    const spaceId = c.req.param('spaceId');
-    const variantId = c.req.param('variantId');
-    const artifact = c.req.param('artifact') as VariantMediaArtifact;
+    const spaceId = c.req.param('spaceId') ?? '';
+    const variantId = c.req.param('variantId') ?? '';
     const variantOrResponse = await getVariantFromSpace(c, spaceId, variantId);
 
     if (variantOrResponse instanceof Response) {
@@ -212,6 +212,9 @@ imageRoutes.get('/api/spaces/:spaceId/variants/:variantId/:artifact{media|poster
     console.error('Error serving media:', error);
     return c.json({ error: 'Failed to serve media' }, 500);
   }
-});
+}
+
+imageRoutes.openapi(getVariantMediaRoute, (c) => serveVariantArtifact(c, 'media'));
+imageRoutes.openapi(getVariantPosterRoute, (c) => serveVariantArtifact(c, 'poster'));
 
 export { imageRoutes };
