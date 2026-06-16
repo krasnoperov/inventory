@@ -1,10 +1,10 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { lazyPage } from '../../../-lazyPage';
-import { assetDetailsQueryOptions } from '../../../../queries';
+import { assetDetailsQueryOptions, getCachedSession } from '../../../../queries';
 
 export const Route = createFileRoute('/spaces/$id/assets/$assetId')({
   beforeLoad: ({ context }) => {
-    if (!context.session.user) {
+    if (!getCachedSession(context.queryClient, context.session)?.user) {
       throw redirect({ to: '/login' });
     }
   },

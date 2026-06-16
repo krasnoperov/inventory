@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import { ApiFetchError, apiFetch } from '../api/client';
 import { loadSession } from './config';
 import type { Space, UserProfile } from '../api/types';
@@ -26,6 +26,22 @@ export interface AssetDetailsResponse {
   asset: Asset;
   variants: Variant[];
   lineage: Lineage[];
+}
+
+export const sessionQueryKey = ['start-session'] as const;
+export const spacesQueryKey = ['spaces'] as const;
+export const userProfileQueryKey = ['user-profile'] as const;
+
+export function clearUserScopedQueries(queryClient: QueryClient) {
+  queryClient.removeQueries({ queryKey: spacesQueryKey });
+  queryClient.removeQueries({ queryKey: userProfileQueryKey });
+}
+
+export function getCachedSession(
+  queryClient: QueryClient,
+  fallbackSession?: StartSession,
+): StartSession | undefined {
+  return queryClient.getQueryData<StartSession>(sessionQueryKey) ?? fallbackSession;
 }
 
 function fetchJson<T>(
@@ -76,15 +92,20 @@ function mapAssetError(error: unknown): Error {
 
 export function sessionQueryOptions(initialSession?: StartSession) {
   return queryOptions({
-    queryKey: ['start-session'],
-    queryFn: () => initialSession ? Promise.resolve(initialSession) : loadSession(),
+    queryKey: sessionQueryKey,
+    queryFn: () => {
+      if (initialSession && typeof window === 'undefined') {
+        return Promise.resolve(initialSession);
+      }
+      return loadSession();
+    },
     staleTime: 60_000,
   });
 }
 
 export function spacesQueryOptions(baseUrl?: string, headers?: HeadersInit) {
   return queryOptions({
-    queryKey: ['spaces'],
+    queryKey: spacesQueryKey,
     queryFn: () => apiFetch('GET /api/spaces', { baseUrl, headers }).then((data) => data.spaces || []),
   });
 }
@@ -143,7 +164,7 @@ export function assetDetailsQueryOptions(
 
 export function userProfileQueryOptions(baseUrl?: string, headers?: HeadersInit) {
   return queryOptions({
-    queryKey: ['user-profile'],
+    queryKey: userProfileQueryKey,
     queryFn: (): Promise<UserProfile> => apiFetch('GET /api/user/profile', { baseUrl, headers }),
   });
 }

@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { lazyPage } from './-lazyPage';
-import { spacesQueryOptions } from '../queries';
+import { getCachedSession, spacesQueryOptions } from '../queries';
 
 export const Route = createFileRoute('/')({
   loader: ({ context }) => {
-    if (!context.session.user) {
+    if (!getCachedSession(context.queryClient, context.session)?.user) {
       return;
     }
     return context.queryClient.ensureQueryData(
