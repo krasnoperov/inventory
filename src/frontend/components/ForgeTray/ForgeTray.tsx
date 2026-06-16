@@ -16,6 +16,7 @@ import { StylePanel } from './StylePanel';
 import { Thumbnail } from '../Thumbnail';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
+  canUseSlotMediaKindForForgeMode,
   type ForgeMediaMode,
   getAssetTypeForForgeMode,
   getForgeMediaModeConfig,
@@ -242,7 +243,9 @@ export function ForgeTray({
   const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
   const selectedMediaKind = getMediaKindForForgeMode(mediaMode);
   const isAudioMode = isAudioForgeMode(mediaMode);
-  const hasIncompatibleMediaSlots = slots.some((slot) => slot.variant.media_kind !== selectedMediaKind);
+  const hasIncompatibleMediaSlots = slots.some(
+    (slot) => !canUseSlotMediaKindForForgeMode(mediaMode, slot.variant.media_kind)
+  );
   const canUseExistingDestination = !targetAsset || targetAsset.media_kind === selectedMediaKind;
 
   useEffect(() => {

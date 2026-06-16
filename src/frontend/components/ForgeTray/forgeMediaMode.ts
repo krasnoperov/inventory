@@ -76,6 +76,13 @@ export function isAudioForgeMode(mode: ForgeMediaMode): boolean {
   return getMediaKindForForgeMode(mode) === 'audio';
 }
 
+export function canUseSlotMediaKindForForgeMode(mode: ForgeMediaMode, slotMediaKind: MediaKind): boolean {
+  if (mode === 'video') {
+    return slotMediaKind === 'image' || slotMediaKind === 'video';
+  }
+  return slotMediaKind === getMediaKindForForgeMode(mode);
+}
+
 export function getAssetTypeForForgeMode(mode: ForgeMediaMode, inheritedType?: string): string {
   if (mode === 'image' || mode === 'video') {
     return inheritedType || getForgeMediaModeConfig(mode).assetType;

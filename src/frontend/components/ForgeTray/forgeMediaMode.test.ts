@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
+  canUseSlotMediaKindForForgeMode,
   getAssetTypeForForgeMode,
   getForgeMediaModeConfig,
   getForgeModeForAudioAssetType,
@@ -33,6 +34,19 @@ describe('forge media mode helpers', () => {
     assert.equal(isAudioForgeMode('video'), false);
     assert.equal(getAssetTypeForForgeMode('video'), 'animation');
     assert.equal(getAssetTypeForForgeMode('video', 'character'), 'character');
+  });
+
+  test('allows image references in video mode for Veo generation', () => {
+    assert.equal(canUseSlotMediaKindForForgeMode('video', 'image'), true);
+    assert.equal(canUseSlotMediaKindForForgeMode('video', 'video'), true);
+    assert.equal(canUseSlotMediaKindForForgeMode('video', 'audio'), false);
+  });
+
+  test('keeps non-video modes constrained to their output media kind', () => {
+    assert.equal(canUseSlotMediaKindForForgeMode('image', 'image'), true);
+    assert.equal(canUseSlotMediaKindForForgeMode('image', 'video'), false);
+    assert.equal(canUseSlotMediaKindForForgeMode('speech', 'audio'), true);
+    assert.equal(canUseSlotMediaKindForForgeMode('speech', 'image'), false);
   });
 
   test('uses audio operation asset types for audio modes', () => {
