@@ -6,6 +6,7 @@ import { createTestDatabase, cleanupTestDatabase } from '../../test-utils/databa
 import { TestUserBuilder } from '../../test-utils/test-data-builders';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { UserDAO } from '../../dao/user-dao';
+import type { PolarService } from './polarService';
 import { UsageService, USAGE_EVENTS } from './usageService';
 
 describe('UsageService', () => {
@@ -234,7 +235,13 @@ describe('UsageService', () => {
     });
 
     test('syncs ElevenLabs audio events to Polar as metered events', async () => {
-      const ingestEventsBatch = mock.fn(async () => ({ inserted: 1, duplicates: 0 }));
+      const ingestedEventBatches: Parameters<PolarService['ingestEventsBatch']>[0][] = [];
+      const ingestEventsBatch = mock.fn(async (
+        events: Parameters<PolarService['ingestEventsBatch']>[0]
+      ) => {
+        ingestedEventBatches.push(events);
+        return { inserted: 1, duplicates: 0 };
+      });
       const service = new UsageService(
         usageEventDAO,
         userDAO,
@@ -254,13 +261,18 @@ describe('UsageService', () => {
       assert.strictEqual(result.synced, 1);
       assert.strictEqual(result.failed, 0);
       assert.strictEqual(ingestEventsBatch.mock.calls.length, 1);
-      const events = ingestEventsBatch.mock.calls[0].arguments[0];
+      const events = ingestedEventBatches[0];
+      assert.ok(events);
       assert.strictEqual(events.length, 1);
-      assert.strictEqual(events[0].userId, testUserId);
-      assert.strictEqual(events[0].eventName, USAGE_EVENTS.ELEVENLABS_AUDIO);
-      assert.strictEqual(events[0].metadata.quantity, 29);
-      assert.strictEqual(events[0].metadata.model, 'eleven_text_to_sound_v2');
-      assert.strictEqual(events[0].metadata.asset_type, 'sfx');
+      const event = events[0];
+      assert.ok(event);
+      assert.strictEqual(event.userId, testUserId);
+      assert.strictEqual(event.eventName, USAGE_EVENTS.ELEVENLABS_AUDIO);
+      const metadata = event.metadata;
+      assert.ok(metadata);
+      assert.strictEqual(metadata.quantity, 29);
+      assert.strictEqual(metadata.model, 'eleven_text_to_sound_v2');
+      assert.strictEqual(metadata.asset_type, 'sfx');
 
       const storedEvents = await usageEventDAO.findByUser(testUserId);
       assert.ok(storedEvents[0].synced_at);
