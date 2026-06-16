@@ -378,8 +378,8 @@ export class GenerationController extends BaseController {
    */
   async httpCompleteVariant(data: {
     variantId: string;
-    imageKey: string;
-    thumbKey: string;
+    imageKey?: string | null;
+    thumbKey?: string | null;
     mediaKey?: string | null;
     mediaMimeType?: string | null;
     mediaSizeBytes?: number | null;
@@ -393,16 +393,26 @@ export class GenerationController extends BaseController {
       throw new NotFoundError('Variant not found');
     }
 
-    if (existing.status === 'completed' && existing.image_key === data.imageKey) {
+    const imageKey = data.imageKey ?? null;
+    const thumbKey = data.thumbKey ?? null;
+    const mediaKey = data.mediaKey ?? imageKey;
+    const existingMediaKey = existing.media_key ?? existing.image_key;
+
+    if (
+      existing.status === 'completed' &&
+      existing.image_key === imageKey &&
+      existing.thumb_key === thumbKey &&
+      existingMediaKey === mediaKey
+    ) {
       return { success: true, variant: existing };
     }
 
     const variant = await this.repo.completeVariant(
       data.variantId,
-      data.imageKey,
-      data.thumbKey,
+      imageKey,
+      thumbKey,
       {
-        mediaKey: data.mediaKey,
+        mediaKey,
         mimeType: data.mediaMimeType,
         sizeBytes: data.mediaSizeBytes,
         width: data.mediaWidth,
@@ -416,7 +426,7 @@ export class GenerationController extends BaseController {
     }
 
     // Track usage for successful generation
-    if (this.env.DB && variant.created_by) {
+    if (this.env.DB && variant.created_by && variant.media_kind === 'image') {
       try {
         // Parse recipe to get operation type
         let operation = 'derive';

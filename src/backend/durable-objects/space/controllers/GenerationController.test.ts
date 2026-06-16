@@ -219,12 +219,45 @@ describe('GenerationController pipeline hooks', () => {
 
       const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
       assert.deepStrictEqual(completeCall.arguments[3], {
-        mediaKey: undefined,
+        mediaKey: 'img/done.png',
         mimeType: 'image/png',
         sizeBytes: 2048,
         width: 1024,
         height: 768,
         durationMs: undefined,
+      });
+    });
+
+    test('completes audio variants with canonical media and no legacy image keys', async () => {
+      const { ctx } = createMockContext();
+      const controller = new GenerationController(ctx);
+
+      const result = await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-1.wav',
+        mediaMimeType: 'audio/wav',
+        mediaSizeBytes: 4044,
+        mediaDurationMs: 250,
+      });
+
+      assert.strictEqual(result.variant.image_key, null);
+      assert.strictEqual(result.variant.thumb_key, null);
+      assert.strictEqual(result.variant.media_key, 'media/space-1/variant-1.wav');
+      assert.strictEqual(result.variant.media_mime_type, 'audio/wav');
+      assert.strictEqual(result.variant.media_duration_ms, 250);
+
+      const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
+      assert.strictEqual(completeCall.arguments[1], null);
+      assert.strictEqual(completeCall.arguments[2], null);
+      assert.deepStrictEqual(completeCall.arguments[3], {
+        mediaKey: 'media/space-1/variant-1.wav',
+        mimeType: 'audio/wav',
+        sizeBytes: 4044,
+        width: undefined,
+        height: undefined,
+        durationMs: 250,
       });
     });
 

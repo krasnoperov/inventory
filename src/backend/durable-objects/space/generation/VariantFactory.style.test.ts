@@ -7,7 +7,6 @@ import type { Env } from '../../../../core/types';
 import type { WebSocketMeta, SpaceStyle } from '../types';
 
 // Helper to get mock from a function
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MockFn = Mock<(...args: any[]) => any>;
 const asMock = (fn: unknown): MockFn => fn as MockFn;
 
@@ -39,6 +38,7 @@ function createMockRepo(): SpaceRepository {
       id: input.id,
       name: input.name,
       type: input.type,
+      media_kind: input.mediaKind ?? 'image',
       tags: '[]',
       parent_asset_id: input.parentAssetId || null,
       active_variant_id: null,
@@ -49,6 +49,7 @@ function createMockRepo(): SpaceRepository {
     createPlaceholderVariant: mock.fn(async (input) => ({
       id: input.id,
       asset_id: input.assetId,
+      media_kind: input.mediaKind ?? 'image',
       workflow_id: null,
       status: 'pending',
       error_message: null,
@@ -175,6 +176,36 @@ describe('VariantFactory - Style Injection', () => {
         'styles/space-1/ref1.png',
         'styles/space-1/ref2.png',
       ]);
+    });
+
+    test('audio recipes do not receive image style anchors', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
+        createMockStyle({
+          description: 'Pixel art',
+          image_keys: '["styles/space-1/ref1.png"]',
+        })
+      );
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Theme',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'A short loop',
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.strictEqual(recipe.prompt, 'A short loop');
+      assert.strictEqual(recipe.styleId, undefined);
+      assert.strictEqual(recipe.sourceImageKeys, undefined);
+      assert.strictEqual(result.styleImageKeys, undefined);
+      assert.strictEqual(asMock(repo.getActiveStyle).mock.calls.length, 0);
     });
 
     test('style images come before source images in combined keys', async () => {

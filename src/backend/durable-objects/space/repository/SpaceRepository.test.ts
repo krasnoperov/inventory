@@ -240,6 +240,36 @@ describe('SpaceRepository', () => {
       ]);
     });
 
+    test('completeVariant accepts generated audio without legacy image keys', async () => {
+      mockSql.setMockResult('WHERE id = ?', [
+        { id: 'v1', asset_id: 'a1', recipe: '{}', media_kind: 'audio' },
+      ]);
+
+      await repo.completeVariant('v1', null, null, {
+        mediaKey: 'media/space/v1.wav',
+        mimeType: 'audio/wav',
+        sizeBytes: 4044,
+        durationMs: 250,
+      });
+
+      const updateQuery = mockSql.queries.find((q) => q.query.includes("UPDATE variants SET status = 'completed'"));
+      assert(updateQuery !== undefined);
+      assert.deepStrictEqual(updateQuery.bindings.slice(0, 8), [
+        null,
+        null,
+        'media/space/v1.wav',
+        'audio/wav',
+        4044,
+        null,
+        null,
+        250,
+      ]);
+
+      const refQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO image_refs'));
+      assert(refQuery !== undefined);
+      assert.strictEqual(refQuery.bindings[0], 'media/space/v1.wav');
+    });
+
     test('createPlaceholderVariant inserts default media kind', async () => {
       mockSql.setMockResult('WHERE id = ?', [
         { id: 'v1', asset_id: 'a1', media_kind: 'image' },

@@ -78,8 +78,8 @@ export interface GeneratedVariant {
   asset_id: string;
   media_kind: MediaKind;
   job_id: string | null;
-  image_key: string;
-  thumb_key: string;
+  image_key: string | null;
+  thumb_key: string | null;
   media_key: string | null;
   media_mime_type: string | null;
   media_size_bytes: number | null;

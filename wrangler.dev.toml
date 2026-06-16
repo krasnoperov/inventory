@@ -41,6 +41,7 @@ NODE_ENV = "development"
 ENVIRONMENT = "local"
 POLAR_ENVIRONMENT = "sandbox"
 OIDC_ISSUER = "http://localhost:3001"
+INVENTORY_AUDIO_PROVIDER = "fake"
 
 # Durable Objects - Space state and WebSocket (local)
 [[durable_objects.bindings]]
