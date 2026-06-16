@@ -30,7 +30,7 @@ function printBillingHelp() {
 Billing Commands - Polar.sh Usage Sync
 
 Usage:
-  npm run cli billing <subcommand> [--env <environment>]
+  pnpm run cli billing <subcommand> [--env <environment>]
 
 Subcommands:
   status           Show sync status (pending, failed, synced events)
@@ -41,11 +41,11 @@ Options:
   --local          Shortcut for local development
 
 Examples:
-  npm run cli billing status                    Show stage sync status
-  npm run cli billing status --env production   Show production sync status
-  npm run cli billing retry-failed              Reset failed events for retry
+  pnpm run cli billing status                    Show stage sync status
+  pnpm run cli billing status --env production   Show production sync status
+  pnpm run cli billing retry-failed              Reset failed events for retry
 
-Note: Requires login first. Run 'npm run cli login' to authenticate.
+Note: Requires login first. Run 'pnpm run cli login' to authenticate.
 `);
 }
 
@@ -54,7 +54,7 @@ async function callBillingApi(env: string, path: string, method: 'GET' | 'POST' 
   if (!config) {
     throw new Error(
       `Not logged in to ${env} environment.\n` +
-      `Run: npm run cli login --env ${env}`
+      `Run: pnpm run cli login --env ${env}`
     );
   }
 
@@ -62,7 +62,7 @@ async function callBillingApi(env: string, path: string, method: 'GET' | 'POST' 
   if (config.token.expiresAt < Date.now()) {
     throw new Error(
       `Token expired for ${env} environment.\n` +
-      `Run: npm run cli login --env ${env}`
+      `Run: pnpm run cli login --env ${env}`
     );
   }
 
@@ -85,7 +85,7 @@ async function callBillingApi(env: string, path: string, method: 'GET' | 'POST' 
     if (response.status === 401) {
       throw new Error(
         `Authentication failed. Token may have expired.\n` +
-        `Run: npm run cli login --env ${env}`
+        `Run: pnpm run cli login --env ${env}`
       );
     }
     const text = await response.text();
@@ -125,7 +125,7 @@ async function handleBillingStatus(env: string) {
     } else {
       console.log(`\nTotal items needing attention: ${totalUnsynced}`);
       if (data.events.failed > 0) {
-        console.log(`\nTip: Run 'npm run cli billing retry-failed --env ${env}' to reset failed events.`);
+        console.log(`\nTip: Run 'pnpm run cli billing retry-failed --env ${env}' to reset failed events.`);
       }
     }
   } catch (error) {
@@ -147,7 +147,7 @@ async function handleBillingRetry(env: string) {
     console.log(data.message);
 
     if (data.reset > 0) {
-      console.log(`\nRun 'npm run cli billing status --env ${env}' to check progress.`);
+      console.log(`\nRun 'pnpm run cli billing status --env ${env}' to check progress.`);
     }
   } catch (error) {
     console.error('Retry failed:', error instanceof Error ? error.message : error);

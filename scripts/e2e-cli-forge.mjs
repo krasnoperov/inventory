@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import path from 'node:path';
 
@@ -186,13 +186,28 @@ async function assertPng(filePath) {
   }
 }
 
+async function latestManifest() {
+  const runsDir = path.join(projectDir, '.inventory', 'runs');
+  const entries = (await readdir(runsDir))
+    .filter((entry) => entry.endsWith('.json'))
+    .sort();
+  if (entries.length === 0) {
+    throw new Error(`Expected a run manifest in ${runsDir}`);
+  }
+
+  const manifestPath = path.join(runsDir, entries.at(-1));
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  return { manifestPath, manifest };
+}
+
 await rm(tmpRoot, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 await mkdir(projectDir, { recursive: true });
 await createCliConfig();
 
 console.log('Applying local D1 migrations...');
-await run('npx', [
+await run('pnpm', [
+  'exec',
   'wrangler',
   'd1',
   'migrations',
@@ -206,7 +221,8 @@ await run('npx', [
 ]);
 
 console.log(`Starting worker at ${baseUrl} with fake image generation...`);
-const worker = spawn('npx', [
+const worker = spawn('pnpm', [
+  'exec',
   'wrangler',
   'dev',
   '--config',
@@ -291,6 +307,40 @@ try {
   const derivedVariantId = variantFrom(derived.stdout);
   await assertPng(derivedPath);
   console.log(`Derive OK: ${derivedVariantId}`);
+
+  const batchDir = path.join(outputDir, 'batch');
+  const batch = await runCli([
+    'batch',
+    '--local',
+    '--refs',
+    `${generatedVariantId},${referencePath}`,
+    '--name',
+    'Batch Keyframe',
+    '--type',
+    'scene',
+    '--count',
+    '2',
+    '--mode',
+    'set',
+    'Create two local batch keyframes',
+    '--output-dir',
+    batchDir,
+  ]);
+  if (!batch.stdout.includes('Batch:')) {
+    throw new Error(`Expected batch output to include batch ID:\n${batch.stdout}`);
+  }
+  const batchImageOne = path.join(batchDir, 'batch-keyframe-01.png');
+  const batchImageTwo = path.join(batchDir, 'batch-keyframe-02.png');
+  await assertPng(batchImageOne);
+  await assertPng(batchImageTwo);
+  const { manifestPath, manifest } = await latestManifest();
+  if (manifest.command !== 'batch' || manifest.images?.length !== 2) {
+    throw new Error(`Unexpected batch manifest at ${manifestPath}: ${JSON.stringify(manifest, null, 2)}`);
+  }
+  if (manifest.images[0].localPath !== batchImageOne || manifest.images[1].localPath !== batchImageTwo) {
+    throw new Error(`Batch manifest local paths do not match downloaded files: ${manifestPath}`);
+  }
+  console.log(`Batch OK: ${manifestPath}`);
 
   console.log('\nCLI Forge E2E passed without Gemini requests.');
 } finally {

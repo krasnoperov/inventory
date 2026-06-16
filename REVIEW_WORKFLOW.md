@@ -12,11 +12,11 @@ You are reviewing the implementation branch for a Linear issue.
 ## Verification
 
 - General code changes:
-  `npm run typecheck && npm run lint && npm test`
+  `pnpm run typecheck && pnpm run lint && pnpm test`
 - Frontend or route changes:
-  `npm run build`
+  `pnpm run build`
 - Schema changes:
-  `npm run db:migrate`
+  `pnpm run db:migrate`
 
 ## Review outcome
 

@@ -105,6 +105,20 @@ interface RefineRequestMessage {
   disableStyle?: boolean;
 }
 
+interface BatchRequestMessage {
+  type: 'batch:request';
+  requestId: string;
+  name: string;
+  assetType: string;
+  prompt: string;
+  count: number;
+  mode: 'explore' | 'set';
+  referenceVariantIds?: string[];
+  aspectRatio?: string;
+  parentAssetId?: string;
+  disableStyle?: boolean;
+}
+
 interface DescribeRequestMessage {
   type: 'describe:request';
   requestId: string;
@@ -185,6 +199,23 @@ interface RefineStarted {
   assetName: string;
 }
 
+export interface BatchStarted {
+  type: 'batch:started';
+  requestId: string;
+  batchId: string;
+  jobIds: string[];
+  assetIds: string[];
+  count: number;
+  mode: 'explore' | 'set';
+}
+
+interface BatchError {
+  type: 'batch:error';
+  requestId: string;
+  error: string;
+  code: string;
+}
+
 interface VariantUpdated {
   type: 'variant:updated';
   variant: Variant;
@@ -198,6 +229,15 @@ export interface GenerateResult {
   success: boolean;
   variant?: Variant;
   error?: string;
+}
+
+export interface BatchResult {
+  type: 'batch:result';
+  requestId: string;
+  batchId: string;
+  success: boolean;
+  variants: Variant[];
+  failed: Array<{ variantId: string; error: string }>;
 }
 
 interface DescribeResponse {
@@ -253,8 +293,10 @@ type ServerMessage =
   | ChatProgressMessage
   | GenerateStarted
   | RefineStarted
+  | BatchStarted
   | GenerateError
   | RefineError
+  | BatchError
   | GenerateResult
   | RefineResult
   | VariantUpdated
@@ -289,6 +331,19 @@ export class WebSocketClient {
     reject: (error: Error) => void;
     timeout: ReturnType<typeof setTimeout>;
   }> = new Map();
+
+  private batchHandlers: Map<string, {
+    onStarted?: (data: BatchStarted) => void;
+    onResult: (result: BatchResult) => void;
+    reject: (error: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
+    batchId?: string;
+    pending: Set<string>;
+    completed: Variant[];
+    failed: Array<{ variantId: string; error: string }>;
+  }> = new Map();
+
+  private batchVariantToRequestId: Map<string, string> = new Map();
 
   // Track pending variant completions (variantId → callbacks)
   private variantCompletionHandlers: Map<string, {
@@ -343,14 +398,14 @@ export class WebSocketClient {
     if (!config) {
       throw new Error(
         `Not logged in to ${env} environment.\n` +
-        `Run: npm run cli login --env ${env}`
+        `Run: pnpm run cli login --env ${env}`
       );
     }
 
     if (config.token.expiresAt < Date.now()) {
       throw new Error(
         `Token expired for ${env} environment.\n` +
-        `Run: npm run cli login --env ${env}`
+        `Run: pnpm run cli login --env ${env}`
       );
     }
 
@@ -527,6 +582,20 @@ export class WebSocketClient {
         break;
       }
 
+      case 'batch:started': {
+        const startedMsg = message as BatchStarted;
+        const handler = this.batchHandlers.get(startedMsg.requestId);
+        if (handler) {
+          handler.batchId = startedMsg.batchId;
+          handler.pending = new Set(startedMsg.jobIds);
+          for (const jobId of startedMsg.jobIds) {
+            this.batchVariantToRequestId.set(jobId, startedMsg.requestId);
+          }
+          handler.onStarted?.(startedMsg);
+        }
+        break;
+      }
+
       case 'generate:error':
       case 'refine:error': {
         const errorMsg = message as GenerateError | RefineError;
@@ -539,9 +608,50 @@ export class WebSocketClient {
         break;
       }
 
+      case 'batch:error': {
+        const errorMsg = message as BatchError;
+        const handler = this.batchHandlers.get(errorMsg.requestId);
+        if (handler) {
+          this.batchHandlers.delete(errorMsg.requestId);
+          clearTimeout(handler.timeout);
+          handler.reject(new Error(`${errorMsg.code}: ${errorMsg.error}`));
+        }
+        break;
+      }
+
       case 'variant:updated': {
         const updateMsg = message as VariantUpdated;
         const variant = updateMsg.variant;
+        const batchRequestId = this.batchVariantToRequestId.get(variant.id);
+        if (batchRequestId && (variant.status === 'completed' || variant.status === 'failed')) {
+          const batchHandler = this.batchHandlers.get(batchRequestId);
+          if (batchHandler && batchHandler.pending.has(variant.id)) {
+            batchHandler.pending.delete(variant.id);
+            this.batchVariantToRequestId.delete(variant.id);
+            if (variant.status === 'completed') {
+              batchHandler.completed.push(variant);
+            } else {
+              batchHandler.failed.push({
+                variantId: variant.id,
+                error: variant.error_message || 'Generation failed',
+              });
+            }
+
+            if (batchHandler.pending.size === 0) {
+              this.batchHandlers.delete(batchRequestId);
+              clearTimeout(batchHandler.timeout);
+              batchHandler.onResult({
+                type: 'batch:result',
+                requestId: batchRequestId,
+                batchId: batchHandler.batchId || '',
+                success: batchHandler.failed.length === 0,
+                variants: batchHandler.completed,
+                failed: batchHandler.failed,
+              });
+            }
+          }
+        }
+
         const handler = this.variantCompletionHandlers.get(variant.id);
         if (handler && (variant.status === 'completed' || variant.status === 'failed')) {
           this.variantCompletionHandlers.delete(variant.id);
@@ -837,6 +947,69 @@ export class WebSocketClient {
         this.send(message);
       } catch (err) {
         this.generateHandlers.delete(requestId);
+        clearTimeout(timeout);
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Send a batch generation request and wait for all variants to finish.
+   */
+  async sendBatchRequest(params: {
+    name: string;
+    assetType: string;
+    prompt: string;
+    count: number;
+    mode: 'explore' | 'set';
+    referenceVariantIds?: string[];
+    aspectRatio?: string;
+    parentAssetId?: string;
+    disableStyle?: boolean;
+    onStarted?: (data: BatchStarted) => void;
+  }): Promise<BatchResult> {
+    const requestId = crypto.randomUUID();
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        const handler = this.batchHandlers.get(requestId);
+        if (handler) {
+          this.batchHandlers.delete(requestId);
+          for (const variantId of handler.pending) {
+            this.batchVariantToRequestId.delete(variantId);
+          }
+          reject(new Error('Batch request timed out'));
+        }
+      }, 300000);
+
+      this.batchHandlers.set(requestId, {
+        onStarted: params.onStarted,
+        onResult: resolve,
+        reject,
+        timeout,
+        pending: new Set(),
+        completed: [],
+        failed: [],
+      });
+
+      const message: BatchRequestMessage = {
+        type: 'batch:request',
+        requestId,
+        name: params.name,
+        assetType: params.assetType,
+        prompt: params.prompt,
+        count: params.count,
+        mode: params.mode,
+        referenceVariantIds: params.referenceVariantIds,
+        aspectRatio: params.aspectRatio,
+        parentAssetId: params.parentAssetId,
+        disableStyle: params.disableStyle,
+      };
+
+      try {
+        this.send(message);
+      } catch (err) {
+        this.batchHandlers.delete(requestId);
         clearTimeout(timeout);
         reject(err);
       }

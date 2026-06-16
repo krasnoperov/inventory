@@ -3,9 +3,9 @@
  * Database Migration Script
  *
  * Usage:
- *   npm run db:migrate              # Local (default)
- *   npm run db:migrate:stage        # Stage environment (remote)
- *   npm run db:migrate:production   # Production environment (remote)
+ *   pnpm run db:migrate              # Local (default)
+ *   pnpm run db:migrate:stage        # Stage environment (remote)
+ *   pnpm run db:migrate:production   # Production environment (remote)
  */
 
 import { execSync } from 'child_process';
@@ -24,7 +24,7 @@ function migrate(env: Environment, remote: boolean = false) {
   const envFlag = (env === 'local' || env === 'stage') ? '' : `--env ${env}`;
   const localFlag = remote ? '--remote' : '--local';
 
-  const command = `npx wrangler d1 migrations apply ${dbName} ${envFlag} ${localFlag} --config ${configFile}`.replace(/\s+/g, ' ').trim();
+  const command = `pnpm exec wrangler d1 migrations apply ${dbName} ${envFlag} ${localFlag} --config ${configFile}`.replace(/\s+/g, ' ').trim();
 
   console.log(`\n🗄️  Running migrations for ${env} environment...`);
   console.log(`   Database: ${dbName}`);

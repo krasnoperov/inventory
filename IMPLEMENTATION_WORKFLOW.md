@@ -20,11 +20,11 @@ You are implementing a Linear issue in this repository.
 Start with the narrowest useful checks, then widen when the touched surface requires it.
 
 - General code changes:
-  `npm run typecheck && npm run lint && npm test`
+  `pnpm run typecheck && pnpm run lint && pnpm test`
 - Frontend or route changes:
-  `npm run build`
+  `pnpm run build`
 - Schema changes:
-  `npm run db:migrate`
+  `pnpm run db:migrate`
 
 ## Before finishing
 

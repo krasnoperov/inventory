@@ -16,17 +16,17 @@ A graphical assets forging inventory with nano-banana pro, built on Cloudflare W
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Set up environment
 cp .env.example .env
 # Edit .env with your Google OAuth credentials
 
 # Initialize local database
-npm run db:migrate
+pnpm run db:migrate
 
 # Start development
-npm run dev
+pnpm run dev
 ```
 
 Access at https://localhost:3002/
@@ -35,13 +35,13 @@ Access at https://localhost:3002/
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start local development (frontend + worker) |
-| `npm run db:migrate` | Apply database migrations locally |
-| `npm test` | Run tests |
-| `npm run typecheck` | TypeScript type checking |
-| `npm run lint` | ESLint |
-| `npm run deploy:stage` | Deploy to stage environment |
-| `npm run deploy:production` | Deploy to production |
+| `pnpm run dev` | Start local development (frontend + worker) |
+| `pnpm run db:migrate` | Apply database migrations locally |
+| `pnpm test` | Run tests |
+| `pnpm run typecheck` | TypeScript type checking |
+| `pnpm run lint` | ESLint |
+| `pnpm run deploy:stage` | Deploy to stage environment |
+| `pnpm run deploy:production` | Deploy to production |
 
 ## Project Structure
 

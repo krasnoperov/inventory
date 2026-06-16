@@ -86,32 +86,35 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.deploy_ref }}
 
+      - run: corepack enable
+      - run: corepack prepare pnpm@11.1.1 --activate
+
       - uses: actions/cache@v4
         with:
           path: node_modules
-          key: deploy-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: deploy-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - run: npm ci --include=dev --loglevel=error
+      - run: pnpm install --frozen-lockfile
 
       - name: Apply remote migrations
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npm run db:migrate:stage
+        run: pnpm run db:migrate:stage
 
       - name: Deploy application worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npm run deploy:stage
+        run: pnpm run deploy:stage
 
       - name: Deploy processing worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy --config wrangler.processing.toml
+        run: pnpm exec wrangler deploy --config wrangler.processing.toml
 
       - name: Deploy polar worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy --config wrangler.polar.toml
+        run: pnpm exec wrangler deploy --config wrangler.polar.toml
 
   deploy-production:
     name: Deploy production
@@ -129,32 +132,35 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.deploy_ref }}
 
+      - run: corepack enable
+      - run: corepack prepare pnpm@11.1.1 --activate
+
       - uses: actions/cache@v4
         with:
           path: node_modules
-          key: deploy-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: deploy-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - run: npm ci --include=dev --loglevel=error
+      - run: pnpm install --frozen-lockfile
 
       - name: Apply remote migrations
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npm run db:migrate:production
+        run: pnpm run db:migrate:production
 
       - name: Deploy application worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npm run deploy:production
+        run: pnpm run deploy:production
 
       - name: Deploy processing worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy --config wrangler.processing.toml --env production
+        run: pnpm exec wrangler deploy --config wrangler.processing.toml --env production
 
       - name: Deploy polar worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy --config wrangler.polar.toml --env production
+        run: pnpm exec wrangler deploy --config wrangler.polar.toml --env production
 
   deployment-result:
     name: Deployment result

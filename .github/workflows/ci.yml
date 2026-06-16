@@ -29,12 +29,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - run: corepack enable
+      - run: corepack prepare pnpm@11.1.1 --activate
+
       - uses: actions/cache@v4
         with:
           path: node_modules
-          key: npm-${{ hashFiles('package-lock.json') }}
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - run: npm ci --include=dev --loglevel=error
+      - run: pnpm install --frozen-lockfile
 
       - name: Write .env
         run: |
@@ -65,10 +68,10 @@ jobs:
           );
           NODE
 
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run build
-      - run: npm test -- --test-reporter=dot
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm run build
+      - run: pnpm test --test-reporter=dot
 
   Tests:
     name: Tests
