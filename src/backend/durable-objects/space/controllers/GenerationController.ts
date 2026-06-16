@@ -75,6 +75,18 @@ function getElevenLabsAudioUsage(audioUsage: AudioUsage | null | undefined, prom
   };
 }
 
+function getQuotaCheckQuantity(
+  service: GenerationBillingService,
+  prompt: string | undefined,
+  count = 1
+): number {
+  const requestedCount = Math.max(1, Math.floor(count));
+  if (service !== 'elevenlabs') {
+    return requestedCount;
+  }
+  return getElevenLabsAudioUsage(undefined, prompt).totalTokens * requestedCount;
+}
+
 export class GenerationController extends BaseController {
   private readonly variantFactory: VariantFactory;
   private rotationCtrl?: RotationController;
@@ -113,7 +125,8 @@ export class GenerationController extends BaseController {
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind);
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService);
+      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt);
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity);
       if (!check.allowed) {
         this.send(ws, {
           type: 'generate:error',
@@ -188,7 +201,8 @@ export class GenerationController extends BaseController {
         billingMediaKind = asset.media_kind;
       }
       const billingService = getGenerationBillingService(this.env, billingMediaKind);
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService);
+      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt);
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity);
       if (!check.allowed) {
         this.send(ws, {
           type: 'refine:error',
@@ -268,7 +282,15 @@ export class GenerationController extends BaseController {
     // Check quota for the entire batch
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind);
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, msg.count);
+      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, msg.count);
+      const check = await preCheck(
+        this.env.DB,
+        parseInt(meta.userId),
+        billingService,
+        undefined,
+        quotaQuantity,
+        msg.count
+      );
       if (!check.allowed) {
         this.send(ws, {
           type: 'batch:error',
@@ -361,7 +383,8 @@ export class GenerationController extends BaseController {
     const retryMediaKind = variant.media_kind ?? asset.media_kind;
     const billingService = getGenerationBillingService(this.env, retryMediaKind);
     if (this.env.DB && billingService === 'elevenlabs') {
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService);
+      const quotaQuantity = getQuotaCheckQuantity(billingService, recipe.prompt);
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity);
       if (!check.allowed) {
         this.sendError(
           ws,

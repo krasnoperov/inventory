@@ -49,11 +49,13 @@ export async function preCheck(
   userId: number,
   service: 'claude' | 'nanobanana' | 'elevenlabs' | 'veo',
   rateLimit?: RateLimitConfig,
-  requestedQuantity = 1
+  requestedQuantity = 1,
+  rateLimitQuantity = requestedQuantity
 ): Promise<PreCheckResult> {
   const eventName = QUOTA_EVENT_NAMES[service];
   const rateLimitConfig = rateLimit || DEFAULT_RATE_LIMITS[service];
   const requested = Math.max(1, Math.floor(requestedQuantity));
+  const rateRequested = Math.max(1, Math.floor(rateLimitQuantity));
 
   const now = new Date();
   const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -121,7 +123,7 @@ export async function preCheck(
   }
 
   // Check rate limit exceeded
-  if (rateLimitUsed + requested > rateLimitConfig.maxRequests) {
+  if (rateLimitUsed + rateRequested > rateLimitConfig.maxRequests) {
     return {
       allowed: false,
       quotaUsed,
@@ -142,7 +144,7 @@ export async function preCheck(
     quotaRemaining,
     rateLimitUsed,
     rateLimitMax: rateLimitConfig.maxRequests,
-    rateLimitRemaining: Math.max(0, rateLimitRemaining - requested),
+    rateLimitRemaining: Math.max(0, rateLimitRemaining - rateRequested),
   };
 }
 
