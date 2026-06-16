@@ -82,6 +82,9 @@ export async function getConfigPath(): Promise<string> {
 }
 
 export function resolveBaseUrl(env: string): string {
+  const override = process.env.INVENTORY_CLI_BASE_URL;
+  if (override) return override.replace(/\/$/, '');
+
   switch (env) {
     case 'production':
       return 'https://inventory.krasnoperov.me';

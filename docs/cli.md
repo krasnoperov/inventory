@@ -1,25 +1,28 @@
 # Inventory CLI
 
-Command-line interface for the Inventory Forge platform. Provides space management, real-time event monitoring, image uploading, and billing management.
+Command-line interface for the Inventory Forge platform. Provides space management, real-time event monitoring, image uploading, Forge generation control, and billing management.
 
 ## Quick Start
 
 ```bash
 # 1. Login first (if not already)
-npm run cli login --env stage
+npm run cli -- login --env stage
 
 # 2. Create or list spaces
-npm run cli spaces                          # List all spaces
-npm run cli spaces create "My Game Assets"  # Create new space
+npm run cli -- spaces                          # List all spaces
+npm run cli -- spaces create "My Game Assets"  # Create new space
 
 # 3. Listen to real-time events (in a separate terminal)
-npm run cli listen --space YOUR_SPACE_ID
+npm run cli -- listen --space YOUR_SPACE_ID
 
 # 4. Upload an image to create a new asset
-npm run cli upload hero.png --space YOUR_SPACE_ID --name "Hero Character"
+npm run cli -- upload hero.png --space YOUR_SPACE_ID --name "Hero Character"
 
 # 5. Upload a variant to an existing asset
-npm run cli upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
+npm run cli -- upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
+
+# 6. Generate through the website and download the completed image
+npm run cli -- generate "A market background" --space YOUR_SPACE_ID --name "Market" --type scene -o market.png
 ```
 
 ## Commands Overview
@@ -31,6 +34,9 @@ npm run cli upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
 | `spaces` | List, view, or create spaces |
 | `listen` | Connect to WebSocket and stream all events |
 | `upload` | Upload images to create assets or add variants |
+| `generate` | Create a new asset through the website generation workflow |
+| `refine` | Refine an existing variant through the website generation workflow |
+| `derive` | Create a new asset from variant IDs and/or local image refs |
 | `billing` | Billing sync status and management |
 
 ---
@@ -42,16 +48,16 @@ Manage your spaces (workspaces for organizing assets).
 ### List Spaces
 
 ```bash
-npm run cli spaces                    # Simple list
-npm run cli spaces --details          # With asset counts
-npm run cli spaces --id <space_id>    # Details for specific space
+npm run cli -- spaces                    # Simple list
+npm run cli -- spaces --details          # With asset counts
+npm run cli -- spaces --id <space_id>    # Details for specific space
 ```
 
 ### Create Space
 
 ```bash
-npm run cli spaces create "My Space Name"
-npm run cli spaces create --name "My Space Name"
+npm run cli -- spaces create "My Space Name"
+npm run cli -- spaces create --name "My Space Name"
 ```
 
 ---
@@ -61,8 +67,8 @@ npm run cli spaces create --name "My Space Name"
 Connect to a space's WebSocket and stream all events in real-time. Useful for debugging, monitoring, and understanding the event flow.
 
 ```bash
-npm run cli listen --space <space_id>           # Pretty-printed output
-npm run cli listen --space <space_id> --json    # Raw JSON (for piping)
+npm run cli -- listen --space <space_id>           # Pretty-printed output
+npm run cli -- listen --space <space_id> --json    # Raw JSON (for piping)
 ```
 
 **Example output:**
@@ -104,13 +110,13 @@ Upload images to create new assets or add variants to existing assets.
 ### Create New Asset
 
 ```bash
-npm run cli upload <file> --space <id> --name <name> [options]
+npm run cli -- upload <file> --space <id> --name <name> [options]
 ```
 
 ### Add Variant to Existing Asset
 
 ```bash
-npm run cli upload <file> --space <id> --asset <id>
+npm run cli -- upload <file> --space <id> --asset <id>
 ```
 
 **Arguments:**
@@ -132,17 +138,53 @@ npm run cli upload <file> --space <id> --asset <id>
 **Examples:**
 ```bash
 # Create a new character asset from an image
-npm run cli upload hero.png --space abc123 --name "Hero Character"
+npm run cli -- upload hero.png --space abc123 --name "Hero Character"
 
 # Create with specific type and parent
-npm run cli upload sword.png --space abc123 --name "Sword" --type item --parent abc789
+npm run cli -- upload sword.png --space abc123 --name "Sword" --type item --parent abc789
 
 # Add a variant to an existing asset
-npm run cli upload variant.jpg --space abc123 --asset def456
+npm run cli -- upload variant.jpg --space abc123 --asset def456
 
 # Upload against local dev server
-npm run cli upload hero.png --space abc123 --name "Hero" --local
+npm run cli -- upload hero.png --space abc123 --name "Hero" --local
 ```
+
+---
+
+## Forge Generation
+
+The CLI can act as a ForgeTray controller for an existing website space. The
+website remains authoritative for assets, variants, recipes, lineage, and R2
+storage; the CLI sends generation requests and downloads completed images.
+
+```bash
+npm run cli -- generate "A watercolor background of Russafa market" \
+  --space SPACE_ID \
+  --name "Russafa Market Background" \
+  --type scene \
+  -o backgrounds/russafa-market.png
+
+npm run cli -- refine \
+  --space SPACE_ID \
+  --variant VARIANT_ID \
+  "make it evening, warmer lights" \
+  -o backgrounds/russafa-market-evening.png
+
+npm run cli -- derive \
+  --space SPACE_ID \
+  --refs ./lucia.png,VARIANT_BACKGROUND_ID \
+  --name "Lucia in Market Scene" \
+  --type scene \
+  "Use image 1 as the character and image 2 as the background" \
+  -o keyframes/lucia-market-001.png
+```
+
+`derive --refs` accepts existing variant IDs and local image paths. Local
+images are uploaded first as `reference` assets, then their uploaded variant IDs
+are used in the derive request.
+
+See [cli-generation.md](./cli-generation.md) for the full command reference.
 
 ---
 
@@ -151,7 +193,7 @@ npm run cli upload hero.png --space abc123 --name "Hero" --local
 View billing sync status and manage usage.
 
 ```bash
-npm run cli billing --env stage
+npm run cli -- billing --env stage
 ```
 
 ---
@@ -161,11 +203,11 @@ npm run cli billing --env stage
 ### "Not logged in" Error
 
 ```bash
-npm run cli login --env stage
+npm run cli -- login --env stage
 ```
 
 ### "Token expired" Error
 
 ```bash
-npm run cli login --env stage
+npm run cli -- login --env stage
 ```

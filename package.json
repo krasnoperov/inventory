@@ -13,6 +13,7 @@
     "deploy:production": "npm run build && wrangler deploy --env production",
     "deploy:stage": "npm run build && wrangler deploy",
     "test": "node --env-file .env --import @swc-node/register/esm-register --test",
+    "test:e2e:cli-forge": "node scripts/e2e-cli-forge.mjs",
     "lint": "eslint \"{src,scripts}/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "db:migrate": "node --import @swc-node/register/esm-register scripts/db-migrate.ts",

@@ -34,6 +34,7 @@ import {
   type ImageSize,
 } from '../services/nanoBananaService';
 import { CustomModelProvider } from '../services/customModelProvider';
+import { FakeImageProvider } from '../services/fakeImageProvider';
 import type { ImageGenerationProvider } from '../services/imageProvider';
 import {
   detectImageType,
@@ -81,10 +82,6 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' },
         timeout: '5 minutes',
       }, async () => {
-        if (!this.env.GOOGLE_AI_API_KEY) {
-          throw new Error('GOOGLE_AI_API_KEY not configured');
-        }
-
         // Fetch source images inline (not as a separate step) to avoid
         // persisting large blobs in workflow state which has SQLite size limits
         const sourceImages: ImageInput[] = [];
@@ -135,12 +132,19 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
 
         // Select image generation provider
         let provider: ImageGenerationProvider;
-        if (modelProvider === 'custom' && this.env.CUSTOM_MODEL_ENDPOINT) {
+        const useFakeProvider = this.env.INVENTORY_IMAGE_PROVIDER === 'fake';
+
+        if (useFakeProvider) {
+          provider = new FakeImageProvider();
+        } else if (modelProvider === 'custom' && this.env.CUSTOM_MODEL_ENDPOINT) {
           provider = new CustomModelProvider(
             this.env.CUSTOM_MODEL_ENDPOINT,
             this.env.CUSTOM_MODEL_API_KEY
           );
         } else {
+          if (!this.env.GOOGLE_AI_API_KEY) {
+            throw new Error('GOOGLE_AI_API_KEY not configured');
+          }
           provider = new NanoBananaService(this.env.GOOGLE_AI_API_KEY);
         }
         const modelToUse = (model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image') || 'gemini-3-pro-image-preview';
