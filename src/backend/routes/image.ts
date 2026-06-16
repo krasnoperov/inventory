@@ -1,10 +1,21 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { AppContext } from './types';
+import { authMiddleware } from '../middleware/auth-middleware';
+import { MemberDAO } from '../../dao/member-dao';
 
 const imageRoutes = new Hono<AppContext>();
 
 type StorageKind = 'image' | 'media';
+type VariantMediaArtifact = 'media' | 'poster';
+
+interface VariantMediaRecord {
+  id: string;
+  status: string;
+  media_key?: string | null;
+  media_mime_type?: string | null;
+  poster_key?: string | null;
+}
 
 const MEDIA_MIME_BY_EXTENSION: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -40,6 +51,11 @@ function getContentType(object: R2ObjectBody, key: string, kind: StorageKind): s
   return kind === 'image' ? 'image/png' : inferMediaContentType(key);
 }
 
+function getMediaContentType(object: R2ObjectBody, key: string, fallbackContentType?: string | null): string {
+  if (object.httpMetadata?.contentType) return object.httpMetadata.contentType;
+  return fallbackContentType ?? inferMediaContentType(key);
+}
+
 function getRangeContentLength(range: R2Range, totalSize: number): number | null {
   if ('suffix' in range) return Math.min(range.suffix, totalSize);
   if (range.length !== undefined) return range.length;
@@ -59,12 +75,18 @@ function getContentRange(range: R2Range, totalSize: number): string | null {
   return `bytes ${range.offset}-${range.offset + length - 1}/${totalSize}`;
 }
 
+function getArtifactKey(variant: VariantMediaRecord, artifact: VariantMediaArtifact): string | null {
+  if (artifact === 'media') return variant.media_key ?? null;
+  return variant.poster_key ?? null;
+}
+
 async function serveR2Object(
   c: Context<AppContext>,
   options: {
     key: string;
     kind: StorageKind;
     supportsRange: boolean;
+    fallbackContentType?: string | null;
   }
 ): Promise<Response> {
   const env = c.env;
@@ -85,7 +107,12 @@ async function serveR2Object(
 
   const headers = new Headers();
   object.writeHttpMetadata(headers);
-  headers.set('Content-Type', getContentType(object, options.key, options.kind));
+  headers.set(
+    'Content-Type',
+    options.kind === 'media'
+      ? getMediaContentType(object, options.key, options.fallbackContentType)
+      : getContentType(object, options.key, options.kind)
+  );
   headers.set('Cache-Control', 'public, max-age=31536000, immutable');
   headers.set('ETag', object.httpEtag);
 
@@ -109,6 +136,40 @@ async function serveR2Object(
   return new Response(object.body, { headers });
 }
 
+async function getVariantFromSpace(
+  c: Context<AppContext>,
+  spaceId: string,
+  variantId: string
+): Promise<VariantMediaRecord | Response> {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+
+  const env = c.env;
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doId = env.SPACES_DO.idFromName(spaceId);
+  const doStub = env.SPACES_DO.get(doId);
+  const variantResponse = await doStub.fetch(
+    new Request(`http://do/internal/variant/${encodeURIComponent(variantId)}`)
+  );
+
+  if (variantResponse.status === 404) {
+    return c.json({ error: 'Variant not found' }, 404);
+  }
+
+  if (!variantResponse.ok) {
+    return c.json({ error: 'Failed to fetch variant' }, 500);
+  }
+
+  return (await variantResponse.json()) as VariantMediaRecord;
+}
+
 // GET /api/images/* - Serve image from R2
 // Key can contain slashes, e.g., images/spaceId/variantId.png
 imageRoutes.get('/api/images/*', async (c) => {
@@ -121,12 +182,32 @@ imageRoutes.get('/api/images/*', async (c) => {
   }
 });
 
-// GET /api/media/* - Serve any variant media_key object from R2.
-// Key can contain slashes, e.g., media/spaceId/variantId.mp4.
-imageRoutes.get('/api/media/*', async (c) => {
+// Authenticated variant media routes. Callers identify a variant artifact; the
+// server resolves the stored R2 key after membership checks.
+imageRoutes.use('/api/spaces/*', authMiddleware);
+
+imageRoutes.get('/api/spaces/:spaceId/variants/:variantId/:artifact{media|poster}', async (c) => {
   try {
-    const key = getKey(c.req.path, '/api/media/');
-    return serveR2Object(c, { key, kind: 'media', supportsRange: true });
+    const spaceId = c.req.param('spaceId');
+    const variantId = c.req.param('variantId');
+    const artifact = c.req.param('artifact') as VariantMediaArtifact;
+    const variantOrResponse = await getVariantFromSpace(c, spaceId, variantId);
+
+    if (variantOrResponse instanceof Response) {
+      return variantOrResponse;
+    }
+
+    const key = getArtifactKey(variantOrResponse, artifact);
+    if (!key) {
+      return c.json({ error: artifact === 'media' ? 'Variant media not available' : 'Variant poster not available' }, 404);
+    }
+
+    return serveR2Object(c, {
+      key,
+      kind: 'media',
+      supportsRange: artifact === 'media',
+      fallbackContentType: artifact === 'media' ? variantOrResponse.media_mime_type : null,
+    });
   } catch (error) {
     console.error('Error serving media:', error);
     return c.json({ error: 'Failed to serve media' }, 500);

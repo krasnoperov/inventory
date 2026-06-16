@@ -83,6 +83,8 @@ describe('route auth scoping', () => {
     '/api/spaces/abc',
     '/api/spaces/abc/members',
     '/api/spaces/abc/export',
+    '/api/spaces/abc/variants/variant-1/media',
+    '/api/spaces/abc/variants/variant-1/poster',
   ]) {
     it(`still requires auth for ${path}`, async () => {
       const res = await get(buildApp(), path, 'application/json');
