@@ -19,6 +19,9 @@ import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../../../shared/websocket-types';
 
 const log = loggers.generationController;
+const DEFAULT_VIDEO_MODEL = 'veo-3.1-generate-preview';
+const MAX_GEMINI_REFERENCE_IMAGES = 14;
+const MAX_VEO_REFERENCE_IMAGES = 3;
 
 // ============================================================================
 // Types
@@ -33,6 +36,8 @@ export interface GenerationRecipe {
   aspectRatio?: string;
   imageSize?: string;
   sourceImageKeys?: string[];
+  /** Style reference keys prepended to sourceImageKeys, preserving retry semantics */
+  styleImageKeys?: string[];
   /** Parent variant IDs for retry support (in case lineage records are missing) */
   parentVariantIds?: string[];
   /** Operation type matching user-facing tool name */
@@ -167,7 +172,8 @@ export class VariantFactory {
     // Resolve references
     const resolved = await this.resolveAllReferences(
       input.referenceAssetIds,
-      input.referenceVariantIds
+      input.referenceVariantIds,
+      input.mediaKind
     );
 
     // Debug: Log resolved references to trace lineage creation
@@ -186,6 +192,7 @@ export class VariantFactory {
       prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
       assetType: input.assetType,
       mediaKind: input.mediaKind,
+      model: input.mediaKind === 'video' ? DEFAULT_VIDEO_MODEL : undefined,
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
@@ -255,6 +262,7 @@ export class VariantFactory {
     // Resolve source variants
     const resolved = await this.resolveRefineReferences(
       asset,
+      mediaKind,
       input.sourceVariantId,
       input.sourceVariantIds,
       input.referenceAssetIds
@@ -269,8 +277,9 @@ export class VariantFactory {
       prompt: input.prompt,
       assetType: asset.type,
       mediaKind,
+      model: mediaKind === 'video' ? DEFAULT_VIDEO_MODEL : undefined,
       aspectRatio: input.aspectRatio,
-      sourceImageKeys: resolved.sourceImageKeys,
+      sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation: 'refine',
     };
@@ -388,22 +397,23 @@ export class VariantFactory {
    * Resolve reference asset IDs to image keys and variant IDs.
    * Uses active variant of each referenced asset.
    */
-  async resolveAssetReferences(referenceAssetIds: string[]): Promise<ResolvedReferences> {
+  async resolveAssetReferences(
+    referenceAssetIds: string[],
+    mediaKind: MediaKind = DEFAULT_MEDIA_KIND
+  ): Promise<ResolvedReferences> {
     const sourceImageKeys: string[] = [];
     const parentVariantIds: string[] = [];
+    const includeMediaOnlyParents = mediaKind !== 'image';
 
     for (const refAssetId of referenceAssetIds) {
       const asset = await this.repo.getAssetById(refAssetId);
       if (asset?.active_variant_id) {
-        const variant = await this.repo.getVariantById(asset.active_variant_id);
-        const imageKey = variant?.image_key ?? await this.repo.getVariantImageKey(asset.active_variant_id);
-        if (imageKey) {
-          sourceImageKeys.push(imageKey);
-        }
-
-        if (imageKey || (variant?.media_kind === 'audio' && variant.media_key)) {
-          parentVariantIds.push(asset.active_variant_id);
-        }
+        const resolved = await this.resolveVariantReference(
+          asset.active_variant_id,
+          includeMediaOnlyParents
+        );
+        sourceImageKeys.push(...resolved.sourceImageKeys);
+        parentVariantIds.push(...resolved.parentVariantIds);
       }
     }
 
@@ -412,22 +422,20 @@ export class VariantFactory {
 
   /**
    * Resolve explicit variant IDs to image keys (for ForgeTray UI).
-   * Audio references are lineage-only until an audio provider consumes media keys.
+   * Media-only references are lineage-only until a provider consumes media keys.
    */
-  async resolveVariantReferences(referenceVariantIds: string[]): Promise<ResolvedReferences> {
+  async resolveVariantReferences(
+    referenceVariantIds: string[],
+    mediaKind: MediaKind = DEFAULT_MEDIA_KIND
+  ): Promise<ResolvedReferences> {
     const sourceImageKeys: string[] = [];
     const parentVariantIds: string[] = [];
+    const includeMediaOnlyParents = mediaKind !== 'image';
 
     for (const variantId of referenceVariantIds) {
-      const variant = await this.repo.getVariantById(variantId);
-      const imageKey = variant?.image_key ?? await this.repo.getVariantImageKey(variantId);
-      if (imageKey) {
-        sourceImageKeys.push(imageKey);
-      }
-
-      if (imageKey || (variant?.media_kind === 'audio' && variant.media_key)) {
-        parentVariantIds.push(variantId);
-      }
+      const resolved = await this.resolveVariantReference(variantId, includeMediaOnlyParents);
+      sourceImageKeys.push(...resolved.sourceImageKeys);
+      parentVariantIds.push(...resolved.parentVariantIds);
     }
 
     return { sourceImageKeys, parentVariantIds };
@@ -470,7 +478,8 @@ export class VariantFactory {
     // Resolve references ONCE
     const resolved = await this.resolveAllReferences(
       input.referenceAssetIds,
-      input.referenceVariantIds
+      input.referenceVariantIds,
+      input.mediaKind
     );
 
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
@@ -638,22 +647,31 @@ export class VariantFactory {
     sourceImageKeys: string[];
     styleImageKeys?: string[];
   }> {
-    if ((recipe.mediaKind ?? DEFAULT_MEDIA_KIND) !== 'image') {
+    const mediaKind = recipe.mediaKind ?? DEFAULT_MEDIA_KIND;
+    if (mediaKind !== 'image' && mediaKind !== 'video') {
       return { recipe, sourceImageKeys };
     }
 
-    // If explicitly disabled, mark and return unchanged
+    let effectiveRecipe = recipe;
+    let effectiveSourceImageKeys = sourceImageKeys;
+    if (mediaKind === 'video') {
+      const capped = this.capVeoSourceImageKeys(recipe, sourceImageKeys);
+      effectiveRecipe = capped.recipe;
+      effectiveSourceImageKeys = capped.sourceImageKeys;
+    }
+
+    // If explicitly disabled, mark and return unchanged except media limits
     if (disableStyle) {
       return {
-        recipe: { ...recipe, styleOverride: true },
-        sourceImageKeys,
+        recipe: { ...effectiveRecipe, styleOverride: true },
+        sourceImageKeys: effectiveSourceImageKeys,
       };
     }
 
     // Fetch active style
     const style = await this.repo.getActiveStyle();
     if (!style || !style.enabled) {
-      return { recipe, sourceImageKeys };
+      return { recipe: effectiveRecipe, sourceImageKeys: effectiveSourceImageKeys };
     }
 
     // Parse style image keys
@@ -664,8 +682,20 @@ export class VariantFactory {
       // Ignore parse errors
     }
 
-    // Validate total image count (Gemini limit: ~14-16 images)
-    if (styleImageKeys.length + sourceImageKeys.length > 14) {
+    if (mediaKind === 'video') {
+      const sourceBudget = effectiveSourceImageKeys.length;
+      const styleBudget = MAX_VEO_REFERENCE_IMAGES - sourceBudget;
+
+      if (styleImageKeys.length + effectiveSourceImageKeys.length > MAX_VEO_REFERENCE_IMAGES) {
+        log.warn('Style + source images exceed Veo limit, capping reference images', {
+          styleImages: styleImageKeys.length,
+          sourceImages: effectiveSourceImageKeys.length,
+          maxImages: MAX_VEO_REFERENCE_IMAGES,
+        });
+      }
+
+      styleImageKeys = styleImageKeys.slice(0, styleBudget);
+    } else if (styleImageKeys.length + sourceImageKeys.length > MAX_GEMINI_REFERENCE_IMAGES) {
       log.warn('Style + source images exceed limit, skipping style images', {
         styleImages: styleImageKeys.length,
         sourceImages: sourceImageKeys.length,
@@ -675,21 +705,22 @@ export class VariantFactory {
     }
 
     // Prepend style description to prompt
-    let styledPrompt = recipe.prompt;
+    let styledPrompt = effectiveRecipe.prompt;
     if (style.description) {
       const builder = new PromptBuilder();
       builder.withStyle(style.description);
-      styledPrompt = builder.build() + '\n\n' + recipe.prompt;
+      styledPrompt = builder.build() + '\n\n' + effectiveRecipe.prompt;
     }
 
     // Prepend style image keys to source images (style refs come first)
-    const combinedSourceImageKeys = [...styleImageKeys, ...sourceImageKeys];
+    const combinedSourceImageKeys = [...styleImageKeys, ...effectiveSourceImageKeys];
 
     // Update recipe
     const updatedRecipe: GenerationRecipe = {
-      ...recipe,
+      ...effectiveRecipe,
       prompt: styledPrompt,
       sourceImageKeys: combinedSourceImageKeys.length > 0 ? combinedSourceImageKeys : undefined,
+      styleImageKeys: styleImageKeys.length > 0 ? styleImageKeys : undefined,
       styleId: style.id,
     };
 
@@ -700,18 +731,45 @@ export class VariantFactory {
     };
   }
 
+  private capVeoSourceImageKeys(
+    recipe: GenerationRecipe,
+    sourceImageKeys: string[]
+  ): {
+    recipe: GenerationRecipe;
+    sourceImageKeys: string[];
+  } {
+    if (sourceImageKeys.length <= MAX_VEO_REFERENCE_IMAGES) {
+      return { recipe, sourceImageKeys };
+    }
+
+    const cappedSourceImageKeys = sourceImageKeys.slice(0, MAX_VEO_REFERENCE_IMAGES);
+    log.warn('Source images exceed Veo limit, capping reference images', {
+      sourceImages: sourceImageKeys.length,
+      maxImages: MAX_VEO_REFERENCE_IMAGES,
+    });
+
+    return {
+      recipe: {
+        ...recipe,
+        sourceImageKeys: cappedSourceImageKeys,
+      },
+      sourceImageKeys: cappedSourceImageKeys,
+    };
+  }
+
   /**
    * Resolve all references, preferring explicit variant IDs over asset IDs.
    */
   private async resolveAllReferences(
     referenceAssetIds?: string[],
-    referenceVariantIds?: string[]
+    referenceVariantIds?: string[],
+    mediaKind: MediaKind = DEFAULT_MEDIA_KIND
   ): Promise<ResolvedReferences> {
     if (referenceVariantIds?.length) {
-      return this.resolveVariantReferences(referenceVariantIds);
+      return this.resolveVariantReferences(referenceVariantIds, mediaKind);
     }
     if (referenceAssetIds?.length) {
-      return this.resolveAssetReferences(referenceAssetIds);
+      return this.resolveAssetReferences(referenceAssetIds, mediaKind);
     }
     return { sourceImageKeys: [], parentVariantIds: [] };
   }
@@ -721,6 +779,7 @@ export class VariantFactory {
    */
   private async resolveRefineReferences(
     asset: Asset,
+    mediaKind: MediaKind,
     sourceVariantId?: string,
     sourceVariantIds?: string[],
     referenceAssetIds?: string[]
@@ -730,7 +789,7 @@ export class VariantFactory {
 
     if (sourceVariantIds?.length) {
       // ForgeTray path: use explicit variant IDs
-      const resolved = await this.resolveVariantReferences(sourceVariantIds);
+      const resolved = await this.resolveVariantReferences(sourceVariantIds, mediaKind);
       sourceImageKeys = resolved.sourceImageKeys;
       parentVariantIds = resolved.parentVariantIds;
     } else {
@@ -740,27 +799,42 @@ export class VariantFactory {
         return { sourceImageKeys: [], parentVariantIds: [] };
       }
 
-      const sourceVariant = await this.repo.getVariantById(resolvedId);
-      if (!sourceVariant) {
-        return { sourceImageKeys: [], parentVariantIds: [] };
-      }
-
-      if (sourceVariant.image_key) {
-        sourceImageKeys = [sourceVariant.image_key];
-      }
-      if (sourceVariant.image_key || (sourceVariant.media_kind === 'audio' && sourceVariant.media_key)) {
-        parentVariantIds = [resolvedId];
-      }
+      const resolved = await this.resolveVariantReference(resolvedId, mediaKind !== 'image');
+      sourceImageKeys = resolved.sourceImageKeys;
+      parentVariantIds = resolved.parentVariantIds;
     }
 
     // Add additional asset references
     if (referenceAssetIds?.length) {
-      const additionalRefs = await this.resolveAssetReferences(referenceAssetIds);
+      const additionalRefs = await this.resolveAssetReferences(referenceAssetIds, mediaKind);
       sourceImageKeys = [...sourceImageKeys, ...additionalRefs.sourceImageKeys];
       parentVariantIds = [...parentVariantIds, ...additionalRefs.parentVariantIds];
     }
 
     return { sourceImageKeys, parentVariantIds };
+  }
+
+  /**
+   * Resolve a variant as an image reference when possible. Media-only variants
+   * can still be lineage parents for non-image generation, but they are not
+   * passed to image-reference model inputs.
+   */
+  private async resolveVariantReference(
+    variantId: string,
+    includeMediaOnlyParent: boolean
+  ): Promise<ResolvedReferences> {
+    const variant = await this.repo.getVariantById(variantId);
+    const imageKey = variant?.image_key ?? await this.repo.getVariantImageKey(variantId);
+
+    if (imageKey) {
+      return { sourceImageKeys: [imageKey], parentVariantIds: [variantId] };
+    }
+
+    if (includeMediaOnlyParent && variant?.media_key) {
+      return { sourceImageKeys: [], parentVariantIds: [variantId] };
+    }
+
+    return { sourceImageKeys: [], parentVariantIds: [] };
   }
 
   /**

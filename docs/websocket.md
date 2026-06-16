@@ -139,11 +139,12 @@ the camelCase field `mediaKind` where a caller can choose the medium at creation
 time. The allowed values are `image`, `audio`, and `video`; omitted values
 default to `image`.
 
-`mediaKind` is a medium discriminator, not an asset taxonomy or provider
-selector. Keep using `assetType`/`type` for catalog categories such as
-`character`, `tile-set`, or `animation`. Audio and future Google video
-generation should remain website-controlled SpaceDO workflows: set `mediaKind`
-explicitly and choose the capable provider/model through provider/model fields.
+`mediaKind` is a medium discriminator, not an asset taxonomy. Keep using
+`assetType`/`type` for catalog categories such as `character`, `tile-set`, or
+`animation`. Website video generation remains a SpaceDO-controlled workflow:
+set `mediaKind: "video"` explicitly and the stored recipe records the capable
+Google Veo model. Audio generation uses the same lifecycle when a configured
+audio provider is enabled.
 
 The backend enforces homogeneous assets. Variants inherit their asset's
 `media_kind`, and requests that try to create a variant or forked asset with a

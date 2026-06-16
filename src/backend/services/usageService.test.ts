@@ -175,6 +175,29 @@ describe('UsageService', () => {
     });
   });
 
+  describe('trackVideoGeneration', () => {
+    test('creates video count event in local storage', async () => {
+      await usageService.trackVideoGeneration(
+        testUserId,
+        1,
+        'veo-3.1-generate-preview',
+        'generate',
+        '16:9'
+      );
+
+      const events = await usageEventDAO.findByUser(testUserId);
+      assert.strictEqual(events.length, 1);
+      assert.strictEqual(events[0].event_name, USAGE_EVENTS.GEMINI_VIDEOS);
+      assert.strictEqual(events[0].quantity, 1);
+
+      assert.ok(events[0].metadata);
+      const metadata = JSON.parse(events[0].metadata);
+      assert.strictEqual(metadata.model, 'veo-3.1-generate-preview');
+      assert.strictEqual(metadata.operation, 'generate');
+      assert.strictEqual(metadata.aspect_ratio, '16:9');
+    });
+  });
+
   describe('syncPendingEvents', () => {
     test('returns { synced: 0, failed: 0 } when PolarService is null', async () => {
       // Create some events
@@ -191,6 +214,7 @@ describe('UsageService', () => {
       // Track some usage
       await usageService.trackClaudeUsage(testUserId, 1000, 500, 'claude-sonnet-4-20250514');
       await usageService.trackImageGeneration(testUserId, 2, 'gemini-3-pro-image-preview');
+      await usageService.trackVideoGeneration(testUserId, 1, 'veo-3.1-generate-preview');
 
       const stats = await usageService.getUserUsageStats(testUserId);
 
@@ -199,6 +223,7 @@ describe('UsageService', () => {
       assert.strictEqual(stats.usage[USAGE_EVENTS.CLAUDE_INPUT_TOKENS]?.used, 1000);
       assert.strictEqual(stats.usage[USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS]?.used, 500);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_IMAGES]?.used, 2);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.used, 1);
     });
 
     test('returns empty usage when no events exist', async () => {

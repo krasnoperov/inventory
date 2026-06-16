@@ -131,6 +131,76 @@ describe('VariantFactory - Style Injection', () => {
       assert.strictEqual(recipe.styleId, undefined);
       assert.strictEqual(result.styleImageKeys, undefined);
     });
+
+    test('video generation caps user references to Veo limit without active style', async () => {
+      const repo = createMockRepo();
+      const variantIds = ['var-1', 'var-2', 'var-3', 'var-4'];
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
+        async (variantId: string) => `images/${variantId}.png`
+      );
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Video Test',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'A slow camera orbit',
+          referenceVariantIds: variantIds,
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'images/var-1.png',
+        'images/var-2.png',
+        'images/var-3.png',
+      ]);
+      assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
+      assert.strictEqual(result.styleImageKeys, undefined);
+    });
+
+    test('video refine caps ForgeTray references to Veo limit without active style', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
+        id: 'asset-video',
+        name: 'Video Asset',
+        type: 'animation',
+        media_kind: 'video',
+        tags: '[]',
+        parent_asset_id: null,
+        active_variant_id: 'var-1',
+        created_by: 'user-123',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      }));
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
+        async (variantId: string) => `images/${variantId}.png`
+      );
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createRefineVariant(
+        {
+          assetId: 'asset-video',
+          mediaKind: 'video',
+          prompt: 'Animate this set',
+          sourceVariantIds: ['var-1', 'var-2', 'var-3', 'var-4'],
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'images/var-1.png',
+        'images/var-2.png',
+        'images/var-3.png',
+      ]);
+      assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
+      assert.strictEqual(result.styleImageKeys, undefined);
+    });
   });
 
   describe('style with description only', () => {
@@ -180,6 +250,10 @@ describe('VariantFactory - Style Injection', () => {
       assert.ok(recipe.sourceImageKeys);
       assert.ok(recipe.sourceImageKeys!.includes('styles/space-1/ref1.png'));
       assert.ok(recipe.sourceImageKeys!.includes('styles/space-1/ref2.png'));
+      assert.deepStrictEqual(recipe.styleImageKeys, [
+        'styles/space-1/ref1.png',
+        'styles/space-1/ref2.png',
+      ]);
       // Style image keys returned separately
       assert.deepStrictEqual(result.styleImageKeys, [
         'styles/space-1/ref1.png',
@@ -242,6 +316,107 @@ describe('VariantFactory - Style Injection', () => {
       assert.strictEqual(recipe.sourceImageKeys![0], 'styles/space-1/ref1.png');
       assert.strictEqual(recipe.sourceImageKeys![1], 'images/user-ref.png');
     });
+
+    test('video generation caps style-only references to Veo limit', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
+        createMockStyle({
+          image_keys: '["styles/ref1.png","styles/ref2.png","styles/ref3.png","styles/ref4.png"]',
+        })
+      );
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Video Test',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'A slow camera orbit',
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'styles/ref1.png',
+        'styles/ref2.png',
+        'styles/ref3.png',
+      ]);
+      assert.deepStrictEqual(recipe.styleImageKeys, recipe.sourceImageKeys);
+      assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
+      assert.deepStrictEqual(result.styleImageKeys, recipe.sourceImageKeys);
+    });
+
+    test('video refine preserves source reference before filling style budget', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
+        createMockStyle({
+          image_keys: '["styles/ref1.png","styles/ref2.png","styles/ref3.png","styles/ref4.png"]',
+        })
+      );
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
+        id: 'asset-video',
+        name: 'Video Asset',
+        type: 'animation',
+        media_kind: 'video',
+        tags: '[]',
+        parent_asset_id: null,
+        active_variant_id: 'variant-source',
+        created_by: 'user-123',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async () => ({
+        id: 'variant-source',
+        asset_id: 'asset-video',
+        media_kind: 'video',
+        workflow_id: null,
+        status: 'completed',
+        error_message: null,
+        image_key: 'images/source.png',
+        thumb_key: 'images/source_thumb.webp',
+        media_key: 'images/source.png',
+        media_mime_type: 'image/png',
+        media_size_bytes: 1234,
+        media_width: 512,
+        media_height: 512,
+        media_duration_ms: null,
+        recipe: '{}',
+        starred: false,
+        created_by: 'user-123',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        plan_step_id: null,
+        description: null,
+        batch_id: null,
+        quality_rating: null,
+        rated_at: null,
+      }));
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createRefineVariant(
+        {
+          assetId: 'asset-video',
+          mediaKind: 'video',
+          prompt: 'Animate this asset',
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'styles/ref1.png',
+        'styles/ref2.png',
+        'images/source.png',
+      ]);
+      assert.deepStrictEqual(recipe.styleImageKeys, ['styles/ref1.png', 'styles/ref2.png']);
+      assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
+      assert.deepStrictEqual(result.styleImageKeys, ['styles/ref1.png', 'styles/ref2.png']);
+    });
   });
 
   describe('disableStyle', () => {
@@ -264,6 +439,41 @@ describe('VariantFactory - Style Injection', () => {
       // Prompt should NOT have style prepended
       assert.strictEqual(recipe.prompt, 'A warrior');
       assert.strictEqual(recipe.styleId, undefined);
+      assert.strictEqual(result.styleImageKeys, undefined);
+    });
+
+    test('video generation caps user references when style is disabled', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
+        createMockStyle({ description: 'Should not appear' })
+      );
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
+        async (variantId: string) => `images/${variantId}.png`
+      );
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Video Test',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'A slow camera orbit',
+          referenceVariantIds: ['var-1', 'var-2', 'var-3', 'var-4'],
+          disableStyle: true,
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'images/var-1.png',
+        'images/var-2.png',
+        'images/var-3.png',
+      ]);
+      assert.strictEqual(recipe.styleOverride, true);
+      assert.strictEqual(recipe.styleId, undefined);
+      assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
       assert.strictEqual(result.styleImageKeys, undefined);
     });
   });

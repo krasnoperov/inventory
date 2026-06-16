@@ -52,10 +52,9 @@
 Variants track generation and upload status via placeholder lifecycle.
 `media_kind` is the stored medium discriminator shared with the parent asset;
 allowed values are `image`, `audio`, and `video`, with `image` as the default
-for legacy and omitted values. Image generation uses the image provider path.
-Audio generation uses the same placeholder workflow lifecycle with the
-configured audio provider. Upload flows accept image, audio, and video files;
-video generation is reserved for future generators.
+for legacy and omitted values. Website generation can produce images through
+Gemini image models, audio through the configured audio provider, and videos
+through Google Veo. Upload flows accept image, audio, and video files.
 
 ```sql
 CREATE TABLE variants (
@@ -138,8 +137,8 @@ Generation uses "placeholder variants" - variants created before generation comp
 3. SpaceDO creates lineage records immediately
 4. SpaceDO broadcasts `asset:created`, `variant:created`, `lineage:created`
 5. SpaceDO triggers `GenerationWorkflow`, updates variant to `status='processing'`
-6. Workflow calls Gemini API, uploads to R2
-7. Workflow calls `POST /internal/complete-variant` with image keys
+6. Workflow calls Gemini/Veo API, uploads to R2
+7. Workflow calls `POST /internal/complete-variant` with image keys or media keys
 8. SpaceDO updates variant (`status='completed'`), broadcasts `variant:updated`
 
 #### Variant Status Lifecycle
