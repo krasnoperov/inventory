@@ -31,13 +31,15 @@ export class AssetController extends BaseController {
     meta: WebSocketMeta,
     name: string,
     assetType: string,
-    parentAssetId?: string
+    parentAssetId?: string,
+    mediaKind?: MediaKind
   ): Promise<void> {
     this.requireEditor(meta);
 
     const asset = await this.createAsset({
       name,
       type: assetType,
+      mediaKind,
       parentAssetId,
       createdBy: meta.userId,
     });
@@ -133,7 +135,8 @@ export class AssetController extends BaseController {
     sourceVariantId: string | undefined,
     name: string,
     assetType: string,
-    parentAssetId?: string
+    parentAssetId?: string,
+    mediaKind?: MediaKind
   ): Promise<void> {
     this.requireEditor(meta);
 
@@ -158,6 +161,7 @@ export class AssetController extends BaseController {
       sourceVariantId: resolvedVariantId,
       name,
       type: assetType,
+      mediaKind,
       parentAssetId,
       createdBy: meta.userId,
     });

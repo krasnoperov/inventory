@@ -90,6 +90,7 @@ export class GenerationController extends BaseController {
       {
         name: msg.name,
         assetType: msg.assetType,
+        mediaKind: msg.mediaKind,
         prompt: msg.prompt,
         aspectRatio: msg.aspectRatio,
         parentAssetId: msg.parentAssetId,
@@ -154,6 +155,7 @@ export class GenerationController extends BaseController {
     const result = await this.variantFactory.createRefineVariant(
       {
         assetId: msg.assetId,
+        mediaKind: msg.mediaKind,
         prompt: msg.prompt,
         aspectRatio: msg.aspectRatio,
         sourceVariantId: msg.sourceVariantId,
@@ -223,6 +225,7 @@ export class GenerationController extends BaseController {
       {
         name: msg.name,
         assetType: msg.assetType,
+        mediaKind: msg.mediaKind,
         prompt: msg.prompt,
         aspectRatio: msg.aspectRatio,
         parentAssetId: msg.parentAssetId,
@@ -313,6 +316,7 @@ export class GenerationController extends BaseController {
       assetId: variant.asset_id,
       assetName: asset.name,
       assetType: recipe.assetType,
+      mediaKind: variant.media_kind ?? asset.media_kind,
       model: recipe.model,
       aspectRatio: recipe.aspectRatio,
       imageSize: recipe.imageSize,

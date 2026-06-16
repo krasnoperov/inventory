@@ -140,6 +140,7 @@ export class VariantController extends BaseController {
     // For new asset creation
     assetName?: string;
     assetType?: string;
+    mediaKind?: MediaKind;
     parentAssetId?: string | null;
     recipe: string;
     createdBy: string;
@@ -162,6 +163,7 @@ export class VariantController extends BaseController {
         id: newAssetId,
         name: data.assetName,
         type: data.assetType || 'character',
+        mediaKind: data.mediaKind,
         tags: [],
         parentAssetId: data.parentAssetId || null,
         createdBy: data.createdBy,
@@ -175,7 +177,7 @@ export class VariantController extends BaseController {
     const variant: Variant = {
       id: data.variantId,
       asset_id: asset.id,
-      media_kind: DEFAULT_MEDIA_KIND,
+      media_kind: data.mediaKind ?? asset.media_kind ?? DEFAULT_MEDIA_KIND,
       workflow_id: null, // No workflow for uploads
       status: 'uploading',
       error_message: null,

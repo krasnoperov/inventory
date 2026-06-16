@@ -320,12 +320,15 @@ export class TileController extends BaseController {
       .withTileContext(adjacents, set.tile_type as TileType)
       .withTheme(config.prompt);
     const prompt = builder.build();
+    const asset = await this.repo.getAssetById(set.asset_id);
+    const mediaKind = asset?.media_kind ?? DEFAULT_MEDIA_KIND;
 
     // Create placeholder variant
     const variantId = crypto.randomUUID();
     const recipe = JSON.stringify({
       prompt,
       assetType: 'tile-set',
+      mediaKind,
       aspectRatio: config.aspectRatio || '1:1',
       sourceImageKeys: [...styleKeys, ...cappedKeys],
       operation: 'derive',
@@ -334,6 +337,7 @@ export class TileController extends BaseController {
     const variant = await this.repo.createPlaceholderVariant({
       id: variantId,
       assetId: set.asset_id,
+      mediaKind,
       recipe,
       createdBy: userId,
     });
@@ -360,6 +364,7 @@ export class TileController extends BaseController {
           assetId: set.asset_id,
           assetName: `Tile (${gridX},${gridY})`,
           assetType: 'tile-set',
+          mediaKind,
           aspectRatio: config.aspectRatio || '1:1',
           sourceImageKeys: cappedKeys.length > 0 ? [...styleKeys, ...cappedKeys] : undefined,
           operation: adjacents.length > 0 ? 'derive' : 'generate',
@@ -534,6 +539,7 @@ export class TileController extends BaseController {
     const variant = await this.repo.createPlaceholderVariant({
       id: variantId,
       assetId: tileAssetId,
+      mediaKind: DEFAULT_MEDIA_KIND,
       recipe,
       createdBy: meta.userId,
     });
@@ -551,6 +557,7 @@ export class TileController extends BaseController {
           assetId: tileAssetId,
           assetName: `Grid — ${msg.gridWidth}x${msg.gridHeight}`,
           assetType: 'tile-set',
+          mediaKind: DEFAULT_MEDIA_KIND,
           aspectRatio: msg.aspectRatio || '1:1',
           sourceImageKeys: styleKeys.length > 0 ? styleKeys : undefined,
           operation: 'generate',
@@ -669,9 +676,12 @@ export class TileController extends BaseController {
 
     // Create placeholder variant for refined tile
     const variantId = crypto.randomUUID();
+    const asset = await this.repo.getAssetById(set.asset_id);
+    const mediaKind = asset?.media_kind ?? DEFAULT_MEDIA_KIND;
     const recipe = JSON.stringify({
       prompt,
       assetType: 'tile-set',
+      mediaKind,
       aspectRatio: config.aspectRatio || '1:1',
       sourceImageKeys: [...styleKeys, ...cappedKeys],
       operation: 'refine',
@@ -680,6 +690,7 @@ export class TileController extends BaseController {
     const variant = await this.repo.createPlaceholderVariant({
       id: variantId,
       assetId: set.asset_id,
+      mediaKind,
       recipe,
       createdBy: userId,
     });
@@ -704,6 +715,7 @@ export class TileController extends BaseController {
           assetId: set.asset_id,
           assetName: `Tile (${gridX},${gridY}) — refined`,
           assetType: 'tile-set',
+          mediaKind,
           aspectRatio: config.aspectRatio || '1:1',
           sourceImageKeys: [...styleKeys, ...cappedKeys],
           operation: 'refine',
@@ -813,6 +825,7 @@ export class TileController extends BaseController {
         await this.repo.createPlaceholderVariant({
           id: cellVariantId,
           assetId: tileSet.asset_id,
+          mediaKind: (await this.repo.getAssetById(tileSet.asset_id))?.media_kind ?? DEFAULT_MEDIA_KIND,
           recipe: cellRecipe,
           createdBy: tileSet.created_by,
         });

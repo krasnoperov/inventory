@@ -353,11 +353,11 @@ export type ClientMessage =
   // Sync
   | { type: 'sync:request' }
   // Asset operations
-  | { type: 'asset:create'; name: string; assetType: string; parentAssetId?: string }
+  | { type: 'asset:create'; name: string; assetType: string; mediaKind?: MediaKind; parentAssetId?: string }
   | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[]; type?: string; parentAssetId?: string | null } }
   | { type: 'asset:delete'; assetId: string }
   | { type: 'asset:setActive'; assetId: string; variantId: string }
-  | { type: 'asset:fork'; sourceAssetId?: string; sourceVariantId?: string; name: string; assetType: string; parentAssetId?: string }
+  | { type: 'asset:fork'; sourceAssetId?: string; sourceVariantId?: string; name: string; assetType: string; mediaKind?: MediaKind; parentAssetId?: string }
   // Variant operations
   | { type: 'variant:delete'; variantId: string }
   | { type: 'variant:star'; variantId: string; starred: boolean }
@@ -525,6 +525,7 @@ export interface CreateAssetInput {
   id?: string;
   name: string;
   type: string;
+  mediaKind?: MediaKind;
   parentAssetId?: string;
   createdBy: string;
 }
@@ -536,6 +537,7 @@ export interface ForkAssetInput {
   sourceVariantId: string;
   name: string;
   type: string;
+  mediaKind?: MediaKind;
   parentAssetId?: string;
   createdBy: string;
 }

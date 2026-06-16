@@ -44,6 +44,7 @@ export interface InternalApiControllers {
       sourceVariantId: string;
       name: string;
       type: string;
+      mediaKind?: MediaKind;
       parentAssetId?: string;
       createdBy: string;
     }): Promise<unknown>;
@@ -70,6 +71,7 @@ export interface InternalApiControllers {
       assetId?: string;
       assetName?: string;
       assetType?: string;
+      mediaKind?: MediaKind;
       parentAssetId?: string | null;
       recipe: string;
       createdBy: string;
@@ -249,6 +251,7 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       assetId?: string;
       assetName?: string;
       assetType?: string;
+      mediaKind?: MediaKind;
       parentAssetId?: string | null;
       recipe: string;
       createdBy: string;
