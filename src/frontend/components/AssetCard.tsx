@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
-import { type Asset, type Variant, getVariantMediaUrl, getVariantThumbnailUrl, isVariantReady, isVariantImageReady, isVariantVideoReady, isVariantLoading, isVariantFailed } from '../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, isVariantImageReady } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
+import { Thumbnail } from './Thumbnail';
 import styles from './AssetCard.module.css';
 
 export interface AssetCardProps {
@@ -106,46 +107,18 @@ export function AssetCard(props: AssetCardProps) {
     >
       {/* Thumbnail Area */}
       <div className={styles.thumbnailArea} onClick={handleCardClick}>
-        {/* Show loading state for pending/processing/uploading variants */}
-        {primaryVariant && isVariantLoading(primaryVariant) ? (
-          <div className={styles.generatingPlaceholder}>
-            <div className={styles.spinner} />
-            <span>
-              {({ pending: 'Queued', processing: 'Generating', uploading: 'Uploading' } as Record<string, string>)[primaryVariant.status] || 'Loading'}
-            </span>
-          </div>
-        ) : primaryVariant && isVariantFailed(primaryVariant) ? (
-          <div className={styles.generatingPlaceholder}>
-            <span className={styles.errorIcon}>⚠</span>
-            <span>Failed</span>
-          </div>
-        ) : primaryVariant && isVariantReady(primaryVariant) ? (
+        {primaryVariant ? (
           <div className={styles.thumbnailWrapper}>
-            {isVariantVideoReady(primaryVariant) && getVariantMediaUrl(primaryVariant, spaceId) ? (
-              <video
-                src={getVariantMediaUrl(primaryVariant, spaceId)}
-                className={styles.thumbnailVideo}
-                controls
-                preload="metadata"
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : getVariantThumbnailUrl(primaryVariant) ? (
-              <img
-                src={getVariantThumbnailUrl(primaryVariant)}
-                alt={asset.name}
-                className={styles.thumbnail}
-              />
-            ) : (
-              <div className={styles.emptyThumbnail}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-              </div>
-            )}
+            <Thumbnail
+              variant={primaryVariant}
+              size="fill"
+              spaceId={spaceId}
+              showAudioControls
+              showVideoControls
+              className={styles.thumbnailPreview}
+            />
             {/* Hover overlay with actions */}
-            {isHovered && !isVariantVideoReady(primaryVariant) && (
+            {isHovered && isVariantImageReady(primaryVariant) && (
               <div className={styles.hoverOverlay}>
                 <div className={styles.overlayActions}>
                   <button
@@ -232,21 +205,12 @@ export function AssetCard(props: AssetCardProps) {
                     onMouseLeave={() => setHoveredChildId(null)}
                     title={child.name}
                   >
-                    {childVariant && getVariantThumbnailUrl(childVariant) ? (
-                      <img
-                        src={getVariantThumbnailUrl(childVariant)}
-                        alt={child.name}
-                        className={styles.childThumbImg}
-                      />
-                    ) : (
-                      <div className={styles.childThumbEmpty}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="20" height="20">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                          <circle cx="8.5" cy="8.5" r="1.5" />
-                          <polyline points="21 15 16 10 5 21" />
-                        </svg>
-                      </div>
-                    )}
+                    <Thumbnail
+                      variant={childVariant}
+                      size="fill"
+                      spaceId={spaceId}
+                      className={styles.childThumbPreview}
+                    />
                     {/* Add to tray on hover */}
                     {isChildHovered && onAddToTray && childVariant && isVariantImageReady(childVariant) && (
                       <button
@@ -284,19 +248,12 @@ export function AssetCard(props: AssetCardProps) {
                             onMouseLeave={() => setHoveredChildId(null)}
                             title={grandchild.name}
                           >
-                            {grandchildVariant && getVariantThumbnailUrl(grandchildVariant) ? (
-                              <img
-                                src={getVariantThumbnailUrl(grandchildVariant)}
-                                alt={grandchild.name}
-                                className={styles.grandchildThumbImg}
-                              />
-                            ) : (
-                              <div className={styles.grandchildThumbEmpty}>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12">
-                                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                                </svg>
-                              </div>
-                            )}
+                            <Thumbnail
+                              variant={grandchildVariant}
+                              size="fill"
+                              spaceId={spaceId}
+                              className={styles.grandchildThumbPreview}
+                            />
                             {/* Add to tray on hover */}
                             {isGrandchildHovered && onAddToTray && grandchildVariant && isVariantImageReady(grandchildVariant) && (
                               <button

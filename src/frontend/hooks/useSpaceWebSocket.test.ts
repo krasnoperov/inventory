@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 import {
   getVariantMediaUrl,
   getVariantThumbnailUrl,
+  isVariantAudioReady,
   isVariantImageReady,
   isVariantReady,
   isVariantVideoReady,
@@ -43,6 +44,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(imageVariant), true);
     assert.equal(isVariantImageReady(imageVariant), true);
+    assert.equal(isVariantAudioReady(imageVariant), false);
     assert.equal(isVariantVideoReady(imageVariant), false);
     assert.equal(getVariantThumbnailUrl(imageVariant), '/api/images/images/space/variant_thumb.webp');
     assert.equal(getVariantMediaUrl(imageVariant, 'space-1'), '/api/spaces/space-1/variants/variant-1/media');
@@ -61,9 +63,25 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(audioVariant), true);
     assert.equal(isVariantImageReady(audioVariant), false);
+    assert.equal(isVariantAudioReady(audioVariant), true);
     assert.equal(isVariantVideoReady(audioVariant), false);
     assert.equal(getVariantThumbnailUrl(audioVariant), undefined);
     assert.equal(getVariantMediaUrl(audioVariant, 'space-1'), '/api/spaces/space-1/variants/variant-1/media');
+  });
+
+  test('requires canonical media for audio readiness', () => {
+    const audioWithoutMedia = variant({
+      media_kind: 'audio',
+      image_key: 'images/space/audio-poster.png',
+      thumb_key: null,
+      media_key: null,
+      media_mime_type: null,
+      media_width: null,
+      media_height: null,
+    });
+
+    assert.equal(isVariantReady(audioWithoutMedia), true);
+    assert.equal(isVariantAudioReady(audioWithoutMedia), false);
   });
 
   test('treats completed video variants as ready for native playback', () => {
@@ -78,6 +96,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(videoVariant), true);
     assert.equal(isVariantImageReady(videoVariant), false);
+    assert.equal(isVariantAudioReady(videoVariant), false);
     assert.equal(isVariantVideoReady(videoVariant), true);
     assert.equal(getVariantThumbnailUrl(videoVariant), undefined);
     assert.equal(getVariantMediaUrl(videoVariant, 'space-1'), '/api/spaces/space-1/variants/variant-1/media');
@@ -93,6 +112,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(pendingVariant), false);
     assert.equal(isVariantImageReady(pendingVariant), false);
+    assert.equal(isVariantAudioReady(pendingVariant), false);
     assert.equal(isVariantVideoReady(pendingVariant), false);
     assert.equal(getVariantMediaUrl(pendingVariant, 'space-1'), undefined);
   });
