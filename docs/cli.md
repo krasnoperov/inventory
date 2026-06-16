@@ -6,26 +6,26 @@ Command-line interface for the Inventory Forge platform. Provides space manageme
 
 ```bash
 # 1. Login first (if not already)
-npm run cli -- login --env stage
+pnpm run cli login --env stage
 
 # 2. Create or list spaces
-npm run cli -- spaces                          # List all spaces
-npm run cli -- spaces create "My Game Assets"  # Create new space
+pnpm run cli spaces                          # List all spaces
+pnpm run cli spaces create "My Game Assets"  # Create new space
 
 # 3. Bind this directory to a website space
-npm run cli -- init --space YOUR_SPACE_ID --env stage
+pnpm run cli init --space YOUR_SPACE_ID --env stage
 
 # 4. Listen to real-time events (in a separate terminal)
-npm run cli -- listen --space YOUR_SPACE_ID
+pnpm run cli listen --space YOUR_SPACE_ID
 
 # 5. Upload an image to create a new asset
-npm run cli -- upload hero.png --space YOUR_SPACE_ID --name "Hero Character"
+pnpm run cli upload hero.png --space YOUR_SPACE_ID --name "Hero Character"
 
 # 6. Upload a variant to an existing asset
-npm run cli -- upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
+pnpm run cli upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
 
 # 7. Generate through the website and download the completed image
-npm run cli -- generate "A market background" --name "Market" --type scene -o market.png
+pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
 ```
 
 ## Commands Overview
@@ -41,6 +41,7 @@ npm run cli -- generate "A market background" --name "Market" --type scene -o ma
 | `generate` | Create a new asset through the website generation workflow |
 | `refine` | Refine an existing variant through the website generation workflow |
 | `derive` | Create a new asset from variant IDs and/or local image refs |
+| `batch` | Generate multiple images and write a local run manifest |
 | `billing` | Billing sync status and management |
 
 ---
@@ -50,7 +51,7 @@ npm run cli -- generate "A market background" --name "Market" --type scene -o ma
 Bind a filesystem workspace to a website space:
 
 ```bash
-npm run cli -- init --space <space_id> [--env stage|production|local]
+pnpm run cli init --space <space_id> [--env stage|production|local]
 ```
 
 This writes `.inventory/config.json` with only the target environment and space
@@ -67,16 +68,16 @@ Manage your spaces (workspaces for organizing assets).
 ### List Spaces
 
 ```bash
-npm run cli -- spaces                    # Simple list
-npm run cli -- spaces --details          # With asset counts
-npm run cli -- spaces --id <space_id>    # Details for specific space
+pnpm run cli spaces                    # Simple list
+pnpm run cli spaces --details          # With asset counts
+pnpm run cli spaces --id <space_id>    # Details for specific space
 ```
 
 ### Create Space
 
 ```bash
-npm run cli -- spaces create "My Space Name"
-npm run cli -- spaces create --name "My Space Name"
+pnpm run cli spaces create "My Space Name"
+pnpm run cli spaces create --name "My Space Name"
 ```
 
 ---
@@ -86,8 +87,8 @@ npm run cli -- spaces create --name "My Space Name"
 Connect to a space's WebSocket and stream all events in real-time. Useful for debugging, monitoring, and understanding the event flow.
 
 ```bash
-npm run cli -- listen --space <space_id>           # Pretty-printed output
-npm run cli -- listen --space <space_id> --json    # Raw JSON (for piping)
+pnpm run cli listen --space <space_id>           # Pretty-printed output
+pnpm run cli listen --space <space_id> --json    # Raw JSON (for piping)
 ```
 
 **Example output:**
@@ -129,13 +130,13 @@ Upload images to create new assets or add variants to existing assets.
 ### Create New Asset
 
 ```bash
-npm run cli -- upload <file> --space <id> --name <name> [options]
+pnpm run cli upload <file> --space <id> --name <name> [options]
 ```
 
 ### Add Variant to Existing Asset
 
 ```bash
-npm run cli -- upload <file> --space <id> --asset <id>
+pnpm run cli upload <file> --space <id> --asset <id>
 ```
 
 **Arguments:**
@@ -157,16 +158,16 @@ npm run cli -- upload <file> --space <id> --asset <id>
 **Examples:**
 ```bash
 # Create a new character asset from an image
-npm run cli -- upload hero.png --space abc123 --name "Hero Character"
+pnpm run cli upload hero.png --space abc123 --name "Hero Character"
 
 # Create with specific type and parent
-npm run cli -- upload sword.png --space abc123 --name "Sword" --type item --parent abc789
+pnpm run cli upload sword.png --space abc123 --name "Sword" --type item --parent abc789
 
 # Add a variant to an existing asset
-npm run cli -- upload variant.jpg --space abc123 --asset def456
+pnpm run cli upload variant.jpg --space abc123 --asset def456
 
 # Upload against local dev server
-npm run cli -- upload hero.png --space abc123 --name "Hero" --local
+pnpm run cli upload hero.png --space abc123 --name "Hero" --local
 ```
 
 ---
@@ -178,27 +179,39 @@ website remains authoritative for assets, variants, recipes, lineage, and R2
 storage; the CLI sends generation requests and downloads completed images.
 
 ```bash
-npm run cli -- generate "A watercolor background of Russafa market" \
+pnpm run cli generate "A watercolor background of Russafa market" \
   --name "Russafa Market Background" \
   --type scene \
   -o backgrounds/russafa-market.png
 
-npm run cli -- refine \
+pnpm run cli refine \
   --variant VARIANT_ID \
   "make it evening, warmer lights" \
   -o backgrounds/russafa-market-evening.png
 
-npm run cli -- derive \
+pnpm run cli derive \
   --refs ./lucia.png,VARIANT_BACKGROUND_ID \
   --name "Lucia in Market Scene" \
   --type scene \
   "Use image 1 as the character and image 2 as the background" \
   -o keyframes/lucia-market-001.png
+
+pnpm run cli batch "Three cinematic keyframes in Russafa market" \
+  --name "Russafa Market Keyframe" \
+  --type scene \
+  --count 3 \
+  --output-dir keyframes/russafa-market
 ```
 
 `derive --refs` accepts existing variant IDs and local image paths. Local
 images are uploaded first as `reference` assets, then their uploaded variant IDs
 are used in the derive request.
+
+`batch` downloads every completed image and writes
+`.inventory/runs/<run-id>.json` at the initialized project root, with local
+paths, website asset/variant IDs, image keys, prompt, refs, command options,
+timestamps, run success, and failed variant errors for downstream Remotion or
+video tooling.
 
 See [cli-generation.md](./cli-generation.md) for the full command reference.
 
@@ -209,7 +222,7 @@ See [cli-generation.md](./cli-generation.md) for the full command reference.
 View billing sync status and manage usage.
 
 ```bash
-npm run cli -- billing --env stage
+pnpm run cli billing --env stage
 ```
 
 ---
@@ -219,11 +232,11 @@ npm run cli -- billing --env stage
 ### "Not logged in" Error
 
 ```bash
-npm run cli -- login --env stage
+pnpm run cli login --env stage
 ```
 
 ### "Token expired" Error
 
 ```bash
-npm run cli -- login --env stage
+pnpm run cli login --env stage
 ```

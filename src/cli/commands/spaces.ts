@@ -2,10 +2,10 @@
  * Spaces Command - List and manage user's spaces
  *
  * Usage:
- *   npm run cli spaces                    List all spaces
- *   npm run cli spaces --details          Show asset counts per space
- *   npm run cli spaces --id <space_id>    Show details for a specific space
- *   npm run cli spaces create <name>      Create a new space
+ *   pnpm run cli spaces                    List all spaces
+ *   pnpm run cli spaces --details          Show asset counts per space
+ *   pnpm run cli spaces --id <space_id>    Show details for a specific space
+ *   pnpm run cli spaces create <name>      Create a new space
  */
 
 import process from 'node:process';
@@ -38,7 +38,7 @@ export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
   const config = await loadStoredConfig(env);
   if (!config) {
     console.error(`Not logged in to ${env} environment.`);
-    console.error(`Run: npm run cli login --env ${env}`);
+    console.error(`Run: pnpm run cli login --env ${env}`);
     process.exitCode = 1;
     return;
   }
@@ -46,7 +46,7 @@ export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
   // Check token expiry
   if (config.token.expiresAt < Date.now()) {
     console.error(`Token expired for ${env} environment.`);
-    console.error(`Run: npm run cli login --env ${env}`);
+    console.error(`Run: pnpm run cli login --env ${env}`);
     process.exitCode = 1;
     return;
   }
@@ -65,8 +65,8 @@ export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
       const spaceName = parsed.positionals.slice(1).join(' ') || parsed.options.name;
       if (!spaceName) {
         console.error('Error: Space name is required');
-        console.error('Usage: npm run cli spaces create <name>');
-        console.error('       npm run cli spaces create --name "My Space"');
+        console.error('Usage: pnpm run cli spaces create <name>');
+        console.error('       pnpm run cli spaces create --name "My Space"');
         process.exitCode = 1;
         return;
       }
@@ -110,9 +110,9 @@ async function createSpace(baseUrl: string, accessToken: string, name: string): 
   console.log(`  Name: ${space.name}`);
   console.log(`  Role: ${space.role}`);
   console.log(`\nTo start a chat session:`);
-  console.log(`  npm run cli chat send "Hello" --space ${space.id} --state ./test/${name.toLowerCase().replace(/\s+/g, '-')}.json`);
+  console.log(`  pnpm run cli chat send "Hello" --space ${space.id} --state ./test/${name.toLowerCase().replace(/\s+/g, '-')}.json`);
   console.log(`\nTo listen for events:`);
-  console.log(`  npm run cli listen --space ${space.id}`);
+  console.log(`  pnpm run cli listen --space ${space.id}`);
 }
 
 async function listSpaces(baseUrl: string, accessToken: string): Promise<void> {
@@ -147,8 +147,8 @@ async function listSpaces(baseUrl: string, accessToken: string): Promise<void> {
     );
   }
 
-  console.log(`\nFor details: npm run cli spaces --details`);
-  console.log(`For a specific space: npm run cli spaces --id <space_id>`);
+  console.log(`\nFor details: pnpm run cli spaces --details`);
+  console.log(`For a specific space: pnpm run cli spaces --id <space_id>`);
 }
 
 async function listSpacesWithDetails(baseUrl: string, accessToken: string): Promise<void> {
@@ -290,7 +290,7 @@ async function showSpaceDetails(baseUrl: string, accessToken: string, spaceId: s
   }
 
   console.log(`\nTo start a chat session with this space:`);
-  console.log(`  npm run cli chat send "What's in this space?" --space ${spaceId} --state ./test/${space.name.toLowerCase().replace(/\s+/g, '-')}.json`);
+  console.log(`  pnpm run cli chat send "What's in this space?" --space ${spaceId} --state ./test/${space.name.toLowerCase().replace(/\s+/g, '-')}.json`);
 }
 
 function truncatePad(str: string, width: number): string {

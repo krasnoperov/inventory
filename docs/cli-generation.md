@@ -10,7 +10,7 @@ waits for completion, and downloads local copies of completed images.
 Bind a local directory to a website space:
 
 ```bash
-npm run cli -- init --space SPACE_ID --env stage
+pnpm run cli init --space SPACE_ID --env stage
 ```
 
 This writes `.inventory/config.json` with the target environment and space ID.
@@ -23,7 +23,7 @@ Explicit command flags override the project config.
 Generate a new asset from text:
 
 ```bash
-npm run cli -- generate "A watercolor background of Russafa market" \
+pnpm run cli generate "A watercolor background of Russafa market" \
   --name "Russafa Market Background" \
   --type scene \
   -o backgrounds/russafa-market.png
@@ -32,7 +32,7 @@ npm run cli -- generate "A watercolor background of Russafa market" \
 Refine an existing variant:
 
 ```bash
-npm run cli -- refine \
+pnpm run cli refine \
   --variant VARIANT_ID \
   "make it evening, warmer lights" \
   -o backgrounds/russafa-market-evening.png
@@ -41,7 +41,7 @@ npm run cli -- refine \
 Derive a new asset from references:
 
 ```bash
-npm run cli -- derive \
+pnpm run cli derive \
   --refs CHARACTER_VARIANT_ID,BACKGROUND_VARIANT_ID \
   --name "Lucia in Market Scene" \
   --type scene \
@@ -49,12 +49,23 @@ npm run cli -- derive \
   -o keyframes/lucia-market-001.png
 ```
 
-## Local References
-
-`derive --refs` accepts both existing variant IDs and local image paths:
+Batch generate multiple images and write a run manifest:
 
 ```bash
-npm run cli -- derive \
+pnpm run cli batch "Three cinematic keyframes in Russafa market" \
+  --name "Russafa Market Keyframe" \
+  --type scene \
+  --count 3 \
+  --output-dir keyframes/russafa-market
+```
+
+## Local References
+
+`derive --refs` and `batch --refs` accept both existing variant IDs and local
+image paths:
+
+```bash
+pnpm run cli derive \
   --refs ./lucia.png,VARIANT_BACKGROUND_ID \
   --name "Lucia in Market Scene" \
   --type scene \
@@ -76,11 +87,14 @@ The CLI downloads the completed R2 image to the path passed with `-o` or
 | Option | Commands | Description |
 |--------|----------|-------------|
 | `--space <id>` | all | Target website space; overrides project binding |
-| `--name <name>` | `generate`, `derive` | New asset name |
-| `--type <type>` | `generate`, `derive` | New asset type |
+| `--name <name>` | `generate`, `derive`, `batch` | New asset name |
+| `--type <type>` | `generate`, `derive`, `batch` | New asset type |
 | `--variant <id>` | `refine` | Source variant to refine |
-| `--refs <refs>` | `derive` | Comma-separated variant IDs or local image paths |
-| `-o`, `--output <file>` | all | Local download path |
+| `--refs <refs>` | `derive`, `batch` | Comma-separated variant IDs or local image paths |
+| `-o`, `--output <file>` | `generate`, `refine`, `derive` | Local download path |
+| `--output-dir <dir>` | `batch` | Directory for downloaded batch images |
+| `--count <2-8>` | `batch` | Number of images to generate |
+| `--mode <mode>` | `batch` | `explore` for one asset with many variants, or `set` for many assets |
 | `--force` | all | Overwrite local output file |
 | `--aspect <ratio>` | all | Optional generation aspect ratio |
 | `--parent <assetId>` | `generate`, `derive` | Optional parent asset |
@@ -92,15 +106,27 @@ Direct use of `gemini-images` or other generators remains intentionally
 untracked by Inventory unless the resulting files are uploaded or used as local
 references through these commands.
 
+## Run Manifests
+
+`batch` writes a JSON manifest to `.inventory/runs/<run-id>.json` at the
+initialized project root, even when the command runs from a child directory. The
+manifest maps downloaded local files to website asset IDs, variant IDs, image
+keys, prompt, refs, command options, timestamps, run success, and any failed
+variant errors. Completed images are still downloaded and recorded when another
+batch member fails. It is a handoff artifact for Remotion, Kling, or other video
+tooling; it is not a local asset database and the website remains the source of
+truth.
+
 ## End-To-End Test Loop
 
 Run the CLI/worker loop without Gemini calls:
 
 ```bash
-npm run test:e2e:cli-forge
+pnpm run test:e2e:cli-forge
 ```
 
 This starts a local Wrangler worker, applies local D1 migrations in an isolated
 temporary state directory, creates a dev-authenticated space, runs
-`generate`, `refine`, and `derive`, verifies each downloaded file is a PNG, and
-forces the backend image provider to `fake`.
+`generate`, `refine`, `derive`, and `batch`, verifies each downloaded file is a
+PNG, verifies the batch manifest, and forces the backend image provider to
+`fake`.

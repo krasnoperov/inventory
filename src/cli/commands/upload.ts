@@ -2,9 +2,9 @@
  * Upload Command - Upload images to create variants
  *
  * Usage:
- *   npm run cli upload <file> --space <id> --asset <id>     Upload to existing asset
- *   npm run cli upload <file> --space <id> --name <name>    Create new asset
- *   npm run cli upload <file> --space <id> --name <name> --type <type>
+ *   pnpm run cli upload <file> --space <id> --asset <id>     Upload to existing asset
+ *   pnpm run cli upload <file> --space <id> --name <name>    Create new asset
+ *   pnpm run cli upload <file> --space <id> --name <name> --type <type>
  */
 
 import { readFile, stat } from 'node:fs/promises';
@@ -88,7 +88,7 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
   const config = await loadStoredConfig(env);
   if (!config) {
     console.error(`Not logged in to ${env} environment.`);
-    console.error(`Run: npm run cli login --env ${env}`);
+    console.error(`Run: pnpm run cli login --env ${env}`);
     process.exitCode = 1;
     return;
   }
@@ -96,7 +96,7 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
   // Check token expiry
   if (config.token.expiresAt < Date.now()) {
     console.error(`Token expired for ${env} environment.`);
-    console.error(`Run: npm run cli login --env ${env}`);
+    console.error(`Run: pnpm run cli login --env ${env}`);
     process.exitCode = 1;
     return;
   }
@@ -202,7 +202,7 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
     }
 
     console.log('\nTo use in chat:');
-    console.log(`  npm run cli chat send "Describe this image" --space ${spaceId}`);
+    console.log(`  pnpm run cli chat send "Describe this image" --space ${spaceId}`);
 
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -217,8 +217,8 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
 function printUsage(): void {
   console.log(`
 Usage:
-  npm run cli upload <file> --space <id> --asset <id>     Upload to existing asset
-  npm run cli upload <file> --space <id> --name <name>    Create new asset
+  pnpm run cli upload <file> --space <id> --asset <id>     Upload to existing asset
+  pnpm run cli upload <file> --space <id> --name <name>    Create new asset
 
 Options:
   --space <id>      Target space ID (required)
@@ -230,8 +230,8 @@ Options:
   --local           Shortcut for --env local
 
 Examples:
-  npm run cli upload hero.png --space abc123 --name "Hero Character"
-  npm run cli upload variant.jpg --space abc123 --asset def456
-  npm run cli upload sword.png --space abc123 --name "Sword" --type item --parent abc789
+  pnpm run cli upload hero.png --space abc123 --name "Hero Character"
+  pnpm run cli upload variant.jpg --space abc123 --asset def456
+  pnpm run cli upload sword.png --space abc123 --name "Sword" --type item --parent abc789
 `);
 }

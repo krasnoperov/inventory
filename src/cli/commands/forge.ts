@@ -5,6 +5,12 @@ import type { ParsedArgs, StoredConfig } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
 import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
 import {
+  createRunId,
+  manifestImageFromVariant,
+  saveRunManifest,
+  type RunManifest,
+} from '../lib/run-manifest';
+import {
   downloadImage,
   looksLikeFilePath,
   uploadLocalImageAsReference,
@@ -12,11 +18,12 @@ import {
 } from '../lib/image-transfer';
 import {
   WebSocketClient,
+  type BatchResult,
   type GenerateResult,
   type Variant,
 } from '../lib/websocket-client';
 
-type ForgeCommand = 'generate' | 'refine' | 'derive';
+type ForgeCommand = 'generate' | 'refine' | 'derive' | 'batch';
 
 interface SpaceState {
   assets: unknown[];
@@ -45,6 +52,17 @@ interface ForgeClient {
     aspectRatio?: string;
     disableStyle?: boolean;
   }): Promise<GenerateResult>;
+  sendBatchRequest(params: {
+    name: string;
+    assetType: string;
+    prompt: string;
+    count: number;
+    mode: 'explore' | 'set';
+    referenceVariantIds?: string[];
+    aspectRatio?: string;
+    parentAssetId?: string;
+    disableStyle?: boolean;
+  }): Promise<BatchResult>;
 }
 
 interface CommandDeps {
@@ -67,6 +85,8 @@ interface CommandDeps {
     force?: boolean;
   }) => Promise<void>;
   fileExists: (filePath: string) => Promise<boolean>;
+  saveRunManifest: (manifest: RunManifest, cwd?: string) => Promise<string>;
+  createRunId: () => string;
 }
 
 const defaultDeps: CommandDeps = {
@@ -76,6 +96,8 @@ const defaultDeps: CommandDeps = {
   createClient: WebSocketClient.create,
   uploadLocalReference: uploadLocalImageAsReference,
   downloadImage,
+  saveRunManifest,
+  createRunId,
   fileExists: async (filePath) => {
     try {
       const fileStat = await stat(filePath);
@@ -93,6 +115,7 @@ interface CommandContext {
   baseUrl: string;
   accessToken: string;
   force: boolean;
+  projectRoot?: string;
 }
 
 export async function handleGenerate(parsed: ParsedArgs): Promise<void> {
@@ -105,6 +128,10 @@ export async function handleRefine(parsed: ParsedArgs): Promise<void> {
 
 export async function handleDerive(parsed: ParsedArgs): Promise<void> {
   await handleForgeCommand('derive', parsed);
+}
+
+export async function handleBatch(parsed: ParsedArgs): Promise<void> {
+  await handleForgeCommand('batch', parsed);
 }
 
 async function handleForgeCommand(command: ForgeCommand, parsed: ParsedArgs): Promise<void> {
@@ -121,7 +148,7 @@ export async function executeForgeCommand(
   command: ForgeCommand,
   parsed: ParsedArgs,
   deps: CommandDeps = defaultDeps
-): Promise<GenerateResult> {
+): Promise<GenerateResult | BatchResult> {
   const ctx = await buildContext(parsed, deps);
   const client = await deps.createClient(ctx.env, ctx.spaceId);
 
@@ -135,6 +162,8 @@ export async function executeForgeCommand(
         return await executeRefine(parsed, ctx, client, deps);
       case 'derive':
         return await executeDerive(parsed, ctx, client, deps);
+      case 'batch':
+        return await executeBatch(parsed, ctx, client, deps);
     }
   } finally {
     client.disconnect();
@@ -232,6 +261,85 @@ async function executeDerive(
   return result;
 }
 
+async function executeBatch(
+  parsed: ParsedArgs,
+  ctx: CommandContext,
+  client: ForgeClient,
+  deps: CommandDeps
+): Promise<BatchResult> {
+  const prompt = getPrompt(parsed, 'batch');
+  const outputDir = getOutputDir(parsed);
+  const name = requireOption(parsed, 'name');
+  const assetType = requireOption(parsed, 'type');
+  const count = parseBatchCount(requireOption(parsed, 'count'));
+  const mode = parseBatchMode(parsed.options.mode || 'explore');
+  const refs = parsed.options.refs ? parseRefs(parsed.options.refs) : [];
+  const state = await requestSpaceState(client);
+  const referenceVariantIds = refs.length > 0
+    ? await resolveReferenceVariantIds(refs, ctx, deps, state.variants as Variant[])
+    : undefined;
+  const startedAt = new Date().toISOString();
+  const runId = deps.createRunId();
+
+  console.log(`Batch generating ${count} image(s) for "${name}"...`);
+  const result = await client.sendBatchRequest({
+    name,
+    assetType,
+    prompt,
+    count,
+    mode,
+    referenceVariantIds,
+    aspectRatio: parsed.options.aspect,
+    parentAssetId: parsed.options.parent,
+    disableStyle: parsed.options['no-style'] === 'true',
+  });
+
+  const sortedVariants = [...result.variants].sort((a, b) => a.created_at - b.created_at);
+  const images = [];
+  for (let index = 0; index < sortedVariants.length; index += 1) {
+    const variant = sortedVariants[index];
+    const outputPath = path.join(outputDir, `${slugify(name)}-${String(index + 1).padStart(2, '0')}.png`);
+    await downloadResult({ type: 'generate:result', requestId: result.requestId, jobId: variant.id, success: true, variant }, outputPath, ctx, deps);
+    images.push(manifestImageFromVariant({
+      index,
+      variant,
+      localPath: outputPath,
+      baseUrl: ctx.baseUrl,
+      spaceId: ctx.spaceId,
+    }));
+  }
+
+  const manifestPath = await deps.saveRunManifest({
+    version: 1,
+    runId,
+    command: 'batch',
+    success: result.success,
+    environment: ctx.env,
+    spaceId: ctx.spaceId,
+    baseUrl: ctx.baseUrl,
+    prompt,
+    name,
+    assetType,
+    count,
+    mode,
+    refs,
+    referenceVariantIds: referenceVariantIds || [],
+    outputDir,
+    createdAt: startedAt,
+    completedAt: new Date().toISOString(),
+    images,
+    failed: result.failed,
+  }, ctx.projectRoot);
+
+  printBatchResult(result, outputDir, manifestPath, ctx);
+  if (!result.success) {
+    const failures = result.failed.map((failure) => `${failure.variantId}: ${failure.error}`).join('; ');
+    throw new Error(`Batch generation completed with ${result.failed.length} failure(s): ${failures || 'unknown error'}`);
+  }
+
+  return result;
+}
+
 async function buildContext(parsed: ParsedArgs, deps: CommandDeps): Promise<CommandContext> {
   const projectConfig = await deps.loadProjectConfig();
   const env = parsed.options.local === 'true'
@@ -239,15 +347,15 @@ async function buildContext(parsed: ParsedArgs, deps: CommandDeps): Promise<Comm
     : parsed.options.env || projectConfig?.environment || 'stage';
   const spaceId = parsed.options.space || projectConfig?.spaceId;
   if (!spaceId || spaceId === 'true') {
-    throw new Error('--space is required, or run: npm run cli -- init --space <id>');
+    throw new Error('--space is required, or run: pnpm run cli init --space <id>');
   }
   const config = await deps.loadConfig(env);
 
   if (!config) {
-    throw new Error(`Not logged in to ${env} environment. Run: npm run cli -- login --env ${env}`);
+    throw new Error(`Not logged in to ${env} environment. Run: pnpm run cli login --env ${env}`);
   }
   if (config.token.expiresAt < Date.now()) {
-    throw new Error(`Token expired for ${env} environment. Run: npm run cli -- login --env ${env}`);
+    throw new Error(`Token expired for ${env} environment. Run: pnpm run cli login --env ${env}`);
   }
   if (env === 'local') {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
@@ -259,6 +367,7 @@ async function buildContext(parsed: ParsedArgs, deps: CommandDeps): Promise<Comm
     baseUrl: deps.resolveBaseUrl(env),
     accessToken: config.token.accessToken,
     force: parsed.options.force === 'true',
+    projectRoot: projectConfig?.projectRoot,
   };
 }
 
@@ -376,6 +485,35 @@ function getOutputPath(parsed: ParsedArgs): string {
   return path.normalize(outputPath);
 }
 
+function getOutputDir(parsed: ParsedArgs): string {
+  const outputDir = parsed.options['output-dir'] || parsed.options.outputDir;
+  if (!outputDir) {
+    throw new Error('Output directory is required: pass --output-dir <dir>');
+  }
+  return path.normalize(outputDir);
+}
+
+function parseBatchCount(value: string): number {
+  const count = Number(value);
+  if (!Number.isInteger(count) || count < 2 || count > 8) {
+    throw new Error('--count must be an integer between 2 and 8');
+  }
+  return count;
+}
+
+function parseBatchMode(value: string): 'explore' | 'set' {
+  if (value === 'explore' || value === 'set') return value;
+  throw new Error('--mode must be either explore or set');
+}
+
+function slugify(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'image';
+}
+
 function requireOption(parsed: ParsedArgs, name: string): string {
   const value = parsed.options[name];
   if (!value || value === 'true') {
@@ -388,7 +526,7 @@ function printUsage(command: ForgeCommand): void {
   if (command === 'generate') {
     console.log(`
 Usage:
-  npm run cli -- generate "prompt" --space <id> --name <name> --type <type> -o <file>
+  pnpm run cli generate "prompt" --space <id> --name <name> --type <type> -o <file>
 `);
     return;
   }
@@ -396,13 +534,40 @@ Usage:
   if (command === 'refine') {
     console.log(`
 Usage:
-  npm run cli -- refine --space <id> --variant <variant_id> "prompt" -o <file>
+  pnpm run cli refine --space <id> --variant <variant_id> "prompt" -o <file>
+`);
+    return;
+  }
+
+  if (command === 'batch') {
+    console.log(`
+Usage:
+  pnpm run cli batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
 `);
     return;
   }
 
   console.log(`
 Usage:
-  npm run cli -- derive --space <id> --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file>
+  pnpm run cli derive --space <id> --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file>
 `);
+}
+
+function printBatchResult(
+  result: BatchResult,
+  outputDir: string,
+  manifestPath: string,
+  ctx: CommandContext
+): void {
+  console.log('\nDone.\n');
+  console.log(`  Batch:   ${result.batchId}`);
+  console.log(`  Images:  ${result.variants.length}`);
+  if (result.failed.length > 0) {
+    console.log(`  Failed:  ${result.failed.length}`);
+  }
+  console.log(`  Local:   ${outputDir}`);
+  console.log(`  Manifest: ${manifestPath}`);
+  if (result.variants[0]) {
+    console.log(`  Web:     ${ctx.baseUrl}/spaces/${ctx.spaceId}/assets/${result.variants[0].asset_id}`);
+  }
 }

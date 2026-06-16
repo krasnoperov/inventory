@@ -2,8 +2,8 @@
  * Listen Command - Connect to space WebSocket and stream all events
  *
  * Usage:
- *   npm run cli listen --space <id>           Listen to space events
- *   npm run cli listen --space <id> --json    Output raw JSON
+ *   pnpm run cli listen --space <id>           Listen to space events
+ *   pnpm run cli listen --space <id> --json    Output raw JSON
  *
  * Log format (aligned with watch.ts):
  *   [HH:MM:SS.mmm] event_type
@@ -94,7 +94,7 @@ export async function handleListen(parsed: ParsedArgs): Promise<void> {
 
   if (!spaceId) {
     console.error('Error: --space <id> is required');
-    console.error('Usage: npm run cli listen --space <space_id>');
+    console.error('Usage: pnpm run cli listen --space <space_id>');
     process.exitCode = 1;
     return;
   }
@@ -103,7 +103,7 @@ export async function handleListen(parsed: ParsedArgs): Promise<void> {
   const config = await loadStoredConfig(env);
   if (!config) {
     console.error(`Not logged in to ${env} environment.`);
-    console.error(`Run: npm run cli login --env ${env}`);
+    console.error(`Run: pnpm run cli login --env ${env}`);
     process.exitCode = 1;
     return;
   }
@@ -111,7 +111,7 @@ export async function handleListen(parsed: ParsedArgs): Promise<void> {
   // Check token expiry
   if (config.token.expiresAt < Date.now()) {
     console.error(`Token expired for ${env} environment.`);
-    console.error(`Run: npm run cli login --env ${env}`);
+    console.error(`Run: pnpm run cli login --env ${env}`);
     process.exitCode = 1;
     return;
   }

@@ -24,15 +24,15 @@ function parseArgs(argv) {
 
 // Install (or reuse) node_modules so the worktree is runnable for
 // typecheck/lint/test/build. Marker file lives inside node_modules so it
-// dies with the tree; its content is sha256(package.json+package-lock.json)
+// dies with the tree; its content is sha256(package.json+pnpm-lock.yaml)
 // at install time. Any drift forces a clean reinstall.
 //
 // NODE_ENV=production leaks devDependencies out of the install surface, so
-// we strip it from the child env before running npm ci. Defense in depth
+// we strip it from the child env before running pnpm install --frozen-lockfile. Defense in depth
 // for any caller context.
 function ensureNodeModulesCurrent(resolvedRoot, actions) {
   const packageJsonPath = path.join(resolvedRoot, 'package.json');
-  const lockfilePath = path.join(resolvedRoot, 'package-lock.json');
+  const lockfilePath = path.join(resolvedRoot, 'pnpm-lock.yaml');
   if (!fs.existsSync(packageJsonPath) || !fs.existsSync(lockfilePath)) {
     return;
   }
@@ -46,27 +46,26 @@ function ensureNodeModulesCurrent(resolvedRoot, actions) {
   if (fs.existsSync(marker)) {
     const storedHash = fs.readFileSync(marker, 'utf8').trim();
     if (storedHash === currentHash) {
-      actions.push('node_modules matches package.json + package-lock.json — skipped install');
+      actions.push('node_modules matches package.json + pnpm-lock.yaml - skipped install');
       return;
     }
   }
 
   const childEnv = { ...process.env };
   delete childEnv.NODE_ENV;
-  childEnv.NPM_CONFIG_PRODUCTION = 'false';
 
   const result = spawnSync(
-    'npm',
-    ['ci', '--prefer-offline', '--no-audit', '--no-fund'],
+    'pnpm',
+    ['install', '--frozen-lockfile', '--prefer-offline'],
     { cwd: resolvedRoot, env: childEnv, stdio: 'inherit' },
   );
   if (result.status !== 0) {
-    throw new Error(`npm ci failed with exit code ${result.status ?? 'unknown'}`);
+    throw new Error(`pnpm install --frozen-lockfile failed with exit code ${result.status ?? 'unknown'}`);
   }
 
   fs.mkdirSync(path.dirname(marker), { recursive: true });
   fs.writeFileSync(marker, currentHash);
-  actions.push('ran npm ci and wrote bootstrap-worktree stamp');
+  actions.push('ran pnpm install --frozen-lockfile and wrote bootstrap-worktree stamp');
 }
 
 export function bootstrapWorktree({ repoRoot = process.cwd(), quiet = false, ensureDeps = true } = {}) {

@@ -32,18 +32,18 @@ This repo contains:
 ## Core Commands
 
 ```bash
-npm run dev
-npm run build
-npm test
-npm run typecheck
-npm run lint
-npm run db:migrate
+pnpm run dev
+pnpm run build
+pnpm test
+pnpm run typecheck
+pnpm run lint
+pnpm run db:migrate
 ```
 
 Deploy helpers:
 
-- `npm run deploy:stage`
-- `npm run deploy:production`
+- `pnpm run deploy:stage`
+- `pnpm run deploy:production`
 
 ## Hard Rules
 

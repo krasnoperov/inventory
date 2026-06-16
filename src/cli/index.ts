@@ -13,7 +13,7 @@ import { handleBilling } from './commands/billing';
 import { handleSpaces } from './commands/spaces';
 import { handleListen } from './commands/listen';
 import { handleUpload } from './commands/upload';
-import { handleGenerate, handleRefine, handleDerive } from './commands/forge';
+import { handleGenerate, handleRefine, handleDerive, handleBatch } from './commands/forge';
 import { handleInit } from './commands/init';
 
 async function main() {
@@ -71,21 +71,23 @@ Forge:
   generate "prompt" --name <name> --type <type> -o <file>
   refine --variant <variant_id> "prompt" -o <file>
   derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file>
+  batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
 
 Options:
   --env <environment>          Target environment (production|stage|local), default: stage
   --local                      Shortcut for local development
 
 Examples:
-  npm run cli -- init --space space_123
-  npm run cli -- login            Authenticate with stage environment
-  npm run cli -- login --env production
-  npm run cli -- logout
-  npm run cli -- billing status   Show billing sync status
-  npm run cli -- spaces --details List spaces with asset summaries
-  npm run cli -- spaces create "My Game Assets"
-  npm run cli -- listen --space space_123
-  npm run cli -- generate "A market background" --name "Market" --type scene -o market.png
+  pnpm run cli init --space space_123
+  pnpm run cli login            Authenticate with stage environment
+  pnpm run cli login --env production
+  pnpm run cli logout
+  pnpm run cli billing status   Show billing sync status
+  pnpm run cli spaces --details List spaces with asset summaries
+  pnpm run cli spaces create "My Game Assets"
+  pnpm run cli listen --space space_123
+  pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
+  pnpm run cli batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
 `);
 }
 
@@ -120,6 +122,9 @@ async function dispatchCommand(command: string, parsed: Parameters<typeof parseA
       break;
     case 'derive':
       await handleDerive(parsed);
+      break;
+    case 'batch':
+      await handleBatch(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);

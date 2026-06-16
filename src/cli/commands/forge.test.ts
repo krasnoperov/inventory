@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { StoredConfig } from '../lib/types';
-import type { GenerateResult, Variant } from '../lib/websocket-client';
+import type { BatchResult, GenerateResult, Variant } from '../lib/websocket-client';
 import {
   executeForgeCommand,
   parseRefs,
@@ -60,6 +60,7 @@ function completedVariant(overrides: Partial<Variant> = {}): Variant {
 class FakeClient {
   generateParams: unknown;
   refineParams: unknown;
+  batchParams: unknown;
   syncHandler?: (state: { assets: unknown[]; variants: unknown[]; lineage: unknown[] }) => void;
   connected = false;
   disconnected = false;
@@ -69,7 +70,8 @@ class FakeClient {
       assets: [],
       variants: [],
       lineage: [],
-    }
+    },
+    private batchResult?: BatchResult
   ) {}
 
   async connect(): Promise<void> {
@@ -97,10 +99,37 @@ class FakeClient {
     this.refineParams = params;
     return completedResult({ asset_id: 'asset-source' });
   }
+
+  async sendBatchRequest(params: unknown): Promise<BatchResult> {
+    this.batchParams = params;
+    return this.batchResult || {
+      type: 'batch:result',
+      requestId: 'request-batch',
+      batchId: 'batch-1',
+      success: true,
+      variants: [
+        completedVariant({
+          id: 'variant-batch-1',
+          asset_id: 'asset-batch',
+          image_key: 'images/space/variant-batch-1.png',
+          created_at: 1,
+        }),
+        completedVariant({
+          id: 'variant-batch-2',
+          asset_id: 'asset-batch',
+          image_key: 'images/space/variant-batch-2.png',
+          created_at: 2,
+        }),
+      ],
+      failed: [],
+    };
+  }
 }
 
 function depsFor(client: FakeClient) {
   const downloads: unknown[] = [];
+  const manifests: unknown[] = [];
+  const manifestRoots: Array<string | undefined> = [];
 
   return {
     deps: {
@@ -115,8 +144,16 @@ function depsFor(client: FakeClient) {
         downloads.push(input);
       },
       fileExists: async () => false,
+      saveRunManifest: async (manifest: unknown, cwd?: string) => {
+        manifests.push(manifest);
+        manifestRoots.push(cwd);
+        return '.inventory/runs/run-test.json';
+      },
+      createRunId: () => 'run-test',
     },
     downloads,
+    manifests,
+    manifestRoots,
   };
 }
 
@@ -298,6 +335,8 @@ test('generate resolves missing space and env from project config', async () => 
       downloads.push(input);
     },
     fileExists: async () => false,
+    saveRunManifest: async () => '.inventory/runs/run-test.json',
+    createRunId: () => 'run-test',
   });
 
   assert.equal(loadedEnv, 'production');
@@ -344,6 +383,8 @@ test('generate command flags override project config', async () => {
       downloads.push(input);
     },
     fileExists: async () => false,
+    saveRunManifest: async () => '.inventory/runs/run-test.json',
+    createRunId: () => 'run-test',
   });
 
   assert.equal(loadedEnv, 'stage');
@@ -407,6 +448,8 @@ test('derive sends uploaded and existing refs as referenceVariantIds', async () 
       downloads.push(input);
     },
     fileExists: async (ref: string) => ref === './local.png',
+    saveRunManifest: async () => '.inventory/runs/run-test.json',
+    createRunId: () => 'run-test',
   };
 
   await executeForgeCommand('derive', {
@@ -430,4 +473,171 @@ test('derive sends uploaded and existing refs as referenceVariantIds', async () 
     disableStyle: false,
   });
   assert.equal(downloads.length, 1);
+});
+
+test('batch sends batch request, downloads outputs, and writes manifest', async () => {
+  const existingVariant = completedVariant({
+    id: 'variant-existing',
+    image_key: 'images/existing.png',
+    thumb_key: 'images/existing_thumb.webp',
+  });
+  const client = new FakeClient({ assets: [], variants: [existingVariant], lineage: [] });
+  const { deps, downloads, manifests } = depsFor(client);
+
+  await executeForgeCommand('batch', {
+    positionals: ['make', 'three', 'keyframes'],
+    options: {
+      space: 'space-1',
+      refs: 'variant-existing',
+      name: 'Market Keyframe',
+      type: 'scene',
+      count: '2',
+      mode: 'set',
+      'output-dir': 'keyframes',
+    },
+  }, deps);
+
+  assert.deepEqual(client.batchParams, {
+    name: 'Market Keyframe',
+    assetType: 'scene',
+    prompt: 'make three keyframes',
+    count: 2,
+    mode: 'set',
+    referenceVariantIds: ['variant-existing'],
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+  });
+  assert.deepEqual(downloads, [
+    {
+      baseUrl: 'https://inventory-stage.example.test',
+      accessToken: 'token',
+      imageKey: 'images/space/variant-batch-1.png',
+      outputPath: 'keyframes/market-keyframe-01.png',
+      force: false,
+    },
+    {
+      baseUrl: 'https://inventory-stage.example.test',
+      accessToken: 'token',
+      imageKey: 'images/space/variant-batch-2.png',
+      outputPath: 'keyframes/market-keyframe-02.png',
+      force: false,
+    },
+  ]);
+  assert.equal(manifests.length, 1);
+  assert.equal((manifests[0] as { success: boolean }).success, true);
+  assert.deepEqual((manifests[0] as { failed: unknown[] }).failed, []);
+  assert.deepEqual((manifests[0] as { referenceVariantIds: string[] }).referenceVariantIds, ['variant-existing']);
+  assert.deepEqual((manifests[0] as { images: Array<{ variantId: string; localPath: string }> }).images.map((image) => ({
+    variantId: image.variantId,
+    localPath: image.localPath,
+  })), [
+    { variantId: 'variant-batch-1', localPath: 'keyframes/market-keyframe-01.png' },
+    { variantId: 'variant-batch-2', localPath: 'keyframes/market-keyframe-02.png' },
+  ]);
+});
+
+test('batch keeps completed outputs and manifest when a sibling variant fails', async () => {
+  const existingVariant = completedVariant({
+    id: 'variant-existing',
+    image_key: 'images/existing.png',
+    thumb_key: 'images/existing_thumb.webp',
+  });
+  const client = new FakeClient(
+    { assets: [], variants: [existingVariant], lineage: [] },
+    {
+      type: 'batch:result',
+      requestId: 'request-batch',
+      batchId: 'batch-1',
+      success: false,
+      variants: [
+        completedVariant({
+          id: 'variant-batch-1',
+          asset_id: 'asset-batch',
+          image_key: 'images/space/variant-batch-1.png',
+          created_at: 1,
+        }),
+      ],
+      failed: [{ variantId: 'variant-batch-2', error: 'model refused frame' }],
+    }
+  );
+  const { deps, downloads, manifests } = depsFor(client);
+
+  await assert.rejects(
+    () => executeForgeCommand('batch', {
+      positionals: ['make', 'two', 'keyframes'],
+      options: {
+        space: 'space-1',
+        refs: 'variant-existing',
+        name: 'Market Keyframe',
+        type: 'scene',
+        count: '2',
+        mode: 'set',
+        'output-dir': 'keyframes',
+      },
+    }, deps),
+    /Batch generation completed with 1 failure/
+  );
+
+  assert.deepEqual(downloads, [{
+    baseUrl: 'https://inventory-stage.example.test',
+    accessToken: 'token',
+    imageKey: 'images/space/variant-batch-1.png',
+    outputPath: 'keyframes/market-keyframe-01.png',
+    force: false,
+  }]);
+  assert.equal(manifests.length, 1);
+  assert.equal((manifests[0] as { success: boolean }).success, false);
+  assert.deepEqual((manifests[0] as { failed: unknown[] }).failed, [
+    { variantId: 'variant-batch-2', error: 'model refused frame' },
+  ]);
+  assert.deepEqual((manifests[0] as { images: Array<{ variantId: string; localPath: string }> }).images.map((image) => ({
+    variantId: image.variantId,
+    localPath: image.localPath,
+  })), [
+    { variantId: 'variant-batch-1', localPath: 'keyframes/market-keyframe-01.png' },
+  ]);
+});
+
+test('batch saves manifest at inherited project root', async () => {
+  const client = new FakeClient();
+  const downloads: unknown[] = [];
+  const manifestRoots: Array<string | undefined> = [];
+
+  await executeForgeCommand('batch', {
+    positionals: ['make', 'project', 'keyframes'],
+    options: {
+      name: 'Project Keyframe',
+      type: 'scene',
+      count: '2',
+      'output-dir': 'keyframes',
+    },
+  }, {
+    loadConfig: async () => config,
+    loadProjectConfig: async () => ({
+      version: 1,
+      environment: 'stage',
+      spaceId: 'space-project',
+      updatedAt: new Date().toISOString(),
+      configPath: '/tmp/project/.inventory/config.json',
+      projectRoot: '/tmp/project',
+    }),
+    resolveBaseUrl: () => 'https://inventory-stage.example.test',
+    createClient: async () => client,
+    uploadLocalReference: async () => {
+      throw new Error('unexpected upload');
+    },
+    downloadImage: async (input: unknown) => {
+      downloads.push(input);
+    },
+    fileExists: async () => false,
+    saveRunManifest: async (_manifest: unknown, cwd?: string) => {
+      manifestRoots.push(cwd);
+      return '/tmp/project/.inventory/runs/run-test.json';
+    },
+    createRunId: () => 'run-test',
+  });
+
+  assert.equal(downloads.length, 2);
+  assert.deepEqual(manifestRoots, ['/tmp/project']);
 });

@@ -47,6 +47,6 @@ export async function executeInit(
 function printUsage(): void {
   console.log(`
 Usage:
-  npm run cli -- init --space <id> [--env stage|production|local]
+  pnpm run cli init --space <id> [--env stage|production|local]
 `);
 }

@@ -9,7 +9,7 @@ export const AUTH_SCOPES = 'openid profile email';
 /**
  * Detect how the CLI was invoked and return the appropriate command string.
  * Examples:
- * - "npm run cli" when run via package.json script
+ * - "pnpm run cli" when run via package.json script
  * - "npx inventory-cli" when run via npx
  * - "inventory-cli" when installed globally
  */
@@ -18,7 +18,7 @@ function detectCliCommand(): string {
 
   // Check if run via npm/yarn run
   if (argv[1]?.includes('npm') || process.env.npm_lifecycle_event) {
-    return 'npm run cli';
+    return 'pnpm run cli';
   }
 
   // Check if run via npx
@@ -32,7 +32,7 @@ function detectCliCommand(): string {
   }
 
   // Fallback
-  return 'npm run cli';
+  return 'pnpm run cli';
 }
 
 export const CLI_COMMAND = detectCliCommand();
