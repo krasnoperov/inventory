@@ -47,6 +47,7 @@ export default tseslint.config(
     ...sharedTypescript,
     files: [
       "src/backend/**/*.{ts,tsx}",
+      "src/worker/**/*.{ts,tsx}",
       "src/shared/**/*.{ts,tsx}",
       "src/cli/**/*.{ts,tsx}",
       "src/dao/**/*.{ts,tsx}",
