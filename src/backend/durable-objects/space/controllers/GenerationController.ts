@@ -436,7 +436,11 @@ export class GenerationController extends BaseController {
     }
 
     // Track usage for successful generation
-    if (this.env.DB && variant.created_by && variant.media_kind === 'image') {
+    if (
+      this.env.DB &&
+      variant.created_by &&
+      (variant.media_kind === 'image' || variant.media_kind === 'video')
+    ) {
       try {
         // Parse recipe to get operation type
         let operation = 'derive';

@@ -634,7 +634,8 @@ export class VariantFactory {
     sourceImageKeys: string[];
     styleImageKeys?: string[];
   }> {
-    if ((recipe.mediaKind ?? DEFAULT_MEDIA_KIND) !== 'image') {
+    const mediaKind = recipe.mediaKind ?? DEFAULT_MEDIA_KIND;
+    if (mediaKind !== 'image' && mediaKind !== 'video') {
       return { recipe, sourceImageKeys };
     }
 
