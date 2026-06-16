@@ -46,7 +46,7 @@ describe('ElevenLabsAudioProvider', () => {
       fetcher,
     });
 
-    const result = await provider.generate({ prompt: 'Hello world' });
+    const result = await provider.generate({ prompt: 'Hello world', model: 'client-selected-model' });
 
     assert.strictEqual(result.audioMimeType, 'audio/mpeg');
     assert.strictEqual(new TextDecoder().decode(result.audioData), 'audio-data');
@@ -84,13 +84,14 @@ describe('ElevenLabsAudioProvider', () => {
       apiKey: 'key-1',
       voiceId: 'fallback',
       dialogueVoiceIds: ['voice-a', 'voice-b'],
+      modelId: 'eleven_v3',
       outputFormat: 'wav_44100',
       fetcher,
     });
 
     const result = await provider.generate({
       prompt: 'Ada: Ready?\nBen: Always.',
-      model: 'eleven_v3',
+      model: 'client-selected-model',
     });
 
     assert.strictEqual(result.audioMimeType, 'audio/wav');

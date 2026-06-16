@@ -119,7 +119,7 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
       throw new ElevenLabsApiError('ELEVENLABS_VOICE_ID is required for speech generation', 0, false);
     }
 
-    const model = this.resolveModel(options.model);
+    const model = this.resolveModel();
     const response = await this.postWithTiming(
       `/text-to-speech/${encodeURIComponent(this.config.voiceId)}/with-timestamps`,
       {
@@ -141,7 +141,7 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
     dialogue: ParsedDialogueLine[]
   ): Promise<AudioGenerationResult> {
     const speakerVoiceIds = this.assignDialogueVoices(dialogue);
-    const model = this.resolveModel(options.model);
+    const model = this.resolveModel();
     const inputs = dialogue.map(line => ({
       text: line.text,
       voice_id: speakerVoiceIds.get(line.speaker)!,
@@ -178,8 +178,8 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
     return new Map(speakers.map((speaker, index) => [speaker, voiceIds[index]]));
   }
 
-  private resolveModel(requestModel?: string): string | undefined {
-    return requestModel || this.config.modelId || undefined;
+  private resolveModel(): string | undefined {
+    return this.config.modelId || undefined;
   }
 
   private async postWithTiming(path: string, body: unknown): Promise<ElevenLabsTimingResponse> {
