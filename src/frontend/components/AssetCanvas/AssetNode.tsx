@@ -1,7 +1,8 @@
 import { memo, useCallback } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, getVariantThumbnailUrl, isVariantImageReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, isVariantImageReady } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
+import { Thumbnail } from '../Thumbnail';
 import styles from './AssetNode.module.css';
 
 /** Layout direction for handle positioning */
@@ -44,59 +45,9 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
     }
   }, [variant, asset, onAddToTray]);
 
-  // Render thumbnail based on variant status
+  // Render thumbnail based on variant status and media kind
   const renderThumbnail = () => {
-    if (!variant) {
-      return (
-        <div className={styles.placeholder}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-        </div>
-      );
-    }
-
-    if (isVariantLoading(variant)) {
-      return (
-        <div className={styles.generating}>
-          <div className={styles.spinner} />
-          <span>{variant.status === 'pending' ? 'Queued' : 'Generating'}</span>
-        </div>
-      );
-    }
-
-    if (isVariantFailed(variant)) {
-      return (
-        <div className={`${styles.generating} ${styles.failed}`}>
-          <span className={styles.errorIcon}>⚠</span>
-          <span>Failed</span>
-        </div>
-      );
-    }
-
-    const url = getVariantThumbnailUrl(variant);
-    if (!url) {
-      return (
-        <div className={styles.placeholder}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-        </div>
-      );
-    }
-
-    return (
-      <img
-        src={url}
-        alt={asset.name}
-        className={styles.image}
-        draggable={false}
-      />
-    );
+    return <Thumbnail variant={variant} size="fill" className={styles.mediaPreview} />;
   };
 
   return (

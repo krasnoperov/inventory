@@ -74,6 +74,11 @@
   object-fit: contain;
 }
 
+.mediaPreview {
+  border: none;
+  border-radius: 0;
+}
+
 /* Generating state */
 .generating {
   width: 100%;

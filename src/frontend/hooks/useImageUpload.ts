@@ -1,5 +1,5 @@
 /**
- * useImageUpload - Hook for uploading images to create variants
+ * useImageUpload - Hook for uploading media to create variants
  *
  * Handles the HTTP upload to /api/spaces/:spaceId/upload endpoint.
  * Returns the created variant for immediate use in the UI.

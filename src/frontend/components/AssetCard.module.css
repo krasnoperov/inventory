@@ -40,6 +40,13 @@
   object-fit: cover;
 }
 
+.thumbnailPreview,
+.childThumbPreview,
+.grandchildThumbPreview {
+  border: none;
+  border-radius: 0;
+}
+
 /* Empty state */
 .emptyThumbnail {
   display: flex;

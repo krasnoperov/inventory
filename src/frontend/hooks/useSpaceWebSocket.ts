@@ -79,6 +79,13 @@ export function isVariantImageReady(variant: Variant): boolean {
 }
 
 /**
+ * Check if a variant has a completed audio artifact for browser preview.
+ */
+export function isVariantAudioReady(variant: Variant): boolean {
+  return variant.media_kind === 'audio' && isVariantReady(variant);
+}
+
+/**
  * Check if a variant is in a loading state
  */
 export function isVariantLoading(variant: Variant): boolean {

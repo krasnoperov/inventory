@@ -1,7 +1,8 @@
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, getVariantMediaUrl, getVariantThumbnailUrl, isVariantReady, isVariantImageReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
+import { Thumbnail } from '../Thumbnail';
 import styles from './VariantNode.module.css';
 
 /** Layout direction for handle positioning */
@@ -145,13 +146,6 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     }
   }, [variant, onSetActive]);
 
-  const handleRetry = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isVariantFailed(variant) && onRetry) {
-      onRetry(variant.id);
-    }
-  }, [variant, onRetry]);
-
   const handleRetryRecipe = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (isVariantImageReady(variant) && onRetryRecipe) {
@@ -176,56 +170,16 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     isExpanded ? styles.expanded : '',
   ].filter(Boolean).join(' ');
 
-  // Render thumbnail based on variant status
+  // Render thumbnail based on variant status and media kind
   const renderThumbnail = () => {
-    if (isVariantLoading(variant)) {
-      const loadingLabels: Record<string, string> = {
-        pending: 'Queued',
-        processing: 'Generating',
-        uploading: 'Uploading',
-      };
-      const statusLabel = loadingLabels[variant.status] || 'Loading';
-      return (
-        <div className={styles.generating}>
-          <div className={styles.spinner} />
-          <span>{statusLabel}</span>
-        </div>
-      );
-    }
-
-    if (isVariantFailed(variant)) {
-      return (
-        <div className={`${styles.generating} ${styles.failedContent}`}>
-          <span className={styles.errorIcon}>⚠</span>
-          <span>Failed</span>
-          {onRetry && (
-            <button className={styles.retryButton} onClick={handleRetry}>
-              Retry
-            </button>
-          )}
-        </div>
-      );
-    }
-
-    const url = getVariantThumbnailUrl(variant);
-    if (!url) {
-      return (
-        <div className={styles.placeholder}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-        </div>
-      );
-    }
-
     return (
-      <img
-        src={url}
-        alt={`Variant ${variant.id.slice(0, 8)}`}
-        className={styles.image}
-        draggable={false}
+      <Thumbnail
+        variant={variant}
+        size="fill"
+        spaceId={spaceId}
+        showAudioControls
+        onRetry={onRetry ? () => onRetry(variant.id) : undefined}
+        className={styles.mediaPreview}
       />
     );
   };
@@ -257,7 +211,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         ) : null}
 
         {/* Hover actions - only for completed variants */}
-        {isVariantReady(variant) ? (
+        {isVariantImageReady(variant) ? (
           <div className={styles.actions}>
             {onAddToTray && isVariantImageReady(variant) && (
               <button

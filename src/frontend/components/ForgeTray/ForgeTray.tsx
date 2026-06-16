@@ -48,9 +48,9 @@ export interface ForgeTrayProps {
   onBrandBackground?: boolean;
   /** Current asset context (for Asset Detail page) */
   currentAsset?: Asset | null;
-  /** Callback for uploading an image file to create a variant on existing asset */
+  /** Callback for uploading a media file to create a variant on existing asset */
   onUpload?: (file: File, assetId: string) => Promise<void>;
-  /** Callback for uploading an image file to create a NEW asset (SpacePage) */
+  /** Callback for uploading a media file to create a NEW asset (SpacePage) */
   onUploadNewAsset?: (file: File, assetName: string) => Promise<void>;
   /** Whether an upload is in progress */
   isUploading?: boolean;
@@ -81,6 +81,23 @@ export interface ForgeTrayProps {
   /** Forge error (generate/refine/batch failure) */
   forgeError?: string | null;
 }
+
+const ACCEPTED_UPLOAD_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'audio/aac',
+  'audio/flac',
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/ogg',
+  'audio/wav',
+  'audio/webm',
+  'audio/x-wav',
+];
+
+const ACCEPTED_UPLOAD_TYPES = ACCEPTED_UPLOAD_MIME_TYPES.join(',');
 
 // Determine operation based on state
 // Simplified: 4 operations - generate, fork, derive, refine
@@ -284,19 +301,17 @@ export function ForgeTray({
     setIsDragOver(false);
 
     const files = Array.from(e.dataTransfer.files);
-    const imageFile = files.find(f =>
-      ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(f.type)
-    );
+    const uploadFile = files.find(f => ACCEPTED_UPLOAD_MIME_TYPES.includes(f.type));
 
-    if (!imageFile) {
-      console.warn('No valid image file dropped');
+    if (!uploadFile) {
+      console.warn('No valid media file dropped');
       return;
     }
 
     // If we have a target asset, upload to it directly
     if (targetAsset && onUpload) {
       try {
-        await onUpload(imageFile, targetAsset.id);
+        await onUpload(uploadFile, targetAsset.id);
       } catch (error) {
         console.error('Drop upload failed:', error);
       }
@@ -305,8 +320,8 @@ export function ForgeTray({
 
     // No target asset - need to create new asset
     if (onUploadNewAsset) {
-      const defaultName = imageFile.name.replace(/\.[^/.]+$/, '');
-      setPendingUploadFile(imageFile);
+      const defaultName = uploadFile.name.replace(/\.[^/.]+$/, '');
+      setPendingUploadFile(uploadFile);
       setUploadAssetName(defaultName);
       setShowUploadPrompt(true);
     }
@@ -697,7 +712,7 @@ export function ForgeTray({
       <input
         ref={uploadInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
+        accept={ACCEPTED_UPLOAD_TYPES}
         onChange={handleFileChange}
         style={{ display: 'none' }}
       />
@@ -708,7 +723,7 @@ export function ForgeTray({
           <div className={styles.uploadPromptModal} onClick={(e) => e.stopPropagation()}>
             <h3 className={styles.uploadPromptTitle}>Create New Asset</h3>
             <p className={styles.uploadPromptDescription}>
-              Enter a name for the new asset that will be created from your uploaded image.
+              Enter a name for the new asset that will be created from your uploaded media file.
             </p>
             <input
               type="text"

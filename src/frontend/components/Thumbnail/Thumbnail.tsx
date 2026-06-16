@@ -12,13 +12,15 @@ import { memo, useCallback } from 'react';
 import {
   type Variant,
   isVariantReady,
+  isVariantAudioReady,
   isVariantLoading,
   isVariantFailed,
   getVariantThumbnailUrl,
+  getVariantMediaUrl,
 } from '../../hooks/useSpaceWebSocket';
 import styles from './Thumbnail.module.css';
 
-export type ThumbnailSize = 'xs' | 'sm' | 'md' | 'lg';
+export type ThumbnailSize = 'xs' | 'sm' | 'md' | 'lg' | 'fill';
 
 export interface ThumbnailProps {
   /** Variant to display (null/undefined shows empty state) */
@@ -33,6 +35,10 @@ export interface ThumbnailProps {
   onRetry?: () => void;
   /** Callback for clicking the thumbnail */
   onClick?: () => void;
+  /** Space ID used for authenticated media previews */
+  spaceId?: string;
+  /** Show audio controls when an audio variant has playable media */
+  showAudioControls?: boolean;
   /** Additional CSS class */
   className?: string;
 }
@@ -51,6 +57,8 @@ function ThumbnailComponent({
   isActive = false,
   onRetry,
   onClick,
+  spaceId,
+  showAudioControls = false,
   className,
 }: ThumbnailProps) {
   const handleRetryClick = useCallback(
@@ -110,11 +118,38 @@ function ThumbnailComponent({
 
   // Completed state
   const url = getVariantThumbnailUrl(variant);
+  const mediaUrl = getVariantMediaUrl(variant, spaceId);
+  const showPlayableAudio = isVariantAudioReady(variant) && showAudioControls && mediaUrl;
 
   return (
     <div className={baseClasses} onClick={onClick}>
       {url ? (
         <img src={url} alt="" className={styles.image} draggable={false} />
+      ) : isVariantAudioReady(variant) ? (
+        <div className={styles.audioPreview}>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            className={styles.audioIcon}
+          >
+            <path d="M9 18V5l10-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="16" cy="16" r="3" />
+          </svg>
+          <span className={styles.audioLabel}>Audio</span>
+          {showPlayableAudio && (
+            <audio
+              className={styles.audioElement}
+              src={mediaUrl}
+              controls
+              preload="metadata"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+        </div>
       ) : (
         <div className={styles.placeholder}>
           <svg

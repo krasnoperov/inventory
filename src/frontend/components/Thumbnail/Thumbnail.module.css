@@ -43,6 +43,11 @@
   height: var(--thumb-size-lg);
 }
 
+.fill {
+  width: 100%;
+  height: 100%;
+}
+
 /* Image */
 .image {
   width: 100%;
@@ -80,6 +85,60 @@
   height: 40%;
   max-width: 32px;
   max-height: 32px;
+}
+
+/* Audio preview */
+.audioPreview {
+  width: 100%;
+  height: 100%;
+  padding: 0.625rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--color-text);
+  background: linear-gradient(
+    135deg,
+    var(--color-bg) 0%,
+    var(--color-surface) 100%
+  );
+}
+
+.audioIcon {
+  width: 32%;
+  height: 32%;
+  min-width: 20px;
+  min-height: 20px;
+  max-width: 44px;
+  max-height: 44px;
+  color: var(--color-primary);
+}
+
+.audioLabel {
+  font-size: var(--font-size-micro);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.audioElement {
+  width: min(100%, 220px);
+  height: 32px;
+}
+
+.xs .audioPreview,
+.sm .audioPreview {
+  gap: 0.125rem;
+  padding: 0.25rem;
+}
+
+.xs .audioLabel,
+.sm .audioLabel,
+.xs .audioElement,
+.sm .audioElement {
+  display: none;
 }
 
 /* Loading state (pending, processing, uploading) */

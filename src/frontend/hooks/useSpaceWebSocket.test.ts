@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 import {
   getVariantMediaUrl,
   getVariantThumbnailUrl,
+  isVariantAudioReady,
   isVariantImageReady,
   isVariantReady,
   type Variant,
@@ -42,6 +43,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(imageVariant), true);
     assert.equal(isVariantImageReady(imageVariant), true);
+    assert.equal(isVariantAudioReady(imageVariant), false);
     assert.equal(getVariantThumbnailUrl(imageVariant), '/api/images/images/space/variant_thumb.webp');
     assert.equal(getVariantMediaUrl(imageVariant, 'space-1'), '/api/spaces/space-1/variants/variant-1/media');
   });
@@ -59,6 +61,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(audioVariant), true);
     assert.equal(isVariantImageReady(audioVariant), false);
+    assert.equal(isVariantAudioReady(audioVariant), true);
     assert.equal(getVariantThumbnailUrl(audioVariant), undefined);
     assert.equal(getVariantMediaUrl(audioVariant, 'space-1'), '/api/spaces/space-1/variants/variant-1/media');
   });
@@ -73,6 +76,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(pendingVariant), false);
     assert.equal(isVariantImageReady(pendingVariant), false);
+    assert.equal(isVariantAudioReady(pendingVariant), false);
     assert.equal(getVariantMediaUrl(pendingVariant, 'space-1'), undefined);
   });
 });
