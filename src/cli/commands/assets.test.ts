@@ -11,6 +11,7 @@ const asset = {
   id: 'asset-1',
   name: 'Russafa Market',
   type: 'scene',
+  media_kind: 'video',
   parent_asset_id: null,
   active_variant_id: 'variant-1',
   created_at: Date.UTC(2026, 5, 16, 10, 0, 0),
@@ -20,6 +21,7 @@ const asset = {
 const variant = {
   id: 'variant-1',
   asset_id: 'asset-1',
+  media_kind: 'video',
   status: 'completed',
   image_key: 'images/space-1/variant-1.png',
   thumb_key: 'thumbs/space-1/variant-1.webp',
@@ -115,6 +117,8 @@ test('assets lists website assets from the initialized project', async () => {
   assert.equal(result.type, 'list');
   assert.equal(result.assets[0].id, 'asset-1');
   assert.match(output.join('\n'), /Russafa Market/);
+  assert.match(output.join('\n'), /Media/);
+  assert.match(output.join('\n'), /video/);
   assert.deepEqual(requests, [{
     url: 'https://inventory.example.test/api/spaces/space-1/assets',
     authorization: 'Bearer token-1',
@@ -155,6 +159,7 @@ test('assets list and show support JSON output', async () => {
     id: 'asset-1',
     name: 'Russafa Market',
     type: 'scene',
+    media_kind: 'video',
     activeVariantId: 'variant-1',
     parentAssetId: null,
     createdAt: asset.created_at,
@@ -167,8 +172,22 @@ test('assets list and show support JSON output', async () => {
   assert.equal(result.type, 'show');
   const details = JSON.parse(showOutput.join('\n'));
   assert.equal(details.asset.id, 'asset-1');
+  assert.equal(details.asset.media_kind, 'video');
   assert.equal(details.variants[0].id, 'variant-1');
+  assert.equal(details.variants[0].media_kind, 'video');
   assert.equal(details.lineage[0].relation_type, 'derived');
+});
+
+test('assets show prints asset and variant media kind', async () => {
+  const output: string[] = [];
+  const showDeps = depsFor(output).deps;
+
+  const result = await executeAssets({ positionals: ['show', 'asset-1'], options: {} }, showDeps);
+
+  assert.equal(result.type, 'show');
+  const text = output.join('\n');
+  assert.ok(text.includes('  Media:    video'));
+  assert.ok(text.includes('     Media:  video'));
 });
 
 test('assets download resolves a variant ID to its image key', async () => {

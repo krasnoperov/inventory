@@ -101,6 +101,9 @@ pnpm run cli assets show ASSET_ID
 pnpm run cli assets show ASSET_ID --json
 ```
 
+Asset inspection displays each asset's `media_kind`; `assets show` also displays
+each variant's `media_kind`.
+
 Download an existing completed variant or direct image key to a local file:
 
 ```bash

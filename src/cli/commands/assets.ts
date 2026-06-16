@@ -246,12 +246,20 @@ function printAssetList(assets: Asset[], print: (message: string) => void): void
   }
 
   print(`Found ${assets.length} asset(s):\n`);
-  print('Updated'.padEnd(21) + 'Type'.padEnd(14) + 'Active Variant'.padEnd(26) + 'Asset'.padEnd(28) + 'Name');
-  print('-'.repeat(104));
+  print(
+    'Updated'.padEnd(21) +
+    'Type'.padEnd(14) +
+    'Media'.padEnd(9) +
+    'Active Variant'.padEnd(26) +
+    'Asset'.padEnd(28) +
+    'Name'
+  );
+  print('-'.repeat(113));
   for (const asset of assets) {
     print(
       formatTimestamp(asset.updated_at).padEnd(21) +
       truncate(asset.type || 'unknown', 12).padEnd(14) +
+      truncate(asset.media_kind || '-', 7).padEnd(9) +
       truncate(asset.active_variant_id || '-', 24).padEnd(26) +
       truncate(asset.id, 26).padEnd(28) +
       truncate(asset.name, 32)
@@ -264,6 +272,7 @@ function printAssetDetails(details: AssetDetails, ctx: AssetsContext, print: (me
   print(`\nAsset ${asset.id}\n`);
   print(`  Name:     ${asset.name}`);
   print(`  Type:     ${asset.type || 'unknown'}`);
+  print(`  Media:    ${asset.media_kind || '-'}`);
   print(`  Active:   ${asset.active_variant_id || '-'}`);
   print(`  Parent:   ${asset.parent_asset_id || '-'}`);
   print(`  Created:  ${formatTimestamp(asset.created_at)}`);
@@ -276,6 +285,7 @@ function printAssetDetails(details: AssetDetails, ctx: AssetsContext, print: (me
       const active = variant.id === asset.active_variant_id ? '*' : ' ';
       print(` ${active} ${variant.id}`);
       print(`     Status: ${variant.status}`);
+      print(`     Media:  ${variant.media_kind || '-'}`);
       print(`     Image:  ${variant.image_key || '-'}`);
     }
   }
@@ -293,6 +303,7 @@ function toAssetJson(asset: Asset): Record<string, unknown> {
     id: asset.id,
     name: asset.name,
     type: asset.type,
+    media_kind: asset.media_kind || null,
     activeVariantId: asset.active_variant_id,
     parentAssetId: asset.parent_asset_id || null,
     createdAt: asset.created_at || null,
