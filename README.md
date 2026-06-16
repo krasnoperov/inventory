@@ -29,7 +29,7 @@ pnpm run db:migrate
 pnpm run dev
 ```
 
-Access at https://localhost:3002/
+Access at http://localhost:3001/
 
 ## Commands
 

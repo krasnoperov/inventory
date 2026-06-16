@@ -237,6 +237,6 @@ export function getBaseUrl(env: Env): string {
     case 'staging':
       return 'https://inventory-stage.krasnoperov.me';
     default:
-      return 'http://localhost:8788';
+      return 'http://localhost:3001';
   }
 }
