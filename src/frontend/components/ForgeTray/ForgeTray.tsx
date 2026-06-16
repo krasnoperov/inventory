@@ -448,7 +448,7 @@ export function ForgeTray({
               {slots.map((slot) => (
                 <div key={slot.id} className={styles.slotThumb}>
                   <img
-                    src={getVariantThumbnailUrl(slot.variant)}
+                    src={getVariantThumbnailUrl(slot.variant) || ''}
                     alt={slot.asset.name}
                     className={styles.slotImage}
                   />

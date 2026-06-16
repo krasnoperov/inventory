@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Variant, Asset } from '../hooks/useSpaceWebSocket';
+import { isVariantImageReady, type Variant, type Asset } from '../hooks/useSpaceWebSocket';
 import type { ForgeOperation, ForgeContext } from '../../shared/websocket-types';
 
 export interface ForgeSlot {
@@ -69,6 +69,10 @@ export const useForgeTrayStore = create<ForgeTrayState>()((set, get) => ({
 
   addSlot: (variant, asset) => {
     const state = get();
+
+    if (!isVariantImageReady(variant)) {
+      return false;
+    }
 
     // Check if already at max
     if (state.slots.length >= state.maxSlots) {

@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantImageReady, isVariantLoading, isVariantFailed } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
 import styles from './AssetCard.module.css';
@@ -75,7 +75,7 @@ export function AssetCard(props: AssetCardProps) {
   // Handle Add to Tray button click
   const handleAddToTray = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (primaryVariant) {
+    if (primaryVariant && isVariantImageReady(primaryVariant)) {
       onAddToTray?.(primaryVariant, asset);
     }
   }, [primaryVariant, asset, onAddToTray]);
@@ -120,11 +120,21 @@ export function AssetCard(props: AssetCardProps) {
           </div>
         ) : primaryVariant && isVariantReady(primaryVariant) ? (
           <div className={styles.thumbnailWrapper}>
-            <img
-              src={getVariantThumbnailUrl(primaryVariant)!}
-              alt={asset.name}
-              className={styles.thumbnail}
-            />
+            {getVariantThumbnailUrl(primaryVariant) ? (
+              <img
+                src={getVariantThumbnailUrl(primaryVariant)}
+                alt={asset.name}
+                className={styles.thumbnail}
+              />
+            ) : (
+              <div className={styles.emptyThumbnail}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </div>
+            )}
             {/* Hover overlay with actions */}
             {isHovered && (
               <div className={styles.hoverOverlay}>
@@ -143,7 +153,7 @@ export function AssetCard(props: AssetCardProps) {
                     </svg>
                     <span>View</span>
                   </button>
-                  {onAddToTray && (
+                  {onAddToTray && isVariantImageReady(primaryVariant) && (
                     <button
                       className={styles.overlayButton}
                       onClick={handleAddToTray}
@@ -178,7 +188,7 @@ export function AssetCard(props: AssetCardProps) {
             {asset.type} / {formatMediaKind(asset.media_kind)}
           </span>
         </div>
-        {onAddToTray && primaryVariant && (
+        {onAddToTray && primaryVariant && isVariantImageReady(primaryVariant) && (
           <button
             className={styles.addButton}
             onClick={handleAddToTray}
@@ -213,7 +223,7 @@ export function AssetCard(props: AssetCardProps) {
                     onMouseLeave={() => setHoveredChildId(null)}
                     title={child.name}
                   >
-                    {childVariant ? (
+                    {childVariant && getVariantThumbnailUrl(childVariant) ? (
                       <img
                         src={getVariantThumbnailUrl(childVariant)}
                         alt={child.name}
@@ -229,7 +239,7 @@ export function AssetCard(props: AssetCardProps) {
                       </div>
                     )}
                     {/* Add to tray on hover */}
-                    {isChildHovered && onAddToTray && childVariant && (
+                    {isChildHovered && onAddToTray && childVariant && isVariantImageReady(childVariant) && (
                       <button
                         className={styles.childAddButton}
                         onClick={(e) => {
@@ -265,7 +275,7 @@ export function AssetCard(props: AssetCardProps) {
                             onMouseLeave={() => setHoveredChildId(null)}
                             title={grandchild.name}
                           >
-                            {grandchildVariant ? (
+                            {grandchildVariant && getVariantThumbnailUrl(grandchildVariant) ? (
                               <img
                                 src={getVariantThumbnailUrl(grandchildVariant)}
                                 alt={grandchild.name}
@@ -279,7 +289,7 @@ export function AssetCard(props: AssetCardProps) {
                               </div>
                             )}
                             {/* Add to tray on hover */}
-                            {isGrandchildHovered && onAddToTray && grandchildVariant && (
+                            {isGrandchildHovered && onAddToTray && grandchildVariant && isVariantImageReady(grandchildVariant) && (
                               <button
                                 className={styles.grandchildAddButton}
                                 onClick={(e) => {
