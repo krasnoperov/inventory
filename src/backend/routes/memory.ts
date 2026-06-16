@@ -6,7 +6,7 @@ import { MemoryService } from '../services/memoryService';
 const memoryRoutes = new Hono<AppContext>();
 
 // All memory routes require authentication
-memoryRoutes.use('*', authMiddleware);
+memoryRoutes.use('/api/users/*', authMiddleware);
 
 // =============================================================================
 // USER PATTERNS

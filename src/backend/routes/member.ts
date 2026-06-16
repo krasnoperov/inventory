@@ -8,7 +8,7 @@ import { UserDAO } from '../../dao/user-dao';
 const memberRoutes = new Hono<AppContext>();
 
 // All member routes require authentication
-memberRoutes.use('*', authMiddleware);
+memberRoutes.use('/api/spaces/*', authMiddleware);
 
 // List members in a space
 memberRoutes.get('/api/spaces/:id/members', async (c) => {

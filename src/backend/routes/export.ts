@@ -42,7 +42,7 @@ interface ExportLineage {
 export const exportRoutes = new Hono<AppContext>();
 
 // All export routes require authentication
-exportRoutes.use('*', authMiddleware);
+exportRoutes.use('/api/spaces/*', authMiddleware);
 
 // GET /api/spaces/:id/export - Export all assets as ZIP
 exportRoutes.get('/api/spaces/:id/export', async (c) => {
