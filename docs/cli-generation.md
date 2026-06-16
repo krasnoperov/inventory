@@ -2,10 +2,11 @@
 
 The CLI can drive an existing Inventory space as a ForgeTray controller.
 The website remains the source of truth: assets, variants, recipes, lineage, and
-stored images live in the Space Durable Object and R2. The CLI sends requests,
-waits for completion, and downloads local copies of completed images.
-`generate`, `refine`, `derive`, and `batch` are image-only commands and send
-`mediaKind: "image"` with generation requests.
+stored media live in the Space Durable Object and R2. The CLI sends requests,
+waits for completion, and downloads local copies of completed media.
+Top-level `generate`, `refine`, `derive`, and `batch` are image-only commands
+and send `mediaKind: "image"` with generation requests. The `audio` subcommands
+send `mediaKind: "audio"` and use the same website job lifecycle.
 
 ## Project Binding
 
@@ -82,6 +83,21 @@ pnpm run cli batch "Three cinematic keyframes in Russafa market" \
   --output-dir keyframes/russafa-market
 ```
 
+Generate audio through website jobs:
+
+```bash
+pnpm run cli audio generate "A short brass victory sting" \
+  --name "Victory Sting" \
+  --type audio \
+  -o audio/victory.wav
+
+pnpm run cli audio batch "Three short UI notification sounds" \
+  --name "Notification Sound" \
+  --type audio \
+  --count 3 \
+  --output-dir audio/notifications
+```
+
 ## Local References
 
 `derive --refs` and `batch --refs` accept both existing variant IDs and local
@@ -102,22 +118,24 @@ generation request. This keeps local references visible in the web graph.
 
 ## Output Files
 
-The CLI downloads the completed R2 image to the path passed with `-o` or
+The CLI downloads the completed R2 artifact to the path passed with `-o` or
 `--output`. Existing files are not overwritten unless `--force` is passed.
+Generic audio artifacts are downloaded through the authenticated variant media
+endpoint rather than by dereferencing raw R2 keys.
 
 ## Options
 
 | Option | Commands | Description |
 |--------|----------|-------------|
 | `--space <id>` | all | Target website space; overrides project binding |
-| `--name <name>` | `generate`, `derive`, `batch` | New asset name |
-| `--type <type>` | `generate`, `derive`, `batch` | New asset type |
+| `--name <name>` | `generate`, `derive`, `batch`, `audio generate`, `audio batch` | New asset name |
+| `--type <type>` | `generate`, `derive`, `batch`, `audio generate`, `audio batch` | New asset type |
 | `--variant <id>` | `refine` | Source variant to refine |
 | `--refs <refs>` | `derive`, `batch` | Comma-separated variant IDs or local image paths |
-| `-o`, `--output <file>` | `generate`, `refine`, `derive` | Local download path |
-| `--output-dir <dir>` | `batch` | Directory for downloaded batch images |
-| `--count <2-8>` | `batch` | Number of images to generate |
-| `--mode <mode>` | `batch` | `explore` for one asset with many variants, or `set` for many assets |
+| `-o`, `--output <file>` | `generate`, `refine`, `derive`, `audio generate` | Local download path |
+| `--output-dir <dir>` | `batch`, `audio batch` | Directory for downloaded batch files |
+| `--count <2-8>` | `batch`, `audio batch` | Number of artifacts to generate |
+| `--mode <mode>` | `batch`, `audio batch` | `explore` for one asset with many variants, or `set` for many assets |
 | `--force` | all | Overwrite local output file |
 | `--aspect <ratio>` | all | Optional generation aspect ratio |
 | `--parent <assetId>` | `generate`, `derive` | Optional parent asset |
@@ -128,6 +146,10 @@ The CLI downloads the completed R2 image to the path passed with `-o` or
 Direct use of `gemini-images` or other generators remains intentionally
 untracked by Inventory unless the resulting files are uploaded or used as local
 references through these commands.
+
+Audio generation currently does not accept `--refs`, `derive`, or `refine`.
+Audio batch downloads completed files into the requested directory but does not
+write image keyframe run manifests.
 
 ## Run Manifests
 

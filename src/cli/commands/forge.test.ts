@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import type { StoredConfig } from '../lib/types';
 import type { BatchResult, GenerateResult, Variant } from '../lib/websocket-client';
 import {
+  executeAudioCommand,
   executeForgeCommand,
   parseRefs,
   resolveReferenceVariantIds,
@@ -39,6 +40,29 @@ function completedResult(overrides: Partial<Variant> = {}): GenerateResult {
   };
 }
 
+function completedAudioResult(overrides: Partial<Variant> = {}): GenerateResult {
+  const variant = completedVariant({
+    id: 'variant-out',
+    asset_id: 'asset-out',
+    media_kind: 'audio',
+    image_key: null,
+    thumb_key: null,
+    media_key: 'media/space/variant-out.wav',
+    media_mime_type: 'audio/wav',
+    media_size_bytes: 4096,
+    media_duration_ms: 250,
+    ...overrides,
+  });
+
+  return {
+    type: 'generate:result',
+    requestId: 'request-1',
+    jobId: variant.id,
+    success: true,
+    variant,
+  };
+}
+
 function completedVariant(overrides: Partial<Variant> = {}): Variant {
   return {
     id: 'variant-out',
@@ -49,6 +73,12 @@ function completedVariant(overrides: Partial<Variant> = {}): Variant {
     error_message: null,
     image_key: 'images/space/variant-out.png',
     thumb_key: 'images/space/variant-out_thumb.webp',
+    media_key: 'images/space/variant-out.png',
+    media_mime_type: 'image/png',
+    media_size_bytes: 1024,
+    media_width: 1024,
+    media_height: 1024,
+    media_duration_ms: null,
     recipe: '{}',
     starred: false,
     created_by: 'user-1',
@@ -93,6 +123,9 @@ class FakeClient {
 
   async sendGenerateRequest(params: unknown): Promise<GenerateResult> {
     this.generateParams = params;
+    if ((params as { mediaKind?: string }).mediaKind === 'audio') {
+      return completedAudioResult();
+    }
     return completedResult();
   }
 
@@ -103,6 +136,41 @@ class FakeClient {
 
   async sendBatchRequest(params: unknown): Promise<BatchResult> {
     this.batchParams = params;
+    if ((params as { mediaKind?: string }).mediaKind === 'audio') {
+      return {
+        type: 'batch:result',
+        requestId: 'request-batch',
+        batchId: 'batch-1',
+        success: true,
+        variants: [
+          completedVariant({
+            id: 'variant-batch-1',
+            asset_id: 'asset-batch',
+            media_kind: 'audio',
+            image_key: null,
+            thumb_key: null,
+            media_key: 'media/space/variant-batch-1.wav',
+            media_mime_type: 'audio/wav',
+            media_size_bytes: 4096,
+            media_duration_ms: 250,
+            created_at: 1,
+          }),
+          completedVariant({
+            id: 'variant-batch-2',
+            asset_id: 'asset-batch',
+            media_kind: 'audio',
+            image_key: null,
+            thumb_key: null,
+            media_key: 'media/space/variant-batch-2.wav',
+            media_mime_type: 'audio/wav',
+            media_size_bytes: 4096,
+            media_duration_ms: 250,
+            created_at: 2,
+          }),
+        ],
+        failed: [],
+      };
+    }
     return this.batchResult || {
       type: 'batch:result',
       requestId: 'request-batch',
@@ -129,6 +197,7 @@ class FakeClient {
 
 function depsFor(client: FakeClient) {
   const downloads: unknown[] = [];
+  const mediaDownloads: unknown[] = [];
   const manifests: unknown[] = [];
   const manifestRoots: Array<string | undefined> = [];
 
@@ -144,6 +213,9 @@ function depsFor(client: FakeClient) {
       downloadImage: async (input: unknown) => {
         downloads.push(input);
       },
+      downloadFile: async (input: unknown) => {
+        mediaDownloads.push(input);
+      },
       fileExists: async () => false,
       getWorkingDir: () => '/tmp/project/episode/scene',
       saveRunManifest: async (manifest: unknown, cwd?: string) => {
@@ -154,6 +226,7 @@ function depsFor(client: FakeClient) {
       createRunId: () => 'run-test',
     },
     downloads,
+    mediaDownloads,
     manifests,
     manifestRoots,
   };
@@ -647,4 +720,106 @@ test('batch saves manifest at inherited project root', async () => {
 
   assert.equal(downloads.length, 2);
   assert.deepEqual(manifestRoots, ['/tmp/project']);
+});
+
+test('audio generate sends audio request and downloads variant media', async () => {
+  const client = new FakeClient();
+  const { deps, downloads, mediaDownloads } = depsFor(client);
+
+  await executeAudioCommand('generate', {
+    positionals: ['A', 'short', 'victory', 'sting'],
+    options: {
+      space: 'space-1',
+      name: 'Victory Sting',
+      type: 'audio',
+      o: 'victory.wav',
+    },
+  }, deps);
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Victory Sting',
+    assetType: 'audio',
+    prompt: 'A short victory sting',
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'audio',
+  });
+  assert.deepEqual(downloads, []);
+  assert.deepEqual(mediaDownloads, [{
+    baseUrl: 'https://inventory-stage.example.test',
+    accessToken: 'token',
+    requestPath: '/api/spaces/space-1/variants/variant-out/media',
+    outputPath: 'victory.wav',
+    force: false,
+  }]);
+});
+
+test('audio batch downloads audio files without writing image manifest', async () => {
+  const client = new FakeClient();
+  const { deps, mediaDownloads, manifests } = depsFor(client);
+
+  await executeAudioCommand('batch', {
+    positionals: ['make', 'two', 'stingers'],
+    options: {
+      space: 'space-1',
+      name: 'Stinger',
+      type: 'audio',
+      count: '2',
+      mode: 'set',
+      'output-dir': 'audio',
+    },
+  }, deps);
+
+  assert.deepEqual(client.batchParams, {
+    name: 'Stinger',
+    assetType: 'audio',
+    prompt: 'make two stingers',
+    count: 2,
+    mode: 'set',
+    referenceVariantIds: undefined,
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'audio',
+  });
+  assert.deepEqual(mediaDownloads, [
+    {
+      baseUrl: 'https://inventory-stage.example.test',
+      accessToken: 'token',
+      requestPath: '/api/spaces/space-1/variants/variant-batch-1/media',
+      outputPath: 'audio/stinger-01.wav',
+      force: false,
+    },
+    {
+      baseUrl: 'https://inventory-stage.example.test',
+      accessToken: 'token',
+      requestPath: '/api/spaces/space-1/variants/variant-batch-2/media',
+      outputPath: 'audio/stinger-02.wav',
+      force: false,
+    },
+  ]);
+  assert.deepEqual(manifests, []);
+});
+
+test('audio commands reject references before opening a website job', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeAudioCommand('batch', {
+      positionals: ['make', 'referenced', 'sound'],
+      options: {
+        space: 'space-1',
+        refs: 'variant-existing',
+        name: 'Referenced Sound',
+        type: 'audio',
+        count: '2',
+        'output-dir': 'audio',
+      },
+    }, deps),
+    /Audio generation does not support --refs yet/
+  );
+
+  assert.equal(client.connected, false);
 });
