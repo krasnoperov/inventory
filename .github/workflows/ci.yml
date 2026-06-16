@@ -43,11 +43,8 @@ jobs:
 
           case "${{ github.event_name }}" in
             push)
-              BASE='${{ github.event.before }}'
-              if [[ "$BASE" =~ ^0+$ ]]; then
-                git fetch --depth=50 origin main:refs/remotes/origin/main 2>/dev/null || true
-                BASE=$(git merge-base HEAD origin/main 2>/dev/null || echo "")
-              fi
+              git fetch origin +refs/heads/main:refs/remotes/origin/main 2>/dev/null || true
+              BASE=$(git merge-base HEAD origin/main 2>/dev/null || echo "")
               ;;
             merge_group)
               BASE='${{ github.event.merge_group.base_sha }}'
