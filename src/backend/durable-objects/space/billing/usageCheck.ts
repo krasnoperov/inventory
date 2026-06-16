@@ -46,10 +46,12 @@ export async function preCheck(
   db: D1Database,
   userId: number,
   service: 'claude' | 'nanobanana' | 'elevenlabs',
-  rateLimit?: RateLimitConfig
+  rateLimit?: RateLimitConfig,
+  requestedQuantity = 1
 ): Promise<PreCheckResult> {
   const eventName = QUOTA_EVENT_NAMES[service];
   const rateLimitConfig = rateLimit || DEFAULT_RATE_LIMITS[service];
+  const requested = Math.max(1, Math.floor(requestedQuantity));
 
   const now = new Date();
   const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -102,7 +104,7 @@ export async function preCheck(
   const rateLimitRemaining = Math.max(0, rateLimitConfig.maxRequests - rateLimitUsed);
 
   // Check quota exceeded
-  if (quotaLimit !== null && quotaUsed >= quotaLimit) {
+  if (quotaLimit !== null && quotaUsed + requested > quotaLimit) {
     return {
       allowed: false,
       quotaUsed,
@@ -117,7 +119,7 @@ export async function preCheck(
   }
 
   // Check rate limit exceeded
-  if (rateLimitUsed >= rateLimitConfig.maxRequests) {
+  if (rateLimitUsed + requested > rateLimitConfig.maxRequests) {
     return {
       allowed: false,
       quotaUsed,
@@ -138,22 +140,23 @@ export async function preCheck(
     quotaRemaining,
     rateLimitUsed,
     rateLimitMax: rateLimitConfig.maxRequests,
-    rateLimitRemaining: rateLimitRemaining - 1,
+    rateLimitRemaining: Math.max(0, rateLimitRemaining - requested),
   };
 }
 
 /**
  * Increment rate limit counter after successful preCheck.
  */
-export async function incrementRateLimit(db: D1Database, userId: number): Promise<void> {
+export async function incrementRateLimit(db: D1Database, userId: number, amount = 1): Promise<void> {
   const now = new Date().toISOString();
+  const incrementBy = Math.max(1, Math.floor(amount));
 
   await db.prepare(`
     UPDATE users SET
       rate_limit_count = CASE
         WHEN rate_limit_window_start IS NULL OR rate_limit_window_start < datetime('now', '-60 seconds')
-        THEN 1
-        ELSE rate_limit_count + 1
+        THEN ?
+        ELSE rate_limit_count + ?
       END,
       rate_limit_window_start = CASE
         WHEN rate_limit_window_start IS NULL OR rate_limit_window_start < datetime('now', '-60 seconds')
@@ -161,7 +164,7 @@ export async function incrementRateLimit(db: D1Database, userId: number): Promis
         ELSE rate_limit_window_start
       END
     WHERE id = ?
-  `).bind(now, userId).run();
+  `).bind(incrementBy, incrementBy, now, userId).run();
 }
 
 /**

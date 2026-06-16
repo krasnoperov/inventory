@@ -95,6 +95,9 @@ function createMockRepo(): SpaceRepository {
     updateVariantWorkflow: mock.fn(async (id, workflowId, status) =>
       createMockVariant({ id, workflow_id: workflowId, status })
     ),
+    createPlaceholderVariant: mock.fn(async (input) =>
+      createMockVariant({ id: input.id, asset_id: input.assetId, media_kind: input.mediaKind ?? 'image' })
+    ),
     getRotationViewByVariant: mock.fn(async () => null),
     getTilePositionByVariant: mock.fn(async () => null),
     failRotationSet: mock.fn(async () => null),
@@ -539,6 +542,112 @@ describe('GenerationController pipeline hooks', () => {
       });
 
       assert.ok(result.success);
+    });
+  });
+
+  describe('handleBatchRequest', () => {
+    test('blocks ElevenLabs audio batch when remaining quota is less than batch count', async () => {
+      const db = {
+        prepare: mock.fn((sql: string) => ({
+          bind: mock.fn(() => ({
+            first: mock.fn(async () => {
+              if (sql.includes('FROM users')) {
+                return {
+                  quota_limits: JSON.stringify({ elevenlabs_audio: 1 }),
+                  rate_limit_count: 0,
+                  rate_limit_window_start: null,
+                };
+              }
+              return { total_used: 0 };
+            }),
+            run: mock.fn(async () => ({ success: true })),
+          })),
+        })),
+      };
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = db as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleBatchRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'batch:request',
+          requestId: 'request-1',
+          name: 'Batch Music',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'eight loops',
+          count: 8,
+          mode: 'set',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'batch:error',
+        requestId: 'request-1',
+        error: 'Monthly quota exceeded for elevenlabs. Please upgrade your plan.',
+        code: 'QUOTA_EXCEEDED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
+    test('blocks ElevenLabs audio batch when rate window has fewer slots than batch count', async () => {
+      const db = {
+        prepare: mock.fn((sql: string) => ({
+          bind: mock.fn(() => ({
+            first: mock.fn(async () => {
+              if (sql.includes('FROM users')) {
+                return {
+                  quota_limits: JSON.stringify({ elevenlabs_audio: 100 }),
+                  rate_limit_count: 9,
+                  rate_limit_window_start: new Date().toISOString(),
+                };
+              }
+              return { total_used: 0 };
+            }),
+            run: mock.fn(async () => ({ success: true })),
+          })),
+        })),
+      };
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = db as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleBatchRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'batch:request',
+          requestId: 'request-2',
+          name: 'Batch SFX',
+          assetType: 'sfx',
+          mediaKind: 'audio',
+          prompt: 'eight impacts',
+          count: 8,
+          mode: 'set',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'batch:error',
+        requestId: 'request-2',
+        error: 'Too many requests. Please wait 60 seconds.',
+        code: 'RATE_LIMITED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
     });
   });
 

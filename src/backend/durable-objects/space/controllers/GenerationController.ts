@@ -220,7 +220,7 @@ export class GenerationController extends BaseController {
     // Check quota for the entire batch
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind);
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService);
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, msg.count);
       if (!check.allowed) {
         this.send(ws, {
           type: 'batch:error',
@@ -230,7 +230,7 @@ export class GenerationController extends BaseController {
         });
         return;
       }
-      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
+      await incrementRateLimit(this.env.DB, parseInt(meta.userId), msg.count);
     }
 
     // Use factory to create batch variants
