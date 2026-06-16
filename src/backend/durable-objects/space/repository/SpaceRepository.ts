@@ -338,6 +338,9 @@ export class SpaceRepository {
       media_key: mediaKey,
       image_key: variant.imageKey,
       thumb_key: variant.thumbKey,
+      transcript_key: mediaMetadata.transcriptKey ?? null,
+      word_timings_key: mediaMetadata.wordTimingsKey ?? null,
+      render_metadata_key: mediaMetadata.renderMetadataKey ?? null,
       recipe: variant.recipe,
     });
     for (const key of imageKeys) {
