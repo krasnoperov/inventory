@@ -41,8 +41,8 @@ A media version belonging to an Asset. Variants are internal — visible only in
 | Value | Meaning | Current production path |
 |-------|---------|-------------------------|
 | `image` | Still image or image-derived visual output | Fully supported by upload, Gemini image generation, thumbnails, CLI inspection, and website display |
-| `audio` | Audio output | Reserved for future audio generators and uploads |
-| `video` | Video output | Reserved for future video generators, including Google video work |
+| `audio` | Audio output | Supported by authenticated upload/download and CLI inspection; generation is reserved for future audio providers |
+| `video` | Video output | Supported by authenticated upload/download and CLI inspection; generation is reserved for future video providers, including Google video work |
 
 Contract invariants:
 
@@ -51,10 +51,11 @@ Contract invariants:
 - Creating a variant for an existing asset inherits the asset media kind unless the request explicitly supplies the same kind; mismatches are rejected.
 - Forking copies the source variant's media kind into the new asset and copied variant unless the request explicitly supplies the same kind; mismatches are rejected.
 - New asset generation, batch generation, and upload may set `mediaKind` up front; the created asset, placeholder/completed variants, stored recipe, workflow input, WebSocket broadcasts, export payloads, and CLI/API inspection must preserve it.
-- `media_kind` does not select a provider by itself. Future audio and Google video flows should still enter through the website-controlled SpaceDO generation/upload lifecycle, set `mediaKind` explicitly, and choose the capable provider/model through generation provider/model fields.
+- Uploads create an `uploading` placeholder before the R2 write and complete the same variant after storage succeeds. Image uploads store canonical media at `images/{spaceId}/{variantId}.{ext}` and populate `image_key` plus `thumb_key`; audio/video uploads store canonical media at `media/{spaceId}/{variantId}.{ext}` and leave legacy image keys empty.
+- `media_kind` does not select a provider by itself. Future audio and Google video generation should still enter through the website-controlled SpaceDO workflow lifecycle, set `mediaKind` explicitly, and choose the capable provider/model through generation provider/model fields.
 - CLI generation commands are currently image-only controller commands. Future CLI audio/video support should call the website API/WebSocket flow instead of creating local-only media records.
 - Variants expose `media_key` as the canonical primary artifact key plus basic media metadata. Image flows still populate `image_key` and `thumb_key` for existing artifact and preview consumers.
-- Authenticated API clients should retrieve canonical artifacts via `GET /api/spaces/:spaceId/variants/:variantId/media`, not by dereferencing raw R2 keys. A future `poster_key` artifact can use the sibling `/poster` endpoint when the field exists.
+- Authenticated API clients should retrieve canonical artifacts via `GET /api/spaces/:spaceId/variants/:variantId/media`, not by dereferencing raw R2 keys. That route resolves `media_key` with `image_key` as a legacy fallback, returns private immutable responses, and supports range requests for the media artifact. Direct `/api/images/*` reads are legacy image/style/thumb only; generic `media/...` keys must go through the variant media route. A `poster_key` artifact uses the sibling `/poster` endpoint when present.
 
 ### Lineage
 
@@ -183,7 +184,7 @@ The central workspace for all generation operations. A persistent floating bar a
 | **Set as Active** | Make this variant represent the asset in catalog |
 | **Star / Unstar** | Mark as important iteration |
 | **Add to Tray** | Add this specific variant to Forge Tray |
-| **Download** | Save image to local device |
+| **Download** | Save media to local device |
 | **Delete** | Remove variant (cannot delete last/active) |
 
 ### Asset Actions
