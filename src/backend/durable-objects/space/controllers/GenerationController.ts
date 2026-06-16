@@ -40,6 +40,12 @@ const log = loggers.generationController;
 
 type GenerationBillingService = 'nanobanana' | 'elevenlabs' | 'veo';
 
+type AudioUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+};
+
 function getGenerationBillingService(env: ControllerContext['env'], mediaKind?: string): GenerationBillingService {
   if (mediaKind === 'video') {
     return 'veo';
@@ -48,6 +54,25 @@ function getGenerationBillingService(env: ControllerContext['env'], mediaKind?: 
     return 'elevenlabs';
   }
   return 'nanobanana';
+}
+
+function countPromptCharacters(prompt: string | undefined): number {
+  if (!prompt) return 0;
+  return Array.from(prompt).length;
+}
+
+function getElevenLabsAudioUsage(audioUsage: AudioUsage | null | undefined, prompt: string | undefined): AudioUsage {
+  if (audioUsage?.totalTokens && audioUsage.totalTokens > 0) {
+    return audioUsage;
+  }
+
+  const promptCharacters = countPromptCharacters(prompt);
+  const totalTokens = promptCharacters > 0 ? promptCharacters : 1;
+  return {
+    inputTokens: totalTokens,
+    outputTokens: 0,
+    totalTokens,
+  };
 }
 
 export class GenerationController extends BaseController {
@@ -451,11 +476,7 @@ export class GenerationController extends BaseController {
     renderMetadataSizeBytes?: number | null;
     audioProvider?: string | null;
     audioModel?: string | null;
-    audioUsage?: {
-      inputTokens: number;
-      outputTokens: number;
-      totalTokens: number;
-    } | null;
+    audioUsage?: AudioUsage | null;
   }): Promise<{ success: boolean; variant: Variant }> {
     // Idempotency: if already completed with same keys, return success
     const existing = await this.repo.getVariantById(data.variantId);
@@ -565,22 +586,25 @@ export class GenerationController extends BaseController {
       try {
         let operation = 'generate';
         let assetType: string | undefined;
+        let prompt: string | undefined;
         try {
           const recipe = JSON.parse(variant.recipe);
           operation = recipe.operation || operation;
           assetType = recipe.assetType;
+          prompt = typeof recipe.prompt === 'string' ? recipe.prompt : undefined;
         } catch {
           // Ignore parse errors
         }
 
+        const audioUsage = getElevenLabsAudioUsage(data.audioUsage, prompt);
         await trackElevenLabsAudioGeneration(
           this.env.DB,
           parseInt(variant.created_by),
-          data.audioUsage?.totalTokens && data.audioUsage.totalTokens > 0 ? data.audioUsage.totalTokens : 1,
+          audioUsage.totalTokens,
           data.audioModel || 'unknown',
           operation,
           assetType,
-          data.audioUsage ?? undefined
+          audioUsage
         );
       } catch (err) {
         log.warn('Failed to track ElevenLabs audio usage', {

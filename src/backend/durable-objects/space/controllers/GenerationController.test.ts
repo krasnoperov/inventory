@@ -595,6 +595,52 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(metadata.total_tokens, 37);
     });
 
+    test('tracks ElevenLabs speech and dialogue audio by prompt characters when provider usage is missing', async () => {
+      const prompt = 'Ada: Ready?\nBen: Always.';
+      const expectedQuantity = Array.from(prompt).length;
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          media_kind: 'audio',
+          recipe: JSON.stringify({ prompt, operation: 'generate', assetType: 'dialogue' }),
+          created_by: '42',
+        })),
+        completeVariant: mock.fn(async () => createMockVariant({
+          media_kind: 'audio',
+          recipe: JSON.stringify({ prompt, operation: 'generate', assetType: 'dialogue' }),
+          created_by: '42',
+          media_key: 'media/space-1/variant-1.mp3',
+          media_mime_type: 'audio/mpeg',
+          media_size_bytes: 4096,
+          status: 'completed',
+        })),
+      });
+      ctx.env.DB = db as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-1.mp3',
+        mediaMimeType: 'audio/mpeg',
+        mediaSizeBytes: 4096,
+        audioProvider: 'elevenlabs',
+        audioModel: 'eleven_v3',
+        audioUsage: null,
+      });
+
+      assert.strictEqual(statements.length, 1);
+      assert.strictEqual(statements[0].bindings[2], 'elevenlabs_audio');
+      assert.strictEqual(statements[0].bindings[3], expectedQuantity);
+      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      assert.strictEqual(metadata.model, 'eleven_v3');
+      assert.strictEqual(metadata.asset_type, 'dialogue');
+      assert.strictEqual(metadata.input_tokens, expectedQuantity);
+      assert.strictEqual(metadata.output_tokens, 0);
+      assert.strictEqual(metadata.total_tokens, expectedQuantity);
+    });
+
     test('does not track fake audio completions as ElevenLabs usage', async () => {
       const { db, statements } = createMockD1();
       const { ctx } = createMockContext({
