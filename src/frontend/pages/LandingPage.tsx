@@ -7,14 +7,9 @@ import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { ErrorMessage } from '../components/forms';
 import { useRouteStore } from '../stores/routeStore';
+import { apiFetch } from '../../api/client';
+import type { Space } from '../../api/types';
 import styles from './LandingPage.module.css';
-
-interface Space {
-  id: number;
-  name: string;
-  role: string;
-  created_at: string;
-}
 
 export default function LandingPage() {
   const _navigate = useNavigate(); // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -43,15 +38,7 @@ export default function LandingPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch('/api/spaces', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch spaces');
-      }
-
-      const data = await response.json() as { success: boolean; spaces: Space[] };
+      const data = await apiFetch('GET /api/spaces');
       setSpaces(data.spaces || []);
     } catch (err) {
       console.error('Spaces fetch error:', err);
@@ -73,23 +60,11 @@ export default function LandingPage() {
     setError(null);
 
     try {
-      const response = await fetch('/api/spaces', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const data = await apiFetch('POST /api/spaces', {
+        json: {
           name: newSpaceName.trim(),
-        }),
+        },
       });
-
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to create space');
-      }
-
-      const data = await response.json() as { success: boolean; space: Space };
       setSpaces([data.space, ...spaces]);
       setNewSpaceName('');
       setShowCreateModal(false);
@@ -101,8 +76,8 @@ export default function LandingPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',

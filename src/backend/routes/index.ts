@@ -2,7 +2,7 @@
  * Central route registration file
  * Organizes all API routes into logical groups
  */
-import type { Hono } from 'hono';
+import type { OpenAPIHono } from '@hono/zod-openapi';
 import type { AppContext } from './types';
 
 // Import route modules
@@ -26,7 +26,7 @@ import { handleDocumentNavigation } from '../middleware/documentRewrite';
 /**
  * Register all routes with the main app
  */
-export function registerRoutes(app: Hono<AppContext>) {
+export function registerRoutes(app: OpenAPIHono<AppContext>) {
   // Health check routes
   app.route('/', healthRoutes);
 
@@ -71,6 +71,14 @@ export function registerRoutes(app: Hono<AppContext>) {
   app.route('/', trainingExportRoutes);
 
   // --- Domain routes will be added per ARCHITECTURE.md ---
+
+  app.doc('/api/openapi.json', {
+    openapi: '3.0.0',
+    info: {
+      version: '0.0.0',
+      title: 'Inventory Forge API',
+    },
+  });
 
   // Catch-all: document navigations get per-route SEO + real 404 status;
   // static asset requests are delegated to the ASSETS binding unchanged.

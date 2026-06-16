@@ -1,11 +1,7 @@
 import { createContext } from 'react';
+import type { ApiUser } from '../../api/types';
 
-export interface User {
-  id: number;
-  email: string;
-  name: string;
-  google_id: string | null;
-}
+export type User = ApiUser;
 
 export interface AuthContextType {
   user: User | null;
