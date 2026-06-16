@@ -20,7 +20,7 @@ export async function renderTanStackStartRoute(
   session: StartSession,
 ): Promise<{ html: string; status: number }> {
   const handler = createRequestHandler({
-    createRouter: getRouter,
+    createRouter: () => getRouter({ initialSession: session, request }),
     request,
   });
 

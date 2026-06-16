@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
@@ -24,20 +25,8 @@ import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import { StylePanel } from '../components/ForgeTray/StylePanel';
-import { apiFetch } from '../../api/client';
-import type { Space } from '../../api/types';
+import { spacePageQueryOptions } from '../queries';
 import styles from './SpacePage.module.css';
-
-interface Member {
-  user_id: string;
-  role: string;
-  joined_at: number;
-  user: {
-    id: number;
-    email: string;
-    name: string;
-  };
-}
 
 export default function SpacePage() {
   const navigate = useNavigate();
@@ -45,10 +34,14 @@ export default function SpacePage() {
   const params = useParams();
   const spaceId = params.id;
 
-  const [space, setSpace] = useState<Space | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const spaceDataQuery = useQuery({
+    ...spacePageQueryOptions(spaceId || ''),
+    enabled: Boolean(user && spaceId),
+  });
+  const space = spaceDataQuery.data?.space ?? null;
+  const members = spaceDataQuery.data?.members ?? [];
+  const isLoading = spaceDataQuery.isPending;
+  const error = spaceDataQuery.error instanceof Error ? spaceDataQuery.error.message : null;
   const [forgeError, setForgeError] = useState<string | null>(null);
 
   // Set page title
@@ -224,45 +217,6 @@ export default function SpacePage() {
       navigate('/');
       return;
     }
-
-    const fetchSpaceData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const [spaceResult, membersResponse] = await Promise.allSettled([
-          apiFetch('GET /api/spaces/:id', { params: { id: spaceId } }),
-          fetch(`/api/spaces/${spaceId}/members`, { credentials: 'include' }),
-        ]);
-
-        if (spaceResult.status === 'rejected') {
-          const status = typeof spaceResult.reason === 'object' && spaceResult.reason !== null && 'status' in spaceResult.reason
-            ? spaceResult.reason.status
-            : undefined;
-          if (status === 403) {
-            throw new Error('You do not have access to this space');
-          }
-          if (status === 404) {
-            throw new Error('Space not found');
-          }
-          throw new Error('Failed to fetch space');
-        }
-
-        setSpace(spaceResult.value.space);
-
-        if (membersResponse.status === 'fulfilled' && membersResponse.value.ok) {
-          const membersData = await membersResponse.value.json() as { success: boolean; members: Member[] };
-          setMembers(membersData.members || []);
-        }
-      } catch (err) {
-        console.error('Space fetch error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load space');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSpaceData();
   }, [user, spaceId, navigate]);
 
   // Use shared forge operations hook (all operations via WebSocket)

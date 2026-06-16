@@ -1,43 +1,40 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import type { QueryClient } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { Outlet, createRootRoute } from '@tanstack/react-router';
+import { Outlet, createRootRouteWithContext } from '@tanstack/react-router';
 import { AuthProvider } from '../contexts/AuthContext';
-import { loadSession } from '../config';
 import type { User } from '../contexts/AuthContext';
-import { useStartSession, type StartSession } from '../startSession';
+import type { StartSession } from '../startSession';
+import { sessionQueryOptions } from '../queries';
 
-export const Route = createRootRoute({
+interface RouterContext {
+  queryClient: QueryClient;
+  initialSession?: StartSession;
+  apiBaseUrl?: string;
+  apiHeaders?: HeadersInit;
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
+  beforeLoad: async ({ context }) => {
+    const session = await context.queryClient.ensureQueryData(
+      sessionQueryOptions(context.initialSession),
+    );
+    return { session };
+  },
   component: RootComponent,
 });
 
 function RootComponent() {
+  const { session } = Route.useRouteContext();
+
   return (
-    <StartProviders>
+    <StartProviders session={session}>
       <Outlet />
     </StartProviders>
   );
 }
 
-function StartProviders({ children }: { children: ReactNode }) {
-  const providedSession = useStartSession();
-  const [session, setSession] = useState<StartSession | undefined>(providedSession);
-
-  useEffect(() => {
-    if (session) {
-      return;
-    }
-    loadSession().then((session) => {
-      if (!session.config.googleClientId) {
-        console.error('Google Client ID not provided by backend');
-      }
-      setSession(session);
-    });
-  }, [session]);
-
-  if (!session) {
-    return null;
-  }
-
+function StartProviders({ children, session }: { children: ReactNode; session: StartSession }) {
   const clientId = session.config.googleClientId;
   const initialUser: User | null = session.user;
 
