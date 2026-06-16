@@ -5,7 +5,7 @@
  * Manages image reference counting to ensure proper R2 cleanup.
  */
 
-import type { Asset, Variant, WebSocketMeta } from '../types';
+import type { Asset, MediaKind, Variant, WebSocketMeta } from '../types';
 import {
   INCREMENT_REF_SQL,
   DECREMENT_REF_SQL,
@@ -14,6 +14,7 @@ import {
 } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError } from './types';
 import { loggers } from '../../../../shared/logger';
+import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 
 const log = loggers.variantController;
 
@@ -90,6 +91,7 @@ export class VariantController extends BaseController {
     thumbKey: string;
     recipe: string;
     createdBy: string;
+    mediaKind?: MediaKind;
     parentVariantIds?: string[];
     relationType?: 'derived' | 'refined';
   }): Promise<{ created: boolean; variant: Variant }> {
@@ -173,6 +175,7 @@ export class VariantController extends BaseController {
     const variant: Variant = {
       id: data.variantId,
       asset_id: asset.id,
+      media_kind: DEFAULT_MEDIA_KIND,
       workflow_id: null, // No workflow for uploads
       status: 'uploading',
       error_message: null,
@@ -192,10 +195,11 @@ export class VariantController extends BaseController {
 
     // Insert placeholder variant
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       variant.id,
       variant.asset_id,
+      variant.media_kind,
       variant.workflow_id,
       variant.status,
       variant.error_message,
@@ -351,6 +355,7 @@ export class VariantController extends BaseController {
     thumbKey: string;
     recipe: string;
     createdBy: string;
+    mediaKind?: MediaKind;
     parentVariantIds?: string[];
     relationType?: 'derived' | 'refined';
   }): Promise<{ created: boolean; variant: Variant }> {
@@ -365,6 +370,7 @@ export class VariantController extends BaseController {
     const variant: Variant = {
       id: data.variantId,
       asset_id: data.assetId,
+      media_kind: data.mediaKind ?? DEFAULT_MEDIA_KIND,
       workflow_id: data.jobId,
       status: 'completed', // Variants created via workflow are immediately complete
       error_message: null,
@@ -384,10 +390,11 @@ export class VariantController extends BaseController {
 
     // Insert variant
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       variant.id,
       variant.asset_id,
+      variant.media_kind,
       variant.workflow_id,
       variant.status,
       variant.error_message,

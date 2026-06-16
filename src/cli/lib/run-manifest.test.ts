@@ -13,6 +13,7 @@ import type { Variant } from './websocket-client';
 const variant: Variant = {
   id: 'variant-1',
   asset_id: 'asset-1',
+  media_kind: 'image',
   workflow_id: null,
   status: 'completed',
   error_message: null,

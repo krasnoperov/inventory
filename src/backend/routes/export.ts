@@ -3,6 +3,7 @@ import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
 import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
+import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../shared/websocket-types';
 
 // Type definitions for export format
 interface ExportManifest {
@@ -18,6 +19,7 @@ interface ExportAsset {
   id: string;
   name: string;
   type: 'character' | 'item' | 'scene' | 'composite';
+  mediaKind?: MediaKind;
   tags: string[];
   activeVariantId: string | null;
   createdAt: number;
@@ -27,6 +29,7 @@ interface ExportAsset {
 interface ExportVariant {
   id: string;
   assetId: string;
+  mediaKind?: MediaKind;
   imageFile: string; // filename in ZIP
   thumbFile: string; // filename in ZIP
   recipe: Record<string, unknown> | null;
@@ -77,6 +80,7 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       id: string;
       name: string;
       type: 'character' | 'item' | 'scene' | 'composite';
+      media_kind?: MediaKind;
       tags: string;
       active_variant_id: string | null;
       created_at: number;
@@ -84,6 +88,7 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
     variants: Array<{
       id: string;
       asset_id: string;
+      media_kind?: MediaKind;
       image_key: string;
       thumb_key: string;
       recipe: string;
@@ -120,6 +125,7 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       id: asset.id,
       name: asset.name,
       type: asset.type,
+      mediaKind: asset.media_kind ?? DEFAULT_MEDIA_KIND,
       tags: JSON.parse(asset.tags || '[]'),
       activeVariantId: asset.active_variant_id,
       createdAt: asset.created_at,
@@ -159,6 +165,7 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       exportAsset.variants.push({
         id: variant.id,
         assetId: asset.id,
+        mediaKind: variant.media_kind ?? asset.media_kind ?? DEFAULT_MEDIA_KIND,
         imageFile,
         thumbFile,
         recipe,
@@ -255,6 +262,7 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
         id: newAssetId,
         name: asset.name,
         type: asset.type,
+        mediaKind: asset.mediaKind ?? DEFAULT_MEDIA_KIND,
         createdBy: userId,
       }),
     }));
@@ -307,6 +315,7 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
           assetId: newAssetId,
           imageKey,
           thumbKey,
+          mediaKind: variant.mediaKind ?? asset.mediaKind ?? DEFAULT_MEDIA_KIND,
           recipe: JSON.stringify({
             type: 'import',
             originalRecipe: variant.recipe,

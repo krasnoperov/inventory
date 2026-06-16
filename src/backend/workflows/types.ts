@@ -5,6 +5,8 @@
  * These define the contract between SpaceDO (trigger) and Workflows (execution).
  */
 
+import type { MediaKind } from '../../shared/websocket-types';
+
 // ============================================================================
 // GENERATION WORKFLOW TYPES
 // ============================================================================
@@ -72,6 +74,7 @@ export interface GenerationWorkflowInput {
 export interface GeneratedVariant {
   id: string;
   asset_id: string;
+  media_kind: MediaKind;
   job_id: string | null;
   image_key: string;
   thumb_key: string;

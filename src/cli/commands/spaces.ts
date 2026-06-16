@@ -11,6 +11,7 @@
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
+import type { MediaKind } from '../../shared/websocket-types';
 
 interface Space {
   id: string;
@@ -24,6 +25,7 @@ interface Asset {
   id: string;
   name: string;
   type: string | null;
+  media_kind?: MediaKind;
   active_variant_id: string | null;
 }
 

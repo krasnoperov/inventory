@@ -30,8 +30,8 @@ export const AssetQueries = {
   GET_CHILDREN_COUNT: 'SELECT COUNT(*) as count FROM assets WHERE parent_asset_id = ?',
 
   /** Insert new asset */
-  INSERT: `INSERT INTO assets (id, name, type, tags, parent_asset_id, active_variant_id, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  INSERT: `INSERT INTO assets (id, name, type, media_kind, tags, parent_asset_id, active_variant_id, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
   /** Delete asset by ID */
   DELETE: 'DELETE FROM assets WHERE id = ?',
@@ -69,12 +69,12 @@ export const VariantQueries = {
     WHERE v.id = ?`,
 
   /** Insert new placeholder variant (pending status) */
-  INSERT_PLACEHOLDER: `INSERT INTO variants (id, asset_id, status, recipe, created_by, created_at, updated_at, plan_step_id)
-                       VALUES (?, ?, 'pending', ?, ?, ?, ?, ?)`,
+  INSERT_PLACEHOLDER: `INSERT INTO variants (id, asset_id, media_kind, status, recipe, created_by, created_at, updated_at, plan_step_id)
+                       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
 
   /** Insert new completed variant (legacy - for forks/imports) */
-  INSERT: `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  INSERT: `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
   /** Update variant to completed status with images */
   COMPLETE: `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, updated_at = ? WHERE id = ?`,

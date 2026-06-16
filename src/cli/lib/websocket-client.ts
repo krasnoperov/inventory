@@ -10,7 +10,7 @@ import http from 'node:http';
 import https from 'node:https';
 import WebSocket from 'ws';
 import { loadStoredConfig, resolveBaseUrl } from './config';
-import type { DescribeFocus, ClaudeUsage, SimplePlan } from '../../shared/websocket-types';
+import type { DescribeFocus, ClaudeUsage, MediaKind, SimplePlan } from '../../shared/websocket-types';
 
 // Re-export SimplePlan for CLI commands
 export type { SimplePlan } from '../../shared/websocket-types';
@@ -157,6 +157,7 @@ type VariantStatus = 'pending' | 'processing' | 'uploading' | 'completed' | 'fai
 export interface Variant {
   id: string;
   asset_id: string;
+  media_kind: MediaKind;
   workflow_id: string | null;
   status: VariantStatus;
   error_message: string | null;

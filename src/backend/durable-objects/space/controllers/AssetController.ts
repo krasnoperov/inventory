@@ -5,11 +5,12 @@
  * Assets are the primary containers for variants in the inventory system.
  */
 
-import type { Asset, Variant, Lineage, WebSocketMeta } from '../types';
+import type { Asset, Variant, Lineage, MediaKind, WebSocketMeta } from '../types';
 import { wouldCreateCycle, getAncestorChain } from '../asset/hierarchy';
 import { INCREMENT_REF_SQL } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { loggers } from '../../../../shared/logger';
+import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 
 const log = loggers.spaceDO;
 
@@ -184,6 +185,7 @@ export class AssetController extends BaseController {
     id?: string;
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     parentAssetId?: string;
     createdBy: string;
   }): Promise<Asset> {
@@ -273,6 +275,7 @@ export class AssetController extends BaseController {
     sourceVariantId: string;
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     parentAssetId?: string;
     createdBy: string;
   }): Promise<{ asset: Asset; variant: Variant; lineage: Lineage }> {
@@ -315,6 +318,7 @@ export class AssetController extends BaseController {
     id?: string;
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     parentAssetId?: string;
     createdBy: string;
   }): Promise<Asset> {
@@ -322,6 +326,7 @@ export class AssetController extends BaseController {
       id: data.id || crypto.randomUUID(),
       name: data.name,
       type: data.type,
+      mediaKind: data.mediaKind,
       tags: [],
       parentAssetId: data.parentAssetId,
       createdBy: data.createdBy,
@@ -347,6 +352,7 @@ export class AssetController extends BaseController {
     sourceVariantId: string;
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     parentAssetId?: string;
     createdBy: string;
   }): Promise<{ asset: Asset; variant: Variant; lineage: Lineage } | null> {
@@ -364,6 +370,7 @@ export class AssetController extends BaseController {
     const asset = await this.createAsset({
       name: data.name,
       type: data.type,
+      mediaKind: data.mediaKind ?? sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
       parentAssetId: effectiveParentAssetId,
       createdBy: data.createdBy,
     });
@@ -373,6 +380,7 @@ export class AssetController extends BaseController {
     const variant: Variant = {
       id: newVariantId,
       asset_id: asset.id,
+      media_kind: sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
       workflow_id: null, // Forked variants have no workflow
       status: 'completed', // Forked variants are immediately complete
       error_message: null,
@@ -391,10 +399,11 @@ export class AssetController extends BaseController {
     };
 
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       variant.id,
       variant.asset_id,
+      variant.media_kind,
       variant.workflow_id,
       variant.status,
       variant.error_message,

@@ -21,6 +21,7 @@ export type {
   ForgeOperation,
   ForgeContextSlot,
   ForgeContext,
+  MediaKind,
   ViewingContext,
   SimplePlanStatus,
   SimplePlan,

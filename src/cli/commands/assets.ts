@@ -5,11 +5,13 @@ import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
 import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
 import { downloadImage } from '../lib/image-transfer';
 import { truncate } from '../lib/utils';
+import type { MediaKind } from '../../shared/websocket-types';
 
 interface Asset {
   id: string;
   name: string;
   type: string | null;
+  media_kind?: MediaKind;
   tags?: string | null;
   parent_asset_id?: string | null;
   active_variant_id: string | null;
@@ -20,6 +22,7 @@ interface Asset {
 interface Variant {
   id: string;
   asset_id: string;
+  media_kind?: MediaKind;
   status: string;
   image_key: string | null;
   thumb_key: string | null;

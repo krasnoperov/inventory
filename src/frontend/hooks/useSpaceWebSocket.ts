@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { DescribeFocus, ClaudeUsage, SimplePlan } from '../../shared/websocket-types';
+import type { DescribeFocus, ClaudeUsage, MediaKind, SimplePlan } from '../../shared/websocket-types';
 
 // Asset and Variant types based on DO SQLite schema
 export interface Asset {
   id: string;
   name: string;
   type: string;  // User-editable: character, item, scene, sprite-sheet, animation, style-sheet, reference, etc.
+  media_kind: MediaKind;
   tags: string;
   parent_asset_id: string | null;  // NULL = root asset, else nested under parent
   active_variant_id: string | null;
@@ -20,6 +21,7 @@ export type VariantStatus = 'pending' | 'processing' | 'uploading' | 'completed'
 export interface Variant {
   id: string;
   asset_id: string;
+  media_kind: MediaKind;
   workflow_id: string | null;  // Cloudflare workflow ID
   status: VariantStatus;
   error_message: string | null;  // Error details when status='failed'
