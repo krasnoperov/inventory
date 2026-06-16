@@ -3,24 +3,29 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
+  "bin": {
+    "inventory": "./dist/cli/inventory.mjs"
+  },
   "packageManager": "pnpm@11.1.1",
   "scripts": {
     "bootstrap:worktree": "node ./scripts/bootstrap-worktree.mjs",
     "dev": "concurrently \"pnpm dev:worker\" \"pnpm dev:frontend\"",
     "dev:frontend": "vite",
     "dev:worker": "wrangler dev --config wrangler.dev.toml --port 8788 --persist-to .wrangler/state",
-    "build": "vite build",
+    "build": "vite build && pnpm run build:cli",
+    "build:cli": "node scripts/build-cli.mjs",
     "deploy": "pnpm run build && pnpm exec wrangler deploy",
     "deploy:production": "pnpm run build && pnpm exec wrangler deploy --env production",
     "deploy:stage": "pnpm run build && pnpm exec wrangler deploy",
     "test": "node --import @swc-node/register/esm-register --test",
-    "test:e2e:cli-forge": "node scripts/e2e-cli-forge.mjs",
+    "test:e2e:cli-forge": "pnpm run build:cli && node scripts/e2e-cli-forge.mjs",
     "lint": "eslint \"{src,scripts}/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "db:migrate": "node --import @swc-node/register/esm-register scripts/db-migrate.ts",
     "db:migrate:stage": "node --import @swc-node/register/esm-register scripts/db-migrate.ts stage remote",
     "db:migrate:production": "node --import @swc-node/register/esm-register scripts/db-migrate.ts production remote",
-    "cli": "node --import @swc-node/register/esm-register src/cli/index.ts"
+    "cli": "node dist/cli/inventory.mjs",
+    "cli:dev": "node --import @swc-node/register/esm-register src/cli/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",

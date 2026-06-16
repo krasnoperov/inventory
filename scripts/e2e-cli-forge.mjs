@@ -10,8 +10,7 @@ const persistDir = path.join(tmpRoot, 'wrangler-state');
 const configHome = path.join(tmpRoot, 'config');
 const outputDir = path.join(tmpRoot, 'out');
 const projectDir = path.join(tmpRoot, 'project');
-const swcRegister = path.join(root, 'node_modules', '@swc-node', 'register', 'esm', 'esm-register.mjs');
-const cliEntrypoint = path.join(root, 'src', 'cli', 'index.ts');
+const cliEntrypoint = path.join(root, 'dist', 'cli', 'inventory.mjs');
 const port = process.env.INVENTORY_E2E_PORT || String(await findFreePort());
 const baseUrl = `http://127.0.0.1:${port}`;
 const token = process.env.INVENTORY_E2E_TOKEN || 'inventory-dev-token';
@@ -148,17 +147,11 @@ async function createSpace() {
 }
 
 async function runCli(args) {
-  return await run('node', [
-    '--import',
-    swcRegister,
-    cliEntrypoint,
-    ...args,
-  ], {
+  return await run('node', [cliEntrypoint, ...args], {
     cwd: projectDir,
     env: {
       XDG_CONFIG_HOME: configHome,
       INVENTORY_CLI_BASE_URL: baseUrl,
-      SWC_NODE_PROJECT: path.join(root, 'tsconfig.json'),
     },
   });
 }

@@ -18,8 +18,18 @@ import { handleInit } from './commands/init';
 import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
 
+declare const __INVENTORY_CLI_VERSION__: string | undefined;
+
+export const CLI_VERSION =
+  typeof __INVENTORY_CLI_VERSION__ === 'string' ? __INVENTORY_CLI_VERSION__ : '0.0.0-dev';
+
 async function main() {
   const [, , command, ...args] = process.argv;
+
+  if (command === '--version' || command === 'version') {
+    console.log(CLI_VERSION);
+    return;
+  }
 
   if (!command || command === 'help' || command === '--help') {
     printHelp();
@@ -42,6 +52,9 @@ async function main() {
 function printHelp() {
   console.log(`
 CLI Tool - Inventory
+
+Version:
+  --version                    Print the CLI build version
 
 Authentication:
   login                        Authenticate with the API and store access token
