@@ -12,6 +12,7 @@ import path from 'node:path';
 import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
+import type { ErrorResponse, UploadMediaResponse } from '../../api/types';
 import type { MediaKind } from '../../shared/websocket-types';
 
 const MAX_FILE_SIZE_MB = 10;
@@ -41,34 +42,9 @@ const EXT_TO_MEDIA_TYPE: Record<string, MediaType> = {
 };
 const ALLOWED_EXTENSIONS = Object.keys(EXT_TO_MEDIA_TYPE).sort();
 
-interface UploadResponse {
-  success: boolean;
-  variant?: {
-    id: string;
-    asset_id: string;
-    media_kind?: MediaKind;
-    image_key: string | null;
-    thumb_key: string | null;
-    media_key?: string | null;
-    media_mime_type?: string | null;
-    media_size_bytes?: number | null;
-    media_width?: number | null;
-    media_height?: number | null;
-    media_duration_ms?: number | null;
-    status: string;
-    recipe: string;
-  };
-  asset?: {
-    id: string;
-    name: string;
-    type: string;
-  };
-  error?: string;
-}
-
 interface UploadResult {
-  asset?: UploadResponse['asset'];
-  variant: NonNullable<UploadResponse['variant']>;
+  asset?: UploadMediaResponse['asset'];
+  variant: UploadMediaResponse['variant'];
 }
 
 interface UploadDeps {
@@ -201,38 +177,38 @@ export async function executeUpload(
       body: formData,
     });
 
-    const data = await response.json() as UploadResponse;
+    const data = await response.json() as UploadMediaResponse | ErrorResponse;
 
-    if (!response.ok || !data.success || !data.variant) {
-      throw new Error(`Upload failed: ${data.error || response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${'error' in data ? data.error : response.statusText}`);
     }
+
+    const upload = data as UploadMediaResponse;
 
     deps.print('\nUpload successful!\n');
 
-    if (data.asset) {
+    if (upload.asset) {
       deps.print('New Asset:');
-      deps.print(`  ID:   ${data.asset.id}`);
-      deps.print(`  Name: ${data.asset.name}`);
-      deps.print(`  Type: ${data.asset.type}`);
+      deps.print(`  ID:   ${upload.asset.id}`);
+      deps.print(`  Name: ${upload.asset.name}`);
+      deps.print(`  Type: ${upload.asset.type}`);
       deps.print('');
     }
 
-    if (data.variant) {
-      deps.print('Variant:');
-      deps.print(`  ID:       ${data.variant.id}`);
-      deps.print(`  Asset:    ${data.variant.asset_id}`);
-      deps.print(`  Status:   ${data.variant.status}`);
-      deps.print(`  Media:    ${data.variant.media_kind || mediaType.mediaKind}`);
-      deps.print(`  File:     ${data.variant.media_key || data.variant.image_key || '-'}`);
-      if (data.variant.image_key) deps.print(`  Image:    ${data.variant.image_key}`);
-      if (data.variant.thumb_key) deps.print(`  Thumb:    ${data.variant.thumb_key}`);
-      if (data.variant.media_mime_type) deps.print(`  MIME:     ${data.variant.media_mime_type}`);
-    }
+    deps.print('Variant:');
+    deps.print(`  ID:       ${upload.variant.id}`);
+    deps.print(`  Asset:    ${upload.variant.asset_id}`);
+    deps.print(`  Status:   ${upload.variant.status}`);
+    deps.print(`  Media:    ${upload.variant.media_kind || mediaType.mediaKind}`);
+    deps.print(`  File:     ${upload.variant.media_key || upload.variant.image_key || '-'}`);
+    if (upload.variant.image_key) deps.print(`  Image:    ${upload.variant.image_key}`);
+    if (upload.variant.thumb_key) deps.print(`  Thumb:    ${upload.variant.thumb_key}`);
+    if (upload.variant.media_mime_type) deps.print(`  MIME:     ${upload.variant.media_mime_type}`);
 
     // Parse and show recipe
-    if (data.variant?.recipe) {
+    if (upload.variant.recipe) {
       try {
-        const recipe = JSON.parse(data.variant.recipe);
+        const recipe = JSON.parse(upload.variant.recipe);
         deps.print('\nRecipe:');
         deps.print(`  Operation: ${recipe.operation}`);
         deps.print(`  Original:  ${recipe.originalFilename}`);
@@ -243,9 +219,9 @@ export async function executeUpload(
     }
 
     deps.print('\nTo inspect:');
-    deps.print(`  pnpm run cli assets show ${data.variant.asset_id} --space ${spaceId}`);
+    deps.print(`  pnpm run cli assets show ${upload.variant.asset_id} --space ${spaceId}`);
 
-    return { asset: data.asset, variant: data.variant };
+    return { asset: upload.asset, variant: upload.variant };
 
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {

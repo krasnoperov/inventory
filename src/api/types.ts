@@ -184,7 +184,12 @@ export type {
   SuccessResponse,
   UpdateUserProfileRequest,
   UpdateUserSettingsRequest,
+  UploadMediaRequest,
+  UploadMediaResponse,
+  UploadStyleImageRequest,
+  UploadStyleImageResponse,
   UserProfile,
   UserProfileUpdateResponse,
   UserSettingsResponse,
+  Variant,
 } from '../shared/api/schemas';

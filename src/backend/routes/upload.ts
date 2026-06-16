@@ -3,11 +3,13 @@
  *
  * Handles media uploads to create new variants on existing assets.
  */
-import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { AppContext } from './types';
+import { createOpenApiRouter } from './openapi';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
+import { uploadMediaRoute, uploadStyleImageRoute } from '../../shared/api/routes';
+import { UploadMediaResponseSchema, type UploadMediaResponse } from '../../shared/api/schemas';
 import {
   createThumbnail,
   getBaseUrl,
@@ -80,22 +82,33 @@ function getOptionalString(formData: FormData, key: string): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
-function rejectOversizedRequest(c: Context<AppContext>): Response | null {
+class UploadRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 413,
+  ) {
+    super(message);
+  }
+}
+
+function getUploadRequestError(c: Context<AppContext>): UploadRequestError | null {
   const contentLength = c.req.header('Content-Length');
   if (!contentLength) return null;
 
   const size = Number(contentLength);
   if (!Number.isFinite(size) || size < 0) {
-    return c.json({ error: 'Invalid Content-Length' }, 400);
+    return new UploadRequestError('Invalid Content-Length', 400);
   }
   if (size <= MAX_UPLOAD_BODY_SIZE_BYTES) return null;
 
-  return c.json({
-    error: `Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`,
-  }, 413);
+  return new UploadRequestError(`Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`, 413);
 }
 
-async function readRequestBodyWithLimit(c: Context<AppContext>): Promise<ArrayBuffer | Response> {
+function uploadRequestErrorResponse(c: Context<AppContext>, error: UploadRequestError): Response {
+  return c.json({ error: error.message }, error.status);
+}
+
+async function readRequestBodyWithLimit(c: Context<AppContext>): Promise<ArrayBuffer> {
   const reader = c.req.raw.body?.getReader();
   if (!reader) return new ArrayBuffer(0);
 
@@ -109,9 +122,7 @@ async function readRequestBodyWithLimit(c: Context<AppContext>): Promise<ArrayBu
     total += value.byteLength;
     if (total > MAX_UPLOAD_BODY_SIZE_BYTES) {
       await reader.cancel().catch(() => undefined);
-      return c.json({
-        error: `Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`,
-      }, 413);
+      throw new UploadRequestError(`Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`, 413);
     }
     chunks.push(value);
   }
@@ -126,21 +137,24 @@ async function readRequestBodyWithLimit(c: Context<AppContext>): Promise<ArrayBu
   return rawBody;
 }
 
-async function parseBoundedFormData(c: Context<AppContext>): Promise<FormData | Response> {
-  const oversized = rejectOversizedRequest(c);
-  if (oversized) return oversized;
+async function bufferUploadRequest(c: Context<AppContext>): Promise<void> {
+  const uploadRequestError = getUploadRequestError(c);
+  if (uploadRequestError) throw uploadRequestError;
 
   const body = await readRequestBodyWithLimit(c);
-  if (body instanceof Response) return body;
+  c.req.raw = new Request(c.req.raw.url, {
+    method: c.req.raw.method,
+    headers: c.req.raw.headers,
+    body,
+  });
+  c.req.bodyCache = {};
+}
 
+async function parseUploadFormData(c: Context<AppContext>): Promise<FormData> {
   try {
-    return await new Request(c.req.raw.url, {
-      method: c.req.raw.method,
-      headers: c.req.raw.headers,
-      body,
-    }).formData();
+    return await c.req.formData();
   } catch {
-    return c.json({ error: 'Invalid form data' }, 400);
+    throw new UploadRequestError('Invalid form data', 400);
   }
 }
 
@@ -149,10 +163,28 @@ async function deleteUploadedKeys(env: AppContext['Bindings'], keys: Array<strin
   await Promise.all(uniqueKeys.map((key) => env.IMAGES.delete(key)));
 }
 
-export const uploadRoutes = new Hono<AppContext>();
+export const uploadRoutes = createOpenApiRouter();
 
 // All upload routes require authentication
 uploadRoutes.use('/api/spaces/*', authMiddleware);
+uploadRoutes.use('/api/spaces/:id/upload', async (c, next) => {
+  try {
+    await bufferUploadRequest(c);
+  } catch (error) {
+    if (error instanceof UploadRequestError) return uploadRequestErrorResponse(c, error);
+    throw error;
+  }
+  return next();
+});
+uploadRoutes.use('/api/spaces/:id/style-images', async (c, next) => {
+  try {
+    await bufferUploadRequest(c);
+  } catch (error) {
+    if (error instanceof UploadRequestError) return uploadRequestErrorResponse(c, error);
+    throw error;
+  }
+  return next();
+});
 
 /**
  * POST /api/spaces/:id/upload
@@ -163,14 +195,11 @@ uploadRoutes.use('/api/spaces/*', authMiddleware);
  * - file: Media file - max 10MB
  * - assetId: Target asset UUID, or assetName for a new asset
  */
-uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
+uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const memberDAO = c.get('container').get(MemberDAO);
   const env = c.env;
   const spaceId = c.req.param('id');
-
-  const oversized = rejectOversizedRequest(c);
-  if (oversized) return oversized;
 
   // Verify user is editor/owner
   const member = await memberDAO.getMember(spaceId, userId);
@@ -182,8 +211,15 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   }
 
   // Parse FormData
-  const formData = await parseBoundedFormData(c);
-  if (formData instanceof Response) return formData;
+  let formData: FormData;
+  try {
+    formData = await parseUploadFormData(c);
+  } catch (error) {
+    if (error instanceof UploadRequestError) {
+      return c.json({ error: error.message }, error.status);
+    }
+    throw error;
+  }
 
   // Get file
   const file = formData.get('file') as File | null;
@@ -271,7 +307,7 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   // =========================================================================
   // Step 1: Create upload placeholder (broadcasts to all clients immediately)
   // =========================================================================
-  let createdNewAsset: unknown;
+  let createdNewAsset: UploadMediaResponse['asset'];
   try {
     const placeholderResponse = await doStub.fetch(
       new Request('http://do/internal/upload-placeholder', {
@@ -303,7 +339,7 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
       asset?: unknown;
       assetId: string;
     };
-    createdNewAsset = placeholderResult.asset;
+    createdNewAsset = placeholderResult.asset as UploadMediaResponse['asset'];
   } catch (error) {
     console.error('Failed to create upload placeholder:', error);
     return c.json({ error: 'Failed to create upload placeholder' }, 500);
@@ -383,12 +419,14 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
       );
     }
 
-    const result = await completeResponse.json() as { variant: unknown };
-    return c.json({
-      success: true,
+    const result = await completeResponse.json() as { variant: UploadMediaResponse['variant'] };
+    const responseBody = UploadMediaResponseSchema.parse({
+      success: true as const,
       variant: result.variant,
-      asset: createdNewAsset, // Included when new asset was created
+      ...(createdNewAsset ? { asset: createdNewAsset } : {}), // Included when new asset was created
     });
+
+    return c.json(responseBody, 200);
   } catch (error) {
     console.error('Upload failed:', error);
 
@@ -428,14 +466,11 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
  * FormData:
  * - file: Image file (JPEG, PNG, WebP, GIF) - max 10MB
  */
-uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
+uploadRoutes.openapi(uploadStyleImageRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const memberDAO = c.get('container').get(MemberDAO);
   const env = c.env;
   const spaceId = c.req.param('id');
-
-  const oversized = rejectOversizedRequest(c);
-  if (oversized) return oversized;
 
   // Verify user is editor/owner
   const member = await memberDAO.getMember(spaceId, userId);
@@ -447,8 +482,15 @@ uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
   }
 
   // Parse FormData
-  const formData = await parseBoundedFormData(c);
-  if (formData instanceof Response) return formData;
+  let formData: FormData;
+  try {
+    formData = await parseUploadFormData(c);
+  } catch (error) {
+    if (error instanceof UploadRequestError) {
+      return c.json({ error: error.message }, error.status);
+    }
+    throw error;
+  }
 
   // Get file
   const file = formData.get('file') as File | null;
@@ -534,7 +576,11 @@ uploadRoutes.post('/api/spaces/:id/style-images', async (c) => {
       }
     }
 
-    return c.json({ success: true, imageKey, warning });
+    return c.json({
+      success: true as const,
+      imageKey,
+      ...(warning ? { warning } : {}),
+    }, 200);
   } catch (error) {
     console.error('Style image upload failed:', error);
 

@@ -10,6 +10,8 @@ import { MemberDAO } from '../../dao/member-dao';
 import { authRoutes } from './auth';
 import { userRoutes } from './user';
 import { spaceRoutes } from './space';
+import { uploadRoutes } from './upload';
+import { imageRoutes } from './image';
 import { createOpenApiRouter } from './openapi';
 import type { AppContext } from './types';
 import { apiFetch, type ApiFetchOptions, type ApiEndpointKey } from '../../api/client';
@@ -50,13 +52,83 @@ const asset = {
   updated_at: 1_780_000_000_100,
 };
 
+const variant = {
+  id: 'variant-1',
+  asset_id: asset.id,
+  media_kind: 'video' as const,
+  workflow_id: null,
+  status: 'completed' as const,
+  error_message: null,
+  image_key: null,
+  thumb_key: null,
+  media_key: 'media/space-1/variant-1.mp4',
+  media_mime_type: 'video/mp4',
+  media_size_bytes: 3,
+  media_width: null,
+  media_height: null,
+  media_duration_ms: null,
+  recipe: '{}',
+  starred: false,
+  created_by: String(user.id),
+  created_at: 1_780_000_000_200,
+  updated_at: 1_780_000_000_200,
+};
+
 type FetchLike = NonNullable<ApiFetchOptions<ApiEndpointKey>['fetch']>;
 
 function bindFetch(app: OpenAPIHono<AppContext>): FetchLike {
   return async (input, init) => app.fetch(new Request(input, init));
 }
 
-function routeApp(routes: OpenAPIHono<AppContext>, deps: Map<unknown, unknown>) {
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
+function makeObject(key: string, body: Uint8Array, contentType: string): R2ObjectBody {
+  return {
+    key,
+    version: 'version',
+    size: body.byteLength,
+    etag: 'etag',
+    httpEtag: '"etag"',
+    checksums: {} as R2Checksums,
+    uploaded: new Date('2026-01-01T00:00:00.000Z'),
+    httpMetadata: { contentType },
+    customMetadata: undefined,
+    range: undefined,
+    storageClass: 'Standard',
+    ssecKeyMd5: undefined,
+    writeHttpMetadata(headers: Headers) {
+      headers.set('Content-Type', contentType);
+    },
+    body: new Blob([toArrayBuffer(body)]).stream(),
+    bodyUsed: false,
+    arrayBuffer: async () => toArrayBuffer(body),
+    bytes: async () => body,
+    text: async () => new TextDecoder().decode(body),
+    json: async <T>() => JSON.parse(new TextDecoder().decode(body)) as T,
+    blob: async () => new Blob([toArrayBuffer(body)]),
+  };
+}
+
+async function toBytes(value: unknown): Promise<Uint8Array> {
+  if (value instanceof Uint8Array) return value;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+  }
+  if (value instanceof Blob) return new Uint8Array(await value.arrayBuffer());
+  if (typeof value === 'string') return new TextEncoder().encode(value);
+  throw new Error('Unsupported R2 body');
+}
+
+function routeApp(
+  routes: OpenAPIHono<AppContext>,
+  deps: Map<unknown, unknown>,
+  envOverrides: Partial<AppContext['Bindings']> = {},
+) {
   const app = createOpenApiRouter();
   app.use('*', async (c, next) => {
     c.env = {
@@ -68,6 +140,7 @@ function routeApp(routes: OpenAPIHono<AppContext>, deps: Map<unknown, unknown>) 
           fetch: async () => Response.json({ assets: [asset] }),
         }),
       },
+      ...envOverrides,
     } as unknown as AppContext['Bindings'];
     c.set('container', {
       get: (token: unknown) => {
@@ -236,5 +309,131 @@ describe('API contracts', () => {
       params: { id: space.id },
     });
     assert.equal(deleted.message, 'Space deleted successfully');
+  });
+
+  it('round-trips media upload through the shared multipart contract', async () => {
+    const stored = new Map<string, { body: Uint8Array; contentType?: string }>();
+    const fakeImages = {
+      put: async (key: string, value: unknown, options?: R2PutOptions) => {
+        const body = await toBytes(value);
+        const contentType = options?.httpMetadata instanceof Headers
+          ? options.httpMetadata.get('content-type') ?? undefined
+          : options?.httpMetadata?.contentType;
+        stored.set(key, { body, contentType });
+        return null;
+      },
+      delete: async (key: string) => {
+        stored.delete(key);
+      },
+    };
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async (request: Request) => {
+          const path = new URL(request.url).pathname;
+          const body = await request.json<Record<string, unknown>>();
+
+          if (path === '/internal/upload-placeholder') {
+            assert.equal(body.assetName, 'Opening Cutscene');
+            assert.equal(body.mediaKind, 'video');
+            return Response.json({
+              asset: { ...asset, id: 'asset-video', name: 'Opening Cutscene', media_kind: 'video' },
+              assetId: 'asset-video',
+              variant: { ...variant, status: 'uploading' },
+            });
+          }
+
+          if (path === '/internal/complete-upload') {
+            return Response.json({
+              variant: {
+                ...variant,
+                asset_id: 'asset-video',
+                media_key: body.mediaKey,
+                media_mime_type: body.mediaMimeType,
+                media_size_bytes: body.mediaSizeBytes,
+                starred: 0,
+              },
+            });
+          }
+
+          return Response.json({ error: 'Unexpected route' }, { status: 404 });
+        },
+      }),
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const fakeMemberDAO = {
+      getMember: async () => ({ space_id: space.id, user_id: String(user.id), role: 'editor', joined_at: Date.now() }),
+    };
+    const app = routeApp(uploadRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [MemberDAO, fakeMemberDAO],
+    ]), {
+      IMAGES: fakeImages as unknown as AppContext['Bindings']['IMAGES'],
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
+    const fetch = bindFetch(app);
+
+    const uploaded = await apiFetch('POST /api/spaces/:id/upload', {
+      fetch,
+      baseUrl,
+      headers: { Authorization: 'Bearer test-token' },
+      params: { id: space.id },
+      form: {
+        file: new File([new Uint8Array([1, 2, 3])], 'cutscene.mp4', { type: 'video/mp4' }),
+        assetName: 'Opening Cutscene',
+        assetType: 'video',
+        mediaKind: 'video',
+      },
+    });
+
+    assert.equal(uploaded.success, true);
+    assert.equal(uploaded.asset?.media_kind, 'video');
+    assert.equal(uploaded.variant.starred, false);
+    assert.equal(uploaded.variant.media_mime_type, 'video/mp4');
+    assert.equal(stored.get(uploaded.variant.media_key!)?.contentType, 'video/mp4');
+  });
+
+  it('round-trips variant media endpoints as typed streaming responses', async () => {
+    const mediaBytes = new TextEncoder().encode('video-data');
+    const fakeImages = {
+      get: async (key: string) => {
+        assert.equal(key, variant.media_key);
+        return makeObject(key, mediaBytes, 'video/mp4');
+      },
+    };
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async () => Response.json(variant),
+      }),
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const fakeMemberDAO = {
+      getMember: async () => ({ space_id: space.id, user_id: String(user.id), role: 'viewer', joined_at: Date.now() }),
+    };
+    const app = routeApp(imageRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [MemberDAO, fakeMemberDAO],
+    ]), {
+      IMAGES: fakeImages as unknown as AppContext['Bindings']['IMAGES'],
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
+    const fetch = bindFetch(app);
+
+    const response = await apiFetch('GET /api/spaces/:spaceId/variants/:variantId/media', {
+      fetch,
+      baseUrl,
+      headers: { Authorization: 'Bearer test-token' },
+      params: { spaceId: space.id, variantId: variant.id },
+    });
+
+    assert(response instanceof Response);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'video/mp4');
+    assert.equal(await response.text(), 'video-data');
   });
 });

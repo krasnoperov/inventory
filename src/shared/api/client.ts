@@ -14,9 +14,14 @@ import {
   SuccessResponseSchema,
   UpdateUserProfileRequestSchema,
   UpdateUserSettingsRequestSchema,
+  UploadMediaRequestSchema,
+  UploadMediaResponseSchema,
+  UploadStyleImageRequestSchema,
+  UploadStyleImageResponseSchema,
   UserProfileSchema,
   UserProfileUpdateResponseSchema,
   UserSettingsResponseSchema,
+  VariantMediaParamsSchema,
 } from './schemas';
 
 export const apiEndpoints = {
@@ -82,6 +87,34 @@ export const apiEndpoints = {
     paramsSchema: SpaceIdParamsSchema,
     responseSchema: DeleteSpaceResponseSchema,
   },
+  'POST /api/spaces/:id/upload': {
+    method: 'POST',
+    path: '/api/spaces/:id/upload',
+    paramsSchema: SpaceIdParamsSchema,
+    formSchema: UploadMediaRequestSchema,
+    responseSchema: UploadMediaResponseSchema,
+  },
+  'POST /api/spaces/:id/style-images': {
+    method: 'POST',
+    path: '/api/spaces/:id/style-images',
+    paramsSchema: SpaceIdParamsSchema,
+    formSchema: UploadStyleImageRequestSchema,
+    responseSchema: UploadStyleImageResponseSchema,
+  },
+  'GET /api/spaces/:spaceId/variants/:variantId/media': {
+    method: 'GET',
+    path: '/api/spaces/:spaceId/variants/:variantId/media',
+    paramsSchema: VariantMediaParamsSchema,
+    responseType: 'response',
+    successStatuses: [200, 206, 304],
+  },
+  'GET /api/spaces/:spaceId/variants/:variantId/poster': {
+    method: 'GET',
+    path: '/api/spaces/:spaceId/variants/:variantId/poster',
+    paramsSchema: VariantMediaParamsSchema,
+    responseType: 'response',
+    successStatuses: [200, 304],
+  },
 } as const;
 
 export type ApiEndpointKey = keyof typeof apiEndpoints;
@@ -94,12 +127,18 @@ type JsonOf<K extends ApiEndpointKey> =
   Endpoint<K> extends { jsonSchema: infer S extends z.ZodType }
     ? z.input<S>
     : never;
+type FormOf<K extends ApiEndpointKey> =
+  Endpoint<K> extends { formSchema: infer S extends z.ZodType }
+    ? z.input<S>
+    : never;
 type ResponseOf<K extends ApiEndpointKey> =
-  Endpoint<K> extends { responseSchema: infer S extends z.ZodType }
+  Endpoint<K> extends { responseType: 'response' }
+    ? Response
+    : Endpoint<K> extends { responseSchema: infer S extends z.ZodType }
     ? z.output<S>
     : never;
 type NeedsOptions<K extends ApiEndpointKey> =
-  Endpoint<K> extends { paramsSchema: z.ZodType } | { jsonSchema: z.ZodType }
+  Endpoint<K> extends { paramsSchema: z.ZodType } | { jsonSchema: z.ZodType } | { formSchema: z.ZodType }
     ? true
     : false;
 
@@ -110,7 +149,8 @@ export type ApiFetchOptions<K extends ApiEndpointKey> =
     baseUrl?: string;
     fetch?: FetchLike;
   } & (ParamsOf<K> extends never ? { params?: never } : { params: ParamsOf<K> })
-    & (JsonOf<K> extends never ? { json?: never } : { json: JsonOf<K> });
+    & (JsonOf<K> extends never ? { json?: never } : { json: JsonOf<K> })
+    & (FormOf<K> extends never ? { form?: never } : { form: FormOf<K> });
 
 export class ApiFetchError extends Error {
   constructor(
@@ -145,6 +185,37 @@ function resolveUrl(path: string, baseUrl: string | undefined): string {
   return path;
 }
 
+function buildFormData(form: Record<string, unknown>): FormData {
+  const formData = new FormData();
+
+  for (const [key, value] of Object.entries(form)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== undefined && item !== null) {
+          formData.append(key, item instanceof Blob ? item : String(item));
+        }
+      }
+      continue;
+    }
+    formData.append(key, value instanceof Blob ? value : String(value));
+  }
+
+  return formData;
+}
+
+function isSuccessfulResponse<K extends ApiEndpointKey>(
+  endpoint: Endpoint<K>,
+  response: Response,
+): boolean {
+  if ('successStatuses' in endpoint) {
+    return (endpoint.successStatuses as readonly number[]).includes(response.status);
+  }
+  return response.ok;
+}
+
 async function readJson(response: Response): Promise<unknown> {
   const text = await response.text();
   if (!text) {
@@ -174,6 +245,10 @@ export async function apiFetch<K extends ApiEndpointKey>(
     'jsonSchema' in endpoint
       ? endpoint.jsonSchema.parse(options.json)
       : undefined;
+  const form =
+    'formSchema' in endpoint
+      ? endpoint.formSchema.parse(options.form)
+      : undefined;
   const path = buildPath(endpoint.path, params as Record<string, unknown> | undefined);
   const headers = new Headers(options.headers);
   const init: RequestInit = {
@@ -187,20 +262,33 @@ export async function apiFetch<K extends ApiEndpointKey>(
   delete (init as { fetch?: FetchLike }).fetch;
   delete (init as { params?: unknown }).params;
   delete (init as { json?: unknown }).json;
+  delete (init as { form?: unknown }).form;
 
   if (json !== undefined) {
     headers.set('Content-Type', 'application/json');
     init.body = JSON.stringify(json);
   }
+  if (form !== undefined) {
+    init.body = buildFormData(form as Record<string, unknown>);
+  }
 
   const response = await fetchImpl(resolveUrl(path, options.baseUrl), init);
+
+  if ('responseType' in endpoint && endpoint.responseType === 'response' && isSuccessfulResponse(endpoint, response)) {
+    return response as ResponseOf<K>;
+  }
+
   const data = await readJson(response);
 
-  if (!response.ok) {
+  if (!isSuccessfulResponse(endpoint, response)) {
     const parsedError = ErrorResponseSchema.safeParse(data);
     const message = parsedError.success ? parsedError.data.error : response.statusText;
     throw new ApiFetchError(message, response.status, data, response);
   }
 
-  return endpoint.responseSchema.parse(data) as ResponseOf<K>;
+  if ('responseSchema' in endpoint) {
+    return endpoint.responseSchema.parse(data) as ResponseOf<K>;
+  }
+
+  return data as ResponseOf<K>;
 }
