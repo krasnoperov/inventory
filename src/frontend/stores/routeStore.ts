@@ -1,19 +1,6 @@
 import { create } from 'zustand';
 import { subscribeToNavigation, initNavigator } from '../navigation/navigator';
-
-export type RoutePage =
-  | 'landing'
-  | 'login'
-  | 'profile'
-  | 'oauthApprove'
-  | 'dashboard'
-  | 'space'
-  | 'asset'
-  | 'unknown';
-
-export interface RouteParams {
-  [key: string]: string | undefined;
-}
+import { matchSpaRoute, type RoutePage, type RouteParams } from '../spaRoutes';
 
 interface RouteState {
   path: string;
@@ -22,45 +9,6 @@ interface RouteState {
   params: RouteParams;
   setLocation: (path: string, search: string) => void;
 }
-
-const parseRoute = (path: string): { page: RoutePage; params: RouteParams } => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const segments = path.replace(/\/+$/, '').split('/');
-
-  if (path === '/' || path === '') {
-    return { page: 'landing', params: {} };
-  }
-
-  if (path === '/login') {
-    return { page: 'login', params: {} };
-  }
-
-  if (path === '/profile') {
-    return { page: 'profile', params: {} };
-  }
-
-  if (path === '/oauth/approve') {
-    return { page: 'oauthApprove', params: {} };
-  }
-
-  if (path === '/dashboard') {
-    return { page: 'dashboard', params: {} };
-  }
-
-  // Match /spaces/:id/assets/:assetId
-  const assetMatch = path.match(/^\/spaces\/([^/]+)\/assets\/([^/]+)$/);
-  if (assetMatch) {
-    return { page: 'asset', params: { spaceId: assetMatch[1], assetId: assetMatch[2] } };
-  }
-
-  // Match /spaces/:id
-  const spaceMatch = path.match(/^\/spaces\/([^/]+)$/);
-  if (spaceMatch) {
-    return { page: 'space', params: { id: spaceMatch[1] } };
-  }
-
-  return { page: 'unknown', params: {} };
-};
 
 const shallowEqualParams = (a: RouteParams, b: RouteParams): boolean => {
   const keysA = Object.keys(a);
@@ -74,7 +22,7 @@ const shallowEqualParams = (a: RouteParams, b: RouteParams): boolean => {
 
 const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/';
 const initialSearch = typeof window !== 'undefined' ? window.location.search : '';
-const initialRoute = parseRoute(initialPath);
+const initialRoute = matchSpaRoute(initialPath);
 
 export const useRouteStore = create<RouteState>()((set, get) => ({
   path: initialPath,
@@ -82,7 +30,7 @@ export const useRouteStore = create<RouteState>()((set, get) => ({
   page: initialRoute.page,
   params: initialRoute.params,
   setLocation: (path, search) => {
-    const next = parseRoute(path);
+    const next = matchSpaRoute(path);
     const state = get();
     if (
       state.path === path &&
