@@ -225,8 +225,9 @@ pnpm run cli runs export --latest --format remotion -o keyframes.json
 
 `runs` reads local `.inventory/runs` manifests from the initialized project root
 and does not call generation APIs. The Remotion export is a compact JSON handoff
-with ordered image paths, absolute paths, website IDs/URLs, prompt, refs, and
-failed variant errors.
+with ordered image paths, absolute paths resolved from the original batch
+command working directory, website IDs/URLs, prompt, refs, and failed variant
+errors.
 
 See [cli-generation.md](./cli-generation.md) for the full command reference.
 

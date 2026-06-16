@@ -33,6 +33,7 @@ export type RunManifest = {
   refs: string[];
   referenceVariantIds: string[];
   outputDir: string;
+  workingDir?: string;
   createdAt: string;
   completedAt: string;
   images: RunManifestImage[];
@@ -140,6 +141,8 @@ export function createRemotionRunExport(
   record: RunManifestRecord,
   projectRoot: string
 ): RemotionRunExport {
+  const pathBase = record.manifest.workingDir || projectRoot;
+
   return {
     version: 1,
     format: 'remotion-keyframes',
@@ -160,7 +163,7 @@ export function createRemotionRunExport(
       .sort((a, b) => a.index - b.index)
       .map((image) => ({
         ...image,
-        absolutePath: path.resolve(projectRoot, image.localPath),
+        absolutePath: path.resolve(pathBase, image.localPath),
       })),
     failed: record.manifest.failed,
   };

@@ -127,8 +127,8 @@ pnpm run cli runs export --latest --format remotion -o keyframes.json
 ```
 
 The Remotion export writes ordered keyframe data with local paths, absolute
-paths, website IDs/URLs, prompt, refs, and failed variant errors for downstream
-video tooling.
+paths resolved from the original batch command working directory, website
+IDs/URLs, prompt, refs, and failed variant errors for downstream video tooling.
 
 ## End-To-End Test Loop
 

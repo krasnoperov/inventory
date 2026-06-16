@@ -126,8 +126,10 @@ test('runs show supports --latest and JSON output by run ID', async () => {
 test('runs export writes ordered Remotion keyframe data', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-runs-'));
   try {
+    const workingDir = path.join(dir, 'episode', 'scene');
     await saveRunManifest(manifest({
       runId: 'run-export',
+      workingDir,
       failed: [{ variantId: 'variant-failed', error: 'failed frame' }],
       success: false,
     }), dir);
@@ -148,7 +150,7 @@ test('runs export writes ordered Remotion keyframe data', async () => {
     assert.equal(exported.format, 'remotion-keyframes');
     assert.equal(exported.runId, 'run-export');
     assert.deepEqual(exported.images.map((image: { variantId: string }) => image.variantId), ['variant-1', 'variant-2']);
-    assert.equal(exported.images[0].absolutePath, path.join(dir, 'keyframes/frame-01.png'));
+    assert.equal(exported.images[0].absolutePath, path.join(workingDir, 'keyframes/frame-01.png'));
     assert.deepEqual(exported.failed, [{ variantId: 'variant-failed', error: 'failed frame' }]);
     assert.match(output.join('\n'), /Wrote remotion export/);
   } finally {

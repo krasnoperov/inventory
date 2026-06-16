@@ -87,6 +87,7 @@ interface CommandDeps {
   fileExists: (filePath: string) => Promise<boolean>;
   saveRunManifest: (manifest: RunManifest, cwd?: string) => Promise<string>;
   createRunId: () => string;
+  getWorkingDir?: () => string;
 }
 
 const defaultDeps: CommandDeps = {
@@ -98,6 +99,7 @@ const defaultDeps: CommandDeps = {
   downloadImage,
   saveRunManifest,
   createRunId,
+  getWorkingDir: () => process.cwd(),
   fileExists: async (filePath) => {
     try {
       const fileStat = await stat(filePath);
@@ -116,6 +118,7 @@ interface CommandContext {
   accessToken: string;
   force: boolean;
   projectRoot?: string;
+  workingDir: string;
 }
 
 export async function handleGenerate(parsed: ParsedArgs): Promise<void> {
@@ -325,6 +328,7 @@ async function executeBatch(
     refs,
     referenceVariantIds: referenceVariantIds || [],
     outputDir,
+    workingDir: ctx.workingDir,
     createdAt: startedAt,
     completedAt: new Date().toISOString(),
     images,
@@ -368,6 +372,7 @@ async function buildContext(parsed: ParsedArgs, deps: CommandDeps): Promise<Comm
     accessToken: config.token.accessToken,
     force: parsed.options.force === 'true',
     projectRoot: projectConfig?.projectRoot,
+    workingDir: deps.getWorkingDir?.() || process.cwd(),
   };
 }
 

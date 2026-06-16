@@ -144,6 +144,7 @@ function depsFor(client: FakeClient) {
         downloads.push(input);
       },
       fileExists: async () => false,
+      getWorkingDir: () => '/tmp/project/episode/scene',
       saveRunManifest: async (manifest: unknown, cwd?: string) => {
         manifests.push(manifest);
         manifestRoots.push(cwd);
@@ -526,6 +527,7 @@ test('batch sends batch request, downloads outputs, and writes manifest', async 
   ]);
   assert.equal(manifests.length, 1);
   assert.equal((manifests[0] as { success: boolean }).success, true);
+  assert.equal((manifests[0] as { workingDir: string }).workingDir, '/tmp/project/episode/scene');
   assert.deepEqual((manifests[0] as { failed: unknown[] }).failed, []);
   assert.deepEqual((manifests[0] as { referenceVariantIds: string[] }).referenceVariantIds, ['variant-existing']);
   assert.deepEqual((manifests[0] as { images: Array<{ variantId: string; localPath: string }> }).images.map((image) => ({
