@@ -1,18 +1,15 @@
-import { useRouteParams } from '../routeLocation';
+import { useParams as useTanStackParams } from '@tanstack/react-router';
 
 /**
  * Hook to access route params
- * Replacement for React Router's useParams
  */
 export function useParams<T extends Record<string, string | undefined> = Record<string, string | undefined>>(): T {
-  const params = useRouteParams();
+  const params = useTanStackParams({ strict: false }) as Record<string, string | undefined>;
 
-  // For the speak page, we need to map episodeId from params
-  // The route store sets episodeId for both /listen/:id and /speak/:id routes
-  if (params.episodeId) {
+  if (params.id && params.assetId) {
     return {
       ...params,
-      id: params.episodeId, // Map episodeId to id for compatibility
+      spaceId: params.id,
     } as unknown as T;
   }
 

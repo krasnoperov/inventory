@@ -21,7 +21,7 @@
 ## Architecture
 
 - **Runtime:** Cloudflare Workers + Durable Objects + D1 + R2 + Workflows.
-- **Frontend:** React 19 + Vite, Zustand for state, custom SPA router.
+- **Frontend:** React 19 + Vite, TanStack Router, Zustand for state.
 - **Real-time:** WebSocket + full-state sync on connect, broadcast mutations per Durable Object space.
 
 ## Pages (public)

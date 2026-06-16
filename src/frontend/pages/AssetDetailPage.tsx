@@ -3,7 +3,7 @@ import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { useRouteParams } from '../routeLocation';
+import { useParams } from '../hooks/useParams';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore } from '../stores/chatStore';
 import { useStyleStore, type SpaceStyleClient } from '../stores/styleStore';
@@ -46,7 +46,7 @@ interface ConfirmDialog {
 export default function AssetDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const params = useRouteParams();
+  const params = useParams();
   const spaceId = params.spaceId;
   const assetId = params.assetId;
 
