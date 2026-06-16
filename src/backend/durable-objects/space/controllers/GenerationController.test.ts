@@ -110,6 +110,82 @@ function createMockContext(
 
 describe('GenerationController pipeline hooks', () => {
   // ==========================================================================
+  // handleRetryRequest
+  // ==========================================================================
+
+  describe('handleRetryRequest', () => {
+    test('preserves styled video reference semantics when retrying', async () => {
+      const createWorkflow = mock.fn(async () => ({ id: 'workflow-retry-1' }));
+      const recipe = {
+        prompt: '[Style: painterly]\n\nAnimate the hero',
+        assetType: 'animation',
+        mediaKind: 'video',
+        model: 'veo-3.1-generate-preview',
+        aspectRatio: '16:9',
+        sourceImageKeys: ['styles/style-1.png', 'images/asset-1.png'],
+        styleImageKeys: ['styles/style-1.png'],
+        parentVariantIds: ['source-var-1'],
+        operation: 'derive',
+        modelProvider: 'custom',
+      };
+      const failedVariant = createMockVariant({
+        id: 'variant-video',
+        asset_id: 'asset-video',
+        media_kind: 'video',
+        status: 'failed',
+        recipe: JSON.stringify(recipe),
+      });
+      const resetVariant = createMockVariant({
+        ...failedVariant,
+        status: 'pending',
+        error_message: null,
+      });
+      const processingVariant = createMockVariant({
+        ...failedVariant,
+        workflow_id: 'workflow-retry-1',
+        status: 'processing',
+        error_message: null,
+      });
+      const { ctx, broadcasts } = createMockContext({
+        getVariantById: mock.fn(async () => failedVariant),
+        getAssetById: mock.fn(async () => ({
+          id: 'asset-video',
+          name: 'Video Asset',
+          type: 'animation',
+          media_kind: 'video',
+          active_variant_id: 'variant-video',
+        })),
+        resetVariantForRetry: mock.fn(async () => resetVariant),
+        updateVariantWorkflow: mock.fn(async () => processingVariant),
+      });
+      ctx.env = {
+        GENERATION_WORKFLOW: { create: createWorkflow },
+      } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRetryRequest(
+        {} as WebSocket,
+        { userId: 'user-1', role: 'editor' },
+        'variant-video'
+      );
+
+      assert.strictEqual(createWorkflow.mock.calls.length, 1);
+      assert.strictEqual(createWorkflow.mock.calls[0].arguments[0].id, 'variant-video');
+      const workflowInput = createWorkflow.mock.calls[0].arguments[0].params;
+      assert.deepStrictEqual(workflowInput.sourceImageKeys, recipe.sourceImageKeys);
+      assert.deepStrictEqual(workflowInput.styleImageKeys, recipe.styleImageKeys);
+      assert.deepStrictEqual(workflowInput.parentVariantIds, recipe.parentVariantIds);
+      assert.strictEqual(workflowInput.mediaKind, 'video');
+      assert.strictEqual(workflowInput.modelProvider, 'custom');
+      assert.strictEqual(workflowInput.operation, 'derive');
+      assert.strictEqual(asMock(ctx.repo.resetVariantForRetry).mock.calls[0].arguments[0], 'variant-video');
+      assert.strictEqual(asMock(ctx.repo.updateVariantWorkflow).mock.calls[0].arguments[1], 'workflow-retry-1');
+      assert.ok(broadcasts.some((msg) => msg.type === 'variant:updated' && msg.variant.status === 'pending'));
+      assert.ok(broadcasts.some((msg) => msg.type === 'variant:updated' && msg.variant.status === 'processing'));
+    });
+  });
+
+  // ==========================================================================
   // httpCompleteVariant
   // ==========================================================================
 

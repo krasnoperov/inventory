@@ -250,6 +250,10 @@ describe('VariantFactory - Style Injection', () => {
       assert.ok(recipe.sourceImageKeys);
       assert.ok(recipe.sourceImageKeys!.includes('styles/space-1/ref1.png'));
       assert.ok(recipe.sourceImageKeys!.includes('styles/space-1/ref2.png'));
+      assert.deepStrictEqual(recipe.styleImageKeys, [
+        'styles/space-1/ref1.png',
+        'styles/space-1/ref2.png',
+      ]);
       // Style image keys returned separately
       assert.deepStrictEqual(result.styleImageKeys, [
         'styles/space-1/ref1.png',
@@ -340,6 +344,7 @@ describe('VariantFactory - Style Injection', () => {
         'styles/ref2.png',
         'styles/ref3.png',
       ]);
+      assert.deepStrictEqual(recipe.styleImageKeys, recipe.sourceImageKeys);
       assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
       assert.deepStrictEqual(result.styleImageKeys, recipe.sourceImageKeys);
     });
@@ -408,6 +413,7 @@ describe('VariantFactory - Style Injection', () => {
         'styles/ref2.png',
         'images/source.png',
       ]);
+      assert.deepStrictEqual(recipe.styleImageKeys, ['styles/ref1.png', 'styles/ref2.png']);
       assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
       assert.deepStrictEqual(result.styleImageKeys, ['styles/ref1.png', 'styles/ref2.png']);
     });

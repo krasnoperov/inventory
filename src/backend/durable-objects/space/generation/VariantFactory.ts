@@ -36,6 +36,8 @@ export interface GenerationRecipe {
   aspectRatio?: string;
   imageSize?: string;
   sourceImageKeys?: string[];
+  /** Style reference keys prepended to sourceImageKeys, preserving retry semantics */
+  styleImageKeys?: string[];
   /** Parent variant IDs for retry support (in case lineage records are missing) */
   parentVariantIds?: string[];
   /** Operation type matching user-facing tool name */
@@ -718,6 +720,7 @@ export class VariantFactory {
       ...effectiveRecipe,
       prompt: styledPrompt,
       sourceImageKeys: combinedSourceImageKeys.length > 0 ? combinedSourceImageKeys : undefined,
+      styleImageKeys: styleImageKeys.length > 0 ? styleImageKeys : undefined,
       styleId: style.id,
     };
 

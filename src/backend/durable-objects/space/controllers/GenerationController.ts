@@ -332,7 +332,10 @@ export class GenerationController extends BaseController {
       aspectRatio: recipe.aspectRatio,
       imageSize: recipe.imageSize,
       sourceImageKeys: recipe.sourceImageKeys,
+      parentVariantIds: recipe.parentVariantIds,
+      styleImageKeys: recipe.styleImageKeys,
       operation: recipe.operation,
+      modelProvider: recipe.modelProvider,
     };
 
     // Trigger the workflow
