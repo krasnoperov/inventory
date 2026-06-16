@@ -13,6 +13,7 @@ type VariantMediaArtifact = 'media' | 'poster';
 interface VariantMediaRecord {
   id: string;
   status: string;
+  image_key?: string | null;
   media_key?: string | null;
   media_mime_type?: string | null;
   poster_key?: string | null;
@@ -77,8 +78,12 @@ function getContentRange(range: R2Range, totalSize: number): string | null {
 }
 
 function getArtifactKey(variant: VariantMediaRecord, artifact: VariantMediaArtifact): string | null {
-  if (artifact === 'media') return variant.media_key ?? null;
+  if (artifact === 'media') return variant.media_key ?? variant.image_key ?? null;
   return variant.poster_key ?? null;
+}
+
+function isLegacyImageKey(key: string): boolean {
+  return key.startsWith('images/') || key.startsWith('styles/') || key.startsWith('thumbs/');
 }
 
 async function serveR2Object(
@@ -88,6 +93,7 @@ async function serveR2Object(
     kind: StorageKind;
     supportsRange: boolean;
     fallbackContentType?: string | null;
+    cacheControl?: string;
   }
 ): Promise<Response> {
   const env = c.env;
@@ -114,7 +120,7 @@ async function serveR2Object(
       ? getMediaContentType(object, options.key, options.fallbackContentType)
       : getContentType(object, options.key, options.kind)
   );
-  headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  headers.set('Cache-Control', options.cacheControl ?? 'public, max-age=31536000, immutable');
   headers.set('ETag', object.httpEtag);
 
   const ifNoneMatch = c.req.header('If-None-Match');
@@ -176,6 +182,9 @@ async function getVariantFromSpace(
 imageRoutes.get('/api/images/*', async (c) => {
   try {
     const key = getKey(c.req.path, '/api/images/');
+    if (!isLegacyImageKey(key)) {
+      return c.json({ error: 'Image not found' }, 404);
+    }
     return serveR2Object(c, { key, kind: 'image', supportsRange: false });
   } catch (error) {
     console.error('Error serving image:', error);
@@ -197,6 +206,10 @@ async function serveVariantArtifact(c: Context<AppContext>, artifact: VariantMed
       return variantOrResponse;
     }
 
+    if (variantOrResponse.status !== 'completed') {
+      return c.json({ error: artifact === 'media' ? 'Variant media not available' : 'Variant poster not available' }, 404);
+    }
+
     const key = getArtifactKey(variantOrResponse, artifact);
     if (!key) {
       return c.json({ error: artifact === 'media' ? 'Variant media not available' : 'Variant poster not available' }, 404);
@@ -207,6 +220,7 @@ async function serveVariantArtifact(c: Context<AppContext>, artifact: VariantMed
       kind: 'media',
       supportsRange: artifact === 'media',
       fallbackContentType: artifact === 'media' ? variantOrResponse.media_mime_type : null,
+      cacheControl: 'private, max-age=31536000, immutable',
     });
   } catch (error) {
     console.error('Error serving media:', error);

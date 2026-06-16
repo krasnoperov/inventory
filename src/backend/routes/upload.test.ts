@@ -67,6 +67,7 @@ function buildApp(options: { role?: 'owner' | 'editor' | 'viewer' | null } = {})
   const deletes: string[] = [];
   const doCalls: DoCall[] = [];
   const stored = new Map<string, { body: Uint8Array; contentType?: string }>();
+  const placeholders = new Map<string, Record<string, unknown>>();
 
   const bucket = {
     put: async (key: string, value: unknown, putOptions?: R2PutOptions) => {
@@ -101,23 +102,77 @@ function buildApp(options: { role?: 'owner' | 'editor' | 'viewer' | null } = {})
             doCalls.push({ path, body });
 
             if (path === '/internal/upload-placeholder') {
+              placeholders.set(String(body.variantId), body);
+              const assetId = String(body.assetId ?? 'asset-new');
+              const mediaKind = body.mediaKind === 'image' || body.mediaKind === 'audio' || body.mediaKind === 'video'
+                ? body.mediaKind
+                : 'image';
+
               return Response.json({
-                variant: { id: body.variantId, status: 'uploading', media_kind: body.mediaKind },
-                asset: body.assetName ? { id: 'asset-new', name: body.assetName, media_kind: body.mediaKind } : undefined,
-                assetId: body.assetId ?? 'asset-new',
+                variant: {
+                  id: body.variantId,
+                  asset_id: assetId,
+                  media_kind: mediaKind,
+                  workflow_id: null,
+                  status: 'uploading',
+                  error_message: null,
+                  image_key: null,
+                  thumb_key: null,
+                  media_key: null,
+                  media_mime_type: null,
+                  media_size_bytes: null,
+                  media_width: null,
+                  media_height: null,
+                  media_duration_ms: null,
+                  recipe: String(body.recipe ?? '{}'),
+                  starred: false,
+                  created_by: '7',
+                  created_at: 1_780_000_000_000,
+                  updated_at: 1_780_000_000_000,
+                },
+                asset: body.assetName ? {
+                  id: assetId,
+                  name: String(body.assetName),
+                  type: String(body.assetType ?? 'character'),
+                  media_kind: mediaKind,
+                  tags: '[]',
+                  parent_asset_id: typeof body.parentAssetId === 'string' ? body.parentAssetId : null,
+                  active_variant_id: null,
+                  created_by: '7',
+                  created_at: 1_780_000_000_000,
+                  updated_at: 1_780_000_000_000,
+                } : undefined,
+                assetId,
               });
             }
 
             if (path === '/internal/complete-upload') {
+              const placeholder = placeholders.get(String(body.variantId)) ?? {};
+              const mediaKind = placeholder.mediaKind === 'image' || placeholder.mediaKind === 'audio' || placeholder.mediaKind === 'video'
+                ? placeholder.mediaKind
+                : 'image';
+
               return Response.json({
                 variant: {
                   id: body.variantId,
+                  asset_id: String(placeholder.assetId ?? 'asset-new'),
+                  media_kind: mediaKind,
+                  workflow_id: null,
                   status: 'completed',
+                  error_message: null,
                   image_key: body.imageKey,
                   thumb_key: body.thumbKey,
                   media_key: body.mediaKey,
                   media_mime_type: body.mediaMimeType,
                   media_size_bytes: body.mediaSizeBytes,
+                  media_width: body.mediaWidth,
+                  media_height: body.mediaHeight,
+                  media_duration_ms: body.mediaDurationMs,
+                  recipe: String(placeholder.recipe ?? '{}'),
+                  starred: false,
+                  created_by: '7',
+                  created_at: 1_780_000_000_000,
+                  updated_at: 1_780_000_000_000,
                 },
               });
             }
@@ -157,6 +212,17 @@ function uploadRequest(spaceId: string, formData: FormData): Request {
     method: 'POST',
     headers: { Authorization: 'Bearer test-token' },
     body: formData,
+  });
+}
+
+function oversizedUploadRequest(path: string): Request {
+  return new Request(`https://app.example${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer test-token',
+      'Content-Length': String(12 * 1024 * 1024),
+    },
+    body: '',
   });
 }
 
@@ -257,6 +323,30 @@ describe('uploadRoutes', () => {
     assert.match(body.error, /Invalid file type/);
     assert.match(body.error, /image\/png/);
     assert.doesNotMatch(body.error, /audio\/mpeg/);
+    assert.strictEqual(puts.length, 0);
+    assert.strictEqual(doCalls.length, 0);
+  });
+
+  it('rejects oversized upload bodies before parsing form data', async () => {
+    const { app, puts, doCalls } = buildApp();
+
+    const res = await app.fetch(oversizedUploadRequest('/api/spaces/space-1/upload'));
+    const body = await res.json() as { error: string };
+
+    assert.strictEqual(res.status, 413);
+    assert.match(body.error, /limited to 10MB/);
+    assert.strictEqual(puts.length, 0);
+    assert.strictEqual(doCalls.length, 0);
+  });
+
+  it('rejects oversized style image bodies before parsing form data', async () => {
+    const { app, puts, doCalls } = buildApp();
+
+    const res = await app.fetch(oversizedUploadRequest('/api/spaces/space-1/style-images'));
+    const body = await res.json() as { error: string };
+
+    assert.strictEqual(res.status, 413);
+    assert.match(body.error, /limited to 10MB/);
     assert.strictEqual(puts.length, 0);
     assert.strictEqual(doCalls.length, 0);
   });

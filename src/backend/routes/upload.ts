@@ -3,6 +3,7 @@
  *
  * Handles media uploads to create new variants on existing assets.
  */
+import type { Context } from 'hono';
 import type { AppContext } from './types';
 import { createOpenApiRouter } from './openapi';
 import { authMiddleware } from '../middleware/auth-middleware';
@@ -20,6 +21,8 @@ import type { MediaKind } from '../../shared/websocket-types';
 // Configuration
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
+const MAX_UPLOAD_BODY_SIZE_BYTES = MAX_FILE_SIZE_BYTES + MAX_MULTIPART_OVERHEAD_BYTES;
 
 const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -79,6 +82,18 @@ function getOptionalString(formData: FormData, key: string): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
+function rejectOversizedRequest(c: Context<AppContext>): Response | null {
+  const contentLength = c.req.header('Content-Length');
+  if (!contentLength) return null;
+
+  const size = Number(contentLength);
+  if (!Number.isFinite(size) || size <= MAX_UPLOAD_BODY_SIZE_BYTES) return null;
+
+  return c.json({
+    error: `Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`,
+  }, 413);
+}
+
 async function deleteUploadedKeys(env: AppContext['Bindings'], keys: Array<string | null>): Promise<void> {
   const uniqueKeys = [...new Set(keys.filter((key): key is string => Boolean(key)))];
   await Promise.all(uniqueKeys.map((key) => env.IMAGES.delete(key)));
@@ -88,6 +103,16 @@ export const uploadRoutes = createOpenApiRouter();
 
 // All upload routes require authentication
 uploadRoutes.use('/api/spaces/*', authMiddleware);
+uploadRoutes.use('/api/spaces/:id/upload', async (c, next) => {
+  const oversized = rejectOversizedRequest(c);
+  if (oversized) return oversized;
+  return next();
+});
+uploadRoutes.use('/api/spaces/:id/style-images', async (c, next) => {
+  const oversized = rejectOversizedRequest(c);
+  if (oversized) return oversized;
+  return next();
+});
 
 /**
  * POST /api/spaces/:id/upload
@@ -103,6 +128,9 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   const memberDAO = c.get('container').get(MemberDAO);
   const env = c.env;
   const spaceId = c.req.param('id');
+
+  const oversized = rejectOversizedRequest(c);
+  if (oversized) return oversized;
 
   // Verify user is editor/owner
   const member = await memberDAO.getMember(spaceId, userId);
@@ -371,6 +399,9 @@ uploadRoutes.openapi(uploadStyleImageRoute, async (c) => {
   const memberDAO = c.get('container').get(MemberDAO);
   const env = c.env;
   const spaceId = c.req.param('id');
+
+  const oversized = rejectOversizedRequest(c);
+  if (oversized) return oversized;
 
   // Verify user is editor/owner
   const member = await memberDAO.getMember(spaceId, userId);
