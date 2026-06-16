@@ -261,6 +261,50 @@ describe('GenerationController pipeline hooks', () => {
       });
     });
 
+    test('passes generated audio sidecars to repository completion', async () => {
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({ media_kind: 'audio' })),
+      });
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-1.mp3',
+        mediaMimeType: 'audio/mpeg',
+        mediaSizeBytes: 4096,
+        transcriptKey: 'sidecars/space-1/variant-1/transcript.txt',
+        transcriptMimeType: 'text/plain',
+        transcriptSizeBytes: 11,
+        wordTimingsKey: 'sidecars/space-1/variant-1/word_timings.json',
+        wordTimingsMimeType: 'application/json',
+        wordTimingsSizeBytes: 128,
+        renderMetadataKey: 'sidecars/space-1/variant-1/render_metadata.json',
+        renderMetadataMimeType: 'application/json',
+        renderMetadataSizeBytes: 96,
+      });
+
+      const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
+      assert.deepStrictEqual(completeCall.arguments[3], {
+        mediaKey: 'media/space-1/variant-1.mp3',
+        mimeType: 'audio/mpeg',
+        sizeBytes: 4096,
+        width: undefined,
+        height: undefined,
+        durationMs: undefined,
+        transcriptKey: 'sidecars/space-1/variant-1/transcript.txt',
+        transcriptMimeType: 'text/plain',
+        transcriptSizeBytes: 11,
+        wordTimingsKey: 'sidecars/space-1/variant-1/word_timings.json',
+        wordTimingsMimeType: 'application/json',
+        wordTimingsSizeBytes: 128,
+        renderMetadataKey: 'sidecars/space-1/variant-1/render_metadata.json',
+        renderMetadataMimeType: 'application/json',
+        renderMetadataSizeBytes: 96,
+      });
+    });
+
     test('hook errors do not fail completion', async () => {
       const rotView: RotationView = {
         id: 'rv-1',

@@ -53,8 +53,8 @@ Variants track generation and upload status via placeholder lifecycle.
 `media_kind` is the stored medium discriminator shared with the parent asset;
 allowed values are `image`, `audio`, and `video`, with `image` as the default
 for legacy and omitted values. Image generation uses the image provider path.
-Audio generation uses the same placeholder workflow lifecycle when the fake
-audio provider is enabled. Upload flows accept image, audio, and video files;
+Audio generation uses the same placeholder workflow lifecycle with the
+configured audio provider. Upload flows accept image, audio, and video files;
 video generation is reserved for future generators.
 
 ```sql

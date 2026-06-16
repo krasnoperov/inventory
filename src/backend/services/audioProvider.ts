@@ -10,11 +10,19 @@ export interface AudioGenerateOptions {
   model?: string;
 }
 
+export interface AudioSidecar {
+  data: Uint8Array;
+  mimeType: string;
+}
+
 export interface AudioGenerationResult {
   audioData: Uint8Array;
   audioMimeType: string;
   model: string;
   durationMs: number | null;
+  transcript?: AudioSidecar;
+  wordTimings?: AudioSidecar;
+  renderMetadata?: AudioSidecar;
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -25,4 +33,3 @@ export interface AudioGenerationResult {
 export interface AudioGenerationProvider {
   generate(options: AudioGenerateOptions): Promise<AudioGenerationResult>;
 }
-
