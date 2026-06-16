@@ -87,6 +87,32 @@ test('upload sends video files with explicit media kind and MIME type', async ()
   }
 });
 
+test('upload supports audio WebM when requested explicitly', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'recording.webm');
+  const capturedBodies: BodyInit[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await executeUpload({
+      positionals: [filePath],
+      options: { space: 'space-1', name: 'Recording', type: 'audio', 'media-kind': 'audio' },
+    }, depsFor(capturedBodies, output));
+
+    const formData = capturedBodies[0];
+    assert.ok(formData instanceof FormData);
+    assert.equal(formData.get('mediaKind'), 'audio');
+
+    const file = formData.get('file');
+    assert.ok(file instanceof File);
+    assert.equal(file.name, 'recording.webm');
+    assert.equal(file.type, 'audio/webm');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('upload rejects explicit media kind mismatches before sending a request', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
   const filePath = path.join(dir, 'theme.mp3');

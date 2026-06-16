@@ -270,6 +270,10 @@ function resolveMediaType(ext: string, requestedMediaKind?: string): MediaType {
     throw new Error('Invalid --media-kind. Expected image, audio, or video');
   }
 
+  if (ext === '.webm' && requestedMediaKind === 'audio') {
+    return { mediaKind: 'audio', mimeType: 'audio/webm' };
+  }
+
   if (requestedMediaKind && requestedMediaKind !== mediaType.mediaKind) {
     throw new Error(`--media-kind ${requestedMediaKind} does not match ${ext} (${mediaType.mediaKind})`);
   }
