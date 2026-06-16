@@ -205,7 +205,13 @@ async function executeDerive(
   const name = requireOption(parsed, 'name');
   const assetType = requireOption(parsed, 'type');
   const refs = parseRefs(requireOption(parsed, 'refs'));
-  const referenceVariantIds = await resolveReferenceVariantIds(refs, ctx, deps);
+  const state = await requestSpaceState(client);
+  const referenceVariantIds = await resolveReferenceVariantIds(
+    refs,
+    ctx,
+    deps,
+    state.variants as Variant[]
+  );
 
   console.log(`Deriving "${name}" from ${referenceVariantIds.length} reference(s)...`);
   const result = await client.sendGenerateRequest({
@@ -261,7 +267,8 @@ export function parseRefs(value: string): string[] {
 export async function resolveReferenceVariantIds(
   refs: string[],
   ctx: Pick<CommandContext, 'baseUrl' | 'accessToken' | 'spaceId'>,
-  deps: Pick<CommandDeps, 'fileExists' | 'uploadLocalReference'>
+  deps: Pick<CommandDeps, 'fileExists' | 'uploadLocalReference'>,
+  variants: Variant[] = []
 ): Promise<string[]> {
   const variantIds: string[] = [];
 
@@ -282,10 +289,21 @@ export async function resolveReferenceVariantIds(
       throw new Error(`Reference file not found: ${ref}`);
     }
 
+    validateReferenceVariant(ref, variants);
     variantIds.push(ref);
   }
 
   return variantIds;
+}
+
+function validateReferenceVariant(ref: string, variants: Variant[]): void {
+  const variant = variants.find((candidate) => candidate.id === ref);
+  if (!variant) {
+    throw new Error(`Reference variant not found in space sync state: ${ref}`);
+  }
+  if (variant.status !== 'completed' || !variant.image_key) {
+    throw new Error(`Reference variant is not completed or has no image: ${ref}`);
+  }
 }
 
 function requestSpaceState(client: ForgeClient): Promise<SpaceState> {

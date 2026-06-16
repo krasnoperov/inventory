@@ -22,7 +22,25 @@ const config: StoredConfig = {
 };
 
 function completedResult(overrides: Partial<Variant> = {}): GenerateResult {
-  const variant: Variant = {
+  const variant = completedVariant({
+    id: 'variant-out',
+    asset_id: 'asset-out',
+    image_key: 'images/space/variant-out.png',
+    thumb_key: 'images/space/variant-out_thumb.webp',
+    ...overrides,
+  });
+
+  return {
+    type: 'generate:result',
+    requestId: 'request-1',
+    jobId: variant.id,
+    success: true,
+    variant,
+  };
+}
+
+function completedVariant(overrides: Partial<Variant> = {}): Variant {
+  return {
     id: 'variant-out',
     asset_id: 'asset-out',
     workflow_id: null,
@@ -36,14 +54,6 @@ function completedResult(overrides: Partial<Variant> = {}): GenerateResult {
     created_at: Date.now(),
     updated_at: Date.now(),
     ...overrides,
-  };
-
-  return {
-    type: 'generate:result',
-    requestId: 'request-1',
-    jobId: variant.id,
-    success: true,
-    variant,
   };
 }
 
@@ -138,7 +148,12 @@ test('resolveReferenceVariantIds uploads local files and keeps variant IDs', asy
           },
         };
       },
-    }
+    },
+    [completedVariant({
+      id: 'variant-existing',
+      image_key: 'images/existing.png',
+      thumb_key: 'images/existing_thumb.webp',
+    })]
   );
 
   assert.deepEqual(refs, ['variant-uploaded', 'variant-existing']);
@@ -162,6 +177,52 @@ test('resolveReferenceVariantIds errors for missing path-like refs', async () =>
       }
     ),
     /Reference file not found/
+  );
+});
+
+test('resolveReferenceVariantIds errors for unknown typed variant refs', async () => {
+  await assert.rejects(
+    () => resolveReferenceVariantIds(
+      ['variant-missing'],
+      {
+        baseUrl: 'https://inventory-stage.example.test',
+        accessToken: 'token',
+        spaceId: 'space-1',
+      },
+      {
+        fileExists: async () => false,
+        uploadLocalReference: async () => {
+          throw new Error('unexpected upload');
+        },
+      },
+      [completedVariant({ id: 'variant-existing' })]
+    ),
+    /Reference variant not found/
+  );
+});
+
+test('resolveReferenceVariantIds errors for incomplete typed variant refs', async () => {
+  await assert.rejects(
+    () => resolveReferenceVariantIds(
+      ['variant-pending'],
+      {
+        baseUrl: 'https://inventory-stage.example.test',
+        accessToken: 'token',
+        spaceId: 'space-1',
+      },
+      {
+        fileExists: async () => false,
+        uploadLocalReference: async () => {
+          throw new Error('unexpected upload');
+        },
+      },
+      [completedVariant({
+        id: 'variant-pending',
+        status: 'processing',
+        image_key: null,
+      })]
+    ),
+    /Reference variant is not completed/
   );
 });
 
@@ -199,20 +260,12 @@ test('generate sends generate request and downloads completed image', async () =
 });
 
 test('refine resolves variant asset from sync state and sends refine request', async () => {
-  const sourceVariant: Variant = {
+  const sourceVariant = completedVariant({
     id: 'variant-source',
     asset_id: 'asset-source',
-    workflow_id: null,
-    status: 'completed',
-    error_message: null,
     image_key: 'images/source.png',
     thumb_key: 'images/source_thumb.webp',
-    recipe: '{}',
-    starred: false,
-    created_by: 'user-1',
-    created_at: Date.now(),
-    updated_at: Date.now(),
-  };
+  });
   const client = new FakeClient({ assets: [], variants: [sourceVariant], lineage: [] });
   const { deps } = depsFor(client);
 
@@ -235,7 +288,12 @@ test('refine resolves variant asset from sync state and sends refine request', a
 });
 
 test('derive sends uploaded and existing refs as referenceVariantIds', async () => {
-  const client = new FakeClient();
+  const existingVariant = completedVariant({
+    id: 'variant-existing',
+    image_key: 'images/existing.png',
+    thumb_key: 'images/existing_thumb.webp',
+  });
+  const client = new FakeClient({ assets: [], variants: [existingVariant], lineage: [] });
   const downloads: unknown[] = [];
   const deps = {
     loadConfig: async () => config,
