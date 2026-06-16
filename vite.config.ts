@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import path from 'node:path';
 import { visualizer } from 'rollup-plugin-visualizer';
@@ -7,6 +8,12 @@ import { visualizer } from 'rollup-plugin-visualizer';
 export default defineConfig(({ command }) => ({
   root: path.resolve(__dirname, 'src/frontend'),
   plugins: [
+    tanstackRouter({
+      target: 'react',
+      routesDirectory: './routes',
+      generatedRouteTree: './routeTree.gen.ts',
+      quoteStyle: 'single',
+    }),
     react(),
     // Local dev runs the Worker in workerd through Vite; production builds keep
     // the existing Vite frontend + Wrangler deploy path.
