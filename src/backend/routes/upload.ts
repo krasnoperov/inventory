@@ -129,9 +129,6 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   const env = c.env;
   const spaceId = c.req.param('id');
 
-  const oversized = rejectOversizedRequest(c);
-  if (oversized) return oversized;
-
   // Verify user is editor/owner
   const member = await memberDAO.getMember(spaceId, userId);
   if (!member) {
@@ -399,9 +396,6 @@ uploadRoutes.openapi(uploadStyleImageRoute, async (c) => {
   const memberDAO = c.get('container').get(MemberDAO);
   const env = c.env;
   const spaceId = c.req.param('id');
-
-  const oversized = rejectOversizedRequest(c);
-  if (oversized) return oversized;
 
   // Verify user is editor/owner
   const member = await memberDAO.getMember(spaceId, userId);
