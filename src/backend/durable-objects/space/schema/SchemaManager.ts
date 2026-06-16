@@ -26,7 +26,8 @@ export class SchemaManager {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         type TEXT NOT NULL,
-        media_kind TEXT NOT NULL DEFAULT 'image',
+        media_kind TEXT NOT NULL DEFAULT 'image'
+          CHECK (media_kind IN ('image', 'audio', 'video')),
         tags TEXT DEFAULT '[]',
         parent_asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,
         active_variant_id TEXT,
@@ -39,7 +40,8 @@ export class SchemaManager {
       CREATE TABLE IF NOT EXISTS variants (
         id TEXT PRIMARY KEY,
         asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
-        media_kind TEXT NOT NULL DEFAULT 'image',
+        media_kind TEXT NOT NULL DEFAULT 'image'
+          CHECK (media_kind IN ('image', 'audio', 'video')),
         workflow_id TEXT UNIQUE,
         status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'uploading', 'completed', 'failed')),
         error_message TEXT,
@@ -594,7 +596,8 @@ export class SchemaManager {
 
     if (!hasAssetMediaKind) {
       await this.sql.exec(`
-        ALTER TABLE assets ADD COLUMN media_kind TEXT NOT NULL DEFAULT 'image';
+        ALTER TABLE assets ADD COLUMN media_kind TEXT NOT NULL DEFAULT 'image'
+          CHECK (media_kind IN ('image', 'audio', 'video'));
       `);
     }
 
@@ -604,7 +607,8 @@ export class SchemaManager {
 
     if (!hasVariantMediaKind) {
       await this.sql.exec(`
-        ALTER TABLE variants ADD COLUMN media_kind TEXT NOT NULL DEFAULT 'image';
+        ALTER TABLE variants ADD COLUMN media_kind TEXT NOT NULL DEFAULT 'image'
+          CHECK (media_kind IN ('image', 'audio', 'video'));
       `);
     }
   }

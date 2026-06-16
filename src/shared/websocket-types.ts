@@ -10,7 +10,7 @@
 // ============================================================================
 
 /** Media kind stored on assets and variants. Existing generation flows produce images. */
-export type MediaKind = 'image';
+export type MediaKind = 'image' | 'audio' | 'video';
 
 export const DEFAULT_MEDIA_KIND: MediaKind = 'image';
 

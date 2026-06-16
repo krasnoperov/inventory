@@ -93,6 +93,25 @@ describe('SpaceRepository', () => {
       assert(insertQuery.bindings.includes('["tag1"]'));
     });
 
+    test('createAsset accepts explicit media kind', async () => {
+      mockSql.setMockResult('WHERE id = ?', [
+        { id: 'new-id', name: 'New Asset', type: 'scene', media_kind: 'video' },
+      ]);
+
+      await repo.createAsset({
+        id: 'new-id',
+        name: 'New Asset',
+        type: 'scene',
+        mediaKind: 'video',
+        tags: [],
+        createdBy: 'user1',
+      });
+
+      const insertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO assets'));
+      assert(insertQuery !== undefined);
+      assert.strictEqual(insertQuery.bindings[3], 'video');
+    });
+
     test('updateAsset returns null for non-existent asset', async () => {
       const result = await repo.updateAsset('nonexistent', { name: 'Updated' });
       assert.strictEqual(result, null);
@@ -208,6 +227,24 @@ describe('SpaceRepository', () => {
       assert(insertQuery !== undefined);
       assert(insertQuery.query.includes('media_kind'));
       assert.strictEqual(insertQuery.bindings[2], 'image');
+    });
+
+    test('createPlaceholderVariant accepts explicit media kind', async () => {
+      mockSql.setMockResult('WHERE id = ?', [
+        { id: 'v1', asset_id: 'a1', media_kind: 'audio' },
+      ]);
+
+      await repo.createPlaceholderVariant({
+        id: 'v1',
+        assetId: 'a1',
+        mediaKind: 'audio',
+        recipe: '{}',
+        createdBy: 'user1',
+      });
+
+      const insertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO variants'));
+      assert(insertQuery !== undefined);
+      assert.strictEqual(insertQuery.bindings[2], 'audio');
     });
   });
 
