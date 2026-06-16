@@ -14,7 +14,7 @@ import type {
 import { ROTATION_DIRECTIONS } from '../types';
 import type { GenerationWorkflowInput } from '../../../workflows/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
-import { INCREMENT_REF_SQL } from '../variant/imageRefs';
+import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
 import { capRefs, getStyleImageKeys } from '../generation/refLimits';
 import { PromptBuilder, ROTATION_CAMERA_SPECS, NEGATIVE_PROMPTS } from '../generation/PromptBuilder';
 import { ROTATION_GRID_LAYOUTS, sliceGridCell } from '../generation/gridSlice';
@@ -120,9 +120,10 @@ export class RotationController extends BaseController {
       now
     );
 
-    // Increment refs for copied images
-    if (sourceVariant.image_key) await this.sql.exec(INCREMENT_REF_SQL, sourceVariant.image_key);
-    if (sourceVariant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, sourceVariant.thumb_key);
+    // Increment refs for copied artifacts.
+    for (const key of getVariantImageKeys(sourceVariant)) {
+      await this.sql.exec(INCREMENT_REF_SQL, key);
+    }
 
     // Create forked lineage
     const lineage = await this.repo.createLineage({
@@ -430,8 +431,9 @@ export class RotationController extends BaseController {
       0, meta.userId, now, now
     );
 
-    if (sourceVariant.image_key) await this.sql.exec(INCREMENT_REF_SQL, sourceVariant.image_key);
-    if (sourceVariant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, sourceVariant.thumb_key);
+    for (const key of getVariantImageKeys(sourceVariant)) {
+      await this.sql.exec(INCREMENT_REF_SQL, key);
+    }
 
     const lineage = await this.repo.createLineage({
       id: crypto.randomUUID(),

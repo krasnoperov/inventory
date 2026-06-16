@@ -555,6 +555,7 @@ describe('AssetController', () => {
       const sourceVariant = createMockVariant({
         id: 'source-var',
         asset_id: 'source-asset',
+        media_key: 'media/source.mp4',
         image_key: 'images/source.png',
         thumb_key: 'thumbs/source.png',
       });
@@ -578,6 +579,14 @@ describe('AssetController', () => {
       const forkBroadcast = broadcasts.find((b) => b.type === 'asset:forked');
       assert.ok(forkBroadcast);
       assert.strictEqual((forkBroadcast as { asset: Asset }).asset.name, 'Forked Asset');
+
+      const refCalls = asMock(ctx.sql.exec).mock.calls.filter((c) =>
+        String(c.arguments[0]).includes('INSERT INTO image_refs')
+      );
+      assert.deepStrictEqual(
+        refCalls.map((c) => c.arguments[1]),
+        ['media/source.mp4', 'images/source.png', 'thumbs/source.png']
+      );
     });
 
     test('forks from asset ID using active variant', async () => {

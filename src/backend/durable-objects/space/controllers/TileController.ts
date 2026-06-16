@@ -13,7 +13,7 @@ import type {
 } from '../types';
 import type { GenerationWorkflowInput } from '../../../workflows/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
-import { INCREMENT_REF_SQL } from '../variant/imageRefs';
+import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
 import { capRefs, getStyleImageKeys } from '../generation/refLimits';
 import { getSpiralOrder } from '../generation/spiralOrder';
 import { PromptBuilder, NEGATIVE_PROMPTS } from '../generation/PromptBuilder';
@@ -163,8 +163,9 @@ export class TileController extends BaseController {
         now
       );
 
-      if (seed.image_key) await this.sql.exec(INCREMENT_REF_SQL, seed.image_key);
-      if (seed.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, seed.thumb_key);
+      for (const key of getVariantImageKeys(seed)) {
+        await this.sql.exec(INCREMENT_REF_SQL, key);
+      }
 
       // Create forked lineage
       const lineage = await this.repo.createLineage({

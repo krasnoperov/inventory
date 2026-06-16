@@ -7,7 +7,7 @@
 
 import type { Asset, Variant, Lineage, MediaKind, WebSocketMeta } from '../types';
 import { wouldCreateCycle, getAncestorChain } from '../asset/hierarchy';
-import { INCREMENT_REF_SQL } from '../variant/imageRefs';
+import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
@@ -438,9 +438,10 @@ export class AssetController extends BaseController {
       variant.updated_at
     );
 
-    // Increment refs for copied images (reuses existing images)
-    if (variant.image_key) await this.sql.exec(INCREMENT_REF_SQL, variant.image_key);
-    if (variant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, variant.thumb_key);
+    // Increment refs for copied artifacts (reuses existing media).
+    for (const key of getVariantImageKeys(variant)) {
+      await this.sql.exec(INCREMENT_REF_SQL, key);
+    }
 
     // Create forked lineage
     const lineage = await this.repo.createLineage({
