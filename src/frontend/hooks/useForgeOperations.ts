@@ -60,6 +60,7 @@ export interface UseForgeOperationsReturn {
   /** Refine: Add variant to existing asset */
   onRefine: (params: {
     assetId: string;
+    mediaKind?: MediaKind;
     prompt: string;
   }) => string;
 }
@@ -152,6 +153,7 @@ export function useForgeOperations({
     name: string;
     type: string;
     prompt: string;
+    mediaKind?: MediaKind;
     parentAssetId?: string;
     mediaKind?: MediaKind;
   }): string => {
@@ -198,6 +200,7 @@ export function useForgeOperations({
   const onDerive = useCallback((params: {
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     prompt: string;
     referenceAssetIds: string[];
     parentAssetId?: string;
@@ -205,6 +208,7 @@ export function useForgeOperations({
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
+      mediaKind: params.mediaKind,
       referenceAssetIds: params.referenceAssetIds,
       mediaKind: params.mediaKind,
       destination: {
@@ -222,10 +226,12 @@ export function useForgeOperations({
    */
   const onRefine = useCallback((params: {
     assetId: string;
+    mediaKind?: MediaKind;
     prompt: string;
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
+      mediaKind: params.mediaKind,
       destination: {
         type: 'existing_asset',
         assetId: params.assetId,

@@ -266,8 +266,8 @@ export class VariantFactory {
       input.referenceAssetIds
     );
 
-    if (mediaKind === 'image' && resolved.sourceImageKeys.length === 0) {
-      throw new Error('No source images available');
+    if (resolved.sourceImageKeys.length === 0 && resolved.parentVariantIds.length === 0) {
+      throw new Error('No source media available');
     }
 
     // Build recipe (includes parentVariantIds for retry support)
@@ -420,6 +420,7 @@ export class VariantFactory {
 
   /**
    * Resolve explicit variant IDs to image keys (for ForgeTray UI).
+   * Media-only references are lineage-only until a provider consumes media keys.
    */
   async resolveVariantReferences(
     referenceVariantIds: string[],

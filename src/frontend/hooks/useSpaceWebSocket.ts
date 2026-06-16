@@ -33,6 +33,15 @@ export interface Variant {
   media_width: number | null;
   media_height: number | null;
   media_duration_ms: number | null;
+  transcript_key?: string | null;
+  transcript_mime_type?: string | null;
+  transcript_size_bytes?: number | null;
+  word_timings_key?: string | null;
+  word_timings_mime_type?: string | null;
+  word_timings_size_bytes?: number | null;
+  render_metadata_key?: string | null;
+  render_metadata_mime_type?: string | null;
+  render_metadata_size_bytes?: number | null;
   recipe: string;
   starred: boolean;  // User marks important versions
   created_by: string;
@@ -83,6 +92,16 @@ export function isVariantImageReady(variant: Variant): boolean {
  */
 export function isVariantAudioReady(variant: Variant): boolean {
   return variant.status === 'completed' && variant.media_kind === 'audio' && variant.media_key !== null;
+}
+
+/**
+ * Check if a variant can be used as a Forge Tray reference.
+ */
+export function isVariantForgeTrayReady(variant: Variant): boolean {
+  if (variant.media_kind === 'audio') {
+    return isVariantAudioReady(variant);
+  }
+  return isVariantImageReady(variant);
 }
 
 /**
@@ -603,6 +622,7 @@ export interface JobContext {
 // Server message types based on ARCHITECTURE.md
 type ServerMessage =
   | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -725,6 +745,7 @@ export interface UseSpaceWebSocketReturn {
   retryVariant: (variantId: string) => void;
   severLineage: (lineageId: string) => void;
   requestSync: () => void;
+  requestOverviewSync: () => void;
   trackJob: (jobId: string, context?: JobContext) => void;
   clearJob: (jobId: string) => void;
   updatePresence: (viewing?: string) => void;
@@ -838,9 +859,15 @@ export function useSpaceWebSocket({
   const [tilePositions, setTilePositions] = useState<TilePosition[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const syncModeRef = useRef<'full' | 'overview' | null>(null);
+  const variantIdsRef = useRef<Set<string>>(new Set());
   const reconnectAttempts = useRef(0);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const maxReconnectAttempts = 5;
+
+  useEffect(() => {
+    variantIdsRef.current = new Set(variants.map((variant) => variant.id));
+  }, [variants]);
 
   // Send a message through the WebSocket
   const sendMessage = useCallback((msg: object) => {
@@ -901,7 +928,13 @@ export function useSpaceWebSocket({
   }, [sendMessage]);
 
   const requestSync = useCallback(() => {
+    syncModeRef.current = 'full';
     sendMessage({ type: 'sync:request' });
+  }, [sendMessage]);
+
+  const requestOverviewSync = useCallback(() => {
+    syncModeRef.current = 'overview';
+    sendMessage({ type: 'sync:overview' });
   }, [sendMessage]);
 
   // Update presence (what asset the user is viewing)
@@ -1317,6 +1350,8 @@ export function useSpaceWebSocket({
 
             switch (message.type) {
               case 'sync:state':
+                syncModeRef.current = 'full';
+                variantIdsRef.current = new Set(message.variants.map((variant) => variant.id));
                 setAssets(message.assets);
                 setVariants(message.variants);
                 setLineage(message.lineage || []);
@@ -1326,6 +1361,23 @@ export function useSpaceWebSocket({
                 setTileSets(message.tileSets || []);
                 setTilePositions(message.tilePositions || []);
                 // Handle style included in sync:state
+                if (message.style !== undefined) {
+                  onStyleStateRef.current?.(message.style ?? null);
+                }
+                setError(null);
+                break;
+
+              case 'sync:overview':
+                syncModeRef.current = 'overview';
+                variantIdsRef.current = new Set(message.variants.map((variant) => variant.id));
+                setAssets(message.assets);
+                setVariants(message.variants);
+                setLineage([]);
+                setPresence(message.presence || []);
+                setRotationSets(message.rotationSets || []);
+                setRotationViews(message.rotationViews || []);
+                setTileSets(message.tileSets || []);
+                setTilePositions(message.tilePositions || []);
                 if (message.style !== undefined) {
                   onStyleStateRef.current?.(message.style ?? null);
                 }
@@ -1342,6 +1394,13 @@ export function useSpaceWebSocket({
                     asset.id === message.asset.id ? message.asset : asset
                   )
                 );
+                if (
+                  syncModeRef.current === 'overview' &&
+                  message.asset.active_variant_id &&
+                  !variantIdsRef.current.has(message.asset.active_variant_id)
+                ) {
+                  sendMessage({ type: 'sync:overview' });
+                }
                 break;
 
               case 'asset:deleted':
@@ -1353,16 +1412,27 @@ export function useSpaceWebSocket({
                 setAssets((prev) => [...prev, message.asset]);
                 setVariants((prev) => {
                   if (prev.some(v => v.id === message.variant.id)) return prev;
-                  return [...prev, message.variant];
+                  const next = [...prev, message.variant];
+                  variantIdsRef.current = new Set(next.map((variant) => variant.id));
+                  return next;
                 });
                 setLineage((prev) => [...prev, message.lineage]);
                 break;
 
               case 'variant:created':
+                if (syncModeRef.current === 'overview') {
+                  sendMessage({ type: 'sync:overview' });
+                  break;
+                }
                 setVariants((prev) => {
                   // Avoid duplicates (variant may already exist from job:completed)
-                  if (prev.some(v => v.id === message.variant.id)) return prev;
-                  return [...prev, message.variant];
+                  if (prev.some(v => v.id === message.variant.id)) {
+                    variantIdsRef.current.add(message.variant.id);
+                    return prev;
+                  }
+                  const next = [...prev, message.variant];
+                  variantIdsRef.current = new Set(next.map((variant) => variant.id));
+                  return next;
                 });
                 break;
 
@@ -1375,9 +1445,14 @@ export function useSpaceWebSocket({
                 break;
 
               case 'variant:deleted':
-                setVariants((prev) =>
-                  prev.filter((variant) => variant.id !== message.variantId)
-                );
+                setVariants((prev) => {
+                  const next = prev.filter((variant) => variant.id !== message.variantId);
+                  variantIdsRef.current = new Set(next.map((variant) => variant.id));
+                  return next;
+                });
+                if (syncModeRef.current === 'overview') {
+                  sendMessage({ type: 'sync:overview' });
+                }
                 break;
 
               case 'lineage:created':
@@ -1409,11 +1484,20 @@ export function useSpaceWebSocket({
                 break;
 
               case 'job:completed':
-                setVariants((prev) => {
-                  // Avoid duplicates (variant may already exist from variant:created)
-                  if (prev.some(v => v.id === message.variant.id)) return prev;
-                  return [...prev, message.variant];
-                });
+                if (syncModeRef.current === 'overview') {
+                  sendMessage({ type: 'sync:overview' });
+                } else {
+                  setVariants((prev) => {
+                    // Avoid duplicates (variant may already exist from variant:created)
+                    if (prev.some(v => v.id === message.variant.id)) {
+                      variantIdsRef.current.add(message.variant.id);
+                      return prev;
+                    }
+                    const next = [...prev, message.variant];
+                    variantIdsRef.current = new Set(next.map((variant) => variant.id));
+                    return next;
+                  });
+                }
                 setJobs((prev) => {
                   const next = new Map(prev);
                   const existing = next.get(message.jobId);
@@ -1588,10 +1672,14 @@ export function useSpaceWebSocket({
                 });
                 // Add variant to state if successful
                 if (message.success && message.variant) {
-                  setVariants((prev) => {
-                    if (prev.some(v => v.id === message.variant!.id)) return prev;
-                    return [...prev, message.variant!];
-                  });
+                  if (syncModeRef.current === 'overview') {
+                    sendMessage({ type: 'sync:overview' });
+                  } else {
+                    setVariants((prev) => {
+                      if (prev.some(v => v.id === message.variant!.id)) return prev;
+                      return [...prev, message.variant!];
+                    });
+                  }
                 }
                 break;
 
@@ -1630,10 +1718,14 @@ export function useSpaceWebSocket({
                   return next;
                 });
                 if (message.success && message.variant) {
-                  setVariants((prev) => {
-                    if (prev.some(v => v.id === message.variant!.id)) return prev;
-                    return [...prev, message.variant!];
-                  });
+                  if (syncModeRef.current === 'overview') {
+                    sendMessage({ type: 'sync:overview' });
+                  } else {
+                    setVariants((prev) => {
+                      if (prev.some(v => v.id === message.variant!.id)) return prev;
+                      return [...prev, message.variant!];
+                    });
+                  }
                 }
                 break;
 
@@ -2016,7 +2108,7 @@ export function useSpaceWebSocket({
         wsRef.current = null;
       }
     };
-  }, [spaceId]);
+  }, [spaceId, sendMessage]);
 
   return {
     status,
@@ -2037,6 +2129,7 @@ export function useSpaceWebSocket({
     retryVariant,
     severLineage,
     requestSync,
+    requestOverviewSync,
     trackJob,
     clearJob,
     updatePresence,

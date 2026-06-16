@@ -52,6 +52,23 @@ export const VariantQueries = {
   /** Get all variants */
   GET_ALL: 'SELECT * FROM variants',
 
+  /** Get one overview variant per asset: the active variant, or the newest variant when no active variant is set */
+  GET_OVERVIEW: `
+    SELECT *
+    FROM (
+      SELECT
+        v.*,
+        ROW_NUMBER() OVER (
+          PARTITION BY v.asset_id
+          ORDER BY
+            CASE WHEN v.id = a.active_variant_id THEN 0 ELSE 1 END,
+            v.created_at DESC
+        ) as overview_rank
+      FROM variants v
+      JOIN assets a ON a.id = v.asset_id
+    )
+    WHERE overview_rank = 1`,
+
   /** Get variant by ID */
   GET_BY_ID: 'SELECT * FROM variants WHERE id = ?',
 
@@ -73,11 +90,11 @@ export const VariantQueries = {
                        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
 
   /** Insert new completed variant (legacy - for forks/imports) */
-  INSERT: `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  INSERT: `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, transcript_key, transcript_mime_type, transcript_size_bytes, word_timings_key, word_timings_mime_type, word_timings_size_bytes, render_metadata_key, render_metadata_mime_type, render_metadata_size_bytes, recipe, starred, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
   /** Update variant to completed status with images */
-  COMPLETE: `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, media_key = ?, media_mime_type = ?, media_size_bytes = ?, media_width = ?, media_height = ?, media_duration_ms = ?, updated_at = ? WHERE id = ?`,
+  COMPLETE: `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, media_key = ?, media_mime_type = ?, media_size_bytes = ?, media_width = ?, media_height = ?, media_duration_ms = ?, transcript_key = ?, transcript_mime_type = ?, transcript_size_bytes = ?, word_timings_key = ?, word_timings_mime_type = ?, word_timings_size_bytes = ?, render_metadata_key = ?, render_metadata_mime_type = ?, render_metadata_size_bytes = ?, updated_at = ? WHERE id = ?`,
 
   /** Update variant to failed status with error */
   FAIL: `UPDATE variants SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,

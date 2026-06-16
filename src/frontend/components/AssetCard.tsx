@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { type Asset, type Variant, isVariantImageReady } from '../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, isVariantForgeTrayReady } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
 import { Thumbnail } from './Thumbnail';
@@ -77,7 +77,7 @@ export function AssetCard(props: AssetCardProps) {
   // Handle Add to Tray button click
   const handleAddToTray = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (primaryVariant && isVariantImageReady(primaryVariant)) {
+    if (primaryVariant && isVariantForgeTrayReady(primaryVariant)) {
       onAddToTray?.(primaryVariant, asset);
     }
   }, [primaryVariant, asset, onAddToTray]);
@@ -118,7 +118,7 @@ export function AssetCard(props: AssetCardProps) {
               className={styles.thumbnailPreview}
             />
             {/* Hover overlay with actions */}
-            {isHovered && isVariantImageReady(primaryVariant) && (
+            {isHovered && isVariantForgeTrayReady(primaryVariant) && (
               <div className={styles.hoverOverlay}>
                 <div className={styles.overlayActions}>
                   <button
@@ -135,7 +135,7 @@ export function AssetCard(props: AssetCardProps) {
                     </svg>
                     <span>View</span>
                   </button>
-                  {onAddToTray && isVariantImageReady(primaryVariant) && (
+                  {onAddToTray && isVariantForgeTrayReady(primaryVariant) && (
                     <button
                       className={styles.overlayButton}
                       onClick={handleAddToTray}
@@ -170,7 +170,7 @@ export function AssetCard(props: AssetCardProps) {
             {asset.type} / {formatMediaKind(asset.media_kind)}
           </span>
         </div>
-        {onAddToTray && primaryVariant && isVariantImageReady(primaryVariant) && (
+        {onAddToTray && primaryVariant && isVariantForgeTrayReady(primaryVariant) && (
           <button
             className={styles.addButton}
             onClick={handleAddToTray}
@@ -212,7 +212,7 @@ export function AssetCard(props: AssetCardProps) {
                       className={styles.childThumbPreview}
                     />
                     {/* Add to tray on hover */}
-                    {isChildHovered && onAddToTray && childVariant && isVariantImageReady(childVariant) && (
+                    {isChildHovered && onAddToTray && childVariant && isVariantForgeTrayReady(childVariant) && (
                       <button
                         className={styles.childAddButton}
                         onClick={(e) => {
@@ -255,7 +255,7 @@ export function AssetCard(props: AssetCardProps) {
                               className={styles.grandchildThumbPreview}
                             />
                             {/* Add to tray on hover */}
-                            {isGrandchildHovered && onAddToTray && grandchildVariant && isVariantImageReady(grandchildVariant) && (
+                            {isGrandchildHovered && onAddToTray && grandchildVariant && isVariantForgeTrayReady(grandchildVariant) && (
                               <button
                                 className={styles.grandchildAddButton}
                                 onClick={(e) => {

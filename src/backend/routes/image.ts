@@ -3,12 +3,18 @@ import type { AppContext } from './types';
 import { createOpenApiRouter } from './openapi';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
-import { getVariantMediaRoute, getVariantPosterRoute } from '../../shared/api/routes';
+import {
+  getVariantMediaRoute,
+  getVariantPosterRoute,
+  getVariantRenderMetadataRoute,
+  getVariantTranscriptRoute,
+  getVariantWordTimingsRoute,
+} from '../../shared/api/routes';
 
 const imageRoutes = createOpenApiRouter();
 
 type StorageKind = 'image' | 'media';
-type VariantMediaArtifact = 'media' | 'poster';
+type VariantMediaArtifact = 'media' | 'poster' | 'transcript' | 'wordTimings' | 'renderMetadata';
 
 interface VariantMediaRecord {
   id: string;
@@ -17,6 +23,12 @@ interface VariantMediaRecord {
   media_key?: string | null;
   media_mime_type?: string | null;
   poster_key?: string | null;
+  transcript_key?: string | null;
+  transcript_mime_type?: string | null;
+  word_timings_key?: string | null;
+  word_timings_mime_type?: string | null;
+  render_metadata_key?: string | null;
+  render_metadata_mime_type?: string | null;
 }
 
 const MEDIA_MIME_BY_EXTENSION: Record<string, string> = {
@@ -36,6 +48,8 @@ const MEDIA_MIME_BY_EXTENSION: Record<string, string> = {
   m4v: 'video/mp4',
   mov: 'video/quicktime',
   webm: 'video/webm',
+  json: 'application/json',
+  txt: 'text/plain',
 };
 
 function getKey(path: string, prefix: string): string {
@@ -79,7 +93,33 @@ function getContentRange(range: R2Range, totalSize: number): string | null {
 
 function getArtifactKey(variant: VariantMediaRecord, artifact: VariantMediaArtifact): string | null {
   if (artifact === 'media') return variant.media_key ?? variant.image_key ?? null;
-  return variant.poster_key ?? null;
+  if (artifact === 'poster') return variant.poster_key ?? null;
+  if (artifact === 'transcript') return variant.transcript_key ?? null;
+  if (artifact === 'wordTimings') return variant.word_timings_key ?? null;
+  return variant.render_metadata_key ?? null;
+}
+
+function getArtifactFallbackContentType(variant: VariantMediaRecord, artifact: VariantMediaArtifact): string | null | undefined {
+  if (artifact === 'media') return variant.media_mime_type;
+  if (artifact === 'transcript') return variant.transcript_mime_type;
+  if (artifact === 'wordTimings') return variant.word_timings_mime_type;
+  if (artifact === 'renderMetadata') return variant.render_metadata_mime_type;
+  return null;
+}
+
+function getArtifactUnavailableMessage(artifact: VariantMediaArtifact): string {
+  switch (artifact) {
+    case 'media':
+      return 'Variant media not available';
+    case 'poster':
+      return 'Variant poster not available';
+    case 'transcript':
+      return 'Variant transcript not available';
+    case 'wordTimings':
+      return 'Variant word timings not available';
+    case 'renderMetadata':
+      return 'Variant render metadata not available';
+  }
 }
 
 function isLegacyImageKey(key: string): boolean {
@@ -207,19 +247,19 @@ async function serveVariantArtifact(c: Context<AppContext>, artifact: VariantMed
     }
 
     if (variantOrResponse.status !== 'completed') {
-      return c.json({ error: artifact === 'media' ? 'Variant media not available' : 'Variant poster not available' }, 404);
+      return c.json({ error: getArtifactUnavailableMessage(artifact) }, 404);
     }
 
     const key = getArtifactKey(variantOrResponse, artifact);
     if (!key) {
-      return c.json({ error: artifact === 'media' ? 'Variant media not available' : 'Variant poster not available' }, 404);
+      return c.json({ error: getArtifactUnavailableMessage(artifact) }, 404);
     }
 
     return serveR2Object(c, {
       key,
       kind: 'media',
       supportsRange: artifact === 'media',
-      fallbackContentType: artifact === 'media' ? variantOrResponse.media_mime_type : null,
+      fallbackContentType: getArtifactFallbackContentType(variantOrResponse, artifact),
       cacheControl: 'private, max-age=31536000, immutable',
     });
   } catch (error) {
@@ -230,5 +270,8 @@ async function serveVariantArtifact(c: Context<AppContext>, artifact: VariantMed
 
 imageRoutes.openapi(getVariantMediaRoute, (c) => serveVariantArtifact(c, 'media'));
 imageRoutes.openapi(getVariantPosterRoute, (c) => serveVariantArtifact(c, 'poster'));
+imageRoutes.openapi(getVariantTranscriptRoute, (c) => serveVariantArtifact(c, 'transcript'));
+imageRoutes.openapi(getVariantWordTimingsRoute, (c) => serveVariantArtifact(c, 'wordTimings'));
+imageRoutes.openapi(getVariantRenderMetadataRoute, (c) => serveVariantArtifact(c, 'renderMetadata'));
 
 export { imageRoutes };

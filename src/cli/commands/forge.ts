@@ -11,6 +11,7 @@ import {
   type RunManifest,
 } from '../lib/run-manifest';
 import {
+  downloadFile,
   downloadImage,
   looksLikeFilePath,
   uploadLocalImageAsReference,
@@ -22,8 +23,11 @@ import {
   type GenerateResult,
   type Variant,
 } from '../lib/websocket-client';
+import type { MediaKind } from '../../shared/websocket-types';
 
-type ForgeCommand = 'generate' | 'refine' | 'derive' | 'batch';
+export type ForgeCommand = 'generate' | 'refine' | 'derive' | 'batch';
+export type AudioForgeCommand = 'generate' | 'batch';
+type GenerationMediaKind = Extract<MediaKind, 'image' | 'audio'>;
 const CLI_GENERATION_MEDIA_KIND = 'image' as const;
 
 interface SpaceState {
@@ -45,7 +49,7 @@ interface ForgeClient {
     aspectRatio?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
-    mediaKind?: 'image';
+    mediaKind?: MediaKind;
   }): Promise<GenerateResult>;
   sendRefineRequest(params: {
     assetId: string;
@@ -53,7 +57,7 @@ interface ForgeClient {
     sourceVariantIds?: string[];
     aspectRatio?: string;
     disableStyle?: boolean;
-    mediaKind?: 'image';
+    mediaKind?: MediaKind;
   }): Promise<GenerateResult>;
   sendBatchRequest(params: {
     name: string;
@@ -65,7 +69,7 @@ interface ForgeClient {
     aspectRatio?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
-    mediaKind?: 'image';
+    mediaKind?: MediaKind;
   }): Promise<BatchResult>;
 }
 
@@ -88,6 +92,7 @@ interface CommandDeps {
     outputPath: string;
     force?: boolean;
   }) => Promise<void>;
+  downloadFile?: typeof downloadFile;
   fileExists: (filePath: string) => Promise<boolean>;
   saveRunManifest: (manifest: RunManifest, cwd?: string) => Promise<string>;
   createRunId: () => string;
@@ -101,6 +106,7 @@ const defaultDeps: CommandDeps = {
   createClient: WebSocketClient.create,
   uploadLocalReference: uploadLocalImageAsReference,
   downloadImage,
+  downloadFile,
   saveRunManifest,
   createRunId,
   getWorkingDir: () => process.cwd(),
@@ -123,6 +129,11 @@ interface CommandContext {
   force: boolean;
   projectRoot?: string;
   workingDir: string;
+}
+
+interface ExecuteForgeOptions {
+  mediaKind?: GenerationMediaKind;
+  saveBatchManifest?: boolean;
 }
 
 export async function handleGenerate(parsed: ParsedArgs): Promise<void> {
@@ -154,34 +165,53 @@ async function handleForgeCommand(command: ForgeCommand, parsed: ParsedArgs): Pr
 export async function executeForgeCommand(
   command: ForgeCommand,
   parsed: ParsedArgs,
-  deps: CommandDeps = defaultDeps
+  deps: CommandDeps = defaultDeps,
+  options: ExecuteForgeOptions = {}
 ): Promise<GenerateResult | BatchResult> {
   const ctx = await buildContext(parsed, deps);
   const client = await deps.createClient(ctx.env, ctx.spaceId);
+  const mediaKind = options.mediaKind || CLI_GENERATION_MEDIA_KIND;
+  const saveBatchManifest = options.saveBatchManifest ?? mediaKind === 'image';
 
   try {
     await client.connect();
 
     switch (command) {
       case 'generate':
-        return await executeGenerate(parsed, ctx, client, deps);
+        return await executeGenerate(parsed, ctx, client, deps, mediaKind);
       case 'refine':
-        return await executeRefine(parsed, ctx, client, deps);
+        return await executeRefine(parsed, ctx, client, deps, mediaKind);
       case 'derive':
-        return await executeDerive(parsed, ctx, client, deps);
+        return await executeDerive(parsed, ctx, client, deps, mediaKind);
       case 'batch':
-        return await executeBatch(parsed, ctx, client, deps);
+        return await executeBatch(parsed, ctx, client, deps, mediaKind, saveBatchManifest);
     }
   } finally {
     client.disconnect();
   }
 }
 
+export async function executeAudioCommand(
+  command: AudioForgeCommand,
+  parsed: ParsedArgs,
+  deps: CommandDeps = defaultDeps
+): Promise<GenerateResult | BatchResult> {
+  if (parsed.options.refs) {
+    throw new Error('Audio generation does not support --refs yet');
+  }
+
+  return executeForgeCommand(command, parsed, deps, {
+    mediaKind: 'audio',
+    saveBatchManifest: false,
+  });
+}
+
 async function executeGenerate(
   parsed: ParsedArgs,
   ctx: CommandContext,
   client: ForgeClient,
-  deps: CommandDeps
+  deps: CommandDeps,
+  mediaKind: GenerationMediaKind
 ): Promise<GenerateResult> {
   const prompt = getPrompt(parsed, 'generate');
   const outputPath = getOutputPath(parsed);
@@ -196,7 +226,7 @@ async function executeGenerate(
     aspectRatio: parsed.options.aspect,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
-    mediaKind: CLI_GENERATION_MEDIA_KIND,
+    mediaKind,
   });
 
   await downloadResult(result, outputPath, ctx, deps);
@@ -208,7 +238,8 @@ async function executeRefine(
   parsed: ParsedArgs,
   ctx: CommandContext,
   client: ForgeClient,
-  deps: CommandDeps
+  deps: CommandDeps,
+  mediaKind: GenerationMediaKind
 ): Promise<GenerateResult> {
   const prompt = getPrompt(parsed, 'refine');
   const outputPath = getOutputPath(parsed);
@@ -227,7 +258,7 @@ async function executeRefine(
     sourceVariantIds: [sourceVariantId],
     aspectRatio: parsed.options.aspect,
     disableStyle: parsed.options['no-style'] === 'true',
-    mediaKind: CLI_GENERATION_MEDIA_KIND,
+    mediaKind,
   });
 
   await downloadResult(result, outputPath, ctx, deps);
@@ -239,7 +270,8 @@ async function executeDerive(
   parsed: ParsedArgs,
   ctx: CommandContext,
   client: ForgeClient,
-  deps: CommandDeps
+  deps: CommandDeps,
+  mediaKind: GenerationMediaKind
 ): Promise<GenerateResult> {
   const prompt = getPrompt(parsed, 'derive');
   const outputPath = getOutputPath(parsed);
@@ -263,7 +295,7 @@ async function executeDerive(
     aspectRatio: parsed.options.aspect,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
-    mediaKind: CLI_GENERATION_MEDIA_KIND,
+    mediaKind,
   });
 
   await downloadResult(result, outputPath, ctx, deps);
@@ -275,7 +307,9 @@ async function executeBatch(
   parsed: ParsedArgs,
   ctx: CommandContext,
   client: ForgeClient,
-  deps: CommandDeps
+  deps: CommandDeps,
+  mediaKind: GenerationMediaKind,
+  saveBatchManifest: boolean
 ): Promise<BatchResult> {
   const prompt = getPrompt(parsed, 'batch');
   const outputDir = getOutputDir(parsed);
@@ -291,7 +325,8 @@ async function executeBatch(
   const startedAt = new Date().toISOString();
   const runId = deps.createRunId();
 
-  console.log(`Batch generating ${count} image(s) for "${name}"...`);
+  const mediaLabel = mediaKind === 'image' ? 'image' : 'audio file';
+  console.log(`Batch generating ${count} ${mediaLabel}(s) for "${name}"...`);
   const result = await client.sendBatchRequest({
     name,
     assetType,
@@ -302,48 +337,52 @@ async function executeBatch(
     aspectRatio: parsed.options.aspect,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
-    mediaKind: CLI_GENERATION_MEDIA_KIND,
+    mediaKind,
   });
 
   const sortedVariants = [...result.variants].sort((a, b) => a.created_at - b.created_at);
   const images = [];
   for (let index = 0; index < sortedVariants.length; index += 1) {
     const variant = sortedVariants[index];
-    const outputPath = path.join(outputDir, `${slugify(name)}-${String(index + 1).padStart(2, '0')}.png`);
+    const outputPath = path.join(outputDir, `${slugify(name)}-${String(index + 1).padStart(2, '0')}.${getOutputExtension(variant, mediaKind)}`);
     await downloadResult({ type: 'generate:result', requestId: result.requestId, jobId: variant.id, success: true, variant }, outputPath, ctx, deps);
-    images.push(manifestImageFromVariant({
-      index,
-      variant,
-      localPath: outputPath,
-      baseUrl: ctx.baseUrl,
-      spaceId: ctx.spaceId,
-    }));
+    if (saveBatchManifest) {
+      images.push(manifestImageFromVariant({
+        index,
+        variant,
+        localPath: outputPath,
+        baseUrl: ctx.baseUrl,
+        spaceId: ctx.spaceId,
+      }));
+    }
   }
 
-  const manifestPath = await deps.saveRunManifest({
-    version: 1,
-    runId,
-    command: 'batch',
-    success: result.success,
-    environment: ctx.env,
-    spaceId: ctx.spaceId,
-    baseUrl: ctx.baseUrl,
-    prompt,
-    name,
-    assetType,
-    count,
-    mode,
-    refs,
-    referenceVariantIds: referenceVariantIds || [],
-    outputDir,
-    workingDir: ctx.workingDir,
-    createdAt: startedAt,
-    completedAt: new Date().toISOString(),
-    images,
-    failed: result.failed,
-  }, ctx.projectRoot);
+  const manifestPath = saveBatchManifest
+    ? await deps.saveRunManifest({
+      version: 1,
+      runId,
+      command: 'batch',
+      success: result.success,
+      environment: ctx.env,
+      spaceId: ctx.spaceId,
+      baseUrl: ctx.baseUrl,
+      prompt,
+      name,
+      assetType,
+      count,
+      mode,
+      refs,
+      referenceVariantIds: referenceVariantIds || [],
+      outputDir,
+      workingDir: ctx.workingDir,
+      createdAt: startedAt,
+      completedAt: new Date().toISOString(),
+      images,
+      failed: result.failed,
+    }, ctx.projectRoot)
+    : undefined;
 
-  printBatchResult(result, outputDir, manifestPath, ctx);
+  printBatchResult(result, outputDir, manifestPath, ctx, mediaKind);
   if (!result.success) {
     const failures = result.failed.map((failure) => `${failure.variantId}: ${failure.error}`).join('; ');
     throw new Error(`Batch generation completed with ${result.failed.length} failure(s): ${failures || 'unknown error'}`);
@@ -455,16 +494,36 @@ async function downloadResult(
   result: GenerateResult,
   outputPath: string,
   ctx: CommandContext,
-  deps: Pick<CommandDeps, 'downloadImage'>
+  deps: Pick<CommandDeps, 'downloadImage' | 'downloadFile'>
 ): Promise<void> {
-  if (!result.success || !result.variant?.image_key) {
-    throw new Error(result.error || 'Generation failed without an image');
+  const variant = result.variant;
+  if (!result.success || !variant) {
+    throw new Error(result.error || 'Generation failed without a completed variant');
   }
 
-  await deps.downloadImage({
+  if ((variant.media_kind || CLI_GENERATION_MEDIA_KIND) === 'image' && variant.image_key) {
+    await deps.downloadImage({
+      baseUrl: ctx.baseUrl,
+      accessToken: ctx.accessToken,
+      imageKey: variant.image_key,
+      outputPath,
+      force: ctx.force,
+    });
+    return;
+  }
+
+  if (!variant.media_key) {
+    throw new Error(result.error || `Generation failed without downloadable media for ${variant.media_kind}`);
+  }
+
+  if (!deps.downloadFile) {
+    throw new Error('Generic media download is not configured');
+  }
+
+  await deps.downloadFile({
     baseUrl: ctx.baseUrl,
     accessToken: ctx.accessToken,
-    imageKey: result.variant.image_key,
+    requestPath: `/api/spaces/${encodeURIComponent(ctx.spaceId)}/variants/${encodeURIComponent(variant.id)}/media`,
     outputPath,
     force: ctx.force,
   });
@@ -477,7 +536,10 @@ function printResult(result: GenerateResult, outputPath: string, ctx: CommandCon
   console.log('\nDone.\n');
   console.log(`  Asset:   ${variant.asset_id}`);
   console.log(`  Variant: ${variant.id}`);
-  console.log(`  Image:   ${variant.image_key}`);
+  console.log(`  Media:   ${variant.media_key || variant.image_key || '-'}`);
+  if (variant.image_key && variant.media_key !== variant.image_key) {
+    console.log(`  Image:   ${variant.image_key}`);
+  }
   console.log(`  Local:   ${outputPath}`);
   console.log(`  Web:     ${ctx.baseUrl}/spaces/${ctx.spaceId}/assets/${variant.asset_id}`);
 }
@@ -527,6 +589,20 @@ function slugify(value: string): string {
   return slug || 'image';
 }
 
+function getOutputExtension(variant: Variant, mediaKind: GenerationMediaKind): string {
+  if (mediaKind === 'image') return 'png';
+
+  const keyExtension = path.extname(variant.media_key || '').replace(/^\./, '').toLowerCase();
+  if (keyExtension) return keyExtension;
+
+  if (variant.media_mime_type === 'audio/mpeg') return 'mp3';
+  if (variant.media_mime_type === 'audio/mp4') return 'm4a';
+  if (variant.media_mime_type === 'audio/aac') return 'aac';
+  if (variant.media_mime_type === 'audio/ogg') return 'ogg';
+  if (variant.media_mime_type === 'audio/flac') return 'flac';
+  return 'wav';
+}
+
 function requireOption(parsed: ParsedArgs, name: string): string {
   const value = parsed.options[name];
   if (!value || value === 'true') {
@@ -569,17 +645,20 @@ Usage:
 function printBatchResult(
   result: BatchResult,
   outputDir: string,
-  manifestPath: string,
-  ctx: CommandContext
+  manifestPath: string | undefined,
+  ctx: CommandContext,
+  mediaKind: GenerationMediaKind
 ): void {
   console.log('\nDone.\n');
   console.log(`  Batch:   ${result.batchId}`);
-  console.log(`  Images:  ${result.variants.length}`);
+  console.log(`  ${mediaKind === 'image' ? 'Images' : 'Media'}:  ${result.variants.length}`);
   if (result.failed.length > 0) {
     console.log(`  Failed:  ${result.failed.length}`);
   }
   console.log(`  Local:   ${outputDir}`);
-  console.log(`  Manifest: ${manifestPath}`);
+  if (manifestPath) {
+    console.log(`  Manifest: ${manifestPath}`);
+  }
   if (result.variants[0]) {
     console.log(`  Web:     ${ctx.baseUrl}/spaces/${ctx.spaceId}/assets/${result.variants[0].asset_id}`);
   }

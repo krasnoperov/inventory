@@ -84,6 +84,15 @@ export interface Variant {
   media_width: number | null; // Pixel width for image/video artifacts
   media_height: number | null; // Pixel height for image/video artifacts
   media_duration_ms: number | null; // Duration for time-based media artifacts
+  transcript_key: string | null; // R2 key for audio transcript sidecar
+  transcript_mime_type: string | null;
+  transcript_size_bytes: number | null;
+  word_timings_key: string | null; // R2 key for word-level timing sidecar
+  word_timings_mime_type: string | null;
+  word_timings_size_bytes: number | null;
+  render_metadata_key: string | null; // R2 key for render metadata sidecar
+  render_metadata_mime_type: string | null;
+  render_metadata_size_bytes: number | null;
   recipe: string; // JSON - generation parameters stored upfront for retry
   starred: boolean; // User marks important versions
   created_by: string;
@@ -358,6 +367,7 @@ export interface UserPresence {
 export type ClientMessage =
   // Sync
   | { type: 'sync:request' }
+  | { type: 'sync:overview' }
   // Asset operations
   | { type: 'asset:create'; name: string; assetType: string; mediaKind?: MediaKind; parentAssetId?: string }
   | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[]; type?: string; parentAssetId?: string | null } }
@@ -424,6 +434,7 @@ export type ClientMessage =
 export type ServerMessage =
   // Sync (full state)
   | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null }
   // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
   // Consider implementing for WebSocket reconnection state recovery.
   // | { type: 'sync:chat_state'; messages: ChatMessage[]; plan: Plan | null; planSteps: PlanStep[]; approvals: PendingApproval[]; autoExecuted: AutoExecuted[] }

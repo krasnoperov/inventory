@@ -24,8 +24,42 @@ test.describe('@shots', () => {
       const pageErrors: string[] = [];
       page.on('pageerror', (err) => pageErrors.push(err.message));
 
+      // Track stylesheet (and other asset) requests + their HTTP status.
+      const cssResponses: string[] = [];
+      page.on('response', (r) => {
+        const u = r.url();
+        if (/\.css(\?|$)/.test(u) || r.request().resourceType() === 'stylesheet') {
+          cssResponses.push(`${r.status()} ${u}`);
+        }
+      });
+
       const resp = await page.goto(shotPath, { waitUntil: 'networkidle' });
       if (waitFor) await page.waitForSelector(waitFor);
+
+      // Inspect what CSS actually applied in the document.
+      const cssState = await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(
+          (l) => (l as HTMLLinkElement).href
+        );
+        const styleTags = document.querySelectorAll('style').length;
+        let totalRules = 0;
+        for (const sheet of Array.from(document.styleSheets)) {
+          try {
+            totalRules += sheet.cssRules.length;
+          } catch {
+            totalRules += -1; // cross-origin / blocked
+          }
+        }
+        const bodyBg = getComputedStyle(document.body).backgroundColor;
+        return {
+          linkCount: links.length,
+          links,
+          styleTagCount: styleTags,
+          styleSheetCount: document.styleSheets.length,
+          totalRules,
+          bodyBg,
+        };
+      });
 
       const fs = await import('node:fs/promises');
       const path = await import('node:path');
@@ -42,6 +76,17 @@ test.describe('@shots', () => {
           `URL: ${page.url()}`,
           `Status: ${resp?.status() ?? 'n/a'}`,
           `Title: ${await page.title()}`,
+          ``,
+          `--- CSS diagnostics ---`,
+          `<link rel=stylesheet> in DOM: ${cssState.linkCount}`,
+          ...cssState.links.map((l) => `  link: ${l}`),
+          `<style> tags: ${cssState.styleTagCount}`,
+          `document.styleSheets: ${cssState.styleSheetCount}`,
+          `total CSS rules (sum; -1 per blocked sheet): ${cssState.totalRules}`,
+          `computed body background-color: ${cssState.bodyBg}`,
+          `stylesheet responses (${cssResponses.length}):`,
+          ...cssResponses.map((e) => `  - ${e}`),
+          ``,
           `Console errors (${consoleErrors.length}):`,
           ...consoleErrors.map((e) => `  - ${e}`),
           `Page errors (${pageErrors.length}):`,

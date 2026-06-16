@@ -95,6 +95,15 @@ export class VariantController extends BaseController {
     mediaWidth?: number | null;
     mediaHeight?: number | null;
     mediaDurationMs?: number | null;
+    transcriptKey?: string | null;
+    transcriptMimeType?: string | null;
+    transcriptSizeBytes?: number | null;
+    wordTimingsKey?: string | null;
+    wordTimingsMimeType?: string | null;
+    wordTimingsSizeBytes?: number | null;
+    renderMetadataKey?: string | null;
+    renderMetadataMimeType?: string | null;
+    renderMetadataSizeBytes?: number | null;
     recipe: string;
     createdBy: string;
     mediaKind?: MediaKind;
@@ -196,6 +205,15 @@ export class VariantController extends BaseController {
       media_width: null,
       media_height: null,
       media_duration_ms: null,
+      transcript_key: null,
+      transcript_mime_type: null,
+      transcript_size_bytes: null,
+      word_timings_key: null,
+      word_timings_mime_type: null,
+      word_timings_size_bytes: null,
+      render_metadata_key: null,
+      render_metadata_mime_type: null,
+      render_metadata_size_bytes: null,
       recipe: data.recipe,
       starred: false,
       created_by: data.createdBy,
@@ -254,6 +272,15 @@ export class VariantController extends BaseController {
     mediaWidth?: number | null;
     mediaHeight?: number | null;
     mediaDurationMs?: number | null;
+    transcriptKey?: string | null;
+    transcriptMimeType?: string | null;
+    transcriptSizeBytes?: number | null;
+    wordTimingsKey?: string | null;
+    wordTimingsMimeType?: string | null;
+    wordTimingsSizeBytes?: number | null;
+    renderMetadataKey?: string | null;
+    renderMetadataMimeType?: string | null;
+    renderMetadataSizeBytes?: number | null;
   }): Promise<{ variant: Variant }> {
     const now = Date.now();
 
@@ -266,10 +293,13 @@ export class VariantController extends BaseController {
     if (existing.status !== 'uploading') {
       throw new NotFoundError(`Variant is not uploading (status: ${existing.status})`);
     }
+    if (hasAudioSidecarKeys(data) && existing.media_kind !== 'audio') {
+      throw new ValidationError('Audio sidecars can only be attached to audio variants');
+    }
 
     // Update variant with image keys and completed status
     await this.sql.exec(
-      `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, media_key = ?, media_mime_type = ?, media_size_bytes = ?, media_width = ?, media_height = ?, media_duration_ms = ?, updated_at = ? WHERE id = ?`,
+      `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, media_key = ?, media_mime_type = ?, media_size_bytes = ?, media_width = ?, media_height = ?, media_duration_ms = ?, transcript_key = ?, transcript_mime_type = ?, transcript_size_bytes = ?, word_timings_key = ?, word_timings_mime_type = ?, word_timings_size_bytes = ?, render_metadata_key = ?, render_metadata_mime_type = ?, render_metadata_size_bytes = ?, updated_at = ? WHERE id = ?`,
       data.imageKey,
       data.thumbKey,
       data.mediaKey ?? data.imageKey,
@@ -278,6 +308,15 @@ export class VariantController extends BaseController {
       data.mediaWidth ?? null,
       data.mediaHeight ?? null,
       data.mediaDurationMs ?? null,
+      data.transcriptKey ?? null,
+      data.transcriptMimeType ?? null,
+      data.transcriptSizeBytes ?? null,
+      data.wordTimingsKey ?? null,
+      data.wordTimingsMimeType ?? null,
+      data.wordTimingsSizeBytes ?? null,
+      data.renderMetadataKey ?? null,
+      data.renderMetadataMimeType ?? null,
+      data.renderMetadataSizeBytes ?? null,
       now,
       data.variantId
     );
@@ -293,6 +332,15 @@ export class VariantController extends BaseController {
       media_width: data.mediaWidth ?? null,
       media_height: data.mediaHeight ?? null,
       media_duration_ms: data.mediaDurationMs ?? null,
+      transcript_key: data.transcriptKey ?? null,
+      transcript_mime_type: data.transcriptMimeType ?? null,
+      transcript_size_bytes: data.transcriptSizeBytes ?? null,
+      word_timings_key: data.wordTimingsKey ?? null,
+      word_timings_mime_type: data.wordTimingsMimeType ?? null,
+      word_timings_size_bytes: data.wordTimingsSizeBytes ?? null,
+      render_metadata_key: data.renderMetadataKey ?? null,
+      render_metadata_mime_type: data.renderMetadataMimeType ?? null,
+      render_metadata_size_bytes: data.renderMetadataSizeBytes ?? null,
       updated_at: now,
     };
 
@@ -394,6 +442,15 @@ export class VariantController extends BaseController {
     mediaWidth?: number | null;
     mediaHeight?: number | null;
     mediaDurationMs?: number | null;
+    transcriptKey?: string | null;
+    transcriptMimeType?: string | null;
+    transcriptSizeBytes?: number | null;
+    wordTimingsKey?: string | null;
+    wordTimingsMimeType?: string | null;
+    wordTimingsSizeBytes?: number | null;
+    renderMetadataKey?: string | null;
+    renderMetadataMimeType?: string | null;
+    renderMetadataSizeBytes?: number | null;
     recipe: string;
     createdBy: string;
     mediaKind?: MediaKind;
@@ -429,6 +486,15 @@ export class VariantController extends BaseController {
       media_width: data.mediaWidth ?? null,
       media_height: data.mediaHeight ?? null,
       media_duration_ms: data.mediaDurationMs ?? null,
+      transcript_key: data.transcriptKey ?? null,
+      transcript_mime_type: data.transcriptMimeType ?? null,
+      transcript_size_bytes: data.transcriptSizeBytes ?? null,
+      word_timings_key: data.wordTimingsKey ?? null,
+      word_timings_mime_type: data.wordTimingsMimeType ?? null,
+      word_timings_size_bytes: data.wordTimingsSizeBytes ?? null,
+      render_metadata_key: data.renderMetadataKey ?? null,
+      render_metadata_mime_type: data.renderMetadataMimeType ?? null,
+      render_metadata_size_bytes: data.renderMetadataSizeBytes ?? null,
       recipe: data.recipe,
       starred: false,
       created_by: data.createdBy,
@@ -443,8 +509,8 @@ export class VariantController extends BaseController {
 
     // Insert variant
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, transcript_key, transcript_mime_type, transcript_size_bytes, word_timings_key, word_timings_mime_type, word_timings_size_bytes, render_metadata_key, render_metadata_mime_type, render_metadata_size_bytes, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       variant.id,
       variant.asset_id,
       variant.media_kind,
@@ -459,6 +525,15 @@ export class VariantController extends BaseController {
       variant.media_width,
       variant.media_height,
       variant.media_duration_ms,
+      variant.transcript_key,
+      variant.transcript_mime_type,
+      variant.transcript_size_bytes,
+      variant.word_timings_key,
+      variant.word_timings_mime_type,
+      variant.word_timings_size_bytes,
+      variant.render_metadata_key,
+      variant.render_metadata_mime_type,
+      variant.render_metadata_size_bytes,
       variant.recipe,
       0, // starred = false
       variant.created_by,
@@ -587,4 +662,12 @@ export class VariantController extends BaseController {
     }
     return assetMediaKind;
   }
+}
+
+function hasAudioSidecarKeys(data: {
+  transcriptKey?: string | null;
+  wordTimingsKey?: string | null;
+  renderMetadataKey?: string | null;
+}): boolean {
+  return Boolean(data.transcriptKey || data.wordTimingsKey || data.renderMetadataKey);
 }

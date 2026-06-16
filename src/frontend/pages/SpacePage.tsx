@@ -104,7 +104,7 @@ export default function SpacePage() {
     assets,
     variants,
     jobs,
-    requestSync,
+    requestOverviewSync,
     clearJob,
     sendGenerateRequest,
     sendRefineRequest,
@@ -125,9 +125,9 @@ export default function SpacePage() {
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     onConnect: () => {
-      requestSync();
+      requestOverviewSync();
       requestChatHistory();
-      // Style is now included in sync:state, no need for separate sendStyleGet()
+      // Style is now included in sync overview, no need for separate sendStyleGet()
       // Sync session: user is viewing space overview (no specific asset)
       updateSession({ viewingAssetId: null, viewingVariantId: null });
     },
@@ -365,7 +365,7 @@ export default function SpacePage() {
       };
 
       alert(`Import successful!\nAssets: ${result.imported.assets}\nVariants: ${result.imported.variants}\nLineage: ${result.imported.lineage}`);
-      requestSync();
+      requestOverviewSync();
     } catch (err) {
       console.error('Import error:', err);
       alert(err instanceof Error ? err.message : 'Failed to import');
@@ -375,7 +375,7 @@ export default function SpacePage() {
         importInputRef.current.value = '';
       }
     }
-  }, [spaceId, isImporting, requestSync]);
+  }, [spaceId, isImporting, requestOverviewSync]);
 
   const headerRightSlot = user ? (
     <div className={styles.headerRight}>
