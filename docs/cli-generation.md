@@ -98,6 +98,13 @@ pnpm run cli audio batch "Three short UI notification sounds" \
   --output-dir audio/notifications
 ```
 
+When the website is configured with `INVENTORY_AUDIO_PROVIDER=elevenlabs`,
+plain audio prompts are generated through ElevenLabs speech. Multi-speaker
+dialogue can be sent as one `Speaker: line` entry per line; the website maps
+speakers to the comma-separated `ELEVENLABS_DIALOGUE_VOICE_IDS` configured on
+the worker. The CLI still sends only the prompt and `mediaKind: "audio"`; API
+keys, voice IDs, model IDs, and output format stay server-controlled.
+
 ## Local References
 
 `derive --refs` and `batch --refs` accept both existing variant IDs and local
@@ -149,7 +156,8 @@ references through these commands.
 
 Audio generation currently does not accept `--refs`, `derive`, or `refine`.
 Audio batch downloads completed files into the requested directory but does not
-write image keyframe run manifests.
+write image keyframe run manifests. ElevenLabs timestamp responses are stored
+as transcript, timing, and render metadata sidecars on the completed variant.
 
 ## Run Manifests
 

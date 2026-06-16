@@ -143,6 +143,9 @@ local_protocol = "http"
 # wrangler secret put OIDC_ISSUER
 # wrangler secret put OIDC_AUDIENCE
 # wrangler secret put GOOGLE_AI_API_KEY (optional, for NanoBananaService)
+# wrangler secret put ELEVENLABS_API_KEY (optional, for ElevenLabs audio provider)
+# wrangler secret put ELEVENLABS_VOICE_ID (optional, for ElevenLabs speech)
+# wrangler secret put ELEVENLABS_DIALOGUE_VOICE_IDS (optional, comma-separated, for ElevenLabs dialogue)
 # wrangler secret put ANTHROPIC_API_KEY (optional, for ClaudeService)
 # wrangler secret put POLAR_ACCESS_TOKEN (optional, for Polar.sh billing)
 # wrangler secret put POLAR_ORGANIZATION_ID (optional, for Polar.sh billing)
