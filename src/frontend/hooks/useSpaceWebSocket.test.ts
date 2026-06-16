@@ -5,6 +5,7 @@ import {
   getVariantThumbnailUrl,
   isVariantImageReady,
   isVariantReady,
+  isVariantVideoReady,
   type Variant,
 } from './useSpaceWebSocket';
 
@@ -42,6 +43,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(imageVariant), true);
     assert.equal(isVariantImageReady(imageVariant), true);
+    assert.equal(isVariantVideoReady(imageVariant), false);
     assert.equal(getVariantThumbnailUrl(imageVariant), '/api/images/images/space/variant_thumb.webp');
     assert.equal(getVariantMediaUrl(imageVariant, 'space-1'), '/api/spaces/space-1/variants/variant-1/media');
   });
@@ -59,8 +61,26 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(audioVariant), true);
     assert.equal(isVariantImageReady(audioVariant), false);
+    assert.equal(isVariantVideoReady(audioVariant), false);
     assert.equal(getVariantThumbnailUrl(audioVariant), undefined);
     assert.equal(getVariantMediaUrl(audioVariant, 'space-1'), '/api/spaces/space-1/variants/variant-1/media');
+  });
+
+  test('treats completed video variants as ready for native playback', () => {
+    const videoVariant = variant({
+      media_kind: 'video',
+      image_key: null,
+      thumb_key: null,
+      media_key: 'media/space/clip.mp4',
+      media_mime_type: 'video/mp4',
+      media_duration_ms: 1200,
+    });
+
+    assert.equal(isVariantReady(videoVariant), true);
+    assert.equal(isVariantImageReady(videoVariant), false);
+    assert.equal(isVariantVideoReady(videoVariant), true);
+    assert.equal(getVariantThumbnailUrl(videoVariant), undefined);
+    assert.equal(getVariantMediaUrl(videoVariant, 'space-1'), '/api/spaces/space-1/variants/variant-1/media');
   });
 
   test('does not mark pending media as ready', () => {
@@ -73,6 +93,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(pendingVariant), false);
     assert.equal(isVariantImageReady(pendingVariant), false);
+    assert.equal(isVariantVideoReady(pendingVariant), false);
     assert.equal(getVariantMediaUrl(pendingVariant, 'space-1'), undefined);
   });
 });
