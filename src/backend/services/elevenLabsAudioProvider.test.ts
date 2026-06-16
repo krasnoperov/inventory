@@ -143,7 +143,7 @@ describe('ElevenLabsAudioProvider', () => {
     );
   });
 
-  test('generates music through the music endpoint with server-configured model', async () => {
+  test('generates music through the stream endpoint with server-configured model', async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
       calls.push({ url: String(url), init: init ?? {} });
@@ -175,7 +175,7 @@ describe('ElevenLabsAudioProvider', () => {
       outputTokens: 0,
       totalTokens: 41,
     });
-    assert.strictEqual(calls[0].url, 'https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128');
+    assert.strictEqual(calls[0].url, 'https://api.elevenlabs.io/v1/music/stream?output_format=mp3_44100_128');
     assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)), {
       prompt: 'short heroic orchestral loop',
       model_id: 'music_v2',

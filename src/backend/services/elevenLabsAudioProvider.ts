@@ -324,7 +324,7 @@ export class ElevenLabsMusicProvider extends BaseElevenLabsGeneratedAudioProvide
   }
 
   async generate(options: AudioGenerateOptions): Promise<AudioGenerationResult> {
-    const result = await this.postAudio('/music', {
+    const result = await this.postAudio('/music/stream', {
       prompt: options.prompt,
       model_id: this.modelId,
     });
