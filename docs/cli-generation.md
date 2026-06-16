@@ -155,6 +155,18 @@ IDs/URLs, prompt, refs, and failed variant errors for downstream video tooling.
 
 ## End-To-End Test Loop
 
+Run the media foundation loop without external generation providers:
+
+```bash
+pnpm run test:e2e:media-foundation
+```
+
+This builds the app, starts a local Wrangler worker with an isolated D1/R2/DO
+state directory, uploads image/audio/video assets through the website API,
+downloads them through authenticated variant media routes, checks range support,
+triggers one WebSocket generation with the fake image provider, and verifies the
+generated media through the same authenticated media route.
+
 Run the CLI/worker loop without Gemini calls:
 
 ```bash
