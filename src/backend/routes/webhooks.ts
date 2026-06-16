@@ -246,6 +246,7 @@ async function handleSubscriptionCanceled(
     claude_input_tokens: 0,
     claude_output_tokens: 0,
     gemini_images: 0,
+    gemini_videos: 0,
     gemini_input_tokens: 0,
     gemini_output_tokens: 0,
   };
@@ -288,6 +289,7 @@ async function handleCustomerStateChanged(
       claude_input_tokens: 0,
       claude_output_tokens: 0,
       gemini_images: 0,
+      gemini_videos: 0,
       gemini_input_tokens: 0,
       gemini_output_tokens: 0,
     };

@@ -110,6 +110,67 @@ function createMockContext(
 
 describe('GenerationController pipeline hooks', () => {
   // ==========================================================================
+  // handleRefineRequest
+  // ==========================================================================
+
+  describe('handleRefineRequest', () => {
+    test('uses target asset media kind for video quota checks when request omits mediaKind', async () => {
+      const bindArgs: unknown[][] = [];
+      const prepare = mock.fn((sql: string) => ({
+        bind: mock.fn((...args: unknown[]) => {
+          bindArgs.push(args);
+          return {
+            first: sql.includes('FROM users')
+              ? mock.fn(async () => ({
+                  quota_limits: JSON.stringify({
+                    gemini_images: 100,
+                    gemini_videos: 0,
+                  }),
+                  rate_limit_count: 0,
+                  rate_limit_window_start: null,
+                }))
+              : mock.fn(async () => ({ total_used: 0 })),
+          };
+        }),
+      }));
+      const { ctx } = createMockContext({
+        getAssetById: mock.fn(async () => ({
+          id: 'asset-video',
+          name: 'Video Asset',
+          type: 'animation',
+          media_kind: 'video',
+          active_variant_id: 'variant-video',
+        })),
+      });
+      ctx.env = {
+        DB: { prepare },
+        GENERATION_WORKFLOW: { create: mock.fn() },
+      } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRefineRequest(
+        {} as WebSocket,
+        { userId: '123', role: 'editor' },
+        {
+          type: 'refine:request',
+          requestId: 'request-1',
+          assetId: 'asset-video',
+          prompt: 'Animate this',
+        }
+      );
+
+      assert.strictEqual(ctx.send.mock.calls.length, 1);
+      assert.deepStrictEqual(ctx.send.mock.calls[0].arguments[1], {
+        type: 'refine:error',
+        requestId: 'request-1',
+        error: 'Monthly quota exceeded for veo. Please upgrade your plan.',
+        code: 'QUOTA_EXCEEDED',
+      });
+      assert.ok(bindArgs.some((args) => args[1] === 'gemini_videos'));
+    });
+  });
+
+  // ==========================================================================
   // handleRetryRequest
   // ==========================================================================
 
@@ -337,7 +398,7 @@ describe('GenerationController pipeline hooks', () => {
       });
     });
 
-    test('completes media-only video variants without image keys and tracks usage', async () => {
+    test('completes media-only video variants without image keys and tracks video usage', async () => {
       const run = mock.fn(async () => ({}));
       const bind = mock.fn(() => ({ run }));
       const prepare = mock.fn(() => ({ bind }));
@@ -389,7 +450,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(result.variant.media_duration_ms, 8000);
       assert.strictEqual(prepare.mock.calls.length, 1);
       assert.strictEqual(bind.mock.calls[0].arguments[1], 123);
-      assert.strictEqual(bind.mock.calls[0].arguments[2], 'gemini_images');
+      assert.strictEqual(bind.mock.calls[0].arguments[2], 'gemini_videos');
       assert.strictEqual(bind.mock.calls[0].arguments[3], 1);
       assert.deepStrictEqual(JSON.parse(bind.mock.calls[0].arguments[4]), {
         model: 'veo-3.1-generate-preview',

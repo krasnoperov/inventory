@@ -131,8 +131,8 @@ billingRoutes.get('/api/billing/quota/:service', async (c) => {
   const usageService = c.get('container').get(UsageService);
 
   const service = c.req.param('service');
-  if (service !== 'claude' && service !== 'nanobanana') {
-    return c.json({ error: 'Invalid service. Must be "claude" or "nanobanana"' }, 400);
+  if (service !== 'claude' && service !== 'nanobanana' && service !== 'veo') {
+    return c.json({ error: 'Invalid service. Must be "claude", "nanobanana", or "veo"' }, 400);
   }
 
   const quota = await usageService.checkQuota(userId, service);

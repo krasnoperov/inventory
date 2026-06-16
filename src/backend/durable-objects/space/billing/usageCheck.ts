@@ -28,12 +28,14 @@ export interface RateLimitConfig {
 const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
   claude: { windowSeconds: 60, maxRequests: 20 },
   nanobanana: { windowSeconds: 60, maxRequests: 10 },
+  veo: { windowSeconds: 60, maxRequests: 10 },
 };
 
 // Event names for quota checking
 const QUOTA_EVENT_NAMES: Record<string, string> = {
   claude: 'claude_output_tokens',
   nanobanana: 'gemini_images',
+  veo: 'gemini_videos',
 };
 
 /**
@@ -43,7 +45,7 @@ const QUOTA_EVENT_NAMES: Record<string, string> = {
 export async function preCheck(
   db: D1Database,
   userId: number,
-  service: 'claude' | 'nanobanana',
+  service: 'claude' | 'nanobanana' | 'veo',
   rateLimit?: RateLimitConfig
 ): Promise<PreCheckResult> {
   const eventName = QUOTA_EVENT_NAMES[service];
@@ -222,4 +224,17 @@ export async function trackImageGeneration(
   operation?: string
 ): Promise<void> {
   await trackUsage(db, userId, 'gemini_images', imageCount, { model, operation });
+}
+
+/**
+ * Track Gemini/Veo video generation.
+ */
+export async function trackVideoGeneration(
+  db: D1Database,
+  userId: number,
+  videoCount: number,
+  model: string,
+  operation?: string
+): Promise<void> {
+  await trackUsage(db, userId, 'gemini_videos', videoCount, { model, operation });
 }

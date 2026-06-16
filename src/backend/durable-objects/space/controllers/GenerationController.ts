@@ -25,6 +25,7 @@ import {
   preCheck,
   incrementRateLimit,
   trackImageGeneration,
+  trackVideoGeneration,
 } from '../billing/usageCheck';
 import {
   VariantFactory,
@@ -73,7 +74,11 @@ export class GenerationController extends BaseController {
 
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), 'nanobanana');
+      const check = await preCheck(
+        this.env.DB,
+        parseInt(meta.userId),
+        msg.mediaKind === 'video' ? 'veo' : 'nanobanana'
+      );
       if (!check.allowed) {
         this.send(ws, {
           type: 'generate:error',
@@ -139,7 +144,19 @@ export class GenerationController extends BaseController {
 
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), 'nanobanana');
+      let billingMediaKind = msg.mediaKind;
+      if (!billingMediaKind) {
+        const asset = await this.repo.getAssetById(msg.assetId);
+        if (!asset) {
+          throw new NotFoundError('Asset not found');
+        }
+        billingMediaKind = asset.media_kind;
+      }
+      const check = await preCheck(
+        this.env.DB,
+        parseInt(meta.userId),
+        billingMediaKind === 'video' ? 'veo' : 'nanobanana'
+      );
       if (!check.allowed) {
         this.send(ws, {
           type: 'refine:error',
@@ -484,15 +501,25 @@ export class GenerationController extends BaseController {
           // Ignore parse errors
         }
 
-        await trackImageGeneration(
-          this.env.DB,
-          parseInt(variant.created_by),
-          1, // 1 image generated
-          usageModel,
-          operation
-        );
+        if (variant.media_kind === 'video') {
+          await trackVideoGeneration(
+            this.env.DB,
+            parseInt(variant.created_by),
+            1,
+            usageModel,
+            operation
+          );
+        } else {
+          await trackImageGeneration(
+            this.env.DB,
+            parseInt(variant.created_by),
+            1,
+            usageModel,
+            operation
+          );
+        }
       } catch (err) {
-        log.warn('Failed to track image usage', {
+        log.warn('Failed to track generation usage', {
           spaceId: this.spaceId,
           variantId: data.variantId,
           error: err instanceof Error ? err.message : String(err),
