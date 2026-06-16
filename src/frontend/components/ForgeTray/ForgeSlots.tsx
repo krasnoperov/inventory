@@ -22,7 +22,7 @@ export function ForgeSlots({ onAddClick }: ForgeSlotsProps) {
       {slots.map((slot) => (
         <div key={slot.id} className={styles.slot}>
           <img
-            src={getVariantThumbnailUrl(slot.variant)}
+            src={getVariantThumbnailUrl(slot.variant) || ''}
             alt={slot.asset.name}
             className={styles.slotImage}
           />

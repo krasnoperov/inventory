@@ -44,7 +44,7 @@ export interface Variant {
 }
 
 /**
- * Get thumbnail URL for a variant, returning undefined for pending/failed variants
+ * Get image thumbnail URL for a variant, returning undefined for non-image media.
  */
 export function getVariantThumbnailUrl(variant: Variant): string | undefined {
   if (!variant.image_key) return undefined;
@@ -53,9 +53,28 @@ export function getVariantThumbnailUrl(variant: Variant): string | undefined {
 }
 
 /**
- * Check if a variant is ready to display (has an image)
+ * Get the canonical media URL for downloads and media-specific rendering.
+ * Prefer the authenticated variant media route when the caller has space context.
+ */
+export function getVariantMediaUrl(variant: Variant, spaceId?: string): string | undefined {
+  if (!variant.media_key && !variant.image_key) return undefined;
+  if (spaceId) {
+    return `/api/spaces/${spaceId}/variants/${variant.id}/media`;
+  }
+  return `/api/images/${variant.media_key || variant.image_key}`;
+}
+
+/**
+ * Check if a variant is ready to display.
  */
 export function isVariantReady(variant: Variant): boolean {
+  return variant.status === 'completed' && (variant.media_key !== null || variant.image_key !== null);
+}
+
+/**
+ * Check if a variant has a completed image artifact for image-only tools.
+ */
+export function isVariantImageReady(variant: Variant): boolean {
   return variant.status === 'completed' && variant.image_key !== null;
 }
 

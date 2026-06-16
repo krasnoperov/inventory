@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
-import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl, isVariantImageReady } from '../../hooks/useSpaceWebSocket';
 import styles from './AssetPickerModal.module.css';
 
 export interface AssetPickerModalProps {
@@ -101,7 +101,7 @@ export function AssetPickerModal({
   // Toggle asset in tray
   const handleAssetClick = useCallback((asset: Asset) => {
     const primaryVariant = getPrimaryVariant(asset);
-    if (!primaryVariant) return;
+    if (!primaryVariant || !isVariantImageReady(primaryVariant)) return;
 
     if (hasVariant(primaryVariant.id)) {
       // Find and remove the slot with this variant
@@ -171,12 +171,20 @@ export function AssetPickerModal({
                       onClick={() => handleAssetClick(slot.asset)}
                     >
                       <div className={styles.thumbnailWrapper}>
-                        {primaryVariant && (
+                        {primaryVariant && getVariantThumbnailUrl(primaryVariant) ? (
                           <img
                             src={getVariantThumbnailUrl(primaryVariant)}
                             alt={slot.asset.name}
                             className={styles.assetImage}
                           />
+                        ) : (
+                          <div className={styles.emptyImage}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <polyline points="21 15 16 10 5 21" />
+                            </svg>
+                          </div>
                         )}
                         <span className={styles.checkmark}>
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" width="12" height="12">
@@ -219,7 +227,7 @@ export function AssetPickerModal({
                       onClick={() => handleAssetClick(asset)}
                     >
                       <div className={styles.thumbnailWrapper}>
-                        {primaryVariant ? (
+                        {primaryVariant && getVariantThumbnailUrl(primaryVariant) ? (
                           <img
                             src={getVariantThumbnailUrl(primaryVariant)}
                             alt={asset.name}

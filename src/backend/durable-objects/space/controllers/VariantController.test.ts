@@ -1011,6 +1011,47 @@ describe('VariantController', () => {
         ['media/uploaded.mp4', 'images/uploaded.png', 'thumbs/uploaded.png']
       );
     });
+
+    test('completes media-only upload without legacy image keys', async () => {
+      const uploadingVariant = createMockVariant({
+        id: 'upload-var',
+        status: 'uploading',
+        media_kind: 'audio',
+        image_key: null,
+        thumb_key: null,
+      });
+      const asset = createMockAsset({ id: 'asset-1', media_kind: 'audio' });
+
+      const sqlExec = mock.fn(() => ({ toArray: () => [{ ref_count: 1 }] }));
+      const { ctx } = createMockContext(
+        {
+          getVariantById: mock.fn(async () => uploadingVariant),
+          getAssetById: mock.fn(async () => asset),
+        },
+        { exec: sqlExec }
+      );
+      const controller = new VariantController(ctx);
+
+      const result = await controller.httpCompleteUpload({
+        variantId: 'upload-var',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/uploaded.mp3',
+        mediaMimeType: 'audio/mpeg',
+        mediaSizeBytes: 4096,
+      });
+
+      assert.strictEqual(result.variant.image_key, null);
+      assert.strictEqual(result.variant.thumb_key, null);
+      assert.strictEqual(result.variant.media_key, 'media/uploaded.mp3');
+      assert.strictEqual(result.variant.media_mime_type, 'audio/mpeg');
+
+      const insertCalls = sqlExec.mock.calls.filter((c) =>
+        String(c.arguments[0]).includes('INSERT INTO image_refs')
+      );
+      assert.strictEqual(insertCalls.length, 1);
+      assert.strictEqual(insertCalls[0].arguments[1], 'media/uploaded.mp3');
+    });
   });
 
   describe('httpFailUpload', () => {

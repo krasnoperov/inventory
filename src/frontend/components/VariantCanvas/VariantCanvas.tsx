@@ -41,6 +41,7 @@ const nodeTypes = {
 export type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
 
 export interface VariantCanvasProps {
+  spaceId?: string;
   asset: Asset;
   variants: Variant[];
   lineage: Lineage[];
@@ -211,6 +212,7 @@ function getLayoutedElements(
 
 /** Inner component that has access to ReactFlow hooks */
 function VariantCanvasInner({
+  spaceId,
   asset,
   variants,
   lineage,
@@ -327,6 +329,7 @@ function VariantCanvasInner({
         onStarVariant,
         onDeleteVariant,
         variantCount: variants.length,
+        spaceId,
       },
     }));
 
@@ -507,7 +510,7 @@ function VariantCanvasInner({
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, onStarVariant, onDeleteVariant]);
+  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, onStarVariant, onDeleteVariant, spaceId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -578,6 +581,7 @@ function VariantCanvasInner({
 
 /** Main exported component - handles dimension loading and provides ReactFlow context */
 export function VariantCanvas({
+  spaceId,
   asset,
   variants,
   lineage,
@@ -652,6 +656,7 @@ export function VariantCanvas({
     <ReactFlowProvider>
       <VariantCanvasInner
         asset={asset}
+        spaceId={spaceId}
         variants={variants}
         lineage={lineage}
         selectedVariantId={selectedVariantId}

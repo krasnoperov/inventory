@@ -595,6 +595,7 @@ export default function AssetDetailPage() {
       <div className={styles.canvasContainer}>
         {/* Variant Canvas - fills entire container */}
         <VariantCanvas
+          spaceId={spaceId}
           asset={asset}
           variants={variants}
           lineage={lineage}

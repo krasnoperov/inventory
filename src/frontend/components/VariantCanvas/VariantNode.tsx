@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, getVariantThumbnailUrl, isVariantReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantMediaUrl, getVariantThumbnailUrl, isVariantReady, isVariantImageReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
 import styles from './VariantNode.module.css';
 
@@ -40,6 +40,8 @@ export interface VariantNodeData extends Record<string, unknown> {
   onDeleteVariant?: (variant: Variant) => void;
   /** Total number of variants (to disable delete when only 1) */
   variantCount?: number;
+  /** Space ID for authenticated media downloads */
+  spaceId?: string;
 }
 
 export type VariantNodeType = Node<VariantNodeData, 'variant'>;
@@ -66,6 +68,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     onStarVariant,
     onDeleteVariant,
     variantCount = 0,
+    spaceId,
   } = data;
 
   // Expanded state for showing details
@@ -130,7 +133,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
   const handleAddToTray = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isVariantReady(variant)) {
+    if (isVariantImageReady(variant)) {
       onAddToTray?.(variant, asset);
     }
   }, [variant, asset, onAddToTray]);
@@ -151,7 +154,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
   const handleRetryRecipe = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isVariantReady(variant) && onRetryRecipe) {
+    if (isVariantImageReady(variant) && onRetryRecipe) {
       onRetryRecipe(variant);
     }
   }, [variant, onRetryRecipe]);
@@ -256,7 +259,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         {/* Hover actions - only for completed variants */}
         {isVariantReady(variant) ? (
           <div className={styles.actions}>
-            {onAddToTray && (
+            {onAddToTray && isVariantImageReady(variant) && (
               <button
                 className={styles.actionButton}
                 onClick={handleAddToTray}
@@ -278,7 +281,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
                 </svg>
               </button>
             )}
-            {onRetryRecipe && (
+            {onRetryRecipe && isVariantImageReady(variant) && (
               <button
                 className={styles.actionButton}
                 onClick={handleRetryRecipe}
@@ -352,8 +355,8 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
             </button>
             <a
               className={styles.detailActionButton}
-              href={`/api/images/${variant.image_key}`}
-              download={`${asset.name}-${variant.id.slice(0, 8)}.png`}
+              href={getVariantMediaUrl(variant, spaceId)}
+              download={`${asset.name}-${variant.id.slice(0, 8)}`}
               title="Download"
               onClick={(e) => e.stopPropagation()}
             >
@@ -363,7 +366,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
             </a>
-            {onAddToTray && (
+            {onAddToTray && isVariantImageReady(variant) && (
               <button
                 className={styles.detailActionButton}
                 onClick={handleAddToTray}
