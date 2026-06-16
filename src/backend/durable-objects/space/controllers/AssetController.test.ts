@@ -728,7 +728,7 @@ describe('AssetController', () => {
       assert.strictEqual(lineageCall.relationType, 'forked');
     });
 
-    test('uses explicit media kind for forked asset and source kind for copied variant', async () => {
+    test('uses matching explicit media kind for forked asset and copied variant', async () => {
       const sourceVariant = createMockVariant({
         id: 'source-var',
         asset_id: 'source-asset',
@@ -749,16 +749,45 @@ describe('AssetController', () => {
         'Forked',
         'character',
         undefined,
-        'video'
+        'audio'
       );
 
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
-      assert.strictEqual(createCall.mediaKind, 'video');
+      assert.strictEqual(createCall.mediaKind, 'audio');
 
       const forkBroadcast = broadcasts.find((b) => b.type === 'asset:forked');
       assert.ok(forkBroadcast);
-      assert.strictEqual((forkBroadcast as { asset: Asset }).asset.media_kind, 'video');
+      assert.strictEqual((forkBroadcast as { asset: Asset }).asset.media_kind, 'audio');
       assert.strictEqual((forkBroadcast as { variant: Variant }).variant.media_kind, 'audio');
+    });
+
+    test('rejects fork when requested asset media kind differs from source variant', async () => {
+      const sourceVariant = createMockVariant({
+        id: 'source-var',
+        asset_id: 'source-asset',
+        media_kind: 'audio',
+      });
+
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => sourceVariant),
+      });
+      const controller = new AssetController(ctx);
+
+      await assert.rejects(
+        controller.handleFork(
+          {} as WebSocket,
+          createEditorMeta(),
+          undefined,
+          'source-var',
+          'Forked',
+          'character',
+          undefined,
+          'video'
+        ),
+        /Cannot fork audio variant into video asset/
+      );
+
+      assert.strictEqual(asMock(ctx.repo.createAsset).mock.calls.length, 0);
     });
   });
 

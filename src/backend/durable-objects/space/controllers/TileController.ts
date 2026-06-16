@@ -74,6 +74,15 @@ export class TileController extends BaseController {
     const spiralOrder = getSpiralOrder(msg.gridWidth, msg.gridHeight);
     const totalTiles = msg.gridWidth * msg.gridHeight;
 
+    let seedVariant: Variant | null = null;
+    if (msg.seedVariantId) {
+      seedVariant = await this.repo.getVariantById(msg.seedVariantId);
+      if (!seedVariant || seedVariant.status !== 'completed' || !seedVariant.image_key) {
+        throw new ValidationError('Seed variant must be completed with an image');
+      }
+    }
+    const tileMediaKind = seedVariant?.media_kind ?? DEFAULT_MEDIA_KIND;
+
     // Create parent asset for the tile set
     const tileAssetId = crypto.randomUUID();
     const promptSummary = msg.prompt.length > 40 ? msg.prompt.slice(0, 40) + '...' : msg.prompt;
@@ -81,6 +90,7 @@ export class TileController extends BaseController {
       id: tileAssetId,
       name: `${promptSummary} — Tile Set`,
       type: 'tile-set',
+      mediaKind: tileMediaKind,
       tags: [],
       createdBy: meta.userId,
     });
@@ -122,8 +132,8 @@ export class TileController extends BaseController {
 
     if (msg.seedVariantId) {
       // Fork seed variant to center position
-      const seedVariant = await this.repo.getVariantById(msg.seedVariantId);
-      if (!seedVariant || seedVariant.status !== 'completed' || !seedVariant.image_key) {
+      const seed = seedVariant;
+      if (!seed) {
         throw new ValidationError('Seed variant must be completed with an image');
       }
 
@@ -134,21 +144,21 @@ export class TileController extends BaseController {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         forkedVariantId,
         tileAssetId,
-        seedVariant.media_kind ?? DEFAULT_MEDIA_KIND,
+        tileMediaKind,
         null,
         'completed',
         null,
-        seedVariant.image_key,
-        seedVariant.thumb_key,
-        seedVariant.recipe,
+        seed.image_key,
+        seed.thumb_key,
+        seed.recipe,
         0,
         meta.userId,
         now,
         now
       );
 
-      if (seedVariant.image_key) await this.sql.exec(INCREMENT_REF_SQL, seedVariant.image_key);
-      if (seedVariant.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, seedVariant.thumb_key);
+      if (seed.image_key) await this.sql.exec(INCREMENT_REF_SQL, seed.image_key);
+      if (seed.thumb_key) await this.sql.exec(INCREMENT_REF_SQL, seed.thumb_key);
 
       // Create forked lineage
       const lineage = await this.repo.createLineage({
@@ -454,6 +464,7 @@ export class TileController extends BaseController {
 
     const totalTiles = msg.gridWidth * msg.gridHeight;
     const cellSize = 256; // Default cell size for single-shot grid
+    const mediaKind = DEFAULT_MEDIA_KIND;
 
     // Create parent asset
     const tileAssetId = crypto.randomUUID();
@@ -462,6 +473,7 @@ export class TileController extends BaseController {
       id: tileAssetId,
       name: `${promptSummary} — Tile Set (single-shot)`,
       type: 'tile-set',
+      mediaKind,
       tags: [],
       createdBy: meta.userId,
     });
@@ -527,6 +539,7 @@ export class TileController extends BaseController {
     const recipe = JSON.stringify({
       prompt,
       assetType: 'tile-set',
+      mediaKind,
       aspectRatio: msg.aspectRatio || '1:1',
       sourceImageKeys: styleKeys,
       operation: 'generate',
@@ -539,7 +552,7 @@ export class TileController extends BaseController {
     const variant = await this.repo.createPlaceholderVariant({
       id: variantId,
       assetId: tileAssetId,
-      mediaKind: DEFAULT_MEDIA_KIND,
+      mediaKind,
       recipe,
       createdBy: meta.userId,
     });
@@ -557,7 +570,7 @@ export class TileController extends BaseController {
           assetId: tileAssetId,
           assetName: `Grid — ${msg.gridWidth}x${msg.gridHeight}`,
           assetType: 'tile-set',
-          mediaKind: DEFAULT_MEDIA_KIND,
+          mediaKind,
           aspectRatio: msg.aspectRatio || '1:1',
           sourceImageKeys: styleKeys.length > 0 ? styleKeys : undefined,
           operation: 'generate',

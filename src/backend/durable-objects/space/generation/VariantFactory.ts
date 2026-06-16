@@ -11,7 +11,7 @@
 import type { Asset, Variant, WebSocketMeta } from '../types';
 import type { GenerationWorkflowInput, OperationType, BatchMode } from '../../../workflows/types';
 import type { SpaceRepository } from '../repository/SpaceRepository';
-import type { BroadcastFn } from '../controllers/types';
+import { ValidationError, type BroadcastFn } from '../controllers/types';
 import type { Env } from '../../../../core/types';
 import { resolveImageModel } from '../../../services/nanoBananaService';
 import { PromptBuilder } from './PromptBuilder';
@@ -244,6 +244,13 @@ export class VariantFactory {
     if (!asset) {
       throw new Error(`Asset ${input.assetId} not found`);
     }
+    const assetMediaKind = asset.media_kind ?? DEFAULT_MEDIA_KIND;
+    if (input.mediaKind && input.mediaKind !== assetMediaKind) {
+      throw new ValidationError(
+        `Cannot create ${input.mediaKind} variant for ${assetMediaKind} asset`
+      );
+    }
+    const mediaKind = input.mediaKind ?? assetMediaKind;
 
     // Resolve source variants
     const resolved = await this.resolveRefineReferences(
@@ -261,7 +268,7 @@ export class VariantFactory {
     let recipe: GenerationRecipe = {
       prompt: input.prompt,
       assetType: asset.type,
-      mediaKind: input.mediaKind ?? asset.media_kind ?? DEFAULT_MEDIA_KIND,
+      mediaKind,
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
@@ -277,7 +284,7 @@ export class VariantFactory {
     const variant = await this.repo.createPlaceholderVariant({
       id: variantId,
       assetId: input.assetId,
-      mediaKind: input.mediaKind ?? asset.media_kind ?? DEFAULT_MEDIA_KIND,
+      mediaKind,
       recipe: JSON.stringify(recipe),
       createdBy: meta.userId,
       planStepId: input.planStepId,

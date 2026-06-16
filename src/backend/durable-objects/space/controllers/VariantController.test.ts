@@ -66,7 +66,7 @@ function createMockLineage(overrides: Partial<Lineage> = {}): Lineage {
 
 function createMockRepo(): SpaceRepository {
   return {
-    getAssetById: mock.fn(async () => null),
+    getAssetById: mock.fn(async () => createMockAsset()),
     getVariantById: mock.fn(async () => null),
     getVariantByWorkflowId: mock.fn(async () => null),
     getVariantsByAsset: mock.fn(async () => []),
@@ -573,6 +573,7 @@ describe('VariantController', () => {
 
     test('propagates explicit media kind to applied variant', async () => {
       const { ctx } = createMockContext({
+        getAssetById: mock.fn(async () => createMockAsset({ media_kind: 'video' })),
         getVariantByWorkflowId: mock.fn(async () => null),
       });
       const controller = new VariantController(ctx);
@@ -589,6 +590,33 @@ describe('VariantController', () => {
       });
 
       assert.strictEqual(result.variant.media_kind, 'video');
+    });
+
+    test('rejects applied variant media kind that differs from target asset', async () => {
+      const { ctx } = createMockContext({
+        getAssetById: mock.fn(async () => createMockAsset({ media_kind: 'image' })),
+        getVariantByWorkflowId: mock.fn(async () => null),
+      });
+      const controller = new VariantController(ctx);
+
+      await assert.rejects(
+        controller.httpApplyVariant({
+          jobId: 'job-123',
+          variantId: 'var-new',
+          assetId: 'asset-1',
+          imageKey: 'images/new.png',
+          thumbKey: 'thumbs/new.png',
+          recipe: '{}',
+          createdBy: 'user-1',
+          mediaKind: 'video',
+        }),
+        /Cannot create video variant for image asset/
+      );
+
+      const insertCalls = asMock(ctx.sql.exec).mock.calls.filter((c) =>
+        String(c.arguments[0]).includes('INSERT INTO variants')
+      );
+      assert.strictEqual(insertCalls.length, 0);
     });
   });
 
@@ -745,6 +773,31 @@ describe('VariantController', () => {
       });
 
       assert.strictEqual(result.variant.media_kind, 'video');
+    });
+
+    test('rejects upload placeholder media kind that differs from existing asset', async () => {
+      const existingAsset = createMockAsset({ id: 'asset-1', media_kind: 'image' });
+
+      const { ctx } = createMockContext({
+        getAssetById: mock.fn(async () => existingAsset),
+      });
+      const controller = new VariantController(ctx);
+
+      await assert.rejects(
+        controller.httpCreateUploadPlaceholder({
+          variantId: 'upload-var',
+          assetId: 'asset-1',
+          mediaKind: 'video',
+          recipe: '{}',
+          createdBy: 'user-1',
+        }),
+        /Cannot create video variant for image asset/
+      );
+
+      const insertCalls = asMock(ctx.sql.exec).mock.calls.filter((c) =>
+        String(c.arguments[0]).includes('INSERT INTO variants')
+      );
+      assert.strictEqual(insertCalls.length, 0);
     });
 
     test('propagates explicit media kind to new upload asset and variant', async () => {
