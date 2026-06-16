@@ -12,7 +12,7 @@
  */
 
 import { Hono } from 'hono';
-import type { Variant, PendingApproval, AutoExecuted, UserSession } from './types';
+import type { MediaKind, Variant, PendingApproval, AutoExecuted, UserSession } from './types';
 import { NotFoundError, ValidationError } from './controllers/types';
 import { loggers } from '../../../shared/logger';
 
@@ -32,6 +32,7 @@ export interface InternalApiControllers {
       id?: string;
       name: string;
       type: string;
+      mediaKind?: MediaKind;
       parentAssetId?: string;
       createdBy: string;
     }): Promise<unknown>;
@@ -57,6 +58,7 @@ export interface InternalApiControllers {
       thumbKey: string;
       recipe: string;
       createdBy: string;
+      mediaKind?: MediaKind;
       parentVariantIds?: string[];
       relationType?: 'derived' | 'refined';
     }): Promise<{ created: boolean; variant: Variant }>;

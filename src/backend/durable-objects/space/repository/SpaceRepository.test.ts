@@ -85,9 +85,11 @@ describe('SpaceRepository', () => {
 
       const insertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO assets'));
       assert(insertQuery !== undefined);
+      assert(insertQuery.query.includes('media_kind'));
       assert(insertQuery.bindings.includes('new-id'));
       assert(insertQuery.bindings.includes('New Asset'));
       assert(insertQuery.bindings.includes('scene'));
+      assert(insertQuery.bindings.includes('image'));
       assert(insertQuery.bindings.includes('["tag1"]'));
     });
 
@@ -168,6 +170,44 @@ describe('SpaceRepository', () => {
     test('deleteVariant returns false for non-existent', async () => {
       const result = await repo.deleteVariant('nonexistent');
       assert.strictEqual(result, false);
+    });
+
+    test('createVariant inserts default media kind', async () => {
+      mockSql.setMockResult('WHERE id = ?', [
+        { id: 'v1', asset_id: 'a1', media_kind: 'image' },
+      ]);
+
+      await repo.createVariant({
+        id: 'v1',
+        assetId: 'a1',
+        imageKey: 'images/v1.png',
+        thumbKey: 'images/v1_thumb.webp',
+        recipe: '{}',
+        createdBy: 'user1',
+      });
+
+      const insertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO variants'));
+      assert(insertQuery !== undefined);
+      assert(insertQuery.query.includes('media_kind'));
+      assert.strictEqual(insertQuery.bindings[2], 'image');
+    });
+
+    test('createPlaceholderVariant inserts default media kind', async () => {
+      mockSql.setMockResult('WHERE id = ?', [
+        { id: 'v1', asset_id: 'a1', media_kind: 'image' },
+      ]);
+
+      await repo.createPlaceholderVariant({
+        id: 'v1',
+        assetId: 'a1',
+        recipe: '{}',
+        createdBy: 'user1',
+      });
+
+      const insertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO variants'));
+      assert(insertQuery !== undefined);
+      assert(insertQuery.query.includes('media_kind'));
+      assert.strictEqual(insertQuery.bindings[2], 'image');
     });
   });
 

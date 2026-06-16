@@ -25,6 +25,7 @@ import {
   type ImageMimeType,
 } from '../../../utils/image-utils';
 import { loggers } from '../../../../shared/logger';
+import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 
 const log = loggers.rotationController;
 
@@ -84,6 +85,7 @@ export class RotationController extends BaseController {
       id: rotationAssetId,
       name: `${sourceAsset.name} — Rotation`,
       type: sourceAsset.type,
+      mediaKind: sourceAsset.media_kind ?? sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
       tags: [],
       parentAssetId: sourceAsset.id,
       createdBy: meta.userId,
@@ -94,10 +96,11 @@ export class RotationController extends BaseController {
     const forkedVariantId = crypto.randomUUID();
     const now = Date.now();
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       forkedVariantId,
       rotationAssetId,
+      sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
       null,
       'completed',
       null,
@@ -387,6 +390,7 @@ export class RotationController extends BaseController {
       id: rotationAssetId,
       name: `${sourceAsset.name} — Rotation (single-shot)`,
       type: sourceAsset.type,
+      mediaKind: sourceAsset.media_kind ?? sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
       tags: [],
       parentAssetId: sourceAsset.id,
       createdBy: meta.userId,
@@ -397,9 +401,9 @@ export class RotationController extends BaseController {
     const forkedVariantId = crypto.randomUUID();
     const now = Date.now();
     await this.sql.exec(
-      `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      forkedVariantId, rotationAssetId, null, 'completed', null,
+      `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      forkedVariantId, rotationAssetId, sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND, null, 'completed', null,
       sourceVariant.image_key, sourceVariant.thumb_key, sourceVariant.recipe,
       0, meta.userId, now, now
     );

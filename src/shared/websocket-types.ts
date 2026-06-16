@@ -9,6 +9,11 @@
 // DESCRIBE/COMPARE TYPES
 // ============================================================================
 
+/** Media kind stored on assets and variants. Existing generation flows produce images. */
+export type MediaKind = 'image';
+
+export const DEFAULT_MEDIA_KIND: MediaKind = 'image';
+
 /** Focus options for image description */
 export type DescribeFocus = 'general' | 'style' | 'composition' | 'details' | 'compare' | 'prompt';
 

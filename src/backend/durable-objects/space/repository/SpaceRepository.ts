@@ -13,6 +13,7 @@
 
 import type {
   Asset,
+  MediaKind,
   Variant,
   ChatSession,
   ChatMessage,
@@ -26,6 +27,7 @@ import type {
   TileSet,
   TilePosition,
 } from '../types';
+import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import type { SimplePlan } from '../../../../shared/websocket-types';
 import {
   AssetQueries,
@@ -157,6 +159,7 @@ export class SpaceRepository {
     id: string;
     name: string;
     type: string;
+    mediaKind?: MediaKind;
     tags: string[];
     parentAssetId?: string | null;
     createdBy: string;
@@ -167,6 +170,7 @@ export class SpaceRepository {
       asset.id,
       asset.name,
       asset.type,
+      asset.mediaKind ?? DEFAULT_MEDIA_KIND,
       JSON.stringify(asset.tags),
       asset.parentAssetId ?? null,
       null, // active_variant_id
@@ -268,6 +272,7 @@ export class SpaceRepository {
   async createVariant(variant: {
     id: string;
     assetId: string;
+    mediaKind?: MediaKind;
     workflowId?: string | null;
     imageKey: string;
     thumbKey: string;
@@ -279,6 +284,7 @@ export class SpaceRepository {
       VariantQueries.INSERT,
       variant.id,
       variant.assetId,
+      variant.mediaKind ?? DEFAULT_MEDIA_KIND,
       variant.workflowId ?? null,
       'completed', // status
       null, // error_message
@@ -340,6 +346,7 @@ export class SpaceRepository {
   async createPlaceholderVariant(data: {
     id: string;
     assetId: string;
+    mediaKind?: MediaKind;
     recipe: string;
     createdBy: string;
     planStepId?: string;
@@ -349,10 +356,11 @@ export class SpaceRepository {
     if (data.batchId) {
       // Use extended INSERT with batch_id
       await this.sql.exec(
-        `INSERT INTO variants (id, asset_id, status, recipe, created_by, created_at, updated_at, plan_step_id, batch_id)
-         VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO variants (id, asset_id, media_kind, status, recipe, created_by, created_at, updated_at, plan_step_id, batch_id)
+         VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
         data.id,
         data.assetId,
+        data.mediaKind ?? DEFAULT_MEDIA_KIND,
         data.recipe,
         data.createdBy,
         now,
@@ -365,6 +373,7 @@ export class SpaceRepository {
         VariantQueries.INSERT_PLACEHOLDER,
         data.id,
         data.assetId,
+        data.mediaKind ?? DEFAULT_MEDIA_KIND,
         data.recipe,
         data.createdBy,
         now,

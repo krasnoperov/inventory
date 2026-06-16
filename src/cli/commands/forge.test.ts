@@ -43,6 +43,7 @@ function completedVariant(overrides: Partial<Variant> = {}): Variant {
   return {
     id: 'variant-out',
     asset_id: 'asset-out',
+    media_kind: 'image',
     workflow_id: null,
     status: 'completed',
     error_message: null,

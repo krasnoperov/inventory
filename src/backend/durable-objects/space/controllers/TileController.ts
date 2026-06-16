@@ -25,6 +25,7 @@ import {
   type ImageMimeType,
 } from '../../../utils/image-utils';
 import { loggers } from '../../../../shared/logger';
+import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 
 const log = loggers.tileController;
 
@@ -129,10 +130,11 @@ export class TileController extends BaseController {
       const forkedVariantId = crypto.randomUUID();
       const now = Date.now();
       await this.sql.exec(
-        `INSERT INTO variants (id, asset_id, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         forkedVariantId,
         tileAssetId,
+        seedVariant.media_kind ?? DEFAULT_MEDIA_KIND,
         null,
         'completed',
         null,

@@ -26,6 +26,7 @@ export class SchemaManager {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         type TEXT NOT NULL,
+        media_kind TEXT NOT NULL DEFAULT 'image',
         tags TEXT DEFAULT '[]',
         parent_asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,
         active_variant_id TEXT,
@@ -38,6 +39,7 @@ export class SchemaManager {
       CREATE TABLE IF NOT EXISTS variants (
         id TEXT PRIMARY KEY,
         asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        media_kind TEXT NOT NULL DEFAULT 'image',
         workflow_id TEXT UNIQUE,
         status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'uploading', 'completed', 'failed')),
         error_message TEXT,
@@ -196,6 +198,9 @@ export class SchemaManager {
 
     // Migration: Add quality_rating and rated_at columns to variants for curation
     await this.addVariantQualityRating();
+
+    // Migration: Add media_kind to assets and variants
+    await this.addMediaKindToAssetsAndVariants();
 
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
@@ -575,6 +580,31 @@ export class SchemaManager {
       `);
       await this.sql.exec(`
         ALTER TABLE variants ADD COLUMN rated_at INTEGER DEFAULT NULL;
+      `);
+    }
+  }
+
+  /**
+   * Add media_kind to assets and variants. Existing rows are image-based.
+   */
+  private async addMediaKindToAssetsAndVariants(): Promise<void> {
+    const assetInfo = await this.sql.exec(`PRAGMA table_info(assets)`);
+    const assetColumns = assetInfo.toArray() as Array<{ name: string }>;
+    const hasAssetMediaKind = assetColumns.some(col => col.name === 'media_kind');
+
+    if (!hasAssetMediaKind) {
+      await this.sql.exec(`
+        ALTER TABLE assets ADD COLUMN media_kind TEXT NOT NULL DEFAULT 'image';
+      `);
+    }
+
+    const variantInfo = await this.sql.exec(`PRAGMA table_info(variants)`);
+    const variantColumns = variantInfo.toArray() as Array<{ name: string }>;
+    const hasVariantMediaKind = variantColumns.some(col => col.name === 'media_kind');
+
+    if (!hasVariantMediaKind) {
+      await this.sql.exec(`
+        ALTER TABLE variants ADD COLUMN media_kind TEXT NOT NULL DEFAULT 'image';
       `);
     }
   }

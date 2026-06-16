@@ -18,10 +18,10 @@ import type {
   BatchRequestMessage,
   BatchMode,
 } from '../../workflows/types';
-import type { ClaudeUsage, DeferredAction, ErrorCode, SimplePlan } from '../../../shared/websocket-types';
+import type { ClaudeUsage, DeferredAction, ErrorCode, MediaKind, SimplePlan } from '../../../shared/websocket-types';
 
 // Re-export plan types from shared module (single source of truth)
-export type { PlanStatus, PlanStepStatus } from '../../../shared/websocket-types';
+export type { MediaKind, PlanStatus, PlanStepStatus } from '../../../shared/websocket-types';
 
 // ============================================================================
 // DO SQLite Schema Types
@@ -53,6 +53,7 @@ export interface Asset {
   id: string;
   name: string;
   type: string; // User-editable: character, item, scene, sprite-sheet, animation, style-sheet, reference, etc.
+  media_kind: MediaKind;
   tags: string; // JSON array
   parent_asset_id: string | null; // NULL = root asset, else nested under parent
   active_variant_id: string | null;
@@ -71,6 +72,7 @@ export interface Asset {
 export interface Variant {
   id: string;
   asset_id: string;
+  media_kind: MediaKind;
   workflow_id: string | null; // Cloudflare workflow instance ID (null for forks/imports)
   status: VariantStatus; // Generation lifecycle status
   error_message: string | null; // Error details when status='failed'
