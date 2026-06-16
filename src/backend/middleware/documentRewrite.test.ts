@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Hono } from 'hono';
-import { handleDocumentNavigation } from './documentRewrite';
+import { documentResponseHeaders, handleDocumentNavigation } from './documentRewrite';
 import type { AppContext } from '../routes/types';
 
 const SHELL_HTML = `<!doctype html>
@@ -50,6 +50,8 @@ describe('handleDocumentNavigation', () => {
       headers: { accept: 'text/html' },
     }));
     assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
+    assert.strictEqual(res.headers.get('x-inventory-ssr'), null);
     const body = await res.text();
     assert.match(body, /<title>Sign in \| Inventory Forge<\/title>/);
     assert.match(body, /name="description" content="Sign in to Inventory Forge with your Google account\."/);
@@ -146,5 +148,11 @@ describe('handleDocumentNavigation', () => {
     assert.strictEqual(res.headers.get('content-type'), 'text/plain');
     const body = await res.text();
     assert.strictEqual(body, '# Inventory Forge');
+  });
+
+  it('marks flagged SSR document responses private and no-store', () => {
+    const headers = new Headers(documentResponseHeaders(true));
+    assert.strictEqual(headers.get('cache-control'), 'private, no-store');
+    assert.strictEqual(headers.get('x-inventory-ssr'), 'tanstack-start');
   });
 });

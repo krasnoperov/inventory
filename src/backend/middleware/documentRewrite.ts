@@ -180,6 +180,16 @@ function isTanStackStartSsrEnabled(c: Context<AppContext>): boolean {
   return flag === '1' || flag === 'true' || flag === 'enabled';
 }
 
+export function documentResponseHeaders(ssrEnabled: boolean): HeadersInit {
+  return {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': ssrEnabled
+      ? 'private, no-store'
+      : 'public, max-age=0, must-revalidate',
+    ...(ssrEnabled ? { 'x-inventory-ssr': 'tanstack-start' } : {}),
+  };
+}
+
 function serializeJsonForInlineScript(value: unknown): string {
   return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (char) => {
     switch (char) {
@@ -306,16 +316,13 @@ export async function handleDocumentNavigation(c: Context<AppContext>): Promise<
   }
 
   const html = await shellRes.text();
-  const rewritten = isTanStackStartSsrEnabled(c)
+  const ssrEnabled = isTanStackStartSsrEnabled(c);
+  const rewritten = ssrEnabled
     ? await renderTanStackStartDocument(c, html, meta, `${origin}${url.pathname}`)
     : rewriteMeta(html, meta, `${origin}${url.pathname}`);
 
   return new Response(rewritten, {
     status,
-    headers: {
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'public, max-age=0, must-revalidate',
-      ...(isTanStackStartSsrEnabled(c) ? { 'x-inventory-ssr': 'tanstack-start' } : {}),
-    },
+    headers: documentResponseHeaders(ssrEnabled),
   });
 }
