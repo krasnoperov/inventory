@@ -161,8 +161,9 @@ legacy `image_key` and `thumb_key` fields for existing consumers.
 
 Authenticated callers can download or preview the canonical artifact through
 `GET /api/spaces/:spaceId/variants/:variantId/media`, which resolves the
-variant's stored `media_key` after membership checks. A future `poster_key`
-field, when present, is served through
+variant's stored `media_key` after membership checks, with `image_key` as the
+legacy fallback for older image variants. A future `poster_key` field, when
+present, is served through
 `GET /api/spaces/:spaceId/variants/:variantId/poster`.
 
 ---

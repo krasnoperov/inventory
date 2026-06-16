@@ -82,16 +82,80 @@ function getOptionalString(formData: FormData, key: string): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
-function rejectOversizedRequest(c: Context<AppContext>): Response | null {
+class UploadRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 413,
+  ) {
+    super(message);
+  }
+}
+
+function getUploadRequestError(c: Context<AppContext>): UploadRequestError | null {
   const contentLength = c.req.header('Content-Length');
   if (!contentLength) return null;
 
   const size = Number(contentLength);
-  if (!Number.isFinite(size) || size <= MAX_UPLOAD_BODY_SIZE_BYTES) return null;
+  if (!Number.isFinite(size) || size < 0) {
+    return new UploadRequestError('Invalid Content-Length', 400);
+  }
+  if (size <= MAX_UPLOAD_BODY_SIZE_BYTES) return null;
 
-  return c.json({
-    error: `Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`,
-  }, 413);
+  return new UploadRequestError(`Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`, 413);
+}
+
+function uploadRequestErrorResponse(c: Context<AppContext>, error: UploadRequestError): Response {
+  return c.json({ error: error.message }, error.status);
+}
+
+async function readRequestBodyWithLimit(c: Context<AppContext>): Promise<ArrayBuffer> {
+  const reader = c.req.raw.body?.getReader();
+  if (!reader) return new ArrayBuffer(0);
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    total += value.byteLength;
+    if (total > MAX_UPLOAD_BODY_SIZE_BYTES) {
+      await reader.cancel().catch(() => undefined);
+      throw new UploadRequestError(`Request too large. File uploads are limited to ${MAX_FILE_SIZE_MB}MB`, 413);
+    }
+    chunks.push(value);
+  }
+
+  const rawBody = new ArrayBuffer(total);
+  const body = new Uint8Array(rawBody);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return rawBody;
+}
+
+async function bufferUploadRequest(c: Context<AppContext>): Promise<void> {
+  const uploadRequestError = getUploadRequestError(c);
+  if (uploadRequestError) throw uploadRequestError;
+
+  const body = await readRequestBodyWithLimit(c);
+  c.req.raw = new Request(c.req.raw.url, {
+    method: c.req.raw.method,
+    headers: c.req.raw.headers,
+    body,
+  });
+  c.req.bodyCache = {};
+}
+
+async function parseUploadFormData(c: Context<AppContext>): Promise<FormData> {
+  try {
+    return await c.req.formData();
+  } catch {
+    throw new UploadRequestError('Invalid form data', 400);
+  }
 }
 
 async function deleteUploadedKeys(env: AppContext['Bindings'], keys: Array<string | null>): Promise<void> {
@@ -104,13 +168,21 @@ export const uploadRoutes = createOpenApiRouter();
 // All upload routes require authentication
 uploadRoutes.use('/api/spaces/*', authMiddleware);
 uploadRoutes.use('/api/spaces/:id/upload', async (c, next) => {
-  const oversized = rejectOversizedRequest(c);
-  if (oversized) return oversized;
+  try {
+    await bufferUploadRequest(c);
+  } catch (error) {
+    if (error instanceof UploadRequestError) return uploadRequestErrorResponse(c, error);
+    throw error;
+  }
   return next();
 });
 uploadRoutes.use('/api/spaces/:id/style-images', async (c, next) => {
-  const oversized = rejectOversizedRequest(c);
-  if (oversized) return oversized;
+  try {
+    await bufferUploadRequest(c);
+  } catch (error) {
+    if (error instanceof UploadRequestError) return uploadRequestErrorResponse(c, error);
+    throw error;
+  }
   return next();
 });
 
@@ -141,9 +213,12 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   // Parse FormData
   let formData: FormData;
   try {
-    formData = await c.req.formData();
-  } catch {
-    return c.json({ error: 'Invalid form data' }, 400);
+    formData = await parseUploadFormData(c);
+  } catch (error) {
+    if (error instanceof UploadRequestError) {
+      return c.json({ error: error.message }, error.status);
+    }
+    throw error;
   }
 
   // Get file
@@ -409,9 +484,12 @@ uploadRoutes.openapi(uploadStyleImageRoute, async (c) => {
   // Parse FormData
   let formData: FormData;
   try {
-    formData = await c.req.formData();
-  } catch {
-    return c.json({ error: 'Invalid form data' }, 400);
+    formData = await parseUploadFormData(c);
+  } catch (error) {
+    if (error instanceof UploadRequestError) {
+      return c.json({ error: error.message }, error.status);
+    }
+    throw error;
   }
 
   // Get file

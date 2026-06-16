@@ -129,7 +129,7 @@ export async function executeAssets(
   if (subcommand === 'download') {
     const ref = parsed.positionals[1];
     if (!ref) {
-      throw new Error('Variant ID or image key is required: pnpm run cli assets download <variant-or-image-key> -o <file>');
+      throw new Error('Variant ID or legacy image key is required: pnpm run cli assets download <variant-id-or-legacy-image-key> -o <file>');
     }
     const outputPath = getOutputPath(parsed);
     const resolved = await resolveDownloadRef(ref, ctx, deps);
@@ -361,6 +361,6 @@ Usage:
   pnpm run cli assets --json
   pnpm run cli assets show <asset-id>
   pnpm run cli assets show <asset-id> --json
-  pnpm run cli assets download <variant-id|media-key> -o output-file
+  pnpm run cli assets download <variant-id|legacy-image-key> -o output-file
 `);
 }
