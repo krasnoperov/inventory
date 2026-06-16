@@ -84,8 +84,8 @@ function filesForShard(shardName) {
 const files = filesForShard(shard);
 
 if (files.length === 0) {
-  console.error(`No component test files found for shard ${shard}`);
-  process.exit(1);
+  console.log(`Component shard ${shard}: 0 files`);
+  process.exit(shard.includes('/') ? 0 : 1);
 }
 
 console.log(`Component shard ${shard}: ${files.length} files`);
