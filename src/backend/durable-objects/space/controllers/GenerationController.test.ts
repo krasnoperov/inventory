@@ -261,6 +261,77 @@ describe('GenerationController pipeline hooks', () => {
       });
     });
 
+    test('completes media-only video variants without image keys and tracks usage', async () => {
+      const run = mock.fn(async () => ({}));
+      const bind = mock.fn(() => ({ run }));
+      const prepare = mock.fn(() => ({ bind }));
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          id: 'variant-video',
+          media_kind: 'video',
+          image_key: null,
+          thumb_key: null,
+          media_key: null,
+        })),
+        completeVariant: mock.fn(async (id, imageKey, thumbKey, mediaMetadata = {}) =>
+          createMockVariant({
+            id,
+            media_kind: 'video',
+            image_key: imageKey,
+            thumb_key: thumbKey,
+            media_key: mediaMetadata.mediaKey,
+            media_mime_type: mediaMetadata.mimeType,
+            media_size_bytes: mediaMetadata.sizeBytes,
+            media_duration_ms: mediaMetadata.durationMs,
+            status: 'completed',
+            created_by: '123',
+            recipe: JSON.stringify({
+              mediaKind: 'video',
+              model: 'veo-3.1-generate-preview',
+              operation: 'generate',
+            }),
+          })
+        ),
+      });
+      ctx.env = { DB: { prepare } } as any;
+      const controller = new GenerationController(ctx);
+
+      const result = await controller.httpCompleteVariant({
+        variantId: 'variant-video',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-video.mp4',
+        mediaMimeType: 'video/mp4',
+        mediaSizeBytes: 4096,
+        mediaDurationMs: 8000,
+      });
+
+      assert.strictEqual(result.variant.image_key, null);
+      assert.strictEqual(result.variant.thumb_key, null);
+      assert.strictEqual(result.variant.media_key, 'media/space-1/variant-video.mp4');
+      assert.strictEqual(result.variant.media_mime_type, 'video/mp4');
+      assert.strictEqual(result.variant.media_duration_ms, 8000);
+      assert.strictEqual(prepare.mock.calls.length, 1);
+      assert.strictEqual(bind.mock.calls[0].arguments[1], 123);
+      assert.strictEqual(bind.mock.calls[0].arguments[2], 'gemini_images');
+      assert.strictEqual(bind.mock.calls[0].arguments[3], 1);
+      assert.deepStrictEqual(JSON.parse(bind.mock.calls[0].arguments[4]), {
+        model: 'veo-3.1-generate-preview',
+        operation: 'generate',
+      });
+      assert.strictEqual(run.mock.calls.length, 1);
+
+      const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
+      assert.deepStrictEqual(completeCall.arguments[3], {
+        mediaKey: 'media/space-1/variant-video.mp4',
+        mimeType: 'video/mp4',
+        sizeBytes: 4096,
+        width: undefined,
+        height: undefined,
+        durationMs: 8000,
+      });
+    });
+
     test('hook errors do not fail completion', async () => {
       const rotView: RotationView = {
         id: 'rv-1',

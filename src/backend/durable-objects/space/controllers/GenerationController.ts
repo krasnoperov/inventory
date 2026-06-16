@@ -205,6 +205,16 @@ export class GenerationController extends BaseController {
       throw new ValidationError('Batch count must be between 2 and 8');
     }
 
+    if (msg.mediaKind === 'video') {
+      this.send(ws, {
+        type: 'batch:error',
+        requestId: msg.requestId,
+        error: 'Video batch generation is not supported',
+        code: 'VALIDATION_ERROR',
+      });
+      return;
+    }
+
     // Check quota for the entire batch
     if (this.env.DB) {
       const check = await preCheck(this.env.DB, parseInt(meta.userId), 'nanobanana');
@@ -430,11 +440,15 @@ export class GenerationController extends BaseController {
       try {
         // Parse recipe to get operation type
         let operation = 'derive';
+        let usageModel = 'gemini-3-pro-image-preview';
         try {
           const recipe = JSON.parse(variant.recipe);
           // Handle legacy 'create'/'combine' operations
           const recipeOp = recipe.operation || 'derive';
           operation = recipeOp === 'create' || recipeOp === 'combine' ? 'derive' : recipeOp;
+          if (typeof recipe.model === 'string' && recipe.model.length > 0) {
+            usageModel = recipe.model;
+          }
         } catch {
           // Ignore parse errors
         }
@@ -443,7 +457,7 @@ export class GenerationController extends BaseController {
           this.env.DB,
           parseInt(variant.created_by),
           1, // 1 image generated
-          'gemini-3-pro-image-preview',
+          usageModel,
           operation
         );
       } catch (err) {

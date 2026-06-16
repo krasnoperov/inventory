@@ -19,6 +19,7 @@ import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../../../shared/websocket-types';
 
 const log = loggers.generationController;
+const DEFAULT_VIDEO_MODEL = 'veo-3.1-generate-preview';
 
 // ============================================================================
 // Types
@@ -186,6 +187,7 @@ export class VariantFactory {
       prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
       assetType: input.assetType,
       mediaKind: input.mediaKind,
+      model: input.mediaKind === 'video' ? DEFAULT_VIDEO_MODEL : undefined,
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
@@ -269,6 +271,7 @@ export class VariantFactory {
       prompt: input.prompt,
       assetType: asset.type,
       mediaKind,
+      model: mediaKind === 'video' ? DEFAULT_VIDEO_MODEL : undefined,
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,

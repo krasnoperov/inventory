@@ -10,6 +10,7 @@ import {
   type ForgeChatProgressResult,
 } from '../../hooks/useSpaceWebSocket';
 import { useStyleStore } from '../../stores/styleStore';
+import type { MediaKind } from '../../../shared/websocket-types';
 import { AssetPickerModal } from './AssetPickerModal';
 import { ForgeChat } from './ForgeChat';
 import { StylePanel } from './StylePanel';
@@ -31,6 +32,8 @@ export interface ForgeSubmitParams {
     parentAssetId?: string | null;
   };
   operation: ForgeOperation;
+  /** Output media kind for generated/refined assets */
+  mediaKind?: MediaKind;
   /** Number of batch variants to generate (2-8) */
   batchCount?: number;
   /** Batch mode: 'explore' = 1 asset N variants, 'set' = N assets */
@@ -95,6 +98,10 @@ const ACCEPTED_UPLOAD_MIME_TYPES = [
   'audio/wav',
   'audio/webm',
   'audio/x-wav',
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+  'video/x-m4v',
 ];
 
 const ACCEPTED_UPLOAD_TYPES = ACCEPTED_UPLOAD_MIME_TYPES.join(',');
@@ -171,6 +178,7 @@ export function ForgeTray({
   const [noStyle, setNoStyle] = useState(false);
   const [batchCount, setBatchCount] = useState(1);
   const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
+  const [outputMediaKind, setOutputMediaKind] = useState<Extract<MediaKind, 'image' | 'video'>>('image');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -203,6 +211,7 @@ export function ForgeTray({
   const baseLabel = getOperationLabel(operation);
   const operationLabel = batchCount > 1 ? `${baseLabel} x${batchCount}` : baseLabel;
   const placeholder = getPlaceholder(slots.length, operation);
+  const showMediaKindToggle = effectiveDestinationType === 'new_asset' && operation !== 'fork';
 
   // Slot variant IDs for vision-aware operations
   const slotVariantIds = useMemo(() => slots.map(s => s.variant.id), [slots]);
@@ -216,6 +225,12 @@ export function ForgeTray({
       textarea.style.height = `${newHeight}px`;
     }
   }, [prompt]);
+
+  useEffect(() => {
+    if (outputMediaKind === 'video' && batchCount > 1) {
+      setBatchCount(1);
+    }
+  }, [outputMediaKind, batchCount]);
 
   const handleAddClick = useCallback(() => {
     setShowAssetPicker(true);
@@ -347,8 +362,11 @@ export function ForgeTray({
       const parentAssetId = effectiveDestinationType === 'new_asset' && sourceAsset
         ? sourceAsset.id
         : undefined;
-      // Inherit type from source asset, or default to 'character'
-      const assetType = sourceAsset?.type || 'character';
+      const mediaKind = effectiveDestinationType === 'new_asset'
+        ? (operation === 'fork' && sourceAsset ? sourceAsset.media_kind : outputMediaKind)
+        : targetAsset?.media_kind;
+      // Inherit type from source asset, or default by output medium
+      const assetType = sourceAsset?.type || (mediaKind === 'video' ? 'animation' : 'character');
 
       // For fork operation, prompt should be undefined (copy without modification)
       const trimmedPrompt = prompt.trim();
@@ -364,6 +382,7 @@ export function ForgeTray({
           parentAssetId,
         },
         operation,
+        mediaKind,
         batchCount: batchCount > 1 ? batchCount : undefined,
         batchMode: batchCount > 1 ? batchMode : undefined,
         disableStyle: noStyle || undefined,
@@ -376,12 +395,27 @@ export function ForgeTray({
       setDestinationType('existing_asset');
       setNoStyle(false);
       setBatchCount(1);
+      setOutputMediaKind('image');
     } catch (error) {
       console.error('Forge submit failed:', error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, newAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation]);
+  }, [
+    prompt,
+    effectiveDestinationType,
+    newAssetName,
+    slots,
+    targetAsset,
+    onSubmit,
+    clearSlots,
+    setPrompt,
+    operation,
+    outputMediaKind,
+    batchCount,
+    batchMode,
+    noStyle,
+  ]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -494,7 +528,7 @@ export function ForgeTray({
                 <button
                   className={styles.addThumbButton}
                   onClick={handleUploadClick}
-                  title={targetAsset ? `Upload image to "${targetAsset.name}"` : 'Upload image to create new asset'}
+                  title={targetAsset ? `Upload media to "${targetAsset.name}"` : 'Upload media to create new asset'}
                   disabled={isUploading}
                 >
                   {isUploading ? (
@@ -607,7 +641,39 @@ export function ForgeTray({
             <div className={styles.controlsSpacer} />
 
             {/* Batch Count Selector */}
-            {effectiveDestinationType === 'new_asset' && (
+            {showMediaKindToggle && (
+              <div className={styles.mediaKindToggle}>
+                <button
+                  type="button"
+                  className={`${styles.destButton} ${outputMediaKind === 'image' ? styles.active : ''}`}
+                  onClick={() => setOutputMediaKind('image')}
+                  disabled={isSubmitting}
+                  title="Generate an image asset"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <path d="M21 15l-5-5L5 21" />
+                  </svg>
+                  <span>Image</span>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.destButton} ${outputMediaKind === 'video' ? styles.active : ''}`}
+                  onClick={() => setOutputMediaKind('video')}
+                  disabled={isSubmitting}
+                  title="Generate a video asset with Google Veo"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                    <rect x="4" y="5" width="16" height="14" rx="2" />
+                    <path d="m10 9 5 3-5 3V9z" />
+                  </svg>
+                  <span>Video</span>
+                </button>
+              </div>
+            )}
+
+            {effectiveDestinationType === 'new_asset' && outputMediaKind === 'image' && (
               <select
                 className={styles.batchSelect}
                 value={batchCount}
