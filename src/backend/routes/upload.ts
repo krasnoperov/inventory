@@ -13,6 +13,7 @@ import {
   getImageDimensions,
   type ImageMimeType,
 } from '../utils/image-utils';
+import type { MediaKind } from '../../shared/websocket-types';
 
 // Configuration
 const MAX_FILE_SIZE_MB = 10;
@@ -31,6 +32,12 @@ const MIME_TO_EXT: Record<string, string> = {
   'image/gif': 'gif',
   'image/webp': 'webp',
 };
+
+function parseMediaKind(value: FormDataEntryValue | null): MediaKind | undefined {
+  if (value === null || typeof value !== 'string' || value === '') return undefined;
+  if (value === 'image' || value === 'audio' || value === 'video') return value;
+  return undefined;
+}
 
 export const uploadRoutes = new Hono<AppContext>();
 
@@ -81,7 +88,13 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   // For new asset creation
   const assetName = formData.get('assetName') as string | null;
   const assetType = formData.get('assetType') as string || 'character';
+  const mediaKindValue = formData.get('mediaKind');
+  const mediaKind = parseMediaKind(mediaKindValue);
   const parentAssetId = formData.get('parentAssetId') as string | null;
+
+  if (mediaKindValue !== null && typeof mediaKindValue === 'string' && mediaKindValue !== '' && !mediaKind) {
+    return c.json({ error: 'Invalid mediaKind' }, 400);
+  }
 
   // Either assetId or assetName required
   if (!assetId && !assetName) {
@@ -144,6 +157,7 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
           assetId: assetId || undefined,
           assetName: assetId ? undefined : assetName,
           assetType: assetId ? undefined : assetType,
+          mediaKind,
           parentAssetId: assetId ? undefined : parentAssetId,
           recipe,
           createdBy: userId,

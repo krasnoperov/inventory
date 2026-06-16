@@ -21,6 +21,7 @@ function createMockAsset(overrides: Partial<Asset> = {}): Asset {
     id: 'asset-1',
     name: 'Test Asset',
     type: 'character',
+    media_kind: 'image',
     tags: '[]',
     parent_asset_id: null,
     active_variant_id: null,
@@ -35,6 +36,7 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
   return {
     id: 'variant-1',
     asset_id: 'asset-1',
+    media_kind: 'image',
     workflow_id: null,
     status: 'completed',
     error_message: null,
@@ -73,7 +75,7 @@ function createMockRepo(): SpaceRepository {
       createMockVariant({ id, starred })
     ),
     createAsset: mock.fn(async (input) =>
-      createMockAsset({ id: input.id, name: input.name, type: input.type })
+      createMockAsset({ id: input.id, name: input.name, type: input.type, media_kind: input.mediaKind ?? 'image' })
     ),
     createLineage: mock.fn(async (input) =>
       createMockLineage({
@@ -568,6 +570,26 @@ describe('VariantController', () => {
       );
       assert.ok(insertCalls.length >= 2); // image_key and thumb_key
     });
+
+    test('propagates explicit media kind to applied variant', async () => {
+      const { ctx } = createMockContext({
+        getVariantByWorkflowId: mock.fn(async () => null),
+      });
+      const controller = new VariantController(ctx);
+
+      const result = await controller.httpApplyVariant({
+        jobId: 'job-123',
+        variantId: 'var-new',
+        assetId: 'asset-1',
+        imageKey: 'images/new.png',
+        thumbKey: 'thumbs/new.png',
+        recipe: '{}',
+        createdBy: 'user-1',
+        mediaKind: 'video',
+      });
+
+      assert.strictEqual(result.variant.media_kind, 'video');
+    });
   });
 
   describe('httpStar', () => {
@@ -705,6 +727,43 @@ describe('VariantController', () => {
 
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
       assert.strictEqual(createCall.type, 'character');
+    });
+
+    test('inherits media kind from existing asset', async () => {
+      const existingAsset = createMockAsset({ id: 'asset-1', media_kind: 'video' });
+
+      const { ctx } = createMockContext({
+        getAssetById: mock.fn(async () => existingAsset),
+      });
+      const controller = new VariantController(ctx);
+
+      const result = await controller.httpCreateUploadPlaceholder({
+        variantId: 'upload-var',
+        assetId: 'asset-1',
+        recipe: '{}',
+        createdBy: 'user-1',
+      });
+
+      assert.strictEqual(result.variant.media_kind, 'video');
+    });
+
+    test('propagates explicit media kind to new upload asset and variant', async () => {
+      const { ctx } = createMockContext();
+      const controller = new VariantController(ctx);
+
+      const result = await controller.httpCreateUploadPlaceholder({
+        variantId: 'upload-var',
+        assetName: 'Uploaded Video',
+        assetType: 'scene',
+        mediaKind: 'video',
+        recipe: '{}',
+        createdBy: 'user-1',
+      });
+
+      assert.strictEqual(result.asset?.media_kind, 'video');
+      assert.strictEqual(result.variant.media_kind, 'video');
+      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
+      assert.strictEqual(createCall.mediaKind, 'video');
     });
   });
 

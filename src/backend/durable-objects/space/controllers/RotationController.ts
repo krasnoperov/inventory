@@ -233,9 +233,13 @@ export class RotationController extends BaseController {
     const cappedKeys = capRefs(styleKeys, viewImageKeys, sourceKey, 14, masterKey);
 
     // Build directional prompt
+    const rotationAsset = await this.repo.getAssetById(set.asset_id);
+    const sourceVariant = await this.repo.getVariantById(set.source_variant_id);
+    const mediaKind = rotationAsset?.media_kind ?? sourceVariant?.media_kind ?? DEFAULT_MEDIA_KIND;
+
     const subject = config.subjectDescription
-      || (await this.repo.getVariantById(set.source_variant_id))?.description
-      || (await this.repo.getAssetById(set.asset_id))?.name
+      || sourceVariant?.description
+      || rotationAsset?.name
       || 'the subject';
 
     const builder = new PromptBuilder();
@@ -249,7 +253,8 @@ export class RotationController extends BaseController {
     const variantId = crypto.randomUUID();
     const recipe = JSON.stringify({
       prompt,
-      assetType: (await this.repo.getAssetById(set.asset_id))?.type || 'character',
+      assetType: rotationAsset?.type || 'character',
+      mediaKind,
       aspectRatio: config.aspectRatio,
       sourceImageKeys: [...styleKeys, ...cappedKeys],
       operation: 'derive',
@@ -258,6 +263,7 @@ export class RotationController extends BaseController {
     const variant = await this.repo.createPlaceholderVariant({
       id: variantId,
       assetId: set.asset_id,
+      mediaKind,
       recipe,
       createdBy: set.created_by,
     });
@@ -283,7 +289,8 @@ export class RotationController extends BaseController {
           prompt,
           assetId: set.asset_id,
           assetName: `${subject} — ${direction}`,
-          assetType: (await this.repo.getAssetById(set.asset_id))?.type || 'character',
+          assetType: rotationAsset?.type || 'character',
+          mediaKind,
           aspectRatio: config.aspectRatio,
           sourceImageKeys: [...styleKeys, ...cappedKeys],
           operation: 'derive',
@@ -499,6 +506,7 @@ export class RotationController extends BaseController {
     const variant = await this.repo.createPlaceholderVariant({
       id: variantId,
       assetId: rotationAssetId,
+      mediaKind: sourceAsset.media_kind ?? sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
       recipe,
       createdBy: meta.userId,
     });
@@ -516,6 +524,7 @@ export class RotationController extends BaseController {
           assetId: rotationAssetId,
           assetName: `${subject} — Sprite Sheet`,
           assetType: sourceAsset.type || 'character',
+          mediaKind: sourceAsset.media_kind ?? sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
           aspectRatio: msg.aspectRatio,
           sourceImageKeys: [sourceVariant.image_key, ...styleKeys],
           operation: 'derive',
@@ -632,6 +641,7 @@ export class RotationController extends BaseController {
       await this.repo.createPlaceholderVariant({
         id: cellVariantId,
         assetId: rotationSet.asset_id,
+        mediaKind: (await this.repo.getAssetById(rotationSet.asset_id))?.media_kind ?? DEFAULT_MEDIA_KIND,
         recipe: cellRecipe,
         createdBy: rotationSet.created_by,
       });

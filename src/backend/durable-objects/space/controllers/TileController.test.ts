@@ -28,6 +28,7 @@ function createMockAsset(overrides: Partial<Asset> = {}): Asset {
     id: 'asset-1',
     name: 'Test Asset',
     type: 'tile-set',
+    media_kind: 'image',
     tags: '[]',
     parent_asset_id: null,
     active_variant_id: null,
@@ -42,6 +43,7 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
   return {
     id: 'variant-1',
     asset_id: 'asset-1',
+    media_kind: 'image',
     workflow_id: null,
     status: 'completed',
     error_message: null,
@@ -97,7 +99,7 @@ function createMockRepo(): SpaceRepository {
     getVariantsByAsset: mock.fn(async () => []),
     getLineageForVariants: mock.fn(async () => []),
     createAsset: mock.fn(async (input) =>
-      createMockAsset({ id: input.id, name: input.name, type: input.type })
+      createMockAsset({ id: input.id, name: input.name, type: input.type, media_kind: input.mediaKind ?? 'image' })
     ),
     updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
     deleteAsset: mock.fn(async () => {}),
@@ -110,7 +112,7 @@ function createMockRepo(): SpaceRepository {
       created_at: Date.now(),
     })),
     createPlaceholderVariant: mock.fn(async (input) =>
-      createMockVariant({ id: input.id, asset_id: input.assetId, status: 'pending' })
+      createMockVariant({ id: input.id, asset_id: input.assetId, media_kind: input.mediaKind ?? 'image', status: 'pending' })
     ),
     updateVariantWorkflow: mock.fn(async (id, wfId, status) =>
       createMockVariant({ id, workflow_id: wfId, status })
@@ -466,6 +468,26 @@ describe('TileController', () => {
       // Should create a tile position — the generateTileAtPosition call
       // creates the placeholder variant and tile position
       assert.ok(asMock(ctx.repo.createPlaceholderVariant).mock.calls.length >= 1);
+    });
+
+    test('propagates tile asset media kind to placeholder and workflow', async () => {
+      const centerPos = createMockTilePosition({ grid_x: 1, grid_y: 1 });
+
+      const { ctx } = createMockContext({
+        getTileSetById: mock.fn(async () => createMockTileSet({ total_steps: 9 })),
+        getTilePositionsBySet: mock.fn(async () => [centerPos]),
+        getAdjacentTiles: mock.fn(async () => []),
+        getAssetById: mock.fn(async () => createMockAsset({ media_kind: 'video' })),
+      });
+      const controller = new TileController(ctx);
+
+      await controller.advanceTileSet('tileset-1');
+
+      const placeholderCall = asMock(ctx.repo.createPlaceholderVariant).mock.calls[0].arguments[0];
+      assert.strictEqual(placeholderCall.mediaKind, 'video');
+
+      const workflowCall = asMock(ctx.env.GENERATION_WORKFLOW.create).mock.calls[0].arguments[0];
+      assert.strictEqual(workflowCall.params.mediaKind, 'video');
     });
 
     test('returns silently when set not found', async () => {

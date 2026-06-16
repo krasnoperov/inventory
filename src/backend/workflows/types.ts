@@ -48,6 +48,8 @@ export interface GenerationWorkflowInput {
   assetName: string;
   /** Asset type */
   assetType: string;
+  /** Media kind for the target asset/variant */
+  mediaKind?: MediaKind;
   /** Generation model */
   model?: string;
   /** Aspect ratio */
@@ -141,6 +143,7 @@ export interface GenerateRequestMessage {
   requestId: string;
   name: string;
   assetType: string;
+  mediaKind?: MediaKind;
   prompt?: string;
   /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
@@ -157,6 +160,7 @@ export interface RefineRequestMessage {
   type: 'refine:request';
   requestId: string;
   assetId: string;
+  mediaKind?: MediaKind;
   prompt: string;
   /** Single source variant (legacy) */
   sourceVariantId?: string;
@@ -182,6 +186,7 @@ export interface BatchRequestMessage {
   requestId: string;
   name: string;
   assetType: string;
+  mediaKind?: MediaKind;
   prompt?: string;
   /** Number of variants/assets to generate (2-8) */
   count: number;

@@ -260,7 +260,7 @@ export class SpaceDO extends DurableObject<Env> {
 
       // Asset
       case 'asset:create':
-        return this.assetCtrl.handleCreate(ws, meta, msg.name, msg.assetType, msg.parentAssetId);
+        return this.assetCtrl.handleCreate(ws, meta, msg.name, msg.assetType, msg.parentAssetId, msg.mediaKind);
       case 'asset:update':
         return this.assetCtrl.handleUpdate(ws, meta, msg.assetId, msg.changes);
       case 'asset:delete':
@@ -275,7 +275,8 @@ export class SpaceDO extends DurableObject<Env> {
           msg.sourceVariantId,
           msg.name,
           msg.assetType,
-          msg.parentAssetId
+          msg.parentAssetId,
+          msg.mediaKind
         );
 
       // Variant

@@ -25,6 +25,7 @@ function createMockRepo(): SpaceRepository {
       id: input.id,
       name: input.name,
       type: input.type,
+      media_kind: input.mediaKind ?? 'image',
       tags: '[]',
       parent_asset_id: input.parentAssetId || null,
       active_variant_id: null,
@@ -35,6 +36,7 @@ function createMockRepo(): SpaceRepository {
     createPlaceholderVariant: mock.fn(async (input) => ({
       id: input.id,
       asset_id: input.assetId,
+      media_kind: input.mediaKind ?? 'image',
       workflow_id: null,
       status: 'pending',
       error_message: null,
@@ -265,6 +267,32 @@ describe('VariantFactory', () => {
       const createAssetCall = asMock(repo.createAsset).mock.calls[0];
       assert.strictEqual(createAssetCall.arguments[0].parentAssetId, 'parent-asset-1');
     });
+
+    test('propagates explicit media kind to asset, placeholder variant, and recipe', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Video Asset',
+          assetType: 'scene',
+          mediaKind: 'video',
+          prompt: 'Create an animated scene',
+        },
+        meta
+      );
+
+      assert.strictEqual(result.asset.media_kind, 'video');
+      assert.strictEqual(result.variant.media_kind, 'video');
+      assert.strictEqual(asMock(repo.createAsset).mock.calls[0].arguments[0].mediaKind, 'video');
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls[0].arguments[0].mediaKind, 'video');
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.strictEqual(recipe.mediaKind, 'video');
+    });
   });
 
   describe('createRefineVariant', () => {
@@ -300,6 +328,40 @@ describe('VariantFactory', () => {
       const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
       assert.strictEqual(recipe.operation, 'refine');
       assert.deepStrictEqual(recipe.sourceImageKeys, ['images/existing.png']);
+    });
+
+    test('inherits media kind from target asset when refining', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
+        id: 'asset-1',
+        name: 'Existing Audio',
+        type: 'reference',
+        media_kind: 'audio',
+        active_variant_id: 'existing-var',
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async () => ({
+        id: 'existing-var',
+        image_key: 'images/existing.png',
+      }));
+
+      const result = await factory.createRefineVariant(
+        {
+          assetId: 'asset-1',
+          prompt: 'Refine this audio reference',
+        },
+        meta
+      );
+
+      assert.strictEqual(result.variant.media_kind, 'audio');
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls[0].arguments[0].mediaKind, 'audio');
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.strictEqual(recipe.mediaKind, 'audio');
     });
 
     test('throws when asset not found', async () => {
@@ -396,6 +458,34 @@ describe('VariantFactory', () => {
       const workflowId = await factory.triggerWorkflow('req-1', 'var-1', result, meta, 'generate');
 
       assert.strictEqual(workflowId, null);
+    });
+  });
+
+  describe('createBatchVariants', () => {
+    test('propagates explicit media kind to batch assets and placeholders', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      const { results } = await factory.createBatchVariants(
+        {
+          name: 'Video Set',
+          assetType: 'scene',
+          mediaKind: 'video',
+          prompt: 'Create a set',
+          count: 2,
+          mode: 'set',
+        },
+        meta
+      );
+
+      assert.strictEqual(results.length, 2);
+      assert.ok(results.every((result) => result.asset.media_kind === 'video'));
+      assert.ok(results.every((result) => result.variant.media_kind === 'video'));
+      assert.ok(asMock(repo.createAsset).mock.calls.every((call) => call.arguments[0].mediaKind === 'video'));
+      assert.ok(asMock(repo.createPlaceholderVariant).mock.calls.every((call) => call.arguments[0].mediaKind === 'video'));
     });
   });
 });

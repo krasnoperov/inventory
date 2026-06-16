@@ -16,6 +16,7 @@ import type { Env } from '../../../../core/types';
 import { resolveImageModel } from '../../../services/nanoBananaService';
 import { PromptBuilder } from './PromptBuilder';
 import { loggers } from '../../../../shared/logger';
+import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../../../shared/websocket-types';
 
 const log = loggers.generationController;
 
@@ -27,6 +28,7 @@ const log = loggers.generationController;
 export interface GenerationRecipe {
   prompt: string;
   assetType: string;
+  mediaKind?: MediaKind;
   model?: string;
   aspectRatio?: string;
   imageSize?: string;
@@ -54,6 +56,8 @@ export interface CreateAssetVariantInput {
   name: string;
   /** Asset type (character, item, scene, etc.) */
   assetType: string;
+  /** Media kind for the asset and generated variants */
+  mediaKind?: MediaKind;
   /** Generation prompt */
   prompt?: string;
   /** Aspect ratio */
@@ -74,6 +78,8 @@ export interface CreateAssetVariantInput {
 export interface RefineVariantInput {
   /** Target asset ID */
   assetId: string;
+  /** Media kind override for the new variant */
+  mediaKind?: MediaKind;
   /** Refinement prompt */
   prompt: string;
   /** Aspect ratio */
@@ -151,6 +157,7 @@ export class VariantFactory {
       id: assetId,
       name: input.name,
       type: input.assetType,
+      mediaKind: input.mediaKind,
       tags: [],
       parentAssetId: effectiveParentAssetId,
       createdBy: meta.userId,
@@ -178,6 +185,7 @@ export class VariantFactory {
     let recipe: GenerationRecipe = {
       prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
       assetType: input.assetType,
+      mediaKind: input.mediaKind,
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
@@ -193,6 +201,7 @@ export class VariantFactory {
     const variant = await this.repo.createPlaceholderVariant({
       id: variantId,
       assetId,
+      mediaKind: input.mediaKind,
       recipe: JSON.stringify(recipe),
       createdBy: meta.userId,
       planStepId: input.planStepId,
@@ -252,6 +261,7 @@ export class VariantFactory {
     let recipe: GenerationRecipe = {
       prompt: input.prompt,
       assetType: asset.type,
+      mediaKind: input.mediaKind ?? asset.media_kind ?? DEFAULT_MEDIA_KIND,
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
@@ -267,6 +277,7 @@ export class VariantFactory {
     const variant = await this.repo.createPlaceholderVariant({
       id: variantId,
       assetId: input.assetId,
+      mediaKind: input.mediaKind ?? asset.media_kind ?? DEFAULT_MEDIA_KIND,
       recipe: JSON.stringify(recipe),
       createdBy: meta.userId,
       planStepId: input.planStepId,
@@ -325,6 +336,7 @@ export class VariantFactory {
       assetId: result.assetId,
       assetName: result.asset.name,
       assetType: recipe.assetType,
+      mediaKind: result.variant.media_kind ?? result.asset.media_kind ?? DEFAULT_MEDIA_KIND,
       model: recipe.model,
       aspectRatio: recipe.aspectRatio,
       imageSize: recipe.imageSize,
@@ -451,6 +463,7 @@ export class VariantFactory {
     let recipe: GenerationRecipe = {
       prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
       assetType: input.assetType,
+      mediaKind: input.mediaKind,
       model: resolveImageModel('flash'),
       aspectRatio: input.aspectRatio,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
@@ -483,6 +496,7 @@ export class VariantFactory {
         id: assetId,
         name: input.name,
         type: input.assetType,
+        mediaKind: input.mediaKind,
         tags: [],
         parentAssetId: effectiveParentAssetId,
         createdBy: meta.userId,
@@ -494,6 +508,7 @@ export class VariantFactory {
         const variant = await this.repo.createPlaceholderVariant({
           id: variantId,
           assetId,
+          mediaKind: input.mediaKind,
           recipe: recipeJson,
           createdBy: meta.userId,
           planStepId: input.planStepId,
@@ -533,6 +548,7 @@ export class VariantFactory {
           id: assetId,
           name: assetName,
           type: input.assetType,
+          mediaKind: input.mediaKind,
           tags: [],
           parentAssetId: effectiveParentAssetId,
           createdBy: meta.userId,
@@ -542,6 +558,7 @@ export class VariantFactory {
         const variant = await this.repo.createPlaceholderVariant({
           id: variantId,
           assetId,
+          mediaKind: input.mediaKind,
           recipe: recipeJson,
           createdBy: meta.userId,
           planStepId: input.planStepId,

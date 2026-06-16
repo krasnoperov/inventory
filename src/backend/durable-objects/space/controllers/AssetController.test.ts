@@ -21,6 +21,7 @@ function createMockAsset(overrides: Partial<Asset> = {}): Asset {
     id: 'asset-1',
     name: 'Test Asset',
     type: 'character',
+    media_kind: 'image',
     tags: '[]',
     parent_asset_id: null,
     active_variant_id: null,
@@ -35,6 +36,7 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
   return {
     id: 'variant-1',
     asset_id: 'asset-1',
+    media_kind: 'image',
     workflow_id: null,
     status: 'completed',
     error_message: null,
@@ -70,7 +72,7 @@ function createMockRepo(): SpaceRepository {
     getVariantById: mock.fn(async () => null),
     getLineageForVariants: mock.fn(async () => []),
     createAsset: mock.fn(async (input) =>
-      createMockAsset({ id: input.id, name: input.name, type: input.type })
+      createMockAsset({ id: input.id, name: input.name, type: input.type, media_kind: input.mediaKind ?? 'image' })
     ),
     updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
     deleteAsset: mock.fn(async () => {}),
@@ -328,6 +330,27 @@ describe('AssetController', () => {
 
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
       assert.strictEqual(createCall.createdBy, 'specific-user');
+    });
+
+    test('propagates explicit media kind', async () => {
+      const { ctx, broadcasts } = createMockContext();
+      const controller = new AssetController(ctx);
+
+      await controller.handleCreate(
+        {} as WebSocket,
+        createEditorMeta(),
+        'Video Asset',
+        'scene',
+        undefined,
+        'video'
+      );
+
+      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
+      assert.strictEqual(createCall.mediaKind, 'video');
+
+      const createBroadcast = broadcasts.find((b) => b.type === 'asset:created');
+      assert.ok(createBroadcast);
+      assert.strictEqual((createBroadcast as { asset: Asset }).asset.media_kind, 'video');
     });
   });
 
@@ -704,6 +727,39 @@ describe('AssetController', () => {
       assert.strictEqual(lineageCall.parentVariantId, 'source-var');
       assert.strictEqual(lineageCall.relationType, 'forked');
     });
+
+    test('uses explicit media kind for forked asset and source kind for copied variant', async () => {
+      const sourceVariant = createMockVariant({
+        id: 'source-var',
+        asset_id: 'source-asset',
+        media_kind: 'audio',
+      });
+
+      const { ctx, broadcasts } = createMockContext({
+        getVariantById: mock.fn(async () => sourceVariant),
+        updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
+      });
+      const controller = new AssetController(ctx);
+
+      await controller.handleFork(
+        {} as WebSocket,
+        createEditorMeta(),
+        undefined,
+        'source-var',
+        'Forked',
+        'character',
+        undefined,
+        'video'
+      );
+
+      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
+      assert.strictEqual(createCall.mediaKind, 'video');
+
+      const forkBroadcast = broadcasts.find((b) => b.type === 'asset:forked');
+      assert.ok(forkBroadcast);
+      assert.strictEqual((forkBroadcast as { asset: Asset }).asset.media_kind, 'video');
+      assert.strictEqual((forkBroadcast as { variant: Variant }).variant.media_kind, 'audio');
+    });
   });
 
   // ==========================================================================
@@ -754,6 +810,22 @@ describe('AssetController', () => {
 
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
       assert.strictEqual(createCall.parentAssetId, 'parent-id');
+    });
+
+    test('propagates media kind through HTTP create', async () => {
+      const { ctx } = createMockContext();
+      const controller = new AssetController(ctx);
+
+      const result = await controller.httpCreate({
+        name: 'HTTP Video Asset',
+        type: 'scene',
+        mediaKind: 'video',
+        createdBy: 'user-1',
+      });
+
+      assert.strictEqual(result.media_kind, 'video');
+      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
+      assert.strictEqual(createCall.mediaKind, 'video');
     });
   });
 
