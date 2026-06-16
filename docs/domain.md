@@ -53,7 +53,7 @@ Contract invariants:
 - New asset generation, batch generation, and upload may set `mediaKind` up front; the created asset, placeholder/completed variants, stored recipe, workflow input, WebSocket broadcasts, export payloads, and CLI/API inspection must preserve it.
 - `media_kind` does not select a provider by itself. Future audio and Google video flows should still enter through the website-controlled SpaceDO generation/upload lifecycle, set `mediaKind` explicitly, and choose the capable provider/model through generation provider/model fields.
 - CLI generation commands are currently image-only controller commands. Future CLI audio/video support should call the website API/WebSocket flow instead of creating local-only media records.
-- Legacy storage fields such as `image_key` and `thumb_key` still name the existing R2 artifact and preview keys. Future audio/video work must either preserve compatibility with those fields or introduce a documented storage migration before changing the payload contract.
+- Variants expose `media_key` as the canonical primary artifact key plus basic media metadata. Image flows still populate `image_key` and `thumb_key` for existing artifact and preview consumers.
 
 ### Lineage
 

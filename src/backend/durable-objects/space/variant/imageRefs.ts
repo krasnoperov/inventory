@@ -77,9 +77,10 @@ interface Recipe {
  * Extract all image keys that need ref counting for a variant.
  *
  * A variant references:
- * 1. Its own image_key (the generated image)
- * 2. Its own thumb_key (the thumbnail)
- * 3. Any input images from the recipe (source images used in generation)
+ * 1. Its own media_key (the canonical primary artifact)
+ * 2. Its own image_key (the legacy image artifact)
+ * 3. Its own thumb_key (the thumbnail)
+ * 4. Any input images from the recipe (source images used in generation)
  *
  * Note: Only call this for completed variants. Placeholder variants
  * (pending/failed) have null image keys and should not be ref-counted.
@@ -99,6 +100,7 @@ interface Recipe {
  * // Returns: ['images/space1/variant1.png', 'thumbs/space1/variant1.png', 'images/space1/source.png']
  */
 export function getVariantImageKeys(variant: {
+  media_key?: string | null;
   image_key: string | null;
   thumb_key: string | null;
   recipe: string;
@@ -106,6 +108,7 @@ export function getVariantImageKeys(variant: {
   const keys: string[] = [];
 
   // Only add keys that are not null (placeholder variants have null keys)
+  if (variant.media_key) keys.push(variant.media_key);
   if (variant.image_key) keys.push(variant.image_key);
   if (variant.thumb_key) keys.push(variant.thumb_key);
 

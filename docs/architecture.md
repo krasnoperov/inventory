@@ -67,6 +67,12 @@ CREATE TABLE variants (
   error_message TEXT,                   -- Error details when failed
   image_key TEXT,                       -- NULL until completed
   thumb_key TEXT,                       -- NULL until completed
+  media_key TEXT,                       -- Canonical primary media R2 key
+  media_mime_type TEXT,                 -- Primary media MIME type
+  media_size_bytes INTEGER,             -- Primary media byte size
+  media_width INTEGER,                  -- Image/video width when known
+  media_height INTEGER,                 -- Image/video height when known
+  media_duration_ms INTEGER,            -- Audio/video duration when known
   recipe TEXT NOT NULL,                 -- Full params for retry
   starred INTEGER NOT NULL DEFAULT 0,
   created_by TEXT NOT NULL,

@@ -140,8 +140,8 @@ export class TileController extends BaseController {
       const forkedVariantId = crypto.randomUUID();
       const now = Date.now();
       await this.sql.exec(
-        `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, media_key, media_mime_type, media_size_bytes, media_width, media_height, media_duration_ms, recipe, starred, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         forkedVariantId,
         tileAssetId,
         tileMediaKind,
@@ -150,6 +150,12 @@ export class TileController extends BaseController {
         null,
         seed.image_key,
         seed.thumb_key,
+        seed.media_key ?? seed.image_key,
+        seed.media_mime_type,
+        seed.media_size_bytes,
+        seed.media_width,
+        seed.media_height,
+        seed.media_duration_ms,
         seed.recipe,
         0,
         meta.userId,
@@ -803,6 +809,10 @@ export class TileController extends BaseController {
         const cellVariantId = crypto.randomUUID();
         let cellImageKey: string;
         let cellThumbKey: string;
+        let cellMimeType: string | null = variant.media_mime_type;
+        let cellSizeBytes: number | null = variant.media_size_bytes;
+        let cellWidth: number | null = variant.media_width;
+        let cellHeight: number | null = variant.media_height;
 
         if (isLocal) {
           // Local dev: all cells reference the grid image (frontend uses CSS background-position)
@@ -816,10 +826,15 @@ export class TileController extends BaseController {
           const { buffer, mimeType } = await sliceGridCell(
             gridImageUrl, col, row, gridWidth, gridHeight, imageWidth, imageHeight
           );
+          const dimensions = getImageDimensions(new Uint8Array(buffer));
 
           const ext = getExtensionForMimeType(mimeType as ImageMimeType);
           cellImageKey = `images/${this.spaceId}/${cellVariantId}.${ext}`;
           cellThumbKey = cellImageKey; // Cell is small enough to be its own thumbnail
+          cellMimeType = mimeType;
+          cellSizeBytes = buffer.byteLength;
+          cellWidth = dimensions?.width ?? null;
+          cellHeight = dimensions?.height ?? null;
 
           await this.env.IMAGES!.put(cellImageKey, buffer, {
             httpMetadata: { contentType: mimeType },
@@ -843,7 +858,13 @@ export class TileController extends BaseController {
           createdBy: tileSet.created_by,
         });
 
-        const completedVariant = await this.repo.completeVariant(cellVariantId, cellImageKey, cellThumbKey);
+        const completedVariant = await this.repo.completeVariant(cellVariantId, cellImageKey, cellThumbKey, {
+          mediaKey: cellImageKey,
+          mimeType: cellMimeType,
+          sizeBytes: cellSizeBytes,
+          width: cellWidth,
+          height: cellHeight,
+        });
         if (completedVariant) {
           this.broadcast({ type: 'variant:created', variant: completedVariant });
         }

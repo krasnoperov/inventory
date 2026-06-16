@@ -78,6 +78,12 @@ export interface Variant {
   error_message: string | null; // Error details when status='failed'
   image_key: string | null; // R2 key, null until generation completes
   thumb_key: string | null; // R2 key for thumbnail, null until generation completes
+  media_key: string | null; // Canonical R2 key for the primary media artifact
+  media_mime_type: string | null; // MIME type for the primary media artifact
+  media_size_bytes: number | null; // Byte size for the primary media artifact
+  media_width: number | null; // Pixel width for image/video artifacts
+  media_height: number | null; // Pixel height for image/video artifacts
+  media_duration_ms: number | null; // Duration for time-based media artifacts
   recipe: string; // JSON - generation parameters stored upfront for retry
   starred: boolean; // User marks important versions
   created_by: string;

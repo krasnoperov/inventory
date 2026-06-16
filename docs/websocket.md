@@ -154,10 +154,10 @@ CLI generation commands are currently image-only controller commands. Future
 CLI audio/video support should drive this same website API/WebSocket flow rather
 than creating local-only media records.
 
-Legacy artifact fields remain named `image_key` and `thumb_key` in variant
-payloads. New audio/video work must either remain compatible with those fields
-for stored artifact and preview keys or document and migrate the payload shape
-before changing it.
+Variant payloads expose `media_key` as the canonical primary artifact key plus
+basic metadata: `media_mime_type`, `media_size_bytes`, `media_width`,
+`media_height`, and `media_duration_ms`. Image flows continue to populate
+legacy `image_key` and `thumb_key` fields for existing consumers.
 
 ---
 

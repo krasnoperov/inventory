@@ -91,6 +91,12 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       media_kind?: MediaKind;
       image_key: string;
       thumb_key: string;
+      media_key?: string | null;
+      media_mime_type?: string | null;
+      media_size_bytes?: number | null;
+      media_width?: number | null;
+      media_height?: number | null;
+      media_duration_ms?: number | null;
       recipe: string;
       created_at: number;
     }>;

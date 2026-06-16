@@ -80,6 +80,12 @@ export interface InternalApiControllers {
       variantId: string;
       imageKey: string;
       thumbKey: string;
+      mediaKey?: string | null;
+      mediaMimeType?: string | null;
+      mediaSizeBytes?: number | null;
+      mediaWidth?: number | null;
+      mediaHeight?: number | null;
+      mediaDurationMs?: number | null;
     }): Promise<{ variant: Variant }>;
     httpFailUpload(data: {
       variantId: string;
@@ -109,6 +115,12 @@ export interface InternalApiControllers {
       variantId: string;
       imageKey: string;
       thumbKey: string;
+      mediaKey?: string | null;
+      mediaMimeType?: string | null;
+      mediaSizeBytes?: number | null;
+      mediaWidth?: number | null;
+      mediaHeight?: number | null;
+      mediaDurationMs?: number | null;
     }): Promise<{ success: boolean; variant: Variant }>;
     httpFailVariant(data: {
       variantId: string;
@@ -265,6 +277,12 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       variantId: string;
       imageKey: string;
       thumbKey: string;
+      mediaKey?: string | null;
+      mediaMimeType?: string | null;
+      mediaSizeBytes?: number | null;
+      mediaWidth?: number | null;
+      mediaHeight?: number | null;
+      mediaDurationMs?: number | null;
     };
     const result = await controllers.variant.httpCompleteUpload(data);
     return c.json(result);
@@ -334,6 +352,12 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       variantId: string;
       imageKey: string;
       thumbKey: string;
+      mediaKey?: string | null;
+      mediaMimeType?: string | null;
+      mediaSizeBytes?: number | null;
+      mediaWidth?: number | null;
+      mediaHeight?: number | null;
+      mediaDurationMs?: number | null;
     };
     const result = await controllers.generation.httpCompleteVariant(data);
     return c.json(result);
