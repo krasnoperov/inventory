@@ -36,6 +36,7 @@ import {
 import { CustomModelProvider } from '../services/customModelProvider';
 import { FakeImageProvider } from '../services/fakeImageProvider';
 import type { ImageGenerationProvider } from '../services/imageProvider';
+import { FakeAudioProvider } from '../services/fakeAudioProvider';
 import {
   detectImageType,
   base64ToBuffer,
@@ -46,6 +47,7 @@ import {
   getImageDimensions,
 } from '../utils/image-utils';
 import { loggers } from '../../shared/logger';
+import { DEFAULT_MEDIA_KIND } from '../../shared/websocket-types';
 
 const log = loggers.generationWorkflow;
 
@@ -64,15 +66,27 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       operation,
       styleImageKeys,
       modelProvider,
+      mediaKind: requestedMediaKind,
     } = event.payload;
+    const mediaKind = requestedMediaKind ?? DEFAULT_MEDIA_KIND;
 
     const refCount = sourceImageKeys?.length || 0;
-    log.info('Starting workflow', { requestId, jobId, spaceId, assetName, operation, refCount });
+    log.info('Starting workflow', { requestId, jobId, spaceId, assetName, operation, mediaKind, refCount });
 
     // Step 1: Update variant status to processing via DO
     await step.do('update-variant-processing', async () => {
       await this.updateVariantStatus(spaceId, jobId, 'processing');
     });
+
+    if (mediaKind === 'audio') {
+      return this.runAudioWorkflow(event, step);
+    }
+
+    if (mediaKind !== 'image') {
+      const error = `Generation workflow does not support ${mediaKind} media`;
+      await this.handleFailure(spaceId, jobId, requestId, error);
+      return { requestId, jobId, success: false, error };
+    }
 
     // Step 2: Generate image with retries
     // Note: Source images are fetched inside this step to avoid persisting large blobs
@@ -396,6 +410,141 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     // The complete-variant endpoint broadcasts variant:updated to all connected clients
 
     log.info('Completed workflow', { requestId, jobId, spaceId, assetName, operation, variantId });
+
+    return {
+      requestId,
+      jobId,
+      success: true,
+      variant,
+    };
+  }
+
+  private async runAudioWorkflow(
+    event: WorkflowEvent<GenerationWorkflowInput>,
+    step: WorkflowStep
+  ): Promise<GenerationWorkflowOutput> {
+    const {
+      requestId,
+      jobId,
+      spaceId,
+      prompt,
+      assetName,
+      model,
+      operation,
+      sourceImageKeys,
+    } = event.payload;
+
+    if (sourceImageKeys?.length) {
+      const error = 'Audio generation does not support image references yet';
+      await this.handleFailure(spaceId, jobId, requestId, error);
+      return { requestId, jobId, success: false, error };
+    }
+
+    const variantId = jobId;
+    let mediaKey: string;
+    let mediaMimeType: string;
+    let mediaSizeBytes: number;
+    let mediaDurationMs: number | null;
+
+    try {
+      const uploadResult = await step.do('generate-and-upload-audio', {
+        retries: { limit: 2, delay: '3 seconds' },
+        timeout: '2 minutes',
+      }, async () => {
+        if (!this.env.IMAGES) {
+          throw new Error('IMAGES R2 bucket not configured');
+        }
+        if (this.env.INVENTORY_AUDIO_PROVIDER !== 'fake') {
+          throw new NonRetryableError('INVENTORY_AUDIO_PROVIDER=fake is required for audio generation');
+        }
+
+        const provider = new FakeAudioProvider();
+        const timer = log.startTimer('Fake audio generation', {
+          requestId, jobId, spaceId, operation, model: model || 'fake-audio-v1',
+        });
+
+        try {
+          const result = await provider.generate({ prompt, model });
+          const key = `media/${spaceId}/${variantId}.wav`;
+          await this.env.IMAGES.put(key, result.audioData, {
+            httpMetadata: { contentType: result.audioMimeType },
+          });
+          timer(true, {
+            mediaKey: key,
+            totalBytes: result.audioData.byteLength,
+            durationMs: result.durationMs,
+          });
+          return {
+            mediaKey: key,
+            mediaMimeType: result.audioMimeType,
+            mediaSizeBytes: result.audioData.byteLength,
+            mediaDurationMs: result.durationMs,
+          };
+        } catch (error) {
+          timer(false, { error: error instanceof Error ? error.message : String(error) });
+          throw error;
+        }
+      });
+
+      mediaKey = uploadResult.mediaKey;
+      mediaMimeType = uploadResult.mediaMimeType;
+      mediaSizeBytes = uploadResult.mediaSizeBytes;
+      mediaDurationMs = uploadResult.mediaDurationMs;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Audio generation failed';
+      log.error('Audio generation error', { requestId, jobId, spaceId, error: errorMessage });
+      await this.handleFailure(spaceId, jobId, requestId, errorMessage);
+      return { requestId, jobId, success: false, error: errorMessage };
+    }
+
+    let variant: GeneratedVariant;
+    try {
+      variant = await step.do('complete-audio-variant', async () => {
+        if (!this.env.SPACES_DO) {
+          throw new Error('SPACES_DO not configured');
+        }
+
+        const timer = log.startTimer('DO completeAudioVariant', { requestId, jobId, spaceId, variantId });
+
+        try {
+          const doId = this.env.SPACES_DO.idFromName(spaceId);
+          const doStub = this.env.SPACES_DO.get(doId);
+
+          const response = await doStub.fetch(new Request('http://do/internal/complete-variant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              variantId,
+              imageKey: null,
+              thumbKey: null,
+              mediaKey,
+              mediaMimeType,
+              mediaSizeBytes,
+              mediaDurationMs,
+            }),
+          }));
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`DO complete-variant failed (${response.status}): ${errorText}`);
+          }
+
+          const result = await response.json<{ success: boolean; variant: GeneratedVariant }>();
+          timer(true);
+          return result.variant;
+        } catch (error) {
+          timer(false, { error: error instanceof Error ? error.message : String(error) });
+          throw error;
+        }
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to complete audio variant';
+      log.error('Complete audio variant error', { requestId, jobId, spaceId, error: errorMessage });
+      await this.handleFailure(spaceId, jobId, requestId, errorMessage);
+      return { requestId, jobId, success: false, error: errorMessage };
+    }
+
+    log.info('Completed audio workflow', { requestId, jobId, spaceId, assetName, operation, variantId });
 
     return {
       requestId,

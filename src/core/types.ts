@@ -50,6 +50,7 @@ export interface Env {
   // AI services (for NanoBananaService and future use)
   GOOGLE_AI_API_KEY?: string;
   INVENTORY_IMAGE_PROVIDER?: 'fake' | 'gemini';
+  INVENTORY_AUDIO_PROVIDER?: 'fake';
   AI?: Ai;
   AI_GATEWAY_URL?: string;
 

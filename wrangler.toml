@@ -45,6 +45,7 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "stage"
 ENVIRONMENT = "stage"
 POLAR_ENVIRONMENT = "sandbox"
+INVENTORY_AUDIO_PROVIDER = "fake"
 # Comma-separated user IDs allowed to access billing admin routes
 ADMIN_USER_IDS = ""
 

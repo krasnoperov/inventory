@@ -629,6 +629,10 @@ export class VariantFactory {
     sourceImageKeys: string[];
     styleImageKeys?: string[];
   }> {
+    if ((recipe.mediaKind ?? DEFAULT_MEDIA_KIND) !== 'image') {
+      return { recipe, sourceImageKeys };
+    }
+
     // If explicitly disabled, mark and return unchanged
     if (disableStyle) {
       return {

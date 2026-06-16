@@ -35,6 +35,7 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 [vars]
 NODE_ENV = "stage"
 ENVIRONMENT = "stage"
+INVENTORY_AUDIO_PROVIDER = "fake"
 
 # Cloudflare Workflows - Generation
 [[workflows]]

@@ -434,23 +434,24 @@ export class SpaceRepository {
   }
 
   /**
-   * Complete a variant with generated images.
-   * Increments refs for all images (image_key, thumb_key, recipe inputs).
+   * Complete a variant with generated media.
+   * Increments refs for all stored media/image keys and recipe inputs.
    */
   async completeVariant(
     variantId: string,
-    imageKey: string,
-    thumbKey: string,
+    imageKey: string | null,
+    thumbKey: string | null,
     mediaMetadata: VariantMediaMetadata = {}
   ): Promise<Variant | null> {
     const existing = await this.getVariantById(variantId);
     if (!existing) return null;
+    const mediaKey = mediaMetadata.mediaKey ?? imageKey;
 
     await this.sql.exec(
       VariantQueries.COMPLETE,
       imageKey,
       thumbKey,
-      mediaMetadata.mediaKey ?? imageKey,
+      mediaKey,
       mediaMetadata.mimeType ?? null,
       mediaMetadata.sizeBytes ?? null,
       mediaMetadata.width ?? null,
@@ -462,7 +463,7 @@ export class SpaceRepository {
 
     // Increment refs for new images
     const imageKeys = getVariantImageKeys({
-      media_key: mediaMetadata.mediaKey ?? imageKey,
+      media_key: mediaKey,
       image_key: imageKey,
       thumb_key: thumbKey,
       recipe: existing.recipe,
