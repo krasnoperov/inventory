@@ -1,4 +1,4 @@
-import type { Hono } from 'hono';
+import type { OpenAPIHono } from '@hono/zod-openapi';
 import type { Bindings } from '../index';
 import type { createContainer } from '../../core/container';
 
@@ -10,4 +10,4 @@ export type AppContext = {
   };
 };
 
-export type AppType = Hono<AppContext>;
+export type AppType = OpenAPIHono<AppContext>;

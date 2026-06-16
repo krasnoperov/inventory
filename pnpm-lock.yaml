@@ -14,6 +14,9 @@ importers:
       '@google/genai':
         specifier: ^1.30.0
         version: 1.52.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))
+      '@hono/zod-openapi':
+        specifier: ^1.4.0
+        version: 1.4.0(hono@4.12.25)(zod@4.4.3)
       '@openai/agents':
         specifier: ^0.3.3
         version: 0.3.9(ws@8.21.0)(zod@4.4.3)
@@ -89,6 +92,9 @@ importers:
       ws:
         specifier: ^8.21.0
         version: 8.21.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
       zustand:
         specifier: ^5.0.8
         version: 5.0.14(@types/react@19.2.17)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7))
@@ -98,7 +104,7 @@ importers:
         version: 1.2.2
       '@cloudflare/vite-plugin':
         specifier: ^1.39.0
-        version: 1.39.0(vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.3))(workerd@1.20260526.1)(wrangler@4.95.0(@cloudflare/workers-types@4.20260317.1))
+        version: 1.39.0(vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.3)(yaml@2.9.0))(workerd@1.20260526.1)(wrangler@4.95.0(@cloudflare/workers-types@4.20260317.1))
       '@cloudflare/workers-types':
         specifier: 4.20260317.1
         version: 4.20260317.1
@@ -131,7 +137,7 @@ importers:
         version: 8.18.1
       '@vitejs/plugin-react':
         specifier: ^5.1.1
-        version: 5.2.0(vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.3))
+        version: 5.2.0(vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.3)(yaml@2.9.0))
       eslint:
         specifier: ^9.39.1
         version: 9.39.4
@@ -173,7 +179,7 @@ importers:
         version: 8.61.0(eslint@9.39.4)(typescript@5.9.3)
       vite:
         specifier: ^8.0.14
-        version: 8.0.14(@types/node@24.13.2)(esbuild@0.27.3)
+        version: 8.0.14(@types/node@24.13.2)(esbuild@0.27.3)(yaml@2.9.0)
       wrangler:
         specifier: 4.95.0
         version: 4.95.0(@cloudflare/workers-types@4.20260317.1)
@@ -188,6 +194,11 @@ packages:
     peerDependenciesMeta:
       zod:
         optional: true
+
+  '@asteasolutions/zod-to-openapi@8.5.0':
+    resolution: {integrity: sha512-SABbKiObg5dLRiTFnqiW1WWwGcg1BJfmHtT2asIBnBHg6Smy/Ms2KHc650+JI4Hw7lSkdiNebEGXpwoxfben8Q==}
+    peerDependencies:
+      zod: ^4.0.0
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -884,6 +895,19 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
+
+  '@hono/zod-openapi@1.4.0':
+    resolution: {integrity: sha512-AFchqR1N/NxfI4hUOSGI2/g8zLROxA1OE7Oh5JJFlTaGxhrdRyH+93gd0tIBpb0z8s9r8hUoNnaOBfHbdb4NMw==}
+    engines: {node: '>=16.0.0'}
+    peerDependencies:
+      hono: '>=4.10.0'
+      zod: ^4.0.0
+
+  '@hono/zod-validator@0.8.0':
+    resolution: {integrity: sha512-5uS4S1/LKtZQYvD4BtpPUFkOv8d1wNxHHrChm26buMiEYc1FrHWvDUaKVBwkiVtvSExHSpLGDvcnpI2Copyj9w==}
+    peerDependencies:
+      hono: '>=4.10.0'
+      zod: ^3.25.0 || ^4.0.0
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -3112,6 +3136,9 @@ packages:
       zod:
         optional: true
 
+  openapi3-ts@4.6.0:
+    resolution: {integrity: sha512-a4sfn6L2sIShhtzJqmjGrARvxAW/3F2BJDdyRVvNF9VhAsZSh5hSyI3a9TNvmzBxXmq66nY5LNT5bQcBxYAZZg==}
+
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -3962,6 +3989,11 @@ packages:
   yallist@3.1.1:
     resolution: {integrity: sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==}
 
+  yaml@2.9.0:
+    resolution: {integrity: sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
   yargs-parser@21.1.1:
     resolution: {integrity: sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==}
     engines: {node: '>=12'}
@@ -4036,6 +4068,11 @@ snapshots:
     dependencies:
       json-schema-to-ts: 3.1.1
     optionalDependencies:
+      zod: 4.4.3
+
+  '@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3)':
+    dependencies:
+      openapi3-ts: 4.6.0
       zod: 4.4.3
 
   '@babel/code-frame@7.29.7':
@@ -4162,12 +4199,12 @@ snapshots:
     optionalDependencies:
       workerd: 1.20260526.1
 
-  '@cloudflare/vite-plugin@1.39.0(vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.3))(workerd@1.20260526.1)(wrangler@4.95.0(@cloudflare/workers-types@4.20260317.1))':
+  '@cloudflare/vite-plugin@1.39.0(vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.3)(yaml@2.9.0))(workerd@1.20260526.1)(wrangler@4.95.0(@cloudflare/workers-types@4.20260317.1))':
     dependencies:
       '@cloudflare/unenv-preset': 2.16.1(unenv@2.0.0-rc.24)(workerd@1.20260526.1)
       miniflare: 4.20260526.0
       unenv: 2.0.0-rc.24
-      vite: 8.0.14(@types/node@24.13.2)(esbuild@0.27.3)
+      vite: 8.0.14(@types/node@24.13.2)(esbuild@0.27.3)(yaml@2.9.0)
       wrangler: 4.95.0(@cloudflare/workers-types@4.20260317.1)
       ws: 8.20.1
     transitivePeerDependencies:
@@ -4690,6 +4727,19 @@ snapshots:
     dependencies:
       hono: 4.12.25
     optional: true
+
+  '@hono/zod-openapi@1.4.0(hono@4.12.25)(zod@4.4.3)':
+    dependencies:
+      '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
+      '@hono/zod-validator': 0.8.0(hono@4.12.25)(zod@4.4.3)
+      hono: 4.12.25
+      openapi3-ts: 4.6.0
+      zod: 4.4.3
+
+  '@hono/zod-validator@0.8.0(hono@4.12.25)(zod@4.4.3)':
+    dependencies:
+      hono: 4.12.25
+      zod: 4.4.3
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -5388,7 +5438,7 @@ snapshots:
 
   '@ungap/structured-clone@1.3.1': {}
 
-  '@vitejs/plugin-react@5.2.0(vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.3))':
+  '@vitejs/plugin-react@5.2.0(vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.3)(yaml@2.9.0))':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7)
@@ -5396,7 +5446,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-rc.3
       '@types/babel__core': 7.20.5
       react-refresh: 0.18.0
-      vite: 8.0.14(@types/node@24.13.2)(esbuild@0.27.3)
+      vite: 8.0.14(@types/node@24.13.2)(esbuild@0.27.3)(yaml@2.9.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -7193,6 +7243,10 @@ snapshots:
       ws: 8.21.0
       zod: 4.4.3
 
+  openapi3-ts@4.6.0:
+    dependencies:
+      yaml: 2.9.0
+
   optionator@0.9.4:
     dependencies:
       deep-is: 0.1.4
@@ -8194,7 +8248,7 @@ snapshots:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
 
-  vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.3):
+  vite@8.0.14(@types/node@24.13.2)(esbuild@0.27.3)(yaml@2.9.0):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -8205,6 +8259,7 @@ snapshots:
       '@types/node': 24.13.2
       esbuild: 0.27.3
       fsevents: 2.3.3
+      yaml: 2.9.0
 
   web-streams-polyfill@3.3.3: {}
 
@@ -8296,6 +8351,8 @@ snapshots:
   y18n@5.0.8: {}
 
   yallist@3.1.1: {}
+
+  yaml@2.9.0: {}
 
   yargs-parser@21.1.1: {}
 

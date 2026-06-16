@@ -1,23 +1,30 @@
-import { Hono } from 'hono';
-import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { SpaceDAO } from '../../dao/space-dao';
 import { MemberDAO } from '../../dao/member-dao';
+import { createOpenApiRouter, toApiSpace } from './openapi';
+import {
+  deleteSpaceRoute,
+  getSpaceRoute,
+  listSpaceAssetsRoute,
+  listSpacesRoute,
+  postSpaceRoute,
+} from '../../shared/api/routes';
+import { ListSpaceAssetsResponseSchema, type Space } from '../../shared/api/schemas';
 
-const spaceRoutes = new Hono<AppContext>();
+const spaceRoutes = createOpenApiRouter();
 
 // All space routes require authentication
 spaceRoutes.use('/api/spaces/*', authMiddleware);
 
 // POST /api/spaces - Create space
-spaceRoutes.post('/api/spaces', async (c) => {
+spaceRoutes.openapi(postSpaceRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const container = c.get('container');
   const spaceDAO = container.get(SpaceDAO);
   const memberDAO = container.get(MemberDAO);
 
   // Get and validate request body
-  const body = await c.req.json();
+  const body = c.req.valid('json');
   const { name } = body;
 
   if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -45,19 +52,13 @@ spaceRoutes.post('/api/spaces', async (c) => {
   });
 
   return c.json({
-    success: true,
-    space: {
-      id: space.id,
-      name: space.name,
-      owner_id: space.owner_id,
-      role: 'owner', // Creator is always the owner
-      created_at: space.created_at,
-    },
+    success: true as const,
+    space: toApiSpace(space, 'owner'), // Creator is always the owner
   }, 201);
 });
 
 // GET /api/spaces - List user's spaces
-spaceRoutes.get('/api/spaces', async (c) => {
+spaceRoutes.openapi(listSpacesRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const spaceDAO = c.get('container').get(SpaceDAO);
 
@@ -65,25 +66,19 @@ spaceRoutes.get('/api/spaces', async (c) => {
   const spaces = await spaceDAO.getSpacesForUser(userId);
 
   return c.json({
-    success: true,
-    spaces: spaces.map(space => ({
-      id: space.id,
-      name: space.name,
-      owner_id: space.owner_id,
-      role: space.role,
-      created_at: space.created_at,
-    })),
-  });
+    success: true as const,
+    spaces: spaces.map(space => toApiSpace(space, space.role as Space['role'])),
+  }, 200);
 });
 
 // GET /api/spaces/:id - Get space (D1 metadata)
-spaceRoutes.get('/api/spaces/:id', async (c) => {
+spaceRoutes.openapi(getSpaceRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const container = c.get('container');
   const spaceDAO = container.get(SpaceDAO);
   const memberDAO = container.get(MemberDAO);
 
-  const spaceId = c.req.param('id');
+  const { id: spaceId } = c.req.valid('param');
 
   // Check if user is a member of this space
   const member = await memberDAO.getMember(spaceId, userId);
@@ -98,25 +93,19 @@ spaceRoutes.get('/api/spaces/:id', async (c) => {
   }
 
   return c.json({
-    success: true,
-    space: {
-      id: space.id,
-      name: space.name,
-      owner_id: space.owner_id,
-      role: member.role,
-      created_at: space.created_at,
-    },
-  });
+    success: true as const,
+    space: toApiSpace(space, member.role),
+  }, 200);
 });
 
 // GET /api/spaces/:id/assets - List all assets in a space
-spaceRoutes.get('/api/spaces/:id/assets', async (c) => {
+spaceRoutes.openapi(listSpaceAssetsRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const container = c.get('container');
   const memberDAO = container.get(MemberDAO);
   const env = c.env;
 
-  const spaceId = c.req.param('id');
+  const { id: spaceId } = c.req.valid('param');
 
   // Check if user is a member of this space
   const member = await memberDAO.getMember(spaceId, userId);
@@ -142,20 +131,22 @@ spaceRoutes.get('/api/spaces/:id/assets', async (c) => {
 
   const state = await doResponse.json() as { assets: unknown[] };
 
-  return c.json({
-    success: true,
+  const payload = ListSpaceAssetsResponseSchema.parse({
+    success: true as const,
     assets: state.assets,
   });
+
+  return c.json(payload, 200);
 });
 
 // DELETE /api/spaces/:id - Delete space (owner only)
-spaceRoutes.delete('/api/spaces/:id', async (c) => {
+spaceRoutes.openapi(deleteSpaceRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const container = c.get('container');
   const spaceDAO = container.get(SpaceDAO);
   const memberDAO = container.get(MemberDAO);
 
-  const spaceId = c.req.param('id');
+  const { id: spaceId } = c.req.valid('param');
 
   // Get space to verify ownership
   const space = await spaceDAO.getSpaceById(spaceId);
@@ -176,9 +167,9 @@ spaceRoutes.delete('/api/spaces/:id', async (c) => {
   }
 
   return c.json({
-    success: true,
+    success: true as const,
     message: 'Space deleted successfully',
-  });
+  }, 200);
 });
 
 export { spaceRoutes };

@@ -168,3 +168,23 @@ export function isLimitErrorResponse(response: unknown): response is LimitErrorR
       (response as LimitErrorResponse).denyReason === 'rate_limited')
   );
 }
+
+export type {
+  ApiUser,
+  AuthGoogleResponse,
+  AuthSessionResponse,
+  CreateSpaceRequest,
+  CreateSpaceResponse,
+  DeleteSpaceResponse,
+  GetSpaceResponse,
+  GoogleAuthRequest,
+  ListSpaceAssetsResponse,
+  ListSpacesResponse,
+  Space,
+  SuccessResponse,
+  UpdateUserProfileRequest,
+  UpdateUserSettingsRequest,
+  UserProfile,
+  UserProfileUpdateResponse,
+  UserSettingsResponse,
+} from '../shared/api/schemas';

@@ -1,9 +1,17 @@
 import { inject, injectable } from 'inversify';
 import { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import type { TypedResponse } from 'hono';
 import { AuthController } from './auth-controller';
 import { AuthService } from './auth-service';
 import { createAuthCookie, clearAuthCookie, getAuthToken } from '../../auth';
+import type {
+  AuthGoogleResponse,
+  AuthSessionResponse,
+  ErrorResponse,
+  SuccessResponse,
+} from '../../../shared/api/schemas';
+import { toApiUser } from '../../routes/openapi';
 import {
   consumeAuthorizationCode,
   consumeAuthorizationRequest,
@@ -298,7 +306,11 @@ export class AuthHandler {
     return clientNames[clientId] || clientId;
   }
 
-  async googleAuth(c: Context): Promise<Response> {
+  async googleAuth(c: Context): Promise<
+    | TypedResponse<AuthGoogleResponse, 200, 'json'>
+    | TypedResponse<ErrorResponse, 400, 'json'>
+    | TypedResponse<ErrorResponse, 500, 'json'>
+  > {
     try {
       const { access_token } = await c.req.json();
 
@@ -308,13 +320,13 @@ export class AuthHandler {
 
       const result = await this.authController.authenticateWithGoogle(access_token);
 
-      if (!result.success || !result.token) {
+      if (!result.success || !result.token || !result.user) {
         return c.json({ error: result.error || "Authentication failed" }, 500);
       }
 
       c.header("Set-Cookie", createAuthCookie(result.token));
 
-      return c.json({ success: true, user: result.user });
+      return c.json({ success: true, user: toApiUser(result.user) }, 200);
     } catch (error) {
       console.error("Auth handler error:", error);
       return c.json({ error: "Authentication failed" }, 500);
@@ -389,27 +401,14 @@ export class AuthHandler {
     }
   }
 
-  async logout(c: Context): Promise<Response> {
+  async logout(c: Context): Promise<TypedResponse<SuccessResponse, 200, 'json'>> {
     c.header("Set-Cookie", clearAuthCookie());
-    return c.json({ success: true });
+    return c.json({ success: true }, 200);
   }
 
-  async getSession(c: Context): Promise<Response> {
+  async getSession(c: Context): Promise<TypedResponse<AuthSessionResponse, 200, 'json'>> {
     // Always return 200 with session data
-    const sessionData: {
-      user: {
-        id: number;
-        email: string;
-        name: string;
-        google_id: string | null;
-        created_at: string;
-        updated_at: string;
-      } | null;
-      config: {
-        googleClientId: string;
-        environment: string;
-      };
-    } = {
+    const sessionData: AuthSessionResponse = {
       user: null,
       config: {
         googleClientId: c.env.GOOGLE_CLIENT_ID || '',
@@ -429,13 +428,13 @@ export class AuthHandler {
       if (payload) {
         const result = await this.authController.getCurrentUser(payload.userId);
         if (!result.error && result.user) {
-          sessionData.user = result.user;
+          sessionData.user = toApiUser(result.user);
         }
       }
     }
 
     // Always return 200 with session data
-    return c.json(sessionData);
+    return c.json(sessionData, 200);
   }
 
   private async parseOAuthRequest(c: Context): Promise<{

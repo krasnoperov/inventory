@@ -2,7 +2,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { type User } from '../contexts/AuthContext';
+import { apiFetch } from '../../api/client';
 import { FormContainer, FormTitle } from '../components/forms';
 import styles from './LoginPage.module.css';
 
@@ -15,24 +15,14 @@ export default function LoginPage() {
     onSuccess: async (tokenResponse) => {
       console.log('Google login success, token received:', tokenResponse);
       try {
-        const response = await fetch('/api/auth/google', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        const data = await apiFetch('POST /api/auth/google', {
+          json: {
             access_token: tokenResponse.access_token,
-          }),
-          credentials: 'include',
+          },
         });
 
-        if (response.ok) {
-          const data = await response.json() as { user: User };
-          login(data.user);
-          navigate('/');
-        } else {
-          console.error('Authentication failed');
-        }
+        login(data.user);
+        navigate('/');
       } catch (error) {
         console.error('Error during authentication:', error);
       }
