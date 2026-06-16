@@ -54,6 +54,7 @@ Contract invariants:
 - `media_kind` does not select a provider by itself. Future audio and Google video flows should still enter through the website-controlled SpaceDO generation/upload lifecycle, set `mediaKind` explicitly, and choose the capable provider/model through generation provider/model fields.
 - CLI generation commands are currently image-only controller commands. Future CLI audio/video support should call the website API/WebSocket flow instead of creating local-only media records.
 - Variants expose `media_key` as the canonical primary artifact key plus basic media metadata. Image flows still populate `image_key` and `thumb_key` for existing artifact and preview consumers.
+- Authenticated API clients should retrieve canonical artifacts via `GET /api/spaces/:spaceId/variants/:variantId/media`, not by dereferencing raw R2 keys. A future `poster_key` artifact can use the sibling `/poster` endpoint when the field exists.
 
 ### Lineage
 

@@ -159,6 +159,12 @@ basic metadata: `media_mime_type`, `media_size_bytes`, `media_width`,
 `media_height`, and `media_duration_ms`. Image flows continue to populate
 legacy `image_key` and `thumb_key` fields for existing consumers.
 
+Authenticated callers can download or preview the canonical artifact through
+`GET /api/spaces/:spaceId/variants/:variantId/media`, which resolves the
+variant's stored `media_key` after membership checks. A future `poster_key`
+field, when present, is served through
+`GET /api/spaces/:spaceId/variants/:variantId/poster`.
+
 ---
 
 ## Server → Client Messages

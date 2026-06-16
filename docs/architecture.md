@@ -44,7 +44,7 @@
 | Assets, Variants, Lineage | DO SQLite | Per-space. Authoritative. Real-time via WebSocket. |
 | Users, Spaces, Members | D1 | Global. Auth and access control. |
 | Chat Messages | DO SQLite | Per-space conversation history. |
-| Media artifacts | R2 | Existing image path format: `images/{spaceId}/{variantId}.{ext}`; generic media keys are served at `/api/media/{media_key}`. |
+| Media artifacts | R2 | Existing image path format: `images/{spaceId}/{variantId}.{ext}`; authenticated generic artifacts are served through `/api/spaces/{spaceId}/variants/{variantId}/media`. |
 | Usage Events | D1 | Billing tracking for Polar.sh. |
 
 ### Variant Schema
@@ -80,6 +80,11 @@ CREATE TABLE variants (
   updated_at INTEGER
 );
 ```
+
+Clients should retrieve the canonical artifact through the authenticated
+variant media API (`GET /api/spaces/:spaceId/variants/:variantId/media`) rather
+than dereferencing raw R2 keys. The sibling `/poster` endpoint is reserved for
+a future `poster_key` artifact when video poster storage is added.
 
 ---
 
