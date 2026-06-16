@@ -18,6 +18,7 @@ import { HeaderNav } from '../components/HeaderNav';
 import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { AssetCanvas, layoutAlgorithms, type LayoutAlgorithm } from '../components/AssetCanvas';
+import { HyperbolicCanvas } from '../components/HyperbolicCanvas';
 import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -209,6 +210,9 @@ export default function SpacePage() {
 
   // Layout algorithm state
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('dagre');
+
+  // Canvas view mode: React Flow graph vs. hyperbolic Poincaré-disk (prototype)
+  const [viewMode, setViewMode] = useState<'flow' | 'hyperbolic'>('flow');
 
   useEffect(() => {
     if (!user) {
@@ -428,18 +432,30 @@ export default function SpacePage() {
       {/* Full-screen canvas container */}
       <div className={styles.canvasContainer}>
         {/* Asset Canvas - fills entire container */}
-        <AssetCanvas
-          spaceId={spaceId}
-          assets={assets}
-          variants={variants}
-          jobs={jobs}
-          onAssetClick={(clickedAsset) => {
-            navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
-          }}
-          onAddToTray={canEdit ? handleAddToTray : undefined}
-          onReparent={canEdit ? handleReparent : undefined}
-          layoutAlgorithm={layoutAlgorithm}
-        />
+        {viewMode === 'hyperbolic' ? (
+          <HyperbolicCanvas
+            spaceId={spaceId}
+            assets={assets}
+            variants={variants}
+            jobs={jobs}
+            onAssetClick={(clickedAsset) => {
+              navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
+            }}
+          />
+        ) : (
+          <AssetCanvas
+            spaceId={spaceId}
+            assets={assets}
+            variants={variants}
+            jobs={jobs}
+            onAssetClick={(clickedAsset) => {
+              navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
+            }}
+            onAddToTray={canEdit ? handleAddToTray : undefined}
+            onReparent={canEdit ? handleReparent : undefined}
+            layoutAlgorithm={layoutAlgorithm}
+          />
+        )}
 
         {/* Compact floating toolbar - top left */}
         <div className={styles.toolbar}>
@@ -471,18 +487,30 @@ export default function SpacePage() {
             )}
           </div>
           <div className={styles.divider} />
-          {/* Layout switcher */}
+          {/* Layout switcher (only for the React Flow view) */}
+          {viewMode === 'flow' && (
+            <div className={styles.layoutSwitcher}>
+              {layoutAlgorithms.map((algo) => (
+                <button
+                  key={algo.id}
+                  className={`${styles.layoutButton} ${layoutAlgorithm === algo.id ? styles.active : ''}`}
+                  onClick={() => setLayoutAlgorithm(algo.id)}
+                  title={`${algo.name}: ${algo.description}`}
+                >
+                  {algo.icon}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* View-mode toggle: flat graph vs. hyperbolic disk (prototype) */}
           <div className={styles.layoutSwitcher}>
-            {layoutAlgorithms.map((algo) => (
-              <button
-                key={algo.id}
-                className={`${styles.layoutButton} ${layoutAlgorithm === algo.id ? styles.active : ''}`}
-                onClick={() => setLayoutAlgorithm(algo.id)}
-                title={`${algo.name}: ${algo.description}`}
-              >
-                {algo.icon}
-              </button>
-            ))}
+            <button
+              className={`${styles.layoutButton} ${viewMode === 'hyperbolic' ? styles.active : ''}`}
+              onClick={() => setViewMode((m) => (m === 'hyperbolic' ? 'flow' : 'hyperbolic'))}
+              title="Toggle hyperbolic (Poincaré-disk) view"
+            >
+              ◉
+            </button>
           </div>
           <div className={styles.divider} />
           <button
