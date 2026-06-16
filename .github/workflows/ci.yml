@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - "**"
+  merge_group:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -12,35 +10,89 @@ concurrency:
 
 env:
   NODE_OPTIONS: --dns-result-order=ipv4first
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  COREPACK_HOME: /tmp/corepack
 
 permissions:
   contents: read
   pull-requests: read
 
 jobs:
-  checks:
-    name: Checks
+  Tests:
+    name: Tests
     runs-on:
       - self-hosted
       - self-hosted-container
     container:
-      image: mcr.microsoft.com/playwright:v1.58.2-noble
+      image: mcr.microsoft.com/playwright:v1.60.0-noble
       options: --user 1000:1000
+      volumes:
+        - /home/alv/cache/inventory/pnpm-store:/pnpm-store
+    env:
+      npm_config_store_dir: /pnpm-store
     steps:
       - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
         with:
-          version: 11.1.1
+          fetch-depth: 0
 
-      - uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Detect docs-only change
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - run: pnpm install --frozen-lockfile
+          case "${{ github.event_name }}" in
+            push)
+              BASE='${{ github.event.before }}'
+              if [[ "$BASE" =~ ^0+$ ]]; then
+                git fetch --depth=50 origin main:refs/remotes/origin/main 2>/dev/null || true
+                BASE=$(git merge-base HEAD origin/main 2>/dev/null || echo "")
+              fi
+              ;;
+            merge_group)
+              BASE='${{ github.event.merge_group.base_sha }}'
+              ;;
+            *)
+              BASE=''
+              ;;
+          esac
+
+          if [[ -z "$BASE" ]] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            echo "Cannot resolve diff base - running full tests."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only "$BASE" HEAD)
+          echo "Diff base: $BASE"
+          echo "Changed files:"
+          printf '  %s\n' $CHANGED
+
+          if [[ -z "$CHANGED" ]]; then
+            echo "Empty diff - running tests to be safe."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if printf '%s\n' "$CHANGED" | grep -qvE '^(docs|faq)/|^\.github/workflows/|^[A-Z][A-Z0-9_]*\.md$'; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "All changes are content/workflow/meta-doc only - skipping tests."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enable pnpm via corepack
+        if: steps.detect.outputs.skip != 'true'
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          corepack enable --install-directory "$HOME/.local/bin" pnpm
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - if: steps.detect.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
 
       - name: Write .env
+        if: steps.detect.outputs.skip != 'true'
         run: |
           node --input-type=module <<'NODE'
           import { Buffer } from 'node:buffer';
@@ -69,37 +121,25 @@ jobs:
           );
           NODE
 
-      - run: pnpm run typecheck
-      - run: pnpm run lint
-      - run: pnpm run build
-      - run: pnpm test --test-reporter=dot
+      - name: Pre-push checks
+        if: steps.detect.outputs.skip != 'true'
+        run: pnpm run ci:pre-push
 
-  Tests:
-    name: Tests
-    if: always()
-    needs:
-      - checks
-    runs-on:
-      - self-hosted
-    steps:
-      - name: Evaluate CI gate
-        env:
-          NEEDS_JSON: ${{ toJson(needs) }}
+      - name: Upload component failure diffs
+        if: failure() && steps.detect.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-failure-diffs
+          path: |
+            test-results/components/**/test-failed-*.png
+            test-results/components/**/*-actual.png
+            test-results/components/**/*-expected.png
+            test-results/components/**/*-diff.png
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Workspace cleanup
+        if: always() && steps.detect.outputs.skip != 'true'
         run: |
-          node <<'NODE'
-          const needs = JSON.parse(process.env.NEEDS_JSON);
-          const blocking = Object.entries(needs).filter(([, value]) =>
-            !["success", "skipped"].includes(value.result),
-          );
-
-          if (blocking.length > 0) {
-            console.error(
-              `Blocking jobs: ${blocking.map(([name, value]) => `${name}=${value.result}`).join(", ")}`,
-            );
-            process.exit(1);
-          }
-
-          console.log(
-            `Tests gate passed: ${Object.entries(needs).map(([name, value]) => `${name}=${value.result}`).join(", ")}`,
-          );
-          NODE
+          rm -rf node_modules dist test-results playwright-report .vite || true
+          git gc --auto || true
