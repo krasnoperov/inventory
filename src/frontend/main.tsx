@@ -2,6 +2,7 @@ import { StrictMode, startTransition } from 'react';
 import { createRoot, hydrateRoot } from 'react-dom/client';
 import { RouterClient } from '@tanstack/react-router/ssr/client';
 import App from './App';
+import { setNavigationBridge } from './navigation/navigator';
 import { getRouter } from './router';
 import { getBrowserStartSession, StartSessionProvider } from './startSession';
 import './styles/global.css';
@@ -15,6 +16,10 @@ if (document.documentElement.dataset.inventorySsr === 'tanstack-start') {
     createRoot(root).render(<App />);
   } else {
     const router = getRouter();
+    setNavigationBridge((url, options) => router.navigate({
+      href: `${url.pathname}${url.search}${url.hash}`,
+      replace: options?.replace,
+    }));
 
     startTransition(() => {
       hydrateRoot(
