@@ -1,14 +1,23 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import mkcert from 'vite-plugin-mkcert';
+import { cloudflare } from '@cloudflare/vite-plugin';
 import path from 'node:path';
 import { visualizer } from 'rollup-plugin-visualizer';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   root: path.resolve(__dirname, 'src/frontend'),
   plugins: [
     react(),
-    mkcert(),
+    // Local dev runs the Worker in workerd through Vite; production builds keep
+    // the existing Vite frontend + Wrangler deploy path.
+    ...(command === 'serve'
+      ? [
+          cloudflare({
+            configPath: path.resolve(__dirname, 'wrangler.dev.toml'),
+            persistState: { path: path.resolve(__dirname, '.wrangler/state') },
+          }),
+        ]
+      : []),
     visualizer({
       filename: './dist/stats.html',
       open: false,
@@ -26,22 +35,9 @@ export default defineConfig({
     },
   },
   server: {
-    host: 'local.krasnoperov.me',
+    host: 'localhost',
     port: 3001,
-    open: 'https://local.krasnoperov.me:3001',
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8788',
-        changeOrigin: true,
-        secure: false,
-        ws: true,
-      },
-      '/.well-known': {
-        target: 'http://localhost:8788',
-        changeOrigin: true,
-        secure: false,
-      },
-    },
+    strictPort: true,
   },
   preview: {
     port: 4173,
@@ -95,4 +91,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

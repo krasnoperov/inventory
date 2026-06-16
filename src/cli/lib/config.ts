@@ -92,7 +92,7 @@ export function resolveBaseUrl(env: string): string {
     case 'staging':
       return 'https://inventory-stage.krasnoperov.me';
     case 'local':
-      return 'https://local.krasnoperov.me:3001';
+      return 'http://localhost:3001';
     default:
       throw new Error(`Unknown environment "${env}". Valid options: production, stage, local`);
   }
