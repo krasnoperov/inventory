@@ -52,11 +52,11 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 
 | Message | Fields | Description |
 |---------|--------|-------------|
-| `asset:create` | `name`, `assetType`, `parentAssetId?` | Create new asset |
+| `asset:create` | `name`, `assetType`, `mediaKind?`, `parentAssetId?` | Create new asset |
 | `asset:update` | `assetId`, `changes: { name?, tags?, type?, parentAssetId? }` | Update asset |
 | `asset:delete` | `assetId` | Delete asset |
 | `asset:setActive` | `assetId`, `variantId` | Set active variant |
-| `asset:fork` | `sourceVariantId`, `name`, `assetType`, `parentAssetId?` | Fork asset from variant |
+| `asset:fork` | `sourceVariantId`, `name`, `assetType`, `mediaKind?`, `parentAssetId?` | Fork asset from variant |
 
 ### Variants
 
@@ -80,9 +80,9 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 | `chat:send` | `message`, `mode: 'advisor'\|'actor'`, `forgeContext?`, `viewingContext?` | Send chat message (persistent chat) |
 | `chat:history` | `since?` | Request chat history |
 | `chat:new_session` | - | Start new chat session |
-| `generate:request` | `requestId`, `name`, `assetType`, `prompt?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Generate new asset (triggers GenerationWorkflow) |
-| `refine:request` | `requestId`, `assetId`, `prompt`, `sourceVariantId?`, `sourceVariantIds?`, `aspectRatio?`, `referenceAssetIds?`, `disableStyle?` | Refine existing asset |
-| `batch:request` | `requestId`, `name`, `assetType`, `prompt`, `count`, `mode: 'explore'\|'set'`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Batch generate (see [style-and-batch.md](./style-and-batch.md)) |
+| `generate:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Generate new asset (triggers GenerationWorkflow) |
+| `refine:request` | `requestId`, `assetId`, `mediaKind?`, `prompt`, `sourceVariantId?`, `sourceVariantIds?`, `aspectRatio?`, `referenceAssetIds?`, `disableStyle?` | Refine existing asset |
+| `batch:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt`, `count`, `mode: 'explore'\|'set'`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Batch generate (see [style-and-batch.md](./style-and-batch.md)) |
 | `describe:request` | `requestId`, `variantId`, `assetName`, `focus?`, `question?` | Describe image with Claude Vision |
 | `compare:request` | `requestId`, `variantIds`, `aspects?` | Compare images with Claude Vision |
 | `auto-describe:request` | `variantId` | Auto-describe variant (cached, for Forge Tray context) |
@@ -128,6 +128,36 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 | Message | Fields | Description |
 |---------|--------|-------------|
 | `presence:update` | `viewing?: string` | Update viewing state |
+
+---
+
+## Media Kind Contract
+
+Assets and variants include `media_kind` in server payloads. Client requests use
+the camelCase field `mediaKind` where a caller can choose the medium at creation
+time. The allowed values are `image`, `audio`, and `video`; omitted values
+default to `image`.
+
+`mediaKind` is a medium discriminator, not an asset taxonomy or provider
+selector. Keep using `assetType`/`type` for catalog categories such as
+`character`, `tile-set`, or `animation`. Future audio and Google video
+generation should remain website-controlled SpaceDO workflows: set `mediaKind`
+explicitly and choose the capable provider/model through provider/model fields.
+
+The backend enforces homogeneous assets. Variants inherit their asset's
+`media_kind`, and requests that try to create a variant or forked asset with a
+different media kind are rejected. Generation, batch generation, upload, fork,
+export, CLI inspection, recipes, workflow inputs, and WebSocket broadcasts must
+preserve the stored value.
+
+CLI generation commands are currently image-only controller commands. Future
+CLI audio/video support should drive this same website API/WebSocket flow rather
+than creating local-only media records.
+
+Legacy artifact fields remain named `image_key` and `thumb_key` in variant
+payloads. New audio/video work must either remain compatible with those fields
+for stored artifact and preview keys or document and migrate the payload shape
+before changing it.
 
 ---
 

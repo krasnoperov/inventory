@@ -130,7 +130,7 @@ Client                          SpaceDO                         Workflows
 
 | Direction | Message | Fields |
 |-----------|---------|--------|
-| C → S | `batch:request` | `requestId`, `name`, `assetType`, `prompt`, `count`, `mode`, `aspectRatio?`, `referenceVariantIds?`, `referenceAssetIds?`, `parentAssetId?`, `disableStyle?` |
+| C → S | `batch:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt`, `count`, `mode`, `aspectRatio?`, `referenceVariantIds?`, `referenceAssetIds?`, `parentAssetId?`, `disableStyle?` |
 | S → C | `batch:started` | `requestId`, `batchId`, `results[]` (assetId, variantId pairs) |
 | S → C | `batch:error` | `requestId`, `error`, `code` |
 
@@ -155,6 +155,7 @@ Every variant stores a `recipe` JSON blob for reproducibility and retry:
 interface GenerationRecipe {
   prompt: string;              // Final prompt (with style prefix if applied)
   assetType: string;
+  mediaKind?: 'image' | 'audio' | 'video';
   aspectRatio?: string;
   sourceImageKeys?: string[];  // Style images + user references (combined)
   parentVariantIds?: string[]; // For retry support

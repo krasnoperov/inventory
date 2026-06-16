@@ -44,20 +44,26 @@
 | Assets, Variants, Lineage | DO SQLite | Per-space. Authoritative. Real-time via WebSocket. |
 | Users, Spaces, Members | D1 | Global. Auth and access control. |
 | Chat Messages | DO SQLite | Per-space conversation history. |
-| Images | R2 | Format: `images/{spaceId}/{variantId}.{ext}` |
+| Media artifacts | R2 | Existing image path format: `images/{spaceId}/{variantId}.{ext}` |
 | Usage Events | D1 | Billing tracking for Polar.sh. |
 
 ### Variant Schema
 
-Variants track generation status via placeholder lifecycle:
+Variants track generation status via placeholder lifecycle. `media_kind` is the
+stored medium discriminator shared with the parent asset; allowed values are
+`image`, `audio`, and `video`, with `image` as the default for legacy and
+omitted values. Existing generation flows produce images, while `audio` and
+`video` reserve the contract for future generators.
 
 ```sql
 CREATE TABLE variants (
   id TEXT PRIMARY KEY,
   asset_id TEXT NOT NULL,
+  media_kind TEXT NOT NULL DEFAULT 'image'
+    CHECK (media_kind IN ('image', 'audio', 'video')),
   workflow_id TEXT UNIQUE,              -- Cloudflare workflow ID
-  status TEXT NOT NULL DEFAULT 'pending' -- pending, processing, completed, failed
-    CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  status TEXT NOT NULL DEFAULT 'pending' -- pending, processing, uploading, completed, failed
+    CHECK (status IN ('pending', 'processing', 'uploading', 'completed', 'failed')),
   error_message TEXT,                   -- Error details when failed
   image_key TEXT,                       -- NULL until completed
   thumb_key TEXT,                       -- NULL until completed
@@ -67,6 +73,7 @@ CREATE TABLE variants (
   created_at INTEGER NOT NULL,
   updated_at INTEGER
 );
+```
 
 ---
 

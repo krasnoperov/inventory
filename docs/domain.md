@@ -20,17 +20,40 @@ Graphical asset management for game development. Users build collections of **As
 A named catalog entry representing a conceptual thing (character, item, scene, style reference).
 
 - **Type** describes what it represents: `character`, `item`, `scene`, `sprite-sheet`, `style-sheet`, `reference`, `tile-set`, `animation` (unconstrained string — additional types can be added freely)
+- **Media kind** describes the stored output medium: `image`, `audio`, or `video`
 - **Hierarchy** via `parent_asset_id` — assets can nest under other assets
 - **Active variant** — one variant represents the asset in catalog view
 - Users select Assets (not variants) when composing
 
 ### Variant
 
-An image version belonging to an Asset. Variants are internal — visible only in Asset Detail view.
+A media version belonging to an Asset. Variants are internal — visible only in Asset Detail view.
 
 - Multiple variants per asset enable exploration/iteration
+- Each variant has the same **Media kind** as its asset
 - **Starred** variants mark important iterations
 - **Recipe** stores generation parameters for reproducibility
+
+### Media Kind Contract
+
+`media_kind` is the stable medium discriminator for assets and variants. It is intentionally separate from asset `type`: `type` is user-editable catalog taxonomy, while `media_kind` controls which generation, preview, upload, and export paths may handle the stored artifact.
+
+| Value | Meaning | Current production path |
+|-------|---------|-------------------------|
+| `image` | Still image or image-derived visual output | Fully supported by upload, Gemini image generation, thumbnails, CLI inspection, and website display |
+| `audio` | Audio output | Reserved for future audio generators and uploads |
+| `video` | Video output | Reserved for future video generators, including Google video work |
+
+Contract invariants:
+
+- `image` is the default when a caller omits `mediaKind` or a legacy row is migrated.
+- Assets are homogeneous: every variant under an asset must use the asset's `media_kind`.
+- Creating a variant for an existing asset inherits the asset media kind unless the request explicitly supplies the same kind; mismatches are rejected.
+- Forking copies the source variant's media kind into the new asset and copied variant unless the request explicitly supplies the same kind; mismatches are rejected.
+- New asset generation, batch generation, and upload may set `mediaKind` up front; the created asset, placeholder/completed variants, stored recipe, workflow input, WebSocket broadcasts, export payloads, and CLI/API inspection must preserve it.
+- `media_kind` does not select a provider by itself. Future audio and Google video flows should still enter through the website-controlled SpaceDO generation/upload lifecycle, set `mediaKind` explicitly, and choose the capable provider/model through generation provider/model fields.
+- CLI generation commands are currently image-only controller commands. Future CLI audio/video support should call the website API/WebSocket flow instead of creating local-only media records.
+- Legacy storage fields such as `image_key` and `thumb_key` still name the existing R2 artifact and preview keys. Future audio/video work must either preserve compatibility with those fields or introduce a documented storage migration before changing the payload contract.
 
 ### Lineage
 
