@@ -6,7 +6,7 @@ import { MemberDAO } from '../../dao/member-dao';
 const jobRoutes = new Hono<AppContext>();
 
 // All job routes require authentication
-jobRoutes.use('*', authMiddleware);
+jobRoutes.use('/api/spaces/*', authMiddleware);
 
 // ============================================================================
 // DEPRECATED ENDPOINTS (REMOVED)

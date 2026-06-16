@@ -35,7 +35,7 @@ const MIME_TO_EXT: Record<string, string> = {
 export const uploadRoutes = new Hono<AppContext>();
 
 // All upload routes require authentication
-uploadRoutes.use('*', authMiddleware);
+uploadRoutes.use('/api/spaces/*', authMiddleware);
 
 /**
  * POST /api/spaces/:id/upload

@@ -30,7 +30,7 @@ interface TrainingManifest {
 
 export const trainingExportRoutes = new Hono<AppContext>();
 
-trainingExportRoutes.use('*', authMiddleware);
+trainingExportRoutes.use('/api/spaces/*', authMiddleware);
 
 // GET /api/spaces/:id/training-data?pipeline=tiles|rotations|all
 trainingExportRoutes.get('/api/spaces/:id/training-data', async (c) => {

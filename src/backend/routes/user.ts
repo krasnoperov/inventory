@@ -6,7 +6,7 @@ import { UserDAO } from '../../dao/user-dao';
 const userRoutes = new Hono<AppContext>();
 
 // All user routes require authentication
-userRoutes.use('*', authMiddleware);
+userRoutes.use('/api/user/*', authMiddleware);
 
 // User settings endpoint
 userRoutes.put('/api/user/settings', async (c) => {

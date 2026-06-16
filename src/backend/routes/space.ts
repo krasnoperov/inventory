@@ -7,7 +7,7 @@ import { MemberDAO } from '../../dao/member-dao';
 const spaceRoutes = new Hono<AppContext>();
 
 // All space routes require authentication
-spaceRoutes.use('*', authMiddleware);
+spaceRoutes.use('/api/spaces/*', authMiddleware);
 
 // POST /api/spaces - Create space
 spaceRoutes.post('/api/spaces', async (c) => {
