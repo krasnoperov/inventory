@@ -105,6 +105,9 @@ importers:
       '@csstools/postcss-light-dark-function':
         specifier: ^2.0.11
         version: 2.0.11(postcss@8.5.15)
+      '@eslint/js':
+        specifier: 9.39.4
+        version: 9.39.4
       '@playwright/test':
         specifier: ^1.59.1
         version: 1.60.0
