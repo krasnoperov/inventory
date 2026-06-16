@@ -1,11 +1,11 @@
-import { useRouteStore } from '../stores/routeStore';
+import { useRouteParams } from '../routeLocation';
 
 /**
  * Hook to access route params
  * Replacement for React Router's useParams
  */
 export function useParams<T extends Record<string, string | undefined> = Record<string, string | undefined>>(): T {
-  const params = useRouteStore((state) => state.params);
+  const params = useRouteParams();
 
   // For the speak page, we need to map episodeId from params
   // The route store sets episodeId for both /listen/:id and /speak/:id routes

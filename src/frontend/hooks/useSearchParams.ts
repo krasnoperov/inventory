@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useRouteSearch } from '../routeLocation';
 import { useRouteStore } from '../stores/routeStore';
 
 /**
@@ -6,7 +7,7 @@ import { useRouteStore } from '../stores/routeStore';
  * Replacement for React Router's useSearchParams
  */
 export function useSearchParams(): [URLSearchParams, (params: URLSearchParams) => void] {
-  const search = useRouteStore((state) => state.search);
+  const search = useRouteSearch();
 
   const searchParams = useMemo(
     () => new URLSearchParams(search),
