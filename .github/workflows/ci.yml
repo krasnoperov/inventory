@@ -74,10 +74,10 @@ jobs:
             exit 0
           fi
 
-          if printf '%s\n' "$CHANGED" | grep -qvE '^(docs|faq)/|^\.github/workflows/|^[A-Z][A-Z0-9_]*\.md$'; then
+          if printf '%s\n' "$CHANGED" | grep -qvE '^(docs|faq)/|^[A-Z][A-Z0-9_]*\.md$'; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
           else
-            echo "All changes are content/workflow/meta-doc only - skipping tests."
+            echo "All changes are content/meta-doc only - skipping tests."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
