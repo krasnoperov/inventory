@@ -107,4 +107,7 @@ local_protocol = "http"
 
 # Secrets should be set via wrangler CLI:
 # wrangler secret put GOOGLE_AI_API_KEY --config wrangler.processing.toml
+# wrangler secret put ELEVENLABS_API_KEY --config wrangler.processing.toml
+# wrangler secret put ELEVENLABS_MUSIC_MODEL_ID --config wrangler.processing.toml (optional)
+# wrangler secret put ELEVENLABS_SOUND_EFFECT_MODEL_ID --config wrangler.processing.toml (optional)
 # (Add other secrets as needed for your workflows)

@@ -1,4 +1,4 @@
-import { describe, test, beforeEach, afterEach } from 'node:test';
+import { describe, test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Kysely } from 'kysely';
 import type { Database } from '../../db/types';
@@ -6,6 +6,7 @@ import { createTestDatabase, cleanupTestDatabase } from '../../test-utils/databa
 import { TestUserBuilder } from '../../test-utils/test-data-builders';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { UserDAO } from '../../dao/user-dao';
+import type { PolarService } from './polarService';
 import { UsageService, USAGE_EVENTS } from './usageService';
 
 describe('UsageService', () => {
@@ -175,6 +176,31 @@ describe('UsageService', () => {
     });
   });
 
+  describe('trackElevenLabsAudioGeneration', () => {
+    test('creates ElevenLabs audio event in local storage', async () => {
+      await usageService.trackElevenLabsAudioGeneration(
+        testUserId,
+        37,
+        'music_v1',
+        'generate',
+        'music',
+        { inputTokens: 37, outputTokens: 0, totalTokens: 37 }
+      );
+
+      const events = await usageEventDAO.findByUser(testUserId);
+      assert.strictEqual(events.length, 1);
+      assert.strictEqual(events[0].event_name, USAGE_EVENTS.ELEVENLABS_AUDIO);
+      assert.strictEqual(events[0].quantity, 37);
+
+      const metadata = JSON.parse(events[0].metadata!);
+      assert.strictEqual(metadata.provider, 'elevenlabs');
+      assert.strictEqual(metadata.model, 'music_v1');
+      assert.strictEqual(metadata.operation, 'generate');
+      assert.strictEqual(metadata.asset_type, 'music');
+      assert.strictEqual(metadata.total_tokens, 37);
+    });
+  });
+
   describe('trackVideoGeneration', () => {
     test('creates video count event in local storage', async () => {
       await usageService.trackVideoGeneration(
@@ -206,6 +232,50 @@ describe('UsageService', () => {
       const result = await usageService.syncPendingEvents();
       assert.strictEqual(result.synced, 0);
       assert.strictEqual(result.failed, 0);
+    });
+
+    test('syncs ElevenLabs audio events to Polar as metered events', async () => {
+      const ingestedEventBatches: Parameters<PolarService['ingestEventsBatch']>[0][] = [];
+      const ingestEventsBatch = mock.fn(async (
+        events: Parameters<PolarService['ingestEventsBatch']>[0]
+      ) => {
+        ingestedEventBatches.push(events);
+        return { inserted: 1, duplicates: 0 };
+      });
+      const service = new UsageService(
+        usageEventDAO,
+        userDAO,
+        { ingestEventsBatch } as any,
+        db
+      );
+      await service.trackElevenLabsAudioGeneration(
+        testUserId,
+        29,
+        'eleven_text_to_sound_v2',
+        'generate',
+        'sfx'
+      );
+
+      const result = await service.syncPendingEvents();
+
+      assert.strictEqual(result.synced, 1);
+      assert.strictEqual(result.failed, 0);
+      assert.strictEqual(ingestEventsBatch.mock.calls.length, 1);
+      const events = ingestedEventBatches[0];
+      assert.ok(events);
+      assert.strictEqual(events.length, 1);
+      const event = events[0];
+      assert.ok(event);
+      assert.strictEqual(event.userId, testUserId);
+      assert.strictEqual(event.eventName, USAGE_EVENTS.ELEVENLABS_AUDIO);
+      const metadata = event.metadata;
+      assert.ok(metadata);
+      assert.strictEqual(metadata.quantity, 29);
+      assert.strictEqual(metadata.model, 'eleven_text_to_sound_v2');
+      assert.strictEqual(metadata.asset_type, 'sfx');
+
+      const storedEvents = await usageEventDAO.findByUser(testUserId);
+      assert.ok(storedEvents[0].synced_at);
     });
   });
 
@@ -246,6 +316,22 @@ describe('UsageService', () => {
 
     test('returns allowed=true for nanobanana when PolarService is null', async () => {
       const result = await usageService.checkQuota(testUserId, 'nanobanana');
+
+      assert.strictEqual(result.allowed, true);
+      assert.strictEqual(result.remaining, null);
+      assert.strictEqual(result.limit, null);
+    });
+
+    test('returns allowed=true for elevenlabs when no local limit is cached', async () => {
+      const result = await usageService.checkQuota(testUserId, 'elevenlabs');
+
+      assert.strictEqual(result.allowed, true);
+      assert.strictEqual(result.remaining, null);
+      assert.strictEqual(result.limit, null);
+    });
+
+    test('returns allowed=true for veo when no local limit is cached', async () => {
+      const result = await usageService.checkQuota(testUserId, 'veo');
 
       assert.strictEqual(result.allowed, true);
       assert.strictEqual(result.remaining, null);

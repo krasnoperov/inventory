@@ -249,6 +249,7 @@ async function handleSubscriptionCanceled(
     gemini_videos: 0,
     gemini_input_tokens: 0,
     gemini_output_tokens: 0,
+    elevenlabs_audio: 0,
   };
 
   await userDAO.update(userId, {
@@ -292,6 +293,7 @@ async function handleCustomerStateChanged(
       gemini_videos: 0,
       gemini_input_tokens: 0,
       gemini_output_tokens: 0,
+      elevenlabs_audio: 0,
     };
 
     await userDAO.update(userId, {

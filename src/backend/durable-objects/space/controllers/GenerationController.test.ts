@@ -25,6 +25,7 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
   return {
     id: 'variant-1',
     asset_id: 'asset-1',
+    media_kind: 'image',
     workflow_id: null,
     status: 'completed',
     error_message: null,
@@ -46,9 +47,57 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
   };
 }
 
+function createMockD1() {
+  const statements: Array<{ sql: string; bindings: unknown[] }> = [];
+  return {
+    db: {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn((...bindings: unknown[]) => ({
+          run: mock.fn(async () => {
+            statements.push({ sql, bindings });
+            return { success: true };
+          }),
+        })),
+      })),
+    },
+    statements,
+  };
+}
+
+function createQuotaCheckDb(options: {
+  quotaLimit: number;
+  quotaUsed?: number;
+  rateLimitCount?: number;
+}) {
+  return {
+    prepare: mock.fn((sql: string) => ({
+      bind: mock.fn(() => ({
+        first: mock.fn(async () => {
+          if (sql.includes('FROM users')) {
+            return {
+              quota_limits: JSON.stringify({ elevenlabs_audio: options.quotaLimit }),
+              rate_limit_count: options.rateLimitCount ?? 0,
+              rate_limit_window_start: null,
+            };
+          }
+          return { total_used: options.quotaUsed ?? 0 };
+        }),
+        run: mock.fn(async () => ({ success: true })),
+      })),
+    })),
+  };
+}
+
 function createMockRepo(): SpaceRepository {
   return {
     getVariantById: mock.fn(async () => createMockVariant()),
+    getAssetById: mock.fn(async () => ({
+      id: 'asset-1',
+      name: 'Asset',
+      type: 'music',
+      media_kind: 'audio',
+      active_variant_id: 'variant-1',
+    })),
     completeVariant: mock.fn(async (id, imageKey, thumbKey, mediaMetadata = {}) =>
       createMockVariant({
         id,
@@ -65,6 +114,13 @@ function createMockRepo(): SpaceRepository {
     ),
     failVariant: mock.fn(async (id, error) =>
       createMockVariant({ id, status: 'failed', error_message: error })
+    ),
+    resetVariantForRetry: mock.fn(async (id) => createMockVariant({ id, status: 'pending' })),
+    updateVariantWorkflow: mock.fn(async (id, workflowId, status) =>
+      createMockVariant({ id, workflow_id: workflowId, status })
+    ),
+    createPlaceholderVariant: mock.fn(async (input) =>
+      createMockVariant({ id: input.id, asset_id: input.assetId, media_kind: input.mediaKind ?? 'image' })
     ),
     getRotationViewByVariant: mock.fn(async () => null),
     getTilePositionByVariant: mock.fn(async () => null),
@@ -109,11 +165,111 @@ function createMockContext(
 // ============================================================================
 
 describe('GenerationController pipeline hooks', () => {
+  describe('handleGenerateRequest', () => {
+    test('blocks ElevenLabs music generation when remaining quota can cover prompt but not provider cost', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 40 }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-1',
+          name: 'Music cue',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'short heroic orchestral loop',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'generate:error',
+        requestId: 'request-1',
+        error: 'Monthly quota exceeded for elevenlabs. Please upgrade your plan.',
+        code: 'QUOTA_EXCEEDED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
+    test('blocks ElevenLabs sound effect generation when remaining quota can cover prompt but not provider cost', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 40 }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-2',
+          name: 'Footstep',
+          assetType: 'sfx',
+          mediaKind: 'audio',
+          prompt: 'heavy boot step on wet stone',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'generate:error',
+        requestId: 'request-2',
+        error: 'Monthly quota exceeded for elevenlabs. Please upgrade your plan.',
+        code: 'QUOTA_EXCEEDED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+  });
+
   // ==========================================================================
   // handleRefineRequest
   // ==========================================================================
 
   describe('handleRefineRequest', () => {
+    test('blocks ElevenLabs music refinement when remaining quota can cover prompt but not provider cost', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 40 }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRefineRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'refine:request',
+          requestId: 'request-1',
+          assetId: 'asset-1',
+          mediaKind: 'audio',
+          prompt: 'short heroic orchestral loop',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'refine:error',
+        requestId: 'request-1',
+        error: 'Monthly quota exceeded for elevenlabs. Please upgrade your plan.',
+        code: 'QUOTA_EXCEEDED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
     test('uses target asset media kind for video quota checks when request omits mediaKind', async () => {
       const bindArgs: unknown[][] = [];
       const prepare = mock.fn((sql: string) => ({
@@ -513,6 +669,124 @@ describe('GenerationController pipeline hooks', () => {
       });
     });
 
+    test('tracks ElevenLabs audio usage on successful audio completion', async () => {
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          media_kind: 'audio',
+          recipe: JSON.stringify({ operation: 'generate', assetType: 'music' }),
+          created_by: '42',
+        })),
+        completeVariant: mock.fn(async () => createMockVariant({
+          media_kind: 'audio',
+          recipe: JSON.stringify({ operation: 'generate', assetType: 'music' }),
+          created_by: '42',
+          media_key: 'media/space-1/variant-1.mp3',
+          media_mime_type: 'audio/mpeg',
+          media_size_bytes: 4096,
+          status: 'completed',
+        })),
+      });
+      ctx.env.DB = db as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-1.mp3',
+        mediaMimeType: 'audio/mpeg',
+        mediaSizeBytes: 4096,
+        audioProvider: 'elevenlabs',
+        audioModel: 'music_v1',
+        audioUsage: {
+          inputTokens: 37,
+          outputTokens: 0,
+          totalTokens: 37,
+        },
+      });
+
+      assert.strictEqual(statements.length, 1);
+      assert.match(statements[0].sql, /INSERT INTO usage_events/);
+      assert.strictEqual(statements[0].bindings[1], 42);
+      assert.strictEqual(statements[0].bindings[2], 'elevenlabs_audio');
+      assert.strictEqual(statements[0].bindings[3], 37);
+      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      assert.strictEqual(metadata.provider, 'elevenlabs');
+      assert.strictEqual(metadata.model, 'music_v1');
+      assert.strictEqual(metadata.operation, 'generate');
+      assert.strictEqual(metadata.asset_type, 'music');
+      assert.strictEqual(metadata.total_tokens, 37);
+    });
+
+    test('tracks ElevenLabs speech and dialogue audio by prompt characters when provider usage is missing', async () => {
+      const prompt = 'Ada: Ready?\nBen: Always.';
+      const expectedQuantity = Array.from(prompt).length;
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          media_kind: 'audio',
+          recipe: JSON.stringify({ prompt, operation: 'generate', assetType: 'dialogue' }),
+          created_by: '42',
+        })),
+        completeVariant: mock.fn(async () => createMockVariant({
+          media_kind: 'audio',
+          recipe: JSON.stringify({ prompt, operation: 'generate', assetType: 'dialogue' }),
+          created_by: '42',
+          media_key: 'media/space-1/variant-1.mp3',
+          media_mime_type: 'audio/mpeg',
+          media_size_bytes: 4096,
+          status: 'completed',
+        })),
+      });
+      ctx.env.DB = db as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-1.mp3',
+        mediaMimeType: 'audio/mpeg',
+        mediaSizeBytes: 4096,
+        audioProvider: 'elevenlabs',
+        audioModel: 'eleven_v3',
+        audioUsage: null,
+      });
+
+      assert.strictEqual(statements.length, 1);
+      assert.strictEqual(statements[0].bindings[2], 'elevenlabs_audio');
+      assert.strictEqual(statements[0].bindings[3], expectedQuantity);
+      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      assert.strictEqual(metadata.model, 'eleven_v3');
+      assert.strictEqual(metadata.asset_type, 'dialogue');
+      assert.strictEqual(metadata.input_tokens, expectedQuantity);
+      assert.strictEqual(metadata.output_tokens, 0);
+      assert.strictEqual(metadata.total_tokens, expectedQuantity);
+    });
+
+    test('does not track fake audio completions as ElevenLabs usage', async () => {
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({ media_kind: 'audio', created_by: '42' })),
+        completeVariant: mock.fn(async () => createMockVariant({ media_kind: 'audio', created_by: '42' })),
+      });
+      ctx.env.DB = db as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-1.wav',
+        mediaMimeType: 'audio/wav',
+        mediaSizeBytes: 4096,
+        audioProvider: 'fake',
+      });
+
+      assert.strictEqual(statements.length, 0);
+    });
+
     test('hook errors do not fail completion', async () => {
       const rotView: RotationView = {
         id: 'rv-1',
@@ -646,6 +920,123 @@ describe('GenerationController pipeline hooks', () => {
       });
 
       assert.ok(result.success);
+    });
+  });
+
+  describe('handleBatchRequest', () => {
+    test('blocks ElevenLabs music batch when remaining quota can cover prompts but not provider costs', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 60 }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleBatchRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'batch:request',
+          requestId: 'request-1',
+          name: 'Batch Music',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'short heroic orchestral loop',
+          count: 2,
+          mode: 'set',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'batch:error',
+        requestId: 'request-1',
+        error: 'Monthly quota exceeded for elevenlabs. Please upgrade your plan.',
+        code: 'QUOTA_EXCEEDED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
+    test('blocks ElevenLabs audio batch when rate window has fewer slots than batch count', async () => {
+      const db = {
+        prepare: mock.fn((sql: string) => ({
+          bind: mock.fn(() => ({
+            first: mock.fn(async () => {
+              if (sql.includes('FROM users')) {
+                return {
+                  quota_limits: JSON.stringify({ elevenlabs_audio: 1000 }),
+                  rate_limit_count: 9,
+                  rate_limit_window_start: new Date().toISOString(),
+                };
+              }
+              return { total_used: 0 };
+            }),
+            run: mock.fn(async () => ({ success: true })),
+          })),
+        })),
+      };
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = db as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleBatchRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'batch:request',
+          requestId: 'request-2',
+          name: 'Batch SFX',
+          assetType: 'sfx',
+          mediaKind: 'audio',
+          prompt: 'eight impacts',
+          count: 8,
+          mode: 'set',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'batch:error',
+        requestId: 'request-2',
+        error: 'Too many requests. Please wait 60 seconds.',
+        code: 'RATE_LIMITED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+  });
+
+  describe('handleRetryRequest', () => {
+    test('blocks ElevenLabs music retry when remaining quota can cover prompt but not provider cost', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      asMock(repo.getVariantById).mock.mockImplementation(async () => createMockVariant({
+        status: 'failed',
+        media_kind: 'audio',
+        recipe: JSON.stringify({
+          prompt: 'short heroic orchestral loop',
+          operation: 'generate',
+          assetType: 'music',
+        }),
+      }));
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 40 }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRetryRequest({} as WebSocket, { userId: '42', role: 'editor' } as any, 'variant-1');
+
+      assert.strictEqual(asMock(ctx.sendError).mock.calls.length, 1);
+      assert.strictEqual(asMock(ctx.sendError).mock.calls[0].arguments[1], 'QUOTA_EXCEEDED');
+      assert.strictEqual(asMock(repo.resetVariantForRetry).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
     });
   });
 });

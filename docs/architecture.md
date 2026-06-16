@@ -54,7 +54,10 @@ Variants track generation and upload status via placeholder lifecycle.
 allowed values are `image`, `audio`, and `video`, with `image` as the default
 for legacy and omitted values. Website generation can produce images through
 Gemini image models, audio through the configured audio provider, and videos
-through Google Veo. Upload flows accept image, audio, and video files.
+through Google Veo. ElevenLabs audio generation routes website-created `music`
+assets to music generation, `sfx` assets to sound-effect generation, and other
+audio asset types to speech/dialogue generation. Upload flows accept image,
+audio, and video files.
 
 ```sql
 CREATE TABLE variants (

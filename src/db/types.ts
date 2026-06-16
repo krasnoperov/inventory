@@ -13,7 +13,7 @@ export interface UsersTable {
   google_id: string | null;
   polar_customer_id: string | null;
   // Quota limits cached from Polar webhooks
-  // JSON: {"claude_output_tokens": 100000, "gemini_images": 50, "gemini_videos": 10}
+  // JSON: {"claude_output_tokens": 100000, "gemini_images": 50, "gemini_videos": 10, "elevenlabs_audio": 5000}
   quota_limits: string | null;
   quota_limits_updated_at: string | null;
   // Rate limiting (fixed window)

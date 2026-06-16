@@ -681,5 +681,32 @@ describe('VariantFactory', () => {
       assert.ok(asMock(repo.createAsset).mock.calls.every((call) => call.arguments[0].mediaKind === 'video'));
       assert.ok(asMock(repo.createPlaceholderVariant).mock.calls.every((call) => call.arguments[0].mediaKind === 'video'));
     });
+
+    test('does not stamp image model defaults into audio batch recipes', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      const { results } = await factory.createBatchVariants(
+        {
+          name: 'Footstep Set',
+          assetType: 'sfx',
+          mediaKind: 'audio',
+          prompt: 'Create footstep sound effects',
+          count: 2,
+          mode: 'set',
+        },
+        meta
+      );
+
+      assert.strictEqual(results.length, 2);
+      for (const result of results) {
+        const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+        assert.strictEqual(recipe.mediaKind, 'audio');
+        assert.strictEqual(recipe.model, undefined);
+      }
+    });
   });
 });

@@ -103,11 +103,13 @@ pnpm run cli audio batch "Three short UI notification sounds" \
 ```
 
 When the website is configured with `INVENTORY_AUDIO_PROVIDER=elevenlabs`,
-plain audio prompts are generated through ElevenLabs speech. Multi-speaker
-dialogue can be sent as one `Speaker: line` entry per line; the website maps
-speakers to the comma-separated `ELEVENLABS_DIALOGUE_VOICE_IDS` configured on
-the worker. The CLI still sends only the prompt and `mediaKind: "audio"`; API
-keys, voice IDs, model IDs, and output format stay server-controlled.
+`--type music` prompts are generated through ElevenLabs music, `--type sfx`
+prompts are generated through ElevenLabs sound effects, and other audio prompts
+are generated through ElevenLabs speech. Multi-speaker dialogue can be sent as
+one `Speaker: line` entry per line; the website maps speakers to the
+comma-separated `ELEVENLABS_DIALOGUE_VOICE_IDS` configured on the worker. The
+CLI still sends only the prompt, asset type, and `mediaKind: "audio"`; API keys,
+voice IDs, model IDs, and output format stay server-controlled.
 
 ## Local References
 
