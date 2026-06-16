@@ -50,7 +50,7 @@ export async function preCheck(
   service: 'claude' | 'nanobanana' | 'elevenlabs' | 'veo',
   rateLimit?: RateLimitConfig,
   requestedQuantity = 1,
-  rateLimitQuantity = requestedQuantity
+  rateLimitQuantity = 1
 ): Promise<PreCheckResult> {
   const eventName = QUOTA_EVENT_NAMES[service];
   const rateLimitConfig = rateLimit || DEFAULT_RATE_LIMITS[service];
