@@ -1,7 +1,7 @@
 /**
  * Upload Routes
  *
- * Handles image uploads to create new variants on existing assets.
+ * Handles media uploads to create new variants on existing assets.
  */
 import { Hono } from 'hono';
 import type { AppContext } from './types';
@@ -19,24 +19,66 @@ import type { MediaKind } from '../../shared/websocket-types';
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-const ALLOWED_MIME_TYPES: ImageMimeType[] = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-];
-
 const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/gif': 'gif',
   'image/webp': 'webp',
+  'audio/aac': 'aac',
+  'audio/flac': 'flac',
+  'audio/mpeg': 'mp3',
+  'audio/mp4': 'm4a',
+  'audio/ogg': 'ogg',
+  'audio/wav': 'wav',
+  'audio/webm': 'webm',
+  'audio/x-wav': 'wav',
+  'video/mp4': 'mp4',
+  'video/quicktime': 'mov',
+  'video/webm': 'webm',
+  'video/x-m4v': 'm4v',
 };
+
+const MIME_TO_MEDIA_KIND: Record<string, MediaKind> = {
+  'image/jpeg': 'image',
+  'image/png': 'image',
+  'image/gif': 'image',
+  'image/webp': 'image',
+  'audio/aac': 'audio',
+  'audio/flac': 'audio',
+  'audio/mpeg': 'audio',
+  'audio/mp4': 'audio',
+  'audio/ogg': 'audio',
+  'audio/wav': 'audio',
+  'audio/webm': 'audio',
+  'audio/x-wav': 'audio',
+  'video/mp4': 'video',
+  'video/quicktime': 'video',
+  'video/webm': 'video',
+  'video/x-m4v': 'video',
+};
+
+const IMAGE_MIME_TYPES = new Set<ImageMimeType>([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+]);
+const ALLOWED_MIME_TYPES = Object.keys(MIME_TO_MEDIA_KIND);
 
 function parseMediaKind(value: FormDataEntryValue | null): MediaKind | undefined {
   if (value === null || typeof value !== 'string' || value === '') return undefined;
   if (value === 'image' || value === 'audio' || value === 'video') return value;
   return undefined;
+}
+
+function getOptionalString(formData: FormData, key: string): string | null {
+  const value = formData.get(key);
+  return typeof value === 'string' && value !== '' ? value : null;
+}
+
+async function deleteUploadedKeys(env: AppContext['Bindings'], keys: Array<string | null>): Promise<void> {
+  const uniqueKeys = [...new Set(keys.filter((key): key is string => Boolean(key)))];
+  await Promise.all(uniqueKeys.map((key) => env.IMAGES.delete(key)));
 }
 
 export const uploadRoutes = new Hono<AppContext>();
@@ -47,11 +89,11 @@ uploadRoutes.use('/api/spaces/*', authMiddleware);
 /**
  * POST /api/spaces/:id/upload
  *
- * Upload an image to create a new variant on an existing asset.
+ * Upload an image, audio, or video file to create a new variant on an existing asset.
  *
  * FormData:
- * - file: Image file (JPEG, PNG, WebP, GIF) - max 10MB
- * - assetId: Target asset UUID
+ * - file: Media file - max 10MB
+ * - assetId: Target asset UUID, or assetName for a new asset
  */
 uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   const userId = String(c.get('userId')!);
@@ -83,16 +125,19 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   }
 
   // Get assetId (optional - if not provided, create new asset)
-  const assetId = formData.get('assetId') as string | null;
+  const assetId = getOptionalString(formData, 'assetId');
 
   // For new asset creation
-  const assetName = formData.get('assetName') as string | null;
-  const assetType = formData.get('assetType') as string || 'character';
+  const assetName = getOptionalString(formData, 'assetName');
+  const assetType = getOptionalString(formData, 'assetType') || 'character';
   const mediaKindValue = formData.get('mediaKind');
-  const mediaKind = parseMediaKind(mediaKindValue);
-  const parentAssetId = formData.get('parentAssetId') as string | null;
+  const requestedMediaKind = parseMediaKind(mediaKindValue);
+  const parentAssetId = getOptionalString(formData, 'parentAssetId');
 
-  if (mediaKindValue !== null && typeof mediaKindValue === 'string' && mediaKindValue !== '' && !mediaKind) {
+  if (
+    mediaKindValue !== null &&
+    (typeof mediaKindValue !== 'string' || (mediaKindValue !== '' && !requestedMediaKind))
+  ) {
     return c.json({ error: 'Invalid mediaKind' }, 400);
   }
 
@@ -102,12 +147,19 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   }
 
   // Validate file type
-  const mimeType = file.type as ImageMimeType;
-  if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+  const mimeType = file.type;
+  const inferredMediaKind = MIME_TO_MEDIA_KIND[mimeType];
+  if (!inferredMediaKind) {
     return c.json({
       error: `Invalid file type. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`,
     }, 400);
   }
+  if (requestedMediaKind && requestedMediaKind !== inferredMediaKind) {
+    return c.json({
+      error: `mediaKind "${requestedMediaKind}" does not match ${mimeType} file`,
+    }, 400);
+  }
+  const mediaKind = requestedMediaKind ?? inferredMediaKind;
 
   // Validate file size
   if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -129,13 +181,19 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   // Generate variant ID and keys
   const variantId = crypto.randomUUID();
   const ext = MIME_TO_EXT[mimeType] || 'png';
-  const imageKey = `images/${spaceId}/${variantId}.${ext}`;
-  const thumbKey = `images/${spaceId}/${variantId}_thumb.webp`;
+  const isImageUpload = mediaKind === 'image' && IMAGE_MIME_TYPES.has(mimeType as ImageMimeType);
+  const mediaKey = isImageUpload
+    ? `images/${spaceId}/${variantId}.${ext}`
+    : `media/${spaceId}/${variantId}.${ext}`;
+  const imageKey = isImageUpload ? mediaKey : null;
+  const thumbKey = isImageUpload ? `images/${spaceId}/${variantId}_thumb.webp` : null;
 
   // Build recipe (consistent with generation recipes)
   const recipe = JSON.stringify({
     operation: 'upload',
     assetType: assetType,
+    mediaKind,
+    mimeType,
     originalFilename: file.name,
     uploadedAt: new Date().toISOString(),
   });
@@ -188,40 +246,42 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
   // Step 2: Upload to R2 (clients see "Uploading" state during this)
   // =========================================================================
   try {
-    const imageBuffer = new Uint8Array(await file.arrayBuffer());
-    const dimensions = getImageDimensions(imageBuffer);
+    const mediaBuffer = new Uint8Array(await file.arrayBuffer());
+    const dimensions = isImageUpload ? getImageDimensions(mediaBuffer) : null;
 
-    // Upload full image to R2
-    await env.IMAGES.put(imageKey, imageBuffer, {
+    // Upload primary media to R2
+    await env.IMAGES.put(mediaKey, mediaBuffer, {
       httpMetadata: { contentType: mimeType },
     });
 
-    // Create and upload thumbnail
-    const baseUrl = getBaseUrl(env);
-    try {
-      const { buffer: thumbBuffer, mimeType: thumbMimeType } = await createThumbnail(
-        imageKey,
-        baseUrl,
-        env,
-        {
-          width: 512,
-          height: 512,
-          fit: 'cover',
-          gravity: 'auto',
-          quality: 80,
-          format: 'webp',
-        }
-      );
+    if (isImageUpload && imageKey && thumbKey) {
+      // Create and upload thumbnail
+      const baseUrl = getBaseUrl(env);
+      try {
+        const { buffer: thumbBuffer, mimeType: thumbMimeType } = await createThumbnail(
+          imageKey,
+          baseUrl,
+          env,
+          {
+            width: 512,
+            height: 512,
+            fit: 'cover',
+            gravity: 'auto',
+            quality: 80,
+            format: 'webp',
+          }
+        );
 
-      await env.IMAGES.put(thumbKey, thumbBuffer, {
-        httpMetadata: { contentType: thumbMimeType },
-      });
-    } catch (thumbError) {
-      // Fallback: use original image as thumbnail
-      console.warn('Thumbnail creation failed, using original:', thumbError);
-      await env.IMAGES.put(thumbKey, imageBuffer, {
-        httpMetadata: { contentType: mimeType },
-      });
+        await env.IMAGES.put(thumbKey, thumbBuffer, {
+          httpMetadata: { contentType: thumbMimeType },
+        });
+      } catch (thumbError) {
+        // Fallback: use original image as thumbnail
+        console.warn('Thumbnail creation failed, using original:', thumbError);
+        await env.IMAGES.put(thumbKey, mediaBuffer, {
+          httpMetadata: { contentType: mimeType },
+        });
+      }
     }
 
     // =========================================================================
@@ -235,19 +295,19 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
           variantId,
           imageKey,
           thumbKey,
-          mediaKey: imageKey,
+          mediaKey,
           mediaMimeType: mimeType,
-          mediaSizeBytes: imageBuffer.byteLength,
+          mediaSizeBytes: mediaBuffer.byteLength,
           mediaWidth: dimensions?.width ?? null,
           mediaHeight: dimensions?.height ?? null,
+          mediaDurationMs: null,
         }),
       })
     );
 
     if (!completeResponse.ok) {
       // R2 upload succeeded but DO update failed - clean up R2
-      await env.IMAGES.delete(imageKey);
-      await env.IMAGES.delete(thumbKey);
+      await deleteUploadedKeys(env, [mediaKey, imageKey, thumbKey]);
 
       const errorData = await completeResponse.json().catch(() => ({})) as { error?: string };
       return c.json(
@@ -267,8 +327,7 @@ uploadRoutes.post('/api/spaces/:id/upload', async (c) => {
 
     // Try to clean up R2
     try {
-      await env.IMAGES.delete(imageKey);
-      await env.IMAGES.delete(thumbKey);
+      await deleteUploadedKeys(env, [mediaKey, imageKey, thumbKey]);
     } catch {
       // Ignore cleanup errors
     }

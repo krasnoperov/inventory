@@ -84,8 +84,8 @@ export interface InternalApiControllers {
     }): Promise<{ variant: Variant; asset?: unknown; assetId: string }>;
     httpCompleteUpload(data: {
       variantId: string;
-      imageKey: string;
-      thumbKey: string;
+      imageKey: string | null;
+      thumbKey: string | null;
       mediaKey?: string | null;
       mediaMimeType?: string | null;
       mediaSizeBytes?: number | null;
@@ -281,8 +281,8 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   app.post('/internal/complete-upload', async (c) => {
     const data = (await c.req.json()) as {
       variantId: string;
-      imageKey: string;
-      thumbKey: string;
+      imageKey: string | null;
+      thumbKey: string | null;
       mediaKey?: string | null;
       mediaMimeType?: string | null;
       mediaSizeBytes?: number | null;

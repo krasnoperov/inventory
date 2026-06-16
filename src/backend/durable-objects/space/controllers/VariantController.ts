@@ -246,8 +246,8 @@ export class VariantController extends BaseController {
    */
   async httpCompleteUpload(data: {
     variantId: string;
-    imageKey: string;
-    thumbKey: string;
+    imageKey: string | null;
+    thumbKey: string | null;
     mediaKey?: string | null;
     mediaMimeType?: string | null;
     mediaSizeBytes?: number | null;
