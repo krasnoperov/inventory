@@ -45,6 +45,27 @@ Deploy helpers:
 - `pnpm run deploy:stage`
 - `pnpm run deploy:production`
 
+## Commit And PR Convention
+
+Use Conventional Commits style for commits and PR titles:
+
+```text
+type(scope): summary
+```
+
+Examples:
+
+- `docs(agents): document commit convention`
+- `fix(sync): preserve asset updates across reconnect`
+- `feat(forge): add batch composition controls`
+
+Keep this lightweight:
+
+- Use a lowercase type such as `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, or `ci`.
+- Use a short lowercase scope that names the touched area.
+- Keep the summary imperative, concise, and under sentence case.
+- Do not add commitlint, husky hooks, or CI validation for this convention.
+
 ## Hard Rules
 
 - Start non-trivial work from a Linear issue.
