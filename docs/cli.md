@@ -42,6 +42,7 @@ pnpm run cli generate "A market background" --name "Market" --type scene -o mark
 | `refine` | Refine an existing variant through the website generation workflow |
 | `derive` | Create a new asset from variant IDs and/or local image refs |
 | `batch` | Generate multiple images and write a local run manifest |
+| `runs` | List, inspect, and export local run manifests |
 | `billing` | Billing sync status and management |
 
 ---
@@ -212,6 +213,21 @@ are used in the derive request.
 paths, website asset/variant IDs, image keys, prompt, refs, command options,
 timestamps, run success, and failed variant errors for downstream Remotion or
 video tooling.
+
+### Run Manifests
+
+```bash
+pnpm run cli runs
+pnpm run cli runs show --latest
+pnpm run cli runs show RUN_ID --json
+pnpm run cli runs export --latest --format remotion -o keyframes.json
+```
+
+`runs` reads local `.inventory/runs` manifests from the initialized project root
+and does not call generation APIs. The Remotion export is a compact JSON handoff
+with ordered image paths, absolute paths resolved from the original batch
+command working directory, website IDs/URLs, prompt, refs, and failed variant
+errors.
 
 See [cli-generation.md](./cli-generation.md) for the full command reference.
 

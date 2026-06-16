@@ -117,6 +117,19 @@ batch member fails. It is a handoff artifact for Remotion, Kling, or other video
 tooling; it is not a local asset database and the website remains the source of
 truth.
 
+Inspect and export manifests:
+
+```bash
+pnpm run cli runs
+pnpm run cli runs show --latest
+pnpm run cli runs show RUN_ID --json
+pnpm run cli runs export --latest --format remotion -o keyframes.json
+```
+
+The Remotion export writes ordered keyframe data with local paths, absolute
+paths resolved from the original batch command working directory, website
+IDs/URLs, prompt, refs, and failed variant errors for downstream video tooling.
+
 ## End-To-End Test Loop
 
 Run the CLI/worker loop without Gemini calls:
