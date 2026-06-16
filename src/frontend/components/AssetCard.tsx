@@ -30,6 +30,7 @@ export function AssetCard(props: AssetCardProps) {
     variants,
     childAssets,
     allVariants,
+    spaceId,
     depth = 0,
     isGenerating: _isGenerating = false, // eslint-disable-line @typescript-eslint/no-unused-vars
     generatingStatus: _generatingStatus, // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -39,7 +40,6 @@ export function AssetCard(props: AssetCardProps) {
     onRenameAsset,
     onMoveAsset,
     onDeleteAsset,
-    spaceId,
   } = props;
   const [showAssetMenu, setShowAssetMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
@@ -114,6 +114,7 @@ export function AssetCard(props: AssetCardProps) {
               size="fill"
               spaceId={spaceId}
               showAudioControls
+              showVideoControls
               className={styles.thumbnailPreview}
             />
             {/* Hover overlay with actions */}

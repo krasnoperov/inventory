@@ -13,7 +13,7 @@ import {
   MarkerType,
   BackgroundVariant,
 } from '@xyflow/react';
-import { type Asset, type Variant, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
 import { AssetNode, type AssetNodeType } from './AssetNode';
 import { applyLayout, type LayoutAlgorithm } from './layouts';
 
@@ -40,6 +40,7 @@ const nodeTypes = {
 export type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
 
 export interface AssetCanvasProps {
+  spaceId?: string;
   assets: Asset[];
   variants: Variant[];
   jobs?: Map<string, { assetId?: string; status: string }>;
@@ -62,6 +63,7 @@ function calculateNodeWidth(imgWidth: number, imgHeight: number): number {
 
 /** Inner component that has access to ReactFlow hooks */
 function AssetCanvasInner({
+  spaceId,
   assets,
   variants,
   jobs,
@@ -118,6 +120,7 @@ function AssetCanvasInner({
       data: {
         asset,
         variant: getAssetVariant(asset),
+        spaceId,
         isGenerating: isAssetGenerating(asset.id),
         onAssetClick,
         onAddToTray,
@@ -150,7 +153,7 @@ function AssetCanvasInner({
     });
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, onAddToTray, imageDimensions, layoutDirection, layoutAlgorithm]);
+  }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, onAddToTray, imageDimensions, layoutDirection, layoutAlgorithm, spaceId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<AssetNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -239,6 +242,7 @@ function AssetCanvasInner({
 
 /** Main exported component - handles dimension loading and provides ReactFlow context */
 export function AssetCanvas({
+  spaceId,
   assets,
   variants,
   jobs,
@@ -268,7 +272,6 @@ export function AssetCanvas({
       return;
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing readiness from external image-load state
     setDimensionsReady(false);
 
     const loadDimensions = async () => {
@@ -283,6 +286,11 @@ export function AssetCanvas({
 
         const url = getVariantThumbnailUrl(variant);
         if (!url) {
+          if (isVariantVideoReady(variant) && variant.media_width && variant.media_height) {
+            const nodeWidth = calculateNodeWidth(variant.media_width, variant.media_height);
+            newDimensions.set(asset.id, { width: nodeWidth, height: DEFAULT_NODE_HEIGHT });
+            return;
+          }
           // Pending/failed variant - use default dimensions
           newDimensions.set(asset.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
           return;
@@ -320,6 +328,7 @@ export function AssetCanvas({
     <ReactFlowProvider>
       <AssetCanvasInner
         assets={assets}
+        spaceId={spaceId}
         variants={variants}
         jobs={jobs}
         onAssetClick={onAssetClick}

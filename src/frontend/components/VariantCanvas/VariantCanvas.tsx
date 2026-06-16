@@ -13,7 +13,7 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import dagre from 'dagre';
-import { type Asset, type Variant, type Lineage, getVariantThumbnailUrl } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, type Lineage, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
 import { VariantNode, type VariantNodeType } from './VariantNode';
 
 import '@xyflow/react/dist/style.css';
@@ -610,7 +610,6 @@ export function VariantCanvas({
       return;
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing readiness from external image-load state
     setDimensionsReady(false);
 
     const loadDimensions = async () => {
@@ -619,6 +618,11 @@ export function VariantCanvas({
       const promises = variants.map(async (variant) => {
         const url = getVariantThumbnailUrl(variant);
         if (!url) {
+          if (isVariantVideoReady(variant) && variant.media_width && variant.media_height) {
+            const nodeWidth = calculateNodeWidth(variant.media_width, variant.media_height);
+            newDimensions.set(variant.id, { width: nodeWidth, height: DEFAULT_NODE_HEIGHT });
+            return;
+          }
           // Pending/failed variant - use default dimensions
           newDimensions.set(variant.id, { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT });
           return;

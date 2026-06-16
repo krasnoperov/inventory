@@ -13,6 +13,7 @@ import {
   type Variant,
   isVariantReady,
   isVariantAudioReady,
+  isVariantVideoReady,
   isVariantLoading,
   isVariantFailed,
   getVariantThumbnailUrl,
@@ -39,6 +40,8 @@ export interface ThumbnailProps {
   spaceId?: string;
   /** Show audio controls when an audio variant has playable media */
   showAudioControls?: boolean;
+  /** Show video controls when a video variant has playable media */
+  showVideoControls?: boolean;
   /** Additional CSS class */
   className?: string;
 }
@@ -59,6 +62,7 @@ function ThumbnailComponent({
   onClick,
   spaceId,
   showAudioControls = false,
+  showVideoControls = false,
   className,
 }: ThumbnailProps) {
   const handleRetryClick = useCallback(
@@ -120,10 +124,20 @@ function ThumbnailComponent({
   const url = getVariantThumbnailUrl(variant);
   const mediaUrl = getVariantMediaUrl(variant, spaceId);
   const showPlayableAudio = isVariantAudioReady(variant) && showAudioControls && mediaUrl;
+  const showPlayableVideo = isVariantVideoReady(variant) && showVideoControls && mediaUrl;
 
   return (
     <div className={baseClasses} onClick={onClick}>
-      {url ? (
+      {showPlayableVideo ? (
+        <video
+          className={styles.videoElement}
+          src={mediaUrl}
+          controls
+          preload="metadata"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : url ? (
         <img src={url} alt="" className={styles.image} draggable={false} />
       ) : isVariantAudioReady(variant) ? (
         <div className={styles.audioPreview}>
@@ -149,6 +163,20 @@ function ThumbnailComponent({
               onClick={(e) => e.stopPropagation()}
             />
           )}
+        </div>
+      ) : isVariantVideoReady(variant) ? (
+        <div className={styles.videoPreview}>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            className={styles.videoIcon}
+          >
+            <rect x="4" y="5" width="16" height="14" rx="2" />
+            <path d="m10 9 5 3-5 3V9z" />
+          </svg>
+          <span className={styles.videoLabel}>Video</span>
         </div>
       ) : (
         <div className={styles.placeholder}>

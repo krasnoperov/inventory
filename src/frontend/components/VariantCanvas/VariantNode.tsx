@@ -178,8 +178,9 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         size="fill"
         spaceId={spaceId}
         showAudioControls
+        showVideoControls
         onRetry={onRetry ? () => onRetry(variant.id) : undefined}
-        className={styles.mediaPreview}
+        className={`${styles.mediaPreview} nodrag nopan`}
       />
     );
   };

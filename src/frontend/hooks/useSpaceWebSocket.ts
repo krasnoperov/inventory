@@ -82,7 +82,14 @@ export function isVariantImageReady(variant: Variant): boolean {
  * Check if a variant has a completed audio artifact for browser preview.
  */
 export function isVariantAudioReady(variant: Variant): boolean {
-  return variant.media_kind === 'audio' && isVariantReady(variant);
+  return variant.status === 'completed' && variant.media_kind === 'audio' && variant.media_key !== null;
+}
+
+/**
+ * Check if a variant has a completed video artifact for native playback.
+ */
+export function isVariantVideoReady(variant: Variant): boolean {
+  return variant.status === 'completed' && variant.media_kind === 'video' && variant.media_key !== null;
 }
 
 /**

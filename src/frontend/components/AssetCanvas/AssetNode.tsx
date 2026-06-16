@@ -15,12 +15,14 @@ export interface AssetNodeData extends Record<string, unknown> {
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   /** Layout direction for handle positioning */
   layoutDirection?: LayoutDirection;
+  /** Space ID for authenticated media preview URLs */
+  spaceId?: string;
 }
 
 export type AssetNodeType = Node<AssetNodeData, 'asset'>;
 
 function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
-  const { asset, variant, onAssetClick, onAddToTray, layoutDirection = 'LR' } = data;
+  const { asset, variant, onAssetClick, onAddToTray, layoutDirection = 'LR', spaceId } = data;
 
   // Determine handle positions based on layout direction
   const getHandlePositions = () => {
@@ -47,7 +49,16 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
 
   // Render thumbnail based on variant status and media kind
   const renderThumbnail = () => {
-    return <Thumbnail variant={variant} size="fill" className={styles.mediaPreview} />;
+    return (
+      <Thumbnail
+        variant={variant}
+        size="fill"
+        spaceId={spaceId}
+        showAudioControls
+        showVideoControls
+        className={`${styles.mediaPreview} nodrag nopan`}
+      />
+    );
   };
 
   return (
