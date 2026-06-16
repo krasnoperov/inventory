@@ -1,0 +1,215 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { executeAssets } from './assets';
+import { loadProjectConfig, saveProjectConfig, type ProjectConfig } from '../lib/project-config';
+import type { StoredConfig } from '../lib/types';
+
+const asset = {
+  id: 'asset-1',
+  name: 'Russafa Market',
+  type: 'scene',
+  parent_asset_id: null,
+  active_variant_id: 'variant-1',
+  created_at: Date.UTC(2026, 5, 16, 10, 0, 0),
+  updated_at: Date.UTC(2026, 5, 16, 11, 0, 0),
+};
+
+const variant = {
+  id: 'variant-1',
+  asset_id: 'asset-1',
+  status: 'completed',
+  image_key: 'images/space-1/variant-1.png',
+  thumb_key: 'thumbs/space-1/variant-1.webp',
+  recipe: '{}',
+  starred: false,
+  error_message: null,
+  created_at: Date.UTC(2026, 5, 16, 10, 0, 0),
+  updated_at: Date.UTC(2026, 5, 16, 11, 0, 0),
+};
+
+function projectConfig(): ProjectConfig {
+  return {
+    version: 1,
+    environment: 'stage',
+    spaceId: 'space-1',
+    updatedAt: '2026-06-16T00:00:00.000Z',
+    configPath: '/tmp/project/.inventory/config.json',
+    projectRoot: '/tmp/project',
+  };
+}
+
+function storedConfig(): StoredConfig {
+  return {
+    environment: 'stage',
+    baseUrl: 'https://inventory.example.test',
+    clientId: 'forgetray-cli',
+    token: {
+      accessToken: 'token-1',
+      issuedAt: Date.now(),
+      expiresAt: Date.now() + 60_000,
+    },
+    user: null,
+    updatedAt: '2026-06-16T00:00:00.000Z',
+  };
+}
+
+function depsFor(output: string[], downloads: unknown[] = []) {
+  const requests: Array<{ url: string; authorization: string | null }> = [];
+  const deps = {
+    loadConfig: async () => storedConfig(),
+    loadProjectConfig: async () => projectConfig(),
+    resolveBaseUrl: () => 'https://inventory.example.test',
+    fetch: async (url: string | URL | Request, init?: RequestInit) => {
+      const requestUrl = String(url);
+      requests.push({
+        url: requestUrl,
+        authorization: init?.headers instanceof Headers
+          ? init.headers.get('authorization')
+          : (init?.headers as Record<string, string> | undefined)?.Authorization || null,
+      });
+      const pathname = new URL(requestUrl).pathname;
+      if (pathname === '/api/spaces/space-1/assets') {
+        return jsonResponse({ success: true, assets: [asset] });
+      }
+      if (pathname === '/api/spaces/space-1/assets/asset-1') {
+        return jsonResponse({
+          success: true,
+          asset,
+          variants: [variant],
+          lineage: [{
+            id: 'lineage-1',
+            parent_variant_id: 'source-variant',
+            child_variant_id: 'variant-1',
+            relation_type: 'derived',
+            severed: false,
+            created_at: Date.UTC(2026, 5, 16, 10, 30, 0),
+          }],
+        });
+      }
+      return jsonResponse({ error: 'not found' }, 404);
+    },
+    downloadImage: async (input: unknown) => {
+      downloads.push(input);
+    },
+    print: (message: string) => output.push(message),
+  };
+  return { deps, requests };
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+test('assets lists website assets from the initialized project', async () => {
+  const output: string[] = [];
+  const { deps, requests } = depsFor(output);
+
+  const result = await executeAssets({ positionals: [], options: {} }, deps);
+
+  assert.equal(result.type, 'list');
+  assert.equal(result.assets[0].id, 'asset-1');
+  assert.match(output.join('\n'), /Russafa Market/);
+  assert.deepEqual(requests, [{
+    url: 'https://inventory.example.test/api/spaces/space-1/assets',
+    authorization: 'Bearer token-1',
+  }]);
+});
+
+test('assets discovers project binding from child directories', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'inventory-assets-'));
+  const child = path.join(root, 'episode', 'scene');
+  const previousCwd = process.cwd();
+  try {
+    await saveProjectConfig({ environment: 'stage', spaceId: 'space-1' }, root);
+    await mkdir(child, { recursive: true });
+    process.chdir(child);
+
+    const output: string[] = [];
+    const { deps } = depsFor(output);
+    const result = await executeAssets({ positionals: [], options: {} }, {
+      ...deps,
+      loadProjectConfig,
+    });
+
+    assert.equal(result.type, 'list');
+    assert.equal(result.assets[0].id, 'asset-1');
+  } finally {
+    process.chdir(previousCwd);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('assets list and show support JSON output', async () => {
+  const listOutput: string[] = [];
+  const listDeps = depsFor(listOutput).deps;
+
+  await executeAssets({ positionals: ['list'], options: { json: 'true' } }, listDeps);
+  const listed = JSON.parse(listOutput.join('\n'));
+  assert.deepEqual(listed[0], {
+    id: 'asset-1',
+    name: 'Russafa Market',
+    type: 'scene',
+    activeVariantId: 'variant-1',
+    parentAssetId: null,
+    createdAt: asset.created_at,
+    updatedAt: asset.updated_at,
+  });
+
+  const showOutput: string[] = [];
+  const showDeps = depsFor(showOutput).deps;
+  const result = await executeAssets({ positionals: ['show', 'asset-1'], options: { json: 'true' } }, showDeps);
+  assert.equal(result.type, 'show');
+  const details = JSON.parse(showOutput.join('\n'));
+  assert.equal(details.asset.id, 'asset-1');
+  assert.equal(details.variants[0].id, 'variant-1');
+  assert.equal(details.lineage[0].relation_type, 'derived');
+});
+
+test('assets download resolves a variant ID to its image key', async () => {
+  const output: string[] = [];
+  const downloads: unknown[] = [];
+  const { deps } = depsFor(output, downloads);
+
+  const result = await executeAssets({
+    positionals: ['download', 'variant-1'],
+    options: { o: 'references/variant.png' },
+  }, deps);
+
+  assert.equal(result.type, 'download');
+  assert.equal(result.imageKey, 'images/space-1/variant-1.png');
+  assert.deepEqual(downloads, [{
+    baseUrl: 'https://inventory.example.test',
+    accessToken: 'token-1',
+    imageKey: 'images/space-1/variant-1.png',
+    outputPath: path.normalize('references/variant.png'),
+    force: false,
+  }]);
+  assert.match(output.join('\n'), /Downloaded images\/space-1\/variant-1.png/);
+});
+
+test('assets download accepts a direct image key without asset lookup', async () => {
+  const output: string[] = [];
+  const downloads: unknown[] = [];
+  const { deps, requests } = depsFor(output, downloads);
+
+  const result = await executeAssets({
+    positionals: ['download', 'images/space-1/direct.png'],
+    options: { output: 'direct.png', force: 'true' },
+  }, deps);
+
+  assert.equal(result.type, 'download');
+  assert.equal(requests.length, 0);
+  assert.deepEqual(downloads, [{
+    baseUrl: 'https://inventory.example.test',
+    accessToken: 'token-1',
+    imageKey: 'images/space-1/direct.png',
+    outputPath: 'direct.png',
+    force: true,
+  }]);
+});

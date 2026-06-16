@@ -1,6 +1,8 @@
 # Inventory CLI
 
-Command-line interface for the Inventory Forge platform. Provides space management, real-time event monitoring, image uploading, Forge generation control, and billing management.
+Command-line interface for the Inventory Forge platform. Provides space
+management, website asset inspection, real-time event monitoring, image
+uploading, Forge generation control, and billing management.
 
 ## Quick Start
 
@@ -26,6 +28,10 @@ pnpm run cli upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
 
 # 7. Generate through the website and download the completed image
 pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
+
+# 8. Inspect website assets and download an existing variant
+pnpm run cli assets
+pnpm run cli assets download VARIANT_ID -o references/variant.png
 ```
 
 ## Commands Overview
@@ -36,6 +42,7 @@ pnpm run cli generate "A market background" --name "Market" --type scene -o mark
 | `logout` | Remove stored credentials |
 | `init` | Bind the current directory to a website space |
 | `spaces` | List, view, or create spaces |
+| `assets` | List website assets, show variants/lineage, download variants |
 | `listen` | Connect to WebSocket and stream all events |
 | `upload` | Upload images to create assets or add variants |
 | `generate` | Create a new asset through the website generation workflow |
@@ -80,6 +87,31 @@ pnpm run cli spaces --id <space_id>    # Details for specific space
 pnpm run cli spaces create "My Space Name"
 pnpm run cli spaces create --name "My Space Name"
 ```
+
+---
+
+## Asset Inventory
+
+Inspect the website-backed asset graph for the initialized project space:
+
+```bash
+pnpm run cli assets
+pnpm run cli assets --json
+pnpm run cli assets show ASSET_ID
+pnpm run cli assets show ASSET_ID --json
+```
+
+Download an existing completed variant or direct image key to a local file:
+
+```bash
+pnpm run cli assets download VARIANT_ID -o references/variant.png
+pnpm run cli assets download images/space/variant.png -o references/variant.png
+```
+
+`assets` calls the website API every time. It does not scan local files, create
+a local asset database, or sync state into `.inventory`; the website remains the
+source of truth. Use `--space`, `--env`, or `--local` to override the project
+binding when needed.
 
 ---
 
