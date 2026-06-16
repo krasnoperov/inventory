@@ -45,6 +45,31 @@
   cursor: pointer;
 }
 
+/* Fixed-size stand-in for nodes that are too close to the rim to render as a
+   readable thumbnail. A short line lying along the boundary circle. */
+.rimMarker {
+  position: absolute;
+  width: 24px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-accent, #6ea8fe);
+  opacity: 0.65;
+  cursor: pointer;
+  transform-origin: center center;
+  will-change: transform, left, top;
+  box-shadow: 0 0 5px rgba(110, 168, 254, 0.5);
+  transition: opacity 0.12s ease, height 0.12s ease;
+}
+
+.rimMarker:hover {
+  opacity: 1;
+  height: 5px;
+}
+
+.markerGenerating {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
 .thumb {
   position: relative;
   width: 100%;

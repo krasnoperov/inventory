@@ -49,7 +49,12 @@ const NODE_BASE = 132;
 /** Padding inside the viewport so the disk doesn't touch the edges. */
 const DISK_PADDING = 0.94;
 /** Hide nodes whose conformal scale falls below this (they're near the rim). */
-const MIN_VISIBLE_SCALE = 0.02;
+/**
+ * Below this conformal scale a thumbnail is too small to read, so the node is
+ * drawn as a fixed-size rim marker (a short line hugging the boundary) instead
+ * of shrinking toward an invisible dot — you can still see it's there.
+ */
+const DETAIL_MIN_SCALE = 0.15;
 /** Pointer travel (px) beyond which a press is a drag, not a click. */
 const CLICK_THRESHOLD = 5;
 
@@ -224,7 +229,6 @@ export function HyperbolicCanvas({
         if (!world) return null;
         const v = apply(cam, world);
         const scale = tileScale(v);
-        if (scale < MIN_VISIBLE_SCALE) return null;
         return {
           asset,
           variant: variantForAsset(asset),
@@ -232,6 +236,9 @@ export function HyperbolicCanvas({
           left: viewport.cx + v.x * viewport.r,
           top: viewport.cy + v.y * viewport.r,
           scale,
+          // Tangent to the disk boundary, so rim markers lie along the circle.
+          angleDeg: (Math.atan2(v.y, v.x) * 180) / Math.PI + 90,
+          isMarker: scale < DETAIL_MIN_SCALE,
         };
       })
       .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -287,35 +294,57 @@ export function HyperbolicCanvas({
           ))}
         </svg>
 
-        {/* Asset nodes */}
-        {projected.map((p) => (
-          <div
-            key={p.asset.id}
-            className={styles.node}
-            style={{
-              left: p.left,
-              top: p.top,
-              width: NODE_BASE,
-              transform: `translate(-50%, -50%) scale(${p.scale})`,
-              opacity: Math.min(1, 0.25 + p.scale),
-              zIndex: Math.round(p.scale * 1000),
-            }}
-            onClick={() => {
-              if (movedRef.current) return;
-              onAssetClick?.(p.asset);
-            }}
-          >
-            <div className={`${styles.thumb} ${p.generating ? styles.generating : ''}`}>
-              <Thumbnail variant={p.variant} size="fill" spaceId={spaceId} className={styles.media} />
+        {/* Asset nodes. Near the rim a node would shrink to an invisible dot,
+            so it collapses into a fixed-size marker line instead. */}
+        {projected.map((p) => {
+          const onClick = () => {
+            if (movedRef.current) return;
+            onAssetClick?.(p.asset);
+          };
+
+          if (p.isMarker) {
+            return (
+              <div
+                key={p.asset.id}
+                className={`${styles.rimMarker} ${p.generating ? styles.markerGenerating : ''}`}
+                style={{
+                  left: p.left,
+                  top: p.top,
+                  transform: `translate(-50%, -50%) rotate(${p.angleDeg}deg)`,
+                  zIndex: Math.round(p.scale * 1000),
+                }}
+                title={p.asset.name}
+                onClick={onClick}
+              />
+            );
+          }
+
+          return (
+            <div
+              key={p.asset.id}
+              className={styles.node}
+              style={{
+                left: p.left,
+                top: p.top,
+                width: NODE_BASE,
+                transform: `translate(-50%, -50%) scale(${p.scale})`,
+                opacity: Math.min(1, 0.35 + p.scale),
+                zIndex: Math.round(p.scale * 1000),
+              }}
+              onClick={onClick}
+            >
+              <div className={`${styles.thumb} ${p.generating ? styles.generating : ''}`}>
+                <Thumbnail variant={p.variant} size="fill" spaceId={spaceId} className={styles.media} />
+              </div>
+              <div className={styles.label}>
+                <span className={styles.name}>{p.asset.name}</span>
+                <span className={styles.type}>
+                  {p.asset.type} / {formatMediaKind(p.asset.media_kind)}
+                </span>
+              </div>
             </div>
-            <div className={styles.label}>
-              <span className={styles.name}>{p.asset.name}</span>
-              <span className={styles.type}>
-                {p.asset.type} / {formatMediaKind(p.asset.media_kind)}
-              </span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className={styles.hint}>Drag to pan · scroll to zoom · double-click to recenter</div>
