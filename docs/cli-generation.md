@@ -95,22 +95,3 @@ This starts a local Wrangler worker, applies local D1 migrations in an isolated
 temporary state directory, creates a dev-authenticated space, runs
 `generate`, `refine`, and `derive`, verifies each downloaded file is a PNG, and
 forces the backend image provider to `fake`.
-
-## Commands To Port Next
-
-The core production loop should stay small:
-
-| Command | Backend operation | Why it matters |
-|---------|-------------------|----------------|
-| `inventory fork --variant <id> --name <name>` | `asset:fork` | Reuse a keyframe or reference as a new tracked asset without generation |
-| `inventory batch generate ... --count <n>` | `batch:request` | Explore multiple candidates from one prompt |
-| `inventory batch derive --refs ... --count <n>` | `batch:request` | Explore scene/keyframe variants from the same references |
-| `inventory style get/set/toggle/delete` | `style:*` and `/style-images` | Control the space style anchor from scripts |
-| `inventory describe --variant <id>` | `describe:request` | Inspect generated assets from CLI workflows |
-| `inventory compare --variants <ids>` | `compare:request` | Choose between candidates before handing off to video tools |
-| `inventory star/rate --variant <id>` | `variant:star`, `variant:rate` | Mark keepers and training-quality outputs |
-| `inventory export --space <id>` | `/api/spaces/:id/export` | Archive or hand off a complete episode asset set |
-
-Rotation and tileset commands are useful later, but the Diario De Russafa
-control-plane workflow should prioritize `fork`, batch generation/derivation,
-style control, and curation first.
