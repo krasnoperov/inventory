@@ -73,6 +73,7 @@ export class RotationController extends BaseController {
     if (!sourceAsset) {
       throw new NotFoundError('Source asset not found');
     }
+    const sourceMediaKind = sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND;
 
     const directions = ROTATION_DIRECTIONS[msg.config];
     if (!directions) {
@@ -85,7 +86,7 @@ export class RotationController extends BaseController {
       id: rotationAssetId,
       name: `${sourceAsset.name} — Rotation`,
       type: sourceAsset.type,
-      mediaKind: sourceAsset.media_kind ?? sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
+      mediaKind: sourceMediaKind,
       tags: [],
       parentAssetId: sourceAsset.id,
       createdBy: meta.userId,
@@ -100,7 +101,7 @@ export class RotationController extends BaseController {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       forkedVariantId,
       rotationAssetId,
-      sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
+      sourceMediaKind,
       null,
       'completed',
       null,
@@ -380,6 +381,7 @@ export class RotationController extends BaseController {
 
     const sourceAsset = await this.repo.getAssetById(sourceVariant.asset_id);
     if (!sourceAsset) throw new NotFoundError('Source asset not found');
+    const sourceMediaKind = sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND;
 
     const directions = ROTATION_DIRECTIONS[msg.config];
     if (!directions) throw new ValidationError(`Invalid rotation config: ${msg.config}`);
@@ -397,7 +399,7 @@ export class RotationController extends BaseController {
       id: rotationAssetId,
       name: `${sourceAsset.name} — Rotation (single-shot)`,
       type: sourceAsset.type,
-      mediaKind: sourceAsset.media_kind ?? sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
+      mediaKind: sourceMediaKind,
       tags: [],
       parentAssetId: sourceAsset.id,
       createdBy: meta.userId,
@@ -410,7 +412,7 @@ export class RotationController extends BaseController {
     await this.sql.exec(
       `INSERT INTO variants (id, asset_id, media_kind, workflow_id, status, error_message, image_key, thumb_key, recipe, starred, created_by, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      forkedVariantId, rotationAssetId, sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND, null, 'completed', null,
+      forkedVariantId, rotationAssetId, sourceMediaKind, null, 'completed', null,
       sourceVariant.image_key, sourceVariant.thumb_key, sourceVariant.recipe,
       0, meta.userId, now, now
     );
@@ -495,6 +497,7 @@ export class RotationController extends BaseController {
     const recipe = JSON.stringify({
       prompt,
       assetType: sourceAsset.type || 'character',
+      mediaKind: sourceMediaKind,
       aspectRatio: msg.aspectRatio,
       sourceImageKeys: [sourceVariant.image_key, ...styleKeys],
       operation: 'derive',
@@ -506,7 +509,7 @@ export class RotationController extends BaseController {
     const variant = await this.repo.createPlaceholderVariant({
       id: variantId,
       assetId: rotationAssetId,
-      mediaKind: sourceAsset.media_kind ?? sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
+      mediaKind: sourceMediaKind,
       recipe,
       createdBy: meta.userId,
     });
@@ -524,7 +527,7 @@ export class RotationController extends BaseController {
           assetId: rotationAssetId,
           assetName: `${subject} — Sprite Sheet`,
           assetType: sourceAsset.type || 'character',
-          mediaKind: sourceAsset.media_kind ?? sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
+          mediaKind: sourceMediaKind,
           aspectRatio: msg.aspectRatio,
           sourceImageKeys: [sourceVariant.image_key, ...styleKeys],
           operation: 'derive',

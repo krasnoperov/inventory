@@ -251,7 +251,7 @@ describe('RotationController', () => {
     test('creates child asset with correct name and parent', async () => {
       const sourceAsset = createMockAsset({ id: 'src-asset', name: 'Hero' });
       const { ctx, broadcasts } = createMockContext({
-        getVariantById: mock.fn(async () => createMockVariant({ asset_id: 'src-asset' })),
+        getVariantById: mock.fn(async () => createMockVariant({ asset_id: 'src-asset', media_kind: 'video' })),
         getAssetById: mock.fn(async () => sourceAsset),
         getRotationSetById: mock.fn(async () => createMockRotationSet({ status: 'cancelled' })),
       });
@@ -267,6 +267,7 @@ describe('RotationController', () => {
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
       assert.strictEqual(createCall.name, 'Hero — Rotation');
       assert.strictEqual(createCall.parentAssetId, 'src-asset');
+      assert.strictEqual(createCall.mediaKind, 'video');
     });
 
     test('forks variant via SQL', async () => {

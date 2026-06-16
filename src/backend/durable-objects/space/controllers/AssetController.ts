@@ -363,6 +363,12 @@ export class AssetController extends BaseController {
     // Get source variant
     const sourceVariant = await this.repo.getVariantById(data.sourceVariantId);
     if (!sourceVariant) return null;
+    const sourceMediaKind = sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND;
+    if (data.mediaKind && data.mediaKind !== sourceMediaKind) {
+      throw new ValidationError(
+        `Cannot fork ${sourceMediaKind} variant into ${data.mediaKind} asset`
+      );
+    }
 
     const now = Date.now();
 
@@ -374,7 +380,7 @@ export class AssetController extends BaseController {
     const asset = await this.createAsset({
       name: data.name,
       type: data.type,
-      mediaKind: data.mediaKind ?? sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
+      mediaKind: data.mediaKind ?? sourceMediaKind,
       parentAssetId: effectiveParentAssetId,
       createdBy: data.createdBy,
     });
@@ -384,7 +390,7 @@ export class AssetController extends BaseController {
     const variant: Variant = {
       id: newVariantId,
       asset_id: asset.id,
-      media_kind: sourceVariant.media_kind ?? DEFAULT_MEDIA_KIND,
+      media_kind: sourceMediaKind,
       workflow_id: null, // Forked variants have no workflow
       status: 'completed', // Forked variants are immediately complete
       error_message: null,

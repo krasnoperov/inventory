@@ -270,6 +270,7 @@ describe('TileController', () => {
     test('creates asset with type tile-set', async () => {
       // getTileSetById returns cancelled so advanceTileSet returns early
       const { ctx, broadcasts } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({ media_kind: 'video' })),
         getTileSetById: mock.fn(async () => createMockTileSet({ status: 'cancelled' })),
       });
       const controller = new TileController(ctx);
@@ -286,6 +287,7 @@ describe('TileController', () => {
 
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
       assert.strictEqual(createCall.type, 'tile-set');
+      assert.strictEqual(createCall.mediaKind, 'video');
       assert.ok(createCall.name.includes('Tile Set'));
     });
 
@@ -392,6 +394,31 @@ describe('TileController', () => {
 
       // Should create placeholder variant instead
       assert.strictEqual(asMock(ctx.repo.createPlaceholderVariant).mock.calls.length, 1);
+    });
+
+    test('propagates media kind through single-shot asset, placeholder, recipe, and workflow', async () => {
+      const { ctx } = createMockContext();
+      const controller = new TileController(ctx);
+
+      await controller.handleTileSetRequest({} as WebSocket, createEditorMeta(), {
+        type: 'tileset:request',
+        requestId: 'req-1',
+        tileType: 'terrain',
+        gridWidth: 3,
+        gridHeight: 3,
+        prompt: 'forest',
+        generationMode: 'single-shot',
+      });
+
+      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
+      assert.strictEqual(createCall.mediaKind, 'image');
+
+      const placeholderCall = asMock(ctx.repo.createPlaceholderVariant).mock.calls[0].arguments[0];
+      assert.strictEqual(placeholderCall.mediaKind, 'image');
+      assert.strictEqual(JSON.parse(placeholderCall.recipe).mediaKind, 'image');
+
+      const workflowCall = asMock(ctx.env.GENERATION_WORKFLOW.create).mock.calls[0].arguments[0];
+      assert.strictEqual(workflowCall.params.mediaKind, 'image');
     });
 
     test('rejects invalid seed variant', async () => {

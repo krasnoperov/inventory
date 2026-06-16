@@ -364,6 +364,36 @@ describe('VariantFactory', () => {
       assert.strictEqual(recipe.mediaKind, 'audio');
     });
 
+    test('rejects explicit media kind that differs from target asset when refining', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
+        id: 'asset-1',
+        name: 'Existing Image',
+        type: 'reference',
+        media_kind: 'image',
+        active_variant_id: 'existing-var',
+      }));
+
+      await assert.rejects(
+        factory.createRefineVariant(
+          {
+            assetId: 'asset-1',
+            mediaKind: 'video',
+            prompt: 'Refine this reference',
+          },
+          meta
+        ),
+        /Cannot create video variant for image asset/
+      );
+
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+    });
+
     test('throws when asset not found', async () => {
       const repo = createMockRepo();
       const env = createMockEnv();

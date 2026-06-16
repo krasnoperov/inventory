@@ -12,7 +12,7 @@ import {
   DELETE_REF_SQL,
   getVariantImageKeys,
 } from '../variant/imageRefs';
-import { BaseController, type ControllerContext, NotFoundError } from './types';
+import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 
@@ -155,6 +155,7 @@ export class VariantController extends BaseController {
       if (!existingAsset) {
         throw new NotFoundError('Asset not found');
       }
+      this.assertVariantMediaKindMatchesAsset(existingAsset, data.mediaKind);
       asset = existingAsset;
     } else if (data.assetName) {
       // Create new asset for the upload
@@ -367,12 +368,18 @@ export class VariantController extends BaseController {
       return { created: false, variant: existing };
     }
 
+    const asset = await this.repo.getAssetById(data.assetId);
+    if (!asset) {
+      throw new NotFoundError('Asset not found');
+    }
+    const mediaKind = this.assertVariantMediaKindMatchesAsset(asset, data.mediaKind);
+
     const now = Date.now();
 
     const variant: Variant = {
       id: data.variantId,
       asset_id: data.assetId,
-      media_kind: data.mediaKind ?? DEFAULT_MEDIA_KIND,
+      media_kind: mediaKind,
       workflow_id: data.jobId,
       status: 'completed', // Variants created via workflow are immediately complete
       error_message: null,
@@ -516,5 +523,18 @@ export class VariantController extends BaseController {
       // Delete ref record
       await this.sql.exec(DELETE_REF_SQL, imageKey);
     }
+  }
+
+  private assertVariantMediaKindMatchesAsset(
+    asset: Asset,
+    requestedMediaKind?: MediaKind
+  ): MediaKind {
+    const assetMediaKind = asset.media_kind ?? DEFAULT_MEDIA_KIND;
+    if (requestedMediaKind && requestedMediaKind !== assetMediaKind) {
+      throw new ValidationError(
+        `Cannot create ${requestedMediaKind} variant for ${assetMediaKind} asset`
+      );
+    }
+    return assetMediaKind;
   }
 }
