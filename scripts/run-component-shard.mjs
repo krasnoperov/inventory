@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const shard = process.argv[2];
@@ -29,21 +29,15 @@ function countTests(file) {
   );
 }
 
-function componentSmokeFiles() {
-  const shardDir = resolve(process.cwd(), 'tests/components/shards');
-  const seen = new Set();
+function componentSpecFiles(dir = resolve(process.cwd(), 'tests/components')) {
   const files = [];
 
-  for (const entry of readdirSync(shardDir).sort()) {
-    if (!entry.endsWith('.txt')) {
-      continue;
-    }
-    for (const file of readShardFile(entry.replace(/\.txt$/, ''))) {
-      if (seen.has(file) || !existsSync(resolve(process.cwd(), file))) {
-        continue;
-      }
-      seen.add(file);
-      files.push(file);
+  for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    const path = resolve(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...componentSpecFiles(path));
+    } else if (entry.isFile() && entry.name.endsWith('.spec.ts')) {
+      files.push(relative(process.cwd(), path));
     }
   }
 
@@ -52,7 +46,7 @@ function componentSmokeFiles() {
 
 function balancedShardFiles(index, total) {
   const groups = Array.from({ length: total }, () => ({ weight: 0, files: [] }));
-  const weightedFiles = componentSmokeFiles()
+  const weightedFiles = componentSpecFiles()
     .map((file) => ({ file, weight: countTests(file) }))
     .sort((a, b) => b.weight - a.weight || a.file.localeCompare(b.file));
 

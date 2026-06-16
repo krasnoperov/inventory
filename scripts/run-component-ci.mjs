@@ -32,7 +32,7 @@ function startServer(port) {
 }
 
 function shardArgument(shard) {
-  return shardCount === 1 ? '1' : `${shard}/${shardCount}`;
+  return `${shard}/${shardCount}`;
 }
 
 async function waitForServer(port) {
