@@ -27,6 +27,8 @@ test('saveProjectConfig writes a minimal local project binding', async () => {
       environment: 'stage',
       spaceId: 'space-1',
       updatedAt: config.updatedAt,
+      configPath,
+      projectRoot: dir,
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -45,6 +47,8 @@ test('loadProjectConfig searches parent directories', async () => {
     const config = await loadProjectConfig(child);
     assert.equal(config?.environment, 'local');
     assert.equal(config?.spaceId, 'space-local');
+    assert.equal(config?.configPath, getProjectConfigPath(dir));
+    assert.equal(config?.projectRoot, dir);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

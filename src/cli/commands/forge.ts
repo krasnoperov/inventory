@@ -85,7 +85,7 @@ interface CommandDeps {
     force?: boolean;
   }) => Promise<void>;
   fileExists: (filePath: string) => Promise<boolean>;
-  saveRunManifest: (manifest: RunManifest) => Promise<string>;
+  saveRunManifest: (manifest: RunManifest, cwd?: string) => Promise<string>;
   createRunId: () => string;
 }
 
@@ -115,6 +115,7 @@ interface CommandContext {
   baseUrl: string;
   accessToken: string;
   force: boolean;
+  projectRoot?: string;
 }
 
 export async function handleGenerate(parsed: ParsedArgs): Promise<void> {
@@ -328,7 +329,7 @@ async function executeBatch(
     completedAt: new Date().toISOString(),
     images,
     failed: result.failed,
-  });
+  }, ctx.projectRoot);
 
   printBatchResult(result, outputDir, manifestPath, ctx);
   if (!result.success) {
@@ -366,6 +367,7 @@ async function buildContext(parsed: ParsedArgs, deps: CommandDeps): Promise<Comm
     baseUrl: deps.resolveBaseUrl(env),
     accessToken: config.token.accessToken,
     force: parsed.options.force === 'true',
+    projectRoot: projectConfig?.projectRoot,
   };
 }
 

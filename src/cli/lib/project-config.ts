@@ -6,6 +6,8 @@ export type ProjectConfig = {
   environment: string;
   spaceId: string;
   updatedAt: string;
+  configPath?: string;
+  projectRoot?: string;
 };
 
 const PROJECT_DIR_NAME = '.inventory';
@@ -35,7 +37,11 @@ export async function loadProjectConfig(cwd = process.cwd()): Promise<ProjectCon
   const raw = await readFile(configPath, 'utf8');
   const parsed = JSON.parse(raw) as Partial<ProjectConfig>;
   validateProjectConfig(parsed, configPath);
-  return parsed;
+  return {
+    ...parsed,
+    configPath,
+    projectRoot: path.dirname(path.dirname(configPath)),
+  };
 }
 
 export function getProjectConfigPath(cwd = process.cwd()): string {

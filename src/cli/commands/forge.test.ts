@@ -129,6 +129,7 @@ class FakeClient {
 function depsFor(client: FakeClient) {
   const downloads: unknown[] = [];
   const manifests: unknown[] = [];
+  const manifestRoots: Array<string | undefined> = [];
 
   return {
     deps: {
@@ -143,14 +144,16 @@ function depsFor(client: FakeClient) {
         downloads.push(input);
       },
       fileExists: async () => false,
-      saveRunManifest: async (manifest: unknown) => {
+      saveRunManifest: async (manifest: unknown, cwd?: string) => {
         manifests.push(manifest);
+        manifestRoots.push(cwd);
         return '.inventory/runs/run-test.json';
       },
       createRunId: () => 'run-test',
     },
     downloads,
     manifests,
+    manifestRoots,
   };
 }
 
@@ -594,4 +597,47 @@ test('batch keeps completed outputs and manifest when a sibling variant fails', 
   })), [
     { variantId: 'variant-batch-1', localPath: 'keyframes/market-keyframe-01.png' },
   ]);
+});
+
+test('batch saves manifest at inherited project root', async () => {
+  const client = new FakeClient();
+  const downloads: unknown[] = [];
+  const manifestRoots: Array<string | undefined> = [];
+
+  await executeForgeCommand('batch', {
+    positionals: ['make', 'project', 'keyframes'],
+    options: {
+      name: 'Project Keyframe',
+      type: 'scene',
+      count: '2',
+      'output-dir': 'keyframes',
+    },
+  }, {
+    loadConfig: async () => config,
+    loadProjectConfig: async () => ({
+      version: 1,
+      environment: 'stage',
+      spaceId: 'space-project',
+      updatedAt: new Date().toISOString(),
+      configPath: '/tmp/project/.inventory/config.json',
+      projectRoot: '/tmp/project',
+    }),
+    resolveBaseUrl: () => 'https://inventory-stage.example.test',
+    createClient: async () => client,
+    uploadLocalReference: async () => {
+      throw new Error('unexpected upload');
+    },
+    downloadImage: async (input: unknown) => {
+      downloads.push(input);
+    },
+    fileExists: async () => false,
+    saveRunManifest: async (_manifest: unknown, cwd?: string) => {
+      manifestRoots.push(cwd);
+      return '/tmp/project/.inventory/runs/run-test.json';
+    },
+    createRunId: () => 'run-test',
+  });
+
+  assert.equal(downloads.length, 2);
+  assert.deepEqual(manifestRoots, ['/tmp/project']);
 });

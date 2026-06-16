@@ -108,11 +108,12 @@ references through these commands.
 
 ## Run Manifests
 
-`batch` writes a JSON manifest to `.inventory/runs/<run-id>.json`. The manifest
-maps downloaded local files to website asset IDs, variant IDs, image keys,
-prompt, refs, command options, timestamps, run success, and any failed variant
-errors. Completed images are still downloaded and recorded when another batch
-member fails. It is a handoff artifact for Remotion, Kling, or other video
+`batch` writes a JSON manifest to `.inventory/runs/<run-id>.json` at the
+initialized project root, even when the command runs from a child directory. The
+manifest maps downloaded local files to website asset IDs, variant IDs, image
+keys, prompt, refs, command options, timestamps, run success, and any failed
+variant errors. Completed images are still downloaded and recorded when another
+batch member fails. It is a handoff artifact for Remotion, Kling, or other video
 tooling; it is not a local asset database and the website remains the source of
 truth.
 
