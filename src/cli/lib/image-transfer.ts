@@ -1,6 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { DEFAULT_MEDIA_KIND } from '../../shared/websocket-types';
+import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../shared/websocket-types';
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -23,6 +23,7 @@ export interface UploadedImage {
   variant: {
     id: string;
     asset_id: string;
+    media_kind?: MediaKind;
     image_key: string;
     thumb_key: string;
     media_key?: string | null;
@@ -106,10 +107,10 @@ export async function uploadLocalImageAsReference(input: {
   };
 }
 
-export async function downloadImage(input: {
+export async function downloadFile(input: {
   baseUrl: string;
   accessToken?: string;
-  imageKey: string;
+  requestPath: string;
   outputPath: string;
   force?: boolean;
 }): Promise<void> {
@@ -131,12 +132,28 @@ export async function downloadImage(input: {
     headers.Authorization = `Bearer ${input.accessToken}`;
   }
 
-  const response = await fetch(`${input.baseUrl}/api/images/${input.imageKey}`, { headers });
+  const response = await fetch(`${input.baseUrl}${input.requestPath}`, { headers });
   if (!response.ok) {
-    throw new Error(`Failed to download image ${input.imageKey}: ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to download ${input.requestPath}: ${response.status} ${response.statusText}`);
   }
 
   const buffer = new Uint8Array(await response.arrayBuffer());
   await mkdir(path.dirname(input.outputPath), { recursive: true });
   await writeFile(input.outputPath, buffer);
+}
+
+export async function downloadImage(input: {
+  baseUrl: string;
+  accessToken?: string;
+  imageKey: string;
+  outputPath: string;
+  force?: boolean;
+}): Promise<void> {
+  await downloadFile({
+    baseUrl: input.baseUrl,
+    accessToken: input.accessToken,
+    requestPath: `/api/images/${input.imageKey}`,
+    outputPath: input.outputPath,
+    force: input.force,
+  });
 }

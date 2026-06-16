@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { ParsedArgs, StoredConfig } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
 import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
-import { downloadImage } from '../lib/image-transfer';
+import { downloadFile } from '../lib/image-transfer';
 import { truncate } from '../lib/utils';
 import type { MediaKind } from '../../shared/websocket-types';
 
@@ -57,14 +57,14 @@ interface AssetDetails {
 type AssetsResult =
   | { type: 'list'; assets: Asset[] }
   | { type: 'show'; details: AssetDetails }
-  | { type: 'download'; imageKey: string; outputPath: string; variant?: Variant };
+  | { type: 'download'; mediaKey: string; outputPath: string; variant?: Variant };
 
 interface AssetsDeps {
   loadConfig: (env: string) => Promise<StoredConfig | null>;
   loadProjectConfig: () => Promise<ProjectConfig | null>;
   resolveBaseUrl: (env: string) => string;
   fetch: typeof fetch;
-  downloadImage: typeof downloadImage;
+  downloadFile: typeof downloadFile;
   print: (message: string) => void;
 }
 
@@ -81,7 +81,7 @@ const defaultDeps: AssetsDeps = {
   loadProjectConfig,
   resolveBaseUrl,
   fetch,
-  downloadImage,
+  downloadFile,
   print: console.log,
 };
 
@@ -133,15 +133,15 @@ export async function executeAssets(
     }
     const outputPath = getOutputPath(parsed);
     const resolved = await resolveDownloadRef(ref, ctx, deps);
-    await deps.downloadImage({
+    await deps.downloadFile({
       baseUrl: ctx.baseUrl,
       accessToken: ctx.accessToken,
-      imageKey: resolved.imageKey,
+      requestPath: resolved.requestPath,
       outputPath,
       force: ctx.force,
     });
-    deps.print(`Downloaded ${resolved.imageKey} to ${outputPath}`);
-    return { type: 'download', imageKey: resolved.imageKey, outputPath, variant: resolved.variant };
+    deps.print(`Downloaded ${resolved.mediaKey} to ${outputPath}`);
+    return { type: 'download', mediaKey: resolved.mediaKey, outputPath, variant: resolved.variant };
   }
 
   throw new Error(`Unknown assets command: ${subcommand}`);
@@ -214,9 +214,9 @@ async function resolveDownloadRef(
   ref: string,
   ctx: AssetsContext,
   deps: Pick<AssetsDeps, 'fetch'>
-): Promise<{ imageKey: string; variant?: Variant }> {
-  if (looksLikeImageKey(ref)) {
-    return { imageKey: ref };
+): Promise<{ mediaKey: string; requestPath: string; variant?: Variant }> {
+  if (looksLikeStorageKey(ref)) {
+    return { mediaKey: ref, requestPath: `/api/images/${ref}` };
   }
 
   const assets = await listAssets(ctx, deps);
@@ -224,17 +224,40 @@ async function resolveDownloadRef(
     const details = await getAssetDetails(ctx, deps, asset.id);
     const variant = details.variants.find((candidate) => candidate.id === ref);
     if (!variant) continue;
-    if (!variant.image_key) {
-      throw new Error(`Variant ${ref} has no image key; status is ${variant.status}`);
+    if (variant.media_key) {
+      return {
+        mediaKey: variant.media_key,
+        requestPath: `/api/spaces/${encodeURIComponent(ctx.spaceId)}/variants/${encodeURIComponent(variant.id)}/media`,
+        variant,
+      };
     }
-    return { imageKey: variant.image_key, variant };
+    if (variant.image_key) {
+      return { mediaKey: variant.image_key, requestPath: `/api/images/${variant.image_key}`, variant };
+    }
+    throw new Error(`Variant ${ref} has no downloadable media; status is ${variant.status}`);
   }
 
   throw new Error(`Variant not found in space ${ctx.spaceId}: ${ref}`);
 }
 
-function looksLikeImageKey(value: string): boolean {
-  return value.includes('/') || ['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(path.extname(value).toLowerCase());
+function looksLikeStorageKey(value: string): boolean {
+  return value.includes('/') || [
+    '.aac',
+    '.flac',
+    '.gif',
+    '.jpg',
+    '.jpeg',
+    '.m4a',
+    '.m4v',
+    '.mov',
+    '.mp3',
+    '.mp4',
+    '.ogg',
+    '.png',
+    '.wav',
+    '.webm',
+    '.webp',
+  ].includes(path.extname(value).toLowerCase());
 }
 
 function getOutputPath(parsed: ParsedArgs): string {
@@ -292,7 +315,9 @@ function printAssetDetails(details: AssetDetails, ctx: AssetsContext, print: (me
       print(` ${active} ${variant.id}`);
       print(`     Status: ${variant.status}`);
       print(`     Media:  ${variant.media_kind || '-'}`);
-      print(`     Image:  ${variant.image_key || '-'}`);
+      print(`     File:   ${variant.media_key || variant.image_key || '-'}`);
+      if (variant.image_key) print(`     Image:  ${variant.image_key}`);
+      if (variant.media_mime_type) print(`     MIME:   ${variant.media_mime_type}`);
     }
   }
 
@@ -331,6 +356,6 @@ Usage:
   pnpm run cli assets --json
   pnpm run cli assets show <asset-id>
   pnpm run cli assets show <asset-id> --json
-  pnpm run cli assets download <variant-id|image-key> -o image.png
+  pnpm run cli assets download <variant-id|media-key> -o output-file
 `);
 }

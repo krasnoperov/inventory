@@ -68,7 +68,7 @@ Project:
   assets                         List website assets for the initialized space
   assets show <asset-id>          Show website asset variants and lineage
   assets download <variant-id> -o <file>
-                                 Download a website variant image locally
+                                 Download a website variant media file locally
 
 Billing (Polar.sh):
   billing status               Show sync status (pending, failed, synced events)
@@ -86,8 +86,8 @@ Listen:
   listen --space <id> --json   Output raw JSON for piping/processing
 
 Upload:
-  upload <file> --space <id> --asset <id>   Upload image to existing asset
-  upload <file> --space <id> --name <name>  Upload and create new asset
+  upload <file> --space <id> --asset <id>   Upload image, audio, or video to existing asset
+  upload <file> --space <id> --name <name>  Upload media and create new asset
 
 Forge:
   generate "prompt" --name <name> --type <type> -o <file>
@@ -112,7 +112,7 @@ Examples:
   pnpm run cli batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
   pnpm run cli runs export --latest --format remotion -o keyframes.json
   pnpm run cli assets
-  pnpm run cli assets download variant_123 -o variant.png
+  pnpm run cli assets download variant_123 -o variant.mp4
 `);
 }
 
