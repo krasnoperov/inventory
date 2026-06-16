@@ -598,6 +598,36 @@ describe('VariantController', () => {
       assert.strictEqual(result.variant.media_kind, 'video');
     });
 
+    test('preserves media metadata on applied variant', async () => {
+      const { ctx } = createMockContext({
+        getVariantByWorkflowId: mock.fn(async () => null),
+      });
+      const controller = new VariantController(ctx);
+
+      const result = await controller.httpApplyVariant({
+        jobId: 'job-123',
+        variantId: 'var-new',
+        assetId: 'asset-1',
+        imageKey: 'images/new.png',
+        thumbKey: 'thumbs/new.png',
+        mediaKey: 'images/new.png',
+        mediaMimeType: 'image/png',
+        mediaSizeBytes: 2048,
+        mediaWidth: 1024,
+        mediaHeight: 768,
+        mediaDurationMs: null,
+        recipe: '{}',
+        createdBy: 'user-1',
+      });
+
+      assert.strictEqual(result.variant.media_key, 'images/new.png');
+      assert.strictEqual(result.variant.media_mime_type, 'image/png');
+      assert.strictEqual(result.variant.media_size_bytes, 2048);
+      assert.strictEqual(result.variant.media_width, 1024);
+      assert.strictEqual(result.variant.media_height, 768);
+      assert.strictEqual(result.variant.media_duration_ms, null);
+    });
+
     test('rejects applied variant media kind that differs from target asset', async () => {
       const { ctx } = createMockContext({
         getAssetById: mock.fn(async () => createMockAsset({ media_kind: 'image' })),

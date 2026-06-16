@@ -89,6 +89,12 @@ export class VariantController extends BaseController {
     assetId: string;
     imageKey: string;
     thumbKey: string;
+    mediaKey?: string | null;
+    mediaMimeType?: string | null;
+    mediaSizeBytes?: number | null;
+    mediaWidth?: number | null;
+    mediaHeight?: number | null;
+    mediaDurationMs?: number | null;
     recipe: string;
     createdBy: string;
     mediaKind?: MediaKind;
@@ -382,6 +388,12 @@ export class VariantController extends BaseController {
     assetId: string;
     imageKey: string;
     thumbKey: string;
+    mediaKey?: string | null;
+    mediaMimeType?: string | null;
+    mediaSizeBytes?: number | null;
+    mediaWidth?: number | null;
+    mediaHeight?: number | null;
+    mediaDurationMs?: number | null;
     recipe: string;
     createdBy: string;
     mediaKind?: MediaKind;
@@ -411,12 +423,12 @@ export class VariantController extends BaseController {
       error_message: null,
       image_key: data.imageKey,
       thumb_key: data.thumbKey,
-      media_key: data.imageKey,
-      media_mime_type: null,
-      media_size_bytes: null,
-      media_width: null,
-      media_height: null,
-      media_duration_ms: null,
+      media_key: data.mediaKey ?? data.imageKey,
+      media_mime_type: data.mediaMimeType ?? null,
+      media_size_bytes: data.mediaSizeBytes ?? null,
+      media_width: data.mediaWidth ?? null,
+      media_height: data.mediaHeight ?? null,
+      media_duration_ms: data.mediaDurationMs ?? null,
       recipe: data.recipe,
       starred: false,
       created_by: data.createdBy,

@@ -57,6 +57,12 @@ export interface InternalApiControllers {
       assetId: string;
       imageKey: string;
       thumbKey: string;
+      mediaKey?: string | null;
+      mediaMimeType?: string | null;
+      mediaSizeBytes?: number | null;
+      mediaWidth?: number | null;
+      mediaHeight?: number | null;
+      mediaDurationMs?: number | null;
       recipe: string;
       createdBy: string;
       mediaKind?: MediaKind;
