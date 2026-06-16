@@ -4,6 +4,7 @@ import { RouterClient } from '@tanstack/react-router/ssr/client';
 import { setNavigationBridge } from './navigation/navigator';
 import { getRouter } from './router';
 import { getBrowserStartSession, StartSessionProvider } from './startSession';
+import './styles/theme.css';
 import './styles/global.css';
 
 const root = document.getElementById('root') as HTMLElement;
