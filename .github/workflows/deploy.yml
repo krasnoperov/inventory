@@ -86,8 +86,9 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.deploy_ref }}
 
-      - run: corepack enable
-      - run: corepack prepare pnpm@11.1.1 --activate
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
 
       - uses: actions/cache@v4
         with:
@@ -132,8 +133,9 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.deploy_ref }}
 
-      - run: corepack enable
-      - run: corepack prepare pnpm@11.1.1 --activate
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
 
       - uses: actions/cache@v4
         with:
