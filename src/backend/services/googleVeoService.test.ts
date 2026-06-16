@@ -103,7 +103,9 @@ describe('GoogleVeoService', () => {
       },
     });
     const fetchMock = mock.method(globalThis, 'fetch', async (_input: string | URL | Request, init?: RequestInit) => {
-      assert.equal((init?.headers as Headers).get('x-goog-api-key'), 'test-key');
+      const headers = init?.headers;
+      assert.ok(headers instanceof Headers);
+      assert.equal(headers.get('x-goog-api-key'), 'test-key');
       return new Response(new Uint8Array([1, 2, 3]), {
         headers: { 'Content-Type': 'video/mp4' },
       });

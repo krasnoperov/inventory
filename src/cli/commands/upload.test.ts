@@ -27,7 +27,8 @@ function depsFor(capturedBodies: BodyInit[], output: string[]) {
     resolveBaseUrl: () => 'https://inventory.example.test',
     fetch: async (url: string | URL | Request, init?: RequestInit) => {
       assert.equal(String(url), 'https://inventory.example.test/api/spaces/space-1/upload');
-      assert.equal((init?.headers as Record<string, string>).Authorization, 'Bearer token-1');
+      const headers = init?.headers as Record<string, string> | undefined;
+      assert.equal(headers?.Authorization, 'Bearer token-1');
       if (init?.body) capturedBodies.push(init.body);
       return new Response(JSON.stringify({
         success: true,
