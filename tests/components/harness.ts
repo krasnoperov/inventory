@@ -8,7 +8,7 @@ export async function mountComponent(
   const propsB64 = encodeURIComponent(Buffer.from(JSON.stringify(props)).toString('base64'));
   const url = `/component-harness.html?component=${encodeURIComponent(componentName)}&props=${propsB64}`;
   await page.goto(url, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('[data-testid="harness-root"]');
+  await page.waitForSelector('[data-testid="harness-root"]', { state: 'attached' });
 }
 
 export async function screenshot(page: Page, name: string, opts?: { fullPage?: boolean }): Promise<string> {
