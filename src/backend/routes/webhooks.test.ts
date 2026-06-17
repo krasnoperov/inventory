@@ -53,13 +53,13 @@ function signHeaders(body: string, timestamp = new Date()) {
   };
 }
 
-function subscriptionCanceledPayload(externalId = '42') {
+function subscriptionCanceledPayload(externalId = '42', status = 'canceled') {
   return {
     type: 'subscription.canceled',
     timestamp: new Date().toISOString(),
     data: {
       id: 'sub_123',
-      status: 'canceled',
+      status,
       current_period_end: '2026-07-01T00:00:00.000Z',
       canceled_at: '2026-06-17T00:00:00.000Z',
       customer: {
@@ -137,6 +137,39 @@ describe('Polar webhook route', () => {
       gemini_input_tokens: 0,
       gemini_output_tokens: 0,
       elevenlabs_audio: 0,
+    });
+  });
+
+  test('keeps quota limits for scheduled subscription cancellation while subscription is active', async () => {
+    const updates: unknown[] = [];
+    const meterLookups: unknown[] = [];
+    const app = routeApp(routeDeps({
+      update: async (...args: unknown[]) => {
+        updates.push(args);
+      },
+    }, {
+      getCustomerMeters: async (...args: unknown[]) => {
+        meterLookups.push(args);
+        return [
+          { meterSlug: 'gemini_images', hasLimit: true, credited: 25 },
+        ];
+      },
+    }));
+
+    const body = JSON.stringify(subscriptionCanceledPayload('42', 'active'));
+    const response = await app.request('/api/webhooks/polar', {
+      method: 'POST',
+      headers: signHeaders(body),
+      body,
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(meterLookups.length, 1);
+    assert.deepEqual(meterLookups[0], [42]);
+    assert.equal(updates.length, 1);
+    assert.equal((updates[0] as unknown[])[0], 42);
+    assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
+      gemini_images: 25,
     });
   });
 

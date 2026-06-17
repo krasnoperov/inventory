@@ -115,7 +115,7 @@ webhookRoutes.post('/api/webhooks/polar', async (c) => {
         break;
 
       case 'subscription.canceled':
-        await handleSubscriptionCanceled(normalizeSubscriptionEventData(data), userDAO);
+        await handleSubscriptionCanceled(normalizeSubscriptionEventData(data), userDAO, polarService);
         break;
 
       case 'customer.state_changed':
@@ -333,17 +333,24 @@ async function handleSubscriptionUpdated(
  */
 async function handleSubscriptionCanceled(
   data: SubscriptionEventData,
-  userDAO: UserDAO
+  userDAO: UserDAO,
+  polarService: PolarService
 ): Promise<void> {
   const { customer, subscription } = data;
   console.log(`[Polar Webhook] Subscription canceled for customer ${customer.id}`, {
     subscriptionId: subscription.id,
+    status: subscription.status,
     canceledAt: subscription.canceled_at,
     endsAt: subscription.current_period_end,
   });
 
   const userId = parseExternalUserId(customer.external_id, 'revoke limits');
   if (userId === null) return;
+
+  if (subscription.status === 'active' || subscription.status === 'trialing') {
+    await fetchAndCacheLimits(userId, userDAO, polarService);
+    return;
+  }
 
   // Set all limits to 0 (user can still see usage but can't make new requests)
   const revokedLimits = {
