@@ -93,6 +93,7 @@ status: ok | warning | critical | exceeded
 |----------|-------------|
 | `POLAR_ACCESS_TOKEN` | API token from Polar dashboard |
 | `POLAR_ORGANIZATION_ID` | Organization ID |
+| `POLAR_WEBHOOK_SECRET` | Webhook endpoint secret used for Standard Webhooks verification |
 | `POLAR_ENVIRONMENT` | `sandbox` or `production` |
 
 ### Environments

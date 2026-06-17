@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { Webhook, WebhookVerificationError } from 'standardwebhooks';
 import type { AppContext } from './types';
 import { UserDAO } from '../../dao/user-dao';
 import { PolarService } from '../services/polarService';
@@ -17,11 +18,11 @@ interface SubscriptionEventData {
   };
   subscription: {
     id: string;
-    status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
-    product_id: string;
-    current_period_start: string;
-    current_period_end: string;
-    canceled_at?: string;
+    status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | string;
+    product_id?: string;
+    current_period_start?: string | null;
+    current_period_end?: string | null;
+    canceled_at?: string | null;
   };
 }
 
@@ -38,6 +39,8 @@ interface PolarWebhookEvent {
   type: string;
   data: unknown;
 }
+
+class WebhookPayloadError extends Error {}
 
 /**
  * Polar.sh Webhook Handler
@@ -59,50 +62,29 @@ interface PolarWebhookEvent {
 webhookRoutes.post('/api/webhooks/polar', async (c) => {
   try {
     const webhookSecret = c.env.POLAR_WEBHOOK_SECRET;
+    const rawBody = await c.req.text();
+    let event: PolarWebhookEvent;
 
-    // Verify webhook signature if secret is configured
+    // Verify Standard Webhooks signature if secret is configured.
     if (webhookSecret) {
-      const signature = c.req.header('Polar-Signature');
-      if (!signature) {
-        console.warn('[Polar Webhook] Missing signature header');
-        return c.json({ error: 'Missing signature' }, 401);
-      }
-
-      // Get raw body for signature verification
-      const rawBody = await c.req.text();
-
-      // Verify HMAC signature
-      const encoder = new TextEncoder();
-      const key = await crypto.subtle.importKey(
-        'raw',
-        encoder.encode(webhookSecret),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-      );
-      const signatureBuffer = await crypto.subtle.sign(
-        'HMAC',
-        key,
-        encoder.encode(rawBody)
-      );
-      const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-
-      if (signature !== expectedSignature) {
-        console.warn('[Polar Webhook] Invalid signature');
-        return c.json({ error: 'Invalid signature' }, 401);
-      }
-
-      // Parse the verified body
-      const event = JSON.parse(rawBody) as PolarWebhookEvent;
-      return await handlePolarEvent(event);
+      event = verifyPolarWebhook(rawBody, c.req.raw.headers, webhookSecret);
+    } else {
+      // No webhook secret configured - parse body directly (dev mode)
+      event = parsePolarWebhookPayload(JSON.parse(rawBody));
     }
 
-    // No webhook secret configured - parse body directly (dev mode)
-    const event = await c.req.json() as PolarWebhookEvent;
     return await handlePolarEvent(event);
   } catch (error) {
+    if (error instanceof WebhookVerificationError) {
+      console.warn('[Polar Webhook] Invalid signature:', error.message);
+      return c.json({ error: 'Invalid signature' }, 401);
+    }
+
+    if (error instanceof SyntaxError || error instanceof WebhookPayloadError) {
+      console.warn('[Polar Webhook] Invalid payload:', error);
+      return c.json({ error: 'Invalid payload' }, 400);
+    }
+
     console.error('[Polar Webhook] Error processing webhook:', error);
     return c.json({ error: 'Webhook processing failed' }, 500);
   }
@@ -121,23 +103,23 @@ webhookRoutes.post('/api/webhooks/polar', async (c) => {
 
     switch (type) {
       case 'subscription.created':
-        await handleSubscriptionCreated(data as SubscriptionEventData);
+        await handleSubscriptionCreated(normalizeSubscriptionEventData(data));
         break;
 
       case 'subscription.active':
-        await handleSubscriptionActive(data as SubscriptionEventData, userDAO, polarService);
+        await handleSubscriptionActive(normalizeSubscriptionEventData(data), userDAO, polarService);
         break;
 
       case 'subscription.updated':
-        await handleSubscriptionUpdated(data as SubscriptionEventData, userDAO, polarService);
+        await handleSubscriptionUpdated(normalizeSubscriptionEventData(data), userDAO, polarService);
         break;
 
       case 'subscription.canceled':
-        await handleSubscriptionCanceled(data as SubscriptionEventData, userDAO);
+        await handleSubscriptionCanceled(normalizeSubscriptionEventData(data), userDAO, polarService);
         break;
 
       case 'customer.state_changed':
-        await handleCustomerStateChanged(data as CustomerStateEventData, userDAO, polarService);
+        await handleCustomerStateChanged(normalizeCustomerStateEventData(data), userDAO, polarService);
         break;
 
       default:
@@ -148,6 +130,147 @@ webhookRoutes.post('/api/webhooks/polar', async (c) => {
     return c.json({ received: true });
   }
 });
+
+function verifyPolarWebhook(rawBody: string, headers: Headers, webhookSecret: string): PolarWebhookEvent {
+  const webhook = new Webhook(encodeStandardWebhookSecret(webhookSecret));
+  const payload = webhook.verify(rawBody, Object.fromEntries(headers.entries()));
+  return parsePolarWebhookPayload(payload);
+}
+
+function encodeStandardWebhookSecret(secret: string): string {
+  const bytes = new TextEncoder().encode(secret);
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+function parsePolarWebhookPayload(payload: unknown): PolarWebhookEvent {
+  if (!isRecord(payload) || typeof payload.type !== 'string' || !('data' in payload)) {
+    throw new WebhookPayloadError('Polar webhook payload must include type and data');
+  }
+
+  return {
+    type: payload.type,
+    data: payload.data,
+  };
+}
+
+function normalizeSubscriptionEventData(data: unknown): SubscriptionEventData {
+  if (!isRecord(data)) {
+    throw new WebhookPayloadError('Subscription webhook data must be an object');
+  }
+
+  const nestedSubscription = isRecord(data.subscription) ? data.subscription : data;
+  const nestedCustomer = isRecord(data.customer) ? data.customer : undefined;
+  if (!nestedCustomer) {
+    throw new WebhookPayloadError('Subscription webhook data must include customer');
+  }
+
+  return {
+    customer: {
+      id: requireString(nestedCustomer.id, 'customer.id'),
+      email: requireString(nestedCustomer.email, 'customer.email'),
+      external_id: optionalString(nestedCustomer.external_id ?? nestedCustomer.externalId),
+    },
+    subscription: {
+      id: requireString(nestedSubscription.id, 'subscription.id'),
+      status: requireString(nestedSubscription.status, 'subscription.status'),
+      product_id: optionalString(nestedSubscription.product_id ?? nestedSubscription.productId),
+      current_period_start: optionalDateString(nestedSubscription.current_period_start ?? nestedSubscription.currentPeriodStart),
+      current_period_end: optionalDateString(nestedSubscription.current_period_end ?? nestedSubscription.currentPeriodEnd),
+      canceled_at: optionalDateString(nestedSubscription.canceled_at ?? nestedSubscription.canceledAt),
+    },
+  };
+}
+
+function normalizeCustomerStateEventData(data: unknown): CustomerStateEventData {
+  if (!isRecord(data)) {
+    throw new WebhookPayloadError('Customer state webhook data must be an object');
+  }
+
+  const customer = isRecord(data.customer) ? data.customer : data;
+  const activeSubscriptions = countActiveCustomerSubscriptions(data, customer);
+
+  return {
+    customer: {
+      id: requireString(customer.id, 'customer.id'),
+      email: requireString(customer.email, 'customer.email'),
+      external_id: optionalString(customer.external_id ?? customer.externalId),
+      active_subscriptions: Number.isFinite(activeSubscriptions) ? activeSubscriptions : 0,
+    },
+  };
+}
+
+function countActiveCustomerSubscriptions(data: Record<string, unknown>, customer: Record<string, unknown>): number {
+  const activeSubscriptionSource =
+    customer.active_subscriptions ??
+    customer.activeSubscriptions ??
+    data.active_subscriptions ??
+    data.activeSubscriptions;
+
+  if (Array.isArray(activeSubscriptionSource)) {
+    return activeSubscriptionSource.length;
+  }
+
+  if (activeSubscriptionSource !== undefined && activeSubscriptionSource !== null) {
+    const explicitActiveCount = Number(activeSubscriptionSource);
+    return Number.isFinite(explicitActiveCount) && explicitActiveCount > 0 ? explicitActiveCount : 0;
+  }
+
+  const subscriptions = data.subscriptions;
+  if (!Array.isArray(subscriptions)) {
+    return 0;
+  }
+
+  return subscriptions.filter((subscription) => {
+    if (!isRecord(subscription)) return false;
+    const status = subscription.status;
+    return status === 'active' || status === 'trialing';
+  }).length;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function requireString(value: unknown, field: string): string {
+  if (typeof value !== 'string') {
+    throw new WebhookPayloadError(`Polar webhook ${field} must be a string`);
+  }
+  return value;
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function optionalDateString(value: unknown): string | null | undefined {
+  if (value === null || value === undefined) return value;
+  if (value instanceof Date) return value.toISOString();
+  return typeof value === 'string' ? value : undefined;
+}
+
+function parseExternalUserId(externalId: string | undefined, action: string): number | null {
+  if (!externalId) {
+    console.warn(`[Polar Webhook] No external_id on customer, cannot ${action}`);
+    return null;
+  }
+
+  if (!/^\d+$/.test(externalId)) {
+    console.warn(`[Polar Webhook] Invalid external_id on customer, cannot ${action}`, { externalId });
+    return null;
+  }
+
+  const userId = Number.parseInt(externalId, 10);
+  if (!Number.isSafeInteger(userId)) {
+    console.warn(`[Polar Webhook] external_id exceeds safe integer range, cannot ${action}`, { externalId });
+    return null;
+  }
+
+  return userId;
+}
 
 /**
  * Handle subscription.created event
@@ -183,12 +306,9 @@ async function handleSubscriptionActive(
     currentPeriodEnd: subscription.current_period_end,
   });
 
-  if (!customer.external_id) {
-    console.warn('[Polar Webhook] No external_id on customer, cannot update local limits');
-    return;
-  }
+  const userId = parseExternalUserId(customer.external_id, 'update local limits');
+  if (userId === null) return;
 
-  const userId = parseInt(customer.external_id);
   await fetchAndCacheLimits(userId, userDAO, polarService);
 }
 
@@ -207,14 +327,11 @@ async function handleSubscriptionUpdated(
     status: subscription.status,
   });
 
-  if (!customer.external_id) {
-    console.warn('[Polar Webhook] No external_id on customer, cannot update local limits');
-    return;
-  }
-
   // Only refresh limits if subscription is still active
   if (subscription.status === 'active') {
-    const userId = parseInt(customer.external_id);
+    const userId = parseExternalUserId(customer.external_id, 'update local limits');
+    if (userId === null) return;
+
     await fetchAndCacheLimits(userId, userDAO, polarService);
   }
 }
@@ -225,21 +342,24 @@ async function handleSubscriptionUpdated(
  */
 async function handleSubscriptionCanceled(
   data: SubscriptionEventData,
-  userDAO: UserDAO
+  userDAO: UserDAO,
+  polarService: PolarService
 ): Promise<void> {
   const { customer, subscription } = data;
   console.log(`[Polar Webhook] Subscription canceled for customer ${customer.id}`, {
     subscriptionId: subscription.id,
+    status: subscription.status,
     canceledAt: subscription.canceled_at,
     endsAt: subscription.current_period_end,
   });
 
-  if (!customer.external_id) {
-    console.warn('[Polar Webhook] No external_id on customer, cannot revoke limits');
+  const userId = parseExternalUserId(customer.external_id, 'revoke limits');
+  if (userId === null) return;
+
+  if (subscription.status === 'active' || subscription.status === 'trialing') {
+    await fetchAndCacheLimits(userId, userDAO, polarService);
     return;
   }
-
-  const userId = parseInt(customer.external_id);
 
   // Set all limits to 0 (user can still see usage but can't make new requests)
   const revokedLimits = {
@@ -274,12 +394,8 @@ async function handleCustomerStateChanged(
     activeSubscriptions: customer.active_subscriptions,
   });
 
-  if (!customer.external_id) {
-    console.warn('[Polar Webhook] No external_id on customer, cannot update state');
-    return;
-  }
-
-  const userId = parseInt(customer.external_id);
+  const userId = parseExternalUserId(customer.external_id, 'update state');
+  if (userId === null) return;
 
   if (customer.active_subscriptions > 0) {
     // Has active subscriptions - refresh limits
