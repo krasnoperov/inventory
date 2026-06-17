@@ -586,6 +586,8 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       model,
       operation,
       sourceImageKeys,
+      voiceId,
+      dialogueVoiceIds,
     } = event.payload;
 
     if (sourceImageKeys?.length) {
@@ -622,7 +624,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           throw new Error('IMAGES R2 bucket not configured');
         }
 
-        const { provider, providerName } = this.createAudioProvider(assetType);
+        const { provider, providerName } = this.createAudioProvider(assetType, { voiceId, dialogueVoiceIds });
         const timer = log.startTimer('Audio generation', {
           requestId, jobId, spaceId, operation, provider: providerName, assetType, model,
         });
@@ -762,7 +764,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     };
   }
 
-  private createAudioProvider(assetType: string): { provider: AudioGenerationProvider; providerName: string } {
+  private createAudioProvider(
+    assetType: string,
+    voiceOverrides: { voiceId?: string; dialogueVoiceIds?: string[] } = {}
+  ): { provider: AudioGenerationProvider; providerName: string } {
     const provider = this.env.INVENTORY_AUDIO_PROVIDER || 'fake';
     if (provider === 'fake') {
       return { provider: new FakeAudioProvider(), providerName: 'fake' };
@@ -794,8 +799,11 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       return {
         provider: new ElevenLabsAudioProvider({
           apiKey: this.env.ELEVENLABS_API_KEY,
-          voiceId: this.env.ELEVENLABS_VOICE_ID || '',
-          dialogueVoiceIds: parseCommaSeparated(this.env.ELEVENLABS_DIALOGUE_VOICE_IDS),
+          // UI-selected voices take precedence; env vars are the fallback default.
+          voiceId: voiceOverrides.voiceId || this.env.ELEVENLABS_VOICE_ID || '',
+          dialogueVoiceIds: voiceOverrides.dialogueVoiceIds?.length
+            ? voiceOverrides.dialogueVoiceIds
+            : parseCommaSeparated(this.env.ELEVENLABS_DIALOGUE_VOICE_IDS),
           modelId: this.env.ELEVENLABS_MODEL_ID,
           outputFormat: this.env.ELEVENLABS_AUDIO_OUTPUT_FORMAT,
         }),

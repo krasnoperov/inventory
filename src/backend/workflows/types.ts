@@ -70,6 +70,10 @@ export interface GenerationWorkflowInput {
   styleImageKeys?: string[];
   /** Model provider to use ('gemini' or 'custom'). Defaults to 'gemini'. */
   modelProvider?: 'gemini' | 'custom';
+  /** ElevenLabs voice ID for speech generation (overrides env default) */
+  voiceId?: string;
+  /** ElevenLabs voice IDs for dialogue, assigned to speakers in order (overrides env default) */
+  dialogueVoiceIds?: string[];
 }
 
 /** Variant data returned after generation */
@@ -170,6 +174,10 @@ export interface GenerateRequestMessage {
   parentAssetId?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
+  /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
+  voiceId?: string;
+  /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
+  dialogueVoiceIds?: string[];
 }
 
 /** Refine request from client (replaces HTTP POST /api/spaces/:id/assets/:id/variants) */
@@ -188,6 +196,10 @@ export interface RefineRequestMessage {
   aspectRatio?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
+  /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
+  voiceId?: string;
+  /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
+  dialogueVoiceIds?: string[];
 }
 
 // ============================================================================
@@ -217,6 +229,10 @@ export interface BatchRequestMessage {
   parentAssetId?: string;
   /** Disable style anchoring for this batch */
   disableStyle?: boolean;
+  /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
+  voiceId?: string;
+  /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
+  dialogueVoiceIds?: string[];
 }
 
 /** Generation started notification (broadcast to all) */

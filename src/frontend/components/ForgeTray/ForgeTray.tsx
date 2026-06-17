@@ -13,6 +13,7 @@ import type { MediaKind } from '../../../shared/websocket-types';
 import { AssetPickerModal } from './AssetPickerModal';
 import { ForgeChat } from './ForgeChat';
 import { StylePanel } from './StylePanel';
+import { VoicePicker } from './VoicePicker';
 import { Thumbnail } from '../Thumbnail';
 import { Link } from '../Link';
 import {
@@ -54,6 +55,10 @@ export interface ForgeSubmitParams {
   aspectRatio?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
+  /** ElevenLabs speech voice ID (speech mode) */
+  voiceId?: string;
+  /** ElevenLabs dialogue voice IDs, ordered by speaker (dialogue mode) */
+  dialogueVoiceIds?: string[];
 }
 
 export interface ForgeTrayProps {
@@ -185,6 +190,8 @@ export function ForgeTray({
   const [batchCount, setBatchCount] = useState(1);
   const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
   const [mediaMode, setMediaMode] = useState<ForgeMediaMode>('image');
+  const [voiceId, setVoiceId] = useState<string | undefined>(undefined);
+  const [dialogueVoiceIds, setDialogueVoiceIds] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -236,6 +243,8 @@ export function ForgeTray({
   const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
   const selectedMediaKind = getMediaKindForForgeMode(mediaMode);
   const isAudioMode = isAudioForgeMode(mediaMode);
+  // Voice selection only applies to spoken audio (speech/dialogue), not music/sfx.
+  const showVoicePicker = mediaMode === 'speech' || mediaMode === 'dialogue';
   const incompatibleMediaSlots = slots.filter(
     (slot) => !canUseSlotMediaKindForForgeMode(mediaMode, slot.variant.media_kind)
   );
@@ -430,6 +439,10 @@ export function ForgeTray({
         batchCount: effectiveBatchCount > 1 ? effectiveBatchCount : undefined,
         batchMode: effectiveBatchCount > 1 ? batchMode : undefined,
         disableStyle: isAudioMode || noStyle || undefined,
+        voiceId: mediaMode === 'speech' ? voiceId : undefined,
+        dialogueVoiceIds: mediaMode === 'dialogue'
+          ? (dialogueVoiceIds.filter(Boolean).length > 0 ? dialogueVoiceIds.filter(Boolean) : undefined)
+          : undefined,
       });
 
       // Clear on success
@@ -439,12 +452,14 @@ export function ForgeTray({
       setDestinationType('existing_asset');
       setNoStyle(false);
       setBatchCount(1);
+      setVoiceId(undefined);
+      setDialogueVoiceIds([]);
     } catch (error) {
       console.error('Forge submit failed:', error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, newAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, noStyle]);
+  }, [prompt, effectiveDestinationType, newAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, noStyle, voiceId, dialogueVoiceIds]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -672,6 +687,18 @@ export function ForgeTray({
                 />
                 <span>No style</span>
               </label>
+            )}
+
+            {/* Voice Picker - speech/dialogue audio modes */}
+            {showVoicePicker && (
+              <VoicePicker
+                mode={mediaMode === 'dialogue' ? 'dialogue' : 'speech'}
+                disabled={isSubmitting}
+                voiceId={voiceId}
+                onVoiceIdChange={setVoiceId}
+                dialogueVoiceIds={dialogueVoiceIds}
+                onDialogueVoiceIdsChange={setDialogueVoiceIds}
+              />
             )}
 
             {/* Chat Toggle Button - Only show if handler is available */}

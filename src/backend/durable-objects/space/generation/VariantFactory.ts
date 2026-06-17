@@ -48,6 +48,10 @@ export interface GenerationRecipe {
   styleOverride?: boolean;
   /** Model provider ('gemini' or 'custom') */
   modelProvider?: 'gemini' | 'custom';
+  /** ElevenLabs speech voice ID (audio assets) — persisted for retries */
+  voiceId?: string;
+  /** ElevenLabs dialogue voice IDs, ordered by speaker (audio assets) — persisted for retries */
+  dialogueVoiceIds?: string[];
 }
 
 /** Determine operation type based on references */
@@ -77,6 +81,10 @@ export interface CreateAssetVariantInput {
   planStepId?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
+  /** ElevenLabs speech voice ID (audio modes only) */
+  voiceId?: string;
+  /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
+  dialogueVoiceIds?: string[];
 }
 
 /** Input for refining an existing asset */
@@ -99,6 +107,10 @@ export interface RefineVariantInput {
   planStepId?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
+  /** ElevenLabs speech voice ID (audio modes only) */
+  voiceId?: string;
+  /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
+  dialogueVoiceIds?: string[];
 }
 
 /** Result of variant creation */
@@ -197,6 +209,8 @@ export class VariantFactory {
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
+      voiceId: input.voiceId,
+      dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
     };
 
     // Inject style anchoring
@@ -282,6 +296,8 @@ export class VariantFactory {
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation: 'refine',
+      voiceId: input.voiceId,
+      dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
     };
 
     // Inject style anchoring
@@ -361,6 +377,8 @@ export class VariantFactory {
       operation,
       styleImageKeys: effectiveStyleImageKeys?.length ? effectiveStyleImageKeys : undefined,
       modelProvider: recipe.modelProvider,
+      voiceId: recipe.voiceId,
+      dialogueVoiceIds: recipe.dialogueVoiceIds?.length ? recipe.dialogueVoiceIds : undefined,
     };
 
     const instance = await this.env.GENERATION_WORKFLOW.create({
@@ -495,6 +513,8 @@ export class VariantFactory {
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
+      voiceId: input.voiceId,
+      dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
     };
 
     // Inject style ONCE

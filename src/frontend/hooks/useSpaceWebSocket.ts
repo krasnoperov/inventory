@@ -374,6 +374,10 @@ export interface GenerateRequestParams {
   parentAssetId?: string;
   /** Disable style anchoring */
   disableStyle?: boolean;
+  /** ElevenLabs speech voice ID (audio modes only) */
+  voiceId?: string;
+  /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
+  dialogueVoiceIds?: string[];
 }
 
 // Refine request parameters
@@ -390,6 +394,10 @@ export interface RefineRequestParams {
   aspectRatio?: string;
   /** Disable style anchoring */
   disableStyle?: boolean;
+  /** ElevenLabs speech voice ID (audio modes only) */
+  voiceId?: string;
+  /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
+  dialogueVoiceIds?: string[];
 }
 
 // Batch request parameters
@@ -407,6 +415,10 @@ export interface BatchRequestParams {
   aspectRatio?: string;
   parentAssetId?: string;
   disableStyle?: boolean;
+  /** ElevenLabs speech voice ID (audio modes only) */
+  voiceId?: string;
+  /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
+  dialogueVoiceIds?: string[];
 }
 
 // Style data from server (raw format)
@@ -981,6 +993,8 @@ export function useSpaceWebSocket({
       aspectRatio: params.aspectRatio,
       parentAssetId: params.parentAssetId,
       disableStyle: params.disableStyle,
+      voiceId: params.voiceId,
+      dialogueVoiceIds: params.dialogueVoiceIds,
     });
     return requestId;
   }, [sendMessage]);
@@ -999,6 +1013,8 @@ export function useSpaceWebSocket({
       referenceAssetIds: params.referenceAssetIds,
       aspectRatio: params.aspectRatio,
       disableStyle: params.disableStyle,
+      voiceId: params.voiceId,
+      dialogueVoiceIds: params.dialogueVoiceIds,
     });
     return requestId;
   }, [sendMessage]);
@@ -1121,6 +1137,8 @@ export function useSpaceWebSocket({
       aspectRatio: params.aspectRatio,
       parentAssetId: params.parentAssetId,
       disableStyle: params.disableStyle,
+      voiceId: params.voiceId,
+      dialogueVoiceIds: params.dialogueVoiceIds,
     });
     return requestId;
   }, [sendMessage]);

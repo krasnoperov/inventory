@@ -44,6 +44,58 @@ export interface ParsedDialogueLine {
   text: string;
 }
 
+/** A voice available in the connected ElevenLabs account, surfaced to the UI picker. */
+export interface ElevenLabsVoiceSummary {
+  voiceId: string;
+  name: string;
+  category: string | null;
+  description: string | null;
+  previewUrl: string | null;
+  labels: Record<string, string>;
+}
+
+interface ElevenLabsVoicesApiResponse {
+  voices?: Array<{
+    voice_id?: string;
+    name?: string;
+    category?: string | null;
+    description?: string | null;
+    preview_url?: string | null;
+    labels?: Record<string, string> | null;
+  }>;
+}
+
+/**
+ * List the voices available in the connected ElevenLabs account.
+ * Backs the UI voice picker — the account's voice library is the "collection".
+ */
+export async function listElevenLabsVoices(
+  apiKey: string,
+  fetcher: Fetcher = fetch
+): Promise<ElevenLabsVoiceSummary[]> {
+  const response = await fetcher('https://api.elevenlabs.io/v2/voices?page_size=100', {
+    method: 'GET',
+    headers: { 'xi-api-key': apiKey },
+  });
+
+  if (!response.ok) {
+    throw await elevenLabsApiErrorFromResponse(response);
+  }
+
+  const payload = await response.json<ElevenLabsVoicesApiResponse>();
+  const voices = payload.voices ?? [];
+  return voices
+    .filter((voice): voice is { voice_id: string } & typeof voice => Boolean(voice.voice_id))
+    .map(voice => ({
+      voiceId: voice.voice_id,
+      name: voice.name ?? voice.voice_id,
+      category: voice.category ?? null,
+      description: voice.description ?? null,
+      previewUrl: voice.preview_url ?? null,
+      labels: voice.labels ?? {},
+    }));
+}
+
 export class ElevenLabsApiError extends Error {
   constructor(
     message: string,
