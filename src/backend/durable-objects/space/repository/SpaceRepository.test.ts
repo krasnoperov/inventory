@@ -296,6 +296,29 @@ describe('SpaceRepository', () => {
       ]);
     });
 
+    test('completeVariant writes provider metadata JSON', async () => {
+      mockSql.setMockResult('WHERE id = ?', [
+        { id: 'v1', asset_id: 'a1', recipe: '{}', media_kind: 'image' },
+      ]);
+
+      await repo.completeVariant('v1', 'images/v1.png', 'images/v1_thumb.webp', {
+        providerMetadata: {
+          provider: 'gemini',
+          model: 'gemini-3-pro-image-preview',
+          api: 'generate',
+        },
+      });
+
+      const updateQuery = mockSql.queries.find((q) => q.query.includes("UPDATE variants SET status = 'completed'"));
+      assert(updateQuery !== undefined);
+      const providerMetadata = JSON.parse(String(updateQuery.bindings[17]));
+      assert.deepStrictEqual(providerMetadata, {
+        provider: 'gemini',
+        model: 'gemini-3-pro-image-preview',
+        api: 'generate',
+      });
+    });
+
     test('completeVariant accepts generated audio without legacy image keys', async () => {
       mockSql.setMockResult('WHERE id = ?', [
         { id: 'v1', asset_id: 'a1', recipe: '{}', media_kind: 'audio' },
@@ -331,10 +354,15 @@ describe('SpaceRepository', () => {
         { id: 'v1', asset_id: 'a1', media_kind: 'image' },
       ]);
 
+      const recipe = JSON.stringify({
+        operation: 'generate',
+        prompt: 'Create a sprite',
+        assetType: 'character',
+      });
       await repo.createPlaceholderVariant({
         id: 'v1',
         assetId: 'a1',
-        recipe: '{}',
+        recipe,
         createdBy: 'user1',
       });
 
@@ -342,6 +370,12 @@ describe('SpaceRepository', () => {
       assert(insertQuery !== undefined);
       assert(insertQuery.query.includes('media_kind'));
       assert.strictEqual(insertQuery.bindings[2], 'image');
+      assert(insertQuery.query.includes('generation_provenance'));
+      assert.deepStrictEqual(JSON.parse(String(insertQuery.bindings[4])), {
+        operation: 'generate',
+        assetType: 'character',
+        prompt: 'Create a sprite',
+      });
     });
 
     test('createPlaceholderVariant accepts explicit media kind', async () => {

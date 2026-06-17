@@ -154,6 +154,7 @@ export interface InternalApiControllers {
       renderMetadataKey?: string | null;
       renderMetadataMimeType?: string | null;
       renderMetadataSizeBytes?: number | null;
+      providerMetadata?: Record<string, unknown> | string | null;
     }): Promise<{ success: boolean; variant: Variant }>;
     httpFailVariant(data: {
       variantId: string;
@@ -343,6 +344,7 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       renderMetadataKey?: string | null;
       renderMetadataMimeType?: string | null;
       renderMetadataSizeBytes?: number | null;
+      providerMetadata?: Record<string, unknown> | string | null;
     };
     const result = await controllers.variant.httpCompleteUpload(data);
     return c.json(result);

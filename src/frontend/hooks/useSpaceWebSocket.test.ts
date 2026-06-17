@@ -36,6 +36,8 @@ function variant(overrides: Partial<Variant> = {}): Variant {
     render_metadata_key: null,
     render_metadata_mime_type: null,
     render_metadata_size_bytes: null,
+    generation_provenance: '{}',
+    provider_metadata: null,
     recipe: '{}',
     starred: false,
     created_by: 'user-1',

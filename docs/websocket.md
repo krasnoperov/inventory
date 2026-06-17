@@ -162,8 +162,10 @@ rather than creating local-only media records.
 
 Variant payloads expose `media_key` as the canonical primary artifact key plus
 basic metadata: `media_mime_type`, `media_size_bytes`, `media_width`,
-`media_height`, and `media_duration_ms`. Image flows continue to populate
-legacy `image_key` and `thumb_key` fields for existing consumers.
+`media_height`, and `media_duration_ms`. Generated variants also expose
+`generation_provenance` and `provider_metadata` as JSON strings in Space state.
+Image flows continue to populate legacy `image_key` and `thumb_key` fields for
+existing consumers.
 
 Authenticated callers can download or preview the canonical artifact through
 `GET /api/spaces/:spaceId/variants/:variantId/media`, which resolves the

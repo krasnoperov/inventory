@@ -340,6 +340,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     let mediaWidth: number | null = null;
     let mediaHeight: number | null = null;
     let mediaDurationMs: number | null = null;
+    let providerMetadata: Record<string, unknown> | null = null;
 
     try {
       const uploadResult = await step.do('upload-r2', {
@@ -459,6 +460,38 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       mediaWidth = uploadResult.mediaWidth;
       mediaHeight = uploadResult.mediaHeight;
       mediaDurationMs = uploadResult.mediaDurationMs;
+      if (isVideoGenerationResult(generationResult)) {
+        providerMetadata = {
+          provider: this.env.INVENTORY_IMAGE_PROVIDER === 'fake' ? 'fake' : 'google-veo',
+          model: generationResult.model,
+          operation,
+          aspectRatio: generationResult.aspectRatio,
+          resolution: generationResult.resolution,
+          durationSeconds: generationResult.durationSeconds,
+          sourceImageCount: refCount,
+        };
+      } else {
+        const provider =
+          this.env.INVENTORY_IMAGE_PROVIDER === 'fake'
+            ? 'fake'
+            : modelProvider === 'custom' && this.env.CUSTOM_MODEL_ENDPOINT
+              ? 'custom'
+              : 'gemini';
+        const imageApi: 'generate' | 'edit' | 'compose' =
+          refCount === 0 ? 'generate' :
+          (operation === 'refine' && refCount === 1) ? 'edit' :
+          'compose';
+        providerMetadata = {
+          provider,
+          model: generationResult.model,
+          operation,
+          api: imageApi,
+          aspectRatio: generationResult.aspectRatio,
+          imageSize: generationResult.imageSize,
+          sourceImageCount: refCount,
+          usage: generationResult.usage ?? null,
+        };
+      }
     } catch (error) {
       log.error('Upload error', { requestId, jobId, spaceId, error: error instanceof Error ? error.message : String(error) });
       await this.handleFailure(spaceId, jobId, requestId, error instanceof Error ? error.message : 'Upload failed');
@@ -498,6 +531,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               mediaWidth,
               mediaHeight,
               mediaDurationMs,
+              providerMetadata,
             }),
           }));
 
@@ -568,6 +602,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     let audioProvider: string | null = null;
     let audioModel: string | null = null;
     let audioUsage: AudioGenerationResult['usage'] | null = null;
+    let providerMetadata: Record<string, unknown> | null = null;
     let transcriptKey: string | null = null;
     let transcriptMimeType: string | null = null;
     let transcriptSizeBytes: number | null = null;
@@ -615,6 +650,13 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             audioProvider: providerName.startsWith('elevenlabs') ? 'elevenlabs' : providerName,
             audioModel: result.model,
             audioUsage: result.usage ?? null,
+            providerMetadata: {
+              provider: providerName.startsWith('elevenlabs') ? 'elevenlabs' : providerName,
+              providerMode: providerName,
+              model: result.model,
+              operation,
+              usage: result.usage ?? null,
+            },
             ...sidecars,
           };
         } catch (error) {
@@ -633,6 +675,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       audioProvider = uploadResult.audioProvider;
       audioModel = uploadResult.audioModel;
       audioUsage = uploadResult.audioUsage;
+      providerMetadata = uploadResult.providerMetadata;
       transcriptKey = uploadResult.transcriptKey;
       transcriptMimeType = uploadResult.transcriptMimeType;
       transcriptSizeBytes = uploadResult.transcriptSizeBytes;
@@ -682,6 +725,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               renderMetadataKey,
               renderMetadataMimeType,
               renderMetadataSizeBytes,
+              providerMetadata,
               audioProvider,
               audioModel,
               audioUsage,

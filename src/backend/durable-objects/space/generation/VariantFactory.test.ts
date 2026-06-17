@@ -56,6 +56,8 @@ function createMockRepo(): SpaceRepository {
       render_metadata_key: null,
       render_metadata_mime_type: null,
       render_metadata_size_bytes: null,
+      generation_provenance: input.recipe,
+      provider_metadata: null,
       recipe: input.recipe,
       starred: false,
       created_by: input.createdBy,

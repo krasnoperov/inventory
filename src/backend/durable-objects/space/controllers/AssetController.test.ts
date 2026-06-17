@@ -48,6 +48,8 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
     media_width: 512,
     media_height: 512,
     media_duration_ms: null,
+    generation_provenance: '{}',
+    provider_metadata: null,
     recipe: '{}',
     starred: false,
     created_by: 'user-1',
