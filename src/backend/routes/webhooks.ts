@@ -182,8 +182,7 @@ function normalizeCustomerStateEventData(data: unknown): CustomerStateEventData 
   }
 
   const customer = isRecord(data.customer) ? data.customer : data;
-  const subscriptions = customer.active_subscriptions ?? customer.activeSubscriptions;
-  const activeSubscriptions = Array.isArray(subscriptions) ? subscriptions.length : Number(subscriptions ?? 0);
+  const activeSubscriptions = countActiveCustomerSubscriptions(data, customer);
 
   return {
     customer: {
@@ -193,6 +192,34 @@ function normalizeCustomerStateEventData(data: unknown): CustomerStateEventData 
       active_subscriptions: Number.isFinite(activeSubscriptions) ? activeSubscriptions : 0,
     },
   };
+}
+
+function countActiveCustomerSubscriptions(data: Record<string, unknown>, customer: Record<string, unknown>): number {
+  const activeSubscriptionSource =
+    customer.active_subscriptions ??
+    customer.activeSubscriptions ??
+    data.active_subscriptions ??
+    data.activeSubscriptions;
+
+  if (Array.isArray(activeSubscriptionSource)) {
+    return activeSubscriptionSource.length;
+  }
+
+  if (activeSubscriptionSource !== undefined && activeSubscriptionSource !== null) {
+    const explicitActiveCount = Number(activeSubscriptionSource);
+    return Number.isFinite(explicitActiveCount) && explicitActiveCount > 0 ? explicitActiveCount : 0;
+  }
+
+  const subscriptions = data.subscriptions;
+  if (!Array.isArray(subscriptions)) {
+    return 0;
+  }
+
+  return subscriptions.filter((subscription) => {
+    if (!isRecord(subscription)) return false;
+    const status = subscription.status;
+    return status === 'active' || status === 'trialing';
+  }).length;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

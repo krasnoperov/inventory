@@ -159,6 +159,52 @@ describe('Polar webhook route', () => {
     assert.deepEqual(updates, []);
   });
 
+  test('refreshes limits from customer.state_changed payload with data.subscriptions', async () => {
+    const updates: unknown[] = [];
+    const meterLookups: unknown[] = [];
+    const app = routeApp(routeDeps({
+      update: async (...args: unknown[]) => {
+        updates.push(args);
+      },
+    }, {
+      getCustomerMeters: async (...args: unknown[]) => {
+        meterLookups.push(args);
+        return [
+          { meterSlug: 'gemini_images', hasLimit: true, credited: 25 },
+        ];
+      },
+    }));
+
+    const body = JSON.stringify({
+      type: 'customer.state_changed',
+      timestamp: new Date().toISOString(),
+      data: {
+        customer: {
+          id: 'cus_123',
+          email: 'artist@example.test',
+          external_id: '42',
+        },
+        subscriptions: [
+          { id: 'sub_123', status: 'active' },
+        ],
+      },
+    });
+    const response = await app.request('/api/webhooks/polar', {
+      method: 'POST',
+      headers: signHeaders(body),
+      body,
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(meterLookups.length, 1);
+    assert.deepEqual(meterLookups[0], [42]);
+    assert.equal(updates.length, 1);
+    assert.equal((updates[0] as unknown[])[0], 42);
+    assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
+      gemini_images: 25,
+    });
+  });
+
   test('refreshes limits from current customer.state_changed payload shape in unsigned dev mode', async () => {
     const updates: unknown[] = [];
     const app = routeApp(routeDeps({
