@@ -20,6 +20,7 @@ import {
   type ForgeMediaMode,
   getAssetTypeForForgeMode,
   getForgeMediaModeConfig,
+  getForgeOperationForState,
   getForgeModeForAudioAssetType,
   getMediaKindForForgeMode,
   isAudioForgeMode,
@@ -115,23 +116,6 @@ const ACCEPTED_UPLOAD_MIME_TYPES = [
 ];
 
 const ACCEPTED_UPLOAD_TYPES = ACCEPTED_UPLOAD_MIME_TYPES.join(',');
-
-// Determine operation based on state
-// Simplified: 4 operations - generate, fork, derive, refine
-function getOperation(
-  slotCount: number,
-  hasPrompt: boolean,
-  destinationType: DestinationType
-): ForgeOperation {
-  if (slotCount === 0) {
-    // No references: generate new asset or refine existing
-    if (destinationType === 'existing_asset') return 'refine';
-    return 'generate';
-  }
-  if (slotCount >= 1 && !hasPrompt && destinationType === 'new_asset') return 'fork';
-  if (destinationType === 'existing_asset') return 'refine';
-  return 'derive'; // has prompt, new asset (1+ refs)
-}
 
 // Get button label for operation
 function getOperationLabel(operation: ForgeOperation, mediaMode: ForgeMediaMode): string {
@@ -255,12 +239,12 @@ export function ForgeTray({
   }, [canUseExistingDestination, currentAsset, destinationType]);
 
   // Dynamic max slots accounting for style images
-  const styleImageCount = !isAudioMode && style?.enabled ? style.imageKeys.length : 0;
+  const styleImageCount = mediaModeConfig.supportsStyle && style?.enabled ? style.imageKeys.length : 0;
   const effectiveMaxSlots = maxSlots - styleImageCount;
-  const effectiveBatchCount = selectedMediaKind === 'video' ? 1 : batchCount;
+  const effectiveBatchCount = mediaModeConfig.supportsBatch ? batchCount : 1;
 
   const hasPrompt = prompt.trim().length > 0;
-  const operation = getOperation(slots.length, hasPrompt, effectiveDestinationType);
+  const operation = getForgeOperationForState(slots.length, hasPrompt, effectiveDestinationType);
   const baseLabel = getOperationLabel(operation, mediaMode);
   const operationLabel = effectiveBatchCount > 1 ? `${baseLabel} x${effectiveBatchCount}` : baseLabel;
   const placeholder = getPlaceholder(slots.length, operation, mediaMode);
@@ -279,10 +263,10 @@ export function ForgeTray({
   }, [prompt]);
 
   useEffect(() => {
-    if (selectedMediaKind === 'video' && batchCount > 1) {
+    if (!mediaModeConfig.supportsBatch && batchCount > 1) {
       setBatchCount(1);
     }
-  }, [selectedMediaKind, batchCount]);
+  }, [mediaModeConfig.supportsBatch, batchCount]);
 
   const handleAddClick = useCallback(() => {
     setShowAssetPicker(true);
@@ -650,7 +634,7 @@ export function ForgeTray({
             )}
 
             {/* Style Badge - clickable to open StylePanel */}
-            {sendStyleSet && !isAudioMode && (
+            {sendStyleSet && mediaModeConfig.supportsStyle && (
               <button
                 type="button"
                 className={`${styles.styleBadge} ${style?.enabled ? styles.active : ''} ${showStylePanel ? styles.open : ''}`}
@@ -668,7 +652,7 @@ export function ForgeTray({
             )}
 
             {/* No Style checkbox - only show when style is active */}
-            {style?.enabled && !isAudioMode && (
+            {style?.enabled && mediaModeConfig.supportsStyle && (
               <label className={styles.noStyleCheck}>
                 <input
                   type="checkbox"
@@ -699,7 +683,7 @@ export function ForgeTray({
             <div className={styles.controlsSpacer} />
 
             {/* Batch Count Selector */}
-            {effectiveDestinationType === 'new_asset' && selectedMediaKind !== 'video' && (
+            {effectiveDestinationType === 'new_asset' && mediaModeConfig.supportsBatch && (
               <select
                 className={styles.batchSelect}
                 value={batchCount}
@@ -763,7 +747,7 @@ export function ForgeTray({
         </div>
 
         {/* StylePanel - Positioned absolutely above the tray */}
-        {showStylePanel && !isAudioMode && spaceId && sendStyleSet && sendStyleDelete && sendStyleToggle && (
+        {showStylePanel && mediaModeConfig.supportsStyle && spaceId && sendStyleSet && sendStyleDelete && sendStyleToggle && (
           <StylePanel
             spaceId={spaceId}
             onClose={() => setShowStylePanel(false)}

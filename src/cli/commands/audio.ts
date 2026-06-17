@@ -4,6 +4,7 @@ import {
   executeAudioCommand,
   type AudioForgeCommand,
 } from './forge';
+import { getCliGenerationCommands } from '../../shared/mediaOperationMatrix';
 
 export async function handleAudio(parsed: ParsedArgs): Promise<void> {
   try {
@@ -21,7 +22,10 @@ export async function handleAudio(parsed: ParsedArgs): Promise<void> {
 }
 
 function parseAudioCommand(value: string | undefined): AudioForgeCommand {
-  if (value === 'generate' || value === 'batch') return value;
+  const commands = getCliGenerationCommands('audio');
+  if (value && commands.includes(value as AudioForgeCommand)) {
+    return value as AudioForgeCommand;
+  }
   throw new Error('Audio command is required: generate or batch');
 }
 

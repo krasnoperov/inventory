@@ -156,12 +156,26 @@ The central workspace for all generation operations. A persistent floating bar a
 
 ### Operation Logic
 
+The code source of truth is `src/shared/mediaOperationMatrix.ts`; Forge Tray,
+CLI generation commands, docs, and tests should use the same matrix.
+
 | Slots | Has Prompt | Destination | Operation |
 |-------|------------|-------------|-----------|
 | 0 | Yes | New | **Generate** — Create from scratch |
 | 1 | No | New | **Fork** — Copy asset without changes |
 | 1+ | Yes | New | **Derive** — Create new asset using references |
 | 1+ | Yes | Existing | **Refine** — Add variant to existing asset |
+
+### Media Operation Matrix
+
+| Forge Tray mode | Output `mediaKind` | Default asset type | Allowed slot media | Batch | Style | CLI generation |
+|-----------------|--------------------|--------------------|--------------------|-------|-------|----------------|
+| Image | `image` | Inherit first reference, else `character` | `image` | Yes | Yes | Top-level `generate`, `refine`, `derive`, `batch`; refs allowed; writes image run manifests |
+| Video | `video` | Inherit first reference, else `animation` | `image`, `video` | No | Yes | Not exposed yet |
+| Speech | `audio` | `speech` | `audio` | Yes | No | `audio generate`, `audio batch`; refs not supported; no run manifest |
+| Dialogue | `audio` | `dialogue` | `audio` | Yes | No | Use `audio generate`/`audio batch` with `--type dialogue` |
+| Music | `audio` | `music` | `audio` | Yes | No | Use `audio generate`/`audio batch` with `--type music` |
+| SFX | `audio` | `sfx` | `audio` | Yes | No | Use `audio generate`/`audio batch` with `--type sfx` |
 
 ### Slot Behavior
 

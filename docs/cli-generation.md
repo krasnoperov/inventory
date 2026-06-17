@@ -6,7 +6,20 @@ stored media live in the Space Durable Object and R2. The CLI sends requests,
 waits for completion, and downloads local copies of completed media.
 Top-level `generate`, `refine`, `derive`, and `batch` are image-only commands
 and send `mediaKind: "image"` with generation requests. The `audio` subcommands
-send `mediaKind: "audio"` and use the same website job lifecycle.
+send `mediaKind: "audio"` and use the same website job lifecycle. The shared
+source of truth for these generation capabilities is
+`src/shared/mediaOperationMatrix.ts`.
+
+## Shared Operation Matrix
+
+| CLI surface | Commands | Sent `mediaKind` | References | Batch manifest |
+|-------------|----------|------------------|------------|----------------|
+| Top-level image | `generate`, `refine`, `derive`, `batch` | `image` | `derive --refs` and `batch --refs` accept completed image variant IDs or local image files | Yes, for `batch` |
+| Audio namespace | `audio generate`, `audio batch` | `audio` | Not supported | No |
+| Video generation | Not exposed yet | N/A | N/A | N/A |
+
+Forge Tray uses the same matrix for mode labels, output media kind, default
+asset type, slot compatibility, batch/style controls, and operation selection.
 
 ## Project Binding
 
