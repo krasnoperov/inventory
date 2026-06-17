@@ -9,8 +9,8 @@ import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore } from '../stores/chatStore';
 import { useStyleStore, type SpaceStyleClient } from '../stores/styleStore';
 import { useAssetDetailStore, useSelectedVariantId } from '../stores/assetDetailStore';
-import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
+import { WorkspaceChrome } from '../components/WorkspaceChrome';
 import {
   useSpaceWebSocket,
   PREDEFINED_ASSET_TYPES,
@@ -532,7 +532,7 @@ export default function AssetDetailPage() {
   if (isLoading) {
     return (
       <div className={styles.page}>
-        <AppHeader
+        <WorkspaceChrome
           leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
           rightSlot={headerRightSlot}
         />
@@ -546,7 +546,7 @@ export default function AssetDetailPage() {
   if (error || !asset) {
     return (
       <div className={styles.page}>
-        <AppHeader
+        <WorkspaceChrome
           leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
           rightSlot={headerRightSlot}
         />
@@ -563,7 +563,7 @@ export default function AssetDetailPage() {
 
   return (
     <div className={styles.page}>
-      <AppHeader
+      <WorkspaceChrome
         leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
         rightSlot={headerRightSlot}
       />
