@@ -50,24 +50,25 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 0.75rem;
-  border-radius: var(--radius-xl);
+  padding: 0;
+  border-radius: var(--radius-lg);
   background: var(--forge-input-bg);
   border: 1px solid var(--forge-bar-border-inner);
-  margin: 0.5rem;
+  margin: 0.375rem;
   transition: box-shadow 0.2s ease;
 }
 
-.inputArea:focus-within {
+/* Glow only when the prompt itself is focused — not when clicking controls */
+.inputArea:has(.promptTextarea:focus) {
   box-shadow: var(--forge-input-focus-glow);
 }
 
 /* Auto-expanding Prompt Textarea */
 .promptTextarea {
   width: 100%;
-  min-height: 60px;
+  min-height: 56px;
   max-height: 220px;
-  padding: 0.75rem 0.875rem 0.5rem;
+  padding: 0.625rem 0.625rem 0.5rem;
   background: transparent;
   border: none;
   outline: none;
@@ -112,8 +113,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-top: 1px solid var(--forge-bar-border-inner);
+  padding: 0.25rem 0.625rem;
   flex-wrap: wrap;
 }
 
@@ -222,21 +222,56 @@
   transform: scale(1.05);
 }
 
-/* Mode-specific controls row (voice picker, etc.) */
-.modeControlsRow {
+/* Media selection — square icon buttons (type + audio sub-mode) and voice */
+.selector {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.25rem 0.75rem 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem 0.125rem;
 }
 
-/* Control bar: media type + minimal options (left), name + submit (right) */
+.typeRow {
+  display: inline-flex;
+  gap: 0.375rem;
+}
+
+.typeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  background: var(--ctl-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.typeButton:hover:not(.active):not(:disabled) {
+  color: var(--color-text);
+  background: var(--ctl-bg-hover);
+}
+
+.typeButton.active {
+  color: var(--color-primary);
+  background: oklch(55% 0.18 276 / 0.14);
+  border-color: oklch(55% 0.18 276 / 0.45);
+}
+
+.typeButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Control bar: minimal options (left), name + submit (right) */
 .actionBar {
   display: flex;
   align-items: center;
   gap: 0.5rem 0.625rem;
-  padding: 0.625rem 0.75rem 0.5rem;
+  padding: 0.5rem 0.625rem;
   border-top: 1px solid var(--forge-bar-border-inner);
   flex-wrap: wrap;
 }
@@ -264,6 +299,24 @@
   background: var(--color-border);
   opacity: 0.7;
   margin: 0 0.25rem;
+}
+
+/* Keyboard focus — one consistent ring, no stray click outlines */
+.typeButton:focus-visible,
+.segment:focus-visible,
+.iconButton:focus-visible,
+.batchSelect:focus-visible,
+.forgeButton:focus-visible,
+.nameInput:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.typeButton:focus:not(:focus-visible),
+.segment:focus:not(:focus-visible),
+.iconButton:focus:not(:focus-visible),
+.forgeButton:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* Segmented control — defined track, raised pill for the active item */
