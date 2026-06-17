@@ -42,6 +42,7 @@ describe('media operation matrix', () => {
     assert.equal(getForgeOperationForState(0, true, 'new_asset'), 'generate');
     assert.equal(getForgeOperationForState(0, true, 'existing_asset'), 'refine');
     assert.equal(getForgeOperationForState(1, false, 'new_asset'), 'fork');
+    assert.equal(getForgeOperationForState(2, false, 'new_asset'), 'derive');
     assert.equal(getForgeOperationForState(2, true, 'new_asset'), 'derive');
     assert.equal(getForgeOperationForState(2, true, 'existing_asset'), 'refine');
   });

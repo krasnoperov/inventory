@@ -195,7 +195,7 @@ export function getForgeOperationForState(
   if (slotCount === 0) {
     return destinationType === 'existing_asset' ? 'refine' : 'generate';
   }
-  if (slotCount >= 1 && !hasPrompt && destinationType === 'new_asset') {
+  if (slotCount === 1 && !hasPrompt && destinationType === 'new_asset') {
     return 'fork';
   }
   return destinationType === 'existing_asset' ? 'refine' : 'derive';
