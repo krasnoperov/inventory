@@ -440,8 +440,11 @@ export function ForgeTray({
         batchMode: effectiveBatchCount > 1 ? batchMode : undefined,
         disableStyle: isAudioMode || noStyle || undefined,
         voiceId: mediaMode === 'speech' ? voiceId : undefined,
-        dialogueVoiceIds: mediaMode === 'dialogue'
-          ? (dialogueVoiceIds.filter(Boolean).length > 0 ? dialogueVoiceIds.filter(Boolean) : undefined)
+        // Keep positions intact — each entry maps to a speaker in order, and a
+        // blank ("Default") slot is resolved to the default voice server-side.
+        // Filtering blanks here would shift later voices onto earlier speakers.
+        dialogueVoiceIds: mediaMode === 'dialogue' && dialogueVoiceIds.some(Boolean)
+          ? dialogueVoiceIds
           : undefined,
       });
 

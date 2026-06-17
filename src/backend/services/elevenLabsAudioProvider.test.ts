@@ -118,16 +118,57 @@ describe('ElevenLabsAudioProvider', () => {
     ]);
   });
 
-  test('rejects dialogue when not enough voice IDs are configured', async () => {
+  test('rejects dialogue when no voice is available for a speaker', async () => {
     const provider = new ElevenLabsAudioProvider({
       apiKey: 'key-1',
-      voiceId: 'only-voice',
     });
 
     await assert.rejects(
       () => provider.generate({ prompt: 'Ada: Ready?\nBen: Always.' }),
-      /ELEVENLABS_DIALOGUE_VOICE_IDS must include at least 2 voice IDs/
+      /No voice available for 2 of 2 dialogue speaker/
     );
+  });
+
+  test('preserves speaker positions when a Default (blank) is mixed with a selected voice', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return jsonResponse(audioPayload());
+    }) as unknown as typeof fetch;
+    const provider = new ElevenLabsAudioProvider({
+      apiKey: 'key-1',
+      voiceId: 'default-voice',
+      // Speaker 1 left as Default (blank), speaker 2 explicitly selected.
+      dialogueVoiceIds: ['', 'voice-ben'],
+      fetcher,
+    });
+
+    await provider.generate({ prompt: 'Ada: Ready?\nBen: Always.' });
+
+    assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)).inputs, [
+      { text: 'Ready?', voice_id: 'default-voice' },
+      { text: 'Always.', voice_id: 'voice-ben' },
+    ]);
+  });
+
+  test('falls back to the default voice for every speaker when no dialogue voices are set', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return jsonResponse(audioPayload());
+    }) as unknown as typeof fetch;
+    const provider = new ElevenLabsAudioProvider({
+      apiKey: 'key-1',
+      voiceId: 'default-voice',
+      fetcher,
+    });
+
+    await provider.generate({ prompt: 'Ada: Ready?\nBen: Always.' });
+
+    assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)).inputs, [
+      { text: 'Ready?', voice_id: 'default-voice' },
+      { text: 'Always.', voice_id: 'default-voice' },
+    ]);
   });
 
   test('marks validation failures as non-retryable API errors', async () => {
