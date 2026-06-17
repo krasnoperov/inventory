@@ -482,6 +482,19 @@ export default function SpacePage() {
           <div className={styles.divider} />
           <button
             className={styles.toolButton}
+            onClick={() => navigate(`/spaces/${spaceId}/production`)}
+            title="Open Production view"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 6h16" />
+              <path d="M4 12h16" />
+              <path d="M4 18h10" />
+              <circle cx="17" cy="18" r="3" />
+            </svg>
+          </button>
+          <div className={styles.divider} />
+          <button
+            className={styles.toolButton}
             onClick={handleExport}
             disabled={isExporting || assets.length === 0}
             title={assets.length === 0 ? 'No assets to export' : 'Export all assets as ZIP'}
