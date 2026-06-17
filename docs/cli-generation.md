@@ -250,7 +250,7 @@ pnpm run cli runs export --latest --format remotion -o keyframes.json
 
 The default `media` export writes ordered media data with local paths, absolute
 paths resolved from the original command working directory, website IDs/URLs,
-prompt, refs, and failed variant errors for downstream production tooling. Image
+prompt, refs, and failed variant errors for downstream local tooling. Image
 runs also include the legacy ordered `images` keyframe array. The `remotion`
 format remains available for existing keyframe tooling and emits the same media
 handoff fields with the legacy `remotion-keyframes` format marker.

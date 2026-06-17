@@ -98,36 +98,6 @@ export type RemotionRunExport = Omit<MediaRunExport, 'format'> & {
   format: 'remotion-keyframes';
 };
 
-export type RemotionSceneEntry = {
-  productionId?: string;
-  shotId?: string;
-  sceneLabel: string;
-  timelineStartMs: number;
-  durationMs?: number;
-  motionPrompt?: string;
-  sourceRefs: string[];
-  sourceVariantIds: string[];
-  mediaKind: 'image' | 'video';
-  assetId: string;
-  variantId: string;
-  mediaKey: string;
-  localPath: string;
-  absolutePath: string;
-  webUrl: string;
-  runId: string;
-  manifestPath: string;
-  sceneArg: string;
-};
-
-export type RemotionScenesExport = {
-  version: 1;
-  format: 'remotion-scenes';
-  projectRoot: string;
-  productionId?: string;
-  scenes: RemotionSceneEntry[];
-  failed: RunManifestFailure[];
-};
-
 export function createRunId(date = new Date()): string {
   const stamp = date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
   const random = crypto.randomUUID().slice(0, 8);
@@ -246,33 +216,6 @@ export function createRemotionRunExport(
   };
 }
 
-export function createRemotionScenesExport(
-  records: RunManifestRecord[],
-  projectRoot: string,
-  productionId?: string
-): RemotionScenesExport {
-  const scenes = records.map((record) => createRemotionSceneEntry(record, projectRoot));
-  scenes.sort((a, b) => {
-    if (a.timelineStartMs !== b.timelineStartMs) return a.timelineStartMs - b.timelineStartMs;
-    if ((a.shotId || '') !== (b.shotId || '')) return (a.shotId || '').localeCompare(b.shotId || '');
-    return a.runId.localeCompare(b.runId);
-  });
-
-  return {
-    version: 1,
-    format: 'remotion-scenes',
-    projectRoot,
-    productionId,
-    scenes,
-    failed: records.flatMap((record) => record.manifest.failed),
-  };
-}
-
-export function formatRemotionSceneArgs(exportData: RemotionScenesExport): string {
-  return exportData.scenes
-    .map((scene) => `--scene ${shellQuote(scene.sceneArg)}`)
-    .join('\n');
-}
 export function manifestMediaFromVariant(input: {
   index: number;
   variant: Variant;
@@ -389,59 +332,6 @@ function inferManifestMediaKind(media: RunManifestMedia[]): MediaKind {
   return media[0]?.mediaKind || 'image';
 }
 
-function createRemotionSceneEntry(
-  record: RunManifestRecord,
-  projectRoot: string
-): RemotionSceneEntry {
-  const scene = record.manifest.scene;
-  if (!scene) {
-    throw new Error(`Run manifest is missing scene metadata: ${record.manifest.runId}`);
-  }
-  if (!scene.sceneLabel) {
-    throw new Error(`Run manifest is missing scene label: ${record.manifest.runId}`);
-  }
-  if (!Number.isInteger(scene.timelineStartMs)) {
-    throw new Error(`Run manifest is missing timeline start ms: ${record.manifest.runId}`);
-  }
-  const timelineStartMs = scene.timelineStartMs as number;
-
-  const media = selectSceneMedia(record.manifest);
-  const pathBase = record.manifest.workingDir || projectRoot;
-  const absolutePath = path.resolve(pathBase, media.localPath);
-
-  return {
-    productionId: scene.productionId,
-    shotId: scene.shotId,
-    sceneLabel: scene.sceneLabel,
-    timelineStartMs,
-    durationMs: scene.durationMs,
-    motionPrompt: scene.motionPrompt,
-    sourceRefs: scene.sourceRefs,
-    sourceVariantIds: scene.sourceVariantIds,
-    mediaKind: media.mediaKind,
-    assetId: media.assetId,
-    variantId: media.variantId,
-    mediaKey: media.mediaKey,
-    localPath: media.localPath,
-    absolutePath,
-    webUrl: media.webUrl,
-    runId: record.manifest.runId,
-    manifestPath: record.manifestPath,
-    sceneArg: `${timelineStartMs}|${scene.sceneLabel}|${absolutePath}`,
-  };
-}
-
-function selectSceneMedia(manifest: RunManifest): RunManifestMedia & { mediaKind: 'image' | 'video' } {
-  const sorted = sortedMedia(manifest);
-  const video = sorted.find((media) => media.mediaKind === 'video');
-  if (video) return video as RunManifestMedia & { mediaKind: 'video' };
-
-  const image = sorted.find((media) => media.mediaKind === 'image');
-  if (image) return image as RunManifestMedia & { mediaKind: 'image' };
-
-  throw new Error(`Run manifest has no video or image scene asset: ${manifest.runId}`);
-}
-
 function normalizeManifestScene(scene: RunManifestScene | undefined): RunManifestScene | undefined {
   if (!scene) return undefined;
   return {
@@ -464,8 +354,4 @@ function optionalString(value: unknown): string | undefined {
 
 function optionalInteger(value: unknown): number | undefined {
   return Number.isInteger(value) ? value as number : undefined;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
 }

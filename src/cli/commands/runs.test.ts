@@ -261,173 +261,22 @@ test('runs export defaults to generic ordered media handoff data', async () => {
   }
 });
 
-test('runs export remotion-scenes sorts production scenes by timeline', async () => {
+test('runs export rejects retired production scene format with Space-backed guidance', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-runs-'));
   try {
-    await saveRunManifest(manifest({
-      runId: 'shot-02',
-      createdAt: '2026-06-16T00:02:00.000Z',
-      scene: {
-        productionId: 's01e01-a2',
-        shotId: 's01e01-a2-02',
-        sceneLabel: 'Escalera',
-        timelineStartMs: 72760,
-        durationMs: 39600,
-        sourceRefs: ['variant-keyframe-2'],
-        sourceVariantIds: ['variant-keyframe-2'],
-      },
-      media: [{
-        index: 0,
-        mediaKind: 'video',
-        assetId: 'asset-video-2',
-        variantId: 'variant-video-2',
-        mediaKey: 'media/space/variant-video-2.mp4',
-        imageKey: null,
-        thumbKey: null,
-        mimeType: 'video/mp4',
-        sizeBytes: null,
-        width: null,
-        height: null,
-        durationMs: 39600,
-        localPath: 'clips/clip-002.mp4',
-        webUrl: 'https://inventory.example.test/spaces/space-1/assets/asset-video-2',
-      }],
-      images: [],
-    }), dir);
-    await saveRunManifest(manifest({
-      runId: 'shot-01',
-      createdAt: '2026-06-16T00:01:00.000Z',
-      scene: {
-        productionId: 's01e01-a2',
-        shotId: 's01e01-a2-01',
-        sceneLabel: 'Cocina',
-        timelineStartMs: 0,
-        durationMs: 73000,
-        sourceRefs: ['variant-keyframe-1'],
-        sourceVariantIds: ['variant-keyframe-1'],
-      },
-    }), dir);
-    const output: string[] = [];
-
-    const result = await executeRuns({
-      positionals: ['export'],
-      options: {
-        format: 'remotion-scenes',
-        'production-id': 's01e01-a2',
-      },
-    }, depsFor(dir, output));
-
-    assert.equal(result.type, 'export');
-    const exported = result.exportData as { scenes: Array<{ sceneLabel: string; timelineStartMs: number; mediaKind: string }> };
-    assert.deepEqual(exported.scenes.map((scene) => scene.sceneLabel), ['Cocina', 'Escalera']);
-    assert.deepEqual(exported.scenes.map((scene) => scene.timelineStartMs), [0, 72760]);
-    assert.deepEqual(exported.scenes.map((scene) => scene.mediaKind), ['image', 'video']);
-    const lines = output.join('\n').split('\n');
-    assert.match(lines[0], /^--scene '0\|Cocina\|.*keyframes\/frame-01\.png'$/);
-    assert.match(lines[1], /^--scene '72760\|Escalera\|.*clips\/clip-002\.mp4'$/);
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
-});
-
-test('runs export remotion-scenes fails clearly when required scene metadata is missing', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-runs-'));
-  try {
-    await saveRunManifest(manifest({
-      runId: 'missing-label',
-      scene: {
-        productionId: 's01e01-a2',
-        timelineStartMs: 0,
-        sourceRefs: [],
-        sourceVariantIds: [],
-      },
-    }), dir);
+    await saveRunManifest(manifest(), dir);
 
     await assert.rejects(
       () => executeRuns({
         positionals: ['export'],
         options: {
-          latest: 'true',
           format: 'remotion-scenes',
+          'production-id': 's01e01-a2',
+          o: path.join(dir, 'scenes.args'),
         },
       }, depsFor(dir, [])),
-      /missing scene label: missing-label/
+      /Use: pnpm run cli productions export --production-id <id>/
     );
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
-});
-
-test('runs export remotion-scenes prefers video clip assets over image fallback', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-runs-'));
-  try {
-    await saveRunManifest(manifest({
-      runId: 'video-shot',
-      scene: {
-        productionId: 's01e01-a2',
-        shotId: 's01e01-a2-01',
-        sceneLabel: 'Bar',
-        timelineStartMs: 112360,
-        durationMs: 5000,
-        motionPrompt: 'handheld move',
-        sourceRefs: ['variant-keyframe'],
-        sourceVariantIds: ['variant-keyframe'],
-      },
-      mediaKind: 'video',
-      media: [
-        {
-          index: 0,
-          mediaKind: 'image',
-          assetId: 'asset-keyframe',
-          variantId: 'variant-keyframe',
-          mediaKey: 'images/space/variant-keyframe.png',
-          imageKey: 'images/space/variant-keyframe.png',
-          thumbKey: null,
-          mimeType: 'image/png',
-          sizeBytes: null,
-          width: null,
-          height: null,
-          durationMs: null,
-          localPath: 'keyframes/shot-01.png',
-          webUrl: 'https://inventory.example.test/spaces/space-1/assets/asset-keyframe',
-        },
-        {
-          index: 1,
-          mediaKind: 'video',
-          assetId: 'asset-video',
-          variantId: 'variant-video',
-          mediaKey: 'media/space/variant-video.mp4',
-          imageKey: null,
-          thumbKey: null,
-          mimeType: 'video/mp4',
-          sizeBytes: null,
-          width: null,
-          height: null,
-          durationMs: 5000,
-          localPath: 'clips/clip-001.mp4',
-          webUrl: 'https://inventory.example.test/spaces/space-1/assets/asset-video',
-        },
-      ],
-      images: [],
-    }), dir);
-    const outputPath = path.join(dir, 'scenes.json');
-
-    const result = await executeRuns({
-      positionals: ['export'],
-      options: {
-        latest: 'true',
-        format: 'remotion-scenes',
-        json: 'true',
-        o: outputPath,
-      },
-    }, depsFor(dir, []));
-
-    assert.equal(result.type, 'export');
-    const exported = JSON.parse(await readFile(outputPath, 'utf8'));
-    assert.equal(exported.format, 'remotion-scenes');
-    assert.equal(exported.scenes[0].mediaKind, 'video');
-    assert.equal(exported.scenes[0].variantId, 'variant-video');
-    assert.match(exported.scenes[0].absolutePath, /clips\/clip-001\.mp4$/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

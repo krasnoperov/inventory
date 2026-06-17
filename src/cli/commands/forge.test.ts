@@ -1227,9 +1227,54 @@ test('video derive stores shot scene metadata in run manifest and Space producti
     metadata: {
       command: 'derive',
       localPath: 'clips/clip-s01e01-a2-01.mp4',
-      runManifestPath: '.inventory/runs/run-test.json',
     },
   });
+});
+
+test('production record is placed even when local run manifest persistence fails', async () => {
+  const client = new FakeClient();
+  const { deps, productionRecords } = depsFor(client);
+
+  await assert.rejects(
+    () => executeVideoCommand('generate', {
+      positionals: ['slow', 'push-in'],
+      options: {
+        space: 'space-1',
+        name: 'S01E01 A2 shot 01',
+        type: 'animation',
+        o: 'clips/clip.mp4',
+        'scene-label': 'Cocina',
+        'timeline-start-ms': '0',
+        'duration-ms': '73000',
+        'shot-id': 's01e01-a2-01',
+        'production-id': 's01e01-a2',
+      },
+    }, {
+      ...deps,
+      saveRunManifest: async () => {
+        throw new Error('manifest write failed');
+      },
+    }),
+    /manifest write failed/
+  );
+
+  assert.equal(productionRecords.length, 1);
+  assert.deepEqual((productionRecords[0] as { record: { productionId: string; variantId: string } }).record, {
+    productionId: 's01e01-a2',
+    variantId: 'variant-out',
+    shotId: 's01e01-a2-01',
+    sceneLabel: 'Cocina',
+    timelineStartMs: 0,
+    durationMs: 73000,
+    motionPrompt: 'slow push-in',
+    sourceRefs: [],
+    sourceVariantIds: [],
+    metadata: {
+      command: 'generate',
+      localPath: 'clips/clip.mp4',
+    },
+  });
+  assert.equal(client.disconnected, true);
 });
 
 test('production record is placed even when local output download is blocked', async () => {
@@ -1273,7 +1318,6 @@ test('production record is placed even when local output download is blocked', a
     metadata: {
       command: 'generate',
       localPath: 'clips/existing.mp4',
-      runManifestPath: '.inventory/runs/run-test.json',
     },
   });
   assert.equal(client.disconnected, true);

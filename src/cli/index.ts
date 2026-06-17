@@ -471,13 +471,13 @@ Usage:
   pnpm run cli runs export <run-id|manifest.json> --format media -o media-run.json
   pnpm run cli runs export --latest --format media -o media-run.json
   pnpm run cli runs export --latest --format remotion -o keyframes.json
-  pnpm run cli runs export --format remotion-scenes --production-id <id> [-o scenes.args]
-  pnpm run cli runs export --latest --format remotion-scenes [-o scenes.args]
 
 Formats:
   media             JSON media handoff data
   remotion          Legacy remotion-keyframes JSON marker
-  remotion-scenes   Shell-ready --scene '<start>|<label>|<absolute path>' lines
+
+Timed scene assembly:
+  pnpm run cli productions export --production-id <id> [-o scenes.args]
 `);
 }
 

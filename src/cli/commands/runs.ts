@@ -5,14 +5,11 @@ import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
 import {
   createMediaRunExport,
   createRemotionRunExport,
-  createRemotionScenesExport,
-  formatRemotionSceneArgs,
   listRunManifests,
   readRunManifest,
   resolveRunManifest,
   type MediaRunExport,
   type RemotionRunExport,
-  type RemotionScenesExport,
   type RunManifest,
   type RunManifestRecord,
 } from '../lib/run-manifest';
@@ -21,9 +18,9 @@ import { truncate } from '../lib/utils';
 type RunsResult =
   | { type: 'list'; records: RunManifestRecord[] }
   | { type: 'show'; record: RunManifestRecord }
-  | { type: 'export'; outputPath?: string; format: RunExportFormat; exportData: MediaRunExport | RemotionRunExport | RemotionScenesExport };
+  | { type: 'export'; outputPath: string; format: RunExportFormat; exportData: MediaRunExport | RemotionRunExport };
 
-type RunExportFormat = 'media' | 'remotion' | 'remotion-scenes';
+type RunExportFormat = 'media' | 'remotion';
 
 interface RunsDeps {
   loadProjectConfig: () => Promise<ProjectConfig | null>;
@@ -86,63 +83,28 @@ export async function executeRuns(
   if (subcommand === 'export') {
     const format = parseRunExportFormat(parsed.options.format || 'media');
     const outputPath = parsed.options.o || parsed.options.output;
-    if (format !== 'remotion-scenes' && (!outputPath || outputPath === 'true')) {
+    if (!outputPath || outputPath === 'true') {
       throw new Error('Output path is required: pass -o <file> or --output <file>');
     }
 
-    if (format === 'media' || format === 'remotion') {
-      const record = await resolveSelectedRun(parsed, deps, projectConfig.projectRoot, 1);
-      const exportData = format === 'media'
-        ? createMediaRunExport(record, projectConfig.projectRoot)
-        : createRemotionRunExport(record, projectConfig.projectRoot);
-      await deps.writeFile(outputPath, JSON.stringify(exportData, null, 2) + '\n', 'utf8');
-      deps.print(`Wrote ${format} export: ${outputPath}`);
-      return { type: 'export', outputPath, format, exportData };
-    }
-
-    const productionId = parsed.options['production-id'] || parsed.options.productionId;
-    const records = await resolveSceneExportRuns(parsed, deps, projectConfig.projectRoot, productionId);
-    const exportData = createRemotionScenesExport(records, projectConfig.projectRoot, productionId);
-    const content = parsed.options.json === 'true'
-      ? JSON.stringify(exportData, null, 2)
-      : formatRemotionSceneArgs(exportData);
-    if (outputPath && outputPath !== 'true') {
-      await deps.writeFile(outputPath, content + '\n', 'utf8');
-      deps.print(`Wrote ${format} export: ${outputPath}`);
-    } else {
-      deps.print(content);
-    }
-    return { type: 'export', outputPath: outputPath === 'true' ? undefined : outputPath, format, exportData };
+    const record = await resolveSelectedRun(parsed, deps, projectConfig.projectRoot, 1);
+    const exportData = format === 'media'
+      ? createMediaRunExport(record, projectConfig.projectRoot)
+      : createRemotionRunExport(record, projectConfig.projectRoot);
+    await deps.writeFile(outputPath, JSON.stringify(exportData, null, 2) + '\n', 'utf8');
+    deps.print(`Wrote ${format} export: ${outputPath}`);
+    return { type: 'export', outputPath, format, exportData };
   }
 
   throw new Error(`Unknown runs command: ${subcommand}`);
 }
 
 function parseRunExportFormat(value: string): RunExportFormat {
-  if (value === 'media' || value === 'remotion' || value === 'remotion-scenes') return value;
+  if (value === 'media' || value === 'remotion') return value;
+  if (value === 'remotion-scenes') {
+    throw new Error('Local run manifests are not production scene state. Use: pnpm run cli productions export --production-id <id>');
+  }
   throw new Error(`Unsupported run export format: ${value}`);
-}
-
-async function resolveSceneExportRuns(
-  parsed: ParsedArgs,
-  deps: Pick<RunsDeps, 'resolveRunManifest' | 'listRunManifests'>,
-  projectRoot: string,
-  productionId?: string
-): Promise<RunManifestRecord[]> {
-  if (parsed.options.latest === 'true' || parsed.positionals[1]) {
-    return [await resolveSelectedRun(parsed, deps, projectRoot, 1)];
-  }
-
-  if (!productionId) {
-    throw new Error('Run ID, manifest path, --latest, or --production-id is required for remotion-scenes export');
-  }
-
-  const records = await deps.listRunManifests(projectRoot);
-  const matching = records.filter((record) => record.manifest.scene?.productionId === productionId);
-  if (matching.length === 0) {
-    throw new Error(`No scene run manifests found for production ID: ${productionId}`);
-  }
-  return matching;
 }
 
 async function resolveSelectedRun(
@@ -250,7 +212,8 @@ Usage:
   pnpm run cli runs export <run-id|manifest.json> --format media -o media-run.json
   pnpm run cli runs export --latest --format media -o media-run.json
   pnpm run cli runs export --latest --format remotion -o keyframes.json
-  pnpm run cli runs export --format remotion-scenes --production-id <id>
-  pnpm run cli runs export --latest --format remotion-scenes
+
+For timed scene assembly, use:
+  pnpm run cli productions export --production-id <id> [-o scenes.args]
 `);
 }
