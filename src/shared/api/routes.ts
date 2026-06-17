@@ -11,7 +11,12 @@ import {
   GetSpaceResponseSchema,
   GoogleAuthRequestSchema,
   ListSpaceAssetsResponseSchema,
+  ListProductionRecordsResponseSchema,
   ListSpacesResponseSchema,
+  PlaceProductionRecordRequestSchema,
+  ProductionIdParamsSchema,
+  ProductionRecordParamsSchema,
+  ProductionRecordResponseSchema,
   SpaceIdParamsSchema,
   SuccessResponseSchema,
   UpdateUserProfileRequestSchema,
@@ -231,6 +236,69 @@ export const listSpaceAssetsRoute = createRoute({
       description: 'Assets in a space',
     },
     403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const listProductionRecordsRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/productions/{productionId}/records',
+  request: {
+    params: ProductionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(ListProductionRecordsResponseSchema),
+      description: 'Production records in a space',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const placeProductionRecordRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/production/placements',
+  request: {
+    params: SpaceIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: PlaceProductionRecordRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(ProductionRecordResponseSchema),
+      description: 'Created or updated production placement record',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteProductionRecordRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/production/records/{recordId}',
+  request: {
+    params: ProductionRecordParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SuccessResponseSchema),
+      description: 'Deleted production record',
+    },
+    403: errorResponse,
+    404: errorResponse,
     500: errorResponse,
     503: errorResponse,
   },

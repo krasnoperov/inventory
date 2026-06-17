@@ -508,6 +508,33 @@ export const TilePositionQueries = {
 } as const;
 
 // ============================================================================
+// Production Record Queries
+// ============================================================================
+
+export const ProductionRecordQueries = {
+  GET_BY_ID: 'SELECT * FROM production_records WHERE id = ?',
+  GET_BY_PRODUCTION: 'SELECT * FROM production_records WHERE production_id = ? ORDER BY timeline_start_ms ASC, shot_id ASC, created_at ASC',
+  UPSERT: `INSERT INTO production_records
+           (id, production_id, variant_id, asset_id, media_kind, shot_id, scene_label, timeline_start_ms, duration_ms, motion_prompt, source_refs, source_variant_ids, metadata, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             production_id = excluded.production_id,
+             variant_id = excluded.variant_id,
+             asset_id = excluded.asset_id,
+             media_kind = excluded.media_kind,
+             shot_id = excluded.shot_id,
+             scene_label = excluded.scene_label,
+             timeline_start_ms = excluded.timeline_start_ms,
+             duration_ms = excluded.duration_ms,
+             motion_prompt = excluded.motion_prompt,
+             source_refs = excluded.source_refs,
+             source_variant_ids = excluded.source_variant_ids,
+             metadata = excluded.metadata,
+             updated_at = excluded.updated_at`,
+  DELETE: 'DELETE FROM production_records WHERE id = ?',
+} as const;
+
+// ============================================================================
 // Query Builders
 // ============================================================================
 

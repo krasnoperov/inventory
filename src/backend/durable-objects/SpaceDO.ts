@@ -33,6 +33,7 @@ import {
   StyleController,
   RotationController,
   TileController,
+  ProductionController,
 } from './space/controllers';
 import { ApprovalController } from './space/controllers/ApprovalController';
 import { SessionController } from './space/controllers/SessionController';
@@ -62,6 +63,7 @@ export class SpaceDO extends DurableObject<Env> {
   private chatCtrl!: ChatController;
   private rotationCtrl!: RotationController;
   private tileCtrl!: TileController;
+  private productionCtrl!: ProductionController;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -134,6 +136,7 @@ export class SpaceDO extends DurableObject<Env> {
       this.chatCtrl = new ChatController(ctx);
       this.rotationCtrl = new RotationController(ctx);
       this.tileCtrl = new TileController(ctx);
+      this.productionCtrl = new ProductionController(ctx);
 
       // Wire pipeline controllers to generation controller (avoids circular deps)
       this.generationCtrl.setPipelineControllers(this.rotationCtrl, this.tileCtrl);
@@ -147,6 +150,7 @@ export class SpaceDO extends DurableObject<Env> {
         generation: this.generationCtrl,
         approval: this.approvalCtrl,
         session: this.sessionCtrl,
+        production: this.productionCtrl,
       });
 
       this.initialized = true;

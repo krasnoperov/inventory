@@ -161,6 +161,27 @@ export class SchemaManager {
         updated_at INTEGER NOT NULL
       );
 
+      -- Production placement records for downstream timeline/render tooling
+      CREATE TABLE IF NOT EXISTS production_records (
+        id TEXT PRIMARY KEY,
+        production_id TEXT NOT NULL,
+        variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        media_kind TEXT NOT NULL DEFAULT 'image'
+          CHECK (media_kind IN ('image', 'audio', 'video')),
+        shot_id TEXT,
+        scene_label TEXT NOT NULL,
+        timeline_start_ms INTEGER NOT NULL CHECK (timeline_start_ms >= 0),
+        duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
+        motion_prompt TEXT,
+        source_refs TEXT NOT NULL DEFAULT '[]',
+        source_variant_ids TEXT NOT NULL DEFAULT '[]',
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
       -- Indexes
       CREATE INDEX IF NOT EXISTS idx_variants_asset ON variants(asset_id);
       CREATE INDEX IF NOT EXISTS idx_variants_status ON variants(status);
@@ -178,6 +199,8 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_approvals_request ON pending_approvals(request_id);
       CREATE INDEX IF NOT EXISTS idx_approvals_plan ON pending_approvals(plan_id);
       CREATE INDEX IF NOT EXISTS idx_auto_executed_request ON auto_executed(request_id);
+      CREATE INDEX IF NOT EXISTS idx_production_records_production ON production_records(production_id, timeline_start_ms);
+      CREATE INDEX IF NOT EXISTS idx_production_records_variant ON production_records(variant_id);
     `);
   }
 
@@ -224,6 +247,9 @@ export class SchemaManager {
 
     // Migration: Add audio sidecar artifact metadata to variants
     await this.addAudioSidecarMetadataToVariants();
+
+    // Migration: Add production placement records for downstream tooling
+    await this.addProductionRecords();
 
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
@@ -692,5 +718,35 @@ export class SchemaManager {
         await this.sql.exec(`ALTER TABLE variants ADD COLUMN ${name} ${type};`);
       }
     }
+  }
+
+  /**
+   * Add production_records for Space-backed timeline placement metadata.
+   */
+  private async addProductionRecords(): Promise<void> {
+    await this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS production_records (
+        id TEXT PRIMARY KEY,
+        production_id TEXT NOT NULL,
+        variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        media_kind TEXT NOT NULL DEFAULT 'image'
+          CHECK (media_kind IN ('image', 'audio', 'video')),
+        shot_id TEXT,
+        scene_label TEXT NOT NULL,
+        timeline_start_ms INTEGER NOT NULL CHECK (timeline_start_ms >= 0),
+        duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
+        motion_prompt TEXT,
+        source_refs TEXT NOT NULL DEFAULT '[]',
+        source_variant_ids TEXT NOT NULL DEFAULT '[]',
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_production_records_production ON production_records(production_id, timeline_start_ms);
+      CREATE INDEX IF NOT EXISTS idx_production_records_variant ON production_records(variant_id);
+    `);
   }
 }

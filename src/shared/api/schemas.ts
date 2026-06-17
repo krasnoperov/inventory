@@ -114,6 +114,24 @@ export const SpaceIdParamsSchema = z.object({
   }),
 });
 
+export const ProductionIdParamsSchema = SpaceIdParamsSchema.extend({
+  productionId: z.string().openapi({
+    param: {
+      name: 'productionId',
+      in: 'path',
+    },
+  }),
+});
+
+export const ProductionRecordParamsSchema = SpaceIdParamsSchema.extend({
+  recordId: z.string().openapi({
+    param: {
+      name: 'recordId',
+      in: 'path',
+    },
+  }),
+});
+
 export const CreateSpaceRequestSchema = z
   .object({
     name: z.string(),
@@ -207,6 +225,57 @@ export const ListSpaceAssetsResponseSchema = z
   })
   .openapi('ListSpaceAssetsResponse');
 
+export const ProductionRecordSchema = z
+  .object({
+    id: z.string(),
+    production_id: z.string(),
+    variant_id: z.string(),
+    asset_id: z.string(),
+    media_kind: MediaKindSchema,
+    shot_id: z.string().nullable(),
+    scene_label: z.string(),
+    timeline_start_ms: z.number().int().nonnegative(),
+    duration_ms: z.number().int().nonnegative().nullable(),
+    motion_prompt: z.string().nullable(),
+    source_refs: z.string(),
+    source_variant_ids: z.string(),
+    metadata: z.string(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number(),
+  })
+  .openapi('ProductionRecord');
+
+export const PlaceProductionRecordRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    productionId: z.string().min(1),
+    variantId: z.string().min(1),
+    shotId: z.string().optional(),
+    sceneLabel: z.string().min(1),
+    timelineStartMs: z.number().int().nonnegative(),
+    durationMs: z.number().int().nonnegative().optional(),
+    motionPrompt: z.string().optional(),
+    sourceRefs: z.array(z.string()).optional(),
+    sourceVariantIds: z.array(z.string()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .openapi('PlaceProductionRecordRequest');
+
+export const ProductionRecordResponseSchema = z
+  .object({
+    success: z.literal(true),
+    record: ProductionRecordSchema,
+  })
+  .openapi('ProductionRecordResponse');
+
+export const ListProductionRecordsResponseSchema = z
+  .object({
+    success: z.literal(true),
+    records: z.array(ProductionRecordSchema),
+  })
+  .openapi('ListProductionRecordsResponse');
+
 export const DeleteSpaceResponseSchema = z
   .object({
     success: z.literal(true),
@@ -296,6 +365,10 @@ export type ListSpacesResponse = z.infer<typeof ListSpacesResponseSchema>;
 export type GetSpaceResponse = z.infer<typeof GetSpaceResponseSchema>;
 export type ListSpaceAssetsResponse = z.infer<typeof ListSpaceAssetsResponseSchema>;
 export type DeleteSpaceResponse = z.infer<typeof DeleteSpaceResponseSchema>;
+export type ProductionRecord = z.infer<typeof ProductionRecordSchema>;
+export type PlaceProductionRecordRequest = z.infer<typeof PlaceProductionRecordRequestSchema>;
+export type ProductionRecordResponse = z.infer<typeof ProductionRecordResponseSchema>;
+export type ListProductionRecordsResponse = z.infer<typeof ListProductionRecordsResponseSchema>;
 export type Variant = z.infer<typeof VariantSchema>;
 export type UploadMediaRequest = z.infer<typeof UploadMediaRequestSchema>;
 export type UploadMediaResponse = z.infer<typeof UploadMediaResponseSchema>;

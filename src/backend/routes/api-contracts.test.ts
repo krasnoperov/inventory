@@ -75,6 +75,25 @@ const variant = {
   updated_at: 1_780_000_000_200,
 };
 
+const productionRecord = {
+  id: 'record-1',
+  production_id: 's01e01-a2',
+  variant_id: variant.id,
+  asset_id: asset.id,
+  media_kind: 'video' as const,
+  shot_id: 's01e01-a2-01',
+  scene_label: 'Cocina',
+  timeline_start_ms: 0,
+  duration_ms: 73_000,
+  motion_prompt: 'slow push in',
+  source_refs: '[]',
+  source_variant_ids: '[]',
+  metadata: '{}',
+  created_by: String(user.id),
+  created_at: 1_780_000_000_300,
+  updated_at: 1_780_000_000_300,
+};
+
 type FetchLike = NonNullable<ApiFetchOptions<ApiEndpointKey>['fetch']>;
 
 function bindFetch(app: OpenAPIHono<AppContext>): FetchLike {
@@ -310,6 +329,90 @@ describe('API contracts', () => {
       params: { id: space.id },
     });
     assert.equal(deleted.message, 'Space deleted successfully');
+  });
+
+  it('round-trips production placement routes through the shared client contract', async () => {
+    const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async (request: Request) => {
+          const path = new URL(request.url).pathname;
+          const method = request.method;
+          const body = method === 'POST' ? await request.json<Record<string, unknown>>() : undefined;
+          calls.push({ path, method, body });
+
+          if (path === '/internal/production/s01e01-a2/records') {
+            return Response.json({ success: true, records: [productionRecord] });
+          }
+          if (path === '/internal/production/placements') {
+            assert.equal(body?.createdBy, String(user.id));
+            assert.equal(body?.productionId, 's01e01-a2');
+            assert.equal(body?.variantId, variant.id);
+            return Response.json({ success: true, record: productionRecord });
+          }
+          if (path === '/internal/production/records/record-1') {
+            return Response.json({ success: true });
+          }
+
+          return Response.json({ error: 'Unexpected route' }, { status: 404 });
+        },
+      }),
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const fakeMemberDAO = {
+      getMember: async () => ({ space_id: space.id, user_id: String(user.id), role: 'editor', joined_at: Date.now() }),
+    };
+    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [MemberDAO, fakeMemberDAO],
+    ]), {
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
+    const fetch = bindFetch(app);
+    const authHeaders = { Authorization: 'Bearer test-token' };
+
+    const listed = await apiFetch('GET /api/spaces/:id/productions/:productionId/records', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, productionId: 's01e01-a2' },
+    });
+    assert.equal(listed.records[0].scene_label, 'Cocina');
+
+    const placed = await apiFetch('POST /api/spaces/:id/production/placements', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+      json: {
+        id: 'record-1',
+        productionId: 's01e01-a2',
+        variantId: variant.id,
+        shotId: 's01e01-a2-01',
+        sceneLabel: 'Cocina',
+        timelineStartMs: 0,
+        durationMs: 73_000,
+        motionPrompt: 'slow push in',
+      },
+    });
+    assert.equal(placed.record.id, 'record-1');
+
+    const deleted = await apiFetch('DELETE /api/spaces/:id/production/records/:recordId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, recordId: 'record-1' },
+    });
+    assert.equal(deleted.success, true);
+
+    assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`), [
+      'GET /internal/production/s01e01-a2/records',
+      'POST /internal/production/placements',
+      'DELETE /internal/production/records/record-1',
+    ]);
   });
 
   it('round-trips media upload through the shared multipart contract', async () => {

@@ -26,6 +26,7 @@ import type {
   RotationView,
   TileSet,
   TilePosition,
+  ProductionRecord,
 } from '../types';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import type { SimplePlan } from '../../../../shared/websocket-types';
@@ -42,6 +43,7 @@ import {
   RotationViewQueries,
   TileSetQueries,
   TilePositionQueries,
+  ProductionRecordQueries,
   buildAssetUpdateQuery,
   buildInClause,
 } from '../queries';
@@ -807,6 +809,72 @@ export class SpaceRepository {
 
   async clearChatHistory(): Promise<void> {
     await this.sql.exec(ChatQueries.DELETE_ALL);
+  }
+
+  // ==========================================================================
+  // Production Record Operations
+  // ==========================================================================
+
+  async getProductionRecordById(recordId: string): Promise<ProductionRecord | null> {
+    const result = await this.sql.exec(ProductionRecordQueries.GET_BY_ID, recordId);
+    return (result.toArray()[0] as ProductionRecord) ?? null;
+  }
+
+  async getProductionRecordsByProductionId(productionId: string): Promise<ProductionRecord[]> {
+    try {
+      const result = await this.sql.exec(ProductionRecordQueries.GET_BY_PRODUCTION, productionId);
+      return result.toArray() as ProductionRecord[];
+    } catch {
+      return [];
+    }
+  }
+
+  async upsertProductionRecord(data: {
+    id: string;
+    productionId: string;
+    variantId: string;
+    assetId: string;
+    mediaKind: MediaKind;
+    shotId?: string | null;
+    sceneLabel: string;
+    timelineStartMs: number;
+    durationMs?: number | null;
+    motionPrompt?: string | null;
+    sourceRefs?: string[];
+    sourceVariantIds?: string[];
+    metadata?: Record<string, unknown>;
+    createdBy: string;
+  }): Promise<ProductionRecord> {
+    const existing = await this.getProductionRecordById(data.id);
+    const now = Date.now();
+    await this.sql.exec(
+      ProductionRecordQueries.UPSERT,
+      data.id,
+      data.productionId,
+      data.variantId,
+      data.assetId,
+      data.mediaKind,
+      data.shotId ?? null,
+      data.sceneLabel,
+      data.timelineStartMs,
+      data.durationMs ?? null,
+      data.motionPrompt ?? null,
+      JSON.stringify(data.sourceRefs ?? []),
+      JSON.stringify(data.sourceVariantIds ?? []),
+      JSON.stringify(data.metadata ?? {}),
+      existing?.created_by ?? data.createdBy,
+      existing?.created_at ?? now,
+      now
+    );
+    return (await this.getProductionRecordById(data.id))!;
+  }
+
+  async deleteProductionRecord(recordId: string): Promise<boolean> {
+    const existing = await this.getProductionRecordById(recordId);
+    if (!existing) return false;
+
+    await this.sql.exec(ProductionRecordQueries.DELETE, recordId);
+    return true;
   }
 
   // ==========================================================================
