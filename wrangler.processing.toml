@@ -80,6 +80,9 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 [env.production.vars]
 NODE_ENV = "production"
 ENVIRONMENT = "production"
+# Website-controlled audio generation provider (vars are not inherited from the
+# top-level [vars], so production must declare it explicitly).
+INVENTORY_AUDIO_PROVIDER = "elevenlabs"
 
 # Cloudflare Workflows - Production
 [[env.production.workflows]]
