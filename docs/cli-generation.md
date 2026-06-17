@@ -334,14 +334,18 @@ downloads them through authenticated variant media routes, checks range support,
 triggers one WebSocket generation with the fake image provider, and verifies the
 generated media through the same authenticated media route.
 
-Run the CLI/worker loop without Gemini calls:
+Run the CLI/worker media production loop without external provider calls:
 
 ```bash
 pnpm run test:e2e:cli-forge
 ```
 
 This starts a local Wrangler worker, applies local D1 migrations in an isolated
-temporary state directory, creates a dev-authenticated space, runs
-`generate`, `refine`, `derive`, and `batch`, verifies each downloaded file is a
-PNG, verifies the batch manifest, and forces the backend image provider to
-`fake`.
+temporary state directory, creates a dev-authenticated space, runs image
+`generate`/`refine`/`derive`/`batch`, audio SFX generation, podcast dialogue
+generation from `--input`, video `generate`/`derive`, generic media export, and
+`remotion-scenes` export. It verifies downloaded image, audio, and video files
+and forces fake backend providers instead of calling Gemini, ElevenLabs, or Veo.
+
+See [cli-media-production-cookbook.md](./cli-media-production-cookbook.md) for
+operator-ready command sequences across images, audio, video, and podcasts.
