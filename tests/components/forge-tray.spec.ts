@@ -79,6 +79,7 @@ test('forge tray renders a screenshot matrix for every media mode', async ({ pag
     await page.getByTitle(`${config.label} mode`).click();
 
     await expect(page.getByTitle(`${config.label} mode`)).toHaveClass(/active/);
+    await expect(page.locator('button[title$=" mode"][class*="active"]')).toHaveCount(1);
     await expect(page.getByPlaceholder(`Describe the ${config.promptNoun} to generate...`)).toBeVisible();
     await expect(page.getByPlaceholder(`${config.label} name`)).toBeVisible();
 
@@ -100,6 +101,7 @@ test('forge tray renders a screenshot matrix for every media mode', async ({ pag
       await expect(styleBadge).toHaveCount(0);
     }
 
+    await page.mouse.move(0, 0);
     await screenshot(page, `forge-tray-media-mode-${config.mode}`, { fullPage: true });
   }
 });

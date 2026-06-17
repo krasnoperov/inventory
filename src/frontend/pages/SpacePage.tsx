@@ -43,6 +43,7 @@ export default function SpacePage() {
   const isLoading = spaceDataQuery.isPending;
   const error = spaceDataQuery.error instanceof Error ? spaceDataQuery.error.message : null;
   const [forgeError, setForgeError] = useState<string | null>(null);
+  const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
 
   // Set page title
   useDocumentTitle(space?.name);
@@ -171,15 +172,27 @@ export default function SpacePage() {
     },
     onGenerateError: (data) => {
       setForgeError(data.error);
-      setTimeout(() => setForgeError(null), 5000);
+      setForgeErrorCode(data.code);
+      setTimeout(() => {
+        setForgeError(null);
+        setForgeErrorCode(null);
+      }, 5000);
     },
     onRefineError: (data) => {
       setForgeError(data.error);
-      setTimeout(() => setForgeError(null), 5000);
+      setForgeErrorCode(data.code);
+      setTimeout(() => {
+        setForgeError(null);
+        setForgeErrorCode(null);
+      }, 5000);
     },
     onBatchError: (data) => {
       setForgeError(data.error);
-      setTimeout(() => setForgeError(null), 5000);
+      setForgeErrorCode(data.code);
+      setTimeout(() => {
+        setForgeError(null);
+        setForgeErrorCode(null);
+      }, 5000);
     },
     onError: (error) => {
       // Handle WebSocket errors - clear chat loading state
@@ -589,6 +602,7 @@ export default function SpacePage() {
           sendStyleDelete={sendStyleDelete}
           sendStyleToggle={sendStyleToggle}
           forgeError={forgeError}
+          forgeErrorCode={forgeErrorCode}
         />
       )}
 

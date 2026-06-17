@@ -38,6 +38,8 @@ describe('billingRoutes', () => {
     deps.set(UserDAO, {
       findById: async () => ({
         id: 42,
+        email: 'customer@example.com',
+        name: 'Customer Name',
         paid_generation_entitlement: 'paid',
       }),
       update: async (...args: unknown[]) => {
@@ -66,6 +68,102 @@ describe('billingRoutes', () => {
     assert.deepEqual(updates, [
       [42, { paid_generation_entitlement: 'none' }],
     ]);
+  });
+
+  test('checkout route creates Polar checkout for the authenticated user', async () => {
+    const calls: unknown[] = [];
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UserDAO, {
+      findById: async () => ({
+        id: 42,
+        email: 'customer@example.com',
+        name: 'Customer Name',
+        paid_generation_entitlement: 'none',
+      }),
+    });
+    deps.set(PolarService, {
+      getPaidGenerationCheckoutUrl: async (...args: unknown[]) => {
+        calls.push(args);
+        return 'https://checkout.polar.sh/session';
+      },
+    });
+
+    const response = await routeApp(deps).request('/api/billing/checkout?return_url=/spaces/space-1', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { url: 'https://checkout.polar.sh/session' });
+    assert.deepEqual(calls, [
+      [
+        { userId: 42, email: 'customer@example.com', name: 'Customer Name' },
+        {
+          returnUrl: 'http://localhost/spaces/space-1',
+          successUrl: 'http://localhost/profile?billing=checkout_success',
+        },
+      ],
+    ]);
+  });
+
+  test('checkout route rejects unavailable checkout configuration', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UserDAO, {
+      findById: async () => ({
+        id: 42,
+        email: 'customer@example.com',
+        name: 'Customer Name',
+        paid_generation_entitlement: 'none',
+      }),
+    });
+    deps.set(PolarService, {
+      getPaidGenerationCheckoutUrl: async () => null,
+    });
+
+    const response = await routeApp(deps).request('/api/billing/checkout', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 503);
+    const body = await response.json() as { error: string };
+    assert.equal(body.error, 'Checkout not available');
+  });
+
+  test('checkout route falls back when return URL is cross-origin', async () => {
+    const calls: unknown[] = [];
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UserDAO, {
+      findById: async () => ({
+        id: 42,
+        email: 'customer@example.com',
+        name: 'Customer Name',
+        paid_generation_entitlement: 'none',
+      }),
+    });
+    deps.set(PolarService, {
+      getPaidGenerationCheckoutUrl: async (...args: unknown[]) => {
+        calls.push(args);
+        return 'https://checkout.polar.sh/session';
+      },
+    });
+
+    const response = await routeApp(deps).request('/api/billing/checkout?return_url=https://example.com/phish', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual((calls[0] as unknown[])[1], {
+      returnUrl: 'http://localhost/profile',
+      successUrl: 'http://localhost/profile?billing=checkout_success',
+    });
   });
 
   test('operational checks report missing Polar meters as critical', async () => {

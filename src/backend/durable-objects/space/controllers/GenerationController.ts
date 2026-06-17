@@ -39,6 +39,7 @@ import { loggers } from '../../../../shared/logger';
 const log = loggers.generationController;
 
 type GenerationBillingService = 'nanobanana' | 'elevenlabs' | 'veo';
+type GenerationLimitDenyReason = 'quota_exceeded' | 'rate_limited' | 'paid_generation_required';
 
 type AudioUsage = {
   inputTokens: number;
@@ -95,6 +96,12 @@ function getQuotaCheckQuantity(
   return perRequestQuantity * requestedCount;
 }
 
+function getGenerationLimitErrorCode(denyReason: GenerationLimitDenyReason | undefined): 'RATE_LIMITED' | 'PAID_GENERATION_REQUIRED' | 'QUOTA_EXCEEDED' {
+  if (denyReason === 'rate_limited') return 'RATE_LIMITED';
+  if (denyReason === 'paid_generation_required') return 'PAID_GENERATION_REQUIRED';
+  return 'QUOTA_EXCEEDED';
+}
+
 export class GenerationController extends BaseController {
   private readonly variantFactory: VariantFactory;
   private rotationCtrl?: RotationController;
@@ -140,7 +147,7 @@ export class GenerationController extends BaseController {
           type: 'generate:error',
           requestId: msg.requestId,
           error: check.denyMessage || 'Request denied',
-          code: check.denyReason === 'rate_limited' ? 'RATE_LIMITED' : 'QUOTA_EXCEEDED',
+          code: getGenerationLimitErrorCode(check.denyReason),
         });
         return;
       }
@@ -218,7 +225,7 @@ export class GenerationController extends BaseController {
           type: 'refine:error',
           requestId: msg.requestId,
           error: check.denyMessage || 'Request denied',
-          code: check.denyReason === 'rate_limited' ? 'RATE_LIMITED' : 'QUOTA_EXCEEDED',
+          code: getGenerationLimitErrorCode(check.denyReason),
         });
         return;
       }
@@ -306,7 +313,7 @@ export class GenerationController extends BaseController {
           type: 'batch:error',
           requestId: msg.requestId,
           error: check.denyMessage || 'Request denied',
-          code: check.denyReason === 'rate_limited' ? 'RATE_LIMITED' : 'QUOTA_EXCEEDED',
+          code: getGenerationLimitErrorCode(check.denyReason),
         });
         return;
       }
@@ -398,7 +405,7 @@ export class GenerationController extends BaseController {
       if (!check.allowed) {
         this.sendError(
           ws,
-          check.denyReason === 'rate_limited' ? 'RATE_LIMITED' : 'QUOTA_EXCEEDED',
+          getGenerationLimitErrorCode(check.denyReason),
           check.denyMessage || 'Request denied'
         );
         return;

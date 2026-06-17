@@ -82,6 +82,7 @@ Local dev-auth users are marked `internal`.
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/billing/status` | Meter usage + limits (for healthbar UI) |
+| `GET /api/billing/checkout` | Polar checkout URL for first-time paid generation access |
 | `GET /api/billing/portal` | Polar customer portal URL |
 | `GET /api/billing/operational-checks` | Admin check for Polar meter readiness and local sync health |
 
@@ -89,6 +90,7 @@ Local dev-auth users are marked `internal`.
 
 ```
 entitlement: none | paid | internal
+portalUrl: string | null
 meters: [
   { name, consumed, credited, remaining, percentUsed, status }
 ]
@@ -108,6 +110,7 @@ status: ok | warning | critical | exceeded
 |----------|-------------|
 | `POLAR_ACCESS_TOKEN` | API token from Polar dashboard |
 | `POLAR_ORGANIZATION_ID` | Organization ID |
+| `POLAR_PAID_GENERATION_PRODUCT_ID` | Product ID used for paid generation checkout |
 | `POLAR_WEBHOOK_SECRET` | Webhook endpoint secret used for Standard Webhooks verification |
 | `POLAR_ENVIRONMENT` | `sandbox` or `production` |
 
