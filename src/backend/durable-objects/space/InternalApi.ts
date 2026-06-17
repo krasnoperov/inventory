@@ -12,7 +12,7 @@
  */
 
 import { Hono } from 'hono';
-import type { MediaKind, Variant, PendingApproval, AutoExecuted, UserSession } from './types';
+import type { MediaKind, Variant, PendingApproval, AutoExecuted, UserSession, ProductionRecord } from './types';
 import { NotFoundError, ValidationError } from './controllers/types';
 import { loggers } from '../../../shared/logger';
 
@@ -193,6 +193,24 @@ export interface InternalApiControllers {
       viewingVariantId?: string | null;
       forgeContext?: string | null;
     }): Promise<UserSession>;
+  };
+  production: {
+    httpListRecords(productionId: string): Promise<ProductionRecord[]>;
+    httpPlaceRecord(data: {
+      id?: string;
+      productionId: string;
+      variantId: string;
+      shotId?: string;
+      sceneLabel: string;
+      timelineStartMs: number;
+      durationMs?: number;
+      motionPrompt?: string;
+      sourceRefs?: string[];
+      sourceVariantIds?: string[];
+      metadata?: Record<string, unknown>;
+      createdBy: string;
+    }): Promise<ProductionRecord>;
+    httpDeleteRecord(recordId: string): Promise<void>;
   };
 }
 
@@ -482,6 +500,28 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     const data = await c.req.json();
     const session = await controllers.session.httpUpsertSession(data);
     return c.json({ success: true, session });
+  });
+
+  // ==========================================================================
+  // Production Routes
+  // ==========================================================================
+
+  app.get('/internal/production/:productionId/records', async (c) => {
+    const productionId = c.req.param('productionId');
+    const records = await controllers.production.httpListRecords(productionId);
+    return c.json({ success: true, records });
+  });
+
+  app.post('/internal/production/placements', async (c) => {
+    const data = await c.req.json();
+    const record = await controllers.production.httpPlaceRecord(data);
+    return c.json({ success: true, record });
+  });
+
+  app.delete('/internal/production/records/:recordId', async (c) => {
+    const recordId = c.req.param('recordId');
+    await controllers.production.httpDeleteRecord(recordId);
+    return c.json({ success: true });
   });
 
   return app;

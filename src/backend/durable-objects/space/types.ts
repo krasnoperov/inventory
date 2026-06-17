@@ -211,6 +211,28 @@ export interface TilePosition {
 }
 
 /**
+ * ProductionRecord - Timeline placement metadata for downstream production tools.
+ */
+export interface ProductionRecord {
+  id: string;
+  production_id: string;
+  variant_id: string;
+  asset_id: string;
+  media_kind: MediaKind;
+  shot_id: string | null;
+  scene_label: string;
+  timeline_start_ms: number;
+  duration_ms: number | null;
+  motion_prompt: string | null;
+  source_refs: string; // JSON string[]
+  source_variant_ids: string; // JSON string[]
+  metadata: string; // JSON object
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
  * Lineage - Parent-child relationship between variants
  */
 export interface Lineage {

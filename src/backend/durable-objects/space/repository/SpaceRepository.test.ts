@@ -363,6 +363,77 @@ describe('SpaceRepository', () => {
     });
   });
 
+  describe('Production Record Operations', () => {
+    test('upsertProductionRecord stores timeline placement metadata', async () => {
+      const createdRecord = {
+        id: 'record-1',
+        production_id: 'episode-01',
+        variant_id: 'variant-1',
+        asset_id: 'asset-1',
+        media_kind: 'video',
+        shot_id: 'shot-1',
+        scene_label: 'Opening',
+        timeline_start_ms: 0,
+        duration_ms: 1200,
+        motion_prompt: 'slow push',
+        source_refs: '["ref-a"]',
+        source_variant_ids: '["source-1"]',
+        metadata: '{"take":1}',
+        created_by: 'user1',
+        created_at: 1,
+        updated_at: 2,
+      };
+      mockSql.setMockResult('SELECT * FROM production_records WHERE id = ?', [createdRecord]);
+
+      const record = await repo.upsertProductionRecord({
+        id: 'record-1',
+        productionId: 'episode-01',
+        variantId: 'variant-1',
+        assetId: 'asset-1',
+        mediaKind: 'video',
+        shotId: 'shot-1',
+        sceneLabel: 'Opening',
+        timelineStartMs: 0,
+        durationMs: 1200,
+        motionPrompt: 'slow push',
+        sourceRefs: ['ref-a'],
+        sourceVariantIds: ['source-1'],
+        metadata: { take: 1 },
+        createdBy: 'user1',
+      });
+
+      const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_records'));
+      assert(upsertQuery !== undefined);
+      assert(upsertQuery.query.includes('ON CONFLICT(id) DO UPDATE'));
+      assert.equal(upsertQuery.bindings[1], 'episode-01');
+      assert.equal(upsertQuery.bindings[2], 'variant-1');
+      assert.equal(upsertQuery.bindings[4], 'video');
+      assert.equal(upsertQuery.bindings[10], '["ref-a"]');
+      assert.equal(upsertQuery.bindings[11], '["source-1"]');
+      assert.equal(upsertQuery.bindings[12], '{"take":1}');
+      assert.equal(record.id, 'record-1');
+    });
+
+    test('getProductionRecordsByProductionId sorts by timeline', async () => {
+      mockSql.setMockResult('WHERE production_id = ?', [
+        { id: 'record-1', production_id: 'episode-01' },
+      ]);
+
+      const records = await repo.getProductionRecordsByProductionId('episode-01');
+
+      assert.equal(records.length, 1);
+      const query = mockSql.getLastQuery();
+      assert(query !== undefined);
+      assert(query.query.includes('ORDER BY timeline_start_ms ASC'));
+      assert.deepEqual(query.bindings, ['episode-01']);
+    });
+
+    test('deleteProductionRecord returns false when missing', async () => {
+      const deleted = await repo.deleteProductionRecord('missing');
+      assert.equal(deleted, false);
+    });
+  });
+
   describe('Lineage Operations', () => {
     test('getAllLineage executes correct query', async () => {
       mockSql.setMockResult('SELECT * FROM lineage', [
