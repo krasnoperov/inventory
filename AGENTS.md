@@ -93,6 +93,10 @@ Keep this lightweight:
 ## Hard Rules
 
 - Start non-trivial work from a Linear issue.
+- Never return binary blobs (media bytes, base64, buffers) from a Cloudflare
+  Workflow step — step outputs are capped at 1 MiB. Write bytes to R2 inside the
+  producing step and return only keys + metadata. See
+  `src/backend/workflows/README.md`.
 - Keep multi-user sync and asset state transitions coherent.
 - Treat auth, billing, DB migrations, Wrangler config, and dependency changes as approval-needed unless the issue clearly calls for them.
 - Add or update tests when behavior changes.

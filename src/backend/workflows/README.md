@@ -57,3 +57,35 @@ export class MyWorkflow extends WorkflowEntrypoint<Bindings, MyWorkflowInput> {
 - **Retries**: Configure per-step retry logic
 - **Timeout**: Set timeouts to prevent hanging
 - **Backoff**: Use exponential backoff for external API calls
+
+## Hard Rules
+
+### Never return binary blobs from a step
+
+Cloudflare Workflows persists every `step.do()` return value to durable state,
+and that value is **capped at 1 MiB**. A step whose output exceeds the cap fails
+with `WorkflowInternalError: Step <name> output is too large. Maximum allowed
+size is 1MiB.` — on every retry, deterministically.
+
+Therefore **no binary payload (image/video/audio bytes, base64 strings, or
+`ArrayBuffer`/`Buffer`) may ever cross a step boundary** — neither as a step
+return value nor passed into the next step. This applies to both inputs and
+outputs: do not fetch large source blobs in one step and return them for the
+next step to consume.
+
+Instead:
+
+- **Write bytes to R2 inside the step that produces them**, then return only the
+  R2 key plus small scalar metadata (mime type, size, dimensions, duration).
+- **Read source blobs inline** within the step that needs them (e.g. fetch
+  source images from R2 at the top of the generate step), never as a separate
+  upstream step that hands the bytes down.
+- Keep step return values to small JSON: keys, ids, counts, provider metadata.
+
+The audio path (`generate-and-upload-audio`) is the reference implementation:
+generation and R2 upload happen in a single step, and only keys/metadata are
+returned. Image and video generation follow the same `generate-and-upload-*`
+shape.
+
+> Rule of thumb: if a value could be larger than a few KB, it belongs in R2, not
+> in a step's return value.
