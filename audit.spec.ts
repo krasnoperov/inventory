@@ -32,10 +32,11 @@ const SHOTS: Shot[] = [
 ];
 
 // Private pages worth capturing once a real session is injected.
+// NB: there is no `/spaces` index route — the spaces list lives on `/dashboard`
+// (a bare `/spaces` renders the Not Found page).
 const AUTHED_SHOTS: Shot[] = [
   { name: 'dashboard', path: '/dashboard' },
   { name: 'profile', path: '/profile' },
-  { name: 'spaces', path: '/spaces' },
 ];
 
 // ─── Auth injection ──────────────────────────────────────────────────────────
@@ -122,27 +123,43 @@ async function injectAuth(page: Page, info: TestInfo): Promise<void> {
 
 // ─── Capture ───────────────────────────────────────────────────────────────
 
-async function captureShot(page: Page, info: TestInfo, shot: Shot): Promise<void> {
-  const consoleErrors: string[] = [];
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') consoleErrors.push(msg.text());
-  });
-  const pageErrors: string[] = [];
-  page.on('pageerror', (err) => pageErrors.push(err.message));
+type Diagnostics = {
+  consoleErrors: string[];
+  pageErrors: string[];
+  cssResponses: string[];
+};
 
-  // Track stylesheet (and other asset) requests + their HTTP status.
-  const cssResponses: string[] = [];
+// Attach console / pageerror / response listeners once; accumulate across a
+// multi-step walk so each captured screen carries the errors seen so far.
+function instrument(page: Page): Diagnostics {
+  const diag: Diagnostics = { consoleErrors: [], pageErrors: [], cssResponses: [] };
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') diag.consoleErrors.push(msg.text());
+  });
+  page.on('pageerror', (err) => diag.pageErrors.push(err.message));
   page.on('response', (r) => {
     const u = r.url();
     if (/\.css(\?|$)/.test(u) || r.request().resourceType() === 'stylesheet') {
-      cssResponses.push(`${r.status()} ${u}`);
+      diag.cssResponses.push(`${r.status()} ${u}`);
     }
   });
+  return diag;
+}
 
-  const resp = await page.goto(shot.path, { waitUntil: 'networkidle' });
-  if (shot.waitFor) await page.waitForSelector(shot.waitFor);
+// SPA settle: networkidle can stall behind a live WebSocket (SpacePage), so fall
+// back to a fixed pause and give react-query / ReactFlow time to paint.
+async function settle(page: Page, ms = 2000): Promise<void> {
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(ms);
+}
 
-  // Inspect what CSS actually applied in the document.
+async function writeArtifacts(
+  page: Page,
+  info: TestInfo,
+  name: string,
+  diag: Diagnostics,
+  status?: number,
+): Promise<void> {
   const cssState = await page.evaluate(() => {
     const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(
       (l) => (l as HTMLLinkElement).href,
@@ -171,13 +188,13 @@ async function captureShot(page: Page, info: TestInfo, shot: Shot): Promise<void
   const path = await import('node:path');
   const outDir = path.resolve('audit-out');
   await fs.mkdir(outDir, { recursive: true });
-  const base = `${shot.name}-${info.project.name}`;
+  const base = `${name}-${info.project.name}`;
   await fs.writeFile(path.join(outDir, `${base}.png`), await page.screenshot({ fullPage: true }));
   await fs.writeFile(
     path.join(outDir, `${base}.meta.txt`),
     [
       `URL: ${page.url()}`,
-      `Status: ${resp?.status() ?? 'n/a'}`,
+      `Status: ${status ?? 'n/a (walk)'}`,
       `Title: ${await page.title()}`,
       ``,
       `--- CSS diagnostics ---`,
@@ -187,15 +204,22 @@ async function captureShot(page: Page, info: TestInfo, shot: Shot): Promise<void
       `document.styleSheets: ${cssState.styleSheetCount}`,
       `total CSS rules (sum; -1 per blocked sheet): ${cssState.totalRules}`,
       `computed body background-color: ${cssState.bodyBg}`,
-      `stylesheet responses (${cssResponses.length}):`,
-      ...cssResponses.map((e) => `  - ${e}`),
+      `stylesheet responses (${diag.cssResponses.length}):`,
+      ...diag.cssResponses.map((e) => `  - ${e}`),
       ``,
-      `Console errors (${consoleErrors.length}):`,
-      ...consoleErrors.map((e) => `  - ${e}`),
-      `Page errors (${pageErrors.length}):`,
-      ...pageErrors.map((e) => `  - ${e}`),
+      `Console errors (${diag.consoleErrors.length}):`,
+      ...diag.consoleErrors.map((e) => `  - ${e}`),
+      `Page errors (${diag.pageErrors.length}):`,
+      ...diag.pageErrors.map((e) => `  - ${e}`),
     ].join('\n'),
   );
+}
+
+async function captureShot(page: Page, info: TestInfo, shot: Shot): Promise<void> {
+  const diag = instrument(page);
+  const resp = await page.goto(shot.path, { waitUntil: 'networkidle' });
+  if (shot.waitFor) await page.waitForSelector(shot.waitFor);
+  await writeArtifacts(page, info, shot.name, diag, resp?.status());
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -217,4 +241,57 @@ test.describe('@shots-authed', () => {
       await captureShot(page, info, shot);
     });
   }
+});
+
+// Deep Spaces screens (canvas / asset detail / production) live behind dynamic
+// ids, so we discover a real space from the account and walk into it, capturing
+// each screen with its production data along the way.
+test.describe('@shots-spaces', () => {
+  test.skip(() => !auditAuthRequested(), 'auth not requested (set AUDIT_AUTH=1 or AUDIT_AUTH_TOKEN)');
+
+  test('authed walk: spaces -> canvas -> production -> asset', async ({ page }, info) => {
+    test.slow();
+    await injectAuth(page, info);
+    const diag = instrument(page);
+
+    // 1. Spaces list (lives on /dashboard — there is no /spaces index route)
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await settle(page);
+    await writeArtifacts(page, info, 'spaces-list', diag);
+
+    // Discover the first real space from a card link.
+    const spaceLink = page.locator('a[href^="/spaces/"]').first();
+    if ((await spaceLink.count()) === 0) {
+      info.annotations.push({ type: 'note', description: 'no spaces on this account; deep shots skipped' });
+      return;
+    }
+    const href = (await spaceLink.getAttribute('href')) ?? '';
+    const spaceId = href.split('/spaces/')[1]?.split(/[/?#]/)[0];
+    if (!spaceId) return;
+
+    // 2. Space canvas (assets graph)
+    await page.goto(`/spaces/${spaceId}`, { waitUntil: 'domcontentloaded' });
+    await settle(page, 3000);
+    await writeArtifacts(page, info, 'space-canvas', diag);
+
+    // 3. Production handoff page
+    await page.goto(`/spaces/${spaceId}/production`, { waitUntil: 'domcontentloaded' });
+    await settle(page);
+    await writeArtifacts(page, info, 'space-production', diag);
+
+    // 4. Asset detail (best-effort): click the first node on the canvas.
+    await page.goto(`/spaces/${spaceId}`, { waitUntil: 'domcontentloaded' });
+    await settle(page, 3000);
+    const node = page.locator('.react-flow__node').first();
+    if ((await node.count()) > 0) {
+      await node.click({ timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      if (page.url().includes('/assets/')) {
+        await settle(page, 2000);
+        await writeArtifacts(page, info, 'space-asset', diag);
+      } else {
+        info.annotations.push({ type: 'note', description: 'asset node click did not navigate; asset shot skipped' });
+      }
+    }
+  });
 });
