@@ -152,9 +152,10 @@ pnpm run cli productions export \
   -o handoff/episode-01.scenes.args
 ```
 
-`productions export` outputs sorted shell-ready scene arguments in the shape
-`--scene '<startMs>|<label>|<media-url>'` from Space records. Use `--json` when
-a renderer or agent wants structured scene data instead.
+`productions export` downloads image and video media from Space through the
+authenticated CLI session and outputs sorted shell-ready scene arguments in the
+shape `--scene '<startMs>|<label>|<absolute-media-path>'`. Use `--json` when a
+renderer or agent wants structured scene data instead.
 
 ## Podcasts
 

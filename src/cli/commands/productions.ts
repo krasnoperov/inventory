@@ -1,8 +1,10 @@
+import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import process from 'node:process';
 import type { ParsedArgs, StoredConfig } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
 import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
+import { downloadFile } from '../lib/image-transfer';
 import {
   loginCommandForEnvironment,
   resolveCommandEnvironment,
@@ -23,6 +25,7 @@ interface ProductionsDeps {
   loadProjectConfig: () => Promise<ProjectConfig | null>;
   resolveBaseUrl: (env: string) => string;
   fetch: typeof fetch;
+  downloadFile: typeof downloadFile;
   writeFile: typeof writeFile;
   print: (message: string) => void;
 }
@@ -39,9 +42,16 @@ const defaultDeps: ProductionsDeps = {
   loadProjectConfig,
   resolveBaseUrl,
   fetch,
+  downloadFile,
   writeFile,
   print: console.log,
 };
+
+interface ProductionExportMedia {
+  recordId: string;
+  localPath: string;
+  absolutePath: string;
+}
 
 export async function handleProductions(parsed: ParsedArgs): Promise<void> {
   try {
@@ -78,9 +88,15 @@ export async function executeProductions(
     if (records.length === 0) {
       throw new Error(`No production records found for production ID: ${productionId}`);
     }
+    const media = await downloadProductionExportMedia(records, ctx, deps, {
+      productionId,
+      outputPath: outputPath === 'true' ? undefined : outputPath,
+      mediaDir: readOptionalOption(parsed, 'media-dir', 'mediaDir'),
+      force: parsed.options.force === 'true',
+    });
     const content = parsed.options.json === 'true'
-      ? JSON.stringify(createProductionHandoffExport(records, ctx, productionId), null, 2)
-      : formatProductionSceneArgs(records, ctx);
+      ? JSON.stringify(createProductionHandoffExport(records, ctx, productionId, media), null, 2)
+      : formatProductionSceneArgs(records, media);
     if (!content) {
       throw new Error(`No image or video production records found for production ID: ${productionId}`);
     }
@@ -314,29 +330,100 @@ function printRecordList(records: ProductionRecord[], ctx: ProductionsContext, p
 function createProductionHandoffExport(
   records: ProductionRecord[],
   ctx: ProductionsContext,
-  productionId: string
+  productionId: string,
+  media: ProductionExportMedia[]
 ): Record<string, unknown> {
+  const mediaByRecordId = new Map(media.map((item) => [item.recordId, item]));
   return {
     version: 1,
     format: 'website-production-handoff',
     productionId,
     spaceId: ctx.spaceId,
     generatedAt: new Date().toISOString(),
-    records: records.map((record) => ({
-      ...toRecordJson(record, ctx),
-      sceneArg: `${record.timeline_start_ms}|${record.scene_label}|${buildVariantMediaUrl(ctx, record.variant_id)}`,
-    })),
+    records: records.map((record) => {
+      const item = mediaByRecordId.get(record.id);
+      const recordJson = toRecordJson(record, ctx);
+      delete recordJson.mediaUrl;
+      return {
+        ...recordJson,
+        mediaPath: item?.absolutePath,
+        localPath: item?.localPath,
+        absolutePath: item?.absolutePath,
+        sceneArg: item ? `${record.timeline_start_ms}|${record.scene_label}|${item.absolutePath}` : undefined,
+      };
+    }),
   };
 }
 
-function formatProductionSceneArgs(records: ProductionRecord[], ctx: ProductionsContext): string {
+function formatProductionSceneArgs(records: ProductionRecord[], media: ProductionExportMedia[]): string {
+  const mediaByRecordId = new Map(media.map((item) => [item.recordId, item]));
   return records
     .filter((record) => record.media_kind === 'image' || record.media_kind === 'video')
     .map((record) => {
-      const sceneArg = `${record.timeline_start_ms}|${record.scene_label}|${buildVariantMediaUrl(ctx, record.variant_id)}`;
+      const item = mediaByRecordId.get(record.id);
+      if (!item) return '';
+      const sceneArg = `${record.timeline_start_ms}|${record.scene_label}|${item.absolutePath}`;
       return `--scene ${shellQuote(sceneArg)}`;
     })
+    .filter(Boolean)
     .join('\n');
+}
+
+async function downloadProductionExportMedia(
+  records: ProductionRecord[],
+  ctx: ProductionsContext,
+  deps: Pick<ProductionsDeps, 'downloadFile'>,
+  options: {
+    productionId: string;
+    outputPath?: string;
+    mediaDir?: string;
+    force: boolean;
+  }
+): Promise<ProductionExportMedia[]> {
+  const visualRecords = records.filter((record) => record.media_kind === 'image' || record.media_kind === 'video');
+  if (visualRecords.length === 0) return [];
+
+  const mediaDir = options.mediaDir || defaultProductionMediaDir(options.productionId, options.outputPath);
+  const media: ProductionExportMedia[] = [];
+  for (let index = 0; index < visualRecords.length; index += 1) {
+    const record = visualRecords[index];
+    const localPath = path.join(mediaDir, productionMediaFilename(record, index));
+    await deps.downloadFile({
+      baseUrl: ctx.baseUrl,
+      accessToken: ctx.accessToken,
+      requestPath: buildVariantMediaPath(ctx, record.variant_id),
+      outputPath: localPath,
+      force: options.force,
+    });
+    media.push({
+      recordId: record.id,
+      localPath,
+      absolutePath: path.resolve(localPath),
+    });
+  }
+  return media;
+}
+
+function defaultProductionMediaDir(productionId: string, outputPath?: string): string {
+  if (outputPath) {
+    const parsed = path.parse(outputPath);
+    return path.join(parsed.dir, `${parsed.name}.media`);
+  }
+  return path.join('.inventory', 'productions', slugify(productionId));
+}
+
+function productionMediaFilename(record: ProductionRecord, index: number): string {
+  const extension = record.media_kind === 'video' ? 'mp4' : 'png';
+  const prefix = String(index + 1).padStart(4, '0');
+  return `${prefix}-${slugify(record.scene_label)}-${slugify(record.variant_id)}.${extension}`;
+}
+
+function slugify(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'media';
 }
 
 function sortProductionRecords(records: ProductionRecord[]): ProductionRecord[] {
@@ -359,7 +446,11 @@ function toRecordJson(record: ProductionRecord, ctx: ProductionsContext): Record
 }
 
 function buildVariantMediaUrl(ctx: ProductionsContext, variantId: string): string {
-  return `${ctx.baseUrl}/api/spaces/${encodeURIComponent(ctx.spaceId)}/variants/${encodeURIComponent(variantId)}/media`;
+  return `${ctx.baseUrl}${buildVariantMediaPath(ctx, variantId)}`;
+}
+
+function buildVariantMediaPath(ctx: ProductionsContext, variantId: string): string {
+  return `/api/spaces/${encodeURIComponent(ctx.spaceId)}/variants/${encodeURIComponent(variantId)}/media`;
 }
 
 function parseJsonArray(value: string): string[] {
@@ -388,8 +479,8 @@ function printUsage(): void {
   console.log(`
 Usage:
   pnpm run cli productions list --production-id <id>
-  pnpm run cli productions export --production-id <id> [-o scenes.args]
-  pnpm run cli productions export --production-id <id> --json [-o scenes.json]
+  pnpm run cli productions export --production-id <id> [-o scenes.args] [--media-dir media]
+  pnpm run cli productions export --production-id <id> --json [-o scenes.json] [--media-dir media]
   pnpm run cli productions place --production-id <id> --variant <variant_id> --scene-label <label> --timeline-start-ms <ms>
   pnpm run cli productions delete <record-id>
 `);

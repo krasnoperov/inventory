@@ -464,9 +464,14 @@ try {
     sceneArgsPath,
   ]);
   const sceneArgs = await readFile(sceneArgsPath, 'utf8');
-  if (!sceneArgs.includes('--scene') || !sceneArgs.includes('0|Intro|') || !sceneArgs.includes(`/variants/${clipVariantId}/media`)) {
+  if (!sceneArgs.includes('--scene') || !sceneArgs.includes('0|Intro|') || sceneArgs.includes(`/variants/${clipVariantId}/media`)) {
     throw new Error(`Unexpected scene args export:\n${sceneArgs}`);
   }
+  const exportedClipPath = path.join(outputDir, 'video', 'scenes.media', `0001-intro-${clipVariantId}.mp4`);
+  if (!sceneArgs.includes(exportedClipPath)) {
+    throw new Error(`Scene args did not point at downloaded production media:\n${sceneArgs}`);
+  }
+  await assertFakeVideo(exportedClipPath);
   console.log(`Video scene export OK: ${sceneArgsPath}`);
 
   console.log('\nCLI media production E2E passed without external generation providers.');

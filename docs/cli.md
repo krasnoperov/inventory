@@ -393,12 +393,15 @@ pnpm run cli productions place \
   --timeline-start-ms 0
 pnpm run cli productions export --production-id s01e01-a2 -o scenes.args
 pnpm run cli productions export --production-id s01e01-a2 --json -o scenes.json
+pnpm run cli productions export --production-id s01e01-a2 --media-dir handoff/media -o scenes.args
 pnpm run cli productions delete RECORD_ID
 ```
 
-`productions export` reads the Space records and emits sorted shell-ready
-`--scene '<startMs>|<label>|<media-url>'` lines. The media URL is the
-authenticated variant media endpoint for the Space.
+`productions export` reads the Space records, downloads image and video media
+through the authenticated CLI session, and emits sorted shell-ready
+`--scene '<startMs>|<label>|<absolute-media-path>'` lines. By default the media
+is written beside `-o` in a `<name>.media/` directory; pass `--media-dir` to
+choose a different download directory.
 
 See [cli-generation.md](./cli-generation.md) for the full command reference.
 

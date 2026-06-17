@@ -1232,6 +1232,53 @@ test('video derive stores shot scene metadata in run manifest and Space producti
   });
 });
 
+test('production record is placed even when local output download is blocked', async () => {
+  const client = new FakeClient();
+  const { deps, productionRecords } = depsFor(client);
+
+  await assert.rejects(
+    () => executeVideoCommand('generate', {
+      positionals: ['slow', 'push-in'],
+      options: {
+        space: 'space-1',
+        name: 'S01E01 A2 shot 01',
+        type: 'animation',
+        o: 'clips/existing.mp4',
+        'scene-label': 'Cocina',
+        'timeline-start-ms': '0',
+        'duration-ms': '73000',
+        'shot-id': 's01e01-a2-01',
+        'production-id': 's01e01-a2',
+      },
+    }, {
+      ...deps,
+      downloadFile: async () => {
+        throw new Error('Output file already exists: clips/existing.mp4. Pass --force to overwrite.');
+      },
+    }),
+    /Output file already exists/
+  );
+
+  assert.equal(productionRecords.length, 1);
+  assert.deepEqual((productionRecords[0] as { record: { productionId: string; variantId: string } }).record, {
+    productionId: 's01e01-a2',
+    variantId: 'variant-out',
+    shotId: 's01e01-a2-01',
+    sceneLabel: 'Cocina',
+    timelineStartMs: 0,
+    durationMs: 73000,
+    motionPrompt: 'slow push-in',
+    sourceRefs: [],
+    sourceVariantIds: [],
+    metadata: {
+      command: 'generate',
+      localPath: 'clips/existing.mp4',
+      runManifestPath: '.inventory/runs/run-test.json',
+    },
+  });
+  assert.equal(client.disconnected, true);
+});
+
 test('production metadata requires production id, scene label, and timeline before generation starts', async () => {
   const client = new FakeClient();
   const { deps } = depsFor(client);

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { ProjectConfig } from '../lib/project-config';
 import type { StoredConfig } from '../lib/types';
 import type { ProductionRecord } from '../../shared/api/schemas';
@@ -50,12 +51,15 @@ function productionRecord(overrides: Partial<ProductionRecord> = {}): Production
   };
 }
 
-function depsFor(fetchImpl: typeof fetch, output: string[]) {
+function depsFor(fetchImpl: typeof fetch, output: string[], downloads: unknown[] = []) {
   return {
     loadConfig: async () => storedConfig,
     loadProjectConfig: async () => projectConfig,
     resolveBaseUrl: () => 'https://inventory-stage.example.test',
     fetch: fetchImpl,
+    downloadFile: async (input: unknown) => {
+      downloads.push(input);
+    },
     writeFile,
     print: (message: string) => output.push(message),
   };
@@ -83,6 +87,7 @@ test('productions list reads Space-backed records and prints media URLs', async 
 
 test('productions export emits scene args from Space records', async () => {
   const output: string[] = [];
+  const downloads: unknown[] = [];
   const fetchImpl = async (): Promise<Response> => Response.json({
     success: true,
     records: [
@@ -94,12 +99,28 @@ test('productions export emits scene args from Space records', async () => {
   const result = await executeProductions({
     positionals: ['export'],
     options: { 'production-id': 'episode-01' },
-  }, depsFor(fetchImpl as typeof fetch, output));
+  }, depsFor(fetchImpl as typeof fetch, output, downloads));
 
   assert.equal(result.type, 'export');
   const lines = output.join('\n').split('\n');
-  assert.equal(lines[0], "--scene '0|Cocina|https://inventory-stage.example.test/api/spaces/space-1/variants/variant-1/media'");
-  assert.equal(lines[1], "--scene '72760|Escalera|https://inventory-stage.example.test/api/spaces/space-1/variants/variant-2/media'");
+  assert.equal(lines[0], `--scene '0|Cocina|${path.resolve('.inventory/productions/episode-01/0001-cocina-variant-1.mp4')}'`);
+  assert.equal(lines[1], `--scene '72760|Escalera|${path.resolve('.inventory/productions/episode-01/0002-escalera-variant-2.mp4')}'`);
+  assert.deepEqual(downloads, [
+    {
+      baseUrl: 'https://inventory-stage.example.test',
+      accessToken: 'token',
+      requestPath: '/api/spaces/space-1/variants/variant-1/media',
+      outputPath: '.inventory/productions/episode-01/0001-cocina-variant-1.mp4',
+      force: false,
+    },
+    {
+      baseUrl: 'https://inventory-stage.example.test',
+      accessToken: 'token',
+      requestPath: '/api/spaces/space-1/variants/variant-2/media',
+      outputPath: '.inventory/productions/episode-01/0002-escalera-variant-2.mp4',
+      force: false,
+    },
+  ]);
 });
 
 test('productions export fails clearly when no Space records exist', async () => {
@@ -117,6 +138,7 @@ test('productions export fails clearly when no Space records exist', async () =>
 
 test('productions export scene args skip non-visual records', async () => {
   const output: string[] = [];
+  const downloads: unknown[] = [];
   const fetchImpl = async (): Promise<Response> => Response.json({
     success: true,
     records: [
@@ -128,11 +150,48 @@ test('productions export scene args skip non-visual records', async () => {
   await executeProductions({
     positionals: ['export'],
     options: { 'production-id': 'episode-01' },
-  }, depsFor(fetchImpl as typeof fetch, output));
+  }, depsFor(fetchImpl as typeof fetch, output, downloads));
 
   const sceneArgs = output.join('\n');
   assert.match(sceneArgs, /variant-video/);
   assert.doesNotMatch(sceneArgs, /variant-audio/);
+  assert.equal(downloads.length, 1);
+  assert.deepEqual((downloads[0] as { requestPath: string }).requestPath, '/api/spaces/space-1/variants/variant-video/media');
+});
+
+test('productions export supports explicit media directory and JSON scene args with local paths', async () => {
+  const output: string[] = [];
+  const downloads: unknown[] = [];
+  const fetchImpl = async (): Promise<Response> => Response.json({
+    success: true,
+    records: [productionRecord({ id: 'record-1', variant_id: 'variant-video', scene_label: 'Market', timeline_start_ms: 1000 })],
+  });
+
+  await executeProductions({
+    positionals: ['export'],
+    options: {
+      'production-id': 'episode-01',
+      json: 'true',
+      'media-dir': 'handoff/media',
+      force: 'true',
+    },
+  }, depsFor(fetchImpl as typeof fetch, output, downloads));
+
+  const exported = JSON.parse(output.join('\n')) as {
+    records: Array<{ localPath: string; absolutePath: string; mediaPath: string; sceneArg: string; mediaUrl?: string }>;
+  };
+  assert.equal(exported.records[0].localPath, 'handoff/media/0001-market-variant-video.mp4');
+  assert.equal(exported.records[0].absolutePath, path.resolve('handoff/media/0001-market-variant-video.mp4'));
+  assert.equal(exported.records[0].mediaPath, path.resolve('handoff/media/0001-market-variant-video.mp4'));
+  assert.equal(exported.records[0].sceneArg, `1000|Market|${path.resolve('handoff/media/0001-market-variant-video.mp4')}`);
+  assert.equal(exported.records[0].mediaUrl, undefined);
+  assert.deepEqual((downloads[0] as { force: boolean; outputPath: string }), {
+    baseUrl: 'https://inventory-stage.example.test',
+    accessToken: 'token',
+    requestPath: '/api/spaces/space-1/variants/variant-video/media',
+    outputPath: 'handoff/media/0001-market-variant-video.mp4',
+    force: true,
+  });
 });
 
 test('productions place posts timeline placement metadata', async () => {

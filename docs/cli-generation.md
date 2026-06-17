@@ -278,14 +278,16 @@ Inspect and export Space records:
 pnpm run cli productions list --production-id s01e01-a2
 pnpm run cli productions export --production-id s01e01-a2 -o scenes.args
 pnpm run cli productions export --production-id s01e01-a2 --json -o scenes.json
+pnpm run cli productions export --production-id s01e01-a2 --media-dir handoff/media -o scenes.args
 ```
 
-`productions export` writes deterministic shell-ready scene arguments sorted by
+`productions export` downloads image and video media through the authenticated
+CLI session and writes deterministic shell-ready scene arguments sorted by
 timeline:
 
 ```text
---scene '0|Cocina|https://.../api/spaces/<space>/variants/<variant-1>/media'
---scene '72760|Escalera|https://.../api/spaces/<space>/variants/<variant-2>/media'
+--scene '0|Cocina|/absolute/path/to/scenes.media/0001-cocina-variant-1.mp4'
+--scene '72760|Escalera|/absolute/path/to/scenes.media/0002-escalera-variant-2.mp4'
 ```
 
 Use `--json` when an external tool wants structured scene data instead of

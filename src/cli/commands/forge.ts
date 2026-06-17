@@ -331,7 +331,6 @@ async function executeGenerate(
     mediaKind,
   });
 
-  await downloadResult(result, outputPath, ctx, deps);
   const manifestPath = await saveGenerationManifest({
     command: 'generate',
     result,
@@ -356,6 +355,7 @@ async function executeGenerate(
     scene,
     manifestPath,
   });
+  await downloadResult(result, outputPath, ctx, deps);
   printResult(result, outputPath, ctx, manifestPath, productionRecord);
   return result;
 }
@@ -395,7 +395,6 @@ async function executeRefine(
     mediaKind,
   });
 
-  await downloadResult(result, outputPath, ctx, deps);
   const manifestPath = await saveGenerationManifest({
     command: 'refine',
     result,
@@ -420,6 +419,7 @@ async function executeRefine(
     scene,
     manifestPath,
   });
+  await downloadResult(result, outputPath, ctx, deps);
   printResult(result, outputPath, ctx, manifestPath, productionRecord);
   return result;
 }
@@ -464,7 +464,6 @@ async function executeDerive(
     mediaKind,
   });
 
-  await downloadResult(result, outputPath, ctx, deps);
   const manifestPath = await saveGenerationManifest({
     command: 'derive',
     result,
@@ -489,6 +488,7 @@ async function executeDerive(
     scene,
     manifestPath,
   });
+  await downloadResult(result, outputPath, ctx, deps);
   printResult(result, outputPath, ctx, manifestPath, productionRecord);
   return result;
 }

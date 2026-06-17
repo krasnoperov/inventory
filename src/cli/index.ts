@@ -485,12 +485,12 @@ function printProductionsHelp(): void {
   console.log(`
 Usage:
   pnpm run cli productions list --production-id <id>
-  pnpm run cli productions export --production-id <id> [-o scenes.args]
-  pnpm run cli productions export --production-id <id> --json [-o scenes.json]
+  pnpm run cli productions export --production-id <id> [-o scenes.args] [--media-dir media]
+  pnpm run cli productions export --production-id <id> --json [-o scenes.json] [--media-dir media]
   pnpm run cli productions place --production-id <id> --variant <variant_id> --scene-label <label> --timeline-start-ms <ms>
   pnpm run cli productions delete <record-id>
 
-Scene export emits Space-backed media URLs in --scene '<start>|<label>|<media-url>' lines.
+Scene export downloads Space media through the CLI and emits --scene '<start>|<label>|<absolute path>' lines.
 `);
 }
 
