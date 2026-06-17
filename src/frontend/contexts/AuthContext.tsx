@@ -8,7 +8,7 @@ import {
   clearUserScopedQueries,
   sessionQueryKey,
 } from '../queries';
-import type { StartSession } from '../startSession';
+import type { StartSession } from '../app-context';
 
 // Re-export types for backward compatibility
 export type { User, AuthContextType } from './AuthContextProvider';

@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { lazyPage } from './-lazyPage';
+import LandingPage from '../pages/LandingPage';
+import { ssrFetchArgs } from '../app-context';
 import { getCachedSession, spacesQueryOptions } from '../queries';
 
 export const Route = createFileRoute('/dashboard')({
@@ -8,8 +9,11 @@ export const Route = createFileRoute('/dashboard')({
       throw redirect({ to: '/login' });
     }
   },
-  loader: ({ context }) => context.queryClient.ensureQueryData(
-    spacesQueryOptions(context.apiBaseUrl, context.apiHeaders, context.serverFetch),
-  ),
-  component: lazyPage(() => import('../pages/LandingPage')),
+  loader: (opts) => {
+    const { baseUrl, headers, fetchImpl } = ssrFetchArgs(opts);
+    return opts.context.queryClient.ensureQueryData(
+      spacesQueryOptions(baseUrl, headers, fetchImpl),
+    );
+  },
+  component: LandingPage,
 });

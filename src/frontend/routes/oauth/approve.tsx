@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { lazyPage } from '../-lazyPage';
+import AuthorizationApprovalPage from '../../pages/AuthorizationApprovalPage';
 
 export const Route = createFileRoute('/oauth/approve')({
-  component: lazyPage(() => import('../../pages/AuthorizationApprovalPage')),
+  component: AuthorizationApprovalPage,
 });

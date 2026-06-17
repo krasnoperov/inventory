@@ -7,34 +7,24 @@ import {
   hydrateQueryClient,
   type RouterDehydratedState,
 } from './queryClient';
-import type { StartSession } from './startSession';
-import type { FetchLike } from '../api/client';
+import type { StartRouterContext } from './app-context';
 
-interface GetRouterOptions {
-  initialSession?: StartSession;
-  request?: Request;
-  // Provided during SSR: dispatches API calls to the worker in-process so
-  // loaders don't self-fetch the worker origin (which fails under
-  // run_worker_first and 500s authenticated document renders).
-  serverFetch?: FetchLike;
-}
-
-export const getRouter = (options: GetRouterOptions = {}) => {
+// TanStack Start calls getRouter() per request on the server (one QueryClient
+// per request — no cross-request cache leakage) and once on the client. The
+// per-request serverContext (session bootstrap + in-process apiFetch) is merged
+// into this context by startServer.fetch({ context }); the root route reads it.
+export function getRouter() {
   const queryClient = createQueryClient();
-  const apiBaseUrl = options.request ? new URL(options.request.url).origin : undefined;
-  const cookie = options.request?.headers.get('cookie');
-  const apiHeaders = cookie ? { cookie } : undefined;
+
+  const context: StartRouterContext = {
+    queryClient,
+  };
 
   return createRouter({
     routeTree,
     scrollRestoration: true,
-    context: {
-      queryClient,
-      initialSession: options.initialSession,
-      apiBaseUrl,
-      apiHeaders,
-      serverFetch: options.serverFetch,
-    },
+    context,
+    defaultPreload: 'intent',
     Wrap: ({ children }) => (
       <QueryClientProviderWrap queryClient={queryClient}>
         {children}
@@ -43,7 +33,7 @@ export const getRouter = (options: GetRouterOptions = {}) => {
     dehydrate: () => dehydrateQueryClient(queryClient),
     hydrate: (dehydrated: RouterDehydratedState) => hydrateQueryClient(queryClient, dehydrated),
   });
-};
+}
 
 declare module '@tanstack/react-router' {
   interface Register {

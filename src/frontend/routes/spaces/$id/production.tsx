@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { lazyPage } from '../../-lazyPage';
+import ProductionPage from '../../../pages/ProductionPage';
+import { ssrFetchArgs } from '../../../app-context';
 import { getCachedSession, spacePageQueryOptions } from '../../../queries';
 
 export const Route = createFileRoute('/spaces/$id/production')({
@@ -8,8 +9,11 @@ export const Route = createFileRoute('/spaces/$id/production')({
       throw redirect({ to: '/login' });
     }
   },
-  loader: ({ context, params }) => context.queryClient.ensureQueryData(
-    spacePageQueryOptions(params.id, context.apiBaseUrl, context.apiHeaders, context.serverFetch),
-  ),
-  component: lazyPage(() => import('../../../pages/ProductionPage')),
+  loader: (opts) => {
+    const { baseUrl, headers, fetchImpl } = ssrFetchArgs(opts);
+    return opts.context.queryClient.ensureQueryData(
+      spacePageQueryOptions(opts.params.id, baseUrl, headers, fetchImpl),
+    );
+  },
+  component: ProductionPage,
 });

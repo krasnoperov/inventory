@@ -1,25 +1,31 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import type { Handler } from 'hono';
 import { registerRoutes } from './index';
 import type { AppContext } from './types';
 import { createOpenApiRouter } from './openapi';
-import { createDocumentNavigationHandler, type RouteRenderer } from '../middleware/documentNavigation';
 
-// Minimal index.html shell so document navigation has something to hydrate.
-const SHELL_HTML = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Inventory Forge</title>
-    <meta name="description" content="Landing description." />
-  </head>
-  <body><div id="root"></div></body>
-</html>`;
+// Stub document handler standing in for the real TanStack Start SSR renderer:
+// it reproduces only the static-vs-document split (documents → 200 HTML,
+// everything else → ASSETS) so these tests exercise route auth scoping without
+// booting the SSR bundle.
+const documentStub: Handler<AppContext> = async (c) => {
+  const url = new URL(c.req.url);
+  const accept = c.req.header('accept') ?? '';
+  const isDocument =
+    (c.req.method === 'GET' || c.req.method === 'HEAD') &&
+    accept.includes('text/html') &&
+    !/\.[a-z0-9]+$/i.test(url.pathname);
 
-const renderRoute: RouteRenderer = async (request) => ({
-  html: `<main>${new URL(request.url).pathname}</main>`,
-  status: 200,
-});
+  if (!isDocument) {
+    return c.env.ASSETS.fetch(c.req.raw);
+  }
+
+  return new Response(`<main>${url.pathname}</main>`, {
+    status: 200,
+    headers: { 'content-type': 'text/html' },
+  });
+};
 
 // Build the real app exactly as the worker wires it: a container + ASSETS
 // binding, then every route group via registerRoutes. The container only ever
@@ -31,12 +37,6 @@ function buildApp() {
     const fakeAssets = {
       fetch: async (req: Request) => {
         const u = new URL(req.url);
-        if (u.pathname === '/index.html') {
-          return new Response(SHELL_HTML, {
-            status: 200,
-            headers: { 'content-type': 'text/html' },
-          });
-        }
         if (u.pathname === '/favicon.ico') {
           return new Response('icon', {
             status: 200,
@@ -50,7 +50,7 @@ function buildApp() {
     c.set('container', { get: () => ({}) } as never);
     await next();
   });
-  registerRoutes(app, createDocumentNavigationHandler(async () => renderRoute));
+  registerRoutes(app, documentStub);
   return app;
 }
 
