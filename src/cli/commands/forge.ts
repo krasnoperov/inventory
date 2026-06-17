@@ -29,11 +29,17 @@ import {
   type Variant,
 } from '../lib/websocket-client';
 import type { MediaKind } from '../../shared/websocket-types';
+import {
+  cliGenerationSupportsRefs,
+  getCliGenerationMediaKind,
+  getCliGenerationProfile,
+  type MediaGenerationCommand,
+} from '../../shared/mediaOperationMatrix';
 
-export type ForgeCommand = 'generate' | 'refine' | 'derive' | 'batch';
-export type AudioForgeCommand = 'generate' | 'batch';
+export type ForgeCommand = MediaGenerationCommand;
+export type AudioForgeCommand = Extract<MediaGenerationCommand, 'generate' | 'batch'>;
 type GenerationMediaKind = Extract<MediaKind, 'image' | 'audio'>;
-const CLI_GENERATION_MEDIA_KIND = 'image' as const;
+const CLI_GENERATION_MEDIA_KIND = getCliGenerationMediaKind('top-level');
 
 interface SpaceState {
   assets: unknown[];
@@ -201,13 +207,18 @@ export async function executeAudioCommand(
   parsed: ParsedArgs,
   deps: CommandDeps = defaultDeps
 ): Promise<GenerateResult | BatchResult> {
-  if (parsed.options.refs) {
+  const audioProfile = getCliGenerationProfile('audio');
+  if (!audioProfile.commands.includes(command)) {
+    throw new Error(`Audio generation does not support ${command}`);
+  }
+
+  if (!cliGenerationSupportsRefs('audio') && parsed.options.refs) {
     throw new Error('Audio generation does not support --refs yet');
   }
 
   return executeForgeCommand(command, parsed, deps, {
-    mediaKind: 'audio',
-    saveBatchManifest: false,
+    mediaKind: audioProfile.mediaKind,
+    saveBatchManifest: audioProfile.savesBatchManifest,
   });
 }
 
