@@ -193,9 +193,24 @@ export interface Variant {
   provider_metadata?: string | null;
   recipe: string;
   starred: boolean;
+  quality_rating?: 'approved' | 'rejected' | null;
+  rated_at?: number | null;
   created_by: string;
   created_at: number;
   updated_at: number | null;
+}
+
+/** Asset record as broadcast by the Space Durable Object. */
+export interface AssetRecord {
+  id: string;
+  name: string;
+  type: string | null;
+  media_kind?: MediaKind;
+  tags?: string | null;
+  parent_asset_id?: string | null;
+  active_variant_id: string | null;
+  created_at?: number;
+  updated_at?: number;
 }
 
 export interface GenerateStarted {
@@ -316,6 +331,13 @@ type AutoExecutedMessage = { type: 'auto_executed'; autoExecuted: AutoExecuted }
 // Session message types
 type SessionStateMessage = { type: 'session:state'; session: UserSession | null };
 
+// Asset / variant mutation broadcast types (responses to management messages)
+type AssetCreatedMessage = { type: 'asset:created'; asset: AssetRecord };
+type AssetUpdatedMessage = { type: 'asset:updated'; asset: AssetRecord };
+type AssetDeletedMessage = { type: 'asset:deleted'; assetId: string };
+type AssetForkedMessage = { type: 'asset:forked'; asset: AssetRecord };
+type VariantDeletedMessage = { type: 'variant:deleted'; variantId: string };
+
 // Server message type union (discriminated union for type narrowing)
 type ServerMessage =
   | ChatResponse
@@ -339,7 +361,35 @@ type ServerMessage =
   | ApprovalUpdatedMessage
   | ApprovalListMessage
   | AutoExecutedMessage
-  | SessionStateMessage;
+  | SessionStateMessage
+  | AssetCreatedMessage
+  | AssetUpdatedMessage
+  | AssetDeletedMessage
+  | AssetForkedMessage
+  | VariantDeletedMessage;
+
+/**
+ * Client surface for asset-management mutations. Implemented by WebSocketClient;
+ * declared separately so CLI commands can depend on (and tests can fake) just
+ * the methods they use.
+ */
+export interface AssetMutationClient {
+  connect(): Promise<void>;
+  disconnect(): void;
+  deleteAsset(assetId: string): Promise<void>;
+  renameAsset(assetId: string, name: string): Promise<AssetRecord>;
+  setActiveVariant(assetId: string, variantId: string): Promise<AssetRecord>;
+}
+
+/** Client surface for variant-management mutations. Implemented by WebSocketClient. */
+export interface VariantMutationClient {
+  connect(): Promise<void>;
+  disconnect(): void;
+  deleteVariant(variantId: string): Promise<void>;
+  retryVariant(variantId: string): Promise<Variant>;
+  starVariant(variantId: string, starred: boolean): Promise<Variant>;
+  rateVariant(variantId: string, rating: 'approved' | 'rejected'): Promise<Variant>;
+}
 
 export class WebSocketClient {
   private ws: WebSocket | null = null;
@@ -393,6 +443,14 @@ export class WebSocketClient {
     resolve: (response: CompareResponse) => void;
     reject: (error: Error) => void;
   }> = new Map();
+
+  // Pending mutation waiters (asset/variant management ops awaiting a broadcast)
+  private mutationWaiters: Array<{
+    predicate: (msg: ServerMessage) => boolean;
+    resolve: (msg: ServerMessage) => void;
+    reject: (error: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  }> = [];
 
   // Event handlers
   private onError?: (error: Error) => void;
@@ -570,6 +628,11 @@ export class WebSocketClient {
    * Handle incoming WebSocket messages
    */
   private handleMessage(message: ServerMessage): void {
+    // Resolve any pending mutation awaiting this broadcast (asset/variant ops).
+    // Safe to run first: waiters only match their own success predicates and are
+    // only registered for the duration of a single mutation call.
+    this.notifyMutationWaiters(message);
+
     switch (message.type) {
       case 'chat:response': {
         const chatMsg = message as ChatResponse;
@@ -744,8 +807,13 @@ export class WebSocketClient {
 
       case 'error': {
         const errorMsg = message as ErrorMessage;
-        console.error(`[WebSocketClient] Server error: ${errorMsg.code} - ${errorMsg.message}`);
-        this.onError?.(new Error(errorMsg.message));
+        // Reject any in-flight mutation so the CLI surfaces the server's reason.
+        // If a mutation consumed it, don't also log to stderr (avoids double noise).
+        const consumed = this.failMutationWaiters(new Error(`${errorMsg.code}: ${errorMsg.message}`));
+        if (!consumed) {
+          console.error(`[WebSocketClient] Server error: ${errorMsg.code} - ${errorMsg.message}`);
+          this.onError?.(new Error(errorMsg.message));
+        }
         break;
       }
 
@@ -798,6 +866,149 @@ export class WebSocketClient {
         // Ignore other message types
         break;
     }
+  }
+
+  // ==========================================================================
+  // Mutation waiters (asset/variant management)
+  // ==========================================================================
+
+  private notifyMutationWaiters(message: ServerMessage): void {
+    for (let i = 0; i < this.mutationWaiters.length; i++) {
+      const waiter = this.mutationWaiters[i];
+      if (waiter.predicate(message)) {
+        this.mutationWaiters.splice(i, 1);
+        clearTimeout(waiter.timeout);
+        waiter.resolve(message);
+        return;
+      }
+    }
+  }
+
+  /** Reject all in-flight mutations. Returns true if any were pending. */
+  private failMutationWaiters(error: Error): boolean {
+    if (this.mutationWaiters.length === 0) return false;
+    const waiters = this.mutationWaiters.splice(0);
+    for (const waiter of waiters) {
+      clearTimeout(waiter.timeout);
+      waiter.reject(error);
+    }
+    return true;
+  }
+
+  /**
+   * Send a mutation message and resolve when a matching broadcast arrives, or
+   * reject on a server `error` message / timeout. Used by the management ops
+   * below, which run on a dedicated short-lived connection (one op at a time).
+   */
+  private awaitServerMessage<T extends ServerMessage>(
+    message: object,
+    predicate: (msg: ServerMessage) => msg is T,
+    timeoutMs = 30_000
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const waiter = {
+        predicate,
+        resolve: resolve as (msg: ServerMessage) => void,
+        reject,
+        timeout: setTimeout(() => {
+          this.removeWaiter(waiter);
+          reject(new Error('Timed out waiting for server confirmation'));
+        }, timeoutMs),
+      };
+      this.mutationWaiters.push(waiter);
+      try {
+        this.send(message);
+      } catch (err) {
+        this.removeWaiter(waiter);
+        clearTimeout(waiter.timeout);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+  }
+
+  private removeWaiter(waiter: unknown): void {
+    const index = this.mutationWaiters.indexOf(waiter as never);
+    if (index >= 0) this.mutationWaiters.splice(index, 1);
+  }
+
+  // ==========================================================================
+  // Asset management mutations
+  // ==========================================================================
+
+  /** Delete an asset (and its variants). Resolves once the deletion is confirmed. */
+  async deleteAsset(assetId: string): Promise<void> {
+    await this.awaitServerMessage(
+      { type: 'asset:delete', assetId },
+      (msg): msg is AssetDeletedMessage => msg.type === 'asset:deleted' && msg.assetId === assetId
+    );
+  }
+
+  /** Rename an asset. Resolves with the updated asset record. */
+  async renameAsset(assetId: string, name: string): Promise<AssetRecord> {
+    // Match the new name too: `asset:updated` is broadcast for many reasons
+    // (concurrent edits, child reparenting), so matching the asset id alone
+    // could resolve on an unrelated broadcast.
+    const result = await this.awaitServerMessage(
+      { type: 'asset:update', assetId, changes: { name } },
+      (msg): msg is AssetUpdatedMessage =>
+        msg.type === 'asset:updated' && msg.asset.id === assetId && msg.asset.name === name
+    );
+    return result.asset;
+  }
+
+  /** Set the active variant of an asset. Resolves with the updated asset record. */
+  async setActiveVariant(assetId: string, variantId: string): Promise<AssetRecord> {
+    const result = await this.awaitServerMessage(
+      { type: 'asset:setActive', assetId, variantId },
+      (msg): msg is AssetUpdatedMessage =>
+        msg.type === 'asset:updated' && msg.asset.id === assetId && msg.asset.active_variant_id === variantId
+    );
+    return result.asset;
+  }
+
+  // ==========================================================================
+  // Variant management mutations
+  // ==========================================================================
+
+  /** Delete a variant. Resolves once the deletion is confirmed. */
+  async deleteVariant(variantId: string): Promise<void> {
+    await this.awaitServerMessage(
+      { type: 'variant:delete', variantId },
+      (msg): msg is VariantDeletedMessage => msg.type === 'variant:deleted' && msg.variantId === variantId
+    );
+  }
+
+  /** Retry a failed variant. Resolves once it has been re-queued (status pending). */
+  async retryVariant(variantId: string): Promise<Variant> {
+    const result = await this.awaitServerMessage(
+      { type: 'variant:retry', variantId },
+      (msg): msg is VariantUpdated =>
+        msg.type === 'variant:updated' && msg.variant.id === variantId && msg.variant.status === 'pending'
+    );
+    return result.variant;
+  }
+
+  /** Star or unstar a variant. Resolves with the updated variant. */
+  async starVariant(variantId: string, starred: boolean): Promise<Variant> {
+    const result = await this.awaitServerMessage(
+      { type: 'variant:star', variantId, starred },
+      (msg): msg is VariantUpdated =>
+        msg.type === 'variant:updated' && msg.variant.id === variantId && msg.variant.starred === starred
+    );
+    return result.variant;
+  }
+
+  /** Rate a variant (approved/rejected). Resolves with the updated variant. */
+  async rateVariant(variantId: string, rating: 'approved' | 'rejected'): Promise<Variant> {
+    // Match the new rating too: `variant:updated` fires for many reasons (star,
+    // status changes), so matching the variant id alone could resolve early on
+    // an unrelated broadcast.
+    const result = await this.awaitServerMessage(
+      { type: 'variant:rate', variantId, rating },
+      (msg): msg is VariantUpdated =>
+        msg.type === 'variant:updated' && msg.variant.id === variantId && msg.variant.quality_rating === rating
+    );
+    return result.variant;
   }
 
   /**
