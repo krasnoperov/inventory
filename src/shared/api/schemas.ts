@@ -52,6 +52,15 @@ export const AuthGoogleResponseSchema = z
   })
   .openapi('AuthGoogleResponse');
 
+export const AuthSessionStateResponseSchema = z
+  .object({
+    token: z.string(),
+    cookieName: z.string(),
+    expiresIn: z.number(),
+    tokenType: z.literal('Bearer'),
+  })
+  .openapi('AuthSessionStateResponse');
+
 export const SuccessResponseSchema = z
   .object({
     success: z.literal(true),
@@ -274,6 +283,7 @@ export type UserProfile = z.infer<typeof UserProfileSchema>;
 export type AuthSessionResponse = z.infer<typeof AuthSessionResponseSchema>;
 export type GoogleAuthRequest = z.infer<typeof GoogleAuthRequestSchema>;
 export type AuthGoogleResponse = z.infer<typeof AuthGoogleResponseSchema>;
+export type AuthSessionStateResponse = z.infer<typeof AuthSessionStateResponseSchema>;
 export type SuccessResponse = z.infer<typeof SuccessResponseSchema>;
 export type UpdateUserProfileRequest = z.infer<typeof UpdateUserProfileRequestSchema>;
 export type UpdateUserSettingsRequest = z.infer<typeof UpdateUserSettingsRequestSchema>;

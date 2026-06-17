@@ -74,3 +74,20 @@ test('AuthService rejects token when audience mismatches', async () => {
 
   assert.equal(payload, null);
 });
+
+test('AuthService honours an explicit short TTL', async () => {
+  const authService = await createAuthService();
+
+  const shortLived = await authService.createJWT(7, 30 * 60);
+  const shortClaims = decodeJwt(shortLived);
+  assert.strictEqual(shortClaims.sub, '7');
+  assert.strictEqual((shortClaims.exp ?? 0) - (shortClaims.iat ?? 0), 30 * 60);
+
+  // Default TTL stays the long-lived one (well above 30 minutes).
+  const longLived = await authService.createJWT(7);
+  const longClaims = decodeJwt(longLived);
+  assert.ok((longClaims.exp ?? 0) - (longClaims.iat ?? 0) > 30 * 60);
+
+  // Short-lived tokens are still valid sessions.
+  assert.deepEqual(await authService.verifyJWT(shortLived), { userId: 7 });
+});

@@ -21,6 +21,7 @@
     "test:components:ci": "node ./scripts/run-component-ci.mjs",
     "test:e2e:media-foundation": "pnpm run build && node scripts/e2e-media-foundation.mjs",
     "test:e2e:cli-forge": "pnpm run build && node scripts/e2e-cli-forge.mjs",
+    "auth:session-state": "node scripts/auth/mint-session.mjs",
     "lint": "oxlint --config .oxlintrc.json src scripts && pnpm d1:guard",
     "d1:guard": "node scripts/check-no-d1-transactions.mjs",
     "typecheck": "tsc --noEmit",
