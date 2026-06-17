@@ -300,6 +300,29 @@ test('forge tray on asset detail shows Current/New toggle with the asset name', 
   await expect(page.getByLabel('Asset name')).toBeVisible();
 });
 
+test('forge tray dark theme polish', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.setViewportSize({ width: 900, height: 720 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+    sendChatMessage: '__noop__',
+  });
+  await disableAnimations(page);
+
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-dark-image', { fullPage: true });
+
+  await page.getByTitle('Audio media').click();
+  await page.getByTitle('Speech mode').click();
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-dark-speech', { fullPage: true });
+});
+
 test('forge tray picker disables references incompatible with the selected media mode', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 720 });
 
