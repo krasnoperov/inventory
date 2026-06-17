@@ -139,6 +139,11 @@ function getPlaceholder(slotCount: number, operation: ForgeOperation, mediaMode:
   return `Describe the ${noun} refinement or transformation...`;
 }
 
+function formatMediaKindList(mediaKinds: readonly MediaKind[]): string {
+  if (mediaKinds.length <= 1) return mediaKinds[0] ?? 'media';
+  return `${mediaKinds.slice(0, -1).join(', ')} or ${mediaKinds[mediaKinds.length - 1]}`;
+}
+
 export function ForgeTray({
   allAssets,
   allVariants,
@@ -227,9 +232,10 @@ export function ForgeTray({
   const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
   const selectedMediaKind = getMediaKindForForgeMode(mediaMode);
   const isAudioMode = isAudioForgeMode(mediaMode);
-  const hasIncompatibleMediaSlots = slots.some(
+  const incompatibleMediaSlots = slots.filter(
     (slot) => !canUseSlotMediaKindForForgeMode(mediaMode, slot.variant.media_kind)
   );
+  const hasIncompatibleMediaSlots = incompatibleMediaSlots.length > 0;
   const canUseExistingDestination = !targetAsset || targetAsset.media_kind === selectedMediaKind;
 
   useEffect(() => {
@@ -744,6 +750,12 @@ export function ForgeTray({
           {forgeError && (
             <div className={styles.forgeError}>{forgeError}</div>
           )}
+
+          {hasIncompatibleMediaSlots && (
+            <div className={styles.modeWarning}>
+              {mediaModeConfig.label} mode uses {formatMediaKindList(mediaModeConfig.compatibleSlotMediaKinds)} references. Remove incompatible slots or switch mode.
+            </div>
+          )}
         </div>
 
         {/* StylePanel - Positioned absolutely above the tray */}
@@ -782,6 +794,7 @@ export function ForgeTray({
           allVariants={allVariants}
           onClose={handleCloseAssetPicker}
           spaceId={spaceId}
+          mediaMode={mediaMode}
         />
       )}
 

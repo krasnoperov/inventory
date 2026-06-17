@@ -2,6 +2,11 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
 import { type Asset, type Variant, isVariantForgeTrayReady } from '../../hooks/useSpaceWebSocket';
 import { Thumbnail } from '../Thumbnail';
+import {
+  canUseSlotMediaKindForForgeMode,
+  type ForgeMediaMode,
+  getForgeMediaModeConfig,
+} from './forgeMediaMode';
 import styles from './AssetPickerModal.module.css';
 
 export interface AssetPickerModalProps {
@@ -9,6 +14,7 @@ export interface AssetPickerModalProps {
   allVariants: Variant[];
   onClose: () => void;
   spaceId?: string;
+  mediaMode: ForgeMediaMode;
 }
 
 export function AssetPickerModal({
@@ -16,10 +22,12 @@ export function AssetPickerModal({
   allVariants,
   onClose,
   spaceId,
+  mediaMode,
 }: AssetPickerModalProps) {
   const { slots, addSlot, removeSlot, hasVariant } = useForgeTrayStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
 
   // Close on Escape
   useEffect(() => {
@@ -104,7 +112,7 @@ export function AssetPickerModal({
   // Toggle asset in tray
   const handleAssetClick = useCallback((asset: Asset) => {
     const primaryVariant = getPrimaryVariant(asset);
-    if (!primaryVariant || !isVariantForgeTrayReady(primaryVariant)) return;
+    if (!primaryVariant) return;
 
     if (hasVariant(primaryVariant.id)) {
       // Find and remove the slot with this variant
@@ -113,16 +121,19 @@ export function AssetPickerModal({
         removeSlot(slot.id);
       }
     } else {
+      if (!isVariantForgeTrayReady(primaryVariant)) return;
+      if (!canUseSlotMediaKindForForgeMode(mediaMode, primaryVariant.media_kind)) return;
       addSlot(primaryVariant, asset);
     }
-  }, [getPrimaryVariant, hasVariant, slots, addSlot, removeSlot]);
+  }, [getPrimaryVariant, hasVariant, mediaMode, slots, addSlot, removeSlot]);
 
   return (
     <div className={styles.backdrop} onClick={handleBackdropClick}>
       <div className={styles.modal}>
         <div className={styles.header}>
           <h2 className={styles.title}>Add to Forge Tray</h2>
-          <button className={styles.closeButton} onClick={onClose}>
+          <span className={styles.modeHint}>{mediaModeConfig.label} references</span>
+          <button className={styles.closeButton} onClick={onClose} aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
@@ -214,12 +225,24 @@ export function AssetPickerModal({
                   const primaryVariant = getPrimaryVariant(asset);
                   const isInTray = assetsInTray.has(asset.id);
                   const parentPath = getParentPath(asset);
+                  const isReady = primaryVariant ? isVariantForgeTrayReady(primaryVariant) : false;
+                  const isCompatible = primaryVariant
+                    ? canUseSlotMediaKindForForgeMode(mediaMode, primaryVariant.media_kind)
+                    : false;
+                  const canSelect = isReady && isCompatible;
+                  const disabledReason = !isReady
+                    ? 'No ready media variant'
+                    : !isCompatible
+                      ? `${mediaModeConfig.label} mode cannot use ${primaryVariant?.media_kind} references`
+                      : undefined;
 
                   return (
                     <button
                       key={asset.id}
-                      className={`${styles.assetItem} ${isInTray ? styles.inTray : ''}`}
+                      className={`${styles.assetItem} ${isInTray ? styles.inTray : ''} ${!canSelect ? styles.disabled : ''}`}
                       onClick={() => handleAssetClick(asset)}
+                      disabled={!canSelect}
+                      title={disabledReason}
                     >
                       <div className={styles.thumbnailWrapper}>
                         <Thumbnail
@@ -244,7 +267,8 @@ export function AssetPickerModal({
                           </span>
                         )}
                         <span className={styles.assetName}>{asset.name}</span>
-                        <span className={styles.assetType}>{asset.type}</span>
+                        <span className={styles.assetType}>{asset.type} / {asset.media_kind}</span>
+                        {disabledReason && <span className={styles.disabledReason}>{disabledReason}</span>}
                       </div>
                     </button>
                   );

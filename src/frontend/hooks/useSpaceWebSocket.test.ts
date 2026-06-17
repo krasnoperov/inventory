@@ -109,7 +109,7 @@ describe('variant media helpers', () => {
 
     assert.equal(isVariantReady(videoVariant), true);
     assert.equal(isVariantImageReady(videoVariant), false);
-    assert.equal(isVariantForgeTrayReady(videoVariant), false);
+    assert.equal(isVariantForgeTrayReady(videoVariant), true);
     assert.equal(isVariantAudioReady(videoVariant), false);
     assert.equal(isVariantVideoReady(videoVariant), true);
     assert.equal(getVariantThumbnailUrl(videoVariant), undefined);

@@ -681,6 +681,14 @@
   animation: forgeErrorFadeIn 0.2s ease;
 }
 
+.modeWarning {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-warning, var(--color-text-muted));
+  line-height: 1.4;
+  animation: forgeErrorFadeIn 0.2s ease;
+}
+
 @keyframes forgeErrorFadeIn {
   from {
     opacity: 0;

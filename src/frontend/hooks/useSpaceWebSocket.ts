@@ -101,6 +101,9 @@ export function isVariantForgeTrayReady(variant: Variant): boolean {
   if (variant.media_kind === 'audio') {
     return isVariantAudioReady(variant);
   }
+  if (variant.media_kind === 'video') {
+    return isVariantVideoReady(variant);
+  }
   return isVariantImageReady(variant);
 }
 
