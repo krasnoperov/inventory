@@ -3,8 +3,9 @@
 This cookbook shows an end-to-end production loop for agents or operators using
 Inventory CLI as the control surface for website-backed media generation. The
 website remains the source of truth for spaces, assets, variants, lineage,
-recipes, and billing. Local files and `.inventory/runs/*.json` are handoff
-artifacts for renderers, editors, podcast tooling, and automation.
+recipes, billing, and production placement records. Local files and
+`.inventory/runs/*.json` are convenience artifacts for renderers, editors,
+podcast tooling, and automation.
 
 ## Setup
 
@@ -34,7 +35,7 @@ Use this loop for every media kind:
 2. Generate or upload source media.
 3. Use website variant IDs as references for derived media.
 4. Download completed outputs with `-o` or `--output-dir`.
-5. Export run manifests for downstream production tools.
+5. Export Space-backed production records for timeline assembly.
 
 Useful read-side commands:
 
@@ -146,15 +147,15 @@ pnpm run cli video refine \
   "Make the camera movement smoother and reduce background motion" \
   -o video/episode-01/shot-001b.mp4
 
-pnpm run cli runs export \
-  --format remotion-scenes \
+pnpm run cli productions export \
   --production-id episode-01 \
   -o handoff/episode-01.scenes.args
 ```
 
-`remotion-scenes` outputs sorted shell-ready scene arguments in the shape
-`--scene '<startMs>|<label>|<absolute path>'`. Use `--json` when a renderer or
-agent wants structured scene data instead.
+`productions export` downloads image and video media from Space through the
+authenticated CLI session and outputs sorted shell-ready scene arguments in the
+shape `--scene '<startMs>|<label>|<absolute-media-path>'`. Use `--json` when a
+renderer or agent wants structured scene data instead.
 
 ## Podcasts
 
@@ -202,8 +203,7 @@ pnpm run cli video derive \
   "Animate the cover with subtle parallax and a clean title reveal" \
   -o podcast/social-promo.mp4
 
-pnpm run cli runs export \
-  --format remotion-scenes \
+pnpm run cli productions export \
   --production-id podcast-episode-01 \
   -o podcast/social-promo.scenes.args
 ```
@@ -215,5 +215,5 @@ pnpm run cli runs export \
 - Use local image paths in `--refs` only when you want the CLI to upload them as
   visible reference assets first.
 - Use `--force` only when replacing local downloads intentionally.
-- Export `media` for generic downstream tools and `remotion-scenes` for timed
-  image or video scene assembly.
+- Export local `runs --format media` data only for generic local tooling.
+- Export `productions` records for timed image or video scene assembly.
