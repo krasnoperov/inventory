@@ -1,6 +1,7 @@
 import type { ForgeOperation, MediaKind } from './websocket-types';
 
 export type ForgeMediaMode = 'image' | 'video' | 'speech' | 'dialogue' | 'music' | 'sfx';
+export type AudioForgeMediaMode = Extract<ForgeMediaMode, 'speech' | 'dialogue' | 'music' | 'sfx'>;
 export type ForgeDestinationType = 'existing_asset' | 'new_asset';
 export type MediaGenerationCommand = 'generate' | 'refine' | 'derive' | 'batch';
 export type CliGenerationNamespace = 'top-level' | 'audio';
@@ -151,6 +152,12 @@ const PROFILE_BY_NAMESPACE = new Map(
   CLI_GENERATION_PROFILES.map((profile) => [profile.namespace, profile])
 );
 
+export const AUDIO_FORGE_MEDIA_MODES: readonly AudioForgeMediaMode[] = MEDIA_OPERATION_MATRIX
+  .filter((entry): entry is MediaOperationMatrixEntry & { mode: AudioForgeMediaMode } => (
+    entry.mediaKind === 'audio'
+  ))
+  .map((entry) => entry.mode);
+
 export function getMediaOperationEntry(mode: ForgeMediaMode): MediaOperationMatrixEntry {
   return ENTRY_BY_MODE.get(mode) ?? MEDIA_OPERATION_MATRIX[0];
 }
@@ -161,6 +168,10 @@ export function getMediaKindForForgeMode(mode: ForgeMediaMode): MediaKind {
 
 export function isAudioForgeMode(mode: ForgeMediaMode): boolean {
   return getMediaKindForForgeMode(mode) === 'audio';
+}
+
+export function isAudioForgeMediaMode(value: string | undefined): value is AudioForgeMediaMode {
+  return AUDIO_FORGE_MEDIA_MODES.includes(value as AudioForgeMediaMode);
 }
 
 export function canUseSlotMediaKindForForgeMode(mode: ForgeMediaMode, slotMediaKind: MediaKind): boolean {

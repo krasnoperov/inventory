@@ -15,7 +15,7 @@ source of truth for these generation capabilities is
 | CLI surface | Commands | Sent `mediaKind` | References | Batch manifest |
 |-------------|----------|------------------|------------|----------------|
 | Top-level image | `generate`, `refine`, `derive`, `batch` | `image` | `derive --refs` and `batch --refs` accept completed image variant IDs or local image files | Yes, for `batch` |
-| Audio namespace | `audio generate`, `audio batch` | `audio` | Not supported | No |
+| Audio namespace | `audio <speech|dialogue|music|sfx> generate`, `audio <speech|dialogue|music|sfx> batch` | `audio` | Not supported | No |
 | Video generation | Not exposed yet | N/A | N/A | N/A |
 
 Forge Tray uses the same matrix for mode labels, output media kind, default
@@ -103,26 +103,39 @@ pnpm run cli batch "Three cinematic keyframes in Russafa market" \
 Generate audio through website jobs:
 
 ```bash
-pnpm run cli audio generate "A short brass victory sting" \
-  --name "Victory Sting" \
-  --type audio \
-  -o audio/victory.wav
+pnpm run cli audio speech generate "Podcast narration for the level intro" \
+  --name "Intro Narration" \
+  -o audio/intro-narration.wav
 
-pnpm run cli audio batch "Three short UI notification sounds" \
-  --name "Notification Sound" \
-  --type audio \
+pnpm run cli audio dialogue generate --input scripts/blacksmith-dialogue.txt \
+  --name "Blacksmith Dialogue" \
+  -o audio/blacksmith-dialogue.wav
+
+pnpm run cli audio music batch "Three 20 second low-intensity dungeon music beds" \
+  --name "Dungeon Bed" \
   --count 3 \
-  --output-dir audio/notifications
+  --output-dir audio/dungeon-beds
+
+pnpm run cli audio sfx generate "A crisp inventory item pickup sound effect" \
+  --name "Item Pickup" \
+  -o audio/item-pickup.wav
 ```
 
 When the website is configured with `INVENTORY_AUDIO_PROVIDER=elevenlabs`,
-`--type music` prompts are generated through ElevenLabs music, `--type sfx`
-prompts are generated through ElevenLabs sound effects, and other audio prompts
-are generated through ElevenLabs speech. Multi-speaker dialogue can be sent as
-one `Speaker: line` entry per line; the website maps speakers to the
-comma-separated `ELEVENLABS_DIALOGUE_VOICE_IDS` configured on the worker. The
-CLI still sends only the prompt, asset type, and `mediaKind: "audio"`; API keys,
+`audio music ...` prompts are generated through ElevenLabs music,
+`audio sfx ...` prompts are generated through ElevenLabs sound effects, and
+`audio speech ...`/`audio dialogue ...` prompts are generated through
+ElevenLabs speech or dialogue. Multi-speaker dialogue can be sent as direct
+multiline shell text or with `--input <file>`; use one `Speaker: line` entry per
+line. The website maps speakers to the comma-separated
+`ELEVENLABS_DIALOGUE_VOICE_IDS` configured on the worker. The CLI still sends
+only the prompt, canonical asset type, and `mediaKind: "audio"`; API keys,
 voice IDs, model IDs, and output format stay server-controlled.
+
+The older `audio generate ... --type <type>` and
+`audio batch ... --type <type>` forms remain available as low-level
+compatibility commands, but new automation should use the explicit mode
+subcommands so the operation is discoverable from help and matches Forge Tray.
 
 ## Local References
 
@@ -154,14 +167,15 @@ endpoint rather than by dereferencing raw R2 keys.
 | Option | Commands | Description |
 |--------|----------|-------------|
 | `--space <id>` | all | Target website space; overrides project binding |
-| `--name <name>` | `generate`, `derive`, `batch`, `audio generate`, `audio batch` | New asset name |
-| `--type <type>` | `generate`, `derive`, `batch`, `audio generate`, `audio batch` | New asset type |
+| `--name <name>` | `generate`, `derive`, `batch`, `audio <mode> generate`, `audio <mode> batch` | New asset name |
+| `--type <type>` | `generate`, `derive`, `batch`; low-level `audio generate`, `audio batch` | New asset type |
 | `--variant <id>` | `refine` | Source variant to refine |
 | `--refs <refs>` | `derive`, `batch` | Comma-separated variant IDs or local image paths |
-| `-o`, `--output <file>` | `generate`, `refine`, `derive`, `audio generate` | Local download path |
-| `--output-dir <dir>` | `batch`, `audio batch` | Directory for downloaded batch files |
-| `--count <2-8>` | `batch`, `audio batch` | Number of artifacts to generate |
-| `--mode <mode>` | `batch`, `audio batch` | `explore` for one asset with many variants, or `set` for many assets |
+| `--input <file>` | `audio <mode> generate` | Read prompt text from a file; useful for multiline speech and dialogue scripts |
+| `-o`, `--output <file>` | `generate`, `refine`, `derive`, `audio <mode> generate` | Local download path |
+| `--output-dir <dir>` | `batch`, `audio <mode> batch` | Directory for downloaded batch files |
+| `--count <2-8>` | `batch`, `audio <mode> batch` | Number of artifacts to generate |
+| `--mode <mode>` | `batch`, `audio <mode> batch` | `explore` for one asset with many variants, or `set` for many assets |
 | `--force` | all | Overwrite local output file |
 | `--aspect <ratio>` | all | Optional generation aspect ratio |
 | `--parent <assetId>` | `generate`, `derive` | Optional parent asset |
@@ -173,10 +187,12 @@ Direct use of `gemini-images` or other generators remains intentionally
 untracked by Inventory unless the resulting files are uploaded or used as local
 references through these commands.
 
-Audio generation currently does not accept `--refs`, `derive`, or `refine`.
-Audio batch downloads completed files into the requested directory but does not
-write image keyframe run manifests. ElevenLabs timestamp responses are stored
-as transcript, timing, and render metadata sidecars on the completed variant.
+Audio generation currently supports only `generate` and `batch` for the
+`speech`, `dialogue`, `music`, and `sfx` modes. It does not accept `--refs`,
+`derive`, or `refine`. Audio batch downloads completed files into the requested
+directory but does not write image keyframe run manifests. ElevenLabs timestamp
+responses are stored as transcript, timing, and render metadata sidecars on the
+completed variant.
 
 ## Run Manifests
 
