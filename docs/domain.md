@@ -172,10 +172,10 @@ CLI generation commands, docs, and tests should use the same matrix.
 |-----------------|--------------------|--------------------|--------------------|-------|-------|----------------|
 | Image | `image` | Inherit first reference, else `character` | `image` | Yes | Yes | Top-level `generate`, `refine`, `derive`, `batch`; refs allowed; writes image run manifests |
 | Video | `video` | Inherit first reference, else `animation` | `image`, `video` | No | Yes | Not exposed yet |
-| Speech | `audio` | `speech` | `audio` | Yes | No | `audio generate`, `audio batch`; refs not supported; no run manifest |
-| Dialogue | `audio` | `dialogue` | `audio` | Yes | No | Use `audio generate`/`audio batch` with `--type dialogue` |
-| Music | `audio` | `music` | `audio` | Yes | No | Use `audio generate`/`audio batch` with `--type music` |
-| SFX | `audio` | `sfx` | `audio` | Yes | No | Use `audio generate`/`audio batch` with `--type sfx` |
+| Speech | `audio` | `speech` | `audio` | Yes | No | `audio speech generate`, `audio speech batch`; refs not supported; no run manifest |
+| Dialogue | `audio` | `dialogue` | `audio` | Yes | No | `audio dialogue generate`, `audio dialogue batch`; use `--input` for multiline scripts |
+| Music | `audio` | `music` | `audio` | Yes | No | `audio music generate`, `audio music batch` |
+| SFX | `audio` | `sfx` | `audio` | Yes | No | `audio sfx generate`, `audio sfx batch` |
 
 ### Slot Behavior
 

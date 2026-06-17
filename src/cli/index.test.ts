@@ -113,6 +113,9 @@ test('help is side-effect-free across command and subcommand levels', async () =
       ['derive', '--help'],
       ['batch', '--help'],
       ['audio', '--help'],
+      ['audio', 'speech', '--help'],
+      ['audio', 'dialogue', 'generate', '--help'],
+      ['audio', 'music', 'batch', '--help'],
       ['audio', 'generate', '--help'],
       ['audio', 'batch', '--help'],
       ['runs', '--help'],
@@ -198,6 +201,40 @@ test('nested audio subcommand help does not require auth', async () => {
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
     assert.ok(result.stdout.includes('pnpm run cli audio generate "prompt"'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('audio help lists explicit Forge Tray audio modes', async () => {
+  const cwd = await createCliCwd();
+  try {
+    const result = await runCli(['audio', '--help'], cwd, {
+      XDG_CONFIG_HOME: path.join(cwd, 'xdg-config'),
+      HOME: cwd,
+    });
+
+    assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
+    assert.equal(result.stderr, '');
+    assert.ok(result.stdout.includes('audio <speech|dialogue|music|sfx> generate'));
+    assert.ok(result.stdout.includes('audio <speech|dialogue|music|sfx> batch'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('unsupported audio mode operation fails before loading auth config', async () => {
+  const cwd = await createCliCwd();
+  try {
+    const { configHome } = await writeSideEffectTraps(cwd);
+    const result = await runCli(['audio', 'music', 'refine', '--space', 'space-side-effect'], cwd, {
+      XDG_CONFIG_HOME: configHome,
+      HOME: cwd,
+    });
+
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /Audio music supports only generate or batch/);
+    assert.ok(result.stdout.includes('audio <speech|dialogue|music|sfx> generate'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
