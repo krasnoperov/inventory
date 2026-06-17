@@ -122,6 +122,23 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
   };
 
   const recipe = parseRecipe(variant.recipe);
+  const provenanceSummary = formatMetadataSummary(variant.generation_provenance, [
+    'operation',
+    'assetType',
+    'mediaKind',
+    'model',
+    'modelProvider',
+    'prompt',
+  ]);
+  const providerSummary = formatMetadataSummary(variant.provider_metadata, [
+    'provider',
+    'providerMode',
+    'model',
+    'operation',
+    'api',
+    'resolution',
+    'durationSeconds',
+  ]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString(undefined, {
@@ -373,6 +390,23 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
             </div>
           )}
 
+          {(provenanceSummary || providerSummary) && (
+            <div className={styles.detailsGeneration}>
+              {provenanceSummary && (
+                <div className={styles.detailsGenerationRow}>
+                  <span>Provenance</span>
+                  <code>{provenanceSummary}</code>
+                </div>
+              )}
+              {providerSummary && (
+                <div className={styles.detailsGenerationRow}>
+                  <span>Provider</span>
+                  <code>{providerSummary}</code>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Description */}
           {variant.description && (
             <div className={styles.detailsDescription}>
@@ -388,6 +422,37 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       )}
     </div>
   );
+}
+
+function formatMetadataSummary(value: string | null | undefined, preferredKeys: string[]): string | null {
+  if (!value) return null;
+  const parsed = parseJsonObject(value);
+  if (!parsed) return truncateText(value, 140);
+
+  const parts: string[] = [];
+  for (const key of preferredKeys) {
+    const field = parsed[key];
+    if (field === undefined || field === null || typeof field === 'object') continue;
+    parts.push(`${key}=${String(field)}`);
+  }
+
+  return parts.length > 0 ? truncateText(parts.join(' '), 180) : truncateText(JSON.stringify(parsed), 180);
+}
+
+function parseJsonObject(value: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function truncateText(value: string, maxLength: number): string {
+  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
 export const VariantNode = memo(VariantNodeComponent);
