@@ -39,7 +39,7 @@ async function main() {
       printRequestedHelp(parsed);
       return;
     }
-    if (isHelpRequest(args, parsed)) {
+    if (isHelpRequest(args)) {
       printCommandHelp(command, parsed.positionals);
       return;
     }
@@ -62,8 +62,8 @@ function configureLocalTls(args: string[]): void {
   }
 }
 
-function isHelpRequest(args: string[], parsed: ParsedArgs): boolean {
-  return args.includes('--help') || args.includes('-h') || parsed.positionals[0] === 'help';
+function isHelpRequest(args: string[]): boolean {
+  return args.includes('--help') || args.includes('-h');
 }
 
 function printRequestedHelp(parsed: ParsedArgs): void {

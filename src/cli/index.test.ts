@@ -48,6 +48,19 @@ async function createCliCwd(): Promise<string> {
   return cwd;
 }
 
+async function writeSideEffectTraps(cwd: string): Promise<{ authConfigPath: string; projectConfigPath: string; configHome: string }> {
+  const projectConfigPath = path.join(cwd, '.inventory', 'config.json');
+  await mkdir(path.dirname(projectConfigPath), { recursive: true });
+  await writeFile(projectConfigPath, '{', 'utf8');
+
+  const configHome = path.join(cwd, 'xdg-config');
+  const authConfigPath = path.join(configHome, 'forgetray-cli', 'config.json');
+  await mkdir(path.dirname(authConfigPath), { recursive: true });
+  await writeFile(authConfigPath, '{', 'utf8');
+
+  return { authConfigPath, projectConfigPath, configHome };
+}
+
 test('help command displays available commands', async () => {
   const cwd = process.cwd();
   const result = await runCli(['help'], cwd);
@@ -68,16 +81,89 @@ test('version command prints the development fallback when unbundled', async () 
 test('subcommand help exits before loading invalid project config', async () => {
   const cwd = await createCliCwd();
   try {
-    await mkdir(path.join(cwd, '.inventory'));
-    const invalidProjectConfig = path.join(cwd, '.inventory', 'config.json');
-    await mkdir(path.dirname(invalidProjectConfig), { recursive: true });
-    await writeFile(invalidProjectConfig, '{', 'utf8');
+    await writeSideEffectTraps(cwd);
 
     const result = await runCli(['runs', '--help'], cwd);
 
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
     assert.ok(result.stdout.includes('pnpm run cli runs show --latest'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('help is side-effect-free across command and subcommand levels', async () => {
+  const cwd = await createCliCwd();
+  try {
+    const { authConfigPath, configHome, projectConfigPath } = await writeSideEffectTraps(cwd);
+    const helpForms = [
+      ['login', '--help'],
+      ['logout', '--help'],
+      ['billing', '--help'],
+      ['billing', 'status', '--help'],
+      ['billing', 'check', '--help'],
+      ['billing', 'retry-failed', '--help'],
+      ['spaces', '--help'],
+      ['spaces', 'create', '--help'],
+      ['listen', '--help'],
+      ['upload', '--help'],
+      ['generate', '--help'],
+      ['refine', '--help'],
+      ['derive', '--help'],
+      ['batch', '--help'],
+      ['audio', '--help'],
+      ['audio', 'generate', '--help'],
+      ['audio', 'batch', '--help'],
+      ['runs', '--help'],
+      ['runs', 'show', '--help'],
+      ['runs', 'export', '--help'],
+      ['assets', '--help'],
+      ['assets', 'show', '--help'],
+      ['assets', 'download', '--help'],
+      ['help', 'audio', 'batch'],
+      ['help', 'assets', 'show'],
+    ];
+
+    for (const args of helpForms) {
+      const result = await runCli(args, cwd, {
+        XDG_CONFIG_HOME: configHome,
+        HOME: cwd,
+      });
+      assert.equal(result.code, 0, `${args.join(' ')} exited with code ${result.code}; stderr: ${result.stderr}`);
+      assert.equal(result.stderr, '', `${args.join(' ')} wrote stderr`);
+      assert.ok(result.stdout.includes('Usage:') || result.stdout.includes('Commands'), `${args.join(' ')} did not print help`);
+    }
+
+    assert.equal(await readFile(projectConfigPath, 'utf8'), '{');
+    assert.equal(await readFile(authConfigPath, 'utf8'), '{');
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('first positional help remains command input', async () => {
+  const cwd = await createCliCwd();
+  try {
+    const result = await runCli([
+      'generate',
+      'help',
+      '--name',
+      'Help',
+      '--type',
+      'scene',
+      '-o',
+      'help.png',
+      '--space',
+      'space_123',
+    ], cwd, {
+      XDG_CONFIG_HOME: path.join(cwd, 'xdg-config'),
+      HOME: cwd,
+    });
+
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /Not logged in to production environment/);
+    assert.ok(result.stdout.includes('pnpm run cli generate "prompt"'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
