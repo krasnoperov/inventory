@@ -3,6 +3,7 @@ import { ApiFetchError, apiFetch } from '../api/client';
 import { loadSession } from './config';
 import type { Space, UserProfile } from '../api/types';
 import type { Asset, Lineage, Variant } from './hooks/useSpaceWebSocket';
+import type { ProductionRecord } from './productionHandoff';
 import type { StartSession } from './startSession';
 
 export interface Member {
@@ -158,6 +159,25 @@ export function assetDetailsQueryOptions(
       } catch (error) {
         throw mapAssetError(error);
       }
+    },
+  });
+}
+
+export function productionRecordsQueryOptions(
+  spaceId: string,
+  productionId: string,
+  baseUrl?: string,
+  headers?: HeadersInit,
+) {
+  return queryOptions({
+    queryKey: ['spaces', spaceId, 'productions', productionId, 'records'],
+    queryFn: async (): Promise<ProductionRecord[]> => {
+      const data = await apiFetch('GET /api/spaces/:id/productions/:productionId/records', {
+        params: { id: spaceId, productionId },
+        baseUrl,
+        headers,
+      });
+      return data.records || [];
     },
   });
 }

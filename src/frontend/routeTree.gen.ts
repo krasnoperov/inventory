@@ -16,6 +16,7 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SpacesIdRouteImport } from './routes/spaces/$id'
 import { Route as OauthApproveRouteImport } from './routes/oauth/approve'
+import { Route as SpacesIdProductionRouteImport } from './routes/spaces/$id/production'
 import { Route as SpacesIdAssetsAssetIdRouteImport } from './routes/spaces/$id/assets/$assetId'
 
 const ProfileRoute = ProfileRouteImport.update({
@@ -53,6 +54,11 @@ const OauthApproveRoute = OauthApproveRouteImport.update({
   path: '/oauth/approve',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SpacesIdProductionRoute = SpacesIdProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
+  getParentRoute: () => SpacesIdRoute,
+} as any)
 const SpacesIdAssetsAssetIdRoute = SpacesIdAssetsAssetIdRouteImport.update({
   id: '/assets/$assetId',
   path: '/assets/$assetId',
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/oauth/approve': typeof OauthApproveRoute
   '/spaces/$id': typeof SpacesIdRouteWithChildren
+  '/spaces/$id/production': typeof SpacesIdProductionRoute
   '/spaces/$id/assets/$assetId': typeof SpacesIdAssetsAssetIdRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/oauth/approve': typeof OauthApproveRoute
   '/spaces/$id': typeof SpacesIdRouteWithChildren
+  '/spaces/$id/production': typeof SpacesIdProductionRoute
   '/spaces/$id/assets/$assetId': typeof SpacesIdAssetsAssetIdRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/oauth/approve': typeof OauthApproveRoute
   '/spaces/$id': typeof SpacesIdRouteWithChildren
+  '/spaces/$id/production': typeof SpacesIdProductionRoute
   '/spaces/$id/assets/$assetId': typeof SpacesIdAssetsAssetIdRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/oauth/approve'
     | '/spaces/$id'
+    | '/spaces/$id/production'
     | '/spaces/$id/assets/$assetId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/oauth/approve'
     | '/spaces/$id'
+    | '/spaces/$id/production'
     | '/spaces/$id/assets/$assetId'
   id:
     | '__root__'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/oauth/approve'
     | '/spaces/$id'
+    | '/spaces/$id/production'
     | '/spaces/$id/assets/$assetId'
   fileRoutesById: FileRoutesById
 }
@@ -184,6 +196,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OauthApproveRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/spaces/$id/production': {
+      id: '/spaces/$id/production'
+      path: '/production'
+      fullPath: '/spaces/$id/production'
+      preLoaderRoute: typeof SpacesIdProductionRouteImport
+      parentRoute: typeof SpacesIdRoute
+    }
     '/spaces/$id/assets/$assetId': {
       id: '/spaces/$id/assets/$assetId'
       path: '/assets/$assetId'
@@ -195,10 +214,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface SpacesIdRouteChildren {
+  SpacesIdProductionRoute: typeof SpacesIdProductionRoute
   SpacesIdAssetsAssetIdRoute: typeof SpacesIdAssetsAssetIdRoute
 }
 
 const SpacesIdRouteChildren: SpacesIdRouteChildren = {
+  SpacesIdProductionRoute: SpacesIdProductionRoute,
   SpacesIdAssetsAssetIdRoute: SpacesIdAssetsAssetIdRoute,
 }
 
