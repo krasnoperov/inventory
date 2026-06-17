@@ -15,6 +15,7 @@ import { handleVideo } from './commands/video';
 import { handleInit } from './commands/init';
 import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
+import { handleVariants } from './commands/variants';
 import { handleProductions } from './commands/productions';
 import {
   AUDIO_FORGE_MEDIA_MODES,
@@ -122,6 +123,10 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'assets':
       printAssetsHelp();
       return;
+    case 'variants':
+    case 'variant':
+      printVariantsHelp();
+      return;
     case 'productions':
     case 'production':
       printProductionsHelp();
@@ -152,6 +157,15 @@ Project:
   assets show <asset-id>          Show website asset variants and lineage
   assets download <variant-id> -o <file>
                                  Download a website variant media file locally
+  assets delete <asset-id>        Delete an asset and its variants
+  assets rename <asset-id> "<name>"   Rename an asset
+  assets set-active <asset-id> <variant-id>
+                                 Set the active variant of an asset
+  variants delete <variant-id>    Delete a single variant
+  variants retry <variant-id>     Retry a failed variant generation
+  variants star <variant-id>      Star a variant (unstar to clear)
+  variants rate <variant-id> approved|rejected
+                                 Rate a variant for quality curation
   productions list --production-id <id>
                                  List Space-backed production placements
   productions export --production-id <id>
@@ -215,6 +229,10 @@ Examples:
   pnpm run cli productions export --production-id s01e01-a2
   pnpm run cli assets
   pnpm run cli assets download variant_123 -o variant.mp4
+  pnpm run cli assets rename asset_123 "Hero (moving)"
+  pnpm run cli assets set-active asset_123 variant_456
+  pnpm run cli variants retry variant_456
+  pnpm run cli variants delete variant_456
 `);
 }
 
@@ -482,6 +500,22 @@ Timed scene assembly:
 `);
 }
 
+function printVariantsHelp(): void {
+  console.log(`
+Usage:
+  pnpm run cli variants delete <variant-id>
+  pnpm run cli variants retry <variant-id>
+  pnpm run cli variants star <variant-id>
+  pnpm run cli variants unstar <variant-id>
+  pnpm run cli variants rate <variant-id> <approved|rejected>
+
+Options:
+  --space <id>      Target space ID; defaults from the initialized project
+  --env <env>       Environment (production|stage|local)
+  --local           Shortcut for --env local
+`);
+}
+
 function printProductionsHelp(): void {
   console.log(`
 Usage:
@@ -552,6 +586,10 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
       break;
     case 'assets':
       await handleAssets(parsed);
+      break;
+    case 'variants':
+    case 'variant':
+      await handleVariants(parsed);
       break;
     case 'productions':
     case 'production':

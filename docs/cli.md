@@ -57,7 +57,8 @@ pnpm run cli assets download VARIANT_ID -o references/variant.png
 | `logout` | Remove stored credentials |
 | `init` | Bind the current directory to a website space |
 | `spaces` | List, view, or create spaces |
-| `assets` | List website assets, show variants/lineage, download variants |
+| `assets` | List/show/download assets; delete, rename, set-active |
+| `variants` | Delete, retry, star/unstar, and rate variants |
 | `listen` | Connect to WebSocket and stream all events |
 | `upload` | Upload image, audio, or video files to create assets or add variants |
 | `generate` | Create a new asset through the website generation workflow |
@@ -139,10 +140,42 @@ pnpm run cli assets download VARIANT_ID -o audio/theme.mp3
 Generic `media/...` artifacts must be downloaded by variant ID so the website
 can authorize the space membership before resolving the R2 key.
 
-`assets` calls the website API every time. It does not scan local files, create
-a local asset database, or sync state into `.inventory`; the website remains the
-source of truth. Use `--space`, `--env`, or `--local` to override the project
-binding when needed.
+`assets` read commands call the website API every time. They do not scan local
+files, create a local asset database, or sync state into `.inventory`; the
+website remains the source of truth. Use `--space`, `--env`, or `--local` to
+override the project binding when needed.
+
+### Managing Assets and Variants
+
+Mutating commands talk to the space over the same authenticated WebSocket the web
+app uses, and broadcast their result to every connected client. Each command
+opens a short-lived connection, performs one operation, waits for the space to
+confirm it, and exits.
+
+```bash
+# Asset-level operations
+pnpm run cli assets delete ASSET_ID                 # delete an asset and its variants
+pnpm run cli assets rename ASSET_ID "New Name"      # rename an asset
+pnpm run cli assets set-active ASSET_ID VARIANT_ID  # choose the active variant
+
+# Variant-level operations
+pnpm run cli variants delete VARIANT_ID             # delete a single variant
+pnpm run cli variants retry VARIANT_ID              # retry a failed variant generation
+pnpm run cli variants star VARIANT_ID               # star (curation)
+pnpm run cli variants unstar VARIANT_ID             # unstar
+pnpm run cli variants rate VARIANT_ID approved      # rate approved | rejected
+```
+
+Notes:
+
+- `assets delete` and `variants delete` require space-owner permission; the other
+  mutations require editor permission. Permission and not-found errors are
+  reported with the server's reason.
+- `variants retry` only works on `failed` variants and re-queues the original
+  recipe. It returns once the variant is re-queued (status `pending`); watch
+  progress with `assets show ASSET_ID` or `listen`.
+- Deleting the active variant reassigns the asset's active variant automatically
+  (to another completed variant when one exists).
 
 ---
 

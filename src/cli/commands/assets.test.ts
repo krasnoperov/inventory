@@ -11,7 +11,7 @@ const asset = {
   id: 'asset-1',
   name: 'Russafa Market',
   type: 'scene',
-  media_kind: 'video',
+  media_kind: 'video' as const,
   parent_asset_id: null,
   active_variant_id: 'variant-1',
   created_at: Date.UTC(2026, 5, 16, 10, 0, 0),
@@ -74,12 +74,30 @@ function storedConfig(): StoredConfig {
   };
 }
 
+function fakeMutationClient(calls: string[]) {
+  return {
+    connect: async () => { calls.push('connect'); },
+    disconnect: () => { calls.push('disconnect'); },
+    deleteAsset: async (assetId: string) => { calls.push(`deleteAsset:${assetId}`); },
+    renameAsset: async (assetId: string, name: string) => {
+      calls.push(`renameAsset:${assetId}:${name}`);
+      return { ...asset, id: assetId, name };
+    },
+    setActiveVariant: async (assetId: string, variantId: string) => {
+      calls.push(`setActiveVariant:${assetId}:${variantId}`);
+      return { ...asset, id: assetId, active_variant_id: variantId };
+    },
+  };
+}
+
 function depsFor(output: string[], downloads: unknown[] = []) {
   const requests: Array<{ url: string; authorization: string | null }> = [];
+  const mutationCalls: string[] = [];
   const deps = {
     loadConfig: async () => storedConfig(),
     loadProjectConfig: async () => projectConfig(),
     resolveBaseUrl: () => 'https://inventory.example.test',
+    createMutationClient: async () => fakeMutationClient(mutationCalls),
     fetch: async (url: string | URL | Request, init?: RequestInit) => {
       const requestUrl = String(url);
       requests.push({
@@ -114,7 +132,7 @@ function depsFor(output: string[], downloads: unknown[] = []) {
     },
     print: (message: string) => output.push(message),
   };
-  return { deps, requests };
+  return { deps, requests, mutationCalls };
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -305,4 +323,72 @@ test('assets download rejects direct media keys that cannot be variant-authorize
 
   assert.equal(requests.length, 0);
   assert.deepEqual(downloads, []);
+});
+
+test('assets delete sends a delete mutation and confirms', async () => {
+  const output: string[] = [];
+  const { deps, mutationCalls } = depsFor(output);
+
+  const result = await executeAssets({ positionals: ['delete', 'asset-1'], options: {} }, deps);
+
+  assert.equal(result.type, 'delete');
+  assert.deepEqual(mutationCalls, ['connect', 'deleteAsset:asset-1', 'disconnect']);
+  assert.match(output.join('\n'), /Deleted asset asset-1/);
+});
+
+test('assets rename updates the asset name', async () => {
+  const output: string[] = [];
+  const { deps, mutationCalls } = depsFor(output);
+
+  const result = await executeAssets(
+    { positionals: ['rename', 'asset-1', 'New Name'], options: {} },
+    deps
+  );
+
+  assert.equal(result.type, 'rename');
+  assert.deepEqual(mutationCalls, ['connect', 'renameAsset:asset-1:New Name', 'disconnect']);
+  assert.match(output.join('\n'), /Renamed asset asset-1 -> "New Name"/);
+});
+
+test('assets rename requires both id and name', async () => {
+  const output: string[] = [];
+  const { deps } = depsFor(output);
+
+  await assert.rejects(
+    () => executeAssets({ positionals: ['rename', 'asset-1'], options: {} }, deps),
+    /Usage: .*assets rename/
+  );
+});
+
+test('assets set-active accepts the variant as a positional', async () => {
+  const output: string[] = [];
+  const { deps, mutationCalls } = depsFor(output);
+
+  const result = await executeAssets(
+    { positionals: ['set-active', 'asset-1', 'variant-2'], options: {} },
+    deps
+  );
+
+  assert.equal(result.type, 'set-active');
+  assert.deepEqual(mutationCalls, ['connect', 'setActiveVariant:asset-1:variant-2', 'disconnect']);
+  assert.match(output.join('\n'), /Set active variant of asset asset-1 to variant-2/);
+});
+
+test('assets set-active disconnects even when the mutation fails', async () => {
+  const output: string[] = [];
+  const mutationCalls: string[] = [];
+  const { deps } = depsFor(output);
+  deps.createMutationClient = async () => ({
+    connect: async () => { mutationCalls.push('connect'); },
+    disconnect: () => { mutationCalls.push('disconnect'); },
+    deleteAsset: async () => {},
+    renameAsset: async () => ({ ...asset }),
+    setActiveVariant: async () => { throw new Error('VALIDATION_ERROR: bad variant'); },
+  });
+
+  await assert.rejects(
+    () => executeAssets({ positionals: ['set-active', 'asset-1', 'variant-2'], options: {} }, deps),
+    /bad variant/
+  );
+  assert.deepEqual(mutationCalls, ['connect', 'disconnect']);
 });

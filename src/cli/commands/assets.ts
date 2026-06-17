@@ -10,6 +10,7 @@ import {
 } from '../lib/command-context';
 import { downloadFile } from '../lib/image-transfer';
 import { truncate } from '../lib/utils';
+import { WebSocketClient, type AssetMutationClient, type AssetRecord } from '../lib/websocket-client';
 import type { MediaKind } from '../../shared/websocket-types';
 
 interface Asset {
@@ -73,7 +74,10 @@ interface AssetDetails {
 type AssetsResult =
   | { type: 'list'; assets: Asset[] }
   | { type: 'show'; details: AssetDetails }
-  | { type: 'download'; mediaKey: string; outputPath: string; variant?: Variant };
+  | { type: 'download'; mediaKey: string; outputPath: string; variant?: Variant }
+  | { type: 'delete'; assetId: string }
+  | { type: 'rename'; asset: AssetRecord }
+  | { type: 'set-active'; asset: AssetRecord };
 
 interface AssetsDeps {
   loadConfig: (env: string) => Promise<StoredConfig | null>;
@@ -81,6 +85,7 @@ interface AssetsDeps {
   resolveBaseUrl: (env: string) => string;
   fetch: typeof fetch;
   downloadFile: typeof downloadFile;
+  createMutationClient: (env: string, spaceId: string) => Promise<AssetMutationClient>;
   print: (message: string) => void;
 }
 
@@ -98,8 +103,23 @@ const defaultDeps: AssetsDeps = {
   resolveBaseUrl,
   fetch,
   downloadFile,
+  createMutationClient: (env, spaceId) => WebSocketClient.create(env, spaceId),
   print: console.log,
 };
+
+async function withAssetClient<T>(
+  ctx: AssetsContext,
+  deps: Pick<AssetsDeps, 'createMutationClient'>,
+  run: (client: AssetMutationClient) => Promise<T>
+): Promise<T> {
+  const client = await deps.createMutationClient(ctx.env, ctx.spaceId);
+  await client.connect();
+  try {
+    return await run(client);
+  } finally {
+    client.disconnect();
+  }
+}
 
 export async function handleAssets(parsed: ParsedArgs): Promise<void> {
   try {
@@ -160,7 +180,43 @@ export async function executeAssets(
     return { type: 'download', mediaKey: resolved.mediaKey, outputPath, variant: resolved.variant };
   }
 
+  if (subcommand === 'delete') {
+    const assetId = parsed.positionals[1];
+    if (!assetId) {
+      throw new Error('Asset ID is required: pnpm run cli assets delete <asset-id>');
+    }
+    await withAssetClient(ctx, deps, (client) => client.deleteAsset(assetId));
+    deps.print(`Deleted asset ${assetId}`);
+    return { type: 'delete', assetId };
+  }
+
+  if (subcommand === 'rename') {
+    const assetId = parsed.positionals[1];
+    const name = parsed.positionals[2];
+    if (!assetId || !name) {
+      throw new Error('Usage: pnpm run cli assets rename <asset-id> "<new-name>"');
+    }
+    const asset = await withAssetClient(ctx, deps, (client) => client.renameAsset(assetId, name));
+    deps.print(`Renamed asset ${assetId} -> "${asset.name}"`);
+    return { type: 'rename', asset };
+  }
+
+  if (subcommand === 'set-active') {
+    const assetId = parsed.positionals[1];
+    const variantId = parsed.positionals[2] || normalizeOption(parsed.options.variant);
+    if (!assetId || !variantId) {
+      throw new Error('Usage: pnpm run cli assets set-active <asset-id> <variant-id>');
+    }
+    const asset = await withAssetClient(ctx, deps, (client) => client.setActiveVariant(assetId, variantId));
+    deps.print(`Set active variant of asset ${assetId} to ${asset.active_variant_id}`);
+    return { type: 'set-active', asset };
+  }
+
   throw new Error(`Unknown assets command: ${subcommand}`);
+}
+
+function normalizeOption(value: string | undefined): string | undefined {
+  return !value || value === 'true' ? undefined : value;
 }
 
 async function buildContext(parsed: ParsedArgs, deps: AssetsDeps): Promise<AssetsContext> {
@@ -424,5 +480,8 @@ Usage:
   pnpm run cli assets show <asset-id>
   pnpm run cli assets show <asset-id> --json
   pnpm run cli assets download <variant-id|legacy-image-key> -o output-file
+  pnpm run cli assets delete <asset-id>
+  pnpm run cli assets rename <asset-id> "<new-name>"
+  pnpm run cli assets set-active <asset-id> <variant-id>
 `);
 }
