@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { adminMiddleware } from '../middleware/admin-middleware';
-import { UsageService } from '../services/usageService';
+import { EXPECTED_POLAR_METERS, UsageService } from '../services/usageService';
 import { PolarService } from '../services/polarService';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { UserDAO } from '../../dao/user-dao';
@@ -12,9 +12,25 @@ import {
 } from '../billing/paidGenerationEntitlement';
 
 const billingRoutes = new Hono<AppContext>();
+const BILLING_SYNC_PENDING_WARN_SECONDS = 15 * 60;
+
+type OperationalStatus = 'ok' | 'warning' | 'critical';
 
 // Apply auth middleware to all routes except internal ones
 billingRoutes.use('/api/billing/*', authMiddleware);
+
+function ageSeconds(timestamp: string | null, now: Date): number | null {
+  if (!timestamp) return null;
+  const value = new Date(timestamp).getTime();
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.floor((now.getTime() - value) / 1000));
+}
+
+function combineStatus(statuses: OperationalStatus[]): OperationalStatus {
+  if (statuses.includes('critical')) return 'critical';
+  if (statuses.includes('warning')) return 'warning';
+  return 'ok';
+}
 
 /**
  * Get current usage statistics for the authenticated user
@@ -186,6 +202,89 @@ billingRoutes.get('/api/billing/sync-status', adminMiddleware, async (c) => {
     events: eventStats,
     customers: {
       withoutPolarId: usersWithoutPolar,
+    },
+  });
+});
+
+/**
+ * Get production billing operational checks for CLI/admin use.
+ * GET /api/billing/operational-checks
+ *
+ * Checks Polar meter configuration and local sync lag. Worker health is checked
+ * by the CLI because it needs to probe each public worker hostname directly.
+ */
+billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) => {
+  const container = c.get('container');
+  const usageEventDAO = container.get(UsageEventDAO);
+  const userDAO = container.get(UserDAO);
+  const polarService = container.get(PolarService);
+  const now = new Date();
+
+  const syncHealth = await usageEventDAO.getSyncHealth();
+  const internalBillingHealth = await usageEventDAO.getInternalBillingHealth();
+  const usersWithoutPolarId = await userDAO.countWithoutPolarCustomer();
+
+  const polarConfigured = polarService.isConfigured();
+  let polarError: string | null = null;
+  let activePolarMeters: Awaited<ReturnType<PolarService['listMeters']>> = [];
+  if (polarConfigured) {
+    try {
+      activePolarMeters = await polarService.listMeters();
+    } catch (error) {
+      polarError = error instanceof Error ? error.message : String(error);
+    }
+  }
+  const activeMeterNames = activePolarMeters.map((meter) => meter.name);
+  const activeMeterNameSet = new Set(activeMeterNames);
+  const missingMeters = EXPECTED_POLAR_METERS.filter((meter) => !activeMeterNameSet.has(meter));
+  const polarStatus: OperationalStatus = !polarConfigured || polarError !== null || missingMeters.length > 0
+    ? 'critical'
+    : 'ok';
+
+  const oldestPendingAgeSeconds = ageSeconds(syncHealth.oldestPendingCreatedAt, now);
+  const oldestFailedAgeSeconds = ageSeconds(syncHealth.oldestFailedCreatedAt, now);
+  const syncStatus: OperationalStatus = syncHealth.failed > 0
+    ? 'critical'
+    : oldestPendingAgeSeconds !== null && oldestPendingAgeSeconds >= BILLING_SYNC_PENDING_WARN_SECONDS
+      ? 'warning'
+      : usersWithoutPolarId > 0
+        ? 'warning'
+        : 'ok';
+  const internalBillingStatus: OperationalStatus = internalBillingHealth.billableEvents > 0
+    ? 'critical'
+    : 'ok';
+
+  return c.json({
+    generatedAt: now.toISOString(),
+    environment: c.env.ENVIRONMENT ?? 'unknown',
+    status: combineStatus([polarStatus, syncStatus, internalBillingStatus]),
+    checks: {
+      polarMeters: {
+        status: polarStatus,
+        configured: polarConfigured,
+        error: polarError,
+        expected: EXPECTED_POLAR_METERS,
+        active: activePolarMeters,
+        missing: missingMeters,
+      },
+      syncHealth: {
+        status: syncStatus,
+        pendingWarnAfterSeconds: BILLING_SYNC_PENDING_WARN_SECONDS,
+        events: {
+          ...syncHealth,
+          oldestPendingAgeSeconds,
+          oldestFailedAgeSeconds,
+          lastSyncedAgeSeconds: ageSeconds(syncHealth.lastSyncedAt, now),
+          lastSyncAttemptAgeSeconds: ageSeconds(syncHealth.lastSyncAttemptAt, now),
+        },
+        customers: {
+          withoutPolarId: usersWithoutPolarId,
+        },
+      },
+      internalUsers: {
+        status: internalBillingStatus,
+        ...internalBillingHealth,
+      },
     },
   });
 });

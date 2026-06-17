@@ -28,6 +28,8 @@ export const USAGE_EVENTS = {
 
 export type UsageEventName = (typeof USAGE_EVENTS)[keyof typeof USAGE_EVENTS];
 
+export const EXPECTED_POLAR_METERS = Object.values(USAGE_EVENTS) as UsageEventName[];
+
 export interface UsageStats {
   period: {
     start: Date;

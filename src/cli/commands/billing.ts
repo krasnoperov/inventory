@@ -11,6 +11,10 @@ export async function handleBilling(parsed: ParsedArgs) {
     case 'status':
       await handleBillingStatus(env);
       break;
+    case 'check':
+    case 'ops-check':
+      await handleBillingOpsCheck(env);
+      break;
     case 'retry':
     case 'retry-failed':
       await handleBillingRetry(env);
@@ -33,6 +37,7 @@ Usage:
 
 Subcommands:
   status           Show sync status (pending, failed, synced events)
+  check            Run operational checks for workers, Polar meters, and sync health
   retry-failed     Reset failed events for retry (next cron will sync them)
 
 Options:
@@ -42,6 +47,7 @@ Options:
 Examples:
   pnpm run cli billing status                    Show production sync status
   pnpm run cli billing status --env stage        Show stage sync status
+  pnpm run cli billing check                     Run production operational checks
   pnpm run cli billing retry-failed              Reset failed events for retry
 
 Note: Requires login first. Run 'pnpm run cli login' to authenticate.
@@ -130,6 +136,180 @@ async function handleBillingStatus(env: string) {
   } catch (error) {
     console.error('Failed to get billing status:', error instanceof Error ? error.message : error);
     process.exitCode = 1;
+  }
+}
+
+type OperationalStatus = 'ok' | 'warning' | 'critical';
+
+interface BillingOperationalChecksResponse {
+  generatedAt: string;
+  environment: string;
+  status: OperationalStatus;
+  checks: {
+    polarMeters: {
+      status: OperationalStatus;
+      configured: boolean;
+      error: string | null;
+      expected: string[];
+      active: Array<{ id: string; name: string; aggregation: string; archivedAt: string | null }>;
+      missing: string[];
+    };
+    syncHealth: {
+      status: OperationalStatus;
+      pendingWarnAfterSeconds: number;
+      events: {
+        pending: number;
+        failed: number;
+        synced: number;
+        oldestPendingCreatedAt: string | null;
+        oldestFailedCreatedAt: string | null;
+        lastSyncedAt: string | null;
+        lastSyncAttemptAt: string | null;
+        oldestPendingAgeSeconds: number | null;
+        oldestFailedAgeSeconds: number | null;
+        lastSyncedAgeSeconds: number | null;
+        lastSyncAttemptAgeSeconds: number | null;
+      };
+      customers: { withoutPolarId: number };
+    };
+    internalUsers: {
+      status: OperationalStatus;
+      internalUsers: number;
+      billableEvents: number;
+      nonBillableEvents: number;
+    };
+  };
+}
+
+interface WorkerCheck {
+  name: string;
+  url: string;
+  status: OperationalStatus;
+  message: string;
+}
+
+function workerHealthUrls(env: string): Array<{ name: string; url: string }> {
+  if (env === 'production') {
+    return [
+      { name: 'application', url: 'https://inventory.krasnoperov.me/api/health' },
+      { name: 'processing', url: 'https://inventory-processing.krasnoperov.me/api/health' },
+      { name: 'polar', url: 'https://inventory-polar.krasnoperov.me/api/health' },
+    ];
+  }
+
+  if (env === 'stage') {
+    return [
+      { name: 'application', url: 'https://inventory-stage.krasnoperov.me/api/health' },
+      { name: 'processing', url: 'https://inventory-processing-stage.krasnoperov.me/api/health' },
+      { name: 'polar', url: 'https://inventory-polar-stage.krasnoperov.me/api/health' },
+    ];
+  }
+
+  return [
+    { name: 'application', url: 'http://localhost:3001/api/health' },
+    { name: 'processing', url: 'http://localhost:8789/api/health' },
+    { name: 'polar', url: 'http://localhost:8790/api/health' },
+  ];
+}
+
+async function checkWorkerHealth(env: string): Promise<WorkerCheck[]> {
+  return await Promise.all(workerHealthUrls(env).map(async ({ name, url }) => {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      if (!response.ok) {
+        return {
+          name,
+          url,
+          status: 'critical' as const,
+          message: `HTTP ${response.status}`,
+        };
+      }
+
+      const body = await response.json() as { status?: string; worker?: string; environment?: string };
+      if (body.status !== 'ok') {
+        return {
+          name,
+          url,
+          status: 'critical' as const,
+          message: `unexpected status ${JSON.stringify(body.status)}`,
+        };
+      }
+
+      return {
+        name,
+        url,
+        status: 'ok' as const,
+        message: body.worker ? `worker=${body.worker}` : `environment=${body.environment ?? 'unknown'}`,
+      };
+    } catch (error) {
+      return {
+        name,
+        url,
+        status: 'critical' as const,
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }));
+}
+
+function statusLabel(status: OperationalStatus): string {
+  return status.toUpperCase().padEnd(8);
+}
+
+function secondsSummary(seconds: number | null): string {
+  if (seconds === null) return 'n/a';
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+}
+
+async function handleBillingOpsCheck(env: string) {
+  console.log(`Running billing operational checks for ${env}...\n`);
+
+  const [workerChecks, billingChecks] = await Promise.all([
+    checkWorkerHealth(env),
+    callBillingApi(env, '/api/billing/operational-checks') as Promise<BillingOperationalChecksResponse>,
+  ]);
+
+  console.log('=== Billing Operational Checks ===\n');
+
+  console.log('Workers:');
+  for (const check of workerChecks) {
+    console.log(`  ${statusLabel(check.status)} ${check.name.padEnd(12)} ${check.message}`);
+  }
+
+  const meterCheck = billingChecks.checks.polarMeters;
+  console.log('\nPolar meters:');
+  console.log(`  ${statusLabel(meterCheck.status)} configured=${meterCheck.configured} active=${meterCheck.active.length} expected=${meterCheck.expected.length}`);
+  if (meterCheck.error) {
+    console.log(`  Error: ${meterCheck.error}`);
+  }
+  if (meterCheck.missing.length > 0) {
+    console.log(`  Missing: ${meterCheck.missing.join(', ')}`);
+  }
+
+  const syncCheck = billingChecks.checks.syncHealth;
+  console.log('\nSync health:');
+  console.log(`  ${statusLabel(syncCheck.status)} pending=${syncCheck.events.pending} failed=${syncCheck.events.failed} synced=${syncCheck.events.synced}`);
+  console.log(`  Oldest pending age: ${secondsSummary(syncCheck.events.oldestPendingAgeSeconds)} (warns after ${secondsSummary(syncCheck.pendingWarnAfterSeconds)})`);
+  console.log(`  Customers without Polar ID: ${syncCheck.customers.withoutPolarId}`);
+
+  const internalCheck = billingChecks.checks.internalUsers;
+  console.log('\nInternal users:');
+  console.log(`  ${statusLabel(internalCheck.status)} users=${internalCheck.internalUsers} nonBillableEvents=${internalCheck.nonBillableEvents} billableEvents=${internalCheck.billableEvents}`);
+
+  const hasCriticalWorker = workerChecks.some((check) => check.status === 'critical');
+  const hasCriticalBilling = billingChecks.status === 'critical';
+  const hasWarning = workerChecks.some((check) => check.status === 'warning') || billingChecks.status === 'warning';
+
+  if (hasCriticalWorker || hasCriticalBilling) {
+    console.log('\nResult: CRITICAL - production billing operations need attention.');
+    process.exitCode = 1;
+  } else if (hasWarning) {
+    console.log('\nResult: WARNING - billing is operational but has lag or cleanup work.');
+  } else {
+    console.log('\nResult: OK - billing workers, meters, and sync health are ready.');
   }
 }
 

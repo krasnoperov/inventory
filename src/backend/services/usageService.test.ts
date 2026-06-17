@@ -327,6 +327,135 @@ describe('UsageService', () => {
     });
   });
 
+  describe('sync health', () => {
+    test('reports counts and sync timestamps for billable events only', async () => {
+      await db.insertInto('usage_events').values([
+        {
+          id: 'pending-event',
+          user_id: testUserId,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 1,
+          metadata: null,
+          polar_billable: 1,
+          created_at: '2026-06-17T09:00:00.000Z',
+          synced_at: null,
+          sync_attempts: 1,
+          last_sync_error: null,
+          last_sync_attempt_at: '2026-06-17T09:05:00.000Z',
+        },
+        {
+          id: 'failed-event',
+          user_id: testUserId,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 1,
+          metadata: null,
+          polar_billable: 1,
+          created_at: '2026-06-17T08:00:00.000Z',
+          synced_at: null,
+          sync_attempts: 3,
+          last_sync_error: 'failed',
+          last_sync_attempt_at: '2026-06-17T08:05:00.000Z',
+        },
+        {
+          id: 'synced-event',
+          user_id: testUserId,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 1,
+          metadata: null,
+          polar_billable: 1,
+          created_at: '2026-06-17T07:00:00.000Z',
+          synced_at: '2026-06-17T07:05:00.000Z',
+          sync_attempts: 1,
+          last_sync_error: null,
+          last_sync_attempt_at: '2026-06-17T07:04:00.000Z',
+        },
+        {
+          id: 'internal-event',
+          user_id: testUserId,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 1,
+          metadata: null,
+          polar_billable: 0,
+          created_at: '2026-06-17T06:00:00.000Z',
+          synced_at: null,
+          sync_attempts: 0,
+          last_sync_error: null,
+          last_sync_attempt_at: null,
+        },
+      ]).execute();
+
+      const health = await usageEventDAO.getSyncHealth();
+
+      assert.deepStrictEqual(health, {
+        pending: 1,
+        failed: 1,
+        synced: 1,
+        oldestPendingCreatedAt: '2026-06-17T09:00:00.000Z',
+        oldestFailedCreatedAt: '2026-06-17T08:00:00.000Z',
+        lastSyncedAt: '2026-06-17T07:05:00.000Z',
+        lastSyncAttemptAt: '2026-06-17T09:05:00.000Z',
+      });
+    });
+
+    test('reports internal-user billing path violations separately', async () => {
+      const internalUser = await new TestUserBuilder()
+        .withEmail('internal@example.com')
+        .withName('Internal User')
+        .create(db);
+      await userDAO.update(internalUser.id, { paid_generation_entitlement: 'internal' });
+
+      await db.insertInto('usage_events').values([
+        {
+          id: 'internal-non-billable-event',
+          user_id: internalUser.id,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 1,
+          metadata: null,
+          polar_billable: 0,
+          created_at: '2026-06-17T09:00:00.000Z',
+          synced_at: null,
+          sync_attempts: 0,
+          last_sync_error: null,
+          last_sync_attempt_at: null,
+        },
+        {
+          id: 'internal-billable-event',
+          user_id: internalUser.id,
+          event_name: USAGE_EVENTS.GEMINI_VIDEOS,
+          quantity: 1,
+          metadata: null,
+          polar_billable: 1,
+          created_at: '2026-06-17T09:05:00.000Z',
+          synced_at: null,
+          sync_attempts: 0,
+          last_sync_error: null,
+          last_sync_attempt_at: null,
+        },
+        {
+          id: 'paid-billable-event',
+          user_id: testUserId,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 1,
+          metadata: null,
+          polar_billable: 1,
+          created_at: '2026-06-17T09:10:00.000Z',
+          synced_at: null,
+          sync_attempts: 0,
+          last_sync_error: null,
+          last_sync_attempt_at: null,
+        },
+      ]).execute();
+
+      const health = await usageEventDAO.getInternalBillingHealth();
+
+      assert.deepStrictEqual(health, {
+        internalUsers: 1,
+        billableEvents: 1,
+        nonBillableEvents: 1,
+      });
+    });
+  });
+
   describe('getUserUsageStats', () => {
     test('returns usage stats from local storage', async () => {
       // Track some usage

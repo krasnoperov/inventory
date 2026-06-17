@@ -83,6 +83,7 @@ Local dev-auth users are marked `internal`.
 |----------|-------------|
 | `GET /api/billing/status` | Meter usage + limits (for healthbar UI) |
 | `GET /api/billing/portal` | Polar customer portal URL |
+| `GET /api/billing/operational-checks` | Admin check for Polar meter readiness and local sync health |
 
 ### Status Response
 
@@ -123,6 +124,22 @@ status: ok | warning | critical | exceeded
 2. **Deduplication**: Deterministic `externalId` prevents duplicates
 3. **Retry**: Cron job syncs pending events (max 3 attempts)
 4. **Eventual consistency**: User requests never blocked by sync failures
+
+## Operational Checks
+
+Run production billing checks from an authenticated admin CLI session:
+
+```bash
+pnpm run cli billing check
+```
+
+The command verifies:
+
+- application, processing, and Polar worker `/api/health` endpoints
+- required Polar meters exist for all billable usage event names
+- local usage sync has no failed events and no pending billable event older than 15 minutes
+- non-internal users waiting on Polar customer backfill
+- internal users have zero billable usage events and their local usage remains non-billable
 
 ---
 
