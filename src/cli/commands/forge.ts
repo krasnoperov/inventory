@@ -331,6 +331,14 @@ async function executeGenerate(
     mediaKind,
   });
 
+  const productionRecord = await placeProductionRecordFromScene({
+    command: 'generate',
+    result,
+    outputPath,
+    ctx,
+    deps,
+    scene,
+  });
   const manifestPath = await saveGenerationManifest({
     command: 'generate',
     result,
@@ -345,15 +353,6 @@ async function executeGenerate(
     refs: [],
     referenceVariantIds: [],
     scene,
-  });
-  const productionRecord = await placeProductionRecordFromScene({
-    command: 'generate',
-    result,
-    outputPath,
-    ctx,
-    deps,
-    scene,
-    manifestPath,
   });
   await downloadResult(result, outputPath, ctx, deps);
   printResult(result, outputPath, ctx, manifestPath, productionRecord);
@@ -395,6 +394,14 @@ async function executeRefine(
     mediaKind,
   });
 
+  const productionRecord = await placeProductionRecordFromScene({
+    command: 'refine',
+    result,
+    outputPath,
+    ctx,
+    deps,
+    scene,
+  });
   const manifestPath = await saveGenerationManifest({
     command: 'refine',
     result,
@@ -409,15 +416,6 @@ async function executeRefine(
     refs: [sourceVariantId],
     referenceVariantIds: [sourceVariantId],
     scene,
-  });
-  const productionRecord = await placeProductionRecordFromScene({
-    command: 'refine',
-    result,
-    outputPath,
-    ctx,
-    deps,
-    scene,
-    manifestPath,
   });
   await downloadResult(result, outputPath, ctx, deps);
   printResult(result, outputPath, ctx, manifestPath, productionRecord);
@@ -464,6 +462,14 @@ async function executeDerive(
     mediaKind,
   });
 
+  const productionRecord = await placeProductionRecordFromScene({
+    command: 'derive',
+    result,
+    outputPath,
+    ctx,
+    deps,
+    scene,
+  });
   const manifestPath = await saveGenerationManifest({
     command: 'derive',
     result,
@@ -478,15 +484,6 @@ async function executeDerive(
     refs,
     referenceVariantIds,
     scene,
-  });
-  const productionRecord = await placeProductionRecordFromScene({
-    command: 'derive',
-    result,
-    outputPath,
-    ctx,
-    deps,
-    scene,
-    manifestPath,
   });
   await downloadResult(result, outputPath, ctx, deps);
   printResult(result, outputPath, ctx, manifestPath, productionRecord);
@@ -643,7 +640,6 @@ async function placeProductionRecordFromScene(input: {
   ctx: CommandContext;
   deps: CommandDeps;
   scene?: RunManifestScene;
-  manifestPath?: string;
 }): Promise<ProductionRecord | undefined> {
   const { scene, result, ctx, deps } = input;
   if (!scene || !result.success || !result.variant) return undefined;
@@ -662,7 +658,6 @@ async function placeProductionRecordFromScene(input: {
     metadata: {
       command: input.command,
       localPath: input.outputPath,
-      runManifestPath: input.manifestPath,
     },
   };
 
@@ -844,7 +839,7 @@ function printResult(
   }
   console.log(`  Local:   ${outputPath}`);
   if (manifestPath) {
-    console.log(`  Manifest: ${manifestPath}`);
+    console.log(`  Debug manifest: ${manifestPath}`);
   }
   if (productionRecord) {
     console.log(`  Production: ${productionRecord.production_id} (${productionRecord.id})`);
@@ -1053,7 +1048,7 @@ function printBatchResult(
   }
   console.log(`  Local:   ${outputDir}`);
   if (manifestPath) {
-    console.log(`  Manifest: ${manifestPath}`);
+    console.log(`  Debug manifest: ${manifestPath}`);
   }
   if (result.variants[0]) {
     console.log(`  Web:     ${ctx.baseUrl}/spaces/${ctx.spaceId}/assets/${result.variants[0].asset_id}`);

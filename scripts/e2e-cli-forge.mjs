@@ -395,6 +395,7 @@ try {
   await runCli([
     'runs',
     'export',
+    '--debug',
     '--latest',
     '--format',
     'media',

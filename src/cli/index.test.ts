@@ -87,7 +87,7 @@ test('subcommand help exits before loading invalid project config', async () => 
 
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
-    assert.ok(result.stdout.includes('pnpm run cli runs show --latest'));
+    assert.ok(result.stdout.includes('pnpm run cli runs show --latest --debug'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }

@@ -146,8 +146,8 @@ Authentication:
 
 Project:
   init --space <id>             Bind this directory to a website space
-  runs                           List local generation run manifests
-  runs show --latest             Show the newest local run manifest
+  runs --debug                   Inspect debug-only local run manifests
+  runs show --latest --debug     Show the newest debug run manifest
   assets                         List website assets for the initialized space
   assets show <asset-id>          Show website asset variants and lineage
   assets download <variant-id> -o <file>
@@ -212,7 +212,6 @@ Examples:
   pnpm run cli batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
   pnpm run cli audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
   pnpm run cli video generate "A looping idle animation" --name "Idle Animation" --type animation -o idle.mp4
-  pnpm run cli runs export --latest --format media -o media-run.json
   pnpm run cli productions export --production-id s01e01-a2
   pnpm run cli assets
   pnpm run cli assets download variant_123 -o variant.mp4
@@ -465,19 +464,21 @@ Production metadata:
 function printRunsHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli runs
-  pnpm run cli runs show <run-id|manifest.json>
-  pnpm run cli runs show --latest
-  pnpm run cli runs export <run-id|manifest.json> --format media -o media-run.json
-  pnpm run cli runs export --latest --format media -o media-run.json
-  pnpm run cli runs export --latest --format remotion -o keyframes.json
-  pnpm run cli runs export --format remotion-scenes --production-id <id> [-o scenes.args]
-  pnpm run cli runs export --latest --format remotion-scenes [-o scenes.args]
+  pnpm run cli runs --debug
+  pnpm run cli runs show <run-id|manifest.json> --debug
+  pnpm run cli runs show --latest --debug
+  pnpm run cli runs export <run-id|manifest.json> --debug --format media -o media-run.json
+  pnpm run cli runs export --latest --debug --format media -o media-run.json
+  pnpm run cli runs export --latest --debug --format remotion -o keyframes.json
 
 Formats:
   media             JSON media handoff data
   remotion          Legacy remotion-keyframes JSON marker
-  remotion-scenes   Shell-ready --scene '<start>|<label>|<absolute path>' lines
+
+Local run manifests are debug-only artifacts, not a source of truth.
+
+Timed scene assembly:
+  pnpm run cli productions export --production-id <id> [-o scenes.args]
 `);
 }
 

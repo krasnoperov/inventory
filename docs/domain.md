@@ -170,9 +170,9 @@ CLI generation commands, docs, and tests should use the same matrix.
 
 | Forge Tray mode | Output `mediaKind` | Default asset type | Allowed slot media | Batch | Style | CLI generation |
 |-----------------|--------------------|--------------------|--------------------|-------|-------|----------------|
-| Image | `image` | Inherit first reference, else `character` | `image` | Yes | Yes | Top-level `generate`, `refine`, `derive`, `batch`; refs allowed; writes media run manifests with image keyframes |
-| Video | `video` | Inherit first reference, else `animation` | `image`, `video` | No | Yes | `video generate`, `video refine`, `video derive`; refs allowed for derive; writes single-output media run manifests |
-| Speech | `audio` | `speech` | `audio` | Yes | No | `audio speech generate`, `audio speech batch`; refs not supported; writes media run manifests |
+| Image | `image` | Inherit first reference, else `character` | `image` | Yes | Yes | Top-level `generate`, `refine`, `derive`, `batch`; refs allowed; writes debug media run manifests with image keyframes |
+| Video | `video` | Inherit first reference, else `animation` | `image`, `video` | No | Yes | `video generate`, `video refine`, `video derive`; refs allowed for derive; writes debug single-output media run manifests |
+| Speech | `audio` | `speech` | `audio` | Yes | No | `audio speech generate`, `audio speech batch`; refs not supported; writes debug media run manifests |
 | Dialogue | `audio` | `dialogue` | `audio` | Yes | No | `audio dialogue generate`, `audio dialogue batch`; use `--input` for multiline scripts |
 | Music | `audio` | `music` | `audio` | Yes | No | `audio music generate`, `audio music batch` |
 | SFX | `audio` | `sfx` | `audio` | Yes | No | `audio sfx generate`, `audio sfx batch` |
