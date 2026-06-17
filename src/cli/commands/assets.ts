@@ -46,6 +46,8 @@ interface Variant {
   render_metadata_key?: string | null;
   render_metadata_mime_type?: string | null;
   render_metadata_size_bytes?: number | null;
+  generation_provenance?: string | null;
+  provider_metadata?: string | null;
   recipe?: string;
   starred?: boolean;
   error_message?: string | null;
@@ -338,6 +340,25 @@ function printAssetDetails(details: AssetDetails, ctx: AssetsContext, print: (me
       if (variant.transcript_key) print(`     Transcript:      ${variant.transcript_key}`);
       if (variant.word_timings_key) print(`     Word timings:    ${variant.word_timings_key}`);
       if (variant.render_metadata_key) print(`     Render metadata: ${variant.render_metadata_key}`);
+      const provenance = formatMetadataSummary(variant.generation_provenance, [
+        'operation',
+        'assetType',
+        'mediaKind',
+        'model',
+        'modelProvider',
+        'prompt',
+      ]);
+      if (provenance) print(`     Provenance: ${provenance}`);
+      const provider = formatMetadataSummary(variant.provider_metadata, [
+        'provider',
+        'providerMode',
+        'model',
+        'operation',
+        'api',
+        'resolution',
+        'durationSeconds',
+      ]);
+      if (provider) print(`     Provider:   ${provider}`);
     }
   }
 
@@ -360,6 +381,32 @@ function toAssetJson(asset: Asset): Record<string, unknown> {
     createdAt: asset.created_at || null,
     updatedAt: asset.updated_at || null,
   };
+}
+
+function formatMetadataSummary(value: string | null | undefined, preferredKeys: string[]): string | null {
+  if (!value) return null;
+  const parsed = parseJsonObject(value);
+  if (!parsed) return truncate(value, 120);
+
+  const parts: string[] = [];
+  for (const key of preferredKeys) {
+    const field = parsed[key];
+    if (field === undefined || field === null || typeof field === 'object') continue;
+    parts.push(`${key}=${String(field)}`);
+  }
+  return parts.length > 0 ? truncate(parts.join(' '), 160) : truncate(JSON.stringify(parsed), 160);
+}
+
+function parseJsonObject(value: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function formatTimestamp(value?: number | null): string {
