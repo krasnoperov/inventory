@@ -1,1 +1,2 @@
+tests/components/forge-tray.spec.ts
 tests/components/pagination.spec.ts
