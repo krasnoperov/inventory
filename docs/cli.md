@@ -63,7 +63,7 @@ pnpm run cli assets download VARIANT_ID -o references/variant.png
 | `generate` | Create a new asset through the website generation workflow |
 | `refine` | Refine an existing variant through the website generation workflow |
 | `derive` | Create a new asset from variant IDs and/or local image refs |
-| `batch` | Generate multiple images and write a local run manifest |
+| `batch` | Generate multiple images and write a local media run manifest |
 | `audio` | Generate audio assets through website jobs |
 | `video` | Generate and refine video assets through website jobs |
 | `runs` | List, inspect, and export local run manifests |
@@ -280,11 +280,12 @@ pnpm run cli batch "Three cinematic keyframes in Russafa market" \
 images are uploaded first as `reference` assets, then their uploaded variant IDs
 are used in the derive request.
 
-`batch` downloads every completed image and writes
+Generation commands download completed media and write
 `.inventory/runs/<run-id>.json` at the initialized project root, with local
-paths, website asset/variant IDs, image keys, prompt, refs, command options,
-timestamps, run success, and failed variant errors for downstream Remotion or
-video tooling.
+paths, website asset/variant IDs, media keys, media kind, prompt, refs, command
+options, timestamps, run success, and failed variant errors for downstream
+Remotion, audio, or video tooling. Image manifests also retain the legacy
+`images` keyframe array.
 
 ## Audio Generation
 
@@ -321,8 +322,8 @@ Dialogue and speech prompts can also be passed as direct multiline shell text.
 `Speaker: line` entry per line for multi-speaker dialogue.
 
 Audio generation currently does not accept `--refs`, `derive`, or `refine`
-commands. Audio batch downloads completed files into the requested directory but
-does not write image keyframe run manifests.
+commands. Audio batch downloads completed files into the requested directory and
+writes generic media run manifests.
 
 ## Video Generation
 
@@ -361,14 +362,14 @@ reject `mediaKind: "video"`.
 pnpm run cli runs
 pnpm run cli runs show --latest
 pnpm run cli runs show RUN_ID --json
-pnpm run cli runs export --latest --format remotion -o keyframes.json
+pnpm run cli runs export --latest --format remotion -o media-run.json
 ```
 
 `runs` reads local `.inventory/runs` manifests from the initialized project root
 and does not call generation APIs. The Remotion export is a compact JSON handoff
-with ordered image paths, absolute paths resolved from the original batch
-command working directory, website IDs/URLs, prompt, refs, and failed variant
-errors.
+with ordered media paths, absolute paths resolved from the original command
+working directory, website IDs/URLs, prompt, refs, and failed variant errors.
+Image runs also include an ordered `images` keyframe array for existing tools.
 
 See [cli-generation.md](./cli-generation.md) for the full command reference.
 

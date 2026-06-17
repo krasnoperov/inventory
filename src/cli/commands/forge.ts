@@ -11,9 +11,11 @@ import {
 } from '../lib/command-context';
 import {
   createRunId,
-  manifestImageFromVariant,
+  manifestMediaFromVariant,
   saveRunManifest,
   type RunManifest,
+  type RunManifestMedia,
+  type RunManifestImage,
 } from '../lib/run-manifest';
 import {
   downloadFile,
@@ -48,6 +50,12 @@ interface SpaceState {
   assets: unknown[];
   variants: unknown[];
   lineage: unknown[];
+}
+
+interface SpaceAsset {
+  id: string;
+  name?: string | null;
+  type?: string | null;
 }
 
 interface ForgeClient {
@@ -290,6 +298,7 @@ async function executeGenerate(
   const outputPath = getOutputPath(parsed);
   const name = requireOption(parsed, 'name');
   const assetType = requireOption(parsed, 'type');
+  const startedAt = new Date().toISOString();
 
   console.log(`Generating "${name}" in space ${ctx.spaceId}...`);
   const result = await client.sendGenerateRequest({
@@ -303,7 +312,21 @@ async function executeGenerate(
   });
 
   await downloadResult(result, outputPath, ctx, deps);
-  printResult(result, outputPath, ctx);
+  const manifestPath = await saveGenerationManifest({
+    command: 'generate',
+    result,
+    outputPath,
+    ctx,
+    deps,
+    mediaKind,
+    prompt,
+    name,
+    assetType,
+    startedAt,
+    refs: [],
+    referenceVariantIds: [],
+  });
+  printResult(result, outputPath, ctx, manifestPath);
   return result;
 }
 
@@ -323,6 +346,8 @@ async function executeRefine(
   if (!sourceVariant) {
     throw new Error(`Variant not found in space sync state: ${sourceVariantId}`);
   }
+  const sourceAsset = (state.assets as SpaceAsset[]).find((asset) => asset.id === sourceVariant.asset_id);
+  const startedAt = new Date().toISOString();
 
   console.log(`Refining variant ${sourceVariantId}...`);
   const result = await client.sendRefineRequest({
@@ -335,7 +360,21 @@ async function executeRefine(
   });
 
   await downloadResult(result, outputPath, ctx, deps);
-  printResult(result, outputPath, ctx);
+  const manifestPath = await saveGenerationManifest({
+    command: 'refine',
+    result,
+    outputPath,
+    ctx,
+    deps,
+    mediaKind,
+    prompt,
+    name: sourceAsset?.name || sourceVariant.asset_id,
+    assetType: sourceAsset?.type || 'variant',
+    startedAt,
+    refs: [sourceVariantId],
+    referenceVariantIds: [sourceVariantId],
+  });
+  printResult(result, outputPath, ctx, manifestPath);
   return result;
 }
 
@@ -359,6 +398,7 @@ async function executeDerive(
     state.variants as Variant[],
     mediaKind
   );
+  const startedAt = new Date().toISOString();
 
   console.log(`Deriving "${name}" from ${referenceVariantIds.length} reference(s)...`);
   const result = await client.sendGenerateRequest({
@@ -373,7 +413,21 @@ async function executeDerive(
   });
 
   await downloadResult(result, outputPath, ctx, deps);
-  printResult(result, outputPath, ctx);
+  const manifestPath = await saveGenerationManifest({
+    command: 'derive',
+    result,
+    outputPath,
+    ctx,
+    deps,
+    mediaKind,
+    prompt,
+    name,
+    assetType,
+    startedAt,
+    refs,
+    referenceVariantIds,
+  });
+  printResult(result, outputPath, ctx, manifestPath);
   return result;
 }
 
@@ -415,13 +469,13 @@ async function executeBatch(
   });
 
   const sortedVariants = [...result.variants].sort((a, b) => a.created_at - b.created_at);
-  const images = [];
+  const media: RunManifestMedia[] = [];
   for (let index = 0; index < sortedVariants.length; index += 1) {
     const variant = sortedVariants[index];
     const outputPath = path.join(outputDir, `${slugify(name)}-${String(index + 1).padStart(2, '0')}.${getOutputExtension(variant, mediaKind)}`);
     await downloadResult({ type: 'generate:result', requestId: result.requestId, jobId: variant.id, success: true, variant }, outputPath, ctx, deps);
     if (saveBatchManifest) {
-      images.push(manifestImageFromVariant({
+      media.push(manifestMediaFromVariant({
         index,
         variant,
         localPath: outputPath,
@@ -436,6 +490,7 @@ async function executeBatch(
       version: 1,
       runId,
       command: 'batch',
+      mediaKind,
       success: result.success,
       environment: ctx.env,
       spaceId: ctx.spaceId,
@@ -451,7 +506,8 @@ async function executeBatch(
       workingDir: ctx.workingDir,
       createdAt: startedAt,
       completedAt: new Date().toISOString(),
-      images,
+      media,
+      images: media.filter(isImageManifestMedia),
       failed: result.failed,
     }, ctx.projectRoot)
     : undefined;
@@ -463,6 +519,57 @@ async function executeBatch(
   }
 
   return result;
+}
+
+async function saveGenerationManifest(input: {
+  command: Exclude<ForgeCommand, 'batch'>;
+  result: GenerateResult;
+  outputPath: string;
+  ctx: CommandContext;
+  deps: CommandDeps;
+  mediaKind: GenerationMediaKind;
+  prompt: string;
+  name: string;
+  assetType: string;
+  startedAt: string;
+  refs: string[];
+  referenceVariantIds: string[];
+}): Promise<string | undefined> {
+  const { result, ctx, deps } = input;
+  if (!result.success || !result.variant) return undefined;
+  const completedAt = new Date().toISOString();
+  const media = [manifestMediaFromVariant({
+    index: 0,
+    variant: result.variant,
+    localPath: input.outputPath,
+    baseUrl: ctx.baseUrl,
+    spaceId: ctx.spaceId,
+  })];
+
+  return deps.saveRunManifest({
+    version: 1,
+    runId: deps.createRunId(),
+    command: input.command,
+    mediaKind: input.mediaKind,
+    success: true,
+    environment: ctx.env,
+    spaceId: ctx.spaceId,
+    baseUrl: ctx.baseUrl,
+    prompt: input.prompt,
+    name: input.name,
+    assetType: input.assetType,
+    count: 1,
+    mode: input.command,
+    refs: input.refs,
+    referenceVariantIds: input.referenceVariantIds,
+    outputDir: path.dirname(input.outputPath) || '.',
+    workingDir: ctx.workingDir,
+    createdAt: input.startedAt,
+    completedAt,
+    media,
+    images: media.filter(isImageManifestMedia),
+    failed: [],
+  }, ctx.projectRoot);
 }
 
 async function buildContext(parsed: ParsedArgs, deps: CommandDeps): Promise<CommandContext> {
@@ -616,7 +723,12 @@ async function downloadResult(
   });
 }
 
-function printResult(result: GenerateResult, outputPath: string, ctx: CommandContext): void {
+function printResult(
+  result: GenerateResult,
+  outputPath: string,
+  ctx: CommandContext,
+  manifestPath?: string
+): void {
   const variant = result.variant;
   if (!variant) return;
 
@@ -628,6 +740,9 @@ function printResult(result: GenerateResult, outputPath: string, ctx: CommandCon
     console.log(`  Image:   ${variant.image_key}`);
   }
   console.log(`  Local:   ${outputPath}`);
+  if (manifestPath) {
+    console.log(`  Manifest: ${manifestPath}`);
+  }
   console.log(`  Web:     ${ctx.baseUrl}/spaces/${ctx.spaceId}/assets/${variant.asset_id}`);
 }
 
@@ -695,6 +810,10 @@ function getOutputExtension(variant: Variant, mediaKind: GenerationMediaKind): s
   if (variant.media_mime_type === 'audio/ogg') return 'ogg';
   if (variant.media_mime_type === 'audio/flac') return 'flac';
   return 'wav';
+}
+
+function isImageManifestMedia(media: RunManifestMedia): media is RunManifestImage {
+  return media.mediaKind === 'image' && Boolean(media.imageKey);
 }
 
 function requireOption(parsed: ParsedArgs, name: string): string {

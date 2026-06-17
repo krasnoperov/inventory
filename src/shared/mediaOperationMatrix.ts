@@ -78,7 +78,7 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     cliNamespace: 'audio',
     cliCommands: ['generate', 'batch'],
     cliSupportsRefs: false,
-    cliSavesBatchManifest: false,
+    cliSavesBatchManifest: true,
   },
   {
     mode: 'dialogue',
@@ -94,7 +94,7 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     cliNamespace: 'audio',
     cliCommands: ['generate', 'batch'],
     cliSupportsRefs: false,
-    cliSavesBatchManifest: false,
+    cliSavesBatchManifest: true,
   },
   {
     mode: 'music',
@@ -110,7 +110,7 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     cliNamespace: 'audio',
     cliCommands: ['generate', 'batch'],
     cliSupportsRefs: false,
-    cliSavesBatchManifest: false,
+    cliSavesBatchManifest: true,
   },
   {
     mode: 'sfx',
@@ -126,7 +126,7 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     cliNamespace: 'audio',
     cliCommands: ['generate', 'batch'],
     cliSupportsRefs: false,
-    cliSavesBatchManifest: false,
+    cliSavesBatchManifest: true,
   },
 ];
 
@@ -143,7 +143,7 @@ export const CLI_GENERATION_PROFILES: readonly CliGenerationProfile[] = [
     mediaKind: 'audio',
     commands: ['generate', 'batch'],
     supportsRefs: false,
-    savesBatchManifest: false,
+    savesBatchManifest: true,
   },
   {
     namespace: 'video',

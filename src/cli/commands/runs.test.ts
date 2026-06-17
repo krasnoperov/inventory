@@ -19,6 +19,7 @@ function manifest(overrides: Partial<RunManifest> = {}): RunManifest {
     version: 1,
     runId,
     command: 'batch',
+    mediaKind: 'image',
     success: true,
     environment: 'stage',
     spaceId: 'space-1',
@@ -33,22 +34,70 @@ function manifest(overrides: Partial<RunManifest> = {}): RunManifest {
     outputDir: 'keyframes',
     createdAt: '2026-06-16T00:00:00.000Z',
     completedAt: '2026-06-16T00:00:01.000Z',
-    images: [
+    media: [
       {
         index: 1,
+        mediaKind: 'image',
         assetId: 'asset-2',
         variantId: 'variant-2',
+        mediaKey: 'images/space/variant-2.png',
         imageKey: 'images/space/variant-2.png',
         thumbKey: null,
+        mimeType: 'image/png',
+        sizeBytes: null,
+        width: null,
+        height: null,
+        durationMs: null,
         localPath: 'keyframes/frame-02.png',
         webUrl: 'https://inventory.example.test/spaces/space-1/assets/asset-2',
       },
       {
         index: 0,
+        mediaKind: 'image',
         assetId: 'asset-1',
         variantId: 'variant-1',
+        mediaKey: 'images/space/variant-1.png',
         imageKey: 'images/space/variant-1.png',
         thumbKey: null,
+        mimeType: 'image/png',
+        sizeBytes: null,
+        width: null,
+        height: null,
+        durationMs: null,
+        localPath: 'keyframes/frame-01.png',
+        webUrl: 'https://inventory.example.test/spaces/space-1/assets/asset-1',
+      },
+    ],
+    images: [
+      {
+        index: 1,
+        mediaKind: 'image',
+        assetId: 'asset-2',
+        variantId: 'variant-2',
+        mediaKey: 'images/space/variant-2.png',
+        imageKey: 'images/space/variant-2.png',
+        thumbKey: null,
+        mimeType: 'image/png',
+        sizeBytes: null,
+        width: null,
+        height: null,
+        durationMs: null,
+        localPath: 'keyframes/frame-02.png',
+        webUrl: 'https://inventory.example.test/spaces/space-1/assets/asset-2',
+      },
+      {
+        index: 0,
+        mediaKind: 'image',
+        assetId: 'asset-1',
+        variantId: 'variant-1',
+        mediaKey: 'images/space/variant-1.png',
+        imageKey: 'images/space/variant-1.png',
+        thumbKey: null,
+        mimeType: 'image/png',
+        sizeBytes: null,
+        width: null,
+        height: null,
+        durationMs: null,
         localPath: 'keyframes/frame-01.png',
         webUrl: 'https://inventory.example.test/spaces/space-1/assets/asset-1',
       },
@@ -149,6 +198,8 @@ test('runs export writes ordered Remotion keyframe data', async () => {
     const exported = JSON.parse(await readFile(outputPath, 'utf8'));
     assert.equal(exported.format, 'remotion-keyframes');
     assert.equal(exported.runId, 'run-export');
+    assert.deepEqual(exported.media.map((media: { variantId: string }) => media.variantId), ['variant-1', 'variant-2']);
+    assert.equal(exported.media[0].absolutePath, path.join(workingDir, 'keyframes/frame-01.png'));
     assert.deepEqual(exported.images.map((image: { variantId: string }) => image.variantId), ['variant-1', 'variant-2']);
     assert.equal(exported.images[0].absolutePath, path.join(workingDir, 'keyframes/frame-01.png'));
     assert.deepEqual(exported.failed, [{ variantId: 'variant-failed', error: 'failed frame' }]);

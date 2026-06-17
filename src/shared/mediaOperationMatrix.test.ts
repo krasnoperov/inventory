@@ -61,7 +61,7 @@ describe('media operation matrix', () => {
     assert.ok(audioModes.every((entry) => entry.cliNamespace === 'audio'));
     assert.ok(audioModes.every((entry) => entry.cliCommands.join(',') === 'generate,batch'));
     assert.ok(audioModes.every((entry) => !entry.cliSupportsRefs));
-    assert.ok(audioModes.every((entry) => !entry.cliSavesBatchManifest));
+    assert.ok(audioModes.every((entry) => entry.cliSavesBatchManifest));
 
     assert.deepEqual(CLI_GENERATION_PROFILES, [
       {
@@ -76,7 +76,7 @@ describe('media operation matrix', () => {
         mediaKind: 'audio',
         commands: ['generate', 'batch'],
         supportsRefs: false,
-        savesBatchManifest: false,
+        savesBatchManifest: true,
       },
       {
         namespace: 'video',
