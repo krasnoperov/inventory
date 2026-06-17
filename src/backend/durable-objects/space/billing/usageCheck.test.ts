@@ -75,6 +75,43 @@ describe('SpaceDO usage preCheck', () => {
     assert.strictEqual(result.quotaRemaining, null);
   });
 
+  test('treats admin users as internal even when the stored entitlement is none', async () => {
+    const result = await preCheck(
+      createPreCheckDb({
+        quotaLimit: 0,
+        paidGenerationEntitlement: 'none',
+      }) as any,
+      42,
+      'elevenlabs',
+      undefined,
+      1,
+      1,
+      '7, 42, 99' // ADMIN_USER_IDS includes 42
+    );
+
+    assert.strictEqual(result.allowed, true);
+    assert.strictEqual(result.quotaLimit, null);
+    assert.strictEqual(result.quotaRemaining, null);
+  });
+
+  test('does not grant access to non-admins via ADMIN_USER_IDS', async () => {
+    const result = await preCheck(
+      createPreCheckDb({
+        quotaLimit: 0,
+        paidGenerationEntitlement: 'none',
+      }) as any,
+      42,
+      'elevenlabs',
+      undefined,
+      1,
+      1,
+      '7, 99' // 42 is not listed
+    );
+
+    assert.strictEqual(result.allowed, false);
+    assert.strictEqual(result.denyReason, 'paid_generation_required');
+  });
+
   test('defaults rate limiting to one request when quota quantity is higher', async () => {
     const result = await preCheck(
       createPreCheckDb({ quotaLimit: 100, rateLimitCount: 9 }) as any,

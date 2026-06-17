@@ -21,7 +21,7 @@ describe('UsageService', () => {
     usageEventDAO = new UsageEventDAO(db);
     userDAO = new UserDAO(db);
     // Create service without PolarService (null) for local-only testing
-    usageService = new UsageService(usageEventDAO, userDAO, null, db);
+    usageService = new UsageService(usageEventDAO, userDAO, null, db, {} as any);
 
     // Create a test user
     const user = await new TestUserBuilder()
@@ -263,7 +263,8 @@ describe('UsageService', () => {
         usageEventDAO,
         userDAO,
         { ingestEventsBatch } as any,
-        db
+        db,
+        {} as any
       );
       await service.trackElevenLabsAudioGeneration(
         testUserId,
@@ -317,7 +318,8 @@ describe('UsageService', () => {
         usageEventDAO,
         userDAO,
         { ingestEventsBatch } as any,
-        db
+        db,
+        {} as any
       );
 
       const result = await service.syncPendingEvents();

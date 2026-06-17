@@ -8,7 +8,7 @@ import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { UserDAO } from '../../dao/user-dao';
 import {
   isNonBillablePaidGenerationEntitlement,
-  normalizePaidGenerationEntitlement,
+  resolveEntitlement,
 } from '../billing/paidGenerationEntitlement';
 
 const billingRoutes = new Hono<AppContext>();
@@ -146,7 +146,7 @@ billingRoutes.get('/api/billing/status', async (c) => {
   const polarService = container.get(PolarService);
   const userDAO = container.get(UserDAO);
   const user = await userDAO.findById(userId);
-  const entitlement = normalizePaidGenerationEntitlement(user?.paid_generation_entitlement);
+  const entitlement = resolveEntitlement(user?.paid_generation_entitlement, userId, c.env.ADMIN_USER_IDS);
 
   if (isNonBillablePaidGenerationEntitlement(entitlement)) {
     return c.json({
