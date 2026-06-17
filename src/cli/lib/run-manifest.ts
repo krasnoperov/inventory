@@ -61,9 +61,9 @@ export type RunManifestRecord = {
   manifestPath: string;
 };
 
-export type RemotionRunExport = {
+export type MediaRunExport = {
   version: 1;
-  format: 'remotion-keyframes';
+  format: 'media-handoff';
   runId: string;
   manifestPath: string;
   projectRoot: string;
@@ -80,6 +80,10 @@ export type RemotionRunExport = {
   media: Array<RunManifestMedia & { absolutePath: string }>;
   images: Array<RunManifestImage & { absolutePath: string }>;
   failed: RunManifestFailure[];
+};
+
+export type RemotionRunExport = Omit<MediaRunExport, 'format'> & {
+  format: 'remotion-keyframes';
 };
 
 export function createRunId(date = new Date()): string {
@@ -154,15 +158,15 @@ export async function resolveRunManifest(input: {
   return readRunManifest(manifestPath);
 }
 
-export function createRemotionRunExport(
+export function createMediaRunExport(
   record: RunManifestRecord,
   projectRoot: string
-): RemotionRunExport {
+): MediaRunExport {
   const pathBase = record.manifest.workingDir || projectRoot;
 
   return {
     version: 1,
-    format: 'remotion-keyframes',
+    format: 'media-handoff',
     runId: record.manifest.runId,
     manifestPath: record.manifestPath,
     projectRoot,
@@ -187,6 +191,16 @@ export function createRemotionRunExport(
         absolutePath: path.resolve(pathBase, image.localPath),
       })),
     failed: record.manifest.failed,
+  };
+}
+
+export function createRemotionRunExport(
+  record: RunManifestRecord,
+  projectRoot: string
+): RemotionRunExport {
+  return {
+    ...createMediaRunExport(record, projectRoot),
+    format: 'remotion-keyframes',
   };
 }
 

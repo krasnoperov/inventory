@@ -362,14 +362,17 @@ reject `mediaKind: "video"`.
 pnpm run cli runs
 pnpm run cli runs show --latest
 pnpm run cli runs show RUN_ID --json
-pnpm run cli runs export --latest --format remotion -o media-run.json
+pnpm run cli runs export --latest --format media -o media-run.json
+pnpm run cli runs export --latest --format remotion -o keyframes.json
 ```
 
 `runs` reads local `.inventory/runs` manifests from the initialized project root
-and does not call generation APIs. The Remotion export is a compact JSON handoff
-with ordered media paths, absolute paths resolved from the original command
-working directory, website IDs/URLs, prompt, refs, and failed variant errors.
-Image runs also include an ordered `images` keyframe array for existing tools.
+and does not call generation APIs. The default `media` export is a compact JSON
+handoff with ordered media paths, absolute paths resolved from the original
+command working directory, website IDs/URLs, prompt, refs, and failed variant
+errors. Image runs also include an ordered `images` keyframe array for existing
+tools. Use `--format remotion` when an existing keyframe pipeline expects the
+legacy `remotion-keyframes` format marker.
 
 See [cli-generation.md](./cli-generation.md) for the full command reference.
 
