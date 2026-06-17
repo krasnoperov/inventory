@@ -13,6 +13,7 @@ export interface MeterStatus {
 export interface BillingStatus {
   configured: boolean;
   hasSubscription: boolean;
+  entitlement: 'none' | 'paid' | 'internal';
   meters: MeterStatus[];
   subscription: {
     status: string;

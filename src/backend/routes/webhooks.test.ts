@@ -128,6 +128,7 @@ describe('Polar webhook route', () => {
     assert.deepEqual(await response.json(), { received: true });
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
+    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'none');
     assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
       claude_input_tokens: 0,
       claude_output_tokens: 0,
@@ -167,6 +168,7 @@ describe('Polar webhook route', () => {
     assert.deepEqual(meterLookups[0], [42]);
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
+    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'paid');
     assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
       gemini_images: 25,
     });
@@ -232,6 +234,7 @@ describe('Polar webhook route', () => {
     assert.deepEqual(meterLookups[0], [42]);
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
+    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'paid');
     assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
       gemini_images: 25,
     });
@@ -268,6 +271,7 @@ describe('Polar webhook route', () => {
     assert.equal(response.status, 200);
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
+    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'paid');
     assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
       gemini_images: 25,
       claude_input_tokens: null,

@@ -373,6 +373,7 @@ async function handleSubscriptionCanceled(
   };
 
   await userDAO.update(userId, {
+    paid_generation_entitlement: 'none',
     quota_limits: JSON.stringify(revokedLimits),
     quota_limits_updated_at: new Date().toISOString(),
   });
@@ -413,6 +414,7 @@ async function handleCustomerStateChanged(
     };
 
     await userDAO.update(userId, {
+      paid_generation_entitlement: 'none',
       quota_limits: JSON.stringify(revokedLimits),
       quota_limits_updated_at: new Date().toISOString(),
     });
@@ -444,6 +446,7 @@ async function fetchAndCacheLimits(
 
     // Update user's cached limits
     await userDAO.update(userId, {
+      paid_generation_entitlement: 'paid',
       quota_limits: JSON.stringify(limits),
       quota_limits_updated_at: new Date().toISOString(),
     });

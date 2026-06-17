@@ -67,11 +67,13 @@ export class UsageEventDAO {
 
   async findUnsynced(limit = 100): Promise<UsageEvent[]> {
     return await this.db
-      .selectFrom('usage_events')
-      .selectAll()
-      .where('synced_at', 'is', null)
-      .where('sync_attempts', '<', MAX_SYNC_ATTEMPTS) // Exclude failed events
-      .orderBy('created_at', 'asc')
+      .selectFrom('usage_events as e')
+      .innerJoin('users as u', 'u.id', 'e.user_id')
+      .selectAll('e')
+      .where('e.synced_at', 'is', null)
+      .where('e.sync_attempts', '<', MAX_SYNC_ATTEMPTS) // Exclude failed events
+      .where('u.paid_generation_entitlement', '!=', 'internal')
+      .orderBy('e.created_at', 'asc')
       .limit(limit)
       .execute();
   }
@@ -193,12 +195,14 @@ export class UsageEventDAO {
     synced: number;
   }> {
     const result = await this.db
-      .selectFrom('usage_events')
+      .selectFrom('usage_events as e')
+      .innerJoin('users as u', 'u.id', 'e.user_id')
       .select([
-        sql<number>`COUNT(CASE WHEN synced_at IS NULL AND sync_attempts < ${MAX_SYNC_ATTEMPTS} THEN 1 END)`.as('pending'),
-        sql<number>`COUNT(CASE WHEN synced_at IS NULL AND sync_attempts >= ${MAX_SYNC_ATTEMPTS} THEN 1 END)`.as('failed'),
-        sql<number>`COUNT(CASE WHEN synced_at IS NOT NULL THEN 1 END)`.as('synced'),
+        sql<number>`COUNT(CASE WHEN e.synced_at IS NULL AND e.sync_attempts < ${MAX_SYNC_ATTEMPTS} THEN 1 END)`.as('pending'),
+        sql<number>`COUNT(CASE WHEN e.synced_at IS NULL AND e.sync_attempts >= ${MAX_SYNC_ATTEMPTS} THEN 1 END)`.as('failed'),
+        sql<number>`COUNT(CASE WHEN e.synced_at IS NOT NULL THEN 1 END)`.as('synced'),
       ])
+      .where('u.paid_generation_entitlement', '!=', 'internal')
       .executeTakeFirst();
 
     return {

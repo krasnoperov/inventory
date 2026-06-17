@@ -19,6 +19,7 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
       name TEXT NOT NULL,
       google_id TEXT UNIQUE,
       polar_customer_id TEXT,
+      paid_generation_entitlement TEXT NOT NULL DEFAULT 'none',
       quota_limits TEXT,
       quota_limits_updated_at TEXT,
       rate_limit_count INTEGER NOT NULL DEFAULT 0,

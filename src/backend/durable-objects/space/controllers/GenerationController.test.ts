@@ -53,6 +53,7 @@ function createMockD1() {
     db: {
       prepare: mock.fn((sql: string) => ({
         bind: mock.fn((...bindings: unknown[]) => ({
+          first: mock.fn(async () => ({ paid_generation_entitlement: 'paid' })),
           run: mock.fn(async () => {
             statements.push({ sql, bindings });
             return { success: true };
@@ -75,6 +76,7 @@ function createQuotaCheckDb(options: {
         first: mock.fn(async () => {
           if (sql.includes('FROM users')) {
             return {
+              paid_generation_entitlement: 'paid',
               quota_limits: JSON.stringify({ elevenlabs_audio: options.quotaLimit }),
               rate_limit_count: options.rateLimitCount ?? 0,
               rate_limit_window_start: null,
@@ -278,6 +280,7 @@ describe('GenerationController pipeline hooks', () => {
           return {
             first: sql.includes('FROM users')
               ? mock.fn(async () => ({
+                  paid_generation_entitlement: 'paid',
                   quota_limits: JSON.stringify({
                     gemini_images: 100,
                     gemini_videos: 0,
@@ -557,7 +560,16 @@ describe('GenerationController pipeline hooks', () => {
     test('completes media-only video variants without image keys and tracks video usage', async () => {
       const run = mock.fn(async () => ({}));
       const bind = mock.fn(() => ({ run }));
-      const prepare = mock.fn(() => ({ bind }));
+      const prepare = mock.fn((sql: string) => ({
+        bind: mock.fn((...args: unknown[]) => {
+          if (sql.includes('SELECT paid_generation_entitlement')) {
+            return {
+              first: mock.fn(async () => ({ paid_generation_entitlement: 'paid' })),
+            };
+          }
+          return bind(...args);
+        }),
+      }));
       const { ctx } = createMockContext({
         getVariantById: mock.fn(async () => createMockVariant({
           id: 'variant-video',
@@ -604,7 +616,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(result.variant.media_key, 'media/space-1/variant-video.mp4');
       assert.strictEqual(result.variant.media_mime_type, 'video/mp4');
       assert.strictEqual(result.variant.media_duration_ms, 8000);
-      assert.strictEqual(prepare.mock.calls.length, 1);
+      assert.strictEqual(prepare.mock.calls.length, 2);
       assert.strictEqual(bind.mock.calls[0].arguments[1], 123);
       assert.strictEqual(bind.mock.calls[0].arguments[2], 'gemini_videos');
       assert.strictEqual(bind.mock.calls[0].arguments[3], 1);
@@ -966,6 +978,7 @@ describe('GenerationController pipeline hooks', () => {
             first: mock.fn(async () => {
               if (sql.includes('FROM users')) {
                 return {
+                  paid_generation_entitlement: 'paid',
                   quota_limits: JSON.stringify({ elevenlabs_audio: 1000 }),
                   rate_limit_count: 9,
                   rate_limit_window_start: new Date().toISOString(),

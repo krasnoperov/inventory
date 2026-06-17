@@ -24,6 +24,7 @@ const user = {
   name: 'Asset Artist',
   google_id: 'google-7',
   polar_customer_id: null,
+  paid_generation_entitlement: 'none' as const,
   quota_limits: null,
   quota_limits_updated_at: null,
   rate_limit_count: 0,

@@ -6,6 +6,12 @@ import { UserDAO } from '../../dao/user-dao';
 import { PolarService } from './polarService';
 import type { Database } from '../../db/types';
 import { TYPES } from '../../core/di-types';
+import {
+  hasPaidGenerationAccess,
+  isNonBillablePaidGenerationEntitlement,
+  normalizePaidGenerationEntitlement,
+  PAID_GENERATION_REQUIRED_MESSAGE,
+} from '../billing/paidGenerationEntitlement';
 
 export const USAGE_EVENTS = {
   // Claude (Anthropic) - split by token type for accurate pricing
@@ -63,7 +69,7 @@ export interface PreCheckResult {
   rateLimitRemaining: number;
   rateLimitResetsAt: Date | null;
   // Denial reason (if not allowed)
-  denyReason?: 'quota_exceeded' | 'rate_limited';
+  denyReason?: 'quota_exceeded' | 'rate_limited' | 'paid_generation_required';
   denyMessage?: string;
 }
 
@@ -114,6 +120,8 @@ export class UsageService {
     model: string,
     requestId?: string
   ): Promise<void> {
+    if (await this.isNonBillableUser(userId)) return;
+
     const baseMetadata: UsageEventMetadata = {
       model,
       request_id: requestId,
@@ -155,6 +163,8 @@ export class UsageService {
     aspectRatio?: string,
     tokenUsage?: { inputTokens: number; outputTokens: number }
   ): Promise<void> {
+    if (await this.isNonBillableUser(userId)) return;
+
     const baseMetadata: UsageEventMetadata = {
       model,
       operation,
@@ -204,6 +214,8 @@ export class UsageService {
     assetType?: string,
     tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number }
   ): Promise<void> {
+    if (await this.isNonBillableUser(userId)) return;
+
     await this.usageEventDAO.create({
       userId,
       eventName: USAGE_EVENTS.ELEVENLABS_AUDIO,
@@ -231,6 +243,8 @@ export class UsageService {
     operation?: string,
     aspectRatio?: string
   ): Promise<void> {
+    if (await this.isNonBillableUser(userId)) return;
+
     await this.usageEventDAO.create({
       userId,
       eventName: USAGE_EVENTS.GEMINI_VIDEOS,
@@ -545,6 +559,7 @@ export class UsageService {
       )
       .select([
         'u.id',
+        'u.paid_generation_entitlement',
         'u.quota_limits',
         'u.rate_limit_count',
         'u.rate_limit_window_start',
@@ -556,7 +571,13 @@ export class UsageService {
         ).as('total_used')
       )
       .where('u.id', '=', userId)
-      .groupBy(['u.id', 'u.quota_limits', 'u.rate_limit_count', 'u.rate_limit_window_start'])
+      .groupBy([
+        'u.id',
+        'u.paid_generation_entitlement',
+        'u.quota_limits',
+        'u.rate_limit_count',
+        'u.rate_limit_window_start',
+      ])
       .executeTakeFirst();
 
     if (!result) {
@@ -574,13 +595,9 @@ export class UsageService {
       };
     }
 
-    // Parse quota limits from cached JSON
-    const limits: Record<string, number | null> = result.quota_limits
-      ? JSON.parse(result.quota_limits)
-      : {};
-    const quotaLimit = limits[eventName] ?? null;
+    const entitlement = normalizePaidGenerationEntitlement(result.paid_generation_entitlement);
+    const isNonBillable = isNonBillablePaidGenerationEntitlement(entitlement);
     const quotaUsed = Number(result.total_used) || 0;
-    const quotaRemaining = quotaLimit !== null ? Math.max(0, quotaLimit - quotaUsed) : null;
 
     // Check rate limit (fixed window)
     const windowExpired = !result.rate_limit_window_start ||
@@ -590,6 +607,29 @@ export class UsageService {
     const rateLimitResetsAt = result.rate_limit_window_start && !windowExpired
       ? new Date(new Date(result.rate_limit_window_start).getTime() + rateLimitConfig.windowSeconds * 1000)
       : null;
+
+    if (!hasPaidGenerationAccess(entitlement)) {
+      return {
+        allowed: false,
+        quotaUsed,
+        quotaLimit: null,
+        quotaRemaining: null,
+        rateLimitUsed,
+        rateLimitMax: rateLimitConfig.maxRequests,
+        rateLimitRemaining,
+        rateLimitResetsAt,
+        denyReason: 'paid_generation_required',
+        denyMessage: PAID_GENERATION_REQUIRED_MESSAGE,
+      };
+    }
+
+    // Parse quota limits from cached JSON. Internal users are explicitly non-billable,
+    // so they bypass quota but still pass through the fixed-window rate limiter.
+    const limits: Record<string, number | null> = result.quota_limits && !isNonBillable
+      ? JSON.parse(result.quota_limits)
+      : {};
+    const quotaLimit = isNonBillable ? null : (limits[eventName] ?? null);
+    const quotaRemaining = quotaLimit !== null ? Math.max(0, quotaLimit - quotaUsed) : null;
 
     // Check quota exceeded
     if (quotaLimit !== null && quotaUsed >= quotaLimit) {
@@ -685,6 +725,10 @@ export class UsageService {
    * Get customer portal URL for billing management
    */
   async getCustomerPortalUrl(userId: number, returnUrl?: string): Promise<string | null> {
+    if (await this.isNonBillableUser(userId)) {
+      return null;
+    }
+
     if (!this.polarService) {
       return null;
     }
@@ -726,7 +770,12 @@ export class UsageService {
       try {
         // Re-check DB to avoid race condition with concurrent signup
         const freshUser = await this.userDAO.findById(user.id);
-        if (!freshUser || freshUser.polar_customer_id) {
+        const entitlement = normalizePaidGenerationEntitlement(freshUser?.paid_generation_entitlement);
+        if (
+          !freshUser ||
+          freshUser.polar_customer_id ||
+          isNonBillablePaidGenerationEntitlement(entitlement)
+        ) {
           // User was deleted or already has a Polar customer now
           continue;
         }
@@ -757,5 +806,11 @@ export class UsageService {
     }
 
     return { created, failed };
+  }
+
+  private async isNonBillableUser(userId: number): Promise<boolean> {
+    const user = await this.userDAO.findById(userId);
+    const entitlement = normalizePaidGenerationEntitlement(user?.paid_generation_entitlement);
+    return isNonBillablePaidGenerationEntitlement(entitlement);
   }
 }

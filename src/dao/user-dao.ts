@@ -1,18 +1,21 @@
 import { injectable, inject } from 'inversify';
 import type { Kysely } from 'kysely';
 import type { Database, User, SessionUser } from '../db/types';
+import type { PaidGenerationEntitlement } from '../backend/billing/paidGenerationEntitlement';
 import { TYPES } from '../core/di-types';
 
 export interface CreateUserData {
   email: string;
   name: string;
   google_id?: string;
+  paid_generation_entitlement?: PaidGenerationEntitlement;
 }
 
 export interface UpdateUserData {
   name?: string;
   google_id?: string;
   polar_customer_id?: string;
+  paid_generation_entitlement?: PaidGenerationEntitlement;
   // Quota limits cached from Polar webhooks (JSON)
   quota_limits?: string;
   quota_limits_updated_at?: string;
@@ -56,6 +59,7 @@ export class UserDAO {
         email: data.email,
         name: data.name,
         google_id: data.google_id,
+        paid_generation_entitlement: data.paid_generation_entitlement || 'none',
         rate_limit_count: 0, // Initialize rate limit counter
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -78,6 +82,9 @@ export class UserDAO {
     if (data.name !== undefined) updateData.name = data.name;
     if (data.google_id !== undefined) updateData.google_id = data.google_id;
     if (data.polar_customer_id !== undefined) updateData.polar_customer_id = data.polar_customer_id;
+    if (data.paid_generation_entitlement !== undefined) {
+      updateData.paid_generation_entitlement = data.paid_generation_entitlement;
+    }
     if (data.quota_limits !== undefined) updateData.quota_limits = data.quota_limits;
     if (data.quota_limits_updated_at !== undefined) updateData.quota_limits_updated_at = data.quota_limits_updated_at;
     if (data.rate_limit_count !== undefined) updateData.rate_limit_count = data.rate_limit_count;
@@ -130,6 +137,7 @@ export class UserDAO {
       .selectFrom('users')
       .selectAll()
       .where('polar_customer_id', 'is', null)
+      .where('paid_generation_entitlement', '!=', 'internal')
       .orderBy('created_at', 'asc')
       .limit(limit)
       .execute();
@@ -144,6 +152,7 @@ export class UserDAO {
       .selectFrom('users')
       .select((eb) => eb.fn.countAll<number>().as('count'))
       .where('polar_customer_id', 'is', null)
+      .where('paid_generation_entitlement', '!=', 'internal')
       .executeTakeFirst();
 
     return Number(result?.count) || 0;

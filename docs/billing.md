@@ -62,6 +62,19 @@ User Request → Worker
 | `gemini_input_tokens` | SUM | Gemini API input |
 | `gemini_output_tokens` | SUM | Gemini API output |
 
+## Paid Generation Entitlements
+
+Generation access is controlled by `users.paid_generation_entitlement`:
+
+| Value | Meaning |
+|-------|---------|
+| `none` | No paid-generation access. Generation pre-checks fail before provider calls. |
+| `paid` | Billable customer access. Quota/rate checks apply and usage events sync to Polar. |
+| `internal` | Non-billable internal access. Rate limits still apply, but quota checks and Polar usage sync are skipped. |
+
+Polar subscription webhooks set active subscribers to `paid` and canceled/no-active-subscription users to `none`.
+Local dev-auth users are marked `internal`.
+
 ---
 
 ## API Endpoints
@@ -74,6 +87,7 @@ User Request → Worker
 ### Status Response
 
 ```
+entitlement: none | paid | internal
 meters: [
   { name, consumed, credited, remaining, percentUsed, status }
 ]

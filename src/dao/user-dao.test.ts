@@ -89,6 +89,7 @@ describe('UserDAO', () => {
       assert(user);
       assert.strictEqual(user.email, 'new@example.com');
       assert.strictEqual(user.name, 'New User');
+      assert.strictEqual(user.paid_generation_entitlement, 'none');
       assert(user.created_at);
       assert(user.updated_at);
     });
@@ -104,6 +105,18 @@ describe('UserDAO', () => {
       const user = await dao.findById(userId);
       assert(user);
       assert.strictEqual(user.google_id, 'google-456');
+    });
+
+    test('creates user with explicit paid-generation entitlement', async () => {
+      const userId = await dao.create({
+        email: 'internal@example.com',
+        name: 'Internal User',
+        paid_generation_entitlement: 'internal',
+      });
+
+      const user = await dao.findById(userId);
+      assert(user);
+      assert.strictEqual(user.paid_generation_entitlement, 'internal');
     });
   });
 
@@ -129,6 +142,14 @@ describe('UserDAO', () => {
       const user = await dao.findById(testUser.id);
       assert(user);
       assert.strictEqual(user.google_id, 'new-google-id');
+    });
+
+    test('updates paid-generation entitlement', async () => {
+      await dao.update(testUser.id, { paid_generation_entitlement: 'paid' });
+
+      const user = await dao.findById(testUser.id);
+      assert(user);
+      assert.strictEqual(user.paid_generation_entitlement, 'paid');
     });
 
     test('updates updated_at timestamp', async () => {
@@ -199,6 +220,23 @@ describe('UserDAO', () => {
     test('returns null when user does not exist', async () => {
       const sessionUser = await dao.getSessionUser(99999);
       assert.strictEqual(sessionUser, null);
+    });
+  });
+
+  describe('polar customer backfill', () => {
+    test('excludes non-billable internal users without Polar customers', async () => {
+      await dao.update(testUser.id, { paid_generation_entitlement: 'internal' });
+      const paidId = await dao.create({
+        email: 'paid@example.com',
+        name: 'Paid User',
+        paid_generation_entitlement: 'paid',
+      });
+
+      const users = await dao.findWithoutPolarCustomer();
+      const ids = users.map((user) => user.id);
+
+      assert.deepStrictEqual(ids, [paidId]);
+      assert.strictEqual(await dao.countWithoutPolarCustomer(), 1);
     });
   });
 });

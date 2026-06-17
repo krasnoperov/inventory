@@ -5,9 +5,11 @@ import { preCheck } from './usageCheck';
 
 function createPreCheckDb(options: {
   quotaLimit: number;
+  quotaLimitsJson?: string;
   quotaUsed?: number;
   rateLimitCount?: number;
   rateLimitWindowStart?: string | null;
+  paidGenerationEntitlement?: 'none' | 'paid' | 'internal';
 }) {
   return {
     prepare: mock.fn((sql: string) => ({
@@ -15,7 +17,8 @@ function createPreCheckDb(options: {
         first: mock.fn(async () => {
           if (sql.includes('FROM users')) {
             return {
-              quota_limits: JSON.stringify({ elevenlabs_audio: options.quotaLimit }),
+              paid_generation_entitlement: options.paidGenerationEntitlement ?? 'paid',
+              quota_limits: options.quotaLimitsJson ?? JSON.stringify({ elevenlabs_audio: options.quotaLimit }),
               rate_limit_count: options.rateLimitCount ?? 0,
               rate_limit_window_start: options.rateLimitWindowStart ?? new Date().toISOString(),
             };
@@ -28,6 +31,50 @@ function createPreCheckDb(options: {
 }
 
 describe('SpaceDO usage preCheck', () => {
+  test('blocks users without explicit paid-generation entitlement', async () => {
+    const result = await preCheck(
+      createPreCheckDb({
+        quotaLimit: 100,
+        paidGenerationEntitlement: 'none',
+      }) as any,
+      42,
+      'elevenlabs'
+    );
+
+    assert.strictEqual(result.allowed, false);
+    assert.strictEqual(result.denyReason, 'paid_generation_required');
+  });
+
+  test('blocks users without entitlement before parsing cached quota limits', async () => {
+    const result = await preCheck(
+      createPreCheckDb({
+        quotaLimit: 100,
+        quotaLimitsJson: '{not-json',
+        paidGenerationEntitlement: 'none',
+      }) as any,
+      42,
+      'elevenlabs'
+    );
+
+    assert.strictEqual(result.allowed, false);
+    assert.strictEqual(result.denyReason, 'paid_generation_required');
+  });
+
+  test('allows internal users without consuming quota', async () => {
+    const result = await preCheck(
+      createPreCheckDb({
+        quotaLimit: 0,
+        paidGenerationEntitlement: 'internal',
+      }) as any,
+      42,
+      'elevenlabs'
+    );
+
+    assert.strictEqual(result.allowed, true);
+    assert.strictEqual(result.quotaLimit, null);
+    assert.strictEqual(result.quotaRemaining, null);
+  });
+
   test('defaults rate limiting to one request when quota quantity is higher', async () => {
     const result = await preCheck(
       createPreCheckDb({ quotaLimit: 100, rateLimitCount: 9 }) as any,
