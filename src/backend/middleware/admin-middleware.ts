@@ -1,5 +1,6 @@
 import type { Context, Next } from 'hono';
 import type { AppContext } from '../routes/types';
+import { isAdminUserId } from '../billing/paidGenerationEntitlement';
 
 /**
  * Admin middleware that checks if the authenticated user is in the ADMIN_USER_IDS list.
@@ -13,13 +14,7 @@ export const adminMiddleware = async (c: Context<AppContext>, next: Next) => {
     return c.json({ error: 'Authentication required' }, 401);
   }
 
-  const adminUserIds = c.env.ADMIN_USER_IDS;
-  if (!adminUserIds) {
-    return c.json({ error: 'Forbidden' }, 403);
-  }
-
-  const allowedIds = adminUserIds.split(',').map((id) => id.trim()).filter(Boolean);
-  if (!allowedIds.includes(String(userId))) {
+  if (!isAdminUserId(userId, c.env.ADMIN_USER_IDS)) {
     return c.json({ error: 'Forbidden' }, 403);
   }
 

@@ -10,6 +10,7 @@ import {
   hasPaidGenerationAccess,
   isNonBillablePaidGenerationEntitlement,
   normalizePaidGenerationEntitlement,
+  resolveEntitlement,
   PAID_GENERATION_REQUIRED_MESSAGE,
 } from '../../../billing/paidGenerationEntitlement';
 
@@ -56,7 +57,8 @@ export async function preCheck(
   service: 'claude' | 'nanobanana' | 'elevenlabs' | 'veo',
   rateLimit?: RateLimitConfig,
   requestedQuantity = 1,
-  rateLimitQuantity = 1
+  rateLimitQuantity = 1,
+  adminUserIds?: string
 ): Promise<PreCheckResult> {
   const eventName = QUOTA_EVENT_NAMES[service];
   const rateLimitConfig = rateLimit || DEFAULT_RATE_LIMITS[service];
@@ -100,7 +102,7 @@ export async function preCheck(
 
   const quotaUsed = usageResult?.total_used || 0;
 
-  const entitlement = normalizePaidGenerationEntitlement(userResult.paid_generation_entitlement);
+  const entitlement = resolveEntitlement(userResult.paid_generation_entitlement, userId, adminUserIds);
   const isNonBillable = isNonBillablePaidGenerationEntitlement(entitlement);
 
   // Check rate limit (fixed window)

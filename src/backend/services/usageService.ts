@@ -5,11 +5,12 @@ import { UsageEventDAO, type UsageEventMetadata } from '../../dao/usage-event-da
 import { UserDAO } from '../../dao/user-dao';
 import { PolarService } from './polarService';
 import type { Database } from '../../db/types';
+import type { Env } from '../../core/types';
 import { TYPES } from '../../core/di-types';
 import {
   hasPaidGenerationAccess,
   isNonBillablePaidGenerationEntitlement,
-  normalizePaidGenerationEntitlement,
+  resolveEntitlement,
   PAID_GENERATION_REQUIRED_MESSAGE,
 } from '../billing/paidGenerationEntitlement';
 
@@ -108,6 +109,7 @@ export class UsageService {
     @inject(UserDAO) private userDAO: UserDAO,
     @inject(PolarService) @optional() private polarService: PolarService | null,
     @inject(TYPES.Database) private db: Kysely<Database>,
+    @inject(TYPES.Env) private env: Env,
   ) {}
 
   /**
@@ -605,7 +607,7 @@ export class UsageService {
       };
     }
 
-    const entitlement = normalizePaidGenerationEntitlement(result.paid_generation_entitlement);
+    const entitlement = resolveEntitlement(result.paid_generation_entitlement, userId, this.env.ADMIN_USER_IDS);
     const isNonBillable = isNonBillablePaidGenerationEntitlement(entitlement);
     const quotaUsed = Number(result.total_used) || 0;
 
@@ -780,7 +782,7 @@ export class UsageService {
       try {
         // Re-check DB to avoid race condition with concurrent signup
         const freshUser = await this.userDAO.findById(user.id);
-        const entitlement = normalizePaidGenerationEntitlement(freshUser?.paid_generation_entitlement);
+        const entitlement = resolveEntitlement(freshUser?.paid_generation_entitlement, user.id, this.env.ADMIN_USER_IDS);
         if (
           !freshUser ||
           freshUser.polar_customer_id ||
@@ -820,7 +822,7 @@ export class UsageService {
 
   private async isBillableUser(userId: number): Promise<boolean> {
     const user = await this.userDAO.findById(userId);
-    const entitlement = normalizePaidGenerationEntitlement(user?.paid_generation_entitlement);
+    const entitlement = resolveEntitlement(user?.paid_generation_entitlement, userId, this.env.ADMIN_USER_IDS);
     return !isNonBillablePaidGenerationEntitlement(entitlement);
   }
 }

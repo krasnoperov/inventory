@@ -107,8 +107,9 @@ POLAR_ENVIRONMENT = "production"
 # Website-controlled audio generation provider (vars are not inherited from the
 # top-level [vars], so production must declare it explicitly).
 INVENTORY_AUDIO_PROVIDER = "elevenlabs"
-# Comma-separated user IDs allowed to access billing admin routes
-ADMIN_USER_IDS = ""
+# Comma-separated user IDs. Grants billing-admin routes AND non-billable
+# ('internal') paid-generation access to every tool.
+ADMIN_USER_IDS = "1"
 
 # Durable Objects - Production
 [[env.production.durable_objects.bindings]]

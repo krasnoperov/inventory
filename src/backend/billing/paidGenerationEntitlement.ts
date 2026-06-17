@@ -16,3 +16,29 @@ export function hasPaidGenerationAccess(entitlement: PaidGenerationEntitlement):
 export function isNonBillablePaidGenerationEntitlement(entitlement: PaidGenerationEntitlement): boolean {
   return entitlement === 'internal';
 }
+
+/**
+ * Whether a user is an admin, based on the comma-separated ADMIN_USER_IDS env var.
+ * Centralizes the parsing used by both the admin middleware and entitlement resolution.
+ */
+export function isAdminUserId(userId: number | string, adminUserIds: string | undefined): boolean {
+  if (!adminUserIds) return false;
+  const allowed = adminUserIds.split(',').map((id) => id.trim()).filter(Boolean);
+  return allowed.includes(String(userId));
+}
+
+/**
+ * Resolve a user's effective paid-generation entitlement.
+ *
+ * Admins (ADMIN_USER_IDS) are always treated as 'internal' — non-billable access
+ * to every tool — regardless of the stored column, so they keep access even when
+ * billing is unconfigured or a Polar sync writes 'none'.
+ */
+export function resolveEntitlement(
+  storedValue: unknown,
+  userId: number | string,
+  adminUserIds: string | undefined
+): PaidGenerationEntitlement {
+  if (isAdminUserId(userId, adminUserIds)) return 'internal';
+  return normalizePaidGenerationEntitlement(storedValue);
+}

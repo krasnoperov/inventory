@@ -141,7 +141,7 @@ export class GenerationController extends BaseController {
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind);
       const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, msg.assetType);
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity);
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
         this.send(ws, {
           type: 'generate:error',
@@ -221,7 +221,7 @@ export class GenerationController extends BaseController {
       }
       const billingService = getGenerationBillingService(this.env, billingMediaKind);
       const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, billingAssetType);
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity);
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
         this.send(ws, {
           type: 'refine:error',
@@ -310,7 +310,8 @@ export class GenerationController extends BaseController {
         billingService,
         undefined,
         quotaQuantity,
-        msg.count
+        msg.count,
+        this.env.ADMIN_USER_IDS
       );
       if (!check.allowed) {
         this.send(ws, {
@@ -407,7 +408,7 @@ export class GenerationController extends BaseController {
     const billingService = getGenerationBillingService(this.env, retryMediaKind);
     if (this.env.DB && billingService === 'elevenlabs') {
       const quotaQuantity = getQuotaCheckQuantity(billingService, recipe.prompt, 1, recipe.assetType);
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity);
+      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
         this.sendError(
           ws,
