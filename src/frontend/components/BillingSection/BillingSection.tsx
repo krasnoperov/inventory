@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useBillingStatus, formatMeterName, formatNumber, type MeterStatus } from '../../hooks/useBillingStatus';
 import styles from './BillingSection.module.css';
 
@@ -43,6 +44,29 @@ function UsageBar({ meter }: UsageBarProps) {
 
 export function BillingSection() {
   const { billing, isLoading, error } = useBillingStatus();
+  const [isStartingCheckout, setIsStartingCheckout] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const handleUpgrade = async () => {
+    setIsStartingCheckout(true);
+    setCheckoutError(null);
+
+    try {
+      const response = await fetch('/api/billing/checkout?return_url=/profile', {
+        credentials: 'include',
+      });
+      const data = await response.json() as { url?: string; message?: string; error?: string };
+      if (!response.ok || !data.url) {
+        throw new Error(data.message || data.error || 'Checkout is not available');
+      }
+      window.location.assign(data.url);
+    } catch (err) {
+      console.error('Checkout start error:', err);
+      setCheckoutError(err instanceof Error ? err.message : 'Checkout is not available');
+    } finally {
+      setIsStartingCheckout(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -93,7 +117,7 @@ export function BillingSection() {
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
         <h2 className={styles.sectionTitle}>Usage & Billing</h2>
-        {billing.portalUrl && (
+        {billing.hasSubscription && billing.portalUrl && (
           <a
             href={billing.portalUrl}
             target="_blank"
@@ -146,15 +170,19 @@ export function BillingSection() {
       )}
 
       {/* Upgrade CTA for free users */}
-      {!billing.hasSubscription && billing.portalUrl && (
-        <a
-          href={billing.portalUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+      {!billing.hasSubscription && billing.entitlement !== 'internal' && (
+        <button
+          type="button"
+          onClick={handleUpgrade}
+          disabled={isStartingCheckout}
           className={styles.upgradeButton}
         >
-          Upgrade to Pro
-        </a>
+          {isStartingCheckout ? 'Opening checkout...' : 'Upgrade to Pro'}
+        </button>
+      )}
+
+      {checkoutError && (
+        <div className={styles.checkoutUnavailable}>{checkoutError}</div>
       )}
     </div>
   );

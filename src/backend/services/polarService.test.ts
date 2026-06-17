@@ -76,6 +76,16 @@ describe('PolarService', () => {
       assert.strictEqual(result, null);
     });
 
+    test('getPaidGenerationCheckoutUrl returns null when not configured', async () => {
+      const service = createPolarService();
+      const result = await service.getPaidGenerationCheckoutUrl({
+        userId: 123,
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+      assert.strictEqual(result, null);
+    });
+
     test('getCustomerMeters returns empty array when not configured', async () => {
       const service = createPolarService();
       const result = await service.getCustomerMeters(123);

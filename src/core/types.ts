@@ -93,6 +93,7 @@ export interface Env {
   // Polar.sh billing integration
   POLAR_ACCESS_TOKEN?: string;
   POLAR_ORGANIZATION_ID?: string;
+  POLAR_PAID_GENERATION_PRODUCT_ID?: string;
   POLAR_WEBHOOK_SECRET?: string;
   POLAR_ENVIRONMENT?: 'sandbox' | 'production';
 

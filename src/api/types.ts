@@ -140,8 +140,8 @@ export interface RateLimitStatus {
  * - 429 Too Many Requests: Rate limited (user should wait)
  *
  * UI Recommendations:
- * - paid_generation_required: Show upgrade CTA, link to billing portal
- * - quota_exceeded: Show upgrade CTA, link to billing portal
+ * - paid_generation_required: Show upgrade CTA, link to checkout
+ * - quota_exceeded: Show upgrade CTA, link to checkout
  * - rate_limited: Show countdown timer based on resetsAt, disable action button
  */
 export interface LimitErrorResponse {
