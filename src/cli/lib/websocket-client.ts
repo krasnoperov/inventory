@@ -193,6 +193,8 @@ export interface Variant {
   provider_metadata?: string | null;
   recipe: string;
   starred: boolean;
+  quality_rating?: 'approved' | 'rejected' | null;
+  rated_at?: number | null;
   created_by: string;
   created_at: number;
   updated_at: number | null;
@@ -943,9 +945,13 @@ export class WebSocketClient {
 
   /** Rename an asset. Resolves with the updated asset record. */
   async renameAsset(assetId: string, name: string): Promise<AssetRecord> {
+    // Match the new name too: `asset:updated` is broadcast for many reasons
+    // (concurrent edits, child reparenting), so matching the asset id alone
+    // could resolve on an unrelated broadcast.
     const result = await this.awaitServerMessage(
       { type: 'asset:update', assetId, changes: { name } },
-      (msg): msg is AssetUpdatedMessage => msg.type === 'asset:updated' && msg.asset.id === assetId
+      (msg): msg is AssetUpdatedMessage =>
+        msg.type === 'asset:updated' && msg.asset.id === assetId && msg.asset.name === name
     );
     return result.asset;
   }
@@ -994,9 +1000,13 @@ export class WebSocketClient {
 
   /** Rate a variant (approved/rejected). Resolves with the updated variant. */
   async rateVariant(variantId: string, rating: 'approved' | 'rejected'): Promise<Variant> {
+    // Match the new rating too: `variant:updated` fires for many reasons (star,
+    // status changes), so matching the variant id alone could resolve early on
+    // an unrelated broadcast.
     const result = await this.awaitServerMessage(
       { type: 'variant:rate', variantId, rating },
-      (msg): msg is VariantUpdated => msg.type === 'variant:updated' && msg.variant.id === variantId
+      (msg): msg is VariantUpdated =>
+        msg.type === 'variant:updated' && msg.variant.id === variantId && msg.variant.quality_rating === rating
     );
     return result.variant;
   }
