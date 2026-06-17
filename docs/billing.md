@@ -139,6 +139,7 @@ The command verifies:
 - required Polar meters exist for all billable usage event names
 - local usage sync has no failed events and no pending billable event older than 15 minutes
 - non-internal users waiting on Polar customer backfill
+- internal users have zero billable usage events and their local usage remains non-billable
 
 ---
 

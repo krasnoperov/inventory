@@ -396,6 +396,64 @@ describe('UsageService', () => {
         lastSyncAttemptAt: '2026-06-17T09:05:00.000Z',
       });
     });
+
+    test('reports internal-user billing path violations separately', async () => {
+      const internalUser = await new TestUserBuilder()
+        .withEmail('internal@example.com')
+        .withName('Internal User')
+        .create(db);
+      await userDAO.update(internalUser.id, { paid_generation_entitlement: 'internal' });
+
+      await db.insertInto('usage_events').values([
+        {
+          id: 'internal-non-billable-event',
+          user_id: internalUser.id,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 1,
+          metadata: null,
+          polar_billable: 0,
+          created_at: '2026-06-17T09:00:00.000Z',
+          synced_at: null,
+          sync_attempts: 0,
+          last_sync_error: null,
+          last_sync_attempt_at: null,
+        },
+        {
+          id: 'internal-billable-event',
+          user_id: internalUser.id,
+          event_name: USAGE_EVENTS.GEMINI_VIDEOS,
+          quantity: 1,
+          metadata: null,
+          polar_billable: 1,
+          created_at: '2026-06-17T09:05:00.000Z',
+          synced_at: null,
+          sync_attempts: 0,
+          last_sync_error: null,
+          last_sync_attempt_at: null,
+        },
+        {
+          id: 'paid-billable-event',
+          user_id: testUserId,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 1,
+          metadata: null,
+          polar_billable: 1,
+          created_at: '2026-06-17T09:10:00.000Z',
+          synced_at: null,
+          sync_attempts: 0,
+          last_sync_error: null,
+          last_sync_attempt_at: null,
+        },
+      ]).execute();
+
+      const health = await usageEventDAO.getInternalBillingHealth();
+
+      assert.deepStrictEqual(health, {
+        internalUsers: 1,
+        billableEvents: 1,
+        nonBillableEvents: 1,
+      });
+    });
   });
 
   describe('getUserUsageStats', () => {

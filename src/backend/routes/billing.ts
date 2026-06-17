@@ -221,6 +221,7 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
   const now = new Date();
 
   const syncHealth = await usageEventDAO.getSyncHealth();
+  const internalBillingHealth = await usageEventDAO.getInternalBillingHealth();
   const usersWithoutPolarId = await userDAO.countWithoutPolarCustomer();
 
   const polarConfigured = polarService.isConfigured();
@@ -249,11 +250,14 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
       : usersWithoutPolarId > 0
         ? 'warning'
         : 'ok';
+  const internalBillingStatus: OperationalStatus = internalBillingHealth.billableEvents > 0
+    ? 'critical'
+    : 'ok';
 
   return c.json({
     generatedAt: now.toISOString(),
     environment: c.env.ENVIRONMENT ?? 'unknown',
-    status: combineStatus([polarStatus, syncStatus]),
+    status: combineStatus([polarStatus, syncStatus, internalBillingStatus]),
     checks: {
       polarMeters: {
         status: polarStatus,
@@ -276,6 +280,10 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
         customers: {
           withoutPolarId: usersWithoutPolarId,
         },
+      },
+      internalUsers: {
+        status: internalBillingStatus,
+        ...internalBillingHealth,
       },
     },
   });

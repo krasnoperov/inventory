@@ -172,6 +172,12 @@ interface BillingOperationalChecksResponse {
       };
       customers: { withoutPolarId: number };
     };
+    internalUsers: {
+      status: OperationalStatus;
+      internalUsers: number;
+      billableEvents: number;
+      nonBillableEvents: number;
+    };
   };
 }
 
@@ -288,6 +294,10 @@ async function handleBillingOpsCheck(env: string) {
   console.log(`  ${statusLabel(syncCheck.status)} pending=${syncCheck.events.pending} failed=${syncCheck.events.failed} synced=${syncCheck.events.synced}`);
   console.log(`  Oldest pending age: ${secondsSummary(syncCheck.events.oldestPendingAgeSeconds)} (warns after ${secondsSummary(syncCheck.pendingWarnAfterSeconds)})`);
   console.log(`  Customers without Polar ID: ${syncCheck.customers.withoutPolarId}`);
+
+  const internalCheck = billingChecks.checks.internalUsers;
+  console.log('\nInternal users:');
+  console.log(`  ${statusLabel(internalCheck.status)} users=${internalCheck.internalUsers} nonBillableEvents=${internalCheck.nonBillableEvents} billableEvents=${internalCheck.billableEvents}`);
 
   const hasCriticalWorker = workerChecks.some((check) => check.status === 'critical');
   const hasCriticalBilling = billingChecks.status === 'critical';

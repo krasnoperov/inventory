@@ -35,6 +35,12 @@ export interface UsageSyncHealth {
   lastSyncAttemptAt: string | null;
 }
 
+export interface InternalBillingHealth {
+  internalUsers: number;
+  billableEvents: number;
+  nonBillableEvents: number;
+}
+
 @injectable()
 export class UsageEventDAO {
   constructor(@inject(TYPES.Database) private db: Kysely<Database>) {}
@@ -238,6 +244,28 @@ export class UsageEventDAO {
       oldestFailedCreatedAt: result?.oldest_failed_created_at ?? null,
       lastSyncedAt: result?.last_synced_at ?? null,
       lastSyncAttemptAt: result?.last_sync_attempt_at ?? null,
+    };
+  }
+
+  /**
+   * Count whether internal users remain on the non-billable usage path.
+   */
+  async getInternalBillingHealth(): Promise<InternalBillingHealth> {
+    const result = await this.db
+      .selectFrom('users as u')
+      .leftJoin('usage_events as e', 'e.user_id', 'u.id')
+      .select([
+        sql<number>`COUNT(DISTINCT u.id)`.as('internal_users'),
+        sql<number>`COUNT(CASE WHEN e.polar_billable = 1 THEN 1 END)`.as('billable_events'),
+        sql<number>`COUNT(CASE WHEN e.polar_billable = 0 THEN 1 END)`.as('non_billable_events'),
+      ])
+      .where('u.paid_generation_entitlement', '=', 'internal')
+      .executeTakeFirst();
+
+    return {
+      internalUsers: Number(result?.internal_users) || 0,
+      billableEvents: Number(result?.billable_events) || 0,
+      nonBillableEvents: Number(result?.non_billable_events) || 0,
     };
   }
 }

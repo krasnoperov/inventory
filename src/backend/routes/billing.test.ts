@@ -83,6 +83,11 @@ describe('billingRoutes', () => {
         lastSyncedAt: '2026-06-17T10:00:00.000Z',
         lastSyncAttemptAt: '2026-06-17T10:00:00.000Z',
       }),
+      getInternalBillingHealth: async () => ({
+        internalUsers: 1,
+        billableEvents: 0,
+        nonBillableEvents: 3,
+      }),
     });
     deps.set(UserDAO, {
       countWithoutPolarCustomer: async () => 0,
@@ -106,5 +111,57 @@ describe('billingRoutes', () => {
     assert.equal(body.status, 'critical');
     assert.equal(body.checks.polarMeters.status, 'critical');
     assert.ok(body.checks.polarMeters.missing.includes('claude_input_tokens'));
+  });
+
+  test('operational checks report internal billable usage as critical', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UsageEventDAO, {
+      getSyncHealth: async () => ({
+        pending: 0,
+        failed: 0,
+        synced: 12,
+        oldestPendingCreatedAt: null,
+        oldestFailedCreatedAt: null,
+        lastSyncedAt: '2026-06-17T10:00:00.000Z',
+        lastSyncAttemptAt: '2026-06-17T10:00:00.000Z',
+      }),
+      getInternalBillingHealth: async () => ({
+        internalUsers: 1,
+        billableEvents: 1,
+        nonBillableEvents: 2,
+      }),
+    });
+    deps.set(UserDAO, {
+      countWithoutPolarCustomer: async () => 0,
+    });
+    deps.set(PolarService, {
+      isConfigured: () => true,
+      listMeters: async () => [
+        { id: 'meter_1', name: 'claude_input_tokens', aggregation: 'sum', archivedAt: null },
+        { id: 'meter_2', name: 'claude_output_tokens', aggregation: 'sum', archivedAt: null },
+        { id: 'meter_3', name: 'gemini_images', aggregation: 'count', archivedAt: null },
+        { id: 'meter_4', name: 'gemini_videos', aggregation: 'count', archivedAt: null },
+        { id: 'meter_5', name: 'gemini_input_tokens', aggregation: 'sum', archivedAt: null },
+        { id: 'meter_6', name: 'gemini_output_tokens', aggregation: 'sum', archivedAt: null },
+        { id: 'meter_7', name: 'elevenlabs_audio', aggregation: 'sum', archivedAt: null },
+      ],
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request('/api/billing/operational-checks', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      status: string;
+      checks: { internalUsers: { status: string; billableEvents: number; nonBillableEvents: number } };
+    };
+    assert.equal(body.status, 'critical');
+    assert.equal(body.checks.internalUsers.status, 'critical');
+    assert.equal(body.checks.internalUsers.billableEvents, 1);
+    assert.equal(body.checks.internalUsers.nonBillableEvents, 2);
   });
 });
