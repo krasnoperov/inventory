@@ -152,6 +152,80 @@ function getMediaGroup(mode: ForgeMediaMode): MediaGroup {
   return 'audio';
 }
 
+const ICON_PROPS = {
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.8,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  width: 18,
+  height: 18,
+} as const;
+
+function mediaGroupIcon(group: MediaGroup) {
+  switch (group) {
+    case 'image':
+      return (
+        <svg {...ICON_PROPS}>
+          <rect x="3" y="3" width="18" height="18" rx="2.5" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <path d="M21 15l-5-5L5 21" />
+        </svg>
+      );
+    case 'video':
+      return (
+        <svg {...ICON_PROPS}>
+          <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
+          <path d="M10 9.5l5 2.5-5 2.5z" />
+        </svg>
+      );
+    case 'audio':
+      return (
+        <svg {...ICON_PROPS}>
+          <path d="M11 5L6 9H2v6h4l5 4z" />
+          <path d="M15.5 8.5a5 5 0 010 7" />
+          <path d="M19 5a9 9 0 010 14" />
+        </svg>
+      );
+  }
+}
+
+function audioModeIcon(mode: ForgeMediaMode) {
+  switch (mode) {
+    case 'dialogue':
+      return (
+        <svg {...ICON_PROPS}>
+          <path d="M14 9.5a1 1 0 01-1 1H7l-3 3v-9a1 1 0 011-1h8a1 1 0 011 1z" />
+          <path d="M18 9h1a1 1 0 011 1v7l-3-3h-5a1 1 0 01-1-1" />
+        </svg>
+      );
+    case 'music':
+      return (
+        <svg {...ICON_PROPS}>
+          <path d="M9 18V5l11-2v13" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="17" cy="16" r="3" />
+        </svg>
+      );
+    case 'sfx':
+      return (
+        <svg {...ICON_PROPS}>
+          <path d="M4 10v4M8 6.5v11M12 9v6M16 4.5v15M20 10v4" />
+        </svg>
+      );
+    case 'speech':
+    default:
+      return (
+        <svg {...ICON_PROPS}>
+          <rect x="9" y="2.5" width="6" height="11" rx="3" />
+          <path d="M5 10.5a7 7 0 0014 0" />
+          <path d="M12 17.5v4" />
+        </svg>
+      );
+  }
+}
+
 // Get button label for operation
 function getOperationLabel(operation: ForgeOperation, mediaMode: ForgeMediaMode): string {
   const modeConfig = getForgeMediaModeConfig(mediaMode);
@@ -571,8 +645,6 @@ export function ForgeTray({
   // thumbnail strip carries its own "+".
   const showRefAdd = canAddMore && slots.length === 0;
   const showUpload = !!((onUpload && targetAsset) || onUploadNewAsset);
-  const hasSecondaryControls =
-    showStyleControls || !!sendChatMessage || showBatchControls || showDestinationToggle || showRefAdd || showUpload;
 
   // Build tray class with drag-over state
   const trayClasses = [styles.tray];
@@ -639,9 +711,45 @@ export function ForgeTray({
             </div>
           )}
 
-          {/* Voice picker for spoken audio */}
-          {showVoicePicker && (
-            <div className={styles.modeControlsRow}>
+          {/* Media selection — square icon buttons. Audio reveals sub-modes + voice. */}
+          <div className={styles.selector}>
+            <div className={styles.typeRow} role="group" aria-label="Media type">
+              {MEDIA_GROUP_OPTIONS.map((option) => (
+                <button
+                  key={option.group}
+                  type="button"
+                  className={`${styles.typeButton} ${currentMediaGroup === option.group ? styles.active : ''}`}
+                  onClick={() => handleSelectGroup(option.group)}
+                  disabled={isSubmitting}
+                  title={`${option.label} media`}
+                  aria-label={`${option.label} media`}
+                  aria-pressed={currentMediaGroup === option.group}
+                >
+                  {mediaGroupIcon(option.group)}
+                </button>
+              ))}
+            </div>
+
+            {currentMediaGroup === 'audio' && (
+              <div className={styles.typeRow} role="group" aria-label="Audio type">
+                {AUDIO_MODE_CONFIGS.map((config) => (
+                  <button
+                    key={config.mode}
+                    type="button"
+                    className={`${styles.typeButton} ${mediaMode === config.mode ? styles.active : ''}`}
+                    onClick={() => handleSelectAudioMode(config.mode)}
+                    disabled={isSubmitting}
+                    title={`${config.label} mode`}
+                    aria-label={`${config.label} mode`}
+                    aria-pressed={mediaMode === config.mode}
+                  >
+                    {audioModeIcon(config.mode)}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {showVoicePicker && (
               <VoicePicker
                 mode={mediaMode === 'dialogue' ? 'dialogue' : 'speech'}
                 disabled={isSubmitting}
@@ -650,50 +758,12 @@ export function ForgeTray({
                 dialogueVoiceIds={dialogueVoiceIds}
                 onDialogueVoiceIdsChange={setDialogueVoiceIds}
               />
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Control bar: explicit media type + minimal options + submit */}
+          {/* Control bar: minimal options + submit */}
           <div className={styles.actionBar}>
             <div className={styles.actionBarLeft}>
-              {/* Media type — the explicit choice that drives the options */}
-              <div className={styles.segmented} role="group" aria-label="Media type">
-                {MEDIA_GROUP_OPTIONS.map((option) => (
-                  <button
-                    key={option.group}
-                    type="button"
-                    className={`${styles.segment} ${currentMediaGroup === option.group ? styles.active : ''}`}
-                    onClick={() => handleSelectGroup(option.group)}
-                    disabled={isSubmitting}
-                    title={`${option.label} media`}
-                  >
-                    <span>{option.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {currentMediaGroup === 'audio' && (
-                <>
-                  <span className={styles.divider} aria-hidden="true" />
-                  <div className={styles.segmented} role="group" aria-label="Audio type">
-                    {AUDIO_MODE_CONFIGS.map((config) => (
-                      <button
-                        key={config.mode}
-                        type="button"
-                        className={`${styles.segment} ${mediaMode === config.mode ? styles.active : ''}`}
-                        onClick={() => handleSelectAudioMode(config.mode)}
-                        disabled={isSubmitting}
-                        title={`${config.label} mode`}
-                      >
-                        <span>{config.shortLabel}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {hasSecondaryControls && <span className={styles.divider} aria-hidden="true" />}
-
               {/* Destination (Asset Detail only) */}
               {showDestinationToggle && (
                 <div className={styles.segmented} role="group" aria-label="Destination">
