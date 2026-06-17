@@ -16,6 +16,7 @@ import {
   type RunManifest,
   type RunManifestMedia,
   type RunManifestImage,
+  type RunManifestScene,
 } from '../lib/run-manifest';
 import {
   downloadFile,
@@ -325,6 +326,12 @@ async function executeGenerate(
     startedAt,
     refs: [],
     referenceVariantIds: [],
+    scene: parseSceneMetadata(parsed, {
+      prompt,
+      refs: [],
+      referenceVariantIds: [],
+      mediaKind,
+    }),
   });
   printResult(result, outputPath, ctx, manifestPath);
   return result;
@@ -373,6 +380,12 @@ async function executeRefine(
     startedAt,
     refs: [sourceVariantId],
     referenceVariantIds: [sourceVariantId],
+    scene: parseSceneMetadata(parsed, {
+      prompt,
+      refs: [sourceVariantId],
+      referenceVariantIds: [sourceVariantId],
+      mediaKind,
+    }),
   });
   printResult(result, outputPath, ctx, manifestPath);
   return result;
@@ -426,6 +439,12 @@ async function executeDerive(
     startedAt,
     refs,
     referenceVariantIds,
+    scene: parseSceneMetadata(parsed, {
+      prompt,
+      refs,
+      referenceVariantIds,
+      mediaKind,
+    }),
   });
   printResult(result, outputPath, ctx, manifestPath);
   return result;
@@ -534,6 +553,7 @@ async function saveGenerationManifest(input: {
   startedAt: string;
   refs: string[];
   referenceVariantIds: string[];
+  scene?: RunManifestScene;
 }): Promise<string | undefined> {
   const { result, ctx, deps } = input;
   if (!result.success || !result.variant) return undefined;
@@ -566,6 +586,7 @@ async function saveGenerationManifest(input: {
     workingDir: ctx.workingDir,
     createdAt: input.startedAt,
     completedAt,
+    scene: input.scene,
     media,
     images: media.filter(isImageManifestMedia),
     failed: [],
@@ -783,6 +804,51 @@ function parseBatchMode(value: string): 'explore' | 'set' {
   throw new Error('--mode must be either explore or set');
 }
 
+function parseSceneMetadata(
+  parsed: ParsedArgs,
+  input: {
+    prompt: string;
+    refs: string[];
+    referenceVariantIds: string[];
+    mediaKind: GenerationMediaKind;
+  }
+): RunManifestScene | undefined {
+  const productionId = readOptionalOption(parsed, 'production-id', 'productionId');
+  const shotId = readOptionalOption(parsed, 'shot-id', 'shotId');
+  const sceneLabel = readOptionalOption(parsed, 'scene-label', 'sceneLabel');
+  const timelineStartValue = readOptionalOption(parsed, 'timeline-start-ms', 'timelineStartMs');
+  const durationValue = readOptionalOption(parsed, 'duration-ms', 'durationMs');
+
+  if (!productionId && !shotId && !sceneLabel && timelineStartValue === undefined && durationValue === undefined) {
+    return undefined;
+  }
+
+  return {
+    productionId,
+    shotId,
+    sceneLabel,
+    timelineStartMs: timelineStartValue === undefined ? undefined : parseNonNegativeInteger(timelineStartValue, '--timeline-start-ms'),
+    durationMs: durationValue === undefined ? undefined : parseNonNegativeInteger(durationValue, '--duration-ms'),
+    motionPrompt: input.mediaKind === 'video' ? input.prompt : undefined,
+    sourceRefs: input.refs,
+    sourceVariantIds: input.referenceVariantIds,
+  };
+}
+
+function readOptionalOption(parsed: ParsedArgs, kebabName: string, camelName: string): string | undefined {
+  const value = parsed.options[kebabName] ?? parsed.options[camelName];
+  if (value === undefined || value === 'true') return undefined;
+  return value;
+}
+
+function parseNonNegativeInteger(value: string, flag: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${flag} must be a non-negative integer`);
+  }
+  return parsed;
+}
+
 function slugify(value: string): string {
   const slug = value
     .toLowerCase()
@@ -829,6 +895,10 @@ function printUsage(command: ForgeCommand): void {
     console.log(`
 Usage:
   pnpm run cli generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+
+Production metadata:
+  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
+  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -837,6 +907,10 @@ Usage:
     console.log(`
 Usage:
   pnpm run cli refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+
+Production metadata:
+  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
+  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -852,6 +926,10 @@ Usage:
   console.log(`
 Usage:
   pnpm run cli derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+
+Production metadata:
+  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
+  --shot-id <id> --production-id <id>
 `);
 }
 

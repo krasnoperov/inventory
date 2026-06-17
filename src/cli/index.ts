@@ -144,6 +144,8 @@ Project:
   runs                           List local generation run manifests
   runs show --latest             Show the newest local run manifest
   runs export --latest -o <file> Export media handoff data for production tools
+  runs export --format remotion-scenes --production-id <id>
+                                 Export shot scene args for Remotion pipelines
   assets                         List website assets for the initialized space
   assets show <asset-id>          Show website asset variants and lineage
   assets download <variant-id> -o <file>
@@ -205,6 +207,7 @@ Examples:
   pnpm run cli audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
   pnpm run cli video generate "A looping idle animation" --name "Idle Animation" --type animation -o idle.mp4
   pnpm run cli runs export --latest --format media -o media-run.json
+  pnpm run cli runs export --format remotion-scenes --production-id s01e01-a2
   pnpm run cli assets
   pnpm run cli assets download variant_123 -o variant.mp4
 `);
@@ -295,6 +298,10 @@ function printForgeHelp(command: string): void {
     console.log(`
 Usage:
   pnpm run cli generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+
+Production metadata:
+  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
+  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -303,6 +310,10 @@ Usage:
     console.log(`
 Usage:
   pnpm run cli refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+
+Production metadata:
+  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
+  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -318,6 +329,10 @@ Usage:
   console.log(`
 Usage:
   pnpm run cli derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+
+Production metadata:
+  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
+  --shot-id <id> --production-id <id>
 `);
 }
 
@@ -397,6 +412,10 @@ function printVideoHelp(positionals: string[]): void {
     console.log(`
 Usage:
   pnpm run cli video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+
+Production metadata:
+  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
+  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -405,6 +424,10 @@ Usage:
     console.log(`
 Usage:
   pnpm run cli video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+
+Production metadata:
+  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
+  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -413,6 +436,10 @@ Usage:
     console.log(`
 Usage:
   pnpm run cli video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+
+Production metadata:
+  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
+  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -422,6 +449,10 @@ Usage:
   pnpm run cli video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
   pnpm run cli video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
   pnpm run cli video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+
+Production metadata:
+  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
+  --shot-id <id> --production-id <id>
 `);
 }
 
@@ -434,6 +465,13 @@ Usage:
   pnpm run cli runs export <run-id|manifest.json> --format media -o media-run.json
   pnpm run cli runs export --latest --format media -o media-run.json
   pnpm run cli runs export --latest --format remotion -o keyframes.json
+  pnpm run cli runs export --format remotion-scenes --production-id <id> [-o scenes.args]
+  pnpm run cli runs export --latest --format remotion-scenes [-o scenes.args]
+
+Formats:
+  media             JSON media handoff data
+  remotion          Legacy remotion-keyframes JSON marker
+  remotion-scenes   Shell-ready --scene '<start>|<label>|<absolute path>' lines
 `);
 }
 

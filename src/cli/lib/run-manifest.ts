@@ -31,6 +31,17 @@ export type RunManifestFailure = {
   error: string;
 };
 
+export type RunManifestScene = {
+  productionId?: string;
+  shotId?: string;
+  sceneLabel?: string;
+  timelineStartMs?: number;
+  durationMs?: number;
+  motionPrompt?: string;
+  sourceRefs: string[];
+  sourceVariantIds: string[];
+};
+
 export type RunManifest = {
   version: 1;
   runId: string;
@@ -51,6 +62,7 @@ export type RunManifest = {
   workingDir?: string;
   createdAt: string;
   completedAt: string;
+  scene?: RunManifestScene;
   media: RunManifestMedia[];
   images: RunManifestImage[];
   failed: RunManifestFailure[];
@@ -84,6 +96,36 @@ export type MediaRunExport = {
 
 export type RemotionRunExport = Omit<MediaRunExport, 'format'> & {
   format: 'remotion-keyframes';
+};
+
+export type RemotionSceneEntry = {
+  productionId?: string;
+  shotId?: string;
+  sceneLabel: string;
+  timelineStartMs: number;
+  durationMs?: number;
+  motionPrompt?: string;
+  sourceRefs: string[];
+  sourceVariantIds: string[];
+  mediaKind: 'image' | 'video';
+  assetId: string;
+  variantId: string;
+  mediaKey: string;
+  localPath: string;
+  absolutePath: string;
+  webUrl: string;
+  runId: string;
+  manifestPath: string;
+  sceneArg: string;
+};
+
+export type RemotionScenesExport = {
+  version: 1;
+  format: 'remotion-scenes';
+  projectRoot: string;
+  productionId?: string;
+  scenes: RemotionSceneEntry[];
+  failed: RunManifestFailure[];
 };
 
 export function createRunId(date = new Date()): string {
@@ -204,6 +246,33 @@ export function createRemotionRunExport(
   };
 }
 
+export function createRemotionScenesExport(
+  records: RunManifestRecord[],
+  projectRoot: string,
+  productionId?: string
+): RemotionScenesExport {
+  const scenes = records.map((record) => createRemotionSceneEntry(record, projectRoot));
+  scenes.sort((a, b) => {
+    if (a.timelineStartMs !== b.timelineStartMs) return a.timelineStartMs - b.timelineStartMs;
+    if ((a.shotId || '') !== (b.shotId || '')) return (a.shotId || '').localeCompare(b.shotId || '');
+    return a.runId.localeCompare(b.runId);
+  });
+
+  return {
+    version: 1,
+    format: 'remotion-scenes',
+    projectRoot,
+    productionId,
+    scenes,
+    failed: records.flatMap((record) => record.manifest.failed),
+  };
+}
+
+export function formatRemotionSceneArgs(exportData: RemotionScenesExport): string {
+  return exportData.scenes
+    .map((scene) => `--scene ${shellQuote(scene.sceneArg)}`)
+    .join('\n');
+}
 export function manifestMediaFromVariant(input: {
   index: number;
   variant: Variant;
@@ -277,6 +346,7 @@ function normalizeRunManifest(
   return {
     ...manifest,
     mediaKind: manifest.mediaKind || inferManifestMediaKind(normalizedMedia),
+    scene: normalizeManifestScene(manifest.scene),
     media: normalizedMedia,
     images: normalizedMedia.filter(isRunManifestImage),
   } as RunManifest;
@@ -317,4 +387,85 @@ function isRunManifestImage(entry: RunManifestMedia): entry is RunManifestImage 
 
 function inferManifestMediaKind(media: RunManifestMedia[]): MediaKind {
   return media[0]?.mediaKind || 'image';
+}
+
+function createRemotionSceneEntry(
+  record: RunManifestRecord,
+  projectRoot: string
+): RemotionSceneEntry {
+  const scene = record.manifest.scene;
+  if (!scene) {
+    throw new Error(`Run manifest is missing scene metadata: ${record.manifest.runId}`);
+  }
+  if (!scene.sceneLabel) {
+    throw new Error(`Run manifest is missing scene label: ${record.manifest.runId}`);
+  }
+  if (!Number.isInteger(scene.timelineStartMs)) {
+    throw new Error(`Run manifest is missing timeline start ms: ${record.manifest.runId}`);
+  }
+  const timelineStartMs = scene.timelineStartMs as number;
+
+  const media = selectSceneMedia(record.manifest);
+  const pathBase = record.manifest.workingDir || projectRoot;
+  const absolutePath = path.resolve(pathBase, media.localPath);
+
+  return {
+    productionId: scene.productionId,
+    shotId: scene.shotId,
+    sceneLabel: scene.sceneLabel,
+    timelineStartMs,
+    durationMs: scene.durationMs,
+    motionPrompt: scene.motionPrompt,
+    sourceRefs: scene.sourceRefs,
+    sourceVariantIds: scene.sourceVariantIds,
+    mediaKind: media.mediaKind,
+    assetId: media.assetId,
+    variantId: media.variantId,
+    mediaKey: media.mediaKey,
+    localPath: media.localPath,
+    absolutePath,
+    webUrl: media.webUrl,
+    runId: record.manifest.runId,
+    manifestPath: record.manifestPath,
+    sceneArg: `${timelineStartMs}|${scene.sceneLabel}|${absolutePath}`,
+  };
+}
+
+function selectSceneMedia(manifest: RunManifest): RunManifestMedia & { mediaKind: 'image' | 'video' } {
+  const sorted = sortedMedia(manifest);
+  const video = sorted.find((media) => media.mediaKind === 'video');
+  if (video) return video as RunManifestMedia & { mediaKind: 'video' };
+
+  const image = sorted.find((media) => media.mediaKind === 'image');
+  if (image) return image as RunManifestMedia & { mediaKind: 'image' };
+
+  throw new Error(`Run manifest has no video or image scene asset: ${manifest.runId}`);
+}
+
+function normalizeManifestScene(scene: RunManifestScene | undefined): RunManifestScene | undefined {
+  if (!scene) return undefined;
+  return {
+    productionId: optionalString(scene.productionId),
+    shotId: optionalString(scene.shotId),
+    sceneLabel: optionalString(scene.sceneLabel),
+    timelineStartMs: optionalInteger(scene.timelineStartMs),
+    durationMs: optionalInteger(scene.durationMs),
+    motionPrompt: optionalString(scene.motionPrompt),
+    sourceRefs: Array.isArray(scene.sourceRefs) ? scene.sourceRefs.filter((ref): ref is string => typeof ref === 'string') : [],
+    sourceVariantIds: Array.isArray(scene.sourceVariantIds)
+      ? scene.sourceVariantIds.filter((ref): ref is string => typeof ref === 'string')
+      : [],
+  };
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function optionalInteger(value: unknown): number | undefined {
+  return Number.isInteger(value) ? value as number : undefined;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
 }

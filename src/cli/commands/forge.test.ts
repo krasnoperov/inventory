@@ -1152,6 +1152,44 @@ test('video derive accepts image and video refs and sends video request', async 
   });
 });
 
+test('video derive stores optional shot scene metadata in run manifest', async () => {
+  const imageVariant = completedVariant({
+    id: 'variant-keyframe',
+    image_key: 'images/space/variant-keyframe.png',
+    media_key: 'images/space/variant-keyframe.png',
+  });
+  const client = new FakeClient({ assets: [], variants: [imageVariant], lineage: [] });
+  const { deps, manifests } = depsFor(client);
+
+  await executeVideoCommand('derive', {
+    positionals: ['slow', 'push-in'],
+    options: {
+      space: 'space-1',
+      refs: 'variant-keyframe',
+      name: 'S01E01 A2 shot 01',
+      type: 'animation',
+      o: 'clips/clip-s01e01-a2-01.mp4',
+      'scene-label': 'Cocina',
+      'timeline-start-ms': '0',
+      'duration-ms': '73000',
+      'shot-id': 's01e01-a2-01',
+      'production-id': 's01e01-a2',
+    },
+  }, deps);
+
+  assert.equal(manifests.length, 1);
+  assert.deepEqual((manifests[0] as { scene: unknown }).scene, {
+    productionId: 's01e01-a2',
+    shotId: 's01e01-a2-01',
+    sceneLabel: 'Cocina',
+    timelineStartMs: 0,
+    durationMs: 73000,
+    motionPrompt: 'slow push-in',
+    sourceRefs: ['variant-keyframe'],
+    sourceVariantIds: ['variant-keyframe'],
+  });
+});
+
 test('video commands reject batch before opening a website job', async () => {
   const client = new FakeClient();
   const { deps } = depsFor(client);
