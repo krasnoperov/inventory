@@ -13,6 +13,7 @@ Technical documentation for Inventory Forge.
 | [billing.md](./billing.md) | Usage-based billing with Polar.sh |
 | [cli.md](./cli.md) | Command-line interface usage |
 | [cli-generation.md](./cli-generation.md) | CLI-driven Forge generation, asset inspection, and downloads |
+| [cli-media-production-cookbook.md](./cli-media-production-cookbook.md) | End-to-end CLI cookbook for image, audio, video, and podcast production |
 | [persistent-chat.md](./persistent-chat.md) | AI chat system and message flows |
 | [websocket.md](./websocket.md) | WebSocket message contract |
 | [rotation-and-tiles.md](./rotation-and-tiles.md) | Rotation views and tile set pipelines |
