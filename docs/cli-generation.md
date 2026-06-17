@@ -239,13 +239,16 @@ Inspect and export manifests:
 pnpm run cli runs
 pnpm run cli runs show --latest
 pnpm run cli runs show RUN_ID --json
-pnpm run cli runs export --latest --format remotion -o media-run.json
+pnpm run cli runs export --latest --format media -o media-run.json
+pnpm run cli runs export --latest --format remotion -o keyframes.json
 ```
 
-The Remotion export writes ordered media data with local paths, absolute paths
-resolved from the original command working directory, website IDs/URLs, prompt,
-refs, and failed variant errors for downstream production tooling. Image runs
-also include the legacy ordered `images` keyframe array.
+The default `media` export writes ordered media data with local paths, absolute
+paths resolved from the original command working directory, website IDs/URLs,
+prompt, refs, and failed variant errors for downstream production tooling. Image
+runs also include the legacy ordered `images` keyframe array. The `remotion`
+format remains available for existing keyframe tooling and emits the same media
+handoff fields with the legacy `remotion-keyframes` format marker.
 
 ## End-To-End Test Loop
 

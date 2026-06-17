@@ -3,10 +3,12 @@ import process from 'node:process';
 import type { ParsedArgs } from '../lib/types';
 import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
 import {
+  createMediaRunExport,
   createRemotionRunExport,
   listRunManifests,
   readRunManifest,
   resolveRunManifest,
+  type MediaRunExport,
   type RemotionRunExport,
   type RunManifest,
   type RunManifestRecord,
@@ -16,7 +18,9 @@ import { truncate } from '../lib/utils';
 type RunsResult =
   | { type: 'list'; records: RunManifestRecord[] }
   | { type: 'show'; record: RunManifestRecord }
-  | { type: 'export'; outputPath: string; exportData: RemotionRunExport };
+  | { type: 'export'; outputPath: string; format: RunExportFormat; exportData: MediaRunExport | RemotionRunExport };
+
+type RunExportFormat = 'media' | 'remotion';
 
 interface RunsDeps {
   loadProjectConfig: () => Promise<ProjectConfig | null>;
@@ -77,23 +81,27 @@ export async function executeRuns(
   }
 
   if (subcommand === 'export') {
-    const format = parsed.options.format || 'remotion';
-    if (format !== 'remotion') {
-      throw new Error(`Unsupported run export format: ${format}`);
-    }
+    const format = parseRunExportFormat(parsed.options.format || 'media');
     const outputPath = parsed.options.o || parsed.options.output;
     if (!outputPath || outputPath === 'true') {
       throw new Error('Output path is required: pass -o <file> or --output <file>');
     }
 
     const record = await resolveSelectedRun(parsed, deps, projectConfig.projectRoot, 1);
-    const exportData = createRemotionRunExport(record, projectConfig.projectRoot);
+    const exportData = format === 'media'
+      ? createMediaRunExport(record, projectConfig.projectRoot)
+      : createRemotionRunExport(record, projectConfig.projectRoot);
     await deps.writeFile(outputPath, JSON.stringify(exportData, null, 2) + '\n', 'utf8');
     deps.print(`Wrote ${format} export: ${outputPath}`);
-    return { type: 'export', outputPath, exportData };
+    return { type: 'export', outputPath, format, exportData };
   }
 
   throw new Error(`Unknown runs command: ${subcommand}`);
+}
+
+function parseRunExportFormat(value: string): RunExportFormat {
+  if (value === 'media' || value === 'remotion') return value;
+  throw new Error(`Unsupported run export format: ${value}`);
 }
 
 async function resolveSelectedRun(
@@ -198,7 +206,8 @@ Usage:
   pnpm run cli runs
   pnpm run cli runs show <run-id|manifest.json>
   pnpm run cli runs show --latest
-  pnpm run cli runs export <run-id|manifest.json> --format remotion -o media-run.json
-  pnpm run cli runs export --latest --format remotion -o media-run.json
+  pnpm run cli runs export <run-id|manifest.json> --format media -o media-run.json
+  pnpm run cli runs export --latest --format media -o media-run.json
+  pnpm run cli runs export --latest --format remotion -o keyframes.json
 `);
 }

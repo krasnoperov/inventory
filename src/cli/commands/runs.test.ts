@@ -208,3 +208,55 @@ test('runs export writes ordered Remotion keyframe data', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('runs export defaults to generic ordered media handoff data', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-runs-'));
+  try {
+    const workingDir = path.join(dir, 'episode', 'scene');
+    await saveRunManifest(manifest({
+      runId: 'run-media-export',
+      workingDir,
+      mediaKind: 'audio',
+      media: [
+        {
+          index: 0,
+          mediaKind: 'audio',
+          assetId: 'asset-audio',
+          variantId: 'variant-audio',
+          mediaKey: 'media/space/variant-audio.wav',
+          imageKey: null,
+          thumbKey: null,
+          mimeType: 'audio/wav',
+          sizeBytes: 1234,
+          width: null,
+          height: null,
+          durationMs: 2500,
+          localPath: 'audio/cue-01.wav',
+          webUrl: 'https://inventory.example.test/spaces/space-1/assets/asset-audio',
+        },
+      ],
+      images: [],
+    }), dir);
+    const outputPath = path.join(dir, 'media-run.json');
+    const output: string[] = [];
+
+    const result = await executeRuns({
+      positionals: ['export'],
+      options: {
+        latest: 'true',
+        o: outputPath,
+      },
+    }, depsFor(dir, output));
+
+    assert.equal(result.type, 'export');
+    assert.equal(result.format, 'media');
+    const exported = JSON.parse(await readFile(outputPath, 'utf8'));
+    assert.equal(exported.format, 'media-handoff');
+    assert.deepEqual(exported.media.map((media: { variantId: string }) => media.variantId), ['variant-audio']);
+    assert.equal(exported.media[0].absolutePath, path.join(workingDir, 'audio/cue-01.wav'));
+    assert.deepEqual(exported.images, []);
+    assert.match(output.join('\n'), /Wrote media export/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
