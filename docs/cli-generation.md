@@ -13,11 +13,11 @@ shared source of truth for these generation capabilities is
 
 ## Shared Operation Matrix
 
-| CLI surface | Commands | Sent `mediaKind` | References | Batch manifest |
+| CLI surface | Commands | Sent `mediaKind` | References | Run manifest |
 |-------------|----------|------------------|------------|----------------|
-| Top-level image | `generate`, `refine`, `derive`, `batch` | `image` | `derive --refs` and `batch --refs` accept completed image variant IDs or local image files | Yes, for `batch` |
-| Audio namespace | `audio <speech|dialogue|music|sfx> generate`, `audio <speech|dialogue|music|sfx> batch` | `audio` | Not supported | No |
-| Video namespace | `video generate`, `video refine`, `video derive` | `video` | `video derive --refs` accepts completed image/video variant IDs or local image files | No |
+| Top-level image | `generate`, `refine`, `derive`, `batch` | `image` | `derive --refs` and `batch --refs` accept completed image variant IDs or local image files | Yes |
+| Audio namespace | `audio <speech|dialogue|music|sfx> generate`, `audio <speech|dialogue|music|sfx> batch` | `audio` | Not supported | Yes |
+| Video namespace | `video generate`, `video refine`, `video derive` | `video` | `video derive --refs` accepts completed image/video variant IDs or local image files | Yes for single-output commands; video batch is not supported |
 
 Forge Tray uses the same matrix for mode labels, output media kind, default
 asset type, slot compatibility, batch/style controls, and operation selection.
@@ -214,7 +214,7 @@ references through these commands.
 Audio generation currently supports only `generate` and `batch` for the
 `speech`, `dialogue`, `music`, and `sfx` modes. It does not accept `--refs`,
 `derive`, or `refine`. Audio batch downloads completed files into the requested
-directory but does not write image keyframe run manifests. ElevenLabs timestamp
+directory and writes generic media run manifests. ElevenLabs timestamp
 responses are stored as transcript, timing, and render metadata sidecars on the
 completed variant.
 Video generation exposes `generate`, `refine`, and `derive`. Video batch is not
@@ -222,12 +222,14 @@ exposed because website batch jobs reject `mediaKind: "video"`.
 
 ## Run Manifests
 
-`batch` writes a JSON manifest to `.inventory/runs/<run-id>.json` at the
-initialized project root, even when the command runs from a child directory. The
-manifest maps downloaded local files to website asset IDs, variant IDs, image
-keys, prompt, refs, command options, timestamps, run success, and any failed
-variant errors. Completed images are still downloaded and recorded when another
-batch member fails. It is a handoff artifact for Remotion, Kling, or other video
+Generation commands write JSON manifests to `.inventory/runs/<run-id>.json` at
+the initialized project root, even when the command runs from a child directory.
+The manifest maps downloaded local files to website asset IDs, variant IDs,
+media keys, media kind, prompt, refs, command options, timestamps, run success,
+and any failed variant errors. Image manifests also include an `images` array
+for existing keyframe consumers; all media kinds use the generic `media` array.
+Completed media files are still downloaded and recorded when another batch
+member fails. It is a handoff artifact for Remotion, Kling, audio, or video
 tooling; it is not a local asset database and the website remains the source of
 truth.
 
@@ -237,12 +239,13 @@ Inspect and export manifests:
 pnpm run cli runs
 pnpm run cli runs show --latest
 pnpm run cli runs show RUN_ID --json
-pnpm run cli runs export --latest --format remotion -o keyframes.json
+pnpm run cli runs export --latest --format remotion -o media-run.json
 ```
 
-The Remotion export writes ordered keyframe data with local paths, absolute
-paths resolved from the original batch command working directory, website
-IDs/URLs, prompt, refs, and failed variant errors for downstream video tooling.
+The Remotion export writes ordered media data with local paths, absolute paths
+resolved from the original command working directory, website IDs/URLs, prompt,
+refs, and failed variant errors for downstream production tooling. Image runs
+also include the legacy ordered `images` keyframe array.
 
 ## End-To-End Test Loop
 

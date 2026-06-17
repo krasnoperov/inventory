@@ -1,15 +1,29 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Variant } from './websocket-client';
+import type { MediaGenerationCommand } from '../../shared/mediaOperationMatrix';
+import type { MediaKind } from '../../shared/websocket-types';
 
-export type RunManifestImage = {
+export type RunManifestMedia = {
   index: number;
+  mediaKind: MediaKind;
   assetId: string;
   variantId: string;
-  imageKey: string;
+  mediaKey: string;
+  imageKey: string | null;
   thumbKey: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  width: number | null;
+  height: number | null;
+  durationMs: number | null;
   localPath: string;
   webUrl: string;
+};
+
+export type RunManifestImage = RunManifestMedia & {
+  mediaKind: 'image';
+  imageKey: string;
 };
 
 export type RunManifestFailure = {
@@ -20,7 +34,8 @@ export type RunManifestFailure = {
 export type RunManifest = {
   version: 1;
   runId: string;
-  command: 'batch';
+  command: MediaGenerationCommand;
+  mediaKind: MediaKind;
   success: boolean;
   environment: string;
   spaceId: string;
@@ -36,6 +51,7 @@ export type RunManifest = {
   workingDir?: string;
   createdAt: string;
   completedAt: string;
+  media: RunManifestMedia[];
   images: RunManifestImage[];
   failed: RunManifestFailure[];
 };
@@ -61,6 +77,7 @@ export type RemotionRunExport = {
   referenceVariantIds: string[];
   createdAt: string;
   completedAt: string;
+  media: Array<RunManifestMedia & { absolutePath: string }>;
   images: Array<RunManifestImage & { absolutePath: string }>;
   failed: RunManifestFailure[];
 };
@@ -109,8 +126,8 @@ export async function listRunManifests(projectRoot = process.cwd()): Promise<Run
 export async function readRunManifest(manifestPath: string): Promise<RunManifestRecord> {
   const raw = await readFile(manifestPath, 'utf8');
   const parsed = JSON.parse(raw) as Partial<RunManifest>;
-  validateRunManifest(parsed, manifestPath);
-  return { manifest: parsed, manifestPath };
+  const manifest = normalizeRunManifest(parsed, manifestPath);
+  return { manifest, manifestPath };
 }
 
 export async function resolveRunManifest(input: {
@@ -159,6 +176,10 @@ export function createRemotionRunExport(
     referenceVariantIds: record.manifest.referenceVariantIds,
     createdAt: record.manifest.createdAt,
     completedAt: record.manifest.completedAt,
+    media: sortedMedia(record.manifest).map((media) => ({
+      ...media,
+      absolutePath: path.resolve(pathBase, media.localPath),
+    })),
     images: [...record.manifest.images]
       .sort((a, b) => a.index - b.index)
       .map((image) => ({
@@ -169,6 +190,37 @@ export function createRemotionRunExport(
   };
 }
 
+export function manifestMediaFromVariant(input: {
+  index: number;
+  variant: Variant;
+  localPath: string;
+  baseUrl: string;
+  spaceId: string;
+}): RunManifestMedia {
+  const mediaKind = input.variant.media_kind || 'image';
+  const mediaKey = input.variant.media_key || input.variant.image_key;
+  if (!mediaKey) {
+    throw new Error(`Variant has no media key: ${input.variant.id}`);
+  }
+
+  return {
+    index: input.index,
+    mediaKind,
+    assetId: input.variant.asset_id,
+    variantId: input.variant.id,
+    mediaKey,
+    imageKey: input.variant.image_key,
+    thumbKey: input.variant.thumb_key,
+    mimeType: input.variant.media_mime_type || null,
+    sizeBytes: input.variant.media_size_bytes ?? null,
+    width: input.variant.media_width ?? null,
+    height: input.variant.media_height ?? null,
+    durationMs: input.variant.media_duration_ms ?? null,
+    localPath: input.localPath,
+    webUrl: `${input.baseUrl}/spaces/${input.spaceId}/assets/${input.variant.asset_id}`,
+  };
+}
+
 export function manifestImageFromVariant(input: {
   index: number;
   variant: Variant;
@@ -176,42 +228,79 @@ export function manifestImageFromVariant(input: {
   baseUrl: string;
   spaceId: string;
 }): RunManifestImage {
-  if (!input.variant.image_key) {
+  const media = manifestMediaFromVariant(input);
+  if (media.mediaKind !== 'image' || !media.imageKey) {
     throw new Error(`Variant has no image key: ${input.variant.id}`);
   }
-
-  return {
-    index: input.index,
-    assetId: input.variant.asset_id,
-    variantId: input.variant.id,
-    imageKey: input.variant.image_key,
-    thumbKey: input.variant.thumb_key,
-    localPath: input.localPath,
-    webUrl: `${input.baseUrl}/spaces/${input.spaceId}/assets/${input.variant.asset_id}`,
-  };
+  return { ...media, mediaKind: 'image', imageKey: media.imageKey };
 }
 
 function looksLikeManifestPath(value: string): boolean {
   return path.isAbsolute(value) || value.endsWith('.json') || value.includes('/') || value.includes('\\');
 }
 
-function validateRunManifest(
+function normalizeRunManifest(
   manifest: Partial<RunManifest>,
   manifestPath: string
-): asserts manifest is RunManifest {
+): RunManifest {
   if (manifest.version !== 1) {
     throw new Error(`Unsupported run manifest version in ${manifestPath}`);
   }
-  if (manifest.command !== 'batch') {
+  if (!isSupportedCommand(manifest.command)) {
     throw new Error(`Unsupported run manifest command in ${manifestPath}`);
   }
   if (!manifest.runId || typeof manifest.runId !== 'string') {
     throw new Error(`Run manifest is missing runId: ${manifestPath}`);
   }
-  if (!Array.isArray(manifest.images)) {
-    throw new Error(`Run manifest is missing images: ${manifestPath}`);
+  const media = Array.isArray(manifest.media) ? manifest.media : manifest.images;
+  if (!Array.isArray(media)) {
+    throw new Error(`Run manifest is missing media: ${manifestPath}`);
   }
   if (!Array.isArray(manifest.failed)) {
     throw new Error(`Run manifest is missing failed entries: ${manifestPath}`);
   }
+  const normalizedMedia = media.map((entry) => normalizeManifestMedia(entry));
+  return {
+    ...manifest,
+    mediaKind: manifest.mediaKind || inferManifestMediaKind(normalizedMedia),
+    media: normalizedMedia,
+    images: normalizedMedia.filter(isRunManifestImage),
+  } as RunManifest;
+}
+
+function sortedMedia(manifest: RunManifest): RunManifestMedia[] {
+  return [...manifest.media].sort((a, b) => a.index - b.index);
+}
+
+function isSupportedCommand(command: unknown): command is MediaGenerationCommand {
+  return command === 'generate' || command === 'refine' || command === 'derive' || command === 'batch';
+}
+
+function normalizeManifestMedia(entry: RunManifestMedia | RunManifestImage): RunManifestMedia {
+  const legacyImageKey = 'imageKey' in entry ? entry.imageKey : null;
+  const mediaKey = 'mediaKey' in entry ? entry.mediaKey : legacyImageKey;
+  return {
+    index: entry.index,
+    mediaKind: entry.mediaKind || 'image',
+    assetId: entry.assetId,
+    variantId: entry.variantId,
+    mediaKey: mediaKey || '',
+    imageKey: legacyImageKey,
+    thumbKey: entry.thumbKey,
+    mimeType: 'mimeType' in entry ? entry.mimeType : null,
+    sizeBytes: 'sizeBytes' in entry ? entry.sizeBytes : null,
+    width: 'width' in entry ? entry.width : null,
+    height: 'height' in entry ? entry.height : null,
+    durationMs: 'durationMs' in entry ? entry.durationMs : null,
+    localPath: entry.localPath,
+    webUrl: entry.webUrl,
+  };
+}
+
+function isRunManifestImage(entry: RunManifestMedia): entry is RunManifestImage {
+  return entry.mediaKind === 'image' && Boolean(entry.imageKey);
+}
+
+function inferManifestMediaKind(media: RunManifestMedia[]): MediaKind {
+  return media[0]?.mediaKind || 'image';
 }

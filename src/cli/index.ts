@@ -143,7 +143,7 @@ Project:
   init --space <id>             Bind this directory to a website space
   runs                           List local generation run manifests
   runs show --latest             Show the newest local run manifest
-  runs export --latest -o <file> Export keyframes for Remotion/video tools
+  runs export --latest -o <file> Export media handoff data for production tools
   assets                         List website assets for the initialized space
   assets show <asset-id>          Show website asset variants and lineage
   assets download <variant-id> -o <file>
@@ -204,7 +204,7 @@ Examples:
   pnpm run cli batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
   pnpm run cli audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
   pnpm run cli video generate "A looping idle animation" --name "Idle Animation" --type animation -o idle.mp4
-  pnpm run cli runs export --latest --format remotion -o keyframes.json
+  pnpm run cli runs export --latest --format remotion -o media-run.json
   pnpm run cli assets
   pnpm run cli assets download variant_123 -o variant.mp4
 `);
@@ -431,8 +431,8 @@ Usage:
   pnpm run cli runs
   pnpm run cli runs show <run-id|manifest.json>
   pnpm run cli runs show --latest
-  pnpm run cli runs export <run-id|manifest.json> --format remotion -o keyframes.json
-  pnpm run cli runs export --latest --format remotion -o keyframes.json
+  pnpm run cli runs export <run-id|manifest.json> --format remotion -o media-run.json
+  pnpm run cli runs export --latest --format remotion -o media-run.json
 `);
 }
 

@@ -962,7 +962,7 @@ test('audio input file is generate-only', async () => {
   assert.equal(client.connected, false);
 });
 
-test('audio batch downloads audio files without writing image manifest', async () => {
+test('audio batch downloads audio files and writes generic media manifest', async () => {
   const client = new FakeClient();
   const { deps, mediaDownloads, manifests } = depsFor(client);
 
@@ -1005,7 +1005,17 @@ test('audio batch downloads audio files without writing image manifest', async (
       force: false,
     },
   ]);
-  assert.deepEqual(manifests, []);
+  assert.equal(manifests.length, 1);
+  assert.equal((manifests[0] as { mediaKind: string }).mediaKind, 'audio');
+  assert.deepEqual((manifests[0] as { images: unknown[] }).images, []);
+  assert.deepEqual((manifests[0] as { media: Array<{ mediaKind: string; mediaKey: string; localPath: string }> }).media.map((media) => ({
+    mediaKind: media.mediaKind,
+    mediaKey: media.mediaKey,
+    localPath: media.localPath,
+  })), [
+    { mediaKind: 'audio', mediaKey: 'media/space/variant-batch-1.wav', localPath: 'audio/stinger-01.wav' },
+    { mediaKind: 'audio', mediaKey: 'media/space/variant-batch-2.wav', localPath: 'audio/stinger-02.wav' },
+  ]);
 });
 
 test('audio commands reject references before opening a website job', async () => {

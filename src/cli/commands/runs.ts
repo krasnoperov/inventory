@@ -116,13 +116,13 @@ function printRunList(records: RunManifestRecord[], print: (message: string) => 
   }
 
   print(`Found ${records.length} run(s):\n`);
-  print('Created'.padEnd(21) + 'Status'.padEnd(8) + 'Images'.padEnd(8) + 'Failed'.padEnd(8) + 'Run'.padEnd(30) + 'Name');
+  print('Created'.padEnd(21) + 'Status'.padEnd(8) + 'Media'.padEnd(8) + 'Failed'.padEnd(8) + 'Run'.padEnd(30) + 'Name');
   print('-'.repeat(96));
   for (const record of records) {
     print(
       formatCreated(record.manifest.createdAt).padEnd(21) +
       formatStatus(record.manifest).padEnd(8) +
-      String(record.manifest.images.length).padEnd(8) +
+      String(record.manifest.media.length).padEnd(8) +
       String(record.manifest.failed.length).padEnd(8) +
       record.manifest.runId.padEnd(30) +
       truncate(record.manifest.name, 28)
@@ -139,16 +139,20 @@ function printRunDetails(record: RunManifestRecord, print: (message: string) => 
   print(`  Space:    ${manifest.spaceId}`);
   print(`  Name:     ${manifest.name}`);
   print(`  Type:     ${manifest.assetType}`);
-  print(`  Images:   ${manifest.images.length}`);
+  print(`  Media:    ${manifest.media.length} ${manifest.mediaKind}`);
+  if (manifest.images.length > 0) {
+    print(`  Images:   ${manifest.images.length}`);
+  }
   print(`  Failed:   ${manifest.failed.length}`);
   print(`  Prompt:   ${manifest.prompt}`);
 
-  if (manifest.images.length > 0) {
-    print('\nImages:');
-    for (const image of [...manifest.images].sort((a, b) => a.index - b.index)) {
-      print(`  ${String(image.index + 1).padStart(2, '0')}. ${image.localPath}`);
-      print(`      Variant: ${image.variantId}`);
-      print(`      Web:     ${image.webUrl}`);
+  if (manifest.media.length > 0) {
+    print('\nMedia:');
+    for (const media of [...manifest.media].sort((a, b) => a.index - b.index)) {
+      print(`  ${String(media.index + 1).padStart(2, '0')}. ${media.localPath}`);
+      print(`      Kind:    ${media.mediaKind}`);
+      print(`      Variant: ${media.variantId}`);
+      print(`      Web:     ${media.webUrl}`);
     }
   }
 
@@ -167,7 +171,9 @@ function toListJson(record: RunManifestRecord): Record<string, unknown> {
     createdAt: record.manifest.createdAt,
     completedAt: record.manifest.completedAt,
     command: record.manifest.command,
+    mediaKind: record.manifest.mediaKind,
     success: record.manifest.success,
+    mediaCount: record.manifest.media.length,
     imageCount: record.manifest.images.length,
     failedCount: record.manifest.failed.length,
     name: record.manifest.name,
@@ -192,7 +198,7 @@ Usage:
   pnpm run cli runs
   pnpm run cli runs show <run-id|manifest.json>
   pnpm run cli runs show --latest
-  pnpm run cli runs export <run-id|manifest.json> --format remotion -o keyframes.json
-  pnpm run cli runs export --latest --format remotion -o keyframes.json
+  pnpm run cli runs export <run-id|manifest.json> --format remotion -o media-run.json
+  pnpm run cli runs export --latest --format remotion -o media-run.json
 `);
 }
