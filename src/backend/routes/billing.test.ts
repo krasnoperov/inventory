@@ -29,6 +29,7 @@ function routeApp(deps: Map<unknown, unknown>) {
 describe('billingRoutes', () => {
   test('billing status revokes stale paid entitlement when Polar has no active subscription', async () => {
     const updates: unknown[] = [];
+    let updateCompleted = false;
     const deps = new Map<unknown, unknown>();
     deps.set(AuthService, {
       verifyJWT: async () => ({ userId: 42 }),
@@ -39,7 +40,9 @@ describe('billingRoutes', () => {
         paid_generation_entitlement: 'paid',
       }),
       update: async (...args: unknown[]) => {
+        await Promise.resolve();
         updates.push(args);
+        updateCompleted = true;
       },
     });
     deps.set(PolarService, {
@@ -58,6 +61,7 @@ describe('billingRoutes', () => {
     assert.equal(response.status, 200);
     const body = await response.json() as { entitlement: string };
     assert.equal(body.entitlement, 'none');
+    assert.equal(updateCompleted, true);
     assert.deepEqual(updates, [
       [42, { paid_generation_entitlement: 'none' }],
     ]);

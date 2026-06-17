@@ -3,6 +3,10 @@ import { Webhook, WebhookVerificationError } from 'standardwebhooks';
 import type { AppContext } from './types';
 import { UserDAO } from '../../dao/user-dao';
 import { PolarService } from '../services/polarService';
+import {
+  isNonBillablePaidGenerationEntitlement,
+  normalizePaidGenerationEntitlement,
+} from '../billing/paidGenerationEntitlement';
 
 const webhookRoutes = new Hono<AppContext>();
 
@@ -372,6 +376,8 @@ async function handleSubscriptionCanceled(
     elevenlabs_audio: 0,
   };
 
+  if (await shouldPreserveInternalEntitlement(userId, userDAO, 'revoke limits')) return;
+
   await userDAO.update(userId, {
     paid_generation_entitlement: 'none',
     quota_limits: JSON.stringify(revokedLimits),
@@ -413,6 +419,8 @@ async function handleCustomerStateChanged(
       elevenlabs_audio: 0,
     };
 
+    if (await shouldPreserveInternalEntitlement(userId, userDAO, 'revoke limits')) return;
+
     await userDAO.update(userId, {
       paid_generation_entitlement: 'none',
       quota_limits: JSON.stringify(revokedLimits),
@@ -435,6 +443,8 @@ async function fetchAndCacheLimits(
   polarService: PolarService
 ): Promise<void> {
   try {
+    if (await shouldPreserveInternalEntitlement(userId, userDAO, 'update local limits')) return;
+
     // Fetch current meter credits from Polar
     const meters = await polarService.getCustomerMeters(userId);
 
@@ -456,6 +466,21 @@ async function fetchAndCacheLimits(
     console.error(`[Polar Webhook] Failed to fetch/cache limits for user ${userId}:`, error);
     // Don't throw - webhook should still return 200
   }
+}
+
+async function shouldPreserveInternalEntitlement(
+  userId: number,
+  userDAO: UserDAO,
+  action: string
+): Promise<boolean> {
+  const user = await userDAO.findById(userId);
+  const entitlement = normalizePaidGenerationEntitlement(user?.paid_generation_entitlement);
+  if (!isNonBillablePaidGenerationEntitlement(entitlement)) {
+    return false;
+  }
+
+  console.log(`[Polar Webhook] Preserving internal entitlement for user ${userId}; skipping ${action}`);
+  return true;
 }
 
 export { webhookRoutes };

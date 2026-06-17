@@ -95,8 +95,8 @@ billingRoutes.get('/api/billing/status', async (c) => {
   // Get full billing status from Polar
   const status = await polarService.getBillingStatus(userId);
 
-  // Refresh local D1 quota_limits cache (non-blocking)
-  // This keeps local limits in sync when user views billing page
+  // Refresh local D1 quota_limits cache. Entitlement changes are awaited so
+  // generation pre-checks cannot observe stale paid access after this response.
   const refreshedEntitlement = status.configured
     ? (status.hasSubscription ? 'paid' : 'none')
     : entitlement;
@@ -106,15 +106,15 @@ billingRoutes.get('/api/billing/status', async (c) => {
     for (const meter of status.meters) {
       limits[meter.meterSlug] = meter.hasLimit ? meter.credited : null;
     }
-    userDAO.update(userId, {
+    await userDAO.update(userId, {
       paid_generation_entitlement: refreshedEntitlement,
       quota_limits: JSON.stringify(limits),
       quota_limits_updated_at: new Date().toISOString(),
-    }).catch(err => console.warn('Failed to refresh local quota_limits:', err));
+    });
   } else if (refreshedEntitlement !== entitlement) {
-    userDAO.update(userId, {
+    await userDAO.update(userId, {
       paid_generation_entitlement: refreshedEntitlement,
-    }).catch(err => console.warn('Failed to refresh local billing entitlement:', err));
+    });
   }
 
   // Format response for frontend healthbar
