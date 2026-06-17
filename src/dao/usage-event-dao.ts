@@ -34,6 +34,7 @@ export class UsageEventDAO {
     eventName: string;
     quantity: number;
     metadata?: UsageEventMetadata;
+    polarBillable?: boolean;
   }): Promise<string> {
     const id = crypto.randomUUID();
     await this.db
@@ -44,6 +45,7 @@ export class UsageEventDAO {
         event_name: data.eventName,
         quantity: data.quantity,
         metadata: data.metadata ? JSON.stringify(data.metadata) : null,
+        polar_billable: data.polarBillable === false ? 0 : 1,
         created_at: new Date().toISOString(),
         synced_at: null,
         sync_attempts: 0,
@@ -68,11 +70,10 @@ export class UsageEventDAO {
   async findUnsynced(limit = 100): Promise<UsageEvent[]> {
     return await this.db
       .selectFrom('usage_events as e')
-      .innerJoin('users as u', 'u.id', 'e.user_id')
       .selectAll('e')
       .where('e.synced_at', 'is', null)
       .where('e.sync_attempts', '<', MAX_SYNC_ATTEMPTS) // Exclude failed events
-      .where('u.paid_generation_entitlement', '!=', 'internal')
+      .where('e.polar_billable', '=', 1)
       .orderBy('e.created_at', 'asc')
       .limit(limit)
       .execute();
@@ -196,13 +197,11 @@ export class UsageEventDAO {
   }> {
     const result = await this.db
       .selectFrom('usage_events as e')
-      .innerJoin('users as u', 'u.id', 'e.user_id')
       .select([
-        sql<number>`COUNT(CASE WHEN e.synced_at IS NULL AND e.sync_attempts < ${MAX_SYNC_ATTEMPTS} THEN 1 END)`.as('pending'),
-        sql<number>`COUNT(CASE WHEN e.synced_at IS NULL AND e.sync_attempts >= ${MAX_SYNC_ATTEMPTS} THEN 1 END)`.as('failed'),
-        sql<number>`COUNT(CASE WHEN e.synced_at IS NOT NULL THEN 1 END)`.as('synced'),
+        sql<number>`COUNT(CASE WHEN e.polar_billable = 1 AND e.synced_at IS NULL AND e.sync_attempts < ${MAX_SYNC_ATTEMPTS} THEN 1 END)`.as('pending'),
+        sql<number>`COUNT(CASE WHEN e.polar_billable = 1 AND e.synced_at IS NULL AND e.sync_attempts >= ${MAX_SYNC_ATTEMPTS} THEN 1 END)`.as('failed'),
+        sql<number>`COUNT(CASE WHEN e.polar_billable = 1 AND e.synced_at IS NOT NULL THEN 1 END)`.as('synced'),
       ])
-      .where('u.paid_generation_entitlement', '!=', 'internal')
       .executeTakeFirst();
 
     return {

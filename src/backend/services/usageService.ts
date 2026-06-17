@@ -120,7 +120,7 @@ export class UsageService {
     model: string,
     requestId?: string
   ): Promise<void> {
-    if (await this.isNonBillableUser(userId)) return;
+    const polarBillable = await this.isBillableUser(userId);
 
     const baseMetadata: UsageEventMetadata = {
       model,
@@ -134,6 +134,7 @@ export class UsageService {
         eventName: USAGE_EVENTS.CLAUDE_INPUT_TOKENS,
         quantity: tokensIn,
         metadata: { ...baseMetadata, token_type: 'input' },
+        polarBillable,
       });
     }
 
@@ -144,6 +145,7 @@ export class UsageService {
         eventName: USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS,
         quantity: tokensOut,
         metadata: { ...baseMetadata, token_type: 'output' },
+        polarBillable,
       });
     }
     // Note: Events are synced to Polar via cron job (every 5 min) with proper
@@ -163,7 +165,7 @@ export class UsageService {
     aspectRatio?: string,
     tokenUsage?: { inputTokens: number; outputTokens: number }
   ): Promise<void> {
-    if (await this.isNonBillableUser(userId)) return;
+    const polarBillable = await this.isBillableUser(userId);
 
     const baseMetadata: UsageEventMetadata = {
       model,
@@ -177,6 +179,7 @@ export class UsageService {
       eventName: USAGE_EVENTS.GEMINI_IMAGES,
       quantity: imageCount,
       metadata: baseMetadata,
+      polarBillable,
     });
 
     // Track tokens locally (if available)
@@ -186,6 +189,7 @@ export class UsageService {
         eventName: USAGE_EVENTS.GEMINI_INPUT_TOKENS,
         quantity: tokenUsage.inputTokens,
         metadata: { ...baseMetadata, token_type: 'input' },
+        polarBillable,
       });
     }
 
@@ -195,6 +199,7 @@ export class UsageService {
         eventName: USAGE_EVENTS.GEMINI_OUTPUT_TOKENS,
         quantity: tokenUsage.outputTokens,
         metadata: { ...baseMetadata, token_type: 'output' },
+        polarBillable,
       });
     }
     // Note: Events are synced to Polar via cron job (every 5 min) with proper
@@ -214,7 +219,7 @@ export class UsageService {
     assetType?: string,
     tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number }
   ): Promise<void> {
-    if (await this.isNonBillableUser(userId)) return;
+    const polarBillable = await this.isBillableUser(userId);
 
     await this.usageEventDAO.create({
       userId,
@@ -229,6 +234,7 @@ export class UsageService {
         output_tokens: tokenUsage?.outputTokens,
         total_tokens: tokenUsage?.totalTokens,
       },
+      polarBillable,
     });
   }
 
@@ -243,7 +249,7 @@ export class UsageService {
     operation?: string,
     aspectRatio?: string
   ): Promise<void> {
-    if (await this.isNonBillableUser(userId)) return;
+    const polarBillable = await this.isBillableUser(userId);
 
     await this.usageEventDAO.create({
       userId,
@@ -254,6 +260,7 @@ export class UsageService {
         operation,
         aspect_ratio: aspectRatio,
       },
+      polarBillable,
     });
   }
 
@@ -556,6 +563,7 @@ export class UsageService {
           .onRef('e.user_id', '=', 'u.id')
           .on('e.event_name', '=', eventName)
           .on('e.created_at', '>=', periodStart)
+          .on('e.polar_billable', '=', 1)
       )
       .select([
         'u.id',
@@ -725,7 +733,7 @@ export class UsageService {
    * Get customer portal URL for billing management
    */
   async getCustomerPortalUrl(userId: number, returnUrl?: string): Promise<string | null> {
-    if (await this.isNonBillableUser(userId)) {
+    if (!(await this.isBillableUser(userId))) {
       return null;
     }
 
@@ -808,9 +816,9 @@ export class UsageService {
     return { created, failed };
   }
 
-  private async isNonBillableUser(userId: number): Promise<boolean> {
+  private async isBillableUser(userId: number): Promise<boolean> {
     const user = await this.userDAO.findById(userId);
     const entitlement = normalizePaidGenerationEntitlement(user?.paid_generation_entitlement);
-    return isNonBillablePaidGenerationEntitlement(entitlement);
+    return !isNonBillablePaidGenerationEntitlement(entitlement);
   }
 }

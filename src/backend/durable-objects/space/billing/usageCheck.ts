@@ -95,7 +95,7 @@ export async function preCheck(
   const usageResult = await db.prepare(`
     SELECT COALESCE(SUM(quantity), 0) as total_used
     FROM usage_events
-    WHERE user_id = ? AND event_name = ? AND created_at >= ?
+    WHERE user_id = ? AND event_name = ? AND created_at >= ? AND polar_billable = 1
   `).bind(userId, eventName, periodStart).first<{ total_used: number }>();
 
   const quotaUsed = usageResult?.total_used || 0;
@@ -207,32 +207,33 @@ export async function trackUsage(
   quantity: number,
   metadata?: Record<string, unknown>
 ): Promise<void> {
-  if (await isNonBillableUser(db, userId)) return;
+  const polarBillable = await isBillableUser(db, userId);
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
   await db.prepare(`
-    INSERT INTO usage_events (id, user_id, event_name, quantity, metadata, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO usage_events (id, user_id, event_name, quantity, metadata, polar_billable, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     userId,
     eventName,
     quantity,
     metadata ? JSON.stringify(metadata) : null,
+    polarBillable ? 1 : 0,
     now
   ).run();
 }
 
-async function isNonBillableUser(db: D1Database, userId: number): Promise<boolean> {
+async function isBillableUser(db: D1Database, userId: number): Promise<boolean> {
   const userResult = await db.prepare(`
     SELECT paid_generation_entitlement
     FROM users WHERE id = ?
   `).bind(userId).first<{ paid_generation_entitlement: string | null }>();
 
   const entitlement = normalizePaidGenerationEntitlement(userResult?.paid_generation_entitlement);
-  return isNonBillablePaidGenerationEntitlement(entitlement);
+  return !isNonBillablePaidGenerationEntitlement(entitlement);
 }
 
 /**

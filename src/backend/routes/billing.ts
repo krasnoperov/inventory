@@ -97,7 +97,9 @@ billingRoutes.get('/api/billing/status', async (c) => {
 
   // Refresh local D1 quota_limits cache (non-blocking)
   // This keeps local limits in sync when user views billing page
-  const refreshedEntitlement = status.hasSubscription ? 'paid' : entitlement;
+  const refreshedEntitlement = status.configured
+    ? (status.hasSubscription ? 'paid' : 'none')
+    : entitlement;
 
   if (status.meters.length > 0) {
     const limits: Record<string, number | null> = {};
@@ -109,9 +111,9 @@ billingRoutes.get('/api/billing/status', async (c) => {
       quota_limits: JSON.stringify(limits),
       quota_limits_updated_at: new Date().toISOString(),
     }).catch(err => console.warn('Failed to refresh local quota_limits:', err));
-  } else if (refreshedEntitlement === 'paid' && entitlement !== 'paid') {
+  } else if (refreshedEntitlement !== entitlement) {
     userDAO.update(userId, {
-      paid_generation_entitlement: 'paid',
+      paid_generation_entitlement: refreshedEntitlement,
     }).catch(err => console.warn('Failed to refresh local billing entitlement:', err));
   }
 

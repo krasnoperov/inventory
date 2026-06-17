@@ -175,7 +175,7 @@ describe('UsageService', () => {
       assert.strictEqual(outputEvent.quantity, 100);
     });
 
-    test('does not create billable events for internal users', async () => {
+    test('records non-billable local events for internal users', async () => {
       await userDAO.update(testUserId, { paid_generation_entitlement: 'internal' });
 
       await usageService.trackImageGeneration(
@@ -188,7 +188,8 @@ describe('UsageService', () => {
       );
 
       const events = await usageEventDAO.findByUser(testUserId);
-      assert.strictEqual(events.length, 0);
+      assert.strictEqual(events.length, 3);
+      assert.ok(events.every((event) => event.polar_billable === 0));
     });
   });
 
@@ -294,7 +295,7 @@ describe('UsageService', () => {
       assert.ok(storedEvents[0].synced_at);
     });
 
-    test('does not sync existing events for internal users', async () => {
+    test('does not sync non-billable events even if user later becomes paid', async () => {
       await userDAO.update(testUserId, { paid_generation_entitlement: 'internal' });
       await db.insertInto('usage_events').values({
         id: 'internal-event-1',
@@ -302,12 +303,14 @@ describe('UsageService', () => {
         event_name: USAGE_EVENTS.GEMINI_IMAGES,
         quantity: 1,
         metadata: null,
+        polar_billable: 0,
         created_at: new Date().toISOString(),
         synced_at: null,
         sync_attempts: 0,
         last_sync_error: null,
         last_sync_attempt_at: null,
       }).execute();
+      await userDAO.update(testUserId, { paid_generation_entitlement: 'paid' });
 
       const ingestEventsBatch = mock.fn(async () => ({ inserted: 1, duplicates: 0 }));
       const service = new UsageService(

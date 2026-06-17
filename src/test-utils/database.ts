@@ -37,6 +37,7 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
       event_name TEXT NOT NULL,
       quantity INTEGER NOT NULL,
       metadata TEXT,
+      polar_billable INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       synced_at TEXT,
       sync_attempts INTEGER NOT NULL DEFAULT 0,

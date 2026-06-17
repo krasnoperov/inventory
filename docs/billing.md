@@ -70,7 +70,7 @@ Generation access is controlled by `users.paid_generation_entitlement`:
 |-------|---------|
 | `none` | No paid-generation access. Generation pre-checks fail before provider calls. |
 | `paid` | Billable customer access. Quota/rate checks apply and usage events sync to Polar. |
-| `internal` | Non-billable internal access. Rate limits still apply, but quota checks and Polar usage sync are skipped. |
+| `internal` | Non-billable internal access. Rate limits still apply, and usage is recorded locally with Polar sync disabled. |
 
 Polar subscription webhooks set active subscribers to `paid` and canceled/no-active-subscription users to `none`.
 Local dev-auth users are marked `internal`.

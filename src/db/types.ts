@@ -53,6 +53,8 @@ export interface UsageEventsTable {
   event_name: string;  // 'claude_tokens', 'nanobanana_images'
   quantity: number;
   metadata: string | null;  // JSON
+  // 1 = sync to Polar, 0 = local observability only
+  polar_billable: Generated<number>;
   created_at: string;
   synced_at: string | null;  // NULL until synced to Polar
   // Sync reliability tracking

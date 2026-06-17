@@ -17,3 +17,17 @@ WHERE quota_limits IS NOT NULL
 
 CREATE INDEX IF NOT EXISTS idx_users_paid_generation_entitlement
   ON users(paid_generation_entitlement);
+
+ALTER TABLE usage_events
+ADD COLUMN polar_billable INTEGER NOT NULL DEFAULT 1
+  CHECK (polar_billable IN (0, 1));
+
+UPDATE usage_events
+SET polar_billable = 0
+WHERE user_id IN (
+  SELECT id FROM users WHERE paid_generation_entitlement = 'internal'
+);
+
+CREATE INDEX IF NOT EXISTS idx_usage_events_billable_unsynced
+  ON usage_events(polar_billable, synced_at, sync_attempts)
+  WHERE synced_at IS NULL;
