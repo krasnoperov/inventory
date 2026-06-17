@@ -125,6 +125,33 @@ const ACCEPTED_UPLOAD_MIME_TYPES = [
 
 const ACCEPTED_UPLOAD_TYPES = ACCEPTED_UPLOAD_MIME_TYPES.join(',');
 
+/**
+ * Top-level media group. The tray surfaces these three primary modes; audio
+ * expands into its specific sub-modes (speech / dialogue / music / sfx) only
+ * once selected, keeping the default control surface small.
+ */
+type MediaGroup = 'image' | 'video' | 'audio';
+
+const MEDIA_GROUP_OPTIONS: { group: MediaGroup; label: string }[] = [
+  { group: 'image', label: 'Image' },
+  { group: 'video', label: 'Video' },
+  { group: 'audio', label: 'Audio' },
+];
+
+const MEDIA_GROUP_LABEL: Record<MediaGroup, string> = {
+  image: 'Image',
+  video: 'Video',
+  audio: 'Audio',
+};
+
+const AUDIO_MODE_CONFIGS = FORGE_MEDIA_MODE_CONFIGS.filter((config) => isAudioForgeMode(config.mode));
+
+function getMediaGroup(mode: ForgeMediaMode): MediaGroup {
+  if (mode === 'image') return 'image';
+  if (mode === 'video') return 'video';
+  return 'audio';
+}
+
 // Get button label for operation
 function getOperationLabel(operation: ForgeOperation, mediaMode: ForgeMediaMode): string {
   const modeConfig = getForgeMediaModeConfig(mediaMode);
@@ -140,11 +167,11 @@ function getOperationLabel(operation: ForgeOperation, mediaMode: ForgeMediaMode)
 // Get placeholder text based on state
 function getPlaceholder(slotCount: number, operation: ForgeOperation, mediaMode: ForgeMediaMode): string {
   const noun = getForgeMediaModeConfig(mediaMode).promptNoun;
-  if (slotCount === 0 && operation === 'refine') return `Describe a new ${noun} variant...`;
-  if (slotCount === 0) return `Describe the ${noun} to generate...`;
-  if (operation === 'fork') return 'Leave empty to fork, or describe changes...';
-  if (operation === 'derive') return `Describe the ${noun} to derive from these references...`;
-  return `Describe the ${noun} refinement or transformation...`;
+  if (slotCount === 0 && operation === 'refine') return `Describe a new ${noun} variant…`;
+  if (slotCount === 0) return `Describe the ${noun} you want to create…`;
+  if (operation === 'fork') return 'Leave empty to fork, or describe changes…';
+  if (operation === 'derive') return `Describe the ${noun} to derive from these references…`;
+  return `Describe the ${noun} refinement or transformation…`;
 }
 
 function formatMediaKindList(mediaKinds: readonly MediaKind[]): string {
@@ -190,6 +217,9 @@ export function ForgeTray({
   const [batchCount, setBatchCount] = useState(1);
   const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
   const [mediaMode, setMediaMode] = useState<ForgeMediaMode>('image');
+  // Remembers the last selected audio sub-mode so re-opening the Audio group
+  // restores the user's previous choice instead of always resetting to speech.
+  const [lastAudioMode, setLastAudioMode] = useState<ForgeMediaMode>('speech');
   const [voiceId, setVoiceId] = useState<string | undefined>(undefined);
   const [dialogueVoiceIds, setDialogueVoiceIds] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -197,7 +227,11 @@ export function ForgeTray({
 
   // Destination state
   const [destinationType, setDestinationType] = useState<DestinationType>('existing_asset');
+  // The asset name is auto-derived (Image N / Video N / Audio N). It only becomes
+  // user-controlled once the user types into the (subtle) name field; until then
+  // it tracks the auto default so switching media type relabels it.
   const [newAssetName, setNewAssetName] = useState('');
+  const [nameEdited, setNameEdited] = useState(false);
 
   // Target asset: currentAsset (Asset Detail) or first slot's asset (Scene)
   const targetAsset = useMemo(() => {
@@ -220,7 +254,9 @@ export function ForgeTray({
 
   useEffect(() => {
     if (currentAssetMediaKind === 'audio') {
-      setMediaMode(getForgeModeForAudioAssetType(currentAssetType));
+      const audioMode = getForgeModeForAudioAssetType(currentAssetType);
+      setMediaMode(audioMode);
+      setLastAudioMode(audioMode);
     } else if (currentAssetMediaKind === 'video') {
       setMediaMode('video');
     } else if (currentAssetId) {
@@ -234,7 +270,9 @@ export function ForgeTray({
     }
     const firstSlotMediaKind = slots[0]?.variant.media_kind;
     if (firstSlotMediaKind === 'audio') {
-      setMediaMode(getForgeModeForAudioAssetType(slots[0].asset.type));
+      const audioMode = getForgeModeForAudioAssetType(slots[0].asset.type);
+      setMediaMode(audioMode);
+      setLastAudioMode(audioMode);
     } else if (firstSlotMediaKind === 'video') {
       setMediaMode('video');
     }
@@ -243,6 +281,7 @@ export function ForgeTray({
   const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
   const selectedMediaKind = getMediaKindForForgeMode(mediaMode);
   const isAudioMode = isAudioForgeMode(mediaMode);
+  const currentMediaGroup = getMediaGroup(mediaMode);
   // Voice selection only applies to spoken audio (speech/dialogue), not music/sfx.
   const showVoicePicker = mediaMode === 'speech' || mediaMode === 'dialogue';
   const incompatibleMediaSlots = slots.filter(
@@ -262,10 +301,19 @@ export function ForgeTray({
   const effectiveMaxSlots = maxSlots - styleImageCount;
   const effectiveBatchCount = mediaModeConfig.supportsBatch ? batchCount : 1;
 
+  // Auto-generated asset name: "<Group> <next index>" (e.g. "Image 3").
+  const assetCountForKind = useMemo(
+    () => allAssets.filter((a) => a.media_kind === selectedMediaKind).length,
+    [allAssets, selectedMediaKind]
+  );
+  const defaultAssetName = `${MEDIA_GROUP_LABEL[currentMediaGroup]} ${assetCountForKind + 1}`;
+  const nameValue = nameEdited ? newAssetName : defaultAssetName;
+  const effectiveAssetName = nameEdited && newAssetName.trim() ? newAssetName.trim() : defaultAssetName;
+
   const hasPrompt = prompt.trim().length > 0;
   const operation = getForgeOperationForState(slots.length, hasPrompt, effectiveDestinationType);
   const baseLabel = getOperationLabel(operation, mediaMode);
-  const operationLabel = effectiveBatchCount > 1 ? `${baseLabel} x${effectiveBatchCount}` : baseLabel;
+  const operationLabel = effectiveBatchCount > 1 ? `${baseLabel} ×${effectiveBatchCount}` : baseLabel;
   const placeholder = getPlaceholder(slots.length, operation, mediaMode);
 
   // Slot variant IDs for vision-aware operations
@@ -276,7 +324,7 @@ export function ForgeTray({
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      const newHeight = Math.min(Math.max(textarea.scrollHeight, 44), 200);
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, 60), 220);
       textarea.style.height = `${newHeight}px`;
     }
   }, [prompt]);
@@ -286,6 +334,26 @@ export function ForgeTray({
       setBatchCount(1);
     }
   }, [mediaModeConfig.supportsBatch, batchCount]);
+
+  const handleSelectGroup = useCallback((group: MediaGroup) => {
+    if (group === 'image') {
+      setMediaMode('image');
+    } else if (group === 'video') {
+      setMediaMode('video');
+    } else {
+      setMediaMode(lastAudioMode);
+    }
+  }, [lastAudioMode]);
+
+  const handleSelectAudioMode = useCallback((mode: ForgeMediaMode) => {
+    setMediaMode(mode);
+    setLastAudioMode(mode);
+  }, []);
+
+  const handleNameChange = useCallback((value: string) => {
+    setNameEdited(true);
+    setNewAssetName(value);
+  }, []);
 
   const handleAddClick = useCallback(() => {
     setShowAssetPicker(true);
@@ -405,8 +473,6 @@ export function ForgeTray({
   const handleSubmit = useCallback(async () => {
     // Fork doesn't need prompt; others do
     if (operation !== 'fork' && !prompt.trim()) return;
-    // New asset needs a name
-    if (effectiveDestinationType === 'new_asset' && !newAssetName.trim()) return;
     // Refine with no prompt is a no-op
     if (operation === 'refine' && !prompt.trim()) return;
     // Forge operations cannot consume references from a different media mode.
@@ -431,7 +497,7 @@ export function ForgeTray({
         destination: {
           type: effectiveDestinationType,
           assetId: effectiveDestinationType === 'existing_asset' && targetAsset ? targetAsset.id : undefined,
-          assetName: effectiveDestinationType === 'new_asset' ? newAssetName.trim() : undefined,
+          assetName: effectiveDestinationType === 'new_asset' ? effectiveAssetName : undefined,
           assetType: effectiveDestinationType === 'new_asset' ? assetType : undefined,
           parentAssetId,
         },
@@ -452,6 +518,7 @@ export function ForgeTray({
       clearSlots();
       setPrompt('');
       setNewAssetName('');
+      setNameEdited(false);
       setDestinationType('existing_asset');
       setNoStyle(false);
       setBatchCount(1);
@@ -462,7 +529,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, newAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, noStyle, voiceId, dialogueVoiceIds]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, noStyle, voiceId, dialogueVoiceIds]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -487,30 +554,25 @@ export function ForgeTray({
     if (effectiveDestinationType === 'existing_asset' && !canUseExistingDestination) return false;
     if (hasIncompatibleMediaSlots) return false;
 
-    // Fork: 1 slot, no prompt needed, but need new asset name
-    if (operation === 'fork') {
-      return newAssetName.trim().length > 0;
-    }
+    // Fork: 1 slot, no prompt needed (asset name is auto-generated)
+    if (operation === 'fork') return true;
 
-    // Refine: need prompt (destination is existing)
-    if (operation === 'refine') {
-      return hasPrompt;
-    }
-
-    // Generate, Create, Combine: need prompt
-    if (!hasPrompt) return false;
-
-    // New asset destination needs a name
-    if (effectiveDestinationType === 'new_asset') {
-      return newAssetName.trim().length > 0;
-    }
-
-    return true;
-  }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, newAssetName, canUseExistingDestination, hasIncompatibleMediaSlots]);
+    // Everything else needs a prompt
+    return hasPrompt;
+  }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, canUseExistingDestination, hasIncompatibleMediaSlots]);
 
   const canAddMore = slots.length < effectiveMaxSlots;
   // Show destination toggle on AssetDetailPage (has currentAsset) so user can choose existing vs new
   const showDestinationToggle = !!currentAsset;
+  const showNameInput = effectiveDestinationType === 'new_asset';
+  const showStyleControls = !!sendStyleSet && mediaModeConfig.supportsStyle;
+  const showBatchControls = effectiveDestinationType === 'new_asset' && mediaModeConfig.supportsBatch;
+  // Empty-state reference add lives in the control bar; once slots exist the
+  // thumbnail strip carries its own "+".
+  const showRefAdd = canAddMore && slots.length === 0;
+  const showUpload = !!((onUpload && targetAsset) || onUploadNewAsset);
+  const hasSecondaryControls =
+    showStyleControls || !!sendChatMessage || showBatchControls || showDestinationToggle || showRefAdd || showUpload;
 
   // Build tray class with drag-over state
   const trayClasses = [styles.tray];
@@ -526,9 +588,8 @@ export function ForgeTray({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {/* Unified Input Area - Textarea with embedded thumbnails */}
         <div className={styles.inputArea}>
-          {/* Prompt Textarea */}
+          {/* Prompt — the hero. Everything else is in service of this line. */}
           <textarea
             ref={textareaRef}
             className={styles.promptTextarea}
@@ -538,10 +599,11 @@ export function ForgeTray({
             placeholder={placeholder}
             disabled={isSubmitting}
             rows={1}
+            aria-label="Prompt"
           />
 
-          {/* Thumbnails Row - Inside the input area */}
-          {(slots.length > 0 || canAddMore) && (
+          {/* References — only when present; the empty-state add lives in the control bar */}
+          {slots.length > 0 && (
             <div className={styles.thumbsRow}>
               {slots.map((slot) => (
                 <div key={slot.id} className={styles.slotThumb}>
@@ -574,126 +636,12 @@ export function ForgeTray({
                   </svg>
                 </button>
               )}
-              {((onUpload && targetAsset) || onUploadNewAsset) && (
-                <button
-                  className={styles.addThumbButton}
-                  onClick={handleUploadClick}
-                  title={targetAsset ? `Upload media to "${targetAsset.name}"` : 'Upload media to create new asset'}
-                  disabled={isUploading}
-                >
-                  {isUploading ? (
-                    <span className={styles.spinner} />
-                  ) : (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                  )}
-                </button>
-              )}
             </div>
           )}
 
-          {/* Controls Row - Bottom of input area */}
-          <div className={styles.controlsRow}>
-            {/* Media Mode Toggle */}
-            <div className={styles.mediaModeToggle} title={`Forge ${mediaModeConfig.promptNoun}`}>
-              {FORGE_MEDIA_MODE_CONFIGS.map((config) => (
-                <button
-                  key={config.mode}
-                  type="button"
-                  className={`${styles.modeButton} ${mediaMode === config.mode ? styles.active : ''}`}
-                  onClick={() => setMediaMode(config.mode)}
-                  disabled={isSubmitting}
-                  title={`${config.label} mode`}
-                >
-                  <span>{config.shortLabel}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Destination Toggle */}
-            {showDestinationToggle && (
-              <div className={styles.destinationToggle}>
-                <button
-                  type="button"
-                  className={`${styles.destButton} ${destinationType === 'existing_asset' ? styles.active : ''}`}
-                  onClick={() => setDestinationType('existing_asset')}
-                  disabled={isSubmitting || !canUseExistingDestination}
-                  title={
-                    !canUseExistingDestination
-                      ? `${mediaModeConfig.label} mode creates ${selectedMediaKind} assets`
-                      : targetAsset ? `Add to "${targetAsset.name}"` : 'Add to existing'
-                  }
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                  <span>Current</span>
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.destButton} ${destinationType === 'new_asset' ? styles.active : ''}`}
-                  onClick={() => setDestinationType('new_asset')}
-                  disabled={isSubmitting}
-                  title="Create new asset"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <path d="M12 8v8M8 12h8" />
-                  </svg>
-                  <span>New</span>
-                </button>
-              </div>
-            )}
-
-            {/* New Asset Name Input */}
-            {effectiveDestinationType === 'new_asset' && (
-              <input
-                type="text"
-                className={styles.assetNameInput}
-                value={newAssetName}
-                onChange={(e) => setNewAssetName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={`${mediaModeConfig.label} name`}
-                disabled={isSubmitting}
-              />
-            )}
-
-            {/* Style Badge - clickable to open StylePanel */}
-            {sendStyleSet && mediaModeConfig.supportsStyle && (
-              <button
-                type="button"
-                className={`${styles.styleBadge} ${style?.enabled ? styles.active : ''} ${showStylePanel ? styles.open : ''}`}
-                onClick={() => setShowStylePanel(prev => !prev)}
-                disabled={isSubmitting}
-                title={style?.enabled ? `Style active (${style.imageKeys.length} images)` : 'Configure style'}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
-                </svg>
-                <span>Style{style?.enabled ? ` · ${style.imageKeys.length}` : ''}</span>
-              </button>
-            )}
-
-            {/* No Style checkbox - only show when style is active */}
-            {style?.enabled && mediaModeConfig.supportsStyle && (
-              <label className={styles.noStyleCheck}>
-                <input
-                  type="checkbox"
-                  checked={noStyle}
-                  onChange={(e) => setNoStyle(e.target.checked)}
-                  disabled={isSubmitting}
-                />
-                <span>No style</span>
-              </label>
-            )}
-
-            {/* Voice Picker - speech/dialogue audio modes */}
-            {showVoicePicker && (
+          {/* Voice picker for spoken audio */}
+          {showVoicePicker && (
+            <div className={styles.modeControlsRow}>
               <VoicePicker
                 mode={mediaMode === 'dialogue' ? 'dialogue' : 'speech'}
                 disabled={isSubmitting}
@@ -702,82 +650,243 @@ export function ForgeTray({
                 dialogueVoiceIds={dialogueVoiceIds}
                 onDialogueVoiceIdsChange={setDialogueVoiceIds}
               />
-            )}
+            </div>
+          )}
 
-            {/* Chat Toggle Button - Only show if handler is available */}
-            {sendChatMessage && (
-              <button
-                type="button"
-                className={`${styles.destButton} ${showChat ? styles.active : ''}`}
-                onClick={handleToggleChat}
-                disabled={isSubmitting}
-                title="Chat with Claude about your prompt"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                </svg>
-              </button>
-            )}
-
-            {/* Spacer */}
-            <div className={styles.controlsSpacer} />
-
-            {/* Batch Count Selector */}
-            {effectiveDestinationType === 'new_asset' && mediaModeConfig.supportsBatch && (
-              <select
-                className={styles.batchSelect}
-                value={batchCount}
-                onChange={(e) => setBatchCount(Number(e.target.value))}
-                disabled={isSubmitting}
-                title="Number of variants to generate"
-              >
-                <option value={1}>x1</option>
-                <option value={2}>x2</option>
-                <option value={4}>x4</option>
-                <option value={8}>x8</option>
-              </select>
-            )}
-
-            {/* Batch Mode Toggle - only when count > 1 and new_asset */}
-            {effectiveBatchCount > 1 && effectiveDestinationType === 'new_asset' && (
-              <div className={styles.batchModeToggle}>
-                <button
-                  type="button"
-                  className={`${styles.destButton} ${batchMode === 'explore' ? styles.active : ''}`}
-                  onClick={() => setBatchMode('explore')}
-                  disabled={isSubmitting}
-                  title="Explore: 1 asset, multiple variants"
-                >
-                  <span>Explore</span>
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.destButton} ${batchMode === 'set' ? styles.active : ''}`}
-                  onClick={() => setBatchMode('set')}
-                  disabled={isSubmitting}
-                  title="Set: multiple assets, 1 variant each"
-                >
-                  <span>Set</span>
-                </button>
+          {/* Control bar: explicit media type + minimal options + submit */}
+          <div className={styles.actionBar}>
+            <div className={styles.actionBarLeft}>
+              {/* Media type — the explicit choice that drives the options */}
+              <div className={styles.segmented} role="group" aria-label="Media type">
+                {MEDIA_GROUP_OPTIONS.map((option) => (
+                  <button
+                    key={option.group}
+                    type="button"
+                    className={`${styles.segment} ${currentMediaGroup === option.group ? styles.active : ''}`}
+                    onClick={() => handleSelectGroup(option.group)}
+                    disabled={isSubmitting}
+                    title={`${option.label} media`}
+                  >
+                    <span>{option.label}</span>
+                  </button>
+                ))}
               </div>
-            )}
 
-            {/* Submit Button */}
-            <button
-              className={styles.forgeButton}
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              title={`${operationLabel} (Cmd+Enter)`}
-            >
-              {isSubmitting ? (
-                <span className={styles.spinner} />
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                </svg>
+              {currentMediaGroup === 'audio' && (
+                <>
+                  <span className={styles.divider} aria-hidden="true" />
+                  <div className={styles.segmented} role="group" aria-label="Audio type">
+                    {AUDIO_MODE_CONFIGS.map((config) => (
+                      <button
+                        key={config.mode}
+                        type="button"
+                        className={`${styles.segment} ${mediaMode === config.mode ? styles.active : ''}`}
+                        onClick={() => handleSelectAudioMode(config.mode)}
+                        disabled={isSubmitting}
+                        title={`${config.label} mode`}
+                      >
+                        <span>{config.shortLabel}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
-              <span className={styles.buttonLabel}>{operationLabel}</span>
-            </button>
+
+              {hasSecondaryControls && <span className={styles.divider} aria-hidden="true" />}
+
+              {/* Destination (Asset Detail only) */}
+              {showDestinationToggle && (
+                <div className={styles.segmented} role="group" aria-label="Destination">
+                  <button
+                    type="button"
+                    className={`${styles.segment} ${destinationType === 'existing_asset' ? styles.active : ''}`}
+                    onClick={() => setDestinationType('existing_asset')}
+                    disabled={isSubmitting || !canUseExistingDestination}
+                    title={
+                      !canUseExistingDestination
+                        ? `${mediaModeConfig.label} mode creates ${selectedMediaKind} assets`
+                        : targetAsset ? `Add to "${targetAsset.name}"` : 'Add to existing'
+                    }
+                  >
+                    <span>Current</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.segment} ${destinationType === 'new_asset' ? styles.active : ''}`}
+                    onClick={() => setDestinationType('new_asset')}
+                    disabled={isSubmitting}
+                    title="Create new asset"
+                  >
+                    <span>New</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Add reference (empty state) */}
+              {showRefAdd && (
+                <button
+                  type="button"
+                  className={styles.iconButton}
+                  onClick={handleAddClick}
+                  disabled={isSubmitting}
+                  title="Add reference"
+                  aria-label="Add reference"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <path d="M12 8v8M8 12h8" />
+                  </svg>
+                </button>
+              )}
+
+              {/* Upload media */}
+              {showUpload && (
+                <button
+                  type="button"
+                  className={styles.iconButton}
+                  onClick={handleUploadClick}
+                  disabled={isSubmitting || isUploading}
+                  title={targetAsset ? `Upload media to "${targetAsset.name}"` : 'Upload media to create new asset'}
+                  aria-label="Upload media"
+                >
+                  {isUploading ? (
+                    <span className={styles.spinner} />
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                  )}
+                </button>
+              )}
+
+              {/* Style */}
+              {showStyleControls && (
+                <button
+                  type="button"
+                  className={`${styles.iconButton} ${style?.enabled ? styles.active : ''} ${showStylePanel ? styles.open : ''}`}
+                  onClick={() => setShowStylePanel(prev => !prev)}
+                  disabled={isSubmitting}
+                  title={style?.enabled ? `Style active (${style.imageKeys.length} images)` : 'Configure style'}
+                  aria-label="Style"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                    <path d="M2 17l10 5 10-5" />
+                    <path d="M2 12l10 5 10-5" />
+                  </svg>
+                  {style?.enabled && <span className={styles.iconButtonCount}>{style.imageKeys.length}</span>}
+                </button>
+              )}
+
+              {style?.enabled && mediaModeConfig.supportsStyle && (
+                <label className={styles.noStyleCheck}>
+                  <input
+                    type="checkbox"
+                    checked={noStyle}
+                    onChange={(e) => setNoStyle(e.target.checked)}
+                    disabled={isSubmitting}
+                  />
+                  <span>No style</span>
+                </label>
+              )}
+
+              {/* Chat */}
+              {sendChatMessage && (
+                <button
+                  type="button"
+                  className={`${styles.iconButton} ${showChat ? styles.active : ''}`}
+                  onClick={handleToggleChat}
+                  disabled={isSubmitting}
+                  title="Chat with Claude about your prompt"
+                  aria-label="Chat"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                  </svg>
+                </button>
+              )}
+
+              {/* Batch */}
+              {showBatchControls && (
+                <select
+                  className={styles.batchSelect}
+                  value={batchCount}
+                  onChange={(e) => setBatchCount(Number(e.target.value))}
+                  disabled={isSubmitting}
+                  title="Number of variants to generate"
+                  aria-label="Batch count"
+                >
+                  <option value={1}>×1</option>
+                  <option value={2}>×2</option>
+                  <option value={4}>×4</option>
+                  <option value={8}>×8</option>
+                </select>
+              )}
+
+              {effectiveBatchCount > 1 && showBatchControls && (
+                <div className={styles.segmented} role="group" aria-label="Batch mode">
+                  <button
+                    type="button"
+                    className={`${styles.segment} ${batchMode === 'explore' ? styles.active : ''}`}
+                    onClick={() => setBatchMode('explore')}
+                    disabled={isSubmitting}
+                    title="Explore: 1 asset, multiple variants"
+                  >
+                    <span>Explore</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.segment} ${batchMode === 'set' ? styles.active : ''}`}
+                    onClick={() => setBatchMode('set')}
+                    disabled={isSubmitting}
+                    title="Set: multiple assets, 1 variant each"
+                  >
+                    <span>Set</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className={styles.actionBarRight}>
+              {/* Name — auto-generated, quietly editable */}
+              {showNameInput ? (
+                <input
+                  type="text"
+                  className={styles.nameInput}
+                  value={nameValue}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={isSubmitting}
+                  spellCheck={false}
+                  aria-label="Asset name"
+                  title="Auto-named — click to rename"
+                />
+              ) : (
+                targetAsset && (
+                  <span className={styles.nameReadonly} title={targetAsset.name}>
+                    {targetAsset.name}
+                  </span>
+                )
+              )}
+
+              <button
+                className={styles.forgeButton}
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                title={`${operationLabel} (Cmd+Enter)`}
+              >
+                {isSubmitting ? (
+                  <span className={styles.spinner} />
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                )}
+                <span className={styles.buttonLabel}>{operationLabel}</span>
+              </button>
+            </div>
           </div>
 
           {/* Forge error message */}
@@ -798,36 +907,36 @@ export function ForgeTray({
             </div>
           )}
         </div>
-
-        {/* StylePanel - Positioned absolutely above the tray */}
-        {showStylePanel && mediaModeConfig.supportsStyle && spaceId && sendStyleSet && sendStyleDelete && sendStyleToggle && (
-          <StylePanel
-            spaceId={spaceId}
-            onClose={() => setShowStylePanel(false)}
-            sendStyleSet={sendStyleSet}
-            sendStyleDelete={sendStyleDelete}
-            sendStyleToggle={sendStyleToggle}
-          />
-        )}
-
-        {/* ForgeChat Panel - Positioned absolutely above the tray */}
-        {showChat && sendChatMessage && requestChatHistory && clearChatSession && (
-          <ForgeChat
-            currentPrompt={prompt}
-            slotVariantIds={slotVariantIds}
-            messages={chatMessages}
-            isLoading={isChatLoading}
-            lastProgress={chatProgress}
-            error={chatError}
-            historyLoaded={chatHistoryLoaded}
-            sendMessage={sendChatMessage}
-            requestHistory={requestChatHistory}
-            clearChat={clearChatSession}
-            onApplyPrompt={handleApplyPrompt}
-            onClose={() => setShowChat(false)}
-          />
-        )}
       </div>
+
+      {/* StylePanel - full sheet overlay */}
+      {showStylePanel && mediaModeConfig.supportsStyle && spaceId && sendStyleSet && sendStyleDelete && sendStyleToggle && (
+        <StylePanel
+          spaceId={spaceId}
+          onClose={() => setShowStylePanel(false)}
+          sendStyleSet={sendStyleSet}
+          sendStyleDelete={sendStyleDelete}
+          sendStyleToggle={sendStyleToggle}
+        />
+      )}
+
+      {/* ForgeChat - full sheet overlay */}
+      {showChat && sendChatMessage && requestChatHistory && clearChatSession && (
+        <ForgeChat
+          currentPrompt={prompt}
+          slotVariantIds={slotVariantIds}
+          messages={chatMessages}
+          isLoading={isChatLoading}
+          lastProgress={chatProgress}
+          error={chatError}
+          historyLoaded={chatHistoryLoaded}
+          sendMessage={sendChatMessage}
+          requestHistory={requestChatHistory}
+          clearChat={clearChatSession}
+          onApplyPrompt={handleApplyPrompt}
+          onClose={() => setShowChat(false)}
+        />
+      )}
 
       {showAssetPicker && (
         <AssetPickerModal

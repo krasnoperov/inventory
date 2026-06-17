@@ -90,7 +90,8 @@ export function StylePanel({
   }, [imageKeys, sendStyleSet]);
 
   return (
-    <div className={styles.stylePanel}>
+    <div className={styles.backdrop} onClick={onClose}>
+      <div className={styles.stylePanel} onClick={(e) => e.stopPropagation()}>
       {/* Header */}
       <div className={styles.header}>
         <span className={styles.title}>Space Style</span>
@@ -193,6 +194,7 @@ export function StylePanel({
         onChange={handleFileChange}
         style={{ display: 'none' }}
       />
+      </div>
     </div>
   );
 }
