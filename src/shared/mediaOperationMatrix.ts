@@ -3,7 +3,7 @@ import type { ForgeOperation, MediaKind } from './websocket-types';
 export type ForgeMediaMode = 'image' | 'video' | 'speech' | 'dialogue' | 'music' | 'sfx';
 export type ForgeDestinationType = 'existing_asset' | 'new_asset';
 export type MediaGenerationCommand = 'generate' | 'refine' | 'derive' | 'batch';
-export type CliGenerationNamespace = 'top-level' | 'audio';
+export type CliGenerationNamespace = 'top-level' | 'audio' | 'video';
 
 export interface MediaOperationMatrixEntry {
   mode: ForgeMediaMode;
@@ -24,7 +24,7 @@ export interface MediaOperationMatrixEntry {
 
 export interface CliGenerationProfile {
   namespace: CliGenerationNamespace;
-  mediaKind: Extract<MediaKind, 'image' | 'audio'>;
+  mediaKind: MediaKind;
   commands: readonly MediaGenerationCommand[];
   supportsRefs: boolean;
   savesBatchManifest: boolean;
@@ -58,9 +58,9 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     compatibleSlotMediaKinds: ['image', 'video'],
     supportsBatch: false,
     supportsStyle: true,
-    cliNamespace: null,
-    cliCommands: [],
-    cliSupportsRefs: false,
+    cliNamespace: 'video',
+    cliCommands: ['generate', 'refine', 'derive'],
+    cliSupportsRefs: true,
     cliSavesBatchManifest: false,
   },
   {
@@ -142,6 +142,13 @@ export const CLI_GENERATION_PROFILES: readonly CliGenerationProfile[] = [
     mediaKind: 'audio',
     commands: ['generate', 'batch'],
     supportsRefs: false,
+    savesBatchManifest: false,
+  },
+  {
+    namespace: 'video',
+    mediaKind: 'video',
+    commands: ['generate', 'refine', 'derive'],
+    supportsRefs: true,
     savesBatchManifest: false,
   },
 ];

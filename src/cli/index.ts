@@ -11,6 +11,7 @@ import { handleListen } from './commands/listen';
 import { handleUpload } from './commands/upload';
 import { handleGenerate, handleRefine, handleDerive, handleBatch } from './commands/forge';
 import { handleAudio } from './commands/audio';
+import { handleVideo } from './commands/video';
 import { handleInit } from './commands/init';
 import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
@@ -107,6 +108,9 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'audio':
       printAudioHelp(positionals);
       return;
+    case 'video':
+      printVideoHelp(positionals);
+      return;
     case 'runs':
       printRunsHelp();
       return;
@@ -170,6 +174,11 @@ Audio:
   audio generate "prompt" --name <name> --type <type> -o <file>
   audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
 
+Video:
+  video generate "prompt" --name <name> --type <type> -o <file>
+  video refine --variant <variant_id> "prompt" -o <file>
+  video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file>
+
 Options:
   --env <environment>          Target environment (production|stage|local), default: production
   --local                      Shortcut for local development
@@ -188,6 +197,7 @@ Examples:
   pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
   pnpm run cli batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
   pnpm run cli audio generate "A short brass victory sting" --name "Victory Sting" --type audio -o victory.wav
+  pnpm run cli video generate "A looping idle animation" --name "Idle Animation" --type animation -o idle.mp4
   pnpm run cli runs export --latest --format remotion -o keyframes.json
   pnpm run cli assets
   pnpm run cli assets download variant_123 -o variant.mp4
@@ -330,6 +340,40 @@ Usage:
 `);
 }
 
+function printVideoHelp(positionals: string[]): void {
+  const subcommand = positionals.find((value) => value !== 'help');
+  if (subcommand === 'generate') {
+    console.log(`
+Usage:
+  pnpm run cli video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+`);
+    return;
+  }
+
+  if (subcommand === 'refine') {
+    console.log(`
+Usage:
+  pnpm run cli video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+`);
+    return;
+  }
+
+  if (subcommand === 'derive') {
+    console.log(`
+Usage:
+  pnpm run cli video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+`);
+    return;
+  }
+
+  console.log(`
+Usage:
+  pnpm run cli video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  pnpm run cli video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+  pnpm run cli video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+`);
+}
+
 function printRunsHelp(): void {
   console.log(`
 Usage:
@@ -389,6 +433,9 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
       break;
     case 'audio':
       await handleAudio(parsed);
+      break;
+    case 'video':
+      await handleVideo(parsed);
       break;
     case 'runs':
       await handleRuns(parsed);

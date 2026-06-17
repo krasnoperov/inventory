@@ -5,6 +5,7 @@ import type { BatchResult, GenerateResult, Variant } from '../lib/websocket-clie
 import {
   executeAudioCommand,
   executeForgeCommand,
+  executeVideoCommand,
   parseRefs,
   resolveReferenceVariantIds,
 } from './forge';
@@ -51,6 +52,29 @@ function completedAudioResult(overrides: Partial<Variant> = {}): GenerateResult 
     media_mime_type: 'audio/wav',
     media_size_bytes: 4096,
     media_duration_ms: 250,
+    ...overrides,
+  });
+
+  return {
+    type: 'generate:result',
+    requestId: 'request-1',
+    jobId: variant.id,
+    success: true,
+    variant,
+  };
+}
+
+function completedVideoResult(overrides: Partial<Variant> = {}): GenerateResult {
+  const variant = completedVariant({
+    id: 'variant-out',
+    asset_id: 'asset-out',
+    media_kind: 'video',
+    image_key: null,
+    thumb_key: null,
+    media_key: 'media/space/variant-out.mp4',
+    media_mime_type: 'video/mp4',
+    media_size_bytes: 8192,
+    media_duration_ms: 8000,
     ...overrides,
   });
 
@@ -126,11 +150,17 @@ class FakeClient {
     if ((params as { mediaKind?: string }).mediaKind === 'audio') {
       return completedAudioResult();
     }
+    if ((params as { mediaKind?: string }).mediaKind === 'video') {
+      return completedVideoResult();
+    }
     return completedResult();
   }
 
   async sendRefineRequest(params: unknown): Promise<GenerateResult> {
     this.refineParams = params;
+    if ((params as { mediaKind?: string }).mediaKind === 'video') {
+      return completedVideoResult({ asset_id: 'asset-video' });
+    }
     return completedResult({ asset_id: 'asset-source' });
   }
 
@@ -336,6 +366,63 @@ test('resolveReferenceVariantIds errors for incomplete typed variant refs', asyn
       })]
     ),
     /Reference variant is not completed/
+  );
+});
+
+test('resolveReferenceVariantIds accepts completed media-only video refs for video generation', async () => {
+  const refs = await resolveReferenceVariantIds(
+    ['variant-video'],
+    {
+      baseUrl: 'https://inventory-stage.example.test',
+      accessToken: 'token',
+      spaceId: 'space-1',
+    },
+    {
+      fileExists: async () => false,
+      uploadLocalReference: async () => {
+        throw new Error('unexpected upload');
+      },
+    },
+    [completedVariant({
+      id: 'variant-video',
+      media_kind: 'video',
+      image_key: null,
+      thumb_key: null,
+      media_key: 'media/space/variant-video.mp4',
+      media_mime_type: 'video/mp4',
+    })],
+    'video'
+  );
+
+  assert.deepEqual(refs, ['variant-video']);
+});
+
+test('resolveReferenceVariantIds rejects audio refs for video generation', async () => {
+  await assert.rejects(
+    () => resolveReferenceVariantIds(
+      ['variant-audio'],
+      {
+        baseUrl: 'https://inventory-stage.example.test',
+        accessToken: 'token',
+        spaceId: 'space-1',
+      },
+      {
+        fileExists: async () => false,
+        uploadLocalReference: async () => {
+          throw new Error('unexpected upload');
+        },
+      },
+      [completedVariant({
+        id: 'variant-audio',
+        media_kind: 'audio',
+        image_key: null,
+        thumb_key: null,
+        media_key: 'media/space/variant-audio.wav',
+        media_mime_type: 'audio/wav',
+      })],
+      'video'
+    ),
+    /Video generation references must be image or video variants/
   );
 });
 
@@ -819,6 +906,139 @@ test('audio commands reject references before opening a website job', async () =
       },
     }, deps),
     /Audio generation does not support --refs yet/
+  );
+
+  assert.equal(client.connected, false);
+});
+
+test('video generate sends video request and downloads variant media', async () => {
+  const client = new FakeClient();
+  const { deps, downloads, mediaDownloads } = depsFor(client);
+
+  await executeVideoCommand('generate', {
+    positionals: ['A', 'looping', 'idle', 'animation'],
+    options: {
+      space: 'space-1',
+      name: 'Idle Animation',
+      type: 'animation',
+      o: 'idle.mp4',
+    },
+  }, deps);
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Idle Animation',
+    assetType: 'animation',
+    prompt: 'A looping idle animation',
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'video',
+  });
+  assert.deepEqual(downloads, []);
+  assert.deepEqual(mediaDownloads, [{
+    baseUrl: 'https://inventory-stage.example.test',
+    accessToken: 'token',
+    requestPath: '/api/spaces/space-1/variants/variant-out/media',
+    outputPath: 'idle.mp4',
+    force: false,
+  }]);
+});
+
+test('video refine sends source video variant through website job', async () => {
+  const sourceVariant = completedVariant({
+    id: 'variant-video-source',
+    asset_id: 'asset-video',
+    media_kind: 'video',
+    image_key: null,
+    thumb_key: null,
+    media_key: 'media/space/variant-video-source.mp4',
+    media_mime_type: 'video/mp4',
+  });
+  const client = new FakeClient({ assets: [], variants: [sourceVariant], lineage: [] });
+  const { deps, mediaDownloads } = depsFor(client);
+
+  await executeVideoCommand('refine', {
+    positionals: ['make', 'it', 'faster'],
+    options: {
+      space: 'space-1',
+      variant: 'variant-video-source',
+      o: 'faster.mp4',
+    },
+  }, deps);
+
+  assert.deepEqual(client.refineParams, {
+    assetId: 'asset-video',
+    prompt: 'make it faster',
+    sourceVariantIds: ['variant-video-source'],
+    aspectRatio: undefined,
+    disableStyle: false,
+    mediaKind: 'video',
+  });
+  assert.deepEqual(mediaDownloads, [{
+    baseUrl: 'https://inventory-stage.example.test',
+    accessToken: 'token',
+    requestPath: '/api/spaces/space-1/variants/variant-out/media',
+    outputPath: 'faster.mp4',
+    force: false,
+  }]);
+});
+
+test('video derive accepts image and video refs and sends video request', async () => {
+  const imageVariant = completedVariant({
+    id: 'variant-image',
+    image_key: 'images/space/variant-image.png',
+    media_key: 'images/space/variant-image.png',
+  });
+  const videoVariant = completedVariant({
+    id: 'variant-video',
+    media_kind: 'video',
+    image_key: null,
+    thumb_key: null,
+    media_key: 'media/space/variant-video.mp4',
+    media_mime_type: 'video/mp4',
+  });
+  const client = new FakeClient({ assets: [], variants: [imageVariant, videoVariant], lineage: [] });
+  const { deps } = depsFor(client);
+
+  await executeVideoCommand('derive', {
+    positionals: ['animate', 'this', 'pose'],
+    options: {
+      space: 'space-1',
+      refs: 'variant-image,variant-video',
+      name: 'Animated Pose',
+      type: 'animation',
+      o: 'pose.mp4',
+    },
+  }, deps);
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Animated Pose',
+    assetType: 'animation',
+    prompt: 'animate this pose',
+    referenceVariantIds: ['variant-image', 'variant-video'],
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'video',
+  });
+});
+
+test('video commands reject batch before opening a website job', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeVideoCommand('batch' as never, {
+      positionals: ['make', 'two', 'clips'],
+      options: {
+        space: 'space-1',
+        name: 'Clip',
+        type: 'animation',
+        count: '2',
+        'output-dir': 'video',
+      },
+    }, deps),
+    /Video generation does not support batch/
   );
 
   assert.equal(client.connected, false);

@@ -115,6 +115,10 @@ test('help is side-effect-free across command and subcommand levels', async () =
       ['audio', '--help'],
       ['audio', 'generate', '--help'],
       ['audio', 'batch', '--help'],
+      ['video', '--help'],
+      ['video', 'generate', '--help'],
+      ['video', 'refine', '--help'],
+      ['video', 'derive', '--help'],
       ['runs', '--help'],
       ['runs', 'show', '--help'],
       ['runs', 'export', '--help'],
@@ -122,6 +126,7 @@ test('help is side-effect-free across command and subcommand levels', async () =
       ['assets', 'show', '--help'],
       ['assets', 'download', '--help'],
       ['help', 'audio', 'batch'],
+      ['help', 'video', 'derive'],
       ['help', 'assets', 'show'],
     ];
 
@@ -198,6 +203,23 @@ test('nested audio subcommand help does not require auth', async () => {
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
     assert.ok(result.stdout.includes('pnpm run cli audio generate "prompt"'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('nested video subcommand help does not require auth', async () => {
+  const cwd = await createCliCwd();
+  try {
+    const configHome = path.join(cwd, 'xdg-config');
+    const result = await runCli(['video', 'generate', '--help'], cwd, {
+      XDG_CONFIG_HOME: configHome,
+      HOME: cwd,
+    });
+
+    assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
+    assert.equal(result.stderr, '');
+    assert.ok(result.stdout.includes('pnpm run cli video generate "prompt"'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
