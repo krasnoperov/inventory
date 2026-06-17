@@ -300,6 +300,7 @@ All error messages include an `ErrorCode` for programmatic handling:
 | Code | Description |
 |------|-------------|
 | `RATE_LIMITED` | Too many requests |
+| `PAID_GENERATION_REQUIRED` | Paid generation access is not enabled for this account |
 | `QUOTA_EXCEEDED` | Usage quota exceeded |
 | `NOT_FOUND` | Resource not found |
 | `VALIDATION_ERROR` | Invalid input |

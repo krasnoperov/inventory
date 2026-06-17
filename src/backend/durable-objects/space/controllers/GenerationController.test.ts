@@ -69,6 +69,7 @@ function createQuotaCheckDb(options: {
   quotaLimit: number;
   quotaUsed?: number;
   rateLimitCount?: number;
+  paidGenerationEntitlement?: 'none' | 'paid' | 'internal';
 }) {
   return {
     prepare: mock.fn((sql: string) => ({
@@ -76,7 +77,7 @@ function createQuotaCheckDb(options: {
         first: mock.fn(async () => {
           if (sql.includes('FROM users')) {
             return {
-              paid_generation_entitlement: 'paid',
+              paid_generation_entitlement: options.paidGenerationEntitlement ?? 'paid',
               quota_limits: JSON.stringify({ elevenlabs_audio: options.quotaLimit }),
               rate_limit_count: options.rateLimitCount ?? 0,
               rate_limit_window_start: null,
@@ -168,6 +169,42 @@ function createMockContext(
 
 describe('GenerationController pipeline hooks', () => {
   describe('handleGenerateRequest', () => {
+    test('uses paid generation error code when user has no paid-generation entitlement', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 100,
+        paidGenerationEntitlement: 'none',
+      }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-paid-required',
+          name: 'Music cue',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'short heroic orchestral loop',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'generate:error',
+        requestId: 'request-paid-required',
+        error: 'Paid generation is not enabled for this account. Please upgrade your plan.',
+        code: 'PAID_GENERATION_REQUIRED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
     test('blocks ElevenLabs music generation when remaining quota can cover prompt but not provider cost', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();

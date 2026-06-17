@@ -58,6 +58,7 @@ export default function AssetDetailPage() {
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [forgeError, setForgeError] = useState<string | null>(null);
+  const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
 
   // Variant selection state (persisted in store)
   const selectedVariantId = useSelectedVariantId(assetId || '');
@@ -206,15 +207,27 @@ export default function AssetDetailPage() {
     },
     onGenerateError: (data) => {
       setForgeError(data.error);
-      setTimeout(() => setForgeError(null), 5000);
+      setForgeErrorCode(data.code);
+      setTimeout(() => {
+        setForgeError(null);
+        setForgeErrorCode(null);
+      }, 5000);
     },
     onRefineError: (data) => {
       setForgeError(data.error);
-      setTimeout(() => setForgeError(null), 5000);
+      setForgeErrorCode(data.code);
+      setTimeout(() => {
+        setForgeError(null);
+        setForgeErrorCode(null);
+      }, 5000);
     },
     onBatchError: (data) => {
       setForgeError(data.error);
-      setTimeout(() => setForgeError(null), 5000);
+      setForgeErrorCode(data.code);
+      setTimeout(() => {
+        setForgeError(null);
+        setForgeErrorCode(null);
+      }, 5000);
     },
     onError: (error) => {
       // Handle WebSocket errors - clear chat loading state
@@ -804,6 +817,7 @@ export default function AssetDetailPage() {
         sendStyleDelete={sendStyleDelete}
         sendStyleToggle={sendStyleToggle}
         forgeError={forgeError}
+        forgeErrorCode={forgeErrorCode}
       />
 
       {/* Rotation Panel modal */}

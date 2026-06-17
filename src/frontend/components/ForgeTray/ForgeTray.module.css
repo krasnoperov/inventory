@@ -674,11 +674,25 @@
 
 /* Forge Error Message */
 .forgeError {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
   padding: 0.375rem 0.75rem;
   font-size: 0.75rem;
   color: var(--color-error, #ef4444);
   line-height: 1.4;
   animation: forgeErrorFadeIn 0.2s ease;
+}
+
+.forgeErrorAction {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.forgeErrorAction:hover {
+  text-decoration: underline;
 }
 
 @keyframes forgeErrorFadeIn {
