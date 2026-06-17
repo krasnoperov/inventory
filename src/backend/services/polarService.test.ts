@@ -82,6 +82,12 @@ describe('PolarService', () => {
       assert.deepStrictEqual(result, []);
     });
 
+    test('listMeters returns empty array when not configured', async () => {
+      const service = createPolarService();
+      const result = await service.listMeters();
+      assert.deepStrictEqual(result, []);
+    });
+
     test('getBillingStatus returns unconfigured status when not configured', async () => {
       const service = createPolarService();
       const result = await service.getBillingStatus(123);

@@ -73,7 +73,7 @@ Project:
 
 Billing (Polar.sh):
   billing status               Show sync status (pending, failed, synced events)
-  billing sync                 Trigger manual sync of pending events
+  billing check                Run operational checks for workers, meters, and sync health
   billing retry-failed         Retry all failed events
 
 Spaces:
@@ -111,6 +111,7 @@ Examples:
   pnpm run cli login --env stage
   pnpm run cli logout
   pnpm run cli billing status   Show billing sync status
+  pnpm run cli billing check    Check billing production readiness
   pnpm run cli spaces --details List spaces with asset summaries
   pnpm run cli spaces create "My Game Assets" --init
   pnpm run cli listen --space space_123

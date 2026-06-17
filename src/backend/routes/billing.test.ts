@@ -4,13 +4,14 @@ import { Hono } from 'hono';
 import { AuthService } from '../features/auth/auth-service';
 import { UserDAO } from '../../dao/user-dao';
 import { PolarService } from '../services/polarService';
+import { UsageEventDAO } from '../../dao/usage-event-dao';
 import type { AppContext } from './types';
 import { billingRoutes } from './billing';
 
-function routeApp(deps: Map<unknown, unknown>) {
+function routeApp(deps: Map<unknown, unknown>, env: Partial<AppContext['Bindings']> = {}) {
   const app = new Hono<AppContext>();
   app.use('*', async (c, next) => {
-    c.env = { ENVIRONMENT: 'stage' } as unknown as AppContext['Bindings'];
+    c.env = { ENVIRONMENT: 'stage', ...env } as unknown as AppContext['Bindings'];
     c.set('container', {
       get: (token: unknown) => {
         const dependency = deps.get(token);
@@ -65,5 +66,45 @@ describe('billingRoutes', () => {
     assert.deepEqual(updates, [
       [42, { paid_generation_entitlement: 'none' }],
     ]);
+  });
+
+  test('operational checks report missing Polar meters as critical', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UsageEventDAO, {
+      getSyncHealth: async () => ({
+        pending: 0,
+        failed: 0,
+        synced: 12,
+        oldestPendingCreatedAt: null,
+        oldestFailedCreatedAt: null,
+        lastSyncedAt: '2026-06-17T10:00:00.000Z',
+        lastSyncAttemptAt: '2026-06-17T10:00:00.000Z',
+      }),
+    });
+    deps.set(UserDAO, {
+      countWithoutPolarCustomer: async () => 0,
+    });
+    deps.set(PolarService, {
+      isConfigured: () => true,
+      listMeters: async () => [
+        { id: 'meter_1', name: 'gemini_images', aggregation: 'count', archivedAt: null },
+      ],
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request('/api/billing/operational-checks', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      status: string;
+      checks: { polarMeters: { status: string; missing: string[] } };
+    };
+    assert.equal(body.status, 'critical');
+    assert.equal(body.checks.polarMeters.status, 'critical');
+    assert.ok(body.checks.polarMeters.missing.includes('claude_input_tokens'));
   });
 });

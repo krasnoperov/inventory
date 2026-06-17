@@ -70,6 +70,13 @@ export interface BillingStatus {
   };
 }
 
+export interface PolarMeterInfo {
+  id: string;
+  name: string;
+  aggregation: string;
+  archivedAt: Date | null;
+}
+
 @injectable()
 export class PolarService {
   private client: Polar | null;
@@ -95,6 +102,36 @@ export class PolarService {
    */
   isConfigured(): boolean {
     return this.client !== null;
+  }
+
+  /**
+   * List active organization meters configured in Polar.
+   * Used by operational checks to catch missing production meters before usage
+   * events pile up locally.
+   */
+  async listMeters(): Promise<PolarMeterInfo[]> {
+    if (!this.client) return [];
+
+    const response = await this.client.meters.list({
+      organizationId: this.organizationId || undefined,
+      isArchived: false,
+      limit: 100,
+    });
+
+    const meters: PolarMeterInfo[] = [];
+    for await (const meterPage of response) {
+      const items = meterPage.result?.items || [];
+      for (const meter of items) {
+        meters.push({
+          id: meter.id,
+          name: meter.name,
+          aggregation: meter.aggregation.func,
+          archivedAt: meter.archivedAt ?? null,
+        });
+      }
+    }
+
+    return meters;
   }
 
   /**

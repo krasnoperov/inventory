@@ -330,6 +330,7 @@ View billing sync status and manage usage.
 
 ```bash
 pnpm run cli billing status
+pnpm run cli billing check
 ```
 
 ---
