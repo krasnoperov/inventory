@@ -33,7 +33,7 @@ import {
   type ImageInput,
   type ImageSize,
 } from '../services/nanoBananaService';
-import { GoogleVeoService, type VideoAspectRatio, type VideoGenerationResult, type VideoModel } from '../services/googleVeoService';
+import { GoogleVeoService, type VideoAspectRatio, type VideoModel } from '../services/googleVeoService';
 import { CustomModelProvider } from '../services/customModelProvider';
 import { FakeImageProvider } from '../services/fakeImageProvider';
 import type { ImageGenerationProvider } from '../services/imageProvider';
@@ -45,30 +45,16 @@ import {
   ElevenLabsMusicProvider,
   ElevenLabsSoundEffectProvider,
 } from '../services/elevenLabsAudioProvider';
+import { arrayBufferToBase64 } from '../utils/image-utils';
 import {
-  detectImageType,
-  base64ToBuffer,
-  arrayBufferToBase64,
-  createThumbnail,
-  getBaseUrl,
-  getExtensionForMimeType,
-  getImageDimensions,
-} from '../utils/image-utils';
+  uploadGeneratedMedia,
+  type MediaUploadResult,
+} from './generation-media-upload';
 import { loggers } from '../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../shared/websocket-types';
 
 const log = loggers.generationWorkflow;
 const FAKE_VIDEO_MP4_BASE64 = 'ZmFrZSB2aWRlbw==';
-
-function getVideoExtensionForMimeType(mimeType: string): string {
-  if (mimeType === 'video/webm') return 'webm';
-  if (mimeType === 'video/quicktime') return 'mov';
-  return 'mp4';
-}
-
-function isVideoGenerationResult(result: GenerationResult | VideoGenerationResult): result is VideoGenerationResult {
-  return 'videoData' in result;
-}
 
 function getAudioExtensionForMimeType(mimeType: string): string {
   switch (mimeType) {
@@ -136,9 +122,14 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     // Step 2: Generate image with retries
     // Note: Source images are fetched inside this step to avoid persisting large blobs
     // in workflow state (which has SQLite size limits)
-    let generationResult: GenerationResult | VideoGenerationResult;
+    // variantId === jobId (placeholder variant created before the workflow started).
+    const variantId = jobId;
+    // Generate AND upload to R2 in a single step. Binary payloads (image/video
+    // bytes) must never be a step return value — Cloudflare caps step output at
+    // 1 MiB. See src/backend/workflows/README.md.
+    let uploadResult: MediaUploadResult;
     try {
-      generationResult = await step.do(mediaKind === 'video' ? 'generate-video' : 'generate-image', {
+      uploadResult = await step.do(mediaKind === 'video' ? 'generate-and-upload-video' : 'generate-and-upload-image', {
         retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' },
         timeout: mediaKind === 'video' ? '10 minutes' : '5 minutes',
       }, async () => {
@@ -223,7 +214,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   styleImageCount,
                 });
             timer(true, { resultSize: result.videoData.length });
-            return result;
+            // Upload in-step; never return raw video bytes (1 MiB step-output cap).
+            return await uploadGeneratedMedia(this.env, result, {
+              spaceId, variantId, operation, refCount, modelProvider, requestId, jobId,
+            });
           } catch (error) {
             timer(false, { error: error instanceof Error ? error.message : String(error) });
             throw error;
@@ -297,7 +291,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             });
           }
           timer(true, { resultSize: result.imageData?.length || 0, geminiApi });
-          return result;
+          // Upload in-step; never return raw image bytes (1 MiB step-output cap).
+          return await uploadGeneratedMedia(this.env, result, {
+            spaceId, variantId, operation, refCount, modelProvider, requestId, jobId,
+          });
         } catch (error) {
           timer(false, { error: error instanceof Error ? error.message : String(error) });
 
@@ -329,181 +326,21 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       };
     }
 
-    // Step 3: Upload to R2
-    // Note: variantId === jobId (placeholder variant created before workflow started)
-    const variantId = jobId;
-    let imageKey: string | null;
-    let thumbKey: string | null;
-    let mediaKey: string | null;
-    let mediaMimeType: string | null = null;
-    let mediaSizeBytes: number | null = null;
-    let mediaWidth: number | null = null;
-    let mediaHeight: number | null = null;
-    let mediaDurationMs: number | null = null;
-    let providerMetadata: Record<string, unknown> | null = null;
+    // generate-and-upload-{image,video} already wrote the bytes to R2 and
+    // returned only keys + metadata — nothing large crossed the step boundary.
+    const {
+      imageKey,
+      thumbKey,
+      mediaKey,
+      mediaMimeType,
+      mediaSizeBytes,
+      mediaWidth,
+      mediaHeight,
+      mediaDurationMs,
+      providerMetadata,
+    } = uploadResult;
 
-    try {
-      const uploadResult = await step.do('upload-r2', {
-        retries: { limit: 2, delay: '3 seconds' },
-      }, async () => {
-        if (!this.env.IMAGES) {
-          throw new Error('IMAGES R2 bucket not configured');
-        }
-
-        const timer = log.startTimer('Upload to R2', { requestId, jobId });
-
-        try {
-          if (isVideoGenerationResult(generationResult)) {
-            const videoMimeType = generationResult.videoMimeType || 'video/mp4';
-            const extension = getVideoExtensionForMimeType(videoMimeType);
-            const key = `media/${spaceId}/${variantId}.${extension}`;
-            const videoBuffer = base64ToBuffer(generationResult.videoData);
-
-            await this.env.IMAGES.put(key, videoBuffer, {
-              httpMetadata: { contentType: videoMimeType },
-            });
-
-            timer(true, {
-              mediaKey: key,
-              totalBytes: videoBuffer.byteLength,
-            });
-
-            return {
-              imageKey: null,
-              thumbKey: null,
-              mediaKey: key,
-              mediaMimeType: videoMimeType,
-              mediaSizeBytes: videoBuffer.byteLength,
-              mediaWidth: null,
-              mediaHeight: null,
-              mediaDurationMs: generationResult.durationSeconds * 1000,
-            };
-          }
-
-          // Detect actual image type from base64
-          const actualMimeType = detectImageType(generationResult.imageData);
-          const extension = getExtensionForMimeType(actualMimeType);
-
-          const imgKey = `images/${spaceId}/${variantId}.${extension}`;
-          const thmbKey = `images/${spaceId}/${variantId}_thumb.webp`;
-
-          // Convert base64 to buffer
-          const imageBuffer = base64ToBuffer(generationResult.imageData);
-          const dimensions = getImageDimensions(imageBuffer);
-
-          // Upload full image
-          await this.env.IMAGES.put(imgKey, imageBuffer, {
-            httpMetadata: { contentType: actualMimeType },
-          });
-
-          log.debug('Uploaded full image', { requestId, jobId, imageKey: imgKey });
-
-          // Create and upload thumbnail
-          let thumbSize = 0;
-          try {
-            const baseUrl = getBaseUrl(this.env);
-            const { buffer: thumbBuffer, mimeType: thumbMimeType } = await createThumbnail(
-              imgKey,
-              baseUrl,
-              this.env,
-              {
-                width: 512,
-                height: 512,
-                fit: 'cover',
-                gravity: 'auto',
-                quality: 80,
-                format: 'webp',
-              }
-            );
-
-            await this.env.IMAGES.put(thmbKey, thumbBuffer, {
-              httpMetadata: { contentType: thumbMimeType },
-            });
-            thumbSize = thumbBuffer.byteLength;
-
-            log.debug('Uploaded thumbnail', { requestId, jobId, thumbKey: thmbKey });
-          } catch (thumbError) {
-            // Fallback: use original as thumbnail
-            log.warn('Thumbnail creation failed, using original', { requestId, jobId, error: thumbError instanceof Error ? thumbError.message : String(thumbError) });
-            await this.env.IMAGES.put(thmbKey, imageBuffer, {
-              httpMetadata: { contentType: actualMimeType },
-            });
-            thumbSize = imageBuffer.byteLength;
-          }
-
-          timer(true, {
-            imageKey: imgKey,
-            thumbKey: thmbKey,
-            totalBytes: imageBuffer.byteLength + thumbSize,
-          });
-          return {
-            imageKey: imgKey,
-            thumbKey: thmbKey,
-            mediaKey: imgKey,
-            mediaMimeType: actualMimeType,
-            mediaSizeBytes: imageBuffer.byteLength,
-            mediaWidth: dimensions?.width ?? null,
-            mediaHeight: dimensions?.height ?? null,
-            mediaDurationMs: null,
-          };
-        } catch (error) {
-          timer(false, { error: error instanceof Error ? error.message : String(error) });
-          throw error;
-        }
-      });
-
-      imageKey = uploadResult.imageKey;
-      thumbKey = uploadResult.thumbKey;
-      mediaKey = uploadResult.mediaKey;
-      mediaMimeType = uploadResult.mediaMimeType;
-      mediaSizeBytes = uploadResult.mediaSizeBytes;
-      mediaWidth = uploadResult.mediaWidth;
-      mediaHeight = uploadResult.mediaHeight;
-      mediaDurationMs = uploadResult.mediaDurationMs;
-      if (isVideoGenerationResult(generationResult)) {
-        providerMetadata = {
-          provider: this.env.INVENTORY_IMAGE_PROVIDER === 'fake' ? 'fake' : 'google-veo',
-          model: generationResult.model,
-          operation,
-          aspectRatio: generationResult.aspectRatio,
-          resolution: generationResult.resolution,
-          durationSeconds: generationResult.durationSeconds,
-          sourceImageCount: refCount,
-        };
-      } else {
-        const provider =
-          this.env.INVENTORY_IMAGE_PROVIDER === 'fake'
-            ? 'fake'
-            : modelProvider === 'custom' && this.env.CUSTOM_MODEL_ENDPOINT
-              ? 'custom'
-              : 'gemini';
-        const imageApi: 'generate' | 'edit' | 'compose' =
-          refCount === 0 ? 'generate' :
-          (operation === 'refine' && refCount === 1) ? 'edit' :
-          'compose';
-        providerMetadata = {
-          provider,
-          model: generationResult.model,
-          operation,
-          api: imageApi,
-          aspectRatio: generationResult.aspectRatio,
-          imageSize: generationResult.imageSize,
-          sourceImageCount: refCount,
-          usage: generationResult.usage ?? null,
-        };
-      }
-    } catch (error) {
-      log.error('Upload error', { requestId, jobId, spaceId, error: error instanceof Error ? error.message : String(error) });
-      await this.handleFailure(spaceId, jobId, requestId, error instanceof Error ? error.message : 'Upload failed');
-      return {
-        requestId,
-        jobId,
-        success: false,
-        error: error instanceof Error ? error.message : 'Upload failed',
-      };
-    }
-
-    // Step 5: Complete variant in SpaceDO (updates status to 'completed')
+    // Step 3: Complete variant in SpaceDO (updates status to 'completed')
     let variant: GeneratedVariant;
     try {
       variant = await step.do('complete-variant', async () => {
