@@ -40,7 +40,8 @@ import {
 
 export type ForgeCommand = MediaGenerationCommand;
 export type AudioForgeCommand = Extract<MediaGenerationCommand, 'generate' | 'batch'>;
-type GenerationMediaKind = Extract<MediaKind, 'image' | 'audio'>;
+export type VideoForgeCommand = Extract<MediaGenerationCommand, 'generate' | 'refine' | 'derive'>;
+type GenerationMediaKind = MediaKind;
 const CLI_GENERATION_MEDIA_KIND = getCliGenerationMediaKind('top-level');
 
 interface SpaceState {
@@ -240,6 +241,22 @@ export async function executeAudioCommand(
   });
 }
 
+export async function executeVideoCommand(
+  command: VideoForgeCommand,
+  parsed: ParsedArgs,
+  deps: CommandDeps = defaultDeps
+): Promise<GenerateResult | BatchResult> {
+  const videoProfile = getCliGenerationProfile('video');
+  if (!videoProfile.commands.includes(command)) {
+    throw new Error(`Video generation does not support ${command}`);
+  }
+
+  return executeForgeCommand(command, parsed, deps, {
+    mediaKind: videoProfile.mediaKind,
+    saveBatchManifest: videoProfile.savesBatchManifest,
+  });
+}
+
 async function prepareAudioParsedArgs(
   parsed: ParsedArgs,
   mode?: AudioForgeMediaMode
@@ -339,7 +356,8 @@ async function executeDerive(
     refs,
     ctx,
     deps,
-    state.variants as Variant[]
+    state.variants as Variant[],
+    mediaKind
   );
 
   console.log(`Deriving "${name}" from ${referenceVariantIds.length} reference(s)...`);
@@ -376,12 +394,12 @@ async function executeBatch(
   const refs = parsed.options.refs ? parseRefs(parsed.options.refs) : [];
   const state = await requestSpaceState(client);
   const referenceVariantIds = refs.length > 0
-    ? await resolveReferenceVariantIds(refs, ctx, deps, state.variants as Variant[])
+    ? await resolveReferenceVariantIds(refs, ctx, deps, state.variants as Variant[], mediaKind)
     : undefined;
   const startedAt = new Date().toISOString();
   const runId = deps.createRunId();
 
-  const mediaLabel = mediaKind === 'image' ? 'image' : 'audio file';
+  const mediaLabel = mediaKind === 'image' ? 'image' : mediaKind === 'video' ? 'video' : 'audio file';
   console.log(`Batch generating ${count} ${mediaLabel}(s) for "${name}"...`);
   const result = await client.sendBatchRequest({
     name,
@@ -492,7 +510,8 @@ export async function resolveReferenceVariantIds(
   refs: string[],
   ctx: Pick<CommandContext, 'baseUrl' | 'accessToken' | 'spaceId'>,
   deps: Pick<CommandDeps, 'fileExists' | 'uploadLocalReference'>,
-  variants: Variant[] = []
+  variants: Variant[] = [],
+  mediaKind: GenerationMediaKind = CLI_GENERATION_MEDIA_KIND
 ): Promise<string[]> {
   const variantIds: string[] = [];
 
@@ -513,20 +532,34 @@ export async function resolveReferenceVariantIds(
       throw new Error(`Reference file not found: ${ref}`);
     }
 
-    validateReferenceVariant(ref, variants);
+    validateReferenceVariant(ref, variants, mediaKind);
     variantIds.push(ref);
   }
 
   return variantIds;
 }
 
-function validateReferenceVariant(ref: string, variants: Variant[]): void {
+function validateReferenceVariant(ref: string, variants: Variant[], mediaKind: GenerationMediaKind): void {
   const variant = variants.find((candidate) => candidate.id === ref);
   if (!variant) {
     throw new Error(`Reference variant not found in space sync state: ${ref}`);
   }
-  if (variant.status !== 'completed' || !variant.image_key) {
-    throw new Error(`Reference variant is not completed or has no image: ${ref}`);
+  if (variant.status !== 'completed') {
+    throw new Error(`Reference variant is not completed: ${ref}`);
+  }
+
+  if (mediaKind === 'image' && !variant.image_key) {
+    throw new Error(`Reference variant has no image: ${ref}`);
+  }
+
+  if (mediaKind === 'video') {
+    const referenceMediaKind = variant.media_kind || CLI_GENERATION_MEDIA_KIND;
+    if (referenceMediaKind !== 'image' && referenceMediaKind !== 'video') {
+      throw new Error(`Video generation references must be image or video variants: ${ref}`);
+    }
+    if (!variant.image_key && !variant.media_key) {
+      throw new Error(`Reference variant has no image or video media: ${ref}`);
+    }
   }
 }
 
@@ -648,6 +681,13 @@ function getOutputExtension(variant: Variant, mediaKind: GenerationMediaKind): s
 
   const keyExtension = path.extname(variant.media_key || '').replace(/^\./, '').toLowerCase();
   if (keyExtension) return keyExtension;
+
+  if (mediaKind === 'video') {
+    if (variant.media_mime_type === 'video/quicktime') return 'mov';
+    if (variant.media_mime_type === 'video/webm') return 'webm';
+    if (variant.media_mime_type === 'video/x-m4v') return 'm4v';
+    return 'mp4';
+  }
 
   if (variant.media_mime_type === 'audio/mpeg') return 'mp3';
   if (variant.media_mime_type === 'audio/mp4') return 'm4a';

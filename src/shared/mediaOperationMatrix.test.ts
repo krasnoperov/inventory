@@ -50,7 +50,13 @@ describe('media operation matrix', () => {
   });
 
   test('documents supported CLI generation namespaces', () => {
+    const videoMode = MEDIA_OPERATION_MATRIX.find((entry) => entry.mode === 'video');
     const audioModes = MEDIA_OPERATION_MATRIX.filter((entry) => entry.mediaKind === 'audio');
+
+    assert.equal(videoMode?.cliNamespace, 'video');
+    assert.equal(videoMode?.cliCommands.join(','), 'generate,refine,derive');
+    assert.equal(videoMode?.cliSupportsRefs, true);
+    assert.equal(videoMode?.cliSavesBatchManifest, false);
 
     assert.ok(audioModes.every((entry) => entry.cliNamespace === 'audio'));
     assert.ok(audioModes.every((entry) => entry.cliCommands.join(',') === 'generate,batch'));
@@ -72,8 +78,16 @@ describe('media operation matrix', () => {
         supportsRefs: false,
         savesBatchManifest: false,
       },
+      {
+        namespace: 'video',
+        mediaKind: 'video',
+        commands: ['generate', 'refine', 'derive'],
+        supportsRefs: true,
+        savesBatchManifest: false,
+      },
     ]);
     assert.equal(getCliGenerationMediaKind('top-level'), 'image');
     assert.equal(getCliGenerationMediaKind('audio'), 'audio');
+    assert.equal(getCliGenerationMediaKind('video'), 'video');
   });
 });

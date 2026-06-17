@@ -41,7 +41,10 @@ pnpm run cli generate "A market background" --name "Market" --type scene -o mark
 # 8. Generate audio through website jobs and download the completed file
 pnpm run cli audio sfx generate "A short brass victory sting" --name "Victory Sting" -o audio/victory.wav
 
-# 9. Inspect website assets and download an existing variant's media
+# 9. Generate video through website jobs and download the completed file
+pnpm run cli video generate "A looping idle animation" --name "Idle Animation" --type animation -o video/idle.mp4
+
+# 10. Inspect website assets and download an existing variant's media
 pnpm run cli assets
 pnpm run cli assets download VARIANT_ID -o references/variant.png
 ```
@@ -62,6 +65,7 @@ pnpm run cli assets download VARIANT_ID -o references/variant.png
 | `derive` | Create a new asset from variant IDs and/or local image refs |
 | `batch` | Generate multiple images and write a local run manifest |
 | `audio` | Generate audio assets through website jobs |
+| `video` | Generate and refine video assets through website jobs |
 | `runs` | List, inspect, and export local run manifests |
 | `billing` | Billing sync status and management |
 
@@ -244,7 +248,8 @@ The CLI can act as a ForgeTray controller for an existing website space. The
 website remains authoritative for assets, variants, recipes, lineage, and R2
 storage; the CLI sends generation requests and downloads completed media.
 The top-level `generate`, `refine`, `derive`, and `batch` commands are
-image-only and send `mediaKind: "image"`.
+image-only and send `mediaKind: "image"`. Video commands live under the
+explicit `video` namespace.
 
 ```bash
 pnpm run cli generate "A watercolor background of Russafa market" \
@@ -318,6 +323,37 @@ Dialogue and speech prompts can also be passed as direct multiline shell text.
 Audio generation currently does not accept `--refs`, `derive`, or `refine`
 commands. Audio batch downloads completed files into the requested directory but
 does not write image keyframe run manifests.
+
+## Video Generation
+
+Video controller commands use the same website Space Durable Object and
+GenerationWorkflow job lifecycle as image and audio generation. They send
+`mediaKind: "video"` and download the completed variant through the
+authenticated variant media endpoint.
+
+```bash
+pnpm run cli video generate "A looping idle animation" \
+  --name "Idle Animation" \
+  --type animation \
+  -o video/idle.mp4
+
+pnpm run cli video refine \
+  --variant VIDEO_VARIANT_ID \
+  "make the motion snappier" \
+  -o video/idle-snappy.mp4
+
+pnpm run cli video derive \
+  --refs IMAGE_VARIANT_ID,VIDEO_VARIANT_ID \
+  --name "Attack Animation" \
+  --type animation \
+  "animate the pose into a short attack" \
+  -o video/attack.mp4
+```
+
+`video derive --refs` accepts completed image variant IDs, completed video
+variant IDs, and local image paths. Local paths are uploaded first as reference
+image assets. Video batch generation is not exposed because website batch jobs
+reject `mediaKind: "video"`.
 
 ## Run Manifests
 

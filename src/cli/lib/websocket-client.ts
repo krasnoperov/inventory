@@ -13,6 +13,13 @@ import { loadStoredConfig, resolveBaseUrl } from './config';
 import { loginCommandForEnvironment } from './command-context';
 import type { DescribeFocus, ClaudeUsage, MediaKind, SimplePlan } from '../../shared/websocket-types';
 
+export const GENERATION_REQUEST_TIMEOUT_MS = 300_000;
+export const VIDEO_GENERATION_REQUEST_TIMEOUT_MS = 720_000;
+
+export function getGenerationRequestTimeoutMs(mediaKind?: MediaKind): number {
+  return mediaKind === 'video' ? VIDEO_GENERATION_REQUEST_TIMEOUT_MS : GENERATION_REQUEST_TIMEOUT_MS;
+}
+
 // Re-export SimplePlan for CLI commands
 export type { SimplePlan } from '../../shared/websocket-types';
 
@@ -859,6 +866,7 @@ export class WebSocketClient {
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
+    const timeoutMs = getGenerationRequestTimeoutMs(params.mediaKind);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -876,7 +884,7 @@ export class WebSocketClient {
             return;
           }
         }
-      }, 300000);
+      }, timeoutMs);
 
       // Set up handler for response
       this.generateHandlers.set(requestId, {
@@ -926,6 +934,7 @@ export class WebSocketClient {
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
+    const timeoutMs = getGenerationRequestTimeoutMs(params.mediaKind);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -943,7 +952,7 @@ export class WebSocketClient {
             return;
           }
         }
-      }, 300000);
+      }, timeoutMs);
 
       // Set up handler for response
       this.generateHandlers.set(requestId, {

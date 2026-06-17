@@ -6,8 +6,9 @@ stored media live in the Space Durable Object and R2. The CLI sends requests,
 waits for completion, and downloads local copies of completed media.
 Top-level `generate`, `refine`, `derive`, and `batch` are image-only commands
 and send `mediaKind: "image"` with generation requests. The `audio` subcommands
-send `mediaKind: "audio"` and use the same website job lifecycle. The shared
-source of truth for these generation capabilities is
+send `mediaKind: "audio"` and use the same website job lifecycle. The `video`
+subcommands send `mediaKind: "video"` through the website job lifecycle. The
+shared source of truth for these generation capabilities is
 `src/shared/mediaOperationMatrix.ts`.
 
 ## Shared Operation Matrix
@@ -16,7 +17,7 @@ source of truth for these generation capabilities is
 |-------------|----------|------------------|------------|----------------|
 | Top-level image | `generate`, `refine`, `derive`, `batch` | `image` | `derive --refs` and `batch --refs` accept completed image variant IDs or local image files | Yes, for `batch` |
 | Audio namespace | `audio <speech|dialogue|music|sfx> generate`, `audio <speech|dialogue|music|sfx> batch` | `audio` | Not supported | No |
-| Video generation | Not exposed yet | N/A | N/A | N/A |
+| Video namespace | `video generate`, `video refine`, `video derive` | `video` | `video derive --refs` accepts completed image/video variant IDs or local image files | No |
 
 Forge Tray uses the same matrix for mode labels, output media kind, default
 asset type, slot compatibility, batch/style controls, and operation selection.
@@ -121,6 +122,27 @@ pnpm run cli audio sfx generate "A crisp inventory item pickup sound effect" \
   -o audio/item-pickup.wav
 ```
 
+Generate video through website jobs:
+
+```bash
+pnpm run cli video generate "A looping idle animation" \
+  --name "Idle Animation" \
+  --type animation \
+  -o video/idle.mp4
+
+pnpm run cli video refine \
+  --variant VIDEO_VARIANT_ID \
+  "make the motion snappier" \
+  -o video/idle-snappy.mp4
+
+pnpm run cli video derive \
+  --refs IMAGE_VARIANT_ID,VIDEO_VARIANT_ID \
+  --name "Attack Animation" \
+  --type animation \
+  "animate the pose into a short attack" \
+  -o video/attack.mp4
+```
+
 When the website is configured with `INVENTORY_AUDIO_PROVIDER=elevenlabs`,
 `audio music ...` prompts are generated through ElevenLabs music,
 `audio sfx ...` prompts are generated through ElevenLabs sound effects, and
@@ -139,8 +161,8 @@ subcommands so the operation is discoverable from help and matches Forge Tray.
 
 ## Local References
 
-`derive --refs` and `batch --refs` accept both existing variant IDs and local
-image paths:
+`derive --refs`, `batch --refs`, and `video derive --refs` accept both existing
+variant IDs and local image paths:
 
 ```bash
 pnpm run cli derive \
@@ -153,7 +175,9 @@ pnpm run cli derive \
 
 Local image paths are uploaded first as `reference` assets in the website space.
 The returned uploaded variant IDs are then sent as `referenceVariantIds` for the
-generation request. This keeps local references visible in the web graph.
+generation request. This keeps local references visible in the web graph. Video
+derive accepts completed image variants as provider references and completed
+video variants as media lineage parents.
 
 ## Output Files
 
@@ -167,18 +191,18 @@ endpoint rather than by dereferencing raw R2 keys.
 | Option | Commands | Description |
 |--------|----------|-------------|
 | `--space <id>` | all | Target website space; overrides project binding |
-| `--name <name>` | `generate`, `derive`, `batch`, `audio <mode> generate`, `audio <mode> batch` | New asset name |
-| `--type <type>` | `generate`, `derive`, `batch`; low-level `audio generate`, `audio batch` | New asset type |
-| `--variant <id>` | `refine` | Source variant to refine |
-| `--refs <refs>` | `derive`, `batch` | Comma-separated variant IDs or local image paths |
+| `--name <name>` | `generate`, `derive`, `batch`, `audio <mode> generate`, `audio <mode> batch`, `video generate`, `video derive` | New asset name |
+| `--type <type>` | `generate`, `derive`, `batch`, low-level `audio generate`, low-level `audio batch`, `video generate`, `video derive` | New asset type |
+| `--variant <id>` | `refine`, `video refine` | Source variant to refine |
+| `--refs <refs>` | `derive`, `batch`, `video derive` | Comma-separated variant IDs or local image paths |
 | `--input <file>` | `audio <mode> generate` | Read prompt text from a file; useful for multiline speech and dialogue scripts |
-| `-o`, `--output <file>` | `generate`, `refine`, `derive`, `audio <mode> generate` | Local download path |
+| `-o`, `--output <file>` | `generate`, `refine`, `derive`, `audio <mode> generate`, `video generate`, `video refine`, `video derive` | Local download path |
 | `--output-dir <dir>` | `batch`, `audio <mode> batch` | Directory for downloaded batch files |
 | `--count <2-8>` | `batch`, `audio <mode> batch` | Number of artifacts to generate |
 | `--mode <mode>` | `batch`, `audio <mode> batch` | `explore` for one asset with many variants, or `set` for many assets |
 | `--force` | all | Overwrite local output file |
 | `--aspect <ratio>` | all | Optional generation aspect ratio |
-| `--parent <assetId>` | `generate`, `derive` | Optional parent asset |
+| `--parent <assetId>` | `generate`, `derive`, `video generate`, `video derive` | Optional parent asset |
 | `--no-style` | all | Disable active space style for this request |
 | `--env <env>` | all | `production`, `stage`, or `local`; overrides project binding |
 | `--local` | all | Shortcut for `--env local` |
@@ -193,6 +217,8 @@ Audio generation currently supports only `generate` and `batch` for the
 directory but does not write image keyframe run manifests. ElevenLabs timestamp
 responses are stored as transcript, timing, and render metadata sidecars on the
 completed variant.
+Video generation exposes `generate`, `refine`, and `derive`. Video batch is not
+exposed because website batch jobs reject `mediaKind: "video"`.
 
 ## Run Manifests
 
