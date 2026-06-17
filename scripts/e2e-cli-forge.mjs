@@ -455,17 +455,16 @@ try {
 
   const sceneArgsPath = path.join(outputDir, 'video', 'scenes.args');
   await runCli([
-    'runs',
+    'productions',
     'export',
-    '--format',
-    'remotion-scenes',
+    '--local',
     '--production-id',
     'e2e-podcast-episode',
     '-o',
     sceneArgsPath,
   ]);
   const sceneArgs = await readFile(sceneArgsPath, 'utf8');
-  if (!sceneArgs.includes('--scene') || !sceneArgs.includes('0|Intro|') || !sceneArgs.includes('clip-001.mp4')) {
+  if (!sceneArgs.includes('--scene') || !sceneArgs.includes('0|Intro|') || !sceneArgs.includes(`/variants/${clipVariantId}/media`)) {
     throw new Error(`Unexpected scene args export:\n${sceneArgs}`);
   }
   console.log(`Video scene export OK: ${sceneArgsPath}`);

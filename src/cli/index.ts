@@ -15,6 +15,7 @@ import { handleVideo } from './commands/video';
 import { handleInit } from './commands/init';
 import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
+import { handleProductions } from './commands/productions';
 import {
   AUDIO_FORGE_MEDIA_MODES,
   isAudioForgeMediaMode,
@@ -121,6 +122,10 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'assets':
       printAssetsHelp();
       return;
+    case 'productions':
+    case 'production':
+      printProductionsHelp();
+      return;
     default:
       console.error(`Unknown command: ${command}`);
       printHelp();
@@ -143,13 +148,14 @@ Project:
   init --space <id>             Bind this directory to a website space
   runs                           List local generation run manifests
   runs show --latest             Show the newest local run manifest
-  runs export --latest -o <file> Export media handoff data for production tools
-  runs export --format remotion-scenes --production-id <id>
-                                 Export shot scene args for Remotion pipelines
   assets                         List website assets for the initialized space
   assets show <asset-id>          Show website asset variants and lineage
   assets download <variant-id> -o <file>
                                  Download a website variant media file locally
+  productions list --production-id <id>
+                                 List Space-backed production placements
+  productions export --production-id <id>
+                                 Export production scene args from Space records
 
 Billing (Polar.sh):
   billing status               Show sync status (pending, failed, synced events)
@@ -207,7 +213,7 @@ Examples:
   pnpm run cli audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
   pnpm run cli video generate "A looping idle animation" --name "Idle Animation" --type animation -o idle.mp4
   pnpm run cli runs export --latest --format media -o media-run.json
-  pnpm run cli runs export --format remotion-scenes --production-id s01e01-a2
+  pnpm run cli productions export --production-id s01e01-a2
   pnpm run cli assets
   pnpm run cli assets download variant_123 -o variant.mp4
 `);
@@ -475,6 +481,19 @@ Formats:
 `);
 }
 
+function printProductionsHelp(): void {
+  console.log(`
+Usage:
+  pnpm run cli productions list --production-id <id>
+  pnpm run cli productions export --production-id <id> [-o scenes.args]
+  pnpm run cli productions export --production-id <id> --json [-o scenes.json]
+  pnpm run cli productions place --production-id <id> --variant <variant_id> --scene-label <label> --timeline-start-ms <ms>
+  pnpm run cli productions delete <record-id>
+
+Scene export emits Space-backed media URLs in --scene '<start>|<label>|<media-url>' lines.
+`);
+}
+
 function printAssetsHelp(): void {
   console.log(`
 Usage:
@@ -532,6 +551,10 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
       break;
     case 'assets':
       await handleAssets(parsed);
+      break;
+    case 'productions':
+    case 'production':
+      await handleProductions(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);

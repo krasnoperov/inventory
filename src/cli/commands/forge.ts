@@ -4,6 +4,7 @@ import process from 'node:process';
 import type { ParsedArgs, StoredConfig } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
 import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
+import { placeProductionRecordForCli } from './productions';
 import {
   loginCommandForEnvironment,
   resolveCommandEnvironment,
@@ -40,6 +41,7 @@ import {
   type AudioForgeMediaMode,
   type MediaGenerationCommand,
 } from '../../shared/mediaOperationMatrix';
+import type { PlaceProductionRecordRequest, ProductionRecord } from '../../shared/api/schemas';
 
 export type ForgeCommand = MediaGenerationCommand;
 export type AudioForgeCommand = Extract<MediaGenerationCommand, 'generate' | 'batch'>;
@@ -118,6 +120,13 @@ interface CommandDeps {
   downloadFile?: typeof downloadFile;
   fileExists: (filePath: string) => Promise<boolean>;
   saveRunManifest: (manifest: RunManifest, cwd?: string) => Promise<string>;
+  placeProductionRecord?: (input: {
+    baseUrl: string;
+    accessToken: string;
+    spaceId: string;
+    fetch?: typeof fetch;
+    record: PlaceProductionRecordRequest;
+  }) => Promise<ProductionRecord>;
   createRunId: () => string;
   getWorkingDir?: () => string;
 }
@@ -131,6 +140,7 @@ const defaultDeps: CommandDeps = {
   downloadImage,
   downloadFile,
   saveRunManifest,
+  placeProductionRecord: placeProductionRecordForCli,
   createRunId,
   getWorkingDir: () => process.cwd(),
   fileExists: async (filePath) => {
@@ -195,10 +205,13 @@ export async function executeForgeCommand(
   deps: CommandDeps = defaultDeps,
   options: ExecuteForgeOptions = {}
 ): Promise<GenerateResult | BatchResult> {
-  const ctx = await buildContext(parsed, deps);
-  const client = await deps.createClient(ctx.env, ctx.spaceId);
   const mediaKind = options.mediaKind || CLI_GENERATION_MEDIA_KIND;
   const saveBatchManifest = options.saveBatchManifest ?? mediaKind === 'image';
+  if (command !== 'batch') {
+    validateProductionMetadataOptions(parsed);
+  }
+  const ctx = await buildContext(parsed, deps);
+  const client = await deps.createClient(ctx.env, ctx.spaceId);
 
   try {
     await client.connect();
@@ -300,6 +313,12 @@ async function executeGenerate(
   const name = requireOption(parsed, 'name');
   const assetType = requireOption(parsed, 'type');
   const startedAt = new Date().toISOString();
+  const scene = parseSceneMetadata(parsed, {
+    prompt,
+    refs: [],
+    referenceVariantIds: [],
+    mediaKind,
+  });
 
   console.log(`Generating "${name}" in space ${ctx.spaceId}...`);
   const result = await client.sendGenerateRequest({
@@ -326,14 +345,18 @@ async function executeGenerate(
     startedAt,
     refs: [],
     referenceVariantIds: [],
-    scene: parseSceneMetadata(parsed, {
-      prompt,
-      refs: [],
-      referenceVariantIds: [],
-      mediaKind,
-    }),
+    scene,
   });
-  printResult(result, outputPath, ctx, manifestPath);
+  const productionRecord = await placeProductionRecordFromScene({
+    command: 'generate',
+    result,
+    outputPath,
+    ctx,
+    deps,
+    scene,
+    manifestPath,
+  });
+  printResult(result, outputPath, ctx, manifestPath, productionRecord);
   return result;
 }
 
@@ -355,6 +378,12 @@ async function executeRefine(
   }
   const sourceAsset = (state.assets as SpaceAsset[]).find((asset) => asset.id === sourceVariant.asset_id);
   const startedAt = new Date().toISOString();
+  const scene = parseSceneMetadata(parsed, {
+    prompt,
+    refs: [sourceVariantId],
+    referenceVariantIds: [sourceVariantId],
+    mediaKind,
+  });
 
   console.log(`Refining variant ${sourceVariantId}...`);
   const result = await client.sendRefineRequest({
@@ -380,14 +409,18 @@ async function executeRefine(
     startedAt,
     refs: [sourceVariantId],
     referenceVariantIds: [sourceVariantId],
-    scene: parseSceneMetadata(parsed, {
-      prompt,
-      refs: [sourceVariantId],
-      referenceVariantIds: [sourceVariantId],
-      mediaKind,
-    }),
+    scene,
   });
-  printResult(result, outputPath, ctx, manifestPath);
+  const productionRecord = await placeProductionRecordFromScene({
+    command: 'refine',
+    result,
+    outputPath,
+    ctx,
+    deps,
+    scene,
+    manifestPath,
+  });
+  printResult(result, outputPath, ctx, manifestPath, productionRecord);
   return result;
 }
 
@@ -412,6 +445,12 @@ async function executeDerive(
     mediaKind
   );
   const startedAt = new Date().toISOString();
+  const scene = parseSceneMetadata(parsed, {
+    prompt,
+    refs,
+    referenceVariantIds,
+    mediaKind,
+  });
 
   console.log(`Deriving "${name}" from ${referenceVariantIds.length} reference(s)...`);
   const result = await client.sendGenerateRequest({
@@ -439,14 +478,18 @@ async function executeDerive(
     startedAt,
     refs,
     referenceVariantIds,
-    scene: parseSceneMetadata(parsed, {
-      prompt,
-      refs,
-      referenceVariantIds,
-      mediaKind,
-    }),
+    scene,
   });
-  printResult(result, outputPath, ctx, manifestPath);
+  const productionRecord = await placeProductionRecordFromScene({
+    command: 'derive',
+    result,
+    outputPath,
+    ctx,
+    deps,
+    scene,
+    manifestPath,
+  });
+  printResult(result, outputPath, ctx, manifestPath, productionRecord);
   return result;
 }
 
@@ -591,6 +634,44 @@ async function saveGenerationManifest(input: {
     images: media.filter(isImageManifestMedia),
     failed: [],
   }, ctx.projectRoot);
+}
+
+async function placeProductionRecordFromScene(input: {
+  command: Exclude<ForgeCommand, 'batch'>;
+  result: GenerateResult;
+  outputPath: string;
+  ctx: CommandContext;
+  deps: CommandDeps;
+  scene?: RunManifestScene;
+  manifestPath?: string;
+}): Promise<ProductionRecord | undefined> {
+  const { scene, result, ctx, deps } = input;
+  if (!scene || !result.success || !result.variant) return undefined;
+  if (!deps.placeProductionRecord) return undefined;
+
+  const record: PlaceProductionRecordRequest = {
+    productionId: scene.productionId!,
+    variantId: result.variant.id,
+    shotId: scene.shotId,
+    sceneLabel: scene.sceneLabel!,
+    timelineStartMs: scene.timelineStartMs!,
+    durationMs: scene.durationMs,
+    motionPrompt: scene.motionPrompt,
+    sourceRefs: scene.sourceRefs,
+    sourceVariantIds: scene.sourceVariantIds,
+    metadata: {
+      command: input.command,
+      localPath: input.outputPath,
+      runManifestPath: input.manifestPath,
+    },
+  };
+
+  return deps.placeProductionRecord({
+    baseUrl: ctx.baseUrl,
+    accessToken: ctx.accessToken,
+    spaceId: ctx.spaceId,
+    record,
+  });
 }
 
 async function buildContext(parsed: ParsedArgs, deps: CommandDeps): Promise<CommandContext> {
@@ -748,7 +829,8 @@ function printResult(
   result: GenerateResult,
   outputPath: string,
   ctx: CommandContext,
-  manifestPath?: string
+  manifestPath?: string,
+  productionRecord?: ProductionRecord
 ): void {
   const variant = result.variant;
   if (!variant) return;
@@ -763,6 +845,9 @@ function printResult(
   console.log(`  Local:   ${outputPath}`);
   if (manifestPath) {
     console.log(`  Manifest: ${manifestPath}`);
+  }
+  if (productionRecord) {
+    console.log(`  Production: ${productionRecord.production_id} (${productionRecord.id})`);
   }
   console.log(`  Web:     ${ctx.baseUrl}/spaces/${ctx.spaceId}/assets/${variant.asset_id}`);
 }
@@ -823,6 +908,10 @@ function parseSceneMetadata(
     return undefined;
   }
 
+  if (!productionId || !sceneLabel || timelineStartValue === undefined) {
+    throw new Error('Production metadata requires --production-id, --scene-label, and --timeline-start-ms');
+  }
+
   return {
     productionId,
     shotId,
@@ -833,6 +922,22 @@ function parseSceneMetadata(
     sourceRefs: input.refs,
     sourceVariantIds: input.referenceVariantIds,
   };
+}
+
+function validateProductionMetadataOptions(parsed: ParsedArgs): void {
+  const productionId = readOptionalOption(parsed, 'production-id', 'productionId');
+  const shotId = readOptionalOption(parsed, 'shot-id', 'shotId');
+  const sceneLabel = readOptionalOption(parsed, 'scene-label', 'sceneLabel');
+  const timelineStartValue = readOptionalOption(parsed, 'timeline-start-ms', 'timelineStartMs');
+  const durationValue = readOptionalOption(parsed, 'duration-ms', 'durationMs');
+
+  if (!productionId && !shotId && !sceneLabel && timelineStartValue === undefined && durationValue === undefined) {
+    return;
+  }
+
+  if (!productionId || !sceneLabel || timelineStartValue === undefined) {
+    throw new Error('Production metadata requires --production-id, --scene-label, and --timeline-start-ms');
+  }
 }
 
 function readOptionalOption(parsed: ParsedArgs, kebabName: string, camelName: string): string | undefined {

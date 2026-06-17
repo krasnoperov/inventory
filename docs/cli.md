@@ -67,6 +67,7 @@ pnpm run cli assets download VARIANT_ID -o references/variant.png
 | `audio` | Generate audio assets through website jobs |
 | `video` | Generate and refine video assets through website jobs |
 | `runs` | List, inspect, and export local run manifests |
+| `productions` | List, place, delete, and export Space-backed production records |
 | `billing` | Billing sync status and management |
 
 ---
@@ -365,7 +366,6 @@ pnpm run cli runs show --latest
 pnpm run cli runs show RUN_ID --json
 pnpm run cli runs export --latest --format media -o media-run.json
 pnpm run cli runs export --latest --format remotion -o keyframes.json
-pnpm run cli runs export --format remotion-scenes --production-id s01e01-a2 -o scenes.args
 ```
 
 `runs` reads local `.inventory/runs` manifests from the initialized project root
@@ -375,11 +375,30 @@ command working directory, website IDs/URLs, prompt, refs, and failed variant
 errors. Image runs also include an ordered `images` keyframe array for existing
 tools. Use `--format remotion` when an existing keyframe pipeline expects the
 legacy `remotion-keyframes` format marker.
-The `remotion-scenes` export emits shell-ready `--scene
-'<startMs>|<label>|<absolute path>'` lines sorted by timeline. It uses scene
-metadata supplied on generation commands with `--scene-label`,
-`--timeline-start-ms`, `--duration-ms`, `--shot-id`, and `--production-id`,
-preferring video clips and falling back to static image keyframes.
+
+## Production Records
+
+Production scene placement is stored in the Space, not inferred from local run
+manifests. When `generate`, `refine`, `derive`, or the matching `video`
+commands include `--production-id`, `--scene-label`, and
+`--timeline-start-ms`, the completed variant is placed into the Space-backed
+production timeline. Use `productions place` to place an existing variant.
+
+```bash
+pnpm run cli productions list --production-id s01e01-a2
+pnpm run cli productions place \
+  --production-id s01e01-a2 \
+  --variant VARIANT_ID \
+  --scene-label "Cocina" \
+  --timeline-start-ms 0
+pnpm run cli productions export --production-id s01e01-a2 -o scenes.args
+pnpm run cli productions export --production-id s01e01-a2 --json -o scenes.json
+pnpm run cli productions delete RECORD_ID
+```
+
+`productions export` reads the Space records and emits sorted shell-ready
+`--scene '<startMs>|<label>|<media-url>'` lines. The media URL is the
+authenticated variant media endpoint for the Space.
 
 See [cli-generation.md](./cli-generation.md) for the full command reference.
 

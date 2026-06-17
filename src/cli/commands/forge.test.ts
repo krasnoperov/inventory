@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { StoredConfig } from '../lib/types';
 import type { BatchResult, GenerateResult, Variant } from '../lib/websocket-client';
+import type { ProductionRecord } from '../../shared/api/schemas';
 import {
   executeAudioCommand,
   executeForgeCommand,
@@ -233,6 +234,7 @@ function depsFor(client: FakeClient) {
   const mediaDownloads: unknown[] = [];
   const manifests: unknown[] = [];
   const manifestRoots: Array<string | undefined> = [];
+  const productionRecords: unknown[] = [];
 
   return {
     deps: {
@@ -256,12 +258,35 @@ function depsFor(client: FakeClient) {
         manifestRoots.push(cwd);
         return '.inventory/runs/run-test.json';
       },
+      placeProductionRecord: async (input: unknown) => {
+        productionRecords.push(input);
+        const record: ProductionRecord = {
+          id: 'production-record-1',
+          production_id: (input as { record: { productionId: string } }).record.productionId,
+          variant_id: (input as { record: { variantId: string } }).record.variantId,
+          asset_id: 'asset-out',
+          media_kind: 'video',
+          shot_id: (input as { record: { shotId?: string } }).record.shotId ?? null,
+          scene_label: (input as { record: { sceneLabel: string } }).record.sceneLabel,
+          timeline_start_ms: (input as { record: { timelineStartMs: number } }).record.timelineStartMs,
+          duration_ms: (input as { record: { durationMs?: number } }).record.durationMs ?? null,
+          motion_prompt: (input as { record: { motionPrompt?: string } }).record.motionPrompt ?? null,
+          source_refs: JSON.stringify((input as { record: { sourceRefs?: string[] } }).record.sourceRefs ?? []),
+          source_variant_ids: JSON.stringify((input as { record: { sourceVariantIds?: string[] } }).record.sourceVariantIds ?? []),
+          metadata: JSON.stringify((input as { record: { metadata?: Record<string, unknown> } }).record.metadata ?? {}),
+          created_by: 'user-1',
+          created_at: 1,
+          updated_at: 2,
+        };
+        return record;
+      },
       createRunId: () => 'run-test',
     },
     downloads,
     mediaDownloads,
     manifests,
     manifestRoots,
+    productionRecords,
   };
 }
 
@@ -1152,14 +1177,14 @@ test('video derive accepts image and video refs and sends video request', async 
   });
 });
 
-test('video derive stores optional shot scene metadata in run manifest', async () => {
+test('video derive stores shot scene metadata in run manifest and Space production record', async () => {
   const imageVariant = completedVariant({
     id: 'variant-keyframe',
     image_key: 'images/space/variant-keyframe.png',
     media_key: 'images/space/variant-keyframe.png',
   });
   const client = new FakeClient({ assets: [], variants: [imageVariant], lineage: [] });
-  const { deps, manifests } = depsFor(client);
+  const { deps, manifests, productionRecords } = depsFor(client);
 
   await executeVideoCommand('derive', {
     positionals: ['slow', 'push-in'],
@@ -1188,6 +1213,44 @@ test('video derive stores optional shot scene metadata in run manifest', async (
     sourceRefs: ['variant-keyframe'],
     sourceVariantIds: ['variant-keyframe'],
   });
+  assert.equal(productionRecords.length, 1);
+  assert.deepEqual((productionRecords[0] as { record: unknown }).record, {
+    productionId: 's01e01-a2',
+    variantId: 'variant-out',
+    shotId: 's01e01-a2-01',
+    sceneLabel: 'Cocina',
+    timelineStartMs: 0,
+    durationMs: 73000,
+    motionPrompt: 'slow push-in',
+    sourceRefs: ['variant-keyframe'],
+    sourceVariantIds: ['variant-keyframe'],
+    metadata: {
+      command: 'derive',
+      localPath: 'clips/clip-s01e01-a2-01.mp4',
+      runManifestPath: '.inventory/runs/run-test.json',
+    },
+  });
+});
+
+test('production metadata requires production id, scene label, and timeline before generation starts', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeVideoCommand('generate', {
+      positionals: ['slow', 'push-in'],
+      options: {
+        space: 'space-1',
+        name: 'Incomplete Production Shot',
+        type: 'animation',
+        o: 'clip.mp4',
+        'production-id': 's01e01-a2',
+      },
+    }, deps),
+    /Production metadata requires --production-id, --scene-label, and --timeline-start-ms/
+  );
+
+  assert.equal(client.connected, false);
 });
 
 test('video commands reject batch before opening a website job', async () => {

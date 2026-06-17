@@ -204,11 +204,11 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--aspect <ratio>` | all | Optional generation aspect ratio |
 | `--parent <assetId>` | `generate`, `derive`, `video generate`, `video derive` | Optional parent asset |
 | `--no-style` | all | Disable active space style for this request |
-| `--scene-label <label>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene label stored in the local run manifest |
+| `--scene-label <label>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene label stored with production placement metadata |
 | `--timeline-start-ms <ms>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene timeline start in milliseconds |
 | `--duration-ms <ms>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional intended production scene duration in milliseconds |
 | `--shot-id <id>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional stable shot identifier |
-| `--production-id <id>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive`, `runs export --format remotion-scenes` | Optional stable grouping identifier for scene exports |
+| `--production-id <id>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive`, `productions list/export/place` | Stable grouping identifier for Space-backed production records |
 | `--env <env>` | all | `production`, `stage`, or `local`; overrides project binding |
 | `--local` | all | Shortcut for `--env local` |
 
@@ -246,7 +246,6 @@ pnpm run cli runs show --latest
 pnpm run cli runs show RUN_ID --json
 pnpm run cli runs export --latest --format media -o media-run.json
 pnpm run cli runs export --latest --format remotion -o keyframes.json
-pnpm run cli runs export --format remotion-scenes --production-id s01e01-a2 -o scenes.args
 ```
 
 The default `media` export writes ordered media data with local paths, absolute
@@ -256,20 +255,44 @@ runs also include the legacy ordered `images` keyframe array. The `remotion`
 format remains available for existing keyframe tooling and emits the same media
 handoff fields with the legacy `remotion-keyframes` format marker.
 
-The `remotion-scenes` export writes deterministic shell-ready scene arguments
-sorted by `timelineStartMs`:
+## Production Records
 
-```text
---scene '0|Cocina|/absolute/path/to/clip-s01e01-a2-01.mp4'
---scene '72760|Escalera|/absolute/path/to/clip-s01e01-a2-02.mp4'
+Production scene placement is Space-backed. When a single-output generation
+command includes `--production-id`, `--scene-label`, and
+`--timeline-start-ms`, the CLI places the completed variant into the Space
+production timeline after the website job completes. `--shot-id`,
+`--duration-ms`, motion prompt, and source refs are stored with the record.
+Use `productions place` for existing variants:
+
+```bash
+pnpm run cli productions place \
+  --production-id s01e01-a2 \
+  --variant VARIANT_ID \
+  --scene-label "Cocina" \
+  --timeline-start-ms 0
 ```
 
-Use `--json` with `remotion-scenes` when an external tool wants structured
-scene data instead of argument lines. Scene export requires `--scene-label` and
-`--timeline-start-ms` on each selected manifest. It prefers downloaded video
-clips and falls back to downloaded image keyframes. `--duration-ms` is preserved
-as intended production timing in the manifest/export; current video provider
-requests are not duration-controlled by this CLI flag.
+Inspect and export Space records:
+
+```bash
+pnpm run cli productions list --production-id s01e01-a2
+pnpm run cli productions export --production-id s01e01-a2 -o scenes.args
+pnpm run cli productions export --production-id s01e01-a2 --json -o scenes.json
+```
+
+`productions export` writes deterministic shell-ready scene arguments sorted by
+timeline:
+
+```text
+--scene '0|Cocina|https://.../api/spaces/<space>/variants/<variant-1>/media'
+--scene '72760|Escalera|https://.../api/spaces/<space>/variants/<variant-2>/media'
+```
+
+Use `--json` when an external tool wants structured scene data instead of
+argument lines. The exported media URL is the authenticated variant media
+endpoint for the Space. `--duration-ms` is preserved as intended production
+timing; current video provider requests are not duration-controlled by this CLI
+flag.
 
 ## Russafa Remotion Handoff
 
@@ -277,8 +300,9 @@ The Russafa workflow stays actor-driven. Inventory CLI does not parse
 `S01E01-A2.shotlist.md`, call `../subtitles` scripts, or render Remotion. The
 external actor chooses prompts, refs, shot labels, and timeline starts from the
 shotlist, while the Inventory website remains the source of truth for assets,
-variants, recipes, and relations. Downloaded local files and run manifests are
-handoff artifacts, not a local database.
+variants, recipes, relations, and Space-backed production records. Downloaded
+local files and run manifests are convenience artifacts, not production handoff
+state.
 
 Example command shape for Diario de Russafa S01E01 A2:
 
@@ -311,8 +335,7 @@ inventory video derive \
   -o ../subtitles/art/social-video/russafa/clips/clip-s01e01-a2-01.mp4 \
   "medium shot; Anna moves toward the door; slow push-in"
 
-inventory runs export \
-  --format remotion-scenes \
+inventory productions export \
   --production-id s01e01-a2 \
   > ../subtitles/art/social-video/russafa/s01e01-a2.scenes.args
 ```
@@ -344,8 +367,9 @@ This starts a local Wrangler worker, applies local D1 migrations in an isolated
 temporary state directory, creates a dev-authenticated space, runs image
 `generate`/`refine`/`derive`/`batch`, audio SFX generation, podcast dialogue
 generation from `--input`, video `generate`/`derive`, generic media export, and
-`remotion-scenes` export. It verifies downloaded image, audio, and video files
-and forces fake backend providers instead of calling Gemini, ElevenLabs, or Veo.
+Space-backed production scene export. It verifies downloaded image, audio, and
+video files and forces fake backend providers instead of calling Gemini,
+ElevenLabs, or Veo.
 
 See [cli-media-production-cookbook.md](./cli-media-production-cookbook.md) for
 operator-ready command sequences across images, audio, video, and podcasts.
