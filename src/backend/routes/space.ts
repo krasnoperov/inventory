@@ -4,18 +4,34 @@ import { MemberDAO } from '../../dao/member-dao';
 import { createOpenApiRouter, toApiSpace } from './openapi';
 import {
   deleteSpaceRoute,
+  deleteProductionCueRoute,
+  deleteProductionPlacementRoute,
   deleteProductionRecordRoute,
+  deleteProductionRoute,
+  deleteProductionShotRoute,
   getSpaceRoute,
+  getProductionRoute,
   listProductionRecordsRoute,
+  listProductionsRoute,
   listSpaceAssetsRoute,
   listSpacesRoute,
   placeProductionRecordRoute,
   postSpaceRoute,
+  upsertProductionCueRoute,
+  upsertProductionPlacementRoute,
+  upsertProductionRoute,
+  upsertProductionShotRoute,
 } from '../../shared/api/routes';
 import {
   ListProductionRecordsResponseSchema,
+  ListProductionsResponseSchema,
   ListSpaceAssetsResponseSchema,
+  ProductionCueResponseSchema,
+  ProductionDetailResponseSchema,
+  ProductionPlacementResponseSchema,
   ProductionRecordResponseSchema,
+  ProductionResponseSchema,
+  ProductionShotResponseSchema,
   type Space,
 } from '../../shared/api/schemas';
 
@@ -145,6 +161,336 @@ spaceRoutes.openapi(listSpaceAssetsRoute, async (c) => {
   });
 
   return c.json(payload, 200);
+});
+
+// GET /api/spaces/:id/productions - List productions
+spaceRoutes.openapi(listProductionsRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const { id: spaceId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doResponse = await env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId)).fetch(new Request('http://do/internal/productions'));
+  if (!doResponse.ok) {
+    const message = await readSpaceDoError(doResponse, 'Failed to fetch productions');
+    return c.json({ error: message }, 500);
+  }
+
+  return c.json(ListProductionsResponseSchema.parse(await doResponse.json()), 200);
+});
+
+// POST /api/spaces/:id/productions - Create/update production
+spaceRoutes.openapi(upsertProductionRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const { id: spaceId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (member.role === 'viewer') {
+    return c.json({ error: 'Viewers cannot modify productions' }, 403);
+  }
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doResponse = await env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId)).fetch(new Request('http://do/internal/productions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, createdBy: userId }),
+  }));
+  if (!doResponse.ok) {
+    const message = await readSpaceDoError(doResponse, 'Failed to save production');
+    if (doResponse.status === 400) {
+      return c.json({ error: message }, 400);
+    }
+    return c.json({ error: message }, 500);
+  }
+
+  return c.json(ProductionResponseSchema.parse(await doResponse.json()), 200);
+});
+
+// GET /api/spaces/:id/productions/:productionId - Production detail
+spaceRoutes.openapi(getProductionRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const { id: spaceId, productionId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doResponse = await env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId)).fetch(
+    new Request(`http://do/internal/productions/${encodeURIComponent(productionId)}`)
+  );
+  if (!doResponse.ok) {
+    const message = await readSpaceDoError(doResponse, 'Failed to fetch production');
+    if (doResponse.status === 404) {
+      return c.json({ error: message }, 404);
+    }
+    return c.json({ error: message }, 500);
+  }
+
+  return c.json(ProductionDetailResponseSchema.parse(await doResponse.json()), 200);
+});
+
+// DELETE /api/spaces/:id/productions/:productionId - Delete production
+spaceRoutes.openapi(deleteProductionRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const { id: spaceId, productionId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (member.role === 'viewer') {
+    return c.json({ error: 'Viewers cannot delete productions' }, 403);
+  }
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doResponse = await env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId)).fetch(
+    new Request(`http://do/internal/productions/${encodeURIComponent(productionId)}`, { method: 'DELETE' })
+  );
+  if (!doResponse.ok) {
+    const message = await readSpaceDoError(doResponse, 'Failed to delete production');
+    if (doResponse.status === 404) {
+      return c.json({ error: message }, 404);
+    }
+    return c.json({ error: message }, 500);
+  }
+
+  return c.json({ success: true as const }, 200);
+});
+
+// POST /api/spaces/:id/productions/:productionId/shots - Create/update shot
+spaceRoutes.openapi(upsertProductionShotRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const { id: spaceId, productionId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (member.role === 'viewer') {
+    return c.json({ error: 'Viewers cannot modify production shots' }, 403);
+  }
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doResponse = await env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId)).fetch(new Request(`http://do/internal/productions/${encodeURIComponent(productionId)}/shots`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, createdBy: userId }),
+  }));
+  if (!doResponse.ok) {
+    const message = await readSpaceDoError(doResponse, 'Failed to save production shot');
+    if (doResponse.status === 400) {
+      return c.json({ error: message }, 400);
+    }
+    if (doResponse.status === 404) {
+      return c.json({ error: message }, 404);
+    }
+    return c.json({ error: message }, 500);
+  }
+
+  return c.json(ProductionShotResponseSchema.parse(await doResponse.json()), 200);
+});
+
+// DELETE /api/spaces/:id/productions/:productionId/shots/:childId - Delete shot
+spaceRoutes.openapi(deleteProductionShotRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const { id: spaceId, productionId, childId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (member.role === 'viewer') {
+    return c.json({ error: 'Viewers cannot delete production shots' }, 403);
+  }
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doResponse = await env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId)).fetch(
+    new Request(`http://do/internal/productions/${encodeURIComponent(productionId)}/shots/${encodeURIComponent(childId)}`, { method: 'DELETE' })
+  );
+  if (!doResponse.ok) {
+    const message = await readSpaceDoError(doResponse, 'Failed to delete production shot');
+    if (doResponse.status === 404) {
+      return c.json({ error: message }, 404);
+    }
+    return c.json({ error: message }, 500);
+  }
+
+  return c.json({ success: true as const }, 200);
+});
+
+// POST /api/spaces/:id/productions/:productionId/cues - Create/update cue
+spaceRoutes.openapi(upsertProductionCueRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const { id: spaceId, productionId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (member.role === 'viewer') {
+    return c.json({ error: 'Viewers cannot modify production cues' }, 403);
+  }
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doResponse = await env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId)).fetch(new Request(`http://do/internal/productions/${encodeURIComponent(productionId)}/cues`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, createdBy: userId }),
+  }));
+  if (!doResponse.ok) {
+    const message = await readSpaceDoError(doResponse, 'Failed to save production cue');
+    if (doResponse.status === 400) {
+      return c.json({ error: message }, 400);
+    }
+    if (doResponse.status === 404) {
+      return c.json({ error: message }, 404);
+    }
+    return c.json({ error: message }, 500);
+  }
+
+  return c.json(ProductionCueResponseSchema.parse(await doResponse.json()), 200);
+});
+
+// DELETE /api/spaces/:id/productions/:productionId/cues/:childId - Delete cue
+spaceRoutes.openapi(deleteProductionCueRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const { id: spaceId, productionId, childId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (member.role === 'viewer') {
+    return c.json({ error: 'Viewers cannot delete production cues' }, 403);
+  }
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doResponse = await env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId)).fetch(
+    new Request(`http://do/internal/productions/${encodeURIComponent(productionId)}/cues/${encodeURIComponent(childId)}`, { method: 'DELETE' })
+  );
+  if (!doResponse.ok) {
+    const message = await readSpaceDoError(doResponse, 'Failed to delete production cue');
+    if (doResponse.status === 404) {
+      return c.json({ error: message }, 404);
+    }
+    return c.json({ error: message }, 500);
+  }
+
+  return c.json({ success: true as const }, 200);
+});
+
+// POST /api/spaces/:id/productions/:productionId/placements - Create/update placement
+spaceRoutes.openapi(upsertProductionPlacementRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const { id: spaceId, productionId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (member.role === 'viewer') {
+    return c.json({ error: 'Viewers cannot modify production placements' }, 403);
+  }
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doResponse = await env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId)).fetch(new Request(`http://do/internal/productions/${encodeURIComponent(productionId)}/placements`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, createdBy: userId }),
+  }));
+  if (!doResponse.ok) {
+    const message = await readSpaceDoError(doResponse, 'Failed to save production placement');
+    if (doResponse.status === 400) {
+      return c.json({ error: message }, 400);
+    }
+    if (doResponse.status === 404) {
+      return c.json({ error: message }, 404);
+    }
+    return c.json({ error: message }, 500);
+  }
+
+  return c.json(ProductionPlacementResponseSchema.parse(await doResponse.json()), 200);
+});
+
+// DELETE /api/spaces/:id/productions/:productionId/placements/:childId - Delete placement
+spaceRoutes.openapi(deleteProductionPlacementRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const env = c.env;
+  const { id: spaceId, productionId, childId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (member.role === 'viewer') {
+    return c.json({ error: 'Viewers cannot delete production placements' }, 403);
+  }
+  if (!env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const doResponse = await env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId)).fetch(
+    new Request(`http://do/internal/productions/${encodeURIComponent(productionId)}/placements/${encodeURIComponent(childId)}`, { method: 'DELETE' })
+  );
+  if (!doResponse.ok) {
+    const message = await readSpaceDoError(doResponse, 'Failed to delete production placement');
+    if (doResponse.status === 404) {
+      return c.json({ error: message }, 404);
+    }
+    return c.json({ error: message }, 500);
+  }
+
+  return c.json({ success: true as const }, 200);
 });
 
 // GET /api/spaces/:id/productions/:productionId/records - List production records

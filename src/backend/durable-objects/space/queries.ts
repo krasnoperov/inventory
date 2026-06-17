@@ -534,6 +534,73 @@ export const ProductionRecordQueries = {
   DELETE: 'DELETE FROM production_records WHERE id = ?',
 } as const;
 
+export const ProductionQueries = {
+  GET_ALL: 'SELECT * FROM productions ORDER BY updated_at DESC',
+  GET_BY_ID: 'SELECT * FROM productions WHERE id = ?',
+  UPSERT: `INSERT INTO productions (id, name, description, metadata, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             name = excluded.name,
+             description = excluded.description,
+             metadata = excluded.metadata,
+             updated_at = excluded.updated_at`,
+  DELETE: 'DELETE FROM productions WHERE id = ?',
+} as const;
+
+export const ProductionShotQueries = {
+  GET_BY_ID: 'SELECT * FROM production_shots WHERE id = ?',
+  GET_BY_PRODUCTION: 'SELECT * FROM production_shots WHERE production_id = ? ORDER BY timeline_start_ms ASC, shot_id ASC, created_at ASC',
+  UPSERT: `INSERT INTO production_shots (id, production_id, shot_id, label, timeline_start_ms, duration_ms, metadata, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             production_id = excluded.production_id,
+             shot_id = excluded.shot_id,
+             label = excluded.label,
+             timeline_start_ms = excluded.timeline_start_ms,
+             duration_ms = excluded.duration_ms,
+             metadata = excluded.metadata,
+             updated_at = excluded.updated_at`,
+  DELETE: 'DELETE FROM production_shots WHERE id = ?',
+} as const;
+
+export const ProductionCueQueries = {
+  GET_BY_ID: 'SELECT * FROM production_cues WHERE id = ?',
+  GET_BY_PRODUCTION: 'SELECT * FROM production_cues WHERE production_id = ? ORDER BY timeline_start_ms ASC, cue_type ASC, created_at ASC',
+  UPSERT: `INSERT INTO production_cues (id, production_id, cue_type, label, timeline_start_ms, duration_ms, metadata, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             production_id = excluded.production_id,
+             cue_type = excluded.cue_type,
+             label = excluded.label,
+             timeline_start_ms = excluded.timeline_start_ms,
+             duration_ms = excluded.duration_ms,
+             metadata = excluded.metadata,
+             updated_at = excluded.updated_at`,
+  DELETE: 'DELETE FROM production_cues WHERE id = ?',
+} as const;
+
+export const ProductionPlacementQueries = {
+  GET_BY_ID: 'SELECT * FROM production_placements WHERE id = ?',
+  GET_BY_PRODUCTION: 'SELECT * FROM production_placements WHERE production_id = ? ORDER BY created_at ASC',
+  GET_BY_TARGET: 'SELECT * FROM production_placements WHERE target_kind = ? AND target_id = ? ORDER BY created_at ASC',
+  UPSERT: `INSERT INTO production_placements
+           (id, production_id, target_kind, target_id, variant_id, asset_id, media_kind, role, source_refs, source_variant_ids, metadata, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             production_id = excluded.production_id,
+             target_kind = excluded.target_kind,
+             target_id = excluded.target_id,
+             variant_id = excluded.variant_id,
+             asset_id = excluded.asset_id,
+             media_kind = excluded.media_kind,
+             role = excluded.role,
+             source_refs = excluded.source_refs,
+             source_variant_ids = excluded.source_variant_ids,
+             metadata = excluded.metadata,
+             updated_at = excluded.updated_at`,
+  DELETE: 'DELETE FROM production_placements WHERE id = ?',
+} as const;
+
 // ============================================================================
 // Query Builders
 // ============================================================================

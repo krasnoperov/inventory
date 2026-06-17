@@ -132,6 +132,15 @@ export const ProductionRecordParamsSchema = SpaceIdParamsSchema.extend({
   }),
 });
 
+export const ProductionChildParamsSchema = ProductionIdParamsSchema.extend({
+  childId: z.string().openapi({
+    param: {
+      name: 'childId',
+      in: 'path',
+    },
+  }),
+});
+
 export const CreateSpaceRequestSchema = z
   .object({
     name: z.string(),
@@ -276,6 +285,160 @@ export const ListProductionRecordsResponseSchema = z
   })
   .openapi('ListProductionRecordsResponse');
 
+export const ProductionSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string().nullable(),
+    metadata: z.string(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number(),
+  })
+  .openapi('Production');
+
+export const ProductionShotSchema = z
+  .object({
+    id: z.string(),
+    production_id: z.string(),
+    shot_id: z.string().nullable(),
+    label: z.string(),
+    timeline_start_ms: z.number().int().nonnegative(),
+    duration_ms: z.number().int().nonnegative().nullable(),
+    metadata: z.string(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number(),
+  })
+  .openapi('ProductionShot');
+
+export const ProductionCueTypeSchema = z.enum(['music', 'sfx', 'dialogue', 'ambience', 'custom']);
+
+export const ProductionCueSchema = z
+  .object({
+    id: z.string(),
+    production_id: z.string(),
+    cue_type: ProductionCueTypeSchema,
+    label: z.string(),
+    timeline_start_ms: z.number().int().nonnegative(),
+    duration_ms: z.number().int().nonnegative().nullable(),
+    metadata: z.string(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number(),
+  })
+  .openapi('ProductionCue');
+
+export const ProductionPlacementTargetKindSchema = z.enum(['shot', 'cue']);
+
+export const ProductionPlacementSchema = z
+  .object({
+    id: z.string(),
+    production_id: z.string(),
+    target_kind: ProductionPlacementTargetKindSchema,
+    target_id: z.string(),
+    variant_id: z.string(),
+    asset_id: z.string(),
+    media_kind: MediaKindSchema,
+    role: z.string().nullable(),
+    source_refs: z.string(),
+    source_variant_ids: z.string(),
+    metadata: z.string(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number(),
+  })
+  .openapi('ProductionPlacement');
+
+export const UpsertProductionRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    name: z.string().min(1),
+    description: z.string().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .openapi('UpsertProductionRequest');
+
+export const UpsertProductionShotRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    shotId: z.string().optional(),
+    label: z.string().min(1),
+    timelineStartMs: z.number().int().nonnegative(),
+    durationMs: z.number().int().nonnegative().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .openapi('UpsertProductionShotRequest');
+
+export const UpsertProductionCueRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    cueType: ProductionCueTypeSchema.optional(),
+    label: z.string().min(1),
+    timelineStartMs: z.number().int().nonnegative(),
+    durationMs: z.number().int().nonnegative().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .openapi('UpsertProductionCueRequest');
+
+export const UpsertProductionPlacementRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    targetKind: ProductionPlacementTargetKindSchema,
+    targetId: z.string().min(1),
+    variantId: z.string().min(1),
+    role: z.string().optional(),
+    sourceRefs: z.array(z.string()).optional(),
+    sourceVariantIds: z.array(z.string()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .openapi('UpsertProductionPlacementRequest');
+
+export const ListProductionsResponseSchema = z
+  .object({
+    success: z.literal(true),
+    productions: z.array(ProductionSchema),
+  })
+  .openapi('ListProductionsResponse');
+
+export const ProductionResponseSchema = z
+  .object({
+    success: z.literal(true),
+    production: ProductionSchema,
+  })
+  .openapi('ProductionResponse');
+
+export const ProductionDetailResponseSchema = z
+  .object({
+    success: z.literal(true),
+    production: ProductionSchema,
+    shots: z.array(ProductionShotSchema),
+    cues: z.array(ProductionCueSchema),
+    placements: z.array(ProductionPlacementSchema),
+  })
+  .openapi('ProductionDetailResponse');
+
+export const ProductionShotResponseSchema = z
+  .object({
+    success: z.literal(true),
+    shot: ProductionShotSchema,
+  })
+  .openapi('ProductionShotResponse');
+
+export const ProductionCueResponseSchema = z
+  .object({
+    success: z.literal(true),
+    cue: ProductionCueSchema,
+  })
+  .openapi('ProductionCueResponse');
+
+export const ProductionPlacementResponseSchema = z
+  .object({
+    success: z.literal(true),
+    placement: ProductionPlacementSchema,
+  })
+  .openapi('ProductionPlacementResponse');
+
 export const DeleteSpaceResponseSchema = z
   .object({
     success: z.literal(true),
@@ -369,6 +532,20 @@ export type ProductionRecord = z.infer<typeof ProductionRecordSchema>;
 export type PlaceProductionRecordRequest = z.infer<typeof PlaceProductionRecordRequestSchema>;
 export type ProductionRecordResponse = z.infer<typeof ProductionRecordResponseSchema>;
 export type ListProductionRecordsResponse = z.infer<typeof ListProductionRecordsResponseSchema>;
+export type Production = z.infer<typeof ProductionSchema>;
+export type ProductionShot = z.infer<typeof ProductionShotSchema>;
+export type ProductionCue = z.infer<typeof ProductionCueSchema>;
+export type ProductionPlacement = z.infer<typeof ProductionPlacementSchema>;
+export type UpsertProductionRequest = z.infer<typeof UpsertProductionRequestSchema>;
+export type UpsertProductionShotRequest = z.infer<typeof UpsertProductionShotRequestSchema>;
+export type UpsertProductionCueRequest = z.infer<typeof UpsertProductionCueRequestSchema>;
+export type UpsertProductionPlacementRequest = z.infer<typeof UpsertProductionPlacementRequestSchema>;
+export type ListProductionsResponse = z.infer<typeof ListProductionsResponseSchema>;
+export type ProductionResponse = z.infer<typeof ProductionResponseSchema>;
+export type ProductionDetailResponse = z.infer<typeof ProductionDetailResponseSchema>;
+export type ProductionShotResponse = z.infer<typeof ProductionShotResponseSchema>;
+export type ProductionCueResponse = z.infer<typeof ProductionCueResponseSchema>;
+export type ProductionPlacementResponse = z.infer<typeof ProductionPlacementResponseSchema>;
 export type Variant = z.infer<typeof VariantSchema>;
 export type UploadMediaRequest = z.infer<typeof UploadMediaRequestSchema>;
 export type UploadMediaResponse = z.infer<typeof UploadMediaResponseSchema>;

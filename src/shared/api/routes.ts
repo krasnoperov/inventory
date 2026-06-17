@@ -15,10 +15,21 @@ import {
   ListSpacesResponseSchema,
   PlaceProductionRecordRequestSchema,
   ProductionIdParamsSchema,
+  ProductionChildParamsSchema,
+  ListProductionsResponseSchema,
+  ProductionCueResponseSchema,
+  ProductionDetailResponseSchema,
+  ProductionPlacementResponseSchema,
   ProductionRecordParamsSchema,
   ProductionRecordResponseSchema,
+  ProductionResponseSchema,
+  ProductionShotResponseSchema,
   SpaceIdParamsSchema,
   SuccessResponseSchema,
+  UpsertProductionCueRequestSchema,
+  UpsertProductionPlacementRequestSchema,
+  UpsertProductionRequestSchema,
+  UpsertProductionShotRequestSchema,
   UpdateUserProfileRequestSchema,
   UpdateUserSettingsRequestSchema,
   UploadMediaRequestSchema,
@@ -236,6 +247,220 @@ export const listSpaceAssetsRoute = createRoute({
       description: 'Assets in a space',
     },
     403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const listProductionsRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/productions',
+  request: {
+    params: SpaceIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(ListProductionsResponseSchema),
+      description: 'Productions in a space',
+    },
+    403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const upsertProductionRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/productions',
+  request: {
+    params: SpaceIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertProductionRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(ProductionResponseSchema),
+      description: 'Created or updated production',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const getProductionRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/productions/{productionId}',
+  request: {
+    params: ProductionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(ProductionDetailResponseSchema),
+      description: 'Production with shots, cues, and placements',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteProductionRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/productions/{productionId}',
+  request: {
+    params: ProductionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SuccessResponseSchema),
+      description: 'Deleted production',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const upsertProductionShotRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/productions/{productionId}/shots',
+  request: {
+    params: ProductionIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertProductionShotRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(ProductionShotResponseSchema),
+      description: 'Created or updated production shot',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteProductionShotRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/productions/{productionId}/shots/{childId}',
+  request: {
+    params: ProductionChildParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SuccessResponseSchema),
+      description: 'Deleted production shot',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const upsertProductionCueRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/productions/{productionId}/cues',
+  request: {
+    params: ProductionIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertProductionCueRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(ProductionCueResponseSchema),
+      description: 'Created or updated production cue',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteProductionCueRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/productions/{productionId}/cues/{childId}',
+  request: {
+    params: ProductionChildParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SuccessResponseSchema),
+      description: 'Deleted production cue',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const upsertProductionPlacementRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/productions/{productionId}/placements',
+  request: {
+    params: ProductionIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertProductionPlacementRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(ProductionPlacementResponseSchema),
+      description: 'Created or updated production placement',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteProductionPlacementRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/productions/{productionId}/placements/{childId}',
+  request: {
+    params: ProductionChildParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SuccessResponseSchema),
+      description: 'Deleted production placement',
+    },
+    403: errorResponse,
+    404: errorResponse,
     500: errorResponse,
     503: errorResponse,
   },

@@ -27,6 +27,12 @@ import type {
   TileSet,
   TilePosition,
   ProductionRecord,
+  Production,
+  ProductionShot,
+  ProductionCue,
+  ProductionCueType,
+  ProductionPlacement,
+  ProductionPlacementTargetKind,
 } from '../types';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import type { SimplePlan } from '../../../../shared/websocket-types';
@@ -44,6 +50,10 @@ import {
   TileSetQueries,
   TilePositionQueries,
   ProductionRecordQueries,
+  ProductionQueries,
+  ProductionShotQueries,
+  ProductionCueQueries,
+  ProductionPlacementQueries,
   buildAssetUpdateQuery,
   buildInClause,
 } from '../queries';
@@ -874,6 +884,208 @@ export class SpaceRepository {
     if (!existing) return false;
 
     await this.sql.exec(ProductionRecordQueries.DELETE, recordId);
+    return true;
+  }
+
+  // ==========================================================================
+  // Production Model Operations
+  // ==========================================================================
+
+  async getAllProductions(): Promise<Production[]> {
+    try {
+      const result = await this.sql.exec(ProductionQueries.GET_ALL);
+      return result.toArray() as Production[];
+    } catch {
+      return [];
+    }
+  }
+
+  async getProductionById(productionId: string): Promise<Production | null> {
+    const result = await this.sql.exec(ProductionQueries.GET_BY_ID, productionId);
+    return (result.toArray()[0] as Production) ?? null;
+  }
+
+  async upsertProduction(data: {
+    id: string;
+    name: string;
+    description?: string | null;
+    metadata?: Record<string, unknown>;
+    createdBy: string;
+  }): Promise<Production> {
+    const existing = await this.getProductionById(data.id);
+    const now = Date.now();
+    await this.sql.exec(
+      ProductionQueries.UPSERT,
+      data.id,
+      data.name,
+      data.description ?? null,
+      JSON.stringify(data.metadata ?? {}),
+      existing?.created_by ?? data.createdBy,
+      existing?.created_at ?? now,
+      now
+    );
+    return (await this.getProductionById(data.id))!;
+  }
+
+  async deleteProduction(productionId: string): Promise<boolean> {
+    const existing = await this.getProductionById(productionId);
+    if (!existing) return false;
+
+    await this.sql.exec(ProductionQueries.DELETE, productionId);
+    return true;
+  }
+
+  async getProductionShots(productionId: string): Promise<ProductionShot[]> {
+    const result = await this.sql.exec(ProductionShotQueries.GET_BY_PRODUCTION, productionId);
+    return result.toArray() as ProductionShot[];
+  }
+
+  async getProductionShotById(shotId: string): Promise<ProductionShot | null> {
+    const result = await this.sql.exec(ProductionShotQueries.GET_BY_ID, shotId);
+    return (result.toArray()[0] as ProductionShot) ?? null;
+  }
+
+  async upsertProductionShot(data: {
+    id: string;
+    productionId: string;
+    shotId?: string | null;
+    label: string;
+    timelineStartMs: number;
+    durationMs?: number | null;
+    metadata?: Record<string, unknown>;
+    createdBy: string;
+  }): Promise<ProductionShot> {
+    const existing = await this.getProductionShotById(data.id);
+    const now = Date.now();
+    await this.sql.exec(
+      ProductionShotQueries.UPSERT,
+      data.id,
+      data.productionId,
+      data.shotId ?? null,
+      data.label,
+      data.timelineStartMs,
+      data.durationMs ?? null,
+      JSON.stringify(data.metadata ?? {}),
+      existing?.created_by ?? data.createdBy,
+      existing?.created_at ?? now,
+      now
+    );
+    return (await this.getProductionShotById(data.id))!;
+  }
+
+  async deleteProductionShot(shotId: string): Promise<boolean> {
+    const existing = await this.getProductionShotById(shotId);
+    if (!existing) return false;
+
+    await this.sql.exec(ProductionShotQueries.DELETE, shotId);
+    return true;
+  }
+
+  async getProductionCues(productionId: string): Promise<ProductionCue[]> {
+    const result = await this.sql.exec(ProductionCueQueries.GET_BY_PRODUCTION, productionId);
+    return result.toArray() as ProductionCue[];
+  }
+
+  async getProductionCueById(cueId: string): Promise<ProductionCue | null> {
+    const result = await this.sql.exec(ProductionCueQueries.GET_BY_ID, cueId);
+    return (result.toArray()[0] as ProductionCue) ?? null;
+  }
+
+  async upsertProductionCue(data: {
+    id: string;
+    productionId: string;
+    cueType: ProductionCueType;
+    label: string;
+    timelineStartMs: number;
+    durationMs?: number | null;
+    metadata?: Record<string, unknown>;
+    createdBy: string;
+  }): Promise<ProductionCue> {
+    const existing = await this.getProductionCueById(data.id);
+    const now = Date.now();
+    await this.sql.exec(
+      ProductionCueQueries.UPSERT,
+      data.id,
+      data.productionId,
+      data.cueType,
+      data.label,
+      data.timelineStartMs,
+      data.durationMs ?? null,
+      JSON.stringify(data.metadata ?? {}),
+      existing?.created_by ?? data.createdBy,
+      existing?.created_at ?? now,
+      now
+    );
+    return (await this.getProductionCueById(data.id))!;
+  }
+
+  async deleteProductionCue(cueId: string): Promise<boolean> {
+    const existing = await this.getProductionCueById(cueId);
+    if (!existing) return false;
+
+    await this.sql.exec(ProductionCueQueries.DELETE, cueId);
+    return true;
+  }
+
+  async getProductionPlacements(productionId: string): Promise<ProductionPlacement[]> {
+    const result = await this.sql.exec(ProductionPlacementQueries.GET_BY_PRODUCTION, productionId);
+    return result.toArray() as ProductionPlacement[];
+  }
+
+  async getProductionPlacementById(placementId: string): Promise<ProductionPlacement | null> {
+    const result = await this.sql.exec(ProductionPlacementQueries.GET_BY_ID, placementId);
+    return (result.toArray()[0] as ProductionPlacement) ?? null;
+  }
+
+  async getProductionPlacementsByTarget(
+    targetKind: ProductionPlacementTargetKind,
+    targetId: string
+  ): Promise<ProductionPlacement[]> {
+    const result = await this.sql.exec(ProductionPlacementQueries.GET_BY_TARGET, targetKind, targetId);
+    return result.toArray() as ProductionPlacement[];
+  }
+
+  async upsertProductionPlacement(data: {
+    id: string;
+    productionId: string;
+    targetKind: ProductionPlacementTargetKind;
+    targetId: string;
+    variantId: string;
+    assetId: string;
+    mediaKind: MediaKind;
+    role?: string | null;
+    sourceRefs?: string[];
+    sourceVariantIds?: string[];
+    metadata?: Record<string, unknown>;
+    createdBy: string;
+  }): Promise<ProductionPlacement> {
+    const existing = await this.getProductionPlacementById(data.id);
+    const now = Date.now();
+    await this.sql.exec(
+      ProductionPlacementQueries.UPSERT,
+      data.id,
+      data.productionId,
+      data.targetKind,
+      data.targetId,
+      data.variantId,
+      data.assetId,
+      data.mediaKind,
+      data.role ?? null,
+      JSON.stringify(data.sourceRefs ?? []),
+      JSON.stringify(data.sourceVariantIds ?? []),
+      JSON.stringify(data.metadata ?? {}),
+      existing?.created_by ?? data.createdBy,
+      existing?.created_at ?? now,
+      now
+    );
+    return (await this.getProductionPlacementById(data.id))!;
+  }
+
+  async deleteProductionPlacement(placementId: string): Promise<boolean> {
+    const existing = await this.getProductionPlacementById(placementId);
+    if (!existing) return false;
+
+    await this.sql.exec(ProductionPlacementQueries.DELETE, placementId);
     return true;
   }
 

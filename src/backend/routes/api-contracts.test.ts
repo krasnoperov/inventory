@@ -94,6 +94,59 @@ const productionRecord = {
   updated_at: 1_780_000_000_300,
 };
 
+const production = {
+  id: 's01e01-a2',
+  name: 'S01E01 A2',
+  description: null,
+  metadata: '{}',
+  created_by: String(user.id),
+  created_at: 1_780_000_000_300,
+  updated_at: 1_780_000_000_300,
+};
+
+const productionShot = {
+  id: 'shot-row-1',
+  production_id: production.id,
+  shot_id: 's01e01-a2-01',
+  label: 'Cocina',
+  timeline_start_ms: 0,
+  duration_ms: 73_000,
+  metadata: '{}',
+  created_by: String(user.id),
+  created_at: 1_780_000_000_301,
+  updated_at: 1_780_000_000_301,
+};
+
+const productionCue = {
+  id: 'cue-row-1',
+  production_id: production.id,
+  cue_type: 'music' as const,
+  label: 'Intro bed',
+  timeline_start_ms: 0,
+  duration_ms: 73_000,
+  metadata: '{}',
+  created_by: String(user.id),
+  created_at: 1_780_000_000_302,
+  updated_at: 1_780_000_000_302,
+};
+
+const productionPlacement = {
+  id: 'placement-1',
+  production_id: production.id,
+  target_kind: 'shot' as const,
+  target_id: productionShot.id,
+  variant_id: variant.id,
+  asset_id: asset.id,
+  media_kind: 'video' as const,
+  role: 'primary',
+  source_refs: '[]',
+  source_variant_ids: '[]',
+  metadata: '{}',
+  created_by: String(user.id),
+  created_at: 1_780_000_000_303,
+  updated_at: 1_780_000_000_303,
+};
+
 type FetchLike = NonNullable<ApiFetchOptions<ApiEndpointKey>['fetch']>;
 
 function bindFetch(app: OpenAPIHono<AppContext>): FetchLike {
@@ -412,6 +465,184 @@ describe('API contracts', () => {
       'GET /internal/production/s01e01-a2/records',
       'POST /internal/production/placements',
       'DELETE /internal/production/records/record-1',
+    ]);
+  });
+
+  it('round-trips normalized production model routes through the shared client contract', async () => {
+    const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async (request: Request) => {
+          const path = new URL(request.url).pathname;
+          const method = request.method;
+          const body = method === 'POST' ? await request.json<Record<string, unknown>>() : undefined;
+          calls.push({ path, method, body });
+
+          if (path === '/internal/productions' && method === 'GET') {
+            return Response.json({ success: true, productions: [production] });
+          }
+          if (path === '/internal/productions' && method === 'POST') {
+            assert.equal(body?.createdBy, String(user.id));
+            assert.equal(body?.name, production.name);
+            return Response.json({ success: true, production });
+          }
+          if (path === '/internal/productions/s01e01-a2' && method === 'GET') {
+            return Response.json({
+              success: true,
+              production,
+              shots: [productionShot],
+              cues: [productionCue],
+              placements: [productionPlacement],
+            });
+          }
+          if (path === '/internal/productions/s01e01-a2/shots' && method === 'POST') {
+            assert.equal(body?.createdBy, String(user.id));
+            return Response.json({ success: true, shot: productionShot });
+          }
+          if (path === '/internal/productions/s01e01-a2/cues' && method === 'POST') {
+            assert.equal(body?.cueType, 'music');
+            return Response.json({ success: true, cue: productionCue });
+          }
+          if (path === '/internal/productions/s01e01-a2/placements' && method === 'POST') {
+            assert.equal(body?.targetKind, 'shot');
+            assert.equal(body?.variantId, variant.id);
+            return Response.json({ success: true, placement: productionPlacement });
+          }
+          if (
+            path === '/internal/productions/s01e01-a2/placements/placement-1'
+            || path === '/internal/productions/s01e01-a2/cues/cue-row-1'
+            || path === '/internal/productions/s01e01-a2/shots/shot-row-1'
+            || path === '/internal/productions/s01e01-a2'
+          ) {
+            return Response.json({ success: true });
+          }
+
+          return Response.json({ error: 'Unexpected route' }, { status: 404 });
+        },
+      }),
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const fakeMemberDAO = {
+      getMember: async () => ({ space_id: space.id, user_id: String(user.id), role: 'editor', joined_at: Date.now() }),
+    };
+    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [MemberDAO, fakeMemberDAO],
+    ]), {
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
+    const fetch = bindFetch(app);
+    const authHeaders = { Authorization: 'Bearer test-token' };
+
+    const listed = await apiFetch('GET /api/spaces/:id/productions', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    assert.equal(listed.productions[0].id, production.id);
+
+    const saved = await apiFetch('POST /api/spaces/:id/productions', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+      json: { id: production.id, name: production.name },
+    });
+    assert.equal(saved.production.name, production.name);
+
+    const detail = await apiFetch('GET /api/spaces/:id/productions/:productionId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, productionId: production.id },
+    });
+    assert.equal(detail.shots[0].label, 'Cocina');
+    assert.equal(detail.cues[0].cue_type, 'music');
+    assert.equal(detail.placements[0].variant_id, variant.id);
+
+    const shot = await apiFetch('POST /api/spaces/:id/productions/:productionId/shots', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, productionId: production.id },
+      json: {
+        id: productionShot.id,
+        shotId: productionShot.shot_id!,
+        label: productionShot.label,
+        timelineStartMs: productionShot.timeline_start_ms,
+        durationMs: productionShot.duration_ms!,
+      },
+    });
+    assert.equal(shot.shot.id, productionShot.id);
+
+    const cue = await apiFetch('POST /api/spaces/:id/productions/:productionId/cues', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, productionId: production.id },
+      json: {
+        id: productionCue.id,
+        cueType: 'music',
+        label: productionCue.label,
+        timelineStartMs: productionCue.timeline_start_ms,
+      },
+    });
+    assert.equal(cue.cue.cue_type, 'music');
+
+    const placement = await apiFetch('POST /api/spaces/:id/productions/:productionId/placements', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, productionId: production.id },
+      json: {
+        id: productionPlacement.id,
+        targetKind: 'shot',
+        targetId: productionShot.id,
+        variantId: variant.id,
+      },
+    });
+    assert.equal(placement.placement.target_id, productionShot.id);
+
+    await apiFetch('DELETE /api/spaces/:id/productions/:productionId/placements/:childId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, productionId: production.id, childId: productionPlacement.id },
+    });
+    await apiFetch('DELETE /api/spaces/:id/productions/:productionId/cues/:childId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, productionId: production.id, childId: productionCue.id },
+    });
+    await apiFetch('DELETE /api/spaces/:id/productions/:productionId/shots/:childId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, productionId: production.id, childId: productionShot.id },
+    });
+    await apiFetch('DELETE /api/spaces/:id/productions/:productionId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, productionId: production.id },
+    });
+
+    assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`), [
+      'GET /internal/productions',
+      'POST /internal/productions',
+      'GET /internal/productions/s01e01-a2',
+      'POST /internal/productions/s01e01-a2/shots',
+      'POST /internal/productions/s01e01-a2/cues',
+      'POST /internal/productions/s01e01-a2/placements',
+      'DELETE /internal/productions/s01e01-a2/placements/placement-1',
+      'DELETE /internal/productions/s01e01-a2/cues/cue-row-1',
+      'DELETE /internal/productions/s01e01-a2/shots/shot-row-1',
+      'DELETE /internal/productions/s01e01-a2',
     ]);
   });
 

@@ -182,6 +182,61 @@ export class SchemaManager {
         updated_at INTEGER NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS productions (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS production_shots (
+        id TEXT PRIMARY KEY,
+        production_id TEXT NOT NULL REFERENCES productions(id) ON DELETE CASCADE,
+        shot_id TEXT,
+        label TEXT NOT NULL,
+        timeline_start_ms INTEGER NOT NULL CHECK (timeline_start_ms >= 0),
+        duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS production_cues (
+        id TEXT PRIMARY KEY,
+        production_id TEXT NOT NULL REFERENCES productions(id) ON DELETE CASCADE,
+        cue_type TEXT NOT NULL DEFAULT 'custom'
+          CHECK (cue_type IN ('music', 'sfx', 'dialogue', 'ambience', 'custom')),
+        label TEXT NOT NULL,
+        timeline_start_ms INTEGER NOT NULL CHECK (timeline_start_ms >= 0),
+        duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS production_placements (
+        id TEXT PRIMARY KEY,
+        production_id TEXT NOT NULL REFERENCES productions(id) ON DELETE CASCADE,
+        target_kind TEXT NOT NULL CHECK (target_kind IN ('shot', 'cue')),
+        target_id TEXT NOT NULL,
+        variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        media_kind TEXT NOT NULL DEFAULT 'image'
+          CHECK (media_kind IN ('image', 'audio', 'video')),
+        role TEXT,
+        source_refs TEXT NOT NULL DEFAULT '[]',
+        source_variant_ids TEXT NOT NULL DEFAULT '[]',
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
       -- Indexes
       CREATE INDEX IF NOT EXISTS idx_variants_asset ON variants(asset_id);
       CREATE INDEX IF NOT EXISTS idx_variants_status ON variants(status);
@@ -201,6 +256,12 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_auto_executed_request ON auto_executed(request_id);
       CREATE INDEX IF NOT EXISTS idx_production_records_production ON production_records(production_id, timeline_start_ms);
       CREATE INDEX IF NOT EXISTS idx_production_records_variant ON production_records(variant_id);
+      CREATE INDEX IF NOT EXISTS idx_productions_updated ON productions(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_production_shots_production ON production_shots(production_id, timeline_start_ms);
+      CREATE INDEX IF NOT EXISTS idx_production_cues_production ON production_cues(production_id, timeline_start_ms);
+      CREATE INDEX IF NOT EXISTS idx_production_placements_production ON production_placements(production_id);
+      CREATE INDEX IF NOT EXISTS idx_production_placements_target ON production_placements(target_kind, target_id);
+      CREATE INDEX IF NOT EXISTS idx_production_placements_variant ON production_placements(variant_id);
     `);
   }
 
@@ -250,6 +311,9 @@ export class SchemaManager {
 
     // Migration: Add production placement records for downstream tooling
     await this.addProductionRecords();
+
+    // Migration: Add normalized production model
+    await this.addProductionModel();
 
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
@@ -747,6 +811,75 @@ export class SchemaManager {
 
       CREATE INDEX IF NOT EXISTS idx_production_records_production ON production_records(production_id, timeline_start_ms);
       CREATE INDEX IF NOT EXISTS idx_production_records_variant ON production_records(variant_id);
+    `);
+  }
+
+  /**
+   * Add normalized production, shot, cue, and placement tables.
+   */
+  private async addProductionModel(): Promise<void> {
+    await this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS productions (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS production_shots (
+        id TEXT PRIMARY KEY,
+        production_id TEXT NOT NULL REFERENCES productions(id) ON DELETE CASCADE,
+        shot_id TEXT,
+        label TEXT NOT NULL,
+        timeline_start_ms INTEGER NOT NULL CHECK (timeline_start_ms >= 0),
+        duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS production_cues (
+        id TEXT PRIMARY KEY,
+        production_id TEXT NOT NULL REFERENCES productions(id) ON DELETE CASCADE,
+        cue_type TEXT NOT NULL DEFAULT 'custom'
+          CHECK (cue_type IN ('music', 'sfx', 'dialogue', 'ambience', 'custom')),
+        label TEXT NOT NULL,
+        timeline_start_ms INTEGER NOT NULL CHECK (timeline_start_ms >= 0),
+        duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS production_placements (
+        id TEXT PRIMARY KEY,
+        production_id TEXT NOT NULL REFERENCES productions(id) ON DELETE CASCADE,
+        target_kind TEXT NOT NULL CHECK (target_kind IN ('shot', 'cue')),
+        target_id TEXT NOT NULL,
+        variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        media_kind TEXT NOT NULL DEFAULT 'image'
+          CHECK (media_kind IN ('image', 'audio', 'video')),
+        role TEXT,
+        source_refs TEXT NOT NULL DEFAULT '[]',
+        source_variant_ids TEXT NOT NULL DEFAULT '[]',
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_productions_updated ON productions(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_production_shots_production ON production_shots(production_id, timeline_start_ms);
+      CREATE INDEX IF NOT EXISTS idx_production_cues_production ON production_cues(production_id, timeline_start_ms);
+      CREATE INDEX IF NOT EXISTS idx_production_placements_production ON production_placements(production_id);
+      CREATE INDEX IF NOT EXISTS idx_production_placements_target ON production_placements(target_kind, target_id);
+      CREATE INDEX IF NOT EXISTS idx_production_placements_variant ON production_placements(variant_id);
     `);
   }
 }

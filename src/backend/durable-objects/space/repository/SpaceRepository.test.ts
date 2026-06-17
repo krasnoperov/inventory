@@ -434,6 +434,107 @@ describe('SpaceRepository', () => {
     });
   });
 
+  describe('Production Model Operations', () => {
+    test('upsertProduction stores production metadata', async () => {
+      mockSql.setMockResult('SELECT * FROM productions WHERE id = ?', [
+        { id: 'episode-01', name: 'Episode 01', metadata: '{"format":"short"}' },
+      ]);
+
+      const production = await repo.upsertProduction({
+        id: 'episode-01',
+        name: 'Episode 01',
+        description: 'Pilot',
+        metadata: { format: 'short' },
+        createdBy: 'user1',
+      });
+
+      const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO productions'));
+      assert(upsertQuery !== undefined);
+      assert(upsertQuery.query.includes('ON CONFLICT(id) DO UPDATE'));
+      assert.equal(upsertQuery.bindings[0], 'episode-01');
+      assert.equal(upsertQuery.bindings[1], 'Episode 01');
+      assert.equal(upsertQuery.bindings[3], '{"format":"short"}');
+      assert.equal(production.id, 'episode-01');
+    });
+
+    test('upsertProductionShot stores timeline data', async () => {
+      mockSql.setMockResult('SELECT * FROM production_shots WHERE id = ?', [
+        { id: 'shot-1', production_id: 'episode-01', label: 'Opening' },
+      ]);
+
+      await repo.upsertProductionShot({
+        id: 'shot-1',
+        productionId: 'episode-01',
+        shotId: 's01e01-001',
+        label: 'Opening',
+        timelineStartMs: 1000,
+        durationMs: 2000,
+        metadata: { angle: 'wide' },
+        createdBy: 'user1',
+      });
+
+      const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_shots'));
+      assert(upsertQuery !== undefined);
+      assert.equal(upsertQuery.bindings[1], 'episode-01');
+      assert.equal(upsertQuery.bindings[2], 's01e01-001');
+      assert.equal(upsertQuery.bindings[4], 1000);
+      assert.equal(upsertQuery.bindings[6], '{"angle":"wide"}');
+    });
+
+    test('upsertProductionCue stores cue type and timing', async () => {
+      mockSql.setMockResult('SELECT * FROM production_cues WHERE id = ?', [
+        { id: 'cue-1', production_id: 'episode-01', cue_type: 'music' },
+      ]);
+
+      await repo.upsertProductionCue({
+        id: 'cue-1',
+        productionId: 'episode-01',
+        cueType: 'music',
+        label: 'Theme',
+        timelineStartMs: 0,
+        durationMs: 30000,
+        metadata: { mood: 'bright' },
+        createdBy: 'user1',
+      });
+
+      const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_cues'));
+      assert(upsertQuery !== undefined);
+      assert.equal(upsertQuery.bindings[1], 'episode-01');
+      assert.equal(upsertQuery.bindings[2], 'music');
+      assert.equal(upsertQuery.bindings[6], '{"mood":"bright"}');
+    });
+
+    test('upsertProductionPlacement stores assigned variant and target', async () => {
+      mockSql.setMockResult('SELECT * FROM production_placements WHERE id = ?', [
+        { id: 'placement-1', production_id: 'episode-01', target_kind: 'shot' },
+      ]);
+
+      await repo.upsertProductionPlacement({
+        id: 'placement-1',
+        productionId: 'episode-01',
+        targetKind: 'shot',
+        targetId: 'shot-1',
+        variantId: 'variant-1',
+        assetId: 'asset-1',
+        mediaKind: 'video',
+        role: 'primary',
+        sourceRefs: ['ref-a'],
+        sourceVariantIds: ['source-1'],
+        metadata: { take: 2 },
+        createdBy: 'user1',
+      });
+
+      const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_placements'));
+      assert(upsertQuery !== undefined);
+      assert.equal(upsertQuery.bindings[1], 'episode-01');
+      assert.equal(upsertQuery.bindings[2], 'shot');
+      assert.equal(upsertQuery.bindings[4], 'variant-1');
+      assert.equal(upsertQuery.bindings[6], 'video');
+      assert.equal(upsertQuery.bindings[9], '["source-1"]');
+      assert.equal(upsertQuery.bindings[10], '{"take":2}');
+    });
+  });
+
   describe('Lineage Operations', () => {
     test('getAllLineage executes correct query', async () => {
       mockSql.setMockResult('SELECT * FROM lineage', [
