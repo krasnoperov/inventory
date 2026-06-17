@@ -9,7 +9,13 @@ export const Route = createFileRoute('/spaces/$id/assets/$assetId')({
     }
   },
   loader: ({ context, params }) => context.queryClient.ensureQueryData(
-    assetDetailsQueryOptions(params.id, params.assetId, context.apiBaseUrl, context.apiHeaders),
+    assetDetailsQueryOptions(
+      params.id,
+      params.assetId,
+      context.apiBaseUrl,
+      context.apiHeaders,
+      context.serverFetch,
+    ),
   ),
   component: lazyPage(() => import('../../../../pages/AssetDetailPage')),
 });

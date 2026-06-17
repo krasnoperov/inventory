@@ -5,6 +5,7 @@ import { Outlet, createRootRouteWithContext } from '@tanstack/react-router';
 import { AuthProvider } from '../contexts/AuthContext';
 import type { User } from '../contexts/AuthContext';
 import type { StartSession } from '../startSession';
+import type { FetchLike } from '../../api/client';
 import { sessionQueryOptions } from '../queries';
 
 interface RouterContext {
@@ -12,6 +13,9 @@ interface RouterContext {
   initialSession?: StartSession;
   apiBaseUrl?: string;
   apiHeaders?: HeadersInit;
+  // Server-only fetch used during SSR so route loaders dispatch to the worker
+  // in-process instead of issuing a (failing) self-origin subrequest.
+  serverFetch?: FetchLike;
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({

@@ -9,7 +9,7 @@ export const Route = createFileRoute('/profile')({
     }
   },
   loader: ({ context }) => context.queryClient.ensureQueryData(
-    userProfileQueryOptions(context.apiBaseUrl, context.apiHeaders),
+    userProfileQueryOptions(context.apiBaseUrl, context.apiHeaders, context.serverFetch),
   ),
   component: lazyPage(() => import('../pages/ProfilePage')),
 });

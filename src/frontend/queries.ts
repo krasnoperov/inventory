@@ -1,5 +1,5 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
-import { ApiFetchError, apiFetch } from '../api/client';
+import { ApiFetchError, apiFetch, type FetchLike } from '../api/client';
 import { loadSession } from './config';
 import type { Space, UserProfile } from '../api/types';
 import type { Asset, Lineage, Variant } from './hooks/useSpaceWebSocket';
@@ -49,9 +49,10 @@ function fetchJson<T>(
   path: string,
   baseUrl?: string,
   headers?: HeadersInit,
+  fetchImpl?: FetchLike,
   init?: RequestInit,
 ): Promise<T> {
-  return fetch(baseUrl ? new URL(path, baseUrl).toString() : path, {
+  return (fetchImpl ?? fetch)(baseUrl ? new URL(path, baseUrl).toString() : path, {
     credentials: 'include',
     headers,
     ...init,
@@ -104,23 +105,30 @@ export function sessionQueryOptions(initialSession?: StartSession) {
   });
 }
 
-export function spacesQueryOptions(baseUrl?: string, headers?: HeadersInit) {
+export function spacesQueryOptions(baseUrl?: string, headers?: HeadersInit, fetchImpl?: FetchLike) {
   return queryOptions({
     queryKey: spacesQueryKey,
-    queryFn: () => apiFetch('GET /api/spaces', { baseUrl, headers }).then((data) => data.spaces || []),
+    queryFn: () =>
+      apiFetch('GET /api/spaces', { baseUrl, headers, fetch: fetchImpl }).then((data) => data.spaces || []),
   });
 }
 
-export function spacePageQueryOptions(spaceId: string, baseUrl?: string, headers?: HeadersInit) {
+export function spacePageQueryOptions(
+  spaceId: string,
+  baseUrl?: string,
+  headers?: HeadersInit,
+  fetchImpl?: FetchLike,
+) {
   return queryOptions({
     queryKey: ['spaces', spaceId, 'page'],
     queryFn: async (): Promise<SpacePageData> => {
       const [spaceResult, membersResult] = await Promise.allSettled([
-        apiFetch('GET /api/spaces/:id', { params: { id: spaceId }, baseUrl, headers }),
+        apiFetch('GET /api/spaces/:id', { params: { id: spaceId }, baseUrl, headers, fetch: fetchImpl }),
         fetchJson<{ success: boolean; members: Member[] }>(
           `/api/spaces/${spaceId}/members`,
           baseUrl,
           headers,
+          fetchImpl,
         ),
       ]);
 
@@ -141,6 +149,7 @@ export function assetDetailsQueryOptions(
   assetId: string,
   baseUrl?: string,
   headers?: HeadersInit,
+  fetchImpl?: FetchLike,
 ) {
   return queryOptions({
     queryKey: ['spaces', spaceId, 'assets', assetId],
@@ -150,6 +159,7 @@ export function assetDetailsQueryOptions(
           `/api/spaces/${spaceId}/assets/${assetId}`,
           baseUrl,
           headers,
+          fetchImpl,
         );
         return {
           ...data,
@@ -182,9 +192,10 @@ export function productionRecordsQueryOptions(
   });
 }
 
-export function userProfileQueryOptions(baseUrl?: string, headers?: HeadersInit) {
+export function userProfileQueryOptions(baseUrl?: string, headers?: HeadersInit, fetchImpl?: FetchLike) {
   return queryOptions({
     queryKey: userProfileQueryKey,
-    queryFn: (): Promise<UserProfile> => apiFetch('GET /api/user/profile', { baseUrl, headers }),
+    queryFn: (): Promise<UserProfile> =>
+      apiFetch('GET /api/user/profile', { baseUrl, headers, fetch: fetchImpl }),
   });
 }

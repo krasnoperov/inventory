@@ -2,15 +2,20 @@ import type { Context } from 'hono';
 import { AuthHandler } from '../features/auth/auth-handler';
 import type { AppContext } from '../routes/types';
 import type { AuthSessionResponse } from '../../shared/api/schemas';
+import type { FetchLike } from '../../shared/api/client';
 
 interface RenderedRoute {
   html: string;
   status: number;
+  // Response headers from the SSR render — notably `location` on a redirect
+  // thrown by a route `beforeLoad` (e.g. unauthenticated → /login).
+  headers?: Record<string, string>;
 }
 
 export type RouteRenderer = (
   request: Request,
   session: AuthSessionResponse,
+  serverFetch?: FetchLike,
 ) => Promise<RenderedRoute>;
 
 export function documentResponseHeaders(): HeadersInit {
@@ -89,9 +94,19 @@ async function renderSsrDocument(
   c: Context<AppContext>,
   shellHtml: string,
   renderRoute: RouteRenderer,
+  serverFetch?: FetchLike,
 ): Promise<RenderedRoute> {
   const session = await resolveStartSession(c);
-  const rendered = await renderRoute(c.req.raw, session);
+  const rendered = await renderRoute(c.req.raw, session, serverFetch);
+
+  // A route `beforeLoad` can throw a redirect (e.g. unauthenticated → /login);
+  // TanStack returns a 3xx + Location with no body. Forward it untouched so the
+  // caller can emit a real redirect — wrapping it in the shell drops Location
+  // and triggers a client hydration mismatch ("Something went wrong").
+  if (rendered.status >= 300 && rendered.status < 400) {
+    return rendered;
+  }
+
   const sessionScript = `<script>window.__INVENTORY_START_SESSION__=${serializeJsonForInlineScript(session)};</script>`;
 
   let html = shellHtml.replace(
@@ -151,7 +166,17 @@ export function createDocumentNavigationHandler(
     }
 
     const renderRoute = await loadRouteRenderer();
-    const rendered = await renderSsrDocument(c, await shellRes.text(), renderRoute);
+    const rendered = await renderSsrDocument(c, await shellRes.text(), renderRoute, c.get('serverFetch'));
+
+    // Preserve SSR redirects (e.g. auth guard → /login) as real redirects with
+    // their Location header intact, instead of serving a 3xx body-less shell.
+    const location = rendered.headers?.location ?? rendered.headers?.Location;
+    if (rendered.status >= 300 && rendered.status < 400 && location) {
+      return new Response(null, {
+        status: rendered.status,
+        headers: { location, 'cache-control': 'private, no-store' },
+      });
+    }
 
     return new Response(rendered.html, {
       status: rendered.status,

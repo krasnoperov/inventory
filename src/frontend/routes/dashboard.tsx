@@ -9,7 +9,7 @@ export const Route = createFileRoute('/dashboard')({
     }
   },
   loader: ({ context }) => context.queryClient.ensureQueryData(
-    spacesQueryOptions(context.apiBaseUrl, context.apiHeaders),
+    spacesQueryOptions(context.apiBaseUrl, context.apiHeaders, context.serverFetch),
   ),
   component: lazyPage(() => import('../pages/LandingPage')),
 });
