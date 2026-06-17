@@ -2,6 +2,7 @@ import { createRoute } from '@hono/zod-openapi';
 import {
   AuthGoogleResponseSchema,
   AuthSessionResponseSchema,
+  AuthSessionStateResponseSchema,
   BinaryResponseSchema,
   CreateSpaceRequestSchema,
   CreateSpaceResponseSchema,
@@ -85,6 +86,18 @@ export const postGoogleAuthRoute = createRoute({
     },
     400: errorResponse,
     500: errorResponse,
+  },
+});
+
+export const postAuthSessionStateRoute = createRoute({
+  method: 'post',
+  path: '/api/auth/session-state',
+  responses: {
+    200: {
+      ...json(AuthSessionStateResponseSchema),
+      description: 'Short-lived web session token minted from a CLI bearer token',
+    },
+    401: errorResponse,
   },
 });
 

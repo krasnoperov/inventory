@@ -111,9 +111,10 @@ export class AuthService {
     return { keys: [await this.publicJwkPromise] };
   }
 
-  async createJWT(userId: number): Promise<string> {
+  async createJWT(userId: number, ttlSeconds?: number): Promise<string> {
     const signingKey = await this.getSigningKey();
     const now = Math.floor(Date.now() / 1000);
+    const ttl = ttlSeconds ?? this.accessTokenTtlSeconds;
 
     return await new SignJWT({})
       .setProtectedHeader({ alg: 'ES256', kid: this.getKeyId() })
@@ -121,7 +122,7 @@ export class AuthService {
       .setAudience(this.getAudience())
       .setIssuer(this.getIssuer())
       .setIssuedAt(now)
-      .setExpirationTime(now + this.accessTokenTtlSeconds)
+      .setExpirationTime(now + ttl)
       .sign(signingKey);
   }
 
