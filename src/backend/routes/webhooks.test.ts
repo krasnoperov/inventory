@@ -1,7 +1,7 @@
-import { createHmac } from 'node:crypto';
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Hono } from 'hono';
+import { Webhook } from 'standardwebhooks';
 import { UserDAO } from '../../dao/user-dao';
 import { PolarService } from '../services/polarService';
 import type { AppContext } from './types';
@@ -41,15 +41,14 @@ function routeDeps(userDAO: unknown, polarService: unknown = {}) {
 function signHeaders(body: string, timestamp = new Date()) {
   const webhookId = 'msg_test';
   const timestampSeconds = Math.floor(timestamp.getTime() / 1000).toString();
-  const signature = createHmac('sha256', webhookSecret)
-    .update(`${webhookId}.${timestampSeconds}.${body}`)
-    .digest('base64');
+  const base64Secret = Buffer.from(webhookSecret, 'utf-8').toString('base64');
+  const signature = new Webhook(base64Secret).sign(webhookId, timestamp, body);
 
   return {
     'content-type': 'application/json',
     'webhook-id': webhookId,
     'webhook-timestamp': timestampSeconds,
-    'webhook-signature': `v1,${signature}`,
+    'webhook-signature': signature,
   };
 }
 

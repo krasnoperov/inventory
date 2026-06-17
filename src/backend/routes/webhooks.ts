@@ -132,9 +132,18 @@ webhookRoutes.post('/api/webhooks/polar', async (c) => {
 });
 
 function verifyPolarWebhook(rawBody: string, headers: Headers, webhookSecret: string): PolarWebhookEvent {
-  const webhook = new Webhook(new TextEncoder().encode(webhookSecret), { format: 'raw' });
+  const webhook = new Webhook(encodeStandardWebhookSecret(webhookSecret));
   const payload = webhook.verify(rawBody, Object.fromEntries(headers.entries()));
   return parsePolarWebhookPayload(payload);
+}
+
+function encodeStandardWebhookSecret(secret: string): string {
+  const bytes = new TextEncoder().encode(secret);
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
 }
 
 function parsePolarWebhookPayload(payload: unknown): PolarWebhookEvent {
