@@ -1,10 +1,6 @@
 #!/usr/bin/env node
 import process from 'node:process';
-
-// Must be set BEFORE any fetch calls for self-signed certs in local dev
-if (process.argv.includes('--local') || process.argv.includes('--env') && process.argv[process.argv.indexOf('--env') + 1] === 'local') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
+import type { ParsedArgs } from './lib/types';
 
 import { parseArgs } from './lib/utils';
 import { handleLogin } from './commands/login';
@@ -32,13 +28,22 @@ async function main() {
     return;
   }
 
-  if (!command || command === 'help' || command === '--help') {
+  if (!command || command === '--help' || command === '-h') {
     printHelp();
     return;
   }
 
   try {
     const parsed = parseArgs(args);
+    if (command === 'help') {
+      printRequestedHelp(parsed);
+      return;
+    }
+    if (isHelpRequest(args, parsed)) {
+      printCommandHelp(command, parsed.positionals);
+      return;
+    }
+    configureLocalTls(args);
     await dispatchCommand(command, parsed);
   } catch (error) {
     if (error instanceof Error) {
@@ -47,6 +52,71 @@ async function main() {
       console.error('Unexpected error occurred');
     }
     process.exitCode = 1;
+  }
+}
+
+function configureLocalTls(args: string[]): void {
+  // Must be set before any fetch calls for self-signed certs in local dev.
+  if (args.includes('--local') || args.includes('--env') && args[args.indexOf('--env') + 1] === 'local') {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  }
+}
+
+function isHelpRequest(args: string[], parsed: ParsedArgs): boolean {
+  return args.includes('--help') || args.includes('-h') || parsed.positionals[0] === 'help';
+}
+
+function printRequestedHelp(parsed: ParsedArgs): void {
+  const command = parsed.positionals[0];
+  if (!command) {
+    printHelp();
+    return;
+  }
+  printCommandHelp(command, parsed.positionals.slice(1));
+}
+
+function printCommandHelp(command: string, positionals: string[]): void {
+  switch (command) {
+    case 'init':
+      printInitHelp();
+      return;
+    case 'login':
+      printLoginHelp();
+      return;
+    case 'logout':
+      printLogoutHelp();
+      return;
+    case 'billing':
+      printBillingHelp();
+      return;
+    case 'spaces':
+      printSpacesHelp();
+      return;
+    case 'listen':
+      printListenHelp();
+      return;
+    case 'upload':
+      printUploadHelp();
+      return;
+    case 'generate':
+    case 'refine':
+    case 'derive':
+    case 'batch':
+      printForgeHelp(command);
+      return;
+    case 'audio':
+      printAudioHelp(positionals);
+      return;
+    case 'runs':
+      printRunsHelp();
+      return;
+    case 'assets':
+      printAssetsHelp();
+      return;
+    default:
+      console.error(`Unknown command: ${command}`);
+      printHelp();
+      process.exitCode = 1;
   }
 }
 
@@ -124,7 +194,165 @@ Examples:
 `);
 }
 
-async function dispatchCommand(command: string, parsed: Parameters<typeof parseArgs>[0] extends string[] ? ReturnType<typeof parseArgs> : never) {
+function printInitHelp(): void {
+  console.log(`
+Usage:
+  pnpm run cli init --space <id> [--env production|stage|local]
+  pnpm run cli init --space <id> --json
+`);
+}
+
+function printLoginHelp(): void {
+  console.log(`
+Usage:
+  pnpm run cli login [--env production|stage|local]
+  pnpm run cli login --local
+`);
+}
+
+function printLogoutHelp(): void {
+  console.log(`
+Usage:
+  pnpm run cli logout
+  pnpm run cli logout [--env production|stage|local]
+  pnpm run cli logout --local
+`);
+}
+
+function printBillingHelp(): void {
+  console.log(`
+Billing Commands - Polar.sh Usage Sync
+
+Usage:
+  pnpm run cli billing <subcommand> [--env <environment>]
+
+Subcommands:
+  status           Show sync status (pending, failed, synced events)
+  check            Run operational checks for workers, Polar meters, and sync health
+  retry-failed     Reset failed events for retry (next cron will sync them)
+
+Options:
+  --env <env>      Target environment (production|stage|local), default: production
+  --local          Shortcut for local development
+`);
+}
+
+function printSpacesHelp(): void {
+  console.log(`
+Usage:
+  pnpm run cli spaces
+  pnpm run cli spaces --details
+  pnpm run cli spaces --id <space_id>
+  pnpm run cli spaces create <name>
+  pnpm run cli spaces create --name "My Space" [--init] [--json]
+`);
+}
+
+function printListenHelp(): void {
+  console.log(`
+Usage:
+  pnpm run cli listen --space <space_id>
+  pnpm run cli listen --space <space_id> --json
+`);
+}
+
+function printUploadHelp(): void {
+  console.log(`
+Usage:
+  pnpm run cli upload <file> --asset <id> [--space <id>]     Upload media to existing asset
+  pnpm run cli upload <file> --name <name> [--space <id>]    Create new asset
+
+Options:
+  --space <id>      Target space ID; defaults from initialized project
+  --asset <id>      Target asset ID (upload as new variant)
+  --name <name>     New asset name (creates asset + variant)
+  --type <type>     Asset type for new assets (default: character)
+  --media-kind <k>  Optional explicit kind: image, audio, or video
+  --parent <id>     Parent asset ID for new assets
+  --env <env>       Environment (production|stage|local)
+  --local           Shortcut for --env local
+`);
+}
+
+function printForgeHelp(command: string): void {
+  if (command === 'generate') {
+    console.log(`
+Usage:
+  pnpm run cli generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+`);
+    return;
+  }
+
+  if (command === 'refine') {
+    console.log(`
+Usage:
+  pnpm run cli refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+`);
+    return;
+  }
+
+  if (command === 'batch') {
+    console.log(`
+Usage:
+  pnpm run cli batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
+`);
+    return;
+  }
+
+  console.log(`
+Usage:
+  pnpm run cli derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+`);
+}
+
+function printAudioHelp(positionals: string[]): void {
+  const subcommand = positionals.find((value) => value !== 'help');
+  if (subcommand === 'generate') {
+    console.log(`
+Usage:
+  pnpm run cli audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+`);
+    return;
+  }
+
+  if (subcommand === 'batch') {
+    console.log(`
+Usage:
+  pnpm run cli audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--space <id>]
+`);
+    return;
+  }
+
+  console.log(`
+Usage:
+  pnpm run cli audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  pnpm run cli audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--space <id>]
+`);
+}
+
+function printRunsHelp(): void {
+  console.log(`
+Usage:
+  pnpm run cli runs
+  pnpm run cli runs show <run-id|manifest.json>
+  pnpm run cli runs show --latest
+  pnpm run cli runs export <run-id|manifest.json> --format remotion -o keyframes.json
+  pnpm run cli runs export --latest --format remotion -o keyframes.json
+`);
+}
+
+function printAssetsHelp(): void {
+  console.log(`
+Usage:
+  pnpm run cli assets
+  pnpm run cli assets --json
+  pnpm run cli assets show <asset-id>
+  pnpm run cli assets show <asset-id> --json
+  pnpm run cli assets download <variant-id|legacy-image-key> -o output-file
+`);
+}
+
+async function dispatchCommand(command: string, parsed: ReturnType<typeof parseArgs>) {
   switch (command) {
     case 'init':
       await handleInit(parsed);
