@@ -64,8 +64,31 @@ const matrixAssets = [
 
 const matrixVariants = matrixAssets.map((entry) => variant(entry.id, entry.media_kind));
 
+/** Disable CSS animations/transitions so screenshots capture settled state. */
+async function disableAnimations(page: import('@playwright/test').Page) {
+  await page.addStyleTag({
+    content: '*, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition-duration: 0s !important; }',
+  });
+}
+
+/** Top-level group label for a media mode (matches the segmented control titles). */
+function groupLabel(mode: string): 'Image' | 'Video' | 'Audio' {
+  if (mode === 'image') return 'Image';
+  if (mode === 'video') return 'Video';
+  return 'Audio';
+}
+
+/** Select a media mode through the two-level selector (group → audio sub-mode). */
+async function selectMode(page: import('@playwright/test').Page, config: typeof MEDIA_OPERATION_MATRIX[number]) {
+  const group = groupLabel(config.mode);
+  await page.getByTitle(`${group} media`).click();
+  if (group === 'Audio') {
+    await page.getByTitle(`${config.label} mode`).click();
+  }
+}
+
 test('forge tray renders a screenshot matrix for every media mode', async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 640 });
+  await page.setViewportSize({ width: 900, height: 720 });
 
   await mountComponent(page, 'ForgeTray', {
     allAssets: [],
@@ -73,15 +96,19 @@ test('forge tray renders a screenshot matrix for every media mode', async ({ pag
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
     sendStyleSet: '__noop__',
+    sendChatMessage: '__noop__',
   });
+  await disableAnimations(page);
 
   for (const config of MEDIA_OPERATION_MATRIX) {
-    await page.getByTitle(`${config.label} mode`).click();
+    await selectMode(page, config);
 
-    await expect(page.getByTitle(`${config.label} mode`)).toHaveClass(/active/);
-    await expect(page.locator('button[title$=" mode"][class*="active"]')).toHaveCount(1);
-    await expect(page.getByPlaceholder(`Describe the ${config.promptNoun} to generate...`)).toBeVisible();
-    await expect(page.getByPlaceholder(`${config.label} name`)).toBeVisible();
+    // Active segment reflects the selected mode.
+    const activeSegmentTitle = groupLabel(config.mode) === 'Audio' ? `${config.label} mode` : `${groupLabel(config.mode)} media`;
+    await expect(page.getByTitle(activeSegmentTitle)).toHaveClass(/active/);
+
+    // Name is auto-generated per media group (Image N / Video N / Audio N).
+    await expect(page.getByLabel('Asset name')).toHaveValue(`${groupLabel(config.mode)} 1`);
 
     const buttonLabel = config.mode === 'image' ? 'Generate' : `Generate ${config.shortLabel}`;
     await expect(page.getByRole('button', { name: buttonLabel })).toBeVisible();
@@ -106,8 +133,128 @@ test('forge tray renders a screenshot matrix for every media mode', async ({ pag
   }
 });
 
-test('forge tray picker disables references incompatible with the selected media mode', async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 640 });
+test('forge tray makes the prompt the hero at the top of the tray', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+  });
+  await disableAnimations(page);
+
+  const prompt = page.getByLabel('Prompt');
+  const typeSelector = page.getByTitle('Image media');
+  const submit = page.getByRole('button', { name: 'Generate' });
+
+  await expect(prompt).toBeVisible();
+  await expect(typeSelector).toBeVisible();
+
+  // Prompt sits above the controls; controls sit above nothing else of note.
+  const promptBox = await prompt.boundingBox();
+  const typeBox = await typeSelector.boundingBox();
+  const submitBox = await submit.boundingBox();
+  expect(promptBox).not.toBeNull();
+  expect(typeBox).not.toBeNull();
+  expect(submitBox).not.toBeNull();
+  expect(promptBox!.y).toBeLessThan(typeBox!.y);
+  expect(promptBox!.y).toBeLessThan(submitBox!.y);
+
+  // With no prompt text, submit is disabled (prompt is required).
+  await expect(submit).toBeDisabled();
+  await prompt.fill('A cozy campfire at dusk');
+  await expect(submit).toBeEnabled();
+});
+
+test('forge tray auto-names by media group and stays editable', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+  });
+  await disableAnimations(page);
+
+  const name = page.getByLabel('Asset name');
+  await expect(name).toHaveValue('Image 1');
+
+  await page.getByTitle('Video media').click();
+  await expect(name).toHaveValue('Video 1');
+
+  await page.getByTitle('Audio media').click();
+  await expect(name).toHaveValue('Audio 1');
+
+  // Once edited, the name stops tracking the auto default.
+  await name.fill('My jingle');
+  await page.getByTitle('Image media').click();
+  await expect(name).toHaveValue('My jingle');
+});
+
+test('forge tray opens Style and Chat as separate full sheets', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    spaceId: 'space-1',
+    sendStyleSet: '__noop__',
+    sendStyleDelete: '__noop__',
+    sendStyleToggle: '__noop__',
+    sendChatMessage: '__noop__',
+    requestChatHistory: '__noop__',
+    clearChatSession: '__noop__',
+  });
+  await disableAnimations(page);
+
+  await page.getByLabel('Prompt').fill('A cozy campfire at dusk');
+
+  // Style sheet
+  await page.getByTitle('Configure style').click();
+  await expect(page.getByText('Space Style')).toBeVisible();
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
+  await page.getByRole('button', { name: /Close/i }).click();
+  await expect(page.getByText('Space Style')).toHaveCount(0);
+
+  // Chat sheet
+  await page.getByTitle('Chat with Claude about your prompt').click();
+  await expect(page.getByText('Chat with Claude')).toBeVisible();
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-chat-sheet', { fullPage: true });
+});
+
+test('forge tray reveals batch mode toggle when batching', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+  });
+  await disableAnimations(page);
+
+  await page.getByLabel('Prompt').fill('Four explorations of a logo');
+  await page.locator('select[title="Number of variants to generate"]').selectOption('4');
+
+  await expect(page.getByRole('button', { name: 'Explore' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Set' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Generate ×4/ })).toBeVisible();
+
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-batch', { fullPage: true });
+});
+
+test('forge tray with references renders the reference strip', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
 
   await mountComponent(page, 'ForgeTray', {
     allAssets: matrixAssets,
@@ -116,6 +263,54 @@ test('forge tray picker disables references incompatible with the selected media
     onBrandBackground: false,
     sendStyleSet: '__noop__',
   });
+  await disableAnimations(page);
+
+  await page.getByLabel('Prompt').fill('Blend these into one scene');
+  await page.getByTitle('Add reference').click();
+  await page.getByRole('button', { name: /Hero Image/ }).click();
+  await page.getByRole('button', { name: /Done/i }).click();
+
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-references', { fullPage: true });
+});
+
+test('forge tray on asset detail shows Current/New toggle with the asset name', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: matrixAssets,
+    allVariants: matrixVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    currentAsset: matrixAssets[0],
+    sendStyleSet: '__noop__',
+  });
+  await disableAnimations(page);
+
+  // Existing-asset destination shows the asset name + a destination toggle.
+  await expect(page.getByText('Hero Image')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Current' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New' })).toBeVisible();
+
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-asset-detail', { fullPage: true });
+
+  // Switching to New surfaces the auto-named, editable name field.
+  await page.getByRole('button', { name: 'New' }).click();
+  await expect(page.getByLabel('Asset name')).toBeVisible();
+});
+
+test('forge tray picker disables references incompatible with the selected media mode', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: matrixAssets,
+    allVariants: matrixVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+  });
+  await disableAnimations(page);
 
   await page.getByTitle('Add reference').click();
   await expect(page.getByText('Image references')).toBeVisible();
@@ -124,7 +319,7 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(page.getByRole('button', { name: /Hero Speech/ })).toBeDisabled();
   await page.getByRole('button', { name: /Close/i }).click();
 
-  await page.getByTitle('Video mode').click();
+  await page.getByTitle('Video media').click();
   await page.getByTitle('Add reference').click();
   await expect(page.getByText('Video references')).toBeVisible();
   await expect(page.getByRole('button', { name: /Hero Image/ })).toBeEnabled();
@@ -132,6 +327,7 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(page.getByRole('button', { name: /Hero Speech/ })).toBeDisabled();
   await page.getByRole('button', { name: /Close/i }).click();
 
+  await page.getByTitle('Audio media').click();
   await page.getByTitle('Speech mode').click();
   await page.getByTitle('Add reference').click();
   await expect(page.getByText('Speech references')).toBeVisible();

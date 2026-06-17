@@ -1,29 +1,46 @@
-/* ForgeChat - Chat Panel extending upward from ForgeTray */
+/* Full-sheet overlay backdrop */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: oklch(0% 0 0 / 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ForgeChat - Chat sheet */
 .chatPanel {
-  position: absolute;
-  bottom: calc(100% + 0.5rem);
-  left: 0;
-  right: 0;
-  height: 360px;
+  width: 90%;
+  max-width: 460px;
+  height: 70vh;
+  max-height: 600px;
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 -4px 24px oklch(0% 0 0 / 0.15);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 8px 32px oklch(0% 0 0 / 0.2), 0 2px 8px oklch(0% 0 0 / 0.1);
   overflow: hidden;
   animation: slideUp 0.2s ease-out;
-  z-index: 10;
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(16px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 

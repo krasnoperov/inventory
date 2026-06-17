@@ -153,7 +153,8 @@ export function ForgeChat({
   }, [clearChat]);
 
   return (
-    <div className={styles.chatPanel}>
+    <div className={styles.backdrop} onClick={onClose}>
+      <div className={styles.chatPanel} onClick={(e) => e.stopPropagation()}>
       {/* Header */}
       <div className={styles.header}>
         <h3 className={styles.title}>Chat with Claude</h3>
@@ -315,6 +316,7 @@ export function ForgeChat({
             <polygon points="22 2 15 22 11 13 2 9 22 2" />
           </svg>
         </button>
+      </div>
       </div>
     </div>
   );
