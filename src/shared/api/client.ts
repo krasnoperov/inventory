@@ -166,7 +166,7 @@ type NeedsOptions<K extends ApiEndpointKey> =
     ? true
     : false;
 
-type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+export type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export type ApiFetchOptions<K extends ApiEndpointKey> =
   Omit<RequestInit, 'body' | 'method'> & {

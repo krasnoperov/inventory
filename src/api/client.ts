@@ -6,4 +6,5 @@ export {
 export type {
   ApiEndpointKey,
   ApiFetchOptions,
+  FetchLike,
 } from '../shared/api/client';

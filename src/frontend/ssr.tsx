@@ -3,6 +3,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { createRequestHandler } from '@tanstack/react-router/ssr/server';
 import { getRouter } from './router';
 import { StartSessionProvider, type StartSession } from './startSession';
+import type { FetchLike } from '../api/client';
 
 type SsrRouter = ReturnType<typeof getRouter>;
 
@@ -18,9 +19,10 @@ async function preloadMatchedRouteComponents(router: SsrRouter): Promise<void> {
 export async function renderTanStackStartRoute(
   request: Request,
   session: StartSession,
-): Promise<{ html: string; status: number }> {
+  serverFetch?: FetchLike,
+): Promise<{ html: string; status: number; headers: Record<string, string> }> {
   const handler = createRequestHandler({
-    createRouter: () => getRouter({ initialSession: session, request }),
+    createRouter: () => getRouter({ initialSession: session, request, serverFetch }),
     request,
   });
 
@@ -45,8 +47,16 @@ export async function renderTanStackStartRoute(
     });
   });
 
+  // Surface response headers (notably Location on a redirect thrown by a route
+  // beforeLoad) so the worker can emit a real redirect instead of dropping them.
+  const headers: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+
   return {
     html: await response.text(),
     status: response.status,
+    headers,
   };
 }

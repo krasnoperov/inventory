@@ -12,6 +12,21 @@ const app = createOpenApiRouter();
 app.use('*', async (c, next) => {
   const container = createContainer(c.env);
   c.set('container', container);
+
+  // In-process dispatcher to this same worker. SSR route loaders call this
+  // instead of fetching the public origin: a Worker fetching its own hostname
+  // mid-invocation fails under run_worker_first and 500s authed document
+  // renders. A direct app.fetch() is a function call, not a network subrequest.
+  c.set('serverFetch', (input, init) => {
+    let executionCtx: ExecutionContext | undefined;
+    try {
+      executionCtx = c.executionCtx;
+    } catch {
+      executionCtx = undefined;
+    }
+    return Promise.resolve(app.fetch(new Request(input, init), c.env, executionCtx));
+  });
+
   await next();
 });
 
