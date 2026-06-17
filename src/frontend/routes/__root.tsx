@@ -1,28 +1,76 @@
-import type { QueryClient } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { Outlet, createRootRouteWithContext } from '@tanstack/react-router';
+import {
+  HeadContent,
+  Outlet,
+  Scripts,
+  createRootRouteWithContext,
+  useRouter,
+} from '@tanstack/react-router';
 import { AuthProvider } from '../contexts/AuthContext';
-import type { User } from '../contexts/AuthContext';
-import type { StartSession } from '../startSession';
-import type { FetchLike } from '../../api/client';
+import { setNavigationBridge } from '../navigation/navigator';
 import { sessionQueryOptions } from '../queries';
+import type { StartRouterContext, StartServerContext, StartSession } from '../app-context';
+import '../styles/theme.css';
+import '../styles/global.css';
 
-interface RouterContext {
-  queryClient: QueryClient;
-  initialSession?: StartSession;
-  apiBaseUrl?: string;
-  apiHeaders?: HeadersInit;
-  // Server-only fetch used during SSR so route loaders dispatch to the worker
-  // in-process instead of issuing a (failing) self-origin subrequest.
-  serverFetch?: FetchLike;
+const DESCRIPTION =
+  'An inventory for AI-generated game art. Generate, refine, and forge visual assets with full lineage, real-time collaboration, and pipelines built for sprite sheets and turnarounds.';
+const SOCIAL_DESCRIPTION =
+  'An inventory for AI-generated game art. Lineage, composition, and pipelines for sprite sheets and turnarounds.';
+
+function Document({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <head>
+        <meta charSet="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#7c5cff" />
+        <HeadContent />
+      </head>
+      <body>
+        {children}
+        <Scripts />
+      </body>
+    </html>
+  );
 }
 
-export const Route = createRootRouteWithContext<RouterContext>()({
-  beforeLoad: async ({ context }) => {
+export const Route = createRootRouteWithContext<StartRouterContext>()({
+  head: () => ({
+    meta: [
+      { title: 'Inventory Forge' },
+      { name: 'description', content: DESCRIPTION },
+      { property: 'og:site_name', content: 'Inventory Forge' },
+      { property: 'og:type', content: 'website' },
+      { property: 'og:title', content: 'Inventory Forge' },
+      { property: 'og:description', content: SOCIAL_DESCRIPTION },
+      { property: 'og:url', content: 'https://inventory.krasnoperov.me/' },
+      { name: 'twitter:card', content: 'summary' },
+      { name: 'twitter:title', content: 'Inventory Forge' },
+      { name: 'twitter:description', content: SOCIAL_DESCRIPTION },
+    ],
+    links: [
+      { rel: 'canonical', href: 'https://inventory.krasnoperov.me/' },
+      { rel: 'alternate', type: 'text/plain', title: 'LLM overview', href: '/llms.txt' },
+    ],
+  }),
+  beforeLoad: async (opts) => {
+    const { context } = opts;
+    // TanStack Start injects the per-request context as a top-level `serverContext`
+    // param (a sibling of `context`, via router additionalContext), not nested in
+    // `context`. It's absent from react-router's core types, so read it via a cast.
+    const serverContext = (opts as { serverContext?: StartServerContext }).serverContext;
+
+    // Seed the session query from the server bootstrap during SSR so loaders
+    // don't self-fetch the worker origin; on the client it resolves from the
+    // dehydrated cache (or a relative fetch on a cold client navigation). Only
+    // the (secret-free) session is returned into context — the cookie and the
+    // apiFetch function stay server-only and are read per-loader via ssrFetchArgs.
     const session = await context.queryClient.ensureQueryData(
-      sessionQueryOptions(context.initialSession),
+      sessionQueryOptions(serverContext?.bootstrap?.session),
     );
+
     return { session };
   },
   component: RootComponent,
@@ -32,19 +80,39 @@ function RootComponent() {
   const { session } = Route.useRouteContext();
 
   return (
-    <StartProviders session={session}>
-      <Outlet />
-    </StartProviders>
+    <Document>
+      <StartProviders session={session}>
+        <Outlet />
+      </StartProviders>
+    </Document>
   );
+}
+
+// Bridge the app's custom navigator (Link/useNavigate/useSearchParams) to the
+// router's client navigation. Runs after mount; the navigator falls back to the
+// History API until it's wired, so first paint is unaffected.
+function NavigationBridge() {
+  const router = useRouter();
+  useEffect(() => {
+    setNavigationBridge((url, options) =>
+      router.navigate({
+        href: `${url.pathname}${url.search}${url.hash}`,
+        replace: options?.replace,
+      }),
+    );
+    return () => setNavigationBridge(undefined);
+  }, [router]);
+  return null;
 }
 
 function StartProviders({ children, session }: { children: ReactNode; session: StartSession }) {
   const clientId = session.config.googleClientId;
-  const initialUser: User | null = session.user;
+  const initialUser = session.user;
 
   if (!clientId) {
     return (
       <AuthProvider initialUser={initialUser}>
+        <NavigationBridge />
         <div style={{ color: 'white', textAlign: 'center', padding: '2rem' }}>
           Google OAuth not configured. Please contact administrator.
         </div>
@@ -55,6 +123,7 @@ function StartProviders({ children, session }: { children: ReactNode; session: S
   return (
     <GoogleOAuthProvider clientId={clientId}>
       <AuthProvider initialUser={initialUser}>
+        <NavigationBridge />
         {children}
       </AuthProvider>
     </GoogleOAuthProvider>

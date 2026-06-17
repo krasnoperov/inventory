@@ -23,14 +23,14 @@ import { webhookRoutes } from './webhooks';
 import { uploadRoutes } from './upload';
 import { trainingExportRoutes } from './training-export';
 import { voicesRoutes } from './voices';
-import { handleDocumentNavigation } from '../middleware/documentNavigation';
+import { renderStartApp } from '../frontend-start-ssr';
 
 /**
  * Register all routes with the main app
  */
 export function registerRoutes(
   app: OpenAPIHono<AppContext>,
-  documentHandler: Handler<AppContext> = handleDocumentNavigation,
+  documentHandler: Handler<AppContext> = renderStartApp,
 ) {
   // Health check routes
   app.route('/', healthRoutes);

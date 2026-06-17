@@ -4,7 +4,7 @@ import { loadSession } from './config';
 import type { Space, UserProfile } from '../api/types';
 import type { Asset, Lineage, Variant } from './hooks/useSpaceWebSocket';
 import type { ProductionRecord } from './productionHandoff';
-import type { StartSession } from './startSession';
+import type { StartSession } from './app-context';
 
 export interface Member {
   user_id: string;

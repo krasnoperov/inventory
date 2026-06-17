@@ -1,7 +1,5 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router';
-import { lazyPage } from './-lazyPage';
-
-const UnknownPage = lazyPage(() => import('../pages/UnknownPage'));
+import UnknownPage from '../pages/UnknownPage';
 
 export const Route = createFileRoute('/$')({
   component: UnknownRoute,

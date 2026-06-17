@@ -8,7 +8,7 @@ import {
   spacesQueryKey,
   userProfileQueryKey,
 } from './queries';
-import type { StartSession } from './startSession';
+import type { StartSession } from './app-context';
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
 const originalFetch = globalThis.fetch;
