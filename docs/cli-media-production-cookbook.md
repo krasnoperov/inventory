@@ -3,9 +3,9 @@
 This cookbook shows an end-to-end production loop for agents or operators using
 Inventory CLI as the control surface for website-backed media generation. The
 website remains the source of truth for spaces, assets, variants, lineage,
-recipes, billing, and production placement records. Local files and
-`.inventory/runs/*.json` are convenience artifacts for renderers, editors,
-podcast tooling, and automation.
+recipes, billing, and production placement records. Local downloaded files are
+handoff artifacts. `.inventory/runs/*.json` files are debug-only traces and are
+not production handoff state.
 
 ## Setup
 
@@ -25,7 +25,7 @@ pnpm run test:e2e:cli-forge
 
 That loop starts a local worker with fake providers, creates a dev space, drives
 image, audio, podcast, and video CLI commands, downloads artifacts, and checks
-the run exports without calling Gemini, ElevenLabs, or Veo.
+debug run exports without calling Gemini, ElevenLabs, or Veo.
 
 ## Production Loop
 
@@ -43,14 +43,12 @@ Useful read-side commands:
 pnpm run cli assets
 pnpm run cli assets show ASSET_ID --json
 pnpm run cli assets download VARIANT_ID -o references/source.png
-pnpm run cli runs
-pnpm run cli runs show --latest --json
 ```
 
 ## Images
 
-Create a concept image, refine it, derive a shot keyframe from references, then
-export the latest media handoff:
+Create a concept image, refine it, then derive a shot keyframe from website
+variant references:
 
 ```bash
 pnpm run cli generate \
@@ -70,8 +68,6 @@ pnpm run cli derive \
   --type scene \
   "Place the hero in the market, cinematic composition, 16:9 keyframe" \
   -o keyframes/hero-market-001.png
-
-pnpm run cli runs export --latest --format media -o handoff/hero-market-keyframe.json
 ```
 
 Use `batch` when the next step needs several candidate images:
@@ -112,8 +108,6 @@ pnpm run cli audio sfx generate \
   "A crisp inventory item pickup sound effect" \
   --name "Item Pickup SFX" \
   -o audio/item-pickup.wav
-
-pnpm run cli runs export --latest --format media -o handoff/latest-audio.json
 ```
 
 Dialogue script files should use one `Speaker: line` entry per line when the
@@ -183,8 +177,6 @@ pnpm run cli audio music generate \
   "A 12 second upbeat synth podcast sting, no vocals" \
   --name "Podcast Sting" \
   -o podcast/sting.wav
-
-pnpm run cli runs export --latest --format media -o podcast/latest-audio.json
 ```
 
 For a social promo, derive a video from the cover or a generated keyframe and
@@ -215,5 +207,7 @@ pnpm run cli productions export \
 - Use local image paths in `--refs` only when you want the CLI to upload them as
   visible reference assets first.
 - Use `--force` only when replacing local downloads intentionally.
-- Export local `runs --format media` data only for generic local tooling.
 - Export `productions` records for timed image or video scene assembly.
+- Use `pnpm run cli runs --debug` only when troubleshooting local CLI downloads
+  or provider-free e2e behavior. Do not feed `.inventory/runs` into production
+  assembly.

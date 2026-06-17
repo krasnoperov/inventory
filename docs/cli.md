@@ -63,10 +63,10 @@ pnpm run cli assets download VARIANT_ID -o references/variant.png
 | `generate` | Create a new asset through the website generation workflow |
 | `refine` | Refine an existing variant through the website generation workflow |
 | `derive` | Create a new asset from variant IDs and/or local image refs |
-| `batch` | Generate multiple images and write a local media run manifest |
+| `batch` | Generate multiple images and write a debug local run manifest |
 | `audio` | Generate audio assets through website jobs |
 | `video` | Generate and refine video assets through website jobs |
-| `runs` | List, inspect, and export local run manifests |
+| `runs` | Debug-only local run manifest inspection and export |
 | `productions` | List, place, delete, and export Space-backed production records |
 | `billing` | Billing sync status and management |
 
@@ -282,12 +282,13 @@ pnpm run cli batch "Three cinematic keyframes in Russafa market" \
 images are uploaded first as `reference` assets, then their uploaded variant IDs
 are used in the derive request.
 
-Generation commands download completed media and write
+Generation commands download completed media and write debug-only
 `.inventory/runs/<run-id>.json` at the initialized project root, with local
 paths, website asset/variant IDs, media keys, media kind, prompt, refs, command
-options, timestamps, run success, and failed variant errors for downstream
-Remotion, audio, or video tooling. Image manifests also retain the legacy
-`images` keyframe array.
+options, timestamps, run success, and failed variant errors. These manifests are
+not a source of truth and must not drive production assembly. Image manifests
+also retain the legacy `images` keyframe array for troubleshooting older local
+handoff tooling.
 
 ## Audio Generation
 
@@ -325,7 +326,7 @@ Dialogue and speech prompts can also be passed as direct multiline shell text.
 
 Audio generation currently does not accept `--refs`, `derive`, or `refine`
 commands. Audio batch downloads completed files into the requested directory and
-writes generic media run manifests.
+writes debug local run manifests.
 
 ## Video Generation
 
@@ -361,20 +362,22 @@ reject `mediaKind: "video"`.
 ## Run Manifests
 
 ```bash
-pnpm run cli runs
-pnpm run cli runs show --latest
-pnpm run cli runs show RUN_ID --json
-pnpm run cli runs export --latest --format media -o media-run.json
-pnpm run cli runs export --latest --format remotion -o keyframes.json
+pnpm run cli runs --debug
+pnpm run cli runs show --latest --debug
+pnpm run cli runs show RUN_ID --debug --json
+pnpm run cli runs export --latest --debug --format media -o media-run.json
+pnpm run cli runs export --latest --debug --format remotion -o keyframes.json
 ```
 
 `runs` reads local `.inventory/runs` manifests from the initialized project root
-and does not call generation APIs. The default `media` export is a compact JSON
-handoff with ordered media paths, absolute paths resolved from the original
-command working directory, website IDs/URLs, prompt, refs, and failed variant
-errors. Image runs also include an ordered `images` keyframe array for existing
-tools. Use `--format remotion` when an existing keyframe pipeline expects the
-legacy `remotion-keyframes` format marker.
+and does not call generation APIs. It requires `--debug` because local manifests
+are troubleshooting traces, not production state. The default `media` export is
+a compact JSON debug view with ordered media paths, absolute paths resolved from
+the original command working directory, website IDs/URLs, prompt, refs, and
+failed variant errors. Image runs also include an ordered `images` keyframe
+array for existing local tools. Use `--format remotion` only when debugging an
+older keyframe pipeline that expects the legacy `remotion-keyframes` format
+marker.
 
 ## Production Records
 

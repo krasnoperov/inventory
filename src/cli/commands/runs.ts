@@ -59,6 +59,8 @@ export async function executeRuns(
     throw new Error('Inventory project config not found. Run: pnpm run cli init --space <id>');
   }
 
+  requireDebugAcknowledgement(parsed);
+
   const subcommand = parsed.positionals[0] || 'list';
   if (subcommand === 'list') {
     const records = await deps.listRunManifests(projectConfig.projectRoot);
@@ -97,6 +99,11 @@ export async function executeRuns(
   }
 
   throw new Error(`Unknown runs command: ${subcommand}`);
+}
+
+function requireDebugAcknowledgement(parsed: ParsedArgs): void {
+  if (parsed.options.debug === 'true') return;
+  throw new Error('Local run manifests are debug-only artifacts and are not a production source of truth. Pass --debug to inspect them, or use website-backed assets and productions commands.');
 }
 
 function parseRunExportFormat(value: string): RunExportFormat {
@@ -146,7 +153,7 @@ function printRunDetails(record: RunManifestRecord, print: (message: string) => 
   print(`\nRun ${manifest.runId}\n`);
   print(`  Status:   ${formatStatus(manifest)}`);
   print(`  Created:  ${manifest.createdAt}`);
-  print(`  Manifest: ${record.manifestPath}`);
+  print(`  Debug manifest: ${record.manifestPath}`);
   print(`  Space:    ${manifest.spaceId}`);
   print(`  Name:     ${manifest.name}`);
   print(`  Type:     ${manifest.assetType}`);
@@ -206,12 +213,14 @@ function formatCreated(value: string): string {
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli runs
-  pnpm run cli runs show <run-id|manifest.json>
-  pnpm run cli runs show --latest
-  pnpm run cli runs export <run-id|manifest.json> --format media -o media-run.json
-  pnpm run cli runs export --latest --format media -o media-run.json
-  pnpm run cli runs export --latest --format remotion -o keyframes.json
+  pnpm run cli runs --debug
+  pnpm run cli runs show <run-id|manifest.json> --debug
+  pnpm run cli runs show --latest --debug
+  pnpm run cli runs export <run-id|manifest.json> --debug --format media -o media-run.json
+  pnpm run cli runs export --latest --debug --format media -o media-run.json
+  pnpm run cli runs export --latest --debug --format remotion -o keyframes.json
+
+Local run manifests are debug-only artifacts, not a source of truth.
 
 For timed scene assembly, use:
   pnpm run cli productions export --production-id <id> [-o scenes.args]

@@ -91,7 +91,7 @@ pnpm run cli derive \
   -o keyframes/lucia-market-001.png
 ```
 
-Batch generate multiple images and write a run manifest:
+Batch generate multiple images and write a debug run manifest:
 
 ```bash
 pnpm run cli batch "Three cinematic keyframes in Russafa market" \
@@ -219,7 +219,7 @@ references through these commands.
 Audio generation currently supports only `generate` and `batch` for the
 `speech`, `dialogue`, `music`, and `sfx` modes. It does not accept `--refs`,
 `derive`, or `refine`. Audio batch downloads completed files into the requested
-directory and writes generic media run manifests. ElevenLabs timestamp
+directory and writes debug local run manifests. ElevenLabs timestamp
 responses are stored as transcript, timing, and render metadata sidecars on the
 completed variant.
 Video generation exposes `generate`, `refine`, and `derive`. Video batch is not
@@ -227,33 +227,32 @@ exposed because website batch jobs reject `mediaKind: "video"`.
 
 ## Run Manifests
 
-Generation commands write JSON manifests to `.inventory/runs/<run-id>.json` at
-the initialized project root, even when the command runs from a child directory.
-The manifest maps downloaded local files to website asset IDs, variant IDs,
-media keys, media kind, prompt, refs, command options, timestamps, run success,
-and any failed variant errors. Image manifests also include an `images` array
-for existing keyframe consumers; all media kinds use the generic `media` array.
-Completed media files are still downloaded and recorded when another batch
-member fails. It is a handoff artifact for Remotion, Kling, audio, or video
-tooling; it is not a local asset database and the website remains the source of
-truth.
+Generation commands write debug JSON manifests to `.inventory/runs/<run-id>.json`
+at the initialized project root, even when the command runs from a child
+directory. The manifest maps downloaded local files to website asset IDs,
+variant IDs, media keys, media kind, prompt, refs, command options, timestamps,
+run success, and any failed variant errors. Image manifests also include an
+`images` array for older local keyframe tooling; all media kinds use the generic
+`media` array. Completed media files are still downloaded and recorded when
+another batch member fails. These files are troubleshooting traces, not
+production handoff state, not a local asset database, and not a source of truth.
 
-Inspect and export manifests:
+Inspect and export manifests only for debugging:
 
 ```bash
-pnpm run cli runs
-pnpm run cli runs show --latest
-pnpm run cli runs show RUN_ID --json
-pnpm run cli runs export --latest --format media -o media-run.json
-pnpm run cli runs export --latest --format remotion -o keyframes.json
+pnpm run cli runs --debug
+pnpm run cli runs show --latest --debug
+pnpm run cli runs show RUN_ID --debug --json
+pnpm run cli runs export --latest --debug --format media -o media-run.json
+pnpm run cli runs export --latest --debug --format remotion -o keyframes.json
 ```
 
 The default `media` export writes ordered media data with local paths, absolute
 paths resolved from the original command working directory, website IDs/URLs,
-prompt, refs, and failed variant errors for downstream local tooling. Image
-runs also include the legacy ordered `images` keyframe array. The `remotion`
-format remains available for existing keyframe tooling and emits the same media
-handoff fields with the legacy `remotion-keyframes` format marker.
+prompt, refs, and failed variant errors for local debugging. Image runs also
+include the legacy ordered `images` keyframe array. The `remotion` format
+remains available for debugging existing keyframe tooling and emits the same
+media fields with the legacy `remotion-keyframes` format marker.
 
 ## Production Records
 
@@ -303,8 +302,8 @@ The Russafa workflow stays actor-driven. Inventory CLI does not parse
 external actor chooses prompts, refs, shot labels, and timeline starts from the
 shotlist, while the Inventory website remains the source of truth for assets,
 variants, recipes, relations, and Space-backed production records. Downloaded
-local files and run manifests are convenience artifacts, not production handoff
-state.
+local files are handoff artifacts; local run manifests are debug traces, not
+production handoff state.
 
 Example command shape for Diario de Russafa S01E01 A2:
 

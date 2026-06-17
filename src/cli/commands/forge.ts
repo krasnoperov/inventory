@@ -839,7 +839,7 @@ function printResult(
   }
   console.log(`  Local:   ${outputPath}`);
   if (manifestPath) {
-    console.log(`  Manifest: ${manifestPath}`);
+    console.log(`  Debug manifest: ${manifestPath}`);
   }
   if (productionRecord) {
     console.log(`  Production: ${productionRecord.production_id} (${productionRecord.id})`);
@@ -1048,7 +1048,7 @@ function printBatchResult(
   }
   console.log(`  Local:   ${outputDir}`);
   if (manifestPath) {
-    console.log(`  Manifest: ${manifestPath}`);
+    console.log(`  Debug manifest: ${manifestPath}`);
   }
   if (result.variants[0]) {
     console.log(`  Web:     ${ctx.baseUrl}/spaces/${ctx.spaceId}/assets/${result.variants[0].asset_id}`);

@@ -127,6 +127,18 @@ function depsFor(projectRoot: string, output: string[]) {
   };
 }
 
+test('runs requires explicit debug acknowledgement before reading local manifests', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-runs-'));
+  try {
+    await assert.rejects(
+      () => executeRuns({ positionals: [], options: {} }, depsFor(dir, [])),
+      /Local run manifests are debug-only artifacts/
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('runs lists manifests from the initialized project root', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-runs-'));
   try {
@@ -134,7 +146,7 @@ test('runs lists manifests from the initialized project root', async () => {
     await saveRunManifest(manifest({ runId: 'newer', createdAt: '2026-06-16T00:01:00.000Z' }), dir);
     const output: string[] = [];
 
-    const result = await executeRuns({ positionals: [], options: {} }, depsFor(dir, output));
+    const result = await executeRuns({ positionals: [], options: { debug: 'true' } }, depsFor(dir, output));
 
     assert.equal(result.type, 'list');
     assert.deepEqual(result.records.map((record) => record.manifest.runId), ['newer', 'older']);
@@ -153,7 +165,7 @@ test('runs show supports --latest and JSON output by run ID', async () => {
 
     const latestOutput: string[] = [];
     const latest = await executeRuns(
-      { positionals: ['show'], options: { latest: 'true' } },
+      { positionals: ['show'], options: { latest: 'true', debug: 'true' } },
       depsFor(dir, latestOutput)
     );
     assert.equal(latest.type, 'show');
@@ -162,7 +174,7 @@ test('runs show supports --latest and JSON output by run ID', async () => {
 
     const jsonOutput: string[] = [];
     const byId = await executeRuns(
-      { positionals: ['show', 'older'], options: { json: 'true' } },
+      { positionals: ['show', 'older'], options: { json: 'true', debug: 'true' } },
       depsFor(dir, jsonOutput)
     );
     assert.equal(byId.type, 'show');
@@ -189,6 +201,7 @@ test('runs export writes ordered Remotion keyframe data', async () => {
       positionals: ['export'],
       options: {
         latest: 'true',
+        debug: 'true',
         format: 'remotion',
         o: outputPath,
       },
@@ -244,6 +257,7 @@ test('runs export defaults to generic ordered media handoff data', async () => {
       positionals: ['export'],
       options: {
         latest: 'true',
+        debug: 'true',
         o: outputPath,
       },
     }, depsFor(dir, output));
@@ -270,6 +284,7 @@ test('runs export rejects retired production scene format with Space-backed guid
       () => executeRuns({
         positionals: ['export'],
         options: {
+          debug: 'true',
           format: 'remotion-scenes',
           'production-id': 's01e01-a2',
           o: path.join(dir, 'scenes.args'),
