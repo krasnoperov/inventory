@@ -32,7 +32,9 @@ interface ElevenLabsTimingResponse {
 
 export interface ElevenLabsAudioProviderConfig {
   apiKey: string;
-  voiceId: string;
+  /** Default/speech voice. Optional: dialogue can rely on dialogueVoiceIds, and
+   *  speech generation validates its presence at call time. */
+  voiceId?: string;
   dialogueVoiceIds?: string[];
   modelId?: string;
   outputFormat?: string;
@@ -42,6 +44,58 @@ export interface ElevenLabsAudioProviderConfig {
 export interface ParsedDialogueLine {
   speaker: string;
   text: string;
+}
+
+/** A voice available in the connected ElevenLabs account, surfaced to the UI picker. */
+export interface ElevenLabsVoiceSummary {
+  voiceId: string;
+  name: string;
+  category: string | null;
+  description: string | null;
+  previewUrl: string | null;
+  labels: Record<string, string>;
+}
+
+interface ElevenLabsVoicesApiResponse {
+  voices?: Array<{
+    voice_id?: string;
+    name?: string;
+    category?: string | null;
+    description?: string | null;
+    preview_url?: string | null;
+    labels?: Record<string, string> | null;
+  }>;
+}
+
+/**
+ * List the voices available in the connected ElevenLabs account.
+ * Backs the UI voice picker — the account's voice library is the "collection".
+ */
+export async function listElevenLabsVoices(
+  apiKey: string,
+  fetcher: Fetcher = fetch
+): Promise<ElevenLabsVoiceSummary[]> {
+  const response = await fetcher('https://api.elevenlabs.io/v2/voices?page_size=100', {
+    method: 'GET',
+    headers: { 'xi-api-key': apiKey },
+  });
+
+  if (!response.ok) {
+    throw await elevenLabsApiErrorFromResponse(response);
+  }
+
+  const payload = await response.json<ElevenLabsVoicesApiResponse>();
+  const voices = payload.voices ?? [];
+  return voices
+    .filter((voice): voice is { voice_id: string } & typeof voice => Boolean(voice.voice_id))
+    .map(voice => ({
+      voiceId: voice.voice_id,
+      name: voice.name ?? voice.voice_id,
+      category: voice.category ?? null,
+      description: voice.description ?? null,
+      previewUrl: voice.preview_url ?? null,
+      labels: voice.labels ?? {},
+    }));
 }
 
 export class ElevenLabsApiError extends Error {
@@ -117,13 +171,14 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
   }
 
   private async generateSpeech(options: AudioGenerateOptions): Promise<AudioGenerationResult> {
-    if (!this.config.voiceId) {
+    const voiceId = this.config.voiceId?.trim();
+    if (!voiceId) {
       throw new ElevenLabsApiError('ELEVENLABS_VOICE_ID is required for speech generation', 0, false);
     }
 
     const model = this.resolveModel();
     const response = await this.postWithTiming(
-      `/text-to-speech/${encodeURIComponent(this.config.voiceId)}/with-timestamps`,
+      `/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps`,
       {
         text: options.prompt,
         ...(model ? { model_id: model } : {}),
@@ -134,7 +189,7 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
       kind: 'speech',
       model,
       transcript: options.prompt,
-      voices: [{ voiceId: this.config.voiceId }],
+      voices: [{ voiceId }],
     });
   }
 
@@ -165,19 +220,27 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
 
   private assignDialogueVoices(dialogue: ParsedDialogueLine[]): Map<string, string> {
     const speakers = Array.from(new Set(dialogue.map(line => line.speaker)));
-    const voiceIds = this.config.dialogueVoiceIds?.length
-      ? this.config.dialogueVoiceIds
-      : [this.config.voiceId].filter(Boolean);
+    // Voices map to speakers positionally. A blank slot (the UI "Default" option)
+    // keeps its position and falls back to the configured default voice — never
+    // collapse the list, or later voices would shift onto earlier speakers.
+    const provided = this.config.dialogueVoiceIds ?? [];
+    const fallbackVoiceId = this.config.voiceId?.trim() || undefined;
 
-    if (voiceIds.length < speakers.length) {
+    const assignments = speakers.map((speaker, index) => {
+      const voiceId = provided[index]?.trim() || fallbackVoiceId;
+      return [speaker, voiceId] as const;
+    });
+
+    const missing = assignments.filter(([, voiceId]) => !voiceId).length;
+    if (missing > 0) {
       throw new ElevenLabsApiError(
-        `ELEVENLABS_DIALOGUE_VOICE_IDS must include at least ${speakers.length} voice IDs for this dialogue`,
+        `No voice available for ${missing} of ${speakers.length} dialogue speaker(s); select voices or set ELEVENLABS_DIALOGUE_VOICE_IDS / ELEVENLABS_VOICE_ID`,
         0,
         false
       );
     }
 
-    return new Map(speakers.map((speaker, index) => [speaker, voiceIds[index]]));
+    return new Map(assignments.map(([speaker, voiceId]) => [speaker, voiceId as string]));
   }
 
   private resolveModel(): string | undefined {

@@ -83,7 +83,7 @@ export function useForgeOperations({
    * Returns requestId for tracking the operation (or empty string for fork).
    */
   const handleForgeSubmit = useCallback((params: ForgeSubmitParams): string => {
-    const { prompt, referenceVariantIds = [], referenceAssetIds, destination, operation, mediaKind, batchCount, batchMode, disableStyle } = params;
+    const { prompt, referenceVariantIds = [], referenceAssetIds, destination, operation, mediaKind, batchCount, batchMode, disableStyle, voiceId, dialogueVoiceIds } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
 
@@ -113,6 +113,8 @@ export function useForgeOperations({
         aspectRatio: params.aspectRatio,
         parentAssetId: destination.parentAssetId || undefined,
         disableStyle,
+        voiceId,
+        dialogueVoiceIds,
       });
     }
 
@@ -130,6 +132,8 @@ export function useForgeOperations({
         sourceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
         disableStyle,
+        voiceId,
+        dialogueVoiceIds,
       });
     } else {
       // Create new asset (generate, create, or combine)
@@ -142,6 +146,8 @@ export function useForgeOperations({
         referenceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
         parentAssetId: destination.parentAssetId || undefined,
         disableStyle,
+        voiceId,
+        dialogueVoiceIds,
       });
     }
   }, [sendGenerateRequest, sendRefineRequest, forkAsset, sendBatchRequest]);

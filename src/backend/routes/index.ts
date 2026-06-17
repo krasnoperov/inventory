@@ -22,6 +22,7 @@ import { billingRoutes } from './billing';
 import { webhookRoutes } from './webhooks';
 import { uploadRoutes } from './upload';
 import { trainingExportRoutes } from './training-export';
+import { voicesRoutes } from './voices';
 import { handleDocumentNavigation } from '../middleware/documentNavigation';
 
 /**
@@ -73,6 +74,9 @@ export function registerRoutes(
 
   // Training data export routes
   app.route('/', trainingExportRoutes);
+
+  // Voice listing routes (ElevenLabs audio provider)
+  app.route('/', voicesRoutes);
 
   // --- Domain routes will be added per ARCHITECTURE.md ---
 

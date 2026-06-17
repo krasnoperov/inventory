@@ -6,6 +6,7 @@ import {
   ElevenLabsMusicProvider,
   ElevenLabsSoundEffectProvider,
   getMimeTypeForElevenLabsOutputFormat,
+  listElevenLabsVoices,
   parseElevenLabsDialoguePrompt,
 } from './elevenLabsAudioProvider';
 
@@ -117,16 +118,57 @@ describe('ElevenLabsAudioProvider', () => {
     ]);
   });
 
-  test('rejects dialogue when not enough voice IDs are configured', async () => {
+  test('rejects dialogue when no voice is available for a speaker', async () => {
     const provider = new ElevenLabsAudioProvider({
       apiKey: 'key-1',
-      voiceId: 'only-voice',
     });
 
     await assert.rejects(
       () => provider.generate({ prompt: 'Ada: Ready?\nBen: Always.' }),
-      /ELEVENLABS_DIALOGUE_VOICE_IDS must include at least 2 voice IDs/
+      /No voice available for 2 of 2 dialogue speaker/
     );
+  });
+
+  test('preserves speaker positions when a Default (blank) is mixed with a selected voice', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return jsonResponse(audioPayload());
+    }) as unknown as typeof fetch;
+    const provider = new ElevenLabsAudioProvider({
+      apiKey: 'key-1',
+      voiceId: 'default-voice',
+      // Speaker 1 left as Default (blank), speaker 2 explicitly selected.
+      dialogueVoiceIds: ['', 'voice-ben'],
+      fetcher,
+    });
+
+    await provider.generate({ prompt: 'Ada: Ready?\nBen: Always.' });
+
+    assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)).inputs, [
+      { text: 'Ready?', voice_id: 'default-voice' },
+      { text: 'Always.', voice_id: 'voice-ben' },
+    ]);
+  });
+
+  test('falls back to the default voice for every speaker when no dialogue voices are set', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return jsonResponse(audioPayload());
+    }) as unknown as typeof fetch;
+    const provider = new ElevenLabsAudioProvider({
+      apiKey: 'key-1',
+      voiceId: 'default-voice',
+      fetcher,
+    });
+
+    await provider.generate({ prompt: 'Ada: Ready?\nBen: Always.' });
+
+    assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)).inputs, [
+      { text: 'Ready?', voice_id: 'default-voice' },
+      { text: 'Always.', voice_id: 'default-voice' },
+    ]);
   });
 
   test('marks validation failures as non-retryable API errors', async () => {
@@ -226,5 +268,60 @@ describe('ElevenLabsAudioProvider', () => {
     ]);
     assert.strictEqual(parseElevenLabsDialoguePrompt('A scene: with one colon'), null);
     assert.strictEqual(getMimeTypeForElevenLabsOutputFormat('mp3_22050_32'), 'audio/mpeg');
+  });
+});
+
+describe('listElevenLabsVoices', () => {
+  test('maps the account voice library and sends the api key', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return jsonResponse({
+        voices: [
+          {
+            voice_id: 'v1',
+            name: 'Rachel',
+            category: 'premade',
+            description: 'calm narrator',
+            preview_url: 'https://example.com/rachel.mp3',
+            labels: { accent: 'american' },
+          },
+          { voice_id: 'v2' },
+          { name: 'missing id' },
+        ],
+      });
+    }) as unknown as typeof fetch;
+
+    const voices = await listElevenLabsVoices('key-9', fetcher);
+
+    assert.strictEqual(calls.length, 1);
+    assert.match(calls[0].url, /\/v2\/voices/);
+    assert.strictEqual((calls[0].init.headers as Record<string, string>)['xi-api-key'], 'key-9');
+    assert.deepStrictEqual(voices, [
+      {
+        voiceId: 'v1',
+        name: 'Rachel',
+        category: 'premade',
+        description: 'calm narrator',
+        previewUrl: 'https://example.com/rachel.mp3',
+        labels: { accent: 'american' },
+      },
+      {
+        voiceId: 'v2',
+        name: 'v2',
+        category: null,
+        description: null,
+        previewUrl: null,
+        labels: {},
+      },
+    ]);
+  });
+
+  test('throws ElevenLabsApiError on a failed response', async () => {
+    const fetcher = mock.fn(async () => jsonResponse({ detail: 'unauthorized' }, 401)) as unknown as typeof fetch;
+    await assert.rejects(
+      () => listElevenLabsVoices('bad-key', fetcher),
+      (err: unknown) => err instanceof ElevenLabsApiError && err.status === 401
+    );
   });
 });

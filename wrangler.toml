@@ -104,6 +104,9 @@ id = "08f7fd3b25ac4cc59ad9e2975d510df3"
 NODE_ENV = "production"
 ENVIRONMENT = "production"
 POLAR_ENVIRONMENT = "production"
+# Website-controlled audio generation provider (vars are not inherited from the
+# top-level [vars], so production must declare it explicitly).
+INVENTORY_AUDIO_PROVIDER = "elevenlabs"
 # Comma-separated user IDs allowed to access billing admin routes
 ADMIN_USER_IDS = ""
 

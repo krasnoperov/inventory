@@ -125,8 +125,18 @@ function createMockRepo(): SpaceRepository {
       createMockVariant({ id, workflow_id: workflowId, status })
     ),
     createPlaceholderVariant: mock.fn(async (input) =>
-      createMockVariant({ id: input.id, asset_id: input.assetId, media_kind: input.mediaKind ?? 'image' })
+      createMockVariant({ id: input.id, asset_id: input.assetId, media_kind: input.mediaKind ?? 'image', recipe: input.recipe })
     ),
+    createAsset: mock.fn(async (input) => ({
+      id: input.id,
+      name: input.name,
+      type: input.type,
+      media_kind: input.mediaKind ?? 'image',
+      active_variant_id: null,
+      parent_asset_id: input.parentAssetId ?? null,
+    })),
+    updateAsset: mock.fn(async () => null),
+    createLineage: mock.fn(async (input) => ({ id: input.id })),
     getRotationViewByVariant: mock.fn(async () => null),
     getTilePositionByVariant: mock.fn(async () => null),
     failRotationSet: mock.fn(async () => null),
@@ -271,6 +281,68 @@ describe('GenerationController pipeline hooks', () => {
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
       assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
+    test('persists UI-selected speech voice into the recipe and workflow input', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      // No DB → quota check skipped, exercising the full create path.
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-voice',
+          name: 'Narration',
+          assetType: 'speech',
+          mediaKind: 'audio',
+          prompt: 'Hello there, traveler.',
+          voiceId: 'voice-abc',
+        } as any
+      );
+
+      const placeholderCalls = asMock(repo.createPlaceholderVariant).mock.calls;
+      assert.strictEqual(placeholderCalls.length, 1);
+      const recipe = JSON.parse(placeholderCalls[0].arguments[0].recipe);
+      assert.strictEqual(recipe.voiceId, 'voice-abc');
+
+      assert.strictEqual(workflowCreate.mock.calls.length, 1);
+      assert.strictEqual(workflowCreate.mock.calls[0].arguments[0].params.voiceId, 'voice-abc');
+    });
+
+    test('persists UI-selected dialogue voices into the recipe and workflow input', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-dialogue',
+          name: 'Scene',
+          assetType: 'dialogue',
+          mediaKind: 'audio',
+          prompt: 'Ada: Ready?\nBen: Always.',
+          dialogueVoiceIds: ['voice-ada', 'voice-ben'],
+        } as any
+      );
+
+      const recipe = JSON.parse(asMock(repo.createPlaceholderVariant).mock.calls[0].arguments[0].recipe);
+      assert.deepStrictEqual(recipe.dialogueVoiceIds, ['voice-ada', 'voice-ben']);
+      assert.deepStrictEqual(
+        workflowCreate.mock.calls[0].arguments[0].params.dialogueVoiceIds,
+        ['voice-ada', 'voice-ben']
+      );
     });
   });
 

@@ -166,6 +166,8 @@ export class GenerationController extends BaseController {
         referenceAssetIds: msg.referenceAssetIds,
         referenceVariantIds: msg.referenceVariantIds,
         disableStyle: msg.disableStyle,
+        voiceId: msg.voiceId,
+        dialogueVoiceIds: msg.dialogueVoiceIds,
       },
       meta
     );
@@ -243,6 +245,8 @@ export class GenerationController extends BaseController {
         sourceVariantIds: msg.sourceVariantIds,
         referenceAssetIds: msg.referenceAssetIds,
         disableStyle: msg.disableStyle,
+        voiceId: msg.voiceId,
+        dialogueVoiceIds: msg.dialogueVoiceIds,
       },
       meta
     );
@@ -332,6 +336,8 @@ export class GenerationController extends BaseController {
         referenceAssetIds: msg.referenceAssetIds,
         referenceVariantIds: msg.referenceVariantIds,
         disableStyle: msg.disableStyle,
+        voiceId: msg.voiceId,
+        dialogueVoiceIds: msg.dialogueVoiceIds,
         count: msg.count,
         mode: msg.mode,
       },
@@ -441,6 +447,8 @@ export class GenerationController extends BaseController {
       styleImageKeys: recipe.styleImageKeys,
       operation: recipe.operation,
       modelProvider: recipe.modelProvider,
+      voiceId: recipe.voiceId,
+      dialogueVoiceIds: recipe.dialogueVoiceIds?.length ? recipe.dialogueVoiceIds : undefined,
     };
 
     // Trigger the workflow
