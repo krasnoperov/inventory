@@ -204,6 +204,11 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--aspect <ratio>` | all | Optional generation aspect ratio |
 | `--parent <assetId>` | `generate`, `derive`, `video generate`, `video derive` | Optional parent asset |
 | `--no-style` | all | Disable active space style for this request |
+| `--scene-label <label>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene label stored in the local run manifest |
+| `--timeline-start-ms <ms>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene timeline start in milliseconds |
+| `--duration-ms <ms>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional intended production scene duration in milliseconds |
+| `--shot-id <id>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional stable shot identifier |
+| `--production-id <id>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive`, `runs export --format remotion-scenes` | Optional stable grouping identifier for scene exports |
 | `--env <env>` | all | `production`, `stage`, or `local`; overrides project binding |
 | `--local` | all | Shortcut for `--env local` |
 
@@ -241,6 +246,7 @@ pnpm run cli runs show --latest
 pnpm run cli runs show RUN_ID --json
 pnpm run cli runs export --latest --format media -o media-run.json
 pnpm run cli runs export --latest --format remotion -o keyframes.json
+pnpm run cli runs export --format remotion-scenes --production-id s01e01-a2 -o scenes.args
 ```
 
 The default `media` export writes ordered media data with local paths, absolute
@@ -249,6 +255,70 @@ prompt, refs, and failed variant errors for downstream production tooling. Image
 runs also include the legacy ordered `images` keyframe array. The `remotion`
 format remains available for existing keyframe tooling and emits the same media
 handoff fields with the legacy `remotion-keyframes` format marker.
+
+The `remotion-scenes` export writes deterministic shell-ready scene arguments
+sorted by `timelineStartMs`:
+
+```text
+--scene '0|Cocina|/absolute/path/to/clip-s01e01-a2-01.mp4'
+--scene '72760|Escalera|/absolute/path/to/clip-s01e01-a2-02.mp4'
+```
+
+Use `--json` with `remotion-scenes` when an external tool wants structured
+scene data instead of argument lines. Scene export requires `--scene-label` and
+`--timeline-start-ms` on each selected manifest. It prefers downloaded video
+clips and falls back to downloaded image keyframes. `--duration-ms` is preserved
+as intended production timing in the manifest/export; current video provider
+requests are not duration-controlled by this CLI flag.
+
+## Russafa Remotion Handoff
+
+The Russafa workflow stays actor-driven. Inventory CLI does not parse
+`S01E01-A2.shotlist.md`, call `../subtitles` scripts, or render Remotion. The
+external actor chooses prompts, refs, shot labels, and timeline starts from the
+shotlist, while the Inventory website remains the source of truth for assets,
+variants, recipes, and relations. Downloaded local files and run manifests are
+handoff artifacts, not a local database.
+
+Example command shape for Diario de Russafa S01E01 A2:
+
+```bash
+inventory login
+inventory spaces create "Diario de Russafa S01E01" --init
+
+inventory upload ../subtitles/art/social-video/cast/anna-sheet-v1.jpg \
+  --name "Anna cast sheet" \
+  --type character
+
+inventory upload ../subtitles/art/social-video/references/episode-backdrop-s01e01-kitchen-16x9-v1.jpg \
+  --name "S01E01 kitchen backdrop" \
+  --type scene
+
+inventory derive \
+  --refs <backdrop_variant>,<anna_variant>,<roman_variant> \
+  --name "S01E01 A2 shot 01 keyframe" \
+  --type scene \
+  -o ../subtitles/art/social-video/references/episode-scene-s01e01-a2-01.jpg \
+  "Compose the Cocina keyframe from the selected backdrop and cast references."
+
+inventory video derive \
+  --refs <shot01_keyframe_variant> \
+  --shot-id s01e01-a2-01 \
+  --production-id s01e01-a2 \
+  --scene-label "Cocina" \
+  --timeline-start-ms 0 \
+  --duration-ms 73000 \
+  -o ../subtitles/art/social-video/russafa/clips/clip-s01e01-a2-01.mp4 \
+  "medium shot; Anna moves toward the door; slow push-in"
+
+inventory runs export \
+  --format remotion-scenes \
+  --production-id s01e01-a2 \
+  > ../subtitles/art/social-video/russafa/s01e01-a2.scenes.args
+```
+
+`../subtitles` still owns `pnpm cli episodes download`, word timings,
+`make:russafa`, and the Remotion render.
 
 ## End-To-End Test Loop
 
