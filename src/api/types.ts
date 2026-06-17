@@ -140,6 +140,7 @@ export interface RateLimitStatus {
  * - 429 Too Many Requests: Rate limited (user should wait)
  *
  * UI Recommendations:
+ * - paid_generation_required: Show upgrade CTA, link to billing portal
  * - quota_exceeded: Show upgrade CTA, link to billing portal
  * - rate_limited: Show countdown timer based on resetsAt, disable action button
  */
@@ -149,7 +150,7 @@ export interface LimitErrorResponse {
   /** Human-readable message */
   message: string;
   /** Denial reason for programmatic handling */
-  denyReason: 'quota_exceeded' | 'rate_limited';
+  denyReason: 'paid_generation_required' | 'quota_exceeded' | 'rate_limited';
   /** Current quota status */
   quota: QuotaStatus;
   /** Current rate limit status */
@@ -164,7 +165,8 @@ export function isLimitErrorResponse(response: unknown): response is LimitErrorR
     typeof response === 'object' &&
     response !== null &&
     'denyReason' in response &&
-    ((response as LimitErrorResponse).denyReason === 'quota_exceeded' ||
+    ((response as LimitErrorResponse).denyReason === 'paid_generation_required' ||
+      (response as LimitErrorResponse).denyReason === 'quota_exceeded' ||
       (response as LimitErrorResponse).denyReason === 'rate_limited')
   );
 }

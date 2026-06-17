@@ -110,7 +110,11 @@ export function BillingSection() {
         <div className={styles.planInfo}>
           <span className={styles.planLabel}>Current Plan</span>
           <span className={styles.planName}>
-            {billing.hasSubscription ? 'Pro Plan' : 'Free Tier'}
+            {billing.entitlement === 'internal'
+              ? 'Internal'
+              : billing.hasSubscription
+                ? 'Pro Plan'
+                : 'Free Tier'}
           </span>
         </div>
         {billing.subscription && (

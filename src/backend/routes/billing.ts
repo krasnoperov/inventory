@@ -6,6 +6,10 @@ import { UsageService } from '../services/usageService';
 import { PolarService } from '../services/polarService';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { UserDAO } from '../../dao/user-dao';
+import {
+  isNonBillablePaidGenerationEntitlement,
+  normalizePaidGenerationEntitlement,
+} from '../billing/paidGenerationEntitlement';
 
 const billingRoutes = new Hono<AppContext>();
 
@@ -74,27 +78,50 @@ billingRoutes.get('/api/billing/status', async (c) => {
   const container = c.get('container');
   const polarService = container.get(PolarService);
   const userDAO = container.get(UserDAO);
+  const user = await userDAO.findById(userId);
+  const entitlement = normalizePaidGenerationEntitlement(user?.paid_generation_entitlement);
+
+  if (isNonBillablePaidGenerationEntitlement(entitlement)) {
+    return c.json({
+      configured: true,
+      hasSubscription: false,
+      entitlement,
+      meters: [],
+      subscription: null,
+      portalUrl: null,
+    });
+  }
 
   // Get full billing status from Polar
   const status = await polarService.getBillingStatus(userId);
 
-  // Refresh local D1 quota_limits cache (non-blocking)
-  // This keeps local limits in sync when user views billing page
+  // Refresh local D1 quota_limits cache. Entitlement changes are awaited so
+  // generation pre-checks cannot observe stale paid access after this response.
+  const refreshedEntitlement = status.configured
+    ? (status.hasSubscription ? 'paid' : 'none')
+    : entitlement;
+
   if (status.meters.length > 0) {
     const limits: Record<string, number | null> = {};
     for (const meter of status.meters) {
       limits[meter.meterSlug] = meter.hasLimit ? meter.credited : null;
     }
-    userDAO.update(userId, {
+    await userDAO.update(userId, {
+      paid_generation_entitlement: refreshedEntitlement,
       quota_limits: JSON.stringify(limits),
       quota_limits_updated_at: new Date().toISOString(),
-    }).catch(err => console.warn('Failed to refresh local quota_limits:', err));
+    });
+  } else if (refreshedEntitlement !== entitlement) {
+    await userDAO.update(userId, {
+      paid_generation_entitlement: refreshedEntitlement,
+    });
   }
 
   // Format response for frontend healthbar
   return c.json({
     configured: status.configured,
     hasSubscription: status.hasSubscription,
+    entitlement: refreshedEntitlement,
     meters: status.meters.map((m) => ({
       name: m.meterSlug,
       consumed: m.consumed,

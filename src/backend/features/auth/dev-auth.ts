@@ -21,11 +21,14 @@ export function getDevAuthUserId(env: Env, token: string | undefined): number | 
 export async function ensureDevAuthUser(env: Env, userId: number): Promise<void> {
   await env.DB
     .prepare(`
-      INSERT INTO users (id, email, name, google_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-      ON CONFLICT(id) DO NOTHING
+      INSERT INTO users (
+        id, email, name, google_id, paid_generation_entitlement, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, 'internal', datetime('now'), datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        paid_generation_entitlement = 'internal',
+        updated_at = datetime('now')
     `)
     .bind(userId, `dev-${userId}@inventory.local`, `Dev User ${userId}`, `dev-${userId}`)
     .run();
 }
-

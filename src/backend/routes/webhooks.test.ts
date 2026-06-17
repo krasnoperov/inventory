@@ -33,7 +33,10 @@ function routeApp(deps: Map<unknown, unknown>, envOverrides: Partial<AppContext[
 
 function routeDeps(userDAO: unknown, polarService: unknown = {}) {
   const deps = new Map<unknown, unknown>();
-  deps.set(UserDAO, userDAO);
+  deps.set(UserDAO, {
+    findById: async () => null,
+    ...(userDAO as Record<string, unknown>),
+  });
   deps.set(PolarService, polarService);
   return deps;
 }
@@ -128,6 +131,7 @@ describe('Polar webhook route', () => {
     assert.deepEqual(await response.json(), { received: true });
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
+    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'none');
     assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
       claude_input_tokens: 0,
       claude_output_tokens: 0,
@@ -167,9 +171,100 @@ describe('Polar webhook route', () => {
     assert.deepEqual(meterLookups[0], [42]);
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
+    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'paid');
     assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
       gemini_images: 25,
     });
+  });
+
+  test('preserves internal entitlement on active Polar subscription refresh', async () => {
+    const updates: unknown[] = [];
+    const meterLookups: unknown[] = [];
+    const app = routeApp(routeDeps({
+      findById: async () => ({ paid_generation_entitlement: 'internal' }),
+      update: async (...args: unknown[]) => {
+        updates.push(args);
+      },
+    }, {
+      getCustomerMeters: async (...args: unknown[]) => {
+        meterLookups.push(args);
+        return [
+          { meterSlug: 'gemini_images', hasLimit: true, credited: 25 },
+        ];
+      },
+    }));
+
+    const body = JSON.stringify({
+      type: 'subscription.active',
+      timestamp: new Date().toISOString(),
+      data: {
+        id: 'sub_123',
+        status: 'active',
+        customer: {
+          id: 'cus_123',
+          email: 'internal@example.test',
+          external_id: '42',
+        },
+      },
+    });
+    const response = await app.request('/api/webhooks/polar', {
+      method: 'POST',
+      headers: signHeaders(body),
+      body,
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(meterLookups, []);
+    assert.deepEqual(updates, []);
+  });
+
+  test('preserves internal entitlement on Polar cancellation revocation', async () => {
+    const updates: unknown[] = [];
+    const app = routeApp(routeDeps({
+      findById: async () => ({ paid_generation_entitlement: 'internal' }),
+      update: async (...args: unknown[]) => {
+        updates.push(args);
+      },
+    }));
+
+    const body = JSON.stringify(subscriptionCanceledPayload());
+    const response = await app.request('/api/webhooks/polar', {
+      method: 'POST',
+      headers: signHeaders(body),
+      body,
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(updates, []);
+  });
+
+  test('preserves internal entitlement on customer state revocation', async () => {
+    const updates: unknown[] = [];
+    const app = routeApp(routeDeps({
+      findById: async () => ({ paid_generation_entitlement: 'internal' }),
+      update: async (...args: unknown[]) => {
+        updates.push(args);
+      },
+    }));
+
+    const body = JSON.stringify({
+      type: 'customer.state_changed',
+      timestamp: new Date().toISOString(),
+      data: {
+        id: 'cus_123',
+        email: 'internal@example.test',
+        external_id: '42',
+        active_subscriptions: [],
+      },
+    });
+    const response = await app.request('/api/webhooks/polar', {
+      method: 'POST',
+      headers: signHeaders(body),
+      body,
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(updates, []);
   });
 
   test('does not update quota limits for non-numeric external customer IDs', async () => {
@@ -232,6 +327,7 @@ describe('Polar webhook route', () => {
     assert.deepEqual(meterLookups[0], [42]);
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
+    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'paid');
     assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
       gemini_images: 25,
     });
@@ -268,6 +364,7 @@ describe('Polar webhook route', () => {
     assert.equal(response.status, 200);
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
+    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'paid');
     assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
       gemini_images: 25,
       claude_input_tokens: null,

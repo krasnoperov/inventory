@@ -6,6 +6,12 @@
  */
 
 import type { D1Database } from '@cloudflare/workers-types';
+import {
+  hasPaidGenerationAccess,
+  isNonBillablePaidGenerationEntitlement,
+  normalizePaidGenerationEntitlement,
+  PAID_GENERATION_REQUIRED_MESSAGE,
+} from '../../../billing/paidGenerationEntitlement';
 
 export interface PreCheckResult {
   allowed: boolean;
@@ -15,7 +21,7 @@ export interface PreCheckResult {
   rateLimitUsed: number;
   rateLimitMax: number;
   rateLimitRemaining: number;
-  denyReason?: 'quota_exceeded' | 'rate_limited';
+  denyReason?: 'quota_exceeded' | 'rate_limited' | 'paid_generation_required';
   denyMessage?: string;
 }
 
@@ -62,9 +68,10 @@ export async function preCheck(
 
   // Get user quota limits and rate limit state
   const userResult = await db.prepare(`
-    SELECT quota_limits, rate_limit_count, rate_limit_window_start
+    SELECT paid_generation_entitlement, quota_limits, rate_limit_count, rate_limit_window_start
     FROM users WHERE id = ?
   `).bind(userId).first<{
+    paid_generation_entitlement: string | null;
     quota_limits: string | null;
     rate_limit_count: number | null;
     rate_limit_window_start: string | null;
@@ -88,17 +95,13 @@ export async function preCheck(
   const usageResult = await db.prepare(`
     SELECT COALESCE(SUM(quantity), 0) as total_used
     FROM usage_events
-    WHERE user_id = ? AND event_name = ? AND created_at >= ?
+    WHERE user_id = ? AND event_name = ? AND created_at >= ? AND polar_billable = 1
   `).bind(userId, eventName, periodStart).first<{ total_used: number }>();
 
   const quotaUsed = usageResult?.total_used || 0;
 
-  // Parse quota limits
-  const limits: Record<string, number | null> = userResult.quota_limits
-    ? JSON.parse(userResult.quota_limits)
-    : {};
-  const quotaLimit = limits[eventName] ?? null;
-  const quotaRemaining = quotaLimit !== null ? Math.max(0, quotaLimit - quotaUsed) : null;
+  const entitlement = normalizePaidGenerationEntitlement(userResult.paid_generation_entitlement);
+  const isNonBillable = isNonBillablePaidGenerationEntitlement(entitlement);
 
   // Check rate limit (fixed window)
   const windowStart = new Date(now.getTime() - rateLimitConfig.windowSeconds * 1000).toISOString();
@@ -106,6 +109,28 @@ export async function preCheck(
     userResult.rate_limit_window_start < windowStart;
   const rateLimitUsed = windowExpired ? 0 : (userResult.rate_limit_count || 0);
   const rateLimitRemaining = Math.max(0, rateLimitConfig.maxRequests - rateLimitUsed);
+
+  if (!hasPaidGenerationAccess(entitlement)) {
+    return {
+      allowed: false,
+      quotaUsed,
+      quotaLimit: null,
+      quotaRemaining: null,
+      rateLimitUsed,
+      rateLimitMax: rateLimitConfig.maxRequests,
+      rateLimitRemaining,
+      denyReason: 'paid_generation_required',
+      denyMessage: PAID_GENERATION_REQUIRED_MESSAGE,
+    };
+  }
+
+  // Parse quota limits. Internal users are explicitly non-billable, so they
+  // bypass quota while still using the fixed-window rate limiter below.
+  const limits: Record<string, number | null> = userResult.quota_limits && !isNonBillable
+    ? JSON.parse(userResult.quota_limits)
+    : {};
+  const quotaLimit = isNonBillable ? null : (limits[eventName] ?? null);
+  const quotaRemaining = quotaLimit !== null ? Math.max(0, quotaLimit - quotaUsed) : null;
 
   // Check quota exceeded
   if (quotaLimit !== null && quotaUsed + requested > quotaLimit) {
@@ -182,20 +207,33 @@ export async function trackUsage(
   quantity: number,
   metadata?: Record<string, unknown>
 ): Promise<void> {
+  const polarBillable = await isBillableUser(db, userId);
+
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
   await db.prepare(`
-    INSERT INTO usage_events (id, user_id, event_name, quantity, metadata, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO usage_events (id, user_id, event_name, quantity, metadata, polar_billable, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     userId,
     eventName,
     quantity,
     metadata ? JSON.stringify(metadata) : null,
+    polarBillable ? 1 : 0,
     now
   ).run();
+}
+
+async function isBillableUser(db: D1Database, userId: number): Promise<boolean> {
+  const userResult = await db.prepare(`
+    SELECT paid_generation_entitlement
+    FROM users WHERE id = ?
+  `).bind(userId).first<{ paid_generation_entitlement: string | null }>();
+
+  const entitlement = normalizePaidGenerationEntitlement(userResult?.paid_generation_entitlement);
+  return !isNonBillablePaidGenerationEntitlement(entitlement);
 }
 
 /**

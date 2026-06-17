@@ -174,6 +174,23 @@ describe('UsageService', () => {
       assert.strictEqual(inputEvent.quantity, 200);
       assert.strictEqual(outputEvent.quantity, 100);
     });
+
+    test('records non-billable local events for internal users', async () => {
+      await userDAO.update(testUserId, { paid_generation_entitlement: 'internal' });
+
+      await usageService.trackImageGeneration(
+        testUserId,
+        1,
+        'gemini-3-pro-image-preview',
+        'generate',
+        '1:1',
+        { inputTokens: 200, outputTokens: 100 }
+      );
+
+      const events = await usageEventDAO.findByUser(testUserId);
+      assert.strictEqual(events.length, 3);
+      assert.ok(events.every((event) => event.polar_billable === 0));
+    });
   });
 
   describe('trackElevenLabsAudioGeneration', () => {
@@ -277,6 +294,37 @@ describe('UsageService', () => {
       const storedEvents = await usageEventDAO.findByUser(testUserId);
       assert.ok(storedEvents[0].synced_at);
     });
+
+    test('does not sync non-billable events even if user later becomes paid', async () => {
+      await userDAO.update(testUserId, { paid_generation_entitlement: 'internal' });
+      await db.insertInto('usage_events').values({
+        id: 'internal-event-1',
+        user_id: testUserId,
+        event_name: USAGE_EVENTS.GEMINI_IMAGES,
+        quantity: 1,
+        metadata: null,
+        polar_billable: 0,
+        created_at: new Date().toISOString(),
+        synced_at: null,
+        sync_attempts: 0,
+        last_sync_error: null,
+        last_sync_attempt_at: null,
+      }).execute();
+      await userDAO.update(testUserId, { paid_generation_entitlement: 'paid' });
+
+      const ingestEventsBatch = mock.fn(async () => ({ inserted: 1, duplicates: 0 }));
+      const service = new UsageService(
+        usageEventDAO,
+        userDAO,
+        { ingestEventsBatch } as any,
+        db
+      );
+
+      const result = await service.syncPendingEvents();
+
+      assert.deepStrictEqual(result, { synced: 0, failed: 0 });
+      assert.strictEqual(ingestEventsBatch.mock.calls.length, 0);
+    });
   });
 
   describe('getUserUsageStats', () => {
@@ -306,7 +354,22 @@ describe('UsageService', () => {
   });
 
   describe('checkQuota', () => {
-    test('returns allowed=true when PolarService is null', async () => {
+    beforeEach(async () => {
+      await userDAO.update(testUserId, { paid_generation_entitlement: 'paid' });
+    });
+
+    test('blocks users without explicit paid-generation entitlement', async () => {
+      await userDAO.update(testUserId, { paid_generation_entitlement: 'none' });
+
+      const result = await usageService.checkQuota(testUserId, 'nanobanana');
+
+      assert.strictEqual(result.allowed, false);
+      assert.strictEqual(result.remaining, null);
+      assert.strictEqual(result.limit, null);
+      assert.match(result.message || '', /Paid generation is not enabled/);
+    });
+
+    test('returns allowed=true when PolarService is null for paid users', async () => {
       const result = await usageService.checkQuota(testUserId, 'claude');
 
       assert.strictEqual(result.allowed, true);
@@ -314,7 +377,7 @@ describe('UsageService', () => {
       assert.strictEqual(result.limit, null);
     });
 
-    test('returns allowed=true for nanobanana when PolarService is null', async () => {
+    test('returns allowed=true for nanobanana when PolarService is null for paid users', async () => {
       const result = await usageService.checkQuota(testUserId, 'nanobanana');
 
       assert.strictEqual(result.allowed, true);
@@ -322,7 +385,7 @@ describe('UsageService', () => {
       assert.strictEqual(result.limit, null);
     });
 
-    test('returns allowed=true for elevenlabs when no local limit is cached', async () => {
+    test('returns allowed=true for elevenlabs when no local limit is cached for paid users', async () => {
       const result = await usageService.checkQuota(testUserId, 'elevenlabs');
 
       assert.strictEqual(result.allowed, true);
@@ -330,8 +393,18 @@ describe('UsageService', () => {
       assert.strictEqual(result.limit, null);
     });
 
-    test('returns allowed=true for veo when no local limit is cached', async () => {
+    test('returns allowed=true for veo when no local limit is cached for paid users', async () => {
       const result = await usageService.checkQuota(testUserId, 'veo');
+
+      assert.strictEqual(result.allowed, true);
+      assert.strictEqual(result.remaining, null);
+      assert.strictEqual(result.limit, null);
+    });
+
+    test('allows internal users without quota limits', async () => {
+      await userDAO.update(testUserId, { paid_generation_entitlement: 'internal' });
+
+      const result = await usageService.checkQuota(testUserId, 'nanobanana');
 
       assert.strictEqual(result.allowed, true);
       assert.strictEqual(result.remaining, null);

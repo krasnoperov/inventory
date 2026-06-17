@@ -1,4 +1,5 @@
 import type { Generated, Insertable, Selectable, Updateable } from 'kysely';
+import type { PaidGenerationEntitlement } from '../backend/billing/paidGenerationEntitlement';
 
 // ============================================================================
 // BARE FRAMEWORK FOUNDATION - Database Types
@@ -12,6 +13,7 @@ export interface UsersTable {
   name: string;
   google_id: string | null;
   polar_customer_id: string | null;
+  paid_generation_entitlement: PaidGenerationEntitlement;
   // Quota limits cached from Polar webhooks
   // JSON: {"claude_output_tokens": 100000, "gemini_images": 50, "gemini_videos": 10, "elevenlabs_audio": 5000}
   quota_limits: string | null;
@@ -51,6 +53,8 @@ export interface UsageEventsTable {
   event_name: string;  // 'claude_tokens', 'nanobanana_images'
   quantity: number;
   metadata: string | null;  // JSON
+  // 1 = sync to Polar, 0 = local observability only
+  polar_billable: Generated<number>;
   created_at: string;
   synced_at: string | null;  // NULL until synced to Polar
   // Sync reliability tracking
