@@ -21,6 +21,30 @@ This repo contains:
 - This repo owns stable implementation policy, architecture, commands, and checks.
 - Do not commit issue-specific plans or backlog notes into the repo.
 
+## Task Decomposition
+
+Avoid monster issues. Before creating or delegating a Linear issue, check whether
+it combines independently risky surfaces such as provider API integration,
+billing/quota metering, workflow retries, database migrations, CLI commands,
+Forge Tray UI, media preview UI, docs, and deployment config.
+
+Prefer several reviewable issues over one broad issue when the work can fail for
+different reasons. A good issue should usually have one primary behavioral
+change, one clear owner surface, and focused tests. If billing or quota behavior
+is involved, isolate it or call it out as an explicit prerequisite instead of
+hiding it inside provider/API work.
+
+For media generation work, use this default split unless there is a strong
+reason not to:
+
+- provider contract and fake-provider tests
+- real provider adapter and request/response validation
+- billing/quota/rate-limit accounting
+- workflow persistence and R2 integration
+- CLI/Forge Tray exposure
+- preview/player UI
+- docs and operator config
+
 ## Read In This Order
 
 1. `README.md`
