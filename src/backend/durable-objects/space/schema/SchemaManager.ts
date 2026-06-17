@@ -62,6 +62,8 @@ export class SchemaManager {
         render_metadata_key TEXT,
         render_metadata_mime_type TEXT,
         render_metadata_size_bytes INTEGER,
+        generation_provenance TEXT,
+        provider_metadata TEXT,
         recipe TEXT NOT NULL,
         starred INTEGER NOT NULL DEFAULT 0,
         created_by TEXT NOT NULL,
@@ -247,6 +249,9 @@ export class SchemaManager {
 
     // Migration: Add audio sidecar artifact metadata to variants
     await this.addAudioSidecarMetadataToVariants();
+
+    // Migration: Add generation provenance and provider metadata to variants
+    await this.addGenerationMetadataToVariants();
 
     // Migration: Add production placement records for downstream tooling
     await this.addProductionRecords();
@@ -717,6 +722,29 @@ export class SchemaManager {
       if (!hasColumn(name)) {
         await this.sql.exec(`ALTER TABLE variants ADD COLUMN ${name} ${type};`);
       }
+    }
+  }
+
+  /**
+   * Add first-class generation metadata fields to variants.
+   * Existing variants keep the retry recipe as their durable provenance source;
+   * new writes populate generation_provenance alongside recipe.
+   */
+  private async addGenerationMetadataToVariants(): Promise<void> {
+    const result = await this.sql.exec(`PRAGMA table_info(variants)`);
+    const columns = result.toArray() as Array<{ name: string }>;
+    const hasColumn = (name: string) => columns.some(col => col.name === name);
+
+    if (!hasColumn('generation_provenance')) {
+      await this.sql.exec(`ALTER TABLE variants ADD COLUMN generation_provenance TEXT;`);
+      await this.sql.exec(`
+        UPDATE variants
+        SET generation_provenance = recipe
+        WHERE generation_provenance IS NULL
+      `);
+    }
+    if (!hasColumn('provider_metadata')) {
+      await this.sql.exec(`ALTER TABLE variants ADD COLUMN provider_metadata TEXT;`);
     }
   }
 

@@ -93,6 +93,8 @@ export interface Variant {
   render_metadata_key: string | null; // R2 key for render metadata sidecar
   render_metadata_mime_type: string | null;
   render_metadata_size_bytes: number | null;
+  generation_provenance: string | null; // JSON - normalized generation inputs/source refs
+  provider_metadata: string | null; // JSON - provider/model/result metadata
   recipe: string; // JSON - generation parameters stored upfront for retry
   starred: boolean; // User marks important versions
   created_by: string;

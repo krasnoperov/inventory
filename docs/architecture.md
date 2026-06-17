@@ -77,6 +77,8 @@ CREATE TABLE variants (
   media_width INTEGER,                  -- Image/video width when known
   media_height INTEGER,                 -- Image/video height when known
   media_duration_ms INTEGER,            -- Audio/video duration when known
+  generation_provenance TEXT,           -- JSON normalized generation/source inputs
+  provider_metadata TEXT,               -- JSON provider/model/result metadata
   recipe TEXT NOT NULL,                 -- Full params for retry
   starred INTEGER NOT NULL DEFAULT 0,
   created_by TEXT NOT NULL,

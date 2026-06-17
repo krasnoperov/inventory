@@ -95,6 +95,8 @@ export interface GeneratedVariant {
   render_metadata_key: string | null;
   render_metadata_mime_type: string | null;
   render_metadata_size_bytes: number | null;
+  generation_provenance: string | null;
+  provider_metadata: string | null;
   recipe: string;
   created_by: string;
   created_at: number;

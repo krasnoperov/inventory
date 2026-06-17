@@ -124,7 +124,8 @@ pnpm run cli assets show ASSET_ID --json
 ```
 
 Asset inspection displays each asset's `media_kind`; `assets show` also displays
-each variant's `media_kind`.
+each variant's `media_kind`, generation provenance, and provider metadata from
+Space state.
 
 Download an existing completed variant or legacy image key to a local file:
 

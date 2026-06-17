@@ -137,6 +137,50 @@ export interface VariantMediaMetadata {
   renderMetadataKey?: string | null;
   renderMetadataMimeType?: string | null;
   renderMetadataSizeBytes?: number | null;
+  providerMetadata?: string | Record<string, unknown> | null;
+}
+
+export interface VariantGenerationProvenance {
+  [key: string]: unknown;
+  operation?: string;
+  assetType?: string;
+  mediaKind?: MediaKind;
+  prompt?: string;
+  model?: string;
+  modelProvider?: string;
+  aspectRatio?: string;
+  imageSize?: string;
+  sourceImageKeys?: string[];
+  styleImageKeys?: string[];
+  parentVariantIds?: string[];
+  styleId?: string;
+  styleOverride?: boolean;
+}
+
+export function serializeGenerationProvenance(
+  recipe: string,
+  fallbackOperation?: string
+): string {
+  try {
+    const parsed = JSON.parse(recipe) as VariantGenerationProvenance;
+    return JSON.stringify({
+      ...parsed,
+      operation: parsed.operation ?? fallbackOperation ?? 'unknown',
+    });
+  } catch {
+    return JSON.stringify({
+      operation: fallbackOperation ?? 'unknown',
+      recipe,
+    });
+  }
+}
+
+function serializeProviderMetadata(
+  metadata: string | Record<string, unknown> | null | undefined
+): string | null {
+  if (metadata === undefined || metadata === null) return null;
+  if (typeof metadata === 'string') return metadata;
+  return JSON.stringify(metadata);
 }
 
 // ============================================================================
@@ -334,6 +378,8 @@ export class SpaceRepository {
     const now = Date.now();
     const mediaMetadata = variant.mediaMetadata ?? {};
     const mediaKey = mediaMetadata.mediaKey ?? variant.imageKey;
+    const generationProvenance = serializeGenerationProvenance(variant.recipe, 'upload');
+    const providerMetadata = serializeProviderMetadata(mediaMetadata.providerMetadata);
     await this.sql.exec(
       VariantQueries.INSERT,
       variant.id,
@@ -359,6 +405,8 @@ export class SpaceRepository {
       mediaMetadata.renderMetadataKey ?? null,
       mediaMetadata.renderMetadataMimeType ?? null,
       mediaMetadata.renderMetadataSizeBytes ?? null,
+      generationProvenance,
+      providerMetadata,
       variant.recipe,
       0, // starred = false
       variant.createdBy,
@@ -426,15 +474,17 @@ export class SpaceRepository {
     batchId?: string;
   }): Promise<Variant> {
     const now = Date.now();
+    const generationProvenance = serializeGenerationProvenance(data.recipe);
     if (data.batchId) {
       // Use extended INSERT with batch_id
       await this.sql.exec(
-        `INSERT INTO variants (id, asset_id, media_kind, status, recipe, created_by, created_at, updated_at, plan_step_id, batch_id)
-         VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO variants (id, asset_id, media_kind, status, recipe, generation_provenance, created_by, created_at, updated_at, plan_step_id, batch_id)
+         VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
         data.id,
         data.assetId,
         data.mediaKind ?? DEFAULT_MEDIA_KIND,
         data.recipe,
+        generationProvenance,
         data.createdBy,
         now,
         now,
@@ -448,6 +498,7 @@ export class SpaceRepository {
         data.assetId,
         data.mediaKind ?? DEFAULT_MEDIA_KIND,
         data.recipe,
+        generationProvenance,
         data.createdBy,
         now,
         now,
@@ -500,6 +551,7 @@ export class SpaceRepository {
     const existing = await this.getVariantById(variantId);
     if (!existing) return null;
     const mediaKey = mediaMetadata.mediaKey ?? imageKey;
+    const providerMetadata = serializeProviderMetadata(mediaMetadata.providerMetadata);
 
     await this.sql.exec(
       VariantQueries.COMPLETE,
@@ -520,6 +572,7 @@ export class SpaceRepository {
       mediaMetadata.renderMetadataKey ?? null,
       mediaMetadata.renderMetadataMimeType ?? null,
       mediaMetadata.renderMetadataSizeBytes ?? null,
+      providerMetadata,
       Date.now(),
       variantId
     );

@@ -189,6 +189,8 @@ export interface Variant {
   render_metadata_key?: string | null;
   render_metadata_mime_type?: string | null;
   render_metadata_size_bytes?: number | null;
+  generation_provenance?: string | null;
+  provider_metadata?: string | null;
   recipe: string;
   starred: boolean;
   created_by: string;

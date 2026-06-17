@@ -27,6 +27,20 @@ const variant = {
   thumb_key: 'thumbs/space-1/variant-1.webp',
   media_key: 'media/space-1/variant-1.mp4',
   media_mime_type: 'video/mp4',
+  generation_provenance: JSON.stringify({
+    operation: 'generate',
+    assetType: 'scene',
+    mediaKind: 'video',
+    model: 'veo-3.1-generate-preview',
+    prompt: 'Market opening shot',
+  }),
+  provider_metadata: JSON.stringify({
+    provider: 'google-veo',
+    model: 'veo-3.1-generate-preview',
+    operation: 'generate',
+    resolution: '720p',
+    durationSeconds: 8,
+  }),
   recipe: '{}',
   starred: false,
   error_message: null,
@@ -178,10 +192,12 @@ test('assets list and show support JSON output', async () => {
   assert.equal(details.variants[0].id, 'variant-1');
   assert.equal(details.variants[0].media_kind, 'video');
   assert.equal(details.variants[0].media_key, 'media/space-1/variant-1.mp4');
+  assert.equal(details.variants[0].generation_provenance, variant.generation_provenance);
+  assert.equal(details.variants[0].provider_metadata, variant.provider_metadata);
   assert.equal(details.lineage[0].relation_type, 'derived');
 });
 
-test('assets show prints asset and variant media kind', async () => {
+test('assets show prints asset, variant media kind, and generation metadata', async () => {
   const output: string[] = [];
   const showDeps = depsFor(output).deps;
 
@@ -192,6 +208,8 @@ test('assets show prints asset and variant media kind', async () => {
   assert.ok(text.includes('  Media:    video'));
   assert.ok(text.includes('     Media:  video'));
   assert.ok(text.includes('     File:   media/space-1/variant-1.mp4'));
+  assert.ok(text.includes('     Provenance: operation=generate assetType=scene mediaKind=video model=veo-3.1-generate-preview prompt=Market opening shot'));
+  assert.ok(text.includes('     Provider:   provider=google-veo model=veo-3.1-generate-preview operation=generate resolution=720p durationSeconds=8'));
 });
 
 test('assets download resolves a variant ID to its canonical media key', async () => {

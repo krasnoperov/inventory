@@ -209,6 +209,8 @@ export const VariantSchema = z
     render_metadata_key: z.string().nullable().optional(),
     render_metadata_mime_type: z.string().nullable().optional(),
     render_metadata_size_bytes: z.number().nullable().optional(),
+    generation_provenance: z.string().nullable().optional(),
+    provider_metadata: z.string().nullable().optional(),
     recipe: z.string(),
     starred: BooleanFromSqliteSchema,
     created_by: z.string(),

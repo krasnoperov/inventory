@@ -37,6 +37,8 @@ function createMockVariant(overrides: Partial<Variant> = {}): Variant {
     media_width: 512,
     media_height: 512,
     media_duration_ms: null,
+    generation_provenance: '{}',
+    provider_metadata: null,
     recipe: '{}',
     starred: false,
     created_by: 'user-1',
@@ -715,6 +717,29 @@ describe('GenerationController pipeline hooks', () => {
         renderMetadataKey: 'sidecars/space-1/variant-1/render_metadata.json',
         renderMetadataMimeType: 'application/json',
         renderMetadataSizeBytes: 96,
+      });
+    });
+
+    test('passes provider metadata to repository completion', async () => {
+      const { ctx } = createMockContext();
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: 'img/done.png',
+        thumbKey: 'thumb/done.png',
+        providerMetadata: {
+          provider: 'gemini',
+          model: 'gemini-3-pro-image-preview',
+          api: 'generate',
+        },
+      });
+
+      const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
+      assert.deepStrictEqual(completeCall.arguments[3].providerMetadata, {
+        provider: 'gemini',
+        model: 'gemini-3-pro-image-preview',
+        api: 'generate',
       });
     });
 

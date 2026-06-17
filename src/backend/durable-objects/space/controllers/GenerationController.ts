@@ -514,6 +514,7 @@ export class GenerationController extends BaseController {
     renderMetadataKey?: string | null;
     renderMetadataMimeType?: string | null;
     renderMetadataSizeBytes?: number | null;
+    providerMetadata?: Record<string, unknown> | string | null;
     audioProvider?: string | null;
     audioModel?: string | null;
     audioUsage?: AudioUsage | null;
@@ -558,6 +559,7 @@ export class GenerationController extends BaseController {
     if (data.renderMetadataKey !== undefined) mediaMetadata.renderMetadataKey = data.renderMetadataKey;
     if (data.renderMetadataMimeType !== undefined) mediaMetadata.renderMetadataMimeType = data.renderMetadataMimeType;
     if (data.renderMetadataSizeBytes !== undefined) mediaMetadata.renderMetadataSizeBytes = data.renderMetadataSizeBytes;
+    if (data.providerMetadata !== undefined) mediaMetadata.providerMetadata = data.providerMetadata;
 
     const variant = await this.repo.completeVariant(
       data.variantId,
