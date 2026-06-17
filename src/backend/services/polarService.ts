@@ -77,6 +77,12 @@ export interface PolarMeterInfo {
   archivedAt: Date | null;
 }
 
+export interface CheckoutCustomer {
+  userId: number;
+  email: string;
+  name: string;
+}
+
 @injectable()
 export class PolarService {
   private client: Polar | null;
@@ -281,6 +287,36 @@ export class PolarService {
     });
 
     return session.customerPortalUrl;
+  }
+
+  /**
+   * Create a checkout session for paid generation access.
+   * Returns null when Polar or the paid generation product is not configured.
+   */
+  async getPaidGenerationCheckoutUrl(
+    customer: CheckoutCustomer,
+    options: { returnUrl?: string; successUrl?: string } = {}
+  ): Promise<string | null> {
+    if (!this.client || !this.env.POLAR_PAID_GENERATION_PRODUCT_ID) return null;
+
+    const checkout = await this.client.checkouts.create({
+      products: [this.env.POLAR_PAID_GENERATION_PRODUCT_ID],
+      externalCustomerId: String(customer.userId),
+      customerEmail: customer.email,
+      customerName: customer.name,
+      returnUrl: options.returnUrl || null,
+      successUrl: options.successUrl || options.returnUrl || null,
+      metadata: {
+        source: 'inventory-app',
+        purpose: 'paid_generation',
+        user_id: customer.userId,
+      },
+      customerMetadata: {
+        inventory_user_id: customer.userId,
+      },
+    });
+
+    return checkout.url;
   }
 
   /**

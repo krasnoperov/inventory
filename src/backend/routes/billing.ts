@@ -32,6 +32,20 @@ function combineStatus(statuses: OperationalStatus[]): OperationalStatus {
   return 'ok';
 }
 
+function sameOriginUrl(requestUrl: string, value: string | undefined, fallbackPath: string): string {
+  const origin = new URL(requestUrl).origin;
+  if (!value) {
+    return new URL(fallbackPath, origin).toString();
+  }
+
+  try {
+    const url = new URL(value, origin);
+    return url.origin === origin ? url.toString() : new URL(fallbackPath, origin).toString();
+  } catch {
+    return new URL(fallbackPath, origin).toString();
+  }
+}
+
 /**
  * Get current usage statistics for the authenticated user
  * GET /api/billing/usage
@@ -75,6 +89,43 @@ billingRoutes.get('/api/billing/portal', async (c) => {
   }
 
   return c.json({ url: portalUrl });
+});
+
+/**
+ * Get checkout URL for first-time paid generation access
+ * GET /api/billing/checkout
+ */
+billingRoutes.get('/api/billing/checkout', async (c) => {
+  const userId = c.get('userId')!;
+  const container = c.get('container');
+  const userDAO = container.get(UserDAO);
+  const polarService = container.get(PolarService);
+  const user = await userDAO.findById(userId);
+
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  const checkoutUrl = await polarService.getPaidGenerationCheckoutUrl(
+    {
+      userId,
+      email: user.email,
+      name: user.name,
+    },
+    {
+      returnUrl: sameOriginUrl(c.req.url, c.req.query('return_url'), '/profile'),
+      successUrl: sameOriginUrl(c.req.url, c.req.query('success_url'), '/profile?billing=checkout_success'),
+    }
+  );
+
+  if (!checkoutUrl) {
+    return c.json({
+      error: 'Checkout not available',
+      message: 'Paid generation checkout is not configured',
+    }, 503);
+  }
+
+  return c.json({ url: checkoutUrl });
 });
 
 /**

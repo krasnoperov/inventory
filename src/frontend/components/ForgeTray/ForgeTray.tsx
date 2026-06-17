@@ -14,6 +14,7 @@ import { AssetPickerModal } from './AssetPickerModal';
 import { ForgeChat } from './ForgeChat';
 import { StylePanel } from './StylePanel';
 import { Thumbnail } from '../Thumbnail';
+import { Link } from '../Link';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
   canUseSlotMediaKindForForgeMode,
@@ -94,6 +95,8 @@ export interface ForgeTrayProps {
   sendBatchRequest?: (params: import('../../hooks/useSpaceWebSocket').BatchRequestParams) => string;
   /** Forge error (generate/refine/batch failure) */
   forgeError?: string | null;
+  /** Forge error code for programmatic handling */
+  forgeErrorCode?: string | null;
 }
 
 const ACCEPTED_UPLOAD_MIME_TYPES = [
@@ -161,6 +164,7 @@ export function ForgeTray({
   sendStyleDelete,
   sendStyleToggle,
   forgeError,
+  forgeErrorCode,
 }: ForgeTrayProps) {
   const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
   const style = useStyleStore((s) => s.style);
@@ -742,7 +746,14 @@ export function ForgeTray({
 
           {/* Forge error message */}
           {forgeError && (
-            <div className={styles.forgeError}>{forgeError}</div>
+            <div className={styles.forgeError}>
+              <span>{forgeError}</span>
+              {forgeErrorCode === 'PAID_GENERATION_REQUIRED' && (
+                <Link to="/profile" className={styles.forgeErrorAction}>
+                  Upgrade
+                </Link>
+              )}
+            </div>
           )}
         </div>
 

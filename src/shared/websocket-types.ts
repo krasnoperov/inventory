@@ -117,6 +117,7 @@ export function uiStatusToPlanStatus(uiStatus: UIPlanStatus): PlanStatus | null 
 export type ErrorCode =
   // Rate limiting / Quota
   | 'RATE_LIMITED'
+  | 'PAID_GENERATION_REQUIRED'
   | 'QUOTA_EXCEEDED'
   // Resource errors
   | 'NOT_FOUND'

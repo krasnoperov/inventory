@@ -151,4 +151,5 @@ local_protocol = "http"
 # wrangler secret put ANTHROPIC_API_KEY (optional, for ClaudeService)
 # wrangler secret put POLAR_ACCESS_TOKEN (optional, for Polar.sh billing)
 # wrangler secret put POLAR_ORGANIZATION_ID (optional, for Polar.sh billing)
+# wrangler secret put POLAR_PAID_GENERATION_PRODUCT_ID (optional, for checkout)
 # wrangler secret put POLAR_WEBHOOK_SECRET (optional, for Polar webhook verification)
