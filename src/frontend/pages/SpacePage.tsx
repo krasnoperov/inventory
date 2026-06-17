@@ -14,8 +14,8 @@ import type {
   ChatForgeContext,
   SpaceStyleRaw,
 } from '../hooks/useSpaceWebSocket';
-import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
+import { WorkspaceChrome } from '../components/WorkspaceChrome';
 import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { AssetCanvas, layoutAlgorithms, type LayoutAlgorithm } from '../components/AssetCanvas';
@@ -342,7 +342,7 @@ export default function SpacePage() {
   if (isLoading) {
     return (
       <div className={styles.page}>
-        <AppHeader
+        <WorkspaceChrome
           leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
           rightSlot={headerRightSlot}
           statusSlot={<UsageIndicator />}
@@ -357,7 +357,7 @@ export default function SpacePage() {
   if (error || !space) {
     return (
       <div className={styles.page}>
-        <AppHeader
+        <WorkspaceChrome
           leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
           rightSlot={headerRightSlot}
           statusSlot={<UsageIndicator />}
@@ -377,7 +377,7 @@ export default function SpacePage() {
 
   return (
     <div className={styles.page}>
-      <AppHeader
+      <WorkspaceChrome
         leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
         rightSlot={headerRightSlot}
         statusSlot={<UsageIndicator />}
