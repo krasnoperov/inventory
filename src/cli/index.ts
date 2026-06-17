@@ -15,6 +15,10 @@ import { handleVideo } from './commands/video';
 import { handleInit } from './commands/init';
 import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
+import {
+  AUDIO_FORGE_MEDIA_MODES,
+  isAudioForgeMediaMode,
+} from '../shared/mediaOperationMatrix';
 
 declare const __INVENTORY_CLI_VERSION__: string | undefined;
 
@@ -171,8 +175,10 @@ Forge:
   batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
 
 Audio:
-  audio generate "prompt" --name <name> --type <type> -o <file>
-  audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
+  audio speech generate "text" --name <name> -o <file>
+  audio dialogue generate --input script.txt --name <name> -o <file>
+  audio music batch "prompt" --name <name> --count <2-8> --output-dir <dir>
+  audio sfx generate "prompt" --name <name> -o <file>
 
 Video:
   video generate "prompt" --name <name> --type <type> -o <file>
@@ -196,7 +202,7 @@ Examples:
   pnpm run cli listen --space space_123
   pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
   pnpm run cli batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
-  pnpm run cli audio generate "A short brass victory sting" --name "Victory Sting" --type audio -o victory.wav
+  pnpm run cli audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
   pnpm run cli video generate "A looping idle animation" --name "Idle Animation" --type animation -o idle.mp4
   pnpm run cli runs export --latest --format remotion -o keyframes.json
   pnpm run cli assets
@@ -316,25 +322,70 @@ Usage:
 }
 
 function printAudioHelp(positionals: string[]): void {
-  const subcommand = positionals.find((value) => value !== 'help');
-  if (subcommand === 'generate') {
+  const [first, second] = positionals.filter((value) => value !== 'help');
+  const modes = AUDIO_FORGE_MEDIA_MODES.join('|');
+
+  if (isAudioForgeMediaMode(first)) {
+    if (second === 'generate') {
+      console.log(`
+Usage:
+  pnpm run cli audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
+  pnpm run cli audio ${first} generate --input <file> --name <name> -o <file> [--space <id>]
+`);
+      return;
+    }
+
+    if (second === 'batch') {
+      console.log(`
+Usage:
+  pnpm run cli audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+`);
+      return;
+    }
+
     console.log(`
 Usage:
-  pnpm run cli audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  pnpm run cli audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
+  pnpm run cli audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
 `);
     return;
   }
 
-  if (subcommand === 'batch') {
+  if (first === 'generate') {
+    console.log(`
+Usage:
+  pnpm run cli audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+
+Preferred mode form:
+  pnpm run cli audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
+`);
+    return;
+  }
+
+  if (first === 'batch') {
     console.log(`
 Usage:
   pnpm run cli audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--space <id>]
+
+Preferred mode form:
+  pnpm run cli audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
 `);
     return;
   }
 
   console.log(`
 Usage:
+  pnpm run cli audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
+  pnpm run cli audio <${modes}> generate --input <file> --name <name> -o <file> [--space <id>]
+  pnpm run cli audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+
+Modes:
+  speech      Spoken narration or voiceover
+  dialogue    Multi-speaker scripts; use --input for multiline scripts
+  music       Music cues and beds
+  sfx         Sound effects
+
+Low-level compatibility:
   pnpm run cli audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
   pnpm run cli audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--space <id>]
 `);

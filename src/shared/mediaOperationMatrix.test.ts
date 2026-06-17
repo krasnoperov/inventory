@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
   CLI_GENERATION_PROFILES,
+  AUDIO_FORGE_MEDIA_MODES,
   MEDIA_OPERATION_MATRIX,
   canUseSlotMediaKindForForgeMode,
   getAssetTypeForForgeMode,
@@ -17,6 +18,7 @@ describe('media operation matrix', () => {
       ['image', 'video', 'speech', 'dialogue', 'music', 'sfx']
     );
     assert.equal(new Set(MEDIA_OPERATION_MATRIX.map((entry) => entry.mode)).size, MEDIA_OPERATION_MATRIX.length);
+    assert.deepEqual(AUDIO_FORGE_MEDIA_MODES, ['speech', 'dialogue', 'music', 'sfx']);
   });
 
   test('maps Forge Tray modes to output media kinds and reference compatibility', () => {

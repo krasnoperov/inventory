@@ -39,7 +39,7 @@ pnpm run cli upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
 pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
 
 # 8. Generate audio through website jobs and download the completed file
-pnpm run cli audio generate "A short brass victory sting" --name "Victory Sting" --type audio -o audio/victory.wav
+pnpm run cli audio sfx generate "A short brass victory sting" --name "Victory Sting" -o audio/victory.wav
 
 # 9. Generate video through website jobs and download the completed file
 pnpm run cli video generate "A looping idle animation" --name "Idle Animation" --type animation -o video/idle.mp4
@@ -293,18 +293,32 @@ GenerationWorkflow job lifecycle as image generation. They send
 `mediaKind: "audio"` and download the completed variant through the
 authenticated variant media endpoint.
 
-```bash
-pnpm run cli audio generate "A short brass victory sting" \
-  --name "Victory Sting" \
-  --type audio \
-  -o audio/victory.wav
+Canonical audio commands make the Forge Tray mode explicit: `speech`,
+`dialogue`, `music`, or `sfx`. The CLI sends the matching canonical asset type
+and `mediaKind: "audio"`.
 
-pnpm run cli audio batch "Three short UI notification sounds" \
-  --name "Notification Sound" \
-  --type audio \
+```bash
+pnpm run cli audio speech generate "Podcast narration for the level intro" \
+  --name "Intro Narration" \
+  -o audio/intro-narration.wav
+
+pnpm run cli audio dialogue generate --input scripts/blacksmith-dialogue.txt \
+  --name "Blacksmith Dialogue" \
+  -o audio/blacksmith-dialogue.wav
+
+pnpm run cli audio music batch "Three 20 second low-intensity dungeon music beds" \
+  --name "Dungeon Bed" \
   --count 3 \
-  --output-dir audio/notifications
+  --output-dir audio/dungeon-beds
+
+pnpm run cli audio sfx generate "A crisp inventory item pickup sound effect" \
+  --name "Item Pickup" \
+  -o audio/item-pickup.wav
 ```
+
+Dialogue and speech prompts can also be passed as direct multiline shell text.
+`--input <file>` is the practical path for reusable dialogue scripts, with one
+`Speaker: line` entry per line for multi-speaker dialogue.
 
 Audio generation currently does not accept `--refs`, `derive`, or `refine`
 commands. Audio batch downloads completed files into the requested directory but

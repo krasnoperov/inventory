@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import type { StoredConfig } from '../lib/types';
 import type { BatchResult, GenerateResult, Variant } from '../lib/websocket-client';
 import {
@@ -842,6 +845,123 @@ test('audio generate sends audio request and downloads variant media', async () 
   }]);
 });
 
+test('explicit audio modes send canonical asset types', async () => {
+  const cases = [
+    ['speech', 'speech'],
+    ['dialogue', 'dialogue'],
+    ['music', 'music'],
+    ['sfx', 'sfx'],
+  ] as const;
+
+  for (const [mode, assetType] of cases) {
+    const client = new FakeClient();
+    const { deps } = depsFor(client);
+
+    await executeAudioCommand('generate', {
+      positionals: ['prompt', 'for', mode],
+      options: {
+        space: 'space-1',
+        name: `${mode} asset`,
+        o: `${mode}.wav`,
+      },
+    }, deps, { mode });
+
+    assert.deepEqual(client.generateParams, {
+      name: `${mode} asset`,
+      assetType,
+      prompt: `prompt for ${mode}`,
+      aspectRatio: undefined,
+      parentAssetId: undefined,
+      disableStyle: false,
+      mediaKind: 'audio',
+    });
+  }
+});
+
+test('dialogue audio generate reads multiline prompt from input file', async () => {
+  const cwd = await mkdtemp(path.join(os.tmpdir(), 'inventory-audio-input-'));
+  const inputPath = path.join(cwd, 'dialogue.txt');
+
+  try {
+    await writeFile(inputPath, 'Narrator: Welcome to the forge.\nHero: Ready when you are.', 'utf8');
+
+    const client = new FakeClient();
+    const { deps } = depsFor(client);
+
+    await executeAudioCommand('generate', {
+      positionals: [],
+      options: {
+        space: 'space-1',
+        name: 'Forge Dialogue',
+        input: inputPath,
+        o: 'dialogue.wav',
+      },
+    }, deps, { mode: 'dialogue' });
+
+    assert.deepEqual(client.generateParams, {
+      name: 'Forge Dialogue',
+      assetType: 'dialogue',
+      prompt: 'Narrator: Welcome to the forge.\nHero: Ready when you are.',
+      aspectRatio: undefined,
+      parentAssetId: undefined,
+      disableStyle: false,
+      mediaKind: 'audio',
+    });
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('audio input file cannot be combined with positional prompt', async () => {
+  const cwd = await mkdtemp(path.join(os.tmpdir(), 'inventory-audio-input-'));
+  const inputPath = path.join(cwd, 'speech.txt');
+
+  try {
+    await writeFile(inputPath, 'Narration from file', 'utf8');
+
+    const client = new FakeClient();
+    const { deps } = depsFor(client);
+
+    await assert.rejects(
+      () => executeAudioCommand('generate', {
+        positionals: ['inline narration'],
+        options: {
+          space: 'space-1',
+          name: 'Narration',
+          input: inputPath,
+          o: 'speech.wav',
+        },
+      }, deps, { mode: 'speech' }),
+      /Pass either prompt text or --input <file>, not both/
+    );
+
+    assert.equal(client.connected, false);
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('audio input file is generate-only', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeAudioCommand('batch', {
+      positionals: [],
+      options: {
+        space: 'space-1',
+        name: 'Dialogue Batch',
+        input: 'dialogue.txt',
+        count: '2',
+        'output-dir': 'audio',
+      },
+    }, deps, { mode: 'dialogue' }),
+    /Audio --input is only supported with generate/
+  );
+
+  assert.equal(client.connected, false);
+});
+
 test('audio batch downloads audio files without writing image manifest', async () => {
   const client = new FakeClient();
   const { deps, mediaDownloads, manifests } = depsFor(client);
@@ -851,16 +971,15 @@ test('audio batch downloads audio files without writing image manifest', async (
     options: {
       space: 'space-1',
       name: 'Stinger',
-      type: 'audio',
       count: '2',
       mode: 'set',
       'output-dir': 'audio',
     },
-  }, deps);
+  }, deps, { mode: 'sfx' });
 
   assert.deepEqual(client.batchParams, {
     name: 'Stinger',
-    assetType: 'audio',
+    assetType: 'sfx',
     prompt: 'make two stingers',
     count: 2,
     mode: 'set',

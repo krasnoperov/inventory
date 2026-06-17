@@ -1,4 +1,4 @@
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import type { ParsedArgs, StoredConfig } from '../lib/types';
@@ -33,6 +33,8 @@ import {
   cliGenerationSupportsRefs,
   getCliGenerationMediaKind,
   getCliGenerationProfile,
+  getMediaOperationEntry,
+  type AudioForgeMediaMode,
   type MediaGenerationCommand,
 } from '../../shared/mediaOperationMatrix';
 
@@ -148,6 +150,10 @@ interface ExecuteForgeOptions {
   saveBatchManifest?: boolean;
 }
 
+interface ExecuteAudioOptions {
+  mode?: AudioForgeMediaMode;
+}
+
 export async function handleGenerate(parsed: ParsedArgs): Promise<void> {
   await handleForgeCommand('generate', parsed);
 }
@@ -206,18 +212,30 @@ export async function executeForgeCommand(
 export async function executeAudioCommand(
   command: AudioForgeCommand,
   parsed: ParsedArgs,
-  deps: CommandDeps = defaultDeps
+  deps: CommandDeps = defaultDeps,
+  options: ExecuteAudioOptions = {}
 ): Promise<GenerateResult | BatchResult> {
   const audioProfile = getCliGenerationProfile('audio');
   if (!audioProfile.commands.includes(command)) {
     throw new Error(`Audio generation does not support ${command}`);
   }
 
+  const modeEntry = options.mode ? getMediaOperationEntry(options.mode) : undefined;
+  if (modeEntry && !modeEntry.cliCommands.includes(command)) {
+    throw new Error(`Audio ${modeEntry.label.toLowerCase()} supports only ${modeEntry.cliCommands.join(' or ')}`);
+  }
+
   if (!cliGenerationSupportsRefs('audio') && parsed.options.refs) {
     throw new Error('Audio generation does not support --refs yet');
   }
 
-  return executeForgeCommand(command, parsed, deps, {
+  if (parsed.options.input && command !== 'generate') {
+    throw new Error('Audio --input is only supported with generate');
+  }
+
+  const audioParsed = await prepareAudioParsedArgs(parsed, options.mode);
+
+  return executeForgeCommand(command, audioParsed, deps, {
     mediaKind: audioProfile.mediaKind,
     saveBatchManifest: audioProfile.savesBatchManifest,
   });
@@ -237,6 +255,28 @@ export async function executeVideoCommand(
     mediaKind: videoProfile.mediaKind,
     saveBatchManifest: videoProfile.savesBatchManifest,
   });
+}
+
+async function prepareAudioParsedArgs(
+  parsed: ParsedArgs,
+  mode?: AudioForgeMediaMode
+): Promise<ParsedArgs> {
+  const options = { ...parsed.options };
+  const positionals = [...parsed.positionals];
+
+  if (mode) {
+    options.type = getMediaOperationEntry(mode).assetType;
+  }
+
+  if (options.input) {
+    if (positionals.join(' ').trim()) {
+      throw new Error('Pass either prompt text or --input <file>, not both');
+    }
+    const input = await readFile(options.input, 'utf8');
+    positionals.push(input);
+  }
+
+  return { options, positionals };
 }
 
 async function executeGenerate(
