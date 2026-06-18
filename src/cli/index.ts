@@ -197,6 +197,7 @@ Forge:
   batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
 
 Audio:
+  audio voices
   audio speech generate "text" --name <name> -o <file>
   audio dialogue generate --input script.txt --name <name> -o <file>
   audio music batch "prompt" --name <name> --count <2-8> --output-dir <dir>
@@ -363,12 +364,26 @@ function printAudioHelp(positionals: string[]): void {
   const [first, second] = positionals.filter((value) => value !== 'help');
   const modes = AUDIO_FORGE_MEDIA_MODES.join('|');
 
+  if (first === 'voices') {
+    console.log(`
+Usage:
+  makefx audio voices [--json]
+
+Lists ElevenLabs voices available to the connected account when ElevenLabs is the active audio provider.
+`);
+    return;
+  }
+
   if (isAudioForgeMediaMode(first)) {
     if (second === 'generate') {
       console.log(`
 Usage:
   makefx audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
   makefx audio ${first} generate --input <file> --name <name> -o <file> [--space <id>]
+
+Voice selection:
+  --voice <voice_id>                    Speech voice, or dialogue fallback voice
+  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance
 `);
       return;
     }
@@ -385,6 +400,10 @@ Usage:
 Usage:
   makefx audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
   makefx audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+
+Voice selection:
+  --voice <voice_id>                    Speech voice, or dialogue fallback voice
+  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance
 `);
     return;
   }
@@ -416,12 +435,17 @@ Usage:
   makefx audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
   makefx audio <${modes}> generate --input <file> --name <name> -o <file> [--space <id>]
   makefx audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+  makefx audio voices [--json]
 
 Modes:
   speech      Spoken narration or voiceover
   dialogue    Multi-speaker scripts; use --input for multiline scripts
   music       Music cues and beds
   sfx         Sound effects
+
+Voice selection:
+  --voice <voice_id>                    Speech voice, or dialogue fallback voice
+  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance
 
 Low-level compatibility:
   makefx audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]

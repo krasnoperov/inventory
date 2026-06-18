@@ -104,12 +104,17 @@ makefx batch "Three cinematic keyframes in Russafa market" \
 Generate audio through website jobs:
 
 ```bash
+makefx audio voices
+
 makefx audio speech generate "Podcast narration for the level intro" \
   --name "Intro Narration" \
+  --voice voice_narrator \
   -o audio/intro-narration.wav
 
 makefx audio dialogue generate --input scripts/blacksmith-dialogue.txt \
   --name "Blacksmith Dialogue" \
+  --voice voice_default \
+  --dialogue-voices voice_blacksmith,voice_player \
   -o audio/blacksmith-dialogue.wav
 
 makefx audio music batch "Three 20 second low-intensity dungeon music beds" \
@@ -149,10 +154,14 @@ When the website is configured with `INVENTORY_AUDIO_PROVIDER=elevenlabs`,
 `audio speech ...`/`audio dialogue ...` prompts are generated through
 ElevenLabs speech or dialogue. Multi-speaker dialogue can be sent as direct
 multiline shell text or with `--input <file>`; use one `Speaker: line` entry per
-line. The website maps speakers to the comma-separated
-`ELEVENLABS_DIALOGUE_VOICE_IDS` configured on the worker. The CLI still sends
-only the prompt, canonical asset type, and `mediaKind: "audio"`; API keys,
-voice IDs, model IDs, and output format stay server-controlled.
+line.
+
+Use `makefx audio voices` to list the connected ElevenLabs account's available
+voices. Pass the printed `voiceId` with `--voice <voice_id>` for speech. For
+dialogue, `--dialogue-voices <id,id,...>` maps voice IDs to speakers by first
+appearance in the script, and `--voice` acts as the fallback voice for blank or
+omitted dialogue slots. API keys, model IDs, and output format stay
+server-controlled; CLI voice flags are per-call overrides.
 
 The older `audio generate ... --type <type>` and
 `audio batch ... --type <type>` forms remain available as low-level
@@ -196,6 +205,8 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--variant <id>` | `refine`, `video refine` | Source variant to refine |
 | `--refs <refs>` | `derive`, `batch`, `video derive` | Comma-separated variant IDs or local image paths |
 | `--input <file>` | `audio <mode> generate` | Read prompt text from a file; useful for multiline speech and dialogue scripts |
+| `--voice <id>` | `audio speech generate`, `audio dialogue generate`, low-level speech/dialogue audio commands | ElevenLabs speech voice, or dialogue fallback voice |
+| `--dialogue-voices <ids>` | `audio dialogue generate`, `audio dialogue batch`, low-level dialogue audio commands | Comma-separated ElevenLabs voice IDs ordered by first speaker appearance |
 | `-o`, `--output <file>` | `generate`, `refine`, `derive`, `audio <mode> generate`, `video generate`, `video refine`, `video derive` | Local download path |
 | `--output-dir <dir>` | `batch`, `audio <mode> batch` | Directory for downloaded batch files |
 | `--count <2-8>` | `batch`, `audio <mode> batch` | Number of artifacts to generate |
