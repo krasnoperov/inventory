@@ -23,6 +23,7 @@ import { webhookRoutes } from './webhooks';
 import { uploadRoutes } from './upload';
 import { trainingExportRoutes } from './training-export';
 import { voicesRoutes } from './voices';
+import { contentRoutes } from './content';
 import { renderStartApp } from '../frontend-start-ssr';
 
 /**
@@ -78,7 +79,8 @@ export function registerRoutes(
   // Voice listing routes (ElevenLabs audio provider)
   app.route('/', voicesRoutes);
 
-  // --- Domain routes will be added per ARCHITECTURE.md ---
+  // Public docs and agent-readable text discovery
+  app.route('/', contentRoutes);
 
   app.doc('/api/openapi.json', {
     openapi: '3.0.0',

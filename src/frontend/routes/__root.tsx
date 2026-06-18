@@ -15,9 +15,9 @@ import '../styles/theme.css';
 import '../styles/global.css';
 
 const DESCRIPTION =
-  'Make Effects helps teams generate, refine, and assemble AI-assisted game assets with full lineage, real-time collaboration, and production-ready media handoff.';
+  'Make Effects helps agents and creative teams generate images, video, and audio with variants, prompt history, lineage, and production-ready media handoff.';
 const SOCIAL_DESCRIPTION =
-  'AI-assisted game asset production with lineage, collaboration, and media handoff.';
+  'AI media production for agents and teams: generate images, video, and audio from the web app or makefx CLI.';
 
 function Document({ children }: { children: ReactNode }) {
   return (

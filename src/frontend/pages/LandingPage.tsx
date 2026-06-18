@@ -97,7 +97,10 @@ export default function LandingPage() {
           user ? (
             <HeaderNav userName={user.name} userEmail={user.email} />
           ) : (
-            <Link to="/login" className={styles.authButton}>Sign In</Link>
+            <nav className={styles.nav} aria-label="Public navigation">
+              <Link to="/docs/quickstart" className={styles.navLink}>Docs</Link>
+              <Link to="/login" className={styles.authButton}>Sign In</Link>
+            </nav>
           )
         }
       />
@@ -107,76 +110,111 @@ export default function LandingPage() {
           {!user ? (
             // Logged out: Show hero and features
             <div className={styles.hero}>
-              <h2 className={styles.headline}>
-                Make Effects for AI-assisted game art.
-              </h2>
-              <p className={styles.subtitle}>
-                Generate, refine, and forge visual assets with full lineage,
-                real-time collaboration, and pipelines built for sprite sheets
-                and turnarounds.
-              </p>
+              <div className={styles.heroGrid}>
+                <section className={styles.heroCopy} aria-labelledby="landing-heading">
+                  <p className={styles.eyebrow}>makefx.app + makefx CLI</p>
+                  <h1 id="landing-heading" className={styles.headline}>
+                    AI media production for agents and teams.
+                  </h1>
+                  <p className={styles.subtitle}>
+                    Generate images, video, and audio from the web app or CLI.
+                    Track every result with variants, prompt history, lineage,
+                    and production-ready handoff.
+                  </p>
+
+                  <div className={styles.ctaButtons}>
+                    <Link to="/login" className={styles.ctaButton}>Sign in with Google</Link>
+                    <a className={styles.ctaButtonSecondary} href="#cli">Use the CLI</a>
+                  </div>
+                </section>
+
+                <aside id="cli" className={styles.cliPanel} aria-label="Make Effects CLI examples">
+                  <div className={styles.cliHeader}>
+                    <span className={styles.cliDot} />
+                    <span className={styles.cliDot} />
+                    <span className={styles.cliDot} />
+                    <span className={styles.cliTitle}>makefx</span>
+                  </div>
+                  <pre className={styles.cliCode}>
+                    <code>{`npm install -g makefx
+makefx login
+
+makefx generate "A market background" \\
+  -o art/market.png
+makefx audio sfx generate "Magic pickup" \\
+  -o audio/pickup.wav
+makefx video generate "Looping idle animation" \\
+  -o video/idle.mp4
+makefx assets --json`}</code>
+                  </pre>
+                </aside>
+              </div>
+
+              <div className={styles.mediaStrip} aria-label="Supported media">
+                <span>Images</span>
+                <span>Video</span>
+                <span>Audio</span>
+                <span>Variants</span>
+                <span>Lineage</span>
+                <span>Handoff</span>
+              </div>
 
               <div className={styles.features}>
                 <div className={styles.featureItem}>
                   <span className={styles.featureIcon} aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="5" r="2.5" />
-                      <circle cx="6" cy="13" r="2.5" />
-                      <circle cx="18" cy="13" r="2.5" />
-                      <circle cx="12" cy="20" r="2.5" />
-                      <path d="M12 7.5v2M12 16.5v1M10 6.75 7.5 11.25M14 6.75 16.5 11.25M8 14.5l3 4M16 14.5l-3 4" />
+                      <rect x="4" y="5" width="16" height="12" rx="2" />
+                      <path d="m7 14 3-3 2 2 2-3 3 4" />
+                      <circle cx="9" cy="9" r="1" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Lineage &amp; recipes</span>
+                  <span className={styles.featureText}>Generate media</span>
                   <span className={styles.featureDescription}>
-                    Every variant remembers the prompt and source assets that made it.
+                    Create images, video, speech, dialogue, music, and sound effects through website-backed jobs.
                   </span>
                 </div>
                 <div className={styles.featureItem}>
                   <span className={styles.featureIcon} aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M6 4h4v4H6zM14 4h4v4h-4zM6 12h4v4H6zM14 12h4v4h-4z" />
-                      <path d="M9 18h6l-1 3h-4z" />
+                      <path d="M4 5h16M4 12h16M4 19h16" />
+                      <path d="M8 5v14M16 5v14" />
+                      <circle cx="8" cy="12" r="2" />
+                      <circle cx="16" cy="19" r="2" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Forge</span>
+                  <span className={styles.featureText}>Track every result</span>
                   <span className={styles.featureDescription}>
-                    Combine existing assets into new ones. Lineage is computed automatically.
+                    Keep variants, prompts, provider metadata, and source references attached to every asset.
                   </span>
                 </div>
                 <div className={styles.featureItem}>
                   <span className={styles.featureIcon} aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="6" height="6" rx="1" />
-                      <rect x="11" y="3" width="6" height="6" rx="1" />
-                      <rect x="3" y="11" width="6" height="6" rx="1" />
-                      <path d="M14 11.5a4.5 4.5 0 1 1 0 7" />
-                      <path d="M13 15.5 14 18l2.5-.5" />
+                      <path d="M4 7h16" />
+                      <path d="M7 12h10" />
+                      <path d="M10 17h4" />
+                      <path d="m5 4-2 3 2 3" />
+                      <path d="m19 14 2 3-2 3" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Tile &amp; rotation pipelines</span>
+                  <span className={styles.featureText}>Agent-ready CLI</span>
                   <span className={styles.featureDescription}>
-                    Spritesheets, directional turnarounds, and seamless tiles in one flow.
+                    Let automation call `makefx generate`, watch jobs, download files, and inspect assets as JSON.
                   </span>
                 </div>
                 <div className={styles.featureItem}>
                   <span className={styles.featureIcon} aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="8" cy="9" r="3" />
-                      <circle cx="16" cy="9" r="3" />
-                      <path d="M2.5 20c.5-3 2.75-5 5.5-5s5 2 5.5 5" />
-                      <path d="M10.5 20c.5-3 2.75-5 5.5-5s5 2 5.5 5" />
+                      <path d="M5 4h10l4 4v12H5z" />
+                      <path d="M15 4v5h5" />
+                      <path d="M8 13h8M8 17h5" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Real-time spaces</span>
+                  <span className={styles.featureText}>Production handoff</span>
                   <span className={styles.featureDescription}>
-                    Bring your art director into the same session. Full-state sync over WebSockets.
+                    Organize media in shared spaces, place production records, and export files for downstream tools.
                   </span>
                 </div>
-              </div>
-
-              <div className={styles.ctaButtons}>
-                <Link to="/login" className={styles.ctaButton}>Sign in with Google</Link>
               </div>
             </div>
           ) : (
