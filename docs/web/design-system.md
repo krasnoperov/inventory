@@ -274,10 +274,14 @@ to `theme.css`, then consume it.
 
 ## For designers
 
-The tokens above are also mirrored to **DTCG JSON under `design/tokens/`** for
-tooling handoff (Figma, Claude Design, and similar). That mirror is a generated,
-read-only artifact — tools should read the JSON, but **`theme.css` is the source of
-truth.** When the JSON and the CSS disagree, regenerate from the CSS.
+**`src/frontend/styles/theme.css` is the source of truth.** Copy token names from
+this guide and from that file when proposing UI.
+
+The tokens are also mirrored to **DTCG JSON under `design/tokens/`** for tooling
+handoff (Figma, Claude Design, and similar) — a generated, read-only artifact
+produced by the companion token-snapshot tooling (`pnpm tokens:snapshot`). Once
+that mirror is present, tools may read the JSON, but `theme.css` still wins: when
+the JSON and the CSS disagree, regenerate from the CSS.
 
 Practical guidance when proposing UI:
 
