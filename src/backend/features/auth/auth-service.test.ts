@@ -20,7 +20,7 @@ const createAuthService = async (overrides: Partial<Env> = {}) => {
     OIDC_KEY_ID: 'test-key',
     OIDC_AUDIENCE: 'forgetray-api',
     OIDC_ISSUER: 'https://issuer.test',
-    OIDC_ALLOWED_CLIENT_IDS: JSON.stringify(['forgetray-cli', 'qa-cli']),
+    OIDC_ALLOWED_CLIENT_IDS: JSON.stringify(['makefx-cli', 'qa-cli']),
     GOOGLE_CLIENT_ID: 'google-client-id',
     GOOGLE_CLIENT_SECRET: 'google-client-secret',
     ENVIRONMENT: 'stage',

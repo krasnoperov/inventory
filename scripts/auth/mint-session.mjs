@@ -8,7 +8,7 @@ import os from 'node:os';
 
 const DEFAULT_ENV = 'production';
 const COOKIE_NAME = 'auth_token';
-const CLI_CONFIG_DIR = 'forgetray-cli';
+const CLI_CONFIG_DIR = 'makefx-cli';
 const ENV_ORIGIN = {
   production: 'https://makefx.app',
   stage: 'https://makefx-stage.krasnoperov.me',
