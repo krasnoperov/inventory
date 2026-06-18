@@ -133,6 +133,7 @@ export function contentNegotiation(): MiddlewareHandler<AppContext> {
     const res = await renderStartApp(c, { forceDocument: true });
     const out = new Response(res.body, res);
     out.headers.set('Link', linkHeader(contentPath, false));
+    out.headers.set('Vary', 'Accept');
     out.headers.set('X-Llms-Txt', '/llms.txt');
     return out;
   };
