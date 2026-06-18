@@ -17,6 +17,10 @@ import { resolveImageModel } from '../../../services/nanoBananaService';
 import { PromptBuilder } from './PromptBuilder';
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../../../shared/websocket-types';
+import {
+  determineVeoReferenceMode,
+  type VeoReferenceMode,
+} from '../../../services/googleVeoService';
 
 const log = loggers.generationController;
 const DEFAULT_VIDEO_MODEL = 'veo-3.1-generate-preview';
@@ -48,6 +52,8 @@ export interface GenerationRecipe {
   styleOverride?: boolean;
   /** Model provider ('gemini' or 'custom') */
   modelProvider?: 'gemini' | 'custom';
+  /** Veo request mode selected from resolved image references */
+  veoReferenceMode?: VeoReferenceMode;
   /** ElevenLabs speech voice ID (audio assets) — persisted for retries */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio assets) — persisted for retries */
@@ -217,6 +223,7 @@ export class VariantFactory {
     const styleResult = await this.injectStyle(recipe, resolved.sourceImageKeys, input.disableStyle);
     recipe = styleResult.recipe;
     const effectiveSourceImageKeys = styleResult.sourceImageKeys;
+    recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
 
     // Create placeholder variant
     const variant = await this.repo.createPlaceholderVariant({
@@ -304,6 +311,7 @@ export class VariantFactory {
     const styleResult = await this.injectStyle(recipe, resolved.sourceImageKeys, input.disableStyle);
     recipe = styleResult.recipe;
     const effectiveSourceImageKeys = styleResult.sourceImageKeys;
+    recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
 
     // Create placeholder variant
     const variant = await this.repo.createPlaceholderVariant({
@@ -376,6 +384,7 @@ export class VariantFactory {
       parentVariantIds: result.parentVariantIds.length > 0 ? result.parentVariantIds : undefined,
       operation,
       styleImageKeys: effectiveStyleImageKeys?.length ? effectiveStyleImageKeys : undefined,
+      veoReferenceMode: recipe.veoReferenceMode,
       modelProvider: recipe.modelProvider,
       voiceId: recipe.voiceId,
       dialogueVoiceIds: recipe.dialogueVoiceIds?.length ? recipe.dialogueVoiceIds : undefined,
@@ -521,6 +530,7 @@ export class VariantFactory {
     const styleResult = await this.injectStyle(recipe, resolved.sourceImageKeys, input.disableStyle);
     recipe = styleResult.recipe;
     const effectiveSourceImageKeys = styleResult.sourceImageKeys;
+    recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
 
     // Auto-set parentAssetId from first reference
     let effectiveParentAssetId = input.parentAssetId;
@@ -749,6 +759,21 @@ export class VariantFactory {
       recipe: updatedRecipe,
       sourceImageKeys: combinedSourceImageKeys,
       styleImageKeys: styleImageKeys.length > 0 ? styleImageKeys : undefined,
+    };
+  }
+
+  private withVeoReferenceMode(
+    recipe: GenerationRecipe,
+    sourceImageKeys: string[],
+    styleImageKeys?: string[]
+  ): GenerationRecipe {
+    if (recipe.mediaKind !== 'video') {
+      return recipe;
+    }
+
+    return {
+      ...recipe,
+      veoReferenceMode: determineVeoReferenceMode(sourceImageKeys.length, styleImageKeys?.length ?? 0),
     };
   }
 

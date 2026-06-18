@@ -446,6 +446,7 @@ export class GenerationController extends BaseController {
       sourceImageKeys: recipe.sourceImageKeys,
       parentVariantIds: recipe.parentVariantIds,
       styleImageKeys: recipe.styleImageKeys,
+      veoReferenceMode: recipe.veoReferenceMode,
       operation: recipe.operation,
       modelProvider: recipe.modelProvider,
       voiceId: recipe.voiceId,

@@ -218,6 +218,18 @@ function formatMediaKindList(mediaKinds: readonly MediaKind[]): string {
   return `${mediaKinds.slice(0, -1).join(', ')} or ${mediaKinds[mediaKinds.length - 1]}`;
 }
 
+function isVeoImageInput(slot: { variant: Variant }): boolean {
+  return slot.variant.media_kind === 'image' || Boolean(slot.variant.image_key);
+}
+
+function getVeoReferenceModeLabel(imageSlotCount: number, styleApplies: boolean, styleImageCount: number): string {
+  if (styleApplies && styleImageCount > 0) return 'Reference images';
+  if (imageSlotCount === 0) return 'Text-to-video';
+  if (imageSlotCount === 1) return 'Image-to-video';
+  if (imageSlotCount === 2) return 'First/last frames';
+  return 'Reference images';
+}
+
 export function ForgeTray({
   allAssets,
   allVariants,
@@ -339,6 +351,12 @@ export function ForgeTray({
   const styleImageCount = mediaModeConfig.supportsStyle && style?.enabled ? style.imageKeys.length : 0;
   const effectiveMaxSlots = maxSlots - styleImageCount;
   const effectiveBatchCount = mediaModeConfig.supportsBatch ? batchCount : 1;
+  const videoStyleApplies = mediaMode === 'video' && !noStyle && !!style?.enabled && styleImageCount > 0;
+  const veoImageSlotIds = useMemo(
+    () => slots.filter(isVeoImageInput).map((slot) => slot.id),
+    [slots]
+  );
+  const veoModeLabel = getVeoReferenceModeLabel(veoImageSlotIds.length, videoStyleApplies, styleImageCount);
 
   // Auto-generated asset name: "<Group> <next index>" (e.g. "Image 3").
   const assetCountForKind = useMemo(
@@ -771,8 +789,8 @@ export function ForgeTray({
 
               {currentMediaGroup === 'video' && (
                 <>
-                  <span className={styles.optChipMuted} title="Duration & resolution — coming soon">
-                    6s · 720p
+                  <span className={styles.optChipMuted} title="Veo reference mode">
+                    {veoModeLabel}
                   </span>
                   <div className={styles.miniSeg} role="group" aria-label="Video count">
                     <span className={`${styles.miniSegItem} ${styles.active}`}>×1</span>
@@ -818,26 +836,43 @@ export function ForgeTray({
           {/* References — only when present; the empty-state add lives in the control bar */}
           {slots.length > 0 && (
             <div className={styles.thumbsRow}>
-              {slots.map((slot) => (
-                <div key={slot.id} className={styles.slotThumb}>
-                  <Thumbnail
-                    variant={slot.variant}
-                    size="fill"
-                    spaceId={spaceId}
-                    className={styles.slotPreview}
-                  />
-                  <button
-                    className={styles.removeButton}
-                    onClick={(e) => handleRemoveSlot(e, slot.id)}
-                    title="Remove"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="8" height="8">
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  </button>
-                  <span className={styles.slotTooltip}>{slot.asset.name}</span>
-                </div>
-              ))}
+              {slots.map((slot) => {
+                const veoImageIndex = veoImageSlotIds.indexOf(slot.id);
+                let slotBadge: string | null = null;
+                if (currentMediaGroup === 'video' && veoImageIndex >= 0) {
+                  if (videoStyleApplies || veoImageSlotIds.length > 2) {
+                    slotBadge = 'Ref';
+                  } else if (veoImageSlotIds.length === 1) {
+                    slotBadge = 'Image';
+                  } else if (veoImageIndex === 0) {
+                    slotBadge = 'Start';
+                  } else if (veoImageIndex === 1) {
+                    slotBadge = 'End';
+                  }
+                }
+
+                return (
+                  <div key={slot.id} className={styles.slotThumb}>
+                    <Thumbnail
+                      variant={slot.variant}
+                      size="fill"
+                      spaceId={spaceId}
+                      className={styles.slotPreview}
+                    />
+                    {slotBadge && <span className={styles.slotBadge}>{slotBadge}</span>}
+                    <button
+                      className={styles.removeButton}
+                      onClick={(e) => handleRemoveSlot(e, slot.id)}
+                      title="Remove"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="8" height="8">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                    <span className={styles.slotTooltip}>{slot.asset.name}</span>
+                  </div>
+                );
+              })}
               {canAddMore && (
                 <button
                   className={styles.addThumbButton}

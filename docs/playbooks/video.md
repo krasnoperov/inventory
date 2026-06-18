@@ -39,10 +39,9 @@ every shot derives from keyframes that share the same character sheet.
 
 > Veo's first-and-last-frame interpolation (animate between two stills with a
 > described camera move) and scene extension are powerful when you need a precise
-> camera arc or a guaranteed start/end state.[^gcloud-veo] Track whether the
-> Make Effects video surface exposes them yet in
-> [model-and-parameter-selection.md](../model-and-parameter-selection.md); the
-> keyframe-first principle applies regardless.
+> camera arc or a guaranteed start/end state.[^gcloud-veo] In Make Effects,
+> select two unstyled image keyframes in video mode to use first/last-frame
+> interpolation. The keyframe-first principle applies regardless.
 
 ## Write A Prompt That Actually Directs The Shot
 
