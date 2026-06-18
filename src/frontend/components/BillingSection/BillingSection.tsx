@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useBillingStatus, formatMeterName, formatNumber, type MeterStatus } from '../../hooks/useBillingStatus';
+import { calculateGeminiSpend, formatUsd, useBillingUsage } from '../../hooks/useBillingUsage';
 import styles from './BillingSection.module.css';
 
 interface UsageBarProps {
@@ -44,8 +45,30 @@ function UsageBar({ meter }: UsageBarProps) {
 
 export function BillingSection() {
   const { billing, isLoading, error } = useBillingStatus();
+  const {
+    usage,
+    isLoading: isUsageLoading,
+    error: usageError,
+  } = useBillingUsage();
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const geminiSpend = calculateGeminiSpend(usage);
+  const geminiSpendDisplay = isUsageLoading
+    ? 'Loading...'
+    : usageError && !usage
+      ? 'Unavailable'
+      : formatUsd(geminiSpend);
+  const geminiSpendCard = (
+    <div className={styles.spendCard}>
+      <div className={styles.spendInfo}>
+        <span className={styles.spendLabel}>Gemini spend this period</span>
+        <span className={styles.spendValue}>{geminiSpendDisplay}</span>
+      </div>
+      {usageError && (
+        <span className={styles.spendNote}>{usageError}</span>
+      )}
+    </div>
+  );
 
   const handleUpgrade = async () => {
     setIsStartingCheckout(true);
@@ -96,6 +119,7 @@ export function BillingSection() {
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Usage & Billing</h2>
         </div>
+        {geminiSpendCard}
         <div className={styles.notConfigured}>
           <p>Billing is not configured for this account.</p>
         </div>
@@ -154,6 +178,8 @@ export function BillingSection() {
           </div>
         )}
       </div>
+
+      {geminiSpendCard}
 
       {/* Usage Meters */}
       {billing.meters.length > 0 ? (
