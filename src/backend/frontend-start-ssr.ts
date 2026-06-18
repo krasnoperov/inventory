@@ -41,6 +41,10 @@ async function resolveStartSession(c: Context<AppContext>): Promise<AuthSessionR
   return (response as unknown as Response).json<AuthSessionResponse>();
 }
 
+export type StartRenderOptions = {
+  forceDocument?: boolean;
+};
+
 /**
  * Catch-all document handler. Static-asset and non-HTML requests go straight to
  * the ASSETS binding; document navigations are server-rendered by TanStack Start
@@ -49,10 +53,13 @@ async function resolveStartSession(c: Context<AppContext>): Promise<AuthSessionR
  * unstyled content. A redirect thrown by a route `beforeLoad` (e.g. auth guard →
  * /login) is emitted natively by Start as a real 3xx with its Location intact.
  */
-export async function renderStartApp(c: Context<AppContext>): Promise<Response> {
+export async function renderStartApp(
+  c: Context<AppContext>,
+  options: StartRenderOptions = {},
+): Promise<Response> {
   const url = new URL(c.req.url);
 
-  if (looksLikeStaticFile(url.pathname) || !isDocumentNavigation(c)) {
+  if (looksLikeStaticFile(url.pathname) || (!options.forceDocument && !isDocumentNavigation(c))) {
     return c.env.ASSETS.fetch(c.req.raw);
   }
 
