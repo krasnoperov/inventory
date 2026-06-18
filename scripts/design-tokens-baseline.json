@@ -94,18 +94,6 @@
       "oklch(55% 0.18 276/0.25)"
     ],
     "src/frontend/components/HyperbolicCanvas/HyperbolicCanvas.module.css": [
-      "#0d0f14",
-      "#161a22",
-      "#2a2f3a",
-      "#2a2f3a",
-      "#2a2f3a",
-      "#3a4150",
-      "#6ea8fe",
-      "#6ea8fe",
-      "#8a92a3",
-      "#8a92a3",
-      "#8a92a3",
-      "#e6e9ef",
       "rgba(0,0,0,0.4)",
       "rgba(110,168,254,0)",
       "rgba(110,168,254,0.4)",

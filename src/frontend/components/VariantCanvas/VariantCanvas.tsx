@@ -582,7 +582,7 @@ function VariantCanvasInner({
           position="bottom-right"
           pannable
           zoomable
-          nodeColor="var(--color-accent, #6ea8fe)"
+          nodeColor="var(--color-accent)"
           maskColor="rgba(0, 0, 0, 0.5)"
         />
       </ReactFlow>
