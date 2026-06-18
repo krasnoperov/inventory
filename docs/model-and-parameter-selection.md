@@ -95,7 +95,7 @@ Backed by `src/backend/services/googleVeoService.ts`.
 ### Model
 
 Three variants (`googleVeoService.ts:10`), default `veo-3.1-generate-preview`
-(`:58`):
+(`:63`):
 
 | Model ID | Use for | Exposure |
 |-|-|-|
@@ -108,23 +108,23 @@ Fast/lite tier exposure is tracked by
 
 ### Aspect Ratio
 
-`VideoAspectRatio` (`googleVeoService.ts:14`): `16:9` (default) or `9:16` only —
+`VideoAspectRatio` (`googleVeoService.ts:15`): `16:9` (default) or `9:16` only —
 narrower than the image set. Anything else normalizes to `16:9`
-(`normalizeAspectRatio`, `:69`).
+(`normalizeAspectRatio`, `:74`).
 
 ### Resolution
 
-`VideoResolution` (`googleVeoService.ts:15`): `720p` (default), `1080p`, `4k`.
-Unrecognized values fall back to `720p` (`normalizeResolution`, `:79`). `1080p`
+`VideoResolution` (`googleVeoService.ts:16`): `720p` (default), `1080p`, `4k`.
+Unrecognized values fall back to `720p` (`normalizeResolution`, `:84`). `1080p`
 and `4k` are service-supported but **not yet exposed** as public web/CLI controls
 (tracked by
 [INV-70](https://linear.app/usertold/issue/INV-70/expose-video-resolution-720p1080p4k-in-web-cli)).
 
 ### Duration
 
-`VideoDurationSeconds` (`googleVeoService.ts:16`): `4`, `6`, or `8` seconds,
-default `8` (`:61`). **Two rules force 8 seconds** (`normalizeDuration`, `:73`,
-called at `:113`):
+`VideoDurationSeconds` (`googleVeoService.ts:17`): `4`, `6`, or `8` seconds,
+default `8` (`:66`). **Two rules force 8 seconds** (`normalizeDuration`, `:78`,
+called at `:146`):
 
 - when any reference/source image is supplied, or
 - when resolution is anything other than `720p`.
@@ -147,14 +147,14 @@ unstyled source images, it uses first/last-frame interpolation: the first image
 is the starting frame and the second image is `lastFrame`. If active style
 images are present, or if more than two source images remain, it uses Veo
 reference images typed STYLE or ASSET by position (`getReferenceType`,
-`googleVeoService.ts`). In practice: disable style when you need exact
+`googleVeoService.ts:89`). In practice: disable style when you need exact
 first/last-frame interpolation.
 
 Veo is not at parity with the image models here: video generation supports at
-most **3** source/reference images (`googleVeoService.ts:107`), while Pro image
+most **3** source/reference images (`googleVeoService.ts:140`), while Pro image
 generation supports up to 14. When exactly one source image is supplied and no
 style image is prepended, the service sends it through Veo's image-to-video
-`request.image` path instead of `config.referenceImages` (`googleVeoService.ts:135`).
+`request.image` path instead of `config.referenceImages` (`googleVeoService.ts:170`).
 
 ### Decision Table — Video
 
