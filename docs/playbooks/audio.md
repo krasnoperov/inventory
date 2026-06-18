@@ -110,8 +110,8 @@ animates and voices them, Lyria scores them — with the same named references a
 descriptive vocabulary threaded through each step.[^gcloud-nb] When the Make
 Effects audio surface adds native Veo audio or a Lyria music path, the prompting
 discipline on this page carries over unchanged; only the number of separate
-steps shrinks. Current parameters and provider details live in the model and
-parameter selection reference.
+steps shrinks. Current parameters and provider details live in
+[model-and-parameter-selection.md](../model-and-parameter-selection.md).
 
 ## Quick Reference
 
