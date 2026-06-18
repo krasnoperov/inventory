@@ -79,6 +79,9 @@ export async function executePipelineCommand(
   const client = await deps.createClient(ctx.env, ctx.spaceId);
 
   try {
+    if (parsed.options.json === 'true') {
+      client.setConnectionLogging?.(false);
+    }
     await client.connect();
     if (command === 'rotation') {
       return await executeRotation(parsed, ctx, client, deps);

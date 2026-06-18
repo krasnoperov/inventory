@@ -28,6 +28,11 @@ class FakePipelineClient implements PipelineClient {
   tileSetParams: Parameters<PipelineClient['sendTileSetRequest']>[0] | undefined;
   cancelledRotationSetId: string | undefined;
   cancelledTileSetId: string | undefined;
+  connectionLoggingEnabled = true;
+
+  setConnectionLogging(enabled: boolean): void {
+    this.connectionLoggingEnabled = enabled;
+  }
 
   async connect(): Promise<void> {
     this.connected = true;
@@ -163,6 +168,39 @@ test('rotation command starts a configured pipeline and can detach', async () =>
     onStarted: client.rotationParams?.onStarted,
     onStepCompleted: client.rotationParams?.onStepCompleted,
   });
+});
+
+test('pipeline json output disables WebSocket lifecycle logs before connect', async () => {
+  const client = new FakePipelineClient();
+  const { deps, printed } = depsFor(client);
+
+  await executePipelineCommand('rotation', {
+    positionals: [],
+    options: {
+      space: 'space-1',
+      variant: 'variant-source',
+      json: 'true',
+    },
+  }, deps);
+
+  assert.equal(client.connected, true);
+  assert.equal(client.connectionLoggingEnabled, false);
+  assert.doesNotThrow(() => JSON.parse(printed.join('\n')));
+});
+
+test('pipeline pretty output leaves WebSocket lifecycle logs enabled', async () => {
+  const client = new FakePipelineClient();
+  const { deps } = depsFor(client);
+
+  await executePipelineCommand('tileset', {
+    positionals: ['stone floor'],
+    options: {
+      space: 'space-1',
+    },
+  }, deps);
+
+  assert.equal(client.connected, true);
+  assert.equal(client.connectionLoggingEnabled, true);
 });
 
 test('tileset command parses grid, prompt, seed, and tile type', async () => {

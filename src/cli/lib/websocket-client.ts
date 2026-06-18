@@ -543,6 +543,7 @@ export interface VariantMutationClient {
 export interface PipelineClient {
   connect(): Promise<void>;
   disconnect(): void;
+  setConnectionLogging?(enabled: boolean): void;
   sendRotationRequest(params: {
     sourceVariantId: string;
     config: RotationConfig;
@@ -580,6 +581,7 @@ export class WebSocketClient {
   private accessToken: string;
   private env: string;
   private spaceId: string;
+  private connectionLoggingEnabled = true;
 
   // Pending request handlers
   private chatHandlers: Map<string, {
@@ -687,6 +689,10 @@ export class WebSocketClient {
     this.spaceId = spaceId;
   }
 
+  setConnectionLogging(enabled: boolean): void {
+    this.connectionLoggingEnabled = enabled;
+  }
+
   /**
    * Create a WebSocketClient for a given environment and space
    */
@@ -740,7 +746,9 @@ export class WebSocketClient {
       this.ws = new WebSocket(url, wsOptions);
 
       this.ws.on('open', () => {
-        console.log(`[WebSocketClient] Connected to space ${this.spaceId}`);
+        if (this.connectionLoggingEnabled) {
+          console.log(`[WebSocketClient] Connected to space ${this.spaceId}`);
+        }
         resolve();
       });
 
@@ -760,7 +768,9 @@ export class WebSocketClient {
       });
 
       this.ws.on('close', (code, reason) => {
-        console.log(`[WebSocketClient] Disconnected: ${code} - ${reason}`);
+        if (this.connectionLoggingEnabled) {
+          console.log(`[WebSocketClient] Disconnected: ${code} - ${reason}`);
+        }
         this.ws = null;
       });
     });
