@@ -71,11 +71,38 @@ export function contentNegotiationWithRenderer(
         name: 'Make Effects',
         description: 'CLI-first media generation with project memory for variants, prompts, lineage, collaboration, and production handoff.',
         url: PUBLIC_SITE_ORIGIN,
+        schema: 'makefx-agent-discovery-v1',
+        provider: {
+          organization: 'Make Effects',
+          url: PUBLIC_SITE_ORIGIN,
+        },
+        capabilities: {
+          stores: ['assets', 'variants', 'recipes', 'lineage', 'production-records'],
+          public_interfaces: ['markdown-docs', 'llms.txt', 'makefx-cli'],
+        },
         documentation_url: `${PUBLIC_SITE_ORIGIN}/docs`,
         llms_txt: `${PUBLIC_SITE_ORIGIN}/llms.txt`,
         llms_full_txt: `${PUBLIC_SITE_ORIGIN}/llms-full.txt`,
         skills_index_url: `${PUBLIC_SITE_ORIGIN}${AGENT_SKILLS_PATH}`,
         preferred_cli: 'makefx',
+        skills: [
+          {
+            id: 'read-docs',
+            name: 'Read Make Effects docs',
+            description: 'Discover public product, CLI, playbook, and parameter documentation.',
+            inputModes: ['text/markdown'],
+            outputModes: ['text/markdown'],
+            url: `${PUBLIC_SITE_ORIGIN}/llms.txt`,
+          },
+          {
+            id: 'use-cli',
+            name: 'Use the makefx CLI',
+            description: 'Generate media, inspect assets, watch jobs, and export production handoff data.',
+            inputModes: ['application/json', 'text/plain'],
+            outputModes: ['application/json', 'text/plain'],
+            url: `${PUBLIC_SITE_ORIGIN}/docs/cli.md`,
+          },
+        ],
       });
     }
 
@@ -96,6 +123,27 @@ export function contentNegotiationWithRenderer(
             name: 'Operate through the makefx CLI',
             description: 'Generate media, inspect assets, watch jobs, and export production handoff data with JSON-friendly commands.',
             href: `${PUBLIC_SITE_ORIGIN}/docs/cli.md`,
+            type: 'text/markdown',
+          },
+          {
+            id: 'image-playbook',
+            name: 'Generate consistent images',
+            description: 'Build reusable references, style anchors, scenes, and precise edits.',
+            href: `${PUBLIC_SITE_ORIGIN}/docs/image-playbook.md`,
+            type: 'text/markdown',
+          },
+          {
+            id: 'video-playbook',
+            name: 'Generate production video',
+            description: 'Use keyframes, shot direction, and production metadata for video handoff.',
+            href: `${PUBLIC_SITE_ORIGIN}/docs/video-playbook.md`,
+            type: 'text/markdown',
+          },
+          {
+            id: 'audio-playbook',
+            name: 'Generate speech, dialogue, music, and SFX',
+            description: 'Choose audio modes and describe voices, music, ambience, and effects deliberately.',
+            href: `${PUBLIC_SITE_ORIGIN}/docs/audio-playbook.md`,
             type: 'text/markdown',
           },
         ],

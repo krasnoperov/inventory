@@ -6,7 +6,7 @@ Start with the fast loop you already like: use a shell, script, or coding agent 
 
 Make Effects keeps that thread together. The `makefx` CLI gives agents and local workflows a command surface. The web app gives people a visual workspace for review, collaboration, variants, lineage, and production handoff.
 
-## Agent Quick Start
+## Quick Start
 
 ```sh
 npm install -g makefx
@@ -18,11 +18,11 @@ makefx video generate "Looping idle animation" --name "Idle" --type animation -o
 makefx assets --json
 ```
 
-## Public Documentation
+## Learn Make Effects
 
 - [Quickstart](https://makefx.app/docs/quickstart.md)
 - [Core Concepts](https://makefx.app/docs/concepts.md)
 - [CLI Reference](https://makefx.app/docs/cli.md)
 - [Production Handoff](https://makefx.app/docs/production-handoff.md)
-- [LLM index](https://makefx.app/llms.txt)
-- [Full LLM context](https://makefx.app/llms-full.txt)
+- [Media Playbooks](https://makefx.app/docs/media-playbooks.md)
+- [Choosing Models and Settings](https://makefx.app/docs/model-and-parameter-selection.md)

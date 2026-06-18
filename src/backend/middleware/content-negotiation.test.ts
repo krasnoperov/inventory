@@ -91,7 +91,19 @@ describe('contentNegotiation', () => {
     const card = await get(app, '/.well-known/agent-card.json');
     assert.equal(card.status, 200);
     assert.equal(card.headers.get('content-type'), 'application/json');
-    assert.equal((await card.json() as { preferred_cli?: string }).preferred_cli, 'makefx');
+    const agentCard = await card.json() as {
+      schema?: string;
+      provider?: { url?: string };
+      capabilities?: { stores?: string[]; public_interfaces?: string[] };
+      preferred_cli?: string;
+      skills?: unknown[];
+    };
+    assert.equal(agentCard.schema, 'makefx-agent-discovery-v1');
+    assert.equal(agentCard.provider?.url, 'https://makefx.app');
+    assert.ok(agentCard.capabilities?.stores?.includes('lineage'));
+    assert.ok(agentCard.capabilities?.public_interfaces?.includes('makefx-cli'));
+    assert.equal(agentCard.preferred_cli, 'makefx');
+    assert.ok(Array.isArray(agentCard.skills));
 
     const skills = await get(app, '/.well-known/agent-skills/index.json');
     assert.equal(skills.status, 200);
