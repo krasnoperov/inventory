@@ -1,0 +1,229 @@
+{
+  "_comment": "Per-file multiset of hardcoded color values still present in tech-debt CSS. Each entry is the file's complete sorted, lowercased multiset of hex/rgb/rgba/hsl/hsla/oklch/color-mix/named-color matches. The guard fails on ANY mismatch (regression, partial sweep, or value-swap that keeps the count the same). To clear an entry, sweep the file to zero hardcodes and remove the key; to record a deliberate change, regenerate via `pnpm tokens:guard --update-baseline`.",
+  "_generatedAt": "2026-06-18",
+  "files": {
+    "src/frontend/components/AssetCanvas/AssetNode.module.css": [
+      "oklch(55% 0.18 276/0.25)",
+      "oklch(55% 0.18 276/0.3)",
+      "oklch(55% 0.18 276/0.4)",
+      "white"
+    ],
+    "src/frontend/components/AssetCard.module.css": [
+      "white",
+      "white",
+      "white"
+    ],
+    "src/frontend/components/AssetMenu.module.css": [
+      "oklch(55% 0.2 25/0.1)"
+    ],
+    "src/frontend/components/AssetPicker.module.css": [
+      "oklch(55% 0.18 276/0.1)",
+      "oklch(55% 0.18 276/0.15)",
+      "oklch(55% 0.18 276/0.15)"
+    ],
+    "src/frontend/components/BillingSection/BillingSection.module.css": [
+      "oklch(55% 0.15 145/0.15)",
+      "oklch(55% 0.2 25/0.15)",
+      "oklch(60% 0.12 85)",
+      "oklch(60% 0.16 50)",
+      "oklch(65% 0.15 50)",
+      "oklch(65% 0.15 50/0.2)",
+      "oklch(65% 0.18 25)",
+      "oklch(70% 0.14 50)",
+      "oklch(70% 0.18 50)",
+      "oklch(70% 0.18 50/0.15)",
+      "oklch(75% 0.13 90)",
+      "oklch(75% 0.13 90/0.2)",
+      "oklch(75% 0.15 145)",
+      "oklch(75% 0.16 50)",
+      "oklch(75% 0.16 50)",
+      "oklch(80% 0.15 90)",
+      "oklch(80% 0.15 90)",
+      "oklch(80% 0.15 90)",
+      "oklch(80% 0.15 90/0.15)",
+      "oklch(85% 0.18 90)"
+    ],
+    "src/frontend/components/ForgeTray/AssetPickerModal.module.css": [
+      "oklch(55% 0.18 276/0.4)",
+      "white",
+      "white"
+    ],
+    "src/frontend/components/ForgeTray/ForgeChat.module.css": [
+      "oklch(55% 0.18 276/0.08)",
+      "oklch(55% 0.18 276/0.2)",
+      "oklch(65% 0.18 145)",
+      "white",
+      "white",
+      "white"
+    ],
+    "src/frontend/components/ForgeTray/ForgeSlots.module.css": [
+      "oklch(55% 0.18 276/0.08)",
+      "white"
+    ],
+    "src/frontend/components/ForgeTray/ForgeTray.module.css": [
+      "#fff",
+      "#fff",
+      "#fff",
+      "oklch(16% 0.02 250/0.78)",
+      "oklch(20% 0.015 264/0.05)",
+      "oklch(20% 0.015 264/0.07)",
+      "oklch(25.5% 0.008 264)",
+      "oklch(33% 0.008 264)",
+      "oklch(55% 0.18 276/0.08)",
+      "oklch(55% 0.18 276/0.08)",
+      "oklch(55% 0.18 276/0.3)",
+      "oklch(55% 0.18 276/0.5)",
+      "oklch(62% 0.18 276/0.16)",
+      "oklch(89% 0.004 264)",
+      "oklch(98% 0.003 264)",
+      "white",
+      "white",
+      "white",
+      "white",
+      "white",
+      "white"
+    ],
+    "src/frontend/components/ForgeTray/StylePanel.module.css": [
+      "oklch(55% 0.18 276/0.08)",
+      "white",
+      "white",
+      "white"
+    ],
+    "src/frontend/components/ForgeTray/VoicePicker.module.css": [
+      "%23888",
+      "oklch(55% 0.18 276/0.25)"
+    ],
+    "src/frontend/components/HyperbolicCanvas/HyperbolicCanvas.module.css": [
+      "rgba(0,0,0,0.4)",
+      "rgba(110,168,254,0)",
+      "rgba(110,168,254,0.4)",
+      "rgba(110,168,254,0.5)",
+      "rgba(22,26,34,0.8)"
+    ],
+    "src/frontend/components/LineageTree.module.css": [
+      "oklch(55% 0.18 276/0.1)",
+      "white",
+      "white",
+      "white",
+      "white",
+      "white"
+    ],
+    "src/frontend/components/RotationPanel/RotationPanel.module.css": [
+      "oklch(55% 0.18 276/0.08)",
+      "oklch(55% 0.18 276/0.08)",
+      "oklch(55% 0.2 25/0.8)",
+      "oklch(55% 0.2 25/0.9)",
+      "oklch(60% 0.16 145)",
+      "oklch(60% 0.16 145/0.08)",
+      "oklch(65% 0.2 145/0.8)",
+      "oklch(65% 0.2 145/0.9)",
+      "oklch(from var(--color-error)l c h/0.12)",
+      "white",
+      "white",
+      "white"
+    ],
+    "src/frontend/components/Thumbnail/Thumbnail.module.css": [
+      "black",
+      "black",
+      "white",
+      "white",
+      "white",
+      "white"
+    ],
+    "src/frontend/components/TileGrid/TileGrid.module.css": [
+      "oklch(55% 0.18 276/0.9)",
+      "oklch(55% 0.2 25/0.8)",
+      "oklch(55% 0.2 25/0.9)",
+      "oklch(55% 0.2 25/0.9)",
+      "oklch(65% 0.2 145/0.8)",
+      "oklch(65% 0.2 145/0.9)",
+      "oklch(from var(--color-error)l c h/0.08)",
+      "oklch(from var(--color-error)l c h/0.1)",
+      "oklch(from var(--color-error)l c h/0.2)",
+      "white",
+      "white",
+      "white",
+      "white",
+      "white",
+      "white"
+    ],
+    "src/frontend/components/TileSetPanel/TileSetPanel.module.css": [
+      "oklch(55% 0.18 276/0.08)",
+      "oklch(55% 0.18 276/0.08)",
+      "oklch(60% 0.16 145)",
+      "oklch(60% 0.16 145/0.08)",
+      "oklch(from var(--color-error)l c h/0.12)",
+      "white"
+    ],
+    "src/frontend/components/TopLoadingBar.module.css": [
+      "oklch(60% 0.18 260)",
+      "oklch(60% 0.18 260/0.6)",
+      "oklch(75% 0.13 250)",
+      "oklch(75% 0.13 250)",
+      "oklch(80% 0.12 210)",
+      "oklch(80% 0.12 210)"
+    ],
+    "src/frontend/components/UsageIndicator/UsageIndicator.module.css": [
+      "oklch(25% 0.04 25)",
+      "oklch(25% 0.04 85)",
+      "oklch(28% 0.05 25)",
+      "oklch(28% 0.05 85)",
+      "oklch(45% 0.12 70)",
+      "oklch(70% 0.14 85)",
+      "oklch(75% 0.15 85)",
+      "oklch(80% 0.12 85)",
+      "oklch(92% 0.05 25)",
+      "oklch(92% 0.06 85)",
+      "oklch(95% 0.04 25)",
+      "oklch(95% 0.05 85)"
+    ],
+    "src/frontend/components/VariantCanvas/VariantNode.module.css": [
+      "oklch(55% 0.18 276/0.05)",
+      "oklch(55% 0.18 276/0.08)",
+      "oklch(55% 0.18 276/0.1)",
+      "oklch(55% 0.18 276/0.2)",
+      "oklch(55% 0.18 276/0.25)",
+      "oklch(55% 0.18 276/0.3)",
+      "oklch(55% 0.25 25/0.1)",
+      "oklch(70% 0.15 145/0.15)",
+      "oklch(70% 0.15 145/0.25)",
+      "oklch(70% 0.2 145/0.1)",
+      "oklch(70% 0.2 145/0.3)",
+      "white",
+      "white"
+    ],
+    "src/frontend/pages/AssetDetailPage.module.css": [
+      "white",
+      "white",
+      "white"
+    ],
+    "src/frontend/pages/DocsPage.module.css": [
+      "oklch(0.78 0.12 230/0.16)",
+      "oklch(18% 0.035 260)",
+      "oklch(30% 0.05 260/0.08)",
+      "oklch(94% 0.02 245)",
+      "oklch(97% 0.01 255)"
+    ],
+    "src/frontend/pages/LandingPage.module.css": [
+      "oklch(0.68 0.2 300/0.22)",
+      "oklch(0.78 0.12 230/0.22)",
+      "oklch(19% 0.035 260)",
+      "oklch(20% 0.08 260/0.22)",
+      "oklch(24% 0.045 260)",
+      "oklch(76% 0.16 150)",
+      "oklch(77% 0.18 35)",
+      "oklch(84% 0.16 88)",
+      "oklch(86% 0.02 250)",
+      "oklch(93% 0.025 240)",
+      "oklch(96% 0.015 255)"
+    ],
+    "src/frontend/pages/SpacePage.module.css": [
+      "white",
+      "white"
+    ],
+    "src/frontend/pages/UnknownPage.module.css": [
+      "#fff",
+      "rgba(0,0,0,0.04)"
+    ]
+  }
+}

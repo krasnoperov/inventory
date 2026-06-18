@@ -233,6 +233,26 @@
         "com.inventory.sourceFile": "theme.css",
         "com.inventory.cssValue": "var(--palette-red-bg)"
       }
+    },
+    "accent": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.7290000000000001,
+          0.14,
+          258
+        ]
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--color-accent",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(72.9% 0.14 258)",
+          "oklch(78% 0.13 258)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(72.9% 0.14 258), oklch(78% 0.13 258))"
+      }
     }
   },
   "gradient": {
