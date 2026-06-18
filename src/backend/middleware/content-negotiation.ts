@@ -42,6 +42,10 @@ async function loadContentMap() {
   return import('../content-map');
 }
 
+type ContentMapModule = Awaited<ReturnType<typeof loadContentMap>>;
+type ContentMapLoader = () => Promise<ContentMapModule>;
+type StartRenderer = typeof renderStartApp;
+
 function jsonResponse(c: Context<AppContext>, value: unknown): Response {
   return c.json(value, 200, {
     'Cache-Control': 'public, max-age=300',
@@ -51,6 +55,13 @@ function jsonResponse(c: Context<AppContext>, value: unknown): Response {
 }
 
 export function contentNegotiation(): MiddlewareHandler<AppContext> {
+  return contentNegotiationWithRenderer(renderStartApp, loadContentMap);
+}
+
+export function contentNegotiationWithRenderer(
+  renderStart: StartRenderer,
+  loadContent: ContentMapLoader,
+): MiddlewareHandler<AppContext> {
   return async (c, next) => {
     const url = new URL(c.req.url);
     const rawPath = url.pathname;
@@ -92,12 +103,12 @@ export function contentNegotiation(): MiddlewareHandler<AppContext> {
     }
 
     if (rawPath === '/llms.txt') {
-      const { LLMS_TXT } = await loadContentMap();
+      const { LLMS_TXT } = await loadContent();
       return c.text(LLMS_TXT, 200, TEXT_HEADERS);
     }
 
     if (rawPath === '/llms-full.txt') {
-      const { LLMS_FULL_TXT } = await loadContentMap();
+      const { LLMS_FULL_TXT } = await loadContent();
       return c.text(LLMS_FULL_TXT, 200, TEXT_HEADERS);
     }
 
@@ -115,7 +126,7 @@ export function contentNegotiation(): MiddlewareHandler<AppContext> {
       return;
     }
 
-    const { CONTENT_MAP } = await loadContentMap();
+    const { CONTENT_MAP } = await loadContent();
     const markdown = CONTENT_MAP[contentPath];
     if (!markdown) {
       await next();
@@ -130,7 +141,7 @@ export function contentNegotiation(): MiddlewareHandler<AppContext> {
       });
     }
 
-    const res = await renderStartApp(c, { forceDocument: true });
+    const res = await renderStart(c, { forceDocument: true });
     const out = new Response(res.body, res);
     out.headers.set('Link', linkHeader(contentPath, false));
     out.headers.set('Vary', 'Accept');
