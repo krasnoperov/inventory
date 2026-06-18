@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 
-export const DEFAULT_CLIENT_ID = 'forgetray-cli';
+export const DEFAULT_CLIENT_ID = 'makefx-cli';
 export const DEFAULT_REDIRECT_PORT = 8765;
 export const AUTH_SCOPES = 'openid profile email';
 

@@ -108,14 +108,14 @@ async function waitForWorker() {
 }
 
 async function createCliConfig() {
-  const configDir = path.join(configHome, 'forgetray-cli');
+  const configDir = path.join(configHome, 'makefx-cli');
   await mkdir(configDir, { recursive: true });
   await writeFile(path.join(configDir, 'config.json'), JSON.stringify({
     configs: {
       local: {
         environment: 'local',
         baseUrl,
-        clientId: 'forgetray-cli',
+        clientId: 'makefx-cli',
         token: {
           accessToken: token,
           issuedAt: Date.now(),

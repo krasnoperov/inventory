@@ -54,7 +54,7 @@ async function writeSideEffectTraps(cwd: string): Promise<{ authConfigPath: stri
   await writeFile(projectConfigPath, '{', 'utf8');
 
   const configHome = path.join(cwd, 'xdg-config');
-  const authConfigPath = path.join(configHome, 'forgetray-cli', 'config.json');
+  const authConfigPath = path.join(configHome, 'makefx-cli', 'config.json');
   await mkdir(path.dirname(authConfigPath), { recursive: true });
   await writeFile(authConfigPath, '{', 'utf8');
 

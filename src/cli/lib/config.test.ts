@@ -15,7 +15,7 @@ function storedConfig(environment: string): StoredConfig {
   return {
     environment,
     baseUrl: `https://${environment}.example.test`,
-    clientId: 'forgetray-cli',
+    clientId: 'makefx-cli',
     token: {
       accessToken: `${environment}-token`,
       issuedAt: Date.now(),
