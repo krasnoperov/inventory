@@ -1,6 +1,6 @@
 # Model & Parameter Selection
 
-Use this page to choose the model path and settings you can actually control from `makefx` today, plus the service defaults Make Effects uses for controls that are not public CLI flags. For prompting strategy, start with [Media Playbooks](/docs/media-playbooks).
+Use this page to choose the model path and settings you can actually control from `makefx` today, plus the service defaults Make Effects uses for controls that are not public CLI flags. Service-supported values that are not public controls yet are called out as service-only. For prompting strategy, start with [Media Playbooks](/docs/media-playbooks).
 
 ## Images
 
@@ -16,6 +16,7 @@ Make Effects routes image jobs through Google models.
 | Parameter | Values | Guidance |
 |-|-|-|
 | Aspect ratio | `1:1`, `16:9`, `9:16`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `21:9` | choose for destination; default image generation is square when omitted |
+| Image size | `1K`; service-only `2K`/`4K` | higher sizes are not public web/CLI controls yet; tracked by [INV-97](https://linear.app/usertold/issue/INV-97/image-generation-controls-model-size-aspect) |
 | Reference images | Pro supports up to 14; Fast supports 1 | label each reference by role |
 | Operation | `generate`, `refine`, `derive` | generate from text, edit an existing variant, or compose from references |
 
@@ -28,19 +29,19 @@ Make Effects routes video jobs through Google's Veo family. The public CLI lets 
 | Choice | Use for |
 |-|-|
 | default/generate model | clips you expect to review, place on a timeline, or ship |
-| fast model | service-level cheaper iteration path |
-| lite model | service-level draft path |
+| fast model | service-only cheaper iteration path; not public yet |
+| lite model | service-only draft path; not public yet |
 
 ### Video parameters
 
 | Parameter | Values | Guidance |
 |-|-|-|
 | Aspect ratio | `16:9`, `9:16` | other values normalize to landscape behavior |
-| Resolution | server default is currently `720p` | not a public CLI flag today |
-| Provider duration | server default is currently 8 seconds | not controlled by `--duration-ms` |
-| References | up to 3 source images/keyframes | use keyframes to preserve identity and composition |
+| Resolution | server default is currently `720p`; service-only `1080p`/`4k` | not a public web/CLI control yet; tracked by [INV-70](https://linear.app/usertold/issue/INV-70/expose-video-resolution-720p1080p4k-in-web-cli) |
+| Provider duration | server default is currently 8 seconds; service-only `4`, `6`, `8` | not controlled by `--duration-ms`; public control tracked by [INV-84](https://linear.app/usertold/issue/INV-84/expose-video-duration-468s-fix-6s-chip-and-forced-8s-ux) |
+| References | up to 3 source images/keyframes | use one source image with no style image for image-to-video; 2-3 images, or any style image, use Veo reference images |
 
-The CLI `--duration-ms` flag records where the clip fits on your production timeline. It does not guarantee the generated clip length.
+The CLI `--duration-ms` flag records where the clip fits on your production timeline. It does not guarantee the generated clip length. Fast/lite public controls are tracked by [INV-73](https://linear.app/usertold/issue/INV-73/wire-up-and-expose-the-veo-tier-generatefastlite).
 
 ## Audio
 
@@ -62,7 +63,7 @@ Speech and dialogue depend on voice selection and provider configuration. Treat 
 | Situation | Pick |
 |-|-|
 | final asset with several references | Pro image path |
-| quick draft with one reference | Fast image path |
+| quick draft with one reference | Fast image path when exposed; default path today |
 | character turnaround or tile set | Pro image path |
 | character plus style plus background | Pro image path |
 
