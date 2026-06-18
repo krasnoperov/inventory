@@ -6,6 +6,9 @@ const skipWebServer = process.env.SKIP_WEBSERVER === '1';
 export default defineConfig({
   testDir: './tests/components',
   testMatch: '**/*.spec.ts',
+  // The style-reference capture drives a Ladle preview server, not the component
+  // harness — it has its own config (playwright.style-reference.config.ts).
+  testIgnore: '**/style-reference.spec.ts',
   timeout: process.env.CI ? 60_000 : 30_000,
   expect: { timeout: 2_000 },
   fullyParallel: true,
