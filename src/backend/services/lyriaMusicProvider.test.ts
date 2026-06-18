@@ -22,13 +22,23 @@ describe('LyriaMusicProvider', () => {
       return jsonResponse({
         status: 'completed',
         model: 'lyria-3-pro-preview',
-        outputs: [
-          { type: 'text', text: 'Instrumental heroic cue' },
-          { type: 'audio', mime_type: 'audio/mpeg', data: btoa('lyria-audio') },
+        steps: [
+          {
+            type: 'model_output',
+            content: [
+              { type: 'text', text: 'Instrumental heroic cue' },
+            ],
+          },
+          {
+            type: 'model_output',
+            content: [
+              { type: 'audio', mime_type: 'audio/mpeg', data: btoa('lyria-audio') },
+            ],
+          },
         ],
         usage: {
-          input_tokens: 12,
-          output_tokens: 34,
+          total_input_tokens: 12,
+          total_output_tokens: 34,
           total_tokens: 46,
         },
       });

@@ -27,6 +27,9 @@ interface LyriaInteractionOutput {
 
 interface LyriaInteractionResponse {
   status?: string;
+  steps?: Array<{
+    content?: LyriaInteractionOutput[];
+  }>;
   outputs?: LyriaInteractionOutput[];
   model?: string;
   created?: string;
@@ -35,6 +38,8 @@ interface LyriaInteractionResponse {
     input_tokens?: number;
     output_tokens?: number;
     total_tokens?: number;
+    total_input_tokens?: number;
+    total_output_tokens?: number;
     promptTokenCount?: number;
     candidatesTokenCount?: number;
     totalTokenCount?: number;
@@ -120,13 +125,14 @@ export class LyriaMusicProvider implements AudioGenerationProvider {
       );
     }
 
-    const audio = response.outputs?.find(output => output.type === 'audio' && output.data);
+    const content = getLyriaInteractionContent(response);
+    const audio = content.find(output => output.type === 'audio' && output.data);
     if (!audio?.data) {
       throw new LyriaApiError('Lyria response did not include audio data', 502, true);
     }
 
-    const description = response.outputs
-      ?.filter(output => output.type === 'text' && output.text)
+    const description = content
+      .filter(output => output.type === 'text' && output.text)
       .map(output => output.text)
       .join('\n\n');
 
@@ -209,8 +215,8 @@ export class LyriaMusicProvider implements AudioGenerationProvider {
 }
 
 function usageFromLyria(usage: LyriaInteractionResponse['usage']): AudioGenerationResult['usage'] {
-  const inputTokens = usage?.input_tokens ?? usage?.promptTokenCount;
-  const outputTokens = usage?.output_tokens ?? usage?.candidatesTokenCount;
+  const inputTokens = usage?.total_input_tokens ?? usage?.input_tokens ?? usage?.promptTokenCount;
+  const outputTokens = usage?.total_output_tokens ?? usage?.output_tokens ?? usage?.candidatesTokenCount;
   const totalTokens = usage?.total_tokens ?? usage?.totalTokenCount;
   if (inputTokens === undefined && outputTokens === undefined && totalTokens === undefined) {
     return undefined;
@@ -221,6 +227,11 @@ function usageFromLyria(usage: LyriaInteractionResponse['usage']): AudioGenerati
     outputTokens: outputTokens ?? 0,
     totalTokens: totalTokens ?? (inputTokens ?? 0) + (outputTokens ?? 0),
   };
+}
+
+function getLyriaInteractionContent(response: LyriaInteractionResponse): LyriaInteractionOutput[] {
+  const stepContent = response.steps?.flatMap(step => step.content ?? []) ?? [];
+  return stepContent.length > 0 ? stepContent : response.outputs ?? [];
 }
 
 function jsonSidecar(value: unknown): AudioSidecar {
