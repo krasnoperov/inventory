@@ -225,7 +225,9 @@ describe('UsageService', () => {
         1,
         'veo-3.1-generate-preview',
         'generate',
-        '16:9'
+        '16:9',
+        '1080p',
+        8
       );
 
       const events = await usageEventDAO.findByUser(testUserId);
@@ -238,6 +240,8 @@ describe('UsageService', () => {
       assert.strictEqual(metadata.model, 'veo-3.1-generate-preview');
       assert.strictEqual(metadata.operation, 'generate');
       assert.strictEqual(metadata.aspect_ratio, '16:9');
+      assert.strictEqual(metadata.resolution, '1080p');
+      assert.strictEqual(metadata.duration_seconds, 8);
     });
   });
 

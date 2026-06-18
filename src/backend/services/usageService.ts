@@ -251,7 +251,9 @@ export class UsageService {
     videoCount: number,
     model: string,
     operation?: string,
-    aspectRatio?: string
+    aspectRatio?: string,
+    resolution?: string,
+    durationSeconds?: number
   ): Promise<void> {
     const polarBillable = await this.isBillableUser(userId);
 
@@ -263,6 +265,8 @@ export class UsageService {
         model,
         operation,
         aspect_ratio: aspectRatio,
+        resolution,
+        duration_seconds: durationSeconds,
       },
       polarBillable,
     });

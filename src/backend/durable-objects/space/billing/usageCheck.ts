@@ -304,7 +304,14 @@ export async function trackVideoGeneration(
   userId: number,
   videoCount: number,
   model: string,
-  operation?: string
+  operation?: string,
+  resolution?: string,
+  durationSeconds?: number
 ): Promise<void> {
-  await trackUsage(db, userId, 'gemini_videos', videoCount, { model, operation });
+  await trackUsage(db, userId, 'gemini_videos', videoCount, {
+    model,
+    operation,
+    resolution,
+    duration_seconds: durationSeconds,
+  });
 }

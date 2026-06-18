@@ -20,6 +20,8 @@ export interface UsageEventMetadata {
   token_type?: 'input' | 'output';
   operation?: string;
   aspect_ratio?: string;
+  resolution?: string;
+  duration_seconds?: number;
   request_id?: string;
   job_id?: string;
   [key: string]: string | number | boolean | undefined;
