@@ -295,6 +295,7 @@ export function ForgeTray({
   const [voiceId, setVoiceId] = useState<string | undefined>(undefined);
   const [dialogueVoiceIds, setDialogueVoiceIds] = useState<string[]>([]);
   const [musicProvider, setMusicProvider] = useState<MusicGenerationProvider>('elevenlabs');
+  const [musicProviderExplicit, setMusicProviderExplicit] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -555,6 +556,11 @@ export function ForgeTray({
     removeSlot(slotId);
   }, [removeSlot]);
 
+  const handleSelectMusicProvider = useCallback((provider: MusicGenerationProvider) => {
+    setMusicProvider(provider);
+    setMusicProviderExplicit(true);
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     // Fork doesn't need prompt; others do
     if (operation !== 'fork' && !prompt.trim()) return;
@@ -600,7 +606,7 @@ export function ForgeTray({
         dialogueVoiceIds: mediaMode === 'dialogue' && dialogueVoiceIds.some(Boolean)
           ? dialogueVoiceIds
           : undefined,
-        musicProvider: mediaMode === 'music' ? musicProvider : undefined,
+        musicProvider: mediaMode === 'music' && musicProviderExplicit ? musicProvider : undefined,
       });
 
       // Clear on success
@@ -614,12 +620,13 @@ export function ForgeTray({
       setVoiceId(undefined);
       setDialogueVoiceIds([]);
       setMusicProvider('elevenlabs');
+      setMusicProviderExplicit(false);
     } catch (error) {
       console.error('Forge submit failed:', error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -909,7 +916,7 @@ export function ForgeTray({
                           key={option.value}
                           type="button"
                           className={`${styles.miniSegText} ${musicProvider === option.value ? styles.active : ''}`}
-                          onClick={() => setMusicProvider(option.value)}
+                          onClick={() => handleSelectMusicProvider(option.value)}
                           disabled={isSubmitting}
                           title={`${option.label} music provider`}
                         >
