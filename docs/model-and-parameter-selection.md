@@ -14,7 +14,13 @@ companion.
 > surfaces `--aspect`, `--count`, `--mode`, and production-metadata flags such
 > as `--duration-ms`. Model choice, image/video resolution, and Veo
 > `durationSeconds` currently fall to server-side defaults. Where a value is set
-> by a default rather than a flag, that is noted. See [cli-generation.md](./cli-generation.md) for the flag list.
+> by a default rather than a flag, that is noted. Service-supported values that
+> are **not yet exposed** are marked below; see the tracked exposure issues for
+> image size 2K/4K ([INV-97](https://linear.app/usertold/issue/INV-97/image-generation-controls-model-size-aspect)),
+> Veo resolution 1080p/4k ([INV-70](https://linear.app/usertold/issue/INV-70/expose-video-resolution-720p1080p4k-in-web-cli)),
+> Veo duration 4/6/8s ([INV-84](https://linear.app/usertold/issue/INV-84/expose-video-duration-468s-fix-6s-chip-and-forced-8s-ux)),
+> and Veo fast/lite tiers ([INV-73](https://linear.app/usertold/issue/INV-73/wire-up-and-expose-the-veo-tier-generatefastlite)).
+> See [cli-generation.md](./cli-generation.md) for the flag list.
 
 ## Images (Nano Banana)
 
@@ -25,16 +31,20 @@ Backed by `src/backend/services/nanoBananaService.ts`.
 Two models, selected via `'pro' | 'flash'` (`resolveImageModel`,
 `nanoBananaService.ts:51`):
 
-| Selection | Model ID | Use for | Key limit |
-|-|-|-|-|
-| `pro` (default) | `gemini-3-pro-image-preview` | Production assets, any composition, multi-reference work | Up to 14 reference images |
-| `flash` | `gemini-2.5-flash-image` | Fast single-reference iteration, drafts | **Only 1 reference image** (`nanoBananaService.ts:202`) |
+| Selection | Model ID | Use for | Key limit | Exposure |
+|-|-|-|-|-|
+| `pro` (default) | `gemini-3-pro-image-preview` | Production assets, any composition, multi-reference work | Up to 14 reference images | Single-generate default today |
+| `flash` | `gemini-2.5-flash-image` | Fast single-reference iteration, drafts | **Only 1 reference image** (`nanoBananaService.ts:202`) | Public batch/explore default; not directly selectable as a model control |
 
 **Default to Pro.** The default model is `gemini-3-pro-image-preview`
-(`nanoBananaService.ts:119`). Drop to Flash only when you want speed and need at
-most one reference — the service throws if you pass more than one reference to
-Flash, and throws past 14 references on either model (`nanoBananaService.ts:202`,
-`:206`).
+(`nanoBananaService.ts:119`) when a request does not set `recipe.model`;
+single-generate image recipes leave it unset (`VariantFactory.ts:207`). Image
+batch/explore recipes set Flash explicitly (`VariantFactory.ts:506`, `:511`) for
+fast drafts with at most one reference. Public image model selection is not
+exposed yet (tracked by
+[INV-97](https://linear.app/usertold/issue/INV-97/image-generation-controls-model-size-aspect)).
+The service throws if you pass more than one reference to Flash, and throws past
+14 references on either model (`nanoBananaService.ts:202`, `:206`).
 
 ### Aspect Ratio
 
@@ -50,7 +60,9 @@ portrait posts.
 
 `ImageSize` (`nanoBananaService.ts:48`): `1K`, `2K`, `4K`. Optional. Use `1K`
 for iteration and thumbnails, step up to `2K`/`4K` only for final assets — higher
-sizes cost more and are wasted on drafts you will regenerate.
+sizes cost more and are wasted on drafts you will regenerate. `2K` and `4K` are
+service-supported but **not yet exposed** as public web/CLI controls (tracked by
+[INV-97](https://linear.app/usertold/issue/INV-97/image-generation-controls-model-size-aspect)).
 
 ### Operations
 
@@ -71,9 +83,9 @@ Each reference `ImageInput` supports an optional `label`
 
 | Situation | Model | Size |
 |-|-|-|
-| Final hero asset, multiple references | `pro` | `2K`–`4K` |
-| Quick draft, one or no reference | `flash` | `1K` |
-| Character turnaround / tile set | `pro` (pipeline-driven) | `1K`–`2K` |
+| Final hero asset, multiple references | `pro` | `2K`–`4K` when exposed; service-only today |
+| Quick draft, one or no reference | `flash` for public batch/explore; Pro/default for single generate | `1K` |
+| Character turnaround / tile set | `pro` (pipeline-driven) | `1K`–`2K` when exposed |
 | Combining character + style + background | `pro` (needs >1 ref) | match output |
 
 ## Video (Veo 3.1)
@@ -85,11 +97,14 @@ Backed by `src/backend/services/googleVeoService.ts`.
 Three variants (`googleVeoService.ts:10`), default `veo-3.1-generate-preview`
 (`:58`):
 
-| Model ID | Use for |
-|-|-|
-| `veo-3.1-generate-preview` (default) | Hero shots, final clips |
-| `veo-3.1-fast-generate-preview` | Cheaper, faster iteration |
-| `veo-3.1-lite-generate-preview` | Cheapest drafts, background motion tests |
+| Model ID | Use for | Exposure |
+|-|-|-|
+| `veo-3.1-generate-preview` (default) | Hero shots, final clips | Server default today |
+| `veo-3.1-fast-generate-preview` | Cheaper, faster iteration | Service-only / not yet exposed |
+| `veo-3.1-lite-generate-preview` | Cheapest drafts, background motion tests | Service-only / not yet exposed |
+
+Fast/lite tier exposure is tracked by
+[INV-73](https://linear.app/usertold/issue/INV-73/wire-up-and-expose-the-veo-tier-generatefastlite).
 
 ### Aspect Ratio
 
@@ -100,7 +115,10 @@ narrower than the image set. Anything else normalizes to `16:9`
 ### Resolution
 
 `VideoResolution` (`googleVeoService.ts:15`): `720p` (default), `1080p`, `4k`.
-Unrecognized values fall back to `720p` (`normalizeResolution`, `:79`).
+Unrecognized values fall back to `720p` (`normalizeResolution`, `:79`). `1080p`
+and `4k` are service-supported but **not yet exposed** as public web/CLI controls
+(tracked by
+[INV-70](https://linear.app/usertold/issue/INV-70/expose-video-resolution-720p1080p4k-in-web-cli)).
 
 ### Duration
 
@@ -116,7 +134,9 @@ So a referenced or higher-resolution clip is always 8s. Plan your shot pacing
 
 This `durationSeconds` is a service parameter set by default today — it is **not**
 the `--duration-ms` CLI flag, which records intended production-scene duration as
-metadata and is never passed to Veo (`cli-generation.md:209`).
+metadata and is never passed to Veo (`cli-generation.md:209`). Choosing 4/6/8s is
+service-supported but **not yet exposed** as a public web/CLI control (tracked by
+[INV-84](https://linear.app/usertold/issue/INV-84/expose-video-duration-468s-fix-6s-chip-and-forced-8s-ux)).
 
 ### Reference Images ("Ingredients")
 
@@ -126,13 +146,19 @@ as ASSET references (`getReferenceType`, `googleVeoService.ts:84`). In practice:
 space style images lead, your keyframes follow. This is the consistency
 mechanism described in the [video playbook](./playbooks/video.md).
 
+Veo is not at parity with the image models here: video generation supports at
+most **3** source/reference images (`googleVeoService.ts:107`), while Pro image
+generation supports up to 14. When exactly one source image is supplied and no
+style image is prepended, the service sends it through Veo's image-to-video
+`request.image` path instead of `config.referenceImages` (`googleVeoService.ts:135`).
+
 ### Decision Table — Video
 
 | Situation | Model | Resolution | Duration |
 |-|-|-|-|
-| Final hero shot from a keyframe | `generate` | `1080p` | 8s (forced) |
-| Quick motion test | `lite` / `fast` | `720p` | 4–8s |
-| Vertical social clip | `generate` | `1080p` | 8s |
+| Final hero shot from a keyframe | `generate` | `1080p` when exposed; `720p` default today | 8s (forced) |
+| Quick motion test | `lite` / `fast` when exposed; default today | `720p` | 4–8s when exposed; 8s default today |
+| Vertical social clip | `generate` | `1080p` when exposed; `720p` default today | 8s |
 
 ## Audio (ElevenLabs, shipped)
 
