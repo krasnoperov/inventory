@@ -47,6 +47,11 @@ type AudioUsage = {
   totalTokens: number;
 };
 
+type VideoBillingDimensions = {
+  resolution?: string;
+  durationSeconds?: number;
+};
+
 const ELEVENLABS_GENERATED_AUDIO_COST_BUFFER = 50;
 
 function getGenerationBillingService(env: ControllerContext['env'], mediaKind?: string): GenerationBillingService {
@@ -76,6 +81,45 @@ function getElevenLabsAudioUsage(audioUsage: AudioUsage | null | undefined, prom
     outputTokens: 0,
     totalTokens,
   };
+}
+
+function parseObjectMetadata(value: Record<string, unknown> | string | null | undefined): Record<string, unknown> | null {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  return value;
+}
+
+function toPositiveNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  return undefined;
+}
+
+function getVideoBillingDimensions(data: {
+  mediaDurationMs?: number | null;
+  providerMetadata?: Record<string, unknown> | string | null;
+}, variant: Variant): VideoBillingDimensions {
+  const metadata = parseObjectMetadata(data.providerMetadata) ?? parseObjectMetadata(variant.provider_metadata);
+  const resolution = typeof metadata?.resolution === 'string' ? metadata.resolution : undefined;
+  const metadataDurationSeconds = toPositiveNumber(metadata?.durationSeconds)
+    ?? toPositiveNumber(metadata?.duration_seconds);
+  const dataDurationMs = toPositiveNumber(data.mediaDurationMs);
+  const variantDurationMs = toPositiveNumber(variant.media_duration_ms);
+  const durationSeconds = metadataDurationSeconds
+    ?? (dataDurationMs === undefined ? undefined : Math.round(dataDurationMs / 1000))
+    ?? (variantDurationMs === undefined ? undefined : Math.round(variantDurationMs / 1000));
+
+  return { resolution, durationSeconds };
 }
 
 function getQuotaCheckQuantity(
@@ -604,12 +648,15 @@ export class GenerationController extends BaseController {
         }
 
         if (variant.media_kind === 'video') {
+          const billingDimensions = getVideoBillingDimensions(data, variant);
           await trackVideoGeneration(
             this.env.DB,
             parseInt(variant.created_by),
             1,
             usageModel,
-            operation
+            operation,
+            billingDimensions.resolution,
+            billingDimensions.durationSeconds
           );
         } else {
           await trackImageGeneration(

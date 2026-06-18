@@ -699,6 +699,9 @@ describe('GenerationController pipeline hooks', () => {
             media_mime_type: mediaMetadata.mimeType,
             media_size_bytes: mediaMetadata.sizeBytes,
             media_duration_ms: mediaMetadata.durationMs,
+            provider_metadata: mediaMetadata.providerMetadata === undefined
+              ? null
+              : JSON.stringify(mediaMetadata.providerMetadata),
             status: 'completed',
             created_by: '123',
             recipe: JSON.stringify({
@@ -720,6 +723,14 @@ describe('GenerationController pipeline hooks', () => {
         mediaMimeType: 'video/mp4',
         mediaSizeBytes: 4096,
         mediaDurationMs: 8000,
+        providerMetadata: {
+          provider: 'google-veo',
+          model: 'veo-3.1-generate-preview',
+          operation: 'generate',
+          resolution: '720p',
+          durationSeconds: 8,
+          sourceImageCount: 0,
+        },
       });
 
       assert.strictEqual(result.variant.image_key, null);
@@ -734,6 +745,8 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(JSON.parse(bind.mock.calls[0].arguments[4]), {
         model: 'veo-3.1-generate-preview',
         operation: 'generate',
+        resolution: '720p',
+        duration_seconds: 8,
       });
       assert.strictEqual(run.mock.calls.length, 1);
 
@@ -745,6 +758,14 @@ describe('GenerationController pipeline hooks', () => {
         width: undefined,
         height: undefined,
         durationMs: 8000,
+        providerMetadata: {
+          provider: 'google-veo',
+          model: 'veo-3.1-generate-preview',
+          operation: 'generate',
+          resolution: '720p',
+          durationSeconds: 8,
+          sourceImageCount: 0,
+        },
       });
     });
 

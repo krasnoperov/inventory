@@ -1,7 +1,7 @@
 // @ts-nocheck - D1 mock shape is intentionally minimal
 import { describe, test, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { preCheck, trackImageGeneration } from './usageCheck';
+import { preCheck, trackImageGeneration, trackVideoGeneration } from './usageCheck';
 
 function createPreCheckDb(options: {
   quotaLimit: number;
@@ -163,5 +163,33 @@ describe('SpaceDO usage preCheck', () => {
     assert.strictEqual(inserts[0][1], 42);
     assert.strictEqual(inserts[0][2], 'gemini_images');
     assert.strictEqual(inserts[0][5], 0);
+  });
+
+  test('records Veo billing dimensions in video usage metadata', async () => {
+    const inserts: unknown[][] = [];
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn((...args: unknown[]) => ({
+          first: mock.fn(async () => ({ paid_generation_entitlement: 'paid' })),
+          run: mock.fn(async () => {
+            if (sql.includes('INSERT INTO usage_events')) {
+              inserts.push(args);
+            }
+            return { success: true };
+          }),
+        })),
+      })),
+    };
+
+    await trackVideoGeneration(db as any, 42, 1, 'veo-3.1-generate-preview', 'generate', '1080p', 8);
+
+    assert.strictEqual(inserts.length, 1);
+    assert.strictEqual(inserts[0][2], 'gemini_videos');
+    assert.deepStrictEqual(JSON.parse(String(inserts[0][4])), {
+      model: 'veo-3.1-generate-preview',
+      operation: 'generate',
+      resolution: '1080p',
+      duration_seconds: 8,
+    });
   });
 });
