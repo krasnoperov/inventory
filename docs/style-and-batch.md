@@ -52,13 +52,28 @@ Image ordering in `sourceImageKeys`:
   Style images (first)          User references (after)
 ```
 
-### Image Count Limit
+### Reference Count Limits
 
-Gemini accepts ~14-16 images per request. If `styleImages + userImages > 14`, style images are **skipped** (description is still prepended). This prevents style from breaking generation when users provide many references.
+Image generation uses the selected model's exact reference limit: Pro
+(`gemini-3-pro-image-preview`) accepts up to 14 reference images, while Flash
+(`gemini-2.5-flash-image`) accepts 1. If `styleImages + userImages` would
+exceed the selected image model's limit, style images are **skipped**
+(description is still prepended). This prevents style from breaking generation
+when users provide many references.
+
+Video generation uses Veo's 3-image limit. User references are kept first and
+capped to 3; style images are prepended only if budget remains. Any prepended
+style image switches the Veo request from image-to-video or first/last-frame
+mode into `reference-images` mode with style images typed as provider `STYLE`
+references. See [model-and-parameter-selection.md](./model-and-parameter-selection.md)
+for the exact provider-reference semantics.
 
 ### Frontend
 
-The Forge Tray slot limit adjusts dynamically: `effectiveMaxSlots = 14 - styleImageCount`. This is enforced both in the UI and in `forgeTrayStore.maxSlots`.
+The Forge Tray slot limit mirrors the active provider budget: selected image
+model limit minus active style images for images, and Veo's 3-image limit minus
+active style images for video. This is enforced both in the UI and in
+`forgeTrayStore.maxSlots`.
 
 ### disableStyle
 
