@@ -753,7 +753,7 @@
   flex-wrap: wrap;
   padding: 0.375rem 0.75rem;
   font-size: 0.75rem;
-  color: var(--color-error, #ef4444);
+  color: var(--color-error);
   line-height: 1.4;
   animation: forgeErrorFadeIn 0.2s ease;
 }

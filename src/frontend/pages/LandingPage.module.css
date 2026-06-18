@@ -236,7 +236,7 @@
 .featureIcon {
   width: 2rem;
   height: 2rem;
-  color: var(--color-primary, #7c5cff);
+  color: var(--color-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
