@@ -1,0 +1,52 @@
+/* Shared layout helpers for stories — arrange a component's variants in one
+   capture. Colors come from design tokens (theme.css); spacing uses literal
+   rems since the token system has no numeric spacing scale yet. Mirrors
+   usertold's story-layout, adapted to inventory's token names. */
+
+.inlineCluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.compactCluster {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.stack {
+  display: grid;
+  gap: 1.25rem;
+  width: min(100%, 44rem);
+}
+
+.narrowStack {
+  display: grid;
+  gap: 0.75rem;
+  width: min(100%, 26rem);
+}
+
+.row {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
+}
+
+.panel {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
