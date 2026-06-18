@@ -191,41 +191,6 @@ function mediaGroupIcon(group: MediaGroup) {
   }
 }
 
-function audioModeIcon(mode: ForgeMediaMode) {
-  switch (mode) {
-    case 'dialogue':
-      return (
-        <svg {...ICON_PROPS}>
-          <path d="M14 9.5a1 1 0 01-1 1H7l-3 3v-9a1 1 0 011-1h8a1 1 0 011 1z" />
-          <path d="M18 9h1a1 1 0 011 1v7l-3-3h-5a1 1 0 01-1-1" />
-        </svg>
-      );
-    case 'music':
-      return (
-        <svg {...ICON_PROPS}>
-          <path d="M9 18V5l11-2v13" />
-          <circle cx="6" cy="18" r="3" />
-          <circle cx="17" cy="16" r="3" />
-        </svg>
-      );
-    case 'sfx':
-      return (
-        <svg {...ICON_PROPS}>
-          <path d="M4 10v4M8 6.5v11M12 9v6M16 4.5v15M20 10v4" />
-        </svg>
-      );
-    case 'speech':
-    default:
-      return (
-        <svg {...ICON_PROPS}>
-          <rect x="9" y="2.5" width="6" height="11" rx="3" />
-          <path d="M5 10.5a7 7 0 0014 0" />
-          <path d="M12 17.5v4" />
-        </svg>
-      );
-  }
-}
-
 // Get button label for operation
 function getOperationLabel(operation: ForgeOperation, mediaMode: ForgeMediaMode): string {
   const modeConfig = getForgeMediaModeConfig(mediaMode);
@@ -643,8 +608,45 @@ export function ForgeTray({
   const showBatchControls = effectiveDestinationType === 'new_asset' && mediaModeConfig.supportsBatch;
   // Empty-state reference add lives in the control bar; once slots exist the
   // thumbnail strip carries its own "+".
-  const showRefAdd = canAddMore && slots.length === 0;
   const showUpload = !!((onUpload && targetAsset) || onUploadNewAsset);
+
+  // Media-type popover (single trigger button → floating choices)
+  const [showModePopover, setShowModePopover] = useState(false);
+  const modeSwitchRef = useRef<HTMLDivElement>(null);
+  const currentAssetVariantCount = useMemo(
+    () => (currentAsset ? allVariants.filter((v) => v.asset_id === currentAsset.id).length : 0),
+    [currentAsset, allVariants]
+  );
+
+  useEffect(() => {
+    if (!showModePopover) return;
+    const onDocPointer = (e: MouseEvent) => {
+      if (modeSwitchRef.current && !modeSwitchRef.current.contains(e.target as Node)) {
+        setShowModePopover(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowModePopover(false);
+    };
+    document.addEventListener('mousedown', onDocPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [showModePopover]);
+
+  const handlePickGroup = useCallback((group: MediaGroup) => {
+    handleSelectGroup(group);
+    setShowModePopover(false);
+  }, [handleSelectGroup]);
+
+  // Per-mode options row visibility
+  const showOptionsRow =
+    currentMediaGroup === 'audio' ||
+    currentMediaGroup === 'video' ||
+    showBatchControls ||
+    !!(style?.enabled && mediaModeConfig.supportsStyle);
 
   // Build tray class with drag-over state
   const trayClasses = [styles.tray];
@@ -661,6 +663,46 @@ export function ForgeTray({
         onDrop={handleDrop}
       >
         <div className={styles.inputArea}>
+          {/* Asset-detail header — existing asset context + destination toggle */}
+          {showDestinationToggle && (
+            <>
+              <div className={styles.assetHeader}>
+                <div className={styles.assetHeaderInfo}>
+                  <span className={styles.assetThumb} aria-hidden="true" />
+                  <span className={styles.assetHeaderName} title={currentAsset?.name ?? undefined}>
+                    {currentAsset?.name ?? 'Asset'}
+                  </span>
+                  {currentAssetVariantCount > 0 && (
+                    <span className={styles.assetHeaderMeta}>
+                      {currentAssetVariantCount} variant{currentAssetVariantCount === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+                <div className={styles.miniSeg} role="group" aria-label="Destination">
+                  <button
+                    type="button"
+                    className={`${styles.miniSegText} ${destinationType === 'existing_asset' ? styles.active : ''}`}
+                    onClick={() => setDestinationType('existing_asset')}
+                    disabled={isSubmitting || !canUseExistingDestination}
+                    title={!canUseExistingDestination ? `${mediaModeConfig.label} mode creates ${selectedMediaKind} assets` : 'Add to current asset'}
+                  >
+                    Current
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.miniSegText} ${destinationType === 'new_asset' ? styles.active : ''}`}
+                    onClick={() => setDestinationType('new_asset')}
+                    disabled={isSubmitting}
+                    title="Create new asset"
+                  >
+                    New
+                  </button>
+                </div>
+              </div>
+              <div className={styles.hairline} />
+            </>
+          )}
+
           {/* Prompt — the hero. Everything else is in service of this line. */}
           <textarea
             ref={textareaRef}
@@ -673,6 +715,105 @@ export function ForgeTray({
             rows={1}
             aria-label="Prompt"
           />
+
+          {/* Per-mode options */}
+          {showOptionsRow && (
+            <div className={styles.optionsRow}>
+              {currentMediaGroup === 'image' && (
+                <>
+                  {style?.enabled && mediaModeConfig.supportsStyle && (
+                    <span className={styles.styleChip} title="Space style is active">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" width="12" height="12">
+                        <path d="M12 3 21 12 12 21 3 12Z" />
+                      </svg>
+                      Style
+                    </span>
+                  )}
+                  {showBatchControls && (
+                    <div className={styles.miniSeg} role="group" aria-label="Batch count">
+                      {[1, 2, 4, 8].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`${styles.miniSegItem} ${batchCount === n ? styles.active : ''}`}
+                          onClick={() => setBatchCount(n)}
+                          disabled={isSubmitting}
+                        >
+                          ×{n}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {effectiveBatchCount > 1 && showBatchControls && (
+                    <div className={styles.miniSeg} role="group" aria-label="Batch mode">
+                      <button
+                        type="button"
+                        className={`${styles.miniSegText} ${batchMode === 'explore' ? styles.active : ''}`}
+                        onClick={() => setBatchMode('explore')}
+                        disabled={isSubmitting}
+                        title="Explore: 1 asset, multiple variants"
+                      >
+                        Explore
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.miniSegText} ${batchMode === 'set' ? styles.active : ''}`}
+                        onClick={() => setBatchMode('set')}
+                        disabled={isSubmitting}
+                        title="Set: multiple assets, 1 variant each"
+                      >
+                        Set
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {currentMediaGroup === 'video' && (
+                <>
+                  <span className={styles.optChipMuted} title="Duration & resolution — coming soon">
+                    6s · 720p
+                  </span>
+                  <div className={styles.miniSeg} role="group" aria-label="Video count">
+                    <span className={`${styles.miniSegItem} ${styles.active}`}>×1</span>
+                    <span className={`${styles.miniSegItem} ${styles.disabled}`}>×2</span>
+                  </div>
+                </>
+              )}
+
+              {currentMediaGroup === 'audio' && (
+                <>
+                  <div className={styles.audioModes} role="group" aria-label="Audio type">
+                    {AUDIO_MODE_CONFIGS.map((config) => (
+                      <button
+                        key={config.mode}
+                        type="button"
+                        className={`${styles.audioMode} ${mediaMode === config.mode ? styles.active : ''}`}
+                        onClick={() => handleSelectAudioMode(config.mode)}
+                        disabled={isSubmitting}
+                        title={`${config.label} mode`}
+                      >
+                        {config.shortLabel}
+                      </button>
+                    ))}
+                  </div>
+                  {showVoicePicker && (
+                    <>
+                      <div className={styles.optSpacer} />
+                      <VoicePicker
+                        mode={mediaMode === 'dialogue' ? 'dialogue' : 'speech'}
+                        disabled={isSubmitting}
+                        voiceId={voiceId}
+                        onVoiceIdChange={setVoiceId}
+                        dialogueVoiceIds={dialogueVoiceIds}
+                        onDialogueVoiceIdsChange={setDialogueVoiceIds}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {/* References — only when present; the empty-state add lives in the control bar */}
           {slots.length > 0 && (
@@ -711,109 +852,71 @@ export function ForgeTray({
             </div>
           )}
 
-          {/* Media selection — square icon buttons. Audio reveals sub-modes + voice. */}
-          <div className={styles.selector}>
-            <div className={styles.typeRow} role="group" aria-label="Media type">
-              {MEDIA_GROUP_OPTIONS.map((option) => (
+          <div className={styles.hairline} />
+
+          {/* Control bar: mode-switcher popover + minimal options + submit */}
+          <div className={styles.controlBar}>
+            <div className={styles.controlBarLeft}>
+              {/* Media-type switcher (popover) */}
+              <div className={styles.modeSwitch} ref={modeSwitchRef}>
+                {showModePopover && (
+                  <div className={styles.modePopover} role="menu" aria-label="Media type">
+                    {MEDIA_GROUP_OPTIONS.map((option) => (
+                      <button
+                        key={option.group}
+                        type="button"
+                        className={`${styles.modePopItem} ${currentMediaGroup === option.group ? styles.active : ''}`}
+                        onClick={() => handlePickGroup(option.group)}
+                        disabled={isSubmitting}
+                        title={`${option.label} media`}
+                        aria-label={`${option.label} media`}
+                      >
+                        {mediaGroupIcon(option.group)}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <button
-                  key={option.group}
                   type="button"
-                  className={`${styles.typeButton} ${currentMediaGroup === option.group ? styles.active : ''}`}
-                  onClick={() => handleSelectGroup(option.group)}
+                  className={`${styles.modeTrigger} ${showModePopover ? styles.open : ''}`}
+                  onClick={() => setShowModePopover((p) => !p)}
                   disabled={isSubmitting}
-                  title={`${option.label} media`}
-                  aria-label={`${option.label} media`}
-                  aria-pressed={currentMediaGroup === option.group}
+                  title="Media type"
+                  aria-haspopup="menu"
+                  aria-expanded={showModePopover}
+                  aria-label="Media type"
                 >
-                  {mediaGroupIcon(option.group)}
+                  {mediaGroupIcon(currentMediaGroup)}
+                  <svg className={styles.chevron} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
+                    <path d={showModePopover ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'} />
+                  </svg>
                 </button>
-              ))}
-            </div>
-
-            {currentMediaGroup === 'audio' && (
-              <div className={styles.typeRow} role="group" aria-label="Audio type">
-                {AUDIO_MODE_CONFIGS.map((config) => (
-                  <button
-                    key={config.mode}
-                    type="button"
-                    className={`${styles.typeButton} ${mediaMode === config.mode ? styles.active : ''}`}
-                    onClick={() => handleSelectAudioMode(config.mode)}
-                    disabled={isSubmitting}
-                    title={`${config.label} mode`}
-                    aria-label={`${config.label} mode`}
-                    aria-pressed={mediaMode === config.mode}
-                  >
-                    {audioModeIcon(config.mode)}
-                  </button>
-                ))}
               </div>
-            )}
 
-            {showVoicePicker && (
-              <VoicePicker
-                mode={mediaMode === 'dialogue' ? 'dialogue' : 'speech'}
-                disabled={isSubmitting}
-                voiceId={voiceId}
-                onVoiceIdChange={setVoiceId}
-                dialogueVoiceIds={dialogueVoiceIds}
-                onDialogueVoiceIdsChange={setDialogueVoiceIds}
-              />
-            )}
-          </div>
+              <div className={styles.vdivider} aria-hidden="true" />
 
-          {/* Control bar: minimal options + submit */}
-          <div className={styles.actionBar}>
-            <div className={styles.actionBarLeft}>
-              {/* Destination (Asset Detail only) */}
-              {showDestinationToggle && (
-                <div className={styles.segmented} role="group" aria-label="Destination">
-                  <button
-                    type="button"
-                    className={`${styles.segment} ${destinationType === 'existing_asset' ? styles.active : ''}`}
-                    onClick={() => setDestinationType('existing_asset')}
-                    disabled={isSubmitting || !canUseExistingDestination}
-                    title={
-                      !canUseExistingDestination
-                        ? `${mediaModeConfig.label} mode creates ${selectedMediaKind} assets`
-                        : targetAsset ? `Add to "${targetAsset.name}"` : 'Add to existing'
-                    }
-                  >
-                    <span>Current</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.segment} ${destinationType === 'new_asset' ? styles.active : ''}`}
-                    onClick={() => setDestinationType('new_asset')}
-                    disabled={isSubmitting}
-                    title="Create new asset"
-                  >
-                    <span>New</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Add reference (empty state) */}
-              {showRefAdd && (
+              {/* References (image/video) */}
+              {currentMediaGroup !== 'audio' && canAddMore && (
                 <button
                   type="button"
-                  className={styles.iconButton}
+                  className={`${styles.ctlIcon} ${slots.length > 0 ? styles.active : ''}`}
                   onClick={handleAddClick}
                   disabled={isSubmitting}
                   title="Add reference"
                   aria-label="Add reference"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
-                    <rect x="3" y="3" width="18" height="18" rx="3" />
-                    <path d="M12 8v8M8 12h8" />
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                    <rect x="3" y="3" width="13" height="13" rx="2.5" />
+                    <path d="M8 21h11a2 2 0 0 0 2-2V8" />
                   </svg>
                 </button>
               )}
 
-              {/* Upload media */}
+              {/* Upload */}
               {showUpload && (
                 <button
                   type="button"
-                  className={styles.iconButton}
+                  className={styles.ctlIcon}
                   onClick={handleUploadClick}
                   disabled={isSubmitting || isUploading}
                   title={targetAsset ? `Upload media to "${targetAsset.name}"` : 'Upload media to create new asset'}
@@ -822,7 +925,7 @@ export function ForgeTray({
                   {isUploading ? (
                     <span className={styles.spinner} />
                   ) : (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
                       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                       <polyline points="17 8 12 3 7 8" />
                       <line x1="12" y1="3" x2="12" y2="15" />
@@ -831,100 +934,46 @@ export function ForgeTray({
                 </button>
               )}
 
-              {/* Style */}
+              {/* Style (image/video) */}
               {showStyleControls && (
                 <button
                   type="button"
-                  className={`${styles.iconButton} ${style?.enabled ? styles.active : ''} ${showStylePanel ? styles.open : ''}`}
-                  onClick={() => setShowStylePanel(prev => !prev)}
+                  className={`${styles.ctlIcon} ${style?.enabled ? styles.active : ''} ${showStylePanel ? styles.open : ''}`}
+                  onClick={() => setShowStylePanel((prev) => !prev)}
                   disabled={isSubmitting}
                   title={style?.enabled ? `Style active (${style.imageKeys.length} images)` : 'Configure style'}
                   aria-label="Style"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                    <path d="M2 17l10 5 10-5" />
-                    <path d="M2 12l10 5 10-5" />
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" width="16" height="16">
+                    <path d="M12 3 21 12 12 21 3 12Z" />
                   </svg>
                   {style?.enabled && <span className={styles.iconButtonCount}>{style.imageKeys.length}</span>}
                 </button>
               )}
 
-              {style?.enabled && mediaModeConfig.supportsStyle && (
-                <label className={styles.noStyleCheck}>
-                  <input
-                    type="checkbox"
-                    checked={noStyle}
-                    onChange={(e) => setNoStyle(e.target.checked)}
-                    disabled={isSubmitting}
-                  />
-                  <span>No style</span>
-                </label>
-              )}
-
-              {/* Chat */}
+              {/* Chat (all modes) */}
               {sendChatMessage && (
                 <button
                   type="button"
-                  className={`${styles.iconButton} ${showChat ? styles.active : ''}`}
+                  className={`${styles.ctlIcon} ${showChat ? styles.active : ''}`}
                   onClick={handleToggleChat}
                   disabled={isSubmitting}
                   title="Chat with Claude about your prompt"
                   aria-label="Chat"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
-                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" width="16" height="16">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                   </svg>
                 </button>
               )}
-
-              {/* Batch */}
-              {showBatchControls && (
-                <select
-                  className={styles.batchSelect}
-                  value={batchCount}
-                  onChange={(e) => setBatchCount(Number(e.target.value))}
-                  disabled={isSubmitting}
-                  title="Number of variants to generate"
-                  aria-label="Batch count"
-                >
-                  <option value={1}>×1</option>
-                  <option value={2}>×2</option>
-                  <option value={4}>×4</option>
-                  <option value={8}>×8</option>
-                </select>
-              )}
-
-              {effectiveBatchCount > 1 && showBatchControls && (
-                <div className={styles.segmented} role="group" aria-label="Batch mode">
-                  <button
-                    type="button"
-                    className={`${styles.segment} ${batchMode === 'explore' ? styles.active : ''}`}
-                    onClick={() => setBatchMode('explore')}
-                    disabled={isSubmitting}
-                    title="Explore: 1 asset, multiple variants"
-                  >
-                    <span>Explore</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.segment} ${batchMode === 'set' ? styles.active : ''}`}
-                    onClick={() => setBatchMode('set')}
-                    disabled={isSubmitting}
-                    title="Set: multiple assets, 1 variant each"
-                  >
-                    <span>Set</span>
-                  </button>
-                </div>
-              )}
             </div>
 
-            <div className={styles.actionBarRight}>
-              {/* Name — auto-generated, quietly editable */}
-              {showNameInput ? (
+            <div className={styles.controlBarRight}>
+              {/* Name — auto-generated, quietly editable (new asset only; existing shows in header) */}
+              {showNameInput && (
                 <input
                   type="text"
-                  className={styles.nameInput}
+                  className={styles.nameChip}
                   value={nameValue}
                   onChange={(e) => handleNameChange(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -933,12 +982,6 @@ export function ForgeTray({
                   aria-label="Asset name"
                   title="Auto-named — click to rename"
                 />
-              ) : (
-                targetAsset && (
-                  <span className={styles.nameReadonly} title={targetAsset.name}>
-                    {targetAsset.name}
-                  </span>
-                )
               )}
 
               <button
@@ -955,6 +998,7 @@ export function ForgeTray({
                   </svg>
                 )}
                 <span className={styles.buttonLabel}>{operationLabel}</span>
+                <span className={styles.kbd} aria-hidden="true">↵</span>
               </button>
             </div>
           </div>
