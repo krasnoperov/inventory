@@ -471,15 +471,34 @@ describe('UsageService', () => {
       await usageService.trackClaudeUsage(testUserId, 1000, 500, 'claude-sonnet-4-20250514');
       await usageService.trackImageGeneration(testUserId, 2, 'gemini-3-pro-image-preview');
       await usageService.trackVideoGeneration(testUserId, 1, 'veo-3.1-generate-preview');
+      await usageService.trackElevenLabsAudioGeneration(
+        testUserId,
+        37,
+        'music_v1',
+        'generate',
+        'music',
+        { inputTokens: 37, outputTokens: 0, totalTokens: 37 }
+      );
+      await usageService.trackElevenLabsAudioGeneration(testUserId, 1, 'eleven_text_to_sound_v2', 'generate', 'sfx');
 
       const stats = await usageService.getUserUsageStats(testUserId);
 
       assert.ok(stats.period.start instanceof Date);
       assert.ok(stats.period.end instanceof Date);
       assert.strictEqual(stats.usage[USAGE_EVENTS.CLAUDE_INPUT_TOKENS]?.used, 1000);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.CLAUDE_INPUT_TOKENS]?.costUsd, 0.003);
       assert.strictEqual(stats.usage[USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS]?.used, 500);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS]?.costUsd, 0.0075);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_IMAGES]?.used, 2);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_IMAGES]?.costUsd, 0.48);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.used, 1);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.costUsd, 3.2);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.ELEVENLABS_AUDIO]?.used, 38);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.ELEVENLABS_AUDIO]?.costUsd, 0.12555);
+      assert.deepStrictEqual(stats.estimatedCost, {
+        amount: 3.81605,
+        currency: 'USD',
+      });
     });
 
     test('returns empty usage when no events exist', async () => {
@@ -488,6 +507,10 @@ describe('UsageService', () => {
       assert.ok(stats.period.start instanceof Date);
       assert.ok(stats.period.end instanceof Date);
       assert.deepStrictEqual(stats.usage, {});
+      assert.deepStrictEqual(stats.estimatedCost, {
+        amount: 0,
+        currency: 'USD',
+      });
     });
   });
 

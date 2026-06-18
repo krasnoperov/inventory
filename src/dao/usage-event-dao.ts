@@ -128,6 +128,21 @@ export class UsageEventDAO {
     }));
   }
 
+  async getUserUsageEventsForPeriod(
+    userId: number,
+    startDate: Date,
+    endDate: Date
+  ): Promise<Array<Pick<UsageEvent, 'event_name' | 'quantity' | 'metadata'>>> {
+    return await this.db
+      .selectFrom('usage_events')
+      .select(['event_name', 'quantity', 'metadata'])
+      .where('user_id', '=', userId)
+      .where('created_at', '>=', startDate.toISOString())
+      .where('created_at', '<=', endDate.toISOString())
+      .orderBy('created_at', 'asc')
+      .execute();
+  }
+
   async deleteOldSyncedEvents(olderThanDays: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);

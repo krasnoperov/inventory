@@ -52,6 +52,7 @@ interface GeminiVideoRate {
 interface ElevenLabsRate {
   unit: 'character' | 'generation' | 'minute';
   unitPriceUsd: number;
+  usageUnitPriceUsd?: number;
 }
 
 const TOKENS_PER_MILLION = 1_000_000;
@@ -115,8 +116,8 @@ export const ELEVENLABS_RATES_USD: Record<string, ElevenLabsRate> = {
   'eleven_multilingual_v1': { unit: 'character', unitPriceUsd: 0.1 / CHARACTERS_PER_THOUSAND },
   'eleven_multilingual_v2': { unit: 'character', unitPriceUsd: 0.1 / CHARACTERS_PER_THOUSAND },
   'eleven_v3': { unit: 'character', unitPriceUsd: 0.1 / CHARACTERS_PER_THOUSAND },
-  'music_v1': { unit: 'minute', unitPriceUsd: 0.15 },
-  'eleven_music_v1': { unit: 'minute', unitPriceUsd: 0.15 },
+  'music_v1': { unit: 'minute', unitPriceUsd: 0.15, usageUnitPriceUsd: 0.15 / CHARACTERS_PER_THOUSAND },
+  'eleven_music_v1': { unit: 'minute', unitPriceUsd: 0.15, usageUnitPriceUsd: 0.15 / CHARACTERS_PER_THOUSAND },
   'eleven_text_to_sound_v2': { unit: 'generation', unitPriceUsd: 0.12 },
 };
 
@@ -251,6 +252,13 @@ function priceElevenLabsAudio(
       minutesFromMs(getPositiveNumber(metadata, 'durationMs') ?? getPositiveNumber(metadata, 'duration_ms')) ??
       secondsToMinutes(getPositiveNumber(metadata, 'durationSeconds') ?? getPositiveNumber(metadata, 'duration_seconds'));
     if (durationMinutes === null) {
+      const usageUnits =
+        getPositiveNumber(metadata, 'total_tokens') ??
+        getPositiveNumber(metadata, 'input_tokens') ??
+        quantity;
+      if (rate.usageUnitPriceUsd !== undefined && usageUnits > 0) {
+        return priced(event, 'elevenlabs', model, 'character', usageUnits, rate.usageUnitPriceUsd, 'elevenlabs');
+      }
       return miss(event, 'elevenlabs', model, 'minute', 'unsupported_rate');
     }
     quantity = durationMinutes;
