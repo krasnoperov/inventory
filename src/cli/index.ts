@@ -17,6 +17,7 @@ import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
 import { handleVariants } from './commands/variants';
 import { handleProductions } from './commands/productions';
+import { handleRotation, handleTileSet } from './commands/pipelines';
 import {
   AUDIO_FORGE_MEDIA_MODES,
   isAudioForgeMediaMode,
@@ -127,6 +128,13 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'variant':
       printVariantsHelp();
       return;
+    case 'rotation':
+      printRotationHelp();
+      return;
+    case 'tileset':
+    case 'tile-set':
+      printTileSetHelp();
+      return;
     case 'productions':
     case 'production':
       printProductionsHelp();
@@ -166,6 +174,13 @@ Project:
   variants star <variant-id>      Star a variant (unstar to clear)
   variants rate <variant-id> approved|rejected
                                  Rate a variant for quality curation
+  rotation --variant <variant-id>
+                                 Generate rotation views from a completed image variant
+  rotation cancel <rotation-set-id>
+                                 Cancel an active rotation pipeline
+  tileset "prompt" --type terrain --grid 3x3
+                                 Generate a consistent tile set
+  tileset cancel <tile-set-id>    Cancel an active tile-set pipeline
   productions list --production-id <id>
                                  List Space-backed production placements
   productions export --production-id <id>
@@ -233,6 +248,8 @@ Examples:
   makefx assets set-active asset_123 variant_456
   makefx variants retry variant_456
   makefx variants delete variant_456
+  makefx rotation --variant variant_456 --config 8-directional
+  makefx tileset "grass and stone path tiles" --type terrain --grid 3x3
 `);
 }
 
@@ -516,6 +533,49 @@ Options:
 `);
 }
 
+function printRotationHelp(): void {
+  console.log(`
+Usage:
+  makefx rotation --variant <variant-id> [--config 4-directional|8-directional|turnaround]
+  makefx rotation --variant <variant-id> --mode single-shot --subject "hero knight"
+  makefx rotation cancel <rotation-set-id>
+
+Options:
+  --space <id>       Target space ID; defaults from the initialized project
+  --config <config>  4-directional, 8-directional, or turnaround (default: 4-directional)
+  --subject <text>   Optional subject description for consistency prompts
+  --aspect <ratio>   Optional generation aspect ratio
+  --mode <mode>      sequential or single-shot (default: sequential)
+  --no-style         Disable the space style anchor
+  --detach           Return after the pipeline starts instead of waiting for completion
+  --timeout <sec>    Override the pipeline wait timeout
+  --json             Print machine-readable output
+`);
+}
+
+function printTileSetHelp(): void {
+  console.log(`
+Usage:
+  makefx tileset "prompt" --type terrain --grid 3x3
+  makefx tileset "prompt" --type custom --width 4 --height 2 --seed-variant <variant-id>
+  makefx tileset cancel <tile-set-id>
+
+Options:
+  --space <id>        Target space ID; defaults from the initialized project
+  --type <type>       terrain, building, decoration, or custom (default: terrain)
+  --grid <size>       Square size or WIDTHxHEIGHT, each dimension 2-5 (default: 3)
+  --width <n>         Grid width, 2-5
+  --height <n>        Grid height, 2-5
+  --seed-variant <id> Optional completed image variant to place at the center (sequential mode only)
+  --aspect <ratio>    Optional generation aspect ratio
+  --mode <mode>       sequential or single-shot (default: sequential)
+  --no-style          Disable the space style anchor
+  --detach            Return after the pipeline starts instead of waiting for completion
+  --timeout <sec>     Override the pipeline wait timeout
+  --json              Print machine-readable output
+`);
+}
+
 function printProductionsHelp(): void {
   console.log(`
 Usage:
@@ -590,6 +650,13 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
     case 'variants':
     case 'variant':
       await handleVariants(parsed);
+      break;
+    case 'rotation':
+      await handleRotation(parsed);
+      break;
+    case 'tileset':
+    case 'tile-set':
+      await handleTileSet(parsed);
       break;
     case 'productions':
     case 'production':
