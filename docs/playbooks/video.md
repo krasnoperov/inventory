@@ -40,8 +40,9 @@ every shot derives from keyframes that share the same character sheet.
 > Veo's first-and-last-frame interpolation (animate between two stills with a
 > described camera move) and scene extension are powerful when you need a precise
 > camera arc or a guaranteed start/end state.[^gcloud-veo] Track whether the
-> Make Effects video surface exposes them yet in the model and parameter
-> selection reference; the keyframe-first principle applies regardless.
+> Make Effects video surface exposes them yet in
+> [model-and-parameter-selection.md](../model-and-parameter-selection.md); the
+> keyframe-first principle applies regardless.
 
 ## Write A Prompt That Actually Directs The Shot
 
@@ -86,8 +87,8 @@ generation:[^gcloud-veo]
 Match this to the clip length you request — Veo 3.1 clips are short (commonly 4,
 6, or 8 seconds), so keep the beat count honest. Pick the model variant for the
 job: the default `generate` model for hero shots, `fast`/`lite` for cheaper
-iteration and background motion. Details and defaults live in the model and
-parameter selection reference.
+iteration and background motion. Details and defaults live in
+[model-and-parameter-selection.md](../model-and-parameter-selection.md).
 
 ## Hand Off To A Renderer
 

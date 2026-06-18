@@ -1,8 +1,19 @@
+import home from '../shared/content/pages/home.md?raw';
 import quickstart from '../shared/content/docs/quickstart.md?raw';
 import concepts from '../shared/content/docs/concepts.md?raw';
 import cli from '../shared/content/docs/cli.md?raw';
 import productionHandoff from '../shared/content/docs/production-handoff.md?raw';
 import { DOC_REGISTRY, type DocPath } from '../shared/content/content-registry';
+
+const FULL_DOC_REGISTRY = [
+  {
+    title: 'Home',
+    description: 'Product overview and agent quick start.',
+    path: '/',
+    order: -1,
+  },
+  ...DOC_REGISTRY,
+] as const;
 
 const DOC_CONTENT: Record<DocPath, string> = {
   '/docs/quickstart': quickstart,
@@ -12,10 +23,11 @@ const DOC_CONTENT: Record<DocPath, string> = {
 };
 
 function markdownVariantPath(path: string): string {
-  return `${path}.md`;
+  return path === '/' ? '/index.md' : `${path}.md`;
 }
 
 export const CONTENT_MAP: Record<string, string> = {
+  '/': home,
   '/docs': quickstart,
   ...DOC_CONTENT,
 };
@@ -30,6 +42,7 @@ Direct generator CLIs are great for making media quickly. Make Effects is for th
 
 ## Documentation
 
+- [Home](https://makefx.app/index.md) - Product overview and agent quick start
 ${DOC_REGISTRY.map((entry) => `- [${entry.title}](https://makefx.app${markdownVariantPath(entry.path)}) - ${entry.description}`).join('\n')}
 
 ## Agent Quick Start
@@ -53,7 +66,8 @@ makefx assets --json
 
 export const LLMS_FULL_TXT =
   `# Make Effects - Full Documentation\n\n` +
-  DOC_REGISTRY
+  [...FULL_DOC_REGISTRY]
+    .sort((a, b) => a.order - b.order)
     .map((entry) => {
       const content = CONTENT_MAP[entry.path];
       return `---\n\nURL: https://makefx.app${entry.path}\nMarkdown: https://makefx.app${markdownVariantPath(entry.path)}\n\n${content}`;

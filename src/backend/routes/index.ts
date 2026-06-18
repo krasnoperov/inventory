@@ -23,7 +23,6 @@ import { webhookRoutes } from './webhooks';
 import { uploadRoutes } from './upload';
 import { trainingExportRoutes } from './training-export';
 import { voicesRoutes } from './voices';
-import { contentRoutes } from './content';
 import { renderStartApp } from '../frontend-start-ssr';
 
 /**
@@ -31,7 +30,7 @@ import { renderStartApp } from '../frontend-start-ssr';
  */
 export function registerRoutes(
   app: OpenAPIHono<AppContext>,
-  documentHandler: Handler<AppContext> = renderStartApp,
+  documentHandler: Handler<AppContext> = (c) => renderStartApp(c),
 ) {
   // Health check routes
   app.route('/', healthRoutes);
@@ -78,9 +77,6 @@ export function registerRoutes(
 
   // Voice listing routes (ElevenLabs audio provider)
   app.route('/', voicesRoutes);
-
-  // Public docs and agent-readable text discovery
-  app.route('/', contentRoutes);
 
   app.doc('/api/openapi.json', {
     openapi: '3.0.0',

@@ -3,6 +3,7 @@ import { createContainer } from '../core/container';
 import { registerRoutes } from './routes';
 import { UsageService } from './services/usageService';
 import { createOpenApiRouter } from './routes/openapi';
+import { contentNegotiation } from './middleware/content-negotiation';
 
 export type Bindings = Env;
 
@@ -29,6 +30,9 @@ app.use('*', async (c, next) => {
 
   await next();
 });
+
+// Public markdown, LLM discovery, and agent-readable content negotiation.
+app.use('*', contentNegotiation());
 
 // Global error handler - catches unhandled errors in routes
 app.onError((err, c) => {

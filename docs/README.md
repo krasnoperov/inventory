@@ -21,6 +21,7 @@ and consistency across images, video, and audio.
 | [architecture.md](./architecture.md) | System overview, data storage, key flows |
 | [domain.md](./domain.md) | Core concepts: assets, variants, lineage, forge tray |
 | [style-and-batch.md](./style-and-batch.md) | Style anchoring and batch generation |
+| [model-and-parameter-selection.md](./model-and-parameter-selection.md) | Which model and parameters to pick for images, video, and audio |
 | [design.md](./design.md) | Visual design system and patterns |
 | [billing.md](./billing.md) | Usage-based billing with Polar.sh |
 | [cli.md](./cli.md) | Command-line interface usage |
