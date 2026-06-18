@@ -67,3 +67,25 @@ export const Badges: Story = () => (
     </Labeled>
   </div>
 );
+
+// Completed image variants resolve their thumbnail to /api/images/…; the
+// style-reference capture route-mocks that path with a placeholder, so this
+// renders in the gallery (the dev `stories` server shows a broken image).
+export const Completed: Story = () => {
+  const variant = makeVariant({
+    status: 'completed',
+    image_key: 'demo.png',
+    thumb_key: 'demo-thumb.png',
+    media_width: 400,
+    media_height: 400,
+  });
+  return (
+    <div className={layout.inlineCluster}>
+      {(['sm', 'md', 'lg'] as const).map((size) => (
+        <Labeled key={size} label={size}>
+          <Thumbnail variant={variant} size={size} showBadges />
+        </Labeled>
+      ))}
+    </div>
+  );
+};

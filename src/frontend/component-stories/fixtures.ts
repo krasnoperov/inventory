@@ -1,4 +1,4 @@
-import type { Variant } from '../hooks/useSpaceWebSocket';
+import type { Asset, Variant } from '../hooks/useSpaceWebSocket';
 
 // Mock data factories for stories. Keep these minimal but type-accurate so
 // stories exercise the real component code paths without a backend.
@@ -35,6 +35,24 @@ export function makeVariant(overrides: Partial<Variant> = {}): Variant {
     created_at: 0,
     updated_at: null,
     description: null,
+    ...overrides,
+  };
+}
+
+/** Build an Asset. Defaults to a root image asset; override parent_asset_id /
+ *  active_variant_id / type to nest or point at a specific variant. */
+export function makeAsset(overrides: Partial<Asset> = {}): Asset {
+  return {
+    id: nextId('asset'),
+    name: 'Hero Character',
+    type: 'character',
+    media_kind: 'image',
+    tags: '',
+    parent_asset_id: null,
+    active_variant_id: null,
+    created_by: 'user-1',
+    created_at: 0,
+    updated_at: 0,
     ...overrides,
   };
 }
