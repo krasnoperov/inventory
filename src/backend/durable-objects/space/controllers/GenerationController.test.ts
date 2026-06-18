@@ -1424,6 +1424,7 @@ describe('GenerationController pipeline hooks', () => {
     });
 
     test('does not reject Lyria music retry because image quota is exhausted', async () => {
+      const bindings: unknown[][] = [];
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();
       asMock(repo.getVariantById).mock.mockImplementation(async () => createMockVariant({
@@ -1440,6 +1441,7 @@ describe('GenerationController pipeline hooks', () => {
       ctx.env.DB = createQuotaCheckDb({
         quotaLimit: 0,
         quotaLimitsJson: EXHAUSTED_IMAGE_QUOTA_LIMITS,
+        bindings,
       }) as any;
       ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
       ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
@@ -1450,6 +1452,8 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(asMock(ctx.sendError).mock.calls.length, 0);
       assert.strictEqual(asMock(repo.resetVariantForRetry).mock.calls.length, 1);
       assert.strictEqual(workflowCreate.mock.calls.length, 1);
+      assert.ok(bindings.some((args) => args[1] === 'gemini_audio'));
+      assert.ok(!bindings.some((args) => args[1] === 'gemini_images'));
     });
   });
 });

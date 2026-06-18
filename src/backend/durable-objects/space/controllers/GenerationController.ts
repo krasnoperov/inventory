@@ -468,7 +468,7 @@ export class GenerationController extends BaseController {
 
     const retryMediaKind = variant.media_kind ?? asset.media_kind;
     const billingService = getGenerationBillingService(this.env, retryMediaKind, recipe.assetType, recipe.musicProvider);
-    if (this.env.DB && billingService === 'elevenlabs') {
+    if (this.env.DB && (billingService === 'elevenlabs' || billingService === 'lyria')) {
       const quotaQuantity = getQuotaCheckQuantity(billingService, recipe.prompt, 1, recipe.assetType);
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
