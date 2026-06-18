@@ -107,10 +107,10 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm run deploy:stage
 
-      - name: Deploy processing worker
+      - name: Deploy generation worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm exec wrangler deploy --config wrangler.processing.toml
+        run: pnpm exec wrangler deploy --config wrangler.generation.toml
 
       - name: Deploy polar worker
         env:
@@ -154,10 +154,10 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm run deploy:production
 
-      - name: Deploy processing worker
+      - name: Deploy generation worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm exec wrangler deploy --config wrangler.processing.toml --env production
+        run: pnpm exec wrangler deploy --config wrangler.generation.toml --env production
 
       - name: Deploy polar worker
         env:
