@@ -10,14 +10,13 @@ For *how to prompt* these models well, see the
 companion.
 
 > **Service parameters vs. CLI flags.** The values below are the parameters the
-> backend services accept. Not all are exposed as `makefx` CLI flags — the CLI
-> surfaces `--aspect`, `--count`, `--mode`, and production-metadata flags such
-> as `--duration-ms`. Model choice, image/video resolution, and Veo
-> `durationSeconds` currently fall to server-side defaults. Where a value is set
-> by a default rather than a flag, that is noted. Service-supported values that
-> are **not yet exposed** are marked below; see the tracked exposure issues for
-> image size 2K/4K ([INV-97](https://linear.app/usertold/issue/INV-97/image-generation-controls-model-size-aspect)),
-> Veo resolution 1080p/4k ([INV-70](https://linear.app/usertold/issue/INV-70/expose-video-resolution-720p1080p4k-in-web-cli)),
+> backend services accept. Top-level image CLI commands expose `--model`,
+> `--size`, and `--aspect`; batch/count and production metadata have their own
+> flags. Video model, video resolution, and Veo `durationSeconds` currently fall
+> to server-side defaults. Where a value is set by a default rather than a flag,
+> that is noted. Service-supported values that are **not yet exposed** are marked
+> below; see the tracked exposure issues for Veo resolution 1080p/4k
+> ([INV-70](https://linear.app/usertold/issue/INV-70/expose-video-resolution-720p1080p4k-in-web-cli)),
 > Veo duration 4/6/8s ([INV-84](https://linear.app/usertold/issue/INV-84/expose-video-duration-468s-fix-6s-chip-and-forced-8s-ux)),
 > and Veo fast/lite tiers ([INV-73](https://linear.app/usertold/issue/INV-73/wire-up-and-expose-the-veo-tier-generatefastlite)).
 > See [cli-generation.md](./cli-generation.md) for the flag list.
@@ -33,36 +32,32 @@ Two models, selected via `'pro' | 'flash'` (`resolveImageModel`,
 
 | Selection | Model ID | Use for | Key limit | Exposure |
 |-|-|-|-|-|
-| `pro` (default) | `gemini-3-pro-image-preview` | Production assets, any composition, multi-reference work | Up to 14 reference images | Single-generate default today |
-| `flash` | `gemini-2.5-flash-image` | Fast single-reference iteration, drafts | **Only 1 reference image** (`nanoBananaService.ts:202`) | Public batch/explore default; not directly selectable as a model control |
+| `pro` (default) | `gemini-3-pro-image-preview` | Production assets, any composition, multi-reference work | Up to 14 reference images | Web + top-level image CLI |
+| `flash` | `gemini-2.5-flash-image` | Fast single-reference iteration, drafts | **Only 1 reference image** (`nanoBananaService.ts:202`) | Web + top-level image CLI |
 
 **Default to Pro.** The default model is `gemini-3-pro-image-preview`
 (`nanoBananaService.ts:119`) when a request does not set `recipe.model`;
-single-generate image recipes leave it unset (`VariantFactory.ts:207`). Image
-batch/explore recipes set Flash explicitly (`VariantFactory.ts:506`, `:511`) for
-fast drafts with at most one reference. Public image model selection is not
-exposed yet (tracked by
-[INV-97](https://linear.app/usertold/issue/INV-97/image-generation-controls-model-size-aspect)).
-The service throws if you pass more than one reference to Flash, and throws past
-14 references on either model (`nanoBananaService.ts:202`, `:206`).
+image recipes leave it unset unless a web or CLI request selects a model. The
+service throws if you pass more than one reference to Flash, and throws past 14
+references on either model (`nanoBananaService.ts:202`, `:206`).
 
 ### Aspect Ratio
 
 `AspectRatio` (`nanoBananaService.ts:47`): `1:1`, `16:9`, `9:16`, `2:3`, `3:2`,
 `3:4`, `4:3`, `4:5`, `5:4`, `21:9`. Optional at the service boundary; Make
-Effects generation currently defaults omitted image aspects to `1:1`
-(`GenerationWorkflow.ts:245`), so set `--aspect` explicitly when you want
-anything else. Pick deliberately for the destination: `16:9`/`21:9` for keyframes
-and backgrounds, `9:16` for vertical/social, `1:1` for icons and tiles, `4:5` for
-portrait posts.
+Effects generation currently defaults omitted image aspects to `1:1`; the web
+Forge Tray also defaults its image aspect control to `1:1`. Set `--aspect`
+explicitly in the CLI when you want anything else. Pick deliberately for the
+destination: `16:9`/`21:9` for keyframes and backgrounds, `9:16` for
+vertical/social, `1:1` for icons and tiles, `4:5` for portrait posts.
 
 ### Image Size
 
-`ImageSize` (`nanoBananaService.ts:48`): `1K`, `2K`, `4K`. Optional. Use `1K`
-for iteration and thumbnails, step up to `2K`/`4K` only for final assets — higher
-sizes cost more and are wasted on drafts you will regenerate. `2K` and `4K` are
-service-supported but **not yet exposed** as public web/CLI controls (tracked by
-[INV-97](https://linear.app/usertold/issue/INV-97/image-generation-controls-model-size-aspect)).
+`ImageSize` (`nanoBananaService.ts:48`): `1K`, `2K`, `4K`. Use `1K` for
+iteration and thumbnails, step up to `2K`/`4K` only for final assets — higher
+sizes cost more and are wasted on drafts you will regenerate. Flash is limited
+to `1K`; the web UI disables larger sizes when Flash is selected and the CLI
+rejects `--model flash --size 2K|4K`.
 
 ### Operations
 

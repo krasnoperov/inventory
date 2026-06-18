@@ -370,7 +370,11 @@ export interface GenerateRequestParams {
   referenceAssetIds?: string[];
   /** Explicit variant references from ForgeTray UI - used as-is */
   referenceVariantIds?: string[];
+  /** Image model selection (`pro`/`flash`) or resolved model ID */
+  model?: string;
   aspectRatio?: string;
+  /** Image output size (`1K`, `2K`, `4K`) */
+  imageSize?: string;
   parentAssetId?: string;
   /** Disable style anchoring */
   disableStyle?: boolean;
@@ -391,7 +395,11 @@ export interface RefineRequestParams {
   sourceVariantIds?: string[];
   /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
+  /** Image model selection (`pro`/`flash`) or resolved model ID */
+  model?: string;
   aspectRatio?: string;
+  /** Image output size (`1K`, `2K`, `4K`) */
+  imageSize?: string;
   /** Disable style anchoring */
   disableStyle?: boolean;
   /** ElevenLabs speech voice ID (audio modes only) */
@@ -412,7 +420,9 @@ export interface BatchRequestParams {
   mode: BatchMode;
   referenceAssetIds?: string[];
   referenceVariantIds?: string[];
+  model?: string;
   aspectRatio?: string;
+  imageSize?: string;
   parentAssetId?: string;
   disableStyle?: boolean;
   /** ElevenLabs speech voice ID (audio modes only) */
@@ -990,7 +1000,9 @@ export function useSpaceWebSocket({
       prompt: params.prompt,
       referenceAssetIds: params.referenceAssetIds,
       referenceVariantIds: params.referenceVariantIds,
+      model: params.model,
       aspectRatio: params.aspectRatio,
+      imageSize: params.imageSize,
       parentAssetId: params.parentAssetId,
       disableStyle: params.disableStyle,
       voiceId: params.voiceId,
@@ -1011,7 +1023,9 @@ export function useSpaceWebSocket({
       sourceVariantId: params.sourceVariantId,
       sourceVariantIds: params.sourceVariantIds,
       referenceAssetIds: params.referenceAssetIds,
+      model: params.model,
       aspectRatio: params.aspectRatio,
+      imageSize: params.imageSize,
       disableStyle: params.disableStyle,
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
@@ -1134,7 +1148,9 @@ export function useSpaceWebSocket({
       mode: params.mode,
       referenceAssetIds: params.referenceAssetIds,
       referenceVariantIds: params.referenceVariantIds,
+      model: params.model,
       aspectRatio: params.aspectRatio,
+      imageSize: params.imageSize,
       parentAssetId: params.parentAssetId,
       disableStyle: params.disableStyle,
       voiceId: params.voiceId,

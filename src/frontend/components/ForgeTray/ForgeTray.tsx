@@ -10,6 +10,14 @@ import {
 } from '../../hooks/useSpaceWebSocket';
 import { useStyleStore } from '../../stores/styleStore';
 import type { MediaKind } from '../../../shared/websocket-types';
+import {
+  IMAGE_ASPECT_RATIOS,
+  IMAGE_MODEL_SELECTIONS,
+  IMAGE_SIZES,
+  type ImageAspectRatio,
+  type ImageModelSelection,
+  type ImageSize,
+} from '../../../shared/imageGenerationOptions';
 import { AssetPickerModal } from './AssetPickerModal';
 import { ForgeChat } from './ForgeChat';
 import { StylePanel } from './StylePanel';
@@ -51,8 +59,12 @@ export interface ForgeSubmitParams {
   batchCount?: number;
   /** Batch mode: 'explore' = 1 asset N variants, 'set' = N assets */
   batchMode?: 'explore' | 'set';
+  /** Image generation model */
+  model?: ImageModelSelection;
   /** Aspect ratio for generation */
-  aspectRatio?: string;
+  aspectRatio?: ImageAspectRatio;
+  /** Image output size */
+  imageSize?: ImageSize;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
   /** ElevenLabs speech voice ID (speech mode) */
@@ -267,6 +279,9 @@ export function ForgeTray({
   const [noStyle, setNoStyle] = useState(false);
   const [batchCount, setBatchCount] = useState(1);
   const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
+  const [imageModel, setImageModel] = useState<ImageModelSelection>('pro');
+  const [imageSize, setImageSize] = useState<ImageSize>('1K');
+  const [aspectRatio, setAspectRatio] = useState<ImageAspectRatio>('1:1');
   const [mediaMode, setMediaMode] = useState<ForgeMediaMode>('image');
   // Remembers the last selected audio sub-mode so re-opening the Audio group
   // restores the user's previous choice instead of always resetting to speech.
@@ -391,6 +406,12 @@ export function ForgeTray({
       setBatchCount(1);
     }
   }, [mediaModeConfig.supportsBatch, batchCount]);
+
+  useEffect(() => {
+    if (imageModel === 'flash' && imageSize !== '1K') {
+      setImageSize('1K');
+    }
+  }, [imageModel, imageSize]);
 
   const handleSelectGroup = useCallback((group: MediaGroup) => {
     if (group === 'image') {
@@ -561,6 +582,9 @@ export function ForgeTray({
         operation,
         batchCount: effectiveBatchCount > 1 ? effectiveBatchCount : undefined,
         batchMode: effectiveBatchCount > 1 ? batchMode : undefined,
+        model: selectedMediaKind === 'image' ? imageModel : undefined,
+        aspectRatio: selectedMediaKind === 'image' ? aspectRatio : undefined,
+        imageSize: selectedMediaKind === 'image' ? imageSize : undefined,
         disableStyle: isAudioMode || noStyle || undefined,
         voiceId: mediaMode === 'speech' ? voiceId : undefined,
         // Keep positions intact — each entry maps to a speaker in order, and a
@@ -586,7 +610,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, noStyle, voiceId, dialogueVoiceIds]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -661,6 +685,7 @@ export function ForgeTray({
 
   // Per-mode options row visibility
   const showOptionsRow =
+    currentMediaGroup === 'image' ||
     currentMediaGroup === 'audio' ||
     currentMediaGroup === 'video' ||
     showBatchControls ||
@@ -739,6 +764,46 @@ export function ForgeTray({
             <div className={styles.optionsRow}>
               {currentMediaGroup === 'image' && (
                 <>
+                  <div className={styles.miniSeg} role="group" aria-label="Image model">
+                    {IMAGE_MODEL_SELECTIONS.map((model) => (
+                      <button
+                        key={model}
+                        type="button"
+                        className={`${styles.miniSegText} ${imageModel === model ? styles.active : ''}`}
+                        onClick={() => setImageModel(model)}
+                        disabled={isSubmitting}
+                        title={model === 'pro' ? 'Pro model' : 'Flash model'}
+                      >
+                        {model === 'pro' ? 'Pro' : 'Flash'}
+                      </button>
+                    ))}
+                  </div>
+                  <div className={styles.miniSeg} role="group" aria-label="Image size">
+                    {IMAGE_SIZES.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        className={`${styles.miniSegItem} ${imageSize === size ? styles.active : ''}`}
+                        onClick={() => setImageSize(size)}
+                        disabled={isSubmitting || (imageModel === 'flash' && size !== '1K')}
+                        title={imageModel === 'flash' && size !== '1K' ? 'Flash supports 1K output' : `${size} image size`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                  <select
+                    className={styles.paramSelect}
+                    value={aspectRatio}
+                    onChange={(e) => setAspectRatio(e.target.value as ImageAspectRatio)}
+                    disabled={isSubmitting}
+                    aria-label="Aspect ratio"
+                    title="Aspect ratio"
+                  >
+                    {IMAGE_ASPECT_RATIOS.map((ratio) => (
+                      <option key={ratio} value={ratio}>{ratio}</option>
+                    ))}
+                  </select>
                   {style?.enabled && mediaModeConfig.supportsStyle && (
                     <span className={styles.styleChip} title="Space style is active">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" width="12" height="12">

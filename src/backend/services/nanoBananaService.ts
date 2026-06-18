@@ -1,5 +1,12 @@
 import { injectable } from 'inversify';
 import { GoogleGenAI, createPartFromBase64, createPartFromText, type Part } from '@google/genai';
+import {
+  resolveImageModelSelection,
+  type ImageAspectRatio,
+  type ImageModelId,
+  type ImageModelSelection,
+  type ImageSize as SharedImageSize,
+} from '../../shared/imageGenerationOptions';
 
 // =============================================================================
 // Error Classes - Typed errors for Gemini API failure modes
@@ -42,14 +49,13 @@ export class GeminiRateLimitError extends GeminiGenerationError {
 // Core Types - Pure data, no framework dependencies
 // =============================================================================
 
-export type ImageModel = 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image';
-export type ModelSelection = 'pro' | 'flash';
-export type AspectRatio = '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9';
-export type ImageSize = '1K' | '2K' | '4K';
+export type ImageModel = ImageModelId;
+export type ModelSelection = ImageModelSelection;
+export type AspectRatio = ImageAspectRatio;
+export type ImageSize = SharedImageSize;
 
 export function resolveImageModel(selection?: ModelSelection): ImageModel {
-  if (selection === 'flash') return 'gemini-2.5-flash-image';
-  return 'gemini-3-pro-image-preview';
+  return resolveImageModelSelection(selection);
 }
 
 export interface ImageInput {

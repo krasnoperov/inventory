@@ -81,9 +81,9 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 | `chat:send` | `message`, `mode: 'advisor'\|'actor'`, `forgeContext?`, `viewingContext?` | Send chat message (persistent chat) |
 | `chat:history` | `since?` | Request chat history |
 | `chat:new_session` | - | Start new chat session |
-| `generate:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Generate new asset (triggers GenerationWorkflow) |
-| `refine:request` | `requestId`, `assetId`, `mediaKind?`, `prompt`, `sourceVariantId?`, `sourceVariantIds?`, `aspectRatio?`, `referenceAssetIds?`, `disableStyle?` | Refine existing asset |
-| `batch:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt`, `count`, `mode: 'explore'\|'set'`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Batch generate (see [style-and-batch.md](./style-and-batch.md)) |
+| `generate:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt?`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Generate new asset (triggers GenerationWorkflow) |
+| `refine:request` | `requestId`, `assetId`, `mediaKind?`, `prompt`, `sourceVariantId?`, `sourceVariantIds?`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `disableStyle?` | Refine existing asset |
+| `batch:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt`, `count`, `mode: 'explore'\|'set'`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?` | Batch generate (see [style-and-batch.md](./style-and-batch.md)) |
 | `describe:request` | `requestId`, `variantId`, `assetName`, `focus?`, `question?` | Describe image with Claude Vision |
 | `compare:request` | `requestId`, `variantIds`, `aspects?` | Compare images with Claude Vision |
 | `auto-describe:request` | `variantId` | Auto-describe variant (cached, for Forge Tray context) |
@@ -409,6 +409,8 @@ ws.send({
   name: 'Hero Character',
   assetType: 'character',
   prompt: 'A brave knight in shining armor',
+  model: 'pro',
+  imageSize: '1K',
   aspectRatio: '1:1',
 });
 
