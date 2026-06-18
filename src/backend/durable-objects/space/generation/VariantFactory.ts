@@ -189,18 +189,6 @@ export class VariantFactory {
       }
     }
 
-    // Create the asset
-    const asset = await this.repo.createAsset({
-      id: assetId,
-      name: input.name,
-      type: input.assetType,
-      mediaKind: input.mediaKind,
-      tags: [],
-      parentAssetId: effectiveParentAssetId,
-      createdBy: meta.userId,
-    });
-    this.broadcast({ type: 'asset:created', asset });
-
     // Resolve references
     const resolved = await this.resolveAllReferences(
       input.referenceAssetIds,
@@ -242,6 +230,19 @@ export class VariantFactory {
     recipe = styleResult.recipe;
     const effectiveSourceImageKeys = styleResult.sourceImageKeys;
     recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
+    this.validateImageModelReferenceLimit(recipe, effectiveSourceImageKeys);
+
+    // Create the asset only after request-level validation succeeds.
+    const asset = await this.repo.createAsset({
+      id: assetId,
+      name: input.name,
+      type: input.assetType,
+      mediaKind: input.mediaKind,
+      tags: [],
+      parentAssetId: effectiveParentAssetId,
+      createdBy: meta.userId,
+    });
+    this.broadcast({ type: 'asset:created', asset });
 
     // Create placeholder variant
     const variant = await this.repo.createPlaceholderVariant({
@@ -334,6 +335,7 @@ export class VariantFactory {
     recipe = styleResult.recipe;
     const effectiveSourceImageKeys = styleResult.sourceImageKeys;
     recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
+    this.validateImageModelReferenceLimit(recipe, effectiveSourceImageKeys);
 
     // Create placeholder variant
     const variant = await this.repo.createPlaceholderVariant({
@@ -557,6 +559,7 @@ export class VariantFactory {
     recipe = styleResult.recipe;
     const effectiveSourceImageKeys = styleResult.sourceImageKeys;
     recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
+    this.validateImageModelReferenceLimit(recipe, effectiveSourceImageKeys);
 
     // Auto-set parentAssetId from first reference
     let effectiveParentAssetId = input.parentAssetId;
@@ -832,6 +835,20 @@ export class VariantFactory {
       throw new ValidationError('Flash image generation supports only 1K output');
     }
     return normalized;
+  }
+
+  private validateImageModelReferenceLimit(
+    recipe: GenerationRecipe,
+    sourceImageKeys: string[]
+  ): void {
+    const mediaKind = recipe.mediaKind ?? DEFAULT_MEDIA_KIND;
+    if (mediaKind !== 'image' || recipe.model !== IMAGE_MODEL_IDS.flash) {
+      return;
+    }
+
+    if (sourceImageKeys.length > 1) {
+      throw new ValidationError('Flash image generation supports at most 1 reference image');
+    }
   }
 
   private capVeoSourceImageKeys(

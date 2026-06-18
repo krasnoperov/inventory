@@ -278,6 +278,38 @@ describe('VariantFactory', () => {
       assert.ok(broadcastCalls.some((c) => c.arguments[0].type === 'lineage:created'));
     });
 
+    test('rejects Flash image generation with multiple references before creating records', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
+        async (variantId: string) => `images/${variantId}.png`
+      );
+
+      await assert.rejects(
+        factory.createAssetWithVariant(
+          {
+            name: 'Flash Composite',
+            assetType: 'scene',
+            mediaKind: 'image',
+            prompt: 'Combine these references quickly',
+            model: 'flash',
+            referenceVariantIds: ['ref-var-1', 'ref-var-2'],
+          },
+          meta
+        ),
+        /Flash image generation supports at most 1 reference image/
+      );
+
+      assert.strictEqual(asMock(repo.createAsset).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createLineage).mock.calls.length, 0);
+      assert.strictEqual(asMock(broadcast).mock.calls.length, 0);
+    });
+
     test('auto-sets parentAssetId from first reference', async () => {
       const repo = createMockRepo();
       const env = createMockEnv();
