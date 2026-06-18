@@ -15,9 +15,9 @@ import '../styles/theme.css';
 import '../styles/global.css';
 
 const DESCRIPTION =
-  'Make Effects helps teams generate, refine, and assemble AI-assisted game assets with full lineage, real-time collaboration, and production-ready media handoff.';
+  'Make Effects is the project layer for CLI-first media generation: track variants, prompts, lineage, collaborators, and production handoff after ideas outgrow one prompt.';
 const SOCIAL_DESCRIPTION =
-  'AI-assisted game asset production with lineage, collaboration, and media handoff.';
+  'CLI-first media generation with project memory for variants, prompts, lineage, collaboration, and handoff.';
 
 function Document({ children }: { children: ReactNode }) {
   return (
@@ -51,7 +51,6 @@ export const Route = createRootRouteWithContext<StartRouterContext>()({
       { name: 'twitter:description', content: SOCIAL_DESCRIPTION },
     ],
     links: [
-      { rel: 'canonical', href: 'https://makefx.app/' },
       { rel: 'alternate', type: 'text/plain', title: 'LLM overview', href: '/llms.txt' },
     ],
   }),

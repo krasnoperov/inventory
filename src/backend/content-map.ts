@@ -1,0 +1,61 @@
+import quickstart from '../shared/content/docs/quickstart.md?raw';
+import concepts from '../shared/content/docs/concepts.md?raw';
+import cli from '../shared/content/docs/cli.md?raw';
+import productionHandoff from '../shared/content/docs/production-handoff.md?raw';
+import { DOC_REGISTRY, type DocPath } from '../shared/content/content-registry';
+
+const DOC_CONTENT: Record<DocPath, string> = {
+  '/docs/quickstart': quickstart,
+  '/docs/concepts': concepts,
+  '/docs/cli': cli,
+  '/docs/production-handoff': productionHandoff,
+};
+
+function markdownVariantPath(path: string): string {
+  return `${path}.md`;
+}
+
+export const CONTENT_MAP: Record<string, string> = {
+  '/docs': quickstart,
+  ...DOC_CONTENT,
+};
+
+export const LLMS_TXT = `# Make Effects
+
+> Make Effects is the project layer for CLI-first media generation. Use a fast CLI loop to generate images, video, and audio, then keep the relationships, variants, prompts, collaborators, and production handoff organized.
+
+## Product Promise
+
+Direct generator CLIs are great for making media quickly. Make Effects is for the moment a project gets big enough that you need to remember what worked, compare variants, refine prompts, follow lineage, explore broader ideas, and turn the chosen results into production files. Humans and agents can create spaces, generate or upload media, inspect assets, refine variants, derive new media from references, monitor jobs, and export handoff records for downstream tools.
+
+## Documentation
+
+${DOC_REGISTRY.map((entry) => `- [${entry.title}](https://makefx.app${markdownVariantPath(entry.path)}) - ${entry.description}`).join('\n')}
+
+## Agent Quick Start
+
+\`\`\`sh
+npm install -g makefx
+makefx login
+makefx spaces create "My Game Assets" --init
+makefx generate "A market background" --name "Market" --type scene -o art/market.png
+makefx audio sfx generate "Magic pickup" --name "Pickup" -o audio/pickup.wav
+makefx video generate "Looping idle animation" --name "Idle" --type animation -o video/idle.mp4
+makefx assets --json
+\`\`\`
+
+## Discovery
+
+- Rendered docs: https://makefx.app/docs
+- Full LLM context: https://makefx.app/llms-full.txt
+- CLI JSON outputs: prefer \`--json\` where available and \`makefx listen --json\` for live orchestration.
+`;
+
+export const LLMS_FULL_TXT =
+  `# Make Effects - Full Documentation\n\n` +
+  DOC_REGISTRY
+    .map((entry) => {
+      const content = CONTENT_MAP[entry.path];
+      return `---\n\nURL: https://makefx.app${entry.path}\nMarkdown: https://makefx.app${markdownVariantPath(entry.path)}\n\n${content}`;
+    })
+    .join('\n\n');

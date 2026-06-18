@@ -11,12 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SpacesIndexRouteImport } from './routes/spaces/index'
+import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as SpacesIdRouteImport } from './routes/spaces/$id'
 import { Route as OauthApproveRouteImport } from './routes/oauth/approve'
+import { Route as DocsSlugRouteImport } from './routes/docs/$slug'
 import { Route as SpacesIdIndexRouteImport } from './routes/spaces/$id/index'
 import { Route as SpacesIdProductionRouteImport } from './routes/spaces/$id/production'
 import { Route as SpacesIdAssetsAssetIdRouteImport } from './routes/spaces/$id/assets/$assetId'
@@ -29,6 +32,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -51,6 +59,11 @@ const SpacesIndexRoute = SpacesIndexRouteImport.update({
   path: '/spaces/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DocsRoute,
+} as any)
 const SpacesIdRoute = SpacesIdRouteImport.update({
   id: '/spaces/$id',
   path: '/spaces/$id',
@@ -60,6 +73,11 @@ const OauthApproveRoute = OauthApproveRouteImport.update({
   id: '/oauth/approve',
   path: '/oauth/approve',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DocsSlugRoute = DocsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => DocsRoute,
 } as any)
 const SpacesIdIndexRoute = SpacesIdIndexRouteImport.update({
   id: '/',
@@ -81,10 +99,13 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/dashboard': typeof DashboardRoute
+  '/docs': typeof DocsRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/docs/$slug': typeof DocsSlugRoute
   '/oauth/approve': typeof OauthApproveRoute
   '/spaces/$id': typeof SpacesIdRouteWithChildren
+  '/docs/': typeof DocsIndexRoute
   '/spaces/': typeof SpacesIndexRoute
   '/spaces/$id/production': typeof SpacesIdProductionRoute
   '/spaces/$id/': typeof SpacesIdIndexRoute
@@ -96,7 +117,9 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/docs/$slug': typeof DocsSlugRoute
   '/oauth/approve': typeof OauthApproveRoute
+  '/docs': typeof DocsIndexRoute
   '/spaces': typeof SpacesIndexRoute
   '/spaces/$id/production': typeof SpacesIdProductionRoute
   '/spaces/$id': typeof SpacesIdIndexRoute
@@ -107,10 +130,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/dashboard': typeof DashboardRoute
+  '/docs': typeof DocsRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/docs/$slug': typeof DocsSlugRoute
   '/oauth/approve': typeof OauthApproveRoute
   '/spaces/$id': typeof SpacesIdRouteWithChildren
+  '/docs/': typeof DocsIndexRoute
   '/spaces/': typeof SpacesIndexRoute
   '/spaces/$id/production': typeof SpacesIdProductionRoute
   '/spaces/$id/': typeof SpacesIdIndexRoute
@@ -122,10 +148,13 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/dashboard'
+    | '/docs'
     | '/login'
     | '/profile'
+    | '/docs/$slug'
     | '/oauth/approve'
     | '/spaces/$id'
+    | '/docs/'
     | '/spaces/'
     | '/spaces/$id/production'
     | '/spaces/$id/'
@@ -137,7 +166,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/profile'
+    | '/docs/$slug'
     | '/oauth/approve'
+    | '/docs'
     | '/spaces'
     | '/spaces/$id/production'
     | '/spaces/$id'
@@ -147,10 +178,13 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/dashboard'
+    | '/docs'
     | '/login'
     | '/profile'
+    | '/docs/$slug'
     | '/oauth/approve'
     | '/spaces/$id'
+    | '/docs/'
     | '/spaces/'
     | '/spaces/$id/production'
     | '/spaces/$id/'
@@ -161,6 +195,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   DashboardRoute: typeof DashboardRoute
+  DocsRoute: typeof DocsRouteWithChildren
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   OauthApproveRoute: typeof OauthApproveRoute
@@ -182,6 +217,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -212,6 +254,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SpacesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/': {
+      id: '/docs/'
+      path: '/'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof DocsRoute
+    }
     '/spaces/$id': {
       id: '/spaces/$id'
       path: '/spaces/$id'
@@ -225,6 +274,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/oauth/approve'
       preLoaderRoute: typeof OauthApproveRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/docs/$slug': {
+      id: '/docs/$slug'
+      path: '/$slug'
+      fullPath: '/docs/$slug'
+      preLoaderRoute: typeof DocsSlugRouteImport
+      parentRoute: typeof DocsRoute
     }
     '/spaces/$id/': {
       id: '/spaces/$id/'
@@ -250,6 +306,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DocsRouteChildren {
+  DocsSlugRoute: typeof DocsSlugRoute
+  DocsIndexRoute: typeof DocsIndexRoute
+}
+
+const DocsRouteChildren: DocsRouteChildren = {
+  DocsSlugRoute: DocsSlugRoute,
+  DocsIndexRoute: DocsIndexRoute,
+}
+
+const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
+
 interface SpacesIdRouteChildren {
   SpacesIdProductionRoute: typeof SpacesIdProductionRoute
   SpacesIdIndexRoute: typeof SpacesIdIndexRoute
@@ -270,6 +338,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   DashboardRoute: DashboardRoute,
+  DocsRoute: DocsRouteWithChildren,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   OauthApproveRoute: OauthApproveRoute,
