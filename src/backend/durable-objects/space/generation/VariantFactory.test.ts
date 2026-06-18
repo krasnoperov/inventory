@@ -330,6 +330,92 @@ describe('VariantFactory', () => {
 
       const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
       assert.strictEqual(recipe.mediaKind, 'video');
+      assert.strictEqual(recipe.veoReferenceMode, 'text-to-video');
+    });
+
+    test('labels single-image video generations as image-to-video', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      asMock(repo.getVariantImageKey).mock.mockImplementation(async (variantId: string) => `images/${variantId}.png`);
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Animated Portrait',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'subtle breathing animation',
+          referenceVariantIds: ['portrait-var'],
+          disableStyle: true,
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.strictEqual(recipe.veoReferenceMode, 'image-to-video');
+      assert.deepStrictEqual(recipe.sourceImageKeys, ['images/portrait-var.png']);
+    });
+
+    test('labels two-image video generations as first-last-frame', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      asMock(repo.getVariantImageKey).mock.mockImplementation(async (variantId: string) => `images/${variantId}.png`);
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Camera Move',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'dolly between the two keyframes',
+          referenceVariantIds: ['start-var', 'end-var'],
+          disableStyle: true,
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.strictEqual(recipe.veoReferenceMode, 'first-last-frame');
+      assert.deepStrictEqual(recipe.sourceImageKeys, ['images/start-var.png', 'images/end-var.png']);
+    });
+
+    test('labels styled video generations as reference-images', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      asMock(repo.getActiveStyle).mock.mockImplementation(async () => ({
+        id: 'style-1',
+        name: 'House Style',
+        description: '',
+        image_keys: JSON.stringify(['images/style.png']),
+        enabled: 1,
+      }));
+      asMock(repo.getVariantImageKey).mock.mockImplementation(async (variantId: string) => `images/${variantId}.png`);
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Styled Video',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'animate the keyframe',
+          referenceVariantIds: ['keyframe-var'],
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.strictEqual(recipe.veoReferenceMode, 'reference-images');
+      assert.deepStrictEqual(recipe.styleImageKeys, ['images/style.png']);
+      assert.deepStrictEqual(recipe.sourceImageKeys, ['images/style.png', 'images/keyframe-var.png']);
     });
   });
 
@@ -630,6 +716,38 @@ describe('VariantFactory', () => {
       assert.ok(workflowId);
       assert.ok(asMock(env.GENERATION_WORKFLOW!.create).mock.calls.length > 0);
       assert.ok(asMock(repo.updateVariantWorkflow).mock.calls.length > 0);
+    });
+
+    test('passes stored Veo reference mode to workflow input', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv(true);
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      const result = {
+        asset: { id: 'asset-1', name: 'Test', type: 'animation', media_kind: 'video' } as Asset,
+        variant: {
+          id: 'var-1',
+          media_kind: 'video',
+          recipe: JSON.stringify({
+            prompt: 'Test',
+            assetType: 'animation',
+            mediaKind: 'video',
+            operation: 'derive',
+            veoReferenceMode: 'first-last-frame',
+          }),
+        } as Variant,
+        variantId: 'var-1',
+        assetId: 'asset-1',
+        parentVariantIds: ['start-var', 'end-var'],
+        sourceImageKeys: ['images/start.png', 'images/end.png'],
+      };
+
+      await factory.triggerWorkflow('req-1', 'var-1', result, meta, 'derive');
+
+      const workflowInput = asMock(env.GENERATION_WORKFLOW!.create).mock.calls[0].arguments[0].params;
+      assert.strictEqual(workflowInput.veoReferenceMode, 'first-last-frame');
     });
 
     test('returns null when workflow not configured', async () => {

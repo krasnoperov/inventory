@@ -39,7 +39,7 @@ Make Effects routes video jobs through Google's Veo family. The public CLI lets 
 | Aspect ratio | `16:9`, `9:16` | other values normalize to landscape behavior |
 | Resolution | server default is currently `720p`; service-only `1080p`/`4k` | not a public web/CLI control yet; tracked by [INV-70](https://linear.app/usertold/issue/INV-70/expose-video-resolution-720p1080p4k-in-web-cli) |
 | Provider duration | server default is currently 8 seconds; service-only `4`, `6`, `8` | not controlled by `--duration-ms`; public control tracked by [INV-84](https://linear.app/usertold/issue/INV-84/expose-video-duration-468s-fix-6s-chip-and-forced-8s-ux) |
-| References | up to 3 source images/keyframes | use one source image with no style image for image-to-video; 2-3 images, or any style image, use Veo reference images |
+| References | up to 3 source images/keyframes | one unstyled image uses image-to-video; two unstyled images use first/last frames; style images use reference-image mode |
 
 The CLI `--duration-ms` flag records where the clip fits on your production timeline. It does not guarantee the generated clip length. Fast/lite public controls are tracked by [INV-73](https://linear.app/usertold/issue/INV-73/wire-up-and-expose-the-veo-tier-generatefastlite).
 

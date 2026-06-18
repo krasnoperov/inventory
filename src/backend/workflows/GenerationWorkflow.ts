@@ -33,7 +33,12 @@ import {
   type ImageInput,
   type ImageSize,
 } from '../services/nanoBananaService';
-import { GoogleVeoService, type VideoAspectRatio, type VideoModel } from '../services/googleVeoService';
+import {
+  GoogleVeoService,
+  determineVeoReferenceMode,
+  type VideoAspectRatio,
+  type VideoModel,
+} from '../services/googleVeoService';
 import { CustomModelProvider } from '../services/customModelProvider';
 import { FakeImageProvider } from '../services/fakeImageProvider';
 import type { ImageGenerationProvider } from '../services/imageProvider';
@@ -96,6 +101,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       sourceImageKeys,
       operation,
       styleImageKeys,
+      veoReferenceMode,
       modelProvider,
       mediaKind: requestedMediaKind,
     } = event.payload;
@@ -186,6 +192,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           const modelToUse = (model as VideoModel) || 'veo-3.1-generate-preview';
           const aspectRatioToUse: VideoAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
           const styleImageCount = styleImageKeys?.length || 0;
+          const referenceModeToUse = veoReferenceMode ?? determineVeoReferenceMode(sourceImages.length, styleImageCount);
 
           const timer = log.startTimer('Veo video generation', {
             requestId,
@@ -205,6 +212,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   aspectRatio: aspectRatioToUse,
                   resolution: '720p' as const,
                   durationSeconds: 8 as const,
+                  referenceMode: referenceModeToUse,
                 }
               : await new GoogleVeoService(this.env.GOOGLE_AI_API_KEY ?? '').generate({
                   prompt,
@@ -212,6 +220,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   aspectRatio: aspectRatioToUse,
                   sourceImages,
                   styleImageCount,
+                  referenceMode: referenceModeToUse,
                 });
             timer(true, { resultSize: result.videoData.length });
             // Upload in-step; never return raw video bytes (1 MiB step-output cap).

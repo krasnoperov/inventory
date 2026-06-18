@@ -138,13 +138,17 @@ metadata and is never passed to Veo (`cli-generation.md:209`). Choosing 4/6/8s i
 service-supported but **not yet exposed** as a public web/CLI control (tracked by
 [INV-84](https://linear.app/usertold/issue/INV-84/expose-video-duration-468s-fix-6s-chip-and-forced-8s-ux)).
 
-### Reference Images ("Ingredients")
+### Reference Modes
 
-References are passed as `sourceImages`. Each is typed STYLE or ASSET by position
-— the first `styleImageCount` entries are treated as STYLE references, the rest
-as ASSET references (`getReferenceType`, `googleVeoService.ts:84`). In practice:
-space style images lead, your keyframes follow. This is the consistency
-mechanism described in the [video playbook](./playbooks/video.md).
+References are passed as `sourceImages`, and the stored recipe records the Veo
+request mode. With no source images, Make Effects uses text-to-video. With one
+unstyled source image, it uses Veo's image-to-video `image` input. With two
+unstyled source images, it uses first/last-frame interpolation: the first image
+is the starting frame and the second image is `lastFrame`. If active style
+images are present, or if more than two source images remain, it uses Veo
+reference images typed STYLE or ASSET by position (`getReferenceType`,
+`googleVeoService.ts`). In practice: disable style when you need exact
+first/last-frame interpolation.
 
 Veo is not at parity with the image models here: video generation supports at
 most **3** source/reference images (`googleVeoService.ts:107`), while Pro image

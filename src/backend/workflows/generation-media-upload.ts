@@ -51,6 +51,7 @@ export type GeneratedMediaProviderMetadata = {
   aspectRatio?: string;
   resolution?: string;
   durationSeconds?: number;
+  referenceMode?: string;
   api?: string;
   imageSize?: string;
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
@@ -130,6 +131,7 @@ export async function uploadGeneratedMedia(
           aspectRatio: generationResult.aspectRatio,
           resolution: generationResult.resolution,
           durationSeconds: generationResult.durationSeconds,
+          referenceMode: generationResult.referenceMode,
           sourceImageCount: refCount,
         },
       };
