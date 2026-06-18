@@ -39,9 +39,11 @@ Flash, and throws past 14 references on either model (`nanoBananaService.ts:202`
 ### Aspect Ratio
 
 `AspectRatio` (`nanoBananaService.ts:47`): `1:1`, `16:9`, `9:16`, `2:3`, `3:2`,
-`3:4`, `4:3`, `4:5`, `5:4`, `21:9`. Optional — omit to let the model choose.
-Pick deliberately for the destination: `16:9`/`21:9` for keyframes and
-backgrounds, `9:16` for vertical/social, `1:1` for icons and tiles, `4:5` for
+`3:4`, `4:3`, `4:5`, `5:4`, `21:9`. Optional at the service boundary; Make
+Effects generation currently defaults omitted image aspects to `1:1`
+(`GenerationWorkflow.ts:245`), so set `--aspect` explicitly when you want
+anything else. Pick deliberately for the destination: `16:9`/`21:9` for keyframes
+and backgrounds, `9:16` for vertical/social, `1:1` for icons and tiles, `4:5` for
 portrait posts.
 
 ### Image Size
