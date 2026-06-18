@@ -412,8 +412,11 @@ export class SpaceDO extends DurableObject<Env> {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
 
-    // Accept with user metadata
-    this.ctx.acceptWebSocket(server, [JSON.stringify(result.meta)]);
+    // Accept with user metadata plus a per-WebSocket client session ID.
+    this.ctx.acceptWebSocket(server, [JSON.stringify({
+      ...result.meta,
+      clientSessionId: crypto.randomUUID(),
+    })]);
 
     return new Response(null, {
       status: 101,
