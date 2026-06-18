@@ -6,6 +6,7 @@
  */
 
 import type { MediaKind } from '../../shared/websocket-types';
+import type { VeoReferenceMode } from '../services/googleVeoService';
 
 // ============================================================================
 // GENERATION WORKFLOW TYPES
@@ -68,6 +69,8 @@ export interface GenerationWorkflowInput {
   styleDescription?: string;
   /** Style reference image R2 keys (prepended to source images) */
   styleImageKeys?: string[];
+  /** Veo request mode selected from the resolved image references */
+  veoReferenceMode?: VeoReferenceMode;
   /** Model provider to use ('gemini' or 'custom'). Defaults to 'gemini'. */
   modelProvider?: 'gemini' | 'custom';
   /** ElevenLabs voice ID for speech generation (overrides env default) */

@@ -458,6 +458,7 @@ describe('GenerationController pipeline hooks', () => {
         parentVariantIds: ['source-var-1'],
         operation: 'derive',
         modelProvider: 'custom',
+        veoReferenceMode: 'reference-images',
       };
       const failedVariant = createMockVariant({
         id: 'variant-video',
@@ -507,6 +508,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(workflowInput.styleImageKeys, recipe.styleImageKeys);
       assert.deepStrictEqual(workflowInput.parentVariantIds, recipe.parentVariantIds);
       assert.strictEqual(workflowInput.mediaKind, 'video');
+      assert.strictEqual(workflowInput.veoReferenceMode, 'reference-images');
       assert.strictEqual(workflowInput.modelProvider, 'custom');
       assert.strictEqual(workflowInput.operation, 'derive');
       assert.strictEqual(asMock(ctx.repo.resetVariantForRetry).mock.calls[0].arguments[0], 'variant-video');

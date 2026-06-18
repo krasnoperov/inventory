@@ -15,6 +15,8 @@ export type VideoModel =
 export type VideoAspectRatio = Extract<AspectRatio, '16:9' | '9:16'>;
 export type VideoResolution = '720p' | '1080p' | '4k';
 export type VideoDurationSeconds = 4 | 6 | 8;
+export type VeoReferenceMode = 'text-to-video' | 'image-to-video' | 'first-last-frame' | 'reference-images';
+type VeoImageInput = { imageBytes: string; mimeType: string };
 
 export interface GenerateVideoOptions {
   prompt: string;
@@ -24,6 +26,7 @@ export interface GenerateVideoOptions {
   durationSeconds?: VideoDurationSeconds;
   sourceImages?: ImageInput[];
   styleImageCount?: number;
+  referenceMode?: VeoReferenceMode;
 }
 
 export interface VideoGenerationResult {
@@ -33,6 +36,7 @@ export interface VideoGenerationResult {
   aspectRatio: VideoAspectRatio;
   resolution: VideoResolution;
   durationSeconds: VideoDurationSeconds;
+  referenceMode: VeoReferenceMode;
 }
 
 interface GoogleVeoClient {
@@ -40,12 +44,13 @@ interface GoogleVeoClient {
     generateVideos(params: {
       model: string;
       prompt: string;
-      image?: { imageBytes: string; mimeType: string };
+      image?: VeoImageInput;
       config?: {
         aspectRatio?: string;
         resolution?: string;
         durationSeconds?: number;
         numberOfVideos?: number;
+        lastFrame?: VeoImageInput;
         referenceImages?: VideoGenerationReferenceImage[];
       };
     }): Promise<GenerateVideosOperation>;
@@ -85,6 +90,34 @@ function getReferenceType(index: number, styleImageCount: number): VideoGenerati
   return index < styleImageCount ? VideoGenerationReferenceType.STYLE : VideoGenerationReferenceType.ASSET;
 }
 
+export function determineVeoReferenceMode(sourceImageCount: number, styleImageCount = 0): VeoReferenceMode {
+  if (sourceImageCount <= 0) return 'text-to-video';
+  if (styleImageCount > 0) return 'reference-images';
+  if (sourceImageCount === 1) return 'image-to-video';
+  if (sourceImageCount === 2) return 'first-last-frame';
+  return 'reference-images';
+}
+
+function normalizeVeoReferenceMode(
+  requestedMode: VeoReferenceMode | undefined,
+  sourceImageCount: number,
+  styleImageCount: number
+): VeoReferenceMode {
+  const inferredMode = determineVeoReferenceMode(sourceImageCount, styleImageCount);
+  if (!requestedMode || requestedMode === inferredMode) {
+    return inferredMode;
+  }
+
+  return inferredMode;
+}
+
+function toGoogleImage(image: ImageInput): VeoImageInput {
+  return {
+    imageBytes: image.data,
+    mimeType: image.mimeType,
+  };
+}
+
 export class GoogleVeoService {
   private readonly ai: GoogleVeoClient;
   private readonly apiKey: string;
@@ -112,12 +145,14 @@ export class GoogleVeoService {
     const resolution = normalizeResolution(options.resolution);
     const durationSeconds = normalizeDuration(options.durationSeconds, sourceImages.length > 0 || resolution !== '720p');
     const styleImageCount = Math.max(0, Math.min(options.styleImageCount ?? 0, sourceImages.length));
+    const referenceMode = normalizeVeoReferenceMode(options.referenceMode, sourceImages.length, styleImageCount);
 
     const config: {
       aspectRatio: string;
       resolution: string;
       durationSeconds: number;
       numberOfVideos: number;
+      lastFrame?: VeoImageInput;
       referenceImages?: VideoGenerationReferenceImage[];
     } = {
       aspectRatio,
@@ -132,17 +167,14 @@ export class GoogleVeoService {
       config,
     };
 
-    if (sourceImages.length === 1 && styleImageCount === 0) {
-      request.image = {
-        imageBytes: sourceImages[0].data,
-        mimeType: sourceImages[0].mimeType,
-      };
+    if (referenceMode === 'image-to-video') {
+      request.image = toGoogleImage(sourceImages[0]);
+    } else if (referenceMode === 'first-last-frame') {
+      request.image = toGoogleImage(sourceImages[0]);
+      config.lastFrame = toGoogleImage(sourceImages[1]);
     } else if (sourceImages.length > 0) {
       config.referenceImages = sourceImages.map((image, index) => ({
-        image: {
-          imageBytes: image.data,
-          mimeType: image.mimeType,
-        },
+        image: toGoogleImage(image),
         referenceType: getReferenceType(index, styleImageCount),
       }));
     }
@@ -185,6 +217,7 @@ export class GoogleVeoService {
       aspectRatio,
       resolution,
       durationSeconds,
+      referenceMode,
     };
   }
 
