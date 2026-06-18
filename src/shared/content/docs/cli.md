@@ -85,6 +85,9 @@ makefx audio sfx generate "A crisp inventory item pickup sound effect" \
 makefx video generate "A looping idle animation" \
   --name "Idle Animation" \
   --type animation \
+  --duration 6 \
+  --resolution 1080p \
+  --tier fast \
   -o video/idle.mp4
 
 makefx video refine \

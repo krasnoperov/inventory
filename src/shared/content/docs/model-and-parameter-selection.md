@@ -24,24 +24,25 @@ Use `16:9` or `21:9` for keyframes and backgrounds, `9:16` for vertical clips, `
 
 ## Video
 
-Make Effects routes video jobs through Google's Veo family. The public CLI lets you set prompt, references, aspect ratio, and production metadata; model, resolution, and provider clip duration use server defaults today.
+Make Effects routes video jobs through Google's Veo family. The public CLI lets you set prompt, references, resolution, provider duration, model tier, audio, and production metadata.
 
 | Choice | Use for |
 |-|-|
-| default/generate model | clips you expect to review, place on a timeline, or ship |
-| fast model | service-only cheaper iteration path; not public yet |
-| lite model | service-only draft path; not public yet |
+| generate tier | clips you expect to review, place on a timeline, or ship |
+| fast tier | cheaper iteration path |
+| lite tier | draft path for background motion tests |
 
 ### Video parameters
 
 | Parameter | Values | Guidance |
 |-|-|-|
 | Aspect ratio | `16:9`, `9:16` | other values normalize to landscape behavior |
-| Resolution | server default is currently `720p`; service-only `1080p`/`4k` | not a public web/CLI control yet; tracked by [INV-70](https://linear.app/usertold/issue/INV-70/expose-video-resolution-720p1080p4k-in-web-cli) |
-| Provider duration | server default is currently 8 seconds; service-only `4`, `6`, `8` | not controlled by `--duration-ms`; public control tracked by [INV-84](https://linear.app/usertold/issue/INV-84/expose-video-duration-468s-fix-6s-chip-and-forced-8s-ux) |
+| Resolution | `720p`, `1080p`, `4k` | pick `720p` for tests, higher resolutions for final clips |
+| Provider duration | `4`, `6`, `8` seconds | not controlled by `--duration-ms`; use CLI `--duration` or the web duration control |
+| Tier | `generate`, `fast`, `lite` | use `generate` for final clips, `fast`/`lite` for iteration |
 | References | up to 3 source images/keyframes | one unstyled image uses image-to-video; two unstyled images use first/last frames; style images use reference-image mode |
 
-The CLI `--duration-ms` flag records where the clip fits on your production timeline. It does not guarantee the generated clip length. Fast/lite public controls are tracked by [INV-73](https://linear.app/usertold/issue/INV-73/wire-up-and-expose-the-veo-tier-generatefastlite).
+The CLI `--duration-ms` flag records where the clip fits on your production timeline. It does not set the generated clip length; use `--duration 4|6|8` for provider duration.
 
 ## Audio
 
@@ -71,9 +72,9 @@ Speech and dialogue depend on voice selection and provider configuration. Treat 
 
 | Situation | Pick |
 |-|-|
-| final shot from a keyframe | default/generate model with server defaults |
-| quick motion test | fast or lite service path when exposed by the operator |
-| vertical social clip | vertical aspect ratio |
+| final shot from a keyframe | generate tier, 1080p or 4k, 8s |
+| quick motion test | fast or lite tier, 720p, 4s or 6s |
+| vertical social clip | generate tier, vertical aspect ratio, 6s or 8s |
 
 ### Audio
 

@@ -124,6 +124,9 @@ makefx video derive \
   --refs KEYFRAME_VARIANT_ID \
   --name "Episode 01 Shot 001" \
   --type animation \
+  --duration 8 \
+  --resolution 1080p \
+  --tier generate \
   --no-audio \
   --production-id episode-01 \
   --shot-id shot-001 \

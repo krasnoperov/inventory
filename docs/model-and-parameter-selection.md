@@ -12,13 +12,8 @@ companion.
 > **Service parameters vs. CLI flags.** The values below are the parameters the
 > backend services accept. Top-level image CLI commands expose `--model`,
 > `--size`, and `--aspect`; batch/count and production metadata have their own
-> flags. Video model, video resolution, and Veo `durationSeconds` currently fall
-> to server-side defaults. Where a value is set by a default rather than a flag,
-> that is noted. Service-supported values that are **not yet exposed** are marked
-> below; see the tracked exposure issues for Veo resolution 1080p/4k
-> ([INV-70](https://linear.app/usertold/issue/INV-70/expose-video-resolution-720p1080p4k-in-web-cli)),
-> Veo duration 4/6/8s ([INV-84](https://linear.app/usertold/issue/INV-84/expose-video-duration-468s-fix-6s-chip-and-forced-8s-ux)),
-> and Veo fast/lite tiers ([INV-73](https://linear.app/usertold/issue/INV-73/wire-up-and-expose-the-veo-tier-generatefastlite)).
+> flags. Video CLI commands expose Veo resolution, provider duration, model
+> tier, and native audio controls.
 > See [cli-generation.md](./cli-generation.md) for the flag list.
 
 ## Images (Nano Banana)
@@ -94,19 +89,22 @@ Video generation is silent by default. The web toggle and CLI `--audio` flag set
 Veo-native synchronized dialogue, SFX, score, or ambience for that clip. CLI
 `--no-audio` and omitted values set or normalize to `false`.
 
-### Model
+### Model Tier
 
-Three variants (`googleVeoService.ts:10`), default `veo-3.1-generate-preview`
-(`:63`):
+The web tray and CLI expose Veo tier as `generate`, `fast`, or `lite`.
+Internally these map to:
 
 | Model ID | Use for | Exposure |
 |-|-|-|
-| `veo-3.1-generate-preview` (default) | Hero shots, final clips | Server default today |
-| `veo-3.1-fast-generate-preview` | Cheaper, faster iteration | Service-only / not yet exposed |
-| `veo-3.1-lite-generate-preview` | Cheapest drafts, background motion tests | Service-only / not yet exposed |
+| `veo-3.1-generate-preview` (default) | Hero shots, final clips | `generate` tier |
+| `veo-3.1-fast-generate-preview` | Cheaper, faster iteration | `fast` tier |
+| `veo-3.1-lite-generate-preview` | Cheapest drafts, background motion tests | `lite` tier |
 
-Fast/lite tier exposure is tracked by
-[INV-73](https://linear.app/usertold/issue/INV-73/wire-up-and-expose-the-veo-tier-generatefastlite).
+### Resolution And Duration
+
+The web tray and CLI expose `720p`, `1080p`, or `4k` resolution and `4`, `6`,
+or `8` second provider duration. CLI `--duration-ms` remains production
+timeline metadata and does not replace the provider duration control.
 
 ### Aspect Ratio
 
@@ -117,28 +115,15 @@ narrower than the image set. Anything else normalizes to `16:9`
 ### Resolution
 
 `VideoResolution` (`googleVeoService.ts:16`): `720p` (default), `1080p`, `4k`.
-Unrecognized values fall back to `720p` (`normalizeResolution`, `:84`). `1080p`
-and `4k` are service-supported but **not yet exposed** as public web/CLI controls
-(tracked by
-[INV-70](https://linear.app/usertold/issue/INV-70/expose-video-resolution-720p1080p4k-in-web-cli)).
+The web tray and CLI `--resolution` flag expose all three values.
 
 ### Duration
 
 `VideoDurationSeconds` (`googleVeoService.ts:17`): `4`, `6`, or `8` seconds,
-default `8` (`:66`). **Two rules force 8 seconds** (`normalizeDuration`, `:78`,
-called at `:146`):
-
-- when any reference/source image is supplied, or
-- when resolution is anything other than `720p`.
-
-So a referenced or higher-resolution clip is always 8s. Plan your shot pacing
-(and timestamp prompting) around the duration you will actually get.
-
-This `durationSeconds` is a service parameter set by default today — it is **not**
-the `--duration-ms` CLI flag, which records intended production-scene duration as
-metadata and is never passed to Veo (`cli-generation.md:209`). Choosing 4/6/8s is
-service-supported but **not yet exposed** as a public web/CLI control (tracked by
-[INV-84](https://linear.app/usertold/issue/INV-84/expose-video-duration-468s-fix-6s-chip-and-forced-8s-ux)).
+default `8`. The web tray and CLI `--duration` flag expose all three values.
+This is a provider duration control, not the `--duration-ms` CLI flag, which
+records intended production-scene duration as metadata and is never passed to
+Veo (`cli-generation.md:209`).
 
 ### Reference Modes
 
@@ -162,9 +147,9 @@ style image is prepended, the service sends it through Veo's image-to-video
 
 | Situation | Model | Resolution | Duration |
 |-|-|-|-|
-| Final hero shot from a keyframe | `generate` | `1080p` when exposed; `720p` default today | 8s (forced) |
-| Quick motion test | `lite` / `fast` when exposed; default today | `720p` | 4–8s when exposed; 8s default today |
-| Vertical social clip | `generate` | `1080p` when exposed; `720p` default today | 8s |
+| Final hero shot from a keyframe | `generate` | `1080p` or `4k` | 8s |
+| Quick motion test | `lite` / `fast` | `720p` | 4s or 6s |
+| Vertical social clip | `generate` | `1080p` | 6s or 8s |
 
 ## Audio (ElevenLabs default, Lyria music optional)
 

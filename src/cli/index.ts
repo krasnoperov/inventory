@@ -219,9 +219,9 @@ Audio:
   audio sfx generate "prompt" --name <name> -o <file>
 
 Video:
-  video generate "prompt" --name <name> --type <type> -o <file> [--audio|--no-audio]
-  video refine --variant <variant_id> "prompt" -o <file> [--audio|--no-audio]
-  video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--audio|--no-audio]
+  video generate "prompt" --name <name> --type <type> -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio]
+  video refine --variant <variant_id> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio]
+  video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio]
 
 Options:
   --env <environment>          Target environment (production|stage|local), default: production
@@ -241,7 +241,7 @@ Examples:
   makefx generate "A market background" --name "Market" --type scene -o market.png
   makefx batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
   makefx audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
-  makefx video generate "A looping idle animation" --name "Idle Animation" --type animation -o idle.mp4
+  makefx video generate "A looping idle animation" --name "Idle Animation" --type animation --duration 6 --resolution 1080p --tier fast -o idle.mp4
   makefx productions export --production-id s01e01-a2
   makefx assets
   makefx assets download variant_123 -o variant.mp4
@@ -475,7 +475,12 @@ function printVideoHelp(positionals: string[]): void {
   if (subcommand === 'generate') {
     console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--audio|--no-audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+
+Video:
+  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k
+  --duration <seconds>  Veo output duration: 4, 6, or 8
+  --tier <tier>         Veo model tier: generate, fast, or lite
 
 Audio:
   --audio       Request native synchronized Veo audio
@@ -491,7 +496,12 @@ Production metadata:
   if (subcommand === 'refine') {
     console.log(`
 Usage:
-  makefx video refine --variant <variant_id> "prompt" -o <file> [--audio|--no-audio] [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+
+Video:
+  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k
+  --duration <seconds>  Veo output duration: 4, 6, or 8
+  --tier <tier>         Veo model tier: generate, fast, or lite
 
 Audio:
   --audio       Request native synchronized Veo audio
@@ -507,7 +517,12 @@ Production metadata:
   if (subcommand === 'derive') {
     console.log(`
 Usage:
-  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--audio|--no-audio] [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+
+Video:
+  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k
+  --duration <seconds>  Veo output duration: 4, 6, or 8
+  --tier <tier>         Veo model tier: generate, fast, or lite
 
 Audio:
   --audio       Request native synchronized Veo audio
@@ -522,9 +537,14 @@ Production metadata:
 
   console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--audio|--no-audio] [--space <id>]
-  makefx video refine --variant <variant_id> "prompt" -o <file> [--audio|--no-audio] [--space <id>]
-  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--audio|--no-audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+
+Video:
+  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k
+  --duration <seconds>  Veo output duration: 4, 6, or 8
+  --tier <tier>         Veo model tier: generate, fast, or lite
 
 Audio:
   --audio       Request native synchronized Veo audio

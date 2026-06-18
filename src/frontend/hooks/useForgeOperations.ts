@@ -100,6 +100,9 @@ export function useForgeOperations({
       dialogueVoiceIds,
       musicProvider,
       generateAudio,
+      videoResolution,
+      videoDurationSeconds,
+      videoTier,
     } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
@@ -159,6 +162,9 @@ export function useForgeOperations({
         dialogueVoiceIds,
         musicProvider,
         generateAudio,
+        videoResolution,
+        videoDurationSeconds,
+        videoTier,
       });
     } else {
       // Create new asset (generate, create, or combine)
@@ -178,6 +184,9 @@ export function useForgeOperations({
         dialogueVoiceIds,
         musicProvider,
         generateAudio,
+        videoResolution,
+        videoDurationSeconds,
+        videoTier,
       });
     }
   }, [sendGenerateRequest, sendRefineRequest, forkAsset, sendBatchRequest]);

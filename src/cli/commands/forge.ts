@@ -34,6 +34,14 @@ import {
 } from '../lib/websocket-client';
 import type { MediaKind, MusicGenerationProvider } from '../../shared/websocket-types';
 import {
+  normalizeVideoGenerationDurationSeconds,
+  normalizeVideoGenerationResolution,
+  normalizeVideoGenerationTier,
+  type VideoGenerationDurationSeconds,
+  type VideoGenerationResolution,
+  type VideoGenerationTier,
+} from '../../shared/videoGenerationOptions';
+import {
   IMAGE_MODEL_IDS,
   isImageModelSelection,
   normalizeImageSize,
@@ -89,6 +97,9 @@ interface ForgeClient {
     dialogueVoiceIds?: string[];
     musicProvider?: MusicGenerationProvider;
     generateAudio?: boolean;
+    videoResolution?: VideoGenerationResolution;
+    videoDurationSeconds?: VideoGenerationDurationSeconds;
+    videoTier?: VideoGenerationTier;
   }): Promise<GenerateResult>;
   sendRefineRequest(params: {
     assetId: string;
@@ -100,6 +111,9 @@ interface ForgeClient {
     disableStyle?: boolean;
     mediaKind?: MediaKind;
     generateAudio?: boolean;
+    videoResolution?: VideoGenerationResolution;
+    videoDurationSeconds?: VideoGenerationDurationSeconds;
+    videoTier?: VideoGenerationTier;
   }): Promise<GenerateResult>;
   sendBatchRequest(params: {
     name: string;
@@ -200,6 +214,12 @@ interface AudioVoiceOptions {
   dialogueVoiceIds?: string[];
 }
 
+interface VideoGenerationOptions {
+  videoResolution?: VideoGenerationResolution;
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  videoTier?: VideoGenerationTier;
+}
+
 export async function handleGenerate(parsed: ParsedArgs): Promise<void> {
   await handleForgeCommand('generate', parsed);
 }
@@ -236,6 +256,7 @@ export async function executeForgeCommand(
   const saveBatchManifest = options.saveBatchManifest ?? mediaKind === 'image';
   parseImageGenerationOptions(parsed, mediaKind);
   validateVideoAudioOptions(parsed, mediaKind);
+  parseVideoGenerationOptions(parsed, mediaKind);
   if (command !== 'batch') {
     validateProductionMetadataOptions(parsed);
   }
@@ -356,6 +377,7 @@ async function executeGenerate(
   });
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
+  const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
 
   console.log(`Generating "${name}" in space ${ctx.spaceId}...`);
   const audioVoiceOptions = mediaKind === 'audio' ? parseAudioVoiceOptions(parsed) : {};
@@ -371,6 +393,7 @@ async function executeGenerate(
     ...audioVoiceOptions,
     ...(musicProvider ? { musicProvider } : {}),
     ...videoAudioOptions,
+    ...videoOptions,
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -458,6 +481,7 @@ async function executeRefine(
   });
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
+  const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
 
   console.log(`Refining variant ${sourceVariantId}...`);
   const result = await client.sendRefineRequest({
@@ -469,6 +493,7 @@ async function executeRefine(
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
     ...videoAudioOptions,
+    ...videoOptions,
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -528,6 +553,7 @@ async function executeDerive(
   });
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
+  const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
 
   console.log(`Deriving "${name}" from ${referenceVariantIds.length} reference(s)...`);
   const result = await client.sendGenerateRequest({
@@ -541,6 +567,7 @@ async function executeDerive(
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
     ...videoAudioOptions,
+    ...videoOptions,
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -1022,6 +1049,56 @@ function parseVideoAudioOptions(
     return { generateAudio: false };
   }
   return { generateAudio: false };
+}
+
+function parseVideoGenerationOptions(
+  parsed: ParsedArgs,
+  mediaKind: GenerationMediaKind
+): VideoGenerationOptions {
+  const resolutionValue =
+    readOptionalOption(parsed, 'resolution', 'resolution') ??
+    readOptionalOption(parsed, 'video-resolution', 'videoResolution');
+  const durationValue =
+    readOptionalOption(parsed, 'duration', 'duration') ??
+    readOptionalOption(parsed, 'video-duration', 'videoDuration');
+  const tierValue =
+    readOptionalOption(parsed, 'tier', 'tier') ??
+    readOptionalOption(parsed, 'video-tier', 'videoTier');
+
+  if (resolutionValue === undefined && durationValue === undefined && tierValue === undefined) {
+    return {};
+  }
+
+  if (mediaKind !== 'video') {
+    throw new Error('--resolution, --duration, and --tier are only supported for video generation');
+  }
+
+  const videoResolution = resolutionValue === undefined
+    ? undefined
+    : normalizeVideoGenerationResolution(resolutionValue);
+  if (resolutionValue !== undefined && !videoResolution) {
+    throw new Error('--resolution must be 720p, 1080p, or 4k');
+  }
+
+  const videoDurationSeconds = durationValue === undefined
+    ? undefined
+    : normalizeVideoGenerationDurationSeconds(durationValue);
+  if (durationValue !== undefined && !videoDurationSeconds) {
+    throw new Error('--duration must be 4, 6, or 8');
+  }
+
+  const videoTier = tierValue === undefined
+    ? undefined
+    : normalizeVideoGenerationTier(tierValue);
+  if (tierValue !== undefined && !videoTier) {
+    throw new Error('--tier must be generate, fast, or lite');
+  }
+
+  return {
+    ...(videoResolution ? { videoResolution } : {}),
+    ...(videoDurationSeconds ? { videoDurationSeconds } : {}),
+    ...(videoTier ? { videoTier } : {}),
+  };
 }
 
 function parseDialogueVoiceIds(value: string | undefined): string[] | undefined {

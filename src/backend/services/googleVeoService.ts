@@ -6,15 +6,21 @@ import {
 } from '@google/genai';
 import type { AspectRatio, ImageInput } from './nanoBananaService';
 import { arrayBufferToBase64 } from '../utils/image-utils';
+import {
+  DEFAULT_VIDEO_GENERATION_DURATION_SECONDS,
+  DEFAULT_VIDEO_GENERATION_MODEL,
+  DEFAULT_VIDEO_GENERATION_RESOLUTION,
+  normalizeVideoGenerationDurationSeconds,
+  normalizeVideoGenerationResolution,
+  type VideoGenerationDurationSeconds,
+  type VideoGenerationModel,
+  type VideoGenerationResolution,
+} from '../../shared/videoGenerationOptions';
 
-export type VideoModel =
-  | 'veo-3.1-generate-preview'
-  | 'veo-3.1-fast-generate-preview'
-  | 'veo-3.1-lite-generate-preview';
-
+export type VideoModel = VideoGenerationModel;
 export type VideoAspectRatio = Extract<AspectRatio, '16:9' | '9:16'>;
-export type VideoResolution = '720p' | '1080p' | '4k';
-export type VideoDurationSeconds = 4 | 6 | 8;
+export type VideoResolution = VideoGenerationResolution;
+export type VideoDurationSeconds = VideoGenerationDurationSeconds;
 export type VeoReferenceMode = 'text-to-video' | 'image-to-video' | 'first-last-frame' | 'reference-images';
 type VeoImageInput = { imageBytes: string; mimeType: string };
 
@@ -63,10 +69,7 @@ interface GoogleVeoClient {
   };
 }
 
-const DEFAULT_MODEL: VideoModel = 'veo-3.1-generate-preview';
 const DEFAULT_ASPECT_RATIO: VideoAspectRatio = '16:9';
-const DEFAULT_RESOLUTION: VideoResolution = '720p';
-const DEFAULT_DURATION_SECONDS: VideoDurationSeconds = 8;
 const POLL_INTERVAL_MS = 10_000;
 const MAX_POLLS = 42; // Google documents peak latency up to roughly 6 minutes.
 
@@ -78,15 +81,12 @@ function normalizeAspectRatio(value?: VideoAspectRatio): VideoAspectRatio {
   return value === '9:16' ? '9:16' : DEFAULT_ASPECT_RATIO;
 }
 
-function normalizeDuration(value?: VideoDurationSeconds, hasReferenceImages = false): VideoDurationSeconds {
-  if (hasReferenceImages) return 8;
-  if (value === 4 || value === 6 || value === 8) return value;
-  return DEFAULT_DURATION_SECONDS;
+function normalizeDuration(value?: VideoDurationSeconds): VideoDurationSeconds {
+  return normalizeVideoGenerationDurationSeconds(value) ?? DEFAULT_VIDEO_GENERATION_DURATION_SECONDS;
 }
 
 function normalizeResolution(value?: VideoResolution): VideoResolution {
-  if (value === '1080p' || value === '4k') return value;
-  return DEFAULT_RESOLUTION;
+  return normalizeVideoGenerationResolution(value) ?? DEFAULT_VIDEO_GENERATION_RESOLUTION;
 }
 
 function getReferenceType(index: number, styleImageCount: number): VideoGenerationReferenceType {
@@ -134,7 +134,7 @@ export class GoogleVeoService {
   }
 
   async generate(options: GenerateVideoOptions): Promise<VideoGenerationResult> {
-    const { prompt, model = DEFAULT_MODEL } = options;
+    const { prompt, model = DEFAULT_VIDEO_GENERATION_MODEL } = options;
     if (!prompt) {
       throw new Error('Prompt is required');
     }
@@ -146,7 +146,7 @@ export class GoogleVeoService {
 
     const aspectRatio = normalizeAspectRatio(options.aspectRatio);
     const resolution = normalizeResolution(options.resolution);
-    const durationSeconds = normalizeDuration(options.durationSeconds, sourceImages.length > 0 || resolution !== '720p');
+    const durationSeconds = normalizeDuration(options.durationSeconds);
     const styleImageCount = Math.max(0, Math.min(options.styleImageCount ?? 0, sourceImages.length));
     const referenceMode = normalizeVeoReferenceMode(options.referenceMode, sourceImages.length, styleImageCount);
     const generateAudio = options.generateAudio === true;

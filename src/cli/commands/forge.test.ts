@@ -1451,6 +1451,38 @@ test('video generate can opt into Veo native audio', async () => {
   });
 });
 
+test('video generate sends resolution, duration, and tier controls', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await executeVideoCommand('generate', {
+    positionals: ['A', 'short', 'preview', 'clip'],
+    options: {
+      space: 'space-1',
+      name: 'Preview Clip',
+      type: 'animation',
+      o: 'preview.mp4',
+      resolution: '1080p',
+      duration: '6',
+      tier: 'fast',
+    },
+  }, deps);
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Preview Clip',
+    assetType: 'animation',
+    prompt: 'A short preview clip',
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'video',
+    generateAudio: false,
+    videoResolution: '1080p',
+    videoDurationSeconds: 6,
+    videoTier: 'fast',
+  });
+});
+
 test('image commands reject video audio flags before opening a website job', async () => {
   const client = new FakeClient();
   const { deps } = depsFor(client);
@@ -1467,6 +1499,27 @@ test('image commands reject video audio flags before opening a website job', asy
       },
     }, deps),
     /--audio and --no-audio are only supported for video generation/
+  );
+
+  assert.equal(client.connected, false);
+});
+
+test('image commands reject video generation flags before opening a website job', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeForgeCommand('generate', {
+      positionals: ['A', 'keyframe'],
+      options: {
+        space: 'space-1',
+        name: 'Keyframe',
+        type: 'scene',
+        o: 'keyframe.png',
+        resolution: '1080p',
+      },
+    }, deps),
+    /--resolution, --duration, and --tier are only supported for video generation/
   );
 
   assert.equal(client.connected, false);

@@ -6,6 +6,11 @@
  */
 
 import type { MediaKind, MusicGenerationProvider } from '../../shared/websocket-types';
+import type {
+  VideoGenerationDurationSeconds,
+  VideoGenerationResolution,
+  VideoGenerationTier,
+} from '../../shared/videoGenerationOptions';
 import type { VeoReferenceMode } from '../services/googleVeoService';
 
 // ============================================================================
@@ -71,6 +76,12 @@ export interface GenerationWorkflowInput {
   styleImageKeys?: string[];
   /** Veo request mode selected from the resolved image references */
   veoReferenceMode?: VeoReferenceMode;
+  /** Veo output resolution (video assets only) */
+  videoResolution?: VideoGenerationResolution;
+  /** Veo output duration in seconds (video assets only) */
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  /** Veo model tier (video assets only) */
+  videoTier?: VideoGenerationTier;
   /** Whether Veo should generate native synchronized audio (video assets only) */
   generateAudio?: boolean;
   /** Model provider to use ('gemini' or 'custom'). Defaults to 'gemini'. */
@@ -193,6 +204,12 @@ export interface GenerateRequestMessage {
   musicProvider?: MusicGenerationProvider;
   /** Whether Veo should generate native synchronized audio (video assets only) */
   generateAudio?: boolean;
+  /** Veo output resolution (video assets only) */
+  videoResolution?: VideoGenerationResolution;
+  /** Veo output duration in seconds (video assets only) */
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  /** Veo model tier (video assets only) */
+  videoTier?: VideoGenerationTier;
 }
 
 /** Refine request from client (replaces HTTP POST /api/spaces/:id/assets/:id/variants) */
@@ -223,6 +240,12 @@ export interface RefineRequestMessage {
   musicProvider?: MusicGenerationProvider;
   /** Whether Veo should generate native synchronized audio (video assets only) */
   generateAudio?: boolean;
+  /** Veo output resolution (video assets only) */
+  videoResolution?: VideoGenerationResolution;
+  /** Veo output duration in seconds (video assets only) */
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  /** Veo model tier (video assets only) */
+  videoTier?: VideoGenerationTier;
 }
 
 // ============================================================================

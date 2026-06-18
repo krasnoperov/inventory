@@ -226,6 +226,9 @@ export class GenerationController extends BaseController {
         dialogueVoiceIds: msg.dialogueVoiceIds,
         musicProvider: msg.musicProvider,
         generateAudio: msg.generateAudio,
+        videoResolution: msg.videoResolution,
+        videoDurationSeconds: msg.videoDurationSeconds,
+        videoTier: msg.videoTier,
       },
       meta
     );
@@ -309,6 +312,9 @@ export class GenerationController extends BaseController {
         dialogueVoiceIds: msg.dialogueVoiceIds,
         musicProvider: msg.musicProvider,
         generateAudio: msg.generateAudio,
+        videoResolution: msg.videoResolution,
+        videoDurationSeconds: msg.videoDurationSeconds,
+        videoTier: msg.videoTier,
       },
       meta
     );
@@ -512,6 +518,9 @@ export class GenerationController extends BaseController {
       parentVariantIds: recipe.parentVariantIds,
       styleImageKeys: recipe.styleImageKeys,
       veoReferenceMode: recipe.veoReferenceMode,
+      videoResolution: recipe.videoResolution,
+      videoDurationSeconds: recipe.videoDurationSeconds,
+      videoTier: recipe.videoTier,
       generateAudio: recipe.generateAudio,
       operation: recipe.operation,
       modelProvider: recipe.modelProvider,

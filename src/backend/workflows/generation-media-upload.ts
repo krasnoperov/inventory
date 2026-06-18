@@ -23,6 +23,7 @@ import {
   getImageDimensions,
 } from '../utils/image-utils';
 import { loggers } from '../../shared/logger';
+import { getVideoGenerationTierForModel } from '../../shared/videoGenerationOptions';
 
 const log = loggers.generationWorkflow;
 
@@ -51,6 +52,7 @@ export type GeneratedMediaProviderMetadata = {
   aspectRatio?: string;
   resolution?: string;
   durationSeconds?: number;
+  videoTier?: string;
   referenceMode?: string;
   generateAudio?: boolean;
   api?: string;
@@ -132,6 +134,7 @@ export async function uploadGeneratedMedia(
           aspectRatio: generationResult.aspectRatio,
           resolution: generationResult.resolution,
           durationSeconds: generationResult.durationSeconds,
+          videoTier: getVideoGenerationTierForModel(generationResult.model),
           referenceMode: generationResult.referenceMode,
           generateAudio: generationResult.generateAudio,
           sourceImageCount: refCount,
