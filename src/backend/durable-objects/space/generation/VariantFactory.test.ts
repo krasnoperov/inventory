@@ -352,6 +352,9 @@ describe('VariantFactory', () => {
           mediaKind: 'video',
           prompt: 'Create an animated scene',
           generateAudio: true,
+          videoResolution: '1080p',
+          videoDurationSeconds: 6,
+          videoTier: 'fast',
         },
         meta
       );
@@ -363,8 +366,39 @@ describe('VariantFactory', () => {
 
       const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
       assert.strictEqual(recipe.mediaKind, 'video');
+      assert.strictEqual(recipe.model, 'veo-3.1-fast-generate-preview');
       assert.strictEqual(recipe.veoReferenceMode, 'text-to-video');
       assert.strictEqual(recipe.generateAudio, true);
+      assert.strictEqual(recipe.videoResolution, '1080p');
+      assert.strictEqual(recipe.videoDurationSeconds, 6);
+      assert.strictEqual(recipe.videoTier, 'fast');
+    });
+
+    test('rejects video combinations without configured pricing', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      await assert.rejects(
+        () => factory.createAssetWithVariant(
+          {
+            name: 'Draft Video',
+            assetType: 'animation',
+            mediaKind: 'video',
+            prompt: 'Create an animated draft',
+            videoResolution: '4k',
+            videoTier: 'lite',
+          },
+          meta
+        ),
+        /Video resolution 4k is not supported for the lite tier/
+      );
+
+      assert.strictEqual(asMock(repo.createAsset).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(asMock(broadcast).mock.calls.length, 0);
     });
 
     test('labels single-image video generations as image-to-video', async () => {
@@ -771,6 +805,9 @@ describe('VariantFactory', () => {
             operation: 'derive',
             veoReferenceMode: 'first-last-frame',
             generateAudio: true,
+            videoResolution: '4k',
+            videoDurationSeconds: 4,
+            videoTier: 'fast',
           }),
         } as Variant,
         variantId: 'var-1',
@@ -784,6 +821,9 @@ describe('VariantFactory', () => {
       const workflowInput = asMock(env.GENERATION_WORKFLOW!.create).mock.calls[0].arguments[0].params;
       assert.strictEqual(workflowInput.veoReferenceMode, 'first-last-frame');
       assert.strictEqual(workflowInput.generateAudio, true);
+      assert.strictEqual(workflowInput.videoResolution, '4k');
+      assert.strictEqual(workflowInput.videoDurationSeconds, 4);
+      assert.strictEqual(workflowInput.videoTier, 'fast');
     });
 
     test('returns null when workflow not configured', async () => {

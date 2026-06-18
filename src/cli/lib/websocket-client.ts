@@ -12,6 +12,11 @@ import WebSocket from 'ws';
 import { loadStoredConfig, resolveBaseUrl } from './config';
 import { loginCommandForEnvironment } from './command-context';
 import type { DescribeFocus, ClaudeUsage, MediaKind, MusicGenerationProvider, SimplePlan } from '../../shared/websocket-types';
+import type {
+  VideoGenerationDurationSeconds,
+  VideoGenerationResolution,
+  VideoGenerationTier,
+} from '../../shared/videoGenerationOptions';
 
 export const GENERATION_REQUEST_TIMEOUT_MS = 300_000;
 export const VIDEO_GENERATION_REQUEST_TIMEOUT_MS = 720_000;
@@ -107,6 +112,9 @@ interface GenerateRequestMessage {
   dialogueVoiceIds?: string[];
   musicProvider?: MusicGenerationProvider;
   generateAudio?: boolean;
+  videoResolution?: VideoGenerationResolution;
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  videoTier?: VideoGenerationTier;
 }
 
 interface RefineRequestMessage {
@@ -126,6 +134,9 @@ interface RefineRequestMessage {
   dialogueVoiceIds?: string[];
   musicProvider?: MusicGenerationProvider;
   generateAudio?: boolean;
+  videoResolution?: VideoGenerationResolution;
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  videoTier?: VideoGenerationTier;
 }
 
 interface BatchRequestMessage {
@@ -1662,6 +1673,9 @@ export class WebSocketClient {
     dialogueVoiceIds?: string[];
     musicProvider?: MusicGenerationProvider;
     generateAudio?: boolean;
+    videoResolution?: VideoGenerationResolution;
+    videoDurationSeconds?: VideoGenerationDurationSeconds;
+    videoTier?: VideoGenerationTier;
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
@@ -1712,6 +1726,9 @@ export class WebSocketClient {
         dialogueVoiceIds: params.dialogueVoiceIds,
         musicProvider: params.musicProvider,
         generateAudio: params.generateAudio,
+        videoResolution: params.videoResolution,
+        videoDurationSeconds: params.videoDurationSeconds,
+        videoTier: params.videoTier,
       };
 
       try {
@@ -1741,6 +1758,9 @@ export class WebSocketClient {
     voiceId?: string;
     dialogueVoiceIds?: string[];
     generateAudio?: boolean;
+    videoResolution?: VideoGenerationResolution;
+    videoDurationSeconds?: VideoGenerationDurationSeconds;
+    videoTier?: VideoGenerationTier;
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
@@ -1789,6 +1809,9 @@ export class WebSocketClient {
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,
         generateAudio: params.generateAudio,
+        videoResolution: params.videoResolution,
+        videoDurationSeconds: params.videoDurationSeconds,
+        videoTier: params.videoTier,
       };
 
       try {

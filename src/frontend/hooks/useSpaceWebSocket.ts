@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { DescribeFocus, ClaudeUsage, MediaKind, MusicGenerationProvider, SimplePlan } from '../../shared/websocket-types';
+import type {
+  VideoGenerationDurationSeconds,
+  VideoGenerationResolution,
+  VideoGenerationTier,
+} from '../../shared/videoGenerationOptions';
 
 // Asset and Variant types based on DO SQLite schema
 export interface Asset {
@@ -386,6 +391,12 @@ export interface GenerateRequestParams {
   musicProvider?: MusicGenerationProvider;
   /** Whether Veo should generate native synchronized audio (video assets only) */
   generateAudio?: boolean;
+  /** Veo output resolution (video assets only) */
+  videoResolution?: VideoGenerationResolution;
+  /** Veo output duration in seconds (video assets only) */
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  /** Veo model tier (video assets only) */
+  videoTier?: VideoGenerationTier;
 }
 
 // Refine request parameters
@@ -414,6 +425,12 @@ export interface RefineRequestParams {
   musicProvider?: MusicGenerationProvider;
   /** Whether Veo should generate native synchronized audio (video assets only) */
   generateAudio?: boolean;
+  /** Veo output resolution (video assets only) */
+  videoResolution?: VideoGenerationResolution;
+  /** Veo output duration in seconds (video assets only) */
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  /** Veo model tier (video assets only) */
+  videoTier?: VideoGenerationTier;
 }
 
 // Batch request parameters
@@ -1019,6 +1036,9 @@ export function useSpaceWebSocket({
       dialogueVoiceIds: params.dialogueVoiceIds,
       musicProvider: params.musicProvider,
       generateAudio: params.generateAudio,
+      videoResolution: params.videoResolution,
+      videoDurationSeconds: params.videoDurationSeconds,
+      videoTier: params.videoTier,
     });
     return requestId;
   }, [sendMessage]);
@@ -1043,6 +1063,9 @@ export function useSpaceWebSocket({
       dialogueVoiceIds: params.dialogueVoiceIds,
       musicProvider: params.musicProvider,
       generateAudio: params.generateAudio,
+      videoResolution: params.videoResolution,
+      videoDurationSeconds: params.videoDurationSeconds,
+      videoTier: params.videoTier,
     });
     return requestId;
   }, [sendMessage]);

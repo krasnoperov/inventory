@@ -37,7 +37,9 @@ import {
   GoogleVeoService,
   determineVeoReferenceMode,
   type VideoAspectRatio,
+  type VideoDurationSeconds,
   type VideoModel,
+  type VideoResolution,
 } from '../services/googleVeoService';
 import { CustomModelProvider } from '../services/customModelProvider';
 import { FakeImageProvider } from '../services/fakeImageProvider';
@@ -58,6 +60,16 @@ import {
 } from './generation-media-upload';
 import { loggers } from '../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../shared/websocket-types';
+import {
+  DEFAULT_VIDEO_GENERATION_DURATION_SECONDS,
+  DEFAULT_VIDEO_GENERATION_RESOLUTION,
+  getVideoGenerationModelForTier,
+  getVideoGenerationTierForModel,
+  isVideoGenerationResolutionSupportedForTier,
+  normalizeVideoGenerationDurationSeconds,
+  normalizeVideoGenerationResolution,
+  normalizeVideoGenerationTier,
+} from '../../shared/videoGenerationOptions';
 
 const log = loggers.generationWorkflow;
 const FAKE_VIDEO_MP4_BASE64 = 'ZmFrZSB2aWRlbw==';
@@ -107,6 +119,9 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       operation,
       styleImageKeys,
       veoReferenceMode,
+      videoResolution,
+      videoDurationSeconds,
+      videoTier,
       generateAudio,
       modelProvider,
       mediaKind: requestedMediaKind,
@@ -195,8 +210,22 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
 
         if (mediaKind === 'video') {
           const useFakeProvider = this.env.INVENTORY_IMAGE_PROVIDER === 'fake';
-          const modelToUse = (model as VideoModel) || 'veo-3.1-generate-preview';
+          const normalizedVideoTier =
+            normalizeVideoGenerationTier(videoTier) ?? getVideoGenerationTierForModel(model);
+          const modelToUse = (model as VideoModel) || getVideoGenerationModelForTier(normalizedVideoTier);
           const aspectRatioToUse: VideoAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
+          const resolutionToUse = (
+            normalizeVideoGenerationResolution(videoResolution) ?? DEFAULT_VIDEO_GENERATION_RESOLUTION
+          ) as VideoResolution;
+          if (
+            normalizedVideoTier &&
+            !isVideoGenerationResolutionSupportedForTier(resolutionToUse, normalizedVideoTier)
+          ) {
+            throw new NonRetryableError('Video resolution 4k is not supported for the lite tier');
+          }
+          const durationSecondsToUse = (
+            normalizeVideoGenerationDurationSeconds(videoDurationSeconds) ?? DEFAULT_VIDEO_GENERATION_DURATION_SECONDS
+          ) as VideoDurationSeconds;
           const styleImageCount = styleImageKeys?.length || 0;
           const referenceModeToUse = veoReferenceMode ?? determineVeoReferenceMode(sourceImages.length, styleImageCount);
           const generateAudioToUse = generateAudio === true;
@@ -217,8 +246,8 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   videoMimeType: 'video/mp4',
                   model: modelToUse,
                   aspectRatio: aspectRatioToUse,
-                  resolution: '720p' as const,
-                  durationSeconds: 8 as const,
+                  resolution: resolutionToUse,
+                  durationSeconds: durationSecondsToUse,
                   referenceMode: referenceModeToUse,
                   generateAudio: generateAudioToUse,
                 }
@@ -226,6 +255,8 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   prompt,
                   model: modelToUse,
                   aspectRatio: aspectRatioToUse,
+                  resolution: resolutionToUse,
+                  durationSeconds: durationSecondsToUse,
                   sourceImages,
                   styleImageCount,
                   referenceMode: referenceModeToUse,

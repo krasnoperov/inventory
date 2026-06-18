@@ -451,6 +451,9 @@ authenticated variant media endpoint.
 makefx video generate "A looping idle animation" \
   --name "Idle Animation" \
   --type animation \
+  --duration 6 \
+  --resolution 1080p \
+  --tier fast \
   --no-audio \
   -o video/idle.mp4
 
@@ -478,6 +481,10 @@ Video output is silent by default. Pass `--audio` to request Veo native
 synchronized dialogue, SFX, score, or ambience for that request; pass
 `--no-audio` to make a silent request explicit. The choice is stored in the
 variant recipe as `generateAudio` and is preserved when retrying the variant.
+Pass `--resolution 720p|1080p|4k`, `--duration 4|6|8`, and
+`--tier generate|fast|lite` to select the Veo output controls for that request;
+those choices are stored in the variant recipe and preserved on retry. The
+`lite` tier supports `720p` and `1080p`; use `generate` or `fast` for `4k`.
 
 ## Run Manifests
 

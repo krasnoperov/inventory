@@ -64,7 +64,7 @@ describe('uploadGeneratedMedia — no binary blob crosses a step boundary', () =
       {
         videoData,
         videoMimeType: 'video/mp4',
-        model: 'veo-3.1-generate-preview',
+        model: 'veo-3.1-fast-generate-preview',
         aspectRatio: '16:9',
         resolution: '720p',
         durationSeconds: 8,
@@ -78,6 +78,7 @@ describe('uploadGeneratedMedia — no binary blob crosses a step boundary', () =
     assert.equal(result.mediaMimeType, 'video/mp4');
     assert.equal(result.mediaDurationMs, 8000);
     assert.equal(result.providerMetadata?.generateAudio, true);
+    assert.equal(result.providerMetadata?.videoTier, 'fast');
 
     // The payload landed in R2…
     const stored = images.store.get('media/space_1/var_1.mp4');

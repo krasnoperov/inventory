@@ -18,6 +18,19 @@ import {
   type ImageModelSelection,
   type ImageSize,
 } from '../../../shared/imageGenerationOptions';
+import {
+  DEFAULT_VIDEO_GENERATION_DURATION_SECONDS,
+  DEFAULT_VIDEO_GENERATION_RESOLUTION,
+  DEFAULT_VIDEO_GENERATION_TIER,
+  VIDEO_GENERATION_DURATION_SECONDS,
+  VIDEO_GENERATION_RESOLUTIONS,
+  VIDEO_GENERATION_TIERS,
+  getVideoGenerationResolutionsForTier,
+  isVideoGenerationResolutionSupportedForTier,
+  type VideoGenerationDurationSeconds,
+  type VideoGenerationResolution,
+  type VideoGenerationTier,
+} from '../../../shared/videoGenerationOptions';
 import { AssetPickerModal } from './AssetPickerModal';
 import { ForgeChat } from './ForgeChat';
 import { StylePanel } from './StylePanel';
@@ -75,6 +88,12 @@ export interface ForgeSubmitParams {
   musicProvider?: MusicGenerationProvider;
   /** Whether Veo should generate native synchronized audio (video mode) */
   generateAudio?: boolean;
+  /** Veo output resolution (video mode) */
+  videoResolution?: VideoGenerationResolution;
+  /** Veo output duration in seconds (video mode) */
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  /** Veo model tier (video mode) */
+  videoTier?: VideoGenerationTier;
 }
 
 export interface ForgeTrayProps {
@@ -165,6 +184,12 @@ const MUSIC_PROVIDER_OPTIONS: Array<{ value: MusicGenerationProvider; label: str
   { value: 'elevenlabs', label: 'ElevenLabs' },
   { value: 'lyria', label: 'Lyria' },
 ];
+
+const VIDEO_TIER_LABELS: Record<VideoGenerationTier, string> = {
+  generate: 'Generate',
+  fast: 'Fast',
+  lite: 'Lite',
+};
 
 function getMediaGroup(mode: ForgeMediaMode): MediaGroup {
   if (mode === 'image') return 'image';
@@ -299,8 +324,20 @@ export function ForgeTray({
   const [musicProvider, setMusicProvider] = useState<MusicGenerationProvider>('elevenlabs');
   const [musicProviderExplicit, setMusicProviderExplicit] = useState(false);
   const [videoAudioEnabled, setVideoAudioEnabled] = useState(false);
+  const [videoResolution, setVideoResolution] = useState<VideoGenerationResolution>(DEFAULT_VIDEO_GENERATION_RESOLUTION);
+  const [videoDurationSeconds, setVideoDurationSeconds] = useState<VideoGenerationDurationSeconds>(DEFAULT_VIDEO_GENERATION_DURATION_SECONDS);
+  const [videoTier, setVideoTier] = useState<VideoGenerationTier>(DEFAULT_VIDEO_GENERATION_TIER);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+
+  const handleVideoTierSelect = useCallback((tier: VideoGenerationTier) => {
+    setVideoTier(tier);
+    setVideoResolution((current) => {
+      if (isVideoGenerationResolutionSupportedForTier(current, tier)) return current;
+      const compatibleResolutions = getVideoGenerationResolutionsForTier(tier);
+      return compatibleResolutions[compatibleResolutions.length - 1] ?? DEFAULT_VIDEO_GENERATION_RESOLUTION;
+    });
+  }, []);
 
   // Destination state
   const [destinationType, setDestinationType] = useState<DestinationType>('existing_asset');
@@ -604,6 +641,9 @@ export function ForgeTray({
         disableStyle: isAudioMode || noStyle || undefined,
         voiceId: mediaMode === 'speech' ? voiceId : undefined,
         generateAudio: mediaMode === 'video' ? videoAudioEnabled : undefined,
+        videoResolution: mediaMode === 'video' ? videoResolution : undefined,
+        videoDurationSeconds: mediaMode === 'video' ? videoDurationSeconds : undefined,
+        videoTier: mediaMode === 'video' ? videoTier : undefined,
         // Keep positions intact — each entry maps to a speaker in order, and a
         // blank ("Default") slot is resolved to the default voice server-side.
         // Filtering blanks here would shift later voices onto earlier speakers.
@@ -626,12 +666,15 @@ export function ForgeTray({
       setMusicProvider('elevenlabs');
       setMusicProviderExplicit(false);
       setVideoAudioEnabled(false);
+      setVideoResolution(DEFAULT_VIDEO_GENERATION_RESOLUTION);
+      setVideoDurationSeconds(DEFAULT_VIDEO_GENERATION_DURATION_SECONDS);
+      setVideoTier(DEFAULT_VIDEO_GENERATION_TIER);
     } catch (error) {
       console.error('Forge submit failed:', error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoAudioEnabled]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoAudioEnabled, videoResolution, videoDurationSeconds, videoTier]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -878,9 +921,52 @@ export function ForgeTray({
                   <span className={styles.optChipMuted} title="Veo reference mode">
                     {veoModeLabel}
                   </span>
-                  <div className={styles.miniSeg} role="group" aria-label="Video count">
-                    <span className={`${styles.miniSegItem} ${styles.active}`}>×1</span>
-                    <span className={`${styles.miniSegItem} ${styles.disabled}`}>×2</span>
+                  <div className={styles.miniSeg} role="group" aria-label="Video resolution">
+                    {VIDEO_GENERATION_RESOLUTIONS.map((resolution) => {
+                      const isSupported = isVideoGenerationResolutionSupportedForTier(resolution, videoTier);
+                      return (
+                        <button
+                          key={resolution}
+                          type="button"
+                          className={`${styles.miniSegText} ${videoResolution === resolution ? styles.active : ''}`}
+                          onClick={() => setVideoResolution(resolution)}
+                          disabled={isSubmitting || !isSupported}
+                          title={isSupported
+                            ? `Video resolution ${resolution}`
+                            : `${resolution} requires Generate or Fast tier`}
+                        >
+                          {resolution}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className={styles.miniSeg} role="group" aria-label="Video duration">
+                    {VIDEO_GENERATION_DURATION_SECONDS.map((duration) => (
+                      <button
+                        key={duration}
+                        type="button"
+                        className={`${styles.miniSegItem} ${videoDurationSeconds === duration ? styles.active : ''}`}
+                        onClick={() => setVideoDurationSeconds(duration)}
+                        disabled={isSubmitting}
+                        title={`Video duration ${duration}s`}
+                      >
+                        {duration}s
+                      </button>
+                    ))}
+                  </div>
+                  <div className={styles.miniSeg} role="group" aria-label="Video tier">
+                    {VIDEO_GENERATION_TIERS.map((tier) => (
+                      <button
+                        key={tier}
+                        type="button"
+                        className={`${styles.miniSegText} ${videoTier === tier ? styles.active : ''}`}
+                        onClick={() => handleVideoTierSelect(tier)}
+                        disabled={isSubmitting}
+                        title={`Veo ${tier} tier`}
+                      >
+                        {VIDEO_TIER_LABELS[tier]}
+                      </button>
+                    ))}
                   </div>
                   <label className={styles.noStyleCheck} title="Generate synchronized Veo audio">
                     <input

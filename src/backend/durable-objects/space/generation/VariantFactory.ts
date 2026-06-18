@@ -27,9 +27,22 @@ import {
   isImageModelSelection,
   normalizeImageSize,
 } from '../../../../shared/imageGenerationOptions';
+import {
+  DEFAULT_VIDEO_GENERATION_DURATION_SECONDS,
+  DEFAULT_VIDEO_GENERATION_RESOLUTION,
+  DEFAULT_VIDEO_GENERATION_TIER,
+  getVideoGenerationModelForTier,
+  getVideoGenerationTierForModel,
+  isVideoGenerationResolutionSupportedForTier,
+  normalizeVideoGenerationDurationSeconds,
+  normalizeVideoGenerationResolution,
+  normalizeVideoGenerationTier,
+  type VideoGenerationDurationSeconds,
+  type VideoGenerationResolution,
+  type VideoGenerationTier,
+} from '../../../../shared/videoGenerationOptions';
 
 const log = loggers.generationController;
-const DEFAULT_VIDEO_MODEL = 'veo-3.1-generate-preview';
 const MAX_GEMINI_REFERENCE_IMAGES = 14;
 const MAX_VEO_REFERENCE_IMAGES = 3;
 
@@ -60,6 +73,12 @@ export interface GenerationRecipe {
   modelProvider?: 'gemini' | 'custom';
   /** Veo request mode selected from resolved image references */
   veoReferenceMode?: VeoReferenceMode;
+  /** Veo output resolution (video assets only) */
+  videoResolution?: VideoGenerationResolution;
+  /** Veo output duration in seconds (video assets only) */
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  /** Veo model tier (video assets only) */
+  videoTier?: VideoGenerationTier;
   /** Whether Veo should generate native synchronized audio (video assets only) */
   generateAudio?: boolean;
   /** ElevenLabs speech voice ID (audio assets) — persisted for retries */
@@ -109,6 +128,12 @@ export interface CreateAssetVariantInput {
   musicProvider?: MusicGenerationProvider;
   /** Whether Veo should generate native synchronized audio (video assets only) */
   generateAudio?: boolean;
+  /** Veo output resolution (video modes only) */
+  videoResolution?: VideoGenerationResolution;
+  /** Veo output duration in seconds (video modes only) */
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  /** Veo model tier (video modes only) */
+  videoTier?: VideoGenerationTier;
 }
 
 /** Input for refining an existing asset */
@@ -143,6 +168,12 @@ export interface RefineVariantInput {
   musicProvider?: MusicGenerationProvider;
   /** Whether Veo should generate native synchronized audio (video assets only) */
   generateAudio?: boolean;
+  /** Veo output resolution (video modes only) */
+  videoResolution?: VideoGenerationResolution;
+  /** Veo output duration in seconds (video modes only) */
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  /** Veo model tier (video modes only) */
+  videoTier?: VideoGenerationTier;
 }
 
 /** Result of variant creation */
@@ -219,7 +250,14 @@ export class VariantFactory {
     // Determine operation: 'generate' if no refs, 'derive' if using refs
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
 
-    const recipeModel = this.resolveRecipeModel(input.mediaKind, input.model);
+    const videoOptions = this.resolveRecipeVideoOptions(
+      input.mediaKind,
+      input.videoResolution,
+      input.videoDurationSeconds,
+      input.videoTier,
+      input.model
+    );
+    const recipeModel = videoOptions.model ?? this.resolveRecipeModel(input.mediaKind, input.model);
     const recipeImageSize = this.resolveRecipeImageSize(input.mediaKind, input.imageSize, recipeModel);
 
     // Build recipe (includes parentVariantIds for retry support)
@@ -230,6 +268,9 @@ export class VariantFactory {
       model: recipeModel,
       aspectRatio: input.aspectRatio,
       imageSize: recipeImageSize,
+      videoResolution: videoOptions.videoResolution,
+      videoDurationSeconds: videoOptions.videoDurationSeconds,
+      videoTier: videoOptions.videoTier,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
@@ -326,7 +367,14 @@ export class VariantFactory {
       throw new Error('No source media available');
     }
 
-    const recipeModel = this.resolveRecipeModel(mediaKind, input.model);
+    const videoOptions = this.resolveRecipeVideoOptions(
+      mediaKind,
+      input.videoResolution,
+      input.videoDurationSeconds,
+      input.videoTier,
+      input.model
+    );
+    const recipeModel = videoOptions.model ?? this.resolveRecipeModel(mediaKind, input.model);
     const recipeImageSize = this.resolveRecipeImageSize(mediaKind, input.imageSize, recipeModel);
 
     // Build recipe (includes parentVariantIds for retry support)
@@ -337,6 +385,9 @@ export class VariantFactory {
       model: recipeModel,
       aspectRatio: input.aspectRatio,
       imageSize: recipeImageSize,
+      videoResolution: videoOptions.videoResolution,
+      videoDurationSeconds: videoOptions.videoDurationSeconds,
+      videoTier: videoOptions.videoTier,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation: 'refine',
@@ -425,6 +476,9 @@ export class VariantFactory {
       operation,
       styleImageKeys: effectiveStyleImageKeys?.length ? effectiveStyleImageKeys : undefined,
       veoReferenceMode: recipe.veoReferenceMode,
+      videoResolution: recipe.videoResolution,
+      videoDurationSeconds: recipe.videoDurationSeconds,
+      videoTier: recipe.videoTier,
       generateAudio: recipe.generateAudio,
       modelProvider: recipe.modelProvider,
       voiceId: recipe.voiceId,
@@ -554,7 +608,14 @@ export class VariantFactory {
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
     const mediaKind = input.mediaKind ?? DEFAULT_MEDIA_KIND;
 
-    const recipeModel = this.resolveRecipeModel(mediaKind, input.model);
+    const videoOptions = this.resolveRecipeVideoOptions(
+      mediaKind,
+      input.videoResolution,
+      input.videoDurationSeconds,
+      input.videoTier,
+      input.model
+    );
+    const recipeModel = videoOptions.model ?? this.resolveRecipeModel(mediaKind, input.model);
     const recipeImageSize = this.resolveRecipeImageSize(mediaKind, input.imageSize, recipeModel);
 
     // Build recipe ONCE
@@ -565,6 +626,9 @@ export class VariantFactory {
       model: recipeModel,
       aspectRatio: input.aspectRatio,
       imageSize: recipeImageSize,
+      videoResolution: videoOptions.videoResolution,
+      videoDurationSeconds: videoOptions.videoDurationSeconds,
+      videoTier: videoOptions.videoTier,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
@@ -826,9 +890,63 @@ export class VariantFactory {
     };
   }
 
+  private resolveRecipeVideoOptions(
+    mediaKind: MediaKind | undefined,
+    resolution?: VideoGenerationResolution,
+    durationSeconds?: VideoGenerationDurationSeconds,
+    tier?: VideoGenerationTier,
+    model?: string
+  ): {
+    model?: string;
+    videoResolution?: VideoGenerationResolution;
+    videoDurationSeconds?: VideoGenerationDurationSeconds;
+    videoTier?: VideoGenerationTier;
+  } {
+    const effectiveMediaKind = mediaKind ?? DEFAULT_MEDIA_KIND;
+    const hasVideoOption = resolution !== undefined || durationSeconds !== undefined || tier !== undefined;
+    if (effectiveMediaKind !== 'video') {
+      if (hasVideoOption) {
+        throw new ValidationError('Video options are only supported for video generation');
+      }
+      return {};
+    }
+
+    const normalizedResolution = resolution === undefined
+      ? DEFAULT_VIDEO_GENERATION_RESOLUTION
+      : normalizeVideoGenerationResolution(resolution);
+    if (!normalizedResolution) {
+      throw new ValidationError('Video resolution must be 720p, 1080p, or 4k');
+    }
+
+    const normalizedDuration = durationSeconds === undefined
+      ? DEFAULT_VIDEO_GENERATION_DURATION_SECONDS
+      : normalizeVideoGenerationDurationSeconds(durationSeconds);
+    if (!normalizedDuration) {
+      throw new ValidationError('Video duration must be 4, 6, or 8 seconds');
+    }
+
+    const modelTier = getVideoGenerationTierForModel(model);
+    const normalizedTier = tier === undefined
+      ? modelTier ?? DEFAULT_VIDEO_GENERATION_TIER
+      : normalizeVideoGenerationTier(tier);
+    if (!normalizedTier) {
+      throw new ValidationError('Video tier must be generate, fast, or lite');
+    }
+    if (!isVideoGenerationResolutionSupportedForTier(normalizedResolution, normalizedTier)) {
+      throw new ValidationError('Video resolution 4k is not supported for the lite tier');
+    }
+
+    return {
+      model: getVideoGenerationModelForTier(normalizedTier),
+      videoResolution: normalizedResolution,
+      videoDurationSeconds: normalizedDuration,
+      videoTier: normalizedTier,
+    };
+  }
+
   private resolveRecipeModel(mediaKind: MediaKind | undefined, model?: string): string | undefined {
     const effectiveMediaKind = mediaKind ?? DEFAULT_MEDIA_KIND;
-    if (effectiveMediaKind === 'video') return DEFAULT_VIDEO_MODEL;
+    if (effectiveMediaKind === 'video') return undefined;
     if (effectiveMediaKind !== 'image') return undefined;
     if (!model) return undefined;
 

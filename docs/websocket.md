@@ -147,9 +147,10 @@ capable provider/model through provider/model fields.
 When `INVENTORY_AUDIO_PROVIDER=elevenlabs`, website-created `music` assets use
 ElevenLabs music generation by default and may request Lyria with
 `musicProvider: "lyria"`. `sfx` assets use ElevenLabs sound generation.
-Website video generation records the capable Google Veo model and per-request
-`generateAudio` boolean in the stored recipe. Omitted `generateAudio` values are
-treated as `false` by the workflow, preserving the silent default.
+Website video generation records the capable Google Veo model, `videoTier`,
+`videoResolution`, `videoDurationSeconds`, and per-request `generateAudio`
+boolean in the stored recipe. Omitted `generateAudio` values are treated as
+`false` by the workflow, preserving the silent default.
 
 The backend enforces homogeneous assets. Variants inherit their asset's
 `media_kind`, and requests that try to create a variant or forked asset with a

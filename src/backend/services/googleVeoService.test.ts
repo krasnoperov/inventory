@@ -78,6 +78,29 @@ describe('GoogleVeoService', () => {
     assert.equal(request.config.generateAudio, true);
   });
 
+  test('passes explicit Veo model, resolution, and duration controls', async () => {
+    const { client, generateVideos } = createClient({});
+    const service = new GoogleVeoService('test-key', client);
+
+    const result = await service.generate({
+      prompt: 'quick 4k camera test',
+      model: 'veo-3.1-fast-generate-preview',
+      resolution: '4k',
+      durationSeconds: 4,
+    });
+
+    assert.equal(result.model, 'veo-3.1-fast-generate-preview');
+    assert.equal(result.resolution, '4k');
+    assert.equal(result.durationSeconds, 4);
+    const request = generateVideos.mock.calls[0].arguments[0] as {
+      model: string;
+      config: { resolution?: string; durationSeconds?: number };
+    };
+    assert.equal(request.model, 'veo-3.1-fast-generate-preview');
+    assert.equal(request.config.resolution, '4k');
+    assert.equal(request.config.durationSeconds, 4);
+  });
+
   test('uses top-level image input for one unstyled source image', async () => {
     const { client, generateVideos } = createClient({});
     const service = new GoogleVeoService('test-key', client);

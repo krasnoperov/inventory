@@ -217,7 +217,7 @@ test('forge tray image options expose batch count', async ({ page }) => {
   await screenshot(page, 'forge-tray-batch', { fullPage: true });
 });
 
-test('forge tray video mode exposes native audio toggle defaulted off', async ({ page }) => {
+test('forge tray video mode exposes Veo options and native audio toggle', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
   await mountComponent(page, 'ForgeTray', {
@@ -231,6 +231,25 @@ test('forge tray video mode exposes native audio toggle defaulted off', async ({
 
   await page.getByTitle('Media type', { exact: true }).click();
   await page.getByTitle('Video media').click();
+
+  await expect(page.getByRole('group', { name: 'Video resolution' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '720p' })).toBeVisible();
+  await page.getByRole('button', { name: '1080p' }).click();
+  await expect(page.getByRole('button', { name: '1080p' })).toHaveClass(/active/);
+
+  await expect(page.getByRole('group', { name: 'Video duration' })).toBeVisible();
+  await page.getByRole('button', { name: '6s' }).click();
+  await expect(page.getByRole('button', { name: '6s' })).toHaveClass(/active/);
+
+  await expect(page.getByRole('group', { name: 'Video tier' })).toBeVisible();
+  await page.getByRole('button', { name: 'Fast' }).click();
+  await expect(page.getByRole('button', { name: 'Fast' })).toHaveClass(/active/);
+  await page.getByRole('button', { name: '4k' }).click();
+  await expect(page.getByRole('button', { name: '4k' })).toHaveClass(/active/);
+  await page.getByRole('button', { name: 'Lite' }).click();
+  await expect(page.getByRole('button', { name: 'Lite' })).toHaveClass(/active/);
+  await expect(page.getByRole('button', { name: '1080p' })).toHaveClass(/active/);
+  await expect(page.getByRole('button', { name: '4k' })).toBeDisabled();
 
   const audioToggle = page.getByLabel('Audio');
   await expect(audioToggle).toBeVisible();
