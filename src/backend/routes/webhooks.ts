@@ -488,6 +488,27 @@ async function fetchAndCacheLimits(
     // Fetch current meter credits from Polar
     const meters = await polarService.getCustomerMeters(userId);
     if (meters.length === 0) {
+      if ('paidAccessExpiresAt' in period && period.paidAccessExpiresAt) {
+        const update = {
+          paid_generation_entitlement: 'paid',
+        } as Parameters<UserDAO['update']>[1];
+
+        if ('periodStart' in period) {
+          update.polar_current_period_start = period.periodStart ?? null;
+        }
+        if ('periodEnd' in period) {
+          update.polar_current_period_end = period.periodEnd ?? null;
+        }
+        update.polar_paid_access_expires_at = period.paidAccessExpiresAt;
+
+        await userDAO.update(userId, update);
+        console.warn(
+          `[Polar Webhook] Preserved cached quota limits for user ${userId}; ` +
+          'updated scheduled-cancellation access expiry without meter refresh'
+        );
+        return;
+      }
+
       throw new Error('No Polar customer meters returned; preserving cached quota limits');
     }
 

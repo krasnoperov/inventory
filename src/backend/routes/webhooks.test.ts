@@ -312,6 +312,42 @@ describe('Polar webhook route', () => {
     assert.deepEqual(updates, []);
   });
 
+  test('preserves cached limits but stores cancellation grace expiry when meter refresh returns no meters', async () => {
+    const updates: unknown[] = [];
+    const app = routeApp(routeDeps({
+      update: async (...args: unknown[]) => {
+        updates.push(args);
+      },
+    }, {
+      getCustomerMeters: async () => [],
+    }));
+
+    const body = JSON.stringify(subscriptionCanceledPayload('42', 'active'));
+    const response = await app.request('/api/webhooks/polar', {
+      method: 'POST',
+      headers: signHeaders(body),
+      body,
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(updates.length, 1);
+    assert.equal((updates[0] as unknown[])[0], 42);
+    const update = (updates[0] as unknown[])[1] as {
+      paid_generation_entitlement: string;
+      quota_limits?: string;
+      quota_limits_updated_at?: string;
+      polar_current_period_start: string | null;
+      polar_current_period_end: string | null;
+      polar_paid_access_expires_at: string | null;
+    };
+    assert.equal(update.paid_generation_entitlement, 'paid');
+    assert.equal('quota_limits' in update, false);
+    assert.equal('quota_limits_updated_at' in update, false);
+    assert.equal(update.polar_current_period_start, '2026-06-01T00:00:00.000Z');
+    assert.equal(update.polar_current_period_end, '2026-07-01T00:00:00.000Z');
+    assert.equal(update.polar_paid_access_expires_at, '2026-07-01T00:00:00.000Z');
+  });
+
   test('preserves internal entitlement on active Polar subscription refresh', async () => {
     const updates: unknown[] = [];
     const meterLookups: unknown[] = [];
