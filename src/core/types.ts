@@ -60,6 +60,12 @@ export interface Env {
   ELEVENLABS_SOUND_EFFECT_MODEL_ID?: string;
   ELEVENLABS_MUSIC_OUTPUT_FORMAT?: string;
   ELEVENLABS_SOUND_EFFECT_OUTPUT_FORMAT?: string;
+  LYRIA_PROJECT_ID?: string;
+  LYRIA_LOCATION?: string;
+  LYRIA_MODEL_ID?: string;
+  LYRIA_ACCESS_TOKEN?: string;
+  LYRIA_API_KEY?: string;
+  LYRIA_BASE_URL?: string;
   AI?: Ai;
   AI_GATEWAY_URL?: string;
 

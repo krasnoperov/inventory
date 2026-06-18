@@ -11,7 +11,7 @@ import https from 'node:https';
 import WebSocket from 'ws';
 import { loadStoredConfig, resolveBaseUrl } from './config';
 import { loginCommandForEnvironment } from './command-context';
-import type { DescribeFocus, ClaudeUsage, MediaKind, SimplePlan } from '../../shared/websocket-types';
+import type { DescribeFocus, ClaudeUsage, MediaKind, MusicGenerationProvider, SimplePlan } from '../../shared/websocket-types';
 
 export const GENERATION_REQUEST_TIMEOUT_MS = 300_000;
 export const VIDEO_GENERATION_REQUEST_TIMEOUT_MS = 720_000;
@@ -105,6 +105,7 @@ interface GenerateRequestMessage {
   mediaKind?: MediaKind;
   voiceId?: string;
   dialogueVoiceIds?: string[];
+  musicProvider?: MusicGenerationProvider;
 }
 
 interface RefineRequestMessage {
@@ -122,6 +123,7 @@ interface RefineRequestMessage {
   mediaKind?: MediaKind;
   voiceId?: string;
   dialogueVoiceIds?: string[];
+  musicProvider?: MusicGenerationProvider;
 }
 
 interface BatchRequestMessage {
@@ -141,6 +143,7 @@ interface BatchRequestMessage {
   mediaKind?: MediaKind;
   voiceId?: string;
   dialogueVoiceIds?: string[];
+  musicProvider?: MusicGenerationProvider;
 }
 
 interface DescribeRequestMessage {
@@ -1655,6 +1658,7 @@ export class WebSocketClient {
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
+    musicProvider?: MusicGenerationProvider;
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
@@ -1703,6 +1707,7 @@ export class WebSocketClient {
         mediaKind: params.mediaKind,
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,
+        musicProvider: params.musicProvider,
       };
 
       try {
@@ -1808,6 +1813,7 @@ export class WebSocketClient {
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
+    musicProvider?: MusicGenerationProvider;
     onStarted?: (data: BatchStarted) => void;
   }): Promise<BatchResult> {
     const requestId = crypto.randomUUID();
@@ -1851,6 +1857,7 @@ export class WebSocketClient {
         mediaKind: params.mediaKind,
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,
+        musicProvider: params.musicProvider,
       };
 
       try {

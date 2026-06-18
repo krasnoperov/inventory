@@ -397,10 +397,9 @@ Lists ElevenLabs voices available to the connected account when ElevenLabs is th
 Usage:
   makefx audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
   makefx audio ${first} generate --input <file> --name <name> -o <file> [--space <id>]
-
-Voice selection:
-  --voice <voice_id>                    Speech voice, or dialogue fallback voice
-  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance
+${first === 'music' ? '  makefx audio music generate "prompt" --provider lyria --name <name> -o <file> [--space <id>]\n' : ''}
+${first === 'music' ? 'Provider selection:\n  --provider <elevenlabs|lyria>        Music provider (default: server default)\n' : ''}
+${first === 'speech' || first === 'dialogue' ? 'Voice selection:\n  --voice <voice_id>                    Speech voice, or dialogue fallback voice\n  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance\n' : ''}
 `);
       return;
     }
@@ -409,6 +408,8 @@ Voice selection:
       console.log(`
 Usage:
   makefx audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+${first === 'music' ? '  makefx audio music batch "prompt" --provider lyria --name <name> --count <2-8> --output-dir <dir> [--space <id>]\n' : ''}
+${first === 'music' ? 'Provider selection:\n  --provider <elevenlabs|lyria>        Music provider (default: server default)\n' : ''}
 `);
       return;
     }
@@ -417,10 +418,8 @@ Usage:
 Usage:
   makefx audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
   makefx audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
-
-Voice selection:
-  --voice <voice_id>                    Speech voice, or dialogue fallback voice
-  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance
+${first === 'music' ? '\nProvider selection:\n  --provider <elevenlabs|lyria>        Music provider (default: server default)\n' : ''}
+${first === 'speech' || first === 'dialogue' ? '\nVoice selection:\n  --voice <voice_id>                    Speech voice, or dialogue fallback voice\n  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance\n' : ''}
 `);
     return;
   }
@@ -453,6 +452,7 @@ Usage:
   makefx audio <${modes}> generate --input <file> --name <name> -o <file> [--space <id>]
   makefx audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
   makefx audio voices [--json]
+  makefx audio music generate "prompt" --provider <elevenlabs|lyria> --name <name> -o <file> [--space <id>]
 
 Modes:
   speech      Spoken narration or voiceover

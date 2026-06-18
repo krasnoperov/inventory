@@ -35,10 +35,11 @@ import {
 } from '../generation/VariantFactory';
 import type { VariantMediaMetadata } from '../repository/SpaceRepository';
 import { loggers } from '../../../../shared/logger';
+import type { MusicGenerationProvider } from '../../../../shared/websocket-types';
 
 const log = loggers.generationController;
 
-type GenerationBillingService = 'nanobanana' | 'elevenlabs' | 'veo';
+type GenerationBillingService = 'nanobanana' | 'lyria' | 'elevenlabs' | 'veo';
 type GenerationLimitDenyReason = 'quota_exceeded' | 'rate_limited' | 'paid_generation_required';
 
 type AudioUsage = {
@@ -54,9 +55,17 @@ type VideoBillingDimensions = {
 
 const ELEVENLABS_GENERATED_AUDIO_COST_BUFFER = 50;
 
-function getGenerationBillingService(env: ControllerContext['env'], mediaKind?: string): GenerationBillingService {
+function getGenerationBillingService(
+  env: ControllerContext['env'],
+  mediaKind?: string,
+  assetType?: string,
+  musicProvider?: MusicGenerationProvider
+): GenerationBillingService {
   if (mediaKind === 'video') {
     return 'veo';
+  }
+  if (mediaKind === 'audio' && assetType === 'music' && musicProvider === 'lyria') {
+    return 'lyria';
   }
   if (mediaKind === 'audio' && env.INVENTORY_AUDIO_PROVIDER === 'elevenlabs') {
     return 'elevenlabs';
@@ -183,7 +192,7 @@ export class GenerationController extends BaseController {
 
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
-      const billingService = getGenerationBillingService(this.env, msg.mediaKind);
+      const billingService = getGenerationBillingService(this.env, msg.mediaKind, msg.assetType, msg.musicProvider);
       const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, msg.assetType);
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
@@ -214,6 +223,7 @@ export class GenerationController extends BaseController {
         disableStyle: msg.disableStyle,
         voiceId: msg.voiceId,
         dialogueVoiceIds: msg.dialogueVoiceIds,
+        musicProvider: msg.musicProvider,
       },
       meta
     );
@@ -265,7 +275,7 @@ export class GenerationController extends BaseController {
         billingMediaKind = billingMediaKind ?? asset.media_kind;
         billingAssetType = asset.type;
       }
-      const billingService = getGenerationBillingService(this.env, billingMediaKind);
+      const billingService = getGenerationBillingService(this.env, billingMediaKind, billingAssetType, msg.musicProvider);
       const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, billingAssetType);
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
@@ -295,6 +305,7 @@ export class GenerationController extends BaseController {
         disableStyle: msg.disableStyle,
         voiceId: msg.voiceId,
         dialogueVoiceIds: msg.dialogueVoiceIds,
+        musicProvider: msg.musicProvider,
       },
       meta
     );
@@ -350,7 +361,7 @@ export class GenerationController extends BaseController {
 
     // Check quota for the entire batch
     if (this.env.DB) {
-      const billingService = getGenerationBillingService(this.env, msg.mediaKind);
+      const billingService = getGenerationBillingService(this.env, msg.mediaKind, msg.assetType, msg.musicProvider);
       const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, msg.count, msg.assetType);
       const check = await preCheck(
         this.env.DB,
@@ -389,6 +400,7 @@ export class GenerationController extends BaseController {
         disableStyle: msg.disableStyle,
         voiceId: msg.voiceId,
         dialogueVoiceIds: msg.dialogueVoiceIds,
+        musicProvider: msg.musicProvider,
         count: msg.count,
         mode: msg.mode,
       },
@@ -455,8 +467,8 @@ export class GenerationController extends BaseController {
     }
 
     const retryMediaKind = variant.media_kind ?? asset.media_kind;
-    const billingService = getGenerationBillingService(this.env, retryMediaKind);
-    if (this.env.DB && billingService === 'elevenlabs') {
+    const billingService = getGenerationBillingService(this.env, retryMediaKind, recipe.assetType, recipe.musicProvider);
+    if (this.env.DB && (billingService === 'elevenlabs' || billingService === 'lyria')) {
       const quotaQuantity = getQuotaCheckQuantity(billingService, recipe.prompt, 1, recipe.assetType);
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
@@ -501,6 +513,7 @@ export class GenerationController extends BaseController {
       modelProvider: recipe.modelProvider,
       voiceId: recipe.voiceId,
       dialogueVoiceIds: recipe.dialogueVoiceIds?.length ? recipe.dialogueVoiceIds : undefined,
+      musicProvider: recipe.musicProvider,
     };
 
     // Trigger the workflow

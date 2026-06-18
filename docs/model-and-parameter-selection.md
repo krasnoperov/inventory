@@ -159,17 +159,19 @@ style image is prepended, the service sends it through Veo's image-to-video
 | Quick motion test | `lite` / `fast` when exposed; default today | `720p` | 4–8s when exposed; 8s default today |
 | Vertical social clip | `generate` | `1080p` when exposed; `720p` default today | 8s |
 
-## Audio (ElevenLabs, shipped)
+## Audio (ElevenLabs default, Lyria music optional)
 
-Backed by `src/backend/services/elevenLabsAudioProvider.ts`. Audio uses explicit
-**modes**; each resolves a default model you can override with `modelId`
-(`:39`, `:246`).
+Backed by `src/backend/services/elevenLabsAudioProvider.ts` and, for optional
+music requests, `src/backend/services/lyriaMusicProvider.ts`. Audio uses
+explicit **modes**; each resolves a default model you can override with
+provider-specific configuration.
 
 | Mode | Default model | Override | CLI |
 |-|-|-|-|
 | `speech` | `eleven_multilingual_v2` (`:427`) | `modelId` | `makefx audio speech generate` |
 | `dialogue` | `eleven_v3` (`:427`) | `modelId` | `makefx audio dialogue generate` |
 | `music` | `music_v1` (`:114`) | `modelId` | `makefx audio music generate` |
+| `music` with Lyria | `lyria-3-clip-preview` | `LYRIA_MODEL_ID` | `makefx audio music generate --provider lyria` |
 | `sfx` | `eleven_text_to_sound_v2` (`:115`) | `modelId` | `makefx audio sfx generate` |
 
 ### Voices

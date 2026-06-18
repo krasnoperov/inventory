@@ -145,7 +145,8 @@ selector. Keep using `assetType`/`type` for catalog categories such as
 website-controlled SpaceDO workflows: set `mediaKind` explicitly and choose the
 capable provider/model through provider/model fields.
 When `INVENTORY_AUDIO_PROVIDER=elevenlabs`, website-created `music` assets use
-ElevenLabs music generation and `sfx` assets use ElevenLabs sound generation.
+ElevenLabs music generation by default and may request Lyria with
+`musicProvider: "lyria"`. `sfx` assets use ElevenLabs sound generation.
 Website video generation records the capable Google Veo model in the stored
 recipe.
 

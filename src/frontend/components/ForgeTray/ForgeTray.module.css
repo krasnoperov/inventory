@@ -991,6 +991,15 @@
   font-weight: 600;
 }
 
+.musicProviderSeg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--ctl-track);
+  border-radius: 9px;
+}
+
 /* Control bar */
 .controlBar {
   display: flex;

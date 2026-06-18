@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { DescribeFocus, ClaudeUsage, MediaKind, SimplePlan } from '../../shared/websocket-types';
+import type { DescribeFocus, ClaudeUsage, MediaKind, MusicGenerationProvider, SimplePlan } from '../../shared/websocket-types';
 
 // Asset and Variant types based on DO SQLite schema
 export interface Asset {
@@ -382,6 +382,8 @@ export interface GenerateRequestParams {
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
   dialogueVoiceIds?: string[];
+  /** Music provider selection (music mode only) */
+  musicProvider?: MusicGenerationProvider;
 }
 
 // Refine request parameters
@@ -406,6 +408,8 @@ export interface RefineRequestParams {
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
   dialogueVoiceIds?: string[];
+  /** Music provider selection (music mode only) */
+  musicProvider?: MusicGenerationProvider;
 }
 
 // Batch request parameters
@@ -429,6 +433,8 @@ export interface BatchRequestParams {
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
   dialogueVoiceIds?: string[];
+  /** Music provider selection (music mode only) */
+  musicProvider?: MusicGenerationProvider;
 }
 
 // Style data from server (raw format)
@@ -1007,6 +1013,7 @@ export function useSpaceWebSocket({
       disableStyle: params.disableStyle,
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
+      musicProvider: params.musicProvider,
     });
     return requestId;
   }, [sendMessage]);
@@ -1029,6 +1036,7 @@ export function useSpaceWebSocket({
       disableStyle: params.disableStyle,
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
+      musicProvider: params.musicProvider,
     });
     return requestId;
   }, [sendMessage]);
@@ -1155,6 +1163,7 @@ export function useSpaceWebSocket({
       disableStyle: params.disableStyle,
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
+      musicProvider: params.musicProvider,
     });
     return requestId;
   }, [sendMessage]);

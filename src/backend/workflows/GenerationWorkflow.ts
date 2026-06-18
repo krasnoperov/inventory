@@ -50,6 +50,7 @@ import {
   ElevenLabsMusicProvider,
   ElevenLabsSoundEffectProvider,
 } from '../services/elevenLabsAudioProvider';
+import { LyriaApiError, LyriaMusicProvider } from '../services/lyriaMusicProvider';
 import { arrayBufferToBase64 } from '../utils/image-utils';
 import {
   uploadGeneratedMedia,
@@ -60,6 +61,10 @@ import { DEFAULT_MEDIA_KIND } from '../../shared/websocket-types';
 
 const log = loggers.generationWorkflow;
 const FAKE_VIDEO_MP4_BASE64 = 'ZmFrZSB2aWRlbw==';
+
+function getAudioProviderId(providerName: string): string {
+  return providerName.split(':', 1)[0] || providerName;
+}
 
 function getAudioExtensionForMimeType(mimeType: string): string {
   switch (mimeType) {
@@ -434,6 +439,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       sourceImageKeys,
       voiceId,
       dialogueVoiceIds,
+      musicProvider,
     } = event.payload;
 
     if (sourceImageKeys?.length) {
@@ -470,7 +476,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           throw new Error('IMAGES R2 bucket not configured');
         }
 
-        const { provider, providerName } = this.createAudioProvider(assetType, { voiceId, dialogueVoiceIds });
+        const { provider, providerName } = this.createAudioProvider(assetType, { voiceId, dialogueVoiceIds, musicProvider });
         const timer = log.startTimer('Audio generation', {
           requestId, jobId, spaceId, operation, provider: providerName, assetType, model,
         });
@@ -495,11 +501,11 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             mediaMimeType: result.audioMimeType,
             mediaSizeBytes: result.audioData.byteLength,
             mediaDurationMs: result.durationMs,
-            audioProvider: providerName.startsWith('elevenlabs') ? 'elevenlabs' : providerName,
+            audioProvider: getAudioProviderId(providerName),
             audioModel: result.model,
             audioUsage: result.usage ?? null,
             providerMetadata: {
-              provider: providerName.startsWith('elevenlabs') ? 'elevenlabs' : providerName,
+              provider: getAudioProviderId(providerName),
               providerMode: providerName,
               model: result.model,
               operation,
@@ -510,6 +516,9 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         } catch (error) {
           timer(false, { error: error instanceof Error ? error.message : String(error) });
           if (error instanceof ElevenLabsApiError && !error.retryable) {
+            throw new NonRetryableError(error.message);
+          }
+          if (error instanceof LyriaApiError && !error.retryable) {
             throw new NonRetryableError(error.message);
           }
           throw error;
@@ -612,9 +621,15 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
 
   private createAudioProvider(
     assetType: string,
-    voiceOverrides: { voiceId?: string; dialogueVoiceIds?: string[] } = {}
+    voiceOverrides: { voiceId?: string; dialogueVoiceIds?: string[]; musicProvider?: 'elevenlabs' | 'lyria' } = {}
   ): { provider: AudioGenerationProvider; providerName: string } {
     const provider = this.env.INVENTORY_AUDIO_PROVIDER || 'fake';
+    if (assetType === 'music' && voiceOverrides.musicProvider === 'lyria') {
+      return this.createLyriaMusicProvider();
+    }
+    if (assetType === 'music' && voiceOverrides.musicProvider === 'elevenlabs') {
+      return this.createElevenLabsMusicProvider();
+    }
     if (provider === 'fake') {
       return { provider: new FakeAudioProvider(), providerName: 'fake' };
     }
@@ -623,14 +638,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         throw new NonRetryableError('ELEVENLABS_API_KEY not configured');
       }
       if (assetType === 'music') {
-        return {
-          provider: new ElevenLabsMusicProvider({
-            apiKey: this.env.ELEVENLABS_API_KEY,
-            modelId: this.env.ELEVENLABS_MUSIC_MODEL_ID,
-            outputFormat: this.env.ELEVENLABS_MUSIC_OUTPUT_FORMAT,
-          }),
-          providerName: 'elevenlabs:music',
-        };
+        return this.createElevenLabsMusicProvider();
       }
       if (assetType === 'sfx') {
         return {
@@ -657,6 +665,37 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       };
     }
     throw new NonRetryableError(`Unsupported INVENTORY_AUDIO_PROVIDER: ${provider}`);
+  }
+
+  private createElevenLabsMusicProvider(): { provider: AudioGenerationProvider; providerName: string } {
+    if (!this.env.ELEVENLABS_API_KEY) {
+      throw new NonRetryableError('ELEVENLABS_API_KEY not configured');
+    }
+    return {
+      provider: new ElevenLabsMusicProvider({
+        apiKey: this.env.ELEVENLABS_API_KEY,
+        modelId: this.env.ELEVENLABS_MUSIC_MODEL_ID,
+        outputFormat: this.env.ELEVENLABS_MUSIC_OUTPUT_FORMAT,
+      }),
+      providerName: 'elevenlabs:music',
+    };
+  }
+
+  private createLyriaMusicProvider(): { provider: AudioGenerationProvider; providerName: string } {
+    if (!this.env.LYRIA_PROJECT_ID) {
+      throw new NonRetryableError('LYRIA_PROJECT_ID not configured');
+    }
+    return {
+      provider: new LyriaMusicProvider({
+        projectId: this.env.LYRIA_PROJECT_ID,
+        location: this.env.LYRIA_LOCATION,
+        modelId: this.env.LYRIA_MODEL_ID,
+        accessToken: this.env.LYRIA_ACCESS_TOKEN,
+        apiKey: this.env.LYRIA_API_KEY,
+        baseUrl: this.env.LYRIA_BASE_URL,
+      }),
+      providerName: 'lyria:music',
+    };
   }
 
   private async uploadAudioSidecars(

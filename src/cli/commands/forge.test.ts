@@ -982,6 +982,50 @@ test('explicit audio modes send canonical asset types', async () => {
   }
 });
 
+test('audio music provider option is forwarded for Lyria requests', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await executeAudioCommand('generate', {
+    positionals: ['A', 'short', 'heroic', 'loop'],
+    options: {
+      space: 'space-1',
+      name: 'Hero Loop',
+      o: 'hero-loop.wav',
+      provider: 'lyria',
+    },
+  }, deps, { mode: 'music' });
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Hero Loop',
+    assetType: 'music',
+    prompt: 'A short heroic loop',
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'audio',
+    musicProvider: 'lyria',
+  });
+});
+
+test('audio provider option is music-only', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeAudioCommand('generate', {
+      positionals: ['Narration'],
+      options: {
+        space: 'space-1',
+        name: 'Narration',
+        o: 'narration.wav',
+        provider: 'lyria',
+      },
+    }, deps, { mode: 'speech' }),
+    /--provider is only supported for audio music/
+  );
+});
+
 test('dialogue audio generate reads multiline prompt from input file', async () => {
   const cwd = await mkdtemp(path.join(os.tmpdir(), 'inventory-audio-input-'));
   const inputPath = path.join(cwd, 'dialogue.txt');

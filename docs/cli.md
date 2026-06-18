@@ -411,6 +411,11 @@ makefx audio music batch "Three 20 second low-intensity dungeon music beds" \
   --count 3 \
   --output-dir audio/dungeon-beds
 
+makefx audio music generate "A 30 second bright orchestral menu loop" \
+  --provider lyria \
+  --name "Menu Loop" \
+  -o audio/menu-loop.wav
+
 makefx audio sfx generate "A crisp inventory item pickup sound effect" \
   --name "Item Pickup" \
   -o audio/item-pickup.wav
@@ -426,6 +431,10 @@ library. It prints `voiceId` values for `--voice` and `--dialogue-voices`;
 speech voice and also acts as a fallback for dialogue speakers whose ordered
 slot is blank or omitted. `--dialogue-voices <id,id,...>` maps voice IDs to
 dialogue speakers by first appearance in the script.
+
+Music uses the server default provider unless `--provider lyria` or
+`--provider elevenlabs` is supplied. The provider option is valid only for
+`audio music` commands.
 
 Audio generation currently does not accept `--refs`, `derive`, or `refine`
 commands. Audio batch downloads completed files into the requested directory and
