@@ -6,6 +6,7 @@ import type {
   GenerationResult,
   ImageModel,
 } from './nanoBananaService';
+import { DEFAULT_IMAGE_MODEL_ID } from '../../shared/imageGenerationOptions';
 
 const ONE_PIXEL_PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
@@ -18,7 +19,7 @@ function resultFor(options: {
   return {
     imageData: ONE_PIXEL_PNG,
     imageMimeType: 'image/png',
-    model: options.model || 'gemini-3-pro-image-preview',
+    model: options.model || DEFAULT_IMAGE_MODEL_ID,
     aspectRatio: options.aspectRatio,
     imageSize: options.imageSize,
     usage: {
@@ -42,4 +43,3 @@ export class FakeImageProvider implements ImageGenerationProvider {
     return resultFor(options);
   }
 }
-

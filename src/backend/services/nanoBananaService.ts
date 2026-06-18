@@ -1,6 +1,9 @@
 import { injectable } from 'inversify';
 import { GoogleGenAI, createPartFromBase64, createPartFromText, type Part } from '@google/genai';
 import {
+  DEFAULT_IMAGE_MODEL_ID,
+  getImageModelCapabilities,
+  isImageSizeSupportedByModel,
   resolveImageModelSelection,
   type ImageAspectRatio,
   type ImageModelId,
@@ -122,7 +125,7 @@ export interface GenerationResult {
  */
 @injectable()
 export class NanoBananaService {
-  private readonly DEFAULT_MODEL: ImageModel = 'gemini-3-pro-image-preview';
+  private readonly DEFAULT_MODEL: ImageModel = DEFAULT_IMAGE_MODEL_ID;
   private readonly ai: GoogleGenAI;
 
   constructor(apiKey: string) {
@@ -141,6 +144,7 @@ export class NanoBananaService {
     if (!prompt) {
       throw new Error('Prompt is required');
     }
+    this.validateImageSize(model, imageSize);
 
     try {
       const response = await this.ai.models.generateContent({
@@ -167,6 +171,7 @@ export class NanoBananaService {
     if (!prompt) {
       throw new Error('Prompt is required');
     }
+    this.validateImageSize(model, imageSize);
 
     const parts: Part[] = [
       createPartFromBase64(image.data, image.mimeType),
@@ -204,13 +209,12 @@ export class NanoBananaService {
       throw new Error('Prompt is required');
     }
 
-    // Validate model constraints
-    if (model === 'gemini-2.5-flash-image' && images.length > 1) {
-      throw new Error('gemini-2.5-flash-image supports only 1 reference image');
+    const capabilities = getImageModelCapabilities(model);
+    if (images.length > capabilities.maxReferenceImages) {
+      const noun = capabilities.maxReferenceImages === 1 ? 'image' : 'images';
+      throw new Error(`${capabilities.modelId} supports at most ${capabilities.maxReferenceImages} reference ${noun}`);
     }
-    if (images.length > 14) {
-      throw new Error('Maximum 14 reference images supported');
-    }
+    this.validateImageSize(model, imageSize);
 
     // Build structured prompt with labels if provided
     const labeledPrompt = this.buildLabeledPrompt(images, prompt);
@@ -250,6 +254,15 @@ export class NanoBananaService {
     }
 
     return config;
+  }
+
+  private validateImageSize(model: ImageModel, imageSize?: ImageSize): void {
+    if (!imageSize || isImageSizeSupportedByModel(model, imageSize)) {
+      return;
+    }
+
+    const supportedSizes = getImageModelCapabilities(model).supportedImageSizes.join(', ');
+    throw new Error(`${model} supports only ${supportedSizes} output`);
   }
 
   private buildLabeledPrompt(images: ImageInput[], prompt: string): string {

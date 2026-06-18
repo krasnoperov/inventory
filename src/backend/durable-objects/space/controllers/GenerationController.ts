@@ -38,6 +38,7 @@ import {
 import type { VariantMediaMetadata } from '../repository/SpaceRepository';
 import { loggers } from '../../../../shared/logger';
 import type { MusicGenerationProvider } from '../../../../shared/websocket-types';
+import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
 
 const log = loggers.generationController;
 
@@ -688,7 +689,7 @@ export class GenerationController extends BaseController {
       try {
         // Parse recipe to get operation type
         let operation = 'derive';
-        let usageModel = 'gemini-3-pro-image-preview';
+        let usageModel = DEFAULT_IMAGE_MODEL_ID;
         let imageSize: string | undefined;
         let generateAudio: boolean | undefined;
         try {

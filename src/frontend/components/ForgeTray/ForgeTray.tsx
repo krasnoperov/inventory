@@ -14,6 +14,8 @@ import {
   IMAGE_ASPECT_RATIOS,
   IMAGE_MODEL_SELECTIONS,
   IMAGE_SIZES,
+  getImageModelCapabilities,
+  isImageSizeSupportedByModel,
   type ImageAspectRatio,
   type ImageModelSelection,
   type ImageSize,
@@ -314,6 +316,7 @@ export function ForgeTray({
   const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
   const [imageModel, setImageModel] = useState<ImageModelSelection>('pro');
   const [imageSize, setImageSize] = useState<ImageSize>('1K');
+  const imageModelCapabilities = getImageModelCapabilities(imageModel);
   const [aspectRatio, setAspectRatio] = useState<ImageAspectRatio>('1:1');
   const [mediaMode, setMediaMode] = useState<ForgeMediaMode>('image');
   // Remembers the last selected audio sub-mode so re-opening the Audio group
@@ -456,10 +459,10 @@ export function ForgeTray({
   }, [mediaModeConfig.supportsBatch, batchCount]);
 
   useEffect(() => {
-    if (imageModel === 'flash' && imageSize !== '1K') {
-      setImageSize('1K');
+    if (!isImageSizeSupportedByModel(imageModel, imageSize)) {
+      setImageSize(imageModelCapabilities.supportedImageSizes[0]);
     }
-  }, [imageModel, imageSize]);
+  }, [imageModel, imageModelCapabilities, imageSize]);
 
   const handleSelectGroup = useCallback((group: MediaGroup) => {
     if (group === 'image') {
@@ -849,8 +852,8 @@ export function ForgeTray({
                         type="button"
                         className={`${styles.miniSegItem} ${imageSize === size ? styles.active : ''}`}
                         onClick={() => setImageSize(size)}
-                        disabled={isSubmitting || (imageModel === 'flash' && size !== '1K')}
-                        title={imageModel === 'flash' && size !== '1K' ? 'Flash supports 1K output' : `${size} image size`}
+                        disabled={isSubmitting || !isImageSizeSupportedByModel(imageModel, size)}
+                        title={!isImageSizeSupportedByModel(imageModel, size) ? 'Flash supports 1K output' : `${size} image size`}
                       >
                         {size}
                       </button>

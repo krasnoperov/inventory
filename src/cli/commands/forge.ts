@@ -44,6 +44,7 @@ import {
 } from '../../shared/videoGenerationOptions';
 import {
   IMAGE_MODEL_IDS,
+  isImageSizeSupportedByModel,
   isImageModelSelection,
   normalizeImageSize,
   type ImageModelSelection,
@@ -1131,7 +1132,7 @@ function parseImageGenerationOptions(
   const model = parseImageModelOption(readOptionalOption(parsed, 'model', 'model'));
   const imageSize = parseImageSizeOption(readOptionalOption(parsed, 'size', 'size'));
 
-  if (model === 'flash' && imageSize && imageSize !== '1K') {
+  if (imageSize && !isImageSizeSupportedByModel(model, imageSize)) {
     throw new Error('--model flash supports only --size 1K');
   }
 
