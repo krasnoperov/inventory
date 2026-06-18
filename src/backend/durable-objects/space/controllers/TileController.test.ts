@@ -437,10 +437,13 @@ describe('TileController', () => {
 
       const placeholderCall = asMock(ctx.repo.createPlaceholderVariant).mock.calls[0].arguments[0];
       assert.strictEqual(placeholderCall.mediaKind, 'image');
-      assert.strictEqual(JSON.parse(placeholderCall.recipe).mediaKind, 'image');
+      const recipe = JSON.parse(placeholderCall.recipe);
+      assert.strictEqual(recipe.mediaKind, 'image');
+      assert.strictEqual(recipe.model, 'gemini-3-pro-image-preview');
 
       const workflowCall = asMock(ctx.env.GENERATION_WORKFLOW.create).mock.calls[0].arguments[0];
       assert.strictEqual(workflowCall.params.mediaKind, 'image');
+      assert.strictEqual(workflowCall.params.model, 'gemini-3-pro-image-preview');
     });
 
     test('rejects invalid seed variant', async () => {
@@ -537,6 +540,7 @@ describe('TileController', () => {
 
       const workflowCall = asMock(ctx.env.GENERATION_WORKFLOW.create).mock.calls[0].arguments[0];
       assert.strictEqual(workflowCall.params.mediaKind, 'video');
+      assert.strictEqual(workflowCall.params.model, undefined);
     });
 
     test('returns silently when set not found', async () => {

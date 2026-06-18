@@ -32,10 +32,9 @@ Two models, selected via `'pro' | 'flash'` (`IMAGE_MODEL_CAPABILITIES`):
 | `flash` | `gemini-2.5-flash-image` | Fast single-reference iteration, drafts | **Only 1 reference image** | Web + top-level image CLI |
 
 **Default to Pro.** The default model is `gemini-3-pro-image-preview`
-(`DEFAULT_IMAGE_MODEL_ID`) when a request does not set `recipe.model`;
-image recipes leave it unset unless a web or CLI request selects a model. The
-service throws if you pass more than one reference to Flash, and throws past 14
-references on Pro.
+(`DEFAULT_IMAGE_MODEL_ID`) when a request does not select a model, and image
+recipes persist that exact model ID. The service throws if you pass more than
+one reference to Flash, and throws past 14 references on Pro.
 
 ### Aspect Ratio
 

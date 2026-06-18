@@ -490,6 +490,8 @@ describe('RotationController', () => {
       await controller.advanceRotation('rotset-1');
 
       assert.strictEqual(asMock(ctx.repo.createPlaceholderVariant).mock.calls.length, 1);
+      const placeholderCall = asMock(ctx.repo.createPlaceholderVariant).mock.calls[0].arguments[0];
+      assert.strictEqual(JSON.parse(placeholderCall.recipe).model, 'gemini-3-pro-image-preview');
     });
 
     test('propagates rotation asset media kind to placeholder and workflow', async () => {
@@ -511,6 +513,7 @@ describe('RotationController', () => {
 
       const workflowCall = asMock(ctx.env.GENERATION_WORKFLOW.create).mock.calls[0].arguments[0];
       assert.strictEqual(workflowCall.params.mediaKind, 'video');
+      assert.strictEqual(workflowCall.params.model, undefined);
     });
 
     test('triggers workflow', async () => {
@@ -528,6 +531,8 @@ describe('RotationController', () => {
       await controller.advanceRotation('rotset-1');
 
       assert.strictEqual(asMock(ctx.env.GENERATION_WORKFLOW.create).mock.calls.length, 1);
+      const workflowCall = asMock(ctx.env.GENERATION_WORKFLOW.create).mock.calls[0].arguments[0];
+      assert.strictEqual(workflowCall.params.model, 'gemini-3-pro-image-preview');
     });
 
     test('broadcasts rotation:step_completed', async () => {
