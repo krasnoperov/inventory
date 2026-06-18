@@ -130,10 +130,22 @@ describe('provider pricing', () => {
     assert.equal(sfx.unit, 'generation');
   });
 
-  test('does not guess ElevenLabs minute pricing without duration metadata', () => {
+  test('prices persisted ElevenLabs music events by provider usage when duration is unavailable', () => {
     const music = priceProviderUsageEvent({
       eventName: 'elevenlabs_audio',
-      quantity: 42,
+      quantity: 41,
+      metadata: { model: 'music_v1', total_tokens: 41 },
+    });
+
+    assert.ok(Math.abs(music.amountUsd - 0.00615) < 0.000001);
+    assert.equal(music.quantity, 41);
+    assert.equal(music.unit, 'character');
+  });
+
+  test('does not guess ElevenLabs minute pricing without duration or provider usage metadata', () => {
+    const music = priceProviderUsageEvent({
+      eventName: 'elevenlabs_audio',
+      quantity: 0,
       metadata: { model: 'music_v1' },
     });
 

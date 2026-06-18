@@ -471,6 +471,14 @@ describe('UsageService', () => {
       await usageService.trackClaudeUsage(testUserId, 1000, 500, 'claude-sonnet-4-20250514');
       await usageService.trackImageGeneration(testUserId, 2, 'gemini-3-pro-image-preview');
       await usageService.trackVideoGeneration(testUserId, 1, 'veo-3.1-generate-preview');
+      await usageService.trackElevenLabsAudioGeneration(
+        testUserId,
+        37,
+        'music_v1',
+        'generate',
+        'music',
+        { inputTokens: 37, outputTokens: 0, totalTokens: 37 }
+      );
       await usageService.trackElevenLabsAudioGeneration(testUserId, 1, 'eleven_text_to_sound_v2', 'generate', 'sfx');
 
       const stats = await usageService.getUserUsageStats(testUserId);
@@ -485,10 +493,10 @@ describe('UsageService', () => {
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_IMAGES]?.costUsd, 0.48);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.used, 1);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.costUsd, 3.2);
-      assert.strictEqual(stats.usage[USAGE_EVENTS.ELEVENLABS_AUDIO]?.used, 1);
-      assert.strictEqual(stats.usage[USAGE_EVENTS.ELEVENLABS_AUDIO]?.costUsd, 0.12);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.ELEVENLABS_AUDIO]?.used, 38);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.ELEVENLABS_AUDIO]?.costUsd, 0.12555);
       assert.deepStrictEqual(stats.estimatedCost, {
-        amount: 3.8105,
+        amount: 3.81605,
         currency: 'USD',
       });
     });
