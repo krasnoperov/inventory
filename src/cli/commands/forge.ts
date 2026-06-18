@@ -34,6 +34,13 @@ import {
 } from '../lib/websocket-client';
 import type { MediaKind } from '../../shared/websocket-types';
 import {
+  IMAGE_MODEL_IDS,
+  isImageModelSelection,
+  normalizeImageSize,
+  type ImageModelSelection,
+  type ImageSize,
+} from '../../shared/imageGenerationOptions';
+import {
   cliGenerationSupportsRefs,
   getCliGenerationMediaKind,
   getCliGenerationProfile,
@@ -71,7 +78,9 @@ interface ForgeClient {
     assetType: string;
     prompt?: string;
     referenceVariantIds?: string[];
+    model?: string;
     aspectRatio?: string;
+    imageSize?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
@@ -82,7 +91,9 @@ interface ForgeClient {
     assetId: string;
     prompt: string;
     sourceVariantIds?: string[];
+    model?: string;
     aspectRatio?: string;
+    imageSize?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
   }): Promise<GenerateResult>;
@@ -93,7 +104,9 @@ interface ForgeClient {
     count: number;
     mode: 'explore' | 'set';
     referenceVariantIds?: string[];
+    model?: string;
     aspectRatio?: string;
+    imageSize?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
@@ -216,6 +229,7 @@ export async function executeForgeCommand(
 ): Promise<GenerateResult | BatchResult> {
   const mediaKind = options.mediaKind || CLI_GENERATION_MEDIA_KIND;
   const saveBatchManifest = options.saveBatchManifest ?? mediaKind === 'image';
+  parseImageGenerationOptions(parsed, mediaKind);
   if (command !== 'batch') {
     validateProductionMetadataOptions(parsed);
   }
@@ -330,6 +344,7 @@ async function executeGenerate(
     referenceVariantIds: [],
     mediaKind,
   });
+  const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
 
   console.log(`Generating "${name}" in space ${ctx.spaceId}...`);
   const audioVoiceOptions = mediaKind === 'audio' ? parseAudioVoiceOptions(parsed) : {};
@@ -337,6 +352,7 @@ async function executeGenerate(
     name,
     assetType,
     prompt,
+    ...imageOptions,
     aspectRatio: parsed.options.aspect,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
@@ -396,12 +412,14 @@ async function executeRefine(
     referenceVariantIds: [sourceVariantId],
     mediaKind,
   });
+  const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
 
   console.log(`Refining variant ${sourceVariantId}...`);
   const result = await client.sendRefineRequest({
     assetId: sourceVariant.asset_id,
     prompt,
     sourceVariantIds: [sourceVariantId],
+    ...imageOptions,
     aspectRatio: parsed.options.aspect,
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
@@ -462,6 +480,7 @@ async function executeDerive(
     referenceVariantIds,
     mediaKind,
   });
+  const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
 
   console.log(`Deriving "${name}" from ${referenceVariantIds.length} reference(s)...`);
   const result = await client.sendGenerateRequest({
@@ -469,6 +488,7 @@ async function executeDerive(
     assetType,
     prompt,
     referenceVariantIds,
+    ...imageOptions,
     aspectRatio: parsed.options.aspect,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
@@ -524,6 +544,7 @@ async function executeBatch(
     : undefined;
   const startedAt = new Date().toISOString();
   const runId = deps.createRunId();
+  const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
 
   const mediaLabel = mediaKind === 'image' ? 'image' : mediaKind === 'video' ? 'video' : 'audio file';
   console.log(`Batch generating ${count} ${mediaLabel}(s) for "${name}"...`);
@@ -535,6 +556,7 @@ async function executeBatch(
     count,
     mode,
     referenceVariantIds,
+    ...imageOptions,
     aspectRatio: parsed.options.aspect,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
@@ -944,6 +966,42 @@ function normalizeCliOption(value: string | undefined): string | undefined {
   if (value === undefined || value === 'true') return undefined;
   const trimmed = value.trim();
   return trimmed || undefined;
+}
+
+function parseImageGenerationOptions(
+  parsed: ParsedArgs,
+  mediaKind: GenerationMediaKind
+): { model?: ImageModelSelection; imageSize?: ImageSize } {
+  if (mediaKind !== 'image') return {};
+
+  const model = parseImageModelOption(readOptionalOption(parsed, 'model', 'model'));
+  const imageSize = parseImageSizeOption(readOptionalOption(parsed, 'size', 'size'));
+
+  if (model === 'flash' && imageSize && imageSize !== '1K') {
+    throw new Error('--model flash supports only --size 1K');
+  }
+
+  return {
+    ...(model ? { model } : {}),
+    ...(imageSize ? { imageSize } : {}),
+  };
+}
+
+function parseImageModelOption(value: string | undefined): ImageModelSelection | undefined {
+  if (!value) return undefined;
+  if (isImageModelSelection(value)) return value;
+  if (value === IMAGE_MODEL_IDS.pro) return 'pro';
+  if (value === IMAGE_MODEL_IDS.flash) return 'flash';
+  throw new Error('--model must be pro or flash');
+}
+
+function parseImageSizeOption(value: string | undefined): ImageSize | undefined {
+  if (!value) return undefined;
+  const normalized = normalizeImageSize(value);
+  if (!normalized) {
+    throw new Error('--size must be 1K, 2K, or 4K');
+  }
+  return normalized;
 }
 
 function parseSceneMetadata(

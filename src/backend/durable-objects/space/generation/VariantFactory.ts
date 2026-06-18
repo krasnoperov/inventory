@@ -21,6 +21,12 @@ import {
   determineVeoReferenceMode,
   type VeoReferenceMode,
 } from '../../../services/googleVeoService';
+import {
+  IMAGE_MODEL_IDS,
+  isImageModelId,
+  isImageModelSelection,
+  normalizeImageSize,
+} from '../../../../shared/imageGenerationOptions';
 
 const log = loggers.generationController;
 const DEFAULT_VIDEO_MODEL = 'veo-3.1-generate-preview';
@@ -77,6 +83,10 @@ export interface CreateAssetVariantInput {
   prompt?: string;
   /** Aspect ratio */
   aspectRatio?: string;
+  /** Image model selection (`pro`/`flash`) or resolved model ID */
+  model?: string;
+  /** Image output size (`1K`, `2K`, `4K`) */
+  imageSize?: string;
   /** Parent asset ID for hierarchy */
   parentAssetId?: string;
   /** Reference asset IDs (resolved to active variants) */
@@ -103,6 +113,10 @@ export interface RefineVariantInput {
   prompt: string;
   /** Aspect ratio */
   aspectRatio?: string;
+  /** Image model selection (`pro`/`flash`) or resolved model ID */
+  model?: string;
+  /** Image output size (`1K`, `2K`, `4K`) */
+  imageSize?: string;
   /** Single source variant (legacy) */
   sourceVariantId?: string;
   /** Multiple source variants from ForgeTray */
@@ -175,18 +189,6 @@ export class VariantFactory {
       }
     }
 
-    // Create the asset
-    const asset = await this.repo.createAsset({
-      id: assetId,
-      name: input.name,
-      type: input.assetType,
-      mediaKind: input.mediaKind,
-      tags: [],
-      parentAssetId: effectiveParentAssetId,
-      createdBy: meta.userId,
-    });
-    this.broadcast({ type: 'asset:created', asset });
-
     // Resolve references
     const resolved = await this.resolveAllReferences(
       input.referenceAssetIds,
@@ -205,13 +207,17 @@ export class VariantFactory {
     // Determine operation: 'generate' if no refs, 'derive' if using refs
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
 
+    const recipeModel = this.resolveRecipeModel(input.mediaKind, input.model);
+    const recipeImageSize = this.resolveRecipeImageSize(input.mediaKind, input.imageSize, recipeModel);
+
     // Build recipe (includes parentVariantIds for retry support)
     let recipe: GenerationRecipe = {
       prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
       assetType: input.assetType,
       mediaKind: input.mediaKind,
-      model: input.mediaKind === 'video' ? DEFAULT_VIDEO_MODEL : undefined,
+      model: recipeModel,
       aspectRatio: input.aspectRatio,
+      imageSize: recipeImageSize,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
@@ -224,6 +230,19 @@ export class VariantFactory {
     recipe = styleResult.recipe;
     const effectiveSourceImageKeys = styleResult.sourceImageKeys;
     recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
+    this.validateImageModelReferenceLimit(recipe, effectiveSourceImageKeys);
+
+    // Create the asset only after request-level validation succeeds.
+    const asset = await this.repo.createAsset({
+      id: assetId,
+      name: input.name,
+      type: input.assetType,
+      mediaKind: input.mediaKind,
+      tags: [],
+      parentAssetId: effectiveParentAssetId,
+      createdBy: meta.userId,
+    });
+    this.broadcast({ type: 'asset:created', asset });
 
     // Create placeholder variant
     const variant = await this.repo.createPlaceholderVariant({
@@ -293,13 +312,17 @@ export class VariantFactory {
       throw new Error('No source media available');
     }
 
+    const recipeModel = this.resolveRecipeModel(mediaKind, input.model);
+    const recipeImageSize = this.resolveRecipeImageSize(mediaKind, input.imageSize, recipeModel);
+
     // Build recipe (includes parentVariantIds for retry support)
     let recipe: GenerationRecipe = {
       prompt: input.prompt,
       assetType: asset.type,
       mediaKind,
-      model: mediaKind === 'video' ? DEFAULT_VIDEO_MODEL : undefined,
+      model: recipeModel,
       aspectRatio: input.aspectRatio,
+      imageSize: recipeImageSize,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation: 'refine',
@@ -312,6 +335,7 @@ export class VariantFactory {
     recipe = styleResult.recipe;
     const effectiveSourceImageKeys = styleResult.sourceImageKeys;
     recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
+    this.validateImageModelReferenceLimit(recipe, effectiveSourceImageKeys);
 
     // Create placeholder variant
     const variant = await this.repo.createPlaceholderVariant({
@@ -512,13 +536,17 @@ export class VariantFactory {
     const operation = determineOperation(resolved.parentVariantIds.length > 0);
     const mediaKind = input.mediaKind ?? DEFAULT_MEDIA_KIND;
 
-    // Build recipe ONCE — image batch/explore defaults to flash model
+    const recipeModel = this.resolveRecipeModel(mediaKind, input.model);
+    const recipeImageSize = this.resolveRecipeImageSize(mediaKind, input.imageSize, recipeModel);
+
+    // Build recipe ONCE
     let recipe: GenerationRecipe = {
       prompt: input.prompt || `Create a ${input.assetType} named "${input.name}"`,
       assetType: input.assetType,
       mediaKind: input.mediaKind,
-      model: mediaKind === 'image' ? resolveImageModel('flash') : undefined,
+      model: recipeModel,
       aspectRatio: input.aspectRatio,
+      imageSize: recipeImageSize,
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
@@ -531,6 +559,7 @@ export class VariantFactory {
     recipe = styleResult.recipe;
     const effectiveSourceImageKeys = styleResult.sourceImageKeys;
     recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
+    this.validateImageModelReferenceLimit(recipe, effectiveSourceImageKeys);
 
     // Auto-set parentAssetId from first reference
     let effectiveParentAssetId = input.parentAssetId;
@@ -775,6 +804,51 @@ export class VariantFactory {
       ...recipe,
       veoReferenceMode: determineVeoReferenceMode(sourceImageKeys.length, styleImageKeys?.length ?? 0),
     };
+  }
+
+  private resolveRecipeModel(mediaKind: MediaKind | undefined, model?: string): string | undefined {
+    const effectiveMediaKind = mediaKind ?? DEFAULT_MEDIA_KIND;
+    if (effectiveMediaKind === 'video') return DEFAULT_VIDEO_MODEL;
+    if (effectiveMediaKind !== 'image') return undefined;
+    if (!model) return undefined;
+
+    if (isImageModelSelection(model)) return resolveImageModel(model);
+    if (isImageModelId(model)) return model;
+
+    throw new ValidationError('--model must be pro or flash');
+  }
+
+  private resolveRecipeImageSize(
+    mediaKind: MediaKind | undefined,
+    imageSize: string | undefined,
+    model?: string
+  ): string | undefined {
+    const effectiveMediaKind = mediaKind ?? DEFAULT_MEDIA_KIND;
+    if (effectiveMediaKind !== 'image') return undefined;
+    if (!imageSize) return undefined;
+
+    const normalized = normalizeImageSize(imageSize);
+    if (!normalized) {
+      throw new ValidationError('--size must be 1K, 2K, or 4K');
+    }
+    if (model === IMAGE_MODEL_IDS.flash && normalized !== '1K') {
+      throw new ValidationError('Flash image generation supports only 1K output');
+    }
+    return normalized;
+  }
+
+  private validateImageModelReferenceLimit(
+    recipe: GenerationRecipe,
+    sourceImageKeys: string[]
+  ): void {
+    const mediaKind = recipe.mediaKind ?? DEFAULT_MEDIA_KIND;
+    if (mediaKind !== 'image' || recipe.model !== IMAGE_MODEL_IDS.flash) {
+      return;
+    }
+
+    if (sourceImageKeys.length > 1) {
+      throw new ValidationError('Flash image generation supports at most 1 reference image');
+    }
   }
 
   private capVeoSourceImageKeys(
