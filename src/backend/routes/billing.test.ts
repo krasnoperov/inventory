@@ -226,6 +226,62 @@ describe('billingRoutes', () => {
     assert.deepEqual(updates, []);
   });
 
+  test('billing status preserves scheduled-cancellation access expiry during grace', async () => {
+    const updates: unknown[] = [];
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UserDAO, {
+      findById: async () => ({
+        id: 42,
+        email: 'customer@example.com',
+        name: 'Customer Name',
+        paid_generation_entitlement: 'paid',
+        polar_paid_access_expires_at: '2999-07-01T00:00:00.000Z',
+      }),
+      update: async (...args: unknown[]) => {
+        updates.push(args);
+      },
+    });
+    deps.set(PolarService, {
+      getBillingStatus: async () => ({
+        configured: true,
+        available: true,
+        hasSubscription: true,
+        meters: [
+          {
+            meterSlug: 'gemini_images',
+            consumed: 1,
+            credited: 25,
+            remaining: 24,
+            percentUsed: 4,
+            hasLimit: true,
+          },
+        ],
+        portalUrl: null,
+        subscription: {
+          status: 'active',
+          currentPeriodStart: new Date('2026-06-01T00:00:00.000Z'),
+          currentPeriodEnd: new Date('2026-07-01T00:00:00.000Z'),
+        },
+      }),
+    });
+
+    const response = await routeApp(deps).request('/api/billing/status', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(updates.length, 1);
+    const update = (updates[0] as unknown[])[1] as {
+      paid_generation_entitlement: string;
+      polar_paid_access_expires_at: string | null;
+    };
+    assert.equal(update.paid_generation_entitlement, 'paid');
+    assert.equal(update.polar_paid_access_expires_at, '2999-07-01T00:00:00.000Z');
+  });
+
   test('checkout route creates Polar checkout for the authenticated user', async () => {
     const calls: unknown[] = [];
     const deps = new Map<unknown, unknown>();

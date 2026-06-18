@@ -54,6 +54,10 @@ function isUsableIsoDate(value: string | null | undefined): value is string {
   return typeof value === 'string' && Number.isFinite(new Date(value).getTime());
 }
 
+function isFutureIsoDate(value: string | null | undefined, now = new Date()): value is string {
+  return isUsableIsoDate(value) && new Date(value).getTime() > now.getTime();
+}
+
 function sameOriginUrl(requestUrl: string, value: string | undefined, fallbackPath: string): string {
   const origin = new URL(requestUrl).origin;
   if (!value) {
@@ -189,6 +193,9 @@ billingRoutes.get('/api/billing/status', async (c) => {
   const refreshedEntitlement = status.configured && status.available
     ? (status.hasSubscription ? 'paid' : 'none')
     : entitlement;
+  const paidAccessExpiresAt = status.hasSubscription && isFutureIsoDate(user?.polar_paid_access_expires_at)
+    ? user?.polar_paid_access_expires_at
+    : null;
 
   if (status.available && status.meters.length > 0) {
     const limits: Record<string, number | null> = {};
@@ -201,14 +208,14 @@ billingRoutes.get('/api/billing/status', async (c) => {
       quota_limits_updated_at: new Date().toISOString(),
       polar_current_period_start: status.subscription?.currentPeriodStart?.toISOString() ?? null,
       polar_current_period_end: status.subscription?.currentPeriodEnd?.toISOString() ?? null,
-      polar_paid_access_expires_at: null,
+      polar_paid_access_expires_at: paidAccessExpiresAt,
     });
   } else if (status.available && refreshedEntitlement !== entitlement) {
     await userDAO.update(userId, {
       paid_generation_entitlement: refreshedEntitlement,
       polar_current_period_start: status.subscription?.currentPeriodStart?.toISOString() ?? null,
       polar_current_period_end: status.subscription?.currentPeriodEnd?.toISOString() ?? null,
-      polar_paid_access_expires_at: null,
+      polar_paid_access_expires_at: paidAccessExpiresAt,
     });
   }
 

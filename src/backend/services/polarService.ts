@@ -469,26 +469,22 @@ export class PolarService {
 
       // Try to get subscription info using organization-level API
       let subscription: BillingStatus['subscription'];
-      try {
-        const subscriptions = await this.client.subscriptions.list({
-          externalCustomerId: String(userId),
-          active: true,
-        });
+      const subscriptions = await this.client.subscriptions.list({
+        externalCustomerId: String(userId),
+        active: true,
+      });
 
-        for await (const subPage of subscriptions) {
-          const items = subPage.result?.items || [];
-          if (items.length > 0) {
-            const sub = items[0];
-            subscription = {
-              status: sub.status,
-              currentPeriodStart: sub.currentPeriodStart || null,
-              currentPeriodEnd: sub.currentPeriodEnd || null,
-            };
-          }
-          break; // Just get the first page
+      for await (const subPage of subscriptions) {
+        const items = subPage.result?.items || [];
+        if (items.length > 0) {
+          const sub = items[0];
+          subscription = {
+            status: sub.status,
+            currentPeriodStart: sub.currentPeriodStart || null,
+            currentPeriodEnd: sub.currentPeriodEnd || null,
+          };
         }
-      } catch {
-        // No active subscription
+        break; // Just get the first page
       }
 
       return {

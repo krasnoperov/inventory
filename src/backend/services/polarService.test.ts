@@ -165,6 +165,56 @@ describe('PolarService', () => {
     });
   });
 
+  describe('billing status availability', () => {
+    test('reports unavailable when subscription lookup fails', async () => {
+      const service = createPolarService({
+        POLAR_ACCESS_TOKEN: 'polar_at_test_token',
+      });
+      (service as unknown as {
+        getCustomerMeters: (userId: number) => Promise<unknown[]>;
+        getCustomerPortalUrl: (userId: number) => Promise<string | null>;
+        client: {
+          subscriptions: {
+            list: (input: unknown) => Promise<unknown>;
+          };
+        };
+      }).getCustomerMeters = async (userId: number) => {
+        assert.equal(userId, 123);
+        return [];
+      };
+      (service as unknown as {
+        getCustomerPortalUrl: (userId: number) => Promise<string | null>;
+      }).getCustomerPortalUrl = async (userId: number) => {
+        assert.equal(userId, 123);
+        return 'https://polar.example.test/portal';
+      };
+      (service as unknown as {
+        client: {
+          subscriptions: {
+            list: (input: unknown) => Promise<unknown>;
+          };
+        };
+      }).client = {
+        subscriptions: {
+          list: async (input: unknown) => {
+            assert.deepStrictEqual(input, {
+              externalCustomerId: '123',
+              active: true,
+            });
+            throw new Error('subscriptions unavailable');
+          },
+        },
+      };
+
+      const result = await service.getBillingStatus(123);
+
+      assert.equal(result.configured, true);
+      assert.equal(result.available, false);
+      assert.equal(result.hasSubscription, false);
+      assert.equal(result.error, 'subscriptions unavailable');
+    });
+  });
+
   describe('paid generation product inspection', () => {
     test('returns active metered price meters and meter-credit benefits', async () => {
       const service = createPolarService({
