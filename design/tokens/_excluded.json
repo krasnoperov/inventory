@@ -1,0 +1,22 @@
+{
+  "description": "Canonical CSS tokens whose source value uses CSS constructs with no DTCG-conformant shape (color-mix, clamp, calc, CSS shorthand, gradients/borders/shadows over light-dark() colours, multi-layer values). They remain authoritative in src/frontend/styles/theme.css and are deliberately omitted from the DTCG snapshot.",
+  "generatedBy": "scripts/snapshot-design-tokens.mjs",
+  "tokens": [
+    {
+      "cssVar": "--forge-bar-shadow",
+      "sourceFile": "theme.css",
+      "inferredType": "shadow",
+      "rawValue": "0 -8px 32px oklch(0% 0 0 / 0.12), 0 -2px 8px oklch(0% 0 0 / 0.06), inset 0 1px 0 oklch(100% 0 0 / 0.5)",
+      "reason": "CSS construct has no DTCG-conformant shape (color-mix, clamp/calc, shorthand, gradient/border/shadow over light-dark() colours, multi-layer with `none`).",
+      "recommendation": "Three-layer box-shadow including an `inset` highlight layer. DTCG `shadow` here only structures non-inset `offset offset blur [spread] colour` layers, so the inset layer blocks lifting. Stays authoritative in CSS; if DTCG introspection is needed, split the inset highlight into its own non-inset token or wait for inset-aware shadow lifting."
+    },
+    {
+      "cssVar": "--forge-button-shadow",
+      "sourceFile": "theme.css",
+      "inferredType": "shadow",
+      "rawValue": "0 4px 16px oklch(55% 0.18 276 / 0.4), inset 0 1px 0 oklch(100% 0 0 / 0.3)",
+      "reason": "CSS construct has no DTCG-conformant shape (color-mix, clamp/calc, shorthand, gradient/border/shadow over light-dark() colours, multi-layer with `none`).",
+      "recommendation": "Two-layer box-shadow including an `inset` highlight layer. Same path as --forge-bar-shadow: the inset layer has no DTCG-conformant shadow shape here. Stays authoritative in CSS."
+    }
+  ]
+}
