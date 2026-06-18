@@ -27,8 +27,10 @@ import {
   type UploadedImage,
 } from '../lib/image-transfer';
 import {
+  getGenerationRequestTimeoutMs,
   WebSocketClient,
   type BatchResult,
+  type GenerateStarted,
   type GenerateResult,
   type Variant,
 } from '../lib/websocket-client';
@@ -85,6 +87,7 @@ interface SpaceAsset {
   id: string;
   name?: string | null;
   type?: string | null;
+  media_kind?: MediaKind;
 }
 
 interface ForgeClient {
@@ -110,6 +113,7 @@ interface ForgeClient {
     videoResolution?: VideoGenerationResolution;
     videoDurationSeconds?: VideoGenerationDurationSeconds;
     videoTier?: VideoGenerationTier;
+    onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult>;
   sendRefineRequest(params: {
     assetId: string;
@@ -124,6 +128,7 @@ interface ForgeClient {
     videoResolution?: VideoGenerationResolution;
     videoDurationSeconds?: VideoGenerationDurationSeconds;
     videoTier?: VideoGenerationTier;
+    onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult>;
   sendBatchRequest(params: {
     name: string;
@@ -142,6 +147,13 @@ interface ForgeClient {
     dialogueVoiceIds?: string[];
     musicProvider?: MusicGenerationProvider;
   }): Promise<BatchResult>;
+  followVariant(params: {
+    variantId: string;
+    requestId?: string;
+    timeoutMs?: number;
+    onUpdate?: (variant: Variant) => void;
+  }): Promise<GenerateResult>;
+  cancelFollowVariant?(variantId: string, requestId?: string): void;
 }
 
 interface CommandDeps {
@@ -231,6 +243,13 @@ interface VideoGenerationOptions {
   videoTier?: VideoGenerationTier;
 }
 
+interface GenerationRecipeSummary {
+  prompt?: string;
+  assetType?: string;
+  mediaKind?: MediaKind;
+  parentVariantIds?: string[];
+}
+
 export async function handleGenerate(parsed: ParsedArgs): Promise<void> {
   await handleForgeCommand('generate', parsed);
 }
@@ -264,6 +283,20 @@ export async function executeForgeCommand(
   options: ExecuteForgeOptions = {}
 ): Promise<GenerateResult | BatchResult> {
   const mediaKind = options.mediaKind || CLI_GENERATION_MEDIA_KIND;
+  if (parsed.options.follow) {
+    if (command === 'batch') {
+      throw new Error('--follow is only supported for single-output generation commands');
+    }
+    const ctx = await buildContext(parsed, deps);
+    const client = await deps.createClient(ctx.env, ctx.spaceId);
+    try {
+      await client.connect();
+      return await executeFollow(parsed, ctx, client, deps, command, mediaKind);
+    } finally {
+      client.disconnect();
+    }
+  }
+
   const saveBatchManifest = options.saveBatchManifest ?? mediaKind === 'image';
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
   validateImageCommandReferenceCount(command, parsed, mediaKind, imageOptions.model);
@@ -406,6 +439,7 @@ async function executeGenerate(
     ...(musicProvider ? { musicProvider } : {}),
     ...videoAudioOptions,
     ...videoOptions,
+    onStarted: (started) => printFollowHint(started, ctx, outputPath, 'generate', mediaKind),
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -506,6 +540,7 @@ async function executeRefine(
     mediaKind,
     ...videoAudioOptions,
     ...videoOptions,
+    onStarted: (started) => printFollowHint(started, ctx, outputPath, 'refine', mediaKind),
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -583,6 +618,7 @@ async function executeDerive(
     mediaKind,
     ...videoAudioOptions,
     ...videoOptions,
+    onStarted: (started) => printFollowHint(started, ctx, outputPath, 'derive', mediaKind),
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -611,6 +647,208 @@ async function executeDerive(
   await downloadResult(result, outputPath, ctx, deps);
   printResult(result, outputPath, ctx, manifestPath, productionRecord);
   return result;
+}
+
+async function executeFollow(
+  parsed: ParsedArgs,
+  ctx: CommandContext,
+  client: ForgeClient,
+  deps: CommandDeps,
+  command: Exclude<ForgeCommand, 'batch'>,
+  mediaKind: GenerationMediaKind
+): Promise<GenerateResult> {
+  const variantId = normalizeCliOption(parsed.options.follow);
+  if (!variantId) {
+    throw new Error('--follow requires a variant ID');
+  }
+
+  const outputPath = getOutputPath(parsed);
+  const timeoutMs = parseFollowTimeoutMs(parsed, mediaKind);
+  console.log(`Following variant ${variantId} in space ${ctx.spaceId}...`);
+
+  const state = await requestSpaceState(client);
+  const variants = state.variants as Variant[];
+  const initialVariant = variants.find((variant) => variant.id === variantId);
+  if (!initialVariant) {
+    throw new Error(`Variant not found in space sync state: ${variantId}`);
+  }
+
+  const initialStatus = initialVariant.status;
+  const requestId = `follow:${variantId}`;
+  let result = resultFromTerminalVariant(initialVariant, requestId);
+  if (!result) {
+    console.log(`  Status: ${initialStatus}`);
+    let lastStatus = initialStatus;
+    const followPromise = client.followVariant({
+      variantId,
+      requestId,
+      timeoutMs,
+      onUpdate: (variant) => {
+        if (variant.status !== lastStatus) {
+          lastStatus = variant.status;
+          console.log(`  Status: ${variant.status}`);
+        }
+      },
+    });
+    const refreshedState = await requestSpaceState(client);
+    const refreshedVariant = (refreshedState.variants as Variant[]).find((variant) => variant.id === variantId);
+    result = refreshedVariant ? resultFromTerminalVariant(refreshedVariant, requestId) : undefined;
+    if (result) {
+      client.cancelFollowVariant?.(variantId, requestId);
+    } else {
+      result = await followPromise;
+    }
+  }
+
+  if (!result.success || !result.variant) {
+    throw new Error(result.error || 'Generation failed without a completed variant');
+  }
+
+  const completedVariant = result.variant;
+  const asset = (state.assets as SpaceAsset[]).find((candidate) => candidate.id === completedVariant.asset_id);
+  const recipe = parseGenerationRecipe(completedVariant.recipe);
+  const followMediaKind = completedVariant.media_kind || recipe.mediaKind || mediaKind;
+  const referenceVariantIds = recipe.parentVariantIds || [];
+  const prompt = recipe.prompt || '';
+  const scene = parseSceneMetadata(parsed, {
+    prompt,
+    refs: referenceVariantIds,
+    referenceVariantIds,
+    mediaKind: followMediaKind,
+  });
+
+  const productionRecord = await placeProductionRecordFromScene({
+    command,
+    result,
+    outputPath,
+    ctx,
+    deps,
+    scene,
+  });
+  const manifestPath = await saveFollowManifest({
+    command,
+    variant: completedVariant,
+    asset,
+    recipe,
+    outputPath,
+    ctx,
+    deps,
+    mediaKind: followMediaKind,
+    prompt,
+    referenceVariantIds,
+    scene,
+  });
+
+  await downloadResult(result, outputPath, ctx, deps);
+  printResult(result, outputPath, ctx, manifestPath, productionRecord);
+  return result;
+}
+
+async function saveFollowManifest(input: {
+  command: Exclude<ForgeCommand, 'batch'>;
+  variant: Variant;
+  asset?: SpaceAsset;
+  recipe: GenerationRecipeSummary;
+  outputPath: string;
+  ctx: CommandContext;
+  deps: CommandDeps;
+  mediaKind: GenerationMediaKind;
+  prompt: string;
+  referenceVariantIds: string[];
+  scene?: RunManifestScene;
+}): Promise<string> {
+  const completedAt = new Date().toISOString();
+  const media = [manifestMediaFromVariant({
+    index: 0,
+    variant: input.variant,
+    localPath: input.outputPath,
+    baseUrl: input.ctx.baseUrl,
+    spaceId: input.ctx.spaceId,
+  })];
+
+  return input.deps.saveRunManifest({
+    version: 1,
+    runId: input.deps.createRunId(),
+    command: input.command,
+    mediaKind: input.mediaKind,
+    success: true,
+    environment: input.ctx.env,
+    spaceId: input.ctx.spaceId,
+    baseUrl: input.ctx.baseUrl,
+    prompt: input.prompt,
+    name: input.asset?.name || input.variant.asset_id,
+    assetType: input.recipe.assetType || input.asset?.type || 'variant',
+    count: 1,
+    mode: input.command,
+    refs: input.referenceVariantIds,
+    referenceVariantIds: input.referenceVariantIds,
+    outputDir: path.dirname(input.outputPath) || '.',
+    workingDir: input.ctx.workingDir,
+    createdAt: timestampToIso(input.variant.created_at) || completedAt,
+    completedAt,
+    scene: input.scene,
+    media,
+    images: media.filter(isImageManifestMedia),
+    failed: [],
+  }, input.ctx.projectRoot);
+}
+
+function resultFromTerminalVariant(variant: Variant, requestId: string): GenerateResult | undefined {
+  if (variant.status === 'completed') {
+    return {
+      type: 'generate:result',
+      requestId,
+      jobId: variant.id,
+      success: true,
+      variant,
+    };
+  }
+  if (variant.status === 'failed') {
+    return {
+      type: 'generate:result',
+      requestId,
+      jobId: variant.id,
+      success: false,
+      error: variant.error_message || 'Generation failed',
+    };
+  }
+  return undefined;
+}
+
+function parseGenerationRecipe(recipeJson: string): GenerationRecipeSummary {
+  try {
+    const parsed = JSON.parse(recipeJson) as Record<string, unknown>;
+    return {
+      prompt: typeof parsed.prompt === 'string' ? parsed.prompt : undefined,
+      assetType: typeof parsed.assetType === 'string' ? parsed.assetType : undefined,
+      mediaKind: isMediaKind(parsed.mediaKind) ? parsed.mediaKind : undefined,
+      parentVariantIds: Array.isArray(parsed.parentVariantIds)
+        ? parsed.parentVariantIds.filter((value): value is string => typeof value === 'string')
+        : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function isMediaKind(value: unknown): value is MediaKind {
+  return value === 'image' || value === 'audio' || value === 'video';
+}
+
+function parseFollowTimeoutMs(parsed: ParsedArgs, mediaKind: GenerationMediaKind): number {
+  const timeout = readOptionalOption(parsed, 'timeout', 'timeout');
+  if (timeout === undefined) return getGenerationRequestTimeoutMs(mediaKind);
+
+  const seconds = Number(timeout);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error('--timeout must be a positive number of seconds');
+  }
+  return Math.ceil(seconds * 1000);
+}
+
+function timestampToIso(timestamp: number | undefined): string | undefined {
+  if (!timestamp || !Number.isFinite(timestamp)) return undefined;
+  return new Date(timestamp).toISOString();
 }
 
 async function executeBatch(
@@ -977,6 +1215,47 @@ function printResult(
     console.log(`  Production: ${productionRecord.production_id} (${productionRecord.id})`);
   }
   console.log(`  Web:     ${ctx.baseUrl}/spaces/${ctx.spaceId}/assets/${variant.asset_id}`);
+}
+
+function printFollowHint(
+  started: GenerateStarted,
+  ctx: CommandContext,
+  outputPath: string,
+  command: Exclude<ForgeCommand, 'batch'>,
+  mediaKind: GenerationMediaKind
+): void {
+  console.log(`  Started variant: ${started.jobId}`);
+  console.log(`  Follow: ${formatFollowCommand(started.jobId, outputPath, ctx, command, mediaKind)}`);
+}
+
+function formatFollowCommand(
+  variantId: string,
+  outputPath: string,
+  ctx: CommandContext,
+  command: Exclude<ForgeCommand, 'batch'>,
+  mediaKind: GenerationMediaKind
+): string {
+  const baseCommand = mediaKind === 'audio'
+    ? ['makefx', 'audio', 'generate']
+    : mediaKind === 'video'
+      ? ['makefx', 'video', command]
+      : ['makefx', command];
+  const envArgs = ctx.env === 'local' ? ['--local'] : ['--env', ctx.env];
+  return [
+    ...baseCommand,
+    '--follow',
+    variantId,
+    '-o',
+    outputPath,
+    ...envArgs,
+    '--space',
+    ctx.spaceId,
+  ].map(shellQuote).join(' ');
+}
+
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_./:=@-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 function getPrompt(parsed: ParsedArgs, command: ForgeCommand): string {
@@ -1351,6 +1630,7 @@ function printUsage(command: ForgeCommand): void {
     console.log(`
 Usage:
   makefx generate "prompt" --name <name> --type <type> -o <file> [--model pro|flash] [--size ${cliImageSizeValues()}] [--aspect ${cliImageAspectValues()}] [--space <id>]
+  makefx generate --follow <variant_id> -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -1363,6 +1643,7 @@ Production metadata:
     console.log(`
 Usage:
   makefx refine --variant <variant_id> "prompt" -o <file> [--model pro|flash] [--size ${cliImageSizeValues()}] [--aspect ${cliImageAspectValues()}] [--space <id>]
+  makefx refine --follow <variant_id> -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -1382,6 +1663,7 @@ Usage:
   console.log(`
 Usage:
   makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--model pro|flash] [--size ${cliImageSizeValues()}] [--aspect ${cliImageAspectValues()}] [--space <id>]
+  makefx derive --follow <variant_id> -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>

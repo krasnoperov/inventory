@@ -156,6 +156,26 @@ synchronized dialogue, SFX, score, or ambience for that clip, or `--no-audio`
 to make the silent path explicit. The selected audio mode is stored on the
 variant recipe as `generateAudio` and is reused by variant retry.
 
+## Durable Follow Mode
+
+Single-output generation commands print the created variant ID as soon as the
+Space accepts the request. If the CLI process exits, times out, or runs from
+another terminal before the provider finishes, resume the wait and download by
+following that durable Space variant:
+
+```bash
+makefx generate --follow VARIANT_ID -o backgrounds/russafa-market.png
+makefx audio sfx generate --follow VARIANT_ID -o audio/item-pickup.wav
+makefx video generate --follow VARIANT_ID -o video/idle.mp4
+```
+
+Follow mode does not create a second job system. It reads the current Space
+state, returns immediately for completed or failed variants, and otherwise
+waits for the same `variant:updated` lifecycle events used by the normal
+generation command. On completion it downloads the media and writes the usual
+debug run manifest from the variant recipe and asset record. Pass
+`--timeout <seconds>` to override the default wait window.
+
 Generate consistency pipelines for game-ready reference sheets:
 
 ```bash
@@ -238,6 +258,8 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--voice <id>` | `audio speech generate`, `audio dialogue generate`, low-level speech/dialogue audio commands | ElevenLabs speech voice, or dialogue fallback voice |
 | `--dialogue-voices <ids>` | `audio dialogue generate`, `audio dialogue batch`, low-level dialogue audio commands | Comma-separated ElevenLabs voice IDs ordered by first speaker appearance |
 | `-o`, `--output <file>` | `generate`, `refine`, `derive`, `audio <mode> generate`, `video generate`, `video refine`, `video derive` | Local download path |
+| `--follow <variantId>` | single-output generation commands | Resume waiting for an existing Space variant and download it on completion |
+| `--timeout <seconds>` | `--follow` mode | Override the follow wait timeout |
 | `--output-dir <dir>` | `batch`, `audio <mode> batch` | Directory for downloaded batch files |
 | `--count <2-8>` | `batch`, `audio <mode> batch` | Number of artifacts to generate |
 | `--mode <mode>` | `batch`, `audio <mode> batch` | `explore` for one asset with many variants, or `set` for many assets |
