@@ -42,7 +42,9 @@
     "db:migrate:stage": "node --import @swc-node/register/esm-register scripts/db-migrate.ts stage remote",
     "db:migrate:production": "node --import @swc-node/register/esm-register scripts/db-migrate.ts production remote",
     "cli": "node dist/cli/makefx.mjs",
-    "cli:dev": "node --import @swc-node/register/esm-register src/cli/index.ts"
+    "cli:dev": "node --import @swc-node/register/esm-register src/cli/index.ts",
+    "stories": "LADLE=true ladle serve",
+    "stories:build": "LADLE=true ladle build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",
@@ -84,6 +86,7 @@
     "@cloudflare/vite-plugin": "^1.39.0",
     "@cloudflare/workers-types": "4.20260317.1",
     "@csstools/postcss-light-dark-function": "^3.0.0",
+    "@ladle/react": "^5.1.1",
     "@playwright/test": "^1.59.1",
     "@swc-node/register": "^1.11.1",
     "@tanstack/router-plugin": "^1.168.18",

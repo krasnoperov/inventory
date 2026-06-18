@@ -29,7 +29,12 @@
     "audit.spec.ts",
     "vite.config.ts",
     "vite.component-harness.config.ts",
+    "vite.ladle.config.ts",
     "playwright*.config.ts"
   ],
-  "exclude": ["dist", "node_modules"]
+  // Ladle stories import @ladle/react, whose v5 type entry pulls an internal
+  // .tsx (typings-for-build/app) that fails under React 19 + real tsc
+  // (skipLibCheck only skips .d.ts). Ladle's own build type-checks the stories,
+  // so keep them and the .ladle/ wrapper out of the app tsc root set.
+  "exclude": ["dist", "node_modules", "src/**/*.stories.tsx", ".ladle"]
 }
