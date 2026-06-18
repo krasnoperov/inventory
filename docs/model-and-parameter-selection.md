@@ -78,9 +78,9 @@ Each reference `ImageInput` supports an optional `label`
 
 | Situation | Model | Size |
 |-|-|-|
-| Final hero asset, multiple references | `pro` | `2K`–`4K` when exposed; service-only today |
-| Quick draft, one or no reference | `flash` for public batch/explore; Pro/default for single generate | `1K` |
-| Character turnaround / tile set | `pro` (pipeline-driven) | `1K`–`2K` when exposed |
+| Final hero asset, multiple references | `pro` | `2K`–`4K` |
+| Quick draft, one or no reference | `flash` | `1K` |
+| Character turnaround / tile set | `pro` (pipeline-driven) | `1K`–`2K` |
 | Combining character + style + background | `pro` (needs >1 ref) | match output |
 
 ## Video (Veo 3.1)
