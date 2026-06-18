@@ -466,6 +466,178 @@ describe('SpaceRepository', () => {
       const deleted = await repo.deleteProductionRecord('missing');
       assert.equal(deleted, false);
     });
+
+    test('deleteProductionRecord removes the normalized sibling placement', async () => {
+      mockSql.setMockResult('SELECT * FROM production_records WHERE id = ?', [
+        { id: 'record-1', production_id: 'episode-01' },
+      ]);
+
+      const deleted = await repo.deleteProductionRecord('record-1');
+
+      assert.equal(deleted, true);
+      const deleteQueries = mockSql.queries
+        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .map((q) => ({ query: q.query, bindings: q.bindings }));
+      assert.deepEqual(deleteQueries, [
+        { query: 'DELETE FROM production_placements WHERE id = ?', bindings: ['record-1'] },
+        { query: 'DELETE FROM production_records WHERE id = ?', bindings: ['record-1'] },
+      ]);
+    });
+  });
+
+  describe('Production Model Operations', () => {
+    test('upsertProduction stores production metadata', async () => {
+      mockSql.setMockResult('SELECT * FROM productions WHERE id = ?', [
+        { id: 'episode-01', name: 'Episode 01', metadata: '{"format":"short"}' },
+      ]);
+
+      const production = await repo.upsertProduction({
+        id: 'episode-01',
+        name: 'Episode 01',
+        description: 'Pilot',
+        metadata: { format: 'short' },
+        createdBy: 'user1',
+      });
+
+      const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO productions'));
+      assert(upsertQuery !== undefined);
+      assert(upsertQuery.query.includes('ON CONFLICT(id) DO UPDATE'));
+      assert.equal(upsertQuery.bindings[0], 'episode-01');
+      assert.equal(upsertQuery.bindings[1], 'Episode 01');
+      assert.equal(upsertQuery.bindings[3], '{"format":"short"}');
+      assert.equal(production.id, 'episode-01');
+    });
+
+    test('upsertProductionShot stores timeline data', async () => {
+      mockSql.setMockResult('SELECT * FROM production_shots WHERE id = ?', [
+        { id: 'shot-1', production_id: 'episode-01', label: 'Opening' },
+      ]);
+
+      await repo.upsertProductionShot({
+        id: 'shot-1',
+        productionId: 'episode-01',
+        shotId: 's01e01-001',
+        label: 'Opening',
+        timelineStartMs: 1000,
+        durationMs: 2000,
+        metadata: { angle: 'wide' },
+        createdBy: 'user1',
+      });
+
+      const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_shots'));
+      assert(upsertQuery !== undefined);
+      assert.equal(upsertQuery.bindings[1], 'episode-01');
+      assert.equal(upsertQuery.bindings[2], 's01e01-001');
+      assert.equal(upsertQuery.bindings[4], 1000);
+      assert.equal(upsertQuery.bindings[6], '{"angle":"wide"}');
+    });
+
+    test('upsertProductionCue stores cue type and timing', async () => {
+      mockSql.setMockResult('SELECT * FROM production_cues WHERE id = ?', [
+        { id: 'cue-1', production_id: 'episode-01', cue_type: 'music' },
+      ]);
+
+      await repo.upsertProductionCue({
+        id: 'cue-1',
+        productionId: 'episode-01',
+        cueType: 'music',
+        label: 'Theme',
+        timelineStartMs: 0,
+        durationMs: 30000,
+        metadata: { mood: 'bright' },
+        createdBy: 'user1',
+      });
+
+      const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_cues'));
+      assert(upsertQuery !== undefined);
+      assert.equal(upsertQuery.bindings[1], 'episode-01');
+      assert.equal(upsertQuery.bindings[2], 'music');
+      assert.equal(upsertQuery.bindings[6], '{"mood":"bright"}');
+    });
+
+    test('upsertProductionPlacement stores assigned variant and target', async () => {
+      mockSql.setMockResult('SELECT * FROM production_placements WHERE id = ?', [
+        { id: 'placement-1', production_id: 'episode-01', target_kind: 'shot' },
+      ]);
+
+      await repo.upsertProductionPlacement({
+        id: 'placement-1',
+        productionId: 'episode-01',
+        targetKind: 'shot',
+        targetId: 'shot-1',
+        variantId: 'variant-1',
+        assetId: 'asset-1',
+        mediaKind: 'video',
+        role: 'primary',
+        sourceRefs: ['ref-a'],
+        sourceVariantIds: ['source-1'],
+        metadata: { take: 2 },
+        createdBy: 'user1',
+      });
+
+      const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_placements'));
+      assert(upsertQuery !== undefined);
+      assert.equal(upsertQuery.bindings[1], 'episode-01');
+      assert.equal(upsertQuery.bindings[2], 'shot');
+      assert.equal(upsertQuery.bindings[4], 'variant-1');
+      assert.equal(upsertQuery.bindings[6], 'video');
+      assert.equal(upsertQuery.bindings[9], '["source-1"]');
+      assert.equal(upsertQuery.bindings[10], '{"take":2}');
+    });
+
+    test('deleteProduction removes normalized and compatibility children before parent', async () => {
+      mockSql.setMockResult('SELECT * FROM productions WHERE id = ?', [
+        { id: 'episode-01', name: 'Episode 01' },
+      ]);
+
+      const deleted = await repo.deleteProduction('episode-01');
+
+      assert.equal(deleted, true);
+      const deleteQueries = mockSql.queries
+        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .map((q) => q.query);
+      assert.deepEqual(deleteQueries, [
+        'DELETE FROM production_placements WHERE production_id = ?',
+        'DELETE FROM production_records WHERE production_id = ?',
+        'DELETE FROM production_shots WHERE production_id = ?',
+        'DELETE FROM production_cues WHERE production_id = ?',
+        'DELETE FROM productions WHERE id = ?',
+      ]);
+    });
+
+    test('deleteProductionShot removes placements targeting that shot', async () => {
+      mockSql.setMockResult('SELECT * FROM production_shots WHERE id = ?', [
+        { id: 'shot-1', production_id: 'episode-01', label: 'Opening' },
+      ]);
+
+      const deleted = await repo.deleteProductionShot('shot-1');
+
+      assert.equal(deleted, true);
+      const deleteQueries = mockSql.queries
+        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .map((q) => ({ query: q.query, bindings: q.bindings }));
+      assert.deepEqual(deleteQueries, [
+        { query: 'DELETE FROM production_placements WHERE target_kind = ? AND target_id = ?', bindings: ['shot', 'shot-1'] },
+        { query: 'DELETE FROM production_shots WHERE id = ?', bindings: ['shot-1'] },
+      ]);
+    });
+
+    test('deleteProductionCue removes placements targeting that cue', async () => {
+      mockSql.setMockResult('SELECT * FROM production_cues WHERE id = ?', [
+        { id: 'cue-1', production_id: 'episode-01', cue_type: 'music' },
+      ]);
+
+      const deleted = await repo.deleteProductionCue('cue-1');
+
+      assert.equal(deleted, true);
+      const deleteQueries = mockSql.queries
+        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .map((q) => ({ query: q.query, bindings: q.bindings }));
+      assert.deepEqual(deleteQueries, [
+        { query: 'DELETE FROM production_placements WHERE target_kind = ? AND target_id = ?', bindings: ['cue', 'cue-1'] },
+        { query: 'DELETE FROM production_cues WHERE id = ?', bindings: ['cue-1'] },
+      ]);
+    });
   });
 
   describe('Lineage Operations', () => {

@@ -234,6 +234,63 @@ export interface ProductionRecord {
   updated_at: number;
 }
 
+export interface Production {
+  id: string;
+  name: string;
+  description: string | null;
+  metadata: string; // JSON object
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ProductionShot {
+  id: string;
+  production_id: string;
+  shot_id: string | null;
+  label: string;
+  timeline_start_ms: number;
+  duration_ms: number | null;
+  metadata: string; // JSON object
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export type ProductionCueType = 'music' | 'sfx' | 'dialogue' | 'ambience' | 'custom';
+
+export interface ProductionCue {
+  id: string;
+  production_id: string;
+  cue_type: ProductionCueType;
+  label: string;
+  timeline_start_ms: number;
+  duration_ms: number | null;
+  metadata: string; // JSON object
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export type ProductionPlacementTargetKind = 'shot' | 'cue';
+
+export interface ProductionPlacement {
+  id: string;
+  production_id: string;
+  target_kind: ProductionPlacementTargetKind;
+  target_id: string;
+  variant_id: string;
+  asset_id: string;
+  media_kind: MediaKind;
+  role: string | null;
+  source_refs: string; // JSON string[]
+  source_variant_ids: string; // JSON string[]
+  metadata: string; // JSON object
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
 /**
  * Lineage - Parent-child relationship between variants
  */

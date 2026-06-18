@@ -12,7 +12,20 @@
  */
 
 import { Hono } from 'hono';
-import type { MediaKind, Variant, PendingApproval, AutoExecuted, UserSession, ProductionRecord } from './types';
+import type {
+  MediaKind,
+  Variant,
+  PendingApproval,
+  AutoExecuted,
+  UserSession,
+  ProductionRecord,
+  Production,
+  ProductionShot,
+  ProductionCue,
+  ProductionCueType,
+  ProductionPlacement,
+  ProductionPlacementTargetKind,
+} from './types';
 import { NotFoundError, ValidationError } from './controllers/types';
 import { loggers } from '../../../shared/logger';
 
@@ -196,6 +209,53 @@ export interface InternalApiControllers {
     }): Promise<UserSession>;
   };
   production: {
+    httpListProductions(): Promise<Production[]>;
+    httpGetProduction(productionId: string): Promise<{
+      production: Production;
+      shots: ProductionShot[];
+      cues: ProductionCue[];
+      placements: ProductionPlacement[];
+    }>;
+    httpUpsertProduction(data: {
+      id?: string;
+      name: string;
+      description?: string;
+      metadata?: Record<string, unknown>;
+      createdBy: string;
+    }): Promise<Production>;
+    httpDeleteProduction(productionId: string): Promise<void>;
+    httpUpsertShot(productionId: string, data: {
+      id?: string;
+      shotId?: string;
+      label: string;
+      timelineStartMs: number;
+      durationMs?: number;
+      metadata?: Record<string, unknown>;
+      createdBy: string;
+    }): Promise<ProductionShot>;
+    httpDeleteShot(productionId: string, shotId: string): Promise<void>;
+    httpUpsertCue(productionId: string, data: {
+      id?: string;
+      cueType?: ProductionCueType;
+      label: string;
+      timelineStartMs: number;
+      durationMs?: number;
+      metadata?: Record<string, unknown>;
+      createdBy: string;
+    }): Promise<ProductionCue>;
+    httpDeleteCue(productionId: string, cueId: string): Promise<void>;
+    httpUpsertPlacement(productionId: string, data: {
+      id?: string;
+      targetKind: ProductionPlacementTargetKind;
+      targetId: string;
+      variantId: string;
+      role?: string;
+      sourceRefs?: string[];
+      sourceVariantIds?: string[];
+      metadata?: Record<string, unknown>;
+      createdBy: string;
+    }): Promise<ProductionPlacement>;
+    httpDeletePlacement(productionId: string, placementId: string): Promise<void>;
     httpListRecords(productionId: string): Promise<ProductionRecord[]>;
     httpPlaceRecord(data: {
       id?: string;
@@ -507,6 +567,71 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   // ==========================================================================
   // Production Routes
   // ==========================================================================
+
+  app.get('/internal/productions', async (c) => {
+    const productions = await controllers.production.httpListProductions();
+    return c.json({ success: true, productions });
+  });
+
+  app.post('/internal/productions', async (c) => {
+    const data = await c.req.json();
+    const production = await controllers.production.httpUpsertProduction(data);
+    return c.json({ success: true, production });
+  });
+
+  app.get('/internal/productions/:productionId', async (c) => {
+    const productionId = c.req.param('productionId');
+    const detail = await controllers.production.httpGetProduction(productionId);
+    return c.json({ success: true, ...detail });
+  });
+
+  app.delete('/internal/productions/:productionId', async (c) => {
+    const productionId = c.req.param('productionId');
+    await controllers.production.httpDeleteProduction(productionId);
+    return c.json({ success: true });
+  });
+
+  app.post('/internal/productions/:productionId/shots', async (c) => {
+    const productionId = c.req.param('productionId');
+    const data = await c.req.json();
+    const shot = await controllers.production.httpUpsertShot(productionId, data);
+    return c.json({ success: true, shot });
+  });
+
+  app.delete('/internal/productions/:productionId/shots/:shotId', async (c) => {
+    const productionId = c.req.param('productionId');
+    const shotId = c.req.param('shotId');
+    await controllers.production.httpDeleteShot(productionId, shotId);
+    return c.json({ success: true });
+  });
+
+  app.post('/internal/productions/:productionId/cues', async (c) => {
+    const productionId = c.req.param('productionId');
+    const data = await c.req.json();
+    const cue = await controllers.production.httpUpsertCue(productionId, data);
+    return c.json({ success: true, cue });
+  });
+
+  app.delete('/internal/productions/:productionId/cues/:cueId', async (c) => {
+    const productionId = c.req.param('productionId');
+    const cueId = c.req.param('cueId');
+    await controllers.production.httpDeleteCue(productionId, cueId);
+    return c.json({ success: true });
+  });
+
+  app.post('/internal/productions/:productionId/placements', async (c) => {
+    const productionId = c.req.param('productionId');
+    const data = await c.req.json();
+    const placement = await controllers.production.httpUpsertPlacement(productionId, data);
+    return c.json({ success: true, placement });
+  });
+
+  app.delete('/internal/productions/:productionId/placements/:placementId', async (c) => {
+    const productionId = c.req.param('productionId');
+    const placementId = c.req.param('placementId');
+    await controllers.production.httpDeletePlacement(productionId, placementId);
+    return c.json({ success: true });
+  });
 
   app.get('/internal/production/:productionId/records', async (c) => {
     const productionId = c.req.param('productionId');
