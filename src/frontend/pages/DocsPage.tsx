@@ -5,7 +5,7 @@ import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { DOCS, getDocBySlug } from '../content/docs-manifest';
+import { DOCS, getDefaultDoc, getDocBySlug } from '../content/docs-manifest';
 import styles from './DocsPage.module.css';
 
 type DocsPageProps = {
@@ -14,7 +14,7 @@ type DocsPageProps = {
 
 export default function DocsPage({ slug }: DocsPageProps) {
   const { user } = useAuth();
-  const doc = getDocBySlug(slug);
+  const doc = (slug ? getDocBySlug(slug) : undefined) ?? getDefaultDoc();
   useDocumentTitle(doc.slug === 'quickstart' ? 'Docs' : doc.title);
 
   return (

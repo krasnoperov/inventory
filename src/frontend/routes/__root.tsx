@@ -51,7 +51,6 @@ export const Route = createRootRouteWithContext<StartRouterContext>()({
       { name: 'twitter:description', content: SOCIAL_DESCRIPTION },
     ],
     links: [
-      { rel: 'canonical', href: 'https://makefx.app/' },
       { rel: 'alternate', type: 'text/plain', title: 'LLM overview', href: '/llms.txt' },
     ],
   }),

@@ -4,6 +4,11 @@ import { ssrFetchArgs } from '../app-context';
 import { getCachedSession, spacesQueryOptions } from '../queries';
 
 export const Route = createFileRoute('/')({
+  head: () => ({
+    links: [
+      { rel: 'canonical', href: 'https://makefx.app/' },
+    ],
+  }),
   loader: (opts) => {
     const { context } = opts;
     if (!getCachedSession(context.queryClient, context.session)?.user) {
