@@ -44,7 +44,9 @@
     "cli": "node dist/cli/makefx.mjs",
     "cli:dev": "node --import @swc-node/register/esm-register src/cli/index.ts",
     "stories": "LADLE=true ladle serve",
-    "stories:build": "LADLE=true ladle build"
+    "stories:build": "LADLE=true ladle build",
+    "style-reference": "node scripts/export-style-reference.mjs",
+    "style-reference:rebuild": "node scripts/export-style-reference.mjs --rebuild"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",
