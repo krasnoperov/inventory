@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { AuthService } from '../features/auth/auth-service';
 import { UserDAO } from '../../dao/user-dao';
 import { PolarService } from '../services/polarService';
+import { UsageService } from '../services/usageService';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
 import type { AppContext } from './types';
 import { billingRoutes } from './billing';
@@ -28,6 +29,72 @@ function routeApp(deps: Map<unknown, unknown>, env: Partial<AppContext['Bindings
 }
 
 describe('billingRoutes', () => {
+  test('usage route forwards period usage and provider spend', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UsageService, {
+      getUserUsageStats: async (userId: number) => {
+        assert.equal(userId, 42);
+        return {
+          period: {
+            start: new Date('2026-06-01T00:00:00.000Z'),
+            end: new Date('2026-06-30T23:59:59.000Z'),
+          },
+          usage: {
+            gemini_images: {
+              used: 2,
+              limit: 50,
+              remaining: 48,
+              costUsd: 0.48,
+            },
+            elevenlabs_audio: {
+              used: 1,
+              limit: null,
+              remaining: null,
+              costUsd: 0.12,
+            },
+          },
+          estimatedCost: {
+            amount: 0.6,
+            currency: 'USD',
+          },
+        };
+      },
+    });
+
+    const response = await routeApp(deps).request('/api/billing/usage', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      period: {
+        start: '2026-06-01T00:00:00.000Z',
+        end: '2026-06-30T23:59:59.000Z',
+      },
+      usage: {
+        gemini_images: {
+          used: 2,
+          limit: 50,
+          remaining: 48,
+          costUsd: 0.48,
+        },
+        elevenlabs_audio: {
+          used: 1,
+          limit: null,
+          remaining: null,
+          costUsd: 0.12,
+        },
+      },
+      estimatedCost: {
+        amount: 0.6,
+        currency: 'USD',
+      },
+    });
+  });
+
   test('billing status revokes stale paid entitlement when Polar has no active subscription', async () => {
     const updates: unknown[] = [];
     let updateCompleted = false;

@@ -7,6 +7,7 @@ import { PolarService } from './polarService';
 import type { Database } from '../../db/types';
 import type { Env } from '../../core/types';
 import { TYPES } from '../../core/di-types';
+import { priceProviderUsageEvent } from '../billing/providerPricing';
 import {
   hasPaidGenerationAccess,
   isNonBillablePaidGenerationEntitlement,
@@ -41,6 +42,7 @@ export interface UsageStats {
       used: number;
       limit: number | null;
       remaining: number | null;
+      costUsd: number;
     };
   };
   estimatedCost?: {
@@ -101,6 +103,12 @@ export const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
   elevenlabs: { windowSeconds: 60, maxRequests: 10 },
   veo: { windowSeconds: 60, maxRequests: 10 },
 };
+
+const USD_PRECISION = 1_000_000;
+
+function roundUsd(amount: number): number {
+  return Math.round((amount + Number.EPSILON) * USD_PRECISION) / USD_PRECISION;
+}
 
 @injectable()
 export class UsageService {
@@ -489,6 +497,25 @@ export class UsageService {
       periodStart,
       periodEnd
     );
+    const localEvents = await this.usageEventDAO.getUserUsageEventsForPeriod(
+      userId,
+      periodStart,
+      periodEnd
+    );
+    const costByMeter = new Map<string, number>();
+    let totalCostUsd = 0;
+    for (const event of localEvents) {
+      const price = priceProviderUsageEvent({
+        eventName: event.event_name,
+        quantity: event.quantity,
+        metadata: event.metadata,
+      });
+      totalCostUsd += price.amountUsd;
+      costByMeter.set(
+        event.event_name,
+        (costByMeter.get(event.event_name) ?? 0) + price.amountUsd
+      );
+    }
 
     // Try to get Polar usage (more accurate with limits)
     let polarUsage = null;
@@ -509,6 +536,7 @@ export class UsageService {
         used: event.totalQuantity,
         limit: null,
         remaining: null,
+        costUsd: roundUsd(costByMeter.get(event.eventName) ?? 0),
       };
     }
 
@@ -519,6 +547,7 @@ export class UsageService {
           used: meterData.used,
           limit: meterData.limit,
           remaining: meterData.limit !== null ? meterData.limit - meterData.used : null,
+          costUsd: usage[meterName]?.costUsd ?? roundUsd(costByMeter.get(meterName) ?? 0),
         };
       }
     }
@@ -529,6 +558,10 @@ export class UsageService {
         end: periodEnd,
       },
       usage,
+      estimatedCost: {
+        amount: roundUsd(totalCostUsd),
+        currency: 'USD',
+      },
     };
   }
 
