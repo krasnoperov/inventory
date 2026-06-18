@@ -21,6 +21,7 @@ import {
   type VeoReferenceMode,
 } from '../../../services/googleVeoService';
 import {
+  DEFAULT_IMAGE_MODEL_ID,
   getImageModelCapabilities,
   isImageModelId,
   isImageModelSelection,
@@ -528,17 +529,30 @@ export class VariantFactory {
     const sourceImageKeys: string[] = [];
     const parentVariantIds: string[] = [];
     const includeMediaOnlyParents = mediaKind !== 'image';
+    const requireProviderImage = mediaKind === 'image';
 
     for (const refAssetId of referenceAssetIds) {
       const asset = await this.repo.getAssetById(refAssetId);
-      if (asset?.active_variant_id) {
-        const resolved = await this.resolveVariantReference(
-          asset.active_variant_id,
-          includeMediaOnlyParents
-        );
-        sourceImageKeys.push(...resolved.sourceImageKeys);
-        parentVariantIds.push(...resolved.parentVariantIds);
+      if (!asset) {
+        if (requireProviderImage) {
+          throw new ValidationError(`Reference asset ${refAssetId} not found`);
+        }
+        continue;
       }
+      if (!asset.active_variant_id) {
+        if (requireProviderImage) {
+          throw new ValidationError(`Reference asset ${refAssetId} has no active variant`);
+        }
+        continue;
+      }
+
+      const resolved = await this.resolveVariantReference(
+        asset.active_variant_id,
+        includeMediaOnlyParents,
+        requireProviderImage
+      );
+      sourceImageKeys.push(...resolved.sourceImageKeys);
+      parentVariantIds.push(...resolved.parentVariantIds);
     }
 
     return { sourceImageKeys, parentVariantIds };
@@ -555,9 +569,14 @@ export class VariantFactory {
     const sourceImageKeys: string[] = [];
     const parentVariantIds: string[] = [];
     const includeMediaOnlyParents = mediaKind !== 'image';
+    const requireProviderImage = mediaKind === 'image';
 
     for (const variantId of referenceVariantIds) {
-      const resolved = await this.resolveVariantReference(variantId, includeMediaOnlyParents);
+      const resolved = await this.resolveVariantReference(
+        variantId,
+        includeMediaOnlyParents,
+        requireProviderImage
+      );
       sourceImageKeys.push(...resolved.sourceImageKeys);
       parentVariantIds.push(...resolved.parentVariantIds);
     }
@@ -566,7 +585,8 @@ export class VariantFactory {
   }
 
   /**
-   * Resolve source variant ID with fallback to active variant.
+   * Resolve source variant ID, using the active variant only when no explicit
+   * source was requested.
    */
   async resolveSourceVariant(
     sourceVariantId: string | undefined,
@@ -577,7 +597,7 @@ export class VariantFactory {
     if (sourceVariantId && sourceVariantId !== asset.active_variant_id) {
       const exists = await this.repo.getVariantById(sourceVariantId);
       if (!exists) {
-        resolvedId = asset.active_variant_id;
+        throw new ValidationError(`Source variant ${sourceVariantId} not found`);
       }
     }
 
@@ -949,12 +969,12 @@ export class VariantFactory {
     const effectiveMediaKind = mediaKind ?? DEFAULT_MEDIA_KIND;
     if (effectiveMediaKind === 'video') return undefined;
     if (effectiveMediaKind !== 'image') return undefined;
-    if (!model) return undefined;
+    if (!model) return DEFAULT_IMAGE_MODEL_ID;
 
     if (isImageModelSelection(model)) return resolveImageModelSelection(model);
     if (isImageModelId(model)) return model;
 
-    throw new ValidationError('--model must be pro or flash');
+    throw new ValidationError('--model must be pro, flash, or an exact image model ID');
   }
 
   private resolveRecipeImageSize(
@@ -1004,7 +1024,7 @@ export class VariantFactory {
     if (!model) return resolveImageModelSelection();
     if (isImageModelId(model)) return model;
     if (isImageModelSelection(model)) return resolveImageModelSelection(model);
-    throw new ValidationError('--model must be pro or flash');
+    throw new ValidationError('--model must be pro, flash, or an exact image model ID');
   }
 
   private capVeoSourceImageKeys(
@@ -1069,13 +1089,17 @@ export class VariantFactory {
       sourceImageKeys = resolved.sourceImageKeys;
       parentVariantIds = resolved.parentVariantIds;
     } else {
-      // Legacy path: single sourceVariantId or fall back to active variant
+      // Legacy path: single sourceVariantId, or active variant when omitted
       const resolvedId = await this.resolveSourceVariant(sourceVariantId, asset);
       if (!resolvedId) {
         return { sourceImageKeys: [], parentVariantIds: [] };
       }
 
-      const resolved = await this.resolveVariantReference(resolvedId, mediaKind !== 'image');
+      const resolved = await this.resolveVariantReference(
+        resolvedId,
+        mediaKind !== 'image',
+        mediaKind === 'image'
+      );
       sourceImageKeys = resolved.sourceImageKeys;
       parentVariantIds = resolved.parentVariantIds;
     }
@@ -1097,13 +1121,18 @@ export class VariantFactory {
    */
   private async resolveVariantReference(
     variantId: string,
-    includeMediaOnlyParent: boolean
+    includeMediaOnlyParent: boolean,
+    requireProviderImage = false
   ): Promise<ResolvedReferences> {
     const variant = await this.repo.getVariantById(variantId);
     const imageKey = variant?.image_key ?? await this.repo.getVariantImageKey(variantId);
 
     if (imageKey) {
       return { sourceImageKeys: [imageKey], parentVariantIds: [variantId] };
+    }
+
+    if (requireProviderImage) {
+      throw new ValidationError(`Reference variant ${variantId} is not a completed image variant`);
     }
 
     if (includeMediaOnlyParent && variant?.media_key) {

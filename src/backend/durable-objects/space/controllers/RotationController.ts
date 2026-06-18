@@ -26,6 +26,7 @@ import {
 } from '../../../utils/image-utils';
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
+import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
 
 const log = loggers.rotationController;
 
@@ -255,6 +256,7 @@ export class RotationController extends BaseController {
     const rotationAsset = await this.repo.getAssetById(set.asset_id);
     const sourceVariant = await this.repo.getVariantById(set.source_variant_id);
     const mediaKind = rotationAsset?.media_kind ?? sourceVariant?.media_kind ?? DEFAULT_MEDIA_KIND;
+    const model = mediaKind === 'image' ? DEFAULT_IMAGE_MODEL_ID : undefined;
 
     const subject = config.subjectDescription
       || sourceVariant?.description
@@ -274,6 +276,7 @@ export class RotationController extends BaseController {
       prompt,
       assetType: rotationAsset?.type || 'character',
       mediaKind,
+      model,
       aspectRatio: config.aspectRatio,
       sourceImageKeys: [...styleKeys, ...cappedKeys],
       operation: 'derive',
@@ -310,6 +313,7 @@ export class RotationController extends BaseController {
           assetName: `${subject} — ${direction}`,
           assetType: rotationAsset?.type || 'character',
           mediaKind,
+          model,
           aspectRatio: config.aspectRatio,
           sourceImageKeys: [...styleKeys, ...cappedKeys],
           operation: 'derive',
@@ -528,6 +532,7 @@ export class RotationController extends BaseController {
     ].filter(Boolean).join('\n');
 
     const prompt = promptParts;
+    const model = sourceMediaKind === 'image' ? DEFAULT_IMAGE_MODEL_ID : undefined;
 
     // Create placeholder variant for the sprite sheet
     const variantId = crypto.randomUUID();
@@ -535,6 +540,7 @@ export class RotationController extends BaseController {
       prompt,
       assetType: sourceAsset.type || 'character',
       mediaKind: sourceMediaKind,
+      model,
       aspectRatio: msg.aspectRatio,
       sourceImageKeys: [sourceVariant.image_key, ...styleKeys],
       operation: 'derive',
@@ -565,6 +571,7 @@ export class RotationController extends BaseController {
           assetName: `${subject} — Sprite Sheet`,
           assetType: sourceAsset.type || 'character',
           mediaKind: sourceMediaKind,
+          model,
           aspectRatio: msg.aspectRatio,
           sourceImageKeys: [sourceVariant.image_key, ...styleKeys],
           operation: 'derive',

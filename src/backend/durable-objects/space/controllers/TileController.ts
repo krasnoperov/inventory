@@ -26,6 +26,7 @@ import {
 } from '../../../utils/image-utils';
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
+import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
 
 const log = loggers.tileController;
 
@@ -350,6 +351,7 @@ export class TileController extends BaseController {
     const prompt = builder.build();
     const asset = await this.repo.getAssetById(set.asset_id);
     const mediaKind = asset?.media_kind ?? DEFAULT_MEDIA_KIND;
+    const model = mediaKind === 'image' ? DEFAULT_IMAGE_MODEL_ID : undefined;
 
     // Create placeholder variant
     const variantId = crypto.randomUUID();
@@ -357,6 +359,7 @@ export class TileController extends BaseController {
       prompt,
       assetType: 'tile-set',
       mediaKind,
+      model,
       aspectRatio: config.aspectRatio || '1:1',
       sourceImageKeys: [...styleKeys, ...cappedKeys],
       operation: 'derive',
@@ -393,6 +396,7 @@ export class TileController extends BaseController {
           assetName: `Tile (${gridX},${gridY})`,
           assetType: 'tile-set',
           mediaKind,
+          model,
           aspectRatio: config.aspectRatio || '1:1',
           sourceImageKeys: cappedKeys.length > 0 ? [...styleKeys, ...cappedKeys] : undefined,
           operation: adjacents.length > 0 ? 'derive' : 'generate',
@@ -551,6 +555,7 @@ export class TileController extends BaseController {
 
     builder.withTheme(gridPrompt);
     const prompt = builder.build();
+    const model = mediaKind === 'image' ? DEFAULT_IMAGE_MODEL_ID : undefined;
 
     // Create a single placeholder variant for the grid image
     const variantId = crypto.randomUUID();
@@ -558,6 +563,7 @@ export class TileController extends BaseController {
       prompt,
       assetType: 'tile-set',
       mediaKind,
+      model,
       aspectRatio: msg.aspectRatio || '1:1',
       sourceImageKeys: styleKeys,
       operation: 'generate',
@@ -589,6 +595,7 @@ export class TileController extends BaseController {
           assetName: `Grid — ${msg.gridWidth}x${msg.gridHeight}`,
           assetType: 'tile-set',
           mediaKind,
+          model,
           aspectRatio: msg.aspectRatio || '1:1',
           sourceImageKeys: styleKeys.length > 0 ? styleKeys : undefined,
           operation: 'generate',
@@ -709,10 +716,12 @@ export class TileController extends BaseController {
     const variantId = crypto.randomUUID();
     const asset = await this.repo.getAssetById(set.asset_id);
     const mediaKind = asset?.media_kind ?? DEFAULT_MEDIA_KIND;
+    const model = mediaKind === 'image' ? DEFAULT_IMAGE_MODEL_ID : undefined;
     const recipe = JSON.stringify({
       prompt,
       assetType: 'tile-set',
       mediaKind,
+      model,
       aspectRatio: config.aspectRatio || '1:1',
       sourceImageKeys: [...styleKeys, ...cappedKeys],
       operation: 'refine',
@@ -747,6 +756,7 @@ export class TileController extends BaseController {
           assetName: `Tile (${gridX},${gridY}) — refined`,
           assetType: 'tile-set',
           mediaKind,
+          model,
           aspectRatio: config.aspectRatio || '1:1',
           sourceImageKeys: [...styleKeys, ...cappedKeys],
           operation: 'refine',

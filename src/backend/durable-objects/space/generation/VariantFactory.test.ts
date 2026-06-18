@@ -143,7 +143,7 @@ describe('VariantFactory', () => {
       assert.deepStrictEqual(result.parentVariantIds, ['variant-asset-1', 'variant-asset-2']);
     });
 
-    test('skips assets without active variant', async () => {
+    test('rejects image asset references without active variants', async () => {
       const repo = createMockRepo();
       const env = createMockEnv();
       const broadcast = createMockBroadcast();
@@ -155,10 +155,10 @@ describe('VariantFactory', () => {
       }));
       asMock(repo.getVariantImageKey).mock.mockImplementation(async () => 'images/test.png');
 
-      const result = await factory.resolveAssetReferences(['asset-1', 'asset-2']);
-
-      assert.strictEqual(result.sourceImageKeys.length, 1);
-      assert.strictEqual(result.parentVariantIds.length, 1);
+      await assert.rejects(
+        factory.resolveAssetReferences(['asset-1', 'asset-2']),
+        /Reference asset asset-2 has no active variant/
+      );
     });
 
     test('preserves media-only video asset references as parents without image refs', async () => {
@@ -201,7 +201,7 @@ describe('VariantFactory', () => {
       assert.deepStrictEqual(result.parentVariantIds, ['var-1', 'var-2']);
     });
 
-    test('skips variants without image key', async () => {
+    test('rejects image variant references without completed image keys', async () => {
       const repo = createMockRepo();
       const env = createMockEnv();
       const broadcast = createMockBroadcast();
@@ -211,10 +211,10 @@ describe('VariantFactory', () => {
         async (variantId: string) => (variantId === 'var-1' ? 'images/var-1.png' : null)
       );
 
-      const result = await factory.resolveVariantReferences(['var-1', 'var-2']);
-
-      assert.strictEqual(result.sourceImageKeys.length, 1);
-      assert.strictEqual(result.parentVariantIds.length, 1);
+      await assert.rejects(
+        factory.resolveVariantReferences(['var-1', 'var-2']),
+        /Reference variant var-2 is not a completed image variant/
+      );
     });
   });
 
@@ -243,6 +243,10 @@ describe('VariantFactory', () => {
       // Verify variant created
       assert.ok(result.variantId);
       assert.strictEqual(result.variant.status, 'pending');
+      assert.strictEqual(
+        (JSON.parse(result.variant.recipe) as GenerationRecipe).model,
+        'gemini-3-pro-image-preview'
+      );
 
       // Verify broadcasts
       const broadcastCalls = asMock(broadcast).mock.calls;
@@ -276,6 +280,33 @@ describe('VariantFactory', () => {
       // Verify broadcasts include lineage
       const broadcastCalls = asMock(broadcast).mock.calls;
       assert.ok(broadcastCalls.some((c) => c.arguments[0].type === 'lineage:created'));
+    });
+
+    test('rejects unresolved image references before creating records', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      await assert.rejects(
+        factory.createAssetWithVariant(
+          {
+            name: 'Broken Composite',
+            assetType: 'scene',
+            mediaKind: 'image',
+            prompt: 'Use this missing reference',
+            referenceVariantIds: ['missing-ref'],
+          },
+          meta
+        ),
+        /Reference variant missing-ref is not a completed image variant/
+      );
+
+      assert.strictEqual(asMock(repo.createAsset).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createLineage).mock.calls.length, 0);
+      assert.strictEqual(asMock(broadcast).mock.calls.length, 0);
     });
 
     test('rejects Flash image generation with multiple references before creating records', async () => {
@@ -884,7 +915,7 @@ describe('VariantFactory', () => {
   });
 
   describe('createBatchVariants', () => {
-    test('does not force image batch recipes to Flash by default', async () => {
+    test('stores exact default image model in batch recipes', async () => {
       const repo = createMockRepo();
       const env = createMockEnv();
       const broadcast = createMockBroadcast();
@@ -907,7 +938,7 @@ describe('VariantFactory', () => {
       for (const result of results) {
         const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
         assert.strictEqual(recipe.mediaKind, 'image');
-        assert.strictEqual(recipe.model, undefined);
+        assert.strictEqual(recipe.model, 'gemini-3-pro-image-preview');
       }
     });
 
