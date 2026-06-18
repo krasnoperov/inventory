@@ -48,3 +48,6 @@ test-results/
 
 # Local agent / tool state
 .claude/
+
+# Ladle component catalog build output
+/build

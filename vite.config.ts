@@ -12,7 +12,21 @@ import { visualizer } from 'rollup-plugin-visualizer';
 //
 // Dev points the cloudflare plugin at wrangler.dev.toml via
 // CLOUDFLARE_VITE_CONFIG_PATH (set in the `dev` script); build uses wrangler.toml.
-export default defineConfig({
+// Ladle auto-discovers this root config when it builds the component catalog.
+// Under Ladle we must NOT activate the Cloudflare / TanStack Start plugins:
+// they expect a Workers SSR build and file-based routes that Ladle has no use
+// for (and they fail trying to resolve a router entry). The `stories` scripts
+// set LADLE=true; in that mode we contribute only the @shared alias and let
+// Ladle's own React plugin + vite.ladle.config.ts drive the build.
+const ladleConfig = defineConfig({
+  resolve: {
+    alias: {
+      '@shared': path.resolve(__dirname, 'src/shared'),
+    },
+  },
+});
+
+const appConfig = defineConfig({
   plugins: [
     cloudflare({
       configPath: process.env.CLOUDFLARE_VITE_CONFIG_PATH ?? 'wrangler.toml',
@@ -121,3 +135,5 @@ export default defineConfig({
     emptyOutDir: true,
   },
 });
+
+export default process.env.LADLE === 'true' ? ladleConfig : appConfig;
