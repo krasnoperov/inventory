@@ -1,0 +1,863 @@
+{
+  "$description": "Primitive palette and non-colour scales (radius, type scale, layout spacing, thumbnail sizing, shadows, focus ring). Mirrors the core slice of src/frontend/styles/theme.css.",
+  "$extensions": {
+    "com.inventory.source": "theme.css",
+    "com.inventory.generatedBy": "scripts/snapshot-design-tokens.mjs",
+    "com.inventory.note": "Generated from CSS. Do not edit by hand. Run `pnpm run tokens:snapshot` after changing the canonical CSS."
+  },
+  "palette": {
+    "blue": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.16,
+          250
+        ]
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-blue",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.16 250)",
+          "oklch(65% 0.14 250)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.16 250), oklch(65% 0.14 250))"
+      }
+    },
+    "blueBg": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.16,
+          250
+        ],
+        "alpha": 0.15
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-blue-bg",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.16 250 / 0.15)",
+          "oklch(65% 0.14 250 / 0.15)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.16 250 / 0.15), oklch(65% 0.14 250 / 0.15))"
+      }
+    },
+    "blueBorder": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.16,
+          250
+        ],
+        "alpha": 0.3
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-blue-border",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.16 250 / 0.3)",
+          "oklch(65% 0.14 250 / 0.3)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.16 250 / 0.3), oklch(65% 0.14 250 / 0.3))"
+      }
+    },
+    "purple": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.18,
+          300
+        ]
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-purple",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.18 300)",
+          "oklch(65% 0.16 300)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.18 300), oklch(65% 0.16 300))"
+      }
+    },
+    "purpleBg": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.18,
+          300
+        ],
+        "alpha": 0.15
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-purple-bg",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.18 300 / 0.15)",
+          "oklch(65% 0.16 300 / 0.15)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.18 300 / 0.15), oklch(65% 0.16 300 / 0.15))"
+      }
+    },
+    "purpleBorder": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.18,
+          300
+        ],
+        "alpha": 0.3
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-purple-border",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.18 300 / 0.3)",
+          "oklch(65% 0.16 300 / 0.3)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.18 300 / 0.3), oklch(65% 0.16 300 / 0.3))"
+      }
+    },
+    "green": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.15,
+          145
+        ]
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-green",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.15 145)",
+          "oklch(65% 0.13 145)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.15 145), oklch(65% 0.13 145))"
+      }
+    },
+    "greenBg": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.15,
+          145
+        ],
+        "alpha": 0.15
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-green-bg",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.15 145 / 0.15)",
+          "oklch(65% 0.13 145 / 0.15)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.15 145 / 0.15), oklch(65% 0.13 145 / 0.15))"
+      }
+    },
+    "greenBorder": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.15,
+          145
+        ],
+        "alpha": 0.3
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-green-border",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.15 145 / 0.3)",
+          "oklch(65% 0.13 145 / 0.3)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.15 145 / 0.3), oklch(65% 0.13 145 / 0.3))"
+      }
+    },
+    "orange": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.7,
+          0.15,
+          55
+        ]
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-orange",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(70% 0.15 55)",
+          "oklch(75% 0.13 55)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(70% 0.15 55), oklch(75% 0.13 55))"
+      }
+    },
+    "orangeBg": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.7,
+          0.15,
+          55
+        ],
+        "alpha": 0.15
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-orange-bg",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(70% 0.15 55 / 0.15)",
+          "oklch(75% 0.13 55 / 0.15)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(70% 0.15 55 / 0.15), oklch(75% 0.13 55 / 0.15))"
+      }
+    },
+    "amber": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.75,
+          0.15,
+          75
+        ]
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-amber",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(75% 0.15 75)",
+          "oklch(80% 0.13 75)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(75% 0.15 75), oklch(80% 0.13 75))"
+      }
+    },
+    "amberBg": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.75,
+          0.15,
+          75
+        ],
+        "alpha": 0.15
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-amber-bg",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(75% 0.15 75 / 0.15)",
+          "oklch(80% 0.13 75 / 0.15)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(75% 0.15 75 / 0.15), oklch(80% 0.13 75 / 0.15))"
+      }
+    },
+    "amberBorder": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.75,
+          0.15,
+          75
+        ],
+        "alpha": 0.5
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-amber-border",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(75% 0.15 75 / 0.5)",
+          "oklch(80% 0.13 75 / 0.5)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(75% 0.15 75 / 0.5), oklch(80% 0.13 75 / 0.5))"
+      }
+    },
+    "red": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.2,
+          25
+        ]
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-red",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.2 25)",
+          "oklch(70% 0.18 25)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.2 25), oklch(70% 0.18 25))"
+      }
+    },
+    "redBg": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.2,
+          25
+        ],
+        "alpha": 0.15
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--palette-red-bg",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(55% 0.2 25 / 0.15)",
+          "oklch(70% 0.18 25 / 0.15)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(55% 0.2 25 / 0.15), oklch(70% 0.18 25 / 0.15))"
+      }
+    }
+  },
+  "shadow": {
+    "header": {
+      "$value": {
+        "offsetX": {
+          "value": 0,
+          "unit": "px"
+        },
+        "offsetY": {
+          "value": 12,
+          "unit": "px"
+        },
+        "blur": {
+          "value": 24,
+          "unit": "px"
+        },
+        "spread": {
+          "value": 0,
+          "unit": "px"
+        },
+        "color": {
+          "colorSpace": "oklch",
+          "components": [
+            0,
+            0,
+            0
+          ],
+          "alpha": 0.1
+        }
+      },
+      "$type": "shadow",
+      "$extensions": {
+        "com.inventory.cssVar": "--shadow-header",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "0 12px 24px oklch(0% 0 0 / 0.1)",
+          "0 12px 24px oklch(0% 0 0 / 0.3)"
+        ],
+        "com.inventory.cssValue": "0 12px 24px light-dark(oklch(0% 0 0 / 0.1), oklch(0% 0 0 / 0.3))"
+      }
+    },
+    "elevated": {
+      "$value": {
+        "offsetX": {
+          "value": 0,
+          "unit": "px"
+        },
+        "offsetY": {
+          "value": 24,
+          "unit": "px"
+        },
+        "blur": {
+          "value": 40,
+          "unit": "px"
+        },
+        "spread": {
+          "value": 0,
+          "unit": "px"
+        },
+        "color": {
+          "colorSpace": "oklch",
+          "components": [
+            0,
+            0,
+            0
+          ],
+          "alpha": 0.16
+        }
+      },
+      "$type": "shadow",
+      "$extensions": {
+        "com.inventory.cssVar": "--shadow-elevated",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "0 24px 40px oklch(0% 0 0 / 0.16)",
+          "0 24px 40px oklch(0% 0 0 / 0.4)"
+        ],
+        "com.inventory.cssValue": "0 24px 40px light-dark(oklch(0% 0 0 / 0.16), oklch(0% 0 0 / 0.4))"
+      }
+    },
+    "floating": {
+      "$value": {
+        "offsetX": {
+          "value": 0,
+          "unit": "px"
+        },
+        "offsetY": {
+          "value": 30,
+          "unit": "px"
+        },
+        "blur": {
+          "value": 50,
+          "unit": "px"
+        },
+        "spread": {
+          "value": 0,
+          "unit": "px"
+        },
+        "color": {
+          "colorSpace": "oklch",
+          "components": [
+            0,
+            0,
+            0
+          ],
+          "alpha": 0.12
+        }
+      },
+      "$type": "shadow",
+      "$extensions": {
+        "com.inventory.cssVar": "--shadow-floating",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "0 30px 50px oklch(0% 0 0 / 0.12)",
+          "0 30px 50px oklch(0% 0 0 / 0.35)"
+        ],
+        "com.inventory.cssValue": "0 30px 50px light-dark(oklch(0% 0 0 / 0.12), oklch(0% 0 0 / 0.35))"
+      }
+    },
+    "player": {
+      "$value": {
+        "offsetX": {
+          "value": 0,
+          "unit": "px"
+        },
+        "offsetY": {
+          "value": -12,
+          "unit": "px"
+        },
+        "blur": {
+          "value": 24,
+          "unit": "px"
+        },
+        "spread": {
+          "value": 0,
+          "unit": "px"
+        },
+        "color": {
+          "colorSpace": "oklch",
+          "components": [
+            0,
+            0,
+            0
+          ],
+          "alpha": 0.15
+        }
+      },
+      "$type": "shadow",
+      "$extensions": {
+        "com.inventory.cssVar": "--shadow-player",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "0 -12px 24px oklch(0% 0 0 / 0.15)",
+          "0 -12px 24px oklch(0% 0 0 / 0.35)"
+        ],
+        "com.inventory.cssValue": "0 -12px 24px light-dark(oklch(0% 0 0 / 0.15), oklch(0% 0 0 / 0.35))"
+      }
+    }
+  },
+  "layout": {
+    "headerHeight": {
+      "$value": {
+        "value": 90,
+        "unit": "px"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--header-height",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "90px"
+      }
+    },
+    "gap": {
+      "$value": {
+        "value": 20,
+        "unit": "px"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--layout-gap",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "20px"
+      }
+    },
+    "panelSpacing": {
+      "default": {
+        "$value": {
+          "value": 1.5,
+          "unit": "rem"
+        },
+        "$type": "dimension",
+        "$extensions": {
+          "com.inventory.cssVar": "--panel-spacing",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "1.5rem"
+        }
+      },
+      "sm": {
+        "$value": {
+          "value": 1,
+          "unit": "rem"
+        },
+        "$type": "dimension",
+        "$extensions": {
+          "com.inventory.cssVar": "--panel-spacing-sm",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "1rem"
+        }
+      }
+    }
+  },
+  "thumb": {
+    "size": {
+      "lg": {
+        "$value": {
+          "value": 150,
+          "unit": "px"
+        },
+        "$type": "dimension",
+        "$extensions": {
+          "com.inventory.cssVar": "--thumb-size-lg",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "150px"
+        }
+      },
+      "md": {
+        "$value": {
+          "value": 100,
+          "unit": "px"
+        },
+        "$type": "dimension",
+        "$extensions": {
+          "com.inventory.cssVar": "--thumb-size-md",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "100px"
+        }
+      },
+      "sm": {
+        "$value": {
+          "value": 75,
+          "unit": "px"
+        },
+        "$type": "dimension",
+        "$extensions": {
+          "com.inventory.cssVar": "--thumb-size-sm",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "75px"
+        }
+      },
+      "xs": {
+        "$value": {
+          "value": 48,
+          "unit": "px"
+        },
+        "$type": "dimension",
+        "$extensions": {
+          "com.inventory.cssVar": "--thumb-size-xs",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "48px"
+        }
+      }
+    },
+    "radius": {
+      "default": {
+        "$value": {
+          "value": 10,
+          "unit": "px"
+        },
+        "$type": "dimension",
+        "$extensions": {
+          "com.inventory.cssVar": "--thumb-radius",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "10px"
+        }
+      },
+      "sm": {
+        "$value": {
+          "value": 6,
+          "unit": "px"
+        },
+        "$type": "dimension",
+        "$extensions": {
+          "com.inventory.cssVar": "--thumb-radius-sm",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "6px"
+        }
+      }
+    }
+  },
+  "fontSize": {
+    "display": {
+      "$value": {
+        "value": 2,
+        "unit": "rem"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--font-size-display",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "2rem"
+      }
+    },
+    "h2": {
+      "$value": {
+        "value": 1.5,
+        "unit": "rem"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--font-size-h2",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "1.5rem"
+      }
+    },
+    "h3": {
+      "$value": {
+        "value": 1.25,
+        "unit": "rem"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--font-size-h3",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "1.25rem"
+      }
+    },
+    "body": {
+      "$value": {
+        "value": 1,
+        "unit": "rem"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--font-size-body",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "1rem"
+      }
+    },
+    "bodySm": {
+      "$value": {
+        "value": 0.9375,
+        "unit": "rem"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--font-size-body-sm",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "0.9375rem"
+      }
+    },
+    "small": {
+      "$value": {
+        "value": 0.875,
+        "unit": "rem"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--font-size-small",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "0.875rem"
+      }
+    },
+    "smallSm": {
+      "$value": {
+        "value": 0.8125,
+        "unit": "rem"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--font-size-small-sm",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "0.8125rem"
+      }
+    },
+    "micro": {
+      "$value": {
+        "value": 0.75,
+        "unit": "rem"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--font-size-micro",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "0.75rem"
+      }
+    },
+    "microSm": {
+      "$value": {
+        "value": 0.6875,
+        "unit": "rem"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--font-size-micro-sm",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "0.6875rem"
+      }
+    }
+  },
+  "radius": {
+    "xs": {
+      "$value": {
+        "value": 4,
+        "unit": "px"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--radius-xs",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "4px"
+      }
+    },
+    "sm": {
+      "$value": {
+        "value": 6,
+        "unit": "px"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--radius-sm",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "6px"
+      }
+    },
+    "md": {
+      "$value": {
+        "value": 8,
+        "unit": "px"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--radius-md",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "8px"
+      }
+    },
+    "lg": {
+      "$value": {
+        "value": 12,
+        "unit": "px"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--radius-lg",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "12px"
+      }
+    },
+    "xl": {
+      "$value": {
+        "value": 16,
+        "unit": "px"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--radius-xl",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "16px"
+      }
+    },
+    "2xl": {
+      "$value": {
+        "value": 20,
+        "unit": "px"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--radius-2xl",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "20px"
+      }
+    },
+    "full": {
+      "$value": {
+        "value": 9999,
+        "unit": "px"
+      },
+      "$type": "dimension",
+      "$extensions": {
+        "com.inventory.cssVar": "--radius-full",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "9999px"
+      }
+    }
+  },
+  "focusRing": {
+    "$value": {
+      "offsetX": {
+        "value": 0,
+        "unit": "px"
+      },
+      "offsetY": {
+        "value": 0,
+        "unit": "px"
+      },
+      "blur": {
+        "value": 0,
+        "unit": "px"
+      },
+      "spread": {
+        "value": 3,
+        "unit": "px"
+      },
+      "color": {
+        "colorSpace": "oklch",
+        "components": [
+          0.55,
+          0.18,
+          276
+        ],
+        "alpha": 0.25
+      }
+    },
+    "$type": "shadow",
+    "$extensions": {
+      "com.inventory.cssVar": "--focus-ring",
+      "com.inventory.sourceFile": "theme.css",
+      "com.inventory.lightDark": [
+        "0 0 0 3px oklch(55% 0.18 276 / 0.25)",
+        "0 0 0 3px oklch(65% 0.16 276 / 0.3)"
+      ],
+      "com.inventory.cssValue": "0 0 0 3px light-dark(oklch(55% 0.18 276 / 0.25), oklch(65% 0.16 276 / 0.3))"
+    }
+  }
+}
