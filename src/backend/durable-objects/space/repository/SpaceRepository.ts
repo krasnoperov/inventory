@@ -883,6 +883,7 @@ export class SpaceRepository {
     const existing = await this.getProductionRecordById(recordId);
     if (!existing) return false;
 
+    await this.sql.exec(ProductionPlacementQueries.DELETE, recordId);
     await this.sql.exec(ProductionRecordQueries.DELETE, recordId);
     return true;
   }

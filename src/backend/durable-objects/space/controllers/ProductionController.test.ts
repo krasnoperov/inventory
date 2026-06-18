@@ -246,6 +246,23 @@ describe('ProductionController', () => {
     );
   });
 
+  test('rejects upserting a placement id from another production', async () => {
+    const { controller } = createController({
+      getProductionPlacementById: mock.fn(async () => ({ id: 'placement-1', production_id: 'other-production' })),
+    });
+
+    await assert.rejects(
+      controller.httpUpsertPlacement('episode-01', {
+        id: 'placement-1',
+        targetKind: 'shot',
+        targetId: 'shot-1',
+        variantId: 'variant-1',
+        createdBy: 'user-1',
+      }),
+      NotFoundError
+    );
+  });
+
   test('rejects deleting a placement from another production', async () => {
     const { controller } = createController({
       getProductionPlacementById: mock.fn(async () => ({ id: 'placement-1', production_id: 'other-production' })),

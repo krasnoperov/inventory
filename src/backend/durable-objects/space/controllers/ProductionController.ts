@@ -186,12 +186,14 @@ export class ProductionController extends BaseController {
     const targetId = normalizeRequiredString(data.targetId, 'targetId');
     const variant = await this.getExistingVariant(data.variantId);
     const createdBy = normalizeRequiredString(data.createdBy, 'createdBy');
+    const placementId = normalizeOptionalString(data.id) ?? crypto.randomUUID();
 
     await this.assertTargetBelongsToProduction(production.id, targetKind, targetId);
+    await this.assertPlacementIdBelongsToProduction(production.id, placementId);
     const sourceVariantIds = await this.normalizeAndValidateSourceVariantIds(data.sourceVariantIds);
 
     return this.repo.upsertProductionPlacement({
-      id: normalizeOptionalString(data.id) ?? crypto.randomUUID(),
+      id: placementId,
       productionId: production.id,
       targetKind,
       targetId,
@@ -329,6 +331,13 @@ export class ProductionController extends BaseController {
     const cue = await this.repo.getProductionCueById(targetId);
     if (!cue || cue.production_id !== productionId) {
       throw new ValidationError('targetId must reference a cue in this production');
+    }
+  }
+
+  private async assertPlacementIdBelongsToProduction(productionId: string, placementId: string): Promise<void> {
+    const existing = await this.repo.getProductionPlacementById(placementId);
+    if (existing && existing.production_id !== productionId) {
+      throw new NotFoundError('Production placement not found');
     }
   }
 

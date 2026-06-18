@@ -432,6 +432,23 @@ describe('SpaceRepository', () => {
       const deleted = await repo.deleteProductionRecord('missing');
       assert.equal(deleted, false);
     });
+
+    test('deleteProductionRecord removes the normalized sibling placement', async () => {
+      mockSql.setMockResult('SELECT * FROM production_records WHERE id = ?', [
+        { id: 'record-1', production_id: 'episode-01' },
+      ]);
+
+      const deleted = await repo.deleteProductionRecord('record-1');
+
+      assert.equal(deleted, true);
+      const deleteQueries = mockSql.queries
+        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .map((q) => ({ query: q.query, bindings: q.bindings }));
+      assert.deepEqual(deleteQueries, [
+        { query: 'DELETE FROM production_placements WHERE id = ?', bindings: ['record-1'] },
+        { query: 'DELETE FROM production_records WHERE id = ?', bindings: ['record-1'] },
+      ]);
+    });
   });
 
   describe('Production Model Operations', () => {
