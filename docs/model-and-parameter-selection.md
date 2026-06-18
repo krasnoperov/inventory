@@ -11,10 +11,10 @@ companion.
 
 > **Service parameters vs. CLI flags.** The values below are the parameters the
 > backend services accept. Not all are exposed as `makefx` CLI flags — the CLI
-> surfaces `--aspect`, `--count`, `--mode`, `--duration-ms`, and the
-> production-metadata flags, while model choice and resolution currently fall to
-> server-side defaults. Where a value is set by a default rather than a flag,
-> that is noted. See [cli-generation.md](./cli-generation.md) for the flag list.
+> surfaces `--aspect`, `--count`, `--mode`, and production-metadata flags such
+> as `--duration-ms`. Model choice, image/video resolution, and Veo
+> `durationSeconds` currently fall to server-side defaults. Where a value is set
+> by a default rather than a flag, that is noted. See [cli-generation.md](./cli-generation.md) for the flag list.
 
 ## Images (Nano Banana)
 
@@ -39,9 +39,11 @@ Flash, and throws past 14 references on either model (`nanoBananaService.ts:202`
 ### Aspect Ratio
 
 `AspectRatio` (`nanoBananaService.ts:47`): `1:1`, `16:9`, `9:16`, `2:3`, `3:2`,
-`3:4`, `4:3`, `4:5`, `5:4`, `21:9`. Optional — omit to let the model choose.
-Pick deliberately for the destination: `16:9`/`21:9` for keyframes and
-backgrounds, `9:16` for vertical/social, `1:1` for icons and tiles, `4:5` for
+`3:4`, `4:3`, `4:5`, `5:4`, `21:9`. Optional at the service boundary; Make
+Effects generation currently defaults omitted image aspects to `1:1`
+(`GenerationWorkflow.ts:245`), so set `--aspect` explicitly when you want
+anything else. Pick deliberately for the destination: `16:9`/`21:9` for keyframes
+and backgrounds, `9:16` for vertical/social, `1:1` for icons and tiles, `4:5` for
 portrait posts.
 
 ### Image Size
@@ -111,6 +113,10 @@ called at `:113`):
 
 So a referenced or higher-resolution clip is always 8s. Plan your shot pacing
 (and timestamp prompting) around the duration you will actually get.
+
+This `durationSeconds` is a service parameter set by default today — it is **not**
+the `--duration-ms` CLI flag, which records intended production-scene duration as
+metadata and is never passed to Veo (`cli-generation.md:209`).
 
 ### Reference Images ("Ingredients")
 
