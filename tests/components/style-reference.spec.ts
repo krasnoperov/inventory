@@ -29,7 +29,24 @@ const areaDir = path.join(STYLE_REFERENCE_ROOT, 'components');
 
 test.describe.configure({ mode: 'serial' });
 
+// Completed image/media variants resolve to /api/images/… and
+// /api/spaces/…/media, which the static Ladle preview can't serve. Fulfill
+// them with a labelled placeholder so completed thumbnails render in captures.
+const PLACEHOLDER_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">' +
+  '<rect width="100%" height="100%" fill="#6ea8fe"/>' +
+  '<text x="50%" y="50%" fill="#ffffff" font-family="sans-serif" font-size="32" ' +
+  'text-anchor="middle" dominant-baseline="middle">preview</text></svg>';
+
+async function mockMedia(page: import('@playwright/test').Page) {
+  const fulfill = (route: import('@playwright/test').Route) =>
+    route.fulfill({ contentType: 'image/svg+xml', body: PLACEHOLDER_SVG });
+  await page.route('**/api/images/**', fulfill);
+  await page.route('**/api/spaces/**/media', fulfill);
+}
+
 test('captures Ladle component stories', async ({ page }) => {
+  await mockMedia(page);
   const response = await page.request.get('/meta.json');
   const meta = (await response.json()) as LadleMeta;
   const stories = Object.entries(meta.stories)
