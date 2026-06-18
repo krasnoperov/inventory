@@ -65,7 +65,6 @@ export function VoicePicker({
   if (mode === 'speech') {
     return (
       <div className={styles.voicePicker} title="Voice for speech generation">
-        <span className={styles.label}>Voice</span>
         <select
           className={styles.select}
           value={voiceId ?? ''}
@@ -83,7 +82,6 @@ export function VoicePicker({
   const rows = dialogueVoiceIds.length > 0 ? dialogueVoiceIds : [''];
   return (
     <div className={styles.voicePicker} title="Voices assigned to speakers in order">
-      <span className={styles.label}>Voices</span>
       {rows.map((id, index) => (
         <div key={index} className={styles.dialogueRow}>
           <span className={styles.speakerIndex}>{index + 1}.</span>

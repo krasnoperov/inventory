@@ -112,7 +112,6 @@ export function StylePanel({
       <div className={styles.body}>
         {/* Description */}
         <div>
-          <div className={styles.descriptionLabel}>Style Description</div>
           <textarea
             className={styles.descriptionTextarea}
             value={description}
