@@ -137,6 +137,7 @@ describe('Polar webhook route', () => {
       claude_output_tokens: 0,
       gemini_images: 0,
       gemini_videos: 0,
+      gemini_audio: 0,
       gemini_input_tokens: 0,
       gemini_output_tokens: 0,
       elevenlabs_audio: 0,

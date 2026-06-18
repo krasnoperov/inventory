@@ -80,6 +80,7 @@ export function formatMeterName(name: string): string {
     'claude_usage': 'Claude Tokens',
     'gemini_images': 'Image Generations',
     'gemini_videos': 'Video Generations',
+    'gemini_audio': 'Lyria Music',
     'gemini_input_tokens': 'Gemini Input',
     'gemini_output_tokens': 'Gemini Output',
     'gemini_usage': 'Gemini Tokens',

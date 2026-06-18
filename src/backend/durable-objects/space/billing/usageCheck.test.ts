@@ -1,7 +1,7 @@
 // @ts-nocheck - D1 mock shape is intentionally minimal
 import { describe, test, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { preCheck, trackImageGeneration, trackVideoGeneration } from './usageCheck';
+import { preCheck, trackGeminiAudioGeneration, trackImageGeneration, trackVideoGeneration } from './usageCheck';
 
 function createPreCheckDb(options: {
   quotaLimit: number;
@@ -190,6 +190,48 @@ describe('SpaceDO usage preCheck', () => {
       operation: 'generate',
       resolution: '1080p',
       duration_seconds: 8,
+    });
+  });
+
+  test('records Lyria audio usage as Gemini audio', async () => {
+    const inserts: unknown[][] = [];
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn((...args: unknown[]) => ({
+          first: mock.fn(async () => ({ paid_generation_entitlement: 'paid' })),
+          run: mock.fn(async () => {
+            if (sql.includes('INSERT INTO usage_events')) {
+              inserts.push(args);
+            }
+            return { success: true };
+          }),
+        })),
+      })),
+    };
+
+    await trackGeminiAudioGeneration(
+      db as any,
+      42,
+      1,
+      'lyria-3-clip-preview',
+      'generate',
+      'music',
+      30_000,
+      { inputTokens: 12, outputTokens: 0, totalTokens: 12 }
+    );
+
+    assert.strictEqual(inserts.length, 1);
+    assert.strictEqual(inserts[0][2], 'gemini_audio');
+    assert.strictEqual(inserts[0][3], 1);
+    assert.deepStrictEqual(JSON.parse(String(inserts[0][4])), {
+      provider: 'lyria',
+      model: 'lyria-3-clip-preview',
+      operation: 'generate',
+      asset_type: 'music',
+      duration_ms: 30000,
+      input_tokens: 12,
+      output_tokens: 0,
+      total_tokens: 12,
     });
   });
 });

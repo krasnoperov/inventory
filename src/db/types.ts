@@ -15,7 +15,7 @@ export interface UsersTable {
   polar_customer_id: string | null;
   paid_generation_entitlement: PaidGenerationEntitlement;
   // Quota limits cached from Polar webhooks
-  // JSON: {"claude_output_tokens": 100000, "gemini_images": 50, "gemini_videos": 10, "elevenlabs_audio": 5000}
+  // JSON: {"claude_output_tokens": 100000, "gemini_images": 50, "gemini_videos": 10, "gemini_audio": 10, "elevenlabs_audio": 5000}
   quota_limits: string | null;
   quota_limits_updated_at: string | null;
   // Rate limiting (fixed window)
