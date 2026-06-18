@@ -300,6 +300,31 @@ export async function trackElevenLabsAudioGeneration(
 }
 
 /**
+ * Track Lyria music generation as Gemini audio.
+ */
+export async function trackGeminiAudioGeneration(
+  db: D1Database,
+  userId: number,
+  audioCount: number,
+  model: string,
+  operation?: string,
+  assetType?: string,
+  durationMs?: number | null,
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number },
+): Promise<void> {
+  await trackUsage(db, userId, 'gemini_audio', audioCount, {
+    provider: 'lyria',
+    model,
+    operation,
+    asset_type: assetType,
+    duration_ms: durationMs ?? undefined,
+    input_tokens: usage?.inputTokens,
+    output_tokens: usage?.outputTokens,
+    total_tokens: usage?.totalTokens,
+  });
+}
+
+/**
  * Track Gemini/Veo video generation.
  */
 export async function trackVideoGeneration(

@@ -2,6 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ELEVENLABS_RATES_USD,
+  GEMINI_AUDIO_RATES_USD,
   GEMINI_IMAGE_RATES_USD,
   GEMINI_VIDEO_RATES_USD,
   priceProviderUsageEvent,
@@ -93,6 +94,26 @@ describe('provider pricing', () => {
     assert.equal(defaultedStandard.amountUsd, 3.2);
   });
 
+  test('prices Lyria music events as Gemini audio generations', () => {
+    const clip = priceProviderUsageEvent({
+      eventName: 'gemini_audio',
+      quantity: 3,
+      metadata: { model: 'lyria-3-clip-preview' },
+    });
+    const pro = priceProviderUsageEvent({
+      eventName: 'gemini_audio',
+      quantity: 1,
+      metadata: { model: 'projects/project-1/locations/global/publishers/google/models/lyria-3-pro-preview' },
+    });
+
+    assert.equal(clip.amountUsd, 0.12);
+    assert.equal(clip.provider, 'gemini');
+    assert.equal(clip.model, 'lyria-3-clip-preview');
+    assert.equal(clip.unit, 'generation');
+    assert.equal(pro.amountUsd, 0.08);
+    assert.equal(pro.model, 'lyria-3-pro-preview');
+  });
+
   test('prices ElevenLabs text-to-speech audio events by character', () => {
     const multilingual = priceProviderUsageEvent({
       eventName: 'elevenlabs_audio',
@@ -160,6 +181,8 @@ describe('provider pricing', () => {
     assert.ok(GEMINI_VIDEO_RATES_USD['veo-3.1-generate-preview']);
     assert.ok(GEMINI_VIDEO_RATES_USD['veo-3.1-fast-generate-preview']);
     assert.ok(GEMINI_VIDEO_RATES_USD['veo-3.1-lite-generate-preview']);
+    assert.ok(GEMINI_AUDIO_RATES_USD['lyria-3-clip-preview']);
+    assert.ok(GEMINI_AUDIO_RATES_USD['lyria-3-pro-preview']);
     assert.ok(ELEVENLABS_RATES_USD.eleven_multilingual_v2);
     assert.ok(ELEVENLABS_RATES_USD.eleven_v3);
     assert.ok(ELEVENLABS_RATES_USD.music_v1);
@@ -168,7 +191,7 @@ describe('provider pricing', () => {
 
   test('returns a pricing miss for unsupported events or malformed metadata', () => {
     const unsupported = priceProviderUsageEvent({
-      eventName: 'gemini_audio',
+      eventName: 'unknown_meter',
       quantity: 1,
       metadata: { model: 'lyria-3-clip-preview' },
     });

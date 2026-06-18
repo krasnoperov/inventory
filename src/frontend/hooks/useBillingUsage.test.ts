@@ -22,6 +22,12 @@ describe('calculateGeminiSpend', () => {
           remaining: null,
           costUsd: 0.03,
         },
+        gemini_audio: {
+          used: 1,
+          limit: null,
+          remaining: null,
+          costUsd: 0.04,
+        },
         elevenlabs_audio: {
           used: 1,
           limit: null,
@@ -31,7 +37,7 @@ describe('calculateGeminiSpend', () => {
       },
     };
 
-    assert.equal(calculateGeminiSpend(usage), 0.51);
+    assert.equal(calculateGeminiSpend(usage), 0.55);
   });
 
   test('treats missing and invalid Gemini costs as zero', () => {

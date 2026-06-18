@@ -108,6 +108,11 @@ export const GEMINI_VIDEO_RATES_USD: Record<string, GeminiVideoRate> = {
   },
 };
 
+export const GEMINI_AUDIO_RATES_USD: Record<string, { generationUsd: number }> = {
+  'lyria-3-clip-preview': { generationUsd: 0.04 },
+  'lyria-3-pro-preview': { generationUsd: 0.08 },
+};
+
 export const ELEVENLABS_RATES_USD: Record<string, ElevenLabsRate> = {
   'eleven_flash_v2': { unit: 'character', unitPriceUsd: 0.05 / CHARACTERS_PER_THOUSAND },
   'eleven_flash_v2_5': { unit: 'character', unitPriceUsd: 0.05 / CHARACTERS_PER_THOUSAND },
@@ -144,6 +149,8 @@ export function priceProviderUsageEvent(event: ProviderUsagePricingEvent): Provi
       return priceGeminiImages(event, metadata);
     case 'gemini_videos':
       return priceGeminiVideos(event, metadata);
+    case 'gemini_audio':
+      return priceGeminiAudio(event, metadata);
     case 'elevenlabs_audio':
       return priceElevenLabsAudio(event, metadata);
     default:
@@ -232,6 +239,19 @@ function priceGeminiVideos(
 
   const videoSeconds = normalizedQuantity(event.quantity) * durationSeconds;
   return priced(event, 'gemini', model, 'video_second', videoSeconds, unitPriceUsd, 'gemini');
+}
+
+function priceGeminiAudio(
+  event: ProviderUsagePricingEvent,
+  metadata: Record<string, unknown>
+): ProviderPricingResult {
+  const model = normalizeLyriaModel(getString(metadata, 'model') ?? '');
+  if (!model) return miss(event, 'gemini', null, 'generation', 'unsupported_model');
+
+  const rate = GEMINI_AUDIO_RATES_USD[model];
+  if (!rate) return miss(event, 'gemini', model, 'generation', 'unsupported_model');
+
+  return priced(event, 'gemini', model, 'generation', normalizedQuantity(event.quantity), rate.generationUsd, 'gemini');
 }
 
 function priceElevenLabsAudio(
@@ -354,6 +374,12 @@ function normalizeGeminiImageModel(model: string): string | null {
 
 function isGeminiVideoModel(model: string): boolean {
   return model in GEMINI_VIDEO_RATES_USD;
+}
+
+function normalizeLyriaModel(model: string): string | null {
+  if (model in GEMINI_AUDIO_RATES_USD) return model;
+  const match = model.match(/(?:^|\/)(lyria-3-(?:clip|pro)-preview)$/);
+  return match?.[1] ?? null;
 }
 
 function normalizeImageSize(value?: string | null): '0.5K' | '1K' | '2K' | '4K' | null {

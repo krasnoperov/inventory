@@ -221,6 +221,33 @@ describe('UsageService', () => {
     });
   });
 
+  describe('trackGeminiAudioGeneration', () => {
+    test('creates Lyria audio event in local storage as Gemini audio', async () => {
+      await usageService.trackGeminiAudioGeneration(
+        testUserId,
+        1,
+        'lyria-3-clip-preview',
+        'generate',
+        'music',
+        30_000,
+        { inputTokens: 12, outputTokens: 0, totalTokens: 12 }
+      );
+
+      const events = await usageEventDAO.findByUser(testUserId);
+      assert.strictEqual(events.length, 1);
+      assert.strictEqual(events[0].event_name, USAGE_EVENTS.GEMINI_AUDIO);
+      assert.strictEqual(events[0].quantity, 1);
+
+      const metadata = JSON.parse(events[0].metadata!);
+      assert.strictEqual(metadata.provider, 'lyria');
+      assert.strictEqual(metadata.model, 'lyria-3-clip-preview');
+      assert.strictEqual(metadata.operation, 'generate');
+      assert.strictEqual(metadata.asset_type, 'music');
+      assert.strictEqual(metadata.duration_ms, 30_000);
+      assert.strictEqual(metadata.total_tokens, 12);
+    });
+  });
+
   describe('trackVideoGeneration', () => {
     test('creates video count event in local storage', async () => {
       await usageService.trackVideoGeneration(
@@ -301,6 +328,50 @@ describe('UsageService', () => {
 
       const storedEvents = await usageEventDAO.findByUser(testUserId);
       assert.ok(storedEvents[0].synced_at);
+    });
+
+    test('syncs Lyria audio events to Polar as Gemini media events', async () => {
+      const ingestedEventBatches: Parameters<PolarService['ingestEventsBatch']>[0][] = [];
+      const ingestEventsBatch = mock.fn(async (
+        events: Parameters<PolarService['ingestEventsBatch']>[0]
+      ) => {
+        ingestedEventBatches.push(events);
+        return { inserted: 1, duplicates: 0 };
+      });
+      const service = new UsageService(
+        usageEventDAO,
+        userDAO,
+        { ingestEventsBatch } as any,
+        db,
+        {} as any
+      );
+      await service.trackGeminiAudioGeneration(
+        testUserId,
+        1,
+        'lyria-3-clip-preview',
+        'generate',
+        'music',
+        30_000
+      );
+
+      const result = await service.syncPendingEvents();
+
+      assert.strictEqual(result.synced, 1);
+      assert.strictEqual(result.failed, 0);
+      assert.strictEqual(ingestEventsBatch.mock.calls.length, 1);
+      const events = ingestedEventBatches[0];
+      assert.ok(events);
+      assert.strictEqual(events.length, 1);
+      const event = events[0];
+      assert.ok(event);
+      assert.strictEqual(event.userId, testUserId);
+      assert.strictEqual(event.eventName, USAGE_EVENTS.GEMINI_AUDIO);
+      const metadata = event.metadata;
+      assert.ok(metadata);
+      assert.strictEqual(metadata.quantity, 1);
+      assert.strictEqual(metadata.provider, 'lyria');
+      assert.strictEqual(metadata.model, 'lyria-3-clip-preview');
+      assert.strictEqual(metadata.asset_type, 'music');
     });
 
     test('does not sync non-billable events even if user later becomes paid', async () => {
@@ -471,6 +542,7 @@ describe('UsageService', () => {
       await usageService.trackClaudeUsage(testUserId, 1000, 500, 'claude-sonnet-4-20250514');
       await usageService.trackImageGeneration(testUserId, 2, 'gemini-3-pro-image-preview');
       await usageService.trackVideoGeneration(testUserId, 1, 'veo-3.1-generate-preview');
+      await usageService.trackGeminiAudioGeneration(testUserId, 1, 'lyria-3-clip-preview', 'generate', 'music');
       await usageService.trackElevenLabsAudioGeneration(
         testUserId,
         37,
@@ -493,10 +565,12 @@ describe('UsageService', () => {
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_IMAGES]?.costUsd, 0.48);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.used, 1);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.costUsd, 3.2);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_AUDIO]?.used, 1);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_AUDIO]?.costUsd, 0.04);
       assert.strictEqual(stats.usage[USAGE_EVENTS.ELEVENLABS_AUDIO]?.used, 38);
       assert.strictEqual(stats.usage[USAGE_EVENTS.ELEVENLABS_AUDIO]?.costUsd, 0.12555);
       assert.deepStrictEqual(stats.estimatedCost, {
-        amount: 3.81605,
+        amount: 3.85605,
         currency: 'USD',
       });
     });
@@ -548,6 +622,14 @@ describe('UsageService', () => {
 
     test('returns allowed=true for elevenlabs when no local limit is cached for paid users', async () => {
       const result = await usageService.checkQuota(testUserId, 'elevenlabs');
+
+      assert.strictEqual(result.allowed, true);
+      assert.strictEqual(result.remaining, null);
+      assert.strictEqual(result.limit, null);
+    });
+
+    test('returns allowed=true for lyria when no local limit is cached for paid users', async () => {
+      const result = await usageService.checkQuota(testUserId, 'lyria');
 
       assert.strictEqual(result.allowed, true);
       assert.strictEqual(result.remaining, null);

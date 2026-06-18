@@ -22,6 +22,7 @@ export const USAGE_EVENTS = {
   // Gemini - images, videos, and tokens
   GEMINI_IMAGES: 'gemini_images',
   GEMINI_VIDEOS: 'gemini_videos',
+  GEMINI_AUDIO: 'gemini_audio',
   GEMINI_INPUT_TOKENS: 'gemini_input_tokens',
   GEMINI_OUTPUT_TOKENS: 'gemini_output_tokens',
   // ElevenLabs - audio generation credits/units
@@ -101,6 +102,7 @@ export const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
   claude: { windowSeconds: 60, maxRequests: 20 },
   nanobanana: { windowSeconds: 60, maxRequests: 10 },
   elevenlabs: { windowSeconds: 60, maxRequests: 10 },
+  lyria: { windowSeconds: 60, maxRequests: 10 },
   veo: { windowSeconds: 60, maxRequests: 10 },
 };
 
@@ -253,6 +255,39 @@ export class UsageService {
   }
 
   /**
+   * Track Lyria music generation as Gemini audio.
+   * Lyria pricing is per successful song, so quantity is generation count.
+   */
+  async trackGeminiAudioGeneration(
+    userId: number,
+    audioCount: number,
+    model: string,
+    operation?: string,
+    assetType?: string,
+    durationMs?: number | null,
+    tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number }
+  ): Promise<void> {
+    const polarBillable = await this.isBillableUser(userId);
+
+    await this.usageEventDAO.create({
+      userId,
+      eventName: USAGE_EVENTS.GEMINI_AUDIO,
+      quantity: audioCount,
+      metadata: {
+        provider: 'lyria',
+        model,
+        operation,
+        asset_type: assetType,
+        duration_ms: durationMs ?? undefined,
+        input_tokens: tokenUsage?.inputTokens,
+        output_tokens: tokenUsage?.outputTokens,
+        total_tokens: tokenUsage?.totalTokens,
+      },
+      polarBillable,
+    });
+  }
+
+  /**
    * Track Gemini/Veo video generation.
    * Events are synced to Polar via the cron job (syncPendingEvents) for reliability.
    */
@@ -329,6 +364,7 @@ export class UsageService {
       );
       const geminiMediaEvents = pendingEvents.filter((e) =>
         e.event_name === USAGE_EVENTS.GEMINI_IMAGES ||
+        e.event_name === USAGE_EVENTS.GEMINI_AUDIO ||
         e.event_name === USAGE_EVENTS.GEMINI_VIDEOS
       );
       const genericMeterEvents = pendingEvents.filter((e) =>
@@ -574,7 +610,7 @@ export class UsageService {
    * 2. Rate limit: Fixed-window request counter
    *
    * @param userId - User ID
-   * @param service - Service to check ('claude', 'nanobanana', 'elevenlabs', or 'veo')
+   * @param service - Service to check ('claude', 'nanobanana', 'lyria', 'elevenlabs', or 'veo')
    * @param rateLimit - Optional rate limit config (defaults per service)
    * @returns PreCheckResult with allowed status and detailed info
    *
@@ -582,16 +618,18 @@ export class UsageService {
    */
   async preCheck(
     userId: number,
-    service: 'claude' | 'nanobanana' | 'elevenlabs' | 'veo',
+    service: 'claude' | 'nanobanana' | 'lyria' | 'elevenlabs' | 'veo',
     rateLimit?: RateLimitConfig
   ): Promise<PreCheckResult> {
     const eventName = service === 'claude'
       ? USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS
-      : service === 'elevenlabs'
-        ? USAGE_EVENTS.ELEVENLABS_AUDIO
-        : service === 'veo'
-          ? USAGE_EVENTS.GEMINI_VIDEOS
-          : USAGE_EVENTS.GEMINI_IMAGES;
+      : service === 'lyria'
+        ? USAGE_EVENTS.GEMINI_AUDIO
+        : service === 'elevenlabs'
+          ? USAGE_EVENTS.ELEVENLABS_AUDIO
+          : service === 'veo'
+            ? USAGE_EVENTS.GEMINI_VIDEOS
+            : USAGE_EVENTS.GEMINI_IMAGES;
 
     const rateLimitConfig = rateLimit || DEFAULT_RATE_LIMITS[service];
     const now = new Date();
@@ -760,7 +798,7 @@ export class UsageService {
    */
   async checkQuota(
     userId: number,
-    service: 'claude' | 'nanobanana' | 'elevenlabs' | 'veo'
+    service: 'claude' | 'nanobanana' | 'lyria' | 'elevenlabs' | 'veo'
   ): Promise<QuotaCheck> {
     const result = await this.preCheck(userId, service);
 

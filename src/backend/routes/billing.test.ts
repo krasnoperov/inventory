@@ -309,9 +309,10 @@ describe('billingRoutes', () => {
         { id: 'meter_2', name: 'claude_output_tokens', aggregation: 'sum', archivedAt: null },
         { id: 'meter_3', name: 'gemini_images', aggregation: 'count', archivedAt: null },
         { id: 'meter_4', name: 'gemini_videos', aggregation: 'count', archivedAt: null },
-        { id: 'meter_5', name: 'gemini_input_tokens', aggregation: 'sum', archivedAt: null },
-        { id: 'meter_6', name: 'gemini_output_tokens', aggregation: 'sum', archivedAt: null },
-        { id: 'meter_7', name: 'elevenlabs_audio', aggregation: 'sum', archivedAt: null },
+        { id: 'meter_5', name: 'gemini_audio', aggregation: 'count', archivedAt: null },
+        { id: 'meter_6', name: 'gemini_input_tokens', aggregation: 'sum', archivedAt: null },
+        { id: 'meter_7', name: 'gemini_output_tokens', aggregation: 'sum', archivedAt: null },
+        { id: 'meter_8', name: 'elevenlabs_audio', aggregation: 'sum', archivedAt: null },
       ],
     });
 

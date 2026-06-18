@@ -26,6 +26,7 @@ import {
   incrementRateLimit,
   trackImageGeneration,
   trackElevenLabsAudioGeneration,
+  trackGeminiAudioGeneration,
   trackVideoGeneration,
 } from '../billing/usageCheck';
 import {
@@ -731,6 +732,41 @@ export class GenerationController extends BaseController {
         );
       } catch (err) {
         log.warn('Failed to track ElevenLabs audio usage', {
+          spaceId: this.spaceId,
+          variantId: data.variantId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    if (
+      this.env.DB &&
+      variant.created_by &&
+      variant.media_kind === 'audio' &&
+      data.audioProvider === 'lyria'
+    ) {
+      try {
+        let operation = 'generate';
+        let assetType: string | undefined;
+        try {
+          const recipe = JSON.parse(variant.recipe);
+          operation = recipe.operation || operation;
+          assetType = recipe.assetType;
+        } catch {
+          // Ignore parse errors
+        }
+
+        await trackGeminiAudioGeneration(
+          this.env.DB,
+          parseInt(variant.created_by),
+          1,
+          data.audioModel || 'unknown',
+          operation,
+          assetType,
+          data.mediaDurationMs,
+          data.audioUsage ?? undefined
+        );
+      } catch (err) {
+        log.warn('Failed to track Lyria audio usage', {
           spaceId: this.spaceId,
           variantId: data.variantId,
           error: err instanceof Error ? err.message : String(err),

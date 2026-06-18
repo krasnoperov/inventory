@@ -1112,6 +1112,59 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(metadata.total_tokens, expectedQuantity);
     });
 
+    test('tracks Lyria music completions as Gemini audio usage', async () => {
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          media_kind: 'audio',
+          recipe: JSON.stringify({ operation: 'generate', assetType: 'music', musicProvider: 'lyria' }),
+          created_by: '42',
+        })),
+        completeVariant: mock.fn(async () => createMockVariant({
+          media_kind: 'audio',
+          recipe: JSON.stringify({ operation: 'generate', assetType: 'music', musicProvider: 'lyria' }),
+          created_by: '42',
+          media_key: 'media/space-1/variant-1.mp3',
+          media_mime_type: 'audio/mpeg',
+          media_size_bytes: 4096,
+          media_duration_ms: 30_000,
+          status: 'completed',
+        })),
+      });
+      ctx.env.DB = db as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-1',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-1.mp3',
+        mediaMimeType: 'audio/mpeg',
+        mediaSizeBytes: 4096,
+        mediaDurationMs: 30_000,
+        audioProvider: 'lyria',
+        audioModel: 'lyria-3-clip-preview',
+        audioUsage: {
+          inputTokens: 12,
+          outputTokens: 0,
+          totalTokens: 12,
+        },
+      });
+
+      assert.strictEqual(statements.length, 1);
+      assert.match(statements[0].sql, /INSERT INTO usage_events/);
+      assert.strictEqual(statements[0].bindings[1], 42);
+      assert.strictEqual(statements[0].bindings[2], 'gemini_audio');
+      assert.strictEqual(statements[0].bindings[3], 1);
+      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      assert.strictEqual(metadata.provider, 'lyria');
+      assert.strictEqual(metadata.model, 'lyria-3-clip-preview');
+      assert.strictEqual(metadata.operation, 'generate');
+      assert.strictEqual(metadata.asset_type, 'music');
+      assert.strictEqual(metadata.duration_ms, 30_000);
+      assert.strictEqual(metadata.total_tokens, 12);
+    });
+
     test('does not track fake audio completions as ElevenLabs usage', async () => {
       const { db, statements } = createMockD1();
       const { ctx } = createMockContext({
