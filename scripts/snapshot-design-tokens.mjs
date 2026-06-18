@@ -542,7 +542,11 @@ function buildJson(decls, pathMap) {
           cssVar: d.cssVar,
           sourceFile: d.sourceFile,
           inferredType: cls.type,
-          rawValue: dtcg.value,
+          // Store the original CSS declaration (the full light-dark() value),
+          // not the light-lifted dtcg.value — generate-css-from-tokens rebuilds
+          // excluded tokens from rawValue, so a light-only value would drop the
+          // canonical dark-mode branch and make the sidecar lossy.
+          rawValue: d.value,
           reason: 'CSS construct has no DTCG-conformant shape (color-mix, clamp/calc, shorthand, gradient/border/shadow over light-dark() colours, multi-layer with `none`).',
           recommendation: EXCLUSION_RECOMMENDATIONS[d.cssVar],
         });
