@@ -219,9 +219,9 @@ Audio:
   audio sfx generate "prompt" --name <name> -o <file>
 
 Video:
-  video generate "prompt" --name <name> --type <type> -o <file>
-  video refine --variant <variant_id> "prompt" -o <file>
-  video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file>
+  video generate "prompt" --name <name> --type <type> -o <file> [--audio|--no-audio]
+  video refine --variant <variant_id> "prompt" -o <file> [--audio|--no-audio]
+  video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--audio|--no-audio]
 
 Options:
   --env <environment>          Target environment (production|stage|local), default: production
@@ -475,7 +475,11 @@ function printVideoHelp(positionals: string[]): void {
   if (subcommand === 'generate') {
     console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--audio|--no-audio] [--space <id>]
+
+Audio:
+  --audio       Request native synchronized Veo audio
+  --no-audio    Request a silent video (default)
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -487,7 +491,11 @@ Production metadata:
   if (subcommand === 'refine') {
     console.log(`
 Usage:
-  makefx video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--audio|--no-audio] [--space <id>]
+
+Audio:
+  --audio       Request native synchronized Veo audio
+  --no-audio    Request a silent video (default)
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -499,7 +507,11 @@ Production metadata:
   if (subcommand === 'derive') {
     console.log(`
 Usage:
-  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--audio|--no-audio] [--space <id>]
+
+Audio:
+  --audio       Request native synchronized Veo audio
+  --no-audio    Request a silent video (default)
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -510,9 +522,13 @@ Production metadata:
 
   console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
-  makefx video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
-  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--audio|--no-audio] [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--audio|--no-audio] [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--audio|--no-audio] [--space <id>]
+
+Audio:
+  --audio       Request native synchronized Veo audio
+  --no-audio    Request a silent video (default)
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>

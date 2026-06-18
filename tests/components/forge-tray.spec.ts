@@ -217,6 +217,28 @@ test('forge tray image options expose batch count', async ({ page }) => {
   await screenshot(page, 'forge-tray-batch', { fullPage: true });
 });
 
+test('forge tray video mode exposes native audio toggle defaulted off', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+  });
+  await disableAnimations(page);
+
+  await page.getByTitle('Media type', { exact: true }).click();
+  await page.getByTitle('Video media').click();
+
+  const audioToggle = page.getByLabel('Audio');
+  await expect(audioToggle).toBeVisible();
+  await expect(audioToggle).not.toBeChecked();
+  await audioToggle.check();
+  await expect(audioToggle).toBeChecked();
+});
+
 test('forge tray opens Style and Chat as separate full sheets', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 

@@ -88,6 +88,7 @@ interface ForgeClient {
     voiceId?: string;
     dialogueVoiceIds?: string[];
     musicProvider?: MusicGenerationProvider;
+    generateAudio?: boolean;
   }): Promise<GenerateResult>;
   sendRefineRequest(params: {
     assetId: string;
@@ -98,6 +99,7 @@ interface ForgeClient {
     imageSize?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
+    generateAudio?: boolean;
   }): Promise<GenerateResult>;
   sendBatchRequest(params: {
     name: string;
@@ -233,6 +235,7 @@ export async function executeForgeCommand(
   const mediaKind = options.mediaKind || CLI_GENERATION_MEDIA_KIND;
   const saveBatchManifest = options.saveBatchManifest ?? mediaKind === 'image';
   parseImageGenerationOptions(parsed, mediaKind);
+  validateVideoAudioOptions(parsed, mediaKind);
   if (command !== 'batch') {
     validateProductionMetadataOptions(parsed);
   }
@@ -352,6 +355,7 @@ async function executeGenerate(
     mediaKind,
   });
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
+  const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
 
   console.log(`Generating "${name}" in space ${ctx.spaceId}...`);
   const audioVoiceOptions = mediaKind === 'audio' ? parseAudioVoiceOptions(parsed) : {};
@@ -366,6 +370,7 @@ async function executeGenerate(
     mediaKind,
     ...audioVoiceOptions,
     ...(musicProvider ? { musicProvider } : {}),
+    ...videoAudioOptions,
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -452,6 +457,7 @@ async function executeRefine(
     mediaKind,
   });
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
+  const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
 
   console.log(`Refining variant ${sourceVariantId}...`);
   const result = await client.sendRefineRequest({
@@ -462,6 +468,7 @@ async function executeRefine(
     aspectRatio: parsed.options.aspect,
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
+    ...videoAudioOptions,
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -520,6 +527,7 @@ async function executeDerive(
     mediaKind,
   });
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
+  const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
 
   console.log(`Deriving "${name}" from ${referenceVariantIds.length} reference(s)...`);
   const result = await client.sendGenerateRequest({
@@ -532,6 +540,7 @@ async function executeDerive(
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
+    ...videoAudioOptions,
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -990,6 +999,29 @@ function parseAudioVoiceOptions(parsed: ParsedArgs): AudioVoiceOptions {
     ...(voiceId ? { voiceId } : {}),
     ...(dialogueVoiceIds ? { dialogueVoiceIds } : {}),
   };
+}
+
+function validateVideoAudioOptions(parsed: ParsedArgs, mediaKind: GenerationMediaKind): void {
+  const hasAudioFlag = parsed.options.audio !== undefined || parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined;
+  if (!hasAudioFlag) return;
+  if (mediaKind !== 'video') {
+    throw new Error('--audio and --no-audio are only supported for video generation');
+  }
+  if (parsed.options.audio !== undefined && (parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined)) {
+    throw new Error('Pass either --audio or --no-audio, not both');
+  }
+}
+
+function parseVideoAudioOptions(
+  parsed: ParsedArgs,
+  mediaKind: GenerationMediaKind
+): { generateAudio?: boolean } {
+  if (mediaKind !== 'video') return {};
+  if (parsed.options.audio !== undefined) return { generateAudio: true };
+  if (parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined) {
+    return { generateAudio: false };
+  }
+  return { generateAudio: false };
 }
 
 function parseDialogueVoiceIds(value: string | undefined): string[] | undefined {

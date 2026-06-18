@@ -27,6 +27,7 @@ export interface GenerateVideoOptions {
   sourceImages?: ImageInput[];
   styleImageCount?: number;
   referenceMode?: VeoReferenceMode;
+  generateAudio?: boolean;
 }
 
 export interface VideoGenerationResult {
@@ -37,6 +38,7 @@ export interface VideoGenerationResult {
   resolution: VideoResolution;
   durationSeconds: VideoDurationSeconds;
   referenceMode: VeoReferenceMode;
+  generateAudio: boolean;
 }
 
 interface GoogleVeoClient {
@@ -50,6 +52,7 @@ interface GoogleVeoClient {
         resolution?: string;
         durationSeconds?: number;
         numberOfVideos?: number;
+        generateAudio?: boolean;
         lastFrame?: VeoImageInput;
         referenceImages?: VideoGenerationReferenceImage[];
       };
@@ -146,12 +149,14 @@ export class GoogleVeoService {
     const durationSeconds = normalizeDuration(options.durationSeconds, sourceImages.length > 0 || resolution !== '720p');
     const styleImageCount = Math.max(0, Math.min(options.styleImageCount ?? 0, sourceImages.length));
     const referenceMode = normalizeVeoReferenceMode(options.referenceMode, sourceImages.length, styleImageCount);
+    const generateAudio = options.generateAudio === true;
 
     const config: {
       aspectRatio: string;
       resolution: string;
       durationSeconds: number;
       numberOfVideos: number;
+      generateAudio: boolean;
       lastFrame?: VeoImageInput;
       referenceImages?: VideoGenerationReferenceImage[];
     } = {
@@ -159,6 +164,7 @@ export class GoogleVeoService {
       resolution,
       durationSeconds,
       numberOfVideos: 1,
+      generateAudio,
     };
 
     const request: Parameters<GoogleVeoClient['models']['generateVideos']>[0] = {
@@ -218,6 +224,7 @@ export class GoogleVeoService {
       resolution,
       durationSeconds,
       referenceMode,
+      generateAudio,
     };
   }
 

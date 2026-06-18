@@ -90,19 +90,19 @@ match effects to on-screen events and to define the ambient bed explicitly —
 starship bridge."[^veo3-audio][^skywork] State what should stay silent, too;
 silence is a choice the model will not make for you.
 
-## The Gemini-Native Audio Path (Target Architecture)
+## Video-Native Audio
 
-The shipped stack treats audio as separate generation steps. The Gemini-native
-architecture collapses some of that:
+The shipped stack supports standalone audio generation and per-request
+Veo-native audio for video clips:
 
 - **Veo native audio.** Veo 3.1 generates synchronized dialogue, sound effects,
   and ambient audio *with* the video, scored simultaneously but separately, so
-  requesting audio does not cost video resolution.[^veo3-audio] The catch is the
-  same as everywhere else: Veo "won't automatically fill in audio — you have to
-  explicitly tell it what sounds you want, who's speaking, and how they
-  speak."[^veo3-audio] A modern Veo prompt therefore carries an audio layer:
-  dialogue in quotes, `SFX:` cues bound to on-screen actions, and an
-  `Ambient noise:` bed (see the [video playbook](./video.md)).
+  requesting audio does not cost video resolution.[^veo3-audio] Make Effects
+  video generation is silent by default; pass `makefx video ... --audio` or
+  enable the web video audio toggle when the clip needs native synchronized
+  audio. A modern Veo prompt should then carry an audio layer: dialogue in
+  quotes, `SFX:` cues bound to on-screen actions, and an `Ambient noise:` bed
+  (see the [video playbook](./video.md)).
 - **Lyria** is Google's dedicated music model, accepting genre/era/tempo/
   instrument/dynamic descriptors and even image- or lyrics-based
   prompts.[^lyria-deepmind] Note version differences before relying on a
@@ -111,11 +111,10 @@ architecture collapses some of that:
   `--provider lyria` or the Forge Tray music provider selector.
 
 The whole stack is designed to chain: Nano Banana makes the keyframes, Veo
-animates and voices them, Lyria scores them — with the same named references and
-descriptive vocabulary threaded through each step.[^gcloud-nb] When the Make
-Effects audio surface adds native Veo audio, the prompting discipline on this
-page carries over unchanged; only the number of separate steps shrinks. Current
-parameters and provider details live in
+animates and optionally voices them, and standalone audio providers add speech,
+dialogue, music, or SFX while Lyria can score music requests — with the same
+named references and descriptive vocabulary threaded through each step.[^gcloud-nb]
+Current parameters and provider details live in
 [model-and-parameter-selection.md](../model-and-parameter-selection.md).
 
 ## Quick Reference
@@ -127,7 +126,7 @@ parameters and provider details live in
 | Music bed or cue | Brief genre + era + tempo + instruments + dynamics; stay consistent |
 | Several music options | `audio music batch --count N` |
 | Effects for video | Describe the sound, tie it to the on-screen action |
-| Future: audio with video in one step | Veo native audio — describe the audio layer in the Veo prompt |
+| Audio with video in one step | `video ... --audio`, then describe the audio layer in the Veo prompt |
 
 ## Sources
 

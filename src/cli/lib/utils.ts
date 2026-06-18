@@ -1,5 +1,10 @@
 import type { ParsedArgs } from './types';
 
+const BOOLEAN_LONG_OPTIONS = new Set([
+  'audio',
+  'no-audio',
+]);
+
 export function parseArgs(argv: string[]): ParsedArgs {
   const options: Record<string, string> = {};
   const positionals: string[] = [];
@@ -35,6 +40,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
     }
 
     const key = token.slice(2);
+    if (BOOLEAN_LONG_OPTIONS.has(key)) {
+      options[key] = 'true';
+      continue;
+    }
+
     const next = argv[i + 1];
     if (next && !next.startsWith('--')) {
       options[key] = next;

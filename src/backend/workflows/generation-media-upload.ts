@@ -52,6 +52,7 @@ export type GeneratedMediaProviderMetadata = {
   resolution?: string;
   durationSeconds?: number;
   referenceMode?: string;
+  generateAudio?: boolean;
   api?: string;
   imageSize?: string;
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
@@ -132,6 +133,7 @@ export async function uploadGeneratedMedia(
           resolution: generationResult.resolution,
           durationSeconds: generationResult.durationSeconds,
           referenceMode: generationResult.referenceMode,
+          generateAudio: generationResult.generateAudio,
           sourceImageCount: refCount,
         },
       };

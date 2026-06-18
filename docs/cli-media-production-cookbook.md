@@ -116,13 +116,15 @@ server is configured for multi-speaker ElevenLabs dialogue.
 ## Video
 
 Use image keyframes as references for video clips. Add production metadata when
-the clip will be handed to a renderer:
+the clip will be handed to a renderer. Video generation is silent by default;
+pass `--audio` for clips that should include Veo-native synchronized audio.
 
 ```bash
 makefx video derive \
   --refs KEYFRAME_VARIANT_ID \
   --name "Episode 01 Shot 001" \
   --type animation \
+  --no-audio \
   --production-id episode-01 \
   --shot-id shot-001 \
   --scene-label "Market" \
@@ -133,6 +135,7 @@ makefx video derive \
 
 makefx video refine \
   --variant VIDEO_VARIANT_ID \
+  --audio \
   --production-id episode-01 \
   --shot-id shot-001b \
   --scene-label "Market" \

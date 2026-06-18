@@ -225,6 +225,7 @@ export class GenerationController extends BaseController {
         voiceId: msg.voiceId,
         dialogueVoiceIds: msg.dialogueVoiceIds,
         musicProvider: msg.musicProvider,
+        generateAudio: msg.generateAudio,
       },
       meta
     );
@@ -307,6 +308,7 @@ export class GenerationController extends BaseController {
         voiceId: msg.voiceId,
         dialogueVoiceIds: msg.dialogueVoiceIds,
         musicProvider: msg.musicProvider,
+        generateAudio: msg.generateAudio,
       },
       meta
     );
@@ -510,6 +512,7 @@ export class GenerationController extends BaseController {
       parentVariantIds: recipe.parentVariantIds,
       styleImageKeys: recipe.styleImageKeys,
       veoReferenceMode: recipe.veoReferenceMode,
+      generateAudio: recipe.generateAudio,
       operation: recipe.operation,
       modelProvider: recipe.modelProvider,
       voiceId: recipe.voiceId,

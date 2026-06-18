@@ -106,6 +106,7 @@ interface GenerateRequestMessage {
   voiceId?: string;
   dialogueVoiceIds?: string[];
   musicProvider?: MusicGenerationProvider;
+  generateAudio?: boolean;
 }
 
 interface RefineRequestMessage {
@@ -124,6 +125,7 @@ interface RefineRequestMessage {
   voiceId?: string;
   dialogueVoiceIds?: string[];
   musicProvider?: MusicGenerationProvider;
+  generateAudio?: boolean;
 }
 
 interface BatchRequestMessage {
@@ -1659,6 +1661,7 @@ export class WebSocketClient {
     voiceId?: string;
     dialogueVoiceIds?: string[];
     musicProvider?: MusicGenerationProvider;
+    generateAudio?: boolean;
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
@@ -1708,6 +1711,7 @@ export class WebSocketClient {
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,
         musicProvider: params.musicProvider,
+        generateAudio: params.generateAudio,
       };
 
       try {
@@ -1736,6 +1740,7 @@ export class WebSocketClient {
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
+    generateAudio?: boolean;
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
@@ -1783,6 +1788,7 @@ export class WebSocketClient {
         mediaKind: params.mediaKind,
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,
+        generateAudio: params.generateAudio,
       };
 
       try {

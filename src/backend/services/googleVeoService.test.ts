@@ -58,7 +58,24 @@ describe('GoogleVeoService', () => {
       resolution: '720p',
       durationSeconds: 8,
       numberOfVideos: 1,
+      generateAudio: false,
     });
+  });
+
+  test('passes Veo native audio opt-in through request config and result metadata', async () => {
+    const { client, generateVideos } = createClient({});
+    const service = new GoogleVeoService('test-key', client);
+
+    const result = await service.generate({
+      prompt: 'busy marketplace with synchronized ambience',
+      generateAudio: true,
+    });
+
+    assert.equal(result.generateAudio, true);
+    const request = generateVideos.mock.calls[0].arguments[0] as {
+      config: { generateAudio?: boolean };
+    };
+    assert.equal(request.config.generateAudio, true);
   });
 
   test('uses top-level image input for one unstyled source image', async () => {

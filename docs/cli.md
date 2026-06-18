@@ -451,10 +451,12 @@ authenticated variant media endpoint.
 makefx video generate "A looping idle animation" \
   --name "Idle Animation" \
   --type animation \
+  --no-audio \
   -o video/idle.mp4
 
 makefx video refine \
   --variant VIDEO_VARIANT_ID \
+  --audio \
   "make the motion snappier" \
   -o video/idle-snappy.mp4
 
@@ -462,6 +464,7 @@ makefx video derive \
   --refs IMAGE_VARIANT_ID,VIDEO_VARIANT_ID \
   --name "Attack Animation" \
   --type animation \
+  --audio \
   "animate the pose into a short attack" \
   -o video/attack.mp4
 ```
@@ -470,6 +473,11 @@ makefx video derive \
 variant IDs, and local image paths. Local paths are uploaded first as reference
 image assets. Video batch generation is not exposed because website batch jobs
 reject `mediaKind: "video"`.
+
+Video output is silent by default. Pass `--audio` to request Veo native
+synchronized dialogue, SFX, score, or ambience for that request; pass
+`--no-audio` to make a silent request explicit. The choice is stored in the
+variant recipe as `generateAudio` and is preserved when retrying the variant.
 
 ## Run Manifests
 

@@ -99,6 +99,7 @@ export function useForgeOperations({
       voiceId,
       dialogueVoiceIds,
       musicProvider,
+      generateAudio,
     } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
@@ -157,6 +158,7 @@ export function useForgeOperations({
         voiceId,
         dialogueVoiceIds,
         musicProvider,
+        generateAudio,
       });
     } else {
       // Create new asset (generate, create, or combine)
@@ -175,6 +177,7 @@ export function useForgeOperations({
         voiceId,
         dialogueVoiceIds,
         musicProvider,
+        generateAudio,
       });
     }
   }, [sendGenerateRequest, sendRefineRequest, forkAsset, sendBatchRequest]);
