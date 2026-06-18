@@ -13,7 +13,7 @@ Parameters:
   key-id                 Identifier embedded in JWT header (kid).
   issuer                 Optional issuer URL (defaults to https://makefx.app for production, https://makefx-stage.krasnoperov.me otherwise).
   audience               Optional audience claim (defaults to forgetray-api).
-  allowed-client-ids     Optional JSON array string of allowed client IDs (defaults to ["forgetray-cli"]).
+  allowed-client-ids     Optional JSON array string of allowed client IDs (defaults to ["makefx-cli"]).
 USAGE
   exit 1
 fi
@@ -24,7 +24,7 @@ PUBLIC_KEY_PATH="$3"
 KEY_ID="$4"
 ISSUER="${5:-}"
 AUDIENCE="${6:-forgetray-api}"
-ALLOWED_CLIENT_IDS="${7:-[\"forgetray-cli\"]}"
+ALLOWED_CLIENT_IDS="${7:-[\"makefx-cli\"]}"
 
 if [[ ! -f "$PRIVATE_KEY_PATH" ]]; then
   echo "Private key file not found: $PRIVATE_KEY_PATH" >&2

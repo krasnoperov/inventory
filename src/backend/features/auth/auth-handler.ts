@@ -300,7 +300,7 @@ export class AuthHandler {
   private getClientName(clientId: string): string {
     // Map client IDs to friendly names
     const clientNames: Record<string, string> = {
-      'forgetray-cli': 'Make Effects CLI',
+      'makefx-cli': 'Make Effects CLI',
       'claude-desktop': 'Claude Desktop',
     };
     return clientNames[clientId] || clientId;

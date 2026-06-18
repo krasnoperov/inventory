@@ -63,7 +63,7 @@ function storedConfig(): StoredConfig {
   return {
     environment: 'stage',
     baseUrl: 'https://inventory.example.test',
-    clientId: 'forgetray-cli',
+    clientId: 'makefx-cli',
     token: {
       accessToken: 'token-1',
       issuedAt: Date.now(),
