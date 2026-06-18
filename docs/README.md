@@ -2,6 +2,18 @@
 
 Technical documentation for Make Effects.
 
+## Playbooks
+
+Reference-backed guidance for getting good results — characters, styles, scenes,
+and consistency across images, video, and audio.
+
+| Playbook | Description |
+|----------|-------------|
+| [playbooks/README.md](./playbooks/README.md) | Index and shared principles |
+| [playbooks/images.md](./playbooks/images.md) | Personages, style references, scenes, composition, editing, consistency |
+| [playbooks/video.md](./playbooks/video.md) | Keyframes-first workflow, references, cinematography prompts, handoff |
+| [playbooks/audio.md](./playbooks/audio.md) | Speech, dialogue, music, SFX; the Gemini-native audio path |
+
 ## Guides
 
 | Document | Description |
