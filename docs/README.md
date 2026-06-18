@@ -1,6 +1,6 @@
 # Documentation
 
-Technical documentation for Inventory Forge.
+Technical documentation for Make Effects.
 
 ## Guides
 

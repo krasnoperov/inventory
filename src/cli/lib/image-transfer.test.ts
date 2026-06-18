@@ -20,7 +20,7 @@ test('downloadImage refuses to overwrite without force', async () => {
   try {
     await assert.rejects(
       () => downloadImage({
-        baseUrl: 'https://inventory-stage.example.test',
+        baseUrl: 'https://makefx-stage.example.test',
         imageKey: 'images/space/out.png',
         outputPath,
       }),
@@ -58,7 +58,7 @@ test('uploadLocalImageAsReference sends image media kind', async () => {
 
   try {
     await uploadLocalImageAsReference({
-      baseUrl: 'https://inventory-stage.example.test',
+      baseUrl: 'https://makefx-stage.example.test',
       accessToken: 'token',
       spaceId: 'space-1',
       filePath,

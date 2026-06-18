@@ -5,7 +5,7 @@
 # Loaded by @cloudflare/vite-plugin via `pnpm dev`.
 
 account_id = "2d61278ad8b69df60cde602758926e14"
-name = "inventory-local"
+name = "makefx-local"
 main = "src/worker/unified.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
@@ -26,14 +26,14 @@ run_worker_first = ["/*"]
 # D1 Database binding - LOCAL (uses persistent SQLite file in .wrangler/state/v3/d1/)
 [[d1_databases]]
 binding = "DB"
-database_name = "inventory-local"
+database_name = "makefx-local"
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "db/migrations"
 
 # KV namespace for OAuth state
 [[kv_namespaces]]
 binding = "OAUTH_KV"
-id = "08f7fd3b25ac4cc59ad9e2975d510df3"
+id = "b5666003e8934366a93be6e62260f495"
 
 # Environment variables for local dev
 [vars]
@@ -55,10 +55,10 @@ new_sqlite_classes = ["SpaceDO"]
 # Cloudflare Workflows - Generation (local)
 [[workflows]]
 binding = "GENERATION_WORKFLOW"
-name = "inventory-generation-workflow-local"
+name = "makefx-generation-workflow-local"
 class_name = "GenerationWorkflow"
 
 # R2 Storage for generated images (local uses miniflare's R2 simulation)
 [[r2_buckets]]
 binding = "IMAGES"
-bucket_name = "inventory-images-local"
+bucket_name = "makefx-media-local"

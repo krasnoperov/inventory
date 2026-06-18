@@ -356,7 +356,7 @@ export default function SpacePage() {
     return (
       <div className={styles.page}>
         <WorkspaceChrome
-          leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
+          leftSlot={<Link to="/" className={styles.brand}>Make Effects</Link>}
           rightSlot={headerRightSlot}
           statusSlot={<UsageIndicator />}
         />
@@ -371,7 +371,7 @@ export default function SpacePage() {
     return (
       <div className={styles.page}>
         <WorkspaceChrome
-          leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
+          leftSlot={<Link to="/" className={styles.brand}>Make Effects</Link>}
           rightSlot={headerRightSlot}
           statusSlot={<UsageIndicator />}
         />
@@ -391,7 +391,7 @@ export default function SpacePage() {
   return (
     <div className={styles.page}>
       <WorkspaceChrome
-        leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
+        leftSlot={<Link to="/" className={styles.brand}>Make Effects</Link>}
         rightSlot={headerRightSlot}
         statusSlot={<UsageIndicator />}
       />

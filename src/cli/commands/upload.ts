@@ -2,9 +2,9 @@
  * Upload Command - Upload media to create variants
  *
  * Usage:
- *   pnpm run cli upload <file> --space <id> --asset <id>     Upload to existing asset
- *   pnpm run cli upload <file> --space <id> --name <name>    Create new asset
- *   pnpm run cli upload <file> --space <id> --name <name> --type <type>
+ *   makefx upload <file> --space <id> --asset <id>     Upload to existing asset
+ *   makefx upload <file> --space <id> --name <name>    Create new asset
+ *   makefx upload <file> --space <id> --name <name> --type <type>
  */
 
 import { readFile, stat } from 'node:fs/promises';
@@ -107,7 +107,7 @@ export async function executeUpload(
   }
 
   if (!spaceId) {
-    throw new UploadUsageError('--space is required, or run: pnpm run cli init --space <id>');
+    throw new UploadUsageError('--space is required, or run: makefx init --space <id>');
   }
 
   if (!assetId && !assetName) {
@@ -227,7 +227,7 @@ export async function executeUpload(
     }
 
     deps.print('\nTo inspect:');
-    deps.print(`  pnpm run cli assets show ${upload.variant.asset_id} --space ${spaceId}`);
+    deps.print(`  makefx assets show ${upload.variant.asset_id} --space ${spaceId}`);
 
     return { asset: upload.asset, variant: upload.variant };
 
@@ -268,8 +268,8 @@ function resolveMediaType(ext: string, requestedMediaKind?: string): MediaType {
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli upload <file> --asset <id> [--space <id>]     Upload media to existing asset
-  pnpm run cli upload <file> --name <name> [--space <id>]    Create new asset
+  makefx upload <file> --asset <id> [--space <id>]     Upload media to existing asset
+  makefx upload <file> --name <name> [--space <id>]    Create new asset
 
 Options:
   --space <id>      Target space ID; defaults from initialized project
@@ -282,10 +282,10 @@ Options:
   --local           Shortcut for --env local
 
 Examples:
-  pnpm run cli upload hero.png --space abc123 --name "Hero Character"
-  pnpm run cli upload theme.mp3 --space abc123 --name "Theme Music" --type audio
-  pnpm run cli upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
-  pnpm run cli upload variant.jpg --space abc123 --asset def456
-  pnpm run cli upload sword.png --space abc123 --name "Sword" --type item --parent abc789
+  makefx upload hero.png --space abc123 --name "Hero Character"
+  makefx upload theme.mp3 --space abc123 --name "Theme Music" --type audio
+  makefx upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
+  makefx upload variant.jpg --space abc123 --asset def456
+  makefx upload sword.png --space abc123 --name "Sword" --type item --parent abc789
 `);
 }

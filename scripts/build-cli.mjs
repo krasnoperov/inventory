@@ -8,7 +8,7 @@ import { build } from 'vite';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
-const outputFile = resolve(root, 'dist/cli/inventory.mjs');
+const outputFile = resolve(root, 'dist/cli/makefx.mjs');
 
 function getGitSha() {
   try {
@@ -56,7 +56,7 @@ await build({
       external: (id) => nodeBuiltins.has(id),
       input: resolve(root, 'src/cli/index.ts'),
       output: {
-        entryFileNames: 'inventory.mjs',
+        entryFileNames: 'makefx.mjs',
         format: 'es',
       },
     },

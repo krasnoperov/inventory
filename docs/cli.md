@@ -1,6 +1,6 @@
-# Inventory CLI
+# Make Effects CLI
 
-Command-line interface for the Inventory Forge platform. Provides space
+Command-line interface for the Make Effects platform. Provides space
 management, website asset inspection, real-time event monitoring, media
 uploading, Forge generation control, and billing management.
 
@@ -10,43 +10,43 @@ Build the distributable CLI first:
 
 ```bash
 pnpm run build:cli
-dist/cli/inventory.mjs --version
+dist/cli/makefx.mjs --version
 ```
 
 ```bash
 # 1. Login first (if not already)
-pnpm run cli login
+makefx login
 
 # 2. Create or list spaces
-pnpm run cli spaces                          # List all spaces
-pnpm run cli spaces create "My Game Assets" --init  # Create new space and bind this directory
+makefx spaces                          # List all spaces
+makefx spaces create "My Game Assets" --init  # Create new space and bind this directory
 
 # 3. Bind this directory to a website space
-pnpm run cli init --space YOUR_SPACE_ID
+makefx init --space YOUR_SPACE_ID
 
 # 4. Listen to real-time events (in a separate terminal)
-pnpm run cli listen --space YOUR_SPACE_ID
+makefx listen --space YOUR_SPACE_ID
 
 # 5. Upload image, audio, or video to create a new asset
-pnpm run cli upload hero.png --space YOUR_SPACE_ID --name "Hero Character"
-pnpm run cli upload theme.mp3 --space YOUR_SPACE_ID --name "Theme Music" --type audio
-pnpm run cli upload cutscene.mp4 --space YOUR_SPACE_ID --name "Cutscene" --type video
+makefx upload hero.png --space YOUR_SPACE_ID --name "Hero Character"
+makefx upload theme.mp3 --space YOUR_SPACE_ID --name "Theme Music" --type audio
+makefx upload cutscene.mp4 --space YOUR_SPACE_ID --name "Cutscene" --type video
 
 # 6. Upload a variant to an existing asset
-pnpm run cli upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
+makefx upload variant.jpg --space YOUR_SPACE_ID --asset ASSET_ID
 
 # 7. Generate through the website and download the completed image
-pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
+makefx generate "A market background" --name "Market" --type scene -o market.png
 
 # 8. Generate audio through website jobs and download the completed file
-pnpm run cli audio sfx generate "A short brass victory sting" --name "Victory Sting" -o audio/victory.wav
+makefx audio sfx generate "A short brass victory sting" --name "Victory Sting" -o audio/victory.wav
 
 # 9. Generate video through website jobs and download the completed file
-pnpm run cli video generate "A looping idle animation" --name "Idle Animation" --type animation -o video/idle.mp4
+makefx video generate "A looping idle animation" --name "Idle Animation" --type animation -o video/idle.mp4
 
 # 10. Inspect website assets and download an existing variant's media
-pnpm run cli assets
-pnpm run cli assets download VARIANT_ID -o references/variant.png
+makefx assets
+makefx assets download VARIANT_ID -o references/variant.png
 ```
 
 ## Commands Overview
@@ -78,7 +78,7 @@ pnpm run cli assets download VARIANT_ID -o references/variant.png
 Bind a filesystem workspace to a website space:
 
 ```bash
-pnpm run cli init --space <space_id> [--env production|stage|local] [--json]
+makefx init --space <space_id> [--env production|stage|local] [--json]
 ```
 
 This writes `.inventory/config.json` with only the target environment and space
@@ -100,16 +100,16 @@ Manage your spaces (workspaces for organizing assets).
 ### List Spaces
 
 ```bash
-pnpm run cli spaces                    # Simple list
-pnpm run cli spaces --details          # With asset counts
-pnpm run cli spaces --id <space_id>    # Details for specific space
+makefx spaces                    # Simple list
+makefx spaces --details          # With asset counts
+makefx spaces --id <space_id>    # Details for specific space
 ```
 
 ### Create Space
 
 ```bash
-pnpm run cli spaces create "My Space Name"
-pnpm run cli spaces create --name "My Space Name"
+makefx spaces create "My Space Name"
+makefx spaces create --name "My Space Name"
 ```
 
 ---
@@ -119,10 +119,10 @@ pnpm run cli spaces create --name "My Space Name"
 Inspect the website-backed asset graph for the initialized project space:
 
 ```bash
-pnpm run cli assets
-pnpm run cli assets --json
-pnpm run cli assets show ASSET_ID
-pnpm run cli assets show ASSET_ID --json
+makefx assets
+makefx assets --json
+makefx assets show ASSET_ID
+makefx assets show ASSET_ID --json
 ```
 
 Asset inspection displays each asset's `media_kind`; `assets show` also displays
@@ -132,9 +132,9 @@ Space state.
 Download an existing completed variant or legacy image key to a local file:
 
 ```bash
-pnpm run cli assets download VARIANT_ID -o references/variant.png
-pnpm run cli assets download images/space/variant.png -o references/variant.png
-pnpm run cli assets download VARIANT_ID -o audio/theme.mp3
+makefx assets download VARIANT_ID -o references/variant.png
+makefx assets download images/space/variant.png -o references/variant.png
+makefx assets download VARIANT_ID -o audio/theme.mp3
 ```
 
 Generic `media/...` artifacts must be downloaded by variant ID so the website
@@ -154,16 +154,16 @@ confirm it, and exits.
 
 ```bash
 # Asset-level operations
-pnpm run cli assets delete ASSET_ID                 # delete an asset and its variants
-pnpm run cli assets rename ASSET_ID "New Name"      # rename an asset
-pnpm run cli assets set-active ASSET_ID VARIANT_ID  # choose the active variant
+makefx assets delete ASSET_ID                 # delete an asset and its variants
+makefx assets rename ASSET_ID "New Name"      # rename an asset
+makefx assets set-active ASSET_ID VARIANT_ID  # choose the active variant
 
 # Variant-level operations
-pnpm run cli variants delete VARIANT_ID             # delete a single variant
-pnpm run cli variants retry VARIANT_ID              # retry a failed variant generation
-pnpm run cli variants star VARIANT_ID               # star (curation)
-pnpm run cli variants unstar VARIANT_ID             # unstar
-pnpm run cli variants rate VARIANT_ID approved      # rate approved | rejected
+makefx variants delete VARIANT_ID             # delete a single variant
+makefx variants retry VARIANT_ID              # retry a failed variant generation
+makefx variants star VARIANT_ID               # star (curation)
+makefx variants unstar VARIANT_ID             # unstar
+makefx variants rate VARIANT_ID approved      # rate approved | rejected
 ```
 
 Notes:
@@ -184,8 +184,8 @@ Notes:
 Connect to a space's WebSocket and stream all events in real-time. Useful for debugging, monitoring, and understanding the event flow.
 
 ```bash
-pnpm run cli listen --space <space_id>           # Pretty-printed output
-pnpm run cli listen --space <space_id> --json    # Raw JSON (for piping)
+makefx listen --space <space_id>           # Pretty-printed output
+makefx listen --space <space_id> --json    # Raw JSON (for piping)
 ```
 
 **Example output:**
@@ -228,13 +228,13 @@ existing assets.
 ### Create New Asset
 
 ```bash
-pnpm run cli upload <file> --name <name> [--space <id>] [options]
+makefx upload <file> --name <name> [--space <id>] [options]
 ```
 
 ### Add Variant to Existing Asset
 
 ```bash
-pnpm run cli upload <file> --asset <id> [--space <id>]
+makefx upload <file> --asset <id> [--space <id>]
 ```
 
 **Arguments:**
@@ -259,20 +259,20 @@ pnpm run cli upload <file> --asset <id> [--space <id>]
 **Examples:**
 ```bash
 # Create a new character asset from an image
-pnpm run cli upload hero.png --space abc123 --name "Hero Character"
+makefx upload hero.png --space abc123 --name "Hero Character"
 
 # Create with specific type and parent
-pnpm run cli upload sword.png --space abc123 --name "Sword" --type item --parent abc789
+makefx upload sword.png --space abc123 --name "Sword" --type item --parent abc789
 
 # Add a variant to an existing asset
-pnpm run cli upload variant.jpg --space abc123 --asset def456
+makefx upload variant.jpg --space abc123 --asset def456
 
 # Upload audio and video assets
-pnpm run cli upload theme.mp3 --space abc123 --name "Theme Music" --type audio
-pnpm run cli upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
+makefx upload theme.mp3 --space abc123 --name "Theme Music" --type audio
+makefx upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
 
 # Upload against local dev server
-pnpm run cli upload hero.png --space abc123 --name "Hero" --local
+makefx upload hero.png --space abc123 --name "Hero" --local
 ```
 
 ---
@@ -287,24 +287,24 @@ image-only and send `mediaKind: "image"`. Video commands live under the
 explicit `video` namespace.
 
 ```bash
-pnpm run cli generate "A watercolor background of Russafa market" \
+makefx generate "A watercolor background of Russafa market" \
   --name "Russafa Market Background" \
   --type scene \
   -o backgrounds/russafa-market.png
 
-pnpm run cli refine \
+makefx refine \
   --variant VARIANT_ID \
   "make it evening, warmer lights" \
   -o backgrounds/russafa-market-evening.png
 
-pnpm run cli derive \
+makefx derive \
   --refs ./lucia.png,VARIANT_BACKGROUND_ID \
   --name "Lucia in Market Scene" \
   --type scene \
   "Use image 1 as the character and image 2 as the background" \
   -o keyframes/lucia-market-001.png
 
-pnpm run cli batch "Three cinematic keyframes in Russafa market" \
+makefx batch "Three cinematic keyframes in Russafa market" \
   --name "Russafa Market Keyframe" \
   --type scene \
   --count 3 \
@@ -335,20 +335,20 @@ Canonical audio commands make the Forge Tray mode explicit: `speech`,
 and `mediaKind: "audio"`.
 
 ```bash
-pnpm run cli audio speech generate "Podcast narration for the level intro" \
+makefx audio speech generate "Podcast narration for the level intro" \
   --name "Intro Narration" \
   -o audio/intro-narration.wav
 
-pnpm run cli audio dialogue generate --input scripts/blacksmith-dialogue.txt \
+makefx audio dialogue generate --input scripts/blacksmith-dialogue.txt \
   --name "Blacksmith Dialogue" \
   -o audio/blacksmith-dialogue.wav
 
-pnpm run cli audio music batch "Three 20 second low-intensity dungeon music beds" \
+makefx audio music batch "Three 20 second low-intensity dungeon music beds" \
   --name "Dungeon Bed" \
   --count 3 \
   --output-dir audio/dungeon-beds
 
-pnpm run cli audio sfx generate "A crisp inventory item pickup sound effect" \
+makefx audio sfx generate "A crisp inventory item pickup sound effect" \
   --name "Item Pickup" \
   -o audio/item-pickup.wav
 ```
@@ -369,17 +369,17 @@ GenerationWorkflow job lifecycle as image and audio generation. They send
 authenticated variant media endpoint.
 
 ```bash
-pnpm run cli video generate "A looping idle animation" \
+makefx video generate "A looping idle animation" \
   --name "Idle Animation" \
   --type animation \
   -o video/idle.mp4
 
-pnpm run cli video refine \
+makefx video refine \
   --variant VIDEO_VARIANT_ID \
   "make the motion snappier" \
   -o video/idle-snappy.mp4
 
-pnpm run cli video derive \
+makefx video derive \
   --refs IMAGE_VARIANT_ID,VIDEO_VARIANT_ID \
   --name "Attack Animation" \
   --type animation \
@@ -395,11 +395,11 @@ reject `mediaKind: "video"`.
 ## Run Manifests
 
 ```bash
-pnpm run cli runs --debug
-pnpm run cli runs show --latest --debug
-pnpm run cli runs show RUN_ID --debug --json
-pnpm run cli runs export --latest --debug --format media -o media-run.json
-pnpm run cli runs export --latest --debug --format remotion -o keyframes.json
+makefx runs --debug
+makefx runs show --latest --debug
+makefx runs show RUN_ID --debug --json
+makefx runs export --latest --debug --format media -o media-run.json
+makefx runs export --latest --debug --format remotion -o keyframes.json
 ```
 
 `runs` reads local `.inventory/runs` manifests from the initialized project root
@@ -421,16 +421,16 @@ commands include `--production-id`, `--scene-label`, and
 production timeline. Use `productions place` to place an existing variant.
 
 ```bash
-pnpm run cli productions list --production-id s01e01-a2
-pnpm run cli productions place \
+makefx productions list --production-id s01e01-a2
+makefx productions place \
   --production-id s01e01-a2 \
   --variant VARIANT_ID \
   --scene-label "Cocina" \
   --timeline-start-ms 0
-pnpm run cli productions export --production-id s01e01-a2 -o scenes.args
-pnpm run cli productions export --production-id s01e01-a2 --json -o scenes.json
-pnpm run cli productions export --production-id s01e01-a2 --media-dir handoff/media -o scenes.args
-pnpm run cli productions delete RECORD_ID
+makefx productions export --production-id s01e01-a2 -o scenes.args
+makefx productions export --production-id s01e01-a2 --json -o scenes.json
+makefx productions export --production-id s01e01-a2 --media-dir handoff/media -o scenes.args
+makefx productions delete RECORD_ID
 ```
 
 `productions export` reads the Space records, downloads image and video media
@@ -448,8 +448,8 @@ See [cli-generation.md](./cli-generation.md) for the full command reference.
 View billing sync status and manage usage.
 
 ```bash
-pnpm run cli billing status
-pnpm run cli billing check
+makefx billing status
+makefx billing check
 ```
 
 ---
@@ -459,11 +459,11 @@ pnpm run cli billing check
 ### "Not logged in" Error
 
 ```bash
-pnpm run cli login
+makefx login
 ```
 
 ### "Token expired" Error
 
 ```bash
-pnpm run cli login
+makefx login
 ```

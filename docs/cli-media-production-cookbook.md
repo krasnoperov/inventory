@@ -1,7 +1,7 @@
 # CLI Media Production Cookbook
 
 This cookbook shows an end-to-end production loop for agents or operators using
-Inventory CLI as the control surface for website-backed media generation. The
+Make Effects CLI as the control surface for website-backed media generation. The
 website remains the source of truth for spaces, assets, variants, lineage,
 recipes, billing, and production placement records. Local downloaded files are
 handoff artifacts. `.inventory/runs/*.json` files are debug-only traces and are
@@ -13,8 +13,8 @@ Build the CLI, authenticate, and bind the current project directory to a space:
 
 ```bash
 pnpm run build:cli
-pnpm run cli login
-pnpm run cli spaces create "Episode 01 Media" --init
+makefx login
+makefx spaces create "Episode 01 Media" --init
 ```
 
 For local provider-free verification, use:
@@ -40,9 +40,9 @@ Use this loop for every media kind:
 Useful read-side commands:
 
 ```bash
-pnpm run cli assets
-pnpm run cli assets show ASSET_ID --json
-pnpm run cli assets download VARIANT_ID -o references/source.png
+makefx assets
+makefx assets show ASSET_ID --json
+makefx assets download VARIANT_ID -o references/source.png
 ```
 
 ## Images
@@ -51,18 +51,18 @@ Create a concept image, refine it, then derive a shot keyframe from website
 variant references:
 
 ```bash
-pnpm run cli generate \
+makefx generate \
   "A painterly town market background, warm morning light" \
   --name "Market Background" \
   --type scene \
   -o images/market-background.png
 
-pnpm run cli refine \
+makefx refine \
   --variant BACKGROUND_VARIANT_ID \
   "Add shop signs, more foreground depth, keep the same camera angle" \
   -o images/market-background-v2.png
 
-pnpm run cli derive \
+makefx derive \
   --refs CHARACTER_VARIANT_ID,BACKGROUND_VARIANT_ID \
   --name "Hero Market Keyframe" \
   --type scene \
@@ -73,7 +73,7 @@ pnpm run cli derive \
 Use `batch` when the next step needs several candidate images:
 
 ```bash
-pnpm run cli batch \
+makefx batch \
   "Four visual explorations for a rainy alley establishing shot" \
   --name "Rainy Alley Keyframe" \
   --type scene \
@@ -88,23 +88,23 @@ Audio commands use explicit modes. Use `speech` for narration, `dialogue` for
 multi-speaker scripts, `music` for beds or cues, and `sfx` for sound effects:
 
 ```bash
-pnpm run cli audio speech generate \
+makefx audio speech generate \
   "A calm host intro: Welcome back to the forge." \
   --name "Episode Intro Narration" \
   -o audio/intro.wav
 
-pnpm run cli audio dialogue generate \
+makefx audio dialogue generate \
   --input scripts/scene-dialogue.txt \
   --name "Blacksmith Dialogue" \
   -o audio/blacksmith-dialogue.wav
 
-pnpm run cli audio music batch \
+makefx audio music batch \
   "Three 20 second low-intensity fantasy workshop music beds" \
   --name "Workshop Music Bed" \
   --count 3 \
   --output-dir audio/music-beds
 
-pnpm run cli audio sfx generate \
+makefx audio sfx generate \
   "A crisp inventory item pickup sound effect" \
   --name "Item Pickup SFX" \
   -o audio/item-pickup.wav
@@ -119,7 +119,7 @@ Use image keyframes as references for video clips. Add production metadata when
 the clip will be handed to a renderer:
 
 ```bash
-pnpm run cli video derive \
+makefx video derive \
   --refs KEYFRAME_VARIANT_ID \
   --name "Episode 01 Shot 001" \
   --type animation \
@@ -131,7 +131,7 @@ pnpm run cli video derive \
   "Slow dolly-in, subtle crowd movement, keep the hero centered" \
   -o video/episode-01/shot-001.mp4
 
-pnpm run cli video refine \
+makefx video refine \
   --variant VIDEO_VARIANT_ID \
   --production-id episode-01 \
   --shot-id shot-001b \
@@ -141,7 +141,7 @@ pnpm run cli video refine \
   "Make the camera movement smoother and reduce background motion" \
   -o video/episode-01/shot-001b.mp4
 
-pnpm run cli productions export \
+makefx productions export \
   --production-id episode-01 \
   -o handoff/episode-01.scenes.args
 ```
@@ -157,23 +157,23 @@ Podcast production uses the same audio primitives plus optional image and video
 assets for cover art or social clips:
 
 ```bash
-pnpm run cli generate \
+makefx generate \
   "Square cover art for a game development podcast, clean readable shapes" \
   --name "Podcast Cover Art" \
   --type scene \
   -o podcast/cover.png
 
-pnpm run cli audio speech generate \
+makefx audio speech generate \
   --input scripts/podcast-intro.txt \
   --name "Podcast Intro" \
   -o podcast/intro.wav
 
-pnpm run cli audio dialogue generate \
+makefx audio dialogue generate \
   --input scripts/podcast-conversation.txt \
   --name "Podcast Conversation" \
   -o podcast/conversation.wav
 
-pnpm run cli audio music generate \
+makefx audio music generate \
   "A 12 second upbeat synth podcast sting, no vocals" \
   --name "Podcast Sting" \
   -o podcast/sting.wav
@@ -183,7 +183,7 @@ For a social promo, derive a video from the cover or a generated keyframe and
 export it with production metadata:
 
 ```bash
-pnpm run cli video derive \
+makefx video derive \
   --refs COVER_VARIANT_ID \
   --name "Podcast Social Promo" \
   --type animation \
@@ -195,7 +195,7 @@ pnpm run cli video derive \
   "Animate the cover with subtle parallax and a clean title reveal" \
   -o podcast/social-promo.mp4
 
-pnpm run cli productions export \
+makefx productions export \
   --production-id podcast-episode-01 \
   -o podcast/social-promo.scenes.args
 ```
@@ -208,6 +208,6 @@ pnpm run cli productions export \
   visible reference assets first.
 - Use `--force` only when replacing local downloads intentionally.
 - Export `productions` records for timed image or video scene assembly.
-- Use `pnpm run cli runs --debug` only when troubleshooting local CLI downloads
+- Use `makefx runs --debug` only when troubleshooting local CLI downloads
   or provider-free e2e behavior. Do not feed `.inventory/runs` into production
   assembly.

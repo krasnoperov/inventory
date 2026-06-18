@@ -2,8 +2,8 @@
  * Listen Command - Connect to space WebSocket and stream all events
  *
  * Usage:
- *   pnpm run cli listen --space <id>           Listen to space events
- *   pnpm run cli listen --space <id> --json    Output raw JSON
+ *   makefx listen --space <id>           Listen to space events
+ *   makefx listen --space <id> --json    Output raw JSON
  *
  * Log format (aligned with watch.ts):
  *   [HH:MM:SS.mmm] event_type
@@ -100,8 +100,8 @@ export async function handleListen(parsed: ParsedArgs): Promise<void> {
   const statusLog = jsonOutput ? console.error : console.log;
 
   if (!spaceId) {
-    console.error('Error: --space <id> is required, or run: pnpm run cli init --space <id>');
-    console.error('Usage: pnpm run cli listen --space <space_id>');
+    console.error('Error: --space <id> is required, or run: makefx init --space <id>');
+    console.error('Usage: makefx listen --space <space_id>');
     process.exitCode = 1;
     return;
   }

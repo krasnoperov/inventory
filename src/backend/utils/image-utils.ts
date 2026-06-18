@@ -166,7 +166,7 @@ const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailOptions = {
  * Falls back to original image on local development.
  *
  * @param imageKey - R2 key of the source image (must already be uploaded)
- * @param baseUrl - Base URL for self-fetch (e.g., "https://inventory-stage.krasnoperov.me")
+ * @param baseUrl - Base URL for self-fetch (e.g., "https://makefx-stage.krasnoperov.me")
  * @param env - Cloudflare environment
  * @param options - Thumbnail options
  * @returns Buffer of the thumbnail image
@@ -232,10 +232,10 @@ export async function createThumbnail(
 export function getBaseUrl(env: Env): string {
   switch (env.ENVIRONMENT) {
     case 'production':
-      return 'https://inventory.krasnoperov.me';
+      return 'https://makefx.app';
     case 'stage':
     case 'staging':
-      return 'https://inventory-stage.krasnoperov.me';
+      return 'https://makefx-stage.krasnoperov.me';
     default:
       return 'http://localhost:3001';
   }

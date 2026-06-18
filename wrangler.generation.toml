@@ -1,12 +1,12 @@
 # ============================================================================
-# BARE FRAMEWORK FOUNDATION - Processing Worker Configuration
+# BARE FRAMEWORK FOUNDATION - Generation Worker Configuration
 # ============================================================================
-# Handles workflows
+# Handles generated-media workflows
 # Separated from main worker for better resource isolation
 
 account_id = "2d61278ad8b69df60cde602758926e14"
-name = "inventory-processing-stage"
-main = "src/worker/processing.ts"
+name = "makefx-generation-stage"
+main = "src/worker/generation.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 
@@ -16,20 +16,20 @@ enabled = true
 
 # Stage environment routes
 [[routes]]
-pattern = "inventory-processing-stage.krasnoperov.me"
+pattern = "makefx-generation-stage.krasnoperov.me"
 custom_domain = true
 
 # D1 Database binding (same as main worker)
 [[d1_databases]]
 binding = "DB"
-database_name = "inventory-stage"
-database_id = "6619b429-e8e8-4e93-9f36-b2bdeab78a9a"
+database_name = "makefx-stage"
+database_id = "14827e27-7616-4056-8e77-f8fa37d03835"
 migrations_dir = "db/migrations"
 
 # KV namespace for OAuth state (same as main worker)
 [[kv_namespaces]]
 binding = "OAUTH_KV"
-id = "08f7fd3b25ac4cc59ad9e2975d510df3"
+id = "b5666003e8934366a93be6e62260f495"
 
 # Environment variables for stage
 [vars]
@@ -40,42 +40,42 @@ INVENTORY_AUDIO_PROVIDER = "fake"
 # Cloudflare Workflows - Generation
 [[workflows]]
 binding = "GENERATION_WORKFLOW"
-name = "inventory-generation-workflow-stage"
+name = "makefx-generation-workflow-stage"
 class_name = "GenerationWorkflow"
 
 # Durable Objects - Space state (needed by workflows to broadcast results)
 [[durable_objects.bindings]]
 name = "SPACES_DO"
 class_name = "SpaceDO"
-script_name = "inventory-stage"
+script_name = "makefx-stage"
 
 # R2 Storage for generated images
 [[r2_buckets]]
 binding = "IMAGES"
-bucket_name = "inventory-images-stage"
+bucket_name = "makefx-media-stage"
 
 # ====================
 # PRODUCTION ENVIRONMENT
 # ====================
 [env.production]
-name = "inventory-processing-production"
+name = "makefx-generation-production"
 
 # Production routes
 [[env.production.routes]]
-pattern = "inventory-processing.krasnoperov.me"
+pattern = "generation.makefx.app"
 custom_domain = true
 
 # D1 Database binding - Production (same as main worker)
 [[env.production.d1_databases]]
 binding = "DB"
-database_name = "inventory-production"
-database_id = "16597a9f-efd7-4b61-b62f-8962da51b782"
+database_name = "makefx-production"
+database_id = "35fc45c8-78d1-4fcf-9a18-ce252d2a5dd3"
 migrations_dir = "db/migrations"
 
 # KV namespace for OAuth state - Production (same as main worker)
 [[env.production.kv_namespaces]]
 binding = "OAUTH_KV"
-id = "08f7fd3b25ac4cc59ad9e2975d510df3"
+id = "082128872dd74f8593326990706cd138"
 
 [env.production.vars]
 NODE_ENV = "production"
@@ -87,19 +87,19 @@ INVENTORY_AUDIO_PROVIDER = "elevenlabs"
 # Cloudflare Workflows - Production
 [[env.production.workflows]]
 binding = "GENERATION_WORKFLOW"
-name = "inventory-generation-workflow-production"
+name = "makefx-generation-workflow-production"
 class_name = "GenerationWorkflow"
 
 # Durable Objects - Production (needed by workflows)
 [[env.production.durable_objects.bindings]]
 name = "SPACES_DO"
 class_name = "SpaceDO"
-script_name = "inventory-production"
+script_name = "makefx-production"
 
 # R2 Storage - Production
 [[env.production.r2_buckets]]
 binding = "IMAGES"
-bucket_name = "inventory-images-production"
+bucket_name = "makefx-media-production"
 
 # ====================
 # LOCAL DEVELOPMENT
@@ -109,8 +109,8 @@ port = 8789  # Different port from main worker (8788)
 local_protocol = "http"
 
 # Secrets should be set via wrangler CLI:
-# wrangler secret put GOOGLE_AI_API_KEY --config wrangler.processing.toml
-# wrangler secret put ELEVENLABS_API_KEY --config wrangler.processing.toml
-# wrangler secret put ELEVENLABS_MUSIC_MODEL_ID --config wrangler.processing.toml (optional)
-# wrangler secret put ELEVENLABS_SOUND_EFFECT_MODEL_ID --config wrangler.processing.toml (optional)
+# wrangler secret put GOOGLE_AI_API_KEY --config wrangler.generation.toml
+# wrangler secret put ELEVENLABS_API_KEY --config wrangler.generation.toml
+# wrangler secret put ELEVENLABS_MUSIC_MODEL_ID --config wrangler.generation.toml (optional)
+# wrangler secret put ELEVENLABS_SOUND_EFFECT_MODEL_ID --config wrangler.generation.toml (optional)
 # (Add other secrets as needed for your workflows)

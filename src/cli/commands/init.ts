@@ -37,7 +37,7 @@ export async function executeInit(
   if (parsed.options.json === 'true') {
     console.log(JSON.stringify({ configPath, environment, spaceId }, null, 2));
   } else {
-    console.log('\nInventory project initialized.\n');
+    console.log('\nMake Effects project initialized.\n');
     console.log(`  Config: ${configPath}`);
     console.log(`  Env:    ${environment}`);
     console.log(`  Space:  ${spaceId}`);
@@ -50,7 +50,7 @@ export async function executeInit(
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli init --space <id> [--env production|stage|local]
-  pnpm run cli init --space <id> --json
+  makefx init --space <id> [--env production|stage|local]
+  makefx init --space <id> --json
 `);
 }

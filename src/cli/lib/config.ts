@@ -106,10 +106,10 @@ export function resolveBaseUrl(env: string): string {
 
   switch (env) {
     case 'production':
-      return 'https://inventory.krasnoperov.me';
+      return 'https://makefx.app';
     case 'stage':
     case 'staging':
-      return 'https://inventory-stage.krasnoperov.me';
+      return 'https://makefx-stage.krasnoperov.me';
     case 'local':
       return 'http://localhost:3001';
     default:

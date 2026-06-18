@@ -1,6 +1,6 @@
 # CLI Forge Control
 
-The CLI can drive an existing Inventory space as a ForgeTray controller.
+The CLI can drive an existing Make Effects space as a ForgeTray controller.
 The website remains the source of truth: assets, variants, recipes, lineage, and
 stored media live in the Space Durable Object and R2. The CLI sends requests,
 waits for completion, and downloads local copies of completed media.
@@ -27,7 +27,7 @@ asset type, slot compatibility, batch/style controls, and operation selection.
 Bind a local directory to a website space:
 
 ```bash
-pnpm run cli init --space SPACE_ID
+makefx init --space SPACE_ID
 ```
 
 This writes `.inventory/config.json` with the target environment and space ID.
@@ -44,9 +44,9 @@ Use `--env stage` for staging and `--local` for a local dev server. `init` and
 Use `assets` to inspect the website state that generation commands create:
 
 ```bash
-pnpm run cli assets
-pnpm run cli assets --json
-pnpm run cli assets show ASSET_ID --json
+makefx assets
+makefx assets --json
+makefx assets show ASSET_ID --json
 ```
 
 This is the CLI read side of the ForgeTray control loop. External agents can
@@ -54,7 +54,7 @@ list assets, select image variant IDs for `--refs`, inspect lineage, and
 download a completed variant's media without direct database access:
 
 ```bash
-pnpm run cli assets download VARIANT_ID -o references/variant.png
+makefx assets download VARIANT_ID -o references/variant.png
 ```
 
 The command reads from the website API on demand. It does not scan the local
@@ -65,7 +65,7 @@ workspace and does not mirror website state into a local DB.
 Generate a new asset from text:
 
 ```bash
-pnpm run cli generate "A watercolor background of Russafa market" \
+makefx generate "A watercolor background of Russafa market" \
   --name "Russafa Market Background" \
   --type scene \
   -o backgrounds/russafa-market.png
@@ -74,7 +74,7 @@ pnpm run cli generate "A watercolor background of Russafa market" \
 Refine an existing variant:
 
 ```bash
-pnpm run cli refine \
+makefx refine \
   --variant VARIANT_ID \
   "make it evening, warmer lights" \
   -o backgrounds/russafa-market-evening.png
@@ -83,7 +83,7 @@ pnpm run cli refine \
 Derive a new asset from references:
 
 ```bash
-pnpm run cli derive \
+makefx derive \
   --refs CHARACTER_VARIANT_ID,BACKGROUND_VARIANT_ID \
   --name "Lucia in Market Scene" \
   --type scene \
@@ -94,7 +94,7 @@ pnpm run cli derive \
 Batch generate multiple images and write a debug run manifest:
 
 ```bash
-pnpm run cli batch "Three cinematic keyframes in Russafa market" \
+makefx batch "Three cinematic keyframes in Russafa market" \
   --name "Russafa Market Keyframe" \
   --type scene \
   --count 3 \
@@ -104,20 +104,20 @@ pnpm run cli batch "Three cinematic keyframes in Russafa market" \
 Generate audio through website jobs:
 
 ```bash
-pnpm run cli audio speech generate "Podcast narration for the level intro" \
+makefx audio speech generate "Podcast narration for the level intro" \
   --name "Intro Narration" \
   -o audio/intro-narration.wav
 
-pnpm run cli audio dialogue generate --input scripts/blacksmith-dialogue.txt \
+makefx audio dialogue generate --input scripts/blacksmith-dialogue.txt \
   --name "Blacksmith Dialogue" \
   -o audio/blacksmith-dialogue.wav
 
-pnpm run cli audio music batch "Three 20 second low-intensity dungeon music beds" \
+makefx audio music batch "Three 20 second low-intensity dungeon music beds" \
   --name "Dungeon Bed" \
   --count 3 \
   --output-dir audio/dungeon-beds
 
-pnpm run cli audio sfx generate "A crisp inventory item pickup sound effect" \
+makefx audio sfx generate "A crisp inventory item pickup sound effect" \
   --name "Item Pickup" \
   -o audio/item-pickup.wav
 ```
@@ -125,17 +125,17 @@ pnpm run cli audio sfx generate "A crisp inventory item pickup sound effect" \
 Generate video through website jobs:
 
 ```bash
-pnpm run cli video generate "A looping idle animation" \
+makefx video generate "A looping idle animation" \
   --name "Idle Animation" \
   --type animation \
   -o video/idle.mp4
 
-pnpm run cli video refine \
+makefx video refine \
   --variant VIDEO_VARIANT_ID \
   "make the motion snappier" \
   -o video/idle-snappy.mp4
 
-pnpm run cli video derive \
+makefx video derive \
   --refs IMAGE_VARIANT_ID,VIDEO_VARIANT_ID \
   --name "Attack Animation" \
   --type animation \
@@ -165,7 +165,7 @@ subcommands so the operation is discoverable from help and matches Forge Tray.
 variant IDs and local image paths:
 
 ```bash
-pnpm run cli derive \
+makefx derive \
   --refs ./lucia.png,VARIANT_BACKGROUND_ID \
   --name "Lucia in Market Scene" \
   --type scene \
@@ -240,11 +240,11 @@ production handoff state, not a local asset database, and not a source of truth.
 Inspect and export manifests only for debugging:
 
 ```bash
-pnpm run cli runs --debug
-pnpm run cli runs show --latest --debug
-pnpm run cli runs show RUN_ID --debug --json
-pnpm run cli runs export --latest --debug --format media -o media-run.json
-pnpm run cli runs export --latest --debug --format remotion -o keyframes.json
+makefx runs --debug
+makefx runs show --latest --debug
+makefx runs show RUN_ID --debug --json
+makefx runs export --latest --debug --format media -o media-run.json
+makefx runs export --latest --debug --format remotion -o keyframes.json
 ```
 
 The default `media` export writes ordered media data with local paths, absolute
@@ -264,7 +264,7 @@ production timeline after the website job completes. `--shot-id`,
 Use `productions place` for existing variants:
 
 ```bash
-pnpm run cli productions place \
+makefx productions place \
   --production-id s01e01-a2 \
   --variant VARIANT_ID \
   --scene-label "Cocina" \
@@ -274,10 +274,10 @@ pnpm run cli productions place \
 Inspect and export Space records:
 
 ```bash
-pnpm run cli productions list --production-id s01e01-a2
-pnpm run cli productions export --production-id s01e01-a2 -o scenes.args
-pnpm run cli productions export --production-id s01e01-a2 --json -o scenes.json
-pnpm run cli productions export --production-id s01e01-a2 --media-dir handoff/media -o scenes.args
+makefx productions list --production-id s01e01-a2
+makefx productions export --production-id s01e01-a2 -o scenes.args
+makefx productions export --production-id s01e01-a2 --json -o scenes.json
+makefx productions export --production-id s01e01-a2 --media-dir handoff/media -o scenes.args
 ```
 
 `productions export` downloads image and video media through the authenticated
@@ -297,10 +297,10 @@ flag.
 
 ## Russafa Remotion Handoff
 
-The Russafa workflow stays actor-driven. Inventory CLI does not parse
+The Russafa workflow stays actor-driven. Make Effects CLI does not parse
 `S01E01-A2.shotlist.md`, call `../subtitles` scripts, or render Remotion. The
 external actor chooses prompts, refs, shot labels, and timeline starts from the
-shotlist, while the Inventory website remains the source of truth for assets,
+shotlist, while the Make Effects website remains the source of truth for assets,
 variants, recipes, relations, and Space-backed production records. Downloaded
 local files are handoff artifacts; local run manifests are debug traces, not
 production handoff state.

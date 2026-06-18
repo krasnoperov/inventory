@@ -66,10 +66,10 @@ function printUsage(): void {
   const modes = AUDIO_FORGE_MEDIA_MODES.join('|');
   console.log(`
 Usage:
-  pnpm run cli audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
-  pnpm run cli audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+  makefx audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
+  makefx audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
 
 Low-level compatibility:
-  pnpm run cli audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
 `);
 }

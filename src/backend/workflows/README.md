@@ -8,7 +8,7 @@ This directory contains Cloudflare Workflows for async processing.
 2. Extend `WorkflowEntrypoint`
 3. Define input type
 4. Implement `run()` method with steps
-5. Export workflow in `src/worker/unified.ts` and `src/worker/processing.ts`
+5. Export workflow in `src/worker/unified.ts` and `src/worker/generation.ts`
 6. Add binding in wrangler configs
 7. Update `Bindings` type in `src/core/types.ts`
 

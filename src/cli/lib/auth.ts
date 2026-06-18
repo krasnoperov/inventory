@@ -9,24 +9,23 @@ export const AUTH_SCOPES = 'openid profile email';
 /**
  * Detect how the CLI was invoked and return the appropriate command string.
  * Examples:
- * - "pnpm run cli" when run via package.json script
- * - "inventory-cli" when installed globally
+ * - "makefx" when installed globally
  */
 function detectCliCommand(): string {
   const argv = process.argv;
 
-  // Package manager script invocations should follow the repo's pnpm convention.
+  // Package manager script invocations should display the published command.
   if (process.env.npm_lifecycle_event || process.env.npm_execpath?.includes('pnpm')) {
-    return 'pnpm run cli';
+    return 'makefx';
   }
 
   // Check if run as a global binary
-  if (argv[1]?.includes('inventory-cli')) {
-    return 'inventory-cli';
+  if (argv[1]?.includes('makefx')) {
+    return 'makefx';
   }
 
   // Fallback
-  return 'pnpm run cli';
+  return 'makefx';
 }
 
 export const CLI_COMMAND = detectCliCommand();
@@ -186,7 +185,7 @@ function getSuccessPage(): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login Successful - Inventory CLI</title>
+  <title>Login Successful - Make Effects CLI</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f5f5f7; font-family: system-ui, -apple-system, sans-serif; padding: 2rem 1rem; color: #1a1a2e; }
@@ -219,7 +218,7 @@ function getErrorPage(error: string, description?: string): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login Failed - Inventory CLI</title>
+  <title>Login Failed - Make Effects CLI</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f5f5f7; font-family: system-ui, -apple-system, sans-serif; padding: 2rem 1rem; color: #1a1a2e; }

@@ -1,6 +1,6 @@
-# Inventory
+# Make Effects
 
-A graphical assets forging inventory with nano-banana pro, built on Cloudflare Workers.
+AI-assisted game asset production with lineage, real-time collaboration, and media handoff, built on Cloudflare Workers.
 
 ## Features
 
@@ -9,7 +9,7 @@ A graphical assets forging inventory with nano-banana pro, built on Cloudflare W
 - **React 19 Frontend**: Vite, TanStack Router, Zustand, CSS Modules
 - **D1 Database**: SQLite with migrations and Kysely query builder
 - **Dependency Injection**: InversifyJS for clean architecture
-- **CLI Tool**: Foundation for command-line access to your platform
+- **Make Effects CLI**: Command-line access through the `makefx` package and command
 - **TypeScript**: End-to-end type safety
 
 ## Quick Start

@@ -11,7 +11,7 @@ import { execFileSync } from 'node:child_process';
 // scripts/auth/mint-session.mjs (same capability used for curl / Playwright):
 //
 //   # against a deployed env (requires `pnpm cli login --env stage` first):
-//   AUDIT_AUTH=1 AUDIT_BASE_URL=https://inventory-stage.krasnoperov.me \
+//   AUDIT_AUTH=1 AUDIT_BASE_URL=https://makefx-stage.krasnoperov.me \
 //     pnpm exec playwright test -c playwright.audit.config.ts --grep @shots-authed
 //
 //   # against local (no login needed — reuse the dev-auth bypass token):
@@ -53,7 +53,7 @@ function auditAuthRequested(): boolean {
 function inferAuditAuthEnv(baseUrl: URL): string {
   if (process.env.AUDIT_AUTH_ENV) return process.env.AUDIT_AUTH_ENV;
   if (baseUrl.hostname === 'inventory.krasnoperov.me') return 'production';
-  if (baseUrl.hostname === 'inventory-stage.krasnoperov.me' || baseUrl.hostname.includes('stage')) {
+  if (baseUrl.hostname === 'makefx-stage.krasnoperov.me' || baseUrl.hostname.includes('stage')) {
     return 'stage';
   }
   return 'local';

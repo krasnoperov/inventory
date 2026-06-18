@@ -271,7 +271,7 @@ export default function ProductionPage() {
     return (
       <div className={styles.page}>
         <WorkspaceChrome
-          leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
+          leftSlot={<Link to="/" className={styles.brand}>Make Effects</Link>}
           rightSlot={headerRightSlot}
           statusSlot={<UsageIndicator />}
         />
@@ -284,7 +284,7 @@ export default function ProductionPage() {
     return (
       <div className={styles.page}>
         <WorkspaceChrome
-          leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
+          leftSlot={<Link to="/" className={styles.brand}>Make Effects</Link>}
           rightSlot={headerRightSlot}
           statusSlot={<UsageIndicator />}
         />
@@ -303,7 +303,7 @@ export default function ProductionPage() {
   return (
     <div className={styles.page}>
       <WorkspaceChrome
-        leftSlot={<Link to="/" className={styles.brand}>Inventory</Link>}
+        leftSlot={<Link to="/" className={styles.brand}>Make Effects</Link>}
         centerSlot={
           <div className={styles.centerNav}>
             <Link to={`/spaces/${spaceId}`} className={styles.navLink}>Canvas</Link>

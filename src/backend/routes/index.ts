@@ -84,7 +84,7 @@ export function registerRoutes(
     openapi: '3.0.0',
     info: {
       version: '0.0.0',
-      title: 'Inventory Forge API',
+      title: 'Make Effects API',
     },
   });
 

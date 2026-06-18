@@ -9,7 +9,7 @@ import { executeProductions } from './productions';
 
 const storedConfig: StoredConfig = {
   environment: 'stage',
-  baseUrl: 'https://inventory-stage.example.test',
+  baseUrl: 'https://makefx-stage.example.test',
   clientId: 'test',
   token: {
     accessToken: 'token',
@@ -55,7 +55,7 @@ function depsFor(fetchImpl: typeof fetch, output: string[], downloads: unknown[]
   return {
     loadConfig: async () => storedConfig,
     loadProjectConfig: async () => projectConfig,
-    resolveBaseUrl: () => 'https://inventory-stage.example.test',
+    resolveBaseUrl: () => 'https://makefx-stage.example.test',
     fetch: fetchImpl,
     downloadFile: async (input: unknown) => {
       downloads.push(input);
@@ -80,7 +80,7 @@ test('productions list reads Space-backed records and prints media URLs', async 
 
   assert.equal(result.type, 'list');
   assert.equal(result.records.length, 1);
-  assert.equal(requests[0], 'https://inventory-stage.example.test/api/spaces/space-1/productions/episode-01/records');
+  assert.equal(requests[0], 'https://makefx-stage.example.test/api/spaces/space-1/productions/episode-01/records');
   assert.match(output.join('\n'), /Found 1 production record/);
   assert.match(output.join('\n'), /variant-video/);
 });
@@ -107,14 +107,14 @@ test('productions export emits scene args from Space records', async () => {
   assert.equal(lines[1], `--scene '72760|Escalera|${path.resolve('.inventory/productions/episode-01/0002-escalera-variant-2.mp4')}'`);
   assert.deepEqual(downloads, [
     {
-      baseUrl: 'https://inventory-stage.example.test',
+      baseUrl: 'https://makefx-stage.example.test',
       accessToken: 'token',
       requestPath: '/api/spaces/space-1/variants/variant-1/media',
       outputPath: '.inventory/productions/episode-01/0001-cocina-variant-1.mp4',
       force: false,
     },
     {
-      baseUrl: 'https://inventory-stage.example.test',
+      baseUrl: 'https://makefx-stage.example.test',
       accessToken: 'token',
       requestPath: '/api/spaces/space-1/variants/variant-2/media',
       outputPath: '.inventory/productions/episode-01/0002-escalera-variant-2.mp4',
@@ -186,7 +186,7 @@ test('productions export supports explicit media directory and JSON scene args w
   assert.equal(exported.records[0].sceneArg, `1000|Market|${path.resolve('handoff/media/0001-market-variant-video.mp4')}`);
   assert.equal(exported.records[0].mediaUrl, undefined);
   assert.deepEqual((downloads[0] as { force: boolean; outputPath: string }), {
-    baseUrl: 'https://inventory-stage.example.test',
+    baseUrl: 'https://makefx-stage.example.test',
     accessToken: 'token',
     requestPath: '/api/spaces/space-1/variants/variant-video/media',
     outputPath: 'handoff/media/0001-market-variant-video.mp4',
@@ -247,7 +247,7 @@ test('productions delete removes a Space-backed record', async () => {
 
   assert.equal(result.type, 'delete');
   assert.deepEqual(requests, [{
-    url: 'https://inventory-stage.example.test/api/spaces/space-1/production/records/record-1',
+    url: 'https://makefx-stage.example.test/api/spaces/space-1/production/records/record-1',
     method: 'DELETE',
   }]);
   assert.match(output.join('\n'), /Deleted production record: record-1/);

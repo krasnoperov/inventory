@@ -15,9 +15,9 @@ import '../styles/theme.css';
 import '../styles/global.css';
 
 const DESCRIPTION =
-  'An inventory for AI-generated game art. Generate, refine, and forge visual assets with full lineage, real-time collaboration, and pipelines built for sprite sheets and turnarounds.';
+  'Make Effects helps teams generate, refine, and assemble AI-assisted game assets with full lineage, real-time collaboration, and production-ready media handoff.';
 const SOCIAL_DESCRIPTION =
-  'An inventory for AI-generated game art. Lineage, composition, and pipelines for sprite sheets and turnarounds.';
+  'AI-assisted game asset production with lineage, collaboration, and media handoff.';
 
 function Document({ children }: { children: ReactNode }) {
   return (
@@ -39,19 +39,19 @@ function Document({ children }: { children: ReactNode }) {
 export const Route = createRootRouteWithContext<StartRouterContext>()({
   head: () => ({
     meta: [
-      { title: 'Inventory Forge' },
+      { title: 'Make Effects' },
       { name: 'description', content: DESCRIPTION },
-      { property: 'og:site_name', content: 'Inventory Forge' },
+      { property: 'og:site_name', content: 'Make Effects' },
       { property: 'og:type', content: 'website' },
-      { property: 'og:title', content: 'Inventory Forge' },
+      { property: 'og:title', content: 'Make Effects' },
       { property: 'og:description', content: SOCIAL_DESCRIPTION },
-      { property: 'og:url', content: 'https://inventory.krasnoperov.me/' },
+      { property: 'og:url', content: 'https://makefx.app/' },
       { name: 'twitter:card', content: 'summary' },
-      { name: 'twitter:title', content: 'Inventory Forge' },
+      { name: 'twitter:title', content: 'Make Effects' },
       { name: 'twitter:description', content: SOCIAL_DESCRIPTION },
     ],
     links: [
-      { rel: 'canonical', href: 'https://inventory.krasnoperov.me/' },
+      { rel: 'canonical', href: 'https://makefx.app/' },
       { rel: 'alternate', type: 'text/plain', title: 'LLM overview', href: '/llms.txt' },
     ],
   }),

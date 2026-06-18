@@ -151,7 +151,7 @@ export async function executeAssets(
   if (subcommand === 'show') {
     const assetId = parsed.positionals[1];
     if (!assetId) {
-      throw new Error('Asset ID is required: pnpm run cli assets show <asset-id>');
+      throw new Error('Asset ID is required: makefx assets show <asset-id>');
     }
     const details = await getAssetDetails(ctx, deps, assetId);
     if (parsed.options.json === 'true') {
@@ -165,7 +165,7 @@ export async function executeAssets(
   if (subcommand === 'download') {
     const ref = parsed.positionals[1];
     if (!ref) {
-      throw new Error('Variant ID or legacy image key is required: pnpm run cli assets download <variant-id-or-legacy-image-key> -o <file>');
+      throw new Error('Variant ID or legacy image key is required: makefx assets download <variant-id-or-legacy-image-key> -o <file>');
     }
     const outputPath = getOutputPath(parsed);
     const resolved = await resolveDownloadRef(ref, ctx, deps);
@@ -183,7 +183,7 @@ export async function executeAssets(
   if (subcommand === 'delete') {
     const assetId = parsed.positionals[1];
     if (!assetId) {
-      throw new Error('Asset ID is required: pnpm run cli assets delete <asset-id>');
+      throw new Error('Asset ID is required: makefx assets delete <asset-id>');
     }
     await withAssetClient(ctx, deps, (client) => client.deleteAsset(assetId));
     deps.print(`Deleted asset ${assetId}`);
@@ -194,7 +194,7 @@ export async function executeAssets(
     const assetId = parsed.positionals[1];
     const name = parsed.positionals[2];
     if (!assetId || !name) {
-      throw new Error('Usage: pnpm run cli assets rename <asset-id> "<new-name>"');
+      throw new Error('Usage: makefx assets rename <asset-id> "<new-name>"');
     }
     const asset = await withAssetClient(ctx, deps, (client) => client.renameAsset(assetId, name));
     deps.print(`Renamed asset ${assetId} -> "${asset.name}"`);
@@ -205,7 +205,7 @@ export async function executeAssets(
     const assetId = parsed.positionals[1];
     const variantId = parsed.positionals[2] || normalizeOption(parsed.options.variant);
     if (!assetId || !variantId) {
-      throw new Error('Usage: pnpm run cli assets set-active <asset-id> <variant-id>');
+      throw new Error('Usage: makefx assets set-active <asset-id> <variant-id>');
     }
     const asset = await withAssetClient(ctx, deps, (client) => client.setActiveVariant(assetId, variantId));
     deps.print(`Set active variant of asset ${assetId} to ${asset.active_variant_id}`);
@@ -224,7 +224,7 @@ async function buildContext(parsed: ParsedArgs, deps: AssetsDeps): Promise<Asset
   const env = resolveCommandEnvironment(parsed, projectConfig);
   const spaceId = resolveCommandSpace(parsed, projectConfig);
   if (!spaceId) {
-    throw new Error('--space is required, or run: pnpm run cli init --space <id>');
+    throw new Error('--space is required, or run: makefx init --space <id>');
   }
 
   const config = await deps.loadConfig(env);
@@ -475,13 +475,13 @@ function formatTimestamp(value?: number | null): string {
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli assets
-  pnpm run cli assets --json
-  pnpm run cli assets show <asset-id>
-  pnpm run cli assets show <asset-id> --json
-  pnpm run cli assets download <variant-id|legacy-image-key> -o output-file
-  pnpm run cli assets delete <asset-id>
-  pnpm run cli assets rename <asset-id> "<new-name>"
-  pnpm run cli assets set-active <asset-id> <variant-id>
+  makefx assets
+  makefx assets --json
+  makefx assets show <asset-id>
+  makefx assets show <asset-id> --json
+  makefx assets download <variant-id|legacy-image-key> -o output-file
+  makefx assets delete <asset-id>
+  makefx assets rename <asset-id> "<new-name>"
+  makefx assets set-active <asset-id> <variant-id>
 `);
 }

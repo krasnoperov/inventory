@@ -133,7 +133,7 @@ status: ok | warning | critical | exceeded
 Run production billing checks from an authenticated admin CLI session:
 
 ```bash
-pnpm run cli billing check
+makefx billing check
 ```
 
 The command verifies:

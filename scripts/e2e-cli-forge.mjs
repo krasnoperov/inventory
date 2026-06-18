@@ -10,7 +10,7 @@ const persistDir = path.join(tmpRoot, 'wrangler-state');
 const configHome = path.join(tmpRoot, 'config');
 const outputDir = path.join(tmpRoot, 'out');
 const projectDir = path.join(tmpRoot, 'project');
-const cliEntrypoint = path.join(root, 'dist', 'cli', 'inventory.mjs');
+const cliEntrypoint = path.join(root, 'dist', 'cli', 'makefx.mjs');
 const port = process.env.INVENTORY_E2E_PORT || String(await findFreePort());
 const baseUrl = `http://127.0.0.1:${port}`;
 const token = process.env.INVENTORY_E2E_TOKEN || 'inventory-dev-token';
@@ -115,7 +115,7 @@ async function createCliConfig() {
       local: {
         environment: 'local',
         baseUrl,
-        clientId: 'inventory-cli',
+        clientId: 'forgetray-cli',
         token: {
           accessToken: token,
           issuedAt: Date.now(),
@@ -226,7 +226,7 @@ await run('pnpm', [
   'd1',
   'migrations',
   'apply',
-  'inventory-local',
+  'makefx-local',
   '--local',
   '--persist-to',
   persistDir,

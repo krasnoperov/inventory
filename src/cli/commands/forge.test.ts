@@ -16,7 +16,7 @@ import {
 
 const config: StoredConfig = {
   environment: 'stage',
-  baseUrl: 'https://inventory-stage.example.test',
+  baseUrl: 'https://makefx-stage.example.test',
   clientId: 'test',
   token: {
     accessToken: 'token',
@@ -240,7 +240,7 @@ function depsFor(client: FakeClient) {
     deps: {
       loadConfig: async () => config,
       loadProjectConfig: async () => null,
-      resolveBaseUrl: () => 'https://inventory-stage.example.test',
+      resolveBaseUrl: () => 'https://makefx-stage.example.test',
       createClient: async () => client,
       uploadLocalReference: async () => {
         throw new Error('unexpected upload');
@@ -299,7 +299,7 @@ test('resolveReferenceVariantIds uploads local files and keeps variant IDs', asy
   const refs = await resolveReferenceVariantIds(
     ['./local.png', 'variant-existing'],
     {
-      baseUrl: 'https://inventory-stage.example.test',
+      baseUrl: 'https://makefx-stage.example.test',
       accessToken: 'token',
       spaceId: 'space-1',
     },
@@ -336,7 +336,7 @@ test('resolveReferenceVariantIds errors for missing path-like refs', async () =>
     () => resolveReferenceVariantIds(
       ['./missing.png'],
       {
-        baseUrl: 'https://inventory-stage.example.test',
+        baseUrl: 'https://makefx-stage.example.test',
         accessToken: 'token',
         spaceId: 'space-1',
       },
@@ -356,7 +356,7 @@ test('resolveReferenceVariantIds errors for unknown typed variant refs', async (
     () => resolveReferenceVariantIds(
       ['variant-missing'],
       {
-        baseUrl: 'https://inventory-stage.example.test',
+        baseUrl: 'https://makefx-stage.example.test',
         accessToken: 'token',
         spaceId: 'space-1',
       },
@@ -377,7 +377,7 @@ test('resolveReferenceVariantIds errors for incomplete typed variant refs', asyn
     () => resolveReferenceVariantIds(
       ['variant-pending'],
       {
-        baseUrl: 'https://inventory-stage.example.test',
+        baseUrl: 'https://makefx-stage.example.test',
         accessToken: 'token',
         spaceId: 'space-1',
       },
@@ -401,7 +401,7 @@ test('resolveReferenceVariantIds accepts completed media-only video refs for vid
   const refs = await resolveReferenceVariantIds(
     ['variant-video'],
     {
-      baseUrl: 'https://inventory-stage.example.test',
+      baseUrl: 'https://makefx-stage.example.test',
       accessToken: 'token',
       spaceId: 'space-1',
     },
@@ -430,7 +430,7 @@ test('resolveReferenceVariantIds rejects audio refs for video generation', async
     () => resolveReferenceVariantIds(
       ['variant-audio'],
       {
-        baseUrl: 'https://inventory-stage.example.test',
+        baseUrl: 'https://makefx-stage.example.test',
         accessToken: 'token',
         spaceId: 'space-1',
       },
@@ -480,7 +480,7 @@ test('generate sends generate request and downloads completed image', async () =
     mediaKind: 'image',
   });
   assert.deepEqual(downloads, [{
-    baseUrl: 'https://inventory-stage.example.test',
+    baseUrl: 'https://makefx-stage.example.test',
     accessToken: 'token',
     imageKey: 'images/space/variant-out.png',
     outputPath: 'market.png',
@@ -562,7 +562,7 @@ test('generate command flags override project config', async () => {
       spaceId: 'space-project',
       updatedAt: new Date().toISOString(),
     }),
-    resolveBaseUrl: () => 'https://inventory-stage.example.test',
+    resolveBaseUrl: () => 'https://makefx-stage.example.test',
     createClient: async (_env, spaceId) => {
       clientSpace = spaceId;
       return client;
@@ -623,7 +623,7 @@ test('derive sends uploaded and existing refs as referenceVariantIds', async () 
   const deps = {
     loadConfig: async () => config,
     loadProjectConfig: async () => null,
-    resolveBaseUrl: () => 'https://inventory-stage.example.test',
+    resolveBaseUrl: () => 'https://makefx-stage.example.test',
     createClient: async () => client,
     uploadLocalReference: async () => ({
       asset: { id: 'asset-ref', name: 'Reference', type: 'reference' },
@@ -704,14 +704,14 @@ test('batch sends batch request, downloads outputs, and writes manifest', async 
   });
   assert.deepEqual(downloads, [
     {
-      baseUrl: 'https://inventory-stage.example.test',
+      baseUrl: 'https://makefx-stage.example.test',
       accessToken: 'token',
       imageKey: 'images/space/variant-batch-1.png',
       outputPath: 'keyframes/market-keyframe-01.png',
       force: false,
     },
     {
-      baseUrl: 'https://inventory-stage.example.test',
+      baseUrl: 'https://makefx-stage.example.test',
       accessToken: 'token',
       imageKey: 'images/space/variant-batch-2.png',
       outputPath: 'keyframes/market-keyframe-02.png',
@@ -775,7 +775,7 @@ test('batch keeps completed outputs and manifest when a sibling variant fails', 
   );
 
   assert.deepEqual(downloads, [{
-    baseUrl: 'https://inventory-stage.example.test',
+    baseUrl: 'https://makefx-stage.example.test',
     accessToken: 'token',
     imageKey: 'images/space/variant-batch-1.png',
     outputPath: 'keyframes/market-keyframe-01.png',
@@ -817,7 +817,7 @@ test('batch saves manifest at inherited project root', async () => {
       configPath: '/tmp/project/.inventory/config.json',
       projectRoot: '/tmp/project',
     }),
-    resolveBaseUrl: () => 'https://inventory-stage.example.test',
+    resolveBaseUrl: () => 'https://makefx-stage.example.test',
     createClient: async () => client,
     uploadLocalReference: async () => {
       throw new Error('unexpected upload');
@@ -862,7 +862,7 @@ test('audio generate sends audio request and downloads variant media', async () 
   });
   assert.deepEqual(downloads, []);
   assert.deepEqual(mediaDownloads, [{
-    baseUrl: 'https://inventory-stage.example.test',
+    baseUrl: 'https://makefx-stage.example.test',
     accessToken: 'token',
     requestPath: '/api/spaces/space-1/variants/variant-out/media',
     outputPath: 'victory.wav',
@@ -1016,14 +1016,14 @@ test('audio batch downloads audio files and writes generic media manifest', asyn
   });
   assert.deepEqual(mediaDownloads, [
     {
-      baseUrl: 'https://inventory-stage.example.test',
+      baseUrl: 'https://makefx-stage.example.test',
       accessToken: 'token',
       requestPath: '/api/spaces/space-1/variants/variant-batch-1/media',
       outputPath: 'audio/stinger-01.wav',
       force: false,
     },
     {
-      baseUrl: 'https://inventory-stage.example.test',
+      baseUrl: 'https://makefx-stage.example.test',
       accessToken: 'token',
       requestPath: '/api/spaces/space-1/variants/variant-batch-2/media',
       outputPath: 'audio/stinger-02.wav',
@@ -1090,7 +1090,7 @@ test('video generate sends video request and downloads variant media', async () 
   });
   assert.deepEqual(downloads, []);
   assert.deepEqual(mediaDownloads, [{
-    baseUrl: 'https://inventory-stage.example.test',
+    baseUrl: 'https://makefx-stage.example.test',
     accessToken: 'token',
     requestPath: '/api/spaces/space-1/variants/variant-out/media',
     outputPath: 'idle.mp4',
@@ -1129,7 +1129,7 @@ test('video refine sends source video variant through website job', async () => 
     mediaKind: 'video',
   });
   assert.deepEqual(mediaDownloads, [{
-    baseUrl: 'https://inventory-stage.example.test',
+    baseUrl: 'https://makefx-stage.example.test',
     accessToken: 'token',
     requestPath: '/api/spaces/space-1/variants/variant-out/media',
     outputPath: 'faster.mp4',

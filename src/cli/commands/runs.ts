@@ -56,7 +56,7 @@ export async function executeRuns(
 ): Promise<RunsResult> {
   const projectConfig = await deps.loadProjectConfig();
   if (!projectConfig?.projectRoot) {
-    throw new Error('Inventory project config not found. Run: pnpm run cli init --space <id>');
+    throw new Error('Make Effects project config not found. Run: makefx init --space <id>');
   }
 
   requireDebugAcknowledgement(parsed);
@@ -109,7 +109,7 @@ function requireDebugAcknowledgement(parsed: ParsedArgs): void {
 function parseRunExportFormat(value: string): RunExportFormat {
   if (value === 'media' || value === 'remotion') return value;
   if (value === 'remotion-scenes') {
-    throw new Error('Local run manifests are not production scene state. Use: pnpm run cli productions export --production-id <id>');
+    throw new Error('Local run manifests are not production scene state. Use: makefx productions export --production-id <id>');
   }
   throw new Error(`Unsupported run export format: ${value}`);
 }
@@ -213,16 +213,16 @@ function formatCreated(value: string): string {
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli runs --debug
-  pnpm run cli runs show <run-id|manifest.json> --debug
-  pnpm run cli runs show --latest --debug
-  pnpm run cli runs export <run-id|manifest.json> --debug --format media -o media-run.json
-  pnpm run cli runs export --latest --debug --format media -o media-run.json
-  pnpm run cli runs export --latest --debug --format remotion -o keyframes.json
+  makefx runs --debug
+  makefx runs show <run-id|manifest.json> --debug
+  makefx runs show --latest --debug
+  makefx runs export <run-id|manifest.json> --debug --format media -o media-run.json
+  makefx runs export --latest --debug --format media -o media-run.json
+  makefx runs export --latest --debug --format remotion -o keyframes.json
 
 Local run manifests are debug-only artifacts, not a source of truth.
 
 For timed scene assembly, use:
-  pnpm run cli productions export --production-id <id> [-o scenes.args]
+  makefx productions export --production-id <id> [-o scenes.args]
 `);
 }

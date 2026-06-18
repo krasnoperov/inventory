@@ -75,7 +75,7 @@ test('version command prints the development fallback when unbundled', async () 
   const result = await runCli(['--version'], cwd);
 
   assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
-  assert.equal(result.stdout.trim(), '0.0.0-dev');
+  assert.equal(result.stdout.trim(), '0.1.0-dev');
 });
 
 test('subcommand help exits before loading invalid project config', async () => {
@@ -87,7 +87,7 @@ test('subcommand help exits before loading invalid project config', async () => 
 
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
-    assert.ok(result.stdout.includes('pnpm run cli runs show --latest --debug'));
+    assert.ok(result.stdout.includes('makefx runs show --latest --debug'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
@@ -174,7 +174,7 @@ test('first positional help remains command input', async () => {
 
     assert.equal(result.code, 1);
     assert.match(result.stderr, /Not logged in to production environment/);
-    assert.ok(result.stdout.includes('pnpm run cli generate "prompt"'));
+    assert.ok(result.stdout.includes('makefx generate "prompt"'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
@@ -187,7 +187,7 @@ test('nested subcommand help exits without init side effects', async () => {
 
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
-    assert.ok(result.stdout.includes('pnpm run cli init --space <id>'));
+    assert.ok(result.stdout.includes('makefx init --space <id>'));
     await assert.rejects(
       readFile(path.join(cwd, '.inventory', 'config.json'), 'utf8'),
       (error: NodeJS.ErrnoException) => error.code === 'ENOENT'
@@ -208,7 +208,7 @@ test('nested audio subcommand help does not require auth', async () => {
 
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
-    assert.ok(result.stdout.includes('pnpm run cli audio generate "prompt"'));
+    assert.ok(result.stdout.includes('makefx audio generate "prompt"'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
@@ -225,7 +225,7 @@ test('nested video subcommand help does not require auth', async () => {
 
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
-    assert.ok(result.stdout.includes('pnpm run cli video generate "prompt"'));
+    assert.ok(result.stdout.includes('makefx video generate "prompt"'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
@@ -272,7 +272,7 @@ test('local help exits without toggling TLS warnings', async () => {
 
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
-    assert.ok(result.stdout.includes('pnpm run cli upload <file>'));
+    assert.ok(result.stdout.includes('makefx upload <file>'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }

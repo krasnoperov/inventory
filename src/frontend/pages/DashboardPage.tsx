@@ -106,7 +106,7 @@ export default function DashboardPage() {
       <AppHeader
         leftSlot={(
           <Link to="/" className={styles.brand}>
-            Inventory
+            Make Effects
           </Link>
         )}
         rightSlot={headerRightSlot}

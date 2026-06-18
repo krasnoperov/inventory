@@ -674,7 +674,7 @@ async function buildContext(parsed: ParsedArgs, deps: CommandDeps): Promise<Comm
   const env = resolveCommandEnvironment(parsed, projectConfig);
   const spaceId = resolveCommandSpace(parsed, projectConfig);
   if (!spaceId) {
-    throw new Error('--space is required, or run: pnpm run cli init --space <id>');
+    throw new Error('--space is required, or run: makefx init --space <id>');
   }
   const config = await deps.loadConfig(env);
 
@@ -994,7 +994,7 @@ function printUsage(command: ForgeCommand): void {
   if (command === 'generate') {
     console.log(`
 Usage:
-  pnpm run cli generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -1006,7 +1006,7 @@ Production metadata:
   if (command === 'refine') {
     console.log(`
 Usage:
-  pnpm run cli refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+  makefx refine --variant <variant_id> "prompt" -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -1018,14 +1018,14 @@ Production metadata:
   if (command === 'batch') {
     console.log(`
 Usage:
-  pnpm run cli batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
+  makefx batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
 `);
     return;
   }
 
   console.log(`
 Usage:
-  pnpm run cli derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+  makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>

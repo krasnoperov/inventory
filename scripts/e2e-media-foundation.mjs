@@ -334,7 +334,7 @@ await run('pnpm', [
   'd1',
   'migrations',
   'apply',
-  'inventory-local',
+  'makefx-local',
   '--local',
   '--persist-to',
   persistDir,

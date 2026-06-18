@@ -88,7 +88,7 @@ export default function ProfilePage() {
       <AppHeader
         leftSlot={(
           <Link to="/" className={styles.brand}>
-            Inventory
+            Make Effects
           </Link>
         )}
         rightSlot={headerRightSlot}
