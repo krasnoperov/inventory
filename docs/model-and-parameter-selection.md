@@ -104,7 +104,8 @@ Internally these map to:
 
 The web tray and CLI expose `720p`, `1080p`, or `4k` resolution and `4`, `6`,
 or `8` second provider duration. CLI `--duration-ms` remains production
-timeline metadata and does not replace the provider duration control.
+timeline metadata and does not replace the provider duration control. The
+`lite` tier supports `720p` and `1080p`; use `generate` or `fast` for `4k`.
 
 ### Aspect Ratio
 
@@ -115,7 +116,8 @@ narrower than the image set. Anything else normalizes to `16:9`
 ### Resolution
 
 `VideoResolution` (`googleVeoService.ts:16`): `720p` (default), `1080p`, `4k`.
-The web tray and CLI `--resolution` flag expose all three values.
+The web tray and CLI `--resolution` flag expose all three values, with `4k`
+limited to the `generate` and `fast` tiers.
 
 ### Duration
 

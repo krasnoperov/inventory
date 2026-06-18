@@ -1483,6 +1483,28 @@ test('video generate sends resolution, duration, and tier controls', async () =>
   });
 });
 
+test('video commands reject unpriced tier and resolution combinations before opening a website job', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeVideoCommand('generate', {
+      positionals: ['A sharp 4k draft'],
+      options: {
+        space: 'space-1',
+        name: 'Draft Clip',
+        type: 'animation',
+        o: 'draft.mp4',
+        resolution: '4k',
+        tier: 'lite',
+      },
+    }, deps),
+    /--resolution 4k is not supported with --tier lite/
+  );
+
+  assert.equal(client.connected, false);
+});
+
 test('image commands reject video audio flags before opening a website job', async () => {
   const client = new FakeClient();
   const { deps } = depsFor(client);

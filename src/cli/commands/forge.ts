@@ -34,6 +34,7 @@ import {
 } from '../lib/websocket-client';
 import type { MediaKind, MusicGenerationProvider } from '../../shared/websocket-types';
 import {
+  isVideoGenerationResolutionSupportedForTier,
   normalizeVideoGenerationDurationSeconds,
   normalizeVideoGenerationResolution,
   normalizeVideoGenerationTier,
@@ -1092,6 +1093,9 @@ function parseVideoGenerationOptions(
     : normalizeVideoGenerationTier(tierValue);
   if (tierValue !== undefined && !videoTier) {
     throw new Error('--tier must be generate, fast, or lite');
+  }
+  if (videoResolution && videoTier && !isVideoGenerationResolutionSupportedForTier(videoResolution, videoTier)) {
+    throw new Error('--resolution 4k is not supported with --tier lite');
   }
 
   return {

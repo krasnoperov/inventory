@@ -483,7 +483,8 @@ synchronized dialogue, SFX, score, or ambience for that request; pass
 variant recipe as `generateAudio` and is preserved when retrying the variant.
 Pass `--resolution 720p|1080p|4k`, `--duration 4|6|8`, and
 `--tier generate|fast|lite` to select the Veo output controls for that request;
-those choices are stored in the variant recipe and preserved on retry.
+those choices are stored in the variant recipe and preserved on retry. The
+`lite` tier supports `720p` and `1080p`; use `generate` or `fast` for `4k`.
 
 ## Run Manifests
 

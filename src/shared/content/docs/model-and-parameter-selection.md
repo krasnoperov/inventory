@@ -37,7 +37,7 @@ Make Effects routes video jobs through Google's Veo family. The public CLI lets 
 | Parameter | Values | Guidance |
 |-|-|-|
 | Aspect ratio | `16:9`, `9:16` | other values normalize to landscape behavior |
-| Resolution | `720p`, `1080p`, `4k` | pick `720p` for tests, higher resolutions for final clips |
+| Resolution | `720p`, `1080p`, `4k` | pick `720p` for tests; `4k` requires the generate or fast tier |
 | Provider duration | `4`, `6`, `8` seconds | not controlled by `--duration-ms`; use CLI `--duration` or the web duration control |
 | Tier | `generate`, `fast`, `lite` | use `generate` for final clips, `fast`/`lite` for iteration |
 | References | up to 3 source images/keyframes | one unstyled image uses image-to-video; two unstyled images use first/last frames; style images use reference-image mode |

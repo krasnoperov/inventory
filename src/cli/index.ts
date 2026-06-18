@@ -478,7 +478,7 @@ Usage:
   makefx video generate "prompt" --name <name> --type <type> -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
 
 Video:
-  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k
+  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k (4k requires generate or fast tier)
   --duration <seconds>  Veo output duration: 4, 6, or 8
   --tier <tier>         Veo model tier: generate, fast, or lite
 
@@ -499,7 +499,7 @@ Usage:
   makefx video refine --variant <variant_id> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
 
 Video:
-  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k
+  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k (4k requires generate or fast tier)
   --duration <seconds>  Veo output duration: 4, 6, or 8
   --tier <tier>         Veo model tier: generate, fast, or lite
 
@@ -520,7 +520,7 @@ Usage:
   makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
 
 Video:
-  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k
+  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k (4k requires generate or fast tier)
   --duration <seconds>  Veo output duration: 4, 6, or 8
   --tier <tier>         Veo model tier: generate, fast, or lite
 
@@ -542,7 +542,7 @@ Usage:
   makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
 
 Video:
-  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k
+  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k (4k requires generate or fast tier)
   --duration <seconds>  Veo output duration: 4, 6, or 8
   --tier <tier>         Veo model tier: generate, fast, or lite
 

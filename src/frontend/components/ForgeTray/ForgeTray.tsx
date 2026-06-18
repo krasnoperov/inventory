@@ -25,6 +25,8 @@ import {
   VIDEO_GENERATION_DURATION_SECONDS,
   VIDEO_GENERATION_RESOLUTIONS,
   VIDEO_GENERATION_TIERS,
+  getVideoGenerationResolutionsForTier,
+  isVideoGenerationResolutionSupportedForTier,
   type VideoGenerationDurationSeconds,
   type VideoGenerationResolution,
   type VideoGenerationTier,
@@ -327,6 +329,15 @@ export function ForgeTray({
   const [videoTier, setVideoTier] = useState<VideoGenerationTier>(DEFAULT_VIDEO_GENERATION_TIER);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+
+  const handleVideoTierSelect = useCallback((tier: VideoGenerationTier) => {
+    setVideoTier(tier);
+    setVideoResolution((current) => {
+      if (isVideoGenerationResolutionSupportedForTier(current, tier)) return current;
+      const compatibleResolutions = getVideoGenerationResolutionsForTier(tier);
+      return compatibleResolutions[compatibleResolutions.length - 1] ?? DEFAULT_VIDEO_GENERATION_RESOLUTION;
+    });
+  }, []);
 
   // Destination state
   const [destinationType, setDestinationType] = useState<DestinationType>('existing_asset');
@@ -911,18 +922,23 @@ export function ForgeTray({
                     {veoModeLabel}
                   </span>
                   <div className={styles.miniSeg} role="group" aria-label="Video resolution">
-                    {VIDEO_GENERATION_RESOLUTIONS.map((resolution) => (
-                      <button
-                        key={resolution}
-                        type="button"
-                        className={`${styles.miniSegText} ${videoResolution === resolution ? styles.active : ''}`}
-                        onClick={() => setVideoResolution(resolution)}
-                        disabled={isSubmitting}
-                        title={`Video resolution ${resolution}`}
-                      >
-                        {resolution}
-                      </button>
-                    ))}
+                    {VIDEO_GENERATION_RESOLUTIONS.map((resolution) => {
+                      const isSupported = isVideoGenerationResolutionSupportedForTier(resolution, videoTier);
+                      return (
+                        <button
+                          key={resolution}
+                          type="button"
+                          className={`${styles.miniSegText} ${videoResolution === resolution ? styles.active : ''}`}
+                          onClick={() => setVideoResolution(resolution)}
+                          disabled={isSubmitting || !isSupported}
+                          title={isSupported
+                            ? `Video resolution ${resolution}`
+                            : `${resolution} requires Generate or Fast tier`}
+                        >
+                          {resolution}
+                        </button>
+                      );
+                    })}
                   </div>
                   <div className={styles.miniSeg} role="group" aria-label="Video duration">
                     {VIDEO_GENERATION_DURATION_SECONDS.map((duration) => (
@@ -944,7 +960,7 @@ export function ForgeTray({
                         key={tier}
                         type="button"
                         className={`${styles.miniSegText} ${videoTier === tier ? styles.active : ''}`}
-                        onClick={() => setVideoTier(tier)}
+                        onClick={() => handleVideoTierSelect(tier)}
                         disabled={isSubmitting}
                         title={`Veo ${tier} tier`}
                       >

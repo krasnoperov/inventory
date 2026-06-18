@@ -244,6 +244,12 @@ test('forge tray video mode exposes Veo options and native audio toggle', async 
   await expect(page.getByRole('group', { name: 'Video tier' })).toBeVisible();
   await page.getByRole('button', { name: 'Fast' }).click();
   await expect(page.getByRole('button', { name: 'Fast' })).toHaveClass(/active/);
+  await page.getByRole('button', { name: '4k' }).click();
+  await expect(page.getByRole('button', { name: '4k' })).toHaveClass(/active/);
+  await page.getByRole('button', { name: 'Lite' }).click();
+  await expect(page.getByRole('button', { name: 'Lite' })).toHaveClass(/active/);
+  await expect(page.getByRole('button', { name: '1080p' })).toHaveClass(/active/);
+  await expect(page.getByRole('button', { name: '4k' })).toBeDisabled();
 
   const audioToggle = page.getByLabel('Audio');
   await expect(audioToggle).toBeVisible();

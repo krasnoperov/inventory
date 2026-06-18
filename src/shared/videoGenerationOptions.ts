@@ -9,6 +9,11 @@ export type VideoGenerationModel =
 export const VIDEO_GENERATION_RESOLUTIONS: VideoGenerationResolution[] = ['720p', '1080p', '4k'];
 export const VIDEO_GENERATION_DURATION_SECONDS: VideoGenerationDurationSeconds[] = [4, 6, 8];
 export const VIDEO_GENERATION_TIERS: VideoGenerationTier[] = ['generate', 'fast', 'lite'];
+export const VIDEO_GENERATION_RESOLUTIONS_BY_TIER: Record<VideoGenerationTier, VideoGenerationResolution[]> = {
+  generate: VIDEO_GENERATION_RESOLUTIONS,
+  fast: VIDEO_GENERATION_RESOLUTIONS,
+  lite: ['720p', '1080p'],
+};
 
 export const DEFAULT_VIDEO_GENERATION_RESOLUTION: VideoGenerationResolution = '720p';
 export const DEFAULT_VIDEO_GENERATION_DURATION_SECONDS: VideoGenerationDurationSeconds = 8;
@@ -48,6 +53,19 @@ export function getVideoGenerationModelForTier(
   tier: VideoGenerationTier = DEFAULT_VIDEO_GENERATION_TIER
 ): VideoGenerationModel {
   return VIDEO_GENERATION_TIER_MODELS[tier];
+}
+
+export function getVideoGenerationResolutionsForTier(
+  tier: VideoGenerationTier = DEFAULT_VIDEO_GENERATION_TIER
+): VideoGenerationResolution[] {
+  return VIDEO_GENERATION_RESOLUTIONS_BY_TIER[tier];
+}
+
+export function isVideoGenerationResolutionSupportedForTier(
+  resolution: VideoGenerationResolution,
+  tier: VideoGenerationTier = DEFAULT_VIDEO_GENERATION_TIER
+): boolean {
+  return VIDEO_GENERATION_RESOLUTIONS_BY_TIER[tier].includes(resolution);
 }
 
 export function getVideoGenerationTierForModel(

@@ -61,7 +61,13 @@ import {
 import { loggers } from '../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../shared/websocket-types';
 import {
+  DEFAULT_VIDEO_GENERATION_DURATION_SECONDS,
+  DEFAULT_VIDEO_GENERATION_RESOLUTION,
   getVideoGenerationModelForTier,
+  getVideoGenerationTierForModel,
+  isVideoGenerationResolutionSupportedForTier,
+  normalizeVideoGenerationDurationSeconds,
+  normalizeVideoGenerationResolution,
   normalizeVideoGenerationTier,
 } from '../../shared/videoGenerationOptions';
 
@@ -204,11 +210,22 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
 
         if (mediaKind === 'video') {
           const useFakeProvider = this.env.INVENTORY_IMAGE_PROVIDER === 'fake';
-          const normalizedVideoTier = normalizeVideoGenerationTier(videoTier);
+          const normalizedVideoTier =
+            normalizeVideoGenerationTier(videoTier) ?? getVideoGenerationTierForModel(model);
           const modelToUse = (model as VideoModel) || getVideoGenerationModelForTier(normalizedVideoTier);
           const aspectRatioToUse: VideoAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
-          const resolutionToUse = (videoResolution as VideoResolution) || '720p';
-          const durationSecondsToUse = (videoDurationSeconds as VideoDurationSeconds) || 8;
+          const resolutionToUse = (
+            normalizeVideoGenerationResolution(videoResolution) ?? DEFAULT_VIDEO_GENERATION_RESOLUTION
+          ) as VideoResolution;
+          if (
+            normalizedVideoTier &&
+            !isVideoGenerationResolutionSupportedForTier(resolutionToUse, normalizedVideoTier)
+          ) {
+            throw new NonRetryableError('Video resolution 4k is not supported for the lite tier');
+          }
+          const durationSecondsToUse = (
+            normalizeVideoGenerationDurationSeconds(videoDurationSeconds) ?? DEFAULT_VIDEO_GENERATION_DURATION_SECONDS
+          ) as VideoDurationSeconds;
           const styleImageCount = styleImageKeys?.length || 0;
           const referenceModeToUse = veoReferenceMode ?? determineVeoReferenceMode(sourceImages.length, styleImageCount);
           const generateAudioToUse = generateAudio === true;

@@ -374,6 +374,33 @@ describe('VariantFactory', () => {
       assert.strictEqual(recipe.videoTier, 'fast');
     });
 
+    test('rejects video combinations without configured pricing', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      await assert.rejects(
+        () => factory.createAssetWithVariant(
+          {
+            name: 'Draft Video',
+            assetType: 'animation',
+            mediaKind: 'video',
+            prompt: 'Create an animated draft',
+            videoResolution: '4k',
+            videoTier: 'lite',
+          },
+          meta
+        ),
+        /Video resolution 4k is not supported for the lite tier/
+      );
+
+      assert.strictEqual(asMock(repo.createAsset).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(asMock(broadcast).mock.calls.length, 0);
+    });
+
     test('labels single-image video generations as image-to-video', async () => {
       const repo = createMockRepo();
       const env = createMockEnv();
@@ -780,7 +807,7 @@ describe('VariantFactory', () => {
             generateAudio: true,
             videoResolution: '4k',
             videoDurationSeconds: 4,
-            videoTier: 'lite',
+            videoTier: 'fast',
           }),
         } as Variant,
         variantId: 'var-1',
@@ -796,7 +823,7 @@ describe('VariantFactory', () => {
       assert.strictEqual(workflowInput.generateAudio, true);
       assert.strictEqual(workflowInput.videoResolution, '4k');
       assert.strictEqual(workflowInput.videoDurationSeconds, 4);
-      assert.strictEqual(workflowInput.videoTier, 'lite');
+      assert.strictEqual(workflowInput.videoTier, 'fast');
     });
 
     test('returns null when workflow not configured', async () => {

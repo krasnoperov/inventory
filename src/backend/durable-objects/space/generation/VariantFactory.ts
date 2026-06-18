@@ -33,6 +33,7 @@ import {
   DEFAULT_VIDEO_GENERATION_TIER,
   getVideoGenerationModelForTier,
   getVideoGenerationTierForModel,
+  isVideoGenerationResolutionSupportedForTier,
   normalizeVideoGenerationDurationSeconds,
   normalizeVideoGenerationResolution,
   normalizeVideoGenerationTier,
@@ -930,6 +931,9 @@ export class VariantFactory {
       : normalizeVideoGenerationTier(tier);
     if (!normalizedTier) {
       throw new ValidationError('Video tier must be generate, fast, or lite');
+    }
+    if (!isVideoGenerationResolutionSupportedForTier(normalizedResolution, normalizedTier)) {
+      throw new ValidationError('Video resolution 4k is not supported for the lite tier');
     }
 
     return {
