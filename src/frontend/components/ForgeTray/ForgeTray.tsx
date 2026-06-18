@@ -430,11 +430,18 @@ export function ForgeTray({
   const forkSetupSlots = effectiveDestinationType === 'new_asset' && !hasPrompt ? 1 : 0;
   const effectiveMaxSlots = Math.max(providerReferenceSlots, forkSetupSlots);
   const hasReferenceBudget = currentMediaGroup === 'image' || currentMediaGroup === 'video';
-  const isOverReferenceBudget = operation !== 'fork' && hasReferenceBudget && slots.length > effectiveMaxSlots;
+  const isOverReferenceBudget =
+    operation !== 'fork' &&
+    hasPrompt &&
+    hasReferenceBudget &&
+    slots.length + styleImageCount > referenceSlotLimit;
   const referenceNoun = referenceSlotLimit === 1 ? 'reference' : 'references';
   const styleSuffix = styleImageCount > 0 ? ' including style' : '';
+  const imageBudgetAction = slots.length > 0
+    ? `Remove references${imageModel === 'flash' ? ' or switch Pro' : ''}.`
+    : `Reduce style images${imageModel === 'flash' ? ' or switch Pro' : ''}.`;
   const referenceBudgetWarning = isOverReferenceBudget && currentMediaGroup === 'image'
-    ? `${imageModel === 'flash' ? 'Flash' : 'Pro'} supports ${referenceSlotLimit} ${referenceNoun}${styleSuffix}. Remove references${imageModel === 'flash' ? ' or switch Pro' : ''}.`
+    ? `${imageModel === 'flash' ? 'Flash' : 'Pro'} supports ${referenceSlotLimit} ${referenceNoun}${styleSuffix}. ${imageBudgetAction}`
     : isOverReferenceBudget && currentMediaGroup === 'video'
       ? `Video supports ${referenceSlotLimit} references${styleSuffix}. Remove references or reduce style images.`
       : null;

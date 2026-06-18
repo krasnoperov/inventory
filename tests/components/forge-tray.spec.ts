@@ -84,6 +84,12 @@ const activeStyle = {
   updatedAt: baseTime,
 };
 
+const overflowingStyle = {
+  ...activeStyle,
+  id: 'style-2',
+  imageKeys: ['styles/space/style-1.png', 'styles/space/style-2.png'],
+};
+
 async function disableAnimations(page: import('@playwright/test').Page) {
   await page.addStyleTag({
     content: '*, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition-duration: 0s !important; }',
@@ -295,6 +301,26 @@ test('forge tray keeps one fork setup slot when style consumes Flash reference b
   await page.getByLabel('Prompt').fill('Turn this into a finished scene');
   await expect(page.getByText('Flash supports 1 reference including style. Remove references or switch Pro.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Derive' })).toBeDisabled();
+});
+
+test('forge tray counts style-only references against the selected model budget', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: imageReferenceAssets,
+    allVariants: imageReferenceVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+    __styleStore: overflowingStyle,
+  });
+  await disableAnimations(page);
+
+  await page.getByRole('button', { name: 'Flash' }).click();
+  await page.getByLabel('Prompt').fill('Create a finished asset in the active style');
+
+  await expect(page.getByText('Flash supports 1 reference including style. Reduce style images or switch Pro.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Generate' })).toBeDisabled();
 });
 
 test('forge tray video mode exposes Veo options and native audio toggle', async ({ page }) => {
