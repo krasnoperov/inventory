@@ -230,6 +230,26 @@ test('tileset command parses grid, prompt, seed, and tile type', async () => {
   assert.equal(client.tileSetParams?.generationMode, 'sequential');
 });
 
+test('tileset command rejects single-shot seed variants before sending', async () => {
+  const client = new FakePipelineClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    executePipelineCommand('tileset', {
+      positionals: ['seeded grid'],
+      options: {
+        space: 'space-1',
+        mode: 'single-shot',
+        'seed-variant': 'variant-seed',
+      },
+    }, deps),
+    /--seed-variant is only supported with sequential tile-set generation/
+  );
+
+  assert.equal(client.tileSetParams, undefined);
+  assert.equal(client.disconnected, true);
+});
+
 test('pipeline cancel commands send the matching cancel messages', async () => {
   const client = new FakePipelineClient();
   const { deps } = depsFor(client);

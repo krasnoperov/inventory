@@ -227,7 +227,7 @@ Tile-set options:
 | `--type <type>` | `terrain`, `building`, `decoration`, or `custom` (default: `terrain`) |
 | `--grid <size>` | Square size or `WIDTHxHEIGHT`, each dimension 2-5 (default: `3`) |
 | `--width <n>` / `--height <n>` | Grid dimensions when not using `--grid` |
-| `--seed-variant <id>` | Optional completed image variant to place at the center |
+| `--seed-variant <id>` | Optional completed image variant to place at the center; sequential mode only |
 | `--aspect <ratio>` | Optional generation aspect ratio |
 | `--mode <mode>` | `sequential` or `single-shot` (default: `sequential`) |
 | `--no-style` | Disable the space style anchor |

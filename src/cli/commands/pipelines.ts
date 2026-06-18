@@ -200,6 +200,10 @@ async function executeTileSet(
   const tileType = parseTileType(optionValue(parsed, 'type') || 'terrain');
   const { width, height } = parseGrid(parsed);
   const generationMode = parseGenerationMode(optionValue(parsed, 'mode') || 'sequential');
+  const seedVariantId = optionValue(parsed, 'seed-variant') || optionValue(parsed, 'seed');
+  if (generationMode === 'single-shot' && seedVariantId) {
+    throw new Error('--seed-variant is only supported with sequential tile-set generation');
+  }
   const waitForCompletion = parsed.options.detach !== 'true';
   const timeoutMs = parseTimeoutMs(parsed.options.timeout);
 
@@ -212,7 +216,7 @@ async function executeTileSet(
     gridWidth: width,
     gridHeight: height,
     prompt,
-    seedVariantId: optionValue(parsed, 'seed-variant') || optionValue(parsed, 'seed'),
+    seedVariantId,
     aspectRatio: optionValue(parsed, 'aspect'),
     disableStyle: parsed.options['no-style'] === 'true',
     generationMode,
@@ -384,7 +388,7 @@ Options:
   --grid <size>       Square size or WIDTHxHEIGHT, each dimension 2-5 (default: 3)
   --width <n>         Grid width, 2-5
   --height <n>        Grid height, 2-5
-  --seed-variant <id> Optional completed image variant to place at the center
+  --seed-variant <id> Optional completed image variant to place at the center (sequential mode only)
   --aspect <ratio>    Optional generation aspect ratio
   --mode <mode>       sequential or single-shot (default: sequential)
   --no-style          Disable the space style anchor

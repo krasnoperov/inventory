@@ -221,7 +221,7 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--no-style` | all generation and consistency pipeline commands | Disable active space style for this request |
 | `--detach` | `rotation`, `tileset` | Return after the pipeline starts instead of waiting for completion |
 | `--grid <size>` | `tileset` | Square tile grid size or `WIDTHxHEIGHT`, each dimension 2-5 |
-| `--seed-variant <id>` | `tileset` | Optional completed image variant to place at the center of the tile set |
+| `--seed-variant <id>` | `tileset` | Optional completed image variant to place at the center of the tile set; sequential mode only |
 | `--scene-label <label>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene label stored with production placement metadata |
 | `--timeline-start-ms <ms>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene timeline start in milliseconds |
 | `--duration-ms <ms>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional intended production scene duration in milliseconds |
