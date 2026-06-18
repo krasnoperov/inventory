@@ -57,6 +57,10 @@ export function isImageSize(value: string): value is ImageSize {
   return (IMAGE_SIZES as readonly string[]).includes(value);
 }
 
+export function isImageAspectRatio(value: string): value is ImageAspectRatio {
+  return (IMAGE_ASPECT_RATIOS as readonly string[]).includes(value);
+}
+
 export function normalizeImageSize(value: string): ImageSize | undefined {
   const normalized = value.toUpperCase();
   return isImageSize(normalized) ? normalized : undefined;
@@ -78,6 +82,13 @@ export function isImageSizeSupportedByModel(
   imageSize: ImageSize
 ): boolean {
   return getImageModelCapabilities(model).supportedImageSizes.includes(imageSize);
+}
+
+export function isImageAspectRatioSupportedByModel(
+  model: ImageModelSelection | ImageModelId | undefined,
+  aspectRatio: ImageAspectRatio
+): boolean {
+  return getImageModelCapabilities(model).supportedAspectRatios.includes(aspectRatio);
 }
 
 export function getImageModelMaxReferenceImages(

@@ -35,18 +35,26 @@ import {
 import type { MediaKind, MusicGenerationProvider } from '../../shared/websocket-types';
 import {
   isVideoGenerationResolutionSupportedForTier,
+  normalizeVideoGenerationAspectRatio,
   normalizeVideoGenerationDurationSeconds,
   normalizeVideoGenerationResolution,
   normalizeVideoGenerationTier,
+  type VideoGenerationAspectRatio,
   type VideoGenerationDurationSeconds,
   type VideoGenerationResolution,
   type VideoGenerationTier,
 } from '../../shared/videoGenerationOptions';
 import {
   IMAGE_MODEL_IDS,
+  IMAGE_MODEL_SELECTIONS,
+  getImageModelCapabilities,
+  getImageModelMaxReferenceImages,
+  isImageAspectRatio,
+  isImageAspectRatioSupportedByModel,
   isImageSizeSupportedByModel,
   isImageModelSelection,
   normalizeImageSize,
+  type ImageAspectRatio,
   type ImageModelSelection,
   type ImageSize,
 } from '../../shared/imageGenerationOptions';
@@ -217,6 +225,7 @@ interface AudioVoiceOptions {
 }
 
 interface VideoGenerationOptions {
+  aspectRatio?: VideoGenerationAspectRatio;
   videoResolution?: VideoGenerationResolution;
   videoDurationSeconds?: VideoGenerationDurationSeconds;
   videoTier?: VideoGenerationTier;
@@ -256,7 +265,8 @@ export async function executeForgeCommand(
 ): Promise<GenerateResult | BatchResult> {
   const mediaKind = options.mediaKind || CLI_GENERATION_MEDIA_KIND;
   const saveBatchManifest = options.saveBatchManifest ?? mediaKind === 'image';
-  parseImageGenerationOptions(parsed, mediaKind);
+  const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
+  validateImageCommandReferenceCount(command, parsed, mediaKind, imageOptions.model);
   validateVideoAudioOptions(parsed, mediaKind);
   parseVideoGenerationOptions(parsed, mediaKind);
   if (command !== 'batch') {
@@ -388,7 +398,7 @@ async function executeGenerate(
     assetType,
     prompt,
     ...imageOptions,
-    aspectRatio: parsed.options.aspect,
+    aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
@@ -491,7 +501,7 @@ async function executeRefine(
     prompt,
     sourceVariantIds: [sourceVariantId],
     ...imageOptions,
-    aspectRatio: parsed.options.aspect,
+    aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
     ...videoAudioOptions,
@@ -538,6 +548,10 @@ async function executeDerive(
   const name = requireOption(parsed, 'name');
   const assetType = requireOption(parsed, 'type');
   const refs = parseRefs(requireOption(parsed, 'refs'));
+  const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
+  if (mediaKind === 'image') {
+    validateImageReferenceCount(imageOptions.model, refs.length);
+  }
   const state = await requestSpaceState(client);
   const referenceVariantIds = await resolveReferenceVariantIds(
     refs,
@@ -553,7 +567,6 @@ async function executeDerive(
     referenceVariantIds,
     mediaKind,
   });
-  const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
 
@@ -564,7 +577,7 @@ async function executeDerive(
     prompt,
     referenceVariantIds,
     ...imageOptions,
-    aspectRatio: parsed.options.aspect,
+    aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
@@ -616,13 +629,16 @@ async function executeBatch(
   const count = parseBatchCount(requireOption(parsed, 'count'));
   const mode = parseBatchMode(parsed.options.mode || 'explore');
   const refs = parsed.options.refs ? parseRefs(parsed.options.refs) : [];
+  const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
+  if (mediaKind === 'image') {
+    validateImageReferenceCount(imageOptions.model, refs.length);
+  }
   const state = await requestSpaceState(client);
   const referenceVariantIds = refs.length > 0
     ? await resolveReferenceVariantIds(refs, ctx, deps, state.variants as Variant[], mediaKind)
     : undefined;
   const startedAt = new Date().toISOString();
   const runId = deps.createRunId();
-  const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
 
   const mediaLabel = mediaKind === 'image' ? 'image' : mediaKind === 'video' ? 'video' : 'audio file';
   console.log(`Batch generating ${count} ${mediaLabel}(s) for "${name}"...`);
@@ -635,7 +651,7 @@ async function executeBatch(
     mode,
     referenceVariantIds,
     ...imageOptions,
-    aspectRatio: parsed.options.aspect,
+    aspectRatio: imageOptions.aspectRatio,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
@@ -1066,8 +1082,11 @@ function parseVideoGenerationOptions(
   const tierValue =
     readOptionalOption(parsed, 'tier', 'tier') ??
     readOptionalOption(parsed, 'video-tier', 'videoTier');
+  const aspectValue = mediaKind === 'video'
+    ? readOptionalOption(parsed, 'aspect', 'aspect')
+    : undefined;
 
-  if (resolutionValue === undefined && durationValue === undefined && tierValue === undefined) {
+  if (resolutionValue === undefined && durationValue === undefined && tierValue === undefined && aspectValue === undefined) {
     return {};
   }
 
@@ -1099,7 +1118,15 @@ function parseVideoGenerationOptions(
     throw new Error('--resolution 4k is not supported with --tier lite');
   }
 
+  const aspectRatio = aspectValue === undefined
+    ? undefined
+    : normalizeVideoGenerationAspectRatio(aspectValue);
+  if (aspectValue !== undefined && !aspectRatio) {
+    throw new Error('--aspect must be 16:9 or 9:16');
+  }
+
   return {
+    ...(aspectRatio ? { aspectRatio } : {}),
     ...(videoResolution ? { videoResolution } : {}),
     ...(videoDurationSeconds ? { videoDurationSeconds } : {}),
     ...(videoTier ? { videoTier } : {}),
@@ -1126,19 +1153,27 @@ function normalizeCliOption(value: string | undefined): string | undefined {
 function parseImageGenerationOptions(
   parsed: ParsedArgs,
   mediaKind: GenerationMediaKind
-): { model?: ImageModelSelection; imageSize?: ImageSize } {
+): { model?: ImageModelSelection; imageSize?: ImageSize; aspectRatio?: ImageAspectRatio } {
   if (mediaKind !== 'image') return {};
 
   const model = parseImageModelOption(readOptionalOption(parsed, 'model', 'model'));
   const imageSize = parseImageSizeOption(readOptionalOption(parsed, 'size', 'size'));
+  const aspectRatio = parseImageAspectRatioOption(readOptionalOption(parsed, 'aspect', 'aspect'));
 
   if (imageSize && !isImageSizeSupportedByModel(model, imageSize)) {
-    throw new Error('--model flash supports only --size 1K');
+    const supportedSizes = getImageModelCapabilities(model).supportedImageSizes.join(', ');
+    throw new Error(`--model ${model ?? 'pro'} supports only --size ${supportedSizes}`);
+  }
+
+  if (aspectRatio && !isImageAspectRatioSupportedByModel(model, aspectRatio)) {
+    const supportedAspectRatios = getImageModelCapabilities(model).supportedAspectRatios.join(', ');
+    throw new Error(`--model ${model ?? 'pro'} supports only --aspect ${supportedAspectRatios}`);
   }
 
   return {
     ...(model ? { model } : {}),
     ...(imageSize ? { imageSize } : {}),
+    ...(aspectRatio ? { aspectRatio } : {}),
   };
 }
 
@@ -1157,6 +1192,38 @@ function parseImageSizeOption(value: string | undefined): ImageSize | undefined 
     throw new Error('--size must be 1K, 2K, or 4K');
   }
   return normalized;
+}
+
+function parseImageAspectRatioOption(value: string | undefined): ImageAspectRatio | undefined {
+  if (!value) return undefined;
+  if (!isImageAspectRatio(value)) {
+    const supportedAspectRatios = getImageModelCapabilities().supportedAspectRatios.join(', ');
+    throw new Error(`--aspect must be ${supportedAspectRatios}`);
+  }
+  return value;
+}
+
+function validateImageReferenceCount(
+  model: ImageModelSelection | undefined,
+  referenceCount: number
+): void {
+  const maxReferenceImages = getImageModelMaxReferenceImages(model);
+  if (referenceCount <= maxReferenceImages) return;
+
+  const noun = maxReferenceImages === 1 ? 'reference' : 'references';
+  throw new Error(`--model ${model ?? 'pro'} supports at most ${maxReferenceImages} ${noun}`);
+}
+
+function validateImageCommandReferenceCount(
+  command: ForgeCommand,
+  parsed: ParsedArgs,
+  mediaKind: GenerationMediaKind,
+  model: ImageModelSelection | undefined
+): void {
+  if (mediaKind !== 'image') return;
+  if (command !== 'derive' && command !== 'batch') return;
+  if (!parsed.options.refs) return;
+  validateImageReferenceCount(model, parseRefs(parsed.options.refs).length);
 }
 
 function parseSceneMetadata(
@@ -1265,11 +1332,25 @@ function requireOption(parsed: ParsedArgs, name: string): string {
   return value;
 }
 
+function cliOptionValues(values: readonly (string | number)[]): string {
+  return values.join('|');
+}
+
+function cliImageSizeValues(): string {
+  return cliOptionValues(Array.from(new Set(
+    IMAGE_MODEL_SELECTIONS.flatMap((model) => getImageModelCapabilities(model).supportedImageSizes)
+  )));
+}
+
+function cliImageAspectValues(): string {
+  return cliOptionValues(getImageModelCapabilities().supportedAspectRatios);
+}
+
 function printUsage(command: ForgeCommand): void {
   if (command === 'generate') {
     console.log(`
 Usage:
-  makefx generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx generate "prompt" --name <name> --type <type> -o <file> [--model pro|flash] [--size ${cliImageSizeValues()}] [--aspect ${cliImageAspectValues()}] [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -1281,7 +1362,7 @@ Production metadata:
   if (command === 'refine') {
     console.log(`
 Usage:
-  makefx refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+  makefx refine --variant <variant_id> "prompt" -o <file> [--model pro|flash] [--size ${cliImageSizeValues()}] [--aspect ${cliImageAspectValues()}] [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -1293,14 +1374,14 @@ Production metadata:
   if (command === 'batch') {
     console.log(`
 Usage:
-  makefx batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
+  makefx batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--model pro|flash] [--size ${cliImageSizeValues()}] [--aspect ${cliImageAspectValues()}]
 `);
     return;
   }
 
   console.log(`
 Usage:
-  makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+  makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--model pro|flash] [--size ${cliImageSizeValues()}] [--aspect ${cliImageAspectValues()}] [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>

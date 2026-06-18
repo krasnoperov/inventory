@@ -22,6 +22,17 @@ import {
   AUDIO_FORGE_MEDIA_MODES,
   isAudioForgeMediaMode,
 } from '../shared/mediaOperationMatrix';
+import {
+  DEFAULT_IMAGE_MODEL_SELECTION,
+  IMAGE_MODEL_CAPABILITIES,
+  IMAGE_MODEL_SELECTIONS,
+} from '../shared/imageGenerationOptions';
+import {
+  VIDEO_GENERATION_ASPECT_RATIOS,
+  VIDEO_GENERATION_DURATION_SECONDS,
+  VIDEO_GENERATION_TIERS,
+  getVideoGenerationResolutionsForTier,
+} from '../shared/videoGenerationOptions';
 
 declare const __INVENTORY_CLI_VERSION__: string | undefined;
 
@@ -61,6 +72,65 @@ async function main() {
     }
     process.exitCode = 1;
   }
+}
+
+function optionValues(values: readonly (string | number)[]): string {
+  return values.join('|');
+}
+
+function uniqueValues<T extends string | number>(values: readonly T[]): T[] {
+  return Array.from(new Set(values));
+}
+
+function imageSizeValues(): string {
+  return optionValues(uniqueValues(IMAGE_MODEL_SELECTIONS.flatMap((model) => IMAGE_MODEL_CAPABILITIES[model].supportedImageSizes)));
+}
+
+function imageAspectValues(): string {
+  return optionValues(IMAGE_MODEL_CAPABILITIES[DEFAULT_IMAGE_MODEL_SELECTION].supportedAspectRatios);
+}
+
+function imageCapabilityHelp(): string {
+  const sizeLines = IMAGE_MODEL_SELECTIONS
+    .map((model) => `${model}: ${IMAGE_MODEL_CAPABILITIES[model].supportedImageSizes.join(', ')}`)
+    .join('; ');
+  const referenceLines = IMAGE_MODEL_SELECTIONS
+    .map((model) => `${model}: ${IMAGE_MODEL_CAPABILITIES[model].maxReferenceImages}`)
+    .join('; ');
+
+  return `Image:
+  --model <value>   Image model: ${optionValues(IMAGE_MODEL_SELECTIONS)}
+  --size <value>    Output size (${sizeLines})
+  --aspect <ratio>  Aspect ratio: ${imageAspectValues()}
+  --refs <refs>     Reference limit (${referenceLines})`;
+}
+
+function videoResolutionValues(): string {
+  return optionValues(uniqueValues(VIDEO_GENERATION_TIERS.flatMap((tier) => getVideoGenerationResolutionsForTier(tier))));
+}
+
+function videoAspectValues(): string {
+  return optionValues(VIDEO_GENERATION_ASPECT_RATIOS);
+}
+
+function videoDurationValues(): string {
+  return optionValues(VIDEO_GENERATION_DURATION_SECONDS);
+}
+
+function videoTierValues(): string {
+  return optionValues(VIDEO_GENERATION_TIERS);
+}
+
+function videoCapabilityHelp(): string {
+  const resolutionLines = VIDEO_GENERATION_TIERS
+    .map((tier) => `${tier}: ${getVideoGenerationResolutionsForTier(tier).join(', ')}`)
+    .join('; ');
+
+  return `Video:
+  --aspect <ratio>      Veo aspect ratio: ${videoAspectValues()}
+  --resolution <value>  Veo output resolution (${resolutionLines})
+  --duration <seconds>  Veo output duration: ${videoDurationValues()}
+  --tier <tier>         Veo model tier: ${videoTierValues()}`;
 }
 
 function configureLocalTls(args: string[]): void {
@@ -219,9 +289,9 @@ Audio:
   audio sfx generate "prompt" --name <name> -o <file>
 
 Video:
-  video generate "prompt" --name <name> --type <type> -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio]
-  video refine --variant <variant_id> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio]
-  video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio]
+  video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio]
+  video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio]
+  video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio]
 
 Options:
   --env <environment>          Target environment (production|stage|local), default: production
@@ -338,7 +408,9 @@ function printForgeHelp(command: string): void {
   if (command === 'generate') {
     console.log(`
 Usage:
-  makefx generate "prompt" --name <name> --type <type> -o <file> [--model pro|flash] [--size 1K|2K|4K] [--aspect <ratio>] [--space <id>]
+  makefx generate "prompt" --name <name> --type <type> -o <file> [--model ${optionValues(IMAGE_MODEL_SELECTIONS)}] [--size ${imageSizeValues()}] [--aspect <ratio>] [--space <id>]
+
+${imageCapabilityHelp()}
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -350,7 +422,9 @@ Production metadata:
   if (command === 'refine') {
     console.log(`
 Usage:
-  makefx refine --variant <variant_id> "prompt" -o <file> [--model pro|flash] [--size 1K|2K|4K] [--aspect <ratio>] [--space <id>]
+  makefx refine --variant <variant_id> "prompt" -o <file> [--model ${optionValues(IMAGE_MODEL_SELECTIONS)}] [--size ${imageSizeValues()}] [--aspect <ratio>] [--space <id>]
+
+${imageCapabilityHelp()}
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -362,14 +436,18 @@ Production metadata:
   if (command === 'batch') {
     console.log(`
 Usage:
-  makefx batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--model pro|flash] [--size 1K|2K|4K] [--aspect <ratio>]
+  makefx batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--model ${optionValues(IMAGE_MODEL_SELECTIONS)}] [--size ${imageSizeValues()}] [--aspect <ratio>]
+
+${imageCapabilityHelp()}
 `);
     return;
   }
 
   console.log(`
 Usage:
-  makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--model pro|flash] [--size 1K|2K|4K] [--aspect <ratio>] [--space <id>]
+  makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--model ${optionValues(IMAGE_MODEL_SELECTIONS)}] [--size ${imageSizeValues()}] [--aspect <ratio>] [--space <id>]
+
+${imageCapabilityHelp()}
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -475,12 +553,9 @@ function printVideoHelp(positionals: string[]): void {
   if (subcommand === 'generate') {
     console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
 
-Video:
-  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k (4k requires generate or fast tier)
-  --duration <seconds>  Veo output duration: 4, 6, or 8
-  --tier <tier>         Veo model tier: generate, fast, or lite
+${videoCapabilityHelp()}
 
 Audio:
   --audio       Request native synchronized Veo audio
@@ -496,12 +571,9 @@ Production metadata:
   if (subcommand === 'refine') {
     console.log(`
 Usage:
-  makefx video refine --variant <variant_id> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
 
-Video:
-  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k (4k requires generate or fast tier)
-  --duration <seconds>  Veo output duration: 4, 6, or 8
-  --tier <tier>         Veo model tier: generate, fast, or lite
+${videoCapabilityHelp()}
 
 Audio:
   --audio       Request native synchronized Veo audio
@@ -517,12 +589,9 @@ Production metadata:
   if (subcommand === 'derive') {
     console.log(`
 Usage:
-  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
 
-Video:
-  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k (4k requires generate or fast tier)
-  --duration <seconds>  Veo output duration: 4, 6, or 8
-  --tier <tier>         Veo model tier: generate, fast, or lite
+${videoCapabilityHelp()}
 
 Audio:
   --audio       Request native synchronized Veo audio
@@ -537,14 +606,11 @@ Production metadata:
 
   console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
-  makefx video refine --variant <variant_id> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
-  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
 
-Video:
-  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k (4k requires generate or fast tier)
-  --duration <seconds>  Veo output duration: 4, 6, or 8
-  --tier <tier>         Veo model tier: generate, fast, or lite
+${videoCapabilityHelp()}
 
 Audio:
   --audio       Request native synchronized Veo audio

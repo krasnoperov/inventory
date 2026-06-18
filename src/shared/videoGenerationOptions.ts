@@ -1,3 +1,4 @@
+export type VideoGenerationAspectRatio = '16:9' | '9:16';
 export type VideoGenerationResolution = '720p' | '1080p' | '4k';
 export type VideoGenerationDurationSeconds = 4 | 6 | 8;
 export type VideoGenerationTier = 'generate' | 'fast' | 'lite';
@@ -6,6 +7,7 @@ export type VideoGenerationModel =
   | 'veo-3.1-fast-generate-preview'
   | 'veo-3.1-lite-generate-preview';
 
+export const VIDEO_GENERATION_ASPECT_RATIOS: VideoGenerationAspectRatio[] = ['16:9', '9:16'];
 export const VIDEO_GENERATION_RESOLUTIONS: VideoGenerationResolution[] = ['720p', '1080p', '4k'];
 export const VIDEO_GENERATION_DURATION_SECONDS: VideoGenerationDurationSeconds[] = [4, 6, 8];
 export const VIDEO_GENERATION_TIERS: VideoGenerationTier[] = ['generate', 'fast', 'lite'];
@@ -19,6 +21,14 @@ export const DEFAULT_VIDEO_GENERATION_RESOLUTION: VideoGenerationResolution = '7
 export const DEFAULT_VIDEO_GENERATION_DURATION_SECONDS: VideoGenerationDurationSeconds = 8;
 export const DEFAULT_VIDEO_GENERATION_TIER: VideoGenerationTier = 'generate';
 export const DEFAULT_VIDEO_GENERATION_MODEL: VideoGenerationModel = 'veo-3.1-generate-preview';
+
+export function normalizeVideoGenerationAspectRatio(
+  value: unknown
+): VideoGenerationAspectRatio | undefined {
+  return VIDEO_GENERATION_ASPECT_RATIOS.includes(value as VideoGenerationAspectRatio)
+    ? value as VideoGenerationAspectRatio
+    : undefined;
+}
 
 export const VIDEO_GENERATION_TIER_MODELS: Record<VideoGenerationTier, VideoGenerationModel> = {
   generate: 'veo-3.1-generate-preview',
