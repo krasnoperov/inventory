@@ -11,7 +11,7 @@ Parameters:
   private-key.pem        Path to ES256 private key in PKCS8 PEM format.
   public-key.pem         Path to ES256 public key in SPKI PEM format.
   key-id                 Identifier embedded in JWT header (kid).
-  issuer                 Optional issuer URL (defaults to https://inventory.krasnoperov.me for production, https://inventory-stage.krasnoperov.me otherwise).
+  issuer                 Optional issuer URL (defaults to https://makefx.app for production, https://makefx-stage.krasnoperov.me otherwise).
   audience               Optional audience claim (defaults to forgetray-api).
   allowed-client-ids     Optional JSON array string of allowed client IDs (defaults to ["forgetray-cli"]).
 USAGE
@@ -38,9 +38,9 @@ fi
 
 if [[ -z "$ISSUER" ]]; then
   if [[ "$ENVIRONMENT" == "production" ]]; then
-    ISSUER="https://inventory.krasnoperov.me"
+    ISSUER="https://makefx.app"
   else
-    ISSUER="https://inventory-stage.krasnoperov.me"
+    ISSUER="https://makefx-stage.krasnoperov.me"
   fi
 fi
 

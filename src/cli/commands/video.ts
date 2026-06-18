@@ -32,9 +32,9 @@ function parseVideoCommand(value: string | undefined): VideoForgeCommand {
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
-  pnpm run cli video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
-  pnpm run cli video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>

@@ -1,10 +1,17 @@
 {
-  "name": "inventory",
-  "version": "0.0.0",
+  "name": "makefx",
+  "version": "0.1.0",
+  "description": "Make Effects CLI and Cloudflare app for AI-assisted game asset production.",
   "type": "module",
-  "private": true,
   "bin": {
-    "inventory": "./dist/cli/inventory.mjs"
+    "makefx": "dist/cli/makefx.mjs"
+  },
+  "files": [
+    "dist/cli/makefx.mjs",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "packageManager": "pnpm@11.1.1",
   "scripts": {
@@ -29,7 +36,7 @@
     "db:migrate": "node --import @swc-node/register/esm-register scripts/db-migrate.ts",
     "db:migrate:stage": "node --import @swc-node/register/esm-register scripts/db-migrate.ts stage remote",
     "db:migrate:production": "node --import @swc-node/register/esm-register scripts/db-migrate.ts production remote",
-    "cli": "node dist/cli/inventory.mjs",
+    "cli": "node dist/cli/makefx.mjs",
     "cli:dev": "node --import @swc-node/register/esm-register src/cli/index.ts"
   },
   "dependencies": {

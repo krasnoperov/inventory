@@ -33,7 +33,7 @@ function printBillingHelp() {
 Billing Commands - Polar.sh Usage Sync
 
 Usage:
-  pnpm run cli billing <subcommand> [--env <environment>]
+  makefx billing <subcommand> [--env <environment>]
 
 Subcommands:
   status           Show sync status (pending, failed, synced events)
@@ -45,12 +45,12 @@ Options:
   --local          Shortcut for local development
 
 Examples:
-  pnpm run cli billing status                    Show production sync status
-  pnpm run cli billing status --env stage        Show stage sync status
-  pnpm run cli billing check                     Run production operational checks
-  pnpm run cli billing retry-failed              Reset failed events for retry
+  makefx billing status                    Show production sync status
+  makefx billing status --env stage        Show stage sync status
+  makefx billing check                     Run production operational checks
+  makefx billing retry-failed              Reset failed events for retry
 
-Note: Requires login first. Run 'pnpm run cli login' to authenticate.
+Note: Requires login first. Run 'makefx login' to authenticate.
 `);
 }
 
@@ -130,7 +130,7 @@ async function handleBillingStatus(env: string) {
     } else {
       console.log(`\nTotal items needing attention: ${totalUnsynced}`);
       if (data.events.failed > 0) {
-        console.log(`\nTip: Run 'pnpm run cli billing retry-failed --env ${env}' to reset failed events.`);
+        console.log(`\nTip: Run 'makefx billing retry-failed --env ${env}' to reset failed events.`);
       }
     }
   } catch (error) {
@@ -191,24 +191,24 @@ interface WorkerCheck {
 function workerHealthUrls(env: string): Array<{ name: string; url: string }> {
   if (env === 'production') {
     return [
-      { name: 'application', url: 'https://inventory.krasnoperov.me/api/health' },
-      { name: 'processing', url: 'https://inventory-processing.krasnoperov.me/api/health' },
-      { name: 'polar', url: 'https://inventory-polar.krasnoperov.me/api/health' },
+      { name: 'application', url: 'https://makefx.app/api/health' },
+      { name: 'generation', url: 'https://generation.makefx.app/api/health' },
+      { name: 'billing', url: 'https://billing.makefx.app/api/health' },
     ];
   }
 
   if (env === 'stage') {
     return [
-      { name: 'application', url: 'https://inventory-stage.krasnoperov.me/api/health' },
-      { name: 'processing', url: 'https://inventory-processing-stage.krasnoperov.me/api/health' },
-      { name: 'polar', url: 'https://inventory-polar-stage.krasnoperov.me/api/health' },
+      { name: 'application', url: 'https://makefx-stage.krasnoperov.me/api/health' },
+      { name: 'generation', url: 'https://makefx-generation-stage.krasnoperov.me/api/health' },
+      { name: 'billing', url: 'https://makefx-billing-stage.krasnoperov.me/api/health' },
     ];
   }
 
   return [
     { name: 'application', url: 'http://localhost:3001/api/health' },
-    { name: 'processing', url: 'http://localhost:8789/api/health' },
-    { name: 'polar', url: 'http://localhost:8790/api/health' },
+    { name: 'generation', url: 'http://localhost:8789/api/health' },
+    { name: 'billing', url: 'http://localhost:8790/api/health' },
   ];
 }
 
@@ -326,7 +326,7 @@ async function handleBillingRetry(env: string) {
     console.log(data.message);
 
     if (data.reset > 0) {
-      console.log(`\nRun 'pnpm run cli billing status --env ${env}' to check progress.`);
+      console.log(`\nRun 'makefx billing status --env ${env}' to check progress.`);
     }
   } catch (error) {
     console.error('Retry failed:', error instanceof Error ? error.message : error);

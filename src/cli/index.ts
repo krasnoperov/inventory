@@ -25,7 +25,7 @@ import {
 declare const __INVENTORY_CLI_VERSION__: string | undefined;
 
 export const CLI_VERSION =
-  typeof __INVENTORY_CLI_VERSION__ === 'string' ? __INVENTORY_CLI_VERSION__ : '0.0.0-dev';
+  typeof __INVENTORY_CLI_VERSION__ === 'string' ? __INVENTORY_CLI_VERSION__ : '0.1.0-dev';
 
 async function main() {
   const [, , command, ...args] = process.argv;
@@ -140,7 +140,7 @@ function printCommandHelp(command: string, positionals: string[]): void {
 
 function printHelp() {
   console.log(`
-CLI Tool - Inventory
+Make Effects CLI
 
 Version:
   --version                    Print the CLI build version
@@ -212,52 +212,52 @@ Options:
   --local                      Shortcut for local development
 
 Examples:
-  pnpm run cli init --space space_123
-  pnpm run cli init --space space_123 --json
-  pnpm run cli login            Authenticate with production environment
-  pnpm run cli login --env stage
-  pnpm run cli logout
-  pnpm run cli billing status   Show billing sync status
-  pnpm run cli billing check    Check billing production readiness
-  pnpm run cli spaces --details List spaces with asset summaries
-  pnpm run cli spaces create "My Game Assets" --init
-  pnpm run cli listen --space space_123
-  pnpm run cli generate "A market background" --name "Market" --type scene -o market.png
-  pnpm run cli batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
-  pnpm run cli audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
-  pnpm run cli video generate "A looping idle animation" --name "Idle Animation" --type animation -o idle.mp4
-  pnpm run cli productions export --production-id s01e01-a2
-  pnpm run cli assets
-  pnpm run cli assets download variant_123 -o variant.mp4
-  pnpm run cli assets rename asset_123 "Hero (moving)"
-  pnpm run cli assets set-active asset_123 variant_456
-  pnpm run cli variants retry variant_456
-  pnpm run cli variants delete variant_456
+  makefx init --space space_123
+  makefx init --space space_123 --json
+  makefx login            Authenticate with production environment
+  makefx login --env stage
+  makefx logout
+  makefx billing status   Show billing sync status
+  makefx billing check    Check billing production readiness
+  makefx spaces --details List spaces with asset summaries
+  makefx spaces create "My Game Assets" --init
+  makefx listen --space space_123
+  makefx generate "A market background" --name "Market" --type scene -o market.png
+  makefx batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
+  makefx audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
+  makefx video generate "A looping idle animation" --name "Idle Animation" --type animation -o idle.mp4
+  makefx productions export --production-id s01e01-a2
+  makefx assets
+  makefx assets download variant_123 -o variant.mp4
+  makefx assets rename asset_123 "Hero (moving)"
+  makefx assets set-active asset_123 variant_456
+  makefx variants retry variant_456
+  makefx variants delete variant_456
 `);
 }
 
 function printInitHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli init --space <id> [--env production|stage|local]
-  pnpm run cli init --space <id> --json
+  makefx init --space <id> [--env production|stage|local]
+  makefx init --space <id> --json
 `);
 }
 
 function printLoginHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli login [--env production|stage|local]
-  pnpm run cli login --local
+  makefx login [--env production|stage|local]
+  makefx login --local
 `);
 }
 
 function printLogoutHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli logout
-  pnpm run cli logout [--env production|stage|local]
-  pnpm run cli logout --local
+  makefx logout
+  makefx logout [--env production|stage|local]
+  makefx logout --local
 `);
 }
 
@@ -266,7 +266,7 @@ function printBillingHelp(): void {
 Billing Commands - Polar.sh Usage Sync
 
 Usage:
-  pnpm run cli billing <subcommand> [--env <environment>]
+  makefx billing <subcommand> [--env <environment>]
 
 Subcommands:
   status           Show sync status (pending, failed, synced events)
@@ -282,27 +282,27 @@ Options:
 function printSpacesHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli spaces
-  pnpm run cli spaces --details
-  pnpm run cli spaces --id <space_id>
-  pnpm run cli spaces create <name>
-  pnpm run cli spaces create --name "My Space" [--init] [--json]
+  makefx spaces
+  makefx spaces --details
+  makefx spaces --id <space_id>
+  makefx spaces create <name>
+  makefx spaces create --name "My Space" [--init] [--json]
 `);
 }
 
 function printListenHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli listen --space <space_id>
-  pnpm run cli listen --space <space_id> --json
+  makefx listen --space <space_id>
+  makefx listen --space <space_id> --json
 `);
 }
 
 function printUploadHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli upload <file> --asset <id> [--space <id>]     Upload media to existing asset
-  pnpm run cli upload <file> --name <name> [--space <id>]    Create new asset
+  makefx upload <file> --asset <id> [--space <id>]     Upload media to existing asset
+  makefx upload <file> --name <name> [--space <id>]    Create new asset
 
 Options:
   --space <id>      Target space ID; defaults from initialized project
@@ -320,7 +320,7 @@ function printForgeHelp(command: string): void {
   if (command === 'generate') {
     console.log(`
 Usage:
-  pnpm run cli generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -332,7 +332,7 @@ Production metadata:
   if (command === 'refine') {
     console.log(`
 Usage:
-  pnpm run cli refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+  makefx refine --variant <variant_id> "prompt" -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -344,14 +344,14 @@ Production metadata:
   if (command === 'batch') {
     console.log(`
 Usage:
-  pnpm run cli batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
+  makefx batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
 `);
     return;
   }
 
   console.log(`
 Usage:
-  pnpm run cli derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+  makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -367,8 +367,8 @@ function printAudioHelp(positionals: string[]): void {
     if (second === 'generate') {
       console.log(`
 Usage:
-  pnpm run cli audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
-  pnpm run cli audio ${first} generate --input <file> --name <name> -o <file> [--space <id>]
+  makefx audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
+  makefx audio ${first} generate --input <file> --name <name> -o <file> [--space <id>]
 `);
       return;
     }
@@ -376,15 +376,15 @@ Usage:
     if (second === 'batch') {
       console.log(`
 Usage:
-  pnpm run cli audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+  makefx audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
 `);
       return;
     }
 
     console.log(`
 Usage:
-  pnpm run cli audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
-  pnpm run cli audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+  makefx audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
+  makefx audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
 `);
     return;
   }
@@ -392,10 +392,10 @@ Usage:
   if (first === 'generate') {
     console.log(`
 Usage:
-  pnpm run cli audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
 
 Preferred mode form:
-  pnpm run cli audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
+  makefx audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
 `);
     return;
   }
@@ -403,19 +403,19 @@ Preferred mode form:
   if (first === 'batch') {
     console.log(`
 Usage:
-  pnpm run cli audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--space <id>]
+  makefx audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--space <id>]
 
 Preferred mode form:
-  pnpm run cli audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+  makefx audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
 `);
     return;
   }
 
   console.log(`
 Usage:
-  pnpm run cli audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
-  pnpm run cli audio <${modes}> generate --input <file> --name <name> -o <file> [--space <id>]
-  pnpm run cli audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+  makefx audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
+  makefx audio <${modes}> generate --input <file> --name <name> -o <file> [--space <id>]
+  makefx audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
 
 Modes:
   speech      Spoken narration or voiceover
@@ -424,8 +424,8 @@ Modes:
   sfx         Sound effects
 
 Low-level compatibility:
-  pnpm run cli audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
-  pnpm run cli audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--space <id>]
+  makefx audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx audio batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--space <id>]
 `);
 }
 
@@ -434,7 +434,7 @@ function printVideoHelp(positionals: string[]): void {
   if (subcommand === 'generate') {
     console.log(`
 Usage:
-  pnpm run cli video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -446,7 +446,7 @@ Production metadata:
   if (subcommand === 'refine') {
     console.log(`
 Usage:
-  pnpm run cli video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -458,7 +458,7 @@ Production metadata:
   if (subcommand === 'derive') {
     console.log(`
 Usage:
-  pnpm run cli video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -469,9 +469,9 @@ Production metadata:
 
   console.log(`
 Usage:
-  pnpm run cli video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
-  pnpm run cli video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
-  pnpm run cli video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -482,12 +482,12 @@ Production metadata:
 function printRunsHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli runs --debug
-  pnpm run cli runs show <run-id|manifest.json> --debug
-  pnpm run cli runs show --latest --debug
-  pnpm run cli runs export <run-id|manifest.json> --debug --format media -o media-run.json
-  pnpm run cli runs export --latest --debug --format media -o media-run.json
-  pnpm run cli runs export --latest --debug --format remotion -o keyframes.json
+  makefx runs --debug
+  makefx runs show <run-id|manifest.json> --debug
+  makefx runs show --latest --debug
+  makefx runs export <run-id|manifest.json> --debug --format media -o media-run.json
+  makefx runs export --latest --debug --format media -o media-run.json
+  makefx runs export --latest --debug --format remotion -o keyframes.json
 
 Formats:
   media             JSON media handoff data
@@ -496,18 +496,18 @@ Formats:
 Local run manifests are debug-only artifacts, not a source of truth.
 
 Timed scene assembly:
-  pnpm run cli productions export --production-id <id> [-o scenes.args]
+  makefx productions export --production-id <id> [-o scenes.args]
 `);
 }
 
 function printVariantsHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli variants delete <variant-id>
-  pnpm run cli variants retry <variant-id>
-  pnpm run cli variants star <variant-id>
-  pnpm run cli variants unstar <variant-id>
-  pnpm run cli variants rate <variant-id> <approved|rejected>
+  makefx variants delete <variant-id>
+  makefx variants retry <variant-id>
+  makefx variants star <variant-id>
+  makefx variants unstar <variant-id>
+  makefx variants rate <variant-id> <approved|rejected>
 
 Options:
   --space <id>      Target space ID; defaults from the initialized project
@@ -519,11 +519,11 @@ Options:
 function printProductionsHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli productions list --production-id <id>
-  pnpm run cli productions export --production-id <id> [-o scenes.args] [--media-dir media]
-  pnpm run cli productions export --production-id <id> --json [-o scenes.json] [--media-dir media]
-  pnpm run cli productions place --production-id <id> --variant <variant_id> --scene-label <label> --timeline-start-ms <ms>
-  pnpm run cli productions delete <record-id>
+  makefx productions list --production-id <id>
+  makefx productions export --production-id <id> [-o scenes.args] [--media-dir media]
+  makefx productions export --production-id <id> --json [-o scenes.json] [--media-dir media]
+  makefx productions place --production-id <id> --variant <variant_id> --scene-label <label> --timeline-start-ms <ms>
+  makefx productions delete <record-id>
 
 Scene export downloads Space media through the CLI and emits --scene '<start>|<label>|<absolute path>' lines.
 `);
@@ -532,11 +532,11 @@ Scene export downloads Space media through the CLI and emits --scene '<start>|<l
 function printAssetsHelp(): void {
   console.log(`
 Usage:
-  pnpm run cli assets
-  pnpm run cli assets --json
-  pnpm run cli assets show <asset-id>
-  pnpm run cli assets show <asset-id> --json
-  pnpm run cli assets download <variant-id|legacy-image-key> -o output-file
+  makefx assets
+  makefx assets --json
+  makefx assets show <asset-id>
+  makefx assets show <asset-id> --json
+  makefx assets download <variant-id|legacy-image-key> -o output-file
 `);
 }
 

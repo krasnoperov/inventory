@@ -1,4 +1,4 @@
-// Polar Billing Worker: Cron-based sync to Polar.sh
+// Billing Worker: Cron-based sync to Polar.sh
 // Handles:
 // - Scheduled usage event sync (every 5 minutes)
 // - Scheduled customer creation retry (for failed signups)
@@ -16,17 +16,17 @@ const app = new Hono<{ Bindings: Env }>();
 
 // Health check endpoint (for monitoring)
 app.get('/api/health', (c) => {
-  return c.json({ status: 'ok', worker: 'polar' });
+  return c.json({ status: 'ok', worker: 'billing' });
 });
 
-// Export polar worker
+// Export billing worker
 export default {
   // Minimal HTTP handler (just health check)
   fetch: app.fetch,
 
   // Cron handler for scheduled sync
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    console.log(`[Polar Worker] Cron triggered at ${new Date(event.scheduledTime).toISOString()}`);
+    console.log(`[Billing Worker] Cron triggered at ${new Date(event.scheduledTime).toISOString()}`);
 
     const container = createContainer(env);
     const usageService = container.get(UsageService);
@@ -37,21 +37,21 @@ export default {
         try {
           // Sync pending usage events
           const eventsResult = await usageService.syncPendingEvents(100);
-          console.log(`[Polar Worker] Events sync: ${eventsResult.synced} synced, ${eventsResult.failed} failed`);
+          console.log(`[Billing Worker] Events sync: ${eventsResult.synced} synced, ${eventsResult.failed} failed`);
 
           // Sync missing Polar customers (retry failed signups)
           const customersResult = await usageService.syncMissingCustomers(50);
-          console.log(`[Polar Worker] Customers sync: ${customersResult.created} created, ${customersResult.failed} failed`);
+          console.log(`[Billing Worker] Customers sync: ${customersResult.created} created, ${customersResult.failed} failed`);
 
           // Warn on high failure rates (visible in CF logs/analytics)
           if (eventsResult.failed > 10 || customersResult.failed > 5) {
-            console.warn('[Polar Worker] HIGH FAILURE RATE:', {
+            console.warn('[Billing Worker] HIGH FAILURE RATE:', {
               eventsFailed: eventsResult.failed,
               customersFailed: customersResult.failed,
             });
           }
         } catch (error) {
-          console.error('[Polar Worker] Sync error:', error);
+          console.error('[Billing Worker] Sync error:', error);
         }
       })()
     );

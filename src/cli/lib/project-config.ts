@@ -73,12 +73,12 @@ function validateProjectConfig(
   configPath: string
 ): asserts config is ProjectConfig {
   if (config.version !== 1) {
-    throw new Error(`Unsupported Inventory project config version in ${configPath}`);
+    throw new Error(`Unsupported Make Effects project config version in ${configPath}`);
   }
   if (!config.environment || typeof config.environment !== 'string') {
-    throw new Error(`Inventory project config is missing environment: ${configPath}`);
+    throw new Error(`Make Effects project config is missing environment: ${configPath}`);
   }
   if (!config.spaceId || typeof config.spaceId !== 'string') {
-    throw new Error(`Inventory project config is missing spaceId: ${configPath}`);
+    throw new Error(`Make Effects project config is missing spaceId: ${configPath}`);
   }
 }

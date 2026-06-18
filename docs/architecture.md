@@ -1,4 +1,4 @@
-# Inventory Forge: Architecture
+# Make Effects: Architecture
 
 ## Overview
 
@@ -102,7 +102,7 @@ serves `poster_key` when that artifact exists.
 | Worker | Config | Purpose |
 |--------|--------|---------|
 | **Main** | `wrangler.toml` | HTTP API, frontend, WebSocket connections |
-| **Processing** | `wrangler.processing.toml` | Cloudflare Workflows (GenerationWorkflow) |
+| **Generation** | `wrangler.generation.toml` | Cloudflare Workflows (GenerationWorkflow) |
 | **Polar** | `wrangler.polar.toml` | Billing cron sync (every 5 minutes) |
 
 ---

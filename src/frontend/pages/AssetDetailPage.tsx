@@ -546,7 +546,7 @@ export default function AssetDetailPage() {
     return (
       <div className={styles.page}>
         <WorkspaceChrome
-          leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
+          leftSlot={<Link to="/dashboard" className={styles.brand}>Make Effects</Link>}
           rightSlot={headerRightSlot}
         />
         <div className={styles.loadingPage}>
@@ -560,7 +560,7 @@ export default function AssetDetailPage() {
     return (
       <div className={styles.page}>
         <WorkspaceChrome
-          leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
+          leftSlot={<Link to="/dashboard" className={styles.brand}>Make Effects</Link>}
           rightSlot={headerRightSlot}
         />
         <div className={styles.errorPage}>
@@ -577,7 +577,7 @@ export default function AssetDetailPage() {
   return (
     <div className={styles.page}>
       <WorkspaceChrome
-        leftSlot={<Link to="/dashboard" className={styles.brand}>Inventory</Link>}
+        leftSlot={<Link to="/dashboard" className={styles.brand}>Make Effects</Link>}
         rightSlot={headerRightSlot}
       />
 

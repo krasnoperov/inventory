@@ -45,9 +45,9 @@ export class AuthService {
       return issuer;
     }
     if (this.env.ENVIRONMENT === 'production') {
-      return 'https://inventory.krasnoperov.me';
+      return 'https://makefx.app';
     }
-    return 'https://inventory-stage.krasnoperov.me';
+    return 'https://makefx-stage.krasnoperov.me';
   }
 
   private getAudience(): string {

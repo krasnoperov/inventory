@@ -1,11 +1,11 @@
-// Processing Worker: Workflows + Workflow Status API
-// This worker handles all background processing
+// Generation Worker: generated-media workflows + workflow status API.
+// This worker handles image, video, and audio generation outside the app worker.
 
 import 'reflect-metadata';
 import { Hono } from 'hono';
 import type { Env } from '../core/types';
 
-// Simple Hono app for health checks and future workflow status endpoints
+// Simple Hono app for health checks and workflow status endpoints.
 const app = new Hono<{ Bindings: Env }>();
 
 // Workflow status endpoint - check generation workflow status
@@ -30,11 +30,11 @@ app.get('/api/workflow/generation/:instanceId', async (c) => {
 
 // Health check endpoint
 app.get('/api/health', (c) => {
-  console.log('[Processing Worker] Health check request received');
-  return c.json({ status: 'ok', worker: 'processing' });
+  console.log('[Generation Worker] Health check request received');
+  return c.json({ status: 'ok', worker: 'generation' });
 });
 
-// Export processing worker
+// Export generation worker
 export default {
   // HTTP handler for health checks and workflow status
   fetch: app.fetch,

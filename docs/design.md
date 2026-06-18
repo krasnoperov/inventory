@@ -1,6 +1,6 @@
-# Inventory Design System
+# Make Effects Design System
 
-Visual design language and component patterns for the Inventory application.
+Visual design language and component patterns for the Make Effects application.
 
 ---
 

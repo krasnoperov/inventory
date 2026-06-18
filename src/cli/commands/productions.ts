@@ -132,7 +132,7 @@ export async function executeProductions(
   if (subcommand === 'delete') {
     const recordId = parsed.positionals[1];
     if (!recordId) {
-      throw new Error('Production record ID is required: pnpm run cli productions delete <record-id>');
+      throw new Error('Production record ID is required: makefx productions delete <record-id>');
     }
     await deleteProductionRecord(ctx, deps, recordId);
     deps.print(`Deleted production record: ${recordId}`);
@@ -167,7 +167,7 @@ async function buildContext(parsed: ParsedArgs, deps: ProductionsDeps): Promise<
   const env = resolveCommandEnvironment(parsed, projectConfig);
   const spaceId = resolveCommandSpace(parsed, projectConfig);
   if (!spaceId) {
-    throw new Error('--space is required, or run: pnpm run cli init --space <id>');
+    throw new Error('--space is required, or run: makefx init --space <id>');
   }
 
   const config = await deps.loadConfig(env);
@@ -478,10 +478,10 @@ function shellQuote(value: string): string {
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli productions list --production-id <id>
-  pnpm run cli productions export --production-id <id> [-o scenes.args] [--media-dir media]
-  pnpm run cli productions export --production-id <id> --json [-o scenes.json] [--media-dir media]
-  pnpm run cli productions place --production-id <id> --variant <variant_id> --scene-label <label> --timeline-start-ms <ms>
-  pnpm run cli productions delete <record-id>
+  makefx productions list --production-id <id>
+  makefx productions export --production-id <id> [-o scenes.args] [--media-dir media]
+  makefx productions export --production-id <id> --json [-o scenes.json] [--media-dir media]
+  makefx productions place --production-id <id> --variant <variant_id> --scene-label <label> --timeline-start-ms <ms>
+  makefx productions delete <record-id>
 `);
 }

@@ -1,8 +1,8 @@
-# Product Requirements Document: Inventory Forge
+# Product Requirements Document: Make Effects
 
 ## Overview
 
-A collaborative web application for creating, refining, and combining AI-generated image assets using Gemini. Users maintain an inventory of visual assets, iteratively refine them, and forge new assets by combining existing ones.
+A collaborative web application for creating, refining, and combining AI-generated media assets. Users maintain spaces of production assets, iteratively refine them, and assemble new assets by combining existing ones.
 
 **Technical architecture:** See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 

@@ -90,7 +90,7 @@ export default function LandingPage() {
       <AppHeader
         leftSlot={(
           <Link to="/" className={styles.brand}>
-            Inventory
+            Make Effects
           </Link>
         )}
         rightSlot={
@@ -108,7 +108,7 @@ export default function LandingPage() {
             // Logged out: Show hero and features
             <div className={styles.hero}>
               <h2 className={styles.headline}>
-                An inventory for AI-generated game art.
+                Make Effects for AI-assisted game art.
               </h2>
               <p className={styles.subtitle}>
                 Generate, refine, and forge visual assets with full lineage,
@@ -203,7 +203,7 @@ export default function LandingPage() {
                   <div className={styles.emptyIcon}>📦</div>
                   <h2 className={styles.emptyTitle}>No spaces yet</h2>
                   <p className={styles.emptyDescription}>
-                    Create your first space to start organizing your inventory.
+                    Create your first space to start organizing your production assets.
                   </p>
                   <button
                     className={styles.emptyCreateButton}

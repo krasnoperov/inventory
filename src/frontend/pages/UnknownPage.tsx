@@ -11,7 +11,7 @@ export default function UnknownPage() {
       <AppHeader
         leftSlot={(
           <Link to="/" className={styles.brand}>
-            Inventory
+            Make Effects
           </Link>
         )}
       />

@@ -2,10 +2,10 @@
  * Spaces Command - List and manage user's spaces
  *
  * Usage:
- *   pnpm run cli spaces                    List all spaces
- *   pnpm run cli spaces --details          Show asset counts per space
- *   pnpm run cli spaces --id <space_id>    Show details for a specific space
- *   pnpm run cli spaces create <name>      Create a new space
+ *   makefx spaces                    List all spaces
+ *   makefx spaces --details          Show asset counts per space
+ *   makefx spaces --id <space_id>    Show details for a specific space
+ *   makefx spaces create <name>      Create a new space
  */
 
 import process from 'node:process';
@@ -72,8 +72,8 @@ export async function handleSpaces(parsed: ParsedArgs): Promise<void> {
       const spaceName = parsed.positionals.slice(1).join(' ') || parsed.options.name;
       if (!spaceName) {
         console.error('Error: Space name is required');
-        console.error('Usage: pnpm run cli spaces create <name>');
-        console.error('       pnpm run cli spaces create --name "My Space"');
+        console.error('Usage: makefx spaces create <name>');
+        console.error('       makefx spaces create --name "My Space"');
         process.exitCode = 1;
         return;
       }
@@ -137,9 +137,9 @@ function printCreatedSpace(space: Space, env: string, configPath?: string): void
     console.log(`  Config: ${configPath}`);
   }
   console.log(`\nTo bind this directory:`);
-  console.log(`  pnpm run cli init --space ${space.id}${envFlag}`);
+  console.log(`  makefx init --space ${space.id}${envFlag}`);
   console.log(`\nTo listen for events:`);
-  console.log(`  pnpm run cli listen --space ${space.id}${envFlag}`);
+  console.log(`  makefx listen --space ${space.id}${envFlag}`);
 }
 
 async function listSpaces(baseUrl: string, accessToken: string): Promise<void> {
@@ -174,8 +174,8 @@ async function listSpaces(baseUrl: string, accessToken: string): Promise<void> {
     );
   }
 
-  console.log(`\nFor details: pnpm run cli spaces --details`);
-  console.log(`For a specific space: pnpm run cli spaces --id <space_id>`);
+  console.log(`\nFor details: makefx spaces --details`);
+  console.log(`For a specific space: makefx spaces --id <space_id>`);
 }
 
 async function listSpacesWithDetails(baseUrl: string, accessToken: string): Promise<void> {
@@ -317,7 +317,7 @@ async function showSpaceDetails(baseUrl: string, accessToken: string, spaceId: s
   }
 
   console.log(`\nTo start a chat session with this space:`);
-  console.log(`  pnpm run cli chat send "What's in this space?" --space ${spaceId} --state ./test/${space.name.toLowerCase().replace(/\s+/g, '-')}.json`);
+  console.log(`  makefx chat send "What's in this space?" --space ${spaceId} --state ./test/${space.name.toLowerCase().replace(/\s+/g, '-')}.json`);
 }
 
 function truncatePad(str: string, width: number): string {

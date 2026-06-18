@@ -7,10 +7,10 @@
 # - Retry of failed customer creation
 # - Internal API for manual sync operations
 #
-# Separated from main worker so deployments don't interrupt sync
+# Separated from main worker so app deployments don't interrupt billing sync
 
 account_id = "2d61278ad8b69df60cde602758926e14"
-name = "inventory-polar-stage"
+name = "makefx-billing-stage"
 main = "src/worker/polar.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
@@ -21,14 +21,14 @@ enabled = true
 
 # Stage environment routes (for internal API access)
 [[routes]]
-pattern = "inventory-polar-stage.krasnoperov.me"
+pattern = "makefx-billing-stage.krasnoperov.me"
 custom_domain = true
 
 # D1 Database binding (same as main worker)
 [[d1_databases]]
 binding = "DB"
-database_name = "inventory-stage"
-database_id = "6619b429-e8e8-4e93-9f36-b2bdeab78a9a"
+database_name = "makefx-stage"
+database_id = "14827e27-7616-4056-8e77-f8fa37d03835"
 migrations_dir = "db/migrations"
 
 # Environment variables for stage
@@ -45,18 +45,18 @@ crons = ["*/5 * * * *"]
 # PRODUCTION ENVIRONMENT
 # ====================
 [env.production]
-name = "inventory-polar-production"
+name = "makefx-billing-production"
 
 # Production routes
 [[env.production.routes]]
-pattern = "inventory-polar.krasnoperov.me"
+pattern = "billing.makefx.app"
 custom_domain = true
 
 # D1 Database binding - Production
 [[env.production.d1_databases]]
 binding = "DB"
-database_name = "inventory-production"
-database_id = "16597a9f-efd7-4b61-b62f-8962da51b782"
+database_name = "makefx-production"
+database_id = "35fc45c8-78d1-4fcf-9a18-ce252d2a5dd3"
 migrations_dir = "db/migrations"
 
 [env.production.vars]
@@ -72,7 +72,7 @@ crons = ["*/5 * * * *"]
 # LOCAL DEVELOPMENT
 # ====================
 [dev]
-port = 8790  # Different port from main (8788) and processing (8789)
+port = 8790  # Different port from main (8788) and generation (8789)
 local_protocol = "http"
 
 # Secrets should be set via wrangler CLI:

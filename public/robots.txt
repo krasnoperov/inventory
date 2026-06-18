@@ -8,4 +8,4 @@ Disallow: /profile
 Disallow: /oauth/
 Disallow: /spaces/
 
-Sitemap: https://inventory.krasnoperov.me/sitemap.xml
+Sitemap: https://makefx.app/sitemap.xml

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Exchange a stored Inventory CLI login token for a short-lived web session
+// Exchange a stored Make Effects CLI login token for a short-lived web session
 // token, then format it for Playwright or shell tools (curl).
 
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -10,9 +10,9 @@ const DEFAULT_ENV = 'production';
 const COOKIE_NAME = 'auth_token';
 const CLI_CONFIG_DIR = 'forgetray-cli';
 const ENV_ORIGIN = {
-  production: 'https://inventory.krasnoperov.me',
-  stage: 'https://inventory-stage.krasnoperov.me',
-  staging: 'https://inventory-stage.krasnoperov.me',
+  production: 'https://makefx.app',
+  stage: 'https://makefx-stage.krasnoperov.me',
+  staging: 'https://makefx-stage.krasnoperov.me',
   local: 'http://localhost:3001',
 };
 

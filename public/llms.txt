@@ -1,6 +1,6 @@
-# Inventory Forge
+# Make Effects
 
-> An inventory for AI-generated game art. Teams generate, refine, and forge visual assets with full lineage, real-time collaboration, and pipelines built for sprite sheets and turnarounds. Aimed at indie game developers, small studios, and concept artists doing rapid visual iteration — not a single-prompt image generator.
+> Make Effects helps teams generate, refine, and assemble AI-assisted game assets with full lineage, real-time collaboration, and production-ready media handoff. Aimed at indie game developers, small studios, and concept artists doing rapid visual iteration, not a single-prompt image generator.
 
 ## Core concepts
 

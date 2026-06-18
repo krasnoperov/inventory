@@ -290,7 +290,7 @@ test('runs export rejects retired production scene format with Space-backed guid
           o: path.join(dir, 'scenes.args'),
         },
       }, depsFor(dir, [])),
-      /Use: pnpm run cli productions export --production-id <id>/
+      /Use: makefx productions export --production-id <id>/
     );
   } finally {
     await rm(dir, { recursive: true, force: true });

@@ -83,7 +83,7 @@ export async function executeVariants(
     const variantId = parsed.positionals[1];
     const rating = parsed.positionals[2];
     if (!variantId || (rating !== 'approved' && rating !== 'rejected')) {
-      throw new Error('Usage: pnpm run cli variants rate <variant-id> <approved|rejected>');
+      throw new Error('Usage: makefx variants rate <variant-id> <approved|rejected>');
     }
     const variant = await withVariantClient(ctx, deps, (client) => client.rateVariant(variantId, rating));
     deps.print(`Rated variant ${variantId} as ${rating}`);
@@ -96,7 +96,7 @@ export async function executeVariants(
 function requireVariantId(parsed: ParsedArgs, verb: string): string {
   const variantId = parsed.positionals[1];
   if (!variantId) {
-    throw new Error(`Variant ID is required: pnpm run cli variants ${verb} <variant-id>`);
+    throw new Error(`Variant ID is required: makefx variants ${verb} <variant-id>`);
   }
   return variantId;
 }
@@ -106,7 +106,7 @@ async function buildContext(parsed: ParsedArgs, deps: VariantsDeps): Promise<Var
   const env = resolveCommandEnvironment(parsed, projectConfig);
   const spaceId = resolveCommandSpace(parsed, projectConfig);
   if (!spaceId) {
-    throw new Error('--space is required, or run: pnpm run cli init --space <id>');
+    throw new Error('--space is required, or run: makefx init --space <id>');
   }
 
   const config = await deps.loadConfig(env);
@@ -140,11 +140,11 @@ async function withVariantClient<T>(
 function printUsage(): void {
   console.log(`
 Usage:
-  pnpm run cli variants delete <variant-id>
-  pnpm run cli variants retry <variant-id>
-  pnpm run cli variants star <variant-id>
-  pnpm run cli variants unstar <variant-id>
-  pnpm run cli variants rate <variant-id> <approved|rejected>
+  makefx variants delete <variant-id>
+  makefx variants retry <variant-id>
+  makefx variants star <variant-id>
+  makefx variants unstar <variant-id>
+  makefx variants rate <variant-id> <approved|rejected>
 
 Options:
   --space <id>      Target space ID; defaults from the initialized project

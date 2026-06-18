@@ -31,7 +31,7 @@ export function normalizeEnvironment(environment: string): string {
 }
 
 export function loginCommandForEnvironment(environment: string): string {
-  if (environment === DEFAULT_ENVIRONMENT) return 'pnpm run cli login';
-  if (environment === 'local') return 'pnpm run cli login --local';
-  return `pnpm run cli login --env ${environment}`;
+  if (environment === DEFAULT_ENVIRONMENT) return 'makefx login';
+  if (environment === 'local') return 'makefx login --local';
+  return `makefx login --env ${environment}`;
 }

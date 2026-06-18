@@ -75,19 +75,19 @@ export interface Env {
   INVENTORY_DEV_AUTH_TOKEN?: string;
   INVENTORY_DEV_USER_ID?: string;
 
-  // R2 Storage for generated images (required for Inventory Forge)
+  // R2 Storage for generated images (required for Make Effects)
   IMAGES: R2Bucket;
 
-  // Inventory Forge: Space Durable Objects
+  // Make Effects: Space Durable Objects
   SPACES_DO?: DurableObjectNamespace;
 
-  // Inventory Forge: Cloudflare Workflows
+  // Make Effects: Cloudflare Workflows
   GENERATION_WORKFLOW?: WorkflowBinding<GenerationWorkflowInput>;
 
-  // Inventory Forge: Rate limiting for bots
+  // Make Effects: Rate limiting for bots
   RATE_LIMIT_KV?: KVNamespace;
 
-  // Inventory Forge: Claude API for generation
+  // Make Effects: Claude API for generation
   ANTHROPIC_API_KEY?: string;
 
   // Polar.sh billing integration
