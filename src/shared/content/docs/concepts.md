@@ -1,12 +1,14 @@
 # Core Concepts
 
-Make Effects tracks generated media as production assets rather than one-off files.
+Make Effects is not trying to replace a good generator CLI. It gives that CLI a project memory.
+
+The goal is simple: generate freely, explore broadly, keep the best variants, understand how each result was made, and move chosen media into production.
 
 ## Space
 
 A space is a collaborative container for media work. It owns assets, variants, lineage, chat, production records, and real-time sync.
 
-Use one space for a game, episode, trailer, campaign, or other production boundary.
+Use one space for a game, episode, trailer, campaign, or other project boundary where you and an agent or colleague need shared context.
 
 ## Asset
 
@@ -24,7 +26,7 @@ Variants can be images, audio files, or video files. A completed variant stores 
 
 A recipe records how a variant was made: prompt, operation, model or provider, source variants, local references, style settings, and generation options.
 
-Recipes make it possible for humans and agents to explain, retry, refine, or branch from previous work.
+Recipes make it possible for humans and agents to explain, retry, refine, or branch from previous work instead of guessing what happened.
 
 ## Lineage
 
@@ -46,7 +48,6 @@ Records can include scene label, timeline start, duration, shot ID, motion promp
 
 ## Source of Truth
 
-The website and its Cloudflare-backed space state are canonical. The CLI is a control surface over that state.
+The website and its Cloudflare-backed space state are canonical. The CLI is the fast control surface over that state.
 
 Agents should prefer `makefx` commands and JSON outputs over direct database, Durable Object, or R2 access.
-

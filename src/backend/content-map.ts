@@ -22,11 +22,11 @@ export const CONTENT_MAP: Record<string, string> = {
 
 export const LLMS_TXT = `# Make Effects
 
-> AI media production for agents and teams. Generate images, video, and audio from makefx.app or the makefx CLI, then track every result with variants, prompt history, lineage, and production-ready handoff.
+> Make Effects is the project layer for CLI-first media generation. Use a fast CLI loop to generate images, video, and audio, then keep the relationships, variants, prompts, collaborators, and production handoff organized.
 
 ## Product Promise
 
-Make Effects turns generated media into a reviewable production graph instead of detached files. Humans and agents can create spaces, generate or upload media, inspect assets, refine variants, derive new media from references, monitor jobs, and export handoff records for downstream tools.
+Direct generator CLIs are great for making media quickly. Make Effects is for the moment a project gets big enough that you need to remember what worked, compare variants, refine prompts, follow lineage, explore broader ideas, and turn the chosen results into production files. Humans and agents can create spaces, generate or upload media, inspect assets, refine variants, derive new media from references, monitor jobs, and export handoff records for downstream tools.
 
 ## Documentation
 

@@ -1,6 +1,8 @@
 # Production Handoff
 
-Make Effects is designed to keep generated media connected to the production that needs it.
+Exploration is only useful if the best discoveries can make it into the thing you are building.
+
+Make Effects keeps generated media connected to the production that needs it: what was chosen, where it belongs, and which file downstream tools should use.
 
 ## Production records
 
@@ -57,4 +59,3 @@ The export command downloads visual media through authenticated variant endpoint
 3. Place approved variants into a production ID.
 4. Export media and metadata for downstream tools.
 5. Keep the space as the reviewable source of truth.
-

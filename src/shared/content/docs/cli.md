@@ -1,6 +1,8 @@
 # CLI Reference
 
-The `makefx` CLI is the agent-friendly control surface for Make Effects.
+The `makefx` CLI is the fast loop for Make Effects.
+
+Use it the way you would use a direct generator CLI: from a shell, script, or coding agent. The difference is that every generated file can also become tracked project state: assets, variants, prompts, lineage, and production handoff records.
 
 It can create spaces, bind a local project, generate media, upload files, inspect website assets, watch real-time events, curate variants, and export production handoff data.
 
@@ -135,4 +137,4 @@ Run manifests are local debug traces. They are useful for automation logs and re
 - Use local image refs only when you want Make Effects to upload them into the space first.
 - Use `listen --json` for long-running orchestration.
 - Do not read or write Cloudflare storage directly from agents.
-
+- Treat the CLI as the shared contract between your local workflow, your agent, and the web workspace.

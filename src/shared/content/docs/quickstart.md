@@ -1,6 +1,10 @@
 # Quickstart
 
-Make Effects is a hosted media production workspace at [makefx.app](https://makefx.app). Use it from the browser when you want to review and organize assets visually, or from the `makefx` CLI when an agent, script, or local workflow needs to generate and track media.
+Make Effects started from a simple workflow: use a CLI with a Gemini key, generate images and media quickly, then keep moving.
+
+That loop works well until the project gets large. You make many variants. You lose which prompt led to which result. You want to compare directions, refine the promising ones, remember source references, and eventually turn the best ideas into production files.
+
+Make Effects adds a project layer for that loop. Use the `makefx` CLI when you want an agent, script, or local workflow to generate media. Use [makefx.app](https://makefx.app) when you want to review, organize, choose, refine, and collaborate.
 
 ## Install the CLI
 
@@ -23,7 +27,7 @@ The login flow opens the browser, authenticates with Google, and stores local CL
 
 ## Create or bind a space
 
-A space is the shared source of truth for assets, variants, recipes, lineage, and production records.
+A space is the shared memory for a project: assets, variants, recipes, lineage, production records, and collaborators.
 
 ```sh
 makefx spaces create "My Game Assets" --init
@@ -65,7 +69,7 @@ makefx video generate "A looping idle animation for a tiny robot" \
   -o video/robot-idle.mp4
 ```
 
-Each command creates website-backed jobs, waits for completion, downloads the finished file, and records a local debug run manifest.
+Each command creates website-backed jobs, waits for completion, downloads the finished file, and records what happened so the result is not just another detached file.
 
 ## Inspect results
 
@@ -76,11 +80,10 @@ makefx assets download VARIANT_ID -o references/variant.png
 makefx listen --space YOUR_SPACE_ID
 ```
 
-The website remains the source of truth. The CLI reads and mutates the same space graph that the browser UI uses.
+The website remains the source of truth. The CLI reads and mutates the same space graph that the browser UI uses, so your agent and your collaborators are working on the same project state.
 
 ## Next steps
 
 - [Core Concepts](/docs/concepts) explains the data model.
 - [CLI Reference](/docs/cli) covers commands and agent automation.
 - [Production Handoff](/docs/production-handoff) explains scene placement and export.
-

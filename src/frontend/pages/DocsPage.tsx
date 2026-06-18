@@ -33,10 +33,10 @@ export default function DocsPage({ slug }: DocsPageProps) {
       <main className={styles.main}>
         <header className={styles.hero}>
           <p className={styles.eyebrow}>Public docs</p>
-          <h1 className={styles.title}>Build media workflows with makefx.</h1>
+          <h1 className={styles.title}>Keep the thread of your media project.</h1>
           <p className={styles.subtitle}>
-            Learn how Make Effects tracks generated images, audio, and video for
-            humans, scripts, and AI agents.
+            Start with the CLI, explore with an agent or colleague, and keep the
+            variants, prompts, relationships, and chosen files together.
           </p>
         </header>
 

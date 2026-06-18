@@ -15,9 +15,9 @@ import '../styles/theme.css';
 import '../styles/global.css';
 
 const DESCRIPTION =
-  'Make Effects helps agents and creative teams generate images, video, and audio with variants, prompt history, lineage, and production-ready media handoff.';
+  'Make Effects is the project layer for CLI-first media generation: track variants, prompts, lineage, collaborators, and production handoff after ideas outgrow one prompt.';
 const SOCIAL_DESCRIPTION =
-  'AI media production for agents and teams: generate images, video, and audio from the web app or makefx CLI.';
+  'CLI-first media generation with project memory for variants, prompts, lineage, collaboration, and handoff.';
 
 function Document({ children }: { children: ReactNode }) {
   return (

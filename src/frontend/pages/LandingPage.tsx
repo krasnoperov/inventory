@@ -114,12 +114,14 @@ export default function LandingPage() {
                 <section className={styles.heroCopy} aria-labelledby="landing-heading">
                   <p className={styles.eyebrow}>makefx.app + makefx CLI</p>
                   <h1 id="landing-heading" className={styles.headline}>
-                    AI media production for agents and teams.
+                    A workspace for ideas that outgrow one prompt.
                   </h1>
                   <p className={styles.subtitle}>
-                    Generate images, video, and audio from the web app or CLI.
-                    Track every result with variants, prompt history, lineage,
-                    and production-ready handoff.
+                    A CLI with a Gemini key is a fast way to make images and
+                    media. Make Effects adds the project layer larger work
+                    needs: relationships, variants, prompt history,
+                    collaboration, and a path from exploration to finished
+                    files.
                   </p>
 
                   <div className={styles.ctaButtons}>
@@ -151,6 +153,7 @@ makefx assets --json`}</code>
               </div>
 
               <div className={styles.mediaStrip} aria-label="Supported media">
+                <span>CLI-first</span>
                 <span>Images</span>
                 <span>Video</span>
                 <span>Audio</span>
@@ -168,9 +171,10 @@ makefx assets --json`}</code>
                       <circle cx="9" cy="9" r="1" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Generate media</span>
+                  <span className={styles.featureText}>Start from the CLI</span>
                   <span className={styles.featureDescription}>
-                    Create images, video, speech, dialogue, music, and sound effects through website-backed jobs.
+                    Keep the fast loop: ask your agent or shell to generate images,
+                    video, speech, music, and sound effects.
                   </span>
                 </div>
                 <div className={styles.featureItem}>
@@ -182,9 +186,10 @@ makefx assets --json`}</code>
                       <circle cx="16" cy="19" r="2" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Track every result</span>
+                  <span className={styles.featureText}>Remember the exploration</span>
                   <span className={styles.featureDescription}>
-                    Keep variants, prompts, provider metadata, and source references attached to every asset.
+                    Keep prompts, references, variants, lineage, and provider
+                    metadata attached instead of losing them in folders.
                   </span>
                 </div>
                 <div className={styles.featureItem}>
@@ -197,9 +202,10 @@ makefx assets --json`}</code>
                       <path d="m19 14 2 3-2 3" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Agent-ready CLI</span>
+                  <span className={styles.featureText}>Choose and refine</span>
                   <span className={styles.featureDescription}>
-                    Let automation call `makefx generate`, watch jobs, download files, and inspect assets as JSON.
+                    Compare directions, keep the best variants, retry failures,
+                    refine prompts, and branch when a broader idea appears.
                   </span>
                 </div>
                 <div className={styles.featureItem}>
@@ -210,9 +216,10 @@ makefx assets --json`}</code>
                       <path d="M8 13h8M8 17h5" />
                     </svg>
                   </span>
-                  <span className={styles.featureText}>Production handoff</span>
+                  <span className={styles.featureText}>Work with someone</span>
                   <span className={styles.featureDescription}>
-                    Organize media in shared spaces, place production records, and export files for downstream tools.
+                    Collaborate with your agent or a colleague, then place the
+                    chosen media into production records and export the files.
                   </span>
                 </div>
               </div>
