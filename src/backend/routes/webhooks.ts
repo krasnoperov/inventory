@@ -487,6 +487,9 @@ async function fetchAndCacheLimits(
 
     // Fetch current meter credits from Polar
     const meters = await polarService.getCustomerMeters(userId);
+    if (meters.length === 0) {
+      throw new Error('No Polar customer meters returned; preserving cached quota limits');
+    }
 
     // Convert to limits object (use credited amount as the limit)
     const limits: Record<string, number | null> = {};

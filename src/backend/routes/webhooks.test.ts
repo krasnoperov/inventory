@@ -277,6 +277,41 @@ describe('Polar webhook route', () => {
     assert.equal(update.polar_paid_access_expires_at, null);
   });
 
+  test('preserves cached limits when Polar meter refresh returns no meters', async () => {
+    const updates: unknown[] = [];
+    const app = routeApp(routeDeps({
+      update: async (...args: unknown[]) => {
+        updates.push(args);
+      },
+    }, {
+      getCustomerMeters: async () => [],
+    }));
+
+    const body = JSON.stringify({
+      type: 'subscription.active',
+      timestamp: new Date().toISOString(),
+      data: {
+        id: 'sub_123',
+        status: 'active',
+        current_period_start: '2026-07-01T00:00:00.000Z',
+        current_period_end: '2026-08-01T00:00:00.000Z',
+        customer: {
+          id: 'cus_123',
+          email: 'artist@example.test',
+          external_id: '42',
+        },
+      },
+    });
+    const response = await app.request('/api/webhooks/polar', {
+      method: 'POST',
+      headers: signHeaders(body),
+      body,
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(updates, []);
+  });
+
   test('preserves internal entitlement on active Polar subscription refresh', async () => {
     const updates: unknown[] = [];
     const meterLookups: unknown[] = [];
