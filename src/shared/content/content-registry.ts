@@ -27,6 +27,41 @@ export const DOC_REGISTRY = [
     path: '/docs/production-handoff',
     order: 3,
   },
+  {
+    slug: 'media-playbooks',
+    title: 'Media Playbooks',
+    description: 'Use reference-first workflows for images, video, and audio instead of prompt roulette.',
+    path: '/docs/media-playbooks',
+    order: 4,
+  },
+  {
+    slug: 'image-playbook',
+    title: 'Image Playbook',
+    description: 'Build reusable references, style anchors, scenes, and edits that stay consistent.',
+    path: '/docs/image-playbook',
+    order: 5,
+  },
+  {
+    slug: 'video-playbook',
+    title: 'Video Playbook',
+    description: 'Make keyframes first, then direct motion, sound, and timeline handoff.',
+    path: '/docs/video-playbook',
+    order: 6,
+  },
+  {
+    slug: 'audio-playbook',
+    title: 'Audio Playbook',
+    description: 'Pick speech, dialogue, music, or SFX modes and brief each sound deliberately.',
+    path: '/docs/audio-playbook',
+    order: 7,
+  },
+  {
+    slug: 'model-and-parameter-selection',
+    title: 'Model & Parameter Selection',
+    description: 'Choose image, video, and audio modes, defaults, and CLI-exposed parameters.',
+    path: '/docs/model-and-parameter-selection',
+    order: 8,
+  },
 ] as const;
 
 export type DocRegistryEntry = (typeof DOC_REGISTRY)[number];

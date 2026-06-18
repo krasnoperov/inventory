@@ -3,6 +3,11 @@ import quickstart from '../shared/content/docs/quickstart.md?raw';
 import concepts from '../shared/content/docs/concepts.md?raw';
 import cli from '../shared/content/docs/cli.md?raw';
 import productionHandoff from '../shared/content/docs/production-handoff.md?raw';
+import mediaPlaybooks from '../shared/content/docs/media-playbooks.md?raw';
+import imagePlaybook from '../shared/content/docs/image-playbook.md?raw';
+import videoPlaybook from '../shared/content/docs/video-playbook.md?raw';
+import audioPlaybook from '../shared/content/docs/audio-playbook.md?raw';
+import modelAndParameterSelection from '../shared/content/docs/model-and-parameter-selection.md?raw';
 import { DOC_REGISTRY, type DocPath } from '../shared/content/content-registry';
 
 const FULL_DOC_REGISTRY = [
@@ -20,6 +25,11 @@ const DOC_CONTENT: Record<DocPath, string> = {
   '/docs/concepts': concepts,
   '/docs/cli': cli,
   '/docs/production-handoff': productionHandoff,
+  '/docs/media-playbooks': mediaPlaybooks,
+  '/docs/image-playbook': imagePlaybook,
+  '/docs/video-playbook': videoPlaybook,
+  '/docs/audio-playbook': audioPlaybook,
+  '/docs/model-and-parameter-selection': modelAndParameterSelection,
 };
 
 function markdownVariantPath(path: string): string {

@@ -2,6 +2,11 @@ import quickstart from '../../shared/content/docs/quickstart.md?raw';
 import concepts from '../../shared/content/docs/concepts.md?raw';
 import cli from '../../shared/content/docs/cli.md?raw';
 import productionHandoff from '../../shared/content/docs/production-handoff.md?raw';
+import mediaPlaybooks from '../../shared/content/docs/media-playbooks.md?raw';
+import imagePlaybook from '../../shared/content/docs/image-playbook.md?raw';
+import videoPlaybook from '../../shared/content/docs/video-playbook.md?raw';
+import audioPlaybook from '../../shared/content/docs/audio-playbook.md?raw';
+import modelAndParameterSelection from '../../shared/content/docs/model-and-parameter-selection.md?raw';
 import { DOC_REGISTRY, type DocSlug } from '../../shared/content/content-registry';
 
 const DOC_CONTENT: Record<DocSlug, string> = {
@@ -9,6 +14,11 @@ const DOC_CONTENT: Record<DocSlug, string> = {
   concepts,
   cli,
   'production-handoff': productionHandoff,
+  'media-playbooks': mediaPlaybooks,
+  'image-playbook': imagePlaybook,
+  'video-playbook': videoPlaybook,
+  'audio-playbook': audioPlaybook,
+  'model-and-parameter-selection': modelAndParameterSelection,
 };
 
 export type DocEntry = {
