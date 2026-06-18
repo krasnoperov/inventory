@@ -1,0 +1,25 @@
+{
+  "projectId": "958ee0a8-71d8-417e-b1e7-4be3e8a8e18f",
+  "pkg": "makefx",
+  "globalName": "MakeFx",
+  "shape": "package",
+  "cssEntry": "src/frontend/styles/theme.css",
+  "componentSrcMap": {
+    "Pagination": "src/frontend/components/Pagination.tsx",
+    "TopLoadingBar": "src/frontend/components/TopLoadingBar.tsx",
+    "HeaderNav": "src/frontend/components/HeaderNav.tsx",
+    "AppHeader": "src/frontend/components/AppHeader.tsx",
+    "WorkspaceChrome": "src/frontend/components/WorkspaceChrome.tsx",
+    "Thumbnail": "src/frontend/components/Thumbnail/Thumbnail.tsx",
+    "AssetCard": "src/frontend/components/AssetCard.tsx",
+    "ErrorMessage": "src/frontend/components/forms/ErrorMessage.tsx",
+    "FormTitle": "src/frontend/components/forms/FormTitle.tsx",
+    "FormContainer": "src/frontend/components/forms/FormContainer.tsx"
+  },
+  "overrides": {
+    "FormContainer": { "cardMode": "column" },
+    "Pagination": { "cardMode": "column" },
+    "Thumbnail": { "cardMode": "column" }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}
