@@ -9,6 +9,13 @@ For *how to prompt* these models well, see the
 [playbooks](./playbooks/README.md). This page is the *which knob, which value*
 companion.
 
+> **Service parameters vs. CLI flags.** The values below are the parameters the
+> backend services accept. Not all are exposed as `makefx` CLI flags — the CLI
+> surfaces `--aspect`, `--count`, `--mode`, `--duration-ms`, and the
+> production-metadata flags, while model choice and resolution currently fall to
+> server-side defaults. Where a value is set by a default rather than a flag,
+> that is noted. See [cli-generation.md](./cli-generation.md) for the flag list.
+
 ## Images (Nano Banana)
 
 Backed by `src/backend/services/nanoBananaService.ts`.
