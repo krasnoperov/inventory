@@ -152,6 +152,16 @@ describe('UserDAO', () => {
       assert.strictEqual(user.paid_generation_entitlement, 'paid');
     });
 
+    test('updates Polar paid access expiry', async () => {
+      await dao.update(testUser.id, {
+        polar_paid_access_expires_at: '2026-07-01T00:00:00.000Z',
+      });
+
+      const user = await dao.findById(testUser.id);
+      assert(user);
+      assert.strictEqual(user.polar_paid_access_expires_at, '2026-07-01T00:00:00.000Z');
+    });
+
     test('updates updated_at timestamp', async () => {
       const originalUpdatedAt = testUser.updated_at;
       await new Promise(resolve => setTimeout(resolve, 10));

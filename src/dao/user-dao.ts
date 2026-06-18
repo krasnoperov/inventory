@@ -21,6 +21,7 @@ export interface UpdateUserData {
   quota_limits_updated_at?: string;
   polar_current_period_start?: string | null;
   polar_current_period_end?: string | null;
+  polar_paid_access_expires_at?: string | null;
   // Rate limiting fields
   rate_limit_count?: number;
   rate_limit_window_start?: string;
@@ -94,6 +95,9 @@ export class UserDAO {
     }
     if (data.polar_current_period_end !== undefined) {
       updateData.polar_current_period_end = data.polar_current_period_end;
+    }
+    if (data.polar_paid_access_expires_at !== undefined) {
+      updateData.polar_paid_access_expires_at = data.polar_paid_access_expires_at;
     }
     if (data.rate_limit_count !== undefined) updateData.rate_limit_count = data.rate_limit_count;
     if (data.rate_limit_window_start !== undefined) updateData.rate_limit_window_start = data.rate_limit_window_start;

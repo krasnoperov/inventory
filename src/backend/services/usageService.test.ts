@@ -743,6 +743,18 @@ describe('UsageService', () => {
       assert.strictEqual(result.limit, null);
     });
 
+    test('blocks paid users after scheduled cancellation grace expires', async () => {
+      await userDAO.update(testUserId, {
+        paid_generation_entitlement: 'paid',
+        polar_paid_access_expires_at: '2000-01-01T00:00:00.000Z',
+      });
+
+      const result = await usageService.checkQuota(testUserId, 'nanobanana');
+
+      assert.strictEqual(result.allowed, false);
+      assert.strictEqual(result.message, 'Paid generation is not enabled for this account. Please upgrade your plan.');
+    });
+
     test('checks quotas against the cached Polar billing period', async () => {
       await userDAO.update(testUserId, {
         quota_limits: JSON.stringify({ gemini_images: 3 }),

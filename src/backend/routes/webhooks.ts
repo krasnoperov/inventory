@@ -322,6 +322,7 @@ async function handleSubscriptionActive(
   await fetchAndCacheLimits(userId, userDAO, polarService, {
     periodStart: subscription.current_period_start ?? null,
     periodEnd: subscription.current_period_end ?? null,
+    paidAccessExpiresAt: null,
   });
 }
 
@@ -348,6 +349,9 @@ async function handleSubscriptionUpdated(
     await fetchAndCacheLimits(userId, userDAO, polarService, {
       periodStart: subscription.current_period_start ?? null,
       periodEnd: subscription.current_period_end ?? null,
+      paidAccessExpiresAt: subscription.canceled_at && isFutureDate(subscription.current_period_end)
+        ? subscription.current_period_end ?? null
+        : null,
     });
   }
 }
@@ -372,14 +376,18 @@ async function handleSubscriptionCanceled(
   const userId = parseExternalUserId(customer.external_id, 'revoke limits');
   if (userId === null) return;
 
+  const graceEndsAt = isFutureDate(subscription.current_period_end)
+    ? subscription.current_period_end ?? null
+    : null;
   if (
     subscription.status === 'active' ||
     subscription.status === 'trialing' ||
-    isFutureDate(subscription.current_period_end)
+    graceEndsAt !== null
   ) {
     await fetchAndCacheLimits(userId, userDAO, polarService, {
       periodStart: subscription.current_period_start ?? null,
       periodEnd: subscription.current_period_end ?? null,
+      paidAccessExpiresAt: graceEndsAt,
     });
     return;
   }
@@ -404,6 +412,7 @@ async function handleSubscriptionCanceled(
     quota_limits_updated_at: new Date().toISOString(),
     polar_current_period_start: null,
     polar_current_period_end: null,
+    polar_paid_access_expires_at: null,
   });
 
   console.log(`[Polar Webhook] Revoked quota limits for user ${userId}`);
@@ -450,6 +459,7 @@ async function handleCustomerStateChanged(
       quota_limits_updated_at: new Date().toISOString(),
       polar_current_period_start: null,
       polar_current_period_end: null,
+      polar_paid_access_expires_at: null,
     });
 
     console.log(`[Polar Webhook] Revoked quota limits for user ${userId} (no active subscriptions)`);
@@ -466,7 +476,11 @@ async function fetchAndCacheLimits(
   userId: number,
   userDAO: UserDAO,
   polarService: PolarService,
-  period: { periodStart?: string | null; periodEnd?: string | null } = {}
+  period: {
+    periodStart?: string | null;
+    periodEnd?: string | null;
+    paidAccessExpiresAt?: string | null;
+  } = {}
 ): Promise<void> {
   try {
     if (await shouldPreserveInternalEntitlement(userId, userDAO, 'update local limits')) return;
@@ -492,6 +506,9 @@ async function fetchAndCacheLimits(
     }
     if ('periodEnd' in period) {
       update.polar_current_period_end = period.periodEnd ?? null;
+    }
+    if ('paidAccessExpiresAt' in period) {
+      update.polar_paid_access_expires_at = period.paidAccessExpiresAt ?? null;
     }
 
     await userDAO.update(userId, update);

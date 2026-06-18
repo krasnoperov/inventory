@@ -2,6 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   isAdminUserId,
+  isPaidGenerationAccessExpired,
   resolveEntitlement,
   normalizePaidGenerationEntitlement,
 } from './paidGenerationEntitlement';
@@ -41,5 +42,22 @@ describe('resolveEntitlement', () => {
     for (const value of ['none', 'paid', 'internal', 'bogus', null, undefined]) {
       assert.equal(resolveEntitlement(value, 5, ''), normalizePaidGenerationEntitlement(value));
     }
+  });
+});
+
+describe('isPaidGenerationAccessExpired', () => {
+  const now = new Date('2026-06-18T12:00:00.000Z');
+
+  test('expires explicit paid cancellation grace at the cached timestamp', () => {
+    assert.equal(isPaidGenerationAccessExpired('paid', '2026-06-18T11:59:59.000Z', now), true);
+    assert.equal(isPaidGenerationAccessExpired('paid', '2026-06-18T12:00:00.000Z', now), true);
+  });
+
+  test('keeps paid access when no explicit grace expiry is cached', () => {
+    assert.equal(isPaidGenerationAccessExpired('paid', null, now), false);
+  });
+
+  test('does not expire internal entitlement', () => {
+    assert.equal(isPaidGenerationAccessExpired('internal', '2026-06-18T11:59:59.000Z', now), false);
   });
 });

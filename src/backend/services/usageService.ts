@@ -10,6 +10,7 @@ import { TYPES } from '../../core/di-types';
 import { priceProviderUsageEvent } from '../billing/providerPricing';
 import {
   hasPaidGenerationAccess,
+  isPaidGenerationAccessExpired,
   isNonBillablePaidGenerationEntitlement,
   resolveEntitlement,
   PAID_GENERATION_REQUIRED_MESSAGE,
@@ -528,6 +529,7 @@ export class UsageService {
         'quota_limits',
         'polar_current_period_start',
         'polar_current_period_end',
+        'polar_paid_access_expires_at',
         'rate_limit_count',
         'rate_limit_window_start',
       ])
@@ -582,7 +584,10 @@ export class UsageService {
       ? new Date(new Date(user.rate_limit_window_start).getTime() + rateLimitConfig.windowSeconds * 1000)
       : null;
 
-    if (!hasPaidGenerationAccess(entitlement)) {
+    if (
+      !hasPaidGenerationAccess(entitlement) ||
+      isPaidGenerationAccessExpired(entitlement, user.polar_paid_access_expires_at, now)
+    ) {
       return {
         allowed: false,
         quotaUsed,

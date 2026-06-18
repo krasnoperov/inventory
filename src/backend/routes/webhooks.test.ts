@@ -140,8 +140,14 @@ describe('Polar webhook route', () => {
     assert.deepEqual(await response.json(), { received: true });
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
-    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'none');
-    assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
+    const update = (updates[0] as unknown[])[1] as {
+      paid_generation_entitlement: string;
+      quota_limits: string;
+      polar_paid_access_expires_at: string | null;
+    };
+    assert.equal(update.paid_generation_entitlement, 'none');
+    assert.equal(update.polar_paid_access_expires_at, null);
+    assert.deepEqual(JSON.parse(update.quota_limits), {
       claude_input_tokens: 0,
       claude_output_tokens: 0,
       gemini_images: 0,
@@ -181,10 +187,18 @@ describe('Polar webhook route', () => {
     assert.deepEqual(meterLookups[0], [42]);
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
-    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'paid');
-    assert.equal(((updates[0] as unknown[])[1] as { polar_current_period_start: string }).polar_current_period_start, '2026-06-01T00:00:00.000Z');
-    assert.equal(((updates[0] as unknown[])[1] as { polar_current_period_end: string }).polar_current_period_end, '2026-07-01T00:00:00.000Z');
-    assert.deepEqual(JSON.parse(((updates[0] as unknown[])[1] as { quota_limits: string }).quota_limits), {
+    const update = (updates[0] as unknown[])[1] as {
+      paid_generation_entitlement: string;
+      polar_current_period_start: string;
+      polar_current_period_end: string;
+      polar_paid_access_expires_at: string | null;
+      quota_limits: string;
+    };
+    assert.equal(update.paid_generation_entitlement, 'paid');
+    assert.equal(update.polar_current_period_start, '2026-06-01T00:00:00.000Z');
+    assert.equal(update.polar_current_period_end, '2026-07-01T00:00:00.000Z');
+    assert.equal(update.polar_paid_access_expires_at, '2026-07-01T00:00:00.000Z');
+    assert.deepEqual(JSON.parse(update.quota_limits), {
       gemini_images: 25,
     });
   });
@@ -212,8 +226,55 @@ describe('Polar webhook route', () => {
     assert.equal(response.status, 200);
     assert.equal(updates.length, 1);
     assert.equal((updates[0] as unknown[])[0], 42);
-    assert.equal(((updates[0] as unknown[])[1] as { paid_generation_entitlement: string }).paid_generation_entitlement, 'paid');
-    assert.equal(((updates[0] as unknown[])[1] as { polar_current_period_end: string }).polar_current_period_end, futureEnd);
+    const update = (updates[0] as unknown[])[1] as {
+      paid_generation_entitlement: string;
+      polar_current_period_end: string;
+      polar_paid_access_expires_at: string | null;
+    };
+    assert.equal(update.paid_generation_entitlement, 'paid');
+    assert.equal(update.polar_current_period_end, futureEnd);
+    assert.equal(update.polar_paid_access_expires_at, futureEnd);
+  });
+
+  test('clears scheduled-cancellation access expiry when subscription becomes active again', async () => {
+    const updates: unknown[] = [];
+    const app = routeApp(routeDeps({
+      update: async (...args: unknown[]) => {
+        updates.push(args);
+      },
+    }, {
+      getCustomerMeters: async () => [
+        { meterSlug: 'gemini_images', hasLimit: true, credited: 25 },
+      ],
+    }));
+
+    const body = JSON.stringify({
+      type: 'subscription.active',
+      timestamp: new Date().toISOString(),
+      data: {
+        id: 'sub_123',
+        status: 'active',
+        current_period_start: '2026-07-01T00:00:00.000Z',
+        current_period_end: '2026-08-01T00:00:00.000Z',
+        customer: {
+          id: 'cus_123',
+          email: 'artist@example.test',
+          external_id: '42',
+        },
+      },
+    });
+    const response = await app.request('/api/webhooks/polar', {
+      method: 'POST',
+      headers: signHeaders(body),
+      body,
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(updates.length, 1);
+    const update = (updates[0] as unknown[])[1] as {
+      polar_paid_access_expires_at: string | null;
+    };
+    assert.equal(update.polar_paid_access_expires_at, null);
   });
 
   test('preserves internal entitlement on active Polar subscription refresh', async () => {
@@ -375,10 +436,12 @@ describe('Polar webhook route', () => {
       quota_limits: string;
       polar_current_period_start?: string | null;
       polar_current_period_end?: string | null;
+      polar_paid_access_expires_at?: string | null;
     };
     assert.equal(update.paid_generation_entitlement, 'paid');
     assert.equal('polar_current_period_start' in update, false);
     assert.equal('polar_current_period_end' in update, false);
+    assert.equal('polar_paid_access_expires_at' in update, false);
     assert.deepEqual(JSON.parse(update.quota_limits), {
       gemini_images: 25,
     });
@@ -420,10 +483,12 @@ describe('Polar webhook route', () => {
       quota_limits: string;
       polar_current_period_start?: string | null;
       polar_current_period_end?: string | null;
+      polar_paid_access_expires_at?: string | null;
     };
     assert.equal(update.paid_generation_entitlement, 'paid');
     assert.equal('polar_current_period_start' in update, false);
     assert.equal('polar_current_period_end' in update, false);
+    assert.equal('polar_paid_access_expires_at' in update, false);
     assert.deepEqual(JSON.parse(update.quota_limits), {
       gemini_images: 25,
       claude_input_tokens: null,

@@ -33,7 +33,7 @@ function combineStatus(statuses: OperationalStatus[]): OperationalStatus {
   return 'ok';
 }
 
-function meterFilterMentionsEventName(filter: unknown, eventName: string): boolean {
+function meterFilterMatchesEventName(filter: unknown, eventName: string): boolean {
   if (!filter || typeof filter !== 'object') return false;
   const clauses = (filter as { clauses?: unknown }).clauses;
   if (!Array.isArray(clauses)) return false;
@@ -41,10 +41,12 @@ function meterFilterMentionsEventName(filter: unknown, eventName: string): boole
   return clauses.some((clause) => {
     if (!clause || typeof clause !== 'object') return false;
     if ('clauses' in clause) {
-      return meterFilterMentionsEventName(clause, eventName);
+      return meterFilterMatchesEventName(clause, eventName);
     }
     const record = clause as { property?: unknown; operator?: unknown; value?: unknown };
-    return record.property === 'name' && record.value === eventName;
+    return record.property === 'name' &&
+      record.operator === 'eq' &&
+      record.value === eventName;
   });
 }
 
@@ -199,12 +201,14 @@ billingRoutes.get('/api/billing/status', async (c) => {
       quota_limits_updated_at: new Date().toISOString(),
       polar_current_period_start: status.subscription?.currentPeriodStart?.toISOString() ?? null,
       polar_current_period_end: status.subscription?.currentPeriodEnd?.toISOString() ?? null,
+      polar_paid_access_expires_at: null,
     });
   } else if (status.available && refreshedEntitlement !== entitlement) {
     await userDAO.update(userId, {
       paid_generation_entitlement: refreshedEntitlement,
       polar_current_period_start: status.subscription?.currentPeriodStart?.toISOString() ?? null,
       polar_current_period_end: status.subscription?.currentPeriodEnd?.toISOString() ?? null,
+      polar_paid_access_expires_at: null,
     });
   }
 
@@ -323,7 +327,7 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
       if (!expected) return false;
       return meter.aggregation !== expected.aggregation ||
         meter.aggregationProperty !== expected.aggregationProperty ||
-        !meterFilterMentionsEventName(meter.filter, expected.eventName);
+        !meterFilterMatchesEventName(meter.filter, expected.eventName);
     })
     .map((meter) => ({
       name: meter.name,

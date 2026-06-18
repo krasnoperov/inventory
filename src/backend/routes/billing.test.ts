@@ -180,6 +180,7 @@ describe('billingRoutes', () => {
           paid_generation_entitlement: 'none',
           polar_current_period_start: null,
           polar_current_period_end: null,
+          polar_paid_access_expires_at: null,
         },
       ],
     ]);
@@ -419,6 +420,66 @@ describe('billingRoutes', () => {
     assert.equal(body.checks.internalUsers.status, 'critical');
     assert.equal(body.checks.internalUsers.billableEvents, 1);
     assert.equal(body.checks.internalUsers.nonBillableEvents, 2);
+  });
+
+  test('operational checks reject meters with non-equality event filters', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UsageEventDAO, {
+      getSyncHealth: async () => ({
+        pending: 0,
+        failed: 0,
+        synced: 12,
+        oldestPendingCreatedAt: null,
+        oldestFailedCreatedAt: null,
+        lastSyncedAt: '2026-06-17T10:00:00.000Z',
+        lastSyncAttemptAt: '2026-06-17T10:00:00.000Z',
+      }),
+      getInternalBillingHealth: async () => ({
+        internalUsers: 1,
+        billableEvents: 0,
+        nonBillableEvents: 2,
+      }),
+    });
+    deps.set(UserDAO, {
+      countWithoutPolarCustomer: async () => 0,
+    });
+    deps.set(PolarService, {
+      isConfigured: () => true,
+      getPaidGenerationProductInfo: async () => paidGenerationProduct(),
+      listMeters: async () => [
+        polarMeter('claude_input_tokens'),
+        polarMeter('claude_output_tokens'),
+        polarMeter('gemini_images', {
+          filter: {
+            conjunction: 'and',
+            clauses: [
+              { property: 'name', operator: 'ne', value: 'gemini_images' },
+            ],
+          },
+        }),
+        polarMeter('gemini_videos'),
+        polarMeter('gemini_audio'),
+        polarMeter('gemini_input_tokens'),
+        polarMeter('gemini_output_tokens'),
+        polarMeter('elevenlabs_audio'),
+      ],
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request('/api/billing/operational-checks', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      status: string;
+      checks: { polarMeters: { status: string; invalid: Array<{ name: string }> } };
+    };
+    assert.equal(body.status, 'critical');
+    assert.equal(body.checks.polarMeters.status, 'critical');
+    assert.deepEqual(body.checks.polarMeters.invalid.map((meter) => meter.name), ['gemini_images']);
   });
 
   test('operational checks report missing product metered prices as critical', async () => {

@@ -8,6 +8,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import {
   hasPaidGenerationAccess,
+  isPaidGenerationAccessExpired,
   isNonBillablePaidGenerationEntitlement,
   normalizePaidGenerationEntitlement,
   resolveEntitlement,
@@ -97,6 +98,7 @@ export async function preCheck(
       quota_limits,
       polar_current_period_start,
       polar_current_period_end,
+      polar_paid_access_expires_at,
       rate_limit_count,
       rate_limit_window_start
     FROM users WHERE id = ?
@@ -105,6 +107,7 @@ export async function preCheck(
     quota_limits: string | null;
     polar_current_period_start: string | null;
     polar_current_period_end: string | null;
+    polar_paid_access_expires_at: string | null;
     rate_limit_count: number | null;
     rate_limit_window_start: string | null;
   }>();
@@ -157,7 +160,10 @@ export async function preCheck(
   const rateLimitUsed = windowExpired ? 0 : (userResult.rate_limit_count || 0);
   const rateLimitRemaining = Math.max(0, rateLimitConfig.maxRequests - rateLimitUsed);
 
-  if (!hasPaidGenerationAccess(entitlement)) {
+  if (
+    !hasPaidGenerationAccess(entitlement) ||
+    isPaidGenerationAccessExpired(entitlement, userResult.polar_paid_access_expires_at, now)
+  ) {
     return {
       allowed: false,
       quotaUsed,
