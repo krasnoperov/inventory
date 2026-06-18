@@ -301,7 +301,39 @@ describe('VariantFactory', () => {
           },
           meta
         ),
-        /Flash image generation supports at most 1 reference image/
+        /gemini-2\.5-flash-image supports at most 1 reference image/
+      );
+
+      assert.strictEqual(asMock(repo.createAsset).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createLineage).mock.calls.length, 0);
+      assert.strictEqual(asMock(broadcast).mock.calls.length, 0);
+    });
+
+    test('rejects Pro image generation above its reference limit before creating records', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      asMock(repo.getVariantImageKey).mock.mockImplementation(
+        async (variantId: string) => `images/${variantId}.png`
+      );
+
+      await assert.rejects(
+        factory.createAssetWithVariant(
+          {
+            name: 'Large Composite',
+            assetType: 'scene',
+            mediaKind: 'image',
+            prompt: 'Combine many references',
+            model: 'pro',
+            referenceVariantIds: Array.from({ length: 15 }, (_, index) => `ref-var-${index}`),
+          },
+          meta
+        ),
+        /gemini-3-pro-image-preview supports at most 14 reference images/
       );
 
       assert.strictEqual(asMock(repo.createAsset).mock.calls.length, 0);

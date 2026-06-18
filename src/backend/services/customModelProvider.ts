@@ -14,6 +14,7 @@ import type {
   GenerationResult,
   ImageModel,
 } from './nanoBananaService';
+import { DEFAULT_IMAGE_MODEL_ID } from '../../shared/imageGenerationOptions';
 
 export class CustomModelProvider implements ImageGenerationProvider {
   constructor(
@@ -97,7 +98,7 @@ export class CustomModelProvider implements ImageGenerationProvider {
     return {
       imageData: data.imageData,
       imageMimeType: data.imageMimeType || 'image/png',
-      model: 'gemini-3-pro-image-preview' as ImageModel, // Placeholder — model name not relevant for custom
+      model: DEFAULT_IMAGE_MODEL_ID as ImageModel, // Placeholder — model name not relevant for custom
       aspectRatio: aspectRatio as GenerationResult['aspectRatio'],
       imageSize: imageSize as GenerationResult['imageSize'],
       usage: data.usage,

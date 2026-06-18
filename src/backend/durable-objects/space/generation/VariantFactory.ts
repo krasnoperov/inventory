@@ -13,7 +13,6 @@ import type { GenerationWorkflowInput, OperationType, BatchMode } from '../../..
 import type { SpaceRepository } from '../repository/SpaceRepository';
 import { ValidationError, type BroadcastFn } from '../controllers/types';
 import type { Env } from '../../../../core/types';
-import { resolveImageModel } from '../../../services/nanoBananaService';
 import { PromptBuilder } from './PromptBuilder';
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND, type MediaKind, type MusicGenerationProvider } from '../../../../shared/websocket-types';
@@ -22,10 +21,13 @@ import {
   type VeoReferenceMode,
 } from '../../../services/googleVeoService';
 import {
-  IMAGE_MODEL_IDS,
+  getImageModelCapabilities,
   isImageModelId,
   isImageModelSelection,
+  isImageSizeSupportedByModel,
   normalizeImageSize,
+  resolveImageModelSelection,
+  type ImageModelId,
 } from '../../../../shared/imageGenerationOptions';
 import {
   DEFAULT_VIDEO_GENERATION_DURATION_SECONDS,
@@ -43,7 +45,6 @@ import {
 } from '../../../../shared/videoGenerationOptions';
 
 const log = loggers.generationController;
-const MAX_GEMINI_REFERENCE_IMAGES = 14;
 const MAX_VEO_REFERENCE_IMAGES = 3;
 
 // ============================================================================
@@ -839,7 +840,7 @@ export class VariantFactory {
       }
 
       styleImageKeys = styleImageKeys.slice(0, styleBudget);
-    } else if (styleImageKeys.length + sourceImageKeys.length > MAX_GEMINI_REFERENCE_IMAGES) {
+    } else if (styleImageKeys.length + sourceImageKeys.length > this.getImageModelReferenceLimit(recipe)) {
       log.warn('Style + source images exceed limit, skipping style images', {
         styleImages: styleImageKeys.length,
         sourceImages: sourceImageKeys.length,
@@ -950,7 +951,7 @@ export class VariantFactory {
     if (effectiveMediaKind !== 'image') return undefined;
     if (!model) return undefined;
 
-    if (isImageModelSelection(model)) return resolveImageModel(model);
+    if (isImageModelSelection(model)) return resolveImageModelSelection(model);
     if (isImageModelId(model)) return model;
 
     throw new ValidationError('--model must be pro or flash');
@@ -969,8 +970,10 @@ export class VariantFactory {
     if (!normalized) {
       throw new ValidationError('--size must be 1K, 2K, or 4K');
     }
-    if (model === IMAGE_MODEL_IDS.flash && normalized !== '1K') {
-      throw new ValidationError('Flash image generation supports only 1K output');
+    const imageModel = this.resolveImageModelIdForCapabilities(model);
+    if (!isImageSizeSupportedByModel(imageModel, normalized)) {
+      const supportedSizes = getImageModelCapabilities(imageModel).supportedImageSizes.join(', ');
+      throw new ValidationError(`Image model ${imageModel} supports only ${supportedSizes} output`);
     }
     return normalized;
   }
@@ -980,13 +983,28 @@ export class VariantFactory {
     sourceImageKeys: string[]
   ): void {
     const mediaKind = recipe.mediaKind ?? DEFAULT_MEDIA_KIND;
-    if (mediaKind !== 'image' || recipe.model !== IMAGE_MODEL_IDS.flash) {
+    if (mediaKind !== 'image') {
       return;
     }
 
-    if (sourceImageKeys.length > 1) {
-      throw new ValidationError('Flash image generation supports at most 1 reference image');
-    }
+    const capabilities = getImageModelCapabilities(this.resolveImageModelIdForCapabilities(recipe.model));
+    if (sourceImageKeys.length <= capabilities.maxReferenceImages) return;
+
+    const noun = capabilities.maxReferenceImages === 1 ? 'image' : 'images';
+    throw new ValidationError(
+      `Image model ${capabilities.modelId} supports at most ${capabilities.maxReferenceImages} reference ${noun}`
+    );
+  }
+
+  private getImageModelReferenceLimit(recipe: GenerationRecipe): number {
+    return getImageModelCapabilities(this.resolveImageModelIdForCapabilities(recipe.model)).maxReferenceImages;
+  }
+
+  private resolveImageModelIdForCapabilities(model?: string): ImageModelId {
+    if (!model) return resolveImageModelSelection();
+    if (isImageModelId(model)) return model;
+    if (isImageModelSelection(model)) return resolveImageModelSelection(model);
+    throw new ValidationError('--model must be pro or flash');
   }
 
   private capVeoSourceImageKeys(

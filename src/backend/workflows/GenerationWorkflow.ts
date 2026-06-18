@@ -43,6 +43,7 @@ import {
 } from '../services/googleVeoService';
 import { CustomModelProvider } from '../services/customModelProvider';
 import { FakeImageProvider } from '../services/fakeImageProvider';
+import { DEFAULT_IMAGE_MODEL_ID, type ImageModelId } from '../../shared/imageGenerationOptions';
 import type { ImageGenerationProvider } from '../services/imageProvider';
 import { FakeAudioProvider } from '../services/fakeAudioProvider';
 import type { AudioGenerationProvider, AudioGenerationResult, AudioSidecar } from '../services/audioProvider';
@@ -290,7 +291,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           }
           provider = new NanoBananaService(this.env.GOOGLE_AI_API_KEY);
         }
-        const modelToUse = (model as 'gemini-3-pro-image-preview' | 'gemini-2.5-flash-image') || 'gemini-3-pro-image-preview';
+        const modelToUse = (model as ImageModelId | undefined) || DEFAULT_IMAGE_MODEL_ID;
         const aspectRatioToUse = (aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9') || '1:1';
         const imageSizeToUse = (imageSize as ImageSize) || undefined;
 

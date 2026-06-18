@@ -18,27 +18,28 @@ companion.
 
 ## Images (Nano Banana)
 
-Backed by `src/backend/services/nanoBananaService.ts`.
+Backed by `src/shared/imageGenerationOptions.ts` for model IDs and exact image
+model capability limits, with provider enforcement in
+`src/backend/services/nanoBananaService.ts`.
 
 ### Model
 
-Two models, selected via `'pro' | 'flash'` (`resolveImageModel`,
-`nanoBananaService.ts:51`):
+Two models, selected via `'pro' | 'flash'` (`IMAGE_MODEL_CAPABILITIES`):
 
 | Selection | Model ID | Use for | Key limit | Exposure |
 |-|-|-|-|-|
 | `pro` (default) | `gemini-3-pro-image-preview` | Production assets, any composition, multi-reference work | Up to 14 reference images | Web + top-level image CLI |
-| `flash` | `gemini-2.5-flash-image` | Fast single-reference iteration, drafts | **Only 1 reference image** (`nanoBananaService.ts:202`) | Web + top-level image CLI |
+| `flash` | `gemini-2.5-flash-image` | Fast single-reference iteration, drafts | **Only 1 reference image** | Web + top-level image CLI |
 
 **Default to Pro.** The default model is `gemini-3-pro-image-preview`
-(`nanoBananaService.ts:119`) when a request does not set `recipe.model`;
+(`DEFAULT_IMAGE_MODEL_ID`) when a request does not set `recipe.model`;
 image recipes leave it unset unless a web or CLI request selects a model. The
 service throws if you pass more than one reference to Flash, and throws past 14
-references on either model (`nanoBananaService.ts:202`, `:206`).
+references on Pro.
 
 ### Aspect Ratio
 
-`AspectRatio` (`nanoBananaService.ts:47`): `1:1`, `16:9`, `9:16`, `2:3`, `3:2`,
+`AspectRatio`: `1:1`, `16:9`, `9:16`, `2:3`, `3:2`,
 `3:4`, `4:3`, `4:5`, `5:4`, `21:9`. Optional at the service boundary; Make
 Effects generation currently defaults omitted image aspects to `1:1`; the web
 Forge Tray also defaults its image aspect control to `1:1`. Set `--aspect`
@@ -48,7 +49,7 @@ vertical/social, `1:1` for icons and tiles, `4:5` for portrait posts.
 
 ### Image Size
 
-`ImageSize` (`nanoBananaService.ts:48`): `1K`, `2K`, `4K`. Use `1K` for
+`ImageSize`: `1K`, `2K`, `4K`. Use `1K` for
 iteration and thumbnails, step up to `2K`/`4K` only for final assets — higher
 sizes cost more and are wasted on drafts you will regenerate. Flash is limited
 to `1K`; the web UI disables larger sizes when Flash is selected and the CLI
@@ -65,7 +66,7 @@ Three operations map to the three CLI verbs:
 | `compose` | `makefx derive` | up to 14 (Pro) | Combine references into a new asset |
 
 Each reference `ImageInput` supports an optional `label`
-(`nanoBananaService.ts:58`) used to build structured prompts ("Image 1:",
+used to build structured prompts ("Image 1:",
 "Character:") — this is what powers role-assigned composition in the
 [image playbook](./playbooks/images.md).
 

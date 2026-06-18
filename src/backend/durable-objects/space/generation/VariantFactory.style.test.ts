@@ -520,6 +520,36 @@ describe('VariantFactory - Style Injection', () => {
       // Only user reference images remain
       assert.strictEqual(recipe.sourceImageKeys!.length, 12);
     });
+
+    test('style images skipped when Flash source references fill its model limit', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
+        createMockStyle({
+          description: 'Test style',
+          image_keys: '["styles/ref1.png"]',
+        })
+      );
+      asMock(repo.getVariantImageKey).mock.mockImplementation(async () => 'images/user-ref.png');
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Test',
+          assetType: 'character',
+          prompt: 'A warrior',
+          model: 'flash',
+          referenceVariantIds: ['var-1'],
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.ok(recipe.prompt.startsWith('[Style: Test style]'));
+      assert.strictEqual(result.styleImageKeys, undefined);
+      assert.deepStrictEqual(recipe.sourceImageKeys, ['images/user-ref.png']);
+    });
   });
 
   describe('style with disabled flag', () => {
