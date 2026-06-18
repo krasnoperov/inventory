@@ -2,18 +2,18 @@
  * Presence Controller
  *
  * Handles user presence tracking for real-time collaboration.
- * Owns the in-memory presence Map and manages staleness cleanup.
+ * Owns in-memory client session presence and manages staleness cleanup.
  */
 
-import type { UserPresence, WebSocketMeta } from '../types';
+import type { ClientSessionPresence, UserPresence, WebSocketMeta } from '../types';
 import { BaseController, type ControllerContext } from './types';
 
 /** Stale presence threshold (5 minutes) */
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
 
 export class PresenceController extends BaseController {
-  /** User presence state - userId -> presence data */
-  private readonly presence: Map<string, UserPresence> = new Map();
+  /** Client session presence state - clientSessionId -> presence data */
+  private readonly sessions: Map<string, ClientSessionPresence> = new Map();
 
   constructor(ctx: ControllerContext) {
     super(ctx);
@@ -24,29 +24,25 @@ export class PresenceController extends BaseController {
    * Updates the user's viewing state and broadcasts to all clients
    */
   handleUpdate(meta: WebSocketMeta, viewing: string | undefined): void {
-    this.presence.set(meta.userId, {
+    const clientSessionId = this.getClientSessionId(meta);
+
+    this.sessions.set(clientSessionId, {
+      clientSessionId,
       userId: meta.userId,
       viewing: viewing ?? null,
       lastSeen: Date.now(),
     });
 
-    this.broadcast({
-      type: 'presence:update',
-      presence: Array.from(this.presence.values()),
-    });
+    this.broadcastPresence();
   }
 
   /**
-   * Handle user disconnect
-   * Removes presence and broadcasts update to remaining clients
+   * Handle client session disconnect
+   * Removes only the closing WebSocket session and broadcasts aggregate user presence
    */
   handleDisconnect(meta: WebSocketMeta): void {
-    if (this.presence.has(meta.userId)) {
-      this.presence.delete(meta.userId);
-      this.broadcast({
-        type: 'presence:update',
-        presence: Array.from(this.presence.values()),
-      });
+    if (this.sessions.delete(this.getClientSessionId(meta))) {
+      this.broadcastPresence();
     }
   }
 
@@ -56,17 +52,41 @@ export class PresenceController extends BaseController {
    */
   getPresenceData(): UserPresence[] {
     const now = Date.now();
-    const activePresence: UserPresence[] = [];
 
-    for (const [userId, presence] of this.presence.entries()) {
-      if (now - presence.lastSeen < STALE_THRESHOLD_MS) {
-        activePresence.push(presence);
-      } else {
-        // Clean up stale presence
-        this.presence.delete(userId);
+    for (const [clientSessionId, presence] of this.sessions.entries()) {
+      if (now - presence.lastSeen >= STALE_THRESHOLD_MS) {
+        this.sessions.delete(clientSessionId);
       }
     }
 
-    return activePresence;
+    return this.aggregateUserPresence(Array.from(this.sessions.values()));
+  }
+
+  private getClientSessionId(meta: WebSocketMeta): string {
+    return meta.clientSessionId ?? meta.userId;
+  }
+
+  private broadcastPresence(): void {
+    this.broadcast({
+      type: 'presence:update',
+      presence: this.getPresenceData(),
+    });
+  }
+
+  private aggregateUserPresence(sessions: ClientSessionPresence[]): UserPresence[] {
+    const byUser = new Map<string, UserPresence>();
+
+    for (const session of sessions) {
+      const existing = byUser.get(session.userId);
+      if (!existing || session.lastSeen >= existing.lastSeen) {
+        byUser.set(session.userId, {
+          userId: session.userId,
+          viewing: session.viewing,
+          lastSeen: session.lastSeen,
+        });
+      }
+    }
+
+    return Array.from(byUser.values());
   }
 }

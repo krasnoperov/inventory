@@ -130,6 +130,12 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 |---------|--------|-------------|
 | `presence:update` | `viewing?: string` | Update viewing state |
 
+Presence is user-level, not WebSocket-connection-level. The backend tracks each
+browser tab/device as a separate in-memory client session, then aggregates those
+sessions into one `presence[]` entry per user for sync snapshots and
+`presence:update` broadcasts. Closing one tab must not remove the user's
+presence while another tab or device for that same user remains active.
+
 ---
 
 ## Media Kind Contract

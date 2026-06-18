@@ -427,14 +427,27 @@ export interface ChatMessageMetadata {
 export interface WebSocketMeta {
   userId: string;
   role: 'owner' | 'editor' | 'viewer';
+  /** Unique WebSocket connection/session ID. Distinct from user presence. */
+  clientSessionId?: string;
 }
 
 /**
- * Presence data for a user - tracks what they're viewing
+ * Presence data for a user - tracks the user's most recent active view.
  */
 export interface UserPresence {
   userId: string;
   viewing: string | null; // Asset ID being viewed
+  lastSeen: number;
+}
+
+/**
+ * In-memory presence for one WebSocket client session.
+ * Multiple client sessions can aggregate into a single UserPresence.
+ */
+export interface ClientSessionPresence {
+  clientSessionId: string;
+  userId: string;
+  viewing: string | null;
   lastSeen: number;
 }
 
