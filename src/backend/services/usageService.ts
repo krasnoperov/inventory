@@ -167,7 +167,8 @@ export class UsageService {
     model: string,
     operation?: string,
     aspectRatio?: string,
-    tokenUsage?: { inputTokens: number; outputTokens: number }
+    tokenUsage?: { inputTokens: number; outputTokens: number },
+    imageSize?: string
   ): Promise<void> {
     const polarBillable = await this.isBillableUser(userId);
 
@@ -175,6 +176,7 @@ export class UsageService {
       model,
       operation,
       aspect_ratio: aspectRatio,
+      imageSize,
     };
 
     // Track image count locally

@@ -635,6 +635,7 @@ export class GenerationController extends BaseController {
         // Parse recipe to get operation type
         let operation = 'derive';
         let usageModel = 'gemini-3-pro-image-preview';
+        let imageSize: string | undefined;
         try {
           const recipe = JSON.parse(variant.recipe);
           // Handle legacy 'create'/'combine' operations
@@ -642,6 +643,9 @@ export class GenerationController extends BaseController {
           operation = recipeOp === 'create' || recipeOp === 'combine' ? 'derive' : recipeOp;
           if (typeof recipe.model === 'string' && recipe.model.length > 0) {
             usageModel = recipe.model;
+          }
+          if (typeof recipe.imageSize === 'string' && recipe.imageSize.length > 0) {
+            imageSize = recipe.imageSize;
           }
         } catch {
           // Ignore parse errors
@@ -664,7 +668,8 @@ export class GenerationController extends BaseController {
             parseInt(variant.created_by),
             1,
             usageModel,
-            operation
+            operation,
+            imageSize
           );
         }
       } catch (err) {

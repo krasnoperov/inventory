@@ -668,6 +668,50 @@ describe('GenerationController pipeline hooks', () => {
       });
     });
 
+    test('tracks image usage with recipe image size metadata', async () => {
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          id: 'variant-image',
+          media_kind: 'image',
+        })),
+        completeVariant: mock.fn(async (id, imageKey, thumbKey, mediaMetadata = {}) =>
+          createMockVariant({
+            id,
+            image_key: imageKey,
+            thumb_key: thumbKey,
+            media_key: mediaMetadata.mediaKey ?? imageKey,
+            status: 'completed',
+            created_by: '123',
+            recipe: JSON.stringify({
+              mediaKind: 'image',
+              model: 'gemini-3-pro-image-preview',
+              operation: 'generate',
+              imageSize: '4K',
+            }),
+          })
+        ),
+      });
+      ctx.env = { DB: db } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-image',
+        imageKey: 'images/space-1/variant-image.png',
+        thumbKey: 'thumbs/space-1/variant-image.webp',
+      });
+
+      assert.strictEqual(statements.length, 1);
+      assert.strictEqual(statements[0].bindings[1], 123);
+      assert.strictEqual(statements[0].bindings[2], 'gemini_images');
+      assert.strictEqual(statements[0].bindings[3], 1);
+      assert.deepStrictEqual(JSON.parse(statements[0].bindings[4]), {
+        model: 'gemini-3-pro-image-preview',
+        operation: 'generate',
+        imageSize: '4K',
+      });
+    });
+
     test('completes media-only video variants without image keys and tracks video usage', async () => {
       const run = mock.fn(async () => ({}));
       const bind = mock.fn(() => ({ run }));
