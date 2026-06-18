@@ -393,12 +393,17 @@ Canonical audio commands make the Forge Tray mode explicit: `speech`,
 and `mediaKind: "audio"`.
 
 ```bash
+makefx audio voices
+
 makefx audio speech generate "Podcast narration for the level intro" \
   --name "Intro Narration" \
+  --voice voice_narrator \
   -o audio/intro-narration.wav
 
 makefx audio dialogue generate --input scripts/blacksmith-dialogue.txt \
   --name "Blacksmith Dialogue" \
+  --voice voice_default \
+  --dialogue-voices voice_blacksmith,voice_player \
   -o audio/blacksmith-dialogue.wav
 
 makefx audio music batch "Three 20 second low-intensity dungeon music beds" \
@@ -414,6 +419,13 @@ makefx audio sfx generate "A crisp inventory item pickup sound effect" \
 Dialogue and speech prompts can also be passed as direct multiline shell text.
 `--input <file>` is the practical path for reusable dialogue scripts, with one
 `Speaker: line` entry per line for multi-speaker dialogue.
+
+Use `makefx audio voices` to list the connected ElevenLabs account's voice
+library. It prints `voiceId` values for `--voice` and `--dialogue-voices`;
+`--json` returns the raw `{ available, voices }` response. `--voice` selects the
+speech voice and also acts as a fallback for dialogue speakers whose ordered
+slot is blank or omitted. `--dialogue-voices <id,id,...>` maps voice IDs to
+dialogue speakers by first appearance in the script.
 
 Audio generation currently does not accept `--refs`, `derive`, or `refine`
 commands. Audio batch downloads completed files into the requested directory and

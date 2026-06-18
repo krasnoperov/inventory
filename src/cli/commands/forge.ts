@@ -75,6 +75,8 @@ interface ForgeClient {
     parentAssetId?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
+    voiceId?: string;
+    dialogueVoiceIds?: string[];
   }): Promise<GenerateResult>;
   sendRefineRequest(params: {
     assetId: string;
@@ -95,6 +97,8 @@ interface ForgeClient {
     parentAssetId?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
+    voiceId?: string;
+    dialogueVoiceIds?: string[];
   }): Promise<BatchResult>;
 }
 
@@ -171,6 +175,11 @@ interface ExecuteForgeOptions {
 
 interface ExecuteAudioOptions {
   mode?: AudioForgeMediaMode;
+}
+
+interface AudioVoiceOptions {
+  voiceId?: string;
+  dialogueVoiceIds?: string[];
 }
 
 export async function handleGenerate(parsed: ParsedArgs): Promise<void> {
@@ -290,6 +299,8 @@ async function prepareAudioParsedArgs(
     options.type = getMediaOperationEntry(mode).assetType;
   }
 
+  validateAudioVoiceOptions(options);
+
   if (options.input) {
     if (positionals.join(' ').trim()) {
       throw new Error('Pass either prompt text or --input <file>, not both');
@@ -321,6 +332,7 @@ async function executeGenerate(
   });
 
   console.log(`Generating "${name}" in space ${ctx.spaceId}...`);
+  const audioVoiceOptions = mediaKind === 'audio' ? parseAudioVoiceOptions(parsed) : {};
   const result = await client.sendGenerateRequest({
     name,
     assetType,
@@ -329,6 +341,7 @@ async function executeGenerate(
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
+    ...audioVoiceOptions,
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -514,6 +527,7 @@ async function executeBatch(
 
   const mediaLabel = mediaKind === 'image' ? 'image' : mediaKind === 'video' ? 'video' : 'audio file';
   console.log(`Batch generating ${count} ${mediaLabel}(s) for "${name}"...`);
+  const audioVoiceOptions = mediaKind === 'audio' ? parseAudioVoiceOptions(parsed) : {};
   const result = await client.sendBatchRequest({
     name,
     assetType,
@@ -525,6 +539,7 @@ async function executeBatch(
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
+    ...audioVoiceOptions,
   });
 
   const sortedVariants = [...result.variants].sort((a, b) => a.created_at - b.created_at);
@@ -882,6 +897,53 @@ function parseBatchCount(value: string): number {
 function parseBatchMode(value: string): 'explore' | 'set' {
   if (value === 'explore' || value === 'set') return value;
   throw new Error('--mode must be either explore or set');
+}
+
+function validateAudioVoiceOptions(options: Record<string, string>): void {
+  if (!options.voice && !options['dialogue-voices'] && !options.dialogueVoices) {
+    return;
+  }
+
+  if (options.voice !== undefined && !normalizeCliOption(options.voice)) {
+    throw new Error('--voice requires a voice ID');
+  }
+
+  const dialogueVoices = options['dialogue-voices'] ?? options.dialogueVoices;
+  if (dialogueVoices !== undefined && !normalizeCliOption(dialogueVoices)) {
+    throw new Error('--dialogue-voices requires a comma-separated voice ID list');
+  }
+
+  if (options.type === 'music' || options.type === 'sfx') {
+    throw new Error('Voice selection is only supported for speech and dialogue audio');
+  }
+}
+
+function parseAudioVoiceOptions(parsed: ParsedArgs): AudioVoiceOptions {
+  const voiceId = normalizeCliOption(parsed.options.voice);
+  const dialogueVoiceIds = parseDialogueVoiceIds(
+    parsed.options['dialogue-voices'] ?? parsed.options.dialogueVoices
+  );
+  return {
+    ...(voiceId ? { voiceId } : {}),
+    ...(dialogueVoiceIds ? { dialogueVoiceIds } : {}),
+  };
+}
+
+function parseDialogueVoiceIds(value: string | undefined): string[] | undefined {
+  const normalized = normalizeCliOption(value);
+  if (!normalized) return undefined;
+
+  const voiceIds = normalized.split(',').map((voiceId) => voiceId.trim());
+  if (!voiceIds.some(Boolean)) {
+    throw new Error('--dialogue-voices must include at least one voice ID');
+  }
+  return voiceIds;
+}
+
+function normalizeCliOption(value: string | undefined): string | undefined {
+  if (value === undefined || value === 'true') return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
 }
 
 function parseSceneMetadata(

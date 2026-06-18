@@ -870,6 +870,32 @@ test('audio generate sends audio request and downloads variant media', async () 
   }]);
 });
 
+test('audio speech generate sends selected voice ID', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await executeAudioCommand('generate', {
+    positionals: ['Selected', 'voice', 'narration'],
+    options: {
+      space: 'space-1',
+      name: 'Narration',
+      voice: 'voice-narrator',
+      o: 'narration.wav',
+    },
+  }, deps, { mode: 'speech' });
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Narration',
+    assetType: 'speech',
+    prompt: 'Selected voice narration',
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'audio',
+    voiceId: 'voice-narrator',
+  });
+});
+
 test('explicit audio modes send canonical asset types', async () => {
   const cases = [
     ['speech', 'speech'],
@@ -937,6 +963,44 @@ test('dialogue audio generate reads multiline prompt from input file', async () 
   }
 });
 
+test('dialogue audio generate sends ordered dialogue voice IDs', async () => {
+  const cwd = await mkdtemp(path.join(os.tmpdir(), 'inventory-audio-input-'));
+  const inputPath = path.join(cwd, 'dialogue.txt');
+
+  try {
+    await writeFile(inputPath, 'Ada: Keep left.\nBen: I will cover right.', 'utf8');
+
+    const client = new FakeClient();
+    const { deps } = depsFor(client);
+
+    await executeAudioCommand('generate', {
+      positionals: [],
+      options: {
+        space: 'space-1',
+        name: 'Tactical Dialogue',
+        input: inputPath,
+        voice: 'voice-fallback',
+        'dialogue-voices': 'voice-ada,,voice-ben',
+        o: 'dialogue.wav',
+      },
+    }, deps, { mode: 'dialogue' });
+
+    assert.deepEqual(client.generateParams, {
+      name: 'Tactical Dialogue',
+      assetType: 'dialogue',
+      prompt: 'Ada: Keep left.\nBen: I will cover right.',
+      aspectRatio: undefined,
+      parentAssetId: undefined,
+      disableStyle: false,
+      mediaKind: 'audio',
+      voiceId: 'voice-fallback',
+      dialogueVoiceIds: ['voice-ada', '', 'voice-ben'],
+    });
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
 test('audio input file cannot be combined with positional prompt', async () => {
   const cwd = await mkdtemp(path.join(os.tmpdir(), 'inventory-audio-input-'));
   const inputPath = path.join(cwd, 'speech.txt');
@@ -964,6 +1028,59 @@ test('audio input file cannot be combined with positional prompt', async () => {
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
+});
+
+test('audio voice selection is rejected for music and sfx modes', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeAudioCommand('generate', {
+      positionals: ['gentle', 'loop'],
+      options: {
+        space: 'space-1',
+        name: 'Loop',
+        voice: 'voice-1',
+        o: 'loop.wav',
+      },
+    }, deps, { mode: 'music' }),
+    /Voice selection is only supported for speech and dialogue audio/
+  );
+
+  assert.equal(client.connected, false);
+});
+
+test('audio voice flags require values', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeAudioCommand('generate', {
+      positionals: ['narration'],
+      options: {
+        space: 'space-1',
+        name: 'Narration',
+        voice: 'true',
+        o: 'narration.wav',
+      },
+    }, deps, { mode: 'speech' }),
+    /--voice requires a voice ID/
+  );
+
+  await assert.rejects(
+    () => executeAudioCommand('generate', {
+      positionals: ['Ada:', 'Hello'],
+      options: {
+        space: 'space-1',
+        name: 'Dialogue',
+        'dialogue-voices': 'true',
+        o: 'dialogue.wav',
+      },
+    }, deps, { mode: 'dialogue' }),
+    /--dialogue-voices requires a comma-separated voice ID list/
+  );
+
+  assert.equal(client.connected, false);
 });
 
 test('audio input file is generate-only', async () => {
@@ -1041,6 +1158,36 @@ test('audio batch downloads audio files and writes generic media manifest', asyn
     { mediaKind: 'audio', mediaKey: 'media/space/variant-batch-1.wav', localPath: 'audio/stinger-01.wav' },
     { mediaKind: 'audio', mediaKey: 'media/space/variant-batch-2.wav', localPath: 'audio/stinger-02.wav' },
   ]);
+});
+
+test('dialogue audio batch sends dialogue voice IDs', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await executeAudioCommand('batch', {
+    positionals: ['Ada:', 'Hello', 'Ben:', 'Hi'],
+    options: {
+      space: 'space-1',
+      name: 'Dialogue Set',
+      count: '2',
+      'dialogue-voices': 'voice-ada,voice-ben',
+      'output-dir': 'audio',
+    },
+  }, deps, { mode: 'dialogue' });
+
+  assert.deepEqual(client.batchParams, {
+    name: 'Dialogue Set',
+    assetType: 'dialogue',
+    prompt: 'Ada: Hello Ben: Hi',
+    count: 2,
+    mode: 'explore',
+    referenceVariantIds: undefined,
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'audio',
+    dialogueVoiceIds: ['voice-ada', 'voice-ben'],
+  });
 });
 
 test('audio commands reject references before opening a website job', async () => {

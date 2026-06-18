@@ -113,6 +113,7 @@ test('help is side-effect-free across command and subcommand levels', async () =
       ['derive', '--help'],
       ['batch', '--help'],
       ['audio', '--help'],
+      ['audio', 'voices', '--help'],
       ['audio', 'speech', '--help'],
       ['audio', 'dialogue', 'generate', '--help'],
       ['audio', 'music', 'batch', '--help'],

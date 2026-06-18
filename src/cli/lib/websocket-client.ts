@@ -101,6 +101,8 @@ interface GenerateRequestMessage {
   parentAssetId?: string;
   disableStyle?: boolean;
   mediaKind?: MediaKind;
+  voiceId?: string;
+  dialogueVoiceIds?: string[];
 }
 
 interface RefineRequestMessage {
@@ -114,6 +116,8 @@ interface RefineRequestMessage {
   aspectRatio?: string;
   disableStyle?: boolean;
   mediaKind?: MediaKind;
+  voiceId?: string;
+  dialogueVoiceIds?: string[];
 }
 
 interface BatchRequestMessage {
@@ -129,6 +133,8 @@ interface BatchRequestMessage {
   parentAssetId?: string;
   disableStyle?: boolean;
   mediaKind?: MediaKind;
+  voiceId?: string;
+  dialogueVoiceIds?: string[];
 }
 
 interface DescribeRequestMessage {
@@ -1639,6 +1645,8 @@ export class WebSocketClient {
     parentAssetId?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
+    voiceId?: string;
+    dialogueVoiceIds?: string[];
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
@@ -1683,6 +1691,8 @@ export class WebSocketClient {
         parentAssetId: params.parentAssetId,
         disableStyle: params.disableStyle,
         mediaKind: params.mediaKind,
+        voiceId: params.voiceId,
+        dialogueVoiceIds: params.dialogueVoiceIds,
       };
 
       try {
@@ -1707,6 +1717,8 @@ export class WebSocketClient {
     aspectRatio?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
+    voiceId?: string;
+    dialogueVoiceIds?: string[];
     onStarted?: (data: GenerateStarted) => void;
   }): Promise<GenerateResult> {
     const requestId = crypto.randomUUID();
@@ -1750,6 +1762,8 @@ export class WebSocketClient {
         aspectRatio: params.aspectRatio,
         disableStyle: params.disableStyle,
         mediaKind: params.mediaKind,
+        voiceId: params.voiceId,
+        dialogueVoiceIds: params.dialogueVoiceIds,
       };
 
       try {
@@ -1776,6 +1790,8 @@ export class WebSocketClient {
     parentAssetId?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
+    voiceId?: string;
+    dialogueVoiceIds?: string[];
     onStarted?: (data: BatchStarted) => void;
   }): Promise<BatchResult> {
     const requestId = crypto.randomUUID();
@@ -1815,6 +1831,8 @@ export class WebSocketClient {
         parentAssetId: params.parentAssetId,
         disableStyle: params.disableStyle,
         mediaKind: params.mediaKind,
+        voiceId: params.voiceId,
+        dialogueVoiceIds: params.dialogueVoiceIds,
       };
 
       try {
