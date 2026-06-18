@@ -120,6 +120,7 @@ class FakeClient {
   generateParams: unknown;
   refineParams: unknown;
   batchParams: unknown;
+  followParams: unknown;
   syncHandler?: (state: { assets: unknown[]; variants: unknown[]; lineage: unknown[] }) => void;
   connected = false;
   disconnected = false;
@@ -130,7 +131,8 @@ class FakeClient {
       variants: [],
       lineage: [],
     },
-    private batchResult?: BatchResult
+    private batchResult?: BatchResult,
+    private followResult?: GenerateResult
   ) {}
 
   async connect(): Promise<void> {
@@ -150,19 +152,23 @@ class FakeClient {
   }
 
   async sendGenerateRequest(params: unknown): Promise<GenerateResult> {
-    this.generateParams = params;
-    if ((params as { mediaKind?: string }).mediaKind === 'audio') {
+    const requestParams = { ...(params as Record<string, unknown>) };
+    delete requestParams.onStarted;
+    this.generateParams = requestParams;
+    if ((requestParams as { mediaKind?: string }).mediaKind === 'audio') {
       return completedAudioResult();
     }
-    if ((params as { mediaKind?: string }).mediaKind === 'video') {
+    if ((requestParams as { mediaKind?: string }).mediaKind === 'video') {
       return completedVideoResult();
     }
     return completedResult();
   }
 
   async sendRefineRequest(params: unknown): Promise<GenerateResult> {
-    this.refineParams = params;
-    if ((params as { mediaKind?: string }).mediaKind === 'video') {
+    const requestParams = { ...(params as Record<string, unknown>) };
+    delete requestParams.onStarted;
+    this.refineParams = requestParams;
+    if ((requestParams as { mediaKind?: string }).mediaKind === 'video') {
       return completedVideoResult({ asset_id: 'asset-video' });
     }
     return completedResult({ asset_id: 'asset-source' });
@@ -227,6 +233,19 @@ class FakeClient {
       failed: [],
     };
   }
+
+  async followVariant(params: unknown): Promise<GenerateResult> {
+    this.followParams = params;
+    const variantId = (params as { variantId: string }).variantId;
+    const result = this.followResult || completedResult({ id: variantId });
+    const variant = result.variant;
+    if (variant) {
+      (params as { onUpdate?: (variant: Variant) => void }).onUpdate?.(variant);
+    }
+    return result;
+  }
+
+  cancelFollowVariant(): void {}
 }
 
 function depsFor(client: FakeClient) {
@@ -679,6 +698,174 @@ test('generate command flags override project config', async () => {
   assert.equal(loadedEnv, 'stage');
   assert.equal(clientSpace, 'space-flag');
   assert.equal(downloads.length, 1);
+});
+
+test('generate follow downloads an already completed variant and writes a manifest', async () => {
+  const variant = completedVariant({
+    id: 'variant-follow',
+    asset_id: 'asset-follow',
+    image_key: 'images/space/variant-follow.png',
+    media_key: 'images/space/variant-follow.png',
+    recipe: JSON.stringify({
+      prompt: 'A durable market background',
+      assetType: 'scene',
+      mediaKind: 'image',
+      parentVariantIds: ['variant-ref'],
+    }),
+    created_at: Date.parse('2026-06-18T10:00:00.000Z'),
+  });
+  const client = new FakeClient({
+    assets: [{ id: 'asset-follow', name: 'Market', type: 'scene' }],
+    variants: [variant],
+    lineage: [],
+  });
+  const { deps, downloads, manifests } = depsFor(client);
+
+  await executeForgeCommand('generate', {
+    positionals: [],
+    options: {
+      space: 'space-1',
+      follow: 'variant-follow',
+      o: 'market.png',
+    },
+  }, deps);
+
+  assert.equal(client.generateParams, undefined);
+  assert.equal(client.followParams, undefined);
+  assert.deepEqual(downloads, [{
+    baseUrl: 'https://makefx-stage.example.test',
+    accessToken: 'token',
+    imageKey: 'images/space/variant-follow.png',
+    outputPath: 'market.png',
+    force: false,
+  }]);
+  assert.equal(manifests.length, 1);
+  assert.equal((manifests[0] as { prompt: string }).prompt, 'A durable market background');
+  assert.equal((manifests[0] as { name: string }).name, 'Market');
+  assert.deepEqual((manifests[0] as { referenceVariantIds: string[] }).referenceVariantIds, ['variant-ref']);
+  assert.deepEqual((manifests[0] as { media: Array<{ variantId: string; localPath: string }> }).media.map((media) => ({
+    variantId: media.variantId,
+    localPath: media.localPath,
+  })), [{ variantId: 'variant-follow', localPath: 'market.png' }]);
+});
+
+test('generate follow waits for a pending variant update before downloading', async () => {
+  const pending = completedVariant({
+    id: 'variant-pending',
+    asset_id: 'asset-follow',
+    status: 'processing',
+    image_key: null,
+    thumb_key: null,
+    media_key: null,
+  });
+  const completed = completedResult({
+    id: 'variant-pending',
+    asset_id: 'asset-follow',
+    image_key: 'images/space/variant-pending.png',
+    media_key: 'images/space/variant-pending.png',
+  });
+  const client = new FakeClient({
+    assets: [{ id: 'asset-follow', name: 'Market', type: 'scene' }],
+    variants: [pending],
+    lineage: [],
+  }, undefined, completed);
+  const { deps, downloads } = depsFor(client);
+
+  await executeForgeCommand('generate', {
+    positionals: [],
+    options: {
+      space: 'space-1',
+      follow: 'variant-pending',
+      timeout: '1',
+      o: 'market.png',
+    },
+  }, deps);
+
+  assert.equal((client.followParams as { variantId: string }).variantId, 'variant-pending');
+  assert.equal((client.followParams as { requestId: string }).requestId, 'follow:variant-pending');
+  assert.equal((client.followParams as { timeoutMs: number }).timeoutMs, 1000);
+  assert.equal(typeof (client.followParams as { onUpdate: unknown }).onUpdate, 'function');
+  assert.deepEqual(downloads, [{
+    baseUrl: 'https://makefx-stage.example.test',
+    accessToken: 'token',
+    imageKey: 'images/space/variant-pending.png',
+    outputPath: 'market.png',
+    force: false,
+  }]);
+});
+
+test('generate follow surfaces failed variant errors without downloading', async () => {
+  const failed = completedVariant({
+    id: 'variant-failed',
+    status: 'failed',
+    error_message: 'provider rejected prompt',
+    image_key: null,
+    media_key: null,
+  });
+  const client = new FakeClient({
+    assets: [{ id: 'asset-follow', name: 'Market', type: 'scene' }],
+    variants: [failed],
+    lineage: [],
+  });
+  const { deps, downloads } = depsFor(client);
+
+  await assert.rejects(
+    () => executeForgeCommand('generate', {
+      positionals: [],
+      options: {
+        space: 'space-1',
+        follow: 'variant-failed',
+        o: 'market.png',
+      },
+    }, deps),
+    /provider rejected prompt/
+  );
+
+  assert.deepEqual(downloads, []);
+  assert.equal(client.followParams, undefined);
+});
+
+test('video generate follow downloads completed variant media', async () => {
+  const variant = completedVariant({
+    id: 'variant-video-follow',
+    asset_id: 'asset-video',
+    media_kind: 'video',
+    image_key: null,
+    thumb_key: null,
+    media_key: 'media/space/variant-video-follow.mp4',
+    media_mime_type: 'video/mp4',
+    recipe: JSON.stringify({
+      prompt: 'A durable idle animation',
+      assetType: 'animation',
+      mediaKind: 'video',
+    }),
+  });
+  const client = new FakeClient({
+    assets: [{ id: 'asset-video', name: 'Idle Animation', type: 'animation' }],
+    variants: [variant],
+    lineage: [],
+  });
+  const { deps, downloads, mediaDownloads, manifests } = depsFor(client);
+
+  await executeVideoCommand('generate', {
+    positionals: [],
+    options: {
+      space: 'space-1',
+      follow: 'variant-video-follow',
+      o: 'idle.mp4',
+    },
+  }, deps);
+
+  assert.deepEqual(downloads, []);
+  assert.deepEqual(mediaDownloads, [{
+    baseUrl: 'https://makefx-stage.example.test',
+    accessToken: 'token',
+    requestPath: '/api/spaces/space-1/variants/variant-video-follow/media',
+    outputPath: 'idle.mp4',
+    force: false,
+  }]);
+  assert.equal((manifests[0] as { mediaKind: string }).mediaKind, 'video');
+  assert.equal((manifests[0] as { prompt: string }).prompt, 'A durable idle animation');
 });
 
 test('refine resolves variant asset from sync state and sends refine request', async () => {

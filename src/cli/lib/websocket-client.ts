@@ -642,6 +642,7 @@ export class WebSocketClient {
     requestId: string;
     assetId: string;
     assetName: string;
+    onUpdate?: (variant: Variant) => void;
     onResult: (result: GenerateResult) => void;
     reject: (error: Error) => void;
     timeout: ReturnType<typeof setTimeout>;
@@ -993,19 +994,22 @@ export class WebSocketClient {
         }
 
         const handler = this.variantCompletionHandlers.get(variant.id);
-        if (handler && (variant.status === 'completed' || variant.status === 'failed')) {
-          this.variantCompletionHandlers.delete(variant.id);
-          clearTimeout(handler.timeout);
-          // Convert to GenerateResult format for compatibility
-          const result: GenerateResult = {
-            type: 'generate:result',
-            requestId: handler.requestId,
-            jobId: variant.id,
-            success: variant.status === 'completed',
-            variant: variant.status === 'completed' ? variant : undefined,
-            error: variant.status === 'failed' ? (variant.error_message || 'Generation failed') : undefined,
-          };
-          handler.onResult(result);
+        if (handler) {
+          handler.onUpdate?.(variant);
+          if (variant.status === 'completed' || variant.status === 'failed') {
+            this.variantCompletionHandlers.delete(variant.id);
+            clearTimeout(handler.timeout);
+            // Convert to GenerateResult format for compatibility
+            const result: GenerateResult = {
+              type: 'generate:result',
+              requestId: handler.requestId,
+              jobId: variant.id,
+              success: variant.status === 'completed',
+              variant: variant.status === 'completed' ? variant : undefined,
+              error: variant.status === 'failed' ? (variant.error_message || 'Generation failed') : undefined,
+            };
+            handler.onResult(result);
+          }
         }
         break;
       }
@@ -1739,6 +1743,44 @@ export class WebSocketClient {
         reject(err);
       }
     });
+  }
+
+  async followVariant(params: {
+    variantId: string;
+    requestId?: string;
+    timeoutMs?: number;
+    onUpdate?: (variant: Variant) => void;
+  }): Promise<GenerateResult> {
+    const requestId = params.requestId || crypto.randomUUID();
+    const timeoutMs = params.timeoutMs ?? GENERATION_REQUEST_TIMEOUT_MS;
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        const handler = this.variantCompletionHandlers.get(params.variantId);
+        if (handler?.requestId === requestId) {
+          this.variantCompletionHandlers.delete(params.variantId);
+          reject(new Error('Follow request timed out'));
+        }
+      }, timeoutMs);
+
+      this.variantCompletionHandlers.set(params.variantId, {
+        requestId,
+        assetId: '',
+        assetName: '',
+        onUpdate: params.onUpdate,
+        onResult: resolve,
+        reject,
+        timeout,
+      });
+    });
+  }
+
+  cancelFollowVariant(variantId: string, requestId?: string): void {
+    const handler = this.variantCompletionHandlers.get(variantId);
+    if (!handler) return;
+    if (requestId && handler.requestId !== requestId) return;
+    this.variantCompletionHandlers.delete(variantId);
+    clearTimeout(handler.timeout);
   }
 
   /**

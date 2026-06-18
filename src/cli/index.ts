@@ -277,6 +277,7 @@ Upload:
 
 Forge:
   generate "prompt" --name <name> --type <type> -o <file>
+  generate --follow <variant_id> -o <file>
   refine --variant <variant_id> "prompt" -o <file>
   derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file>
   batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
@@ -290,6 +291,7 @@ Audio:
 
 Video:
   video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio]
+  video generate --follow <variant_id> -o <file>
   video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio]
   video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio]
 
@@ -409,6 +411,7 @@ function printForgeHelp(command: string): void {
     console.log(`
 Usage:
   makefx generate "prompt" --name <name> --type <type> -o <file> [--model ${optionValues(IMAGE_MODEL_SELECTIONS)}] [--size ${imageSizeValues()}] [--aspect <ratio>] [--space <id>]
+  makefx generate --follow <variant_id> -o <file> [--space <id>]
 
 ${imageCapabilityHelp()}
 
@@ -423,6 +426,7 @@ Production metadata:
     console.log(`
 Usage:
   makefx refine --variant <variant_id> "prompt" -o <file> [--model ${optionValues(IMAGE_MODEL_SELECTIONS)}] [--size ${imageSizeValues()}] [--aspect <ratio>] [--space <id>]
+  makefx refine --follow <variant_id> -o <file> [--space <id>]
 
 ${imageCapabilityHelp()}
 
@@ -446,6 +450,7 @@ ${imageCapabilityHelp()}
   console.log(`
 Usage:
   makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--model ${optionValues(IMAGE_MODEL_SELECTIONS)}] [--size ${imageSizeValues()}] [--aspect <ratio>] [--space <id>]
+  makefx derive --follow <variant_id> -o <file> [--space <id>]
 
 ${imageCapabilityHelp()}
 
@@ -475,6 +480,7 @@ Lists ElevenLabs voices available to the connected account when ElevenLabs is th
 Usage:
   makefx audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
   makefx audio ${first} generate --input <file> --name <name> -o <file> [--space <id>]
+  makefx audio ${first} generate --follow <variant_id> -o <file> [--space <id>]
 ${first === 'music' ? '  makefx audio music generate "prompt" --provider lyria --name <name> -o <file> [--space <id>]\n' : ''}
 ${first === 'music' ? 'Provider selection:\n  --provider <elevenlabs|lyria>        Music provider (default: server default)\n' : ''}
 ${first === 'speech' || first === 'dialogue' ? 'Voice selection:\n  --voice <voice_id>                    Speech voice, or dialogue fallback voice\n  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance\n' : ''}
@@ -528,6 +534,7 @@ Preferred mode form:
 Usage:
   makefx audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
   makefx audio <${modes}> generate --input <file> --name <name> -o <file> [--space <id>]
+  makefx audio <${modes}> generate --follow <variant_id> -o <file> [--space <id>]
   makefx audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
   makefx audio voices [--json]
   makefx audio music generate "prompt" --provider <elevenlabs|lyria> --name <name> -o <file> [--space <id>]
@@ -554,6 +561,7 @@ function printVideoHelp(positionals: string[]): void {
     console.log(`
 Usage:
   makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video generate --follow <variant_id> -o <file> [--space <id>]
 
 ${videoCapabilityHelp()}
 
@@ -572,6 +580,7 @@ Production metadata:
     console.log(`
 Usage:
   makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video refine --follow <variant_id> -o <file> [--space <id>]
 
 ${videoCapabilityHelp()}
 
@@ -590,6 +599,7 @@ Production metadata:
     console.log(`
 Usage:
   makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video derive --follow <variant_id> -o <file> [--space <id>]
 
 ${videoCapabilityHelp()}
 
@@ -607,6 +617,7 @@ Production metadata:
   console.log(`
 Usage:
   makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video generate --follow <variant_id> -o <file> [--space <id>]
   makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
   makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
 

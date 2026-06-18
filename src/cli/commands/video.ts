@@ -49,8 +49,11 @@ function printUsage(): void {
   console.log(`
 Usage:
   makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio|--no-audio] [--space <id>]
+  makefx video generate --follow <variant_id> -o <file> [--space <id>]
   makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio|--no-audio] [--space <id>]
+  makefx video refine --follow <variant_id> -o <file> [--space <id>]
   makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio|--no-audio] [--space <id>]
+  makefx video derive --follow <variant_id> -o <file> [--space <id>]
 
 Video:
   --aspect <ratio>      Veo aspect ratio: ${aspectValues}

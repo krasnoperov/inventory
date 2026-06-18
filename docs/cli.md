@@ -381,6 +381,23 @@ not a source of truth and must not drive production assembly. Image manifests
 also retain the legacy `images` keyframe array for troubleshooting older local
 handoff tooling.
 
+Single-output generation commands also print the created variant ID as soon as
+the Space accepts the request. If the CLI process exits or times out before the
+provider finishes, follow that existing Space variant instead of starting a new
+job:
+
+```bash
+makefx generate --follow VARIANT_ID -o backgrounds/russafa-market.png
+makefx audio sfx generate --follow VARIANT_ID -o audio/item-pickup.wav
+makefx video generate --follow VARIANT_ID -o video/idle.mp4
+```
+
+Follow mode reads the current Space state, returns immediately for completed or
+failed variants, or waits for the same `variant:updated` lifecycle events used
+by normal generation. On completion it downloads the media and writes the usual
+debug run manifest from the durable variant recipe. Pass `--timeout <seconds>`
+to override the default wait window.
+
 ## Audio Generation
 
 Audio controller commands use the same website Space Durable Object and
