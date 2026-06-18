@@ -143,6 +143,21 @@ makefx video derive \
   -o video/attack.mp4
 ```
 
+Generate consistency pipelines for game-ready reference sheets:
+
+```bash
+makefx rotation --variant IMAGE_VARIANT_ID --config 8-directional
+makefx rotation --variant IMAGE_VARIANT_ID --config turnaround --mode single-shot --subject "armored guard"
+
+makefx tileset "grass, dirt path, and stone border terrain tiles" \
+  --type terrain \
+  --grid 3x3
+```
+
+Rotation and tile-set commands stream WebSocket progress and wait for completion
+by default. Use `--detach` when an agent only needs to enqueue the pipeline and
+continue with other work.
+
 When the website is configured with `INVENTORY_AUDIO_PROVIDER=elevenlabs`,
 `audio music ...` prompts are generated through ElevenLabs music,
 `audio sfx ...` prompts are generated through ElevenLabs sound effects, and
@@ -203,7 +218,10 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--force` | all | Overwrite local output file |
 | `--aspect <ratio>` | all | Optional generation aspect ratio |
 | `--parent <assetId>` | `generate`, `derive`, `video generate`, `video derive` | Optional parent asset |
-| `--no-style` | all | Disable active space style for this request |
+| `--no-style` | all generation and consistency pipeline commands | Disable active space style for this request |
+| `--detach` | `rotation`, `tileset` | Return after the pipeline starts instead of waiting for completion |
+| `--grid <size>` | `tileset` | Square tile grid size or `WIDTHxHEIGHT`, each dimension 2-5 |
+| `--seed-variant <id>` | `tileset` | Optional completed image variant to place at the center of the tile set |
 | `--scene-label <label>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene label stored with production placement metadata |
 | `--timeline-start-ms <ms>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene timeline start in milliseconds |
 | `--duration-ms <ms>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional intended production scene duration in milliseconds |

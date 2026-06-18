@@ -27,11 +27,15 @@ interface Internals {
   handleMessage(message: unknown): void;
 }
 
-function newClient(): { client: WebSocketClient; internals: Internals } {
+function newClient(): { client: WebSocketClient; internals: Internals; sentMessages: unknown[] } {
   const client = new WebSocketClient('https://inventory.example.test', 'token-1', 'stage', 'space-1');
   const internals = client as unknown as Internals;
-  internals.ws = { readyState: WebSocket.OPEN, send: () => {} };
-  return { client, internals };
+  const sentMessages: unknown[] = [];
+  internals.ws = {
+    readyState: WebSocket.OPEN,
+    send: (data: string) => sentMessages.push(JSON.parse(data)),
+  };
+  return { client, internals, sentMessages };
 }
 
 async function isPending(promise: Promise<unknown>): Promise<boolean> {
@@ -82,4 +86,85 @@ test('a server error rejects the in-flight mutation with the server reason', asy
 
   internals.handleMessage({ type: 'error', code: 'PERMISSION_DENIED', message: 'owner role required' });
   await assert.rejects(promise, /PERMISSION_DENIED: owner role required/);
+});
+
+test('rotation pipeline waits for the matching terminal event after progress', async () => {
+  const { client, internals, sentMessages } = newClient();
+  const steps: unknown[] = [];
+  const promise = client.sendRotationRequest({
+    sourceVariantId: 'variant-source',
+    config: '4-directional',
+    onStepCompleted: (step) => steps.push(step),
+  });
+
+  const request = sentMessages[0] as { type: string; requestId: string; sourceVariantId: string };
+  assert.equal(request.type, 'rotation:request');
+  assert.equal(request.sourceVariantId, 'variant-source');
+
+  internals.handleMessage({
+    type: 'rotation:started',
+    requestId: request.requestId,
+    rotationSetId: 'rotation-set-1',
+    assetId: 'asset-rotation',
+    totalSteps: 4,
+    directions: ['S', 'E', 'N', 'W'],
+  });
+  internals.handleMessage({
+    type: 'rotation:step_completed',
+    rotationSetId: 'rotation-set-1',
+    direction: 'E',
+    variantId: 'variant-east',
+    step: 1,
+    total: 4,
+  });
+
+  assert.equal(await isPending(promise), true, 'rotation resolved before terminal event');
+  assert.equal(steps.length, 1);
+
+  internals.handleMessage({
+    type: 'rotation:completed',
+    rotationSetId: 'rotation-set-1',
+    views: [{ id: 'view-1', rotation_set_id: 'rotation-set-1', variant_id: 'variant-east', direction: 'E', step_index: 1, created_at: 1 }],
+  });
+
+  const result = await promise;
+  assert.equal(result.status, 'completed');
+  assert.equal(result.rotationSetId, 'rotation-set-1');
+  assert.equal(result.views?.length, 1);
+});
+
+test('tileset pipeline detach resolves on started and server errors reject pending pipelines', async () => {
+  const first = newClient();
+  const detached = first.client.sendTileSetRequest({
+    tileType: 'terrain',
+    gridWidth: 3,
+    gridHeight: 2,
+    prompt: 'grass path',
+    waitForCompletion: false,
+  });
+  const startRequest = first.sentMessages[0] as { requestId: string };
+  first.internals.handleMessage({
+    type: 'tileset:started',
+    requestId: startRequest.requestId,
+    tileSetId: 'tile-set-1',
+    assetId: 'asset-tiles',
+    gridWidth: 3,
+    gridHeight: 2,
+    totalTiles: 6,
+  });
+  assert.equal((await detached).status, 'started');
+
+  const second = newClient();
+  const pending = second.client.sendTileSetRequest({
+    tileType: 'custom',
+    gridWidth: 2,
+    gridHeight: 2,
+    prompt: 'crystal floor',
+  });
+  second.internals.handleMessage({
+    type: 'error',
+    code: 'VALIDATION_ERROR',
+    message: 'Seed variant must be completed with an image',
+  });
+  await assert.rejects(pending, /VALIDATION_ERROR: Seed variant must be completed with an image/);
 });

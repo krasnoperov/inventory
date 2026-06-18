@@ -59,6 +59,8 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `spaces` | List, view, or create spaces |
 | `assets` | List/show/download assets; delete, rename, set-active |
 | `variants` | Delete, retry, star/unstar, and rate variants |
+| `rotation` | Generate and monitor rotation views from a completed image variant |
+| `tileset` | Generate and monitor consistent tile sets |
 | `listen` | Connect to WebSocket and stream all events |
 | `upload` | Upload image, audio, or video files to create assets or add variants |
 | `generate` | Create a new asset through the website generation workflow |
@@ -176,6 +178,62 @@ Notes:
   progress with `assets show ASSET_ID` or `listen`.
 - Deleting the active variant reassigns the asset's active variant automatically
   (to another completed variant when one exists).
+
+---
+
+## Rotation Views And Tile Sets
+
+Rotation and tile-set pipelines use the same authenticated Space WebSocket as
+the web app. By default the CLI starts the pipeline, streams progress, and waits
+for a terminal `completed`, `failed`, or `cancelled` event. Pass `--detach` to
+return after the Space confirms the pipeline has started.
+
+Generate rotation views from a completed image variant:
+
+```bash
+makefx rotation --variant VARIANT_ID --config 8-directional
+makefx rotation --variant VARIANT_ID --config turnaround --mode single-shot --subject "hero knight"
+makefx rotation --variant VARIANT_ID --config 4-directional --detach
+makefx rotation cancel ROTATION_SET_ID
+```
+
+Rotation options:
+
+| Option | Description |
+|--------|-------------|
+| `--variant <id>` | Completed source image variant to rotate |
+| `--config <config>` | `4-directional`, `8-directional`, or `turnaround` (default: `4-directional`) |
+| `--subject <text>` | Optional subject description for consistency prompts |
+| `--aspect <ratio>` | Optional generation aspect ratio |
+| `--mode <mode>` | `sequential` or `single-shot` (default: `sequential`) |
+| `--no-style` | Disable the space style anchor |
+| `--detach` | Return after `rotation:started` |
+| `--timeout <sec>` | Override the wait timeout |
+| `--json` | Print machine-readable output |
+
+Generate a tile set:
+
+```bash
+makefx tileset "grass and stone path tiles" --type terrain --grid 3x3
+makefx tileset "shop wall and roof tiles" --type building --width 4 --height 2
+makefx tileset "crystal floor tiles" --type custom --grid 3 --seed-variant VARIANT_ID
+makefx tileset cancel TILE_SET_ID
+```
+
+Tile-set options:
+
+| Option | Description |
+|--------|-------------|
+| `--type <type>` | `terrain`, `building`, `decoration`, or `custom` (default: `terrain`) |
+| `--grid <size>` | Square size or `WIDTHxHEIGHT`, each dimension 2-5 (default: `3`) |
+| `--width <n>` / `--height <n>` | Grid dimensions when not using `--grid` |
+| `--seed-variant <id>` | Optional completed image variant to place at the center |
+| `--aspect <ratio>` | Optional generation aspect ratio |
+| `--mode <mode>` | `sequential` or `single-shot` (default: `sequential`) |
+| `--no-style` | Disable the space style anchor |
+| `--detach` | Return after `tileset:started` |
+| `--timeout <sec>` | Override the wait timeout |
+| `--json` | Print machine-readable output |
 
 ---
 
