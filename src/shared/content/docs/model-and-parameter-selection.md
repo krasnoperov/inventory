@@ -8,8 +8,8 @@ Make Effects routes image jobs through Google models.
 
 | Choice | Use for | Notes |
 |-|-|-|
-| Pro image model | assets you expect to reuse, compare, or hand off | public generation default; supports up to 14 references |
-| Fast image model | quick drafts with one reference or no reference | service/internal path; not a public CLI flag today |
+| Pro image model | assets you expect to reuse, compare, or hand off | single-generate default; supports up to 14 references |
+| Fast image model | quick drafts with one reference or no reference | public batch/explore default; not directly selectable as a model flag today |
 
 ### Image parameters
 
@@ -63,7 +63,7 @@ Speech and dialogue depend on voice selection and provider configuration. Treat 
 | Situation | Pick |
 |-|-|
 | final asset with several references | Pro image path |
-| quick draft with one reference | Fast image path when exposed; default path today |
+| quick draft with one reference | Fast image path for public batch/explore; default image path for single generate |
 | character turnaround or tile set | Pro image path |
 | character plus style plus background | Pro image path |
 

@@ -33,13 +33,15 @@ Two models, selected via `'pro' | 'flash'` (`resolveImageModel`,
 
 | Selection | Model ID | Use for | Key limit | Exposure |
 |-|-|-|-|-|
-| `pro` (default) | `gemini-3-pro-image-preview` | Production assets, any composition, multi-reference work | Up to 14 reference images | Server default today |
-| `flash` | `gemini-2.5-flash-image` | Fast single-reference iteration, drafts | **Only 1 reference image** (`nanoBananaService.ts:202`) | Service/internal path; not yet exposed as a model control |
+| `pro` (default) | `gemini-3-pro-image-preview` | Production assets, any composition, multi-reference work | Up to 14 reference images | Single-generate default today |
+| `flash` | `gemini-2.5-flash-image` | Fast single-reference iteration, drafts | **Only 1 reference image** (`nanoBananaService.ts:202`) | Public batch/explore default; not directly selectable as a model control |
 
 **Default to Pro.** The default model is `gemini-3-pro-image-preview`
-(`nanoBananaService.ts:119`). Flash is service-supported for cases that need
-speed and at most one reference, but public image model selection is not exposed
-yet (tracked by
+(`nanoBananaService.ts:119`) when a request does not set `recipe.model`;
+single-generate image recipes leave it unset (`VariantFactory.ts:207`). Image
+batch/explore recipes set Flash explicitly (`VariantFactory.ts:506`, `:511`) for
+fast drafts with at most one reference. Public image model selection is not
+exposed yet (tracked by
 [INV-97](https://linear.app/usertold/issue/INV-97/image-generation-controls-model-size-aspect)).
 The service throws if you pass more than one reference to Flash, and throws past
 14 references on either model (`nanoBananaService.ts:202`, `:206`).
@@ -82,7 +84,7 @@ Each reference `ImageInput` supports an optional `label`
 | Situation | Model | Size |
 |-|-|-|
 | Final hero asset, multiple references | `pro` | `2K`–`4K` when exposed; service-only today |
-| Quick draft, one or no reference | `flash` when exposed; Pro/default today | `1K` |
+| Quick draft, one or no reference | `flash` for public batch/explore; Pro/default for single generate | `1K` |
 | Character turnaround / tile set | `pro` (pipeline-driven) | `1K`–`2K` when exposed |
 | Combining character + style + background | `pro` (needs >1 ref) | match output |
 
