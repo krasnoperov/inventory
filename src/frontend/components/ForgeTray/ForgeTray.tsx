@@ -15,6 +15,7 @@ import {
   IMAGE_MODEL_SELECTIONS,
   IMAGE_SIZES,
   getImageModelCapabilities,
+  getImageModelMaxReferenceImages,
   isImageSizeSupportedByModel,
   type ImageAspectRatio,
   type ImageModelSelection,
@@ -53,6 +54,8 @@ import {
 import styles from './ForgeTray.module.css';
 
 export type DestinationType = 'existing_asset' | 'new_asset';
+
+const MAX_VIDEO_REFERENCE_SLOTS = 3;
 
 export interface ForgeSubmitParams {
   prompt?: string;  // undefined for fork (copy without modification)
@@ -301,7 +304,7 @@ export function ForgeTray({
   forgeError,
   forgeErrorCode,
 }: ForgeTrayProps) {
-  const { slots, maxSlots, prompt, setPrompt, clearSlots, removeSlot } = useForgeTrayStore();
+  const { slots, prompt, setPrompt, clearSlots, removeSlot, setMaxSlots } = useForgeTrayStore();
   const style = useStyleStore((s) => s.style);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -413,9 +416,35 @@ export function ForgeTray({
     }
   }, [canUseExistingDestination, currentAsset, destinationType]);
 
-  // Dynamic max slots accounting for style images
+  const hasPrompt = prompt.trim().length > 0;
+  const operation = getForgeOperationForState(slots.length, hasPrompt, effectiveDestinationType);
+
+  // Dynamic reference budget mirrors provider limits and reserves active style images.
   const styleImageCount = mediaModeConfig.supportsStyle && style?.enabled ? style.imageKeys.length : 0;
-  const effectiveMaxSlots = maxSlots - styleImageCount;
+  const referenceSlotLimit = currentMediaGroup === 'image'
+    ? getImageModelMaxReferenceImages(imageModel)
+    : currentMediaGroup === 'video'
+      ? MAX_VIDEO_REFERENCE_SLOTS
+      : 14;
+  const providerReferenceSlots = Math.max(0, referenceSlotLimit - styleImageCount);
+  const forkSetupSlots = effectiveDestinationType === 'new_asset' && !hasPrompt ? 1 : 0;
+  const effectiveMaxSlots = Math.max(providerReferenceSlots, forkSetupSlots);
+  const hasReferenceBudget = currentMediaGroup === 'image' || currentMediaGroup === 'video';
+  const isOverReferenceBudget =
+    operation !== 'fork' &&
+    hasPrompt &&
+    hasReferenceBudget &&
+    slots.length + styleImageCount > referenceSlotLimit;
+  const referenceNoun = referenceSlotLimit === 1 ? 'reference' : 'references';
+  const styleSuffix = styleImageCount > 0 ? ' including style' : '';
+  const imageBudgetAction = slots.length > 0
+    ? `Remove references${imageModel === 'flash' ? ' or switch Pro' : ''}.`
+    : `Reduce style images${imageModel === 'flash' ? ' or switch Pro' : ''}.`;
+  const referenceBudgetWarning = isOverReferenceBudget && currentMediaGroup === 'image'
+    ? `${imageModel === 'flash' ? 'Flash' : 'Pro'} supports ${referenceSlotLimit} ${referenceNoun}${styleSuffix}. ${imageBudgetAction}`
+    : isOverReferenceBudget && currentMediaGroup === 'video'
+      ? `Video supports ${referenceSlotLimit} references${styleSuffix}. Remove references or reduce style images.`
+      : null;
   const effectiveBatchCount = mediaModeConfig.supportsBatch ? batchCount : 1;
   const videoStyleApplies = mediaMode === 'video' && !noStyle && !!style?.enabled && styleImageCount > 0;
   const veoImageSlotIds = useMemo(
@@ -433,8 +462,6 @@ export function ForgeTray({
   const nameValue = nameEdited ? newAssetName : defaultAssetName;
   const effectiveAssetName = nameEdited && newAssetName.trim() ? newAssetName.trim() : defaultAssetName;
 
-  const hasPrompt = prompt.trim().length > 0;
-  const operation = getForgeOperationForState(slots.length, hasPrompt, effectiveDestinationType);
   const baseLabel = getOperationLabel(operation, mediaMode);
   const operationLabel = effectiveBatchCount > 1 ? `${baseLabel} ×${effectiveBatchCount}` : baseLabel;
   const placeholder = getPlaceholder(slots.length, operation, mediaMode);
@@ -463,6 +490,10 @@ export function ForgeTray({
       setImageSize(imageModelCapabilities.supportedImageSizes[0]);
     }
   }, [imageModel, imageModelCapabilities, imageSize]);
+
+  useEffect(() => {
+    setMaxSlots(effectiveMaxSlots);
+  }, [effectiveMaxSlots, setMaxSlots]);
 
   const handleSelectGroup = useCallback((group: MediaGroup) => {
     if (group === 'image') {
@@ -611,6 +642,7 @@ export function ForgeTray({
     if (operation === 'refine' && !prompt.trim()) return;
     // Forge operations cannot consume references from a different media mode.
     if (hasIncompatibleMediaSlots) return;
+    if (isOverReferenceBudget) return;
 
     setIsSubmitting(true);
     try {
@@ -677,7 +709,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoAudioEnabled, videoResolution, videoDurationSeconds, videoTier]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoAudioEnabled, videoResolution, videoDurationSeconds, videoTier]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -701,13 +733,14 @@ export function ForgeTray({
     if (isSubmitting) return false;
     if (effectiveDestinationType === 'existing_asset' && !canUseExistingDestination) return false;
     if (hasIncompatibleMediaSlots) return false;
+    if (isOverReferenceBudget) return false;
 
     // Fork: 1 slot, no prompt needed (asset name is auto-generated)
     if (operation === 'fork') return true;
 
     // Everything else needs a prompt
     return hasPrompt;
-  }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, canUseExistingDestination, hasIncompatibleMediaSlots]);
+  }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, canUseExistingDestination, hasIncompatibleMediaSlots, isOverReferenceBudget]);
 
   const canAddMore = slots.length < effectiveMaxSlots;
   // Show destination toggle on AssetDetailPage (has currentAsset) so user can choose existing vs new
@@ -1253,6 +1286,12 @@ export function ForgeTray({
           {hasIncompatibleMediaSlots && (
             <div className={styles.modeWarning}>
               {mediaModeConfig.label} mode uses {formatMediaKindList(mediaModeConfig.compatibleSlotMediaKinds)} references. Remove incompatible slots or switch mode.
+            </div>
+          )}
+
+          {referenceBudgetWarning && (
+            <div className={styles.modeWarning}>
+              {referenceBudgetWarning}
             </div>
           )}
         </div>

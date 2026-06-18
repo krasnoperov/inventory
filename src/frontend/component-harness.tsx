@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
 import { ForgeTray } from './components/ForgeTray';
 import { Pagination } from './components/Pagination';
+import { useStyleStore, type SpaceStyleClient } from './stores/styleStore';
 import './styles/theme.css';
 import './styles/global.css';
 
@@ -69,10 +70,17 @@ if (!Component) {
 }
 
 function render(props: Record<string, unknown>) {
+  const { __styleStore, ...componentProps } = props;
+  if (__styleStore) {
+    useStyleStore.getState().setStyle(__styleStore as SpaceStyleClient);
+  } else {
+    useStyleStore.getState().clearStyle();
+  }
+
   root.render(
     <StrictMode>
       <div data-testid="harness-root">
-        <Component {...props} />
+        <Component {...componentProps} />
       </div>
     </StrictMode>,
   );

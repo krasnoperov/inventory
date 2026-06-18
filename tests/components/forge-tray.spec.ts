@@ -64,6 +64,32 @@ const matrixAssets = [
 
 const matrixVariants = matrixAssets.map((entry) => variant(entry.id, entry.media_kind));
 
+const imageReferenceAssets = [
+  asset('image-ref-1', 'Image Ref One', 'character', 'image'),
+  asset('image-ref-2', 'Image Ref Two', 'prop', 'image'),
+  asset('image-ref-3', 'Image Ref Three', 'scene', 'image'),
+  asset('image-ref-4', 'Image Ref Four', 'style-sheet', 'image'),
+];
+
+const imageReferenceVariants = imageReferenceAssets.map((entry) => variant(entry.id, 'image'));
+
+const activeStyle = {
+  id: 'style-1',
+  name: 'House Style',
+  description: 'Painterly house style',
+  imageKeys: ['styles/space/style-1.png'],
+  enabled: true,
+  createdBy: 'user-1',
+  createdAt: baseTime,
+  updatedAt: baseTime,
+};
+
+const overflowingStyle = {
+  ...activeStyle,
+  id: 'style-2',
+  imageKeys: ['styles/space/style-1.png', 'styles/space/style-2.png'],
+};
+
 async function disableAnimations(page: import('@playwright/test').Page) {
   await page.addStyleTag({
     content: '*, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition-duration: 0s !important; }',
@@ -217,6 +243,86 @@ test('forge tray image options expose batch count', async ({ page }) => {
   await screenshot(page, 'forge-tray-batch', { fullPage: true });
 });
 
+test('forge tray image model selection enforces reference budget', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: imageReferenceAssets,
+    allVariants: imageReferenceVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+  });
+  await disableAnimations(page);
+
+  await page.getByLabel('Prompt').fill('Combine these references');
+  await page.getByTitle('Add reference').click();
+  await page.getByRole('button', { name: /Image Ref One/ }).click();
+  await page.getByRole('button', { name: /Image Ref Two/ }).click();
+  await page.getByRole('button', { name: /Done/i }).click();
+
+  await expect(page.getByRole('button', { name: 'Derive' })).toBeEnabled();
+
+  await page.getByRole('button', { name: 'Flash' }).click();
+
+  await expect(page.getByText('Flash supports 1 reference. Remove references or switch Pro.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Derive' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '2K' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '4K' })).toBeDisabled();
+
+  await page.getByTitle('Remove').first().click();
+  await expect(page.getByText('Flash supports 1 reference. Remove references or switch Pro.')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Derive' })).toBeEnabled();
+});
+
+test('forge tray keeps one fork setup slot when style consumes Flash reference budget', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: imageReferenceAssets,
+    allVariants: imageReferenceVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+    __styleStore: activeStyle,
+  });
+  await disableAnimations(page);
+
+  await page.getByRole('button', { name: 'Flash' }).click();
+  await expect(page.getByTitle('Add reference')).toBeVisible();
+
+  await page.getByTitle('Add reference').click();
+  await page.getByRole('button', { name: /Image Ref One/ }).click();
+  await page.getByRole('button', { name: /Done/i }).click();
+
+  await expect(page.getByRole('button', { name: 'Fork' })).toBeEnabled();
+  await expect(page.getByTitle('Add reference')).toHaveCount(0);
+
+  await page.getByLabel('Prompt').fill('Turn this into a finished scene');
+  await expect(page.getByText('Flash supports 1 reference including style. Remove references or switch Pro.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Derive' })).toBeDisabled();
+});
+
+test('forge tray counts style-only references against the selected model budget', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: imageReferenceAssets,
+    allVariants: imageReferenceVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+    __styleStore: overflowingStyle,
+  });
+  await disableAnimations(page);
+
+  await page.getByRole('button', { name: 'Flash' }).click();
+  await page.getByLabel('Prompt').fill('Create a finished asset in the active style');
+
+  await expect(page.getByText('Flash supports 1 reference including style. Reduce style images or switch Pro.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Generate' })).toBeDisabled();
+});
+
 test('forge tray video mode exposes Veo options and native audio toggle', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
@@ -256,6 +362,36 @@ test('forge tray video mode exposes Veo options and native audio toggle', async 
   await expect(audioToggle).not.toBeChecked();
   await audioToggle.check();
   await expect(audioToggle).toBeChecked();
+});
+
+test('forge tray video picker enforces the three-reference budget', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: imageReferenceAssets,
+    allVariants: imageReferenceVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+  });
+  await disableAnimations(page);
+
+  await page.getByTitle('Media type', { exact: true }).click();
+  await page.getByTitle('Video media').click();
+  await page.getByTitle('Add reference').click();
+
+  await page.getByRole('button', { name: /Image Ref One/ }).click();
+  await page.getByRole('button', { name: /Image Ref Two/ }).click();
+  await page.getByRole('button', { name: /Image Ref Three/ }).click();
+
+  await expect(page.getByRole('button', { name: /Image Ref Four/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /Image Ref Four/ })).toHaveAttribute(
+    'title',
+    'Reference budget reached',
+  );
+
+  await page.getByRole('button', { name: /Done/i }).click();
+  await expect(page.getByTitle('Add reference')).toHaveCount(0);
 });
 
 test('forge tray opens Style and Chat as separate full sheets', async ({ page }) => {

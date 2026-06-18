@@ -24,10 +24,11 @@ export function AssetPickerModal({
   spaceId,
   mediaMode,
 }: AssetPickerModalProps) {
-  const { slots, addSlot, removeSlot, hasVariant } = useForgeTrayStore();
+  const { slots, maxSlots, addSlot, removeSlot, hasVariant } = useForgeTrayStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
+  const isAtReferenceBudget = slots.length >= maxSlots;
 
   // Close on Escape
   useEffect(() => {
@@ -229,12 +230,14 @@ export function AssetPickerModal({
                   const isCompatible = primaryVariant
                     ? canUseSlotMediaKindForForgeMode(mediaMode, primaryVariant.media_kind)
                     : false;
-                  const canSelect = isReady && isCompatible;
+                  const canSelect = isInTray || (isReady && isCompatible && !isAtReferenceBudget);
                   const disabledReason = !isReady
                     ? 'No ready media variant'
                     : !isCompatible
                       ? `${mediaModeConfig.label} mode cannot use ${primaryVariant?.media_kind} references`
-                      : undefined;
+                      : isAtReferenceBudget && !isInTray
+                        ? 'Reference budget reached'
+                        : undefined;
 
                   return (
                     <button
