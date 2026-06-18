@@ -20,11 +20,14 @@ companion.
 
 Backed by `src/shared/imageGenerationOptions.ts` for model IDs and exact image
 model capability limits, with provider enforcement in
-`src/backend/services/nanoBananaService.ts`.
+`src/backend/services/nanoBananaService.ts`. Image recipes store the exact
+provider model ID, not just the UI selection.
 
 ### Model
 
-Two models, selected via `'pro' | 'flash'` (`IMAGE_MODEL_CAPABILITIES`):
+Two models, selected via `'pro' | 'flash'`
+(`IMAGE_MODEL_IDS`, `src/shared/imageGenerationOptions.ts:4` and
+`IMAGE_MODEL_CAPABILITIES`, `src/shared/imageGenerationOptions.ts:27`):
 
 | Selection | Model ID | Use for | Key limit | Exposure |
 |-|-|-|-|-|
@@ -32,9 +35,12 @@ Two models, selected via `'pro' | 'flash'` (`IMAGE_MODEL_CAPABILITIES`):
 | `flash` | `gemini-2.5-flash-image` | Fast single-reference iteration, drafts | **Only 1 reference image** | Web + top-level image CLI |
 
 **Default to Pro.** The default model is `gemini-3-pro-image-preview`
-(`DEFAULT_IMAGE_MODEL_ID`) when a request does not select a model, and image
-recipes persist that exact model ID. The service throws if you pass more than
-one reference to Flash, and throws past 14 references on Pro.
+(`DEFAULT_IMAGE_MODEL_ID`, `src/shared/imageGenerationOptions.ts:10`) when a
+request does not select a model, and image recipes persist that exact model ID
+(`VariantFactory.resolveRecipeModel`, `src/backend/durable-objects/space/generation/VariantFactory.ts:968`).
+The service throws if you pass more than one reference to Flash, and throws past
+14 references on Pro (`validateImageModelReferenceLimit`,
+`src/backend/durable-objects/space/generation/VariantFactory.ts:1001`).
 
 ### Aspect Ratio
 
@@ -64,10 +70,13 @@ Three operations map to the three CLI verbs:
 | `edit` | `makefx refine` | the variant you edit | Conversational/semantic editing |
 | `compose` | `makefx derive` | up to 14 (Pro) | Combine references into a new asset |
 
-Each reference `ImageInput` supports an optional `label`
-used to build structured prompts ("Image 1:",
-"Character:") — this is what powers role-assigned composition in the
-[image playbook](./playbooks/images.md).
+Provider API selection is reference-count driven. The workflow calls Gemini
+`generate` with zero source images, `edit` only for a `refine` operation with
+exactly one source image, and `compose` for derive or multi-reference refine
+(`src/backend/workflows/GenerationWorkflow.ts:299`). Each reference
+`ImageInput` supports an optional `label` used to build structured prompts
+("Image 1:", "Character:") — this is prompt text for the provider, not a typed
+provider reference channel.
 
 ### Decision Table — Images
 
@@ -80,7 +89,9 @@ used to build structured prompts ("Image 1:",
 
 ## Video (Veo 3.1)
 
-Backed by `src/backend/services/googleVeoService.ts`.
+Backed by `src/shared/videoGenerationOptions.ts` for exact model IDs and
+provider options, with request construction in
+`src/backend/services/googleVeoService.ts`.
 
 ### Audio
 
@@ -92,13 +103,20 @@ Veo-native synchronized dialogue, SFX, score, or ambience for that clip. CLI
 ### Model Tier
 
 The web tray and CLI expose Veo tier as `generate`, `fast`, or `lite`.
-Internally these map to:
+Internally these map to (`VIDEO_GENERATION_TIER_MODELS`,
+`src/shared/videoGenerationOptions.ts:33`):
 
 | Model ID | Use for | Exposure |
 |-|-|-|
 | `veo-3.1-generate-preview` (default) | Hero shots, final clips | `generate` tier |
 | `veo-3.1-fast-generate-preview` | Cheaper, faster iteration | `fast` tier |
 | `veo-3.1-lite-generate-preview` | Cheapest drafts, background motion tests | `lite` tier |
+
+The default model is `veo-3.1-generate-preview`
+(`DEFAULT_VIDEO_GENERATION_MODEL`, `src/shared/videoGenerationOptions.ts:23`).
+The stored recipe keeps the tier plus the resolved model ID
+(`VariantFactory.resolveRecipeVideoOptions`,
+`src/backend/durable-objects/space/generation/VariantFactory.ts:914`).
 
 ### Resolution And Duration
 
@@ -109,41 +127,55 @@ timeline metadata and does not replace the provider duration control. The
 
 ### Aspect Ratio
 
-`VideoAspectRatio` (`googleVeoService.ts:15`): `16:9` (default) or `9:16` only —
-narrower than the image set. Anything else normalizes to `16:9`
-(`normalizeAspectRatio`, `:74`).
+`VideoAspectRatio` (`src/shared/videoGenerationOptions.ts:1`): `16:9`
+(default) or `9:16` only — narrower than the image set. Anything else
+normalizes to `16:9` in the workflow/service path.
 
 ### Resolution
 
-`VideoResolution` (`googleVeoService.ts:16`): `720p` (default), `1080p`, `4k`.
-The web tray and CLI `--resolution` flag expose all three values, with `4k`
-limited to the `generate` and `fast` tiers.
+`VideoResolution` (`src/shared/videoGenerationOptions.ts:2`): `720p`
+(default), `1080p`, `4k`. The web tray and CLI `--resolution` flag expose all
+three values, with `4k` limited to the `generate` and `fast` tiers
+(`VIDEO_GENERATION_RESOLUTIONS_BY_TIER`,
+`src/shared/videoGenerationOptions.ts:14`).
 
 ### Duration
 
-`VideoDurationSeconds` (`googleVeoService.ts:17`): `4`, `6`, or `8` seconds,
-default `8`. The web tray and CLI `--duration` flag expose all three values.
-This is a provider duration control, not the `--duration-ms` CLI flag, which
-records intended production-scene duration as metadata and is never passed to
-Veo (`cli-generation.md:209`).
+`VideoDurationSeconds` (`src/shared/videoGenerationOptions.ts:3`): `4`, `6`,
+or `8` seconds, default `8` (`src/shared/videoGenerationOptions.ts:21`). The
+web tray and CLI `--duration` flag expose all three values. This is a provider
+duration control, not the `--duration-ms` CLI flag, which records intended
+production-scene duration as metadata and is never passed to Veo.
 
 ### Reference Modes
 
 References are passed as `sourceImages`, and the stored recipe records the Veo
-request mode. With no source images, Make Effects uses text-to-video. With one
-unstyled source image, it uses Veo's image-to-video `image` input. With two
-unstyled source images, it uses first/last-frame interpolation: the first image
-is the starting frame and the second image is `lastFrame`. If active style
-images are present, or if more than two source images remain, it uses Veo
-reference images typed STYLE or ASSET by position (`getReferenceType`,
-`googleVeoService.ts:89`). In practice: disable style when you need exact
-first/last-frame interpolation.
+request mode (`veoReferenceMode`). The mode is inferred from the final resolved
+image list after style injection (`determineVeoReferenceMode`,
+`src/backend/services/googleVeoService.ts:98`):
 
-Veo is not at parity with the image models here: video generation supports at
-most **3** source/reference images (`googleVeoService.ts:140`), while Pro image
-generation supports up to 14. When exactly one source image is supplied and no
-style image is prepended, the service sends it through Veo's image-to-video
-`request.image` path instead of `config.referenceImages` (`googleVeoService.ts:170`).
+| Final image inputs | Provider request shape | Stored mode |
+|-|-|-|
+| 0 images | prompt only | `text-to-video` |
+| 1 image, no style image prepended | top-level `request.image` | `image-to-video` |
+| 2 images, no style image prepended | top-level `request.image` plus `config.lastFrame` | `first-last-frame` |
+| Any style image, or 3 images | `config.referenceImages[]` | `reference-images` |
+
+When Veo uses `referenceImages[]`, Make Effects types prepended style images as
+`STYLE` and all remaining images as `ASSET` by position (`getReferenceType`,
+`src/backend/services/googleVeoService.ts:94`; request construction,
+`src/backend/services/googleVeoService.ts:178`). In practice: disable style
+when you need exact first/last-frame interpolation.
+
+Veo is not at parity with image generation. Video generation accepts at most
+**3** source/reference images (`GoogleVeoService.generate`,
+`src/backend/services/googleVeoService.ts:144`). The variant factory caps video
+references to the first three before workflow start, and caps style images to
+whatever budget remains after user references
+(`VariantFactory.capVeoSourceImageKeys`,
+`src/backend/durable-objects/space/generation/VariantFactory.ts:1030`;
+`injectStyle`,
+`src/backend/durable-objects/space/generation/VariantFactory.ts:850`).
 
 ### Decision Table — Video
 
@@ -158,26 +190,31 @@ style image is prepended, the service sends it through Veo's image-to-video
 Backed by `src/backend/services/elevenLabsAudioProvider.ts` and, for optional
 music requests, `src/backend/services/lyriaMusicProvider.ts`. Audio uses
 explicit **modes**; each resolves a default model you can override with
-provider-specific configuration.
+provider-specific configuration. Audio generation has no provider image
+reference inputs today; voice IDs and dialogue speaker order are the only
+reference-like controls.
 
 | Mode | Default model | Override | CLI |
 |-|-|-|-|
-| `speech` | `eleven_multilingual_v2` (`:427`) | `modelId` | `makefx audio speech generate` |
-| `dialogue` | `eleven_v3` (`:427`) | `modelId` | `makefx audio dialogue generate` |
-| `music` | `music_v1` (`:114`) | `modelId` | `makefx audio music generate` |
-| `music` with Lyria | `lyria-3-clip-preview` | `LYRIA_MODEL_ID` | `makefx audio music generate --provider lyria` |
-| `sfx` | `eleven_text_to_sound_v2` (`:115`) | `modelId` | `makefx audio sfx generate` |
+| `speech` | `eleven_multilingual_v2` (`defaultModelForKind`, `src/backend/services/elevenLabsAudioProvider.ts:426`) | `modelId` | `makefx audio speech generate` |
+| `dialogue` | `eleven_v3` (`defaultModelForKind`, `src/backend/services/elevenLabsAudioProvider.ts:426`) | `modelId` | `makefx audio dialogue generate` |
+| `music` | `music_v1` (`DEFAULT_MUSIC_MODEL`, `src/backend/services/elevenLabsAudioProvider.ts:114`) | `modelId` | `makefx audio music generate` |
+| `music` with Lyria | `lyria-3-clip-preview` (`DEFAULT_MODEL`, `src/backend/services/lyriaMusicProvider.ts:74`) | `LYRIA_MODEL_ID` | `makefx audio music generate --provider lyria` |
+| `sfx` | `eleven_text_to_sound_v2` (`DEFAULT_SOUND_EFFECT_MODEL`, `src/backend/services/elevenLabsAudioProvider.ts:115`) | `modelId` | `makefx audio sfx generate` |
 
 ### Voices
 
-- **Speech** requires a configured `voiceId` (`:37`, validated at call time,
-  `:174`). Generation uses the timestamped text-to-speech endpoint.
-- **Dialogue** maps speakers to `dialogueVoiceIds` (`:38`) and parses prompts in
-  `Speaker: line` form. Keep speaker names stable across files so a character
-  keeps one voice.
+- **Speech** requires a configured `voiceId`, validated at call time
+  (`generateSpeech`, `src/backend/services/elevenLabsAudioProvider.ts:173`).
+  Generation uses the timestamped text-to-speech endpoint.
+- **Dialogue** maps speakers to `dialogueVoiceIds` by first appearance and
+  parses prompts in `Speaker: line` form
+  (`parseElevenLabsDialoguePrompt`,
+  `src/backend/services/elevenLabsAudioProvider.ts:118`). Keep speaker names
+  stable across files so a character keeps one voice.
 - The connected account's voice library backs the UI picker (`listVoices`,
-  `:71`). Treat a chosen voice as a locked reference asset — see the
-  [audio playbook](./playbooks/audio.md).
+  `src/backend/services/elevenLabsAudioProvider.ts:71`). Treat a chosen voice
+  as a locked reference asset — see the [audio playbook](./playbooks/audio.md).
 
 ### Decision Table — Audio
 
@@ -187,6 +224,33 @@ provider-specific configuration.
 | Multi-speaker scene | `dialogue` | `Speaker:` lines + `dialogueVoiceIds` |
 | Bed, cue, sting | `music` | Brief genre/era/tempo/instruments/dynamics |
 | Discrete effect | `sfx` | Describe the sound; tie to on-screen action for video |
+
+## Provider Reference Semantics
+
+Generation requests resolve same-space assets/variants into provider inputs
+before the workflow starts. Explicit variant IDs win over asset IDs; asset IDs
+resolve to their active variants
+(`VariantFactory.resolveAllReferences`,
+`src/backend/durable-objects/space/generation/VariantFactory.ts:1056`).
+For image generation, every reference must resolve to a completed image. For
+non-image generation, a media-only variant can still be recorded as a lineage
+parent, but it is not passed as an image reference to the provider
+(`resolveVariantReference`,
+`src/backend/durable-objects/space/generation/VariantFactory.ts:1117`).
+
+Style images are prepended ahead of user references, and the workflow labels
+them as `Style ref N:` while user references are labeled `Image N:`
+(`src/backend/workflows/GenerationWorkflow.ts:191`). For Gemini image
+generation those labels are included in the text prompt. For Veo, the prepended
+style count also controls whether images are typed as provider `STYLE` or
+`ASSET` references.
+
+The `fake` image/video provider preserves the same recipe and metadata shape
+for local tests but does not call an external model. The optional `custom`
+provider path applies only to image generation when `modelProvider: "custom"`
+and `CUSTOM_MODEL_ENDPOINT` are configured
+(`src/backend/workflows/GenerationWorkflow.ts:278`); video always uses Veo or
+the fake provider, and audio uses the configured audio provider.
 
 ## Audio (Gemini-Native And Future Models)
 
