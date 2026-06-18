@@ -201,7 +201,9 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--count <2-8>` | `batch`, `audio <mode> batch` | Number of artifacts to generate |
 | `--mode <mode>` | `batch`, `audio <mode> batch` | `explore` for one asset with many variants, or `set` for many assets |
 | `--force` | all | Overwrite local output file |
-| `--aspect <ratio>` | all | Optional generation aspect ratio |
+| `--model <pro\|flash>` | top-level image commands | Optional image model selection; defaults to Pro |
+| `--size <1K\|2K\|4K>` | top-level image commands | Optional image output size; Flash supports only `1K` |
+| `--aspect <ratio>` | top-level image commands, video commands | Optional generation aspect ratio |
 | `--parent <assetId>` | `generate`, `derive`, `video generate`, `video derive` | Optional parent asset |
 | `--no-style` | all | Disable active space style for this request |
 | `--scene-label <label>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene label stored with production placement metadata |

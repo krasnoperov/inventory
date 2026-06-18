@@ -320,7 +320,7 @@ function printForgeHelp(command: string): void {
   if (command === 'generate') {
     console.log(`
 Usage:
-  makefx generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
+  makefx generate "prompt" --name <name> --type <type> -o <file> [--model pro|flash] [--size 1K|2K|4K] [--aspect <ratio>] [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -332,7 +332,7 @@ Production metadata:
   if (command === 'refine') {
     console.log(`
 Usage:
-  makefx refine --variant <variant_id> "prompt" -o <file> [--space <id>]
+  makefx refine --variant <variant_id> "prompt" -o <file> [--model pro|flash] [--size 1K|2K|4K] [--aspect <ratio>] [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -344,14 +344,14 @@ Production metadata:
   if (command === 'batch') {
     console.log(`
 Usage:
-  makefx batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir>
+  makefx batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--model pro|flash] [--size 1K|2K|4K] [--aspect <ratio>]
 `);
     return;
   }
 
   console.log(`
 Usage:
-  makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--space <id>]
+  makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--model pro|flash] [--size 1K|2K|4K] [--aspect <ratio>] [--space <id>]
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>

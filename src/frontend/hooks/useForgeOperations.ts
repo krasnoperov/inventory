@@ -83,7 +83,22 @@ export function useForgeOperations({
    * Returns requestId for tracking the operation (or empty string for fork).
    */
   const handleForgeSubmit = useCallback((params: ForgeSubmitParams): string => {
-    const { prompt, referenceVariantIds = [], referenceAssetIds, destination, operation, mediaKind, batchCount, batchMode, disableStyle, voiceId, dialogueVoiceIds } = params;
+    const {
+      prompt,
+      referenceVariantIds = [],
+      referenceAssetIds,
+      destination,
+      operation,
+      mediaKind,
+      batchCount,
+      batchMode,
+      model,
+      aspectRatio,
+      imageSize,
+      disableStyle,
+      voiceId,
+      dialogueVoiceIds,
+    } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
 
@@ -110,7 +125,9 @@ export function useForgeOperations({
         mode: batchMode || 'explore',
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
         referenceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
-        aspectRatio: params.aspectRatio,
+        model,
+        aspectRatio,
+        imageSize,
         parentAssetId: destination.parentAssetId || undefined,
         disableStyle,
         voiceId,
@@ -131,6 +148,9 @@ export function useForgeOperations({
         // Pass all source variants for combine-into-existing scenarios
         sourceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
+        model,
+        aspectRatio,
+        imageSize,
         disableStyle,
         voiceId,
         dialogueVoiceIds,
@@ -144,6 +164,9 @@ export function useForgeOperations({
         prompt,
         referenceAssetIds: hasAssetRefs ? referenceAssetIds : undefined,
         referenceVariantIds: hasVariantRefs ? referenceVariantIds : undefined,
+        model,
+        aspectRatio,
+        imageSize,
         parentAssetId: destination.parentAssetId || undefined,
         disableStyle,
         voiceId,

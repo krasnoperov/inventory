@@ -488,6 +488,59 @@ test('generate sends generate request and downloads completed image', async () =
   }]);
 });
 
+test('generate sends explicit image model, size, and aspect', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await executeForgeCommand('generate', {
+    positionals: ['A', 'market', 'background'],
+    options: {
+      space: 'space-1',
+      name: 'Market',
+      type: 'scene',
+      model: 'flash',
+      size: '1k',
+      aspect: '16:9',
+      o: 'market.png',
+    },
+  }, deps);
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Market',
+    assetType: 'scene',
+    prompt: 'A market background',
+    model: 'flash',
+    imageSize: '1K',
+    aspectRatio: '16:9',
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'image',
+  });
+});
+
+test('image commands reject flash above 1K before sending request', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeForgeCommand('generate', {
+      positionals: ['A', 'market', 'background'],
+      options: {
+        space: 'space-1',
+        name: 'Market',
+        type: 'scene',
+        model: 'flash',
+        size: '2K',
+        o: 'market.png',
+      },
+    }, deps),
+    /--model flash supports only --size 1K/
+  );
+
+  assert.equal(client.generateParams, undefined);
+  assert.equal(client.connected, false);
+});
+
 test('generate resolves missing space and env from project config', async () => {
   const client = new FakeClient();
   let loadedEnv = '';

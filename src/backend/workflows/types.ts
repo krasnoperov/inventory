@@ -170,7 +170,11 @@ export interface GenerateRequestMessage {
   referenceAssetIds?: string[];
   /** Explicit variant references from ForgeTray UI - used as-is */
   referenceVariantIds?: string[];
+  /** Image model selection (`pro`/`flash`) or resolved model ID */
+  model?: string;
   aspectRatio?: string;
+  /** Image output size (`1K`, `2K`, `4K`) */
+  imageSize?: string;
   parentAssetId?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
@@ -193,7 +197,11 @@ export interface RefineRequestMessage {
   sourceVariantIds?: string[];
   /** Asset-level references - backend resolves to default variants */
   referenceAssetIds?: string[];
+  /** Image model selection (`pro`/`flash`) or resolved model ID */
+  model?: string;
   aspectRatio?: string;
+  /** Image output size (`1K`, `2K`, `4K`) */
+  imageSize?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
   /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
@@ -225,7 +233,11 @@ export interface BatchRequestMessage {
   referenceAssetIds?: string[];
   /** Explicit variant references from ForgeTray UI */
   referenceVariantIds?: string[];
+  /** Image model selection (`pro`/`flash`) or resolved model ID */
+  model?: string;
   aspectRatio?: string;
+  /** Image output size (`1K`, `2K`, `4K`) */
+  imageSize?: string;
   parentAssetId?: string;
   /** Disable style anchoring for this batch */
   disableStyle?: boolean;

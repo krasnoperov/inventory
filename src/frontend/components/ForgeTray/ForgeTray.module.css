@@ -924,6 +924,24 @@
   cursor: not-allowed;
 }
 
+.paramSelect {
+  height: 1.875rem;
+  padding: 0 1.5rem 0 0.625rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--ctl-track);
+  color: var(--color-text);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.paramSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Audio sub-mode buttons */
 .audioModes {
   display: inline-flex;
@@ -1100,6 +1118,7 @@
 .modeTrigger:focus-visible,
 .miniSegItem:focus-visible,
 .miniSegText:focus-visible,
+.paramSelect:focus-visible,
 .audioMode:focus-visible,
 .modePopItem:focus-visible,
 .nameChip:focus-visible {

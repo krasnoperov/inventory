@@ -96,7 +96,9 @@ interface GenerateRequestMessage {
   prompt?: string;
   referenceAssetIds?: string[];
   referenceVariantIds?: string[];
+  model?: string;
   aspectRatio?: string;
+  imageSize?: string;
   parentAssetId?: string;
   disableStyle?: boolean;
   mediaKind?: MediaKind;
@@ -110,7 +112,9 @@ interface RefineRequestMessage {
   sourceVariantId?: string;
   sourceVariantIds?: string[];
   referenceAssetIds?: string[];
+  model?: string;
   aspectRatio?: string;
+  imageSize?: string;
   disableStyle?: boolean;
   mediaKind?: MediaKind;
 }
@@ -124,7 +128,9 @@ interface BatchRequestMessage {
   count: number;
   mode: 'explore' | 'set';
   referenceVariantIds?: string[];
+  model?: string;
   aspectRatio?: string;
+  imageSize?: string;
   parentAssetId?: string;
   disableStyle?: boolean;
   mediaKind?: MediaKind;
@@ -1072,7 +1078,9 @@ export class WebSocketClient {
     prompt?: string;
     referenceAssetIds?: string[];
     referenceVariantIds?: string[];
+    model?: string;
     aspectRatio?: string;
+    imageSize?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
@@ -1116,7 +1124,9 @@ export class WebSocketClient {
         prompt: params.prompt,
         referenceAssetIds: params.referenceAssetIds,
         referenceVariantIds: params.referenceVariantIds,
+        model: params.model,
         aspectRatio: params.aspectRatio,
+        imageSize: params.imageSize,
         parentAssetId: params.parentAssetId,
         disableStyle: params.disableStyle,
         mediaKind: params.mediaKind,
@@ -1141,7 +1151,9 @@ export class WebSocketClient {
     sourceVariantId?: string;
     sourceVariantIds?: string[];
     referenceAssetIds?: string[];
+    model?: string;
     aspectRatio?: string;
+    imageSize?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
     onStarted?: (data: GenerateStarted) => void;
@@ -1184,7 +1196,9 @@ export class WebSocketClient {
         sourceVariantId: params.sourceVariantId,
         sourceVariantIds: params.sourceVariantIds,
         referenceAssetIds: params.referenceAssetIds,
+        model: params.model,
         aspectRatio: params.aspectRatio,
+        imageSize: params.imageSize,
         disableStyle: params.disableStyle,
         mediaKind: params.mediaKind,
       };
@@ -1209,7 +1223,9 @@ export class WebSocketClient {
     count: number;
     mode: 'explore' | 'set';
     referenceVariantIds?: string[];
+    model?: string;
     aspectRatio?: string;
+    imageSize?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
     mediaKind?: MediaKind;
@@ -1248,7 +1264,9 @@ export class WebSocketClient {
         count: params.count,
         mode: params.mode,
         referenceVariantIds: params.referenceVariantIds,
+        model: params.model,
         aspectRatio: params.aspectRatio,
+        imageSize: params.imageSize,
         parentAssetId: params.parentAssetId,
         disableStyle: params.disableStyle,
         mediaKind: params.mediaKind,
