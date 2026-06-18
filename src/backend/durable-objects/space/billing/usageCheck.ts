@@ -35,6 +35,7 @@ export interface RateLimitConfig {
 const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
   claude: { windowSeconds: 60, maxRequests: 20 },
   nanobanana: { windowSeconds: 60, maxRequests: 10 },
+  lyria: { windowSeconds: 60, maxRequests: 10 },
   elevenlabs: { windowSeconds: 60, maxRequests: 10 },
   veo: { windowSeconds: 60, maxRequests: 10 },
 };
@@ -43,6 +44,7 @@ const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
 const QUOTA_EVENT_NAMES: Record<string, string> = {
   claude: 'claude_output_tokens',
   nanobanana: 'gemini_images',
+  lyria: 'gemini_audio',
   elevenlabs: 'elevenlabs_audio',
   veo: 'gemini_videos',
 };
@@ -54,7 +56,7 @@ const QUOTA_EVENT_NAMES: Record<string, string> = {
 export async function preCheck(
   db: D1Database,
   userId: number,
-  service: 'claude' | 'nanobanana' | 'elevenlabs' | 'veo',
+  service: 'claude' | 'nanobanana' | 'lyria' | 'elevenlabs' | 'veo',
   rateLimit?: RateLimitConfig,
   requestedQuantity = 1,
   rateLimitQuantity = 1,

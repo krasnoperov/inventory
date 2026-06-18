@@ -69,29 +69,39 @@ function createMockD1() {
 
 function createQuotaCheckDb(options: {
   quotaLimit: number;
+  quotaLimitsJson?: string;
   quotaUsed?: number;
   rateLimitCount?: number;
   paidGenerationEntitlement?: 'none' | 'paid' | 'internal';
+  bindings?: unknown[][];
 }) {
   return {
     prepare: mock.fn((sql: string) => ({
-      bind: mock.fn(() => ({
-        first: mock.fn(async () => {
-          if (sql.includes('FROM users')) {
-            return {
-              paid_generation_entitlement: options.paidGenerationEntitlement ?? 'paid',
-              quota_limits: JSON.stringify({ elevenlabs_audio: options.quotaLimit }),
-              rate_limit_count: options.rateLimitCount ?? 0,
-              rate_limit_window_start: null,
-            };
-          }
-          return { total_used: options.quotaUsed ?? 0 };
-        }),
-        run: mock.fn(async () => ({ success: true })),
-      })),
+      bind: mock.fn((...bindings: unknown[]) => {
+        options.bindings?.push(bindings);
+        return {
+          first: mock.fn(async () => {
+            if (sql.includes('FROM users')) {
+              return {
+                paid_generation_entitlement: options.paidGenerationEntitlement ?? 'paid',
+                quota_limits: options.quotaLimitsJson ?? JSON.stringify({ elevenlabs_audio: options.quotaLimit }),
+                rate_limit_count: options.rateLimitCount ?? 0,
+                rate_limit_window_start: null,
+              };
+            }
+            return { total_used: options.quotaUsed ?? 0 };
+          }),
+          run: mock.fn(async () => ({ success: true })),
+        };
+      }),
     })),
   };
 }
+
+const EXHAUSTED_IMAGE_QUOTA_LIMITS = JSON.stringify({
+  gemini_images: 0,
+  elevenlabs_audio: 0,
+});
 
 function createMockRepo(): SpaceRepository {
   return {
@@ -278,6 +288,41 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(workflowCreate.mock.calls.length, 1);
     });
 
+    test('prechecks Lyria music generation against Gemini audio, not exhausted image quota', async () => {
+      const bindings: unknown[][] = [];
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 0,
+        quotaLimitsJson: EXHAUSTED_IMAGE_QUOTA_LIMITS,
+        bindings,
+      }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-lyria-image-quota',
+          name: 'Music cue',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'short heroic orchestral loop',
+          musicProvider: 'lyria',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 1);
+      assert.strictEqual(workflowCreate.mock.calls.length, 1);
+      assert.ok(bindings.some((args) => args[1] === 'gemini_audio'));
+      assert.ok(!bindings.some((args) => args[1] === 'gemini_images'));
+    });
+
     test('blocks ElevenLabs sound effect generation when remaining quota can cover prompt but not provider cost', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();
@@ -436,6 +481,40 @@ describe('GenerationController pipeline hooks', () => {
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
       assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
+    test('prechecks Lyria music refinement against Gemini audio, not exhausted image quota', async () => {
+      const bindings: unknown[][] = [];
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 0,
+        quotaLimitsJson: EXHAUSTED_IMAGE_QUOTA_LIMITS,
+        bindings,
+      }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRefineRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'refine:request',
+          requestId: 'request-lyria-refine-quota',
+          assetId: 'asset-1',
+          mediaKind: 'audio',
+          prompt: 'make the loop softer',
+          musicProvider: 'lyria',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 1);
+      assert.strictEqual(workflowCreate.mock.calls.length, 1);
+      assert.ok(bindings.some((args) => args[1] === 'gemini_audio'));
+      assert.ok(!bindings.some((args) => args[1] === 'gemini_images'));
     });
 
     test('uses target asset media kind for video quota checks when request omits mediaKind', async () => {
@@ -1227,6 +1306,42 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(workflowCreate.mock.calls.length, 0);
     });
 
+    test('prechecks Lyria music batch against Gemini audio, not exhausted image quota', async () => {
+      const bindings: unknown[][] = [];
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 0,
+        quotaLimitsJson: EXHAUSTED_IMAGE_QUOTA_LIMITS,
+        bindings,
+      }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleBatchRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'batch:request',
+          requestId: 'request-lyria-batch-quota',
+          name: 'Batch Music',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'short heroic orchestral loop',
+          musicProvider: 'lyria',
+          count: 2,
+          mode: 'set',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 2);
+      assert.ok(bindings.some((args) => args[1] === 'gemini_audio'));
+      assert.ok(!bindings.some((args) => args[1] === 'gemini_images'));
+    });
+
     test('blocks ElevenLabs audio batch when rate window has fewer slots than batch count', async () => {
       const db = {
         prepare: mock.fn((sql: string) => ({
@@ -1306,6 +1421,35 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(asMock(ctx.sendError).mock.calls[0].arguments[1], 'QUOTA_EXCEEDED');
       assert.strictEqual(asMock(repo.resetVariantForRetry).mock.calls.length, 0);
       assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
+    test('does not reject Lyria music retry because image quota is exhausted', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      asMock(repo.getVariantById).mock.mockImplementation(async () => createMockVariant({
+        status: 'failed',
+        media_kind: 'audio',
+        recipe: JSON.stringify({
+          prompt: 'short heroic orchestral loop',
+          operation: 'generate',
+          assetType: 'music',
+          musicProvider: 'lyria',
+        }),
+      }));
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 0,
+        quotaLimitsJson: EXHAUSTED_IMAGE_QUOTA_LIMITS,
+      }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRetryRequest({} as WebSocket, { userId: '42', role: 'editor' } as any, 'variant-1');
+
+      assert.strictEqual(asMock(ctx.sendError).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.resetVariantForRetry).mock.calls.length, 1);
+      assert.strictEqual(workflowCreate.mock.calls.length, 1);
     });
   });
 });

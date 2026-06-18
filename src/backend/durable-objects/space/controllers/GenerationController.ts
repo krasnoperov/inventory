@@ -39,7 +39,7 @@ import type { MusicGenerationProvider } from '../../../../shared/websocket-types
 
 const log = loggers.generationController;
 
-type GenerationBillingService = 'nanobanana' | 'elevenlabs' | 'veo';
+type GenerationBillingService = 'nanobanana' | 'lyria' | 'elevenlabs' | 'veo';
 type GenerationLimitDenyReason = 'quota_exceeded' | 'rate_limited' | 'paid_generation_required';
 
 type AudioUsage = {
@@ -65,7 +65,7 @@ function getGenerationBillingService(
     return 'veo';
   }
   if (mediaKind === 'audio' && assetType === 'music' && musicProvider === 'lyria') {
-    return 'nanobanana';
+    return 'lyria';
   }
   if (mediaKind === 'audio' && env.INVENTORY_AUDIO_PROVIDER === 'elevenlabs') {
     return 'elevenlabs';
