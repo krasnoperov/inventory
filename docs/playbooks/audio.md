@@ -1,11 +1,11 @@
 # Audio Playbook: Narration, Dialogue, Music, And Effects
 
 Make Effects produces audio through explicit **modes** — `speech`, `dialogue`,
-`music`, and `sfx` — backed today by ElevenLabs. The same discipline from the
-image and video playbooks applies: nothing good is filled in by default, so
-describe what the listener should hear as deliberately as what they see. This
-page covers the shipped path first, then the Gemini-native audio architecture
-(Veo's synchronized audio plus Lyria) as the target to grow into.
+`music`, and `sfx` — with ElevenLabs as the default provider and Lyria
+available for music. The same discipline from the image and video playbooks
+applies: nothing good is filled in by default, so describe what the listener
+should hear as deliberately as what they see. This page covers the shipped paths
+first, then the broader Gemini-native audio architecture.
 
 ## Pick The Right Mode
 
@@ -70,6 +70,10 @@ makefx audio music batch \
   "Three 20-second low-intensity fantasy workshop beds, warm strings and soft \
    hand percussion, no vocals, gentle and unobtrusive" \
   --name "Workshop Music Bed" --count 3 --output-dir audio/music-beds
+
+makefx audio music generate \
+  "A 30-second lyrical Celtic town theme, fiddle and harp, no vocals" \
+  --provider lyria --name "Town Theme" -o audio/town-theme.wav
 ```
 
 Reach for these descriptors: genre and era ("early-90s lo-fi hip-hop"), tempo
@@ -103,14 +107,15 @@ architecture collapses some of that:
   instrument/dynamic descriptors and even image- or lyrics-based
   prompts.[^lyria-deepmind] Note version differences before relying on a
   feature — negative prompts are supported on Lyria 2 but not on Lyria
-  3.[^lyria-gcloud]
+  3.[^lyria-gcloud] Make Effects exposes it for `music` requests with
+  `--provider lyria` or the Forge Tray music provider selector.
 
 The whole stack is designed to chain: Nano Banana makes the keyframes, Veo
 animates and voices them, Lyria scores them — with the same named references and
 descriptive vocabulary threaded through each step.[^gcloud-nb] When the Make
-Effects audio surface adds native Veo audio or a Lyria music path, the prompting
-discipline on this page carries over unchanged; only the number of separate
-steps shrinks. Current parameters and provider details live in
+Effects audio surface adds native Veo audio, the prompting discipline on this
+page carries over unchanged; only the number of separate steps shrinks. Current
+parameters and provider details live in
 [model-and-parameter-selection.md](../model-and-parameter-selection.md).
 
 ## Quick Reference

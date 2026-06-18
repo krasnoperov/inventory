@@ -113,4 +113,8 @@ local_protocol = "http"
 # wrangler secret put ELEVENLABS_API_KEY --config wrangler.generation.toml
 # wrangler secret put ELEVENLABS_MUSIC_MODEL_ID --config wrangler.generation.toml (optional)
 # wrangler secret put ELEVENLABS_SOUND_EFFECT_MODEL_ID --config wrangler.generation.toml (optional)
+# wrangler secret put LYRIA_PROJECT_ID --config wrangler.generation.toml (optional, for Lyria music)
+# wrangler secret put LYRIA_ACCESS_TOKEN --config wrangler.generation.toml (optional, for Lyria music)
+# wrangler secret put LYRIA_API_KEY --config wrangler.generation.toml (optional alternative auth for Lyria music)
+# wrangler secret put LYRIA_MODEL_ID --config wrangler.generation.toml (optional, defaults to lyria-3-clip-preview)
 # (Add other secrets as needed for your workflows)

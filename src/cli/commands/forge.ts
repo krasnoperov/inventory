@@ -32,7 +32,7 @@ import {
   type GenerateResult,
   type Variant,
 } from '../lib/websocket-client';
-import type { MediaKind } from '../../shared/websocket-types';
+import type { MediaKind, MusicGenerationProvider } from '../../shared/websocket-types';
 import {
   IMAGE_MODEL_IDS,
   isImageModelSelection,
@@ -45,6 +45,7 @@ import {
   getCliGenerationMediaKind,
   getCliGenerationProfile,
   getMediaOperationEntry,
+  isAudioForgeMediaMode,
   type AudioForgeMediaMode,
   type MediaGenerationCommand,
 } from '../../shared/mediaOperationMatrix';
@@ -86,6 +87,7 @@ interface ForgeClient {
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
+    musicProvider?: MusicGenerationProvider;
   }): Promise<GenerateResult>;
   sendRefineRequest(params: {
     assetId: string;
@@ -112,6 +114,7 @@ interface ForgeClient {
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
+    musicProvider?: MusicGenerationProvider;
   }): Promise<BatchResult>;
 }
 
@@ -308,6 +311,9 @@ async function prepareAudioParsedArgs(
 ): Promise<ParsedArgs> {
   const options = { ...parsed.options };
   const positionals = [...parsed.positionals];
+  const effectiveMode = mode ?? getAudioModeFromType(options.type);
+
+  validateAudioProviderOption(options.provider, effectiveMode);
 
   if (mode) {
     options.type = getMediaOperationEntry(mode).assetType;
@@ -337,6 +343,7 @@ async function executeGenerate(
   const outputPath = getOutputPath(parsed);
   const name = requireOption(parsed, 'name');
   const assetType = requireOption(parsed, 'type');
+  const musicProvider = parseMusicProviderOption(parsed, mediaKind, assetType);
   const startedAt = new Date().toISOString();
   const scene = parseSceneMetadata(parsed, {
     prompt,
@@ -358,6 +365,7 @@ async function executeGenerate(
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
     ...audioVoiceOptions,
+    ...(musicProvider ? { musicProvider } : {}),
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -386,6 +394,37 @@ async function executeGenerate(
   await downloadResult(result, outputPath, ctx, deps);
   printResult(result, outputPath, ctx, manifestPath, productionRecord);
   return result;
+}
+
+function getAudioModeFromType(type: string | undefined): AudioForgeMediaMode | undefined {
+  return isAudioForgeMediaMode(type) ? type : undefined;
+}
+
+function validateAudioProviderOption(
+  value: string | undefined,
+  mode?: AudioForgeMediaMode
+): void {
+  if (!value) return;
+  if (mode !== 'music') {
+    throw new Error('--provider is only supported for audio music');
+  }
+  if (value !== 'elevenlabs' && value !== 'lyria') {
+    throw new Error('--provider must be elevenlabs or lyria');
+  }
+}
+
+function parseMusicProviderOption(
+  parsed: ParsedArgs,
+  mediaKind: GenerationMediaKind,
+  assetType: string
+): MusicGenerationProvider | undefined {
+  const value = parsed.options.provider;
+  if (!value) return undefined;
+  if (mediaKind !== 'audio' || assetType !== 'music') {
+    throw new Error('--provider is only supported for audio music');
+  }
+  if (value === 'elevenlabs' || value === 'lyria') return value;
+  throw new Error('--provider must be elevenlabs or lyria');
 }
 
 async function executeRefine(
@@ -535,6 +574,7 @@ async function executeBatch(
   const outputDir = getOutputDir(parsed);
   const name = requireOption(parsed, 'name');
   const assetType = requireOption(parsed, 'type');
+  const musicProvider = parseMusicProviderOption(parsed, mediaKind, assetType);
   const count = parseBatchCount(requireOption(parsed, 'count'));
   const mode = parseBatchMode(parsed.options.mode || 'explore');
   const refs = parsed.options.refs ? parseRefs(parsed.options.refs) : [];
@@ -562,6 +602,7 @@ async function executeBatch(
     disableStyle: parsed.options['no-style'] === 'true',
     mediaKind,
     ...audioVoiceOptions,
+    ...(musicProvider ? { musicProvider } : {}),
   });
 
   const sortedVariants = [...result.variants].sort((a, b) => a.created_at - b.created_at);

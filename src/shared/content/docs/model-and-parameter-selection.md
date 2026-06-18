@@ -54,7 +54,7 @@ Choose one audio mode for each request.
 | `music` | bed, cue, sting, loop | `makefx audio music generate` |
 | `sfx` | one-off sound effect | `makefx audio sfx generate` |
 
-Speech and dialogue depend on voice selection and provider configuration. Treat the voice as a reusable reference for identity. Production can use ElevenLabs; stage and local environments may use fake providers. Entitlement, quota, and rate checks can stop image, video, or audio generation before a provider call is made.
+Speech and dialogue depend on voice selection and provider configuration. Treat the voice as a reusable reference for identity. Production can use ElevenLabs; music requests may opt into Lyria with `--provider lyria`. Stage and local environments may use fake providers. Entitlement, quota, and rate checks can stop image, video, or audio generation before a provider call is made.
 
 ## Decision tables
 

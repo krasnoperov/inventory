@@ -69,6 +69,11 @@ makefx audio music batch "Three 20 second low-intensity dungeon music beds" \
   --count 3 \
   --output-dir audio/dungeon
 
+makefx audio music generate "A 30 second bright orchestral menu loop" \
+  --provider lyria \
+  --name "Menu Loop" \
+  -o audio/menu-loop.wav
+
 makefx audio sfx generate "A crisp inventory item pickup sound effect" \
   --name "Item Pickup" \
   -o audio/pickup.wav

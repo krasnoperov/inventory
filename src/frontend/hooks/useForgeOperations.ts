@@ -98,6 +98,7 @@ export function useForgeOperations({
       disableStyle,
       voiceId,
       dialogueVoiceIds,
+      musicProvider,
     } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
@@ -132,6 +133,7 @@ export function useForgeOperations({
         disableStyle,
         voiceId,
         dialogueVoiceIds,
+        musicProvider,
       });
     }
 
@@ -154,6 +156,7 @@ export function useForgeOperations({
         disableStyle,
         voiceId,
         dialogueVoiceIds,
+        musicProvider,
       });
     } else {
       // Create new asset (generate, create, or combine)
@@ -171,6 +174,7 @@ export function useForgeOperations({
         disableStyle,
         voiceId,
         dialogueVoiceIds,
+        musicProvider,
       });
     }
   }, [sendGenerateRequest, sendRefineRequest, forkAsset, sendBatchRequest]);

@@ -5,7 +5,7 @@
  * These define the contract between SpaceDO (trigger) and Workflows (execution).
  */
 
-import type { MediaKind } from '../../shared/websocket-types';
+import type { MediaKind, MusicGenerationProvider } from '../../shared/websocket-types';
 import type { VeoReferenceMode } from '../services/googleVeoService';
 
 // ============================================================================
@@ -77,6 +77,8 @@ export interface GenerationWorkflowInput {
   voiceId?: string;
   /** ElevenLabs voice IDs for dialogue, assigned to speakers in order (overrides env default) */
   dialogueVoiceIds?: string[];
+  /** Music provider selection for music audio assets. Omitted keeps the server default. */
+  musicProvider?: MusicGenerationProvider;
 }
 
 /** Variant data returned after generation */
@@ -185,6 +187,8 @@ export interface GenerateRequestMessage {
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
   dialogueVoiceIds?: string[];
+  /** Music provider selection for music audio assets */
+  musicProvider?: MusicGenerationProvider;
 }
 
 /** Refine request from client (replaces HTTP POST /api/spaces/:id/assets/:id/variants) */
@@ -211,6 +215,8 @@ export interface RefineRequestMessage {
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
   dialogueVoiceIds?: string[];
+  /** Music provider selection for music audio assets */
+  musicProvider?: MusicGenerationProvider;
 }
 
 // ============================================================================
@@ -248,6 +254,8 @@ export interface BatchRequestMessage {
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
   dialogueVoiceIds?: string[];
+  /** Music provider selection for music audio assets */
+  musicProvider?: MusicGenerationProvider;
 }
 
 /** Generation started notification (broadcast to all) */

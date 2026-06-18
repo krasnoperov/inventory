@@ -14,6 +14,9 @@ export type MediaKind = 'image' | 'audio' | 'video';
 
 export const DEFAULT_MEDIA_KIND: MediaKind = 'image';
 
+/** Request-level music provider selection. Omitted keeps the server default. */
+export type MusicGenerationProvider = 'elevenlabs' | 'lyria';
+
 /** Focus options for image description */
 export type DescribeFocus = 'general' | 'style' | 'composition' | 'details' | 'compare' | 'prompt';
 

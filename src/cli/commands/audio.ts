@@ -205,6 +205,7 @@ Usage:
   makefx audio voices [--json]
   makefx audio <${modes}> generate "prompt" --name <name> -o <file> [--space <id>]
   makefx audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
+  makefx audio music generate "prompt" --provider lyria --name <name> -o <file> [--space <id>]
 
 Voice selection:
   makefx audio speech generate "text" --voice <voice_id> --name <name> -o <file>

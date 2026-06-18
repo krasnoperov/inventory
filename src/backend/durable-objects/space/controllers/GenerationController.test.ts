@@ -250,6 +250,34 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(workflowCreate.mock.calls.length, 0);
     });
 
+    test('does not apply ElevenLabs generated-audio quota estimate to Lyria music generation', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 40 }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-lyria-quota',
+          name: 'Music cue',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'short heroic orchestral loop',
+          musicProvider: 'lyria',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 1);
+      assert.strictEqual(workflowCreate.mock.calls.length, 1);
+    });
+
     test('blocks ElevenLabs sound effect generation when remaining quota can cover prompt but not provider cost', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();
@@ -343,6 +371,33 @@ describe('GenerationController pipeline hooks', () => {
         workflowCreate.mock.calls[0].arguments[0].params.dialogueVoiceIds,
         ['voice-ada', 'voice-ben']
       );
+    });
+
+    test('persists selected Lyria music provider into the recipe and workflow input', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-lyria',
+          name: 'Theme',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'A bright orchestral loop.',
+          musicProvider: 'lyria',
+        } as any
+      );
+
+      const recipe = JSON.parse(asMock(repo.createPlaceholderVariant).mock.calls[0].arguments[0].recipe);
+      assert.strictEqual(recipe.musicProvider, 'lyria');
+      assert.strictEqual(workflowCreate.mock.calls[0].arguments[0].params.musicProvider, 'lyria');
     });
   });
 

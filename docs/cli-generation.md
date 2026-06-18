@@ -167,7 +167,9 @@ When the website is configured with `INVENTORY_AUDIO_PROVIDER=elevenlabs`,
 `audio music ...` prompts are generated through ElevenLabs music,
 `audio sfx ...` prompts are generated through ElevenLabs sound effects, and
 `audio speech ...`/`audio dialogue ...` prompts are generated through
-ElevenLabs speech or dialogue. Multi-speaker dialogue can be sent as direct
+ElevenLabs speech or dialogue. Music commands can opt into Lyria with
+`--provider lyria`; ElevenLabs remains the default when the option is omitted.
+Multi-speaker dialogue can be sent as direct
 multiline shell text or with `--input <file>`; use one `Speaker: line` entry per
 line.
 
@@ -177,6 +179,11 @@ dialogue, `--dialogue-voices <id,id,...>` maps voice IDs to speakers by first
 appearance in the script, and `--voice` acts as the fallback voice for blank or
 omitted dialogue slots. API keys, model IDs, and output format stay
 server-controlled; CLI voice flags are per-call overrides.
+
+Music provider selection is also a per-call override: pass `--provider lyria`
+or `--provider elevenlabs` on `audio music` commands. The CLI sends the prompt,
+canonical asset type, optional music provider, optional voice overrides, and
+`mediaKind: "audio"`.
 
 The older `audio generate ... --type <type>` and
 `audio batch ... --type <type>` forms remain available as low-level

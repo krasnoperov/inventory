@@ -16,7 +16,7 @@ import type { Env } from '../../../../core/types';
 import { resolveImageModel } from '../../../services/nanoBananaService';
 import { PromptBuilder } from './PromptBuilder';
 import { loggers } from '../../../../shared/logger';
-import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../../../shared/websocket-types';
+import { DEFAULT_MEDIA_KIND, type MediaKind, type MusicGenerationProvider } from '../../../../shared/websocket-types';
 import {
   determineVeoReferenceMode,
   type VeoReferenceMode,
@@ -64,6 +64,8 @@ export interface GenerationRecipe {
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio assets) — persisted for retries */
   dialogueVoiceIds?: string[];
+  /** Music provider selection for music audio assets — persisted for retries */
+  musicProvider?: MusicGenerationProvider;
 }
 
 /** Determine operation type based on references */
@@ -101,6 +103,8 @@ export interface CreateAssetVariantInput {
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
   dialogueVoiceIds?: string[];
+  /** Music provider selection for music audio assets */
+  musicProvider?: MusicGenerationProvider;
 }
 
 /** Input for refining an existing asset */
@@ -131,6 +135,8 @@ export interface RefineVariantInput {
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
   dialogueVoiceIds?: string[];
+  /** Music provider selection for music audio assets */
+  musicProvider?: MusicGenerationProvider;
 }
 
 /** Result of variant creation */
@@ -223,6 +229,7 @@ export class VariantFactory {
       operation,
       voiceId: input.voiceId,
       dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
+      musicProvider: input.assetType === 'music' ? input.musicProvider : undefined,
     };
 
     // Inject style anchoring
@@ -328,6 +335,7 @@ export class VariantFactory {
       operation: 'refine',
       voiceId: input.voiceId,
       dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
+      musicProvider: asset.type === 'music' ? input.musicProvider : undefined,
     };
 
     // Inject style anchoring
@@ -412,6 +420,7 @@ export class VariantFactory {
       modelProvider: recipe.modelProvider,
       voiceId: recipe.voiceId,
       dialogueVoiceIds: recipe.dialogueVoiceIds?.length ? recipe.dialogueVoiceIds : undefined,
+      musicProvider: recipe.musicProvider,
     };
 
     const instance = await this.env.GENERATION_WORKFLOW.create({
@@ -552,6 +561,7 @@ export class VariantFactory {
       operation,
       voiceId: input.voiceId,
       dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
+      musicProvider: input.assetType === 'music' ? input.musicProvider : undefined,
     };
 
     // Inject style ONCE

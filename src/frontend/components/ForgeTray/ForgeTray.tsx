@@ -9,7 +9,7 @@ import {
   type ForgeChatProgressResult,
 } from '../../hooks/useSpaceWebSocket';
 import { useStyleStore } from '../../stores/styleStore';
-import type { MediaKind } from '../../../shared/websocket-types';
+import type { MediaKind, MusicGenerationProvider } from '../../../shared/websocket-types';
 import {
   IMAGE_ASPECT_RATIOS,
   IMAGE_MODEL_SELECTIONS,
@@ -71,6 +71,8 @@ export interface ForgeSubmitParams {
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (dialogue mode) */
   dialogueVoiceIds?: string[];
+  /** Music provider selection (music mode only) */
+  musicProvider?: MusicGenerationProvider;
 }
 
 export interface ForgeTrayProps {
@@ -157,6 +159,10 @@ const MEDIA_GROUP_LABEL: Record<MediaGroup, string> = {
 };
 
 const AUDIO_MODE_CONFIGS = FORGE_MEDIA_MODE_CONFIGS.filter((config) => isAudioForgeMode(config.mode));
+const MUSIC_PROVIDER_OPTIONS: Array<{ value: MusicGenerationProvider; label: string }> = [
+  { value: 'elevenlabs', label: 'ElevenLabs' },
+  { value: 'lyria', label: 'Lyria' },
+];
 
 function getMediaGroup(mode: ForgeMediaMode): MediaGroup {
   if (mode === 'image') return 'image';
@@ -288,6 +294,7 @@ export function ForgeTray({
   const [lastAudioMode, setLastAudioMode] = useState<ForgeMediaMode>('speech');
   const [voiceId, setVoiceId] = useState<string | undefined>(undefined);
   const [dialogueVoiceIds, setDialogueVoiceIds] = useState<string[]>([]);
+  const [musicProvider, setMusicProvider] = useState<MusicGenerationProvider>('elevenlabs');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -593,6 +600,7 @@ export function ForgeTray({
         dialogueVoiceIds: mediaMode === 'dialogue' && dialogueVoiceIds.some(Boolean)
           ? dialogueVoiceIds
           : undefined,
+        musicProvider: mediaMode === 'music' ? musicProvider : undefined,
       });
 
       // Clear on success
@@ -605,12 +613,13 @@ export function ForgeTray({
       setBatchCount(1);
       setVoiceId(undefined);
       setDialogueVoiceIds([]);
+      setMusicProvider('elevenlabs');
     } catch (error) {
       console.error('Forge submit failed:', error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -892,6 +901,22 @@ export function ForgeTray({
                         onDialogueVoiceIdsChange={setDialogueVoiceIds}
                       />
                     </>
+                  )}
+                  {mediaMode === 'music' && (
+                    <div className={styles.musicProviderSeg} role="group" aria-label="Music provider">
+                      {MUSIC_PROVIDER_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`${styles.miniSegText} ${musicProvider === option.value ? styles.active : ''}`}
+                          onClick={() => setMusicProvider(option.value)}
+                          disabled={isSubmitting}
+                          title={`${option.label} music provider`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </>
               )}
