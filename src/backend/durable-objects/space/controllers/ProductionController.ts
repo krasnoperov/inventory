@@ -117,9 +117,11 @@ export class ProductionController extends BaseController {
     const durationMs = data.durationMs === undefined
       ? null
       : normalizeNonNegativeInteger(data.durationMs, 'durationMs');
+    const shotId = normalizeOptionalString(data.id) ?? crypto.randomUUID();
+    await this.assertShotIdBelongsToProduction(production.id, shotId);
 
     return this.repo.upsertProductionShot({
-      id: normalizeOptionalString(data.id) ?? crypto.randomUUID(),
+      id: shotId,
       productionId: production.id,
       shotId: normalizeOptionalString(data.shotId),
       label,
@@ -151,9 +153,11 @@ export class ProductionController extends BaseController {
     const durationMs = data.durationMs === undefined
       ? null
       : normalizeNonNegativeInteger(data.durationMs, 'durationMs');
+    const cueId = normalizeOptionalString(data.id) ?? crypto.randomUUID();
+    await this.assertCueIdBelongsToProduction(production.id, cueId);
 
     return this.repo.upsertProductionCue({
-      id: normalizeOptionalString(data.id) ?? crypto.randomUUID(),
+      id: cueId,
       productionId: production.id,
       cueType: normalizeCueType(data.cueType),
       label,
@@ -246,8 +250,10 @@ export class ProductionController extends BaseController {
       metadata: {},
       createdBy,
     });
+    const shotId = normalizeOptionalString(data.shotId) ?? `${recordId}:shot`;
+    await this.assertShotIdBelongsToProduction(production.id, shotId);
     const shot = await this.repo.upsertProductionShot({
-      id: normalizeOptionalString(data.shotId) ?? `${recordId}:shot`,
+      id: shotId,
       productionId: production.id,
       shotId: normalizeOptionalString(data.shotId),
       label: sceneLabel,
@@ -331,6 +337,20 @@ export class ProductionController extends BaseController {
     const cue = await this.repo.getProductionCueById(targetId);
     if (!cue || cue.production_id !== productionId) {
       throw new ValidationError('targetId must reference a cue in this production');
+    }
+  }
+
+  private async assertShotIdBelongsToProduction(productionId: string, shotId: string): Promise<void> {
+    const existing = await this.repo.getProductionShotById(shotId);
+    if (existing && existing.production_id !== productionId) {
+      throw new NotFoundError('Production shot not found');
+    }
+  }
+
+  private async assertCueIdBelongsToProduction(productionId: string, cueId: string): Promise<void> {
+    const existing = await this.repo.getProductionCueById(cueId);
+    if (existing && existing.production_id !== productionId) {
+      throw new NotFoundError('Production cue not found');
     }
   }
 

@@ -213,6 +213,57 @@ describe('ProductionController', () => {
     );
   });
 
+  test('rejects legacy record placement when shot id belongs to another production', async () => {
+    const { controller } = createController({
+      getProductionShotById: mock.fn(async () => ({ id: 'shot-1', production_id: 'other-production' })),
+    });
+
+    await assert.rejects(
+      controller.httpPlaceRecord({
+        productionId: 'episode-01',
+        variantId: 'variant-1',
+        shotId: 'shot-1',
+        sceneLabel: 'Opening',
+        timelineStartMs: 0,
+        createdBy: 'user-1',
+      }),
+      NotFoundError
+    );
+  });
+
+  test('rejects upserting a shot id from another production', async () => {
+    const { controller } = createController({
+      getProductionShotById: mock.fn(async () => ({ id: 'shot-1', production_id: 'other-production' })),
+    });
+
+    await assert.rejects(
+      controller.httpUpsertShot('episode-01', {
+        id: 'shot-1',
+        label: 'Opening',
+        timelineStartMs: 0,
+        createdBy: 'user-1',
+      }),
+      NotFoundError
+    );
+  });
+
+  test('rejects upserting a cue id from another production', async () => {
+    const { controller } = createController({
+      getProductionCueById: mock.fn(async () => ({ id: 'cue-1', production_id: 'other-production' })),
+    });
+
+    await assert.rejects(
+      controller.httpUpsertCue('episode-01', {
+        id: 'cue-1',
+        cueType: 'music',
+        label: 'Theme',
+        timelineStartMs: 0,
+        createdBy: 'user-1',
+      }),
+      NotFoundError
+    );
+  });
+
   test('places a variant on an existing shot target', async () => {
     const { controller, repo } = createController();
 
