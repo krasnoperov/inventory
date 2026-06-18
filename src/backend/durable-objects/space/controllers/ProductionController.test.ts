@@ -156,7 +156,10 @@ function createController(overrides = {}) {
 
 describe('ProductionController', () => {
   test('places a production record for a variant in this space', async () => {
-    const { controller, repo } = createController();
+    const { controller, repo } = createController({
+      getProductionById: mock.fn(async () => null),
+      getProductionShotById: mock.fn(async () => null),
+    });
 
     const record = await controller.httpPlaceRecord({
       id: 'record-1',
@@ -176,6 +179,26 @@ describe('ProductionController', () => {
     assert.equal(repo.upsertProduction.mock.calls[0].arguments[0].id, 'episode-01');
     assert.equal(repo.upsertProductionShot.mock.calls[0].arguments[0].id, 'shot-1');
     assert.equal(repo.upsertProductionPlacement.mock.calls[0].arguments[0].targetKind, 'shot');
+  });
+
+  test('legacy record placement preserves existing normalized production and shot fields', async () => {
+    const { controller, repo } = createController();
+
+    await controller.httpPlaceRecord({
+      id: 'record-1',
+      productionId: 'episode-01',
+      variantId: 'variant-1',
+      shotId: 'shot-1',
+      sceneLabel: 'Replacement label',
+      timelineStartMs: 3000,
+      durationMs: 4000,
+      createdBy: 'user-1',
+    });
+
+    assert.equal(repo.upsertProduction.mock.calls.length, 0);
+    assert.equal(repo.upsertProductionShot.mock.calls.length, 0);
+    assert.equal(repo.upsertProductionPlacement.mock.calls[0].arguments[0].targetId, 'shot-1');
+    assert.equal(repo.upsertProductionRecord.mock.calls[0].arguments[0].sceneLabel, 'Replacement label');
   });
 
   test('rejects placement when variant is not in this space', async () => {

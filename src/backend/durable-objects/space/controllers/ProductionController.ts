@@ -244,24 +244,32 @@ export class ProductionController extends BaseController {
     const sourceVariantIds = await this.normalizeAndValidateSourceVariantIds(data.sourceVariantIds);
     const recordId = normalizeOptionalString(data.id) ?? crypto.randomUUID();
 
-    const production = await this.repo.upsertProduction({
-      id: productionId,
-      name: productionId,
-      metadata: {},
-      createdBy,
-    });
+    let production = await this.repo.getProductionById(productionId);
+    if (!production) {
+      production = await this.repo.upsertProduction({
+        id: productionId,
+        name: productionId,
+        metadata: {},
+        createdBy,
+      });
+    }
     const shotId = normalizeOptionalString(data.shotId) ?? `${recordId}:shot`;
-    await this.assertShotIdBelongsToProduction(production.id, shotId);
-    const shot = await this.repo.upsertProductionShot({
-      id: shotId,
-      productionId: production.id,
-      shotId: normalizeOptionalString(data.shotId),
-      label: sceneLabel,
-      timelineStartMs,
-      durationMs,
-      metadata: {},
-      createdBy,
-    });
+    const existingShot = await this.repo.getProductionShotById(shotId);
+    if (existingShot && existingShot.production_id !== production.id) {
+      throw new NotFoundError('Production shot not found');
+    }
+    const shot = existingShot
+      ?? await this.repo.upsertProductionShot({
+        id: shotId,
+        productionId: production.id,
+        shotId: normalizeOptionalString(data.shotId),
+        label: sceneLabel,
+        timelineStartMs,
+        durationMs,
+        metadata: {},
+        createdBy,
+      });
+    await this.assertPlacementIdBelongsToProduction(production.id, recordId);
     await this.repo.upsertProductionPlacement({
       id: recordId,
       productionId: production.id,
