@@ -28,6 +28,46 @@ function routeApp(deps: Map<unknown, unknown>, env: Partial<AppContext['Bindings
   return app;
 }
 
+function polarMeter(name: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id: `meter_${name}`,
+    name,
+    aggregation: 'sum',
+    aggregationProperty: 'quantity',
+    filter: {
+      conjunction: 'and',
+      clauses: [
+        { property: 'name', operator: 'eq', value: name },
+      ],
+    },
+    archivedAt: null,
+    ...overrides,
+  };
+}
+
+function paidGenerationProduct(overrides: Record<string, unknown> = {}) {
+  return {
+    configured: true,
+    productId: 'prod_paid_generation',
+    exists: true,
+    name: 'Paid Generation',
+    isRecurring: true,
+    isArchived: false,
+    meteredPriceMeters: [
+      'claude_input_tokens',
+      'claude_output_tokens',
+      'gemini_images',
+      'gemini_videos',
+      'gemini_audio',
+      'gemini_input_tokens',
+      'gemini_output_tokens',
+      'elevenlabs_audio',
+    ],
+    meterCreditBenefitMeters: [],
+    ...overrides,
+  };
+}
+
 describe('billingRoutes', () => {
   test('usage route forwards period usage and provider spend', async () => {
     const deps = new Map<unknown, unknown>();
@@ -118,6 +158,7 @@ describe('billingRoutes', () => {
     deps.set(PolarService, {
       getBillingStatus: async () => ({
         configured: true,
+        available: true,
         hasSubscription: false,
         meters: [],
         portalUrl: null,
@@ -133,8 +174,55 @@ describe('billingRoutes', () => {
     assert.equal(body.entitlement, 'none');
     assert.equal(updateCompleted, true);
     assert.deepEqual(updates, [
-      [42, { paid_generation_entitlement: 'none' }],
+      [
+        42,
+        {
+          paid_generation_entitlement: 'none',
+          polar_current_period_start: null,
+          polar_current_period_end: null,
+        },
+      ],
     ]);
+  });
+
+  test('billing status preserves paid entitlement when Polar status is unavailable', async () => {
+    const updates: unknown[] = [];
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UserDAO, {
+      findById: async () => ({
+        id: 42,
+        email: 'customer@example.com',
+        name: 'Customer Name',
+        paid_generation_entitlement: 'paid',
+      }),
+      update: async (...args: unknown[]) => {
+        updates.push(args);
+      },
+    });
+    deps.set(PolarService, {
+      getBillingStatus: async () => ({
+        configured: true,
+        available: false,
+        hasSubscription: false,
+        meters: [],
+        portalUrl: null,
+        error: 'Polar timeout',
+      }),
+    });
+
+    const response = await routeApp(deps).request('/api/billing/status', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    const body = await response.json() as { entitlement: string; available: boolean; error: string };
+    assert.equal(body.entitlement, 'paid');
+    assert.equal(body.available, false);
+    assert.equal(body.error, 'Polar timeout');
+    assert.deepEqual(updates, []);
   });
 
   test('checkout route creates Polar checkout for the authenticated user', async () => {
@@ -259,8 +347,9 @@ describe('billingRoutes', () => {
     });
     deps.set(PolarService, {
       isConfigured: () => true,
+      getPaidGenerationProductInfo: async () => paidGenerationProduct(),
       listMeters: async () => [
-        { id: 'meter_1', name: 'gemini_images', aggregation: 'count', archivedAt: null },
+        polarMeter('gemini_images', { aggregation: 'count', aggregationProperty: null }),
       ],
     });
 
@@ -304,15 +393,16 @@ describe('billingRoutes', () => {
     });
     deps.set(PolarService, {
       isConfigured: () => true,
+      getPaidGenerationProductInfo: async () => paidGenerationProduct(),
       listMeters: async () => [
-        { id: 'meter_1', name: 'claude_input_tokens', aggregation: 'sum', archivedAt: null },
-        { id: 'meter_2', name: 'claude_output_tokens', aggregation: 'sum', archivedAt: null },
-        { id: 'meter_3', name: 'gemini_images', aggregation: 'count', archivedAt: null },
-        { id: 'meter_4', name: 'gemini_videos', aggregation: 'count', archivedAt: null },
-        { id: 'meter_5', name: 'gemini_audio', aggregation: 'count', archivedAt: null },
-        { id: 'meter_6', name: 'gemini_input_tokens', aggregation: 'sum', archivedAt: null },
-        { id: 'meter_7', name: 'gemini_output_tokens', aggregation: 'sum', archivedAt: null },
-        { id: 'meter_8', name: 'elevenlabs_audio', aggregation: 'sum', archivedAt: null },
+        polarMeter('claude_input_tokens'),
+        polarMeter('claude_output_tokens'),
+        polarMeter('gemini_images'),
+        polarMeter('gemini_videos'),
+        polarMeter('gemini_audio'),
+        polarMeter('gemini_input_tokens'),
+        polarMeter('gemini_output_tokens'),
+        polarMeter('elevenlabs_audio'),
       ],
     });
 
@@ -329,5 +419,148 @@ describe('billingRoutes', () => {
     assert.equal(body.checks.internalUsers.status, 'critical');
     assert.equal(body.checks.internalUsers.billableEvents, 1);
     assert.equal(body.checks.internalUsers.nonBillableEvents, 2);
+  });
+
+  test('operational checks report missing product metered prices as critical', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UsageEventDAO, {
+      getSyncHealth: async () => ({
+        pending: 0,
+        failed: 0,
+        synced: 12,
+        oldestPendingCreatedAt: null,
+        oldestFailedCreatedAt: null,
+        lastSyncedAt: '2026-06-17T10:00:00.000Z',
+        lastSyncAttemptAt: '2026-06-17T10:00:00.000Z',
+      }),
+      getInternalBillingHealth: async () => ({
+        internalUsers: 1,
+        billableEvents: 0,
+        nonBillableEvents: 2,
+      }),
+    });
+    deps.set(UserDAO, {
+      countWithoutPolarCustomer: async () => 0,
+    });
+    deps.set(PolarService, {
+      isConfigured: () => true,
+      getPaidGenerationProductInfo: async () => paidGenerationProduct({
+        meteredPriceMeters: [
+          'claude_input_tokens',
+          'claude_output_tokens',
+          'gemini_videos',
+          'gemini_audio',
+          'gemini_input_tokens',
+          'gemini_output_tokens',
+          'elevenlabs_audio',
+        ],
+      }),
+      listMeters: async () => [
+        polarMeter('claude_input_tokens'),
+        polarMeter('claude_output_tokens'),
+        polarMeter('gemini_images'),
+        polarMeter('gemini_videos'),
+        polarMeter('gemini_audio'),
+        polarMeter('gemini_input_tokens'),
+        polarMeter('gemini_output_tokens'),
+        polarMeter('elevenlabs_audio'),
+      ],
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request('/api/billing/operational-checks', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      status: string;
+      checks: {
+        paidGenerationProduct: {
+          status: string;
+          missingMeteredPriceMeters: string[];
+        };
+      };
+    };
+    assert.equal(body.status, 'critical');
+    assert.equal(body.checks.paidGenerationProduct.status, 'critical');
+    assert.deepEqual(body.checks.paidGenerationProduct.missingMeteredPriceMeters, ['gemini_images']);
+  });
+
+  test('reconcile compares local billable usage to Polar meters for cached billing period', async () => {
+    const localUsageCalls: unknown[] = [];
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UserDAO, {
+      findById: async (userId: number) => {
+        assert.equal(userId, 99);
+        return {
+          id: 99,
+          polar_current_period_start: '2026-06-10T00:00:00.000Z',
+          polar_current_period_end: '2026-07-10T00:00:00.000Z',
+        };
+      },
+    });
+    deps.set(UsageEventDAO, {
+      getBillableUsageTotalsForPeriod: async (...args: unknown[]) => {
+        localUsageCalls.push(args);
+        return {
+          gemini_images: 5,
+          claude_input_tokens: 12,
+        };
+      },
+    });
+    deps.set(PolarService, {
+      isConfigured: () => true,
+      getCustomerUsage: async (userId: number) => {
+        assert.equal(userId, 99);
+        return {
+          period: {
+            start: new Date('2026-06-01T00:00:00.000Z'),
+            end: new Date('2026-07-01T00:00:00.000Z'),
+          },
+          meters: {
+            gemini_images: { used: 4, limit: 10 },
+            claude_input_tokens: { used: 12, limit: null },
+          },
+        };
+      },
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request('/api/billing/reconcile?user_id=99', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(localUsageCalls, [[
+      99,
+      '2026-06-10T00:00:00.000Z',
+      '2026-07-10T00:00:00.000Z',
+    ]]);
+    const body = await response.json() as {
+      status: string;
+      mismatches: Array<{ name: string; local: number; polar: number; delta: number }>;
+    };
+    assert.equal(body.status, 'mismatch');
+    assert.deepEqual(body.mismatches, [
+      { name: 'gemini_images', local: 5, polar: 4, delta: 1, matched: false },
+    ]);
+  });
+
+  test('reconcile requires a target user id', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request('/api/billing/reconcile', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 400);
   });
 });

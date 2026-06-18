@@ -718,7 +718,8 @@ export class GenerationController extends BaseController {
             operation,
             billingDimensions.resolution,
             billingDimensions.durationSeconds,
-            billingDimensions.generateAudio
+            billingDimensions.generateAudio,
+            this.env.ADMIN_USER_IDS
           );
         } else {
           await trackImageGeneration(
@@ -727,7 +728,8 @@ export class GenerationController extends BaseController {
             1,
             usageModel,
             operation,
-            imageSize
+            imageSize,
+            this.env.ADMIN_USER_IDS
           );
         }
       } catch (err) {
@@ -765,7 +767,8 @@ export class GenerationController extends BaseController {
           data.audioModel || 'unknown',
           operation,
           assetType,
-          audioUsage
+          audioUsage,
+          this.env.ADMIN_USER_IDS
         );
       } catch (err) {
         log.warn('Failed to track ElevenLabs audio usage', {
@@ -800,7 +803,8 @@ export class GenerationController extends BaseController {
           operation,
           assetType,
           data.mediaDurationMs,
-          data.audioUsage ?? undefined
+          data.audioUsage ?? undefined,
+          this.env.ADMIN_USER_IDS
         );
       } catch (err) {
         log.warn('Failed to track Lyria audio usage', {

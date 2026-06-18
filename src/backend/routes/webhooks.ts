@@ -276,6 +276,12 @@ function parseExternalUserId(externalId: string | undefined, action: string): nu
   return userId;
 }
 
+function isFutureDate(value: string | null | undefined, now = new Date()): boolean {
+  if (!value) return false;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) && timestamp > now.getTime();
+}
+
 /**
  * Handle subscription.created event
  * A new subscription has been created (may not be active yet)
@@ -313,7 +319,10 @@ async function handleSubscriptionActive(
   const userId = parseExternalUserId(customer.external_id, 'update local limits');
   if (userId === null) return;
 
-  await fetchAndCacheLimits(userId, userDAO, polarService);
+  await fetchAndCacheLimits(userId, userDAO, polarService, {
+    periodStart: subscription.current_period_start ?? null,
+    periodEnd: subscription.current_period_end ?? null,
+  });
 }
 
 /**
@@ -336,7 +345,10 @@ async function handleSubscriptionUpdated(
     const userId = parseExternalUserId(customer.external_id, 'update local limits');
     if (userId === null) return;
 
-    await fetchAndCacheLimits(userId, userDAO, polarService);
+    await fetchAndCacheLimits(userId, userDAO, polarService, {
+      periodStart: subscription.current_period_start ?? null,
+      periodEnd: subscription.current_period_end ?? null,
+    });
   }
 }
 
@@ -360,8 +372,15 @@ async function handleSubscriptionCanceled(
   const userId = parseExternalUserId(customer.external_id, 'revoke limits');
   if (userId === null) return;
 
-  if (subscription.status === 'active' || subscription.status === 'trialing') {
-    await fetchAndCacheLimits(userId, userDAO, polarService);
+  if (
+    subscription.status === 'active' ||
+    subscription.status === 'trialing' ||
+    isFutureDate(subscription.current_period_end)
+  ) {
+    await fetchAndCacheLimits(userId, userDAO, polarService, {
+      periodStart: subscription.current_period_start ?? null,
+      periodEnd: subscription.current_period_end ?? null,
+    });
     return;
   }
 
@@ -383,6 +402,8 @@ async function handleSubscriptionCanceled(
     paid_generation_entitlement: 'none',
     quota_limits: JSON.stringify(revokedLimits),
     quota_limits_updated_at: new Date().toISOString(),
+    polar_current_period_start: null,
+    polar_current_period_end: null,
   });
 
   console.log(`[Polar Webhook] Revoked quota limits for user ${userId}`);
@@ -427,6 +448,8 @@ async function handleCustomerStateChanged(
       paid_generation_entitlement: 'none',
       quota_limits: JSON.stringify(revokedLimits),
       quota_limits_updated_at: new Date().toISOString(),
+      polar_current_period_start: null,
+      polar_current_period_end: null,
     });
 
     console.log(`[Polar Webhook] Revoked quota limits for user ${userId} (no active subscriptions)`);
@@ -442,7 +465,8 @@ async function handleCustomerStateChanged(
 async function fetchAndCacheLimits(
   userId: number,
   userDAO: UserDAO,
-  polarService: PolarService
+  polarService: PolarService,
+  period: { periodStart?: string | null; periodEnd?: string | null } = {}
 ): Promise<void> {
   try {
     if (await shouldPreserveInternalEntitlement(userId, userDAO, 'update local limits')) return;
@@ -457,11 +481,20 @@ async function fetchAndCacheLimits(
     }
 
     // Update user's cached limits
-    await userDAO.update(userId, {
+    const update = {
       paid_generation_entitlement: 'paid',
       quota_limits: JSON.stringify(limits),
       quota_limits_updated_at: new Date().toISOString(),
-    });
+    } as Parameters<UserDAO['update']>[1];
+
+    if ('periodStart' in period) {
+      update.polar_current_period_start = period.periodStart ?? null;
+    }
+    if ('periodEnd' in period) {
+      update.polar_current_period_end = period.periodEnd ?? null;
+    }
+
+    await userDAO.update(userId, update);
 
     console.log(`[Polar Webhook] Updated quota limits for user ${userId}:`, limits);
   } catch (error) {

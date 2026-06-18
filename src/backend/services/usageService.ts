@@ -31,8 +31,6 @@ export const USAGE_EVENTS = {
 
 export type UsageEventName = (typeof USAGE_EVENTS)[keyof typeof USAGE_EVENTS];
 
-export const EXPECTED_POLAR_METERS = Object.values(USAGE_EVENTS) as UsageEventName[];
-
 export interface UsageStats {
   period: {
     start: Date;
@@ -115,6 +113,21 @@ function roundUsd(amount: number): number {
 
 function getVideoQuotaUnits(videoCount: number, generateAudio?: boolean): number {
   return videoCount * (generateAudio ? VIDEO_WITH_AUDIO_QUOTA_UNITS : 1);
+}
+
+function isUsableIsoDate(value: string | null | undefined): value is string {
+  return typeof value === 'string' && Number.isFinite(new Date(value).getTime());
+}
+
+function getUsagePeriodBounds(now: Date, periodStart?: string | null, periodEnd?: string | null): {
+  start: string;
+  end: string | null;
+} {
+  const calendarStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  return {
+    start: isUsableIsoDate(periodStart) ? periodStart : calendarStart,
+    end: isUsableIsoDate(periodEnd) ? periodEnd : null,
+  };
 }
 
 @injectable()
@@ -362,109 +375,21 @@ export class UsageService {
       // Mark sync attempt BEFORE sending to Polar (for tracking)
       await this.usageEventDAO.incrementSyncAttempts(eventIds);
 
-      // Group events by type for proper formatting
-      const claudeEvents = pendingEvents.filter((e) =>
-        e.event_name.startsWith('claude_')
-      );
-      const geminiTokenEvents = pendingEvents.filter((e) =>
-        e.event_name === USAGE_EVENTS.GEMINI_INPUT_TOKENS ||
-        e.event_name === USAGE_EVENTS.GEMINI_OUTPUT_TOKENS
-      );
-      const geminiMediaEvents = pendingEvents.filter((e) =>
-        e.event_name === USAGE_EVENTS.GEMINI_IMAGES ||
-        e.event_name === USAGE_EVENTS.GEMINI_AUDIO ||
-        e.event_name === USAGE_EVENTS.GEMINI_VIDEOS
-      );
-      const genericMeterEvents = pendingEvents.filter((e) =>
-        e.event_name === USAGE_EVENTS.ELEVENLABS_AUDIO
-      );
-
-      // Sync Claude LLM events - group by user and timestamp (within same second)
-      if (claudeEvents.length > 0) {
-        // Group input/output events that belong together
-        const groupedClaude = this.groupTokenEvents(
-          claudeEvents,
-          'claude',
-          USAGE_EVENTS.CLAUDE_INPUT_TOKENS,
-          USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS
-        );
-        await this.polarService.ingestLLMEventsBatch(
-          groupedClaude.map((group) => ({
-            userId: group.userId,
-            eventName: 'claude_usage',
-            timestamp: group.timestamp,
-            externalId: group.externalId,
-            llmData: {
-              vendor: 'anthropic' as const,
-              model: group.model,
-              inputTokens: group.inputTokens,
-              outputTokens: group.outputTokens,
+      await this.polarService.ingestEventsBatch(
+        pendingEvents.map((event) => {
+          const metadata = event.metadata ? JSON.parse(event.metadata) : {};
+          return {
+            userId: event.user_id,
+            eventName: event.event_name,
+            timestamp: new Date(event.created_at),
+            externalId: event.id,
+            metadata: {
+              ...metadata,
+              quantity: event.quantity,
             },
-          }))
-        );
-      }
-
-      // Sync Gemini LLM events (tokens)
-      if (geminiTokenEvents.length > 0) {
-        const groupedGemini = this.groupTokenEvents(
-          geminiTokenEvents,
-          'gemini',
-          USAGE_EVENTS.GEMINI_INPUT_TOKENS,
-          USAGE_EVENTS.GEMINI_OUTPUT_TOKENS
-        );
-        await this.polarService.ingestLLMEventsBatch(
-          groupedGemini.map((group) => ({
-            userId: group.userId,
-            eventName: 'gemini_usage',
-            timestamp: group.timestamp,
-            externalId: group.externalId,
-            llmData: {
-              vendor: 'google' as const,
-              model: group.model,
-              inputTokens: group.inputTokens,
-              outputTokens: group.outputTokens,
-            },
-          }))
-        );
-      }
-
-      // Sync Gemini media count events with quantity in metadata
-      if (geminiMediaEvents.length > 0) {
-        await this.polarService.ingestEventsBatch(
-          geminiMediaEvents.map((event) => {
-            const metadata = event.metadata ? JSON.parse(event.metadata) : {};
-            return {
-              userId: event.user_id,
-              eventName: event.event_name,
-              timestamp: new Date(event.created_at),
-              externalId: event.id, // Use local event ID for deduplication
-              metadata: {
-                ...metadata,
-                quantity: event.quantity,
-              },
-            };
-          })
-        );
-      }
-
-      // Sync other metered events with quantity in metadata
-      if (genericMeterEvents.length > 0) {
-        await this.polarService.ingestEventsBatch(
-          genericMeterEvents.map((event) => {
-            const metadata = event.metadata ? JSON.parse(event.metadata) : {};
-            return {
-              userId: event.user_id,
-              eventName: event.event_name,
-              timestamp: new Date(event.created_at),
-              externalId: event.id,
-              metadata: {
-                ...metadata,
-                quantity: event.quantity,
-              },
-            };
-          })
-        );
-      }
+          };
+        })
+      );
 
       // Mark all as synced AFTER success
       await this.usageEventDAO.markSynced(eventIds);
@@ -476,54 +401,6 @@ export class UsageService {
       console.error('Failed to sync events to Polar:', error);
       return { synced: 0, failed: pendingEvents.length };
     }
-  }
-
-  /**
-   * Group token events by user and approximate timestamp
-   * Includes deterministic externalId for Polar deduplication
-   */
-  private groupTokenEvents(
-    events: Array<{ id: string; user_id: number; event_name: string; quantity: number; metadata: string | null; created_at: string }>,
-    prefix: 'claude' | 'gemini',
-    inputEventName: string,
-    outputEventName: string
-  ): Array<{
-    userId: number;
-    timestamp: Date;
-    model: string;
-    inputTokens: number;
-    outputTokens: number;
-    externalId: string;
-  }> {
-    const groups: Map<string, { userId: number; timestamp: Date; model: string; inputTokens: number; outputTokens: number; externalId: string }> = new Map();
-
-    for (const event of events) {
-      const metadata = event.metadata ? JSON.parse(event.metadata) : {};
-      // Group by user + timestamp (rounded to second)
-      const timestampKey = new Date(event.created_at).toISOString().slice(0, 19);
-      const key = `${event.user_id}:${timestampKey}`;
-
-      if (!groups.has(key)) {
-        groups.set(key, {
-          userId: event.user_id,
-          timestamp: new Date(event.created_at),
-          model: metadata.model || 'unknown',
-          inputTokens: 0,
-          outputTokens: 0,
-          // Deterministic externalId for Polar deduplication
-          externalId: `${prefix}:${event.user_id}:${timestampKey}`,
-        });
-      }
-
-      const group = groups.get(key)!;
-      if (event.event_name === inputEventName) {
-        group.inputTokens += event.quantity;
-      } else if (event.event_name === outputEventName) {
-        group.outputTokens += event.quantity;
-      }
-    }
-
-    return Array.from(groups.values());
   }
 
   /**
@@ -641,43 +518,23 @@ export class UsageService {
 
     const rateLimitConfig = rateLimit || DEFAULT_RATE_LIMITS[service];
     const now = new Date();
-    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const windowStart = new Date(now.getTime() - rateLimitConfig.windowSeconds * 1000).toISOString();
 
-    // Single query: get user + aggregate usage for current period
-    const result = await this.db
-      .selectFrom('users as u')
-      .leftJoin('usage_events as e', (join) =>
-        join
-          .onRef('e.user_id', '=', 'u.id')
-          .on('e.event_name', '=', eventName)
-          .on('e.created_at', '>=', periodStart)
-          .on('e.polar_billable', '=', 1)
-      )
+    const user = await this.db
+      .selectFrom('users')
       .select([
-        'u.id',
-        'u.paid_generation_entitlement',
-        'u.quota_limits',
-        'u.rate_limit_count',
-        'u.rate_limit_window_start',
+        'id',
+        'paid_generation_entitlement',
+        'quota_limits',
+        'polar_current_period_start',
+        'polar_current_period_end',
+        'rate_limit_count',
+        'rate_limit_window_start',
       ])
-      .select((eb) =>
-        eb.fn.coalesce(
-          eb.fn.sum<number>('e.quantity'),
-          sql<number>`0`
-        ).as('total_used')
-      )
-      .where('u.id', '=', userId)
-      .groupBy([
-        'u.id',
-        'u.paid_generation_entitlement',
-        'u.quota_limits',
-        'u.rate_limit_count',
-        'u.rate_limit_window_start',
-      ])
+      .where('id', '=', userId)
       .executeTakeFirst();
 
-    if (!result) {
+    if (!user) {
       return {
         allowed: false,
         quotaUsed: 0,
@@ -692,17 +549,37 @@ export class UsageService {
       };
     }
 
-    const entitlement = resolveEntitlement(result.paid_generation_entitlement, userId, this.env.ADMIN_USER_IDS);
+    const usagePeriod = getUsagePeriodBounds(now, user.polar_current_period_start, user.polar_current_period_end);
+    let usageQuery = this.db
+      .selectFrom('usage_events')
+      .select((eb) =>
+        eb.fn.coalesce(
+          eb.fn.sum<number>('quantity'),
+          sql<number>`0`
+        ).as('total_used')
+      )
+      .where('user_id', '=', userId)
+      .where('event_name', '=', eventName)
+      .where('created_at', '>=', usagePeriod.start)
+      .where('polar_billable', '=', 1);
+
+    if (usagePeriod.end) {
+      usageQuery = usageQuery.where('created_at', '<', usagePeriod.end);
+    }
+
+    const usage = await usageQuery.executeTakeFirst();
+
+    const entitlement = resolveEntitlement(user.paid_generation_entitlement, userId, this.env.ADMIN_USER_IDS);
     const isNonBillable = isNonBillablePaidGenerationEntitlement(entitlement);
-    const quotaUsed = Number(result.total_used) || 0;
+    const quotaUsed = Number(usage?.total_used) || 0;
 
     // Check rate limit (fixed window)
-    const windowExpired = !result.rate_limit_window_start ||
-      result.rate_limit_window_start < windowStart;
-    const rateLimitUsed = windowExpired ? 0 : (result.rate_limit_count || 0);
+    const windowExpired = !user.rate_limit_window_start ||
+      user.rate_limit_window_start < windowStart;
+    const rateLimitUsed = windowExpired ? 0 : (user.rate_limit_count || 0);
     const rateLimitRemaining = Math.max(0, rateLimitConfig.maxRequests - rateLimitUsed);
-    const rateLimitResetsAt = result.rate_limit_window_start && !windowExpired
-      ? new Date(new Date(result.rate_limit_window_start).getTime() + rateLimitConfig.windowSeconds * 1000)
+    const rateLimitResetsAt = user.rate_limit_window_start && !windowExpired
+      ? new Date(new Date(user.rate_limit_window_start).getTime() + rateLimitConfig.windowSeconds * 1000)
       : null;
 
     if (!hasPaidGenerationAccess(entitlement)) {
@@ -722,8 +599,8 @@ export class UsageService {
 
     // Parse quota limits from cached JSON. Internal users are explicitly non-billable,
     // so they bypass quota but still pass through the fixed-window rate limiter.
-    const limits: Record<string, number | null> = result.quota_limits && !isNonBillable
-      ? JSON.parse(result.quota_limits)
+    const limits: Record<string, number | null> = user.quota_limits && !isNonBillable
+      ? JSON.parse(user.quota_limits)
       : {};
     const quotaLimit = isNonBillable ? null : (limits[eventName] ?? null);
     const quotaRemaining = quotaLimit !== null ? Math.max(0, quotaLimit - quotaUsed) : null;

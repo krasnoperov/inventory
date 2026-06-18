@@ -19,6 +19,8 @@ export interface UpdateUserData {
   // Quota limits cached from Polar webhooks (JSON)
   quota_limits?: string;
   quota_limits_updated_at?: string;
+  polar_current_period_start?: string | null;
+  polar_current_period_end?: string | null;
   // Rate limiting fields
   rate_limit_count?: number;
   rate_limit_window_start?: string;
@@ -87,6 +89,12 @@ export class UserDAO {
     }
     if (data.quota_limits !== undefined) updateData.quota_limits = data.quota_limits;
     if (data.quota_limits_updated_at !== undefined) updateData.quota_limits_updated_at = data.quota_limits_updated_at;
+    if (data.polar_current_period_start !== undefined) {
+      updateData.polar_current_period_start = data.polar_current_period_start;
+    }
+    if (data.polar_current_period_end !== undefined) {
+      updateData.polar_current_period_end = data.polar_current_period_end;
+    }
     if (data.rate_limit_count !== undefined) updateData.rate_limit_count = data.rate_limit_count;
     if (data.rate_limit_window_start !== undefined) updateData.rate_limit_window_start = data.rate_limit_window_start;
 

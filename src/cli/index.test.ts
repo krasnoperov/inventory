@@ -103,6 +103,7 @@ test('help is side-effect-free across command and subcommand levels', async () =
       ['billing', '--help'],
       ['billing', 'status', '--help'],
       ['billing', 'check', '--help'],
+      ['billing', 'reconcile', '--help'],
       ['billing', 'retry-failed', '--help'],
       ['spaces', '--help'],
       ['spaces', 'create', '--help'],

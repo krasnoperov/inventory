@@ -354,6 +354,62 @@ describe('UsageService', () => {
       assert.ok(storedEvents[0].synced_at);
     });
 
+    test('syncs token rows to Polar using the contract meter event names and quantity metadata', async () => {
+      const ingestedEventBatches: Parameters<PolarService['ingestEventsBatch']>[0][] = [];
+      const ingestEventsBatch = mock.fn(async (
+        events: Parameters<PolarService['ingestEventsBatch']>[0]
+      ) => {
+        ingestedEventBatches.push(events);
+        return { inserted: events.length, duplicates: 0 };
+      });
+      const ingestLLMEventsBatch = mock.fn(async () => ({ inserted: 0, duplicates: 0 }));
+      const service = new UsageService(
+        usageEventDAO,
+        userDAO,
+        { ingestEventsBatch, ingestLLMEventsBatch } as any,
+        db,
+        {} as any
+      );
+
+      await service.trackClaudeUsage(
+        testUserId,
+        100,
+        50,
+        'claude-sonnet-4-20250514',
+        'req-123'
+      );
+
+      const result = await service.syncPendingEvents();
+
+      assert.strictEqual(result.synced, 2);
+      assert.strictEqual(result.failed, 0);
+      assert.strictEqual(ingestLLMEventsBatch.mock.calls.length, 0);
+      assert.strictEqual(ingestEventsBatch.mock.calls.length, 1);
+      const events = ingestedEventBatches[0] ?? [];
+      assert.deepStrictEqual(
+        events.map((event) => ({
+          eventName: event.eventName,
+          quantity: event.metadata?.quantity,
+          tokenType: event.metadata?.token_type,
+          requestId: event.metadata?.request_id,
+        })).sort((a, b) => a.eventName.localeCompare(b.eventName)),
+        [
+          {
+            eventName: USAGE_EVENTS.CLAUDE_INPUT_TOKENS,
+            quantity: 100,
+            tokenType: 'input',
+            requestId: 'req-123',
+          },
+          {
+            eventName: USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS,
+            quantity: 50,
+            tokenType: 'output',
+            requestId: 'req-123',
+          },
+        ]
+      );
+    });
+
     test('syncs Lyria audio events to Polar as Gemini media events', async () => {
       const ingestedEventBatches: Parameters<PolarService['ingestEventsBatch']>[0][] = [];
       const ingestEventsBatch = mock.fn(async (
@@ -685,6 +741,50 @@ describe('UsageService', () => {
       assert.strictEqual(result.allowed, true);
       assert.strictEqual(result.remaining, null);
       assert.strictEqual(result.limit, null);
+    });
+
+    test('checks quotas against the cached Polar billing period', async () => {
+      await userDAO.update(testUserId, {
+        quota_limits: JSON.stringify({ gemini_images: 3 }),
+        polar_current_period_start: '2026-06-10T00:00:00.000Z',
+        polar_current_period_end: '2026-07-10T00:00:00.000Z',
+      });
+
+      await db.insertInto('usage_events').values([
+        {
+          id: 'before-period',
+          user_id: testUserId,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 3,
+          polar_billable: 1,
+          sync_attempts: 0,
+          created_at: '2026-06-01T00:00:00.000Z',
+        },
+        {
+          id: 'inside-period',
+          user_id: testUserId,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 2,
+          polar_billable: 1,
+          sync_attempts: 0,
+          created_at: '2026-06-15T00:00:00.000Z',
+        },
+        {
+          id: 'after-period',
+          user_id: testUserId,
+          event_name: USAGE_EVENTS.GEMINI_IMAGES,
+          quantity: 3,
+          polar_billable: 1,
+          sync_attempts: 0,
+          created_at: '2026-07-15T00:00:00.000Z',
+        },
+      ]).execute();
+
+      const result = await usageService.checkQuota(testUserId, 'nanobanana');
+
+      assert.strictEqual(result.allowed, true);
+      assert.strictEqual(result.remaining, 1);
+      assert.strictEqual(result.limit, 3);
     });
   });
 

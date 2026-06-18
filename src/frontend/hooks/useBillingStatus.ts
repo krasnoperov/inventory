@@ -77,13 +77,11 @@ export function formatMeterName(name: string): string {
   const nameMap: Record<string, string> = {
     'claude_input_tokens': 'Claude Input',
     'claude_output_tokens': 'Claude Output',
-    'claude_usage': 'Claude Tokens',
     'gemini_images': 'Image Generations',
     'gemini_videos': 'Video Generations',
     'gemini_audio': 'Lyria Music',
     'gemini_input_tokens': 'Gemini Input',
     'gemini_output_tokens': 'Gemini Output',
-    'gemini_usage': 'Gemini Tokens',
     'elevenlabs_audio': 'Audio Generations',
   };
   return nameMap[name] || name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());

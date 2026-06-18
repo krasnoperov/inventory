@@ -55,6 +55,21 @@ export function getVideoQuotaUnits(videoCount: number, generateAudio?: boolean):
   return videoCount * (generateAudio ? VIDEO_WITH_AUDIO_QUOTA_UNITS : 1);
 }
 
+function isUsableIsoDate(value: string | null | undefined): value is string {
+  return typeof value === 'string' && Number.isFinite(new Date(value).getTime());
+}
+
+function getUsagePeriodBounds(now: Date, periodStart?: string | null, periodEnd?: string | null): {
+  start: string;
+  end: string | null;
+} {
+  const calendarStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  return {
+    start: isUsableIsoDate(periodStart) ? periodStart : calendarStart,
+    end: isUsableIsoDate(periodEnd) ? periodEnd : null,
+  };
+}
+
 /**
  * Pre-check quota and rate limits before performing a limited action.
  * Uses D1 for fast local checks.
@@ -74,15 +89,22 @@ export async function preCheck(
   const rateRequested = Math.max(1, Math.floor(rateLimitQuantity));
 
   const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
   // Get user quota limits and rate limit state
   const userResult = await db.prepare(`
-    SELECT paid_generation_entitlement, quota_limits, rate_limit_count, rate_limit_window_start
+    SELECT
+      paid_generation_entitlement,
+      quota_limits,
+      polar_current_period_start,
+      polar_current_period_end,
+      rate_limit_count,
+      rate_limit_window_start
     FROM users WHERE id = ?
   `).bind(userId).first<{
     paid_generation_entitlement: string | null;
     quota_limits: string | null;
+    polar_current_period_start: string | null;
+    polar_current_period_end: string | null;
     rate_limit_count: number | null;
     rate_limit_window_start: string | null;
   }>();
@@ -102,11 +124,26 @@ export async function preCheck(
   }
 
   // Get usage for current period
-  const usageResult = await db.prepare(`
-    SELECT COALESCE(SUM(quantity), 0) as total_used
-    FROM usage_events
-    WHERE user_id = ? AND event_name = ? AND created_at >= ? AND polar_billable = 1
-  `).bind(userId, eventName, periodStart).first<{ total_used: number }>();
+  const usagePeriod = getUsagePeriodBounds(
+    now,
+    userResult.polar_current_period_start,
+    userResult.polar_current_period_end
+  );
+  const usageSql = usagePeriod.end
+    ? `
+      SELECT COALESCE(SUM(quantity), 0) as total_used
+      FROM usage_events
+      WHERE user_id = ? AND event_name = ? AND created_at >= ? AND created_at < ? AND polar_billable = 1
+    `
+    : `
+      SELECT COALESCE(SUM(quantity), 0) as total_used
+      FROM usage_events
+      WHERE user_id = ? AND event_name = ? AND created_at >= ? AND polar_billable = 1
+    `;
+  const usageBindings = usagePeriod.end
+    ? [userId, eventName, usagePeriod.start, usagePeriod.end]
+    : [userId, eventName, usagePeriod.start];
+  const usageResult = await db.prepare(usageSql).bind(...usageBindings).first<{ total_used: number }>();
 
   const quotaUsed = usageResult?.total_used || 0;
 
@@ -215,9 +252,10 @@ export async function trackUsage(
   userId: number,
   eventName: string,
   quantity: number,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>,
+  adminUserIds?: string
 ): Promise<void> {
-  const polarBillable = await isBillableUser(db, userId);
+  const polarBillable = await isBillableUser(db, userId, adminUserIds);
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -236,13 +274,17 @@ export async function trackUsage(
   ).run();
 }
 
-async function isBillableUser(db: D1Database, userId: number): Promise<boolean> {
+async function isBillableUser(db: D1Database, userId: number, adminUserIds?: string): Promise<boolean> {
   const userResult = await db.prepare(`
     SELECT paid_generation_entitlement
     FROM users WHERE id = ?
   `).bind(userId).first<{ paid_generation_entitlement: string | null }>();
 
-  const entitlement = normalizePaidGenerationEntitlement(userResult?.paid_generation_entitlement);
+  const entitlement = resolveEntitlement(
+    normalizePaidGenerationEntitlement(userResult?.paid_generation_entitlement),
+    userId,
+    adminUserIds
+  );
   return !isNonBillablePaidGenerationEntitlement(entitlement);
 }
 
@@ -255,16 +297,17 @@ export async function trackClaudeUsage(
   inputTokens: number,
   outputTokens: number,
   model: string,
-  requestId?: string
+  requestId?: string,
+  adminUserIds?: string
 ): Promise<void> {
   const metadata = { model, request_id: requestId };
 
   if (inputTokens > 0) {
-    await trackUsage(db, userId, 'claude_input_tokens', inputTokens, { ...metadata, token_type: 'input' });
+    await trackUsage(db, userId, 'claude_input_tokens', inputTokens, { ...metadata, token_type: 'input' }, adminUserIds);
   }
 
   if (outputTokens > 0) {
-    await trackUsage(db, userId, 'claude_output_tokens', outputTokens, { ...metadata, token_type: 'output' });
+    await trackUsage(db, userId, 'claude_output_tokens', outputTokens, { ...metadata, token_type: 'output' }, adminUserIds);
   }
 }
 
@@ -277,9 +320,10 @@ export async function trackImageGeneration(
   imageCount: number,
   model: string,
   operation?: string,
-  imageSize?: string
+  imageSize?: string,
+  adminUserIds?: string
 ): Promise<void> {
-  await trackUsage(db, userId, 'gemini_images', imageCount, { model, operation, imageSize });
+  await trackUsage(db, userId, 'gemini_images', imageCount, { model, operation, imageSize }, adminUserIds);
 }
 
 /**
@@ -293,6 +337,7 @@ export async function trackElevenLabsAudioGeneration(
   operation?: string,
   assetType?: string,
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number },
+  adminUserIds?: string,
 ): Promise<void> {
   await trackUsage(db, userId, 'elevenlabs_audio', quantity, {
     provider: 'elevenlabs',
@@ -302,7 +347,7 @@ export async function trackElevenLabsAudioGeneration(
     input_tokens: usage?.inputTokens,
     output_tokens: usage?.outputTokens,
     total_tokens: usage?.totalTokens,
-  });
+  }, adminUserIds);
 }
 
 /**
@@ -317,6 +362,7 @@ export async function trackGeminiAudioGeneration(
   assetType?: string,
   durationMs?: number | null,
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number },
+  adminUserIds?: string,
 ): Promise<void> {
   await trackUsage(db, userId, 'gemini_audio', audioCount, {
     provider: 'lyria',
@@ -327,7 +373,7 @@ export async function trackGeminiAudioGeneration(
     input_tokens: usage?.inputTokens,
     output_tokens: usage?.outputTokens,
     total_tokens: usage?.totalTokens,
-  });
+  }, adminUserIds);
 }
 
 /**
@@ -341,7 +387,8 @@ export async function trackVideoGeneration(
   operation?: string,
   resolution?: string,
   durationSeconds?: number,
-  generateAudio?: boolean
+  generateAudio?: boolean,
+  adminUserIds?: string
 ): Promise<void> {
   await trackUsage(db, userId, 'gemini_videos', getVideoQuotaUnits(videoCount, generateAudio), {
     model,
@@ -350,5 +397,5 @@ export async function trackVideoGeneration(
     duration_seconds: durationSeconds,
     generate_audio: generateAudio === true,
     video_count: videoCount,
-  });
+  }, adminUserIds);
 }

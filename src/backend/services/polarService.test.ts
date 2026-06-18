@@ -92,6 +92,21 @@ describe('PolarService', () => {
       assert.deepStrictEqual(result, []);
     });
 
+    test('getPaidGenerationProductInfo reports unconfigured product when not configured', async () => {
+      const service = createPolarService();
+      const result = await service.getPaidGenerationProductInfo();
+      assert.deepStrictEqual(result, {
+        configured: false,
+        productId: null,
+        exists: false,
+        name: null,
+        isRecurring: null,
+        isArchived: null,
+        meteredPriceMeters: [],
+        meterCreditBenefitMeters: [],
+      });
+    });
+
     test('listMeters returns empty array when not configured', async () => {
       const service = createPolarService();
       const result = await service.listMeters();
@@ -103,6 +118,7 @@ describe('PolarService', () => {
       const result = await service.getBillingStatus(123);
       assert.deepStrictEqual(result, {
         configured: false,
+        available: false,
         hasSubscription: false,
         meters: [],
         portalUrl: null,
@@ -146,6 +162,71 @@ describe('PolarService', () => {
         POLAR_ENVIRONMENT: 'production',
       });
       assert.strictEqual(service.isConfigured(), true);
+    });
+  });
+
+  describe('paid generation product inspection', () => {
+    test('returns active metered price meters and meter-credit benefits', async () => {
+      const service = createPolarService({
+        POLAR_ACCESS_TOKEN: 'polar_at_test_token',
+        POLAR_PAID_GENERATION_PRODUCT_ID: 'prod_paid_generation',
+      });
+      (service as unknown as {
+        client: {
+          products: {
+            get: (input: unknown) => Promise<unknown>;
+          };
+        };
+      }).client = {
+        products: {
+          get: async (input: unknown) => {
+            assert.deepStrictEqual(input, { id: 'prod_paid_generation' });
+            return {
+              id: 'prod_paid_generation',
+              name: 'Paid Generation',
+              isRecurring: true,
+              isArchived: false,
+              prices: [
+                {
+                  amountType: 'metered_unit',
+                  isArchived: false,
+                  meterId: 'meter_gemini_images',
+                  meter: { id: 'meter_gemini_images', name: 'gemini_images' },
+                },
+                {
+                  amountType: 'metered_unit',
+                  isArchived: true,
+                  meterId: 'meter_archived',
+                  meter: { id: 'meter_archived', name: 'archived_meter' },
+                },
+                {
+                  amountType: 'fixed',
+                  isArchived: false,
+                },
+              ],
+              benefits: [
+                {
+                  type: 'meter_credit',
+                  properties: { meterId: 'meter_gemini_images', units: 25, rollover: false },
+                },
+              ],
+            };
+          },
+        },
+      };
+
+      const result = await service.getPaidGenerationProductInfo();
+
+      assert.deepStrictEqual(result, {
+        configured: true,
+        productId: 'prod_paid_generation',
+        exists: true,
+        name: 'Paid Generation',
+        isRecurring: true,
+        isArchived: false,
+        meteredPriceMeters: ['gemini_images'],
+        meterCreditBenefitMeters: ['gemini_images'],
+      });
     });
   });
 });

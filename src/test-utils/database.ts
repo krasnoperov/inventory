@@ -22,6 +22,8 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
       paid_generation_entitlement TEXT NOT NULL DEFAULT 'none',
       quota_limits TEXT,
       quota_limits_updated_at TEXT,
+      polar_current_period_start TEXT,
+      polar_current_period_end TEXT,
       rate_limit_count INTEGER NOT NULL DEFAULT 0,
       rate_limit_window_start TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

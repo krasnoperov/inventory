@@ -61,11 +61,14 @@ export interface CustomerMeterInfo {
 
 export interface BillingStatus {
   configured: boolean;
+  available: boolean;
   hasSubscription: boolean;
   meters: CustomerMeterInfo[];
   portalUrl: string | null;
+  error?: string;
   subscription?: {
     status: string;
+    currentPeriodStart: Date | null;
     currentPeriodEnd: Date | null;
   };
 }
@@ -74,13 +77,45 @@ export interface PolarMeterInfo {
   id: string;
   name: string;
   aggregation: string;
+  aggregationProperty: string | null;
+  filter: unknown;
   archivedAt: Date | null;
+}
+
+export interface PolarProductInfo {
+  configured: boolean;
+  productId: string | null;
+  exists: boolean;
+  name: string | null;
+  isRecurring: boolean | null;
+  isArchived: boolean | null;
+  meteredPriceMeters: string[];
+  meterCreditBenefitMeters: string[];
 }
 
 export interface CheckoutCustomer {
   userId: number;
   email: string;
   name: string;
+}
+
+function isActiveMeteredUnitPrice(price: unknown): price is {
+  amountType: 'metered_unit';
+  isArchived: boolean;
+  meterId: string;
+  meter: { name: string };
+} {
+  if (!price || typeof price !== 'object') return false;
+  const record = price as {
+    amountType?: unknown;
+    isArchived?: unknown;
+    meterId?: unknown;
+    meter?: { name?: unknown };
+  };
+  return record.amountType === 'metered_unit' &&
+    record.isArchived === false &&
+    typeof record.meterId === 'string' &&
+    typeof record.meter?.name === 'string';
 }
 
 @injectable()
@@ -132,12 +167,57 @@ export class PolarService {
           id: meter.id,
           name: meter.name,
           aggregation: meter.aggregation.func,
+          aggregationProperty: 'property' in meter.aggregation ? meter.aggregation.property : null,
+          filter: meter.filter,
           archivedAt: meter.archivedAt ?? null,
         });
       }
     }
 
     return meters;
+  }
+
+  /**
+   * Inspect the configured paid-generation product wiring.
+   * The product must be recurring and attach metered prices to every meter we
+   * send billable events for; meter-credit benefits are reported for quota ops.
+   */
+  async getPaidGenerationProductInfo(): Promise<PolarProductInfo> {
+    const productId = this.env.POLAR_PAID_GENERATION_PRODUCT_ID || null;
+    if (!this.client || !productId) {
+      return {
+        configured: this.client !== null && !!productId,
+        productId,
+        exists: false,
+        name: null,
+        isRecurring: null,
+        isArchived: null,
+        meteredPriceMeters: [],
+        meterCreditBenefitMeters: [],
+      };
+    }
+
+    const product = await this.client.products.get({ id: productId });
+    const activeMeteredPrices = product.prices.filter(isActiveMeteredUnitPrice) as Array<{
+      meterId: string;
+      meter: { name: string };
+    }>;
+    const priceMeterNameById = new Map(activeMeteredPrices.map((price) => [price.meterId, price.meter.name]));
+    const meteredPriceMeters = activeMeteredPrices.map((price) => price.meter.name);
+    const meterCreditBenefitMeters = product.benefits
+      .filter((benefit) => benefit.type === 'meter_credit')
+      .map((benefit) => priceMeterNameById.get(benefit.properties.meterId) ?? benefit.properties.meterId);
+
+    return {
+      configured: true,
+      productId,
+      exists: true,
+      name: product.name,
+      isRecurring: product.isRecurring,
+      isArchived: product.isArchived,
+      meteredPriceMeters,
+      meterCreditBenefitMeters,
+    };
   }
 
   /**
@@ -373,6 +453,7 @@ export class PolarService {
     if (!this.client) {
       return {
         configured: false,
+        available: false,
         hasSubscription: false,
         meters: [],
         portalUrl: null,
@@ -400,6 +481,7 @@ export class PolarService {
             const sub = items[0];
             subscription = {
               status: sub.status,
+              currentPeriodStart: sub.currentPeriodStart || null,
               currentPeriodEnd: sub.currentPeriodEnd || null,
             };
           }
@@ -411,6 +493,7 @@ export class PolarService {
 
       return {
         configured: true,
+        available: true,
         hasSubscription: !!subscription,
         meters,
         portalUrl,
@@ -420,9 +503,11 @@ export class PolarService {
       console.error('Failed to get billing status:', error);
       return {
         configured: true,
+        available: false,
         hasSubscription: false,
         meters: [],
         portalUrl: null,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
