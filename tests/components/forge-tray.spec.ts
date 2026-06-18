@@ -73,6 +73,17 @@ const imageReferenceAssets = [
 
 const imageReferenceVariants = imageReferenceAssets.map((entry) => variant(entry.id, 'image'));
 
+const activeStyle = {
+  id: 'style-1',
+  name: 'House Style',
+  description: 'Painterly house style',
+  imageKeys: ['styles/space/style-1.png'],
+  enabled: true,
+  createdBy: 'user-1',
+  createdAt: baseTime,
+  updatedAt: baseTime,
+};
+
 async function disableAnimations(page: import('@playwright/test').Page) {
   await page.addStyleTag({
     content: '*, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition-duration: 0s !important; }',
@@ -256,6 +267,34 @@ test('forge tray image model selection enforces reference budget', async ({ page
   await page.getByTitle('Remove').first().click();
   await expect(page.getByText('Flash supports 1 reference. Remove references or switch Pro.')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Derive' })).toBeEnabled();
+});
+
+test('forge tray keeps one fork setup slot when style consumes Flash reference budget', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: imageReferenceAssets,
+    allVariants: imageReferenceVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+    __styleStore: activeStyle,
+  });
+  await disableAnimations(page);
+
+  await page.getByRole('button', { name: 'Flash' }).click();
+  await expect(page.getByTitle('Add reference')).toBeVisible();
+
+  await page.getByTitle('Add reference').click();
+  await page.getByRole('button', { name: /Image Ref One/ }).click();
+  await page.getByRole('button', { name: /Done/i }).click();
+
+  await expect(page.getByRole('button', { name: 'Fork' })).toBeEnabled();
+  await expect(page.getByTitle('Add reference')).toHaveCount(0);
+
+  await page.getByLabel('Prompt').fill('Turn this into a finished scene');
+  await expect(page.getByText('Flash supports 1 reference including style. Remove references or switch Pro.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Derive' })).toBeDisabled();
 });
 
 test('forge tray video mode exposes Veo options and native audio toggle', async ({ page }) => {

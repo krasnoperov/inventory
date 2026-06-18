@@ -426,7 +426,9 @@ export function ForgeTray({
     : currentMediaGroup === 'video'
       ? MAX_VIDEO_REFERENCE_SLOTS
       : 14;
-  const effectiveMaxSlots = Math.max(0, referenceSlotLimit - styleImageCount);
+  const providerReferenceSlots = Math.max(0, referenceSlotLimit - styleImageCount);
+  const forkSetupSlots = effectiveDestinationType === 'new_asset' && !hasPrompt ? 1 : 0;
+  const effectiveMaxSlots = Math.max(providerReferenceSlots, forkSetupSlots);
   const hasReferenceBudget = currentMediaGroup === 'image' || currentMediaGroup === 'video';
   const isOverReferenceBudget = operation !== 'fork' && hasReferenceBudget && slots.length > effectiveMaxSlots;
   const referenceNoun = referenceSlotLimit === 1 ? 'reference' : 'references';
