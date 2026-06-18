@@ -44,13 +44,26 @@ export const Sizes: Story = () => (
   </div>
 );
 
+// Badges render only for ready (completed) variants. Use completed AUDIO
+// variants: they satisfy isVariantReady (media_key set) so the badges show,
+// while getVariantThumbnailUrl stays undefined (no image_key) — avoiding a
+// broken /api/images request the static preview can't serve.
 export const Badges: Story = () => (
   <div className={layout.inlineCluster}>
     <Labeled label="Active">
-      <Thumbnail variant={makeVariant({ status: 'processing' })} size="md" showBadges isActive />
+      <Thumbnail
+        variant={makeVariant({ media_kind: 'audio', status: 'completed', media_key: 'audio-demo.mp3' })}
+        size="md"
+        showBadges
+        isActive
+      />
     </Labeled>
     <Labeled label="Starred">
-      <Thumbnail variant={makeVariant({ status: 'processing', starred: true })} size="md" showBadges />
+      <Thumbnail
+        variant={makeVariant({ media_kind: 'audio', status: 'completed', media_key: 'audio-demo.mp3', starred: true })}
+        size="md"
+        showBadges
+      />
     </Labeled>
   </div>
 );
