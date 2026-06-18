@@ -268,9 +268,10 @@ export async function trackImageGeneration(
   userId: number,
   imageCount: number,
   model: string,
-  operation?: string
+  operation?: string,
+  imageSize?: string
 ): Promise<void> {
-  await trackUsage(db, userId, 'gemini_images', imageCount, { model, operation });
+  await trackUsage(db, userId, 'gemini_images', imageCount, { model, operation, imageSize });
 }
 
 /**

@@ -139,7 +139,9 @@ describe('UsageService', () => {
         1,
         'gemini-3-pro-image-preview',
         'compose',
-        '16:9'
+        '16:9',
+        undefined,
+        '4K'
       );
 
       const events = await usageEventDAO.findByUser(testUserId);
@@ -149,6 +151,7 @@ describe('UsageService', () => {
       assert.strictEqual(metadata.model, 'gemini-3-pro-image-preview');
       assert.strictEqual(metadata.operation, 'compose');
       assert.strictEqual(metadata.aspect_ratio, '16:9');
+      assert.strictEqual(metadata.imageSize, '4K');
     });
 
     test('tracks token usage when provided', async () => {

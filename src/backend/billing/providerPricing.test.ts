@@ -38,6 +38,18 @@ describe('provider pricing', () => {
     assert.equal(result.unit, 'image');
   });
 
+  test('prices size-missing Gemini Pro image events with the conservative highest image tier', () => {
+    const result = priceProviderUsageEvent({
+      eventName: 'gemini_images',
+      quantity: 1,
+      metadata: { model: 'gemini-3-pro-image-preview' },
+    });
+
+    assert.equal(result.amountUsd, 0.24);
+    assert.equal(result.model, 'gemini-3-pro-image');
+    assert.equal(result.unit, 'image');
+  });
+
   test('prices Gemini image token events separately from image count events', () => {
     const input = priceProviderUsageEvent({
       eventName: 'gemini_input_tokens',

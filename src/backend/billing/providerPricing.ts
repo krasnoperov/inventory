@@ -59,7 +59,6 @@ const CHARACTERS_PER_THOUSAND = 1_000;
 const SECONDS_PER_MINUTE = 60;
 const DEFAULT_VIDEO_DURATION_SECONDS = 8;
 const DEFAULT_VIDEO_RESOLUTION = '720p';
-const DEFAULT_IMAGE_SIZE = '1K';
 
 export const PROVIDER_PRICING_SOURCES = {
   claude: 'https://platform.claude.com/docs/en/about-claude/pricing',
@@ -200,7 +199,7 @@ function priceGeminiImages(
   );
   const unitPriceUsd = typeof rate.imageUsd === 'number'
     ? rate.imageUsd
-    : rate.imageUsd[imageSize] ?? rate.imageUsd[DEFAULT_IMAGE_SIZE];
+    : (imageSize ? rate.imageUsd[imageSize] : undefined) ?? highestImageRate(rate.imageUsd);
 
   if (unitPriceUsd === undefined) {
     return miss(event, 'gemini', model, 'image', 'unsupported_rate');
@@ -349,12 +348,13 @@ function isGeminiVideoModel(model: string): boolean {
   return model in GEMINI_VIDEO_RATES_USD;
 }
 
-function normalizeImageSize(value?: string | null): '0.5K' | '1K' | '2K' | '4K' {
+function normalizeImageSize(value?: string | null): '0.5K' | '1K' | '2K' | '4K' | null {
   const normalized = value?.trim().toUpperCase();
   if (normalized === '0.5K' || normalized === '512' || normalized === '512PX') return '0.5K';
+  if (normalized === '1K' || normalized === '1024' || normalized === '1024PX') return '1K';
   if (normalized === '2K' || normalized === '2048' || normalized === '2048PX') return '2K';
   if (normalized === '4K' || normalized === '4096' || normalized === '4096PX') return '4K';
-  return DEFAULT_IMAGE_SIZE;
+  return null;
 }
 
 function normalizeVideoResolution(value?: string | null): '720p' | '1080p' | '4k' {
@@ -381,6 +381,11 @@ function getPositiveNumber(metadata: Record<string, unknown>, key: string): numb
 
 function normalizedQuantity(quantity: number): number {
   return Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
+}
+
+function highestImageRate(rates: Partial<Record<'0.5K' | '1K' | '2K' | '4K', number>>): number | undefined {
+  const values = Object.values(rates).filter((rate): rate is number => typeof rate === 'number');
+  return values.length > 0 ? Math.max(...values) : undefined;
 }
 
 function secondsFromMs(milliseconds?: number | null): number | null {
