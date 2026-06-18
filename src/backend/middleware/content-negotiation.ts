@@ -101,8 +101,10 @@ export function contentNegotiation(): MiddlewareHandler<AppContext> {
       return c.text(LLMS_FULL_TXT, 200, TEXT_HEADERS);
     }
 
-    const markdownRequest = rawPath.endsWith('.md');
-    const contentPath = markdownRequest
+    const acceptsMarkdown = (c.req.header('accept') ?? '').includes('text/markdown');
+    const explicitMarkdownPath = rawPath.endsWith('.md');
+    const markdownRequest = explicitMarkdownPath || acceptsMarkdown;
+    const contentPath = explicitMarkdownPath
       ? rawPath === '/index.md'
         ? '/'
         : rawPath.slice(0, -3)
