@@ -27,6 +27,7 @@ makefx derive --refs CHARACTER_VARIANT_ID,BACKGROUND_VARIANT_ID \
 # 2. Animate the keyframe with Veo, attaching production metadata
 makefx video derive --refs KEYFRAME_VARIANT_ID \
   --name "Episode 01 Shot 001" --type animation \
+  --no-audio \
   --production-id episode-01 --shot-id shot-001 \
   --scene-label "Market" --timeline-start-ms 0 --duration-ms 8000 \
   "Slow dolly-in, subtle crowd movement, keep the hero centered" \
@@ -66,9 +67,12 @@ Reach for precise terms that Veo measurably rewards:[^deepmind-veo][^leonardo]
 
 Two rules carry over from the image playbook. **Use positive framing** — "a
 desolate landscape with no buildings or roads" reads better than "no man-made
-structures."[^gcloud-veo] And **describe what should be heard**: Veo generates
-synchronized audio, but only if you ask for it (see the
-[audio playbook](./audio.md)).
+structures."[^gcloud-veo] And **choose the audio path per clip**: Make Effects
+defaults video generation to silent output for loops, plates, and game assets.
+Pass `--audio` when the clip should include Veo-native synchronized dialogue,
+SFX, score, or ambience, and describe what should be heard in the prompt (see
+the [audio playbook](./audio.md)). The choice is stored on the variant recipe as
+`generateAudio` and is reused on retry.
 
 ## Choreograph Multi-Beat Shots With Timestamps
 
@@ -112,6 +116,8 @@ filenames. The full loop is in the
 |-|-|
 | Consistent character across shots | Derive every shot from keyframes built on one character sheet |
 | Controlled motion | `video derive --refs KEYFRAME_ID`, describe the camera move |
+| Silent output | Use the default or pass `--no-audio` |
+| Synchronized audio | Pass `--audio`, then prompt for dialogue, SFX, score, or ambience |
 | A directed shot | Cinematography + Subject + Action + Context + Style, ~100–200 words |
 | Multi-beat clip | Timestamp prompting, matched to a 4/6/8s clip |
 | Cheaper iteration | Use the `fast` / `lite` Veo variant |

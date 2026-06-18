@@ -87,6 +87,13 @@ Each reference `ImageInput` supports an optional `label`
 
 Backed by `src/backend/services/googleVeoService.ts`.
 
+### Audio
+
+Video generation is silent by default. The web toggle and CLI `--audio` flag set
+`generateAudio: true` in the variant recipe and workflow input, which requests
+Veo-native synchronized dialogue, SFX, score, or ambience for that clip. CLI
+`--no-audio` and omitted values set or normalize to `false`.
+
 ### Model
 
 Three variants (`googleVeoService.ts:10`), default `veo-3.1-generate-preview`
@@ -194,15 +201,14 @@ provider-specific configuration.
 | Bed, cue, sting | `music` | Brief genre/era/tempo/instruments/dynamics |
 | Discrete effect | `sfx` | Describe the sound; tie to on-screen action for video |
 
-## Audio (Gemini-native, target architecture)
-
-Not shipped — documented so parameter choices line up when the app grows into it.
+## Audio (Gemini-Native And Future Models)
 
 - **Veo native audio.** Veo 3.1 can score synchronized dialogue, SFX, and
-  ambience alongside the video; audio is requested through the *prompt's audio
-  layer*, not a separate model parameter. Requesting it does not reduce video
-  resolution. See the [audio playbook](./playbooks/audio.md) for the prompt
-  grammar.
+  ambience alongside the video. In Make Effects this requires per-request
+  `generateAudio: true` (`--audio` in the CLI or the web video audio toggle)
+  plus a prompt audio layer that describes what should be heard. Requesting it
+  does not reduce video resolution. See the [audio playbook](./playbooks/audio.md)
+  for the prompt grammar.
 - **Lyria** is the dedicated music model: genre/era, tempo, instruments,
   dynamics, plus image- or lyrics-based prompts. Watch version differences —
   negative prompts are supported on Lyria 2 but not Lyria 3.

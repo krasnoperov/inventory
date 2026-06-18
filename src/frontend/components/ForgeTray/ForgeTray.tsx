@@ -73,6 +73,8 @@ export interface ForgeSubmitParams {
   dialogueVoiceIds?: string[];
   /** Music provider selection (music mode only) */
   musicProvider?: MusicGenerationProvider;
+  /** Whether Veo should generate native synchronized audio (video mode) */
+  generateAudio?: boolean;
 }
 
 export interface ForgeTrayProps {
@@ -296,6 +298,7 @@ export function ForgeTray({
   const [dialogueVoiceIds, setDialogueVoiceIds] = useState<string[]>([]);
   const [musicProvider, setMusicProvider] = useState<MusicGenerationProvider>('elevenlabs');
   const [musicProviderExplicit, setMusicProviderExplicit] = useState(false);
+  const [videoAudioEnabled, setVideoAudioEnabled] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -600,6 +603,7 @@ export function ForgeTray({
         imageSize: selectedMediaKind === 'image' ? imageSize : undefined,
         disableStyle: isAudioMode || noStyle || undefined,
         voiceId: mediaMode === 'speech' ? voiceId : undefined,
+        generateAudio: mediaMode === 'video' ? videoAudioEnabled : undefined,
         // Keep positions intact — each entry maps to a speaker in order, and a
         // blank ("Default") slot is resolved to the default voice server-side.
         // Filtering blanks here would shift later voices onto earlier speakers.
@@ -621,12 +625,13 @@ export function ForgeTray({
       setDialogueVoiceIds([]);
       setMusicProvider('elevenlabs');
       setMusicProviderExplicit(false);
+      setVideoAudioEnabled(false);
     } catch (error) {
       console.error('Forge submit failed:', error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoAudioEnabled]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -877,6 +882,15 @@ export function ForgeTray({
                     <span className={`${styles.miniSegItem} ${styles.active}`}>×1</span>
                     <span className={`${styles.miniSegItem} ${styles.disabled}`}>×2</span>
                   </div>
+                  <label className={styles.noStyleCheck} title="Generate synchronized Veo audio">
+                    <input
+                      type="checkbox"
+                      checked={videoAudioEnabled}
+                      onChange={(e) => setVideoAudioEnabled(e.target.checked)}
+                      disabled={isSubmitting}
+                    />
+                    Audio
+                  </label>
                 </>
               )}
 

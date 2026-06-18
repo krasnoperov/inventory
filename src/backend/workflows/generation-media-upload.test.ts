@@ -68,6 +68,7 @@ describe('uploadGeneratedMedia — no binary blob crosses a step boundary', () =
         aspectRatio: '16:9',
         resolution: '720p',
         durationSeconds: 8,
+        generateAudio: true,
       } as never,
       { spaceId: 'space_1', variantId: 'var_1', operation: 'derive', refCount: 1, requestId: 'req_1', jobId: 'var_1' }
     );
@@ -76,6 +77,7 @@ describe('uploadGeneratedMedia — no binary blob crosses a step boundary', () =
     assert.equal(result.imageKey, null);
     assert.equal(result.mediaMimeType, 'video/mp4');
     assert.equal(result.mediaDurationMs, 8000);
+    assert.equal(result.providerMetadata?.generateAudio, true);
 
     // The payload landed in R2…
     const stored = images.store.get('media/space_1/var_1.mp4');

@@ -60,6 +60,8 @@ export interface GenerationRecipe {
   modelProvider?: 'gemini' | 'custom';
   /** Veo request mode selected from resolved image references */
   veoReferenceMode?: VeoReferenceMode;
+  /** Whether Veo should generate native synchronized audio (video assets only) */
+  generateAudio?: boolean;
   /** ElevenLabs speech voice ID (audio assets) — persisted for retries */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio assets) — persisted for retries */
@@ -105,6 +107,8 @@ export interface CreateAssetVariantInput {
   dialogueVoiceIds?: string[];
   /** Music provider selection for music audio assets */
   musicProvider?: MusicGenerationProvider;
+  /** Whether Veo should generate native synchronized audio (video assets only) */
+  generateAudio?: boolean;
 }
 
 /** Input for refining an existing asset */
@@ -137,6 +141,8 @@ export interface RefineVariantInput {
   dialogueVoiceIds?: string[];
   /** Music provider selection for music audio assets */
   musicProvider?: MusicGenerationProvider;
+  /** Whether Veo should generate native synchronized audio (video assets only) */
+  generateAudio?: boolean;
 }
 
 /** Result of variant creation */
@@ -227,6 +233,7 @@ export class VariantFactory {
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
+      generateAudio: input.mediaKind === 'video' ? input.generateAudio === true : undefined,
       voiceId: input.voiceId,
       dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
       musicProvider: input.assetType === 'music' ? input.musicProvider : undefined,
@@ -333,6 +340,7 @@ export class VariantFactory {
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation: 'refine',
+      generateAudio: mediaKind === 'video' ? input.generateAudio === true : undefined,
       voiceId: input.voiceId,
       dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
       musicProvider: asset.type === 'music' ? input.musicProvider : undefined,
@@ -417,6 +425,7 @@ export class VariantFactory {
       operation,
       styleImageKeys: effectiveStyleImageKeys?.length ? effectiveStyleImageKeys : undefined,
       veoReferenceMode: recipe.veoReferenceMode,
+      generateAudio: recipe.generateAudio,
       modelProvider: recipe.modelProvider,
       voiceId: recipe.voiceId,
       dialogueVoiceIds: recipe.dialogueVoiceIds?.length ? recipe.dialogueVoiceIds : undefined,
@@ -559,6 +568,7 @@ export class VariantFactory {
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
+      generateAudio: mediaKind === 'video' ? input.generateAudio === true : undefined,
       voiceId: input.voiceId,
       dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
       musicProvider: input.assetType === 'music' ? input.musicProvider : undefined,

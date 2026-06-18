@@ -351,6 +351,7 @@ describe('VariantFactory', () => {
           assetType: 'scene',
           mediaKind: 'video',
           prompt: 'Create an animated scene',
+          generateAudio: true,
         },
         meta
       );
@@ -363,6 +364,7 @@ describe('VariantFactory', () => {
       const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
       assert.strictEqual(recipe.mediaKind, 'video');
       assert.strictEqual(recipe.veoReferenceMode, 'text-to-video');
+      assert.strictEqual(recipe.generateAudio, true);
     });
 
     test('labels single-image video generations as image-to-video', async () => {
@@ -768,6 +770,7 @@ describe('VariantFactory', () => {
             mediaKind: 'video',
             operation: 'derive',
             veoReferenceMode: 'first-last-frame',
+            generateAudio: true,
           }),
         } as Variant,
         variantId: 'var-1',
@@ -780,6 +783,7 @@ describe('VariantFactory', () => {
 
       const workflowInput = asMock(env.GENERATION_WORKFLOW!.create).mock.calls[0].arguments[0].params;
       assert.strictEqual(workflowInput.veoReferenceMode, 'first-last-frame');
+      assert.strictEqual(workflowInput.generateAudio, true);
     });
 
     test('returns null when workflow not configured', async () => {

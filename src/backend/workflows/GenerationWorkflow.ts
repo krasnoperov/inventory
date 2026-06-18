@@ -107,6 +107,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       operation,
       styleImageKeys,
       veoReferenceMode,
+      generateAudio,
       modelProvider,
       mediaKind: requestedMediaKind,
     } = event.payload;
@@ -198,6 +199,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           const aspectRatioToUse: VideoAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
           const styleImageCount = styleImageKeys?.length || 0;
           const referenceModeToUse = veoReferenceMode ?? determineVeoReferenceMode(sourceImages.length, styleImageCount);
+          const generateAudioToUse = generateAudio === true;
 
           const timer = log.startTimer('Veo video generation', {
             requestId,
@@ -218,6 +220,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   resolution: '720p' as const,
                   durationSeconds: 8 as const,
                   referenceMode: referenceModeToUse,
+                  generateAudio: generateAudioToUse,
                 }
               : await new GoogleVeoService(this.env.GOOGLE_AI_API_KEY ?? '').generate({
                   prompt,
@@ -226,6 +229,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   sourceImages,
                   styleImageCount,
                   referenceMode: referenceModeToUse,
+                  generateAudio: generateAudioToUse,
                 });
             timer(true, { resultSize: result.videoData.length });
             // Upload in-step; never return raw video bytes (1 MiB step-output cap).

@@ -71,6 +71,8 @@ export interface GenerationWorkflowInput {
   styleImageKeys?: string[];
   /** Veo request mode selected from the resolved image references */
   veoReferenceMode?: VeoReferenceMode;
+  /** Whether Veo should generate native synchronized audio (video assets only) */
+  generateAudio?: boolean;
   /** Model provider to use ('gemini' or 'custom'). Defaults to 'gemini'. */
   modelProvider?: 'gemini' | 'custom';
   /** ElevenLabs voice ID for speech generation (overrides env default) */
@@ -189,6 +191,8 @@ export interface GenerateRequestMessage {
   dialogueVoiceIds?: string[];
   /** Music provider selection for music audio assets */
   musicProvider?: MusicGenerationProvider;
+  /** Whether Veo should generate native synchronized audio (video assets only) */
+  generateAudio?: boolean;
 }
 
 /** Refine request from client (replaces HTTP POST /api/spaces/:id/assets/:id/variants) */
@@ -217,6 +221,8 @@ export interface RefineRequestMessage {
   dialogueVoiceIds?: string[];
   /** Music provider selection for music audio assets */
   musicProvider?: MusicGenerationProvider;
+  /** Whether Veo should generate native synchronized audio (video assets only) */
+  generateAudio?: boolean;
 }
 
 // ============================================================================

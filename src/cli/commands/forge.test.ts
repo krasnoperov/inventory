@@ -1331,6 +1331,7 @@ test('video generate sends video request and downloads variant media', async () 
     parentAssetId: undefined,
     disableStyle: false,
     mediaKind: 'video',
+    generateAudio: false,
   });
   assert.deepEqual(downloads, []);
   assert.deepEqual(mediaDownloads, [{
@@ -1371,6 +1372,7 @@ test('video refine sends source video variant through website job', async () => 
     aspectRatio: undefined,
     disableStyle: false,
     mediaKind: 'video',
+    generateAudio: false,
   });
   assert.deepEqual(mediaDownloads, [{
     baseUrl: 'https://makefx-stage.example.test',
@@ -1418,7 +1420,56 @@ test('video derive accepts image and video refs and sends video request', async 
     parentAssetId: undefined,
     disableStyle: false,
     mediaKind: 'video',
+    generateAudio: false,
   });
+});
+
+test('video generate can opt into Veo native audio', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await executeVideoCommand('generate', {
+    positionals: ['A', 'market', 'shot', 'with', 'ambience'],
+    options: {
+      space: 'space-1',
+      name: 'Market Shot',
+      type: 'animation',
+      o: 'market.mp4',
+      audio: 'true',
+    },
+  }, deps);
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Market Shot',
+    assetType: 'animation',
+    prompt: 'A market shot with ambience',
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'video',
+    generateAudio: true,
+  });
+});
+
+test('image commands reject video audio flags before opening a website job', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeForgeCommand('generate', {
+      positionals: ['A', 'silent', 'keyframe'],
+      options: {
+        space: 'space-1',
+        name: 'Keyframe',
+        type: 'scene',
+        o: 'keyframe.png',
+        audio: 'true',
+      },
+    }, deps),
+    /--audio and --no-audio are only supported for video generation/
+  );
+
+  assert.equal(client.connected, false);
 });
 
 test('video derive stores shot scene metadata in run manifest and Space production record', async () => {

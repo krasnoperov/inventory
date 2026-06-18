@@ -133,10 +133,12 @@ Generate video through website jobs:
 makefx video generate "A looping idle animation" \
   --name "Idle Animation" \
   --type animation \
+  --no-audio \
   -o video/idle.mp4
 
 makefx video refine \
   --variant VIDEO_VARIANT_ID \
+  --audio \
   "make the motion snappier" \
   -o video/idle-snappy.mp4
 
@@ -144,9 +146,15 @@ makefx video derive \
   --refs IMAGE_VARIANT_ID,VIDEO_VARIANT_ID \
   --name "Attack Animation" \
   --type animation \
+  --audio \
   "animate the pose into a short attack" \
   -o video/attack.mp4
 ```
+
+Video commands default to silent output. Pass `--audio` to request Veo native
+synchronized dialogue, SFX, score, or ambience for that clip, or `--no-audio`
+to make the silent path explicit. The selected audio mode is stored on the
+variant recipe as `generateAudio` and is reused by variant retry.
 
 Generate consistency pipelines for game-ready reference sheets:
 
@@ -237,6 +245,8 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--model <pro\|flash>` | top-level image commands | Optional image model selection; defaults to Pro |
 | `--size <1K\|2K\|4K>` | top-level image commands | Optional image output size; Flash supports only `1K` |
 | `--aspect <ratio>` | top-level image commands, video commands | Optional generation aspect ratio |
+| `--audio` | video commands | Request native synchronized Veo audio for this video |
+| `--no-audio` | video commands | Request a silent video; this is the default |
 | `--parent <assetId>` | `generate`, `derive`, `video generate`, `video derive` | Optional parent asset |
 | `--no-style` | all generation and consistency pipeline commands | Disable active space style for this request |
 | `--detach` | `rotation`, `tileset` | Return after the pipeline starts instead of waiting for completion |
@@ -366,6 +376,7 @@ inventory derive \
 
 inventory video derive \
   --refs <shot01_keyframe_variant> \
+  --no-audio \
   --shot-id s01e01-a2-01 \
   --production-id s01e01-a2 \
   --scene-label "Cocina" \

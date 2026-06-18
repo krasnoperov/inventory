@@ -384,6 +384,8 @@ export interface GenerateRequestParams {
   dialogueVoiceIds?: string[];
   /** Music provider selection (music mode only) */
   musicProvider?: MusicGenerationProvider;
+  /** Whether Veo should generate native synchronized audio (video assets only) */
+  generateAudio?: boolean;
 }
 
 // Refine request parameters
@@ -410,6 +412,8 @@ export interface RefineRequestParams {
   dialogueVoiceIds?: string[];
   /** Music provider selection (music mode only) */
   musicProvider?: MusicGenerationProvider;
+  /** Whether Veo should generate native synchronized audio (video assets only) */
+  generateAudio?: boolean;
 }
 
 // Batch request parameters
@@ -1014,6 +1018,7 @@ export function useSpaceWebSocket({
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
       musicProvider: params.musicProvider,
+      generateAudio: params.generateAudio,
     });
     return requestId;
   }, [sendMessage]);
@@ -1037,6 +1042,7 @@ export function useSpaceWebSocket({
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
       musicProvider: params.musicProvider,
+      generateAudio: params.generateAudio,
     });
     return requestId;
   }, [sendMessage]);
