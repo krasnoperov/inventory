@@ -4,6 +4,7 @@ import {
   DEFAULT_IMAGE_MODEL_ID,
   getImageModelCapabilities,
   getImageModelMaxReferenceImages,
+  isImageAspectRatioSupportedByModel,
   isImageSizeSupportedByModel,
   resolveImageModelSelection,
 } from './imageGenerationOptions';
@@ -17,6 +18,7 @@ describe('imageGenerationOptions', () => {
     assert.strictEqual(capabilities.modelId, 'gemini-3-pro-image-preview');
     assert.strictEqual(capabilities.maxReferenceImages, 14);
     assert.deepStrictEqual(capabilities.supportedImageSizes, ['1K', '2K', '4K']);
+    assert.ok(capabilities.supportedAspectRatios.includes('16:9'));
   });
 
   test('exposes exact Flash image generation limits', () => {
@@ -28,6 +30,7 @@ describe('imageGenerationOptions', () => {
     assert.deepStrictEqual(capabilities.supportedImageSizes, ['1K']);
     assert.strictEqual(isImageSizeSupportedByModel('flash', '1K'), true);
     assert.strictEqual(isImageSizeSupportedByModel('flash', '2K'), false);
+    assert.strictEqual(isImageAspectRatioSupportedByModel('flash', '16:9'), true);
     assert.strictEqual(getImageModelMaxReferenceImages('flash'), 1);
   });
 });

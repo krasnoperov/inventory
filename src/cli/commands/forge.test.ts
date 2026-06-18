@@ -541,6 +541,51 @@ test('image commands reject flash above 1K before sending request', async () => 
   assert.equal(client.connected, false);
 });
 
+test('image commands reject unsupported aspect ratios before sending request', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeForgeCommand('generate', {
+      positionals: ['A', 'market', 'background'],
+      options: {
+        space: 'space-1',
+        name: 'Market',
+        type: 'scene',
+        aspect: '3:1',
+        o: 'market.png',
+      },
+    }, deps),
+    /--aspect must be 1:1, 16:9/
+  );
+
+  assert.equal(client.generateParams, undefined);
+  assert.equal(client.connected, false);
+});
+
+test('image derive rejects flash above its reference limit before opening a website job', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeForgeCommand('derive', {
+      positionals: ['Combine', 'references'],
+      options: {
+        space: 'space-1',
+        name: 'Combined',
+        type: 'scene',
+        model: 'flash',
+        refs: 'variant-a,variant-b',
+        o: 'combined.png',
+      },
+    }, deps),
+    /--model flash supports at most 1 reference/
+  );
+
+  assert.equal(client.generateParams, undefined);
+  assert.equal(client.connected, false);
+});
+
 test('generate resolves missing space and env from project config', async () => {
   const client = new FakeClient();
   let loadedEnv = '';
@@ -1462,6 +1507,7 @@ test('video generate sends resolution, duration, and tier controls', async () =>
       name: 'Preview Clip',
       type: 'animation',
       o: 'preview.mp4',
+      aspect: '9:16',
       resolution: '1080p',
       duration: '6',
       tier: 'fast',
@@ -1472,7 +1518,7 @@ test('video generate sends resolution, duration, and tier controls', async () =>
     name: 'Preview Clip',
     assetType: 'animation',
     prompt: 'A short preview clip',
-    aspectRatio: undefined,
+    aspectRatio: '9:16',
     parentAssetId: undefined,
     disableStyle: false,
     mediaKind: 'video',
@@ -1502,6 +1548,28 @@ test('video commands reject unpriced tier and resolution combinations before ope
     /--resolution 4k is not supported with --tier lite/
   );
 
+  assert.equal(client.connected, false);
+});
+
+test('video commands reject unsupported aspect ratios before opening a website job', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeVideoCommand('generate', {
+      positionals: ['A vertical preview clip'],
+      options: {
+        space: 'space-1',
+        name: 'Preview Clip',
+        type: 'animation',
+        o: 'preview.mp4',
+        aspect: '3:4',
+      },
+    }, deps),
+    /--aspect must be 16:9 or 9:16/
+  );
+
+  assert.equal(client.generateParams, undefined);
   assert.equal(client.connected, false);
 });
 

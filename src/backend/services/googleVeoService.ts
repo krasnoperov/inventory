@@ -4,21 +4,23 @@ import {
   type GenerateVideosOperation,
   type VideoGenerationReferenceImage,
 } from '@google/genai';
-import type { AspectRatio, ImageInput } from './nanoBananaService';
+import type { ImageInput } from './nanoBananaService';
 import { arrayBufferToBase64 } from '../utils/image-utils';
 import {
   DEFAULT_VIDEO_GENERATION_DURATION_SECONDS,
   DEFAULT_VIDEO_GENERATION_MODEL,
   DEFAULT_VIDEO_GENERATION_RESOLUTION,
+  normalizeVideoGenerationAspectRatio,
   normalizeVideoGenerationDurationSeconds,
   normalizeVideoGenerationResolution,
+  type VideoGenerationAspectRatio,
   type VideoGenerationDurationSeconds,
   type VideoGenerationModel,
   type VideoGenerationResolution,
 } from '../../shared/videoGenerationOptions';
 
 export type VideoModel = VideoGenerationModel;
-export type VideoAspectRatio = Extract<AspectRatio, '16:9' | '9:16'>;
+export type VideoAspectRatio = VideoGenerationAspectRatio;
 export type VideoResolution = VideoGenerationResolution;
 export type VideoDurationSeconds = VideoGenerationDurationSeconds;
 export type VeoReferenceMode = 'text-to-video' | 'image-to-video' | 'first-last-frame' | 'reference-images';
@@ -78,7 +80,7 @@ function delay(ms: number): Promise<void> {
 }
 
 function normalizeAspectRatio(value?: VideoAspectRatio): VideoAspectRatio {
-  return value === '9:16' ? '9:16' : DEFAULT_ASPECT_RATIO;
+  return normalizeVideoGenerationAspectRatio(value) ?? DEFAULT_ASPECT_RATIO;
 }
 
 function normalizeDuration(value?: VideoDurationSeconds): VideoDurationSeconds {

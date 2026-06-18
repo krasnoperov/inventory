@@ -69,6 +69,7 @@ import {
   isVideoGenerationResolutionSupportedForTier,
   normalizeVideoGenerationDurationSeconds,
   normalizeVideoGenerationResolution,
+  normalizeVideoGenerationAspectRatio,
   normalizeVideoGenerationTier,
 } from '../../shared/videoGenerationOptions';
 
@@ -214,7 +215,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           const normalizedVideoTier =
             normalizeVideoGenerationTier(videoTier) ?? getVideoGenerationTierForModel(model);
           const modelToUse = (model as VideoModel) || getVideoGenerationModelForTier(normalizedVideoTier);
-          const aspectRatioToUse: VideoAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
+          const aspectRatioToUse: VideoAspectRatio = normalizeVideoGenerationAspectRatio(aspectRatio) ?? '16:9';
           const resolutionToUse = (
             normalizeVideoGenerationResolution(videoResolution) ?? DEFAULT_VIDEO_GENERATION_RESOLUTION
           ) as VideoResolution;

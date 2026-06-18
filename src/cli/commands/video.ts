@@ -5,6 +5,12 @@ import {
   type VideoForgeCommand,
 } from './forge';
 import { getCliGenerationCommands } from '../../shared/mediaOperationMatrix';
+import {
+  VIDEO_GENERATION_ASPECT_RATIOS,
+  VIDEO_GENERATION_DURATION_SECONDS,
+  VIDEO_GENERATION_TIERS,
+  getVideoGenerationResolutionsForTier,
+} from '../../shared/videoGenerationOptions';
 
 export async function handleVideo(parsed: ParsedArgs): Promise<void> {
   try {
@@ -30,16 +36,27 @@ function parseVideoCommand(value: string | undefined): VideoForgeCommand {
 }
 
 function printUsage(): void {
+  const aspectValues = VIDEO_GENERATION_ASPECT_RATIOS.join('|');
+  const resolutionValues = Array.from(new Set(
+    VIDEO_GENERATION_TIERS.flatMap((tier) => getVideoGenerationResolutionsForTier(tier))
+  )).join('|');
+  const durationValues = VIDEO_GENERATION_DURATION_SECONDS.join('|');
+  const tierValues = VIDEO_GENERATION_TIERS.join('|');
+  const resolutionByTier = VIDEO_GENERATION_TIERS
+    .map((tier) => `${tier}: ${getVideoGenerationResolutionsForTier(tier).join(', ')}`)
+    .join('; ');
+
   console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
-  makefx video refine --variant <variant_id> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
-  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--resolution 720p|1080p|4k] [--duration 4|6|8] [--tier generate|fast|lite] [--audio|--no-audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio|--no-audio] [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio|--no-audio] [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio|--no-audio] [--space <id>]
 
 Video:
-  --resolution <value>  Veo output resolution: 720p, 1080p, or 4k
-  --duration <seconds>  Veo output duration: 4, 6, or 8
-  --tier <tier>         Veo model tier: generate, fast, or lite
+  --aspect <ratio>      Veo aspect ratio: ${aspectValues}
+  --resolution <value>  Veo output resolution (${resolutionByTier})
+  --duration <seconds>  Veo output duration: ${durationValues}
+  --tier <tier>         Veo model tier: ${tierValues}
 
 Audio:
   --audio       Request native synchronized Veo audio
