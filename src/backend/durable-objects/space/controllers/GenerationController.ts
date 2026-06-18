@@ -28,6 +28,7 @@ import {
   trackElevenLabsAudioGeneration,
   trackGeminiAudioGeneration,
   trackVideoGeneration,
+  getVideoQuotaUnits,
 } from '../billing/usageCheck';
 import {
   VariantFactory,
@@ -52,6 +53,7 @@ type AudioUsage = {
 type VideoBillingDimensions = {
   resolution?: string;
   durationSeconds?: number;
+  generateAudio: boolean;
 };
 
 const ELEVENLABS_GENERATED_AUDIO_COST_BUFFER = 50;
@@ -115,30 +117,49 @@ function toPositiveNumber(value: unknown): number | undefined {
   return undefined;
 }
 
+function toBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+  return undefined;
+}
+
+function getRecipeGenerateAudio(recipe: Pick<GenerationRecipe, 'generateAudio'> & { audio?: unknown }): boolean | undefined {
+  return toBoolean(recipe.generateAudio) ?? toBoolean(recipe.audio);
+}
+
 function getVideoBillingDimensions(data: {
   mediaDurationMs?: number | null;
   providerMetadata?: Record<string, unknown> | string | null;
-}, variant: Variant): VideoBillingDimensions {
+}, variant: Variant, recipeGenerateAudio?: boolean): VideoBillingDimensions {
   const metadata = parseObjectMetadata(data.providerMetadata) ?? parseObjectMetadata(variant.provider_metadata);
   const resolution = typeof metadata?.resolution === 'string' ? metadata.resolution : undefined;
   const metadataDurationSeconds = toPositiveNumber(metadata?.durationSeconds)
     ?? toPositiveNumber(metadata?.duration_seconds);
+  const metadataGenerateAudio = toBoolean(metadata?.generateAudio) ?? toBoolean(metadata?.generate_audio);
   const dataDurationMs = toPositiveNumber(data.mediaDurationMs);
   const variantDurationMs = toPositiveNumber(variant.media_duration_ms);
   const durationSeconds = metadataDurationSeconds
     ?? (dataDurationMs === undefined ? undefined : Math.round(dataDurationMs / 1000))
     ?? (variantDurationMs === undefined ? undefined : Math.round(variantDurationMs / 1000));
 
-  return { resolution, durationSeconds };
+  return { resolution, durationSeconds, generateAudio: recipeGenerateAudio ?? metadataGenerateAudio ?? false };
 }
 
 function getQuotaCheckQuantity(
   service: GenerationBillingService,
   prompt: string | undefined,
   count = 1,
-  assetType?: string
+  assetType?: string,
+  generateAudio?: boolean
 ): number {
   const requestedCount = Math.max(1, Math.floor(count));
+  if (service === 'veo') {
+    return getVideoQuotaUnits(requestedCount, generateAudio);
+  }
   if (service !== 'elevenlabs') {
     return requestedCount;
   }
@@ -194,7 +215,7 @@ export class GenerationController extends BaseController {
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind, msg.assetType, msg.musicProvider);
-      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, msg.assetType);
+      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, msg.assetType, msg.generateAudio);
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
         this.send(ws, {
@@ -278,7 +299,7 @@ export class GenerationController extends BaseController {
         billingAssetType = asset.type;
       }
       const billingService = getGenerationBillingService(this.env, billingMediaKind, billingAssetType, msg.musicProvider);
-      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, billingAssetType);
+      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, billingAssetType, msg.generateAudio);
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
         this.send(ws, {
@@ -471,8 +492,8 @@ export class GenerationController extends BaseController {
 
     const retryMediaKind = variant.media_kind ?? asset.media_kind;
     const billingService = getGenerationBillingService(this.env, retryMediaKind, recipe.assetType, recipe.musicProvider);
-    if (this.env.DB && (billingService === 'elevenlabs' || billingService === 'lyria')) {
-      const quotaQuantity = getQuotaCheckQuantity(billingService, recipe.prompt, 1, recipe.assetType);
+    if (this.env.DB && (billingService === 'elevenlabs' || billingService === 'lyria' || billingService === 'veo')) {
+      const quotaQuantity = getQuotaCheckQuantity(billingService, recipe.prompt, 1, recipe.assetType, getRecipeGenerateAudio(recipe));
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
         this.sendError(
@@ -660,6 +681,7 @@ export class GenerationController extends BaseController {
         let operation = 'derive';
         let usageModel = 'gemini-3-pro-image-preview';
         let imageSize: string | undefined;
+        let generateAudio: boolean | undefined;
         try {
           const recipe = JSON.parse(variant.recipe);
           // Handle legacy 'create'/'combine' operations
@@ -671,12 +693,13 @@ export class GenerationController extends BaseController {
           if (typeof recipe.imageSize === 'string' && recipe.imageSize.length > 0) {
             imageSize = recipe.imageSize;
           }
+          generateAudio = getRecipeGenerateAudio(recipe);
         } catch {
           // Ignore parse errors
         }
 
         if (variant.media_kind === 'video') {
-          const billingDimensions = getVideoBillingDimensions(data, variant);
+          const billingDimensions = getVideoBillingDimensions(data, variant, generateAudio);
           await trackVideoGeneration(
             this.env.DB,
             parseInt(variant.created_by),
@@ -684,7 +707,8 @@ export class GenerationController extends BaseController {
             usageModel,
             operation,
             billingDimensions.resolution,
-            billingDimensions.durationSeconds
+            billingDimensions.durationSeconds,
+            billingDimensions.generateAudio
           );
         } else {
           await trackImageGeneration(

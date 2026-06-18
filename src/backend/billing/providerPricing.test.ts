@@ -73,7 +73,7 @@ describe('provider pricing', () => {
     assert.equal(image.amountUsd, 0.039);
   });
 
-  test('prices Gemini video count events as generated seconds', () => {
+  test('prices Gemini video count events with native audio as generated seconds', () => {
     const fast1080 = priceProviderUsageEvent({
       eventName: 'gemini_videos',
       quantity: 2,
@@ -81,17 +81,48 @@ describe('provider pricing', () => {
         model: 'veo-3.1-fast-generate-preview',
         resolution: '1080p',
         durationSeconds: 8,
+        generate_audio: true,
       },
     });
     const defaultedStandard = priceProviderUsageEvent({
       eventName: 'gemini_videos',
       quantity: 1,
-      metadata: { model: 'veo-3.1-generate-preview' },
+      metadata: { model: 'veo-3.1-generate-preview', generate_audio: true },
     });
 
     assert.equal(fast1080.amountUsd, 1.92);
     assert.equal(fast1080.quantity, 16);
     assert.equal(defaultedStandard.amountUsd, 3.2);
+  });
+
+  test('prices silent Gemini video output below native-audio output', () => {
+    const silent = priceProviderUsageEvent({
+      eventName: 'gemini_videos',
+      quantity: 2,
+      metadata: {
+        model: 'veo-3.1-generate-preview',
+        resolution: '720p',
+        duration_seconds: 8,
+        generate_audio: false,
+        video_count: 1,
+      },
+    });
+    const withAudio = priceProviderUsageEvent({
+      eventName: 'gemini_videos',
+      quantity: 2,
+      metadata: {
+        model: 'veo-3.1-generate-preview',
+        resolution: '720p',
+        duration_seconds: 8,
+        generate_audio: true,
+        video_count: 1,
+      },
+    });
+
+    assert.equal(silent.amountUsd, 1.6);
+    assert.equal(silent.quantity, 8);
+    assert.equal(withAudio.amountUsd, 3.2);
+    assert.equal(withAudio.quantity, 8);
   });
 
   test('prices Lyria music events as Gemini audio generations', () => {

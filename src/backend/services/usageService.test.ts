@@ -272,6 +272,30 @@ describe('UsageService', () => {
       assert.strictEqual(metadata.aspect_ratio, '16:9');
       assert.strictEqual(metadata.resolution, '1080p');
       assert.strictEqual(metadata.duration_seconds, 8);
+      assert.strictEqual(metadata.generate_audio, false);
+      assert.strictEqual(metadata.video_count, 1);
+    });
+
+    test('weights native-audio video usage on the Gemini video meter', async () => {
+      await usageService.trackVideoGeneration(
+        testUserId,
+        1,
+        'veo-3.1-generate-preview',
+        'generate',
+        '16:9',
+        '720p',
+        8,
+        true
+      );
+
+      const events = await usageEventDAO.findByUser(testUserId);
+      assert.strictEqual(events.length, 1);
+      assert.strictEqual(events[0].event_name, USAGE_EVENTS.GEMINI_VIDEOS);
+      assert.strictEqual(events[0].quantity, 2);
+
+      const metadata = JSON.parse(events[0].metadata!);
+      assert.strictEqual(metadata.generate_audio, true);
+      assert.strictEqual(metadata.video_count, 1);
     });
   });
 
@@ -541,7 +565,16 @@ describe('UsageService', () => {
       // Track some usage
       await usageService.trackClaudeUsage(testUserId, 1000, 500, 'claude-sonnet-4-20250514');
       await usageService.trackImageGeneration(testUserId, 2, 'gemini-3-pro-image-preview');
-      await usageService.trackVideoGeneration(testUserId, 1, 'veo-3.1-generate-preview');
+      await usageService.trackVideoGeneration(
+        testUserId,
+        1,
+        'veo-3.1-generate-preview',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        true
+      );
       await usageService.trackGeminiAudioGeneration(testUserId, 1, 'lyria-3-clip-preview', 'generate', 'music');
       await usageService.trackElevenLabsAudioGeneration(
         testUserId,
@@ -563,7 +596,7 @@ describe('UsageService', () => {
       assert.strictEqual(stats.usage[USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS]?.costUsd, 0.0075);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_IMAGES]?.used, 2);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_IMAGES]?.costUsd, 0.48);
-      assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.used, 1);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.used, 2);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.costUsd, 3.2);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_AUDIO]?.used, 1);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_AUDIO]?.costUsd, 0.04);

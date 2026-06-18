@@ -107,9 +107,14 @@ export const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
 };
 
 const USD_PRECISION = 1_000_000;
+const VIDEO_WITH_AUDIO_QUOTA_UNITS = 2;
 
 function roundUsd(amount: number): number {
   return Math.round((amount + Number.EPSILON) * USD_PRECISION) / USD_PRECISION;
+}
+
+function getVideoQuotaUnits(videoCount: number, generateAudio?: boolean): number {
+  return videoCount * (generateAudio ? VIDEO_WITH_AUDIO_QUOTA_UNITS : 1);
 }
 
 @injectable()
@@ -298,20 +303,23 @@ export class UsageService {
     operation?: string,
     aspectRatio?: string,
     resolution?: string,
-    durationSeconds?: number
+    durationSeconds?: number,
+    generateAudio?: boolean
   ): Promise<void> {
     const polarBillable = await this.isBillableUser(userId);
 
     await this.usageEventDAO.create({
       userId,
       eventName: USAGE_EVENTS.GEMINI_VIDEOS,
-      quantity: videoCount,
+      quantity: getVideoQuotaUnits(videoCount, generateAudio),
       metadata: {
         model,
         operation,
         aspect_ratio: aspectRatio,
         resolution,
         duration_seconds: durationSeconds,
+        generate_audio: generateAudio === true,
+        video_count: videoCount,
       },
       polarBillable,
     });

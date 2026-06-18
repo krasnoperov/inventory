@@ -58,7 +58,7 @@ User Request → Worker
 | `claude_input_tokens` | SUM | Claude API input |
 | `claude_output_tokens` | SUM | Claude API output (5x cost) |
 | `gemini_images` | COUNT | Generated images |
-| `gemini_videos` | COUNT | Generated videos |
+| `gemini_videos` | SUM | Generated video units; Veo-native soundtrack requests are recorded on this event with `generate_audio: true` |
 | `gemini_audio` | COUNT | Lyria-generated music |
 | `gemini_input_tokens` | SUM | Gemini API input |
 | `gemini_output_tokens` | SUM | Gemini API output |

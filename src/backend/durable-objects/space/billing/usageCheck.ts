@@ -49,6 +49,12 @@ const QUOTA_EVENT_NAMES: Record<string, string> = {
   veo: 'gemini_videos',
 };
 
+export const VIDEO_WITH_AUDIO_QUOTA_UNITS = 2;
+
+export function getVideoQuotaUnits(videoCount: number, generateAudio?: boolean): number {
+  return videoCount * (generateAudio ? VIDEO_WITH_AUDIO_QUOTA_UNITS : 1);
+}
+
 /**
  * Pre-check quota and rate limits before performing a limited action.
  * Uses D1 for fast local checks.
@@ -334,12 +340,15 @@ export async function trackVideoGeneration(
   model: string,
   operation?: string,
   resolution?: string,
-  durationSeconds?: number
+  durationSeconds?: number,
+  generateAudio?: boolean
 ): Promise<void> {
-  await trackUsage(db, userId, 'gemini_videos', videoCount, {
+  await trackUsage(db, userId, 'gemini_videos', getVideoQuotaUnits(videoCount, generateAudio), {
     model,
     operation,
     resolution,
     duration_seconds: durationSeconds,
+    generate_audio: generateAudio === true,
+    video_count: videoCount,
   });
 }
