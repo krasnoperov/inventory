@@ -533,6 +533,60 @@ describe('SpaceRepository', () => {
       assert.equal(upsertQuery.bindings[9], '["source-1"]');
       assert.equal(upsertQuery.bindings[10], '{"take":2}');
     });
+
+    test('deleteProduction removes normalized and compatibility children before parent', async () => {
+      mockSql.setMockResult('SELECT * FROM productions WHERE id = ?', [
+        { id: 'episode-01', name: 'Episode 01' },
+      ]);
+
+      const deleted = await repo.deleteProduction('episode-01');
+
+      assert.equal(deleted, true);
+      const deleteQueries = mockSql.queries
+        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .map((q) => q.query);
+      assert.deepEqual(deleteQueries, [
+        'DELETE FROM production_placements WHERE production_id = ?',
+        'DELETE FROM production_records WHERE production_id = ?',
+        'DELETE FROM production_shots WHERE production_id = ?',
+        'DELETE FROM production_cues WHERE production_id = ?',
+        'DELETE FROM productions WHERE id = ?',
+      ]);
+    });
+
+    test('deleteProductionShot removes placements targeting that shot', async () => {
+      mockSql.setMockResult('SELECT * FROM production_shots WHERE id = ?', [
+        { id: 'shot-1', production_id: 'episode-01', label: 'Opening' },
+      ]);
+
+      const deleted = await repo.deleteProductionShot('shot-1');
+
+      assert.equal(deleted, true);
+      const deleteQueries = mockSql.queries
+        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .map((q) => ({ query: q.query, bindings: q.bindings }));
+      assert.deepEqual(deleteQueries, [
+        { query: 'DELETE FROM production_placements WHERE target_kind = ? AND target_id = ?', bindings: ['shot', 'shot-1'] },
+        { query: 'DELETE FROM production_shots WHERE id = ?', bindings: ['shot-1'] },
+      ]);
+    });
+
+    test('deleteProductionCue removes placements targeting that cue', async () => {
+      mockSql.setMockResult('SELECT * FROM production_cues WHERE id = ?', [
+        { id: 'cue-1', production_id: 'episode-01', cue_type: 'music' },
+      ]);
+
+      const deleted = await repo.deleteProductionCue('cue-1');
+
+      assert.equal(deleted, true);
+      const deleteQueries = mockSql.queries
+        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .map((q) => ({ query: q.query, bindings: q.bindings }));
+      assert.deepEqual(deleteQueries, [
+        { query: 'DELETE FROM production_placements WHERE target_kind = ? AND target_id = ?', bindings: ['cue', 'cue-1'] },
+        { query: 'DELETE FROM production_cues WHERE id = ?', bindings: ['cue-1'] },
+      ]);
+    });
   });
 
   describe('Lineage Operations', () => {

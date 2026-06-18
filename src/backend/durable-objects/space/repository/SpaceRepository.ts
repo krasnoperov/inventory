@@ -931,6 +931,10 @@ export class SpaceRepository {
     const existing = await this.getProductionById(productionId);
     if (!existing) return false;
 
+    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_PRODUCTION, productionId);
+    await this.sql.exec(ProductionRecordQueries.DELETE_BY_PRODUCTION, productionId);
+    await this.sql.exec(ProductionShotQueries.DELETE_BY_PRODUCTION, productionId);
+    await this.sql.exec(ProductionCueQueries.DELETE_BY_PRODUCTION, productionId);
     await this.sql.exec(ProductionQueries.DELETE, productionId);
     return true;
   }
@@ -977,6 +981,7 @@ export class SpaceRepository {
     const existing = await this.getProductionShotById(shotId);
     if (!existing) return false;
 
+    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_TARGET, 'shot', shotId);
     await this.sql.exec(ProductionShotQueries.DELETE, shotId);
     return true;
   }
@@ -1023,6 +1028,7 @@ export class SpaceRepository {
     const existing = await this.getProductionCueById(cueId);
     if (!existing) return false;
 
+    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_TARGET, 'cue', cueId);
     await this.sql.exec(ProductionCueQueries.DELETE, cueId);
     return true;
   }

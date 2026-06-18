@@ -532,6 +532,7 @@ export const ProductionRecordQueries = {
              metadata = excluded.metadata,
              updated_at = excluded.updated_at`,
   DELETE: 'DELETE FROM production_records WHERE id = ?',
+  DELETE_BY_PRODUCTION: 'DELETE FROM production_records WHERE production_id = ?',
 } as const;
 
 export const ProductionQueries = {
@@ -561,6 +562,7 @@ export const ProductionShotQueries = {
              metadata = excluded.metadata,
              updated_at = excluded.updated_at`,
   DELETE: 'DELETE FROM production_shots WHERE id = ?',
+  DELETE_BY_PRODUCTION: 'DELETE FROM production_shots WHERE production_id = ?',
 } as const;
 
 export const ProductionCueQueries = {
@@ -577,6 +579,7 @@ export const ProductionCueQueries = {
              metadata = excluded.metadata,
              updated_at = excluded.updated_at`,
   DELETE: 'DELETE FROM production_cues WHERE id = ?',
+  DELETE_BY_PRODUCTION: 'DELETE FROM production_cues WHERE production_id = ?',
 } as const;
 
 export const ProductionPlacementQueries = {
@@ -599,6 +602,8 @@ export const ProductionPlacementQueries = {
              metadata = excluded.metadata,
              updated_at = excluded.updated_at`,
   DELETE: 'DELETE FROM production_placements WHERE id = ?',
+  DELETE_BY_PRODUCTION: 'DELETE FROM production_placements WHERE production_id = ?',
+  DELETE_BY_TARGET: 'DELETE FROM production_placements WHERE target_kind = ? AND target_id = ?',
 } as const;
 
 // ============================================================================
