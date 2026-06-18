@@ -47,6 +47,7 @@ interface GeminiImageRate extends TokenRatesPerMillion {
 
 interface GeminiVideoRate {
   videoUsdPerSecond: Partial<Record<'720p' | '1080p' | '4k', number>>;
+  videoWithAudioUsdPerSecond: Partial<Record<'720p' | '1080p' | '4k', number>>;
 }
 
 interface ElevenLabsRate {
@@ -98,13 +99,16 @@ export const GEMINI_IMAGE_RATES_USD: Record<string, GeminiImageRate> = {
 
 export const GEMINI_VIDEO_RATES_USD: Record<string, GeminiVideoRate> = {
   'veo-3.1-generate-preview': {
-    videoUsdPerSecond: { '720p': 0.4, '1080p': 0.4, '4k': 0.6 },
+    videoUsdPerSecond: { '720p': 0.2, '1080p': 0.2, '4k': 0.4 },
+    videoWithAudioUsdPerSecond: { '720p': 0.4, '1080p': 0.4, '4k': 0.6 },
   },
   'veo-3.1-fast-generate-preview': {
-    videoUsdPerSecond: { '720p': 0.1, '1080p': 0.12, '4k': 0.3 },
+    videoUsdPerSecond: { '720p': 0.08, '1080p': 0.1, '4k': 0.25 },
+    videoWithAudioUsdPerSecond: { '720p': 0.1, '1080p': 0.12, '4k': 0.3 },
   },
   'veo-3.1-lite-generate-preview': {
-    videoUsdPerSecond: { '720p': 0.05, '1080p': 0.08 },
+    videoUsdPerSecond: { '720p': 0.03, '1080p': 0.05 },
+    videoWithAudioUsdPerSecond: { '720p': 0.05, '1080p': 0.08 },
   },
 };
 
@@ -226,7 +230,9 @@ function priceGeminiVideos(
   }
 
   const resolution = normalizeVideoResolution(getString(metadata, 'resolution'));
-  const unitPriceUsd = GEMINI_VIDEO_RATES_USD[model].videoUsdPerSecond[resolution];
+  const generateAudio = getBoolean(metadata, 'generate_audio') ?? getBoolean(metadata, 'generateAudio') ?? false;
+  const rates = GEMINI_VIDEO_RATES_USD[model];
+  const unitPriceUsd = (generateAudio ? rates.videoWithAudioUsdPerSecond : rates.videoUsdPerSecond)[resolution];
   if (unitPriceUsd === undefined) {
     return miss(event, 'gemini', model, 'video_second', 'unsupported_rate');
   }
@@ -237,7 +243,11 @@ function priceGeminiVideos(
     secondsFromMs(getPositiveNumber(metadata, 'durationMs') ?? getPositiveNumber(metadata, 'duration_ms')) ??
     DEFAULT_VIDEO_DURATION_SECONDS;
 
-  const videoSeconds = normalizedQuantity(event.quantity) * durationSeconds;
+  const videoCount =
+    getPositiveNumber(metadata, 'video_count') ??
+    getPositiveNumber(metadata, 'videoCount') ??
+    normalizedQuantity(event.quantity);
+  const videoSeconds = videoCount * durationSeconds;
   return priced(event, 'gemini', model, 'video_second', videoSeconds, unitPriceUsd, 'gemini');
 }
 
@@ -409,6 +419,17 @@ function getPositiveNumber(metadata: Record<string, unknown>, key: string): numb
   if (typeof value === 'string') {
     const parsed = Number(value);
     if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
+function getBoolean(metadata: Record<string, unknown>, key: string): boolean | null {
+  const value = metadata[key];
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
   }
   return null;
 }

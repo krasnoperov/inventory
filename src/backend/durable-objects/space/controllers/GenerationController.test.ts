@@ -260,6 +260,42 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(workflowCreate.mock.calls.length, 0);
     });
 
+    test('blocks native-audio video generation when weighted video quota is exhausted', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 1,
+        quotaLimitsJson: JSON.stringify({ gemini_videos: 1 }),
+      }) as any;
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-video-audio-quota',
+          name: 'Audio shot',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'A shot with synchronized footsteps',
+          generateAudio: true,
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'generate:error',
+        requestId: 'request-video-audio-quota',
+        error: 'Monthly quota exceeded for veo. Please upgrade your plan.',
+        code: 'QUOTA_EXCEEDED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
     test('does not apply ElevenLabs generated-audio quota estimate to Lyria music generation', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();
@@ -927,6 +963,8 @@ describe('GenerationController pipeline hooks', () => {
         operation: 'generate',
         resolution: '720p',
         duration_seconds: 8,
+        generate_audio: false,
+        video_count: 1,
       });
       assert.strictEqual(run.mock.calls.length, 1);
 
@@ -1507,6 +1545,36 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(workflowCreate.mock.calls.length, 1);
       assert.ok(bindings.some((args) => args[1] === 'gemini_audio'));
       assert.ok(!bindings.some((args) => args[1] === 'gemini_images'));
+    });
+
+    test('blocks native-audio video retry against weighted video quota', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      asMock(repo.getVariantById).mock.mockImplementation(async () => createMockVariant({
+        status: 'failed',
+        media_kind: 'video',
+        recipe: JSON.stringify({
+          prompt: 'Animate the hero with footsteps',
+          operation: 'generate',
+          assetType: 'animation',
+          mediaKind: 'video',
+          generateAudio: true,
+        }),
+      }));
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 1,
+        quotaLimitsJson: JSON.stringify({ gemini_videos: 1 }),
+      }) as any;
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRetryRequest({} as WebSocket, { userId: '42', role: 'editor' } as any, 'variant-1');
+
+      assert.strictEqual(asMock(ctx.sendError).mock.calls.length, 1);
+      assert.strictEqual(asMock(ctx.sendError).mock.calls[0].arguments[1], 'QUOTA_EXCEEDED');
+      assert.strictEqual(asMock(repo.resetVariantForRetry).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
     });
   });
 });
