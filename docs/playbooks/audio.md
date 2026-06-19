@@ -97,10 +97,9 @@ Veo-native audio for video clips:
 
 - **Veo native audio.** Veo 3.1 generates synchronized dialogue, sound effects,
   and ambient audio *with* the video, scored simultaneously but separately, so
-  requesting audio does not cost video resolution.[^veo3-audio] Make Effects
-  video generation is silent by default; pass `makefx video ... --audio` or
-  enable the web video audio toggle when the clip needs native synchronized
-  audio. A modern Veo prompt should then carry an audio layer: dialogue in
+  audio does not cost video resolution.[^veo3-audio] Make Effects treats audio
+  as always on for current Veo video models. A modern Veo prompt should carry an
+  audio layer when sound matters: dialogue in
   quotes, `SFX:` cues bound to on-screen actions, and an `Ambient noise:` bed
   (see the [video playbook](./video.md)).
 - **Lyria** is Google's dedicated music model, accepting genre/era/tempo/
@@ -126,7 +125,7 @@ Current parameters and provider details live in
 | Music bed or cue | Brief genre + era + tempo + instruments + dynamics; stay consistent |
 | Several music options | `audio music batch --count N` |
 | Effects for video | Describe the sound, tie it to the on-screen action |
-| Audio with video in one step | `video ... --audio`, then describe the audio layer in the Veo prompt |
+| Audio with video in one step | Describe the audio layer in the Veo prompt |
 
 ## Sources
 

@@ -963,13 +963,13 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(prepare.mock.calls.length, 2);
       assert.strictEqual(bind.mock.calls[0].arguments[1], 123);
       assert.strictEqual(bind.mock.calls[0].arguments[2], 'gemini_videos');
-      assert.strictEqual(bind.mock.calls[0].arguments[3], 1);
+      assert.strictEqual(bind.mock.calls[0].arguments[3], 2);
       assert.deepStrictEqual(JSON.parse(bind.mock.calls[0].arguments[4]), {
         model: 'veo-3.1-generate-preview',
         operation: 'generate',
         resolution: '720p',
         duration_seconds: 8,
-        generate_audio: false,
+        generate_audio: true,
         video_count: 1,
       });
       assert.strictEqual(run.mock.calls.length, 1);

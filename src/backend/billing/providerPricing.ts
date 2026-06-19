@@ -230,9 +230,8 @@ function priceGeminiVideos(
   }
 
   const resolution = normalizeVideoResolution(getString(metadata, 'resolution'));
-  const generateAudio = getBoolean(metadata, 'generate_audio') ?? getBoolean(metadata, 'generateAudio') ?? false;
   const rates = GEMINI_VIDEO_RATES_USD[model];
-  const unitPriceUsd = (generateAudio ? rates.videoWithAudioUsdPerSecond : rates.videoUsdPerSecond)[resolution];
+  const unitPriceUsd = rates.videoWithAudioUsdPerSecond[resolution];
   if (unitPriceUsd === undefined) {
     return miss(event, 'gemini', model, 'video_second', 'unsupported_rate');
   }
@@ -419,17 +418,6 @@ function getPositiveNumber(metadata: Record<string, unknown>, key: string): numb
   if (typeof value === 'string') {
     const parsed = Number(value);
     if (Number.isFinite(parsed) && parsed > 0) return parsed;
-  }
-  return null;
-}
-
-function getBoolean(metadata: Record<string, unknown>, key: string): boolean | null {
-  const value = metadata[key];
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === 'true') return true;
-    if (normalized === 'false') return false;
   }
   return null;
 }

@@ -263,7 +263,7 @@ describe('UsageService', () => {
       const events = await usageEventDAO.findByUser(testUserId);
       assert.strictEqual(events.length, 1);
       assert.strictEqual(events[0].event_name, USAGE_EVENTS.GEMINI_VIDEOS);
-      assert.strictEqual(events[0].quantity, 1);
+      assert.strictEqual(events[0].quantity, 2);
 
       assert.ok(events[0].metadata);
       const metadata = JSON.parse(events[0].metadata);
@@ -272,7 +272,7 @@ describe('UsageService', () => {
       assert.strictEqual(metadata.aspect_ratio, '16:9');
       assert.strictEqual(metadata.resolution, '1080p');
       assert.strictEqual(metadata.duration_seconds, 8);
-      assert.strictEqual(metadata.generate_audio, false);
+      assert.strictEqual(metadata.generate_audio, true);
       assert.strictEqual(metadata.video_count, 1);
     });
 

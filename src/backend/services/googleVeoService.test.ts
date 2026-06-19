@@ -44,6 +44,7 @@ describe('GoogleVeoService', () => {
     assert.equal(result.resolution, '720p');
     assert.equal(result.durationSeconds, 8);
     assert.equal(result.referenceMode, 'text-to-video');
+    assert.equal(result.generateAudio, true);
     assert.equal(getVideosOperation.mock.calls.length, 0);
 
     const request = generateVideos.mock.calls[0].arguments[0] as {
@@ -58,24 +59,23 @@ describe('GoogleVeoService', () => {
       resolution: '720p',
       durationSeconds: 8,
       numberOfVideos: 1,
-      generateAudio: false,
     });
   });
 
-  test('passes Veo native audio opt-in through request config and result metadata', async () => {
+  test('records Veo audio as always on without sending unsupported Gemini config', async () => {
     const { client, generateVideos } = createClient({});
     const service = new GoogleVeoService('test-key', client);
 
     const result = await service.generate({
       prompt: 'busy marketplace with synchronized ambience',
-      generateAudio: true,
     });
 
     assert.equal(result.generateAudio, true);
     const request = generateVideos.mock.calls[0].arguments[0] as {
       config: { generateAudio?: boolean };
     };
-    assert.equal(request.config.generateAudio, true);
+    assert.equal(request.config.generateAudio, undefined);
+    assert.equal(Object.hasOwn(request.config, 'generateAudio'), false);
   });
 
   test('passes explicit Veo model, resolution, and duration controls', async () => {

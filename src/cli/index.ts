@@ -292,10 +292,10 @@ Audio:
   audio sfx generate "prompt" --name <name> -o <file>
 
 Video:
-  video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio]
+  video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}]
   video generate --follow <variant_id> -o <file>
-  video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio]
-  video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio]
+  video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}]
+  video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}]
 
 Options:
   --env <environment>          Target environment (production|stage|local), default: production
@@ -563,14 +563,13 @@ function printVideoHelp(positionals: string[]): void {
   if (subcommand === 'generate') {
     console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--space <id>]
   makefx video generate --follow <variant_id> -o <file> [--space <id>]
 
 ${videoCapabilityHelp()}
 
 Audio:
-  --audio       Request native synchronized Veo audio
-  --no-audio    Request a silent video (default)
+  Current Veo models generate audio with video. Describe dialogue, SFX, score, or ambience in the prompt.
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -582,14 +581,13 @@ Production metadata:
   if (subcommand === 'refine') {
     console.log(`
 Usage:
-  makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--space <id>]
   makefx video refine --follow <variant_id> -o <file> [--space <id>]
 
 ${videoCapabilityHelp()}
 
 Audio:
-  --audio       Request native synchronized Veo audio
-  --no-audio    Request a silent video (default)
+  Current Veo models generate audio with video. Describe dialogue, SFX, score, or ambience in the prompt.
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -601,14 +599,13 @@ Production metadata:
   if (subcommand === 'derive') {
     console.log(`
 Usage:
-  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--space <id>]
   makefx video derive --follow <variant_id> -o <file> [--space <id>]
 
 ${videoCapabilityHelp()}
 
 Audio:
-  --audio       Request native synchronized Veo audio
-  --no-audio    Request a silent video (default)
+  Current Veo models generate audio with video. Describe dialogue, SFX, score, or ambience in the prompt.
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -619,16 +616,15 @@ Production metadata:
 
   console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--space <id>]
   makefx video generate --follow <variant_id> -o <file> [--space <id>]
-  makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
-  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio|--no-audio] [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--space <id>]
 
 ${videoCapabilityHelp()}
 
 Audio:
-  --audio       Request native synchronized Veo audio
-  --no-audio    Request a silent video (default)
+  Current Veo models generate audio with video. Describe dialogue, SFX, score, or ambience in the prompt.
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>

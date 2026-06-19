@@ -40,6 +40,7 @@ import { loggers } from '../../../../shared/logger';
 import type { MusicGenerationProvider } from '../../../../shared/websocket-types';
 import { resolveAudioProvider } from '../../../services/audioProviderSelection';
 import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
+import { VIDEO_GENERATION_AUDIO_ALWAYS_ON } from '../../../../shared/videoGenerationOptions';
 
 const log = loggers.generationController;
 
@@ -136,19 +137,18 @@ function getRecipeGenerateAudio(recipe: Pick<GenerationRecipe, 'generateAudio'> 
 function getVideoBillingDimensions(data: {
   mediaDurationMs?: number | null;
   providerMetadata?: Record<string, unknown> | string | null;
-}, variant: Variant, recipeGenerateAudio?: boolean): VideoBillingDimensions {
+}, variant: Variant): VideoBillingDimensions {
   const metadata = parseObjectMetadata(data.providerMetadata) ?? parseObjectMetadata(variant.provider_metadata);
   const resolution = typeof metadata?.resolution === 'string' ? metadata.resolution : undefined;
   const metadataDurationSeconds = toPositiveNumber(metadata?.durationSeconds)
     ?? toPositiveNumber(metadata?.duration_seconds);
-  const metadataGenerateAudio = toBoolean(metadata?.generateAudio) ?? toBoolean(metadata?.generate_audio);
   const dataDurationMs = toPositiveNumber(data.mediaDurationMs);
   const variantDurationMs = toPositiveNumber(variant.media_duration_ms);
   const durationSeconds = metadataDurationSeconds
     ?? (dataDurationMs === undefined ? undefined : Math.round(dataDurationMs / 1000))
     ?? (variantDurationMs === undefined ? undefined : Math.round(variantDurationMs / 1000));
 
-  return { resolution, durationSeconds, generateAudio: recipeGenerateAudio ?? metadataGenerateAudio ?? false };
+  return { resolution, durationSeconds, generateAudio: VIDEO_GENERATION_AUDIO_ALWAYS_ON };
 }
 
 function getQuotaCheckQuantity(
@@ -171,6 +171,10 @@ function getQuotaCheckQuantity(
     ? generatedAudioEstimate
     : promptCharacters;
   return perRequestQuantity * requestedCount;
+}
+
+function getVideoGenerateAudio(mediaKind?: string | null, requestedGenerateAudio?: boolean): boolean | undefined {
+  return mediaKind === 'video' ? VIDEO_GENERATION_AUDIO_ALWAYS_ON : requestedGenerateAudio;
 }
 
 function getGenerationLimitErrorCode(denyReason: GenerationLimitDenyReason | undefined): 'RATE_LIMITED' | 'PAID_GENERATION_REQUIRED' | 'QUOTA_EXCEEDED' {
@@ -217,7 +221,13 @@ export class GenerationController extends BaseController {
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind, msg.assetType, msg.musicProvider);
-      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, msg.assetType, msg.generateAudio);
+      const quotaQuantity = getQuotaCheckQuantity(
+        billingService,
+        msg.prompt,
+        1,
+        msg.assetType,
+        getVideoGenerateAudio(msg.mediaKind, msg.generateAudio)
+      );
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
         this.send(ws, {
@@ -304,7 +314,13 @@ export class GenerationController extends BaseController {
         billingAssetType = asset.type;
       }
       const billingService = getGenerationBillingService(this.env, billingMediaKind, billingAssetType, msg.musicProvider);
-      const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, 1, billingAssetType, msg.generateAudio);
+      const quotaQuantity = getQuotaCheckQuantity(
+        billingService,
+        msg.prompt,
+        1,
+        billingAssetType,
+        getVideoGenerateAudio(billingMediaKind, msg.generateAudio)
+      );
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
         this.send(ws, {
@@ -501,7 +517,13 @@ export class GenerationController extends BaseController {
     const retryMediaKind = variant.media_kind ?? asset.media_kind;
     const billingService = getGenerationBillingService(this.env, retryMediaKind, recipe.assetType, recipe.musicProvider);
     if (this.env.DB && (billingService === 'elevenlabs' || billingService === 'lyria' || billingService === 'veo')) {
-      const quotaQuantity = getQuotaCheckQuantity(billingService, recipe.prompt, 1, recipe.assetType, getRecipeGenerateAudio(recipe));
+      const quotaQuantity = getQuotaCheckQuantity(
+        billingService,
+        recipe.prompt,
+        1,
+        recipe.assetType,
+        getVideoGenerateAudio(retryMediaKind, getRecipeGenerateAudio(recipe))
+      );
       const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
       if (!check.allowed) {
         this.sendError(
@@ -692,7 +714,6 @@ export class GenerationController extends BaseController {
         let operation = 'derive';
         let usageModel = DEFAULT_IMAGE_MODEL_ID;
         let imageSize: string | undefined;
-        let generateAudio: boolean | undefined;
         try {
           const recipe = JSON.parse(variant.recipe);
           // Handle legacy 'create'/'combine' operations
@@ -704,13 +725,12 @@ export class GenerationController extends BaseController {
           if (typeof recipe.imageSize === 'string' && recipe.imageSize.length > 0) {
             imageSize = recipe.imageSize;
           }
-          generateAudio = getRecipeGenerateAudio(recipe);
         } catch {
           // Ignore parse errors
         }
 
         if (variant.media_kind === 'video') {
-          const billingDimensions = getVideoBillingDimensions(data, variant, generateAudio);
+          const billingDimensions = getVideoBillingDimensions(data, variant);
           await trackVideoGeneration(
             this.env.DB,
             parseInt(variant.created_by),

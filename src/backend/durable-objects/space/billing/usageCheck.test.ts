@@ -270,13 +270,13 @@ describe('SpaceDO usage preCheck', () => {
 
     assert.strictEqual(inserts.length, 1);
     assert.strictEqual(inserts[0][2], 'gemini_videos');
-    assert.strictEqual(inserts[0][3], 1);
+    assert.strictEqual(inserts[0][3], 2);
     assert.deepStrictEqual(JSON.parse(String(inserts[0][4])), {
       model: 'veo-3.1-generate-preview',
       operation: 'generate',
       resolution: '1080p',
       duration_seconds: 8,
-      generate_audio: false,
+      generate_audio: true,
       video_count: 1,
     });
   });

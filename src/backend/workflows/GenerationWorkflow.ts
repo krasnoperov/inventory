@@ -66,6 +66,7 @@ import { DEFAULT_MEDIA_KIND } from '../../shared/websocket-types';
 import {
   DEFAULT_VIDEO_GENERATION_DURATION_SECONDS,
   DEFAULT_VIDEO_GENERATION_RESOLUTION,
+  VIDEO_GENERATION_AUDIO_ALWAYS_ON,
   getVideoGenerationModelForTier,
   getVideoGenerationTierForModel,
   isVideoGenerationResolutionSupportedForTier,
@@ -126,7 +127,6 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       videoResolution,
       videoDurationSeconds,
       videoTier,
-      generateAudio,
       modelProvider,
       mediaKind: requestedMediaKind,
     } = event.payload;
@@ -232,7 +232,6 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           ) as VideoDurationSeconds;
           const styleImageCount = styleImageKeys?.length || 0;
           const referenceModeToUse = veoReferenceMode ?? determineVeoReferenceMode(sourceImages.length, styleImageCount);
-          const generateAudioToUse = generateAudio === true;
 
           const timer = log.startTimer('Veo video generation', {
             requestId,
@@ -253,7 +252,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   resolution: resolutionToUse,
                   durationSeconds: durationSecondsToUse,
                   referenceMode: referenceModeToUse,
-                  generateAudio: generateAudioToUse,
+                  generateAudio: VIDEO_GENERATION_AUDIO_ALWAYS_ON,
                 }
               : await new GoogleVeoService(this.env.GOOGLE_AI_API_KEY ?? '').generate({
                   prompt,
@@ -264,7 +263,6 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   sourceImages,
                   styleImageCount,
                   referenceMode: referenceModeToUse,
-                  generateAudio: generateAudioToUse,
                 });
             timer(true, { resultSize: result.videoData.length });
             // Upload in-step; never return raw video bytes (1 MiB step-output cap).

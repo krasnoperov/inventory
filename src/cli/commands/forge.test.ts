@@ -1563,7 +1563,6 @@ test('video generate sends video request and downloads variant media', async () 
     parentAssetId: undefined,
     disableStyle: false,
     mediaKind: 'video',
-    generateAudio: false,
   });
   assert.deepEqual(downloads, []);
   assert.deepEqual(mediaDownloads, [{
@@ -1604,7 +1603,6 @@ test('video refine sends source video variant through website job', async () => 
     aspectRatio: undefined,
     disableStyle: false,
     mediaKind: 'video',
-    generateAudio: false,
   });
   assert.deepEqual(mediaDownloads, [{
     baseUrl: 'https://makefx-stage.example.test',
@@ -1652,35 +1650,26 @@ test('video derive accepts image and video refs and sends video request', async 
     parentAssetId: undefined,
     disableStyle: false,
     mediaKind: 'video',
-    generateAudio: false,
   });
 });
 
-test('video generate can opt into Veo native audio', async () => {
+test('video audio flags are rejected because current Veo models always include audio', async () => {
   const client = new FakeClient();
   const { deps } = depsFor(client);
 
-  await executeVideoCommand('generate', {
-    positionals: ['A', 'market', 'shot', 'with', 'ambience'],
-    options: {
-      space: 'space-1',
-      name: 'Market Shot',
-      type: 'animation',
-      o: 'market.mp4',
-      audio: 'true',
-    },
-  }, deps);
-
-  assert.deepEqual(client.generateParams, {
-    name: 'Market Shot',
-    assetType: 'animation',
-    prompt: 'A market shot with ambience',
-    aspectRatio: undefined,
-    parentAssetId: undefined,
-    disableStyle: false,
-    mediaKind: 'video',
-    generateAudio: true,
-  });
+  await assert.rejects(
+    () => executeVideoCommand('generate', {
+      positionals: ['A', 'market', 'shot', 'with', 'ambience'],
+      options: {
+        space: 'space-1',
+        name: 'Market Shot',
+        type: 'animation',
+        o: 'market.mp4',
+        audio: 'true',
+      },
+    }, deps),
+    /Current Veo video models always generate audio/
+  );
 });
 
 test('video generate sends resolution, duration, and tier controls', async () => {
@@ -1709,7 +1698,6 @@ test('video generate sends resolution, duration, and tier controls', async () =>
     parentAssetId: undefined,
     disableStyle: false,
     mediaKind: 'video',
-    generateAudio: false,
     videoResolution: '1080p',
     videoDurationSeconds: 6,
     videoTier: 'fast',
@@ -1775,7 +1763,7 @@ test('image commands reject video audio flags before opening a website job', asy
         audio: 'true',
       },
     }, deps),
-    /--audio and --no-audio are only supported for video generation/
+    /Current Veo video models always generate audio/
   );
 
   assert.equal(client.connected, false);

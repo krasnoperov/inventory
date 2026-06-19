@@ -1,8 +1,9 @@
 import {
   GoogleGenAI,
   VideoGenerationReferenceType,
+  type GenerateVideosConfig,
   type GenerateVideosOperation,
-  type VideoGenerationReferenceImage,
+  type GenerateVideosParameters,
 } from '@google/genai';
 import type { ImageInput } from './nanoBananaService';
 import { arrayBufferToBase64 } from '../utils/image-utils';
@@ -10,6 +11,7 @@ import {
   DEFAULT_VIDEO_GENERATION_DURATION_SECONDS,
   DEFAULT_VIDEO_GENERATION_MODEL,
   DEFAULT_VIDEO_GENERATION_RESOLUTION,
+  VIDEO_GENERATION_AUDIO_ALWAYS_ON,
   normalizeVideoGenerationAspectRatio,
   normalizeVideoGenerationDurationSeconds,
   normalizeVideoGenerationResolution,
@@ -24,7 +26,14 @@ export type VideoAspectRatio = VideoGenerationAspectRatio;
 export type VideoResolution = VideoGenerationResolution;
 export type VideoDurationSeconds = VideoGenerationDurationSeconds;
 export type VeoReferenceMode = 'text-to-video' | 'image-to-video' | 'first-last-frame' | 'reference-images';
-type VeoImageInput = { imageBytes: string; mimeType: string };
+type VeoImageInput = NonNullable<GenerateVideosParameters['image']>;
+type GeminiVeoConfig = Omit<
+  Pick<GenerateVideosConfig, 'aspectRatio' | 'resolution' | 'durationSeconds' | 'numberOfVideos' | 'lastFrame' | 'referenceImages'>,
+  'generateAudio'
+> & { generateAudio?: never };
+type GeminiVeoGenerateVideosParameters = Omit<GenerateVideosParameters, 'config'> & {
+  config?: GeminiVeoConfig;
+};
 
 export interface GenerateVideoOptions {
   prompt: string;
@@ -35,7 +44,6 @@ export interface GenerateVideoOptions {
   sourceImages?: ImageInput[];
   styleImageCount?: number;
   referenceMode?: VeoReferenceMode;
-  generateAudio?: boolean;
 }
 
 export interface VideoGenerationResult {
@@ -51,20 +59,7 @@ export interface VideoGenerationResult {
 
 interface GoogleVeoClient {
   models: {
-    generateVideos(params: {
-      model: string;
-      prompt: string;
-      image?: VeoImageInput;
-      config?: {
-        aspectRatio?: string;
-        resolution?: string;
-        durationSeconds?: number;
-        numberOfVideos?: number;
-        generateAudio?: boolean;
-        lastFrame?: VeoImageInput;
-        referenceImages?: VideoGenerationReferenceImage[];
-      };
-    }): Promise<GenerateVideosOperation>;
+    generateVideos(params: GeminiVeoGenerateVideosParameters): Promise<GenerateVideosOperation>;
   };
   operations: {
     getVideosOperation(params: { operation: GenerateVideosOperation }): Promise<GenerateVideosOperation>;
@@ -151,25 +146,16 @@ export class GoogleVeoService {
     const durationSeconds = normalizeDuration(options.durationSeconds);
     const styleImageCount = Math.max(0, Math.min(options.styleImageCount ?? 0, sourceImages.length));
     const referenceMode = normalizeVeoReferenceMode(options.referenceMode, sourceImages.length, styleImageCount);
-    const generateAudio = options.generateAudio === true;
+    const generateAudio = VIDEO_GENERATION_AUDIO_ALWAYS_ON;
 
-    const config: {
-      aspectRatio: string;
-      resolution: string;
-      durationSeconds: number;
-      numberOfVideos: number;
-      generateAudio: boolean;
-      lastFrame?: VeoImageInput;
-      referenceImages?: VideoGenerationReferenceImage[];
-    } = {
+    const config: GeminiVeoConfig = {
       aspectRatio,
       resolution,
       durationSeconds,
       numberOfVideos: 1,
-      generateAudio,
     };
 
-    const request: Parameters<GoogleVeoClient['models']['generateVideos']>[0] = {
+    const request: GeminiVeoGenerateVideosParameters = {
       model,
       prompt,
       config,

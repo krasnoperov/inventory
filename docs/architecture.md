@@ -55,8 +55,9 @@ allowed values are `image`, `audio`, and `video`, with `image` as the default
 for legacy and omitted values. Website generation can produce images through
 Gemini image models, audio through the configured audio provider, and videos
 through Google Veo. Video recipes persist `videoTier`, `videoResolution`,
-`videoDurationSeconds`, and a per-request `generateAudio` boolean: `false` is
-the silent default and `true` requests Veo-native synchronized audio.
+`videoDurationSeconds`, and `generateAudio: true` metadata because current Veo
+video models generate audio with video and do not expose a Gemini API audio
+on/off switch.
 ElevenLabs audio generation remains the default music path and routes `sfx`
 assets to sound-effect generation and other audio asset types to speech/dialogue
 generation; `music` assets may explicitly select Lyria as an alternate provider.

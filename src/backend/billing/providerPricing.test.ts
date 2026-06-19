@@ -95,8 +95,8 @@ describe('provider pricing', () => {
     assert.equal(defaultedStandard.amountUsd, 3.2);
   });
 
-  test('prices silent Gemini video output below native-audio output', () => {
-    const silent = priceProviderUsageEvent({
+  test('prices Gemini video output as audio-bearing even with stale silent metadata', () => {
+    const staleSilent = priceProviderUsageEvent({
       eventName: 'gemini_videos',
       quantity: 2,
       metadata: {
@@ -119,8 +119,8 @@ describe('provider pricing', () => {
       },
     });
 
-    assert.equal(silent.amountUsd, 1.6);
-    assert.equal(silent.quantity, 8);
+    assert.equal(staleSilent.amountUsd, 3.2);
+    assert.equal(staleSilent.quantity, 8);
     assert.equal(withAudio.amountUsd, 3.2);
     assert.equal(withAudio.quantity, 8);
   });
