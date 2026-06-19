@@ -21,10 +21,9 @@ import { applyLayout, type LayoutAlgorithm } from './layouts';
 import '@xyflow/react/dist/style.css';
 import styles from './AssetCanvas.module.css';
 
-// Fixed thumbnail height, width varies by aspect ratio
+// Fixed thumbnail height, width varies freely by aspect ratio (no clamp:
+// the card must show the image as-is — no crop, no letterbox bars).
 const THUMB_HEIGHT = 140;
-const THUMB_MIN_WIDTH = 100;
-const THUMB_MAX_WIDTH = 240;
 const NODE_PADDING = 20; // padding + border around thumbnail
 const LABEL_HEIGHT = 30; // space for name/type label
 
@@ -55,11 +54,10 @@ export interface AssetCanvasProps {
   layoutAlgorithm?: LayoutAlgorithm;
 }
 
-/** Calculate node width from image dimensions */
+/** Calculate node bounding width from image dimensions (height fixed, width follows aspect ratio) */
 function calculateNodeWidth(imgWidth: number, imgHeight: number): number {
   const aspectRatio = imgWidth / imgHeight;
-  const thumbWidth = Math.min(THUMB_MAX_WIDTH, Math.max(THUMB_MIN_WIDTH, THUMB_HEIGHT * aspectRatio));
-  return thumbWidth + NODE_PADDING;
+  return Math.round(THUMB_HEIGHT * aspectRatio) + NODE_PADDING;
 }
 
 /** Inner component that has access to ReactFlow hooks */
@@ -114,19 +112,24 @@ function AssetCanvasInner({
 
   // Build nodes and edges from assets
   const { initialNodes, initialEdges } = useMemo(() => {
-    const nodes: AssetNodeType[] = assets.map((asset) => ({
-      id: asset.id,
-      type: 'asset' as const,
-      position: { x: 0, y: 0 },
-      data: {
-        asset,
-        variant: getAssetVariant(asset),
-        spaceId,
-        isGenerating: isAssetGenerating(asset.id),
-        onAssetClick,
-        onAddToTray,
-      },
-    }));
+    const nodes: AssetNodeType[] = assets.map((asset) => {
+      const dims = imageDimensions.get(asset.id);
+      return {
+        id: asset.id,
+        type: 'asset' as const,
+        position: { x: 0, y: 0 },
+        data: {
+          asset,
+          variant: getAssetVariant(asset),
+          spaceId,
+          isGenerating: isAssetGenerating(asset.id),
+          onAssetClick,
+          onAddToTray,
+          // Exact thumbnail width so the card matches the image aspect ratio
+          thumbWidth: dims ? dims.width - NODE_PADDING : undefined,
+        },
+      };
+    });
 
     const edges: Edge[] = assets
       .filter(asset => asset.parent_asset_id)

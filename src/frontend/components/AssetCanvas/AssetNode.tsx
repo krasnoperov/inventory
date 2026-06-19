@@ -17,12 +17,14 @@ export interface AssetNodeData extends Record<string, unknown> {
   layoutDirection?: LayoutDirection;
   /** Space ID for authenticated media preview URLs */
   spaceId?: string;
+  /** Exact thumbnail width (px) so the card matches the image aspect ratio */
+  thumbWidth?: number;
 }
 
 export type AssetNodeType = Node<AssetNodeData, 'asset'>;
 
 function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
-  const { asset, variant, onAssetClick, onAddToTray, layoutDirection = 'LR', spaceId } = data;
+  const { asset, variant, onAssetClick, onAddToTray, layoutDirection = 'LR', spaceId, thumbWidth } = data;
 
   // Determine handle positions based on layout direction
   const getHandlePositions = () => {
@@ -67,7 +69,11 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
       <Handle type="target" position={targetPosition} className={styles.handle} />
 
       {/* Thumbnail */}
-      <div className={styles.thumbnail} onClick={handleClick}>
+      <div
+        className={styles.thumbnail}
+        onClick={handleClick}
+        style={thumbWidth ? { width: thumbWidth } : undefined}
+      >
         {renderThumbnail()}
 
         {/* Add to tray button on hover - only for ready variants */}

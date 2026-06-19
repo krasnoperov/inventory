@@ -20,10 +20,9 @@ import { VariantNode, type VariantNodeType } from './VariantNode';
 import '@xyflow/react/dist/style.css';
 import styles from './VariantCanvas.module.css';
 
-// Fixed thumbnail height, width varies by aspect ratio
+// Fixed thumbnail height, width varies freely by aspect ratio (no clamp:
+// the card must show the image as-is — no crop, no letterbox bars).
 const THUMB_HEIGHT = 140;
-const THUMB_MIN_WIDTH = 100;
-const THUMB_MAX_WIDTH = 240;
 const NODE_PADDING = 20;
 
 // Active variant is larger
@@ -67,11 +66,10 @@ export interface VariantCanvasProps {
   onDeleteVariant?: (variant: Variant) => void;
 }
 
-/** Calculate node width from image dimensions */
+/** Calculate node bounding width from image dimensions (height fixed, width follows aspect ratio) */
 function calculateNodeWidth(imgWidth: number, imgHeight: number, scale = 1): number {
   const aspectRatio = imgWidth / imgHeight;
-  const thumbWidth = Math.min(THUMB_MAX_WIDTH * scale, Math.max(THUMB_MIN_WIDTH * scale, THUMB_HEIGHT * scale * aspectRatio));
-  return thumbWidth + NODE_PADDING;
+  return Math.round(THUMB_HEIGHT * scale * aspectRatio) + NODE_PADDING;
 }
 
 /** Apply dagre layout to nodes with lineage-based edges */
@@ -310,29 +308,34 @@ function VariantCanvasInner({
     }
 
     // Create normal nodes for this asset's variants
-    const nodes: VariantNodeType[] = variants.map((variant) => ({
-      id: variant.id,
-      type: 'variant' as const,
-      position: { x: 0, y: 0 },
-      data: {
-        variant,
-        asset,
-        isActive: variant.id === asset.active_variant_id,
-        isSelected: variant.id === selectedVariantId,
-        isGenerating: isVariantGenerating(variant.id),
-        onVariantClick,
-        onAddToTray,
-        onSetActive,
-        onRetryRecipe,
-        forkedTo: forkedToMap.get(variant.id),
-        forkedFrom: forkedFromMap.get(variant.id),
-        onGhostClick: onGhostNodeClick, // For forked-to/from navigation
-        onStarVariant,
-        onDeleteVariant,
-        variantCount: variants.length,
-        spaceId,
-      },
-    }));
+    const nodes: VariantNodeType[] = variants.map((variant) => {
+      const dims = imageDimensions.get(variant.id);
+      return {
+        id: variant.id,
+        type: 'variant' as const,
+        position: { x: 0, y: 0 },
+        data: {
+          variant,
+          asset,
+          isActive: variant.id === asset.active_variant_id,
+          isSelected: variant.id === selectedVariantId,
+          isGenerating: isVariantGenerating(variant.id),
+          onVariantClick,
+          onAddToTray,
+          onSetActive,
+          onRetryRecipe,
+          forkedTo: forkedToMap.get(variant.id),
+          forkedFrom: forkedFromMap.get(variant.id),
+          onGhostClick: onGhostNodeClick, // For forked-to/from navigation
+          onStarVariant,
+          onDeleteVariant,
+          variantCount: variants.length,
+          spaceId,
+          // Exact thumbnail width so the card matches the image aspect ratio
+          thumbWidth: dims ? dims.width - NODE_PADDING : undefined,
+        },
+      };
+    });
 
     // Find incoming cross-asset lineage: where child is in this asset but parent is from another asset
     // Exclude forked - for forked, the local variant IS a copy, so no ghost needed
@@ -368,6 +371,7 @@ function VariantCanvasInner({
         if (!parentAsset) continue;
 
         ghostVariantIds.add(lin.parent_variant_id);
+        const ghostDims = imageDimensions.get(lin.parent_variant_id);
         ghostNodes.push({
           id: lin.parent_variant_id,
           type: 'variant' as const,
@@ -377,6 +381,8 @@ function VariantCanvasInner({
             asset: parentAsset,
             isGhost: true,
             onGhostClick: onGhostNodeClick,
+            // Exact thumbnail width so the card matches the image aspect ratio
+            thumbWidth: ghostDims ? ghostDims.width - NODE_PADDING : undefined,
           },
         });
       }
@@ -392,6 +398,7 @@ function VariantCanvasInner({
         if (!childAsset) continue;
 
         ghostVariantIds.add(lin.child_variant_id);
+        const ghostDims = imageDimensions.get(lin.child_variant_id);
         ghostNodes.push({
           id: lin.child_variant_id,
           type: 'variant' as const,
@@ -402,6 +409,8 @@ function VariantCanvasInner({
             isGhost: true,
             isDerivative: true, // Mark as outgoing derivative for different styling
             onGhostClick: onGhostNodeClick,
+            // Exact thumbnail width so the card matches the image aspect ratio
+            thumbWidth: ghostDims ? ghostDims.width - NODE_PADDING : undefined,
           },
         });
       }
@@ -613,7 +622,9 @@ export function VariantCanvas({
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
   const [dimensionsReady, setDimensionsReady] = useState(false);
 
-  // Load image dimensions for all variants
+  // Load image dimensions for all variants — including cross-asset ghost
+  // variants referenced by lineage, so ghost cards also get an exact width
+  // and render at their true aspect ratio (no crop, no letterbox bars).
   useEffect(() => {
     if (variants.length === 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing readiness from external image-load state
@@ -623,10 +634,21 @@ export function VariantCanvas({
 
     setDimensionsReady(false);
 
+    // External variants referenced by lineage but not owned by this asset (ghosts)
+    const localIds = new Set(variants.map(v => v.id));
+    const externalIds = new Set<string>();
+    for (const l of lineage) {
+      if (l.severed) continue;
+      if (localIds.has(l.child_variant_id) && !localIds.has(l.parent_variant_id)) externalIds.add(l.parent_variant_id);
+      if (localIds.has(l.parent_variant_id) && !localIds.has(l.child_variant_id)) externalIds.add(l.child_variant_id);
+    }
+    const ghostVariants = (allVariants ?? []).filter(v => externalIds.has(v.id));
+    const variantsToMeasure = [...variants, ...ghostVariants];
+
     const loadDimensions = async () => {
       const newDimensions = new Map<string, { width: number; height: number }>();
 
-      const promises = variants.map(async (variant) => {
+      const promises = variantsToMeasure.map(async (variant) => {
         const url = getVariantThumbnailUrl(variant);
         if (!url) {
           if (isVariantVideoReady(variant) && variant.media_width && variant.media_height) {
@@ -665,7 +687,7 @@ export function VariantCanvas({
     };
 
     loadDimensions();
-  }, [variants]);
+  }, [variants, lineage, allVariants]);
 
   return (
     <ReactFlowProvider>

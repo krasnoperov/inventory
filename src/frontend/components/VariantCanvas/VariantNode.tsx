@@ -43,6 +43,8 @@ export interface VariantNodeData extends Record<string, unknown> {
   variantCount?: number;
   /** Space ID for authenticated media downloads */
   spaceId?: string;
+  /** Exact thumbnail width (px) so the card matches the image aspect ratio */
+  thumbWidth?: number;
 }
 
 export type VariantNodeType = Node<VariantNodeData, 'variant'>;
@@ -70,6 +72,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     onDeleteVariant,
     variantCount = 0,
     spaceId,
+    thumbWidth,
   } = data;
 
   // Expanded state for showing details
@@ -217,7 +220,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       )}
 
       {/* Thumbnail */}
-      <div className={styles.thumbnail}>
+      <div className={styles.thumbnail} style={thumbWidth ? { width: thumbWidth } : undefined}>
         {renderThumbnail()}
 
         {/* Indicators - only for completed variants */}
