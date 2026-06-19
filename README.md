@@ -69,7 +69,6 @@ makefx audio sfx generate "A crisp magical item pickup" \
 makefx video generate "A looping idle animation for a tiny robot" \
   --name "Robot Idle" \
   --type animation \
-  --no-audio \
   -o video/robot-idle.mp4
 ```
 

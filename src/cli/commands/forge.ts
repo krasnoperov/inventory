@@ -1328,24 +1328,17 @@ function parseAudioVoiceOptions(parsed: ParsedArgs): AudioVoiceOptions {
 function validateVideoAudioOptions(parsed: ParsedArgs, mediaKind: GenerationMediaKind): void {
   const hasAudioFlag = parsed.options.audio !== undefined || parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined;
   if (!hasAudioFlag) return;
-  if (mediaKind !== 'video') {
-    throw new Error('--audio and --no-audio are only supported for video generation');
-  }
-  if (parsed.options.audio !== undefined && (parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined)) {
-    throw new Error('Pass either --audio or --no-audio, not both');
-  }
+  void mediaKind;
+  throw new Error('Current Veo video models always generate audio; --audio and --no-audio are not supported');
 }
 
 function parseVideoAudioOptions(
   parsed: ParsedArgs,
   mediaKind: GenerationMediaKind
 ): { generateAudio?: boolean } {
-  if (mediaKind !== 'video') return {};
-  if (parsed.options.audio !== undefined) return { generateAudio: true };
-  if (parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined) {
-    return { generateAudio: false };
-  }
-  return { generateAudio: false };
+  void parsed;
+  void mediaKind;
+  return {};
 }
 
 function parseVideoGenerationOptions(

@@ -48,11 +48,11 @@ function printUsage(): void {
 
   console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio|--no-audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--space <id>]
   makefx video generate --follow <variant_id> -o <file> [--space <id>]
-  makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio|--no-audio] [--space <id>]
+  makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--space <id>]
   makefx video refine --follow <variant_id> -o <file> [--space <id>]
-  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio|--no-audio] [--space <id>]
+  makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--space <id>]
   makefx video derive --follow <variant_id> -o <file> [--space <id>]
 
 Video:
@@ -62,8 +62,7 @@ Video:
   --tier <tier>         Veo model tier: ${tierValues}
 
 Audio:
-  --audio       Request native synchronized Veo audio
-  --no-audio    Request a silent video (default)
+  Current Veo models generate audio with video. Describe dialogue, SFX, score, or ambience in the prompt.
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>

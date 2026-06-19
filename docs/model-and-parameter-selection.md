@@ -95,10 +95,10 @@ provider options, with request construction in
 
 ### Audio
 
-Video generation is silent by default. The web toggle and CLI `--audio` flag set
-`generateAudio: true` in the variant recipe and workflow input, which requests
-Veo-native synchronized dialogue, SFX, score, or ambience for that clip. CLI
-`--no-audio` and omitted values set or normalize to `false`.
+Current Veo video models generate audio with video. Make Effects does not expose
+a per-request audio on/off control for these models because the Gemini API does
+not support one. Describe dialogue, SFX, score, or ambience in the prompt when
+the sound track matters.
 
 ### Model Tier
 
@@ -255,10 +255,10 @@ the fake provider, and audio uses the configured audio provider.
 ## Audio (Gemini-Native And Future Models)
 
 - **Veo native audio.** Veo 3.1 can score synchronized dialogue, SFX, and
-  ambience alongside the video. In Make Effects this requires per-request
-  `generateAudio: true` (`--audio` in the CLI or the web video audio toggle)
-  plus a prompt audio layer that describes what should be heard. Requesting it
-  does not reduce video resolution. See the [audio playbook](./playbooks/audio.md)
+  ambience alongside the video. Make Effects treats this as always on for the
+  current Veo video models and does not expose a separate audio toggle. A prompt
+  audio layer describes what should be heard. Audio does not reduce video
+  resolution. See the [audio playbook](./playbooks/audio.md)
   for the prompt grammar.
 - **Lyria** is the dedicated music model: genre/era, tempo, instruments,
   dynamics, plus image- or lyrics-based prompts. Watch version differences —

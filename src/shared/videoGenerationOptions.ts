@@ -1,3 +1,5 @@
+import type { GenerateVideosConfig } from '@google/genai';
+
 export type VideoGenerationAspectRatio = '16:9' | '9:16';
 export type VideoGenerationResolution = '720p' | '1080p' | '4k';
 export type VideoGenerationDurationSeconds = 4 | 6 | 8;
@@ -7,10 +9,26 @@ export type VideoGenerationModel =
   | 'veo-3.1-fast-generate-preview'
   | 'veo-3.1-lite-generate-preview';
 
+type GeminiVeoUiConfig = Pick<GenerateVideosConfig, 'aspectRatio' | 'resolution' | 'durationSeconds'>;
+type AssertAssignable<_T extends U, U> = true;
+export type VideoAspectRatioApiContract = AssertAssignable<
+  VideoGenerationAspectRatio,
+  NonNullable<GeminiVeoUiConfig['aspectRatio']>
+>;
+export type VideoResolutionApiContract = AssertAssignable<
+  VideoGenerationResolution,
+  NonNullable<GeminiVeoUiConfig['resolution']>
+>;
+export type VideoDurationApiContract = AssertAssignable<
+  VideoGenerationDurationSeconds,
+  NonNullable<GeminiVeoUiConfig['durationSeconds']>
+>;
+
 export const VIDEO_GENERATION_ASPECT_RATIOS: VideoGenerationAspectRatio[] = ['16:9', '9:16'];
 export const VIDEO_GENERATION_RESOLUTIONS: VideoGenerationResolution[] = ['720p', '1080p', '4k'];
 export const VIDEO_GENERATION_DURATION_SECONDS: VideoGenerationDurationSeconds[] = [4, 6, 8];
 export const VIDEO_GENERATION_TIERS: VideoGenerationTier[] = ['generate', 'fast', 'lite'];
+export const VIDEO_GENERATION_AUDIO_ALWAYS_ON = true;
 export const VIDEO_GENERATION_RESOLUTIONS_BY_TIER: Record<VideoGenerationTier, VideoGenerationResolution[]> = {
   generate: VIDEO_GENERATION_RESOLUTIONS,
   fast: VIDEO_GENERATION_RESOLUTIONS,

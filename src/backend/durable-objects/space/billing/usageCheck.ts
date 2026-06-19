@@ -52,7 +52,7 @@ const QUOTA_EVENT_NAMES: Record<string, string> = {
 
 export const VIDEO_WITH_AUDIO_QUOTA_UNITS = 2;
 
-export function getVideoQuotaUnits(videoCount: number, generateAudio?: boolean): number {
+export function getVideoQuotaUnits(videoCount: number, generateAudio = true): number {
   return videoCount * (generateAudio ? VIDEO_WITH_AUDIO_QUOTA_UNITS : 1);
 }
 
@@ -393,7 +393,7 @@ export async function trackVideoGeneration(
   operation?: string,
   resolution?: string,
   durationSeconds?: number,
-  generateAudio?: boolean,
+  generateAudio = true,
   adminUserIds?: string
 ): Promise<void> {
   await trackUsage(db, userId, 'gemini_videos', getVideoQuotaUnits(videoCount, generateAudio), {

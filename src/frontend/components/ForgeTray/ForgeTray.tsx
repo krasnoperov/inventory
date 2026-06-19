@@ -25,6 +25,7 @@ import {
   DEFAULT_VIDEO_GENERATION_DURATION_SECONDS,
   DEFAULT_VIDEO_GENERATION_RESOLUTION,
   DEFAULT_VIDEO_GENERATION_TIER,
+  VIDEO_GENERATION_AUDIO_ALWAYS_ON,
   VIDEO_GENERATION_DURATION_SECONDS,
   VIDEO_GENERATION_RESOLUTIONS,
   VIDEO_GENERATION_TIERS,
@@ -91,8 +92,6 @@ export interface ForgeSubmitParams {
   dialogueVoiceIds?: string[];
   /** Music provider selection (music mode only) */
   musicProvider?: MusicGenerationProvider;
-  /** Whether Veo should generate native synchronized audio (video mode) */
-  generateAudio?: boolean;
   /** Veo output resolution (video mode) */
   videoResolution?: VideoGenerationResolution;
   /** Veo output duration in seconds (video mode) */
@@ -329,7 +328,6 @@ export function ForgeTray({
   const [dialogueVoiceIds, setDialogueVoiceIds] = useState<string[]>([]);
   const [musicProvider, setMusicProvider] = useState<MusicGenerationProvider>('elevenlabs');
   const [musicProviderExplicit, setMusicProviderExplicit] = useState(false);
-  const [videoAudioEnabled, setVideoAudioEnabled] = useState(false);
   const [videoResolution, setVideoResolution] = useState<VideoGenerationResolution>(DEFAULT_VIDEO_GENERATION_RESOLUTION);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState<VideoGenerationDurationSeconds>(DEFAULT_VIDEO_GENERATION_DURATION_SECONDS);
   const [videoTier, setVideoTier] = useState<VideoGenerationTier>(DEFAULT_VIDEO_GENERATION_TIER);
@@ -675,7 +673,6 @@ export function ForgeTray({
         imageSize: selectedMediaKind === 'image' ? imageSize : undefined,
         disableStyle: isAudioMode || noStyle || undefined,
         voiceId: mediaMode === 'speech' ? voiceId : undefined,
-        generateAudio: mediaMode === 'video' ? videoAudioEnabled : undefined,
         videoResolution: mediaMode === 'video' ? videoResolution : undefined,
         videoDurationSeconds: mediaMode === 'video' ? videoDurationSeconds : undefined,
         videoTier: mediaMode === 'video' ? videoTier : undefined,
@@ -700,7 +697,6 @@ export function ForgeTray({
       setDialogueVoiceIds([]);
       setMusicProvider('elevenlabs');
       setMusicProviderExplicit(false);
-      setVideoAudioEnabled(false);
       setVideoResolution(DEFAULT_VIDEO_GENERATION_RESOLUTION);
       setVideoDurationSeconds(DEFAULT_VIDEO_GENERATION_DURATION_SECONDS);
       setVideoTier(DEFAULT_VIDEO_GENERATION_TIER);
@@ -709,7 +705,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoAudioEnabled, videoResolution, videoDurationSeconds, videoTier]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -1004,15 +1000,11 @@ export function ForgeTray({
                       </button>
                     ))}
                   </div>
-                  <label className={styles.noStyleCheck} title="Generate synchronized Veo audio">
-                    <input
-                      type="checkbox"
-                      checked={videoAudioEnabled}
-                      onChange={(e) => setVideoAudioEnabled(e.target.checked)}
-                      disabled={isSubmitting}
-                    />
-                    Audio
-                  </label>
+                  {VIDEO_GENERATION_AUDIO_ALWAYS_ON && (
+                    <span className={styles.optChipMuted} title="Current Veo models generate audio with video">
+                      Audio always on
+                    </span>
+                  )}
                 </>
               )}
 

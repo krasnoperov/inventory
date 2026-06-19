@@ -112,7 +112,7 @@ function roundUsd(amount: number): number {
   return Math.round((amount + Number.EPSILON) * USD_PRECISION) / USD_PRECISION;
 }
 
-function getVideoQuotaUnits(videoCount: number, generateAudio?: boolean): number {
+function getVideoQuotaUnits(videoCount: number, generateAudio = true): number {
   return videoCount * (generateAudio ? VIDEO_WITH_AUDIO_QUOTA_UNITS : 1);
 }
 
@@ -318,7 +318,7 @@ export class UsageService {
     aspectRatio?: string,
     resolution?: string,
     durationSeconds?: number,
-    generateAudio?: boolean
+    generateAudio = true
   ): Promise<void> {
     const polarBillable = await this.isBillableUser(userId);
 

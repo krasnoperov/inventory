@@ -471,12 +471,10 @@ makefx video generate "A looping idle animation" \
   --duration 6 \
   --resolution 1080p \
   --tier fast \
-  --no-audio \
   -o video/idle.mp4
 
 makefx video refine \
   --variant VIDEO_VARIANT_ID \
-  --audio \
   "make the motion snappier" \
   -o video/idle-snappy.mp4
 
@@ -484,7 +482,6 @@ makefx video derive \
   --refs IMAGE_VARIANT_ID,VIDEO_VARIANT_ID \
   --name "Attack Animation" \
   --type animation \
-  --audio \
   "animate the pose into a short attack" \
   -o video/attack.mp4
 ```
@@ -494,10 +491,9 @@ variant IDs, and local image paths. Local paths are uploaded first as reference
 image assets. Video batch generation is not exposed because website batch jobs
 reject `mediaKind: "video"`.
 
-Video output is silent by default. Pass `--audio` to request Veo native
-synchronized dialogue, SFX, score, or ambience for that request; pass
-`--no-audio` to make a silent request explicit. The choice is stored in the
-variant recipe as `generateAudio` and is preserved when retrying the variant.
+Current Veo video models generate audio with video. There is no per-request
+audio on/off switch in the Gemini API for these models; describe dialogue, SFX,
+score, or ambience in the prompt when the sound track matters.
 Pass `--aspect 16:9|9:16`, `--resolution 720p|1080p|4k`,
 `--duration 4|6|8`, and `--tier generate|fast|lite` to select the Veo output
 controls for that request; those choices are stored in the variant recipe and
