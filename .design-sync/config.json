@@ -3,7 +3,7 @@
   "pkg": "makefx",
   "globalName": "MakeFx",
   "shape": "package",
-  "cssEntry": "src/frontend/styles/theme.css",
+  "cssEntry": ".design-sync/ds-styles.css",
   "componentSrcMap": {
     "Pagination": "src/frontend/components/Pagination.tsx",
     "TopLoadingBar": "src/frontend/components/TopLoadingBar.tsx",

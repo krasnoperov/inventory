@@ -30,3 +30,16 @@
 - `ds-entry.tsx` + `componentSrcMap` are hand-maintained: adding/removing a synced component means editing BOTH.
 - Preview data objects (Variant/Asset) are inlined in `previews/*.tsx`; if those types gain required fields, the inline objects may need updating.
 - theme.css ships without PostCSS; relies on the design tool's browser supporting `light-dark()` + oklch.
+
+## CRITICAL: ship global.css base, not just tokens (fixed after first upload)
+- First upload set cssEntry=theme.css (tokens only). Designs in the tool then
+  rendered UNSTYLED — browser-default serif, no reset — because global.css
+  (font-family, `color-scheme: light dark`, box-sizing reset, button/a/input
+  resets) never reached the styles.css closure. Preview cards masked it (they
+  carry their own base); designs the agent builds get ONLY the styles.css closure.
+- Fix: cssEntry = `.design-sync/ds-styles.css` = global.css + theme.css concatenated.
+  REGENERATE on every re-sync BEFORE building:
+  `{ cat src/frontend/styles/global.css; echo; cat src/frontend/styles/theme.css; } > .design-sync/ds-styles.css`
+  (the file carries a header comment with this command).
+- Theme default: "follow system" — left `color-scheme: light dark`; the design
+  tool's own light/dark setting decides. Site is dark (system dark); tool may show light.
