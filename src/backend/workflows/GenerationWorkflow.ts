@@ -54,6 +54,7 @@ import {
   ElevenLabsSoundEffectProvider,
 } from '../services/elevenLabsAudioProvider';
 import { LyriaApiError, LyriaMusicProvider } from '../services/lyriaMusicProvider';
+import { resolveAudioProvider } from '../services/audioProviderSelection';
 import { arrayBufferToBase64 } from '../utils/image-utils';
 import {
   uploadGeneratedMedia,
@@ -660,7 +661,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     assetType: string,
     voiceOverrides: { voiceId?: string; dialogueVoiceIds?: string[]; musicProvider?: 'elevenlabs' | 'lyria' } = {}
   ): { provider: AudioGenerationProvider; providerName: string } {
-    const provider = this.env.INVENTORY_AUDIO_PROVIDER || 'fake';
+    const provider = resolveAudioProvider(this.env);
     if (assetType === 'music' && voiceOverrides.musicProvider === 'lyria') {
       return this.createLyriaMusicProvider();
     }
@@ -690,18 +691,16 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       return {
         provider: new ElevenLabsAudioProvider({
           apiKey: this.env.ELEVENLABS_API_KEY,
-          // UI-selected voices take precedence; env vars are the fallback default.
-          voiceId: voiceOverrides.voiceId || this.env.ELEVENLABS_VOICE_ID || '',
-          dialogueVoiceIds: voiceOverrides.dialogueVoiceIds?.length
-            ? voiceOverrides.dialogueVoiceIds
-            : parseCommaSeparated(this.env.ELEVENLABS_DIALOGUE_VOICE_IDS),
+          // Voices are chosen per generation in the UI/CLI — there is no env default.
+          voiceId: voiceOverrides.voiceId,
+          dialogueVoiceIds: voiceOverrides.dialogueVoiceIds,
           modelId: this.env.ELEVENLABS_MODEL_ID,
           outputFormat: this.env.ELEVENLABS_AUDIO_OUTPUT_FORMAT,
         }),
         providerName: 'elevenlabs:speech',
       };
     }
-    throw new NonRetryableError(`Unsupported INVENTORY_AUDIO_PROVIDER: ${provider}`);
+    throw new NonRetryableError(`Unsupported audio provider: ${provider}`);
   }
 
   private createElevenLabsMusicProvider(): { provider: AudioGenerationProvider; providerName: string } {
@@ -838,12 +837,4 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       log.error('Failed to mark variant as failed', { spaceId, variantId, error: fetchError instanceof Error ? fetchError.message : String(fetchError) });
     }
   }
-}
-
-function parseCommaSeparated(value: string | undefined): string[] | undefined {
-  const values = value
-    ?.split(',')
-    .map(item => item.trim())
-    .filter(Boolean);
-  return values?.length ? values : undefined;
 }

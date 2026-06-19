@@ -32,9 +32,10 @@ interface ElevenLabsTimingResponse {
 
 export interface ElevenLabsAudioProviderConfig {
   apiKey: string;
-  /** Default/speech voice. Optional: dialogue can rely on dialogueVoiceIds, and
-   *  speech generation validates its presence at call time. */
+  /** Speech voice, chosen per generation. Optional here; speech generation
+   *  validates its presence at call time. Not used as a dialogue fallback. */
   voiceId?: string;
+  /** Per-speaker dialogue voices, positional (entry N voices speaker N). */
   dialogueVoiceIds?: string[];
   modelId?: string;
   outputFormat?: string;
@@ -173,7 +174,7 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
   private async generateSpeech(options: AudioGenerateOptions): Promise<AudioGenerationResult> {
     const voiceId = this.config.voiceId?.trim();
     if (!voiceId) {
-      throw new ElevenLabsApiError('ELEVENLABS_VOICE_ID is required for speech generation', 0, false);
+      throw new ElevenLabsApiError('Select a voice before generating speech', 0, false);
     }
 
     const model = this.resolveModel();
@@ -220,21 +221,21 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
 
   private assignDialogueVoices(dialogue: ParsedDialogueLine[]): Map<string, string> {
     const speakers = Array.from(new Set(dialogue.map(line => line.speaker)));
-    // Voices map to speakers positionally. A blank slot (the UI "Default" option)
-    // keeps its position and falls back to the configured default voice — never
-    // collapse the list, or later voices would shift onto earlier speakers.
+    // Voices map to speakers positionally — entry N voices speaker N. Each
+    // speaker needs an explicit voice; there is no default-voice fallback, so a
+    // blank slot is an error rather than silently collapsing later voices onto
+    // earlier speakers.
     const provided = this.config.dialogueVoiceIds ?? [];
-    const fallbackVoiceId = this.config.voiceId?.trim() || undefined;
 
     const assignments = speakers.map((speaker, index) => {
-      const voiceId = provided[index]?.trim() || fallbackVoiceId;
+      const voiceId = provided[index]?.trim() || undefined;
       return [speaker, voiceId] as const;
     });
 
     const missing = assignments.filter(([, voiceId]) => !voiceId).length;
     if (missing > 0) {
       throw new ElevenLabsApiError(
-        `No voice available for ${missing} of ${speakers.length} dialogue speaker(s); select voices or set ELEVENLABS_DIALOGUE_VOICE_IDS / ELEVENLABS_VOICE_ID`,
+        `Select a voice for each dialogue speaker (${missing} of ${speakers.length} still unset)`,
         0,
         false
       );

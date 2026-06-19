@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useVoices, type Voice } from '../../hooks/useVoices';
 import styles from './VoicePicker.module.css';
 
@@ -14,18 +14,28 @@ export interface VoicePickerProps {
   onDialogueVoiceIdsChange: (voiceIds: string[]) => void;
 }
 
+/** Label a voice with a short descriptor so the list is scannable, not just a name. */
+function voiceLabel(voice: Voice): string {
+  const hints = [voice.labels.gender, voice.labels.accent, voice.labels.use_case, voice.category]
+    .map((hint) => hint?.trim())
+    .filter((hint): hint is string => Boolean(hint));
+  return hints.length > 0 ? `${voice.name} — ${hints.join(', ')}` : voice.name;
+}
+
 function voiceOptions(voices: Voice[]) {
   return voices.map((voice) => (
     <option key={voice.voiceId} value={voice.voiceId}>
-      {voice.name}
+      {voiceLabel(voice)}
     </option>
   ));
 }
 
 /**
  * Voice selector for ElevenLabs audio generation, shown in speech/dialogue
- * Forge modes. Renders nothing when ElevenLabs isn't the active provider so
- * generation falls back to env-configured voices.
+ * Forge modes. The voice is always chosen here — there is no env-configured
+ * default — so a real voice is pre-selected as soon as the library loads.
+ * Renders nothing when ElevenLabs isn't the active provider (e.g. the local
+ * fake provider, which needs no voice).
  */
 export function VoicePicker({
   mode,
@@ -36,6 +46,26 @@ export function VoicePicker({
   onDialogueVoiceIdsChange,
 }: VoicePickerProps) {
   const { available, voices, isLoading } = useVoices();
+  const firstVoiceId = voices[0]?.voiceId;
+
+  // No default voice exists, so seed a real selection once the library loads.
+  // The user can change it; this just guarantees generation never runs voiceless.
+  useEffect(() => {
+    if (!available || !firstVoiceId) return;
+    if (mode === 'speech') {
+      if (!voiceId) onVoiceIdChange(firstVoiceId);
+    } else if (dialogueVoiceIds.length === 0) {
+      onDialogueVoiceIdsChange([firstVoiceId]);
+    }
+  }, [
+    available,
+    firstVoiceId,
+    mode,
+    voiceId,
+    dialogueVoiceIds.length,
+    onVoiceIdChange,
+    onDialogueVoiceIdsChange,
+  ]);
 
   const handleDialogueChange = useCallback(
     (index: number, value: string) => {
@@ -47,8 +77,8 @@ export function VoicePicker({
   );
 
   const handleAddSpeaker = useCallback(() => {
-    onDialogueVoiceIdsChange([...dialogueVoiceIds, voices[0]?.voiceId ?? '']);
-  }, [dialogueVoiceIds, onDialogueVoiceIdsChange, voices]);
+    onDialogueVoiceIdsChange([...dialogueVoiceIds, firstVoiceId ?? '']);
+  }, [dialogueVoiceIds, onDialogueVoiceIdsChange, firstVoiceId]);
 
   const handleRemoveSpeaker = useCallback(
     (index: number) => {
@@ -57,7 +87,8 @@ export function VoicePicker({
     [dialogueVoiceIds, onDialogueVoiceIdsChange]
   );
 
-  // Hide entirely when voices can't be selected — env defaults still apply.
+  // Hide entirely when voices can't be selected (provider isn't ElevenLabs, or
+  // the library hasn't loaded). The fake provider needs no voice.
   if (isLoading || !available || voices.length === 0) {
     return null;
   }
@@ -67,11 +98,10 @@ export function VoicePicker({
       <div className={styles.voicePicker} title="Voice for speech generation">
         <select
           className={styles.select}
-          value={voiceId ?? ''}
-          onChange={(e) => onVoiceIdChange(e.target.value || undefined)}
+          value={voiceId ?? firstVoiceId ?? ''}
+          onChange={(e) => onVoiceIdChange(e.target.value)}
           disabled={disabled}
         >
-          <option value="">Default</option>
           {voiceOptions(voices)}
         </select>
       </div>
@@ -79,7 +109,7 @@ export function VoicePicker({
   }
 
   // Dialogue: ordered list of voices assigned to speakers in prompt order.
-  const rows = dialogueVoiceIds.length > 0 ? dialogueVoiceIds : [''];
+  const rows = dialogueVoiceIds.length > 0 ? dialogueVoiceIds : [firstVoiceId ?? ''];
   return (
     <div className={styles.voicePicker} title="Voices assigned to speakers in order">
       {rows.map((id, index) => (
@@ -87,11 +117,10 @@ export function VoicePicker({
           <span className={styles.speakerIndex}>{index + 1}.</span>
           <select
             className={styles.select}
-            value={id}
+            value={id || firstVoiceId || ''}
             onChange={(e) => handleDialogueChange(index, e.target.value)}
             disabled={disabled}
           >
-            <option value="">Default</option>
             {voiceOptions(voices)}
           </select>
           {rows.length > 1 && (

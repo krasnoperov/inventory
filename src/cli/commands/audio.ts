@@ -208,9 +208,9 @@ Usage:
   makefx audio <${modes}> batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
   makefx audio music generate "prompt" --provider lyria --name <name> -o <file> [--space <id>]
 
-Voice selection:
+Voice selection (run 'makefx audio voices' to list voice IDs):
   makefx audio speech generate "text" --voice <voice_id> --name <name> -o <file>
-  makefx audio dialogue generate --input script.txt --voice <fallback_id> --dialogue-voices <voice_id,voice_id> --name <name> -o <file>
+  makefx audio dialogue generate --input script.txt --dialogue-voices <voice_id,voice_id> --name <name> -o <file>
 
 Low-level compatibility:
   makefx audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]

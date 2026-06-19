@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { listElevenLabsVoices, ElevenLabsApiError } from '../services/elevenLabsAudioProvider';
+import { resolveAudioProvider } from '../services/audioProviderSelection';
 import { loggers } from '../../shared/logger';
 
 const log = loggers.generationController;
@@ -15,14 +16,15 @@ voicesRoutes.use('/api/voices', authMiddleware);
  * GET /api/voices - List voices available for ElevenLabs audio generation.
  *
  * Proxies the connected ElevenLabs account's voice library so the UI can offer
- * a picker instead of relying on env-configured voice IDs. Returns
- * `{ available: false, voices: [] }` when ElevenLabs is not the active provider
- * or no API key is configured, so the frontend can hide the picker gracefully.
+ * a picker. Voices are chosen per generation; there is no env-configured default.
+ * Returns `{ available: false, voices: [] }` when ElevenLabs is not the active
+ * provider or no API key is configured, so the frontend can hide the picker
+ * gracefully.
  */
 voicesRoutes.get('/api/voices', async (c) => {
   const env = c.env;
 
-  if (env.INVENTORY_AUDIO_PROVIDER !== 'elevenlabs' || !env.ELEVENLABS_API_KEY) {
+  if (resolveAudioProvider(env) !== 'elevenlabs' || !env.ELEVENLABS_API_KEY) {
     return c.json({ available: false, voices: [] });
   }
 

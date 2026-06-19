@@ -85,7 +85,6 @@ describe('ElevenLabsAudioProvider', () => {
     }) as unknown as typeof fetch;
     const provider = new ElevenLabsAudioProvider({
       apiKey: 'key-1',
-      voiceId: 'fallback',
       dialogueVoiceIds: ['voice-a', 'voice-b'],
       modelId: 'eleven_v3',
       outputFormat: 'wav_44100',
@@ -118,57 +117,39 @@ describe('ElevenLabsAudioProvider', () => {
     ]);
   });
 
-  test('rejects dialogue when no voice is available for a speaker', async () => {
+  test('rejects dialogue when no voices are selected', async () => {
     const provider = new ElevenLabsAudioProvider({
       apiKey: 'key-1',
     });
 
     await assert.rejects(
       () => provider.generate({ prompt: 'Ada: Ready?\nBen: Always.' }),
-      /No voice available for 2 of 2 dialogue speaker/
+      /Select a voice for each dialogue speaker \(2 of 2 still unset\)/
     );
   });
 
-  test('preserves speaker positions when a Default (blank) is mixed with a selected voice', async () => {
-    const calls: Array<{ url: string; init: RequestInit }> = [];
-    const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
-      calls.push({ url: String(url), init: init ?? {} });
-      return jsonResponse(audioPayload());
-    }) as unknown as typeof fetch;
+  test('rejects dialogue when a speaker slot is left blank (no default fallback)', async () => {
     const provider = new ElevenLabsAudioProvider({
       apiKey: 'key-1',
-      voiceId: 'default-voice',
-      // Speaker 1 left as Default (blank), speaker 2 explicitly selected.
+      // Speaker 1 blank, speaker 2 selected — no default voice fills the gap.
       dialogueVoiceIds: ['', 'voice-ben'],
-      fetcher,
     });
 
-    await provider.generate({ prompt: 'Ada: Ready?\nBen: Always.' });
-
-    assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)).inputs, [
-      { text: 'Ready?', voice_id: 'default-voice' },
-      { text: 'Always.', voice_id: 'voice-ben' },
-    ]);
+    await assert.rejects(
+      () => provider.generate({ prompt: 'Ada: Ready?\nBen: Always.' }),
+      /Select a voice for each dialogue speaker \(1 of 2 still unset\)/
+    );
   });
 
-  test('falls back to the default voice for every speaker when no dialogue voices are set', async () => {
-    const calls: Array<{ url: string; init: RequestInit }> = [];
-    const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
-      calls.push({ url: String(url), init: init ?? {} });
-      return jsonResponse(audioPayload());
-    }) as unknown as typeof fetch;
+  test('rejects speech generation when no voice is selected', async () => {
     const provider = new ElevenLabsAudioProvider({
       apiKey: 'key-1',
-      voiceId: 'default-voice',
-      fetcher,
     });
 
-    await provider.generate({ prompt: 'Ada: Ready?\nBen: Always.' });
-
-    assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)).inputs, [
-      { text: 'Ready?', voice_id: 'default-voice' },
-      { text: 'Always.', voice_id: 'default-voice' },
-    ]);
+    await assert.rejects(
+      () => provider.generate({ prompt: 'Hello there' }),
+      /Select a voice before generating speech/
+    );
   });
 
   test('marks validation failures as non-retryable API errors', async () => {
