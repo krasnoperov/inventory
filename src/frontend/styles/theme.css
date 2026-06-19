@@ -198,6 +198,87 @@
 
   /* ---- Scale: focus ring ---- */
   --focus-ring: 0 0 0 3px light-dark(oklch(55% 0.18 276 / 0.25), oklch(65% 0.16 276 / 0.3));
+
+  /* ---- Component: landing / marketing surfaces ---- */
+  /* Page background: ambient brand + amber glows over the app base. */
+  --landing-glow-brand: light-dark(oklch(90% 0.05 276 / 0.55), oklch(30% 0.10 276 / 0.42));
+  --landing-glow-warm: light-dark(oklch(92% 0.05 66 / 0.45), oklch(28% 0.08 66 / 0.34));
+  --landing-bg-base: light-dark(oklch(96.5% 0.004 264), oklch(12.5% 0.012 264));
+  /* Header glass + hairline. */
+  --landing-header-bg: light-dark(oklch(96.5% 0.004 264 / 0.72), oklch(12.5% 0.012 264 / 0.72));
+  --landing-hairline: light-dark(oklch(89% 0.005 264), oklch(26% 0.012 264));
+  /* Marketing card (slightly brighter than --color-surface, per design). */
+  --landing-card-bg: light-dark(oklch(99.5% 0 0), oklch(16.5% 0.012 264));
+  --landing-card-border: light-dark(oklch(89% 0.005 264), oklch(26% 0.012 264));
+  --landing-window-border: light-dark(oklch(86% 0.006 264), oklch(28% 0.013 264));
+  --landing-window-toolbar: light-dark(oklch(98% 0.003 264), oklch(19% 0.013 264));
+  --landing-footer-bg: light-dark(oklch(98% 0.003 264), oklch(14% 0.013 264));
+  --landing-shadow-window: 0 24px 60px light-dark(oklch(40% 0.04 264 / 0.13), oklch(0% 0 0 / 0.5));
+  /* Strong/secondary text used inside marketing copy. */
+  --landing-text-strong: light-dark(oklch(28% 0.015 264), oklch(90% 0.006 264));
+  --landing-text-muted: light-dark(oklch(44% 0.012 264), oklch(70% 0.009 264));
+  --landing-text-faint: light-dark(oklch(50% 0.012 264), oklch(64% 0.01 264));
+  --landing-chip-border: light-dark(oklch(89% 0.005 264), oklch(28% 0.013 264));
+  /* Primary brand accent tuned for marketing (matches the .dc.html hue 276). */
+  --landing-accent: light-dark(oklch(52% 0.20 276), oklch(66% 0.17 276));
+  --landing-accent-text: light-dark(oklch(52% 0.20 276), oklch(70% 0.15 276));
+  --landing-accent-hover: light-dark(oklch(46% 0.21 276), oklch(72% 0.16 276));
+  --landing-accent-soft: light-dark(oklch(52% 0.20 276 / 0.1), oklch(66% 0.17 276 / 0.15));
+  --landing-accent-shadow: 0 1px 2px light-dark(oklch(52% 0.20 276 / 0.45), oklch(0% 0 0 / 0.55)), 0 12px 28px light-dark(oklch(52% 0.20 276 / 0.28), oklch(0% 0 0 / 0.4));
+  --landing-on-accent: oklch(99% 0 0);
+  /* "Generating" / live-activity accent (warm amber). */
+  --landing-live: light-dark(oklch(68% 0.16 66), oklch(80% 0.14 72));
+  --landing-live-bg: light-dark(oklch(70% 0.16 66 / 0.12), oklch(80% 0.14 72 / 0.14));
+  --landing-live-border: light-dark(oklch(70% 0.16 66 / 0.35), oklch(80% 0.14 72 / 0.4));
+  --landing-live-text: light-dark(oklch(52% 0.14 66), oklch(80% 0.14 72));
+  /* Lineage connector stroke + nodes on the Space board. */
+  --landing-lineage: light-dark(oklch(52% 0.20 276 / 0.5), oklch(70% 0.15 276 / 0.6));
+  --landing-lineage-node: light-dark(oklch(52% 0.20 276), oklch(70% 0.15 276));
+  /* Asset-tile fills/borders (4:3 placeholders), keyed to asset-type hue. */
+  --landing-tile-character: light-dark(oklch(93% 0.045 250), oklch(33% 0.07 250));
+  --landing-tile-character-border: light-dark(oklch(88% 0.03 250), oklch(34% 0.05 250));
+  --landing-tile-character-label: light-dark(oklch(40% 0.04 250), oklch(86% 0.04 250));
+  --landing-tile-scene: light-dark(oklch(93% 0.04 150), oklch(32% 0.06 150));
+  --landing-tile-scene-border: light-dark(oklch(88% 0.03 150), oklch(33% 0.05 150));
+  --landing-tile-scene-label: light-dark(oklch(40% 0.04 150), oklch(86% 0.04 150));
+  --landing-tile-item: light-dark(oklch(93% 0.045 300), oklch(33% 0.07 300));
+  --landing-tile-item-border: light-dark(oklch(88% 0.03 300), oklch(34% 0.05 300));
+  --landing-tile-item-label: light-dark(oklch(40% 0.04 300), oklch(86% 0.04 300));
+  --landing-tile-composite: light-dark(oklch(94% 0.05 55), oklch(34% 0.07 55));
+  --landing-tile-composite-border: light-dark(oklch(88% 0.04 55), oklch(35% 0.06 55));
+  --landing-tile-composite-label: light-dark(oklch(42% 0.05 55), oklch(86% 0.05 55));
+  --landing-tile-generating: light-dark(oklch(95% 0.03 66), oklch(26% 0.05 66));
+  --landing-tile-generating-border: light-dark(oklch(70% 0.16 66 / 0.5), oklch(80% 0.14 72 / 0.5));
+  --landing-tile-hatch: oklch(100% 0 0 / 0.06);
+  --landing-dot-character: oklch(60% 0.14 250);
+  --landing-dot-scene: oklch(60% 0.13 150);
+  --landing-dot-item: oklch(60% 0.15 300);
+  --landing-dot-composite: oklch(64% 0.14 55);
+  --landing-star: light-dark(oklch(72% 0.15 75), oklch(82% 0.14 75));
+  /* Collaborator avatar fills on the Space window. */
+  --landing-avatar-a: oklch(60% 0.14 276);
+  --landing-avatar-m: oklch(62% 0.14 150);
+  --landing-avatar-c: oklch(66% 0.14 66);
+  /* Seam pill between web app + agent shell. */
+  --landing-seam-bg: light-dark(oklch(96% 0.004 264), oklch(13% 0.012 264));
+
+  /* ---- Component: terminal (fixed dark, theme-independent) ---- */
+  --terminal-bg: oklch(15% 0.018 264);
+  --terminal-header-bg: oklch(19% 0.02 264);
+  --terminal-border: oklch(100% 0 0 / 0.12);
+  --terminal-hairline: oklch(100% 0 0 / 0.07);
+  --terminal-shadow: 0 30px 70px light-dark(oklch(40% 0.06 264 / 0.22), oklch(0% 0 0 / 0.6)), inset 0 1px 0 oklch(100% 0 0 / 0.07);
+  --terminal-text: oklch(88% 0.01 264);
+  --terminal-text-bright: oklch(80% 0.009 264);
+  --terminal-text-dim: oklch(58% 0.01 264);
+  --terminal-title: oklch(70% 0.02 264);
+  --terminal-prompt: oklch(66% 0.17 276);
+  --terminal-string: oklch(80% 0.14 72);
+  --terminal-ok: oklch(74% 0.14 150);
+  --terminal-run: oklch(80% 0.14 72);
+  --terminal-dot-red: oklch(70% 0.16 25);
+  --terminal-dot-amber: oklch(82% 0.14 85);
+  --terminal-dot-green: oklch(74% 0.14 150);
 }
 
 body {
