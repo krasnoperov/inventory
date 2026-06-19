@@ -18,6 +18,9 @@ export interface UsersTable {
   // JSON: {"claude_output_tokens": 100000, "gemini_images": 50, "gemini_videos": 10, "gemini_audio": 10, "elevenlabs_audio": 5000}
   quota_limits: string | null;
   quota_limits_updated_at: string | null;
+  polar_current_period_start: string | null;
+  polar_current_period_end: string | null;
+  polar_paid_access_expires_at: string | null;
   // Rate limiting (fixed window)
   rate_limit_count: number;
   rate_limit_window_start: string | null;

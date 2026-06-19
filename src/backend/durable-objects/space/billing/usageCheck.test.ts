@@ -10,6 +10,7 @@ function createPreCheckDb(options: {
   rateLimitCount?: number;
   rateLimitWindowStart?: string | null;
   paidGenerationEntitlement?: 'none' | 'paid' | 'internal';
+  polarPaidAccessExpiresAt?: string | null;
 }) {
   return {
     prepare: mock.fn((sql: string) => ({
@@ -19,6 +20,9 @@ function createPreCheckDb(options: {
             return {
               paid_generation_entitlement: options.paidGenerationEntitlement ?? 'paid',
               quota_limits: options.quotaLimitsJson ?? JSON.stringify({ elevenlabs_audio: options.quotaLimit }),
+              polar_current_period_start: null,
+              polar_current_period_end: null,
+              polar_paid_access_expires_at: options.polarPaidAccessExpiresAt ?? null,
               rate_limit_count: options.rateLimitCount ?? 0,
               rate_limit_window_start: options.rateLimitWindowStart ?? new Date().toISOString(),
             };
@@ -73,6 +77,21 @@ describe('SpaceDO usage preCheck', () => {
     assert.strictEqual(result.allowed, true);
     assert.strictEqual(result.quotaLimit, null);
     assert.strictEqual(result.quotaRemaining, null);
+  });
+
+  test('blocks paid users after scheduled cancellation grace expires', async () => {
+    const result = await preCheck(
+      createPreCheckDb({
+        quotaLimit: 100,
+        paidGenerationEntitlement: 'paid',
+        polarPaidAccessExpiresAt: '2000-01-01T00:00:00.000Z',
+      }) as any,
+      42,
+      'elevenlabs'
+    );
+
+    assert.strictEqual(result.allowed, false);
+    assert.strictEqual(result.denyReason, 'paid_generation_required');
   });
 
   test('treats admin users as internal even when the stored entitlement is none', async () => {
@@ -141,6 +160,48 @@ describe('SpaceDO usage preCheck', () => {
     assert.strictEqual(result.denyReason, 'rate_limited');
   });
 
+  test('checks usage against the cached Polar billing period', async () => {
+    const calls: Array<{ sql: string; args: unknown[] }> = [];
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn((...args: unknown[]) => {
+          calls.push({ sql, args });
+          return {
+            first: mock.fn(async () => {
+              if (sql.includes('FROM users')) {
+                return {
+                  paid_generation_entitlement: 'paid',
+                  quota_limits: JSON.stringify({ gemini_images: 3 }),
+                  polar_current_period_start: '2026-06-10T00:00:00.000Z',
+                  polar_current_period_end: '2026-07-10T00:00:00.000Z',
+                  polar_paid_access_expires_at: null,
+                  rate_limit_count: 0,
+                  rate_limit_window_start: new Date().toISOString(),
+                };
+              }
+              return { total_used: 2 };
+            }),
+          };
+        }),
+      })),
+    };
+
+    const result = await preCheck(db as any, 42, 'nanobanana');
+    const usageCall = calls.find((call) => call.sql.includes('FROM usage_events'));
+
+    assert.strictEqual(result.allowed, true);
+    assert.strictEqual(result.quotaUsed, 2);
+    assert.strictEqual(result.quotaRemaining, 1);
+    assert.ok(usageCall);
+    assert.match(usageCall.sql, /created_at < \?/);
+    assert.deepStrictEqual(usageCall.args, [
+      42,
+      'gemini_images',
+      '2026-06-10T00:00:00.000Z',
+      '2026-07-10T00:00:00.000Z',
+    ]);
+  });
+
   test('records internal usage locally as non-billable', async () => {
     const inserts: unknown[][] = [];
     const db = {
@@ -158,6 +219,30 @@ describe('SpaceDO usage preCheck', () => {
     };
 
     await trackImageGeneration(db as any, 42, 1, 'gemini-3-pro-image-preview', 'generate');
+
+    assert.strictEqual(inserts.length, 1);
+    assert.strictEqual(inserts[0][1], 42);
+    assert.strictEqual(inserts[0][2], 'gemini_images');
+    assert.strictEqual(inserts[0][5], 0);
+  });
+
+  test('records ADMIN_USER_IDS usage locally as non-billable even when stored entitlement is none', async () => {
+    const inserts: unknown[][] = [];
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn((...args: unknown[]) => ({
+          first: mock.fn(async () => ({ paid_generation_entitlement: 'none' })),
+          run: mock.fn(async () => {
+            if (sql.includes('INSERT INTO usage_events')) {
+              inserts.push(args);
+            }
+            return { success: true };
+          }),
+        })),
+      })),
+    };
+
+    await trackImageGeneration(db as any, 42, 1, 'gemini-3-pro-image-preview', 'generate', undefined, '42,99');
 
     assert.strictEqual(inserts.length, 1);
     assert.strictEqual(inserts[0][1], 42);

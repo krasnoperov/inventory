@@ -15,6 +15,9 @@ export async function handleBilling(parsed: ParsedArgs) {
     case 'ops-check':
       await handleBillingOpsCheck(env);
       break;
+    case 'reconcile':
+      await handleBillingReconcile(env, parsed);
+      break;
     case 'retry':
     case 'retry-failed':
       await handleBillingRetry(env);
@@ -38,6 +41,7 @@ Usage:
 Subcommands:
   status           Show sync status (pending, failed, synced events)
   check            Run operational checks for workers, Polar meters, and sync health
+  reconcile        Compare local billable usage with Polar usage for one user
   retry-failed     Reset failed events for retry (next cron will sync them)
 
 Options:
@@ -48,6 +52,7 @@ Examples:
   makefx billing status                    Show production sync status
   makefx billing status --env stage        Show stage sync status
   makefx billing check                     Run production operational checks
+  makefx billing reconcile --user-id 42    Reconcile one customer usage period
   makefx billing retry-failed              Reset failed events for retry
 
 Note: Requires login first. Run 'makefx login' to authenticate.
@@ -151,8 +156,30 @@ interface BillingOperationalChecksResponse {
       configured: boolean;
       error: string | null;
       expected: string[];
-      active: Array<{ id: string; name: string; aggregation: string; archivedAt: string | null }>;
+      active: Array<{
+        id: string;
+        name: string;
+        aggregation: string;
+        aggregationProperty: string | null;
+        archivedAt: string | null;
+      }>;
       missing: string[];
+      invalid: Array<{ name: string; actual: unknown; expected: unknown }>;
+    };
+    paidGenerationProduct?: {
+      status: OperationalStatus;
+      expectedMeteredPriceMeters: string[];
+      missingMeteredPriceMeters: string[];
+      product: {
+        configured: boolean;
+        productId: string | null;
+        exists: boolean;
+        name: string | null;
+        isRecurring: boolean | null;
+        isArchived: boolean | null;
+        meteredPriceMeters: string[];
+        meterCreditBenefitMeters: string[];
+      } | null;
     };
     syncHealth: {
       status: OperationalStatus;
@@ -267,16 +294,24 @@ function secondsSummary(seconds: number | null): string {
 async function handleBillingOpsCheck(env: string) {
   console.log(`Running billing operational checks for ${env}...\n`);
 
-  const [workerChecks, billingChecks] = await Promise.all([
-    checkWorkerHealth(env),
-    callBillingApi(env, '/api/billing/operational-checks') as Promise<BillingOperationalChecksResponse>,
-  ]);
+  const workerChecks = await checkWorkerHealth(env);
 
   console.log('=== Billing Operational Checks ===\n');
 
   console.log('Workers:');
   for (const check of workerChecks) {
     console.log(`  ${statusLabel(check.status)} ${check.name.padEnd(12)} ${check.message}`);
+  }
+
+  let billingChecks: BillingOperationalChecksResponse;
+  try {
+    billingChecks = await callBillingApi(env, '/api/billing/operational-checks') as BillingOperationalChecksResponse;
+  } catch (error) {
+    console.log('\nAuthenticated billing checks:');
+    console.log(`  ${statusLabel('critical')} ${error instanceof Error ? error.message : String(error)}`);
+    console.log('\nResult: CRITICAL - billing checks need an authenticated admin session.');
+    process.exitCode = 1;
+    return;
   }
 
   const meterCheck = billingChecks.checks.polarMeters;
@@ -287,6 +322,23 @@ async function handleBillingOpsCheck(env: string) {
   }
   if (meterCheck.missing.length > 0) {
     console.log(`  Missing: ${meterCheck.missing.join(', ')}`);
+  }
+  if (meterCheck.invalid.length > 0) {
+    console.log(`  Invalid: ${meterCheck.invalid.map((meter) => meter.name).join(', ')}`);
+  }
+
+  const productCheck = billingChecks.checks.paidGenerationProduct;
+  if (productCheck) {
+    console.log('\nPaid generation product:');
+    const product = productCheck.product;
+    console.log(`  ${statusLabel(productCheck.status)} configured=${product?.configured ?? false} recurring=${product?.isRecurring ?? 'n/a'} archived=${product?.isArchived ?? 'n/a'}`);
+    if (product?.productId) {
+      console.log(`  Product: ${product.productId}${product.name ? ` (${product.name})` : ''}`);
+    }
+    console.log(`  Metered prices: ${product?.meteredPriceMeters.length ?? 0}/${productCheck.expectedMeteredPriceMeters.length}`);
+    if (productCheck.missingMeteredPriceMeters.length > 0) {
+      console.log(`  Missing metered prices: ${productCheck.missingMeteredPriceMeters.join(', ')}`);
+    }
   }
 
   const syncCheck = billingChecks.checks.syncHealth;
@@ -304,12 +356,49 @@ async function handleBillingOpsCheck(env: string) {
   const hasWarning = workerChecks.some((check) => check.status === 'warning') || billingChecks.status === 'warning';
 
   if (hasCriticalWorker || hasCriticalBilling) {
-    console.log('\nResult: CRITICAL - production billing operations need attention.');
+    console.log('\nResult: CRITICAL - billing operations need attention.');
     process.exitCode = 1;
   } else if (hasWarning) {
     console.log('\nResult: WARNING - billing is operational but has lag or cleanup work.');
   } else {
     console.log('\nResult: OK - billing workers, meters, and sync health are ready.');
+  }
+}
+
+async function handleBillingReconcile(env: string, parsed: ParsedArgs) {
+  const userId = parsed.options['user-id'] || parsed.options.userId || parsed.positionals[1];
+  if (!userId) {
+    console.error('Missing user id. Use: makefx billing reconcile --user-id <id>');
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log(`Reconciling billing usage for user ${userId} in ${env}...\n`);
+
+  try {
+    const data = await callBillingApi(env, `/api/billing/reconcile?user_id=${encodeURIComponent(userId)}`) as {
+      status: 'ok' | 'mismatch';
+      period: { start: string; end: string };
+      meters: Array<{ name: string; local: number; polar: number; delta: number; matched: boolean }>;
+      mismatches: Array<{ name: string; local: number; polar: number; delta: number }>;
+    };
+
+    console.log('=== Billing Reconciliation ===\n');
+    console.log(`Period: ${data.period.start} → ${data.period.end}`);
+    console.log(`Status: ${data.status.toUpperCase()}`);
+    console.log('\nMeters:');
+    for (const meter of data.meters) {
+      const marker = meter.matched ? 'OK      ' : 'MISMATCH';
+      console.log(`  ${marker} ${meter.name.padEnd(22)} local=${meter.local} polar=${meter.polar} delta=${meter.delta}`);
+    }
+
+    if (data.mismatches.length > 0) {
+      console.log('\nMismatched meters need sync/retry investigation before billing is considered reconciled.');
+      process.exitCode = 1;
+    }
+  } catch (error) {
+    console.error('Reconciliation failed:', error instanceof Error ? error.message : error);
+    process.exitCode = 1;
   }
 }
 

@@ -51,18 +51,32 @@ User Request → Worker
 
 ---
 
-## Usage Meters
+## Polar Metering Contract
 
-| Meter | Aggregation | Purpose |
-|-------|-------------|---------|
-| `claude_input_tokens` | SUM | Claude API input |
-| `claude_output_tokens` | SUM | Claude API output (5x cost) |
-| `gemini_images` | COUNT | Generated images |
-| `gemini_videos` | SUM | Generated video units; Veo-native soundtrack requests are recorded on this event with `generate_audio: true` |
-| `gemini_audio` | COUNT | Lyria-generated music |
-| `gemini_input_tokens` | SUM | Gemini API input |
-| `gemini_output_tokens` | SUM | Gemini API output |
-| `elevenlabs_audio` | SUM | ElevenLabs audio generation units |
+Each billable local `usage_events` row is synced to Polar as one immutable event.
+The Polar event name must match the local `event_name`, and each meter must
+filter on `name == <event_name>` and aggregate `SUM(quantity)`.
+
+| Meter / Event Name | Aggregation | Unit | Purpose |
+|--------------------|-------------|------|---------|
+| `claude_input_tokens` | `SUM(quantity)` | token | Claude API input tokens. |
+| `claude_output_tokens` | `SUM(quantity)` | token | Claude API output tokens. |
+| `gemini_images` | `SUM(quantity)` | image | Generated Gemini image outputs. |
+| `gemini_videos` | `SUM(quantity)` | video unit | Generated Gemini/Veo video units; Veo-native soundtrack requests count as two units and include `generate_audio: true`. |
+| `gemini_audio` | `SUM(quantity)` | audio generation | Lyria-generated music outputs. |
+| `gemini_input_tokens` | `SUM(quantity)` | token | Gemini image API input tokens when reported by the provider. |
+| `gemini_output_tokens` | `SUM(quantity)` | token | Gemini image API output tokens when reported by the provider. |
+| `elevenlabs_audio` | `SUM(quantity)` | audio unit | ElevenLabs provider usage units. |
+
+The canonical code copy of this contract is
+`src/backend/billing/polarMeteringContract.ts`. Operational checks must fail if
+the active Polar meters do not match these names, filters, aggregation function,
+and aggregation property.
+
+The configured `POLAR_PAID_GENERATION_PRODUCT_ID` product must be active,
+recurring, and include a non-archived `metered_unit` price for every canonical
+meter above. Meter-credit benefits on the product are used to expose customer
+quota balances locally when the plan has finite included usage.
 
 ## Paid Generation Entitlements
 
@@ -75,6 +89,10 @@ Generation access is controlled by `users.paid_generation_entitlement`:
 | `internal` | Non-billable internal access. Rate limits still apply, and usage is recorded locally with Polar sync disabled. |
 
 Polar subscription webhooks set active subscribers to `paid` and canceled/no-active-subscription users to `none`.
+Canceled subscriptions keep paid access until the cached Polar billing period
+ends. Local quota checks use `users.polar_current_period_start` and
+`users.polar_current_period_end` when available, falling back to the calendar
+month only before Polar period data has been cached.
 Local dev-auth users are marked `internal`.
 
 ---
@@ -87,6 +105,7 @@ Local dev-auth users are marked `internal`.
 | `GET /api/billing/checkout` | Polar checkout URL for first-time paid generation access |
 | `GET /api/billing/portal` | Polar customer portal URL |
 | `GET /api/billing/operational-checks` | Admin check for Polar meter readiness and local sync health |
+| `GET /api/billing/reconcile?user_id=:id` | Admin local-vs-Polar usage reconciliation for one customer billing period |
 
 ### Status Response
 
@@ -142,9 +161,57 @@ The command verifies:
 
 - application, processing, and Polar worker `/api/health` endpoints
 - required Polar meters exist for all billable usage event names
+- each Polar meter filters on the matching event name and uses `SUM(quantity)`
+- the configured paid-generation product is active, recurring, and has metered prices for every canonical meter
 - local usage sync has no failed events and no pending billable event older than 15 minutes
 - non-internal users waiting on Polar customer backfill
 - internal users have zero billable usage events and their local usage remains non-billable
+
+Reconcile a specific customer's local billable usage against Polar's current
+meter totals:
+
+```bash
+makefx billing reconcile --user-id 42 --env stage
+```
+
+The reconciliation uses cached Polar billing period bounds when available and
+compares each canonical meter's local total with Polar's reported total. Any
+nonzero delta must be explained by pending sync, failed sync, or Polar meter
+configuration before the billing period is considered reconciled.
+
+### Stage Verification
+
+Stage billing cannot be considered verified until the stage workers have Polar
+secrets and an admin user configured.
+
+Configure the application worker:
+
+```bash
+pnpm exec wrangler secret put POLAR_ACCESS_TOKEN --config wrangler.toml
+pnpm exec wrangler secret put POLAR_ORGANIZATION_ID --config wrangler.toml
+pnpm exec wrangler secret put POLAR_PAID_GENERATION_PRODUCT_ID --config wrangler.toml
+pnpm exec wrangler secret put POLAR_WEBHOOK_SECRET --config wrangler.toml
+pnpm exec wrangler secret put ADMIN_USER_IDS --config wrangler.toml
+```
+
+Configure the billing sync worker:
+
+```bash
+pnpm exec wrangler secret put POLAR_ACCESS_TOKEN --config wrangler.polar.toml
+pnpm exec wrangler secret put POLAR_ORGANIZATION_ID --config wrangler.polar.toml
+```
+
+Then deploy and verify:
+
+```bash
+pnpm run db:migrate:stage
+pnpm run deploy:stage
+pnpm exec wrangler deploy --config wrangler.generation.toml
+pnpm exec wrangler deploy --config wrangler.polar.toml
+makefx login --env stage
+makefx billing check --env stage
+makefx billing reconcile --user-id <paid-stage-user-id> --env stage
+```
 
 ---
 

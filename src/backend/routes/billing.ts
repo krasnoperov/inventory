@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { adminMiddleware } from '../middleware/admin-middleware';
-import { EXPECTED_POLAR_METERS, UsageService } from '../services/usageService';
+import { UsageService } from '../services/usageService';
 import { PolarService } from '../services/polarService';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { UserDAO } from '../../dao/user-dao';
@@ -10,6 +10,7 @@ import {
   isNonBillablePaidGenerationEntitlement,
   resolveEntitlement,
 } from '../billing/paidGenerationEntitlement';
+import { EXPECTED_POLAR_METERS, getPolarMeterContract } from '../billing/polarMeteringContract';
 
 const billingRoutes = new Hono<AppContext>();
 const BILLING_SYNC_PENDING_WARN_SECONDS = 15 * 60;
@@ -30,6 +31,31 @@ function combineStatus(statuses: OperationalStatus[]): OperationalStatus {
   if (statuses.includes('critical')) return 'critical';
   if (statuses.includes('warning')) return 'warning';
   return 'ok';
+}
+
+function meterFilterMatchesEventName(filter: unknown, eventName: string): boolean {
+  if (!filter || typeof filter !== 'object') return false;
+  const clauses = (filter as { clauses?: unknown }).clauses;
+  if (!Array.isArray(clauses)) return false;
+
+  return clauses.some((clause) => {
+    if (!clause || typeof clause !== 'object') return false;
+    if ('clauses' in clause) {
+      return meterFilterMatchesEventName(clause, eventName);
+    }
+    const record = clause as { property?: unknown; operator?: unknown; value?: unknown };
+    return record.property === 'name' &&
+      record.operator === 'eq' &&
+      record.value === eventName;
+  });
+}
+
+function isUsableIsoDate(value: string | null | undefined): value is string {
+  return typeof value === 'string' && Number.isFinite(new Date(value).getTime());
+}
+
+function isFutureIsoDate(value: string | null | undefined, now = new Date()): value is string {
+  return isUsableIsoDate(value) && new Date(value).getTime() > now.getTime();
 }
 
 function sameOriginUrl(requestUrl: string, value: string | undefined, fallbackPath: string): string {
@@ -164,11 +190,14 @@ billingRoutes.get('/api/billing/status', async (c) => {
 
   // Refresh local D1 quota_limits cache. Entitlement changes are awaited so
   // generation pre-checks cannot observe stale paid access after this response.
-  const refreshedEntitlement = status.configured
+  const refreshedEntitlement = status.configured && status.available
     ? (status.hasSubscription ? 'paid' : 'none')
     : entitlement;
+  const paidAccessExpiresAt = status.hasSubscription && isFutureIsoDate(user?.polar_paid_access_expires_at)
+    ? user?.polar_paid_access_expires_at
+    : null;
 
-  if (status.meters.length > 0) {
+  if (status.available && status.meters.length > 0) {
     const limits: Record<string, number | null> = {};
     for (const meter of status.meters) {
       limits[meter.meterSlug] = meter.hasLimit ? meter.credited : null;
@@ -177,18 +206,26 @@ billingRoutes.get('/api/billing/status', async (c) => {
       paid_generation_entitlement: refreshedEntitlement,
       quota_limits: JSON.stringify(limits),
       quota_limits_updated_at: new Date().toISOString(),
+      polar_current_period_start: status.subscription?.currentPeriodStart?.toISOString() ?? null,
+      polar_current_period_end: status.subscription?.currentPeriodEnd?.toISOString() ?? null,
+      polar_paid_access_expires_at: paidAccessExpiresAt,
     });
-  } else if (refreshedEntitlement !== entitlement) {
+  } else if (status.available && refreshedEntitlement !== entitlement) {
     await userDAO.update(userId, {
       paid_generation_entitlement: refreshedEntitlement,
+      polar_current_period_start: status.subscription?.currentPeriodStart?.toISOString() ?? null,
+      polar_current_period_end: status.subscription?.currentPeriodEnd?.toISOString() ?? null,
+      polar_paid_access_expires_at: paidAccessExpiresAt,
     });
   }
 
   // Format response for frontend healthbar
   return c.json({
     configured: status.configured,
+    available: status.available,
     hasSubscription: status.hasSubscription,
     entitlement: refreshedEntitlement,
+    error: status.error,
     meters: status.meters.map((m) => ({
       name: m.meterSlug,
       consumed: m.consumed,
@@ -209,6 +246,7 @@ billingRoutes.get('/api/billing/status', async (c) => {
     subscription: status.subscription
       ? {
           status: status.subscription.status,
+          periodStart: status.subscription.currentPeriodStart?.toISOString() || null,
           renewsAt: status.subscription.currentPeriodEnd?.toISOString() || null,
         }
       : null,
@@ -278,9 +316,11 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
   const polarConfigured = polarService.isConfigured();
   let polarError: string | null = null;
   let activePolarMeters: Awaited<ReturnType<PolarService['listMeters']>> = [];
+  let paidGenerationProduct: Awaited<ReturnType<PolarService['getPaidGenerationProductInfo']>> | null = null;
   if (polarConfigured) {
     try {
       activePolarMeters = await polarService.listMeters();
+      paidGenerationProduct = await polarService.getPaidGenerationProductInfo();
     } catch (error) {
       polarError = error instanceof Error ? error.message : String(error);
     }
@@ -288,7 +328,36 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
   const activeMeterNames = activePolarMeters.map((meter) => meter.name);
   const activeMeterNameSet = new Set(activeMeterNames);
   const missingMeters = EXPECTED_POLAR_METERS.filter((meter) => !activeMeterNameSet.has(meter));
-  const polarStatus: OperationalStatus = !polarConfigured || polarError !== null || missingMeters.length > 0
+  const invalidMeters = activePolarMeters
+    .filter((meter) => {
+      const expected = getPolarMeterContract(meter.name);
+      if (!expected) return false;
+      return meter.aggregation !== expected.aggregation ||
+        meter.aggregationProperty !== expected.aggregationProperty ||
+        !meterFilterMatchesEventName(meter.filter, expected.eventName);
+    })
+    .map((meter) => ({
+      name: meter.name,
+      expected: getPolarMeterContract(meter.name),
+      actual: {
+        aggregation: meter.aggregation,
+        aggregationProperty: meter.aggregationProperty,
+        filter: meter.filter,
+      },
+    }));
+  const polarStatus: OperationalStatus = !polarConfigured || polarError !== null || missingMeters.length > 0 || invalidMeters.length > 0
+    ? 'critical'
+    : 'ok';
+  const productMissingPriceMeters = EXPECTED_POLAR_METERS.filter(
+    (meter) => !paidGenerationProduct?.meteredPriceMeters.includes(meter)
+  );
+  const productStatus: OperationalStatus = !polarConfigured ||
+    polarError !== null ||
+    !paidGenerationProduct?.configured ||
+    !paidGenerationProduct.exists ||
+    paidGenerationProduct.isArchived ||
+    !paidGenerationProduct.isRecurring ||
+    productMissingPriceMeters.length > 0
     ? 'critical'
     : 'ok';
 
@@ -308,7 +377,7 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
   return c.json({
     generatedAt: now.toISOString(),
     environment: c.env.ENVIRONMENT ?? 'unknown',
-    status: combineStatus([polarStatus, syncStatus, internalBillingStatus]),
+    status: combineStatus([polarStatus, productStatus, syncStatus, internalBillingStatus]),
     checks: {
       polarMeters: {
         status: polarStatus,
@@ -317,6 +386,13 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
         expected: EXPECTED_POLAR_METERS,
         active: activePolarMeters,
         missing: missingMeters,
+        invalid: invalidMeters,
+      },
+      paidGenerationProduct: {
+        status: productStatus,
+        expectedMeteredPriceMeters: EXPECTED_POLAR_METERS,
+        missingMeteredPriceMeters: productMissingPriceMeters,
+        product: paidGenerationProduct,
       },
       syncHealth: {
         status: syncStatus,
@@ -337,6 +413,75 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
         ...internalBillingHealth,
       },
     },
+  });
+});
+
+/**
+ * Reconcile local billable usage totals with Polar customer meter usage.
+ * GET /api/billing/reconcile?user_id=:id
+ */
+billingRoutes.get('/api/billing/reconcile', adminMiddleware, async (c) => {
+  const rawUserId = c.req.query('user_id') ?? c.req.query('userId');
+  const targetUserId = rawUserId ? Number.parseInt(rawUserId, 10) : NaN;
+  if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+    return c.json({ error: 'user_id query parameter is required' }, 400);
+  }
+
+  const container = c.get('container');
+  const userDAO = container.get(UserDAO);
+  const usageEventDAO = container.get(UsageEventDAO);
+  const polarService = container.get(PolarService);
+
+  if (!polarService.isConfigured()) {
+    return c.json({ error: 'Polar is not configured' }, 503);
+  }
+
+  const user = await userDAO.findById(targetUserId);
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  const polarUsage = await polarService.getCustomerUsage(targetUserId);
+  if (!polarUsage) {
+    return c.json({ error: 'Polar customer usage is not available' }, 503);
+  }
+
+  const periodStart = isUsableIsoDate(user.polar_current_period_start)
+    ? user.polar_current_period_start
+    : polarUsage.period.start.toISOString();
+  const periodEnd = isUsableIsoDate(user.polar_current_period_end)
+    ? user.polar_current_period_end
+    : polarUsage.period.end.toISOString();
+
+  const localTotals = await usageEventDAO.getBillableUsageTotalsForPeriod(
+    targetUserId,
+    periodStart,
+    periodEnd
+  );
+
+  const meters = EXPECTED_POLAR_METERS.map((meterName) => {
+    const local = localTotals[meterName] ?? 0;
+    const polar = polarUsage.meters[meterName]?.used ?? 0;
+    const delta = local - polar;
+    return {
+      name: meterName,
+      local,
+      polar,
+      delta,
+      matched: delta === 0,
+    };
+  });
+  const mismatches = meters.filter((meter) => !meter.matched);
+
+  return c.json({
+    userId: targetUserId,
+    status: mismatches.length > 0 ? 'mismatch' : 'ok',
+    period: {
+      start: periodStart,
+      end: periodEnd,
+    },
+    meters,
+    mismatches,
   });
 });
 

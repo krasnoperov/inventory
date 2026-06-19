@@ -17,6 +17,16 @@ export function isNonBillablePaidGenerationEntitlement(entitlement: PaidGenerati
   return entitlement === 'internal';
 }
 
+export function isPaidGenerationAccessExpired(
+  entitlement: PaidGenerationEntitlement,
+  paidAccessExpiresAt: string | null | undefined,
+  now = new Date()
+): boolean {
+  if (entitlement !== 'paid' || !paidAccessExpiresAt) return false;
+  const expiresAt = new Date(paidAccessExpiresAt).getTime();
+  return Number.isFinite(expiresAt) && expiresAt <= now.getTime();
+}
+
 /**
  * Whether a user is an admin, based on the comma-separated ADMIN_USER_IDS env var.
  * Centralizes the parsing used by both the admin middleware and entitlement resolution.

@@ -557,11 +557,14 @@ See [cli-generation.md](./cli-generation.md) for the full command reference.
 
 ## Billing
 
-View billing sync status and manage usage.
+View billing sync status, run Polar operational checks, and reconcile one
+customer billing period against Polar meter usage.
 
 ```bash
 makefx billing status
 makefx billing check
+makefx billing reconcile --user-id 42
+makefx billing retry-failed
 ```
 
 ---

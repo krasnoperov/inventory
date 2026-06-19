@@ -143,6 +143,29 @@ export class UsageEventDAO {
       .execute();
   }
 
+  async getBillableUsageTotalsForPeriod(
+    userId: number,
+    startIso: string,
+    endIso: string
+  ): Promise<Record<string, number>> {
+    const rows = await this.db
+      .selectFrom('usage_events')
+      .select(['event_name'])
+      .select((eb) => eb.fn.sum<number>('quantity').as('total_quantity'))
+      .where('user_id', '=', userId)
+      .where('polar_billable', '=', 1)
+      .where('created_at', '>=', startIso)
+      .where('created_at', '<', endIso)
+      .groupBy('event_name')
+      .execute();
+
+    const totals: Record<string, number> = {};
+    for (const row of rows) {
+      totals[row.event_name] = Number(row.total_quantity) || 0;
+    }
+    return totals;
+  }
+
   async deleteOldSyncedEvents(olderThanDays: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
