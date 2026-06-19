@@ -40,7 +40,11 @@ export const CLI_VERSION =
   typeof __INVENTORY_CLI_VERSION__ === 'string' ? __INVENTORY_CLI_VERSION__ : '0.1.0-dev';
 
 async function main() {
-  const [, , command, ...args] = process.argv;
+  const argv = process.argv.slice(2);
+  if (argv[0] === '--') {
+    argv.shift();
+  }
+  const [command, ...args] = argv;
 
   if (command === '--version' || command === 'version') {
     console.log(CLI_VERSION);

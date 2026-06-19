@@ -78,6 +78,14 @@ test('version command prints the development fallback when unbundled', async () 
   assert.equal(result.stdout.trim(), '0.1.0-dev');
 });
 
+test('package-script separator is ignored before the command', async () => {
+  const cwd = process.cwd();
+  const result = await runCli(['--', '--version'], cwd);
+
+  assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
+  assert.equal(result.stdout.trim(), '0.1.0-dev');
+});
+
 test('subcommand help exits before loading invalid project config', async () => {
   const cwd = await createCliCwd();
   try {
