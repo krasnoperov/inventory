@@ -54,11 +54,12 @@
 }
 
 /* Thumbnail container - fixed height; width is set inline to match the image
-   aspect ratio exactly (no crop, no letterbox bars). Ghost nodes have no inline
-   width and shrink-to-fit to their image's natural aspect ratio. */
+   aspect ratio exactly (no crop, no letterbox bars). Every node — including
+   cross-asset ghost nodes — receives an exact inline width; this 140px is only
+   a fallback before image dimensions have loaded. */
 .thumbnail {
   position: relative;
-  width: auto;
+  width: 140px;
   height: 140px;
   border-radius: var(--radius-md);
   overflow: hidden;

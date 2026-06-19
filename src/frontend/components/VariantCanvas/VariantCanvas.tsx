@@ -371,6 +371,7 @@ function VariantCanvasInner({
         if (!parentAsset) continue;
 
         ghostVariantIds.add(lin.parent_variant_id);
+        const ghostDims = imageDimensions.get(lin.parent_variant_id);
         ghostNodes.push({
           id: lin.parent_variant_id,
           type: 'variant' as const,
@@ -380,6 +381,8 @@ function VariantCanvasInner({
             asset: parentAsset,
             isGhost: true,
             onGhostClick: onGhostNodeClick,
+            // Exact thumbnail width so the card matches the image aspect ratio
+            thumbWidth: ghostDims ? ghostDims.width - NODE_PADDING : undefined,
           },
         });
       }
@@ -395,6 +398,7 @@ function VariantCanvasInner({
         if (!childAsset) continue;
 
         ghostVariantIds.add(lin.child_variant_id);
+        const ghostDims = imageDimensions.get(lin.child_variant_id);
         ghostNodes.push({
           id: lin.child_variant_id,
           type: 'variant' as const,
@@ -405,6 +409,8 @@ function VariantCanvasInner({
             isGhost: true,
             isDerivative: true, // Mark as outgoing derivative for different styling
             onGhostClick: onGhostNodeClick,
+            // Exact thumbnail width so the card matches the image aspect ratio
+            thumbWidth: ghostDims ? ghostDims.width - NODE_PADDING : undefined,
           },
         });
       }
@@ -616,7 +622,9 @@ export function VariantCanvas({
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
   const [dimensionsReady, setDimensionsReady] = useState(false);
 
-  // Load image dimensions for all variants
+  // Load image dimensions for all variants — including cross-asset ghost
+  // variants referenced by lineage, so ghost cards also get an exact width
+  // and render at their true aspect ratio (no crop, no letterbox bars).
   useEffect(() => {
     if (variants.length === 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing readiness from external image-load state
@@ -626,10 +634,21 @@ export function VariantCanvas({
 
     setDimensionsReady(false);
 
+    // External variants referenced by lineage but not owned by this asset (ghosts)
+    const localIds = new Set(variants.map(v => v.id));
+    const externalIds = new Set<string>();
+    for (const l of lineage) {
+      if (l.severed) continue;
+      if (localIds.has(l.child_variant_id) && !localIds.has(l.parent_variant_id)) externalIds.add(l.parent_variant_id);
+      if (localIds.has(l.parent_variant_id) && !localIds.has(l.child_variant_id)) externalIds.add(l.child_variant_id);
+    }
+    const ghostVariants = (allVariants ?? []).filter(v => externalIds.has(v.id));
+    const variantsToMeasure = [...variants, ...ghostVariants];
+
     const loadDimensions = async () => {
       const newDimensions = new Map<string, { width: number; height: number }>();
 
-      const promises = variants.map(async (variant) => {
+      const promises = variantsToMeasure.map(async (variant) => {
         const url = getVariantThumbnailUrl(variant);
         if (!url) {
           if (isVariantVideoReady(variant) && variant.media_width && variant.media_height) {
@@ -668,7 +687,7 @@ export function VariantCanvas({
     };
 
     loadDimensions();
-  }, [variants]);
+  }, [variants, lineage, allVariants]);
 
   return (
     <ReactFlowProvider>
