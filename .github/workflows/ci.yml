@@ -23,13 +23,6 @@ jobs:
     runs-on:
       - self-hosted
       - self-hosted-container
-    container:
-      image: mcr.microsoft.com/playwright:v1.60.0-noble
-      options: --user 1000:1000
-      volumes:
-        - /home/alv/cache/inventory/pnpm-store:/pnpm-store
-    env:
-      npm_config_store_dir: /pnpm-store
     steps:
       - uses: actions/checkout@v4
         with:
@@ -80,13 +73,22 @@ jobs:
 
       - name: Enable pnpm via corepack
         if: steps.detect.outputs.skip != 'true'
-        run: |
-          mkdir -p "$HOME/.local/bin"
-          corepack enable --install-directory "$HOME/.local/bin" pnpm
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        run: corepack enable pnpm
+
+      - uses: actions/cache@v4
+        if: steps.detect.outputs.skip != 'true'
+        with:
+          path: node_modules
+          key: pnpm-host-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-host-
 
       - if: steps.detect.outputs.skip != 'true'
         run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright runtime
+        if: steps.detect.outputs.skip != 'true'
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Write .env
         if: steps.detect.outputs.skip != 'true'
