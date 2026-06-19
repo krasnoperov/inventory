@@ -60,6 +60,7 @@ import {
   uploadGeneratedMedia,
   type MediaUploadResult,
 } from './generation-media-upload';
+import { normalizeImageGenerationError } from './provider-error-normalization';
 import { loggers } from '../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../shared/websocket-types';
 import {
@@ -364,17 +365,22 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         }
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const isSafetyBlock = errorMessage.includes('Prompt blocked for safety') || errorMessage.includes('content matched existing material');
-      const userMessage = isSafetyBlock ? errorMessage : 'Generation failed';
+      const normalizedError = normalizeImageGenerationError(error);
 
-      log.error('Generation error', { requestId, jobId, spaceId, error: errorMessage, isSafetyBlock });
-      await this.handleFailure(spaceId, jobId, requestId, isSafetyBlock ? errorMessage : (error instanceof Error ? error.message : userMessage));
+      log.error('Generation error', {
+        requestId,
+        jobId,
+        spaceId,
+        error: normalizedError.providerMessage,
+        category: normalizedError.category,
+        userMessage: normalizedError.userMessage,
+      });
+      await this.handleFailure(spaceId, jobId, requestId, normalizedError.userMessage);
       return {
         requestId,
         jobId,
         success: false,
-        error: isSafetyBlock ? errorMessage : (error instanceof Error ? error.message : userMessage),
+        error: normalizedError.userMessage,
       };
     }
 
