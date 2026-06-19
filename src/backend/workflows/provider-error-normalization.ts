@@ -4,6 +4,12 @@ export const IMAGE_PROVIDER_QUOTA_EXHAUSTED_MESSAGE =
 export const IMAGE_PROVIDER_RATE_LIMITED_MESSAGE =
   'Image generation is temporarily busy. Please try again in a minute.';
 
+export const VIDEO_PROVIDER_QUOTA_EXHAUSTED_MESSAGE =
+  'Video generation is temporarily unavailable because provider quota is exhausted. Please try again later.';
+
+export const VIDEO_PROVIDER_RATE_LIMITED_MESSAGE =
+  'Video generation is temporarily busy. Please try again in a minute.';
+
 export type NormalizedGenerationError = {
   userMessage: string;
   providerMessage: string;
@@ -14,7 +20,10 @@ export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function normalizeImageGenerationError(error: unknown): NormalizedGenerationError {
+export function normalizeMediaGenerationError(
+  error: unknown,
+  mediaKind: 'image' | 'video'
+): NormalizedGenerationError {
   const providerMessage = getErrorMessage(error);
   const normalized = providerMessage.toLowerCase();
 
@@ -28,7 +37,9 @@ export function normalizeImageGenerationError(error: unknown): NormalizedGenerat
 
   if (isQuotaExhaustionMessage(normalized)) {
     return {
-      userMessage: IMAGE_PROVIDER_QUOTA_EXHAUSTED_MESSAGE,
+      userMessage: mediaKind === 'video'
+        ? VIDEO_PROVIDER_QUOTA_EXHAUSTED_MESSAGE
+        : IMAGE_PROVIDER_QUOTA_EXHAUSTED_MESSAGE,
       providerMessage,
       category: 'quota_exhausted',
     };
@@ -36,7 +47,9 @@ export function normalizeImageGenerationError(error: unknown): NormalizedGenerat
 
   if (isRateLimitMessage(normalized)) {
     return {
-      userMessage: IMAGE_PROVIDER_RATE_LIMITED_MESSAGE,
+      userMessage: mediaKind === 'video'
+        ? VIDEO_PROVIDER_RATE_LIMITED_MESSAGE
+        : IMAGE_PROVIDER_RATE_LIMITED_MESSAGE,
       providerMessage,
       category: 'rate_limited',
     };

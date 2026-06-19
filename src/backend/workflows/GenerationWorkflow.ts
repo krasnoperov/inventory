@@ -60,7 +60,7 @@ import {
   uploadGeneratedMedia,
   type MediaUploadResult,
 } from './generation-media-upload';
-import { normalizeImageGenerationError } from './provider-error-normalization';
+import { normalizeMediaGenerationError } from './provider-error-normalization';
 import { loggers } from '../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../shared/websocket-types';
 import {
@@ -365,7 +365,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         }
       });
     } catch (error) {
-      const normalizedError = normalizeImageGenerationError(error);
+      const normalizedError = normalizeMediaGenerationError(error, mediaKind);
 
       log.error('Generation error', {
         requestId,
