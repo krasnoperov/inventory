@@ -70,6 +70,25 @@ describe('voicesRoutes', () => {
     assert.equal(body.voices[0].name, 'Rachel');
   });
 
+  test('treats ElevenLabs as the provider in production without an explicit override', async () => {
+    mock.method(globalThis, 'fetch', async () =>
+      new Response(JSON.stringify({ voices: [{ voice_id: 'v1', name: 'Rachel' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    // No INVENTORY_AUDIO_PROVIDER set — prod resolves to ElevenLabs automatically.
+    const response = await authedRequest(
+      routeApp({ ENVIRONMENT: 'production', ELEVENLABS_API_KEY: 'secret' })
+    );
+
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as { available: boolean; voices: unknown[] };
+    assert.equal(body.available, true);
+    assert.equal(body.voices.length, 1);
+  });
+
   test('returns 502 when the ElevenLabs request fails', async () => {
     mock.method(globalThis, 'fetch', async () => new Response('nope', { status: 500 }));
 

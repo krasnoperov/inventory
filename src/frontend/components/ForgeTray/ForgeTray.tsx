@@ -679,9 +679,9 @@ export function ForgeTray({
         videoResolution: mediaMode === 'video' ? videoResolution : undefined,
         videoDurationSeconds: mediaMode === 'video' ? videoDurationSeconds : undefined,
         videoTier: mediaMode === 'video' ? videoTier : undefined,
-        // Keep positions intact — each entry maps to a speaker in order, and a
-        // blank ("Default") slot is resolved to the default voice server-side.
-        // Filtering blanks here would shift later voices onto earlier speakers.
+        // Keep positions intact — each entry maps to a speaker in order. Every
+        // speaker needs its own voice (no server-side default), so filtering
+        // here would shift later voices onto earlier speakers.
         dialogueVoiceIds: mediaMode === 'dialogue' && dialogueVoiceIds.some(Boolean)
           ? dialogueVoiceIds
           : undefined,

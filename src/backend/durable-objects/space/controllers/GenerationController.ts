@@ -38,6 +38,7 @@ import {
 import type { VariantMediaMetadata } from '../repository/SpaceRepository';
 import { loggers } from '../../../../shared/logger';
 import type { MusicGenerationProvider } from '../../../../shared/websocket-types';
+import { resolveAudioProvider } from '../../../services/audioProviderSelection';
 import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
 
 const log = loggers.generationController;
@@ -71,7 +72,7 @@ function getGenerationBillingService(
   if (mediaKind === 'audio' && assetType === 'music' && musicProvider === 'lyria') {
     return 'lyria';
   }
-  if (mediaKind === 'audio' && env.INVENTORY_AUDIO_PROVIDER === 'elevenlabs') {
+  if (mediaKind === 'audio' && resolveAudioProvider(env) === 'elevenlabs') {
     return 'elevenlabs';
   }
   return 'nanobanana';

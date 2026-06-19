@@ -50,10 +50,11 @@ export interface Env {
   // AI services (for NanoBananaService and future use)
   GOOGLE_AI_API_KEY?: string;
   INVENTORY_IMAGE_PROVIDER?: 'fake' | 'gemini';
+  // Optional override; audio provider otherwise resolves from ENVIRONMENT
+  // (ElevenLabs in production, fake elsewhere). See resolveAudioProvider().
   INVENTORY_AUDIO_PROVIDER?: 'fake' | 'elevenlabs';
   ELEVENLABS_API_KEY?: string;
-  ELEVENLABS_VOICE_ID?: string;
-  ELEVENLABS_DIALOGUE_VOICE_IDS?: string;
+  // No default voice: voices are chosen per generation in the UI/CLI.
   ELEVENLABS_MODEL_ID?: string;
   ELEVENLABS_AUDIO_OUTPUT_FORMAT?: string;
   ELEVENLABS_MUSIC_MODEL_ID?: string;
