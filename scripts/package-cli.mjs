@@ -28,7 +28,7 @@ const cliPackage = {
     url: 'git+https://github.com/krasnoperov/inventory.git',
   },
   bin: {
-    makefx: './makefx.mjs',
+    makefx: 'makefx.mjs',
   },
   files: [
     'makefx.mjs',

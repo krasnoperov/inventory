@@ -30,7 +30,7 @@ pnpm run pack:cli
 ## Raise The Version
 
 The npm version comes from root `package.json`. Bump it on a normal branch,
-commit the change, and merge it before tagging.
+commit the change, and merge it to `main`.
 
 ```bash
 pnpm run version:cli:patch
@@ -65,19 +65,15 @@ result.
 
 ## Publish From CI
 
-Publishing is tag-triggered. After the version bump is on `main`, create and
-push a matching tag from that exact release commit:
+Publishing runs automatically after a push to `main`. The workflow reads the
+root `package.json` version and checks npm before doing any build work:
 
-```bash
-version=$(node -p "require('./package.json').version")
-git tag "v${version}"
-git push origin "v${version}"
-```
+- if `makefx@VERSION` already exists, the workflow exits successfully without
+  publishing
+- if `makefx@VERSION` is missing, the workflow builds and publishes `./dist/npm`
 
-`.github/workflows/publish-cli.yml` checks that the tag matches
-`package.json`, refuses to republish an existing npm version, builds the
-dist-only package, verifies that it has no runtime dependencies, and publishes
-`./dist/npm`.
+`.github/workflows/publish-cli.yml` builds the dist-only package, verifies that
+it has no runtime dependencies, and publishes `./dist/npm`.
 
 The publish workflow intentionally runs on `ubuntu-latest` because npm Trusted
 Publishing requires a GitHub-hosted runner. Keep it short: it should install,
@@ -92,7 +88,9 @@ Configure npm Trusted Publishing for:
 - workflow filename: `publish-cli.yml`
 - allowed action: `npm publish`
 
-The workflow can also be run manually against an existing `vX.Y.Z` tag.
+The workflow can also be run manually from GitHub Actions, but it must run from
+`main`. It uses `main`'s `package.json` version and applies the same "publish
+only if missing" guard.
 
 ## Manual Fallback
 
