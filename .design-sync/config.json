@@ -19,7 +19,8 @@
   "overrides": {
     "FormContainer": { "cardMode": "column" },
     "Pagination": { "cardMode": "column" },
-    "Thumbnail": { "cardMode": "column" }
+    "Thumbnail": { "cardMode": "column" },
+    "WorkspaceChrome": { "cardMode": "single", "viewport": "1100x140" }
   },
   "readmeHeader": ".design-sync/conventions.md"
 }

@@ -43,3 +43,15 @@
   (the file carries a header comment with this command).
 - Theme default: "follow system" — left `color-scheme: light dark`; the design
   tool's own light/dark setting decides. Site is dark (system dark); tool may show light.
+
+## Dark default + per-preview surfaces (user wanted it to match the dark site)
+- ds-styles.css appends `:root { color-scheme: dark }` so the whole DS renders dark
+  (the app's primary look). Regenerate command in the file header includes this line.
+- WorkspaceChrome preview = rich "SpaceHeader" (space name + OWNER badge + counts +
+  Live pill + view/action icons) matching the production header — bare WorkspaceChrome
+  looked empty because the page fills its slots.
+- Bare-text previews (FormTitle, HeaderNav, ErrorMessage) wrap in a dark
+  `var(--color-bg)` surface so they don't render light-on-white in the DS pane.
+- ForgeTray DROPPED: it's a stateful, store/config-driven docked tray; standalone it
+  collapses to its bottom toolbar (no prompt/options row). Not design-system material.
+  To retry: seed its zustand stores + unpick getMediaGroup/getForgeMediaModeConfig gating.
