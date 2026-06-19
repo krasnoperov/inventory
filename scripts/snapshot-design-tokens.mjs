@@ -48,6 +48,8 @@ const TIER_PREFIXES = {
     '--forge-',
     '--thumb-action-',
     '--thumb-badge-',
+    '--landing-',
+    '--terminal-',
   ],
 };
 
@@ -255,6 +257,13 @@ const GROUPS = [
   // ---- component: thumbnail action buttons & selection badge. ----
   { match: /^--thumb-action-(.+)$/, group: 'thumbAction', leaf: ($1) => kebabToCamel($1), type: undefined },
   { match: /^--thumb-badge-(.+)$/, group: 'thumbBadge', leaf: ($1) => kebabToCamel($1), type: undefined },
+
+  // ---- component: landing / marketing surfaces. Heterogeneous (colours,
+  // shadows, gradients). Type undefined → inferTypeFromValue per token. ----
+  { match: /^--landing-(.+)$/, group: 'landing', leaf: ($1) => kebabToCamel($1), type: undefined },
+
+  // ---- component: terminal (fixed dark). Colours + one shadow. ----
+  { match: /^--terminal-(.+)$/, group: 'terminal', leaf: ($1) => kebabToCamel($1), type: undefined },
 ];
 
 function kebabToCamel(s) {

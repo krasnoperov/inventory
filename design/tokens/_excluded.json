@@ -17,6 +17,13 @@
       "rawValue": "0 4px 16px light-dark(oklch(55% 0.18 276 / 0.4), oklch(0% 0 0 / 0.4)), inset 0 1px 0 light-dark(oklch(100% 0 0 / 0.3), oklch(100% 0 0 / 0.2))",
       "reason": "CSS construct has no DTCG-conformant shape (color-mix, clamp/calc, shorthand, gradient/border/shadow over light-dark() colours, multi-layer with `none`).",
       "recommendation": "Two-layer box-shadow including an `inset` highlight layer. Same path as --forge-bar-shadow: the inset layer has no DTCG-conformant shadow shape here. Stays authoritative in CSS."
+    },
+    {
+      "cssVar": "--terminal-shadow",
+      "sourceFile": "theme.css",
+      "inferredType": "shadow",
+      "rawValue": "0 30px 70px light-dark(oklch(40% 0.06 264 / 0.22), oklch(0% 0 0 / 0.6)), inset 0 1px 0 oklch(100% 0 0 / 0.07)",
+      "reason": "CSS construct has no DTCG-conformant shape (color-mix, clamp/calc, shorthand, gradient/border/shadow over light-dark() colours, multi-layer with `none`)."
     }
   ]
 }

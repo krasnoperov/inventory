@@ -204,19 +204,6 @@
       "oklch(94% 0.02 245)",
       "oklch(97% 0.01 255)"
     ],
-    "src/frontend/pages/LandingPage.module.css": [
-      "oklch(0.68 0.2 300/0.22)",
-      "oklch(0.78 0.12 230/0.22)",
-      "oklch(19% 0.035 260)",
-      "oklch(20% 0.08 260/0.22)",
-      "oklch(24% 0.045 260)",
-      "oklch(76% 0.16 150)",
-      "oklch(77% 0.18 35)",
-      "oklch(84% 0.16 88)",
-      "oklch(86% 0.02 250)",
-      "oklch(93% 0.025 240)",
-      "oklch(96% 0.015 255)"
-    ],
     "src/frontend/pages/SpacePage.module.css": [
       "white",
       "white"
