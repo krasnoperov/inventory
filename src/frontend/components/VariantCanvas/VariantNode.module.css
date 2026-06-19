@@ -53,11 +53,12 @@
   background: var(--color-primary) !important;
 }
 
-/* Thumbnail container - fixed height, flexible width with max */
+/* Thumbnail container - fixed height; width is set inline to match the image
+   aspect ratio exactly (no crop, no letterbox bars). Ghost nodes have no inline
+   width and shrink-to-fit to their image's natural aspect ratio. */
 .thumbnail {
   position: relative;
-  min-width: 100px;
-  max-width: 240px;
+  width: auto;
   height: 140px;
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -65,13 +66,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* Image with preserved aspect ratio */
-.image {
-  height: 100%;
-  width: auto;
-  object-fit: contain;
 }
 
 .mediaPreview {

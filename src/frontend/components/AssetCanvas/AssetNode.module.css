@@ -38,11 +38,11 @@
   background: var(--color-primary) !important;
 }
 
-/* Thumbnail container - fixed height, flexible width with max */
+/* Thumbnail container - fixed height; width is set inline to match the
+   image aspect ratio exactly (no crop, no letterbox bars). */
 .thumbnail {
   position: relative;
-  min-width: 100px;
-  max-width: 240px;
+  width: 140px; /* fallback before image dimensions load; overridden inline */
   height: 140px;
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -50,13 +50,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* Image with preserved aspect ratio - height fills container */
-.image {
-  height: 100%;
-  width: auto;
-  object-fit: contain;
 }
 
 .mediaPreview {

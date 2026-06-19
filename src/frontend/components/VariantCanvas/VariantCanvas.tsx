@@ -20,10 +20,9 @@ import { VariantNode, type VariantNodeType } from './VariantNode';
 import '@xyflow/react/dist/style.css';
 import styles from './VariantCanvas.module.css';
 
-// Fixed thumbnail height, width varies by aspect ratio
+// Fixed thumbnail height, width varies freely by aspect ratio (no clamp:
+// the card must show the image as-is — no crop, no letterbox bars).
 const THUMB_HEIGHT = 140;
-const THUMB_MIN_WIDTH = 100;
-const THUMB_MAX_WIDTH = 240;
 const NODE_PADDING = 20;
 
 // Active variant is larger
@@ -67,11 +66,10 @@ export interface VariantCanvasProps {
   onDeleteVariant?: (variant: Variant) => void;
 }
 
-/** Calculate node width from image dimensions */
+/** Calculate node bounding width from image dimensions (height fixed, width follows aspect ratio) */
 function calculateNodeWidth(imgWidth: number, imgHeight: number, scale = 1): number {
   const aspectRatio = imgWidth / imgHeight;
-  const thumbWidth = Math.min(THUMB_MAX_WIDTH * scale, Math.max(THUMB_MIN_WIDTH * scale, THUMB_HEIGHT * scale * aspectRatio));
-  return thumbWidth + NODE_PADDING;
+  return Math.round(THUMB_HEIGHT * scale * aspectRatio) + NODE_PADDING;
 }
 
 /** Apply dagre layout to nodes with lineage-based edges */
@@ -310,29 +308,34 @@ function VariantCanvasInner({
     }
 
     // Create normal nodes for this asset's variants
-    const nodes: VariantNodeType[] = variants.map((variant) => ({
-      id: variant.id,
-      type: 'variant' as const,
-      position: { x: 0, y: 0 },
-      data: {
-        variant,
-        asset,
-        isActive: variant.id === asset.active_variant_id,
-        isSelected: variant.id === selectedVariantId,
-        isGenerating: isVariantGenerating(variant.id),
-        onVariantClick,
-        onAddToTray,
-        onSetActive,
-        onRetryRecipe,
-        forkedTo: forkedToMap.get(variant.id),
-        forkedFrom: forkedFromMap.get(variant.id),
-        onGhostClick: onGhostNodeClick, // For forked-to/from navigation
-        onStarVariant,
-        onDeleteVariant,
-        variantCount: variants.length,
-        spaceId,
-      },
-    }));
+    const nodes: VariantNodeType[] = variants.map((variant) => {
+      const dims = imageDimensions.get(variant.id);
+      return {
+        id: variant.id,
+        type: 'variant' as const,
+        position: { x: 0, y: 0 },
+        data: {
+          variant,
+          asset,
+          isActive: variant.id === asset.active_variant_id,
+          isSelected: variant.id === selectedVariantId,
+          isGenerating: isVariantGenerating(variant.id),
+          onVariantClick,
+          onAddToTray,
+          onSetActive,
+          onRetryRecipe,
+          forkedTo: forkedToMap.get(variant.id),
+          forkedFrom: forkedFromMap.get(variant.id),
+          onGhostClick: onGhostNodeClick, // For forked-to/from navigation
+          onStarVariant,
+          onDeleteVariant,
+          variantCount: variants.length,
+          spaceId,
+          // Exact thumbnail width so the card matches the image aspect ratio
+          thumbWidth: dims ? dims.width - NODE_PADDING : undefined,
+        },
+      };
+    });
 
     // Find incoming cross-asset lineage: where child is in this asset but parent is from another asset
     // Exclude forked - for forked, the local variant IS a copy, so no ghost needed
