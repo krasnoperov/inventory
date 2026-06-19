@@ -1,8 +1,9 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState, useEffect } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { type Asset, type Variant, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantForgeTrayReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
 import { Thumbnail } from '../Thumbnail';
+import { ImageLightbox } from '../ImageLightbox';
 import styles from './VariantNode.module.css';
 
 /** Layout direction for handle positioning */
@@ -77,6 +78,32 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
   // Expanded state for showing details
   const [isExpanded, setIsExpanded] = useState(false);
+  // Full-resolution lightbox
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  // Raw metadata disclosure (collapsed by default to keep the panel lean)
+  const [showRawMeta, setShowRawMeta] = useState(false);
+  // Fallback image dimensions when the variant has none stored (e.g. uploads)
+  const [measuredDims, setMeasuredDims] = useState<{ width: number; height: number } | null>(null);
+
+  // Lazily measure real dimensions only when the panel is open and the variant
+  // has no stored media_width/height. Most generated variants store these, so
+  // this load is rare.
+  useEffect(() => {
+    if (!isExpanded) return;
+    if (variant.media_width && variant.media_height) return;
+    if (!isVariantImageReady(variant)) return;
+    const url = getVariantMediaUrl(variant, spaceId);
+    if (!url) return;
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) setMeasuredDims({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.src = url;
+    return () => {
+      cancelled = true;
+    };
+  }, [isExpanded, variant, spaceId]);
 
   // Determine handle positions based on layout direction
   const getHandlePositions = () => {
@@ -115,6 +142,13 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     setIsExpanded(false);
   }, []);
 
+  const handleOpenLightbox = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLightboxOpen(true);
+  }, []);
+
+  const handleCloseLightbox = useCallback(() => setLightboxOpen(false), []);
+
   // Parse recipe for details
   const parseRecipe = (recipe: string) => {
     try {
@@ -142,6 +176,16 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     'resolution',
     'durationSeconds',
   ]);
+
+  // Lean derived fields for the details panel
+  const dimWidth = variant.media_width ?? measuredDims?.width ?? null;
+  const dimHeight = variant.media_height ?? measuredDims?.height ?? null;
+  const dimensionsLabel = dimWidth && dimHeight ? `${dimWidth}×${dimHeight}` : null;
+  const sizeLabel = formatBytes(variant.media_size_bytes);
+  const keyFacts = extractKeyFacts(variant, recipe);
+  const canViewFullSize = isVariantImageReady(variant);
+  const fullSizeUrl = canViewFullSize ? getVariantMediaUrl(variant, spaceId) : undefined;
+  const lightboxCaption = [asset.name, dimensionsLabel, sizeLabel].filter(Boolean).join(' · ');
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString(undefined, {
@@ -234,6 +278,17 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         {/* Hover actions - only for completed variants */}
         {isVariantForgeTrayReady(variant) ? (
           <div className={styles.actions}>
+            {canViewFullSize && (
+              <button
+                className={styles.actionButton}
+                onClick={handleOpenLightbox}
+                title="View full size"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+              </button>
+            )}
             {onAddToTray && isVariantForgeTrayReady(variant) && (
               <button
                 className={styles.actionButton}
@@ -321,6 +376,17 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
           {/* Actions Row */}
           <div className={styles.detailsActions}>
+            {canViewFullSize && (
+              <button
+                className={styles.detailActionButton}
+                onClick={handleOpenLightbox}
+                title="View full size"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+              </button>
+            )}
             <button
               className={`${styles.detailActionButton} ${variant.starred ? styles.starred : ''}`}
               onClick={handleStarClick}
@@ -377,34 +443,63 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
             )}
           </div>
 
-          {/* Metadata */}
+          {/* Metadata - one lean line: when · kind · dimensions · size */}
           <div className={styles.detailsMeta}>
             <span className={styles.detailsDate}>{formatDate(variant.created_at)}</span>
-            <span className={styles.detailsKind}>{formatMediaKind(variant.media_kind)}</span>
-            {recipe?.model && (
-              <span className={styles.detailsModel}>{recipe.model}</span>
-            )}
+            <span className={styles.detailsChip}>{formatMediaKind(variant.media_kind)}</span>
+            {dimensionsLabel && <span className={styles.detailsChip}>{dimensionsLabel}</span>}
+            {sizeLabel && <span className={styles.detailsChip}>{sizeLabel}</span>}
           </div>
 
           {/* Prompt */}
           {recipe?.prompt && (
             <div className={styles.detailsPrompt}>
-              {recipe.prompt.length > 100 ? recipe.prompt.slice(0, 100) + '...' : recipe.prompt}
+              {recipe.prompt.length > 140 ? recipe.prompt.slice(0, 140) + '…' : recipe.prompt}
             </div>
           )}
 
+          {/* Key facts - compact chip row (operation · type · provider · model) */}
+          {keyFacts.length > 0 && (
+            <div className={styles.detailsFacts}>
+              {keyFacts.map((fact) => (
+                <span key={fact} className={styles.detailsChip}>{fact}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Raw metadata - collapsed by default so it costs ~one line */}
           {(provenanceSummary || providerSummary) && (
-            <div className={styles.detailsGeneration}>
-              {provenanceSummary && (
-                <div className={styles.detailsGenerationRow}>
-                  <span>Provenance</span>
-                  <code>{provenanceSummary}</code>
-                </div>
-              )}
-              {providerSummary && (
-                <div className={styles.detailsGenerationRow}>
-                  <span>Provider</span>
-                  <code>{providerSummary}</code>
+            <div className={styles.detailsRaw}>
+              <button
+                className={styles.detailsRawToggle}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowRawMeta((prev) => !prev);
+                }}
+                aria-expanded={showRawMeta}
+              >
+                <svg
+                  className={`${styles.detailsRawChevron} ${showRawMeta ? styles.detailsRawChevronOpen : ''}`}
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+                Raw metadata
+              </button>
+              {showRawMeta && (
+                <div className={styles.detailsGeneration}>
+                  {provenanceSummary && (
+                    <div className={styles.detailsGenerationRow}>
+                      <span>Provenance</span>
+                      <code>{provenanceSummary}</code>
+                    </div>
+                  )}
+                  {providerSummary && (
+                    <div className={styles.detailsGenerationRow}>
+                      <span>Provider</span>
+                      <code>{providerSummary}</code>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -422,6 +517,16 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       {/* Output handle (for outgoing edges to child variants) - hidden for ghost nodes */}
       {showBottomHandle && (
         <Handle type="source" position={sourcePosition} className={styles.handle} />
+      )}
+
+      {/* Full-resolution lightbox (portaled to body, escapes canvas transform) */}
+      {lightboxOpen && fullSizeUrl && (
+        <ImageLightbox
+          src={fullSizeUrl}
+          alt={asset.name}
+          caption={lightboxCaption}
+          onClose={handleCloseLightbox}
+        />
       )}
     </div>
   );
@@ -456,6 +561,41 @@ function parseJsonObject(value: string): Record<string, unknown> | null {
 
 function truncateText(value: string, maxLength: number): string {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
+}
+
+/** Human-readable byte size, e.g. 245 KB / 1.8 MB. */
+function formatBytes(bytes: number | null | undefined): string | null {
+  if (!bytes || bytes <= 0) return null;
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const rounded = unit === 0 ? value : value < 10 ? Math.round(value * 10) / 10 : Math.round(value);
+  return `${rounded} ${units[unit]}`;
+}
+
+/**
+ * Pull the few high-value facts (operation, asset type, provider, model) out of
+ * the verbose provenance/provider metadata for the compact chip row. Falls back
+ * across sources and de-dupes so chips stay lean.
+ */
+function extractKeyFacts(variant: Variant, recipe: { model?: string } | null): string[] {
+  const prov = variant.generation_provenance ? parseJsonObject(variant.generation_provenance) : null;
+  const provider = variant.provider_metadata ? parseJsonObject(variant.provider_metadata) : null;
+  const facts: string[] = [];
+  const add = (value: unknown) => {
+    if (value === undefined || value === null || typeof value === 'object') return;
+    const text = String(value).trim();
+    if (text && !facts.some((f) => f.toLowerCase() === text.toLowerCase())) facts.push(text);
+  };
+  add(prov?.operation);
+  add(prov?.assetType);
+  add(provider?.provider ?? prov?.modelProvider);
+  add(recipe?.model ?? provider?.model ?? prov?.model);
+  return facts;
 }
 
 export const VariantNode = memo(VariantNodeComponent);

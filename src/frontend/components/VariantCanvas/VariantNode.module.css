@@ -383,13 +383,13 @@
   color: var(--color-text-muted);
 }
 
-.detailsKind,
-.detailsModel {
+.detailsChip {
   font-size: 0.6875rem;
   color: var(--color-text-muted);
   background: var(--color-bg);
   padding: 0.125rem 0.375rem;
   border-radius: var(--radius-xs);
+  white-space: nowrap;
 }
 
 /* Prompt Section */
@@ -399,6 +399,47 @@
   line-height: 1.4;
   margin-bottom: 0.375rem;
   font-style: italic;
+}
+
+/* Key facts - compact chip row */
+.detailsFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.375rem;
+}
+
+/* Raw metadata disclosure */
+.detailsRaw {
+  margin-bottom: 0.375rem;
+}
+
+.detailsRawToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.detailsRawToggle:hover {
+  color: var(--color-text);
+}
+
+.detailsRawChevron {
+  transition: transform 0.15s ease;
+}
+
+.detailsRawChevronOpen {
+  transform: rotate(90deg);
 }
 
 .detailsGeneration {

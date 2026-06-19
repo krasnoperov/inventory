@@ -194,6 +194,23 @@
         "com.inventory.cssValue": "light-dark(oklch(55% 0.15 145), oklch(70% 0.13 145))"
       }
     },
+    "overlayScrim": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0,
+          0,
+          0
+        ],
+        "alpha": 0.8
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--color-overlay-scrim",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "oklch(0% 0 0 / 0.8)"
+      }
+    },
     "star": {
       "$value": "{palette.amber}",
       "$extensions": {
