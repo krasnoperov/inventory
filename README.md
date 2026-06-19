@@ -144,6 +144,7 @@ Access at http://localhost:3001/
 |---------|-------------|
 | `pnpm run dev` | Start local development (frontend + worker) |
 | `pnpm run build:cli` | Build `dist/cli/makefx.mjs` |
+| `pnpm run pack:cli` | Build and inspect the npm CLI package |
 | `pnpm run cli:dev -- --help` | Run the CLI from TypeScript sources |
 | `pnpm run db:migrate` | Apply database migrations locally |
 | `pnpm test` | Run tests |
@@ -167,6 +168,7 @@ src/
 ## Documentation
 
 - [docs/cli.md](./docs/cli.md) - complete CLI reference
+- [docs/cli-publishing.md](./docs/cli-publishing.md) - versioning and npm publishing
 - [docs/cli-generation.md](./docs/cli-generation.md) - agent-oriented media generation flows
 - [docs/architecture.md](./docs/architecture.md) - system architecture
 - [PRD.md](./PRD.md) - product requirements and core concepts

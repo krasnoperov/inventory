@@ -1,7 +1,9 @@
 {
   "name": "makefx",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Make Effects CLI and Cloudflare app for AI-assisted game asset production.",
+  "license": "MIT",
+  "private": true,
   "type": "module",
   "bin": {
     "makefx": "dist/cli/makefx.mjs"
@@ -10,16 +12,20 @@
     "dist/cli/makefx.mjs",
     "README.md"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
   "packageManager": "pnpm@11.1.1",
   "scripts": {
     "bootstrap:worktree": "node ./scripts/bootstrap-worktree.mjs",
     "dev": "CLOUDFLARE_VITE_CONFIG_PATH=wrangler.dev.toml vite",
     "build": "vite build && pnpm run package:frontend-start && pnpm run build:cli",
     "package:frontend-start": "node scripts/package-frontend-start.mjs",
-    "build:cli": "node scripts/build-cli.mjs",
+    "build:cli": "node scripts/build-cli.mjs && node scripts/package-cli.mjs",
+    "package:cli": "node scripts/package-cli.mjs",
+    "pack:cli": "pnpm run build:cli && npm pack ./dist/npm --dry-run",
+    "pack:cli:tarball": "pnpm run build:cli && npm pack ./dist/npm",
+    "publish:cli": "pnpm run build:cli && npm publish ./dist/npm",
+    "version:cli:patch": "npm version patch --no-git-tag-version",
+    "version:cli:minor": "npm version minor --no-git-tag-version",
+    "version:cli:major": "npm version major --no-git-tag-version",
     "deploy": "pnpm run build && pnpm exec wrangler deploy",
     "deploy:production": "CLOUDFLARE_ENV=production pnpm run build && pnpm exec wrangler deploy --env production",
     "deploy:stage": "pnpm run build && pnpm exec wrangler deploy",
