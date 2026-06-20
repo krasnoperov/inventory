@@ -9,6 +9,7 @@ import {
   type Variant,
 } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
+import { buildImmediateRelationLabel, COMMON_RELATION_SHORTCUT_TYPES } from '../productionShortcuts';
 import { Thumbnail } from './Thumbnail';
 import styles from './RelationsPanel.module.css';
 
@@ -364,6 +365,26 @@ export function RelationEditorDialog({
               })}
               {options.length === 0 && <div className={styles.emptyTarget}>No matching targets</div>}
             </div>
+          </div>
+        )}
+
+        {mode === 'create' && targetSubject && (
+          <div className={styles.quickRelations} aria-label="Relation shortcuts">
+            {COMMON_RELATION_SHORTCUT_TYPES.map((shortcut) => (
+              <button
+                key={shortcut.type}
+                type="button"
+                className={styles.quickRelationButton}
+                onClick={() => onCreate({
+                  subject: sourceSubject,
+                  object: targetSubject,
+                  relationType: shortcut.type,
+                  context: null,
+                })}
+              >
+                {buildImmediateRelationLabel(shortcut.type, getSubjectLabel(targetSubject, assets, variants))}
+              </button>
+            ))}
           </div>
         )}
 

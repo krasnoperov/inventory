@@ -34,12 +34,19 @@ import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { SpaceBoard } from '../components/SpaceBoard';
 import { ForgeTray } from '../components/ForgeTray';
+import type { ForgeSubmitParams } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import { StylePanel } from '../components/ForgeTray/StylePanel';
 import { RelationEditorDialog } from '../components/RelationsPanel';
 import { CompositionDetail } from '../components/CompositionDetail';
+import {
+  applyCompositionShortcut,
+  applyRelationShortcut,
+  type CompositionShortcut,
+  type RelationShortcut,
+} from '../productionShortcuts';
 import { spacePageQueryOptions } from '../queries';
 import styles from './SpacePage.module.css';
 
@@ -61,6 +68,7 @@ export default function SpacePage() {
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
   const [relationSubject, setRelationSubject] = useState<SpaceSubject | null>(null);
+  const pendingCompositionShortcutsRef = useRef(new Map<string, CompositionShortcut>());
 
   // Set page title
   useDocumentTitle(space?.name);
@@ -165,6 +173,19 @@ export default function SpacePage() {
     },
     onJobComplete: () => {
       // Job completed - variant is now visible on canvas
+    },
+    onGenerateResult: (data) => {
+      if (!data.success || !data.variant) {
+        pendingCompositionShortcutsRef.current.delete(data.requestId);
+        return;
+      }
+      const shortcut = pendingCompositionShortcutsRef.current.get(data.requestId);
+      pendingCompositionShortcutsRef.current.delete(data.requestId);
+      applyCompositionShortcut(shortcut, data.variant, compositionItems, {
+        updateComposition,
+        createCompositionItem,
+        updateCompositionItem,
+      });
     },
     onChatHistory: (messages) => {
       setChatMessages(messages);
@@ -273,18 +294,47 @@ export default function SpacePage() {
     sendBatchRequest,
   });
 
+  const handleForgeSubmitWithShortcuts = useCallback((params: ForgeSubmitParams): string => {
+    const requestId = handleForgeSubmit(params);
+    const shortcut = params.shortcut?.composition;
+    if (requestId && shortcut && shortcut.kind !== 'none') {
+      pendingCompositionShortcutsRef.current.set(requestId, shortcut);
+    }
+    return requestId;
+  }, [handleForgeSubmit]);
+
   // Image upload hook
   const { upload: uploadImage, uploadNewAsset, isUploading } = useImageUpload({
     spaceId: spaceId || '',
   });
 
-  const handleUpload = useCallback(async (file: File, assetId: string) => {
-    await uploadImage(file, assetId);
-  }, [uploadImage]);
+  const handleUpload = useCallback(async (file: File, assetId: string, shortcut?: {
+    composition?: CompositionShortcut;
+    relation?: RelationShortcut;
+  }) => {
+    const variant = await uploadImage(file, assetId);
+    if (!variant) return;
+    applyCompositionShortcut(shortcut?.composition, variant, compositionItems, {
+      updateComposition,
+      createCompositionItem,
+      updateCompositionItem,
+    });
+    applyRelationShortcut(shortcut?.relation, variant, createRelation);
+  }, [compositionItems, createCompositionItem, createRelation, updateComposition, updateCompositionItem, uploadImage]);
 
-  const handleUploadNewAsset = useCallback(async (file: File, assetName: string) => {
-    await uploadNewAsset({ file, assetName });
-  }, [uploadNewAsset]);
+  const handleUploadNewAsset = useCallback(async (file: File, assetName: string, shortcut?: {
+    composition?: CompositionShortcut;
+    relation?: RelationShortcut;
+  }) => {
+    const result = await uploadNewAsset({ file, assetName });
+    if (!result) return;
+    applyCompositionShortcut(shortcut?.composition, result.variant, compositionItems, {
+      updateComposition,
+      createCompositionItem,
+      updateCompositionItem,
+    });
+    applyRelationShortcut(shortcut?.relation, result.variant, createRelation);
+  }, [compositionItems, createCompositionItem, createRelation, updateComposition, updateCompositionItem, uploadNewAsset]);
 
   // Handle add to forge tray
   const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
@@ -634,7 +684,7 @@ export default function SpacePage() {
         <ForgeTray
           allAssets={assets}
           allVariants={variants}
-          onSubmit={handleForgeSubmit}
+          onSubmit={handleForgeSubmitWithShortcuts}
           onBrandBackground={false}
           onUpload={handleUpload}
           onUploadNewAsset={handleUploadNewAsset}
@@ -655,6 +705,8 @@ export default function SpacePage() {
           forgeErrorCode={forgeErrorCode}
           generationEstimate={generationEstimate}
           sendGenerationEstimateRequest={sendGenerationEstimateRequest}
+          compositions={compositions}
+          compositionItems={compositionItems}
         />
       )}
 

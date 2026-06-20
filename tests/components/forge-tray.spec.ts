@@ -90,6 +90,20 @@ const overflowingStyle = {
   imageKeys: ['styles/space/style-1.png', 'styles/space/style-2.png'],
 };
 
+const composition = {
+  id: 'composition-1',
+  name: 'Scene X composition',
+  description: null,
+  status: 'draft',
+  output_asset_id: null,
+  output_variant_id: null,
+  metadata: '{}',
+  sort_index: 0,
+  created_by: 'user-1',
+  created_at: baseTime,
+  updated_at: baseTime,
+};
+
 async function disableAnimations(page: import('@playwright/test').Page) {
   await page.addStyleTag({
     content: '*, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition-duration: 0s !important; }',
@@ -241,6 +255,34 @@ test('forge tray image options expose batch count', async ({ page }) => {
 
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-batch', { fullPage: true });
+});
+
+test('forge tray submits a generate-to-composition output shortcut', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    compositions: [composition],
+    compositionItems: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendStyleSet: '__noop__',
+  });
+  await disableAnimations(page);
+
+  await page.getByLabel('Prompt').fill('Wide scene background');
+  await page.getByLabel('Composition shortcut').selectOption('output:composition-1');
+  await page.getByRole('button', { name: 'Generate' }).click();
+
+  const details = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(details[0].eventName).toBe('forge-submit');
+  expect(details[0].args[0]).toMatchObject({
+    prompt: 'Wide scene background',
+    shortcut: {
+      composition: { kind: 'output', compositionId: 'composition-1' },
+    },
+  });
 });
 
 test('forge tray image model selection enforces reference budget', async ({ page }) => {
