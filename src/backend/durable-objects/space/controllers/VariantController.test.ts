@@ -952,6 +952,79 @@ describe('VariantController', () => {
       assert.ok(broadcasts.some((b) => b.type === 'asset:updated'));
     });
 
+    test('creates import lineage during upload completion', async () => {
+      const uploadingVariant = createMockVariant({
+        id: 'upload-var',
+        status: 'uploading',
+      });
+      const parentVariant = createMockVariant({
+        id: 'parent-var',
+        asset_id: 'asset-parent',
+      });
+      const asset = createMockAsset({ id: 'asset-1', active_variant_id: 'other-var' });
+
+      const { ctx, broadcasts } = createMockContext({
+        getVariantById: mock.fn(async (id: string) => {
+          if (id === 'upload-var') return uploadingVariant;
+          if (id === 'parent-var') return parentVariant;
+          return null;
+        }),
+        getAssetById: mock.fn(async () => asset),
+      });
+      const controller = new VariantController(ctx);
+
+      const result = await controller.httpCompleteUpload({
+        variantId: 'upload-var',
+        imageKey: 'images/uploaded.png',
+        thumbKey: 'thumbs/uploaded.png',
+        lineage: [
+          { parentVariantId: 'parent-var', relationType: 'derived' },
+        ],
+      });
+
+      assert.deepStrictEqual(result.lineage?.map((lineage) => ({
+        parent: lineage.parent_variant_id,
+        child: lineage.child_variant_id,
+        type: lineage.relation_type,
+      })), [{
+        parent: 'parent-var',
+        child: 'upload-var',
+        type: 'derived',
+      }]);
+      assert.strictEqual(asMock(ctx.repo.createLineage).mock.calls.length, 1);
+      assert.ok(broadcasts.some((b) => b.type === 'lineage:created'));
+    });
+
+    test('rejects missing import lineage parent before completing upload', async () => {
+      const uploadingVariant = createMockVariant({
+        id: 'upload-var',
+        status: 'uploading',
+      });
+
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async (id: string) => id === 'upload-var' ? uploadingVariant : null),
+      });
+      const controller = new VariantController(ctx);
+
+      await assert.rejects(
+        controller.httpCompleteUpload({
+          variantId: 'upload-var',
+          imageKey: 'images/uploaded.png',
+          thumbKey: 'thumbs/uploaded.png',
+          lineage: [
+            { parentVariantId: 'deleted-parent', relationType: 'derived' },
+          ],
+        }),
+        /Lineage parent variant not found/
+      );
+
+      assert.strictEqual(asMock(ctx.repo.createLineage).mock.calls.length, 0);
+      const completedUpdate = asMock(ctx.sql.exec).mock.calls.find((call) =>
+        String(call.arguments[0]).includes("UPDATE variants SET status = 'completed'")
+      );
+      assert.strictEqual(completedUpdate, undefined);
+    });
+
     test('throws when variant not found', async () => {
       const { ctx } = createMockContext({
         getVariantById: mock.fn(async () => null),

@@ -88,6 +88,11 @@ const TRANSCRIPT_MIME_TYPES = new Set(['text/plain', 'application/json']);
 const JSON_SIDECAR_MIME_TYPES = new Set(['application/json']);
 
 type AudioSidecarKind = 'transcript' | 'wordTimings' | 'renderMetadata';
+type UploadActiveVariantBehavior = 'if_missing' | 'set_active' | 'keep';
+type UploadLineageInput = {
+  parentVariantId: string;
+  relationType: 'derived' | 'refined' | 'forked';
+};
 
 interface AudioSidecarUpload {
   kind: AudioSidecarKind;
@@ -110,6 +115,58 @@ function getOptionalString(formData: FormData, key: string): string | null {
 function getOptionalFile(formData: FormData, key: string): File | null {
   const value = formData.get(key);
   return value instanceof File && value.size > 0 ? value : null;
+}
+
+function parseJsonObjectField(formData: FormData, key: string): Record<string, unknown> | null {
+  const raw = getOptionalString(formData, key);
+  if (!raw) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new UploadRequestError(`${key} must be valid JSON`, 400);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new UploadRequestError(`${key} must be a JSON object`, 400);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function parseUploadLineage(formData: FormData): UploadLineageInput[] {
+  const raw = getOptionalString(formData, 'lineage');
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new UploadRequestError('lineage must be valid JSON', 400);
+  }
+  if (!Array.isArray(parsed)) {
+    throw new UploadRequestError('lineage must be a JSON array', 400);
+  }
+  return parsed.map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new UploadRequestError(`lineage[${index}] must be an object`, 400);
+    }
+    const record = entry as Record<string, unknown>;
+    const parentVariantId = record.parentVariantId ?? record.sourceVariantId;
+    const relationType = record.relationType;
+    if (typeof parentVariantId !== 'string' || parentVariantId.length === 0) {
+      throw new UploadRequestError(`lineage[${index}].parentVariantId is required`, 400);
+    }
+    if (relationType !== 'derived' && relationType !== 'refined' && relationType !== 'forked') {
+      throw new UploadRequestError(`lineage[${index}].relationType must be derived, refined, or forked`, 400);
+    }
+    return { parentVariantId, relationType };
+  });
+}
+
+function parseActiveVariantBehavior(formData: FormData): UploadActiveVariantBehavior {
+  const raw = getOptionalString(formData, 'activeVariantBehavior');
+  if (!raw || raw === 'if-missing' || raw === 'if_missing') return 'if_missing';
+  if (raw === 'set-active' || raw === 'set_active') return 'set_active';
+  if (raw === 'keep') return 'keep';
+  throw new UploadRequestError('activeVariantBehavior must be if-missing, set-active, or keep', 400);
 }
 
 class UploadRequestError extends Error {
@@ -218,6 +275,20 @@ async function parseUploadFormData(c: Context<AppContext>): Promise<FormData> {
 async function deleteUploadedKeys(env: AppContext['Bindings'], keys: Array<string | null>): Promise<void> {
   const uniqueKeys = [...new Set(keys.filter((key): key is string => Boolean(key)))];
   await Promise.all(uniqueKeys.map((key) => env.IMAGES.delete(key)));
+}
+
+async function failUploadPlaceholder(
+  doStub: { fetch(request: Request): Promise<Response> },
+  variantId: string,
+  error: string
+): Promise<void> {
+  await doStub.fetch(
+    new Request('http://do/internal/fail-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variantId, error }),
+    })
+  );
 }
 
 function validateSidecarFile(
@@ -360,6 +431,29 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   const mediaKindValue = formData.get('mediaKind');
   const requestedMediaKind = parseMediaKind(mediaKindValue);
   const parentAssetId = getOptionalString(formData, 'parentAssetId');
+  let generationProvenance: Record<string, unknown> | null;
+  let providerMetadata: Record<string, unknown> | null;
+  let lineageInputs: UploadLineageInput[];
+  let activeVariantBehavior: UploadActiveVariantBehavior;
+  let operation: string;
+  try {
+    generationProvenance = parseJsonObjectField(formData, 'generationProvenance');
+    providerMetadata = parseJsonObjectField(formData, 'providerMetadata');
+    activeVariantBehavior = parseActiveVariantBehavior(formData);
+    const provenanceOperation = typeof generationProvenance?.operation === 'string'
+      ? generationProvenance.operation
+      : undefined;
+    operation = getOptionalString(formData, 'operation') || provenanceOperation || 'upload';
+    if (formData.has('lineage') && operation !== 'import') {
+      throw new UploadRequestError('lineage is only supported when operation=import', 400);
+    }
+    lineageInputs = operation === 'import' ? parseUploadLineage(formData) : [];
+  } catch (error) {
+    if (error instanceof UploadRequestError) {
+      return c.json({ error: error.message }, error.status);
+    }
+    throw error;
+  }
 
   if (
     mediaKindValue !== null &&
@@ -453,14 +547,24 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   }
 
   // Build recipe (consistent with generation recipes)
+  const prompt = getOptionalString(formData, 'prompt');
+  const model = getOptionalString(formData, 'model');
+  const provider = getOptionalString(formData, 'provider');
+  const uploadedAt = new Date().toISOString();
   const recipe = JSON.stringify({
-    operation: 'upload',
-    assetType: assetType,
+    ...(generationProvenance ?? {}),
+    operation,
+    assetType,
     mediaKind,
     mimeType,
     originalFilename: file.name,
+    ...(prompt ? { prompt } : {}),
+    ...(model ? { model } : {}),
+    ...(provider ? { modelProvider: provider, provider } : {}),
+    ...(lineageInputs.length > 0 ? { parentVariantIds: lineageInputs.map((lineage) => lineage.parentVariantId) } : {}),
     sidecars: audioSidecars.map(({ kind, key, mimeType }) => ({ kind, key, mimeType })),
-    uploadedAt: new Date().toISOString(),
+    ...(operation === 'import' ? { importedAt: uploadedAt } : {}),
+    uploadedAt,
   });
 
   const doId = env.SPACES_DO.idFromName(spaceId);
@@ -575,6 +679,9 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
           mediaWidth: dimensions?.width ?? null,
           mediaHeight: dimensions?.height ?? null,
           mediaDurationMs: null,
+          providerMetadata,
+          activeVariantBehavior,
+          lineage: lineageInputs,
           ...getSidecarCompletionFields(audioSidecars, sidecarBytes),
         }),
       })
@@ -583,6 +690,11 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
     if (!completeResponse.ok) {
       // R2 upload succeeded but DO update failed - clean up R2
       await deleteUploadedKeys(env, [mediaKey, imageKey, thumbKey, ...audioSidecars.map((sidecar) => sidecar.key)]);
+      try {
+        await failUploadPlaceholder(doStub, variantId, 'Upload completion failed');
+      } catch {
+        // Ignore fail-upload errors; the original completion error is returned below.
+      }
 
       const errorData = await completeResponse.json().catch(() => ({})) as { error?: string };
       return c.json(
@@ -591,11 +703,15 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
       );
     }
 
-    const result = await completeResponse.json() as { variant: UploadMediaResponse['variant'] };
+    const result = await completeResponse.json() as {
+      variant: UploadMediaResponse['variant'];
+      lineage?: UploadMediaResponse['lineage'];
+    };
     const responseBody = UploadMediaResponseSchema.parse({
       success: true as const,
       variant: result.variant,
       ...(createdNewAsset ? { asset: createdNewAsset } : {}), // Included when new asset was created
+      ...(result.lineage && result.lineage.length > 0 ? { lineage: result.lineage } : {}),
     });
 
     return c.json(responseBody, 200);
@@ -612,16 +728,7 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
 
     // Mark the placeholder variant as failed
     try {
-      await doStub.fetch(
-        new Request('http://do/internal/fail-upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            variantId,
-            error: error instanceof Error ? error.message : 'Upload failed',
-          }),
-        })
-      );
+      await failUploadPlaceholder(doStub, variantId, error instanceof Error ? error.message : 'Upload failed');
     } catch {
       // Ignore fail-upload errors
     }

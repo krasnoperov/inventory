@@ -21,10 +21,10 @@ import {
 import type { ErrorResponse, UploadMediaResponse } from '../../api/types';
 import type { MediaKind } from '../../shared/websocket-types';
 
-const MAX_FILE_SIZE_MB = 10;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+export const MAX_FILE_SIZE_MB = 10;
+export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-interface MediaType {
+export interface MediaType {
   mediaKind: MediaKind;
   mimeType: string;
 }
@@ -239,7 +239,7 @@ export async function executeUpload(
   }
 }
 
-function resolveMediaType(ext: string, requestedMediaKind?: string): MediaType {
+export function resolveMediaType(ext: string, requestedMediaKind?: string): MediaType {
   const mediaType = EXT_TO_MEDIA_TYPE[ext];
   if (!mediaType) {
     throw new Error(`Invalid file type "${ext}". Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`);
