@@ -18,6 +18,7 @@ import { handleAssets } from './commands/assets';
 import { handleVariants } from './commands/variants';
 import { handleProductions } from './commands/productions';
 import { handleUsage } from './commands/usage';
+import { handleSpend } from './commands/spend';
 import { handleRotation, handleTileSet } from './commands/pipelines';
 import {
   AUDIO_FORGE_MEDIA_MODES,
@@ -202,6 +203,9 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'usage':
       printUsageHelp();
       return;
+    case 'spend':
+      printSpendHelp();
+      return;
     case 'variants':
     case 'variant':
       printVariantsHelp();
@@ -264,6 +268,7 @@ Project:
   productions export --production-id <id>
                                  Export production scene args from Space records
   usage [summary] [--space <id>] Show platform storage and workflow consumption
+  spend [summary]               Show admin provider spend summary
 
 Billing (Polar.sh):
   billing status               Show sync status (pending, failed, synced events)
@@ -329,6 +334,7 @@ Examples:
   makefx productions export --production-id s01e01-a2
   makefx assets
   makefx usage --from 2026-06-01
+  makefx spend --from 2026-06-01 --provider gemini
   makefx assets download variant_123 -o variant.mp4
   makefx assets rename asset_123 "Hero (moving)"
   makefx assets set-active asset_123 variant_456
@@ -764,6 +770,27 @@ Options:
 `);
 }
 
+function printSpendHelp(): void {
+  console.log(`
+Usage:
+  makefx spend [summary] [--from <date>] [--to <date>]
+  makefx spend --user-id <id> --provider <name> --media-kind <image|audio|video>
+  makefx spend --json
+
+Options:
+  --from <date>        Include spend at or after this date or ISO timestamp
+  --to <date>          Include spend at or before this date or ISO timestamp
+  --user-id <id>       Filter to one user ID
+  --space-id <id>      Filter to one space ID
+  --space <id>         Alias for --space-id
+  --provider <name>    Filter to one provider
+  --media-kind <kind>  Filter to image, audio, or video spend
+  --json               Print machine-readable output
+  --env <env>          Environment (production|stage|local)
+  --local              Shortcut for --env local
+`);
+}
+
 async function dispatchCommand(command: string, parsed: ReturnType<typeof parseArgs>) {
   switch (command) {
     case 'init':
@@ -813,6 +840,9 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
       break;
     case 'usage':
       await handleUsage(parsed);
+      break;
+    case 'spend':
+      await handleSpend(parsed);
       break;
     case 'variants':
     case 'variant':

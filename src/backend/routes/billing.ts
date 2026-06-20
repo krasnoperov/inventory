@@ -5,6 +5,7 @@ import { adminMiddleware } from '../middleware/admin-middleware';
 import { UsageService } from '../services/usageService';
 import { PolarService } from '../services/polarService';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
+import { ProviderUsageLedgerDAO } from '../../dao/provider-usage-ledger-dao';
 import { UserDAO } from '../../dao/user-dao';
 import {
   isNonBillablePaidGenerationEntitlement,
@@ -70,6 +71,31 @@ function sameOriginUrl(requestUrl: string, value: string | undefined, fallbackPa
   } catch {
     return new URL(fallbackPath, origin).toString();
   }
+}
+
+function optionString(value: string | undefined): string | null {
+  return value && value !== 'true' ? value : null;
+}
+
+function parseOptionalPositiveInteger(value: string | undefined, name: string): number | Response | null {
+  if (!value || value === 'true') return null;
+  const parsed = /^\d+$/.test(value) ? Number.parseInt(value, 10) : NaN;
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return new Response(JSON.stringify({ error: `${name} must be a positive integer` }), {
+      status: 400,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+  return parsed;
+}
+
+function parseOptionalMediaKind(value: string | undefined): 'image' | 'audio' | 'video' | null | Response {
+  if (!value || value === 'true') return null;
+  if (value === 'image' || value === 'audio' || value === 'video') return value;
+  return new Response(JSON.stringify({ error: 'media_kind must be "image", "audio", or "video"' }), {
+    status: 400,
+    headers: { 'content-type': 'application/json' },
+  });
 }
 
 /**
@@ -292,6 +318,34 @@ billingRoutes.get('/api/billing/sync-status', adminMiddleware, async (c) => {
     customers: {
       withoutPolarId: usersWithoutPolar,
     },
+  });
+});
+
+/**
+ * Get provider spend summary for CLI/admin use.
+ * GET /api/billing/spend/summary
+ */
+billingRoutes.get('/api/billing/spend/summary', adminMiddleware, async (c) => {
+  const rawUserId = c.req.query('user_id') ?? c.req.query('userId');
+  const userId = parseOptionalPositiveInteger(rawUserId, 'user_id');
+  if (userId instanceof Response) return userId;
+
+  const mediaKind = parseOptionalMediaKind(c.req.query('media_kind') ?? c.req.query('mediaKind'));
+  if (mediaKind instanceof Response) return mediaKind;
+
+  const ledgerDAO = c.get('container').get(ProviderUsageLedgerDAO);
+  const summary = await ledgerDAO.getSpendSummary({
+    from: optionString(c.req.query('from')),
+    to: optionString(c.req.query('to')),
+    userId,
+    spaceId: optionString(c.req.query('space_id') ?? c.req.query('spaceId')),
+    provider: optionString(c.req.query('provider')),
+    mediaKind,
+  });
+
+  return c.json({
+    success: true,
+    ...summary,
   });
 });
 

@@ -6,6 +6,7 @@ import { UserDAO } from '../../dao/user-dao';
 import { PolarService } from '../services/polarService';
 import { UsageService } from '../services/usageService';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
+import { ProviderUsageLedgerDAO } from '../../dao/provider-usage-ledger-dao';
 import type { AppContext } from './types';
 import { billingRoutes } from './billing';
 
@@ -422,6 +423,119 @@ describe('billingRoutes', () => {
     assert.equal(body.status, 'critical');
     assert.equal(body.checks.polarMeters.status, 'critical');
     assert.ok(body.checks.polarMeters.missing.includes('claude_input_tokens'));
+  });
+
+  test('spend summary forwards admin filters to provider spend ledger', async () => {
+    const calls: unknown[] = [];
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(ProviderUsageLedgerDAO, {
+      getSpendSummary: async (options: unknown) => {
+        calls.push(options);
+        return {
+          period: { from: '2026-06-01', to: '2026-06-30' },
+          filters: {
+            userId: 99,
+            spaceId: 'space-1',
+            provider: 'gemini',
+            mediaKind: 'image',
+          },
+          totals: {
+            amountMicroUsd: 250000,
+            amountUsd: 0.25,
+            quantity: 2,
+            entries: 2,
+            unpricedEntries: 1,
+          },
+          byProvider: [
+            {
+              provider: 'gemini',
+              amountMicroUsd: 250000,
+              amountUsd: 0.25,
+              quantity: 2,
+              entries: 2,
+              unpricedEntries: 1,
+            },
+          ],
+          byModel: [],
+          byMediaKind: [],
+          byMeterEventName: [],
+        };
+      },
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request(
+      '/api/billing/spend/summary?from=2026-06-01&to=2026-06-30&user_id=99&space_id=space-1&provider=gemini&media_kind=image',
+      { headers: { authorization: 'Bearer test-token' } }
+    );
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(calls, [{
+      from: '2026-06-01',
+      to: '2026-06-30',
+      userId: 99,
+      spaceId: 'space-1',
+      provider: 'gemini',
+      mediaKind: 'image',
+    }]);
+    assert.deepEqual(await response.json(), {
+      success: true,
+      period: { from: '2026-06-01', to: '2026-06-30' },
+      filters: {
+        userId: 99,
+        spaceId: 'space-1',
+        provider: 'gemini',
+        mediaKind: 'image',
+      },
+      totals: {
+        amountMicroUsd: 250000,
+        amountUsd: 0.25,
+        quantity: 2,
+        entries: 2,
+        unpricedEntries: 1,
+      },
+      byProvider: [
+        {
+          provider: 'gemini',
+          amountMicroUsd: 250000,
+          amountUsd: 0.25,
+          quantity: 2,
+          entries: 2,
+          unpricedEntries: 1,
+        },
+      ],
+      byModel: [],
+      byMediaKind: [],
+      byMeterEventName: [],
+    });
+  });
+
+  test('spend summary requires an admin user', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 41 }),
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request('/api/billing/spend/summary', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 403);
+  });
+
+  test('spend summary rejects invalid user filters', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request('/api/billing/spend/summary?user_id=42abc', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 400);
   });
 
   test('operational checks report internal billable usage as critical', async () => {

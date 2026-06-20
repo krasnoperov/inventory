@@ -114,6 +114,190 @@ describe('ProviderUsageLedgerDAO', () => {
     ]);
   });
 
+  test('summarizes provider spend with filters and unpriced rows', async () => {
+    await ledgerDAO.create({
+      attributionKey: 'variant:variant-4:gemini_images',
+      userId,
+      spaceId: 'space-1',
+      variantId: 'variant-4',
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      operation: 'generate',
+      mediaKind: 'image',
+      meterEventName: 'gemini_images',
+      usageUnit: 'image',
+      quantity: 1,
+      amountMicroUsd: 240000,
+      pricingSource: 'gemini',
+      createdAt: '2026-06-10T00:00:00.000Z',
+    });
+    await ledgerDAO.create({
+      attributionKey: 'variant:variant-5:gemini_output_tokens',
+      userId,
+      spaceId: 'space-1',
+      variantId: 'variant-5',
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      operation: 'generate',
+      mediaKind: 'image',
+      meterEventName: 'gemini_output_tokens',
+      usageUnit: 'token',
+      quantity: 100,
+      amountMicroUsd: null,
+      createdAt: '2026-06-11T00:00:00.000Z',
+    });
+    await ledgerDAO.create({
+      attributionKey: 'variant:variant-6:elevenlabs_audio',
+      userId,
+      spaceId: 'space-2',
+      variantId: 'variant-6',
+      provider: 'elevenlabs',
+      providerModel: 'eleven_multilingual_v2',
+      operation: 'generate',
+      mediaKind: 'audio',
+      meterEventName: 'elevenlabs_audio',
+      usageUnit: 'character',
+      quantity: 20,
+      amountMicroUsd: 66000,
+      pricingSource: 'elevenlabs',
+      createdAt: '2026-06-12T00:00:00.000Z',
+    });
+
+    const summary = await ledgerDAO.getSpendSummary({
+      from: '2026-06-01T00:00:00.000Z',
+      to: '2026-06-30T23:59:59.999Z',
+      spaceId: 'space-1',
+      provider: 'gemini',
+    });
+
+    assert.deepEqual(summary.period, {
+      from: '2026-06-01T00:00:00.000Z',
+      to: '2026-06-30T23:59:59.999Z',
+    });
+    assert.deepEqual(summary.filters, {
+      userId: null,
+      spaceId: 'space-1',
+      provider: 'gemini',
+      mediaKind: null,
+    });
+    assert.deepEqual(summary.totals, {
+      amountMicroUsd: 240000,
+      amountUsd: 0.24,
+      quantity: 101,
+      entries: 2,
+      unpricedEntries: 1,
+    });
+    assert.deepEqual(summary.byProvider, [
+      {
+        provider: 'gemini',
+        amountMicroUsd: 240000,
+        amountUsd: 0.24,
+        quantity: 101,
+        entries: 2,
+        unpricedEntries: 1,
+      },
+    ]);
+    assert.deepEqual(summary.byMediaKind, [
+      {
+        mediaKind: 'image',
+        amountMicroUsd: 240000,
+        amountUsd: 0.24,
+        quantity: 101,
+        entries: 2,
+        unpricedEntries: 1,
+      },
+    ]);
+    assert.deepEqual(summary.byMeterEventName.map((row) => row.meterEventName).sort(), [
+      'gemini_images',
+      'gemini_output_tokens',
+    ]);
+  });
+
+  test('date-only spend bounds include the whole selected day', async () => {
+    await ledgerDAO.create({
+      attributionKey: 'variant:variant-before:gemini_images',
+      userId,
+      spaceId: 'space-1',
+      variantId: 'variant-before',
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      mediaKind: 'image',
+      meterEventName: 'gemini_images',
+      usageUnit: 'image',
+      quantity: 1,
+      amountMicroUsd: 120000,
+      pricingSource: 'gemini',
+      createdAt: '2026-06-29T23:59:59.999Z',
+    });
+    await ledgerDAO.create({
+      attributionKey: 'variant:variant-day:gemini_images',
+      userId,
+      spaceId: 'space-1',
+      variantId: 'variant-day',
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      mediaKind: 'image',
+      meterEventName: 'gemini_images',
+      usageUnit: 'image',
+      quantity: 1,
+      amountMicroUsd: 240000,
+      pricingSource: 'gemini',
+      createdAt: '2026-06-30T12:00:00.000Z',
+    });
+    await ledgerDAO.create({
+      attributionKey: 'variant:variant-after:gemini_images',
+      userId,
+      spaceId: 'space-1',
+      variantId: 'variant-after',
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      mediaKind: 'image',
+      meterEventName: 'gemini_images',
+      usageUnit: 'image',
+      quantity: 1,
+      amountMicroUsd: 360000,
+      pricingSource: 'gemini',
+      createdAt: '2026-07-01T00:00:00.000Z',
+    });
+
+    const summary = await ledgerDAO.getSpendSummary({
+      from: '2026-06-30',
+      to: '2026-06-30',
+    });
+
+    assert.deepEqual(summary.period, {
+      from: '2026-06-30T00:00:00.000Z',
+      to: '2026-06-30T23:59:59.999Z',
+    });
+    assert.deepEqual(summary.totals, {
+      amountMicroUsd: 240000,
+      amountUsd: 0.24,
+      quantity: 1,
+      entries: 1,
+      unpricedEntries: 0,
+    });
+    assert.deepEqual(summary.byProvider, [
+      {
+        provider: 'gemini',
+        amountMicroUsd: 240000,
+        amountUsd: 0.24,
+        quantity: 1,
+        entries: 1,
+        unpricedEntries: 0,
+      },
+    ]);
+    assert.deepEqual(summary.byMeterEventName, [
+      {
+        meterEventName: 'gemini_images',
+        amountMicroUsd: 240000,
+        amountUsd: 0.24,
+        quantity: 1,
+        entries: 1,
+        unpricedEntries: 0,
+      },
+    ]);
+  });
+
   test('rejects duplicate attribution keys', async () => {
     const data = {
       attributionKey: 'variant:variant-3:gemini_images',
