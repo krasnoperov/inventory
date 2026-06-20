@@ -159,6 +159,86 @@ function buildApp(options: {
   return { app, puts, doCalls };
 }
 
+function buildOrganizationImportManifest(): Record<string, any> {
+  return {
+    version: '1.0',
+    exportedAt: '2026-06-16T00:00:00.000Z',
+    spaceId: 'source-space',
+    spaceName: 'Source',
+    assets: [{
+      id: 'asset-source',
+      name: 'Hero',
+      type: 'character',
+      mediaKind: 'image',
+      tags: [],
+      activeVariantId: 'variant-source',
+      createdAt: 1,
+      variants: [{
+        id: 'variant-source',
+        assetId: 'asset-source',
+        mediaKind: 'image',
+        mediaFile: 'images/Hero/variant-source.png',
+        imageFile: 'images/Hero/variant-source.png',
+        thumbFile: null,
+        recipe: { operation: 'generate' },
+        createdAt: 2,
+      }],
+    }],
+    lineage: [{
+      id: 'lineage-source',
+      parentVariantId: 'variant-source',
+      childVariantId: 'variant-source',
+      relationType: 'derived',
+      severed: false,
+    }],
+    collections: [{ id: 'collection-source', name: 'Opening Kit', description: null, sortIndex: 0 }],
+    collectionItems: [{
+      id: 'collection-item-source',
+      collectionId: 'collection-source',
+      subjectType: 'variant',
+      assetId: null,
+      variantId: 'variant-source',
+      role: 'hero',
+      pinnedVariantId: null,
+      sortIndex: 0,
+    }],
+    relations: [{
+      id: 'relation-source',
+      subjectType: 'asset',
+      subjectAssetId: 'asset-source',
+      subjectVariantId: null,
+      objectType: 'variant',
+      objectAssetId: null,
+      objectVariantId: 'variant-source',
+      relationType: 'reference_for',
+      label: null,
+      context: null,
+      metadata: {},
+      sortIndex: 0,
+    }],
+    compositions: [{
+      id: 'composition-source',
+      name: 'Final Mix',
+      description: null,
+      status: 'final',
+      outputAssetId: 'asset-source',
+      outputVariantId: 'variant-source',
+      metadata: {},
+      sortIndex: 0,
+    }],
+    compositionItems: [{
+      id: 'composition-item-source',
+      compositionId: 'composition-source',
+      role: 'output',
+      label: null,
+      assetId: 'asset-source',
+      variantId: 'variant-source',
+      metadata: {},
+      sortIndex: 0,
+    }],
+  };
+}
+
 describe('exportRoutes', () => {
   it('exports media-only generated video variants as canonical media files', async () => {
     const { app } = buildApp({
@@ -641,6 +721,68 @@ describe('exportRoutes', () => {
     assert.match(await res.text(), /missing media for variant variant-missing/);
     assert.equal(doCalls.length, 0);
     assert.equal(puts.length, 0);
+  });
+
+  it('rejects invalid organization vocabulary before mutating the target space', async () => {
+    const cases: Array<{
+      name: string;
+      mutate: (manifest: Record<string, any>) => void;
+      expected: RegExp;
+    }> = [
+      {
+        name: 'lineage relation type',
+        mutate: (manifest) => { manifest.lineage[0].relationType = 'bogus'; },
+        expected: /Lineage relationType must be derived, refined, or forked/,
+      },
+      {
+        name: 'collection item subject type',
+        mutate: (manifest) => { manifest.collectionItems[0].subjectType = 'bogus'; },
+        expected: /Collection item collection-item-source subjectType must be asset or variant/,
+      },
+      {
+        name: 'manual relation subject type',
+        mutate: (manifest) => { manifest.relations[0].subjectType = 'bogus'; },
+        expected: /Relation relation-source subject subjectType must be asset or variant/,
+      },
+      {
+        name: 'manual relation type',
+        mutate: (manifest) => { manifest.relations[0].relationType = 'bogus'; },
+        expected: /Relation relation-source relationType is invalid/,
+      },
+      {
+        name: 'composition status',
+        mutate: (manifest) => { manifest.compositions[0].status = 'published'; },
+        expected: /Composition composition-source status must be draft or final/,
+      },
+      {
+        name: 'composition item role',
+        mutate: (manifest) => { manifest.compositionItems[0].role = 'bogus'; },
+        expected: /Composition item composition-item-source role is invalid/,
+      },
+    ];
+
+    for (const testCase of cases) {
+      const manifest = buildOrganizationImportManifest();
+      testCase.mutate(manifest);
+      const zip = zipSync({
+        'manifest.json': strToU8(JSON.stringify(manifest)),
+        'images/Hero/variant-source.png': strToU8('source-image'),
+      });
+      const formData = new FormData();
+      formData.set('file', new File([zip], 'export.zip', { type: 'application/zip' }));
+      const { app, puts, doCalls } = buildApp();
+
+      const res = await app.fetch(new Request('https://app.example/api/spaces/space-1/import', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-token' },
+        body: formData,
+      }));
+
+      assert.equal(res.status, 400, testCase.name);
+      assert.match(await res.text(), testCase.expected, testCase.name);
+      assert.equal(doCalls.length, 0, testCase.name);
+      assert.equal(puts.length, 0, testCase.name);
+    }
   });
 
   it('imports organization records with remapped relation, composition, and severed lineage IDs', async () => {

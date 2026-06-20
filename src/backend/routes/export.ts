@@ -4,6 +4,12 @@ import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
 import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../shared/websocket-types';
+import {
+  CompositionItemRoleSchema,
+  CompositionStatusSchema,
+  SpaceRelationTypeSchema,
+  SpaceSubjectTypeSchema,
+} from '../../shared/api/schemas';
 
 // Type definitions for export format
 interface ExportManifest {
@@ -257,6 +263,47 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
     if (!item.variantId) return `Composition item ${item.id} is missing variantId`;
     const variantError = hasVariant(item.variantId, `Composition item ${item.id} variantId`);
     if (variantError) return variantError;
+  }
+  return null;
+}
+
+function validateManifestVocabulary(manifest: ExportManifest): string | null {
+  const hasSubjectType = (value: unknown, label: string) =>
+    SpaceSubjectTypeSchema.safeParse(value).success ? null : `${label} subjectType must be asset or variant`;
+  const hasLineageRelationType = (value: unknown, label: string) =>
+    value === 'derived' || value === 'refined' || value === 'forked'
+      ? null
+      : `${label} relationType must be derived, refined, or forked`;
+  const hasRelationType = (value: unknown, label: string) =>
+    SpaceRelationTypeSchema.safeParse(value).success ? null : `${label} relationType is invalid`;
+  const hasCompositionStatus = (value: unknown, label: string) =>
+    CompositionStatusSchema.safeParse(value).success ? null : `${label} status must be draft or final`;
+  const hasCompositionRole = (value: unknown, label: string) =>
+    CompositionItemRoleSchema.safeParse(value).success ? null : `${label} role is invalid`;
+
+  for (const lineage of manifest.lineage ?? []) {
+    const error = hasLineageRelationType(lineage.relationType, 'Lineage');
+    if (error) return error;
+  }
+  for (const item of optionalArray(manifest.collectionItems)) {
+    const error = hasSubjectType(item.subjectType, `Collection item ${item.id}`);
+    if (error) return error;
+  }
+  for (const relation of optionalArray(manifest.relations)) {
+    const subjectError = hasSubjectType(relation.subjectType, `Relation ${relation.id} subject`);
+    if (subjectError) return subjectError;
+    const objectError = hasSubjectType(relation.objectType, `Relation ${relation.id} object`);
+    if (objectError) return objectError;
+    const relationTypeError = hasRelationType(relation.relationType, `Relation ${relation.id}`);
+    if (relationTypeError) return relationTypeError;
+  }
+  for (const composition of optionalArray(manifest.compositions)) {
+    const error = hasCompositionStatus(composition.status, `Composition ${composition.id}`);
+    if (error) return error;
+  }
+  for (const item of optionalArray(manifest.compositionItems)) {
+    const error = hasCompositionRole(item.role, `Composition item ${item.id}`);
+    if (error) return error;
   }
   return null;
 }
@@ -615,6 +662,10 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
     return c.json({ error: `Unsupported export version: ${manifest.version}` }, 400);
   }
 
+  const manifestVocabularyError = validateManifestVocabulary(manifest);
+  if (manifestVocabularyError) {
+    return c.json({ error: `Invalid export manifest: ${manifestVocabularyError}` }, 400);
+  }
   const manifestReferenceError = validateManifestReferences(manifest);
   if (manifestReferenceError) {
     return c.json({ error: `Invalid export manifest: ${manifestReferenceError}` }, 400);
