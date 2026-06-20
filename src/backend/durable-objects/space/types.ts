@@ -378,7 +378,9 @@ export interface SpaceRelation {
   object_asset_id: string | null;
   object_variant_id: string | null;
   relation_type: SpaceRelationType;
+  label: string | null;
   context: string | null;
+  metadata: string;
   sort_index: number;
   created_by: string;
   created_at: number;
@@ -403,6 +405,7 @@ export interface CompositionItem {
   id: string;
   composition_id: string;
   role: CompositionItemRole;
+  label: string | null;
   asset_id: string | null;
   variant_id: string;
   metadata: string;
@@ -620,14 +623,14 @@ export type ClientMessage =
   | { type: 'collection_item:update'; collectionId: string; itemId: string; changes: { role?: string; pinnedVariantId?: string | null; sortIndex?: number } }
   | { type: 'collection_items:reorder'; collectionId: string; itemIds: string[] }
   | { type: 'collection_item:delete'; collectionId: string; itemId: string }
-  | { type: 'relation:create'; id?: string; subject: { subjectType: SpaceSubjectType; assetId?: string; variantId?: string }; object: { subjectType: SpaceSubjectType; assetId?: string; variantId?: string }; relationType: SpaceRelationType; context?: string | Record<string, unknown> | null; sortIndex?: number }
-  | { type: 'relation:update'; relationId: string; changes: { relationType?: SpaceRelationType; context?: string | Record<string, unknown> | null; sortIndex?: number } }
+  | { type: 'relation:create'; id?: string; subject: { subjectType: SpaceSubjectType; assetId?: string; variantId?: string }; object: { subjectType: SpaceSubjectType; assetId?: string; variantId?: string }; relationType: SpaceRelationType; label?: string | null; context?: string | Record<string, unknown> | null; metadata?: Record<string, unknown>; sortIndex?: number }
+  | { type: 'relation:update'; relationId: string; changes: { relationType?: SpaceRelationType; label?: string | null; context?: string | Record<string, unknown> | null; metadata?: Record<string, unknown>; sortIndex?: number } }
   | { type: 'relation:delete'; relationId: string }
   | { type: 'composition:create'; id?: string; name: string; description?: string | null; status?: CompositionStatus; outputAssetId?: string | null; outputVariantId?: string | null; metadata?: Record<string, unknown>; sortIndex?: number }
   | { type: 'composition:update'; compositionId: string; changes: { name?: string; description?: string | null; status?: CompositionStatus; outputAssetId?: string | null; outputVariantId?: string | null; metadata?: Record<string, unknown>; sortIndex?: number } }
   | { type: 'composition:delete'; compositionId: string }
-  | { type: 'composition_item:create'; compositionId: string; id?: string; role: CompositionItemRole; assetId?: string | null; variantId: string; metadata?: Record<string, unknown>; sortIndex?: number }
-  | { type: 'composition_item:update'; compositionId: string; itemId: string; changes: { role?: CompositionItemRole; assetId?: string | null; variantId?: string; metadata?: Record<string, unknown>; sortIndex?: number } }
+  | { type: 'composition_item:create'; compositionId: string; id?: string; role: CompositionItemRole; label?: string | null; assetId?: string | null; variantId: string; metadata?: Record<string, unknown>; sortIndex?: number }
+  | { type: 'composition_item:update'; compositionId: string; itemId: string; changes: { role?: CompositionItemRole; label?: string | null; assetId?: string | null; variantId?: string; metadata?: Record<string, unknown>; sortIndex?: number } }
   | { type: 'composition_items:reorder'; compositionId: string; itemIds: string[] }
   | { type: 'composition_item:delete'; compositionId: string; itemId: string }
   // Variant operations

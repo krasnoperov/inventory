@@ -258,6 +258,19 @@ describe('Space organization repository', () => {
       'idx_space_relations_subject_variant',
       'idx_style_presets_default',
     ]);
+
+    const relationColumns = db
+      .prepare(`PRAGMA table_info(space_relations)`)
+      .all()
+      .map((row) => (row as { name: string }).name);
+    assert.ok(relationColumns.includes('label'));
+    assert.ok(relationColumns.includes('metadata'));
+
+    const compositionItemColumns = db
+      .prepare(`PRAGMA table_info(composition_items)`)
+      .all()
+      .map((row) => (row as { name: string }).name);
+    assert.ok(compositionItemColumns.includes('label'));
   });
 
   test('supports collection CRUD, item CRUD, and explicit sort ordering', async () => {
@@ -591,19 +604,27 @@ describe('Space organization repository', () => {
       subject: { subjectType: 'variant', variantId: 'character-v1' },
       object: { subjectType: 'asset', assetId: 'scene' },
       relationType: 'appears_in',
+      label: 'Opening shot',
       context: '{"shot":"opening"}',
+      metadata: { confidence: 'manual' },
       sortIndex: 3,
       createdBy: 'user-1',
     });
     assert.equal(relation.relation_type, 'appears_in');
+    assert.equal(relation.label, 'Opening shot');
+    assert.deepEqual(JSON.parse(relation.metadata), { confidence: 'manual' });
 
     const updated = await repo.updateRelation('relation-1', {
       relationType: 'prop_in',
+      label: 'Set dressing',
       context: null,
+      metadata: { confidence: 'reviewed' },
       sortIndex: 1,
     });
     assert.equal(updated?.relation_type, 'prop_in');
+    assert.equal(updated?.label, 'Set dressing');
     assert.equal(updated?.context, null);
+    assert.deepEqual(JSON.parse(updated?.metadata ?? '{}'), { confidence: 'reviewed' });
 
     assert.deepEqual(
       (await repo.listRelationsForSubject('variant', 'character-v1')).map((row) => row.id),
@@ -644,8 +665,10 @@ describe('Space organization repository', () => {
       id: 'composition-item-1',
       compositionId: 'composition-1',
       role: 'background',
+      label: 'Painted backing',
       assetId: 'background',
       variantId: 'background-v1',
+      metadata: { layer: 'back' },
       sortIndex: 2,
       createdBy: 'user-1',
     });
@@ -653,6 +676,7 @@ describe('Space organization repository', () => {
       id: 'composition-item-2',
       compositionId: 'composition-1',
       role: 'character',
+      label: 'Hero plate',
       assetId: 'character',
       variantId: 'character-v1',
       sortIndex: 1,
@@ -662,6 +686,7 @@ describe('Space organization repository', () => {
       id: 'composition-item-3',
       compositionId: 'composition-1',
       role: 'output',
+      label: 'Final frame',
       assetId: 'output',
       variantId: 'output-v1',
       sortIndex: 3,
@@ -669,11 +694,11 @@ describe('Space organization repository', () => {
     });
 
     assert.deepEqual(
-      (await repo.listCompositionItems('composition-1')).map((item) => [item.role, item.variant_id]),
+      (await repo.listCompositionItems('composition-1')).map((item) => [item.role, item.label, item.variant_id]),
       [
-        ['character', 'character-v1'],
-        ['background', 'background-v1'],
-        ['output', 'output-v1'],
+        ['character', 'Hero plate', 'character-v1'],
+        ['background', 'Painted backing', 'background-v1'],
+        ['output', 'Final frame', 'output-v1'],
       ]
     );
 
@@ -685,7 +710,15 @@ describe('Space organization repository', () => {
     assert.equal(updated?.status, 'final');
     assert.equal(JSON.parse(updated?.metadata ?? '{}').locked, true);
 
-    await repo.updateCompositionItem('composition-item-2', { role: 'overlay', sortIndex: 5 });
+    await repo.updateCompositionItem('composition-item-2', {
+      role: 'overlay',
+      label: 'Hero overlay',
+      metadata: { layer: 'front' },
+      sortIndex: 5,
+    });
+    const updatedItem = await repo.getCompositionItemById('composition-item-2');
+    assert.equal(updatedItem?.label, 'Hero overlay');
+    assert.deepEqual(JSON.parse(updatedItem?.metadata ?? '{}'), { layer: 'front' });
     await repo.reorderCompositionItems('composition-1', [
       'composition-item-3',
       'composition-item-1',

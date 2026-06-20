@@ -871,6 +871,7 @@ export class SpaceRepository {
     parentVariantId: string;
     childVariantId: string;
     relationType: 'derived' | 'refined' | 'forked';
+    severed?: boolean;
   }): Promise<Lineage> {
     const now = Date.now();
 
@@ -893,7 +894,7 @@ export class SpaceRepository {
       lineage.parentVariantId,
       lineage.childVariantId,
       lineage.relationType,
-      0, // severed = false
+      lineage.severed ? 1 : 0,
       now
     );
 
@@ -1445,7 +1446,9 @@ export class SpaceRepository {
     subject: SpaceSubjectInput;
     object: SpaceSubjectInput;
     relationType: SpaceRelationType;
+    label?: string | null;
     context?: string | null;
+    metadata?: Record<string, unknown>;
     sortIndex?: number;
     createdBy: string;
   }): Promise<SpaceRelation> {
@@ -1462,7 +1465,9 @@ export class SpaceRepository {
       object.assetId,
       object.variantId,
       data.relationType,
+      data.label ?? null,
       data.context ?? null,
+      JSON.stringify(data.metadata ?? {}),
       data.sortIndex ?? 0,
       data.createdBy,
       now,
@@ -1475,7 +1480,9 @@ export class SpaceRepository {
     relationId: string,
     changes: {
       relationType?: SpaceRelationType;
+      label?: string | null;
       context?: string | null;
+      metadata?: Record<string, unknown>;
       sortIndex?: number;
     }
   ): Promise<SpaceRelation | null> {
@@ -1488,9 +1495,17 @@ export class SpaceRepository {
       updates.push('relation_type = ?');
       values.push(changes.relationType);
     }
+    if (changes.label !== undefined) {
+      updates.push('label = ?');
+      values.push(changes.label);
+    }
     if (changes.context !== undefined) {
       updates.push('context = ?');
       values.push(changes.context);
+    }
+    if (changes.metadata !== undefined) {
+      updates.push('metadata = ?');
+      values.push(JSON.stringify(changes.metadata));
     }
     if (changes.sortIndex !== undefined) {
       updates.push('sort_index = ?');
@@ -1817,6 +1832,7 @@ export class SpaceRepository {
     compositionId: string;
     role: CompositionItemRole;
     variantId: string;
+    label?: string | null;
     assetId?: string | null;
     metadata?: Record<string, unknown>;
     sortIndex?: number;
@@ -1828,6 +1844,7 @@ export class SpaceRepository {
       data.id,
       data.compositionId,
       data.role,
+      data.label ?? null,
       data.assetId ?? null,
       data.variantId,
       JSON.stringify(data.metadata ?? {}),
@@ -1843,6 +1860,7 @@ export class SpaceRepository {
     itemId: string,
     changes: {
       role?: CompositionItemRole;
+      label?: string | null;
       variantId?: string;
       assetId?: string | null;
       metadata?: Record<string, unknown>;
@@ -1857,6 +1875,10 @@ export class SpaceRepository {
     if (changes.role !== undefined) {
       updates.push('role = ?');
       values.push(changes.role);
+    }
+    if (changes.label !== undefined) {
+      updates.push('label = ?');
+      values.push(changes.label);
     }
     if (changes.variantId !== undefined) {
       updates.push('variant_id = ?');

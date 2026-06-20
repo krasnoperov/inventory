@@ -74,7 +74,7 @@ export interface InternalApiControllers {
   };
   variant: {
     httpApplyVariant(data: {
-      jobId: string;
+      jobId: string | null;
       variantId: string;
       assetId: string;
       imageKey: string;
@@ -99,6 +99,8 @@ export interface InternalApiControllers {
       mediaKind?: MediaKind;
       parentVariantIds?: string[];
       relationType?: 'derived' | 'refined';
+      generationProvenance?: Record<string, unknown> | string | null;
+      providerMetadata?: Record<string, unknown> | string | null;
     }): Promise<{ created: boolean; variant: Variant }>;
     httpGetById(variantId: string): Promise<Variant & { asset_name?: string }>;
     httpStar(variantId: string, starred: boolean): Promise<unknown>;
@@ -151,6 +153,7 @@ export interface InternalApiControllers {
       parentVariantId: string;
       childVariantId: string;
       relationType: 'derived' | 'refined' | 'forked';
+      severed?: boolean;
     }): Promise<unknown>;
     httpSever(lineageId: string): Promise<void>;
   };
