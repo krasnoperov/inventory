@@ -73,10 +73,29 @@ The canonical code copy of this contract is
 the active Polar meters do not match these names, filters, aggregation function,
 and aggregation property.
 
+## Plan Catalog
+
+The canonical code copy of the customer-facing plan catalog is
+`src/backend/billing/planCatalog.ts`.
+
+| Plan Key | Display Name | Entitlement | Polar Product |
+|----------|--------------|-------------|---------------|
+| `paid_generation` | Paid Generation | `paid` | `POLAR_PAID_GENERATION_PRODUCT_ID` |
+
+`paid_generation` is the only checkout-backed plan. Checkout metadata must use
+`purpose: "paid_generation"` and `plan_key: "paid_generation"` so webhook and
+support tooling can attribute subscriptions to the catalog entry instead of a
+free-form product name.
+
+## Polar Metered Product Contract
+
 The configured `POLAR_PAID_GENERATION_PRODUCT_ID` product must be active,
-recurring, and include a non-archived `metered_unit` price for every canonical
-meter above. Meter-credit benefits on the product are used to expose customer
-quota balances locally when the plan has finite included usage.
+recurring, not archived, and include a non-archived `metered_unit` price for
+every canonical meter above. Meter-credit benefits on the product are optional
+and are used to expose customer quota balances locally when the plan has finite
+included usage. Any meter-credit benefit must point at one of the canonical
+meters above; benefits for unknown or legacy meters are treated as operational
+check failures.
 
 ## Paid Generation Entitlements
 

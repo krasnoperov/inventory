@@ -168,10 +168,15 @@ interface BillingOperationalChecksResponse {
     };
     paidGenerationProduct?: {
       status: OperationalStatus;
+      plan: unknown;
       expectedMeteredPriceMeters: string[];
       missingMeteredPriceMeters: string[];
+      allowedMeterCreditBenefitMeters: string[];
+      unexpectedMeterCreditBenefitMeters: string[];
       product: {
         configured: boolean;
+        planKey: string;
+        productIdEnvVar: string;
         productId: string | null;
         exists: boolean;
         name: string | null;
@@ -338,6 +343,9 @@ async function handleBillingOpsCheck(env: string) {
     console.log(`  Metered prices: ${product?.meteredPriceMeters.length ?? 0}/${productCheck.expectedMeteredPriceMeters.length}`);
     if (productCheck.missingMeteredPriceMeters.length > 0) {
       console.log(`  Missing metered prices: ${productCheck.missingMeteredPriceMeters.join(', ')}`);
+    }
+    if (productCheck.unexpectedMeterCreditBenefitMeters.length > 0) {
+      console.log(`  Unexpected meter-credit benefits: ${productCheck.unexpectedMeterCreditBenefitMeters.join(', ')}`);
     }
   }
 

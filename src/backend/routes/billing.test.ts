@@ -49,6 +49,8 @@ function polarMeter(name: string, overrides: Record<string, unknown> = {}) {
 function paidGenerationProduct(overrides: Record<string, unknown> = {}) {
   return {
     configured: true,
+    planKey: 'paid_generation',
+    productIdEnvVar: 'POLAR_PAID_GENERATION_PRODUCT_ID',
     productId: 'prod_paid_generation',
     exists: true,
     name: 'Paid Generation',
@@ -760,6 +762,66 @@ describe('billingRoutes', () => {
     assert.equal(body.status, 'critical');
     assert.equal(body.checks.paidGenerationProduct.status, 'critical');
     assert.deepEqual(body.checks.paidGenerationProduct.missingMeteredPriceMeters, ['gemini_images']);
+  });
+
+  test('operational checks reject product meter-credit benefits for non-canonical meters', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UsageEventDAO, {
+      getSyncHealth: async () => ({
+        pending: 0,
+        failed: 0,
+        synced: 12,
+        oldestPendingCreatedAt: null,
+        oldestFailedCreatedAt: null,
+        lastSyncedAt: '2026-06-17T10:00:00.000Z',
+        lastSyncAttemptAt: '2026-06-17T10:00:00.000Z',
+      }),
+      getInternalBillingHealth: async () => ({
+        internalUsers: 1,
+        billableEvents: 0,
+        nonBillableEvents: 2,
+      }),
+    });
+    deps.set(UserDAO, {
+      countWithoutPolarCustomer: async () => 0,
+    });
+    deps.set(PolarService, {
+      isConfigured: () => true,
+      getPaidGenerationProductInfo: async () => paidGenerationProduct({
+        meterCreditBenefitMeters: ['gemini_images', 'legacy_meter'],
+      }),
+      listMeters: async () => [
+        polarMeter('claude_input_tokens'),
+        polarMeter('claude_output_tokens'),
+        polarMeter('gemini_images'),
+        polarMeter('gemini_videos'),
+        polarMeter('gemini_audio'),
+        polarMeter('gemini_input_tokens'),
+        polarMeter('gemini_output_tokens'),
+        polarMeter('elevenlabs_audio'),
+      ],
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request('/api/billing/operational-checks', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      status: string;
+      checks: {
+        paidGenerationProduct: {
+          status: string;
+          unexpectedMeterCreditBenefitMeters: string[];
+        };
+      };
+    };
+    assert.equal(body.status, 'critical');
+    assert.equal(body.checks.paidGenerationProduct.status, 'critical');
+    assert.deepEqual(body.checks.paidGenerationProduct.unexpectedMeterCreditBenefitMeters, ['legacy_meter']);
   });
 
   test('reconcile compares local billable usage to Polar meters for cached billing period', async () => {

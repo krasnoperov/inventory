@@ -11,6 +11,7 @@ import {
   isNonBillablePaidGenerationEntitlement,
   resolveEntitlement,
 } from '../billing/paidGenerationEntitlement';
+import { PAID_GENERATION_PLAN } from '../billing/planCatalog';
 import { EXPECTED_POLAR_METERS, getPolarMeterContract } from '../billing/polarMeteringContract';
 
 const billingRoutes = new Hono<AppContext>();
@@ -402,16 +403,23 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
   const polarStatus: OperationalStatus = !polarConfigured || polarError !== null || missingMeters.length > 0 || invalidMeters.length > 0
     ? 'critical'
     : 'ok';
-  const productMissingPriceMeters = EXPECTED_POLAR_METERS.filter(
+  const expectedProductMeteredPriceMeters = PAID_GENERATION_PLAN.polar.requiredMeteredPriceMeters;
+  const allowedProductMeterCreditBenefitMeters = PAID_GENERATION_PLAN.polar.allowedMeterCreditBenefitMeters;
+  const allowedProductMeterCreditBenefitMeterSet = new Set<string>(allowedProductMeterCreditBenefitMeters);
+  const productMissingPriceMeters = expectedProductMeteredPriceMeters.filter(
     (meter) => !paidGenerationProduct?.meteredPriceMeters.includes(meter)
   );
+  const productUnexpectedBenefitMeters = paidGenerationProduct?.meterCreditBenefitMeters.filter(
+    (meter) => !allowedProductMeterCreditBenefitMeterSet.has(meter)
+  ) ?? [];
   const productStatus: OperationalStatus = !polarConfigured ||
     polarError !== null ||
     !paidGenerationProduct?.configured ||
     !paidGenerationProduct.exists ||
     paidGenerationProduct.isArchived ||
     !paidGenerationProduct.isRecurring ||
-    productMissingPriceMeters.length > 0
+    productMissingPriceMeters.length > 0 ||
+    productUnexpectedBenefitMeters.length > 0
     ? 'critical'
     : 'ok';
 
@@ -444,8 +452,11 @@ billingRoutes.get('/api/billing/operational-checks', adminMiddleware, async (c) 
       },
       paidGenerationProduct: {
         status: productStatus,
-        expectedMeteredPriceMeters: EXPECTED_POLAR_METERS,
+        plan: PAID_GENERATION_PLAN,
+        expectedMeteredPriceMeters: expectedProductMeteredPriceMeters,
         missingMeteredPriceMeters: productMissingPriceMeters,
+        allowedMeterCreditBenefitMeters: allowedProductMeterCreditBenefitMeters,
+        unexpectedMeterCreditBenefitMeters: productUnexpectedBenefitMeters,
         product: paidGenerationProduct,
       },
       syncHealth: {

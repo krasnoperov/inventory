@@ -2,6 +2,7 @@ import { injectable, inject } from 'inversify';
 import { Polar } from '@polar-sh/sdk';
 import { TYPES } from '../../core/di-types';
 import type { Env } from '../../core/types';
+import { PAID_GENERATION_PLAN } from '../billing/planCatalog';
 
 export interface LLMUsageData {
   vendor: 'anthropic' | 'google';
@@ -84,6 +85,8 @@ export interface PolarMeterInfo {
 
 export interface PolarProductInfo {
   configured: boolean;
+  planKey: string;
+  productIdEnvVar: string;
   productId: string | null;
   exists: boolean;
   name: string | null;
@@ -183,10 +186,12 @@ export class PolarService {
    * send billable events for; meter-credit benefits are reported for quota ops.
    */
   async getPaidGenerationProductInfo(): Promise<PolarProductInfo> {
-    const productId = this.env.POLAR_PAID_GENERATION_PRODUCT_ID || null;
+    const productId = this.env[PAID_GENERATION_PLAN.polar.productIdEnvVar] || null;
     if (!this.client || !productId) {
       return {
         configured: this.client !== null && !!productId,
+        planKey: PAID_GENERATION_PLAN.key,
+        productIdEnvVar: PAID_GENERATION_PLAN.polar.productIdEnvVar,
         productId,
         exists: false,
         name: null,
@@ -210,6 +215,8 @@ export class PolarService {
 
     return {
       configured: true,
+      planKey: PAID_GENERATION_PLAN.key,
+      productIdEnvVar: PAID_GENERATION_PLAN.polar.productIdEnvVar,
       productId,
       exists: true,
       name: product.name,
@@ -377,10 +384,11 @@ export class PolarService {
     customer: CheckoutCustomer,
     options: { returnUrl?: string; successUrl?: string } = {}
   ): Promise<string | null> {
-    if (!this.client || !this.env.POLAR_PAID_GENERATION_PRODUCT_ID) return null;
+    const productId = this.env[PAID_GENERATION_PLAN.polar.productIdEnvVar];
+    if (!this.client || !productId) return null;
 
     const checkout = await this.client.checkouts.create({
-      products: [this.env.POLAR_PAID_GENERATION_PRODUCT_ID],
+      products: [productId],
       externalCustomerId: String(customer.userId),
       customerEmail: customer.email,
       customerName: customer.name,
@@ -388,7 +396,8 @@ export class PolarService {
       successUrl: options.successUrl || options.returnUrl || null,
       metadata: {
         source: 'inventory-app',
-        purpose: 'paid_generation',
+        purpose: PAID_GENERATION_PLAN.polar.checkoutPurpose,
+        plan_key: PAID_GENERATION_PLAN.key,
         user_id: customer.userId,
       },
       customerMetadata: {
