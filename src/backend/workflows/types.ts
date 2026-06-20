@@ -212,6 +212,10 @@ export interface GenerateRequestMessage {
   parentAssetId?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
+  /** Explicit asset-backed style preset to use instead of the default */
+  stylePresetId?: string;
+  /** Ad hoc completed image variants to use as style references */
+  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
@@ -250,6 +254,10 @@ export interface RefineRequestMessage {
   modelProvider?: 'gemini' | 'custom';
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
+  /** Explicit asset-backed style preset to use instead of the default */
+  stylePresetId?: string;
+  /** Ad hoc completed image variants to use as style references */
+  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
@@ -324,6 +332,10 @@ export interface BatchRequestMessage {
   parentAssetId?: string;
   /** Disable style anchoring for this batch */
   disableStyle?: boolean;
+  /** Explicit asset-backed style preset to use instead of the default */
+  stylePresetId?: string;
+  /** Ad hoc completed image variants to use as style references */
+  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
