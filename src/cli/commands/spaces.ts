@@ -341,7 +341,7 @@ async function fetchSpaceAssets(
     return assetsData.assets;
   }
 
-  return [];
+  throw new Error(`Failed to fetch assets for space ${spaceId}: ${assetsResponse.status}`);
 }
 
 function printSpaceDetails(details: SpaceDetails, print: (message: string) => void): void {

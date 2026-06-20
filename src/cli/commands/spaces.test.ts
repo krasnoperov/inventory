@@ -34,7 +34,7 @@ function storedConfig(): StoredConfig {
   };
 }
 
-function depsFor(output: string[]) {
+function depsFor(output: string[], options: { assetsStatus?: number } = {}) {
   const requests: Array<{ url: string; authorization: string | null }> = [];
   const deps = {
     loadConfig: async () => storedConfig(),
@@ -56,7 +56,10 @@ function depsFor(output: string[]) {
         return jsonResponse({ success: true, space });
       }
       if (pathname === '/api/spaces/space-1/assets') {
-        return jsonResponse({ success: true, assets: [asset] });
+        return jsonResponse(
+          options.assetsStatus ? { error: 'Asset storage not available' } : { success: true, assets: [asset] },
+          options.assetsStatus
+        );
       }
       return jsonResponse({ error: 'not found' }, 404);
     },
@@ -117,4 +120,26 @@ test('spaces show supports JSON output with assets', async () => {
     '/api/spaces/space-1',
     '/api/spaces/space-1/assets',
   ]);
+});
+
+test('spaces details rejects when an asset summary read fails', async () => {
+  const output: string[] = [];
+  const { deps } = depsFor(output, { assetsStatus: 503 });
+
+  await assert.rejects(
+    executeSpaces({ positionals: [], options: { details: 'true', json: 'true' } }, deps),
+    /Failed to fetch assets for space space-1: 503/
+  );
+  assert.equal(output.join('\n'), '');
+});
+
+test('spaces show rejects when the asset details read fails', async () => {
+  const output: string[] = [];
+  const { deps } = depsFor(output, { assetsStatus: 503 });
+
+  await assert.rejects(
+    executeSpaces({ positionals: [], options: { id: 'space-1', json: 'true' } }, deps),
+    /Failed to fetch assets for space space-1: 503/
+  );
+  assert.equal(output.join('\n'), '');
 });
