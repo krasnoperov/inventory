@@ -21,6 +21,11 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
       assets: [],
       variants: [],
       lineage: [],
+      collections: [],
+      collectionItems: [],
+      relations: [],
+      compositions: [],
+      compositionItems: [],
       rotationSets: [],
       rotationViews: [],
       tileSets: [],
@@ -30,6 +35,8 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
     getOverviewState: mock.fn(async () => ({
       assets: [],
       variants: [],
+      collections: [],
+      compositions: [],
       rotationSets: [],
       rotationViews: [],
       tileSets: [],
@@ -65,6 +72,8 @@ describe('SyncController', () => {
       getOverviewState: mock.fn(async () => ({
         assets: [{ id: 'asset-1', active_variant_id: 'variant-1' }],
         variants: [{ id: 'variant-1', asset_id: 'asset-1' }],
+        collections: [{ id: 'collection-1', name: 'Scene Kit', item_count: 2 }],
+        compositions: [{ id: 'composition-1', name: 'Opening', item_count: 1 }],
         rotationSets: [],
         rotationViews: [],
         tileSets: [],
@@ -81,6 +90,42 @@ describe('SyncController', () => {
     assert.strictEqual(sent.length, 1);
     assert.strictEqual(sent[0].type, 'sync:overview');
     assert.deepStrictEqual(sent[0].presence, presence);
+    assert.deepStrictEqual(sent[0].collections, [{ id: 'collection-1', name: 'Scene Kit', item_count: 2 }]);
+    assert.deepStrictEqual(sent[0].compositions, [{ id: 'composition-1', name: 'Opening', item_count: 1 }]);
     assert.ok(!('lineage' in sent[0]));
+    assert.ok(!('collectionItems' in sent[0]));
+    assert.ok(!('compositionItems' in sent[0]));
+  });
+
+  test('handleSyncRequest includes full organization records without changing lineage', async () => {
+    const presence = [{ userId: 'user-1', viewing: null, lastSeen: 1 }];
+    const { ctx, sent } = createContext({
+      getFullState: mock.fn(async () => ({
+        assets: [],
+        variants: [],
+        lineage: [{ id: 'lineage-1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'derived' }],
+        collections: [{ id: 'collection-1', name: 'Scene Kit' }],
+        collectionItems: [{ id: 'collection-item-1', collection_id: 'collection-1' }],
+        relations: [{ id: 'relation-1', relation_type: 'appears_in' }],
+        compositions: [{ id: 'composition-1', name: 'Opening' }],
+        compositionItems: [{ id: 'composition-item-1', composition_id: 'composition-1' }],
+        rotationSets: [],
+        rotationViews: [],
+        tileSets: [],
+        tilePositions: [],
+        style: null,
+      })),
+    });
+    const controller = new SyncController(ctx, createPresence(presence));
+
+    await controller.handleSyncRequest({} as WebSocket);
+
+    assert.strictEqual(sent[0].type, 'sync:state');
+    assert.deepStrictEqual(sent[0].lineage, [{ id: 'lineage-1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'derived' }]);
+    assert.deepStrictEqual(sent[0].collections, [{ id: 'collection-1', name: 'Scene Kit' }]);
+    assert.deepStrictEqual(sent[0].collectionItems, [{ id: 'collection-item-1', collection_id: 'collection-1' }]);
+    assert.deepStrictEqual(sent[0].relations, [{ id: 'relation-1', relation_type: 'appears_in' }]);
+    assert.deepStrictEqual(sent[0].compositions, [{ id: 'composition-1', name: 'Opening' }]);
+    assert.deepStrictEqual(sent[0].compositionItems, [{ id: 'composition-item-1', composition_id: 'composition-1' }]);
   });
 });

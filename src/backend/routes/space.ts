@@ -3,7 +3,18 @@ import { SpaceDAO } from '../../dao/space-dao';
 import { MemberDAO } from '../../dao/member-dao';
 import { PlatformUsageEventDAO } from '../../dao/platform-usage-event-dao';
 import { createOpenApiRouter, toApiSpace } from './openapi';
+import type { AppContext } from './types';
 import {
+  createCollectionItemRoute,
+  createCollectionRoute,
+  createCompositionItemRoute,
+  createCompositionRoute,
+  createRelationRoute,
+  deleteCollectionItemRoute,
+  deleteCollectionRoute,
+  deleteCompositionItemRoute,
+  deleteCompositionRoute,
+  deleteRelationRoute,
   deleteSpaceRoute,
   deleteProductionCueRoute,
   deleteProductionPlacementRoute,
@@ -13,8 +24,13 @@ import {
   getSpaceRoute,
   getProductionRoute,
   getSpaceUsageSummaryRoute,
+  listCollectionItemsRoute,
+  listCollectionsRoute,
+  listCompositionItemsRoute,
+  listCompositionsRoute,
   listProductionRecordsRoute,
   listProductionsRoute,
+  listRelationsRoute,
   listSpaceAssetsRoute,
   listSpacesRoute,
   placeProductionRecordRoute,
@@ -23,10 +39,26 @@ import {
   upsertProductionPlacementRoute,
   upsertProductionRoute,
   upsertProductionShotRoute,
+  reorderCollectionItemsRoute,
+  reorderCompositionItemsRoute,
+  updateCollectionItemRoute,
+  updateCollectionRoute,
+  updateCompositionItemRoute,
+  updateCompositionRoute,
+  updateRelationRoute,
 } from '../../shared/api/routes';
 import {
+  CollectionItemResponseSchema,
+  CollectionResponseSchema,
+  CompositionItemResponseSchema,
+  CompositionResponseSchema,
+  ListCollectionItemsResponseSchema,
+  ListCollectionsResponseSchema,
+  ListCompositionItemsResponseSchema,
+  ListCompositionsResponseSchema,
   ListProductionRecordsResponseSchema,
   ListProductionsResponseSchema,
+  ListRelationsResponseSchema,
   ListSpaceAssetsResponseSchema,
   PlatformUsageSummaryResponseSchema,
   ProductionCueResponseSchema,
@@ -35,6 +67,7 @@ import {
   ProductionRecordResponseSchema,
   ProductionResponseSchema,
   ProductionShotResponseSchema,
+  RelationResponseSchema,
   type Space,
 } from '../../shared/api/schemas';
 
@@ -58,6 +91,29 @@ function normalizeUsageBound(value: string | undefined, name: 'from' | 'to'): st
     return { error: `${name} must be a valid date or ISO timestamp` };
   }
   return new Date(timestamp).toISOString();
+}
+
+function spaceDoFetch(
+  env: AppContext['Bindings'],
+  spaceId: string,
+  path: string,
+  init?: RequestInit
+): Promise<Response> | null {
+  if (!env.SPACES_DO) {
+    return null;
+  }
+  const doStub = env.SPACES_DO.get(env.SPACES_DO.idFromName(spaceId));
+  return doStub.fetch(new Request(`http://do${path}`, init));
+}
+
+function organizationFailure(status: number, message: string, fallbackStatus = 500): any {
+  if (status === 400) {
+    return Response.json({ error: message }, { status: 400 });
+  }
+  if (status === 404) {
+    return Response.json({ error: message }, { status: 404 });
+  }
+  return Response.json({ error: message }, { status: fallbackStatus });
 }
 
 // POST /api/spaces - Create space
@@ -181,6 +237,491 @@ spaceRoutes.openapi(listSpaceAssetsRoute, async (c) => {
   });
 
   return c.json(payload, 200);
+});
+
+// GET /api/spaces/:id/collections - List collections
+spaceRoutes.openapi(listCollectionsRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+
+  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/collections');
+  if (!doResponse) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to fetch collections');
+    return c.json({ error: message }, 500);
+  }
+  return c.json(ListCollectionsResponseSchema.parse(await response.json()), 200);
+});
+
+// POST /api/spaces/:id/collections - Create collection
+spaceRoutes.openapi(createCollectionRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+  if (member.role === 'viewer') {
+    return c.json({ error: 'Viewers cannot modify collections' }, 403);
+  }
+
+  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/collections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, createdBy: userId }),
+  });
+  if (!doResponse) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to create collection');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(CollectionResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(updateCollectionRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, collectionId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify collections' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/collections/${encodeURIComponent(collectionId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to update collection');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(CollectionResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(deleteCollectionRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, collectionId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot delete collections' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/collections/${encodeURIComponent(collectionId)}`, { method: 'DELETE' });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to delete collection');
+    return organizationFailure(response.status, message);
+  }
+  return c.json({ success: true as const }, 200);
+});
+
+spaceRoutes.openapi(listCollectionItemsRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, collectionId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/collections/${encodeURIComponent(collectionId)}/items`);
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to fetch collection items');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(ListCollectionItemsResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(createCollectionItemRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, collectionId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify collection items' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/collections/${encodeURIComponent(collectionId)}/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, createdBy: userId }),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to create collection item');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(CollectionItemResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(updateCollectionItemRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, collectionId, itemId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify collection items' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/collections/${encodeURIComponent(collectionId)}/items/${encodeURIComponent(itemId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to update collection item');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(CollectionItemResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(reorderCollectionItemsRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, collectionId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot reorder collection items' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/collections/${encodeURIComponent(collectionId)}/items/reorder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to reorder collection items');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(ListCollectionItemsResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(deleteCollectionItemRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, collectionId, itemId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot delete collection items' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/collections/${encodeURIComponent(collectionId)}/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to delete collection item');
+    return organizationFailure(response.status, message);
+  }
+  return c.json({ success: true as const }, 200);
+});
+
+spaceRoutes.openapi(listRelationsRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/relations');
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to fetch relations');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(ListRelationsResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(createRelationRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify relations' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/relations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, createdBy: userId }),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to create relation');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(RelationResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(updateRelationRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, relationId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify relations' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/relations/${encodeURIComponent(relationId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to update relation');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(RelationResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(deleteRelationRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, relationId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot delete relations' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/relations/${encodeURIComponent(relationId)}`, { method: 'DELETE' });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to delete relation');
+    return organizationFailure(response.status, message);
+  }
+  return c.json({ success: true as const }, 200);
+});
+
+spaceRoutes.openapi(listCompositionsRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/compositions');
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to fetch compositions');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(ListCompositionsResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(createCompositionRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify compositions' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/compositions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, createdBy: userId }),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to create composition');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(CompositionResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(updateCompositionRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, compositionId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify compositions' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/compositions/${encodeURIComponent(compositionId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to update composition');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(CompositionResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(deleteCompositionRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, compositionId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot delete compositions' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/compositions/${encodeURIComponent(compositionId)}`, { method: 'DELETE' });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to delete composition');
+    return organizationFailure(response.status, message);
+  }
+  return c.json({ success: true as const }, 200);
+});
+
+spaceRoutes.openapi(listCompositionItemsRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, compositionId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/compositions/${encodeURIComponent(compositionId)}/items`);
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to fetch composition items');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(ListCompositionItemsResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(createCompositionItemRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, compositionId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify composition items' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/compositions/${encodeURIComponent(compositionId)}/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, createdBy: userId }),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to create composition item');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(CompositionItemResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(updateCompositionItemRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, compositionId, itemId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify composition items' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/compositions/${encodeURIComponent(compositionId)}/items/${encodeURIComponent(itemId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to update composition item');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(CompositionItemResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(reorderCompositionItemsRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, compositionId } = c.req.valid('param');
+  const body = c.req.valid('json');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot reorder composition items' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/compositions/${encodeURIComponent(compositionId)}/items/reorder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to reorder composition items');
+    return organizationFailure(response.status, message);
+  }
+  return c.json(ListCompositionItemsResponseSchema.parse(await response.json()), 200);
+});
+
+spaceRoutes.openapi(deleteCompositionItemRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const memberDAO = c.get('container').get(MemberDAO);
+  const { id: spaceId, compositionId, itemId } = c.req.valid('param');
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) return c.json({ error: 'Access denied' }, 403);
+  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot delete composition items' }, 403);
+
+  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/compositions/${encodeURIComponent(compositionId)}/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
+  const response = await doResponse;
+  if (!response.ok) {
+    const message = await readSpaceDoError(response, 'Failed to delete composition item');
+    return organizationFailure(response.status, message);
+  }
+  return c.json({ success: true as const }, 200);
 });
 
 // GET /api/spaces/:id/usage/summary - Platform usage summary for a space

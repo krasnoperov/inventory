@@ -34,6 +34,7 @@ import {
   RotationController,
   TileController,
   ProductionController,
+  OrganizationController,
 } from './space/controllers';
 import { ApprovalController } from './space/controllers/ApprovalController';
 import { SessionController } from './space/controllers/SessionController';
@@ -64,6 +65,7 @@ export class SpaceDO extends DurableObject<Env> {
   private rotationCtrl!: RotationController;
   private tileCtrl!: TileController;
   private productionCtrl!: ProductionController;
+  private organizationCtrl!: OrganizationController;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -137,6 +139,7 @@ export class SpaceDO extends DurableObject<Env> {
       this.rotationCtrl = new RotationController(ctx);
       this.tileCtrl = new TileController(ctx);
       this.productionCtrl = new ProductionController(ctx);
+      this.organizationCtrl = new OrganizationController(ctx);
 
       // Wire pipeline controllers to generation controller (avoids circular deps)
       this.generationCtrl.setPipelineControllers(this.rotationCtrl, this.tileCtrl);
@@ -150,6 +153,7 @@ export class SpaceDO extends DurableObject<Env> {
         generation: this.generationCtrl,
         approval: this.approvalCtrl,
         session: this.sessionCtrl,
+        organization: this.organizationCtrl,
         production: this.productionCtrl,
       });
 
@@ -284,6 +288,42 @@ export class SpaceDO extends DurableObject<Env> {
           msg.parentAssetId,
           msg.mediaKind
         );
+
+      // Manual organization
+      case 'collection:create':
+        return this.organizationCtrl.handleCreateCollection(ws, meta, msg);
+      case 'collection:update':
+        return this.organizationCtrl.handleUpdateCollection(ws, meta, msg.collectionId, msg.changes);
+      case 'collection:delete':
+        return this.organizationCtrl.handleDeleteCollection(ws, meta, msg.collectionId);
+      case 'collection_item:create':
+        return this.organizationCtrl.handleCreateCollectionItem(ws, meta, msg.collectionId, msg);
+      case 'collection_item:update':
+        return this.organizationCtrl.handleUpdateCollectionItem(ws, meta, msg.collectionId, msg.itemId, msg.changes);
+      case 'collection_items:reorder':
+        return this.organizationCtrl.handleReorderCollectionItems(ws, meta, msg.collectionId, msg.itemIds);
+      case 'collection_item:delete':
+        return this.organizationCtrl.handleDeleteCollectionItem(ws, meta, msg.collectionId, msg.itemId);
+      case 'relation:create':
+        return this.organizationCtrl.handleCreateRelation(ws, meta, msg);
+      case 'relation:update':
+        return this.organizationCtrl.handleUpdateRelation(ws, meta, msg.relationId, msg.changes);
+      case 'relation:delete':
+        return this.organizationCtrl.handleDeleteRelation(ws, meta, msg.relationId);
+      case 'composition:create':
+        return this.organizationCtrl.handleCreateComposition(ws, meta, msg);
+      case 'composition:update':
+        return this.organizationCtrl.handleUpdateComposition(ws, meta, msg.compositionId, msg.changes);
+      case 'composition:delete':
+        return this.organizationCtrl.handleDeleteComposition(ws, meta, msg.compositionId);
+      case 'composition_item:create':
+        return this.organizationCtrl.handleCreateCompositionItem(ws, meta, msg.compositionId, msg);
+      case 'composition_item:update':
+        return this.organizationCtrl.handleUpdateCompositionItem(ws, meta, msg.compositionId, msg.itemId, msg.changes);
+      case 'composition_items:reorder':
+        return this.organizationCtrl.handleReorderCompositionItems(ws, meta, msg.compositionId, msg.itemIds);
+      case 'composition_item:delete':
+        return this.organizationCtrl.handleDeleteCompositionItem(ws, meta, msg.compositionId, msg.itemId);
 
       // Variant
       case 'variant:delete':

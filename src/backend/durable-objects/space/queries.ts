@@ -167,6 +167,7 @@ export const SpaceCollectionQueries = {
 } as const;
 
 export const CollectionItemQueries = {
+  GET_ALL: 'SELECT * FROM collection_items ORDER BY collection_id ASC, sort_index ASC, created_at ASC',
   GET_BY_ID: 'SELECT * FROM collection_items WHERE id = ?',
   GET_BY_COLLECTION: 'SELECT * FROM collection_items WHERE collection_id = ? ORDER BY sort_index ASC, created_at ASC',
   INSERT: `INSERT INTO collection_items
@@ -194,6 +195,7 @@ export const CompositionQueries = {
 } as const;
 
 export const CompositionItemQueries = {
+  GET_ALL: 'SELECT * FROM composition_items ORDER BY composition_id ASC, sort_index ASC, created_at ASC',
   GET_BY_ID: 'SELECT * FROM composition_items WHERE id = ?',
   GET_BY_COMPOSITION: 'SELECT * FROM composition_items WHERE composition_id = ? ORDER BY sort_index ASC, created_at ASC',
   INSERT: `INSERT INTO composition_items

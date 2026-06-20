@@ -26,6 +26,11 @@ import type {
   ProductionCueType,
   ProductionPlacement,
   ProductionPlacementTargetKind,
+  SpaceCollection,
+  CollectionItem,
+  SpaceRelation,
+  Composition,
+  CompositionItem,
 } from './types';
 import { NotFoundError, ValidationError } from './controllers/types';
 import { loggers } from '../../../shared/logger';
@@ -218,6 +223,30 @@ export interface InternalApiControllers {
       viewingVariantId?: string | null;
       forgeContext?: string | null;
     }): Promise<UserSession>;
+  };
+  organization: {
+    httpListCollections(): Promise<SpaceCollection[]>;
+    httpCreateCollection(data: unknown): Promise<SpaceCollection>;
+    httpUpdateCollection(collectionId: string, data: unknown): Promise<SpaceCollection>;
+    httpDeleteCollection(collectionId: string): Promise<void>;
+    httpListCollectionItems(collectionId: string): Promise<CollectionItem[]>;
+    httpCreateCollectionItem(collectionId: string, data: unknown): Promise<CollectionItem>;
+    httpUpdateCollectionItem(collectionId: string, itemId: string, data: unknown): Promise<CollectionItem>;
+    httpReorderCollectionItems(collectionId: string, itemIds: unknown): Promise<CollectionItem[]>;
+    httpDeleteCollectionItem(collectionId: string, itemId: string): Promise<void>;
+    httpListRelations(): Promise<SpaceRelation[]>;
+    httpCreateRelation(data: unknown): Promise<SpaceRelation>;
+    httpUpdateRelation(relationId: string, data: unknown): Promise<SpaceRelation>;
+    httpDeleteRelation(relationId: string): Promise<void>;
+    httpListCompositions(): Promise<Composition[]>;
+    httpCreateComposition(data: unknown): Promise<Composition>;
+    httpUpdateComposition(compositionId: string, data: unknown): Promise<Composition>;
+    httpDeleteComposition(compositionId: string): Promise<void>;
+    httpListCompositionItems(compositionId: string): Promise<CompositionItem[]>;
+    httpCreateCompositionItem(compositionId: string, data: unknown): Promise<CompositionItem>;
+    httpUpdateCompositionItem(compositionId: string, itemId: string, data: unknown): Promise<CompositionItem>;
+    httpReorderCompositionItems(compositionId: string, itemIds: unknown): Promise<CompositionItem[]>;
+    httpDeleteCompositionItem(compositionId: string, itemId: string): Promise<void>;
   };
   production: {
     httpListProductions(): Promise<Production[]>;
@@ -583,6 +612,157 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     const data = await c.req.json();
     const session = await controllers.session.httpUpsertSession(data);
     return c.json({ success: true, session });
+  });
+
+  // ==========================================================================
+  // Organization Routes
+  // ==========================================================================
+
+  app.get('/internal/collections', async (c) => {
+    const collections = await controllers.organization.httpListCollections();
+    return c.json({ success: true, collections });
+  });
+
+  app.post('/internal/collections', async (c) => {
+    const collection = await controllers.organization.httpCreateCollection(await c.req.json());
+    return c.json({ success: true, collection });
+  });
+
+  app.patch('/internal/collections/:collectionId', async (c) => {
+    const collection = await controllers.organization.httpUpdateCollection(
+      c.req.param('collectionId'),
+      await c.req.json()
+    );
+    return c.json({ success: true, collection });
+  });
+
+  app.delete('/internal/collections/:collectionId', async (c) => {
+    await controllers.organization.httpDeleteCollection(c.req.param('collectionId'));
+    return c.json({ success: true });
+  });
+
+  app.get('/internal/collections/:collectionId/items', async (c) => {
+    const items = await controllers.organization.httpListCollectionItems(c.req.param('collectionId'));
+    return c.json({ success: true, items });
+  });
+
+  app.post('/internal/collections/:collectionId/items', async (c) => {
+    const item = await controllers.organization.httpCreateCollectionItem(
+      c.req.param('collectionId'),
+      await c.req.json()
+    );
+    return c.json({ success: true, item });
+  });
+
+  app.patch('/internal/collections/:collectionId/items/:itemId', async (c) => {
+    const item = await controllers.organization.httpUpdateCollectionItem(
+      c.req.param('collectionId'),
+      c.req.param('itemId'),
+      await c.req.json()
+    );
+    return c.json({ success: true, item });
+  });
+
+  app.post('/internal/collections/:collectionId/items/reorder', async (c) => {
+    const data = (await c.req.json()) as { itemIds?: unknown };
+    const items = await controllers.organization.httpReorderCollectionItems(
+      c.req.param('collectionId'),
+      data.itemIds
+    );
+    return c.json({ success: true, items });
+  });
+
+  app.delete('/internal/collections/:collectionId/items/:itemId', async (c) => {
+    await controllers.organization.httpDeleteCollectionItem(
+      c.req.param('collectionId'),
+      c.req.param('itemId')
+    );
+    return c.json({ success: true });
+  });
+
+  app.get('/internal/relations', async (c) => {
+    const relations = await controllers.organization.httpListRelations();
+    return c.json({ success: true, relations });
+  });
+
+  app.post('/internal/relations', async (c) => {
+    const relation = await controllers.organization.httpCreateRelation(await c.req.json());
+    return c.json({ success: true, relation });
+  });
+
+  app.patch('/internal/relations/:relationId', async (c) => {
+    const relation = await controllers.organization.httpUpdateRelation(
+      c.req.param('relationId'),
+      await c.req.json()
+    );
+    return c.json({ success: true, relation });
+  });
+
+  app.delete('/internal/relations/:relationId', async (c) => {
+    await controllers.organization.httpDeleteRelation(c.req.param('relationId'));
+    return c.json({ success: true });
+  });
+
+  app.get('/internal/compositions', async (c) => {
+    const compositions = await controllers.organization.httpListCompositions();
+    return c.json({ success: true, compositions });
+  });
+
+  app.post('/internal/compositions', async (c) => {
+    const composition = await controllers.organization.httpCreateComposition(await c.req.json());
+    return c.json({ success: true, composition });
+  });
+
+  app.patch('/internal/compositions/:compositionId', async (c) => {
+    const composition = await controllers.organization.httpUpdateComposition(
+      c.req.param('compositionId'),
+      await c.req.json()
+    );
+    return c.json({ success: true, composition });
+  });
+
+  app.delete('/internal/compositions/:compositionId', async (c) => {
+    await controllers.organization.httpDeleteComposition(c.req.param('compositionId'));
+    return c.json({ success: true });
+  });
+
+  app.get('/internal/compositions/:compositionId/items', async (c) => {
+    const items = await controllers.organization.httpListCompositionItems(c.req.param('compositionId'));
+    return c.json({ success: true, items });
+  });
+
+  app.post('/internal/compositions/:compositionId/items', async (c) => {
+    const item = await controllers.organization.httpCreateCompositionItem(
+      c.req.param('compositionId'),
+      await c.req.json()
+    );
+    return c.json({ success: true, item });
+  });
+
+  app.patch('/internal/compositions/:compositionId/items/:itemId', async (c) => {
+    const item = await controllers.organization.httpUpdateCompositionItem(
+      c.req.param('compositionId'),
+      c.req.param('itemId'),
+      await c.req.json()
+    );
+    return c.json({ success: true, item });
+  });
+
+  app.post('/internal/compositions/:compositionId/items/reorder', async (c) => {
+    const data = (await c.req.json()) as { itemIds?: unknown };
+    const items = await controllers.organization.httpReorderCompositionItems(
+      c.req.param('compositionId'),
+      data.itemIds
+    );
+    return c.json({ success: true, items });
+  });
+
+  app.delete('/internal/compositions/:compositionId/items/:itemId', async (c) => {
+    await controllers.organization.httpDeleteCompositionItem(
+      c.req.param('compositionId'),
+      c.req.param('itemId')
+    );
+    return c.json({ success: true });
   });
 
   // ==========================================================================

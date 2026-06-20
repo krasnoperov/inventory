@@ -297,6 +297,326 @@ export const ListSpaceAssetsResponseSchema = z
   })
   .openapi('ListSpaceAssetsResponse');
 
+export const SpaceSubjectTypeSchema = z.enum(['asset', 'variant']);
+export const SpaceRelationTypeSchema = z.enum([
+  'appears_in',
+  'background_for',
+  'style_reference_for',
+  'thumbnail_for',
+  'alternate_of',
+  'prop_in',
+  'map_for',
+  'part_of',
+  'reference_for',
+  'custom',
+]);
+export const CompositionItemRoleSchema = z.enum([
+  'output',
+  'background',
+  'character',
+  'prop',
+  'style_ref',
+  'overlay',
+  'map',
+  'thumbnail',
+  'custom',
+]);
+export const CompositionStatusSchema = z.enum(['draft', 'final']);
+
+export const CollectionIdParamsSchema = SpaceIdParamsSchema.extend({
+  collectionId: z.string().openapi({
+    param: {
+      name: 'collectionId',
+      in: 'path',
+    },
+  }),
+});
+
+export const CollectionItemParamsSchema = CollectionIdParamsSchema.extend({
+  itemId: z.string().openapi({
+    param: {
+      name: 'itemId',
+      in: 'path',
+    },
+  }),
+});
+
+export const RelationParamsSchema = SpaceIdParamsSchema.extend({
+  relationId: z.string().openapi({
+    param: {
+      name: 'relationId',
+      in: 'path',
+    },
+  }),
+});
+
+export const CompositionIdParamsSchema = SpaceIdParamsSchema.extend({
+  compositionId: z.string().openapi({
+    param: {
+      name: 'compositionId',
+      in: 'path',
+    },
+  }),
+});
+
+export const CompositionItemParamsSchema = CompositionIdParamsSchema.extend({
+  itemId: z.string().openapi({
+    param: {
+      name: 'itemId',
+      in: 'path',
+    },
+  }),
+});
+
+export const SpaceSubjectSchema = z
+  .object({
+    subjectType: SpaceSubjectTypeSchema,
+    assetId: z.string().optional(),
+    variantId: z.string().optional(),
+  })
+  .openapi('SpaceSubject');
+
+export const SpaceCollectionSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string().nullable(),
+    sort_index: z.number().int(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number(),
+  })
+  .openapi('SpaceCollection');
+
+export const CollectionItemSchema = z
+  .object({
+    id: z.string(),
+    collection_id: z.string(),
+    subject_type: SpaceSubjectTypeSchema,
+    asset_id: z.string().nullable(),
+    variant_id: z.string().nullable(),
+    role: z.string(),
+    pinned_variant_id: z.string().nullable(),
+    sort_index: z.number().int(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number(),
+  })
+  .openapi('CollectionItem');
+
+export const SpaceRelationSchema = z
+  .object({
+    id: z.string(),
+    subject_type: SpaceSubjectTypeSchema,
+    subject_asset_id: z.string().nullable(),
+    subject_variant_id: z.string().nullable(),
+    object_type: SpaceSubjectTypeSchema,
+    object_asset_id: z.string().nullable(),
+    object_variant_id: z.string().nullable(),
+    relation_type: SpaceRelationTypeSchema,
+    context: z.string().nullable(),
+    sort_index: z.number().int(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number(),
+  })
+  .openapi('SpaceRelation');
+
+export const CompositionSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string().nullable(),
+    status: CompositionStatusSchema,
+    output_asset_id: z.string().nullable(),
+    output_variant_id: z.string().nullable(),
+    metadata: z.string(),
+    sort_index: z.number().int(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number(),
+  })
+  .openapi('Composition');
+
+export const CompositionItemSchema = z
+  .object({
+    id: z.string(),
+    composition_id: z.string(),
+    role: CompositionItemRoleSchema,
+    asset_id: z.string().nullable(),
+    variant_id: z.string(),
+    metadata: z.string(),
+    sort_index: z.number().int(),
+    created_by: z.string(),
+    created_at: z.number(),
+    updated_at: z.number(),
+  })
+  .openapi('CompositionItem');
+
+export const UpsertCollectionRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    name: z.string().min(1),
+    description: z.string().nullable().optional(),
+    sortIndex: z.number().int().optional(),
+  })
+  .openapi('UpsertCollectionRequest');
+
+export const UpdateCollectionRequestSchema = UpsertCollectionRequestSchema.omit({ id: true }).partial().openapi('UpdateCollectionRequest');
+
+export const UpsertCollectionItemRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    subjectType: SpaceSubjectTypeSchema,
+    assetId: z.string().optional(),
+    variantId: z.string().optional(),
+    role: z.string().optional(),
+    pinnedVariantId: z.string().nullable().optional(),
+    sortIndex: z.number().int().optional(),
+  })
+  .openapi('UpsertCollectionItemRequest');
+
+export const UpdateCollectionItemRequestSchema = z
+  .object({
+    role: z.string().optional(),
+    pinnedVariantId: z.string().nullable().optional(),
+    sortIndex: z.number().int().optional(),
+  })
+  .openapi('UpdateCollectionItemRequest');
+
+export const ReorderItemsRequestSchema = z
+  .object({
+    itemIds: z.array(z.string()),
+  })
+  .openapi('ReorderItemsRequest');
+
+export const UpsertRelationRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    subject: SpaceSubjectSchema,
+    object: SpaceSubjectSchema,
+    relationType: SpaceRelationTypeSchema,
+    context: z.union([z.string(), z.record(z.string(), z.unknown())]).nullable().optional(),
+    sortIndex: z.number().int().optional(),
+  })
+  .openapi('UpsertRelationRequest');
+
+export const UpdateRelationRequestSchema = z
+  .object({
+    relationType: SpaceRelationTypeSchema.optional(),
+    context: z.union([z.string(), z.record(z.string(), z.unknown())]).nullable().optional(),
+    sortIndex: z.number().int().optional(),
+  })
+  .openapi('UpdateRelationRequest');
+
+export const UpsertCompositionRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    name: z.string().min(1),
+    description: z.string().nullable().optional(),
+    status: CompositionStatusSchema.optional(),
+    outputAssetId: z.string().nullable().optional(),
+    outputVariantId: z.string().nullable().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    sortIndex: z.number().int().optional(),
+  })
+  .openapi('UpsertCompositionRequest');
+
+export const UpdateCompositionRequestSchema = UpsertCompositionRequestSchema.omit({ id: true, name: true }).extend({
+  name: z.string().min(1).optional(),
+}).openapi('UpdateCompositionRequest');
+
+export const UpsertCompositionItemRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    role: CompositionItemRoleSchema,
+    assetId: z.string().nullable().optional(),
+    variantId: z.string().min(1),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    sortIndex: z.number().int().optional(),
+  })
+  .openapi('UpsertCompositionItemRequest');
+
+export const UpdateCompositionItemRequestSchema = z
+  .object({
+    role: CompositionItemRoleSchema.optional(),
+    assetId: z.string().nullable().optional(),
+    variantId: z.string().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    sortIndex: z.number().int().optional(),
+  })
+  .openapi('UpdateCompositionItemRequest');
+
+export const ListCollectionsResponseSchema = z
+  .object({
+    success: z.literal(true),
+    collections: z.array(SpaceCollectionSchema),
+  })
+  .openapi('ListCollectionsResponse');
+
+export const CollectionResponseSchema = z
+  .object({
+    success: z.literal(true),
+    collection: SpaceCollectionSchema,
+  })
+  .openapi('CollectionResponse');
+
+export const ListCollectionItemsResponseSchema = z
+  .object({
+    success: z.literal(true),
+    items: z.array(CollectionItemSchema),
+  })
+  .openapi('ListCollectionItemsResponse');
+
+export const CollectionItemResponseSchema = z
+  .object({
+    success: z.literal(true),
+    item: CollectionItemSchema,
+  })
+  .openapi('CollectionItemResponse');
+
+export const ListRelationsResponseSchema = z
+  .object({
+    success: z.literal(true),
+    relations: z.array(SpaceRelationSchema),
+  })
+  .openapi('ListRelationsResponse');
+
+export const RelationResponseSchema = z
+  .object({
+    success: z.literal(true),
+    relation: SpaceRelationSchema,
+  })
+  .openapi('RelationResponse');
+
+export const ListCompositionsResponseSchema = z
+  .object({
+    success: z.literal(true),
+    compositions: z.array(CompositionSchema),
+  })
+  .openapi('ListCompositionsResponse');
+
+export const CompositionResponseSchema = z
+  .object({
+    success: z.literal(true),
+    composition: CompositionSchema,
+  })
+  .openapi('CompositionResponse');
+
+export const ListCompositionItemsResponseSchema = z
+  .object({
+    success: z.literal(true),
+    items: z.array(CompositionItemSchema),
+  })
+  .openapi('ListCompositionItemsResponse');
+
+export const CompositionItemResponseSchema = z
+  .object({
+    success: z.literal(true),
+    item: CompositionItemSchema,
+  })
+  .openapi('CompositionItemResponse');
+
 export const UsageSummaryQuerySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
@@ -787,6 +1107,37 @@ export type CreateSpaceResponse = z.infer<typeof CreateSpaceResponseSchema>;
 export type ListSpacesResponse = z.infer<typeof ListSpacesResponseSchema>;
 export type GetSpaceResponse = z.infer<typeof GetSpaceResponseSchema>;
 export type ListSpaceAssetsResponse = z.infer<typeof ListSpaceAssetsResponseSchema>;
+export type SpaceSubjectType = z.infer<typeof SpaceSubjectTypeSchema>;
+export type SpaceRelationType = z.infer<typeof SpaceRelationTypeSchema>;
+export type CompositionItemRole = z.infer<typeof CompositionItemRoleSchema>;
+export type CompositionStatus = z.infer<typeof CompositionStatusSchema>;
+export type SpaceSubject = z.infer<typeof SpaceSubjectSchema>;
+export type SpaceCollection = z.infer<typeof SpaceCollectionSchema>;
+export type CollectionItem = z.infer<typeof CollectionItemSchema>;
+export type SpaceRelation = z.infer<typeof SpaceRelationSchema>;
+export type Composition = z.infer<typeof CompositionSchema>;
+export type CompositionItem = z.infer<typeof CompositionItemSchema>;
+export type UpsertCollectionRequest = z.infer<typeof UpsertCollectionRequestSchema>;
+export type UpdateCollectionRequest = z.infer<typeof UpdateCollectionRequestSchema>;
+export type UpsertCollectionItemRequest = z.infer<typeof UpsertCollectionItemRequestSchema>;
+export type UpdateCollectionItemRequest = z.infer<typeof UpdateCollectionItemRequestSchema>;
+export type ReorderItemsRequest = z.infer<typeof ReorderItemsRequestSchema>;
+export type UpsertRelationRequest = z.infer<typeof UpsertRelationRequestSchema>;
+export type UpdateRelationRequest = z.infer<typeof UpdateRelationRequestSchema>;
+export type UpsertCompositionRequest = z.infer<typeof UpsertCompositionRequestSchema>;
+export type UpdateCompositionRequest = z.infer<typeof UpdateCompositionRequestSchema>;
+export type UpsertCompositionItemRequest = z.infer<typeof UpsertCompositionItemRequestSchema>;
+export type UpdateCompositionItemRequest = z.infer<typeof UpdateCompositionItemRequestSchema>;
+export type ListCollectionsResponse = z.infer<typeof ListCollectionsResponseSchema>;
+export type CollectionResponse = z.infer<typeof CollectionResponseSchema>;
+export type ListCollectionItemsResponse = z.infer<typeof ListCollectionItemsResponseSchema>;
+export type CollectionItemResponse = z.infer<typeof CollectionItemResponseSchema>;
+export type ListRelationsResponse = z.infer<typeof ListRelationsResponseSchema>;
+export type RelationResponse = z.infer<typeof RelationResponseSchema>;
+export type ListCompositionsResponse = z.infer<typeof ListCompositionsResponseSchema>;
+export type CompositionResponse = z.infer<typeof CompositionResponseSchema>;
+export type ListCompositionItemsResponse = z.infer<typeof ListCompositionItemsResponseSchema>;
+export type CompositionItemResponse = z.infer<typeof CompositionItemResponseSchema>;
 export type PlatformUsageTypeSummary = z.infer<typeof PlatformUsageTypeSummarySchema>;
 export type PlatformUsageMediaKindSummary = z.infer<typeof PlatformUsageMediaKindSummarySchema>;
 export type PlatformUsageSummaryResponse = z.infer<typeof PlatformUsageSummaryResponseSchema>;
