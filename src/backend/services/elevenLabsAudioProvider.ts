@@ -74,7 +74,7 @@ interface ElevenLabsVoicesApiResponse {
  */
 export async function listElevenLabsVoices(
   apiKey: string,
-  fetcher: Fetcher = fetch
+  fetcher: Fetcher = defaultFetcher
 ): Promise<ElevenLabsVoiceSummary[]> {
   const response = await fetcher('https://api.elevenlabs.io/v2/voices?page_size=100', {
     method: 'GET',
@@ -115,6 +115,7 @@ const DEFAULT_OUTPUT_FORMAT = 'mp3_44100_128';
 const DEFAULT_MUSIC_MODEL = 'music_v1';
 const DEFAULT_SOUND_EFFECT_MODEL = 'eleven_text_to_sound_v2';
 const TEXT_ENCODER = new TextEncoder();
+const defaultFetcher: Fetcher = (input, init) => fetch(input, init);
 
 export function parseElevenLabsDialoguePrompt(prompt: string): ParsedDialogueLine[] | null {
   const lines = prompt
@@ -159,7 +160,7 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
   private readonly outputFormat: string;
 
   constructor(private readonly config: ElevenLabsAudioProviderConfig) {
-    this.fetcher = config.fetcher ?? fetch;
+    this.fetcher = config.fetcher ?? defaultFetcher;
     this.outputFormat = config.outputFormat ?? DEFAULT_OUTPUT_FORMAT;
   }
 
@@ -332,7 +333,7 @@ abstract class BaseElevenLabsGeneratedAudioProvider implements AudioGenerationPr
     protected readonly config: ElevenLabsGeneratedAudioProviderConfig,
     defaultModel: string
   ) {
-    this.fetcher = config.fetcher ?? fetch;
+    this.fetcher = config.fetcher ?? defaultFetcher;
     this.baseUrl = config.baseUrl?.replace(/\/$/, '') ?? BASE_URL;
     this.outputFormat = config.outputFormat ?? DEFAULT_OUTPUT_FORMAT;
     this.modelId = config.modelId ?? defaultModel;

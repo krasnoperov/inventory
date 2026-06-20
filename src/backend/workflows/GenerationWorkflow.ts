@@ -124,6 +124,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       operation,
       styleImageKeys,
       veoReferenceMode,
+      generateAudio,
       videoResolution,
       videoDurationSeconds,
       videoTier,
@@ -252,7 +253,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   resolution: resolutionToUse,
                   durationSeconds: durationSecondsToUse,
                   referenceMode: referenceModeToUse,
-                  generateAudio: VIDEO_GENERATION_AUDIO_ALWAYS_ON,
+                  generateAudio: generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON,
                 }
               : await new GoogleVeoService(this.env.GOOGLE_AI_API_KEY ?? '').generate({
                   prompt,
@@ -260,6 +261,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   aspectRatio: aspectRatioToUse,
                   resolution: resolutionToUse,
                   durationSeconds: durationSecondsToUse,
+                  generateAudio: generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON,
                   sourceImages,
                   styleImageCount,
                   referenceMode: referenceModeToUse,

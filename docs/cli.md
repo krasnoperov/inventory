@@ -90,8 +90,9 @@ flags still override the project defaults.
 
 The CLI defaults to production when no initialized project or `--env` flag is
 present. Use `--env stage` for staging and `--local` for a local dev server.
-Pass `--json` to `init`, `spaces`, or `spaces create` when another agent or
-script needs stable machine-readable output.
+Pass `--json` to `init`, `spaces`, `spaces --details`, `spaces --id`, or
+`spaces create` when another agent or script needs stable machine-readable
+output.
 
 ---
 
@@ -103,11 +104,8 @@ Manage your spaces (workspaces for organizing assets).
 
 ```bash
 makefx spaces                    # Simple list
-makefx spaces --json             # Simple list as JSON
 makefx spaces --details          # With asset counts
-makefx spaces --details --json   # With asset counts as JSON
 makefx spaces --id <space_id>    # Details for specific space
-makefx spaces --id <space_id> --json  # Details for specific space as JSON
 ```
 
 ### Create Space
@@ -494,9 +492,10 @@ variant IDs, and local image paths. Local paths are uploaded first as reference
 image assets. Video batch generation is not exposed because website batch jobs
 reject `mediaKind: "video"`.
 
-Current Veo video models generate audio with video. There is no per-request
-audio on/off switch in the Gemini API for these models; describe dialogue, SFX,
-score, or ambience in the prompt when the sound track matters.
+By default, video requests ask for native synchronized Veo audio. Pass
+`--no-audio` to record a silent-video request and add a silent-video instruction
+to the provider prompt. Pass `--audio` explicitly when the soundtrack matters,
+and describe dialogue, SFX, score, or ambience in the prompt.
 Pass `--aspect 16:9|9:16`, `--resolution 720p|1080p|4k`,
 `--duration 4|6|8`, and `--tier generate|fast|lite` to select the Veo output
 controls for that request; those choices are stored in the variant recipe and

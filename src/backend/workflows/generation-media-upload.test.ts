@@ -130,4 +130,27 @@ describe('uploadGeneratedMedia — no binary blob crosses a step boundary', () =
     );
     assert.ok(!JSON.stringify(result).includes(imageData.slice(0, 64)), 'raw payload must not appear in the step output');
   });
+
+  test('video: preserves requested no-audio metadata', async () => {
+    const images = createMockImages();
+    const env = createEnv(images);
+
+    const result = await uploadGeneratedMedia(
+      env,
+      {
+        videoData: 'ZmFrZSB2aWRlbw==',
+        videoMimeType: 'video/mp4',
+        model: 'veo-3.1-fast-generate-preview',
+        aspectRatio: '9:16',
+        resolution: '720p',
+        durationSeconds: 4,
+        referenceMode: 'text-to-video',
+        generateAudio: false,
+      },
+      { spaceId: 'space_1', variantId: 'var_silent', operation: 'generate', refCount: 0, requestId: 'req_silent', jobId: 'var_silent' }
+    );
+
+    assert.equal(result.providerMetadata?.generateAudio, false);
+    assert.equal(result.providerMetadata?.durationSeconds, 4);
+  });
 });

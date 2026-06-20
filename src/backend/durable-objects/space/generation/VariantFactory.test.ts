@@ -464,6 +464,28 @@ describe('VariantFactory', () => {
       assert.strictEqual(asMock(broadcast).mock.calls.length, 0);
     });
 
+    test('preserves explicit silent video generation in recipe', async () => {
+      const repo = createMockRepo();
+      const env = createMockEnv();
+      const broadcast = createMockBroadcast();
+      const factory = new VariantFactory('space-1', repo, env, broadcast);
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Silent Video',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'Create a silent loop',
+          generateAudio: false,
+        },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.strictEqual(recipe.generateAudio, false);
+    });
+
     test('labels single-image video generations as image-to-video', async () => {
       const repo = createMockRepo();
       const env = createMockEnv();

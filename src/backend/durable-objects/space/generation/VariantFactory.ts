@@ -277,7 +277,9 @@ export class VariantFactory {
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
-      generateAudio: input.mediaKind === 'video' ? VIDEO_GENERATION_AUDIO_ALWAYS_ON : undefined,
+      generateAudio: input.mediaKind === 'video'
+        ? input.generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON
+        : undefined,
       voiceId: input.voiceId,
       dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
       musicProvider: input.assetType === 'music' ? input.musicProvider : undefined,
@@ -394,7 +396,9 @@ export class VariantFactory {
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation: 'refine',
-      generateAudio: mediaKind === 'video' ? VIDEO_GENERATION_AUDIO_ALWAYS_ON : undefined,
+      generateAudio: mediaKind === 'video'
+        ? input.generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON
+        : undefined,
       voiceId: input.voiceId,
       dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
       musicProvider: asset.type === 'music' ? input.musicProvider : undefined,
@@ -654,7 +658,9 @@ export class VariantFactory {
       sourceImageKeys: resolved.sourceImageKeys.length > 0 ? resolved.sourceImageKeys : undefined,
       parentVariantIds: resolved.parentVariantIds.length > 0 ? resolved.parentVariantIds : undefined,
       operation,
-      generateAudio: mediaKind === 'video' ? VIDEO_GENERATION_AUDIO_ALWAYS_ON : undefined,
+      generateAudio: mediaKind === 'video'
+        ? input.generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON
+        : undefined,
       voiceId: input.voiceId,
       dialogueVoiceIds: input.dialogueVoiceIds?.length ? input.dialogueVoiceIds : undefined,
       musicProvider: input.assetType === 'music' ? input.musicProvider : undefined,

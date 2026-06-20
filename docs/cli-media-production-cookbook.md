@@ -116,9 +116,10 @@ server is configured for multi-speaker ElevenLabs dialogue.
 ## Video
 
 Use image keyframes as references for video clips. Add production metadata when
-the clip will be handed to a renderer. Current Veo video models generate audio
-with video; describe dialogue, SFX, score, or ambience in the prompt when the
-soundtrack matters.
+the clip will be handed to a renderer. Video defaults to generated audio; pass
+`--no-audio` to record a silent-video request and add a silent-video instruction.
+Describe dialogue, SFX, score, or ambience in the prompt when the soundtrack
+matters.
 
 ```bash
 makefx video derive \
