@@ -431,10 +431,7 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
       ? generationProvenance.operation
       : undefined;
     operation = getOptionalString(formData, 'operation') || provenanceOperation || 'upload';
-    if (formData.has('lineage') && operation !== 'import') {
-      throw new UploadRequestError('lineage is only supported when operation=import', 400);
-    }
-    lineageInputs = operation === 'import' ? parseUploadLineage(formData) : [];
+    lineageInputs = parseUploadLineage(formData);
   } catch (error) {
     if (error instanceof UploadRequestError) {
       return c.json({ error: error.message }, error.status);

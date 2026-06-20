@@ -320,7 +320,7 @@ Direct use of `gemini-images` or other generators remains intentionally
 untracked by Inventory unless the resulting files are uploaded or used as local
 references through these commands.
 
-## Import Provenance And Organization
+## Upload Provenance And Organization
 
 Use `makefx upload` for a single file generated outside Make Effects that should
 enter the Space with durable provenance:
@@ -382,7 +382,7 @@ hero_json=$(makefx upload renders/hero-final.png \
 hero_asset=$(printf '%s' "$hero_json" | jq -r '.variant.asset_id')
 ```
 
-Lineage created during import is immutable provenance. It is not the Space
+Lineage created during upload is immutable provenance. It is not the Space
 organization model and should not be edited to arrange assets. Use
 `--manual-relation` for editable links and the `styles` commands for style
 collections and presets:

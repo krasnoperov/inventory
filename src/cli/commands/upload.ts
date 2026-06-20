@@ -249,7 +249,6 @@ export async function executeUpload(
     const formData = new FormData();
     const blob = new Blob([fileBuffer], { type: mediaType.mimeType });
     formData.append('file', blob, fileName);
-    formData.append('operation', 'import');
     formData.append('mediaKind', mediaType.mediaKind);
     formData.append('activeVariantBehavior', activeVariantBehavior);
 

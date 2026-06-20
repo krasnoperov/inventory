@@ -353,8 +353,8 @@ Press Ctrl+C to exit
 
 ## Upload
 
-Import one image, audio, or video file to create a new asset or add a variant to
-an existing asset. Upload can also attach imported provenance, immutable lineage
+Upload one image, audio, or video file to create a new asset or add a variant to
+an existing asset. Upload can also attach external provenance, immutable lineage
 from existing variants, collection placement, and manual relations in the same
 file-oriented command. Local filenames are only local paths; after upload, use
 the Space asset IDs, variant IDs, collection item IDs, and relation IDs returned
@@ -424,7 +424,7 @@ makefx upload variant.jpg --space abc123 --asset def456
 makefx upload theme.mp3 --space abc123 --name "Theme Music" --type audio
 makefx upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
 
-# Import one externally produced file with provenance and lineage
+# Upload one externally produced file with provenance and lineage
 makefx upload paintover.png --space abc123 --asset def456 \
   --prompt "cleaner silhouette" \
   --provider local-tool \
