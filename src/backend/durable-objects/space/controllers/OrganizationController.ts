@@ -129,6 +129,12 @@ interface CompositionItemUpdateInput {
   sortIndex?: unknown;
 }
 
+interface ParentHierarchyBackfillInput {
+  createManualRelations?: unknown;
+  createStarterCollectionsForAllNullParents?: unknown;
+  createdBy?: unknown;
+}
+
 export class OrganizationController extends BaseController {
   constructor(ctx: ControllerContext) {
     super(ctx);
@@ -202,6 +208,55 @@ export class OrganizationController extends BaseController {
   async httpDeleteRelation(relationId: string): Promise<void> {
     await this.deleteRelation(relationId);
     this.broadcast({ type: 'relation:deleted', relationId });
+  }
+
+  async httpBackfillParentHierarchy(input: unknown = {}) {
+    const data = normalizeBackfillInput(input);
+    const [beforeCollections, beforeItems, beforeRelations] = await Promise.all([
+      this.repo.listCollections(),
+      this.repo.listAllCollectionItems(),
+      this.repo.listRelations(),
+    ]);
+    const result = await this.repo.backfillParentHierarchyToOrganization({
+      createManualRelations: normalizeOptionalBoolean(data.createManualRelations),
+      createStarterCollectionsForAllNullParents: normalizeOptionalBoolean(data.createStarterCollectionsForAllNullParents),
+      createdBy: normalizeOptionalString(data.createdBy) ?? undefined,
+    });
+
+    if (
+      result.collectionsCreated === 0 &&
+      result.collectionItemsCreated === 0 &&
+      result.relationsCreated === 0
+    ) {
+      return result;
+    }
+
+    const beforeCollectionIds = new Set(beforeCollections.map((collection) => collection.id));
+    const beforeItemIds = new Set(beforeItems.map((item) => item.id));
+    const beforeRelationIds = new Set(beforeRelations.map((relation) => relation.id));
+    const [afterCollections, afterItems, afterRelations] = await Promise.all([
+      this.repo.listCollections(),
+      this.repo.listAllCollectionItems(),
+      this.repo.listRelations(),
+    ]);
+
+    for (const collection of afterCollections) {
+      if (!beforeCollectionIds.has(collection.id)) {
+        this.broadcast({ type: 'collection:created', collection });
+      }
+    }
+    for (const item of afterItems) {
+      if (!beforeItemIds.has(item.id)) {
+        this.broadcast({ type: 'collection_item:created', item });
+      }
+    }
+    for (const relation of afterRelations) {
+      if (!beforeRelationIds.has(relation.id)) {
+        this.broadcast({ type: 'relation:created', relation });
+      }
+    }
+
+    return result;
   }
 
   async httpListCompositions(): Promise<Composition[]> {
@@ -740,6 +795,22 @@ function normalizeInteger(value: unknown, field: string): number {
 function normalizeOptionalInteger(value: unknown, field: string): number | null {
   if (value === undefined || value === null) return null;
   return normalizeInteger(value, field);
+}
+
+function normalizeOptionalBoolean(value: unknown): boolean | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'boolean') {
+    throw new ValidationError('boolean option must be a boolean');
+  }
+  return value;
+}
+
+function normalizeBackfillInput(value: unknown): ParentHierarchyBackfillInput {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new ValidationError('backfill options must be an object');
+  }
+  return value as ParentHierarchyBackfillInput;
 }
 
 function normalizeIdArray(value: unknown, field: string): string[] {

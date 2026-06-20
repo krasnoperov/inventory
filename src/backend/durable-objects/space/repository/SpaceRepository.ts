@@ -217,6 +217,21 @@ export interface SpaceSubjectInput {
   variantId?: string | null;
 }
 
+export interface ParentHierarchyBackfillOptions {
+  createManualRelations?: boolean;
+  createStarterCollectionsForAllNullParents?: boolean;
+  createdBy?: string;
+}
+
+export interface ParentHierarchyBackfillResult {
+  mode: 'parent_hierarchy' | 'starter_collections' | 'empty';
+  scannedAssets: number;
+  parentClusters: number;
+  collectionsCreated: number;
+  collectionItemsCreated: number;
+  relationsCreated: number;
+}
+
 function getSubjectColumns(subject: SpaceSubjectInput): {
   assetId: string | null;
   variantId: string | null;
@@ -253,6 +268,72 @@ function serializeProviderMetadata(
   if (metadata === undefined || metadata === null) return null;
   if (typeof metadata === 'string') return metadata;
   return JSON.stringify(metadata);
+}
+
+const PARENT_HIERARCHY_MIGRATION_VERSION = 'parent_hierarchy_to_collections_v1';
+const MIGRATION_CREATED_BY = 'system:migration';
+
+const STARTER_COLLECTIONS = [
+  {
+    key: 'cast',
+    name: 'Cast',
+    role: 'character',
+    matches: (asset: Asset) => asset.type.toLowerCase() === 'character'
+      || startsWithAny(asset.name, ['character']),
+  },
+  {
+    key: 'backgrounds',
+    name: 'Backgrounds',
+    role: 'background',
+    matches: (asset: Asset) => startsWithAny(asset.type, ['background', 'bg'])
+      || startsWithAny(asset.name, ['background', 'bg']),
+  },
+  {
+    key: 'scenes',
+    name: 'Scenes',
+    role: 'scene',
+    matches: (asset: Asset) => startsWithAny(asset.type, ['scene'])
+      || startsWithAny(asset.name, ['scene']),
+  },
+  {
+    key: 'thumbnails',
+    name: 'Thumbnails',
+    role: 'thumbnail',
+    matches: (asset: Asset) => startsWithAny(asset.type, ['thumbnail'])
+      || startsWithAny(asset.name, ['thumbnail']),
+  },
+  {
+    key: 'map',
+    name: 'Map',
+    role: 'map',
+    matches: (asset: Asset) => startsWithAny(asset.type, ['map'])
+      || startsWithAny(asset.name, ['map']),
+  },
+] as const;
+
+function startsWithAny(value: string, prefixes: string[]): boolean {
+  const normalized = value.trim().toLowerCase();
+  return prefixes.some((prefix) => normalized.startsWith(prefix));
+}
+
+function parentCollectionId(parentAssetId: string): string {
+  return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:collection:${parentAssetId}`;
+}
+
+function parentCollectionItemId(parentAssetId: string, assetId: string): string {
+  return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:collection-item:${parentAssetId}:${assetId}`;
+}
+
+function parentRelationId(parentAssetId: string, childAssetId: string): string {
+  return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:relation:${parentAssetId}:${childAssetId}`;
+}
+
+function starterCollectionId(key: string): string {
+  return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:starter-collection:${key}`;
+}
+
+function starterCollectionItemId(key: string, assetId: string): string {
+  return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:starter-item:${key}:${assetId}`;
 }
 
 // ============================================================================
@@ -1362,6 +1443,162 @@ export class SpaceRepository {
 
     await this.sql.exec(SpaceRelationQueries.DELETE, relationId);
     return true;
+  }
+
+  async backfillParentHierarchyToOrganization(
+    options: ParentHierarchyBackfillOptions = {}
+  ): Promise<ParentHierarchyBackfillResult> {
+    const assets = await this.getAllAssets();
+    const createdBy = options.createdBy ?? MIGRATION_CREATED_BY;
+    const createManualRelations = options.createManualRelations ?? true;
+    const createStarterCollections = options.createStarterCollectionsForAllNullParents ?? true;
+    const result: ParentHierarchyBackfillResult = {
+      mode: 'empty',
+      scannedAssets: assets.length,
+      parentClusters: 0,
+      collectionsCreated: 0,
+      collectionItemsCreated: 0,
+      relationsCreated: 0,
+    };
+
+    if (assets.length === 0) {
+      return result;
+    }
+
+    const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+    const childrenByParent = new Map<string, Asset[]>();
+    let hasAnyParentReference = false;
+    for (const asset of assets) {
+      if (!asset.parent_asset_id) continue;
+      hasAnyParentReference = true;
+      if (!assetsById.has(asset.parent_asset_id)) continue;
+      const children = childrenByParent.get(asset.parent_asset_id) ?? [];
+      children.push(asset);
+      childrenByParent.set(asset.parent_asset_id, children);
+    }
+
+    if (childrenByParent.size > 0) {
+      result.mode = 'parent_hierarchy';
+      result.parentClusters = childrenByParent.size;
+      const sortedClusters = [...childrenByParent.entries()].sort(([left], [right]) => left.localeCompare(right));
+
+      for (const [parentAssetId, children] of sortedClusters) {
+        const parent = assetsById.get(parentAssetId);
+        if (!parent) continue;
+
+        const collectionId = parentCollectionId(parentAssetId);
+        if (!(await this.getCollectionById(collectionId))) {
+          await this.createCollection({
+            id: collectionId,
+            name: parent.name,
+            description: JSON.stringify({
+              migration: PARENT_HIERARCHY_MIGRATION_VERSION,
+              migrated_parent_asset_id: parentAssetId,
+            }),
+            sortIndex: parent.created_at,
+            createdBy,
+          });
+          result.collectionsCreated += 1;
+        }
+
+        const clusterAssets = [parent, ...children].sort((left, right) => {
+          if (left.id === parentAssetId) return -1;
+          if (right.id === parentAssetId) return 1;
+          return left.created_at - right.created_at || left.id.localeCompare(right.id);
+        });
+
+        for (const [index, asset] of clusterAssets.entries()) {
+          const itemId = parentCollectionItemId(parentAssetId, asset.id);
+          if (!(await this.getCollectionItemById(itemId))) {
+            await this.createCollectionItem({
+              id: itemId,
+              collectionId,
+              subjectType: 'asset',
+              assetId: asset.id,
+              role: asset.id === parentAssetId ? 'parent' : 'child',
+              sortIndex: index,
+              createdBy,
+            });
+            result.collectionItemsCreated += 1;
+          }
+        }
+
+        if (!createManualRelations) continue;
+
+        const sortedChildren = [...children].sort((left, right) => {
+          return left.created_at - right.created_at || left.id.localeCompare(right.id);
+        });
+        for (const [index, child] of sortedChildren.entries()) {
+          const relationId = parentRelationId(parentAssetId, child.id);
+          if (!(await this.getRelationById(relationId))) {
+            await this.createRelation({
+              id: relationId,
+              subject: { subjectType: 'asset', assetId: child.id },
+              object: { subjectType: 'asset', assetId: parentAssetId },
+              relationType: 'part_of',
+              context: JSON.stringify({
+                migration: PARENT_HIERARCHY_MIGRATION_VERSION,
+                migrated_parent_asset_id: parentAssetId,
+              }),
+              sortIndex: index,
+              createdBy,
+            });
+            result.relationsCreated += 1;
+          }
+        }
+      }
+
+      return result;
+    }
+
+    if (hasAnyParentReference) {
+      return result;
+    }
+
+    if (!createStarterCollections) {
+      return result;
+    }
+
+    result.mode = 'starter_collections';
+    for (const [collectionIndex, starter] of STARTER_COLLECTIONS.entries()) {
+      const matchingAssets = assets
+        .filter((asset) => starter.matches(asset))
+        .sort((left, right) => left.created_at - right.created_at || left.id.localeCompare(right.id));
+      if (matchingAssets.length === 0) continue;
+
+      const collectionId = starterCollectionId(starter.key);
+      if (!(await this.getCollectionById(collectionId))) {
+        await this.createCollection({
+          id: collectionId,
+          name: starter.name,
+          description: JSON.stringify({
+            migration: PARENT_HIERARCHY_MIGRATION_VERSION,
+            starter_classification: starter.key,
+          }),
+          sortIndex: collectionIndex,
+          createdBy,
+        });
+        result.collectionsCreated += 1;
+      }
+
+      for (const [assetIndex, asset] of matchingAssets.entries()) {
+        const itemId = starterCollectionItemId(starter.key, asset.id);
+        if (!(await this.getCollectionItemById(itemId))) {
+          await this.createCollectionItem({
+            id: itemId,
+            collectionId,
+            subjectType: 'asset',
+            assetId: asset.id,
+            role: starter.role,
+            sortIndex: assetIndex,
+            createdBy,
+          });
+          result.collectionItemsCreated += 1;
+        }
+      }
+    }
+
+    return result;
   }
 
   async listCompositions(): Promise<Composition[]> {

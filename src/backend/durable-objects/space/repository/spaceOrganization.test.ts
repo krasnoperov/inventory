@@ -44,12 +44,17 @@ describe('Space organization repository', () => {
     db.close();
   });
 
-  async function createAssetWithVariant(assetId: string, variantId: string) {
+  async function createAssetWithVariant(
+    assetId: string,
+    variantId: string,
+    options: { name?: string; type?: string; parentAssetId?: string | null } = {}
+  ) {
     await repo.createAsset({
       id: assetId,
-      name: assetId,
-      type: 'character',
+      name: options.name ?? assetId,
+      type: options.type ?? 'character',
       tags: [],
+      parentAssetId: options.parentAssetId,
       createdBy: 'user-1',
     });
     await repo.createVariant({
@@ -61,6 +66,164 @@ describe('Space organization repository', () => {
       createdBy: 'user-1',
     });
   }
+
+  test('backfills a simple parent tree into a collection and manual part_of relations', async () => {
+    await createAssetWithVariant('parent', 'parent-v1', { name: 'Hero Kit' });
+    await createAssetWithVariant('child-1', 'child-1-v1', { parentAssetId: 'parent' });
+    await createAssetWithVariant('child-2', 'child-2-v1', { parentAssetId: 'parent' });
+
+    const result = await repo.backfillParentHierarchyToOrganization();
+
+    assert.equal(result.mode, 'parent_hierarchy');
+    assert.equal(result.parentClusters, 1);
+    assert.equal(result.collectionsCreated, 1);
+    assert.equal(result.collectionItemsCreated, 3);
+    assert.equal(result.relationsCreated, 2);
+    assert.equal((await repo.listCollections())[0].name, 'Hero Kit');
+    assert.deepEqual(
+      (await repo.listAllCollectionItems()).map((item) => [item.asset_id, item.role]),
+      [
+        ['parent', 'parent'],
+        ['child-1', 'child'],
+        ['child-2', 'child'],
+      ]
+    );
+
+    const relations = await repo.listRelations();
+    assert.deepEqual(
+      relations.map((relation) => [
+        relation.subject_asset_id,
+        relation.object_asset_id,
+        relation.relation_type,
+        JSON.parse(relation.context ?? '{}').migrated_parent_asset_id,
+      ]),
+      [
+        ['child-1', 'parent', 'part_of', 'parent'],
+        ['child-2', 'parent', 'part_of', 'parent'],
+      ]
+    );
+  });
+
+  test('backfills multi-level parent trees as one collection per parent cluster', async () => {
+    await createAssetWithVariant('root', 'root-v1', { name: 'Castle Crew' });
+    await createAssetWithVariant('middle', 'middle-v1', { name: 'Knight Squad', parentAssetId: 'root' });
+    await createAssetWithVariant('leaf', 'leaf-v1', { name: 'Shield Detail', parentAssetId: 'middle' });
+
+    const result = await repo.backfillParentHierarchyToOrganization();
+
+    assert.equal(result.parentClusters, 2);
+    assert.equal(result.collectionsCreated, 2);
+    assert.deepEqual(
+      (await repo.listCollections()).map((collection) => collection.name).sort(),
+      ['Castle Crew', 'Knight Squad']
+    );
+    const collectionItemsByName = new Map<string, string[]>();
+    for (const item of await repo.listAllCollectionItems()) {
+      const collection = (await repo.getCollectionById(item.collection_id))!;
+      collectionItemsByName.set(collection.name, [...(collectionItemsByName.get(collection.name) ?? []), item.asset_id!]);
+    }
+    assert.deepEqual(collectionItemsByName.get('Castle Crew'), ['root', 'middle']);
+    assert.deepEqual(collectionItemsByName.get('Knight Squad'), ['middle', 'leaf']);
+    assert.deepEqual(
+      (await repo.listRelations())
+        .map((relation) => [relation.subject_asset_id, relation.object_asset_id])
+        .sort(([leftSubject], [rightSubject]) => String(leftSubject).localeCompare(String(rightSubject))),
+      [
+        ['leaf', 'middle'],
+        ['middle', 'root'],
+      ]
+    );
+  });
+
+  test('backfill is idempotent when repeated', async () => {
+    await createAssetWithVariant('parent', 'parent-v1');
+    await createAssetWithVariant('child', 'child-v1', { parentAssetId: 'parent' });
+
+    const first = await repo.backfillParentHierarchyToOrganization();
+    const second = await repo.backfillParentHierarchyToOrganization();
+
+    assert.equal(first.collectionsCreated, 1);
+    assert.equal(first.collectionItemsCreated, 2);
+    assert.equal(first.relationsCreated, 1);
+    assert.equal(second.collectionsCreated, 0);
+    assert.equal(second.collectionItemsCreated, 0);
+    assert.equal(second.relationsCreated, 0);
+    assert.equal((await repo.listCollections()).length, 1);
+    assert.equal((await repo.listAllCollectionItems()).length, 2);
+    assert.equal((await repo.listRelations()).length, 1);
+  });
+
+  test('classifies all-null Russafa-style assets into starter collections', async () => {
+    await createAssetWithVariant('amina', 'amina-v1', { name: 'Character Amina', type: 'character' });
+    await createAssetWithVariant('bg-market', 'bg-market-v1', { name: 'BG Market', type: 'background' });
+    await createAssetWithVariant('scene-gate', 'scene-gate-v1', { name: 'Scene Gate', type: 'scene' });
+    await createAssetWithVariant('thumbnail-1', 'thumbnail-1-v1', { name: 'Thumbnail 01', type: 'image' });
+    await createAssetWithVariant('map-russafa', 'map-russafa-v1', { name: 'Map Russafa', type: 'map' });
+
+    const result = await repo.backfillParentHierarchyToOrganization();
+
+    assert.equal(result.mode, 'starter_collections');
+    assert.equal(result.collectionsCreated, 5);
+    assert.deepEqual(
+      (await repo.listCollections()).map((collection) => collection.name),
+      ['Cast', 'Backgrounds', 'Scenes', 'Thumbnails', 'Map']
+    );
+
+    const itemsByCollection = new Map<string, string[]>();
+    for (const item of await repo.listAllCollectionItems()) {
+      const collection = (await repo.getCollectionById(item.collection_id))!;
+      itemsByCollection.set(collection.name, [...(itemsByCollection.get(collection.name) ?? []), item.asset_id!]);
+    }
+    assert.deepEqual(itemsByCollection.get('Cast'), ['amina']);
+    assert.deepEqual(itemsByCollection.get('Backgrounds'), ['bg-market']);
+    assert.deepEqual(itemsByCollection.get('Scenes'), ['scene-gate']);
+    assert.deepEqual(itemsByCollection.get('Thumbnails'), ['thumbnail-1']);
+    assert.deepEqual(itemsByCollection.get('Map'), ['map-russafa']);
+    assert.deepEqual(await repo.listRelations(), []);
+  });
+
+  test('does not create starter collections when non-null parent references are orphaned', async () => {
+    db.pragma('foreign_keys = OFF');
+    try {
+      await createAssetWithVariant('orphaned-child', 'orphaned-child-v1', {
+        name: 'Character Orphan',
+        type: 'character',
+        parentAssetId: 'missing-parent',
+      });
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
+
+    const result = await repo.backfillParentHierarchyToOrganization();
+
+    assert.equal(result.mode, 'empty');
+    assert.deepEqual(await repo.listCollections(), []);
+    assert.deepEqual(await repo.listAllCollectionItems(), []);
+    assert.deepEqual(await repo.listRelations(), []);
+  });
+
+  test('backfill does not create or change lineage records', async () => {
+    await createAssetWithVariant('parent', 'parent-v1');
+    await createAssetWithVariant('child', 'child-v1', { parentAssetId: 'parent' });
+    await repo.createLineage({
+      id: 'existing-lineage',
+      parentVariantId: 'parent-v1',
+      childVariantId: 'child-v1',
+      relationType: 'derived',
+    });
+
+    await repo.backfillParentHierarchyToOrganization();
+
+    assert.deepEqual(
+      (await repo.getAllLineage()).map((lineage) => [
+        lineage.id,
+        lineage.parent_variant_id,
+        lineage.child_variant_id,
+        lineage.relation_type,
+      ]),
+      [['existing-lineage', 'parent-v1', 'child-v1', 'derived']]
+    );
+  });
 
   test('creates organization and style preset tables with lookup indexes', () => {
     const tableNames = db

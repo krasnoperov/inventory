@@ -32,6 +32,7 @@ import type {
   Composition,
   CompositionItem,
 } from './types';
+import type { ParentHierarchyBackfillResult } from './repository/SpaceRepository';
 import { NotFoundError, ValidationError } from './controllers/types';
 import { loggers } from '../../../shared/logger';
 
@@ -238,6 +239,7 @@ export interface InternalApiControllers {
     httpCreateRelation(data: unknown): Promise<SpaceRelation>;
     httpUpdateRelation(relationId: string, data: unknown): Promise<SpaceRelation>;
     httpDeleteRelation(relationId: string): Promise<void>;
+    httpBackfillParentHierarchy(data?: unknown): Promise<ParentHierarchyBackfillResult>;
     httpListCompositions(): Promise<Composition[]>;
     httpCreateComposition(data: unknown): Promise<Composition>;
     httpUpdateComposition(compositionId: string, data: unknown): Promise<Composition>;
@@ -618,6 +620,12 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   // Organization Routes
   // ==========================================================================
 
+  app.post('/internal/backfill-parent-hierarchy', async (c) => {
+    const data = parseOptionalJsonObject(await c.req.text(), 'backfill options');
+    const result = await controllers.organization.httpBackfillParentHierarchy(data);
+    return c.json({ success: true, result });
+  });
+
   app.get('/internal/collections', async (c) => {
     const collections = await controllers.organization.httpListCollections();
     return c.json({ success: true, collections });
@@ -853,4 +861,13 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   });
 
   return app;
+}
+
+function parseOptionalJsonObject(rawBody: string, label: string): unknown {
+  if (rawBody.trim() === '') return {};
+  try {
+    return JSON.parse(rawBody) as unknown;
+  } catch {
+    throw new ValidationError(`${label} must be valid JSON`);
+  }
 }

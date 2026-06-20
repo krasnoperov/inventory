@@ -166,6 +166,75 @@ describe('OrganizationController', () => {
     );
   });
 
+  test('parent hierarchy backfill broadcasts created organization rows', async () => {
+    let migrated = false;
+    const createdCollection = {
+      id: 'migration:collection:parent',
+      name: 'Parent',
+      description: null,
+      sort_index: 0,
+      created_by: 'system:migration',
+      created_at: 1,
+      updated_at: 1,
+    };
+    const createdItem = {
+      id: 'migration:item:parent',
+      collection_id: createdCollection.id,
+      subject_type: 'asset',
+      asset_id: 'parent',
+      variant_id: null,
+      role: 'parent',
+      pinned_variant_id: null,
+      sort_index: 0,
+      created_by: 'system:migration',
+      created_at: 1,
+      updated_at: 1,
+    };
+    const createdRelation = {
+      id: 'migration:relation:child',
+      subject_type: 'asset',
+      subject_asset_id: 'child',
+      subject_variant_id: null,
+      object_type: 'asset',
+      object_asset_id: 'parent',
+      object_variant_id: null,
+      relation_type: 'part_of',
+      context: '{"migrated_parent_asset_id":"parent"}',
+      sort_index: 0,
+      created_by: 'system:migration',
+      created_at: 1,
+      updated_at: 1,
+    };
+    const { ctx, broadcasts } = createContext({
+      listCollections: mock.fn(async () => migrated ? [createdCollection] : []),
+      listAllCollectionItems: mock.fn(async () => migrated ? [createdItem] : []),
+      listRelations: mock.fn(async () => migrated ? [createdRelation] : []),
+      backfillParentHierarchyToOrganization: mock.fn(async () => {
+        migrated = true;
+        return {
+          mode: 'parent_hierarchy',
+          scannedAssets: 2,
+          parentClusters: 1,
+          collectionsCreated: 1,
+          collectionItemsCreated: 1,
+          relationsCreated: 1,
+        };
+      }),
+    });
+    const controller = new OrganizationController(ctx);
+
+    const result = await controller.httpBackfillParentHierarchy({ createdBy: 'system:migration' });
+
+    assert.equal(result.collectionsCreated, 1);
+    assert.deepEqual(
+      broadcasts.map((message) => message.type),
+      ['collection:created', 'collection_item:created', 'relation:created']
+    );
+    assert.equal(broadcasts[0].collection.id, createdCollection.id);
+    assert.equal(broadcasts[1].item.id, createdItem.id);
+    assert.equal(broadcasts[2].relation.id, createdRelation.id);
+  });
+
   test('composition items reject invalid roles before writing', async () => {
     const { ctx } = createContext({});
     const controller = new OrganizationController(ctx);
