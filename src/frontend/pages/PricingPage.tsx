@@ -70,7 +70,7 @@ const PLANS: PricingPlan[] = [
 const COMPARE_ROWS = [
   ['Provider billing', 'Through the Make Effects Paid Generation plan', 'Directly on your provider account'],
   ['Provider setup', 'No provider keys required', 'Add supported provider keys in profile'],
-  ['Usage controls', 'Managed quotas, rate limits, and provider-spend guardrails', 'Platform guardrails and rate limits'],
+  ['Usage controls', 'Managed quotas, rate limits, and provider-cost guardrails', 'Platform guardrails and rate limits'],
   ['Best for', 'Teams that want hosted generation ready immediately', 'Teams with existing provider contracts or credits'],
 ] as const;
 

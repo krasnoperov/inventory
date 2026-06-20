@@ -241,7 +241,7 @@ The CLI calls `GET /api/billing/spend/summary`, which is admin-only and returns
 totals plus provider, model, media-kind, meter-event, space, and asset
 breakdowns. Admin users can also inspect the same summary on the website at
 `/admin/spend`. Unpriced ledger rows are counted separately so missing provider
-price attribution remains visible during spend audits.
+price attribution remains visible during cost audits.
 
 ## Customer Charge Ledger
 
