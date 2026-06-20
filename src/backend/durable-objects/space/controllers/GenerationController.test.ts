@@ -214,6 +214,86 @@ function createMockContext(
 
 describe('GenerationController pipeline hooks', () => {
   describe('handleGenerateRequest', () => {
+    test('returns preflight usage and selected video tier cost without creating a job', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 10,
+        quotaLimitsJson: JSON.stringify({ gemini_videos: 10 }),
+      }) as any;
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerationEstimateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generation:estimate',
+          requestId: 'estimate-video-fast',
+          operation: 'generate',
+          name: 'Video shot',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'A fast camera move',
+          videoTier: 'fast',
+          videoResolution: '720p',
+          videoDurationSeconds: 8,
+          generateAudio: true,
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      const response = asMock(ctx.send).mock.calls[0].arguments[1] as any;
+      assert.strictEqual(response.type, 'generation:estimate');
+      assert.strictEqual(response.requestId, 'estimate-video-fast');
+      assert.strictEqual(response.success, true);
+      assert.strictEqual(response.estimate.quotaQuantity, 2);
+      assert.strictEqual(response.estimate.rateLimitQuantity, 1);
+      assert.strictEqual(response.estimate.providerCostMicroUsd, 800000);
+      assert.strictEqual(response.estimate.providerPricing.model, 'veo-3.1-fast-generate-preview');
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
+    test('prices web image model selections in preflight estimates', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 10,
+        quotaLimitsJson: JSON.stringify({ gemini_images: 10 }),
+      }) as any;
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerationEstimateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generation:estimate',
+          requestId: 'estimate-image-pro',
+          operation: 'generate',
+          name: 'Image concept',
+          assetType: 'concept',
+          mediaKind: 'image',
+          prompt: 'A polished equipment icon',
+          model: 'pro',
+          imageSize: '4K',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      const response = asMock(ctx.send).mock.calls[0].arguments[1] as any;
+      assert.strictEqual(response.type, 'generation:estimate');
+      assert.strictEqual(response.requestId, 'estimate-image-pro');
+      assert.strictEqual(response.success, true);
+      assert.strictEqual(response.estimate.providerCostMicroUsd, 240000);
+      assert.strictEqual(response.estimate.providerPricing.model, 'gemini-3-pro-image');
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
     test('uses paid generation error code when user has no paid-generation entitlement', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();

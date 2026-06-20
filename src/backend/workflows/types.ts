@@ -5,7 +5,11 @@
  * These define the contract between SpaceDO (trigger) and Workflows (execution).
  */
 
-import type { MediaKind, MusicGenerationProvider } from '../../shared/websocket-types';
+import type {
+  GenerationEstimateOperation,
+  MediaKind,
+  MusicGenerationProvider,
+} from '../../shared/websocket-types';
 import type {
   VideoGenerationDurationSeconds,
   VideoGenerationResolution,
@@ -251,6 +255,31 @@ export interface RefineRequestMessage {
   /** Veo model tier (video assets only) */
   videoTier?: VideoGenerationTier;
 }
+
+export interface GenerationEstimateRequestMessage {
+  type: 'generation:estimate';
+  requestId: string;
+  operation: GenerationEstimateOperation;
+  assetId?: string;
+  assetType?: string;
+  mediaKind?: MediaKind;
+  prompt?: string;
+  count?: number;
+  model?: string;
+  imageSize?: string;
+  modelProvider?: 'gemini' | 'custom';
+  musicProvider?: MusicGenerationProvider;
+  generateAudio?: boolean;
+  videoResolution?: VideoGenerationResolution;
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  videoTier?: VideoGenerationTier;
+}
+
+export type {
+  GenerationEstimateBillingMode,
+  GenerationEstimateOperation,
+  GenerationUsageEstimate,
+} from '../../shared/websocket-types';
 
 // ============================================================================
 // BATCH GENERATION TYPES

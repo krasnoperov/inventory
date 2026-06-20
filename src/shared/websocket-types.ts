@@ -17,6 +17,49 @@ export const DEFAULT_MEDIA_KIND: MediaKind = 'image';
 /** Request-level music provider selection. Omitted keeps the server default. */
 export type MusicGenerationProvider = 'elevenlabs' | 'lyria';
 
+export type GenerationEstimateOperation = 'generate' | 'derive' | 'refine' | 'batch';
+export type GenerationEstimateBillingMode = 'managed' | 'byok';
+
+export interface GenerationUsageEstimate {
+  operation: GenerationEstimateOperation;
+  mediaKind: MediaKind;
+  billingMode: GenerationEstimateBillingMode;
+  billingService: 'nanobanana' | 'lyria' | 'elevenlabs' | 'veo';
+  meterEventName: 'gemini_images' | 'gemini_audio' | 'elevenlabs_audio' | 'gemini_videos';
+  quotaQuantity: number;
+  rateLimitQuantity: number;
+  platformWorkflowRuns: number;
+  providerCostMicroUsd: number;
+  providerCostUsd: number;
+  currency: 'USD';
+  providerPricing?: {
+    provider: 'claude' | 'gemini' | 'elevenlabs' | null;
+    model: string | null;
+    unit: string | null;
+    quantity: number;
+    unitPriceUsd?: number;
+    catalogVersion: string;
+    pricingSource?: string;
+    pricingReason?: string;
+  };
+  quota?: {
+    used: number;
+    limit: number | null;
+    remaining: number | null;
+    requested: number;
+  };
+  rateLimit?: {
+    used: number;
+    limit: number;
+    remaining: number;
+    requested: number;
+  };
+  allowed: boolean;
+  denyReason?: string;
+  denyMessage?: string;
+  denyCode?: string;
+}
+
 /** Focus options for image description */
 export type DescribeFocus = 'general' | 'style' | 'composition' | 'details' | 'compare' | 'prompt';
 

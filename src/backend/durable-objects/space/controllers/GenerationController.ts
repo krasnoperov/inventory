@@ -18,6 +18,8 @@ import type {
   GenerateRequestMessage,
   RefineRequestMessage,
   BatchRequestMessage,
+  GenerationEstimateRequestMessage,
+  GenerationUsageEstimate,
   GenerationWorkflowInput,
 } from '../../../workflows/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
@@ -43,10 +45,20 @@ import { loggers } from '../../../../shared/logger';
 import type { MusicGenerationProvider } from '../../../../shared/websocket-types';
 import { resolveAudioProvider } from '../../../services/audioProviderSelection';
 import { hasStoredProviderApiKey, type ProviderKeyProvider } from '../../../services/providerKeyVault';
-import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
-import { VIDEO_GENERATION_AUDIO_ALWAYS_ON } from '../../../../shared/videoGenerationOptions';
+import {
+  DEFAULT_IMAGE_MODEL_ID,
+  isImageModelId,
+  isImageModelSelection,
+  resolveImageModelSelection,
+} from '../../../../shared/imageGenerationOptions';
+import {
+  DEFAULT_VIDEO_GENERATION_MODEL,
+  VIDEO_GENERATION_AUDIO_ALWAYS_ON,
+  getVideoGenerationModelForTier,
+  normalizeVideoGenerationTier,
+} from '../../../../shared/videoGenerationOptions';
 import { trackVariantStorageUsage } from '../../../platform/platformUsage';
-import { priceProviderUsageEvent } from '../../../billing/providerPricing';
+import { priceProviderUsageEvent, type ProviderPricingResult } from '../../../billing/providerPricing';
 
 const log = loggers.generationController;
 
@@ -70,7 +82,6 @@ type VideoBillingDimensions = {
 };
 
 const ELEVENLABS_GENERATED_AUDIO_COST_BUFFER = 50;
-const DEFAULT_VIDEO_MODEL_ID = 'veo-3.1-generate-preview';
 const DEFAULT_LYRIA_MODEL_ID = 'lyria-3-clip-preview';
 const DEFAULT_ELEVENLABS_SPEECH_MODEL_ID = 'eleven_v3';
 const DEFAULT_ELEVENLABS_MUSIC_MODEL_ID = 'music_v1';
@@ -323,7 +334,20 @@ function getElevenLabsModelForEstimate(
   return env.ELEVENLABS_MODEL_ID || DEFAULT_ELEVENLABS_SPEECH_MODEL_ID;
 }
 
-function estimateProviderCostMicroUsd(
+function getVideoModelForEstimate(model?: string, videoTier?: string): string {
+  if (model) return model;
+  const normalizedTier = normalizeVideoGenerationTier(videoTier);
+  return normalizedTier ? getVideoGenerationModelForTier(normalizedTier) : DEFAULT_VIDEO_GENERATION_MODEL;
+}
+
+function getImageModelForEstimate(model?: string): string {
+  if (!model) return DEFAULT_IMAGE_MODEL_ID;
+  if (isImageModelSelection(model)) return resolveImageModelSelection(model);
+  if (isImageModelId(model)) return model;
+  return model;
+}
+
+function estimateProviderPricing(
   env: ControllerContext['env'],
   input: {
     service: GenerationBillingService;
@@ -335,17 +359,18 @@ function estimateProviderCostMicroUsd(
     videoResolution?: string;
     videoDurationSeconds?: number;
     generateAudio?: boolean;
+    videoTier?: string;
   }
-): number {
+): ProviderPricingResult {
   const eventName = getQuotaEventNameForBillingService(input.service);
   const requestedQuantity = Math.max(1, Math.floor(input.quantity));
   const metadata: Record<string, unknown> = { operation: input.operation };
 
   if (input.service === 'nanobanana') {
-    metadata.model = input.model || DEFAULT_IMAGE_MODEL_ID;
+    metadata.model = getImageModelForEstimate(input.model);
     metadata.imageSize = input.imageSize;
   } else if (input.service === 'veo') {
-    metadata.model = input.model || DEFAULT_VIDEO_MODEL_ID;
+    metadata.model = getVideoModelForEstimate(input.model, input.videoTier);
     metadata.resolution = input.videoResolution;
     metadata.duration_seconds = input.videoDurationSeconds;
     metadata.generate_audio = input.generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON;
@@ -365,10 +390,23 @@ function estimateProviderCostMicroUsd(
     quantity: requestedQuantity,
     metadata,
   });
-  return price.amountMicroUsd;
+  return price;
 }
 
-async function preflightGenerationAdmission(input: {
+function serializeProviderPricing(price: ProviderPricingResult): GenerationUsageEstimate['providerPricing'] {
+  return {
+    provider: price.provider,
+    model: price.model,
+    unit: price.unit,
+    quantity: price.quantity,
+    unitPriceUsd: 'unitPriceUsd' in price ? price.unitPriceUsd : undefined,
+    catalogVersion: price.catalogVersion,
+    pricingSource: 'pricingSource' in price ? price.pricingSource : undefined,
+    pricingReason: 'reason' in price ? price.reason : undefined,
+  };
+}
+
+type GenerationPreflightInput = {
   env: ControllerContext['env'];
   spaceId: string;
   userId: number;
@@ -384,8 +422,40 @@ async function preflightGenerationAdmission(input: {
   videoResolution?: string;
   videoDurationSeconds?: number;
   generateAudio?: boolean;
-}): Promise<{ allowed: true } | { allowed: false; denyReason?: GenerationLimitDenyReason; denyMessage?: string }> {
+  videoTier?: string;
+};
+
+async function buildGenerationUsageEstimate(input: GenerationPreflightInput & {
+  operationKind: GenerationUsageEstimate['operation'];
+}): Promise<GenerationUsageEstimate> {
   const byok = await hasByokForBillingService(input.env, input.userId, input.billingService, input.byokContext);
+  const providerPricing = estimateProviderPricing(input.env, {
+    service: input.billingService,
+    quantity: input.quotaQuantity,
+    model: input.model,
+    operation: input.operation,
+    imageSize: input.imageSize,
+    assetType: input.assetType,
+    videoResolution: input.videoResolution,
+    videoDurationSeconds: input.videoDurationSeconds,
+    generateAudio: input.generateAudio,
+    videoTier: input.videoTier,
+  });
+  const base: GenerationUsageEstimate = {
+    operation: input.operationKind,
+    mediaKind: input.mediaKind ?? 'image',
+    billingMode: byok ? 'byok' : 'managed',
+    billingService: input.billingService,
+    meterEventName: getQuotaEventNameForBillingService(input.billingService) as GenerationUsageEstimate['meterEventName'],
+    quotaQuantity: input.quotaQuantity,
+    rateLimitQuantity: input.rateLimitQuantity,
+    platformWorkflowRuns: input.rateLimitQuantity,
+    providerCostMicroUsd: byok ? 0 : providerPricing.amountMicroUsd,
+    providerCostUsd: byok ? 0 : providerPricing.amountUsd,
+    currency: 'USD',
+    providerPricing: serializeProviderPricing(providerPricing),
+    allowed: true,
+  };
 
   if (!byok) {
     const check = await preCheck(
@@ -397,11 +467,25 @@ async function preflightGenerationAdmission(input: {
       input.rateLimitQuantity,
       input.env.ADMIN_USER_IDS
     );
+    base.quota = {
+      used: check.quotaUsed,
+      limit: check.quotaLimit,
+      remaining: check.quotaRemaining,
+      requested: input.quotaQuantity,
+    };
+    base.rateLimit = {
+      used: check.rateLimitUsed,
+      limit: check.rateLimitMax,
+      remaining: check.rateLimitRemaining,
+      requested: input.rateLimitQuantity,
+    };
     if (!check.allowed) {
       return {
+        ...base,
         allowed: false,
         denyReason: check.denyReason,
         denyMessage: check.denyMessage,
+        denyCode: getGenerationLimitErrorCode(check.denyReason),
       };
     }
   }
@@ -414,29 +498,33 @@ async function preflightGenerationAdmission(input: {
     requestedRateLimitQuantity: byok ? input.rateLimitQuantity : 0,
     requestedProviderCostMicroUsd: byok
       ? 0
-      : estimateProviderCostMicroUsd(input.env, {
-        service: input.billingService,
-        quantity: input.quotaQuantity,
-        model: input.model,
-        operation: input.operation,
-        imageSize: input.imageSize,
-        assetType: input.assetType,
-        videoResolution: input.videoResolution,
-        videoDurationSeconds: input.videoDurationSeconds,
-        generateAudio: input.generateAudio,
-      }),
+      : providerPricing.amountMicroUsd,
     requestedPlatformUsage: [{ usageType: 'workflow', quantity: input.rateLimitQuantity }],
     mediaKind: input.mediaKind ?? null,
     adminUserIds: input.env.ADMIN_USER_IDS,
   });
   if (!guardrail.allowed) {
     return {
+      ...base,
       allowed: false,
       denyReason: guardrail.denyReason,
       denyMessage: guardrail.denyMessage,
+      denyCode: getGenerationLimitErrorCode(guardrail.denyReason),
     };
   }
 
+  return base;
+}
+
+async function preflightGenerationAdmission(input: GenerationPreflightInput): Promise<{ allowed: true } | { allowed: false; denyReason?: GenerationLimitDenyReason; denyMessage?: string }> {
+  const estimate = await buildGenerationUsageEstimate({ ...input, operationKind: 'generate' });
+  if (!estimate.allowed) {
+    return {
+      allowed: false,
+      denyReason: estimate.denyReason as GenerationLimitDenyReason | undefined,
+      denyMessage: estimate.denyMessage,
+    };
+  }
   await incrementRateLimit(input.env.DB, input.userId, input.rateLimitQuantity);
   return { allowed: true };
 }
@@ -460,6 +548,69 @@ export class GenerationController extends BaseController {
   // ==========================================================================
   // WebSocket Handlers - Workflow Triggers
   // ==========================================================================
+
+  async handleGenerationEstimateRequest(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    msg: GenerationEstimateRequestMessage
+  ): Promise<void> {
+    this.requireEditor(meta);
+
+    let assetType = msg.assetType;
+    let mediaKind = msg.mediaKind;
+    if ((msg.operation === 'refine' || (!assetType && msg.assetId)) && msg.assetId) {
+      const asset = await this.repo.getAssetById(msg.assetId);
+      if (!asset) {
+        this.send(ws, {
+          type: 'generation:estimate',
+          requestId: msg.requestId,
+          success: false,
+          error: 'Asset not found',
+          code: 'ASSET_NOT_FOUND',
+        });
+        return;
+      }
+      assetType = assetType ?? asset.type;
+      mediaKind = mediaKind ?? asset.media_kind;
+    }
+
+    const count = msg.operation === 'batch' ? Math.max(1, Math.floor(msg.count ?? 1)) : 1;
+    const billingService = getGenerationBillingService(this.env, mediaKind, assetType, msg.musicProvider);
+    const quotaQuantity = getQuotaCheckQuantity(
+      billingService,
+      msg.prompt,
+      count,
+      assetType,
+      getVideoGenerateAudio(mediaKind, msg.generateAudio)
+    );
+    const userId = parseInt(meta.userId);
+    const estimate = await buildGenerationUsageEstimate({
+      env: this.env,
+      spaceId: this.spaceId,
+      userId,
+      billingService,
+      byokContext: { modelProvider: normalizeImageModelProvider(msg.modelProvider) },
+      quotaQuantity,
+      rateLimitQuantity: count,
+      mediaKind: mediaKind ?? 'image',
+      assetType,
+      model: msg.model,
+      operation: msg.operation === 'batch' ? 'generate' : msg.operation,
+      operationKind: msg.operation,
+      imageSize: msg.imageSize,
+      videoResolution: msg.videoResolution,
+      videoDurationSeconds: msg.videoDurationSeconds,
+      generateAudio: getVideoGenerateAudio(mediaKind, msg.generateAudio),
+      videoTier: msg.videoTier,
+    });
+
+    this.send(ws, {
+      type: 'generation:estimate',
+      requestId: msg.requestId,
+      success: true,
+      estimate,
+    });
+  }
 
   /**
    * Handle generate:request WebSocket message
@@ -505,6 +656,7 @@ export class GenerationController extends BaseController {
         videoResolution: msg.videoResolution,
         videoDurationSeconds: msg.videoDurationSeconds,
         generateAudio: getVideoGenerateAudio(msg.mediaKind, msg.generateAudio),
+        videoTier: msg.videoTier,
       });
       if (!check.allowed) {
         this.send(ws, {
@@ -617,6 +769,7 @@ export class GenerationController extends BaseController {
         videoResolution: msg.videoResolution,
         videoDurationSeconds: msg.videoDurationSeconds,
         generateAudio: getVideoGenerateAudio(billingMediaKind, msg.generateAudio),
+        videoTier: msg.videoTier,
       });
       if (!check.allowed) {
         this.send(ws, {
@@ -845,6 +998,7 @@ export class GenerationController extends BaseController {
         videoResolution: recipe.videoResolution,
         videoDurationSeconds: recipe.videoDurationSeconds,
         generateAudio: getVideoGenerateAudio(retryMediaKind, getRecipeGenerateAudio(recipe)),
+        videoTier: recipe.videoTier,
       });
       if (!check.allowed) {
         this.sendError(

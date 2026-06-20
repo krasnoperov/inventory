@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { DescribeFocus, ClaudeUsage, MediaKind, MusicGenerationProvider, SimplePlan } from '../../shared/websocket-types';
+import type {
+  DescribeFocus,
+  ClaudeUsage,
+  GenerationEstimateOperation,
+  GenerationUsageEstimate,
+  MediaKind,
+  MusicGenerationProvider,
+  SimplePlan,
+} from '../../shared/websocket-types';
 import type {
   VideoGenerationDurationSeconds,
   VideoGenerationResolution,
@@ -458,6 +466,30 @@ export interface BatchRequestParams {
   musicProvider?: MusicGenerationProvider;
 }
 
+export interface GenerationEstimateRequestParams {
+  operation: GenerationEstimateOperation;
+  assetId?: string;
+  assetType?: string;
+  mediaKind?: MediaKind;
+  prompt?: string;
+  count?: number;
+  model?: string;
+  imageSize?: string;
+  musicProvider?: MusicGenerationProvider;
+  generateAudio?: boolean;
+  videoResolution?: VideoGenerationResolution;
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  videoTier?: VideoGenerationTier;
+}
+
+export interface GenerationEstimateResult {
+  requestId: string;
+  success: boolean;
+  estimate?: GenerationUsageEstimate;
+  error?: string;
+  code?: string;
+}
+
 // Style data from server (raw format)
 export interface SpaceStyleRaw {
   id: string;
@@ -625,6 +657,7 @@ export interface UseSpaceWebSocketParams {
   onBatchStarted?: (data: BatchStartedResult) => void;
   onBatchProgress?: (data: BatchProgressResult) => void;
   onBatchCompleted?: (data: BatchCompletedResult) => void;
+  onGenerationEstimate?: (data: GenerationEstimateResult) => void;
   // Rotation pipeline callbacks
   onRotationStarted?: (data: { rotationSetId: string; assetId: string; directions: string[]; totalSteps: number }) => void;
   onRotationStepCompleted?: (data: { rotationSetId: string; direction: string; step: number; total: number; variantId: string }) => void;
@@ -729,6 +762,8 @@ type ServerMessage =
   | { type: 'batch:started'; requestId: string; batchId: string; jobIds: string[]; assetIds: string[]; count: number; mode: BatchMode }
   | { type: 'batch:progress'; batchId: string; completedCount: number; failedCount: number; totalCount: number; variant: Variant }
   | { type: 'batch:completed'; batchId: string; completedCount: number; failedCount: number; totalCount: number }
+  | { type: 'generation:estimate'; requestId: string; success: true; estimate: GenerationUsageEstimate }
+  | { type: 'generation:estimate'; requestId: string; success: false; error: string; code: string }
   // Rotation pipeline messages
   | { type: 'rotation:started'; requestId: string; rotationSetId: string; assetId: string; totalSteps: number; directions: string[] }
   | { type: 'rotation:step_completed'; rotationSetId: string; direction: string; variantId: string; step: number; total: number }
@@ -836,6 +871,7 @@ export interface UseSpaceWebSocketReturn {
   sendStyleToggle: (enabled: boolean) => void;
   // Batch methods
   sendBatchRequest: (params: BatchRequestParams) => string;
+  sendGenerationEstimateRequest: (params: GenerationEstimateRequestParams) => string;
   // Rotation pipeline
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
@@ -885,6 +921,7 @@ export function useSpaceWebSocket({
   onBatchStarted,
   onBatchProgress,
   onBatchCompleted,
+  onGenerationEstimate,
   onRotationStarted,
   onRotationStepCompleted,
   onRotationCompleted,
@@ -1197,6 +1234,28 @@ export function useSpaceWebSocket({
     return requestId;
   }, [sendMessage]);
 
+  const sendGenerationEstimateRequest = useCallback((params: GenerationEstimateRequestParams): string => {
+    const requestId = crypto.randomUUID();
+    sendMessage({
+      type: 'generation:estimate',
+      requestId,
+      operation: params.operation,
+      assetId: params.assetId,
+      assetType: params.assetType,
+      mediaKind: params.mediaKind,
+      prompt: params.prompt,
+      count: params.count,
+      model: params.model,
+      imageSize: params.imageSize,
+      musicProvider: params.musicProvider,
+      generateAudio: params.generateAudio,
+      videoResolution: params.videoResolution,
+      videoDurationSeconds: params.videoDurationSeconds,
+      videoTier: params.videoTier,
+    });
+    return requestId;
+  }, [sendMessage]);
+
   // Rotation pipeline methods
   const sendRotationRequest = useCallback((params: RotationRequestParams & { generationMode?: 'sequential' | 'single-shot' }) => {
     const requestId = crypto.randomUUID();
@@ -1328,6 +1387,7 @@ export function useSpaceWebSocket({
   const onBatchStartedRef = useRef(onBatchStarted);
   const onBatchProgressRef = useRef(onBatchProgress);
   const onBatchCompletedRef = useRef(onBatchCompleted);
+  const onGenerationEstimateRef = useRef(onGenerationEstimate);
   const onRotationStartedRef = useRef(onRotationStarted);
   const onRotationStepCompletedRef = useRef(onRotationStepCompleted);
   const onRotationCompletedRef = useRef(onRotationCompleted);
@@ -1372,6 +1432,7 @@ export function useSpaceWebSocket({
     onBatchStartedRef.current = onBatchStarted;
     onBatchProgressRef.current = onBatchProgress;
     onBatchCompletedRef.current = onBatchCompleted;
+    onGenerationEstimateRef.current = onGenerationEstimate;
     onRotationStartedRef.current = onRotationStarted;
     onRotationStepCompletedRef.current = onRotationStepCompleted;
     onRotationCompletedRef.current = onRotationCompleted;
@@ -1915,6 +1976,10 @@ export function useSpaceWebSocket({
                 });
                 break;
 
+              case 'generation:estimate':
+                onGenerationEstimateRef.current?.(message);
+                break;
+
               // Generation/refine/batch error messages
               case 'generate:error':
                 onGenerateErrorRef.current?.({
@@ -2241,6 +2306,7 @@ export function useSpaceWebSocket({
     sendStyleToggle,
     // Batch methods
     sendBatchRequest,
+    sendGenerationEstimateRequest,
     // Rotation pipeline
     rotationSets,
     rotationViews,

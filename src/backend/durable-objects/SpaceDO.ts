@@ -335,6 +335,8 @@ export class SpaceDO extends DurableObject<Env> {
         return this.styleCtrl.handleToggleStyle(ws, meta, (msg as { type: 'style:toggle'; enabled: boolean }).enabled);
 
       // Workflow triggers
+      case 'generation:estimate':
+        return this.generationCtrl.handleGenerationEstimateRequest(ws, meta, msg);
       case 'generate:request':
         return this.generationCtrl.handleGenerateRequest(ws, meta, msg as GenerateRequestMessage);
       case 'refine:request':
