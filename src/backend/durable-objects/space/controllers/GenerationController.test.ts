@@ -1844,6 +1844,77 @@ describe('GenerationController pipeline hooks', () => {
   });
 
   describe('handleRetryRequest', () => {
+    test('blocks image retry when managed Gemini quota is exhausted', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      asMock(repo.getVariantById).mock.mockImplementation(async () => createMockVariant({
+        status: 'failed',
+        media_kind: 'image',
+        recipe: JSON.stringify({
+          prompt: 'retry the icon',
+          operation: 'generate',
+          assetType: 'item',
+        }),
+      }));
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
+        id: 'asset-1',
+        name: 'Item',
+        type: 'item',
+        media_kind: 'image',
+        active_variant_id: 'variant-1',
+      }));
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 0,
+        quotaLimitsJson: JSON.stringify({ gemini_images: 0 }),
+      }) as any;
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRetryRequest({} as WebSocket, { userId: '42', role: 'editor' } as any, 'variant-1');
+
+      assert.strictEqual(asMock(ctx.sendError).mock.calls.length, 1);
+      assert.strictEqual(asMock(ctx.sendError).mock.calls[0].arguments[1], 'QUOTA_EXCEEDED');
+      assert.strictEqual(asMock(repo.resetVariantForRetry).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
+    test('allows image retry with Google BYOK when paid generation is unavailable', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      asMock(repo.getVariantById).mock.mockImplementation(async () => createMockVariant({
+        status: 'failed',
+        media_kind: 'image',
+        recipe: JSON.stringify({
+          prompt: 'retry the icon',
+          operation: 'generate',
+          assetType: 'item',
+        }),
+      }));
+      asMock(repo.getAssetById).mock.mockImplementation(async () => ({
+        id: 'asset-1',
+        name: 'Item',
+        type: 'item',
+        media_kind: 'image',
+        active_variant_id: 'variant-1',
+      }));
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 0,
+        quotaLimitsJson: JSON.stringify({ gemini_images: 0 }),
+        paidGenerationEntitlement: 'none',
+        hasProviderKey: true,
+      }) as any;
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRetryRequest({} as WebSocket, { userId: '42', role: 'editor' } as any, 'variant-1');
+
+      assert.strictEqual(asMock(ctx.sendError).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.resetVariantForRetry).mock.calls.length, 1);
+      assert.strictEqual(workflowCreate.mock.calls.length, 1);
+    });
+
     test('blocks ElevenLabs music retry when remaining quota can cover prompt but not provider cost', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();

@@ -55,7 +55,10 @@ import {
 } from '../services/elevenLabsAudioProvider';
 import { LyriaApiError, LyriaMusicProvider } from '../services/lyriaMusicProvider';
 import { resolveAudioProvider } from '../services/audioProviderSelection';
-import { resolveStoredProviderApiKey, type ProviderKeyProvider } from '../services/providerKeyVault';
+import {
+  resolveGenerationProviderApiKey,
+  type ProviderKeySource,
+} from '../services/generationProviderKeys';
 import { arrayBufferToBase64 } from '../utils/image-utils';
 import {
   uploadGeneratedMedia,
@@ -80,24 +83,6 @@ import { parsePlatformUsageUserId, trackPlatformUsage } from '../platform/platfo
 
 const log = loggers.generationWorkflow;
 const FAKE_VIDEO_MP4_BASE64 = 'ZmFrZSB2aWRlbw==';
-
-type ProviderKeySource = 'platform' | 'byok';
-
-async function resolveProviderApiKey(
-  env: Env,
-  userId: string,
-  provider: ProviderKeyProvider,
-  platformKey?: string
-): Promise<{ apiKey?: string; keySource?: ProviderKeySource }> {
-  const numericUserId = Number.parseInt(userId, 10);
-  if (Number.isSafeInteger(numericUserId)) {
-    const stored = await resolveStoredProviderApiKey(env.DB, numericUserId, provider, env);
-    if (stored) {
-      return { apiKey: stored, keySource: 'byok' };
-    }
-  }
-  return platformKey ? { apiKey: platformKey, keySource: 'platform' } : {};
-}
 
 function getAudioProviderId(providerName: string): string {
   return providerName.split(':', 1)[0] || providerName;
@@ -273,7 +258,12 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           });
 
           try {
-            const googleKey = await resolveProviderApiKey(this.env, userId, 'google_ai', this.env.GOOGLE_AI_API_KEY);
+            const googleKey = await resolveGenerationProviderApiKey(
+              this.env,
+              userId,
+              'google_ai',
+              this.env.GOOGLE_AI_API_KEY
+            );
             if (!useFakeProvider && !googleKey.apiKey) {
               throw new Error('GOOGLE_AI_API_KEY not configured');
             }
@@ -323,7 +313,12 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             this.env.CUSTOM_MODEL_API_KEY
           );
         } else {
-          const googleKey = await resolveProviderApiKey(this.env, userId, 'google_ai', this.env.GOOGLE_AI_API_KEY);
+          const googleKey = await resolveGenerationProviderApiKey(
+            this.env,
+            userId,
+            'google_ai',
+            this.env.GOOGLE_AI_API_KEY
+          );
           if (!googleKey.apiKey) {
             throw new Error('GOOGLE_AI_API_KEY not configured');
           }
@@ -723,7 +718,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       return { provider: new FakeAudioProvider(), providerName: 'fake' };
     }
     if (provider === 'elevenlabs') {
-      const elevenLabsKey = await resolveProviderApiKey(
+      const elevenLabsKey = await resolveGenerationProviderApiKey(
         this.env,
         userId,
         'elevenlabs',
@@ -767,7 +762,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     providerName: string;
     keySource?: ProviderKeySource;
   }> {
-    const elevenLabsKey = await resolveProviderApiKey(
+    const elevenLabsKey = await resolveGenerationProviderApiKey(
       this.env,
       userId,
       'elevenlabs',
@@ -795,7 +790,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     if (!this.env.LYRIA_PROJECT_ID) {
       throw new NonRetryableError('LYRIA_PROJECT_ID not configured');
     }
-    const storedLyriaKey = await resolveProviderApiKey(this.env, userId, 'lyria', undefined);
+    const storedLyriaKey = await resolveGenerationProviderApiKey(this.env, userId, 'lyria', undefined);
     const usingByokApiKey = Boolean(storedLyriaKey.apiKey);
     const keySource = usingByokApiKey
       ? storedLyriaKey.keySource
