@@ -218,6 +218,15 @@ export interface ResolvedStylePreset {
   styleReferenceImageKeys: string[];
 }
 
+export interface LegacyStyleBackfillResult {
+  migrated: boolean;
+  styleId: string | null;
+  collectionId: string | null;
+  presetId: string | null;
+  assetIds: string[];
+  variantIds: string[];
+}
+
 export interface SpaceSubjectInput {
   subjectType: SpaceSubjectType;
   assetId?: string | null;
@@ -341,6 +350,41 @@ function starterCollectionId(key: string): string {
 
 function starterCollectionItemId(key: string, assetId: string): string {
   return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:starter-item:${key}:${assetId}`;
+}
+
+function stableLegacyId(prefix: string, ...parts: string[]): string {
+  const input = parts.join('\0');
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < input.length; index++) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${prefix}-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+function parseImageKeys(imageKeys: string): string[] {
+  try {
+    const parsed = JSON.parse(imageKeys) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return [...new Set(parsed.filter((key): key is string => typeof key === 'string' && key.length > 0))];
+  } catch {
+    return [];
+  }
+}
+
+function inferMimeTypeFromKey(imageKey: string): string | null {
+  const ext = imageKey.split('.').pop()?.toLowerCase();
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'gif') return 'image/gif';
+  return null;
+}
+
+function getLegacyStyleThumbKey(imageKey: string): string | null {
+  const extensionStart = imageKey.lastIndexOf('.');
+  if (extensionStart <= 0) return null;
+  return `${imageKey.slice(0, extensionStart)}_thumb.webp`;
 }
 
 // ============================================================================
@@ -535,7 +579,7 @@ export class SpaceRepository {
     mediaKind?: MediaKind;
     workflowId?: string | null;
     imageKey: string;
-    thumbKey: string;
+    thumbKey: string | null;
     mediaMetadata?: VariantMediaMetadata;
     recipe: string;
     createdBy: string;
@@ -872,6 +916,7 @@ export class SpaceRepository {
     parentVariantId: string;
     childVariantId: string;
     relationType: 'derived' | 'refined' | 'forked';
+    severed?: boolean;
   }): Promise<Lineage> {
     const now = Date.now();
 
@@ -894,7 +939,7 @@ export class SpaceRepository {
       lineage.parentVariantId,
       lineage.childVariantId,
       lineage.relationType,
-      0, // severed = false
+      lineage.severed ? 1 : 0,
       now
     );
 
@@ -1418,6 +1463,232 @@ export class SpaceRepository {
     };
   }
 
+  async backfillLegacySpaceStyle(): Promise<LegacyStyleBackfillResult> {
+    const style = await this.getActiveStyle();
+    if (!style) {
+      return {
+        migrated: false,
+        styleId: null,
+        collectionId: null,
+        presetId: null,
+        assetIds: [],
+        variantIds: [],
+      };
+    }
+
+    const imageKeys = parseImageKeys(style.image_keys);
+    const hasStyleState = style.description.trim().length > 0 || imageKeys.length > 0;
+    if (!hasStyleState) {
+      await this.disableLegacyStylePreset(style.id);
+      return {
+        migrated: false,
+        styleId: style.id,
+        collectionId: null,
+        presetId: null,
+        assetIds: [],
+        variantIds: [],
+      };
+    }
+
+    const collection = await this.getOrCreateLegacyStyleCollection(style);
+    const assetIds: string[] = [];
+    const variantIds: string[] = [];
+    const currentItemIds = new Set<string>();
+
+    for (const [index, imageKey] of imageKeys.entries()) {
+      const ids = {
+        assetId: stableLegacyId('legacy-style-asset', style.id, imageKey),
+        variantId: stableLegacyId('legacy-style-variant', style.id, imageKey),
+        itemId: stableLegacyId('legacy-style-item', style.id, imageKey),
+      };
+      currentItemIds.add(ids.itemId);
+      const assetName = imageKeys.length === 1
+        ? 'Legacy Style Reference'
+        : `Legacy Style Reference ${index + 1}`;
+
+      let asset = await this.getAssetById(ids.assetId);
+      if (!asset) {
+        asset = await this.createAsset({
+          id: ids.assetId,
+          name: assetName,
+          type: 'style-sheet',
+          mediaKind: 'image',
+          tags: ['style-reference', 'legacy-space-style'],
+          createdBy: style.created_by,
+        });
+      }
+
+      let variant = await this.getVariantById(ids.variantId);
+      if (!variant) {
+        const metadata = await this.getLegacyStyleMediaMetadata(imageKey);
+        variant = await this.createVariant({
+          id: ids.variantId,
+          assetId: ids.assetId,
+          mediaKind: 'image',
+          imageKey,
+          thumbKey: metadata.thumbKey,
+          mediaMetadata: {
+            mediaKey: imageKey,
+            mimeType: inferMimeTypeFromKey(imageKey),
+            sizeBytes: metadata.sizeBytes,
+          },
+          recipe: JSON.stringify({
+            operation: 'upload',
+            assetType: 'style-sheet',
+            mediaKind: 'image',
+            prompt: style.description,
+            source: 'legacy-space-style',
+            styleId: style.id,
+            originalImageKey: imageKey,
+            migratedAt: new Date(style.updated_at || Date.now()).toISOString(),
+          }),
+          createdBy: style.created_by,
+        });
+      }
+
+      if (asset.active_variant_id !== ids.variantId) {
+        await this.updateAsset(ids.assetId, { active_variant_id: ids.variantId });
+      }
+
+      const existingItem = await this.getCollectionItemById(ids.itemId);
+      if (!existingItem) {
+        await this.createCollectionItem({
+          id: ids.itemId,
+          collectionId: collection.id,
+          subjectType: 'asset',
+          assetId: ids.assetId,
+          role: 'style_ref',
+          pinnedVariantId: ids.variantId,
+          sortIndex: index,
+          createdBy: style.created_by,
+        });
+      } else if (existingItem.sort_index !== index || existingItem.pinned_variant_id !== ids.variantId) {
+        await this.updateCollectionItem(ids.itemId, {
+          pinnedVariantId: ids.variantId,
+          sortIndex: index,
+        });
+      }
+
+      assetIds.push(ids.assetId);
+      variantIds.push(ids.variantId);
+    }
+    await this.deleteStaleLegacyStyleCollectionItems(collection.id, currentItemIds);
+
+    const presetId = stableLegacyId('legacy-style-preset', style.id);
+    const existingPreset = await this.getStylePresetById(presetId);
+    const defaultPreset = await this.getDefaultStylePreset();
+    if (!existingPreset) {
+      await this.createStylePreset({
+        id: presetId,
+        name: style.name || 'Default Style',
+        stylePrompt: style.description,
+        collectionId: collection.id,
+        enabled: style.enabled !== 0,
+        isDefault: !defaultPreset,
+        createdBy: style.created_by,
+      });
+    } else {
+      const shouldPromote = !defaultPreset && existingPreset.is_default !== 1;
+      const shouldUpdate =
+        existingPreset.style_prompt !== style.description ||
+        existingPreset.collection_id !== collection.id ||
+        existingPreset.enabled !== (style.enabled !== 0 ? 1 : 0) ||
+        shouldPromote;
+      if (shouldUpdate) {
+        await this.updateStylePreset(presetId, {
+          stylePrompt: style.description,
+          collectionId: collection.id,
+          enabled: style.enabled !== 0,
+          isDefault: shouldPromote ? true : undefined,
+        });
+      }
+    }
+
+    return {
+      migrated: true,
+      styleId: style.id,
+      collectionId: collection.id,
+      presetId,
+      assetIds,
+      variantIds,
+    };
+  }
+
+  private async getOrCreateLegacyStyleCollection(style: SpaceStyle): Promise<SpaceCollection> {
+    const deterministicId = stableLegacyId('legacy-style-collection', style.id);
+    const existingById = await this.getCollectionById(deterministicId);
+    if (existingById) return existingById;
+
+    return this.createCollection({
+      id: deterministicId,
+      name: 'Style References',
+      description: 'Migrated references from the legacy space style.',
+      createdBy: style.created_by,
+    });
+  }
+
+  private async deleteStaleLegacyStyleCollectionItems(
+    collectionId: string,
+    currentItemIds: Set<string>
+  ): Promise<void> {
+    const items = await this.listCollectionItems(collectionId);
+    for (const item of items) {
+      if (!item.id.startsWith('legacy-style-item-') || currentItemIds.has(item.id)) continue;
+      await this.deleteCollectionItem(item.id);
+    }
+  }
+
+  private async disableLegacyStylePreset(styleId: string): Promise<void> {
+    const presetId = stableLegacyId('legacy-style-preset', styleId);
+    const existingPreset = await this.getStylePresetById(presetId);
+    if (!existingPreset || existingPreset.enabled === 0) return;
+
+    await this.updateStylePreset(presetId, { enabled: false });
+  }
+
+  private async deleteLegacyStylePreset(styleId: string): Promise<void> {
+    const presetId = stableLegacyId('legacy-style-preset', styleId);
+    await this.deleteStylePreset(presetId);
+  }
+
+  private async getLegacyStyleMediaMetadata(imageKey: string): Promise<{
+    sizeBytes: number | null;
+    thumbKey: string | null;
+  }> {
+    let sizeBytes: number | null = null;
+    let thumbKey = getLegacyStyleThumbKey(imageKey);
+
+    if (!this.images?.head) {
+      return { sizeBytes, thumbKey };
+    }
+
+    try {
+      const object = await this.images.head(imageKey);
+      sizeBytes = object?.size ?? null;
+    } catch (error) {
+      log.warn('Failed to read legacy style image metadata during backfill', {
+        imageKey,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    if (thumbKey) {
+      try {
+        const thumb = await this.images.head(thumbKey);
+        if (!thumb) thumbKey = null;
+      } catch (error) {
+        log.warn('Failed to read legacy style thumbnail metadata during backfill', {
+          imageKey,
+          thumbKey,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        thumbKey = null;
+      }
+    }
+
+    return { sizeBytes, thumbKey };
+  }
+
   async listRelations(): Promise<SpaceRelation[]> {
     const result = await this.sql.exec(SpaceRelationQueries.GET_ALL);
     return result.toArray() as SpaceRelation[];
@@ -1462,7 +1733,9 @@ export class SpaceRepository {
     subject: SpaceSubjectInput;
     object: SpaceSubjectInput;
     relationType: SpaceRelationType;
+    label?: string | null;
     context?: string | null;
+    metadata?: Record<string, unknown>;
     sortIndex?: number;
     createdBy: string;
   }): Promise<SpaceRelation> {
@@ -1479,7 +1752,9 @@ export class SpaceRepository {
       object.assetId,
       object.variantId,
       data.relationType,
+      data.label ?? null,
       data.context ?? null,
+      JSON.stringify(data.metadata ?? {}),
       data.sortIndex ?? 0,
       data.createdBy,
       now,
@@ -1492,7 +1767,9 @@ export class SpaceRepository {
     relationId: string,
     changes: {
       relationType?: SpaceRelationType;
+      label?: string | null;
       context?: string | null;
+      metadata?: Record<string, unknown>;
       sortIndex?: number;
     }
   ): Promise<SpaceRelation | null> {
@@ -1505,9 +1782,17 @@ export class SpaceRepository {
       updates.push('relation_type = ?');
       values.push(changes.relationType);
     }
+    if (changes.label !== undefined) {
+      updates.push('label = ?');
+      values.push(changes.label);
+    }
     if (changes.context !== undefined) {
       updates.push('context = ?');
       values.push(changes.context);
+    }
+    if (changes.metadata !== undefined) {
+      updates.push('metadata = ?');
+      values.push(JSON.stringify(changes.metadata));
     }
     if (changes.sortIndex !== undefined) {
       updates.push('sort_index = ?');
@@ -1834,6 +2119,7 @@ export class SpaceRepository {
     compositionId: string;
     role: CompositionItemRole;
     variantId: string;
+    label?: string | null;
     assetId?: string | null;
     metadata?: Record<string, unknown>;
     sortIndex?: number;
@@ -1845,6 +2131,7 @@ export class SpaceRepository {
       data.id,
       data.compositionId,
       data.role,
+      data.label ?? null,
       data.assetId ?? null,
       data.variantId,
       JSON.stringify(data.metadata ?? {}),
@@ -1860,6 +2147,7 @@ export class SpaceRepository {
     itemId: string,
     changes: {
       role?: CompositionItemRole;
+      label?: string | null;
       variantId?: string;
       assetId?: string | null;
       metadata?: Record<string, unknown>;
@@ -1874,6 +2162,10 @@ export class SpaceRepository {
     if (changes.role !== undefined) {
       updates.push('role = ?');
       values.push(changes.role);
+    }
+    if (changes.label !== undefined) {
+      updates.push('label = ?');
+      values.push(changes.label);
     }
     if (changes.variantId !== undefined) {
       updates.push('variant_id = ?');
@@ -2806,6 +3098,7 @@ export class SpaceRepository {
       await this.decrementImageRef(key);
     }
 
+    await this.deleteLegacyStylePreset(id);
     await this.sql.exec('DELETE FROM space_styles WHERE id = ?', id);
     return true;
   }

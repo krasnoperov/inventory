@@ -1,104 +1,158 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Env } from '../../core/types';
-import { encryptLegacyProviderApiKey } from './providerKeyVault';
-import { resolveGenerationProviderApiKey } from './generationProviderKeys';
+import type {
+  KeyBrokerService,
+  ResolveProviderKeyRequest,
+  RotateTenantDekRequest,
+  RewrapAllDeksRequest,
+} from '../key-broker/contract';
+import {
+  type GenerationProviderKeyContext,
+  resolveGenerationProviderApiKey,
+} from './generationProviderKeys';
 
-function encryptionKey(): string {
-  return Buffer.from(new Uint8Array(32).fill(11)).toString('base64');
-}
-
-type ProviderKeyRow = {
-  user_id: number;
-  provider: string;
-  encrypted_api_key: string;
+const generationContext: GenerationProviderKeyContext = {
+  userId: '7',
+  jobId: 'variant-1',
+  requestId: 'request-1',
+  spaceId: 'space-1',
 };
 
-function providerKeyDb(rows: ProviderKeyRow[] = [], calls?: unknown[][]) {
+function brokerStub(options: {
+  apiKey?: string | null;
+  reject?: Error;
+  calls?: ResolveProviderKeyRequest[];
+}): KeyBrokerService {
   return {
-    prepare: () => ({
-      bind: (...bindings: unknown[]) => ({
-        first: async () => {
-          calls?.push(bindings);
-          const [userId, provider] = bindings;
-          const row = rows.find((candidate) => (
-            candidate.user_id === userId && candidate.provider === provider
-          ));
-          return row ? { encrypted_api_key: row.encrypted_api_key } : null;
-        },
-      }),
-    }),
+    async storeProviderKey() {
+      throw new Error('not implemented');
+    },
+    async deleteProviderKey() {
+      throw new Error('not implemented');
+    },
+    async resolveProviderKey(request) {
+      options.calls?.push(request);
+      if (options.reject) throw options.reject;
+      return {
+        tenant: request.tenant,
+        provider: request.provider,
+        apiKey: options.apiKey ?? null,
+        keySource: options.apiKey ? 'byok' : 'missing',
+      };
+    },
+    async rotateTenantDek(request: RotateTenantDekRequest) {
+      return { tenant: request.tenant, status: 'not_implemented' };
+    },
+    async rewrapAllDeks(_request: RewrapAllDeksRequest) {
+      return { status: 'not_implemented' };
+    },
   };
 }
 
 describe('resolveGenerationProviderApiKey', () => {
-  test('prefers the customer BYOK key over the managed platform key', async () => {
-    const secret = encryptionKey();
-    const encrypted = await encryptLegacyProviderApiKey('user-google-key', secret, 7, 'google_ai');
+  test('prefers an authorized customer BYOK key over the managed platform key', async () => {
+    const calls: ResolveProviderKeyRequest[] = [];
     const env = {
-      DB: providerKeyDb([{ user_id: 7, provider: 'google_ai', encrypted_api_key: encrypted }]),
-      ENCRYPTION_KEY: secret,
+      KEY_BROKER: brokerStub({ apiKey: 'user-google-key', calls }),
     } as unknown as Env;
 
     assert.deepEqual(
-      await resolveGenerationProviderApiKey(env, '7', 'google_ai', 'platform-google-key'),
+      await resolveGenerationProviderApiKey(env, generationContext, 'google_ai', 'platform-google-key'),
       { apiKey: 'user-google-key', keySource: 'byok' }
     );
+
+    assert.deepEqual(calls, [{
+      tenant: { type: 'user', userId: 7 },
+      provider: 'google_ai',
+      purpose: 'generation',
+      generation: {
+        jobId: 'variant-1',
+        requestId: 'request-1',
+        spaceId: 'space-1',
+      },
+    }]);
   });
 
-  test('falls back to the managed platform key when no customer key is stored', async () => {
+  test('falls back to the managed platform key when the broker reports no customer key', async () => {
+    const calls: ResolveProviderKeyRequest[] = [];
     const env = {
-      DB: providerKeyDb(),
-      ENCRYPTION_KEY: encryptionKey(),
+      KEY_BROKER: brokerStub({ apiKey: null, calls }),
     } as unknown as Env;
 
     assert.deepEqual(
-      await resolveGenerationProviderApiKey(env, '7', 'elevenlabs', 'platform-elevenlabs-key'),
+      await resolveGenerationProviderApiKey(env, generationContext, 'elevenlabs', 'platform-elevenlabs-key'),
       { apiKey: 'platform-elevenlabs-key', keySource: 'platform' }
     );
+    assert.equal(calls.length, 1);
   });
 
   test('returns no key when neither BYOK nor managed credentials are available', async () => {
     const env = {
-      DB: providerKeyDb(),
-      ENCRYPTION_KEY: encryptionKey(),
+      KEY_BROKER: brokerStub({ apiKey: null }),
     } as unknown as Env;
 
     assert.deepEqual(
-      await resolveGenerationProviderApiKey(env, '7', 'lyria'),
+      await resolveGenerationProviderApiKey(env, generationContext, 'lyria'),
       {}
     );
   });
 
-  test('does not query BYOK storage for non-numeric workflow user ids', async () => {
-    const calls: unknown[][] = [];
+  test('does not query BYOK storage for non-user runtime identities', async () => {
+    const calls: ResolveProviderKeyRequest[] = [];
     const env = {
-      DB: providerKeyDb([], calls),
-      ENCRYPTION_KEY: encryptionKey(),
+      KEY_BROKER: brokerStub({ apiKey: 'user-google-key', calls }),
     } as unknown as Env;
 
     assert.deepEqual(
-      await resolveGenerationProviderApiKey(env, 'user-7', 'google_ai', 'platform-google-key'),
+      await resolveGenerationProviderApiKey(
+        env,
+        { ...generationContext, userId: 'user-7' },
+        'google_ai',
+        'platform-google-key'
+      ),
       { apiKey: 'platform-google-key', keySource: 'platform' }
     );
     assert.deepEqual(
-      await resolveGenerationProviderApiKey(env, '7abc', 'google_ai', 'platform-google-key'),
+      await resolveGenerationProviderApiKey(
+        env,
+        { ...generationContext, userId: '7abc' },
+        'google_ai',
+        'platform-google-key'
+      ),
+      { apiKey: 'platform-google-key', keySource: 'platform' }
+    );
+    assert.deepEqual(
+      await resolveGenerationProviderApiKey(
+        env,
+        { ...generationContext, userId: '0' },
+        'google_ai',
+        'platform-google-key'
+      ),
       { apiKey: 'platform-google-key', keySource: 'platform' }
     );
     assert.equal(calls.length, 0);
   });
 
-  test('does not silently fall back to managed credentials when a stored key cannot decrypt', async () => {
-    const secret = encryptionKey();
-    const encrypted = await encryptLegacyProviderApiKey('user-google-key', secret, 7, 'google_ai');
+  test('does not fall back to platform credentials for user runtime identities without a broker', async () => {
     const env = {
-      DB: providerKeyDb([{ user_id: 8, provider: 'google_ai', encrypted_api_key: encrypted }]),
-      ENCRYPTION_KEY: secret,
+      ENVIRONMENT: 'stage',
     } as unknown as Env;
 
     await assert.rejects(
-      resolveGenerationProviderApiKey(env, '8', 'google_ai', 'platform-google-key'),
-      /operation-specific reason|decrypt/i
+      resolveGenerationProviderApiKey(env, generationContext, 'google_ai', 'platform-google-key'),
+      /KEY_BROKER binding is required/i
+    );
+  });
+
+  test('does not fall back to platform credentials when the broker denies the generation', async () => {
+    const env = {
+      KEY_BROKER: brokerStub({ reject: new Error('Key broker generation authorization denied') }),
+    } as unknown as Env;
+
+    await assert.rejects(
+      resolveGenerationProviderApiKey(env, generationContext, 'google_ai', 'platform-google-key'),
+      /authorization denied/i
     );
   });
 });

@@ -73,6 +73,7 @@ import {
   type AudioForgeMediaMode,
   type MediaGenerationCommand,
 } from '../../shared/mediaOperationMatrix';
+import { apiFetch } from '../../shared/api/client';
 import type { PlaceProductionRecordRequest, ProductionRecord } from '../../shared/api/schemas';
 
 export type ForgeCommand = MediaGenerationCommand;
@@ -109,6 +110,7 @@ interface ForgeClient {
     imageSize?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
+    stylePresetId?: string;
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
@@ -127,6 +129,7 @@ interface ForgeClient {
     aspectRatio?: string;
     imageSize?: string;
     disableStyle?: boolean;
+    stylePresetId?: string;
     mediaKind?: MediaKind;
     generateAudio?: boolean;
     videoResolution?: VideoGenerationResolution;
@@ -146,6 +149,7 @@ interface ForgeClient {
     imageSize?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
+    stylePresetId?: string;
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
@@ -204,6 +208,7 @@ interface CommandDeps {
     fetch?: typeof fetch;
     record: PlaceProductionRecordRequest;
   }) => Promise<ProductionRecord>;
+  fetch?: typeof fetch;
   createRunId: () => string;
   getWorkingDir?: () => string;
 }
@@ -218,6 +223,7 @@ const defaultDeps: CommandDeps = {
   downloadFile,
   saveRunManifest,
   placeProductionRecord: placeProductionRecordForCli,
+  fetch,
   createRunId,
   getWorkingDir: () => process.cwd(),
   fileExists: async (filePath) => {
@@ -272,6 +278,20 @@ interface GenerationRecipeSummary {
   assetType?: string;
   mediaKind?: MediaKind;
   parentVariantIds?: string[];
+}
+
+interface StylePresetSummary {
+  id: string;
+  name: string;
+  enabled: boolean | number;
+  is_default: boolean | number;
+  collection_name: string | null;
+  reference_count: number;
+}
+
+interface StyleSelection {
+  stylePresetId?: string;
+  preset?: StylePresetSummary;
 }
 
 const ESTIMATE_METER_LABELS: Record<string, string> = {
@@ -518,6 +538,7 @@ async function executeGenerate(
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
+  const styleSelection = await resolveStyleSelection(parsed, ctx, deps);
 
   await printPreflightEstimate(client, {
     operation: 'generate',
@@ -532,6 +553,7 @@ async function executeGenerate(
     ...videoOptions,
   });
 
+  printStyleSelection(styleSelection);
   console.log(`Generating "${name}" in space ${ctx.spaceId}...`);
   const audioVoiceOptions = mediaKind === 'audio' ? parseAudioVoiceOptions(parsed) : {};
   const result = await client.sendGenerateRequest({
@@ -542,6 +564,7 @@ async function executeGenerate(
     aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
+    ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
     mediaKind,
     ...audioVoiceOptions,
     ...(musicProvider ? { musicProvider } : {}),
@@ -636,6 +659,7 @@ async function executeRefine(
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
+  const styleSelection = await resolveStyleSelection(parsed, ctx, deps);
 
   await printPreflightEstimate(client, {
     operation: 'refine',
@@ -650,6 +674,7 @@ async function executeRefine(
     ...videoOptions,
   });
 
+  printStyleSelection(styleSelection);
   console.log(`Refining variant ${sourceVariantId}...`);
   const result = await client.sendRefineRequest({
     assetId: sourceVariant.asset_id,
@@ -658,6 +683,7 @@ async function executeRefine(
     ...imageOptions,
     aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
     disableStyle: parsed.options['no-style'] === 'true',
+    ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
     mediaKind,
     ...videoAudioOptions,
     ...videoOptions,
@@ -726,6 +752,7 @@ async function executeDerive(
   });
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
+  const styleSelection = await resolveStyleSelection(parsed, ctx, deps);
 
   await printPreflightEstimate(client, {
     operation: 'derive',
@@ -739,6 +766,7 @@ async function executeDerive(
     ...videoOptions,
   });
 
+  printStyleSelection(styleSelection);
   console.log(`Deriving "${name}" from ${referenceVariantIds.length} reference(s)...`);
   const result = await client.sendGenerateRequest({
     name,
@@ -749,6 +777,7 @@ async function executeDerive(
     aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
+    ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
     mediaKind,
     ...videoAudioOptions,
     ...videoOptions,
@@ -1011,6 +1040,7 @@ async function executeBatch(
     : undefined;
   const startedAt = new Date().toISOString();
   const runId = deps.createRunId();
+  const styleSelection = await resolveStyleSelection(parsed, ctx, deps);
 
   await printPreflightEstimate(client, {
     operation: 'batch',
@@ -1024,6 +1054,7 @@ async function executeBatch(
   });
 
   const mediaLabel = mediaKind === 'image' ? 'image' : mediaKind === 'video' ? 'video' : 'audio file';
+  printStyleSelection(styleSelection);
   console.log(`Batch generating ${count} ${mediaLabel}(s) for "${name}"...`);
   const audioVoiceOptions = mediaKind === 'audio' ? parseAudioVoiceOptions(parsed) : {};
   const result = await client.sendBatchRequest({
@@ -1037,6 +1068,7 @@ async function executeBatch(
     aspectRatio: imageOptions.aspectRatio,
     parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
+    ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
     mediaKind,
     ...audioVoiceOptions,
     ...(musicProvider ? { musicProvider } : {}),
@@ -1294,6 +1326,67 @@ function requestSpaceState(client: ForgeClient): Promise<SpaceState> {
     });
     client.requestSync();
   });
+}
+
+async function resolveStyleSelection(
+  parsed: ParsedArgs,
+  ctx: CommandContext,
+  deps: Pick<CommandDeps, 'fetch'>
+): Promise<StyleSelection> {
+  const stylePresetRef = readStylePresetOption(parsed);
+  if (parsed.options['no-style'] === 'true') {
+    if (stylePresetRef) {
+      throw new Error('--style-preset cannot be used with --no-style');
+    }
+    return {};
+  }
+  if (!stylePresetRef) return {};
+
+  const response = await apiFetch('GET /api/spaces/:id/style-presets', {
+    baseUrl: ctx.baseUrl,
+    fetch: deps.fetch ?? fetch,
+    params: { id: ctx.spaceId },
+    headers: {
+      'Authorization': `Bearer ${ctx.accessToken}`,
+      'Accept': 'application/json',
+    },
+  });
+  const presets = response.presets as StylePresetSummary[];
+  const byId = presets.find((preset) => preset.id === stylePresetRef);
+  const byName = presets.filter((preset) => preset.name === stylePresetRef);
+  const preset = byId ?? (byName.length === 1 ? byName[0] : undefined);
+  if (!preset) {
+    if (byName.length > 1) {
+      throw new Error(`Style preset name is ambiguous: ${stylePresetRef}. Use a preset ID.`);
+    }
+    throw new Error(`Style preset not found: ${stylePresetRef}`);
+  }
+  if (!isTruthyFlag(preset.enabled)) {
+    throw new Error(`Style preset is disabled: ${preset.name} (${preset.id})`);
+  }
+  return { stylePresetId: preset.id, preset };
+}
+
+function readStylePresetOption(parsed: ParsedArgs): string | undefined {
+  return (
+    readOptionalOption(parsed, 'style-preset', 'stylePreset') ??
+    readOptionalOption(parsed, 'preset', 'preset')
+  );
+}
+
+function printStyleSelection(selection: StyleSelection): void {
+  if (selection.preset) {
+    const preset = selection.preset;
+    const defaultLabel = isTruthyFlag(preset.is_default) ? ', default' : '';
+    console.log(`Style preset: ${preset.name} (${preset.id}${defaultLabel})`);
+    console.log(`  References: ${preset.reference_count}`);
+    console.log(`  Collection: ${preset.collection_name || '-'}`);
+    return;
+  }
+}
+
+function isTruthyFlag(value: boolean | number): boolean {
+  return value === true || value === 1;
 }
 
 async function downloadResult(

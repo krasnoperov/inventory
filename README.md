@@ -111,6 +111,7 @@ staging or `--local` for a local development server.
 | `makefx import` | Import manifest-listed files with provenance and lineage |
 | `makefx assets` | List, show, download, rename, delete, and set active assets |
 | `makefx variants` | Retry, star, rate, or delete variants |
+| `makefx styles` | List style references, manage style reference collections, and manage style presets |
 | `makefx usage` | Show platform storage and workflow consumption for a space |
 | `makefx spend` | Show admin provider cost summaries |
 | `makefx rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |

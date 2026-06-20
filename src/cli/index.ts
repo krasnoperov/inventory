@@ -17,6 +17,7 @@ import { handleInit } from './commands/init';
 import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
 import { handleVariants } from './commands/variants';
+import { handleStyles } from './commands/styles';
 import { handleProductions } from './commands/productions';
 import { handleUsage } from './commands/usage';
 import { handleSpend } from './commands/spend';
@@ -215,6 +216,10 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'variant':
       printVariantsHelp();
       return;
+    case 'styles':
+    case 'style':
+      printStylesHelp();
+      return;
     case 'rotation':
       printRotationHelp();
       return;
@@ -271,6 +276,9 @@ Project:
   variants star <variant-id>      Star a variant (unstar to clear)
   variants rate <variant-id> approved|rejected
                                  Rate a variant for quality curation
+  styles presets                  List style presets
+  styles collections              List style reference collections
+  styles references               List style reference assets
 ${rotationHelp}
   tileset "prompt" --type terrain --grid 3x3
                                  Generate a consistent tile set
@@ -354,6 +362,9 @@ Examples:
   makefx assets set-active asset_123 variant_456
   makefx variants retry variant_456
   makefx variants delete variant_456
+  makefx styles collections create "Painterly refs" --refs asset_123,variant_456
+  makefx styles presets create "Painterly" --collection collection_123 --prompt "Painterly adventure game" --default
+  makefx generate "A market background" --style-preset Painterly --name "Market" --type scene -o market.png
 ${rotationExample}  makefx tileset "grass and stone path tiles" --type terrain --grid 3x3
 `);
 }
@@ -464,6 +475,10 @@ Usage:
 
 ${imageCapabilityHelp()}
 
+Style:
+  --style-preset <id-or-name>  Use an enabled style preset for this generation
+  --no-style                   Disable the space style anchor
+
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
   --shot-id <id> --production-id <id>
@@ -479,6 +494,10 @@ Usage:
 
 ${imageCapabilityHelp()}
 
+Style:
+  --style-preset <id-or-name>  Use an enabled style preset for this refinement
+  --no-style                   Disable the space style anchor
+
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
   --shot-id <id> --production-id <id>
@@ -492,6 +511,10 @@ Usage:
   makefx batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--model ${optionValues(IMAGE_MODEL_SELECTIONS)}] [--size ${imageSizeValues()}] [--aspect <ratio>]
 
 ${imageCapabilityHelp()}
+
+Style:
+  --style-preset <id-or-name>  Use an enabled style preset for this batch
+  --no-style                   Disable the space style anchor
 `);
     return;
   }
@@ -502,6 +525,10 @@ Usage:
   makefx derive --follow <variant_id> -o <file> [--space <id>]
 
 ${imageCapabilityHelp()}
+
+Style:
+  --style-preset <id-or-name>  Use an enabled style preset for this derivation
+  --no-style                   Disable the space style anchor
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -715,6 +742,35 @@ Options:
 `);
 }
 
+function printStylesHelp(): void {
+  console.log(`
+Usage:
+  makefx styles references [--collection <id-or-name>] [--json]
+  makefx styles collections list [--json]
+  makefx styles collections create <name> --refs <asset_or_variant,...>
+  makefx styles collections update <collection-id> [--name <name>] [--refs <asset_or_variant,...>] [--append]
+  makefx styles presets list [--json]
+  makefx styles presets create <name> --collection <collection-id> --prompt "style prompt" [--default]
+  makefx styles presets update <preset-id> [--name <name>] [--collection <collection-id>] [--prompt "style prompt"]
+  makefx styles presets enable <preset-id>
+  makefx styles presets disable <preset-id>
+  makefx styles presets delete <preset-id>
+
+Generation:
+  makefx generate "prompt" --style-preset <id-or-name> --name <name> --type <type> -o <file>
+  makefx generate "prompt" --no-style --name <name> --type <type> -o <file>
+
+Options:
+  --space <id>      Target space ID; defaults from the initialized project
+  --refs <ids>      Comma-separated asset IDs or variant IDs to use as style references
+  --assets <ids>    Comma-separated asset IDs; active variants are pinned
+  --variants <ids>  Comma-separated variant IDs
+  --json            Print machine-readable output
+  --env <env>       Environment (production|stage|local)
+  --local           Shortcut for --env local
+`);
+}
+
 function printRotationHelp(): void {
   if (!isCliRotationEnabled()) {
     console.log(rotationDisabledMessage());
@@ -883,6 +939,10 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
     case 'variants':
     case 'variant':
       await handleVariants(parsed);
+      break;
+    case 'styles':
+    case 'style':
+      await handleStyles(parsed);
       break;
     case 'rotation':
       await handleRotation(parsed);

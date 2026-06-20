@@ -3,7 +3,8 @@
 import { spawn } from 'node:child_process';
 
 const shardCount = Number.parseInt(process.env.COMPONENT_SHARDS ?? '1', 10);
-const basePort = Number.parseInt(process.env.COMPONENT_BASE_PORT ?? '4175', 10);
+const defaultBasePort = process.env.CI ? 10_000 + (process.pid % 40_000) : 4_175;
+const basePort = Number.parseInt(process.env.COMPONENT_BASE_PORT ?? String(defaultBasePort), 10);
 const children = new Set();
 
 function run(command, args, options = {}) {

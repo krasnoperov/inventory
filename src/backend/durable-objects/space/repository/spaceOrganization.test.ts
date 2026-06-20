@@ -2,7 +2,8 @@ import { describe, test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { SchemaManager } from '../schema/SchemaManager';
-import { SpaceRepository, type SqlStorage, type SqlStorageResult } from './SpaceRepository';
+import { resolveStyleReferences } from '../generation/refLimits';
+import { SpaceRepository, type ImageStorage, type SqlStorage, type SqlStorageResult } from './SpaceRepository';
 
 class BetterSqlStorage implements SqlStorage {
   constructor(private readonly db: Database.Database) {}
@@ -225,6 +226,25 @@ describe('Space organization repository', () => {
     );
   });
 
+  function getRefCount(imageKey: string): number | null {
+    const row = db
+      .prepare('SELECT ref_count FROM image_refs WHERE image_key = ?')
+      .get(imageKey) as { ref_count: number } | undefined;
+    return row?.ref_count ?? null;
+  }
+
+  function createImageStorage(sizes: Record<string, number | null>): ImageStorage {
+    return {
+      async head(key: string) {
+        if (!(key in sizes) || sizes[key] === null) return null;
+        return { size: sizes[key] };
+      },
+      async delete() {
+        // Not used by the migration path.
+      },
+    };
+  }
+
   test('creates organization and style preset tables with lookup indexes', () => {
     const tableNames = db
       .prepare(`SELECT name FROM sqlite_schema WHERE type = 'table' AND name IN (?, ?, ?, ?, ?, ?) ORDER BY name`)
@@ -258,6 +278,19 @@ describe('Space organization repository', () => {
       'idx_space_relations_subject_variant',
       'idx_style_presets_default',
     ]);
+
+    const relationColumns = db
+      .prepare(`PRAGMA table_info(space_relations)`)
+      .all()
+      .map((row) => (row as { name: string }).name);
+    assert.ok(relationColumns.includes('label'));
+    assert.ok(relationColumns.includes('metadata'));
+
+    const compositionItemColumns = db
+      .prepare(`PRAGMA table_info(composition_items)`)
+      .all()
+      .map((row) => (row as { name: string }).name);
+    assert.ok(compositionItemColumns.includes('label'));
   });
 
   test('supports collection CRUD, item CRUD, and explicit sort ordering', async () => {
@@ -590,6 +623,309 @@ describe('Space organization repository', () => {
     assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-1');
   });
 
+  test('backfills legacy style description into a default asset-backed preset', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      name: 'Legacy Style',
+      description: 'Painterly fantasy UI concept art',
+      imageKeys: [],
+      createdBy: 'user-1',
+    });
+
+    const result = await repo.backfillLegacySpaceStyle();
+
+    assert.equal(result.migrated, true);
+    assert.equal(result.assetIds.length, 0);
+    const collections = await repo.listCollections();
+    assert.equal(collections.length, 1);
+    assert.equal(collections[0].name, 'Style References');
+    const preset = await repo.getDefaultStylePreset();
+    assert.ok(preset);
+    assert.equal(preset.style_prompt, 'Painterly fantasy UI concept art');
+    assert.equal(preset.collection_id, collections[0].id);
+  });
+
+  test('backfill leaves spaces without legacy style state untouched', async () => {
+    const result = await repo.backfillLegacySpaceStyle();
+
+    assert.equal(result.migrated, false);
+    assert.deepEqual(await repo.getAllAssets(), []);
+    assert.deepEqual(await repo.getAllVariants(), []);
+    assert.deepEqual(await repo.listCollections(), []);
+    assert.deepEqual(await repo.listStylePresets(), []);
+  });
+
+  test('backfills multiple legacy style image keys as style reference assets and variants', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      name: 'Legacy Style',
+      description: 'Pixel art with warm rim light',
+      imageKeys: [
+        'styles/space-1/one.png',
+        'styles/space-1/two.webp',
+      ],
+      createdBy: 'user-1',
+    });
+    repo = new SpaceRepository(
+      new BetterSqlStorage(db),
+      createImageStorage({
+        'styles/space-1/one.png': 1024,
+        'styles/space-1/one_thumb.webp': 256,
+        'styles/space-1/two.webp': 2048,
+        'styles/space-1/two_thumb.webp': 512,
+      })
+    );
+
+    const result = await repo.backfillLegacySpaceStyle();
+
+    assert.equal(result.assetIds.length, 2);
+    assert.equal(result.variantIds.length, 2);
+    const assets = await repo.getAllAssets();
+    assert.deepEqual(assets.map((asset) => asset.type), ['style-sheet', 'style-sheet']);
+    assert.deepEqual(assets.map((asset) => JSON.parse(asset.tags) as string[]), [
+      ['style-reference', 'legacy-space-style'],
+      ['style-reference', 'legacy-space-style'],
+    ]);
+    const variants = await repo.getAllVariants();
+    assert.deepEqual(
+      variants.map((variant) => [variant.image_key, variant.thumb_key, variant.media_size_bytes]).sort(),
+      [
+        ['styles/space-1/one.png', 'styles/space-1/one_thumb.webp', 1024],
+        ['styles/space-1/two.webp', 'styles/space-1/two_thumb.webp', 2048],
+      ]
+    );
+    assert.deepEqual((await repo.listCollectionItems(result.collectionId!)).map((item) => item.pinned_variant_id), result.variantIds);
+    assert.equal(getRefCount('styles/space-1/one.png'), 2);
+    assert.equal(getRefCount('styles/space-1/two.webp'), 2);
+
+    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+    assert.equal(resolved.stylePresetId, result.presetId);
+    assert.equal(resolved.styleId, undefined);
+    assert.deepEqual(resolved.styleReferenceVariantIds, result.variantIds);
+    assert.deepEqual(resolved.styleKeys, [
+      'styles/space-1/one.png',
+      'styles/space-1/two.webp',
+    ]);
+  });
+
+  test('backfill does not reuse user collections named Style References', async () => {
+    await createAssetWithVariant('unrelated-asset', 'unrelated-variant');
+    await repo.createCollection({
+      id: 'user-style-references',
+      name: 'Style References',
+      createdBy: 'user-1',
+    });
+    await repo.createCollectionItem({
+      id: 'unrelated-item',
+      collectionId: 'user-style-references',
+      subjectType: 'asset',
+      assetId: 'unrelated-asset',
+      pinnedVariantId: 'unrelated-variant',
+      createdBy: 'user-1',
+    });
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Watercolor props',
+      imageKeys: ['styles/space-1/legacy.png'],
+      createdBy: 'user-1',
+    });
+
+    const result = await repo.backfillLegacySpaceStyle();
+    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+
+    assert.notEqual(result.collectionId, 'user-style-references');
+    assert.deepEqual(
+      (await repo.listCollectionItems('user-style-references')).map((item) => item.pinned_variant_id),
+      ['unrelated-variant']
+    );
+    assert.deepEqual((await repo.listCollectionItems(result.collectionId!)).map((item) => item.pinned_variant_id), result.variantIds);
+    assert.deepEqual(resolved.styleReferenceVariantIds, result.variantIds);
+    assert.deepEqual(resolved.styleKeys, ['styles/space-1/legacy.png']);
+  });
+
+  test('backfill refreshes migrated preset after legacy style edits', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Old watercolor props',
+      imageKeys: ['styles/space-1/old.png'],
+      createdBy: 'user-1',
+    });
+    const first = await repo.backfillLegacySpaceStyle();
+
+    await repo.updateStyle('legacy-style', {
+      description: 'Updated ink props',
+      imageKeys: ['styles/space-1/new.png'],
+    });
+    const second = await repo.backfillLegacySpaceStyle();
+    const preset = await repo.getStylePresetById(second.presetId!);
+    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+
+    assert.equal(second.collectionId, first.collectionId);
+    assert.equal(preset?.style_prompt, 'Updated ink props');
+    assert.deepEqual((await repo.listCollectionItems(first.collectionId!)).map((item) => item.pinned_variant_id), second.variantIds);
+    assert.deepEqual(resolved.styleReferenceVariantIds, second.variantIds);
+    assert.deepEqual(resolved.styleKeys, ['styles/space-1/new.png']);
+    assert.equal(getRefCount('styles/space-1/old.png'), 1);
+    assert.equal(getRefCount('styles/space-1/new.png'), 2);
+  });
+
+  test('backfill refreshes migrated collection item order after legacy style image reorder', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Ordered watercolor props',
+      imageKeys: [
+        'styles/space-1/first.png',
+        'styles/space-1/second.png',
+      ],
+      createdBy: 'user-1',
+    });
+    const first = await repo.backfillLegacySpaceStyle();
+
+    await repo.updateStyle('legacy-style', {
+      imageKeys: [
+        'styles/space-1/second.png',
+        'styles/space-1/first.png',
+      ],
+    });
+    const second = await repo.backfillLegacySpaceStyle();
+    const collectionItems = await repo.listCollectionItems(second.collectionId!);
+    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+
+    assert.equal(second.collectionId, first.collectionId);
+    assert.deepEqual(collectionItems.map((item) => [item.pinned_variant_id, item.sort_index]), [
+      [second.variantIds[0], 0],
+      [second.variantIds[1], 1],
+    ]);
+    assert.deepEqual(resolved.styleReferenceVariantIds, second.variantIds);
+    assert.deepEqual(resolved.styleKeys, [
+      'styles/space-1/second.png',
+      'styles/space-1/first.png',
+    ]);
+    assert.equal(getRefCount('styles/space-1/first.png'), 2);
+    assert.equal(getRefCount('styles/space-1/second.png'), 2);
+  });
+
+  test('backfill disables and removes migrated defaults as legacy style state is cleared', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Watercolor props',
+      imageKeys: ['styles/space-1/one.png'],
+      createdBy: 'user-1',
+    });
+    const migrated = await repo.backfillLegacySpaceStyle();
+
+    await repo.toggleStyle('legacy-style', false);
+    await repo.backfillLegacySpaceStyle();
+
+    let resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+    assert.equal((await repo.getStylePresetById(migrated.presetId!))?.enabled, 0);
+    assert.deepEqual(resolved.styleKeys, []);
+
+    await repo.deleteStyle('legacy-style');
+    assert.equal(await repo.getStylePresetById(migrated.presetId!), null);
+
+    await repo.createStyle({
+      id: 'replacement-style',
+      description: 'Replacement ink props',
+      imageKeys: ['styles/space-1/replacement.png'],
+      createdBy: 'user-1',
+    });
+    const replacement = await repo.backfillLegacySpaceStyle();
+    resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+
+    assert.equal((await repo.getDefaultStylePreset())?.id, replacement.presetId);
+    assert.equal(resolved.stylePresetId, replacement.presetId);
+    assert.deepEqual(resolved.styleKeys, ['styles/space-1/replacement.png']);
+  });
+
+  test('backfill is idempotent across repeated runs', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Watercolor props',
+      imageKeys: ['styles/space-1/one.png'],
+      createdBy: 'user-1',
+    });
+
+    const first = await repo.backfillLegacySpaceStyle();
+    const second = await repo.backfillLegacySpaceStyle();
+
+    assert.deepEqual(second, first);
+    assert.equal((await repo.getAllAssets()).length, 1);
+    assert.equal((await repo.getAllVariants()).length, 1);
+    assert.equal((await repo.listCollections()).length, 1);
+    assert.equal((await repo.listStylePresets()).length, 1);
+    assert.equal((await repo.listCollectionItems(first.collectionId!)).length, 1);
+    assert.equal(getRefCount('styles/space-1/one.png'), 2);
+  });
+
+  test('backfill tolerates missing R2 image metadata', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Ink wash silhouettes',
+      imageKeys: ['styles/space-1/missing.png'],
+      createdBy: 'user-1',
+    });
+    repo = new SpaceRepository(
+      new BetterSqlStorage(db),
+      createImageStorage({
+        'styles/space-1/missing.png': null,
+        'styles/space-1/missing_thumb.webp': null,
+      })
+    );
+
+    const result = await repo.backfillLegacySpaceStyle();
+    const variant = await repo.getVariantById(result.variantIds[0]);
+
+    assert.equal(variant?.image_key, 'styles/space-1/missing.png');
+    assert.equal(variant?.thumb_key, null);
+    assert.equal(variant?.media_size_bytes, null);
+    assert.equal(getRefCount('styles/space-1/missing.png'), 2);
+    assert.equal(getRefCount('styles/space-1/missing_thumb.webp'), null);
+  });
+
+  test('backfill leaves historical legacy style recipe snapshots displayable', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Pastel concept art',
+      imageKeys: ['styles/space-1/style.png'],
+      createdBy: 'user-1',
+    });
+    await repo.createAsset({
+      id: 'generated-asset',
+      name: 'Generated Asset',
+      type: 'character',
+      tags: [],
+      createdBy: 'user-1',
+    });
+    const historicalRecipe = JSON.stringify({
+      operation: 'generate',
+      prompt: '[Style: Pastel concept art]\n\nA small cottage',
+      assetType: 'scene',
+      styleId: 'legacy-style',
+      styleImageKeys: ['styles/space-1/style.png'],
+      sourceImageKeys: ['styles/space-1/style.png'],
+    });
+    await repo.createPlaceholderVariant({
+      id: 'historical-variant',
+      assetId: 'generated-asset',
+      recipe: historicalRecipe,
+      createdBy: 'user-1',
+    });
+
+    await repo.backfillLegacySpaceStyle();
+    const variant = await repo.getVariantById('historical-variant');
+    const recipe = JSON.parse(variant?.recipe ?? '{}') as {
+      styleId?: string;
+      styleImageKeys?: string[];
+      stylePresetId?: string;
+    };
+
+    assert.equal(variant?.recipe, historicalRecipe);
+    assert.equal(recipe.styleId, 'legacy-style');
+    assert.deepEqual(recipe.styleImageKeys, ['styles/space-1/style.png']);
+    assert.equal(recipe.stylePresetId, undefined);
+  });
+
   test('supports relation CRUD and lookup in both directions without lineage rows', async () => {
     await createAssetWithVariant('character', 'character-v1');
     await createAssetWithVariant('scene', 'scene-v1');
@@ -599,19 +935,27 @@ describe('Space organization repository', () => {
       subject: { subjectType: 'variant', variantId: 'character-v1' },
       object: { subjectType: 'asset', assetId: 'scene' },
       relationType: 'appears_in',
+      label: 'Opening shot',
       context: '{"shot":"opening"}',
+      metadata: { confidence: 'manual' },
       sortIndex: 3,
       createdBy: 'user-1',
     });
     assert.equal(relation.relation_type, 'appears_in');
+    assert.equal(relation.label, 'Opening shot');
+    assert.deepEqual(JSON.parse(relation.metadata), { confidence: 'manual' });
 
     const updated = await repo.updateRelation('relation-1', {
       relationType: 'prop_in',
+      label: 'Set dressing',
       context: null,
+      metadata: { confidence: 'reviewed' },
       sortIndex: 1,
     });
     assert.equal(updated?.relation_type, 'prop_in');
+    assert.equal(updated?.label, 'Set dressing');
     assert.equal(updated?.context, null);
+    assert.deepEqual(JSON.parse(updated?.metadata ?? '{}'), { confidence: 'reviewed' });
 
     assert.deepEqual(
       (await repo.listRelationsForSubject('variant', 'character-v1')).map((row) => row.id),
@@ -652,8 +996,10 @@ describe('Space organization repository', () => {
       id: 'composition-item-1',
       compositionId: 'composition-1',
       role: 'background',
+      label: 'Painted backing',
       assetId: 'background',
       variantId: 'background-v1',
+      metadata: { layer: 'back' },
       sortIndex: 2,
       createdBy: 'user-1',
     });
@@ -661,6 +1007,7 @@ describe('Space organization repository', () => {
       id: 'composition-item-2',
       compositionId: 'composition-1',
       role: 'character',
+      label: 'Hero plate',
       assetId: 'character',
       variantId: 'character-v1',
       sortIndex: 1,
@@ -670,6 +1017,7 @@ describe('Space organization repository', () => {
       id: 'composition-item-3',
       compositionId: 'composition-1',
       role: 'output',
+      label: 'Final frame',
       assetId: 'output',
       variantId: 'output-v1',
       sortIndex: 3,
@@ -677,11 +1025,11 @@ describe('Space organization repository', () => {
     });
 
     assert.deepEqual(
-      (await repo.listCompositionItems('composition-1')).map((item) => [item.role, item.variant_id]),
+      (await repo.listCompositionItems('composition-1')).map((item) => [item.role, item.label, item.variant_id]),
       [
-        ['character', 'character-v1'],
-        ['background', 'background-v1'],
-        ['output', 'output-v1'],
+        ['character', 'Hero plate', 'character-v1'],
+        ['background', 'Painted backing', 'background-v1'],
+        ['output', 'Final frame', 'output-v1'],
       ]
     );
 
@@ -693,7 +1041,15 @@ describe('Space organization repository', () => {
     assert.equal(updated?.status, 'final');
     assert.equal(JSON.parse(updated?.metadata ?? '{}').locked, true);
 
-    await repo.updateCompositionItem('composition-item-2', { role: 'overlay', sortIndex: 5 });
+    await repo.updateCompositionItem('composition-item-2', {
+      role: 'overlay',
+      label: 'Hero overlay',
+      metadata: { layer: 'front' },
+      sortIndex: 5,
+    });
+    const updatedItem = await repo.getCompositionItemById('composition-item-2');
+    assert.equal(updatedItem?.label, 'Hero overlay');
+    assert.deepEqual(JSON.parse(updatedItem?.metadata ?? '{}'), { layer: 'front' });
     await repo.reorderCompositionItems('composition-1', [
       'composition-item-3',
       'composition-item-1',

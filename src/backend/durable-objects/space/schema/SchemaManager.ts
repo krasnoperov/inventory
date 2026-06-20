@@ -173,7 +173,9 @@ export class SchemaManager {
           'reference_for',
           'custom'
         )),
+        label TEXT,
         context TEXT,
+        metadata TEXT NOT NULL DEFAULT '{}',
         sort_index INTEGER NOT NULL DEFAULT 0,
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
@@ -216,6 +218,7 @@ export class SchemaManager {
           'thumbnail',
           'custom'
         )),
+        label TEXT,
         asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,
         variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
         metadata TEXT NOT NULL DEFAULT '{}',
@@ -453,6 +456,9 @@ export class SchemaManager {
 
     // Migration: Add generation provenance and provider metadata to variants
     await this.addGenerationMetadataToVariants();
+
+    // Migration: Add user-facing labels and metadata to organization links
+    await this.addOrganizationLabelsAndMetadata();
 
     // Migration: Add production placement records for downstream tooling
     await this.addProductionRecords();
@@ -1002,6 +1008,26 @@ export class SchemaManager {
     }
     if (!hasColumn('provider_metadata')) {
       await this.sql.exec(`ALTER TABLE variants ADD COLUMN provider_metadata TEXT;`);
+    }
+  }
+
+  /**
+   * Add portable labels and JSON metadata to organization links.
+   */
+  private async addOrganizationLabelsAndMetadata(): Promise<void> {
+    const relationColumns = (await this.sql.exec(`PRAGMA table_info(space_relations)`)).toArray() as Array<{ name: string }>;
+    const hasRelationColumn = (name: string) => relationColumns.some(col => col.name === name);
+    if (!hasRelationColumn('label')) {
+      await this.sql.exec(`ALTER TABLE space_relations ADD COLUMN label TEXT;`);
+    }
+    if (!hasRelationColumn('metadata')) {
+      await this.sql.exec(`ALTER TABLE space_relations ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}';`);
+    }
+
+    const itemColumns = (await this.sql.exec(`PRAGMA table_info(composition_items)`)).toArray() as Array<{ name: string }>;
+    const hasItemColumn = (name: string) => itemColumns.some(col => col.name === name);
+    if (!hasItemColumn('label')) {
+      await this.sql.exec(`ALTER TABLE composition_items ADD COLUMN label TEXT;`);
     }
   }
 

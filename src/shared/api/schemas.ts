@@ -459,7 +459,9 @@ export const SpaceRelationSchema = z
     object_asset_id: z.string().nullable(),
     object_variant_id: z.string().nullable(),
     relation_type: SpaceRelationTypeSchema,
+    label: z.string().nullable(),
     context: z.string().nullable(),
+    metadata: z.string(),
     sort_index: z.number().int(),
     created_by: z.string(),
     created_at: z.number(),
@@ -488,6 +490,7 @@ export const CompositionItemSchema = z
     id: z.string(),
     composition_id: z.string(),
     role: CompositionItemRoleSchema,
+    label: z.string().nullable(),
     asset_id: z.string().nullable(),
     variant_id: z.string(),
     metadata: z.string(),
@@ -559,7 +562,9 @@ export const UpsertRelationRequestSchema = z
     subject: SpaceSubjectSchema,
     object: SpaceSubjectSchema,
     relationType: SpaceRelationTypeSchema,
+    label: z.string().nullable().optional(),
     context: z.union([z.string(), z.record(z.string(), z.unknown())]).nullable().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
     sortIndex: z.number().int().optional(),
   })
   .openapi('UpsertRelationRequest');
@@ -567,7 +572,9 @@ export const UpsertRelationRequestSchema = z
 export const UpdateRelationRequestSchema = z
   .object({
     relationType: SpaceRelationTypeSchema.optional(),
+    label: z.string().nullable().optional(),
     context: z.union([z.string(), z.record(z.string(), z.unknown())]).nullable().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
     sortIndex: z.number().int().optional(),
   })
   .openapi('UpdateRelationRequest');
@@ -593,6 +600,7 @@ export const UpsertCompositionItemRequestSchema = z
   .object({
     id: z.string().optional(),
     role: CompositionItemRoleSchema,
+    label: z.string().nullable().optional(),
     assetId: z.string().nullable().optional(),
     variantId: z.string().min(1),
     metadata: z.record(z.string(), z.unknown()).optional(),
@@ -603,6 +611,7 @@ export const UpsertCompositionItemRequestSchema = z
 export const UpdateCompositionItemRequestSchema = z
   .object({
     role: CompositionItemRoleSchema.optional(),
+    label: z.string().nullable().optional(),
     assetId: z.string().nullable().optional(),
     variantId: z.string().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),

@@ -584,6 +584,79 @@ test('generate sends explicit image model, size, and aspect', async () => {
   });
 });
 
+test('generate resolves style preset by name and sends preset id', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+  const fetchImpl = async (input: RequestInfo | URL): Promise<Response> => {
+    const url = new URL(String(input));
+    assert.equal(url.pathname, '/api/spaces/space-1/style-presets');
+    return Response.json({
+      success: true,
+      presets: [{
+        id: 'preset-1',
+        name: 'Painterly',
+        description: null,
+        style_prompt: 'Painterly adventure game',
+        collection_id: 'collection-1',
+        enabled: true,
+        is_default: false,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+        collection_name: 'Painterly refs',
+        reference_count: 2,
+        style_reference_variant_ids: ['style-v1', 'style-v2'],
+        style_reference_image_keys: ['images/style-v1.png', 'images/style-v2.png'],
+      }],
+    });
+  };
+
+  const { output } = await captureConsoleLog(() => executeForgeCommand('generate', {
+    positionals: ['A', 'market', 'background'],
+    options: {
+      space: 'space-1',
+      name: 'Market',
+      type: 'scene',
+      'style-preset': 'Painterly',
+      o: 'market.png',
+    },
+  }, { ...deps, fetch: fetchImpl as typeof fetch }));
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Market',
+    assetType: 'scene',
+    prompt: 'A market background',
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    stylePresetId: 'preset-1',
+    mediaKind: 'image',
+  });
+  assert.ok(output.some((line) => line.includes('Style preset: Painterly (preset-1)')));
+  assert.ok(output.some((line) => line.includes('References: 2')));
+});
+
+test('generate rejects style preset with no-style before sending request', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeForgeCommand('generate', {
+      positionals: ['A', 'market', 'background'],
+      options: {
+        space: 'space-1',
+        name: 'Market',
+        type: 'scene',
+        'style-preset': 'preset-1',
+        'no-style': 'true',
+        o: 'market.png',
+      },
+    }, deps),
+    /--style-preset cannot be used with --no-style/
+  );
+  assert.equal(client.generateParams, undefined);
+});
+
 test('image commands reject flash above 1K before sending request', async () => {
   const client = new FakeClient();
   const { deps } = depsFor(client);
