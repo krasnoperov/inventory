@@ -306,7 +306,7 @@ Listen:
 
 Upload:
   upload <file> --asset <id> [--space <id>]   Upload image, audio, or video to existing asset
-  upload <file> --name <name> [--space <id>]  Import one media file as a new asset
+  upload <file> --name <name> [--space <id>]  Upload image, audio, or video as a new asset
   upload <file> --collection <id>             Place uploaded media in a collection
   upload <file> --collection-name <name>      Place uploaded media in an exact-name collection
   upload <file> --manual-relation <spec>      Create a manual relation from uploaded media
