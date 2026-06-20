@@ -1742,7 +1742,7 @@ test('video derive accepts image and video refs and sends video request', async 
   });
 });
 
-test('video audio flags are forwarded to website jobs', async () => {
+test('video --audio flag is forwarded to website jobs', async () => {
   const client = new FakeClient();
   const { deps } = depsFor(client);
 
@@ -1767,30 +1767,27 @@ test('video audio flags are forwarded to website jobs', async () => {
     mediaKind: 'video',
     generateAudio: true,
   });
+});
 
-  const silentClient = new FakeClient();
-  const { deps: silentDeps } = depsFor(silentClient);
-  await executeVideoCommand('generate', {
-    positionals: ['A', 'silent', 'market', 'shot'],
-    options: {
-      space: 'space-1',
-      name: 'Silent Market Shot',
-      type: 'animation',
-      o: 'silent-market.mp4',
-      'no-audio': 'true',
-    },
-  }, silentDeps);
+test('video --no-audio is rejected for current Veo models before opening a website job', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
 
-  assert.deepEqual(silentClient.generateParams, {
-    name: 'Silent Market Shot',
-    assetType: 'animation',
-    prompt: 'A silent market shot',
-    aspectRatio: undefined,
-    parentAssetId: undefined,
-    disableStyle: false,
-    mediaKind: 'video',
-    generateAudio: false,
-  });
+  await assert.rejects(
+    () => executeVideoCommand('generate', {
+      positionals: ['A', 'silent', 'market', 'shot'],
+      options: {
+        space: 'space-1',
+        name: 'Silent Market Shot',
+        type: 'animation',
+        o: 'silent-market.mp4',
+        'no-audio': 'true',
+      },
+    }, deps),
+    /veo-3\.1-generate-preview does not support --no-audio/
+  );
+  assert.equal(client.connected, false);
+  assert.equal(client.generateParams, undefined);
 });
 
 test('video generate sends resolution, duration, and tier controls', async () => {

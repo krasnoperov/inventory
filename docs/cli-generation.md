@@ -148,10 +148,10 @@ makefx video derive \
   -o video/attack.mp4
 ```
 
-By default, video requests ask for native synchronized Veo audio. Pass
-`--no-audio` to record a silent-video request and add a silent-video instruction
-to the provider prompt. Pass `--audio` explicitly when the soundtrack matters,
-and describe dialogue, SFX, score, or ambience in the prompt.
+By default, video requests ask for native synchronized Veo audio. Current Veo
+models do not support `--no-audio`; the CLI rejects it before creating a Space
+job. Pass `--audio` explicitly when the soundtrack matters, and describe
+dialogue, SFX, score, or ambience in the prompt.
 
 ## Durable Follow Mode
 
