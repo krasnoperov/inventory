@@ -4,6 +4,7 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types';
 import { UsageEventDAO } from './usage-event-dao';
 import { ProviderUsageLedgerDAO } from './provider-usage-ledger-dao';
+import { CustomerChargeLedgerDAO } from './customer-charge-ledger-dao';
 import { createTestDatabase, cleanupTestDatabase } from '../test-utils/database';
 import { TestUserBuilder } from '../test-utils/test-data-builders';
 
@@ -11,12 +12,14 @@ describe('ProviderUsageLedgerDAO', () => {
   let db: Kysely<Database>;
   let ledgerDAO: ProviderUsageLedgerDAO;
   let usageEventDAO: UsageEventDAO;
+  let chargeLedgerDAO: CustomerChargeLedgerDAO;
   let userId: number;
 
   beforeEach(async () => {
     db = await createTestDatabase();
     ledgerDAO = new ProviderUsageLedgerDAO(db);
     usageEventDAO = new UsageEventDAO(db);
+    chargeLedgerDAO = new CustomerChargeLedgerDAO(db);
 
     const user = await new TestUserBuilder()
       .withEmail('provider-ledger@example.com')
@@ -62,6 +65,7 @@ describe('ProviderUsageLedgerDAO', () => {
     });
 
     const entry = await ledgerDAO.findByAttributionKey('variant:variant-1:gemini_images');
+    const chargeEntry = await chargeLedgerDAO.findByUsageEventId(usageEventId);
     assert.ok(entry);
     assert.equal(entry.id, id);
     assert.equal(entry.usage_event_id, usageEventId);
@@ -78,6 +82,8 @@ describe('ProviderUsageLedgerDAO', () => {
     assert.equal(entry.unit_price_usd, 0.24);
     assert.equal(entry.amount_micro_usd, 240000);
     assert.deepEqual(JSON.parse(entry.metadata!), { imageSize: '4K' });
+    assert.ok(chargeEntry);
+    assert.equal(chargeEntry.provider_usage_ledger_id, id);
   });
 
   test('finds ledger entries by generated variant', async () => {

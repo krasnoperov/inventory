@@ -3,6 +3,10 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import type { Database, UsageEvent } from '../db/types';
 import { TYPES } from '../core/di-types';
+import {
+  buildCustomerChargeKey,
+  inferCustomerChargeUnit,
+} from '../backend/billing/customerChargeLedger';
 
 /**
  * Maximum sync attempts before marking event as failed
@@ -55,6 +59,10 @@ export class UsageEventDAO {
     polarBillable?: boolean;
   }): Promise<string> {
     const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const polarBillable = data.polarBillable === false ? 0 : 1;
+    const metadata = data.metadata ? JSON.stringify(data.metadata) : null;
+
     await this.db
       .insertInto('usage_events')
       .values({
@@ -62,13 +70,32 @@ export class UsageEventDAO {
         user_id: data.userId,
         event_name: data.eventName,
         quantity: data.quantity,
-        metadata: data.metadata ? JSON.stringify(data.metadata) : null,
-        polar_billable: data.polarBillable === false ? 0 : 1,
-        created_at: new Date().toISOString(),
+        metadata,
+        polar_billable: polarBillable,
+        created_at: now,
         synced_at: null,
         sync_attempts: 0,
         last_sync_error: null,
         last_sync_attempt_at: null,
+      })
+      .execute();
+
+    await this.db
+      .insertInto('customer_charge_ledger')
+      .values({
+        id: crypto.randomUUID(),
+        charge_key: buildCustomerChargeKey(id),
+        usage_event_id: id,
+        provider_usage_ledger_id: null,
+        user_id: data.userId,
+        meter_event_name: data.eventName,
+        charge_unit: inferCustomerChargeUnit(data.eventName),
+        quantity: data.quantity,
+        polar_billable: polarBillable,
+        billing_external_id: id,
+        customer_amount_micro_usd: null,
+        metadata,
+        created_at: now,
       })
       .execute();
 

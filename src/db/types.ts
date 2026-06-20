@@ -1,5 +1,8 @@
 import type { Generated, Insertable, Selectable, Updateable } from 'kysely';
+import type { CustomerChargeUnit } from '../backend/billing/customerChargeLedger';
 import type { PaidGenerationEntitlement } from '../backend/billing/paidGenerationEntitlement';
+
+export type { CustomerChargeUnit };
 
 // ============================================================================
 // BARE FRAMEWORK FOUNDATION - Database Types
@@ -98,6 +101,24 @@ export interface ProviderUsageLedgerTable {
   created_at: string;
 }
 
+export interface CustomerChargeLedgerTable {
+  id: Generated<string>;
+  charge_key: string;
+  usage_event_id: string | null;
+  provider_usage_ledger_id: string | null;
+  user_id: number;
+  meter_event_name: string;
+  charge_unit: CustomerChargeUnit;
+  quantity: number;
+  polar_billable: Generated<number>;
+  billing_provider: Generated<'polar'>;
+  billing_external_id: string;
+  customer_amount_micro_usd: number | null;
+  currency: Generated<'USD'>;
+  metadata: string | null;
+  created_at: string;
+}
+
 export interface PlatformUsageEventsTable {
   id: Generated<string>;
   idempotency_key: string;
@@ -123,6 +144,7 @@ export interface Database {
   space_members: SpaceMembersTable;
   usage_events: UsageEventsTable;
   provider_usage_ledger: ProviderUsageLedgerTable;
+  customer_charge_ledger: CustomerChargeLedgerTable;
   platform_usage_events: PlatformUsageEventsTable;
   // Phase 2: Assistant Memory
   user_patterns: UserPatternsTable;
@@ -162,6 +184,11 @@ export type UsageEventUpdate = Updateable<UsageEventsTable>;
 export type ProviderUsageLedgerEntry = Selectable<ProviderUsageLedgerTable>;
 export type NewProviderUsageLedgerEntry = Insertable<ProviderUsageLedgerTable>;
 export type ProviderUsageLedgerEntryUpdate = Updateable<ProviderUsageLedgerTable>;
+
+// Customer charge ledger types
+export type CustomerChargeLedgerEntry = Selectable<CustomerChargeLedgerTable>;
+export type NewCustomerChargeLedgerEntry = Insertable<CustomerChargeLedgerTable>;
+export type CustomerChargeLedgerEntryUpdate = Updateable<CustomerChargeLedgerTable>;
 
 // Platform usage event types
 export type PlatformUsageEvent = Selectable<PlatformUsageEventsTable>;

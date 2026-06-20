@@ -1033,6 +1033,7 @@ describe('GenerationController pipeline hooks', () => {
     });
 
     test('completes media-only video variants without image keys and tracks video usage', async () => {
+      const statements: Array<{ sql: string; bindings: unknown[] }> = [];
       const run = mock.fn(async () => ({}));
       const bind = mock.fn(() => ({ run }));
       const prepare = mock.fn((sql: string) => ({
@@ -1042,6 +1043,7 @@ describe('GenerationController pipeline hooks', () => {
               first: mock.fn(async () => ({ paid_generation_entitlement: 'paid' })),
             };
           }
+          statements.push({ sql, bindings: args });
           return bind(...args);
         }),
       }));
@@ -1106,12 +1108,17 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(result.variant.media_duration_ms, 8000);
       const preparedSql = prepare.mock.calls.map((call) => String(call.arguments[0]));
       assert.strictEqual(preparedSql.filter((sql) => /INSERT INTO usage_events\b/.test(sql)).length, 1);
+      assert.strictEqual(preparedSql.filter((sql) => /INSERT OR IGNORE INTO customer_charge_ledger\b/.test(sql)).length, 1);
       assert.strictEqual(preparedSql.filter((sql) => /INSERT INTO platform_usage_events\b/.test(sql)).length, 1);
       assert.strictEqual(preparedSql.filter((sql) => /INSERT OR IGNORE INTO provider_usage_ledger\b/.test(sql)).length, 1);
-      assert.strictEqual(bind.mock.calls[0].arguments[1], 123);
-      assert.strictEqual(bind.mock.calls[0].arguments[2], 'gemini_videos');
-      assert.strictEqual(bind.mock.calls[0].arguments[3], 2);
-      assert.deepStrictEqual(JSON.parse(bind.mock.calls[0].arguments[4]), {
+      assert.strictEqual(preparedSql.filter((sql) => /UPDATE customer_charge_ledger\b/.test(sql)).length, 1);
+      const usageInsert = statements.find((statement) => /INSERT INTO usage_events\b/.test(statement.sql))!;
+      const chargeInsert = statements.find((statement) => /INSERT OR IGNORE INTO customer_charge_ledger\b/.test(statement.sql))!;
+      const providerInsert = statements.find((statement) => /INSERT OR IGNORE INTO provider_usage_ledger\b/.test(statement.sql))!;
+      assert.strictEqual(usageInsert.bindings[1], 123);
+      assert.strictEqual(usageInsert.bindings[2], 'gemini_videos');
+      assert.strictEqual(usageInsert.bindings[3], 2);
+      assert.deepStrictEqual(JSON.parse(usageInsert.bindings[4]), {
         model: 'veo-3.1-generate-preview',
         operation: 'generate',
         resolution: '720p',
@@ -1119,18 +1126,20 @@ describe('GenerationController pipeline hooks', () => {
         generate_audio: true,
         video_count: 1,
       });
-      assert.strictEqual(bind.mock.calls[1].arguments[1], 'workflow:workflow-video:meter:gemini_videos');
-      assert.strictEqual(bind.mock.calls[1].arguments[4], 'space-1');
-      assert.strictEqual(bind.mock.calls[1].arguments[6], 'variant-video');
-      assert.strictEqual(bind.mock.calls[1].arguments[7], 'workflow-video');
-      assert.strictEqual(bind.mock.calls[1].arguments[8], 'request-video');
-      assert.strictEqual(bind.mock.calls[1].arguments[9], 'gemini');
-      assert.strictEqual(bind.mock.calls[1].arguments[10], 'veo-3.1-generate-preview');
-      assert.strictEqual(bind.mock.calls[1].arguments[12], 'video');
-      assert.strictEqual(bind.mock.calls[1].arguments[14], 'video_second');
-      assert.strictEqual(bind.mock.calls[1].arguments[15], 8);
-      assert.strictEqual(bind.mock.calls[1].arguments[17], 3200000);
-      assert.strictEqual(run.mock.calls.length, 3);
+      assert.strictEqual(chargeInsert.bindings[2], usageInsert.bindings[0]);
+      assert.strictEqual(chargeInsert.bindings[4], 'gemini_videos');
+      assert.strictEqual(providerInsert.bindings[1], 'workflow:workflow-video:meter:gemini_videos');
+      assert.strictEqual(providerInsert.bindings[4], 'space-1');
+      assert.strictEqual(providerInsert.bindings[6], 'variant-video');
+      assert.strictEqual(providerInsert.bindings[7], 'workflow-video');
+      assert.strictEqual(providerInsert.bindings[8], 'request-video');
+      assert.strictEqual(providerInsert.bindings[9], 'gemini');
+      assert.strictEqual(providerInsert.bindings[10], 'veo-3.1-generate-preview');
+      assert.strictEqual(providerInsert.bindings[12], 'video');
+      assert.strictEqual(providerInsert.bindings[14], 'video_second');
+      assert.strictEqual(providerInsert.bindings[15], 8);
+      assert.strictEqual(providerInsert.bindings[17], 3200000);
+      assert.strictEqual(run.mock.calls.length, 5);
 
       const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
       assert.deepStrictEqual(completeCall.arguments[3], {

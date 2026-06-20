@@ -226,6 +226,37 @@ describe('SpaceDO usage preCheck', () => {
     assert.strictEqual(inserts[0][5], 0);
   });
 
+  test('records customer charge ledger rows with usage events', async () => {
+    const statements: Array<{ sql: string; bindings: unknown[] }> = [];
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn((...bindings: unknown[]) => {
+          statements.push({ sql, bindings });
+          return {
+            first: mock.fn(async () => ({ paid_generation_entitlement: 'paid' })),
+            run: mock.fn(async () => ({ success: true })),
+          };
+        }),
+      })),
+    };
+
+    await trackVideoGeneration(db as any, 42, 1, 'veo-3.1-generate-preview', 'generate', '720p', 8);
+
+    const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+    const chargeInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO customer_charge_ledger'))!;
+
+    assert.ok(usageInsert);
+    assert.ok(chargeInsert);
+    assert.strictEqual(chargeInsert.bindings[1], `usage_event:${usageInsert.bindings[0]}`);
+    assert.strictEqual(chargeInsert.bindings[2], usageInsert.bindings[0]);
+    assert.strictEqual(chargeInsert.bindings[3], 42);
+    assert.strictEqual(chargeInsert.bindings[4], 'gemini_videos');
+    assert.strictEqual(chargeInsert.bindings[5], 'video_unit');
+    assert.strictEqual(chargeInsert.bindings[6], 2);
+    assert.strictEqual(chargeInsert.bindings[7], 1);
+    assert.strictEqual(chargeInsert.bindings[8], usageInsert.bindings[0]);
+  });
+
   test('records ADMIN_USER_IDS usage locally as non-billable even when stored entitlement is none', async () => {
     const inserts: unknown[][] = [];
     const db = {
@@ -248,6 +279,52 @@ describe('SpaceDO usage preCheck', () => {
     assert.strictEqual(inserts[0][1], 42);
     assert.strictEqual(inserts[0][2], 'gemini_images');
     assert.strictEqual(inserts[0][5], 0);
+  });
+
+  test('links customer charge ledger rows to provider usage attribution', async () => {
+    const statements: Array<{ sql: string; bindings: unknown[] }> = [];
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn((...bindings: unknown[]) => {
+          statements.push({ sql, bindings });
+          return {
+            first: mock.fn(async () => ({ paid_generation_entitlement: 'paid' })),
+            run: mock.fn(async () => ({ success: true })),
+          };
+        }),
+      })),
+    };
+
+    await trackImageGeneration(
+      db as any,
+      42,
+      1,
+      'gemini-3-pro-image-preview',
+      'generate',
+      '4K',
+      undefined,
+      {
+        spaceId: 'space-1',
+        variantId: 'variant-1',
+        workflowId: 'workflow-1',
+        requestId: 'request-1',
+        mediaKind: 'image',
+      }
+    );
+
+    const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+    const providerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
+    const chargeUpdate = statements.find((statement) => statement.sql.includes('UPDATE customer_charge_ledger'))!;
+
+    assert.ok(usageInsert);
+    assert.ok(providerInsert);
+    assert.ok(chargeUpdate);
+    assert.strictEqual(providerInsert.bindings[1], 'workflow:workflow-1:meter:gemini_images');
+    assert.strictEqual(providerInsert.bindings[2], usageInsert.bindings[0]);
+    assert.deepStrictEqual(chargeUpdate.bindings, [
+      'workflow:workflow-1:meter:gemini_images',
+      usageInsert.bindings[0],
+    ]);
   });
 
   test('records Veo billing dimensions in video usage metadata', async () => {

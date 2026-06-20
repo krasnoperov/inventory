@@ -73,6 +73,15 @@ export class ProviderUsageLedgerDAO {
       })
       .execute();
 
+    if (data.usageEventId) {
+      await this.db
+        .updateTable('customer_charge_ledger')
+        .set({ provider_usage_ledger_id: id })
+        .where('usage_event_id', '=', data.usageEventId)
+        .where('provider_usage_ledger_id', 'is', null)
+        .execute();
+    }
+
     return id;
   }
 
