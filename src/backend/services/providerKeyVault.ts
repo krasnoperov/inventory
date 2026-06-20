@@ -145,9 +145,7 @@ async function requireKekForVersion(
 ): Promise<string> {
   const value = isVersionedKekProvider(env)
     ? await env.getKekByVersion(version)
-    : version === CURRENT_KEK_VERSION
-      ? env.ENCRYPTION_KEY
-      : undefined;
+    : env.ENCRYPTION_KEY;
   if (!value) {
     throw new ProviderKeyEncryptionError(`BYOK_KEK_V${version} Secrets Store binding is required`);
   }

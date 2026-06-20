@@ -506,4 +506,32 @@ describe('providerKeyVault', () => {
       'legacy-google-secret',
     );
   });
+
+  test('direct single-key callers can read current rows after KEK rewrap', async () => {
+    const db = new FakeD1();
+    const oldKek = encryptionKey();
+    const newKek = rotatedEncryptionKey();
+    const encrypted = await encryptProviderApiKeyV2(db as never, 'current-google-secret', oldKek, 7, 'google_ai');
+    const envelope = db.envelopes.get('user:7');
+    assert.ok(envelope);
+    const dek = await unwrapProviderKeyDek(envelope.wrapped_dek, oldKek);
+    db.envelopes.set('user:7', {
+      ...envelope,
+      wrapped_dek: await wrapProviderKeyDek(dek, newKek),
+      kek_version: 2,
+    });
+    db.rows.set('7:google_ai', {
+      user_id: 7,
+      provider: 'google_ai',
+      encrypted_api_key: encrypted,
+      key_hint: '****cret',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: newKek }),
+      'current-google-secret',
+    );
+    assert.equal(db.rows.get('7:google_ai')?.encrypted_api_key, encrypted);
+  });
 });
