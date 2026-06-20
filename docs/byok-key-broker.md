@@ -2,8 +2,11 @@
 
 The BYOK key broker is a separate Worker for provider-key custody. Provider-key
 save, replace, and delete routes call the broker service binding so the app
-Worker does not persist key material directly. Generation Workers may still use
-legacy read paths until their traffic is migrated.
+Worker does not persist key material directly in stage and production. Local
+development uses the same broker service implementation in-process, backed by
+the local D1 binding, so `pnpm dev` cannot write provider keys to stage storage.
+Generation Workers may still use legacy read paths until their traffic is
+migrated.
 
 ## Contract
 
@@ -48,9 +51,7 @@ binding = "KEY_BROKER"
 service = "makefx-key-broker-stage"
 ```
 
-For local multi-Worker development, run Wrangler with both configs after the
-caller binding is added in a later issue:
-
-```bash
-pnpm exec wrangler dev -c wrangler.dev.toml -c wrangler.key-broker.toml
-```
+For local multi-Worker development against a separate broker Worker, use a
+local broker config whose D1 binding points at `makefx-local`. Do not pair
+`wrangler.dev.toml` with the checked-in stage broker config for local provider
+key writes.

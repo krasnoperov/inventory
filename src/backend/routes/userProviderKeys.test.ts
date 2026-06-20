@@ -126,16 +126,18 @@ class FakeD1 {
   }
 }
 
-function routeApp(db: FakeD1) {
+function routeApp(db: FakeD1, envOverrides: Partial<AppContext['Bindings']> = {}) {
   const app = createOpenApiRouter();
   app.use('*', async (c, next) => {
     c.env = {
       DB: db,
+      ENVIRONMENT: 'test',
       KEY_BROKER: createLocalKeyBrokerServiceBinding({
         DB: db as never,
         BYOK_ACTIVE_KEK_VERSION: '1',
         BYOK_KEK_V1: encryptionKey(),
       }),
+      ...envOverrides,
     } as unknown as AppContext['Bindings'];
     c.set('container', {
       get: (token: unknown) => {
@@ -248,5 +250,47 @@ describe('user provider key routes', () => {
 
     assert.equal(response.status, 400);
     assert.equal(db.rows.size, 0);
+  });
+
+  test('local development fallback stores and deletes keys in the local app database', async () => {
+    const db = new FakeD1();
+    const fetch = bindFetch(routeApp(db, {
+      ENVIRONMENT: 'local',
+      ENCRYPTION_KEY: encryptionKey(),
+      KEY_BROKER: undefined,
+    }));
+    const apiKey = 'local-provider-key-2468';
+
+    const saved = await apiFetch('PUT /api/user/provider-keys/:provider', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { provider: 'google_ai' },
+      json: { apiKey },
+    });
+
+    assert.equal(saved.provider.configured, true);
+    assert.equal(saved.provider.keyHint, '****2468');
+
+    const localRow = db.rows.get('7:google_ai');
+    assert.ok(localRow);
+    assert.match(localRow.encrypted_api_key, /^enc:v2:1:1:/);
+    assert.equal(localRow.key_hint, '****2468');
+
+    const listed = await apiFetch('GET /api/user/provider-keys', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+    });
+    assert.equal(listed.providers.find((item) => item.provider === 'google_ai')?.configured, true);
+
+    await apiFetch('DELETE /api/user/provider-keys/:provider', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { provider: 'google_ai' },
+    });
+
+    assert.equal(db.rows.has('7:google_ai'), false);
   });
 });

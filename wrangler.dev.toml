@@ -58,10 +58,6 @@ binding = "GENERATION_WORKFLOW"
 name = "makefx-generation-workflow-local"
 class_name = "GenerationWorkflow"
 
-[[services]]
-binding = "KEY_BROKER"
-service = "makefx-key-broker-stage"
-
 # R2 Storage for generated images (local uses miniflare's R2 simulation)
 [[r2_buckets]]
 binding = "IMAGES"
