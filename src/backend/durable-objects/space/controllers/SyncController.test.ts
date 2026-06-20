@@ -38,6 +38,7 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
       assets: [],
       variants: [],
       collections: [],
+      collectionItems: [],
       compositions: [],
       stylePresets: [],
       styleReferenceCollections: [],
@@ -76,7 +77,8 @@ describe('SyncController', () => {
       getOverviewState: mock.fn(async () => ({
         assets: [{ id: 'asset-1', active_variant_id: 'variant-1' }],
         variants: [{ id: 'variant-1', asset_id: 'asset-1' }],
-        collections: [{ id: 'collection-1', name: 'Scene Kit', item_count: 2 }],
+        collections: [{ id: 'collection-1', name: 'Scene Kit', kind: 'scenes', color: '#2f9e73', item_count: 2 }],
+        collectionItems: [{ id: 'collection-item-1', collection_id: 'collection-1', asset_id: 'asset-1' }],
         compositions: [{ id: 'composition-1', name: 'Opening', item_count: 1 }],
         stylePresets: [{
           id: 'preset-1',
@@ -106,7 +108,8 @@ describe('SyncController', () => {
     assert.strictEqual(sent.length, 1);
     assert.strictEqual(sent[0].type, 'sync:overview');
     assert.deepStrictEqual(sent[0].presence, presence);
-    assert.deepStrictEqual(sent[0].collections, [{ id: 'collection-1', name: 'Scene Kit', item_count: 2 }]);
+    assert.deepStrictEqual(sent[0].collections, [{ id: 'collection-1', name: 'Scene Kit', kind: 'scenes', color: '#2f9e73', item_count: 2 }]);
+    assert.deepStrictEqual(sent[0].collectionItems, [{ id: 'collection-item-1', collection_id: 'collection-1', asset_id: 'asset-1' }]);
     assert.deepStrictEqual(sent[0].compositions, [{ id: 'composition-1', name: 'Opening', item_count: 1 }]);
     assert.deepStrictEqual(sent[0].stylePresets, [{
       id: 'preset-1',
@@ -121,7 +124,6 @@ describe('SyncController', () => {
       preset_count: 1,
     }]);
     assert.ok(!('lineage' in sent[0]));
-    assert.ok(!('collectionItems' in sent[0]));
     assert.ok(!('compositionItems' in sent[0]));
   });
 

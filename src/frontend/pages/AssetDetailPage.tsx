@@ -84,6 +84,8 @@ export default function AssetDetailPage() {
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
+  const [variantCollectionId, setVariantCollectionId] = useState('');
+  const [variantCollectionRole, setVariantCollectionRole] = useState('custom');
   const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
   const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
@@ -145,6 +147,8 @@ export default function AssetDetailPage() {
   const {
     assets: wsAssets,
     variants: wsVariants,
+    collections,
+    collectionItems,
     lineage: wsLineage,
     relations: wsRelations,
     jobs,
@@ -153,6 +157,7 @@ export default function AssetDetailPage() {
     deleteAsset,
     starVariant,
     updateAsset,
+    addCollectionItem,
     createRelation,
     updateRelation,
     deleteRelation,
@@ -305,6 +310,14 @@ export default function AssetDetailPage() {
     if (!selectedVariantId) return null;
     return variants.find(v => v.id === selectedVariantId) || null;
   }, [selectedVariantId, variants]);
+
+  useEffect(() => {
+    if (!variantCollectionId && collections.length > 0) {
+      setVariantCollectionId(collections[0]!.id);
+    } else if (variantCollectionId && !collections.some((collection) => collection.id === variantCollectionId)) {
+      setVariantCollectionId(collections[0]?.id ?? '');
+    }
+  }, [collections, variantCollectionId]);
 
   // Set page title
   useDocumentTitle(asset?.name);
@@ -540,6 +553,18 @@ export default function AssetDetailPage() {
       addSlot(variant, asset);
     }
   }, [addSlot, asset]);
+
+  const handleAddSelectedVariantToCollection = useCallback(() => {
+    if (!selectedVariant || !variantCollectionId) return;
+    const sortIndex = collectionItems.filter((item) => item.collection_id === variantCollectionId).length;
+    addCollectionItem({
+      collectionId: variantCollectionId,
+      subjectType: 'variant',
+      variantId: selectedVariant.id,
+      role: variantCollectionRole.trim() || 'custom',
+      sortIndex,
+    });
+  }, [addCollectionItem, collectionItems, selectedVariant, variantCollectionId, variantCollectionRole]);
 
   // Handle retry recipe - restore ForgeTray state from variant's recipe and lineage
   const handleRetryRecipe = useCallback((variant: Variant) => {
@@ -821,6 +846,26 @@ export default function AssetDetailPage() {
             </div>
           )}
 
+          {collections.length > 0 && selectedVariant && (
+            <div className={styles.collectionAddBar}>
+              <span>Add selected variant to</span>
+              <select
+                value={variantCollectionId}
+                onChange={(event) => setVariantCollectionId(event.target.value)}
+              >
+                {collections.map((collection) => (
+                  <option key={collection.id} value={collection.id}>{collection.name}</option>
+                ))}
+              </select>
+              <input
+                value={variantCollectionRole}
+                onChange={(event) => setVariantCollectionRole(event.target.value)}
+                aria-label="Collection item role"
+              />
+              <button onClick={handleAddSelectedVariantToCollection}>Add variant</button>
+            </div>
+          )}
+
           {relationSubjects.length > 0 && (
             <RelationsPanel
               assets={relationAssets}
@@ -907,23 +952,6 @@ export default function AssetDetailPage() {
         </div>
       )}
 
-      {relationEditor && (
-        <RelationEditorDialog
-          mode={relationEditor.mode}
-          assets={relationAssets}
-          variants={relationVariants}
-          sourceSubject={relationEditor.mode === 'create' ? relationEditor.subject : (
-            relationEditor.relation.subject_type === 'asset'
-              ? { subjectType: 'asset', assetId: relationEditor.relation.subject_asset_id ?? undefined }
-              : { subjectType: 'variant', variantId: relationEditor.relation.subject_variant_id ?? undefined }
-          )}
-          relation={relationEditor.mode === 'edit' ? relationEditor.relation : undefined}
-          onCancel={() => setRelationEditor(null)}
-          onCreate={handleCreateRelation}
-          onUpdate={handleUpdateRelation}
-        />
-      )}
-
       {/* Forge Tray - persistent bottom bar for generation */}
       <ForgeTray
         allAssets={wsAssets}
@@ -968,6 +996,22 @@ export default function AssetDetailPage() {
           onClose={() => setShowRotationPanel(false)}
           onRateVariant={sendVariantRate}
           onExportTrainingData={() => handleExportTrainingData('rotations')}
+        />
+      )}
+      {relationEditor && (
+        <RelationEditorDialog
+          mode={relationEditor.mode}
+          assets={relationAssets}
+          variants={relationVariants}
+          sourceSubject={relationEditor.mode === 'create' ? relationEditor.subject : (
+            relationEditor.relation.subject_type === 'asset'
+              ? { subjectType: 'asset', assetId: relationEditor.relation.subject_asset_id ?? undefined }
+              : { subjectType: 'variant', variantId: relationEditor.relation.subject_variant_id ?? undefined }
+          )}
+          relation={relationEditor.mode === 'edit' ? relationEditor.relation : undefined}
+          onCancel={() => setRelationEditor(null)}
+          onCreate={handleCreateRelation}
+          onUpdate={handleUpdateRelation}
         />
       )}
     </div>

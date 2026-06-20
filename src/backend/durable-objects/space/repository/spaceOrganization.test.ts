@@ -267,18 +267,26 @@ describe('Space organization repository', () => {
     const collection = await repo.createCollection({
       id: 'collection-1',
       name: 'Scene Kit',
+      kind: 'scenes',
+      color: '#2f9e73',
       description: 'Characters and background',
       sortIndex: 2,
       createdBy: 'user-1',
     });
     assert.equal(collection.name, 'Scene Kit');
+    assert.equal(collection.kind, 'scenes');
+    assert.equal(collection.color, '#2f9e73');
 
     const updated = await repo.updateCollection('collection-1', {
       name: 'Opening Scene Kit',
+      kind: 'cast',
+      color: null,
       description: null,
       sortIndex: 1,
     });
     assert.equal(updated?.name, 'Opening Scene Kit');
+    assert.equal(updated?.kind, 'cast');
+    assert.equal(updated?.color, null);
     assert.equal(updated?.description, null);
 
     await repo.createCollectionItem({

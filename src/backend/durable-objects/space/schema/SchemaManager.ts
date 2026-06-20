@@ -112,6 +112,9 @@ export class SchemaManager {
       CREATE TABLE IF NOT EXISTS space_collections (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'custom'
+          CHECK (kind IN ('cast', 'style_refs', 'backgrounds', 'scenes', 'thumbnails', 'maps', 'deliverables', 'custom')),
+        color TEXT,
         description TEXT,
         sort_index INTEGER NOT NULL DEFAULT 0,
         created_by TEXT NOT NULL,
@@ -457,6 +460,9 @@ export class SchemaManager {
     // Migration: Add normalized production model
     await this.addProductionModel();
 
+    // Migration: Add board metadata to existing collections
+    await this.addCollectionBoardMetadata();
+
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
     // Conversions:
@@ -692,6 +698,25 @@ export class SchemaManager {
         updated_at INTEGER NOT NULL
       );
     `);
+  }
+
+  /**
+   * Add kind/color metadata used by the collection board.
+   */
+  private async addCollectionBoardMetadata(): Promise<void> {
+    const result = await this.sql.exec(`PRAGMA table_info(space_collections)`);
+    const columns = result.toArray() as Array<{ name: string }>;
+    const hasColumn = (name: string) => columns.some(col => col.name === name);
+
+    if (!hasColumn('kind')) {
+      await this.sql.exec(`
+        ALTER TABLE space_collections ADD COLUMN kind TEXT NOT NULL DEFAULT 'custom'
+          CHECK (kind IN ('cast', 'style_refs', 'backgrounds', 'scenes', 'thumbnails', 'maps', 'deliverables', 'custom'));
+      `);
+    }
+    if (!hasColumn('color')) {
+      await this.sql.exec(`ALTER TABLE space_collections ADD COLUMN color TEXT;`);
+    }
   }
 
   /**

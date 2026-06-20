@@ -161,8 +161,8 @@ export const SpaceCollectionQueries = {
   GET_ALL: 'SELECT * FROM space_collections ORDER BY sort_index ASC, created_at ASC',
   GET_BY_ID: 'SELECT * FROM space_collections WHERE id = ?',
   INSERT: `INSERT INTO space_collections
-           (id, name, description, sort_index, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+           (id, name, kind, color, description, sort_index, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   DELETE: 'DELETE FROM space_collections WHERE id = ?',
 } as const;
 

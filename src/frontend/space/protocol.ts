@@ -193,6 +193,43 @@ export interface SpaceRelation {
   updated_at: number;
 }
 
+export type CollectionKind =
+  | 'cast'
+  | 'style_refs'
+  | 'backgrounds'
+  | 'scenes'
+  | 'thumbnails'
+  | 'maps'
+  | 'deliverables'
+  | 'custom';
+
+export interface SpaceCollection {
+  id: string;
+  name: string;
+  kind: CollectionKind;
+  color: string | null;
+  description: string | null;
+  sort_index: number;
+  item_count?: number;
+  created_by?: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface CollectionItem {
+  id: string;
+  collection_id: string;
+  subject_type: 'asset' | 'variant';
+  asset_id: string | null;
+  variant_id: string | null;
+  role: string;
+  pinned_variant_id: string | null;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
 // Rotation & Tile Set types
 
 export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
@@ -622,6 +659,40 @@ export interface AutoDescribeRequestParams {
   variantId: string;
 }
 
+export interface CollectionCreateParams {
+  id?: string;
+  name: string;
+  kind?: CollectionKind;
+  color?: string | null;
+  description?: string | null;
+  sortIndex?: number;
+}
+
+export interface CollectionUpdateParams {
+  name?: string;
+  kind?: CollectionKind;
+  color?: string | null;
+  description?: string | null;
+  sortIndex?: number;
+}
+
+export interface CollectionItemCreateParams {
+  id?: string;
+  collectionId: string;
+  subjectType: 'asset' | 'variant';
+  assetId?: string;
+  variantId?: string;
+  role?: string;
+  pinnedVariantId?: string | null;
+  sortIndex?: number;
+}
+
+export interface CollectionItemUpdateParams {
+  role?: string;
+  pinnedVariantId?: string | null;
+  sortIndex?: number;
+}
+
 // Deferred action from agentic loop (tray operations)
 export interface DeferredAction {
   tool: string;
@@ -781,8 +852,8 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 export type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -795,6 +866,13 @@ export type ServerMessage =
   | { type: 'relation:created'; relation: SpaceRelation }
   | { type: 'relation:updated'; relation: SpaceRelation }
   | { type: 'relation:deleted'; relationId: string }
+  | { type: 'collection:created'; collection: SpaceCollection }
+  | { type: 'collection:updated'; collection: SpaceCollection }
+  | { type: 'collection:deleted'; collectionId: string }
+  | { type: 'collection_item:created'; item: CollectionItem }
+  | { type: 'collection_item:updated'; item: CollectionItem }
+  | { type: 'collection_items:reordered'; collectionId: string; items: CollectionItem[] }
+  | { type: 'collection_item:deleted'; collectionId: string; itemId: string }
   | { type: 'job:progress'; jobId: string; status: string }
   | { type: 'job:completed'; jobId: string; variant: Variant }
   | { type: 'job:failed'; jobId: string; error: string }
@@ -902,6 +980,8 @@ export interface UseSpaceWebSocketReturn {
   variants: Variant[];
   lineage: Lineage[];
   relations: SpaceRelation[];
+  collections: SpaceCollection[];
+  collectionItems: CollectionItem[];
   jobs: Map<string, JobStatus>;
   presence: UserPresence[];
   sendMessage: (msg: object) => void;
@@ -925,6 +1005,13 @@ export interface UseSpaceWebSocketReturn {
     context?: SpaceRelationContext | string | null;
   }) => void;
   deleteRelation: (relationId: string) => void;
+  createCollection: (params: CollectionCreateParams) => void;
+  updateCollection: (collectionId: string, changes: CollectionUpdateParams) => void;
+  deleteCollection: (collectionId: string) => void;
+  addCollectionItem: (params: CollectionItemCreateParams) => void;
+  updateCollectionItem: (collectionId: string, itemId: string, changes: CollectionItemUpdateParams) => void;
+  reorderCollectionItems: (collectionId: string, itemIds: string[]) => void;
+  deleteCollectionItem: (collectionId: string, itemId: string) => void;
   requestSync: () => void;
   requestOverviewSync: () => void;
   trackJob: (jobId: string, context?: JobContext) => void;

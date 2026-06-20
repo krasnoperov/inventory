@@ -135,6 +135,7 @@ export interface SpaceOverviewState {
   assets: Asset[];
   variants: Variant[];
   collections: SpaceCollectionOverview[];
+  collectionItems: CollectionItem[];
   compositions: CompositionOverview[];
   stylePresets: StylePresetPreview[];
   styleReferenceCollections: StyleReferenceCollectionPreview[];
@@ -928,6 +929,8 @@ export class SpaceRepository {
       SELECT
         c.id,
         c.name,
+        c.kind,
+        c.color,
         c.description,
         c.sort_index,
         COUNT(i.id) as item_count,
@@ -949,6 +952,8 @@ export class SpaceRepository {
   async createCollection(data: {
     id: string;
     name: string;
+    kind?: SpaceCollection['kind'];
+    color?: string | null;
     description?: string | null;
     sortIndex?: number;
     createdBy: string;
@@ -958,6 +963,8 @@ export class SpaceRepository {
       SpaceCollectionQueries.INSERT,
       data.id,
       data.name,
+      data.kind ?? 'custom',
+      data.color ?? null,
       data.description ?? null,
       data.sortIndex ?? 0,
       data.createdBy,
@@ -971,6 +978,8 @@ export class SpaceRepository {
     collectionId: string,
     changes: {
       name?: string;
+      kind?: SpaceCollection['kind'];
+      color?: string | null;
       description?: string | null;
       sortIndex?: number;
     }
@@ -983,6 +992,14 @@ export class SpaceRepository {
     if (changes.name !== undefined) {
       updates.push('name = ?');
       values.push(changes.name);
+    }
+    if (changes.kind !== undefined) {
+      updates.push('kind = ?');
+      values.push(changes.kind);
+    }
+    if (changes.color !== undefined) {
+      updates.push('color = ?');
+      values.push(changes.color);
     }
     if (changes.description !== undefined) {
       updates.push('description = ?');
@@ -2359,6 +2376,7 @@ export class SpaceRepository {
       assets,
       overviewVariants,
       collections,
+      collectionItems,
       compositions,
       stylePresets,
       styleReferenceCollections,
@@ -2371,6 +2389,7 @@ export class SpaceRepository {
       this.getAllAssets(),
       this.getOverviewVariants(),
       this.listCollectionOverviews(),
+      this.listAllCollectionItems(),
       this.listCompositionOverviews(),
       this.listStylePresetPreviews(),
       this.listStyleReferenceCollections(),
@@ -2387,10 +2406,14 @@ export class SpaceRepository {
       ...tileSets.flatMap((set) => set.seed_variant_id ? [set.seed_variant_id] : []),
       ...tilePositions.map((position) => position.variant_id),
       ...compositions.flatMap((composition) => composition.output_variant_id ? [composition.output_variant_id] : []),
-    ].filter((variantId) => !variantIds.has(variantId));
+      ...collectionItems.flatMap((item) => [
+        item.variant_id,
+        item.pinned_variant_id,
+      ]),
+    ].filter((variantId): variantId is string => typeof variantId === 'string' && !variantIds.has(variantId));
     const referencedVariants = await this.getVariantsByIds(referencedVariantIds);
     const variants = [...overviewVariants, ...referencedVariants.filter((variant) => !variantIds.has(variant.id))];
-    return { assets, variants, collections, compositions, stylePresets, styleReferenceCollections, rotationSets, rotationViews, tileSets, tilePositions, style };
+    return { assets, variants, collections, collectionItems, compositions, stylePresets, styleReferenceCollections, rotationSets, rotationViews, tileSets, tilePositions, style };
   }
 
   // ==========================================================================

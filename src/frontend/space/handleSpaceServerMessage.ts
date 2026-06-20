@@ -13,6 +13,8 @@ export interface SpaceMessageContext {
   setVariants: SpaceSessionState['setVariants'];
   setLineage: SpaceSessionState['setLineage'];
   setRelations: SpaceSessionState['setRelations'];
+  setCollections: SpaceSessionState['setCollections'];
+  setCollectionItems: SpaceSessionState['setCollectionItems'];
   setJobs: SpaceSessionState['setJobs'];
   setPresence: SpaceSessionState['setPresence'];
   setRotationSets: SpaceSessionState['setRotationSets'];
@@ -37,6 +39,8 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     setVariants,
     setLineage,
     setRelations,
+    setCollections,
+    setCollectionItems,
     setJobs,
     setPresence,
     setRotationSets,
@@ -98,6 +102,8 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setVariants(message.variants);
                 setLineage(message.lineage || []);
                 setRelations(message.relations || []);
+                setCollections(message.collections || []);
+                setCollectionItems(message.collectionItems || []);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
@@ -121,7 +127,9 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setAssets(message.assets);
                 setVariants(message.variants);
                 setLineage([]);
-                setRelations([]);
+                setRelations(message.relations || []);
+                setCollections(message.collections || []);
+                setCollectionItems(message.collectionItems || []);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
@@ -236,6 +244,57 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
 
               case 'relation:deleted':
                 setRelations((prev) => prev.filter((relation) => relation.id !== message.relationId));
+                break;
+
+              case 'collection:created':
+                setCollections((prev) => (
+                  prev.some((collection) => collection.id === message.collection.id)
+                    ? prev
+                    : [...prev, message.collection].sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at)
+                ));
+                break;
+
+              case 'collection:updated':
+                setCollections((prev) =>
+                  prev
+                    .map((collection) => collection.id === message.collection.id ? message.collection : collection)
+                    .sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at)
+                );
+                break;
+
+              case 'collection:deleted':
+                setCollections((prev) => prev.filter((collection) => collection.id !== message.collectionId));
+                setCollectionItems((prev) => prev.filter((item) => item.collection_id !== message.collectionId));
+                break;
+
+              case 'collection_item:created':
+                setCollectionItems((prev) => (
+                  prev.some((item) => item.id === message.item.id)
+                    ? prev
+                    : [...prev, message.item].sort((a, b) => a.collection_id.localeCompare(b.collection_id) || a.sort_index - b.sort_index || a.created_at - b.created_at)
+                ));
+                break;
+
+              case 'collection_item:updated':
+                setCollectionItems((prev) =>
+                  prev
+                    .map((item) => item.id === message.item.id ? message.item : item)
+                    .sort((a, b) => a.collection_id.localeCompare(b.collection_id) || a.sort_index - b.sort_index || a.created_at - b.created_at)
+                );
+                break;
+
+              case 'collection_items:reordered':
+                setCollectionItems((prev) => {
+                  const reorderedIds = new Set(message.items.map((item) => item.id));
+                  return [
+                    ...prev.filter((item) => item.collection_id !== message.collectionId || !reorderedIds.has(item.id)),
+                    ...message.items,
+                  ].sort((a, b) => a.collection_id.localeCompare(b.collection_id) || a.sort_index - b.sort_index || a.created_at - b.created_at);
+                });
+                break;
+
+              case 'collection_item:deleted':
+                setCollectionItems((prev) => prev.filter((item) => item.id !== message.itemId));
                 break;
 
               case 'job:progress':

@@ -1,16 +1,18 @@
 import { create } from 'zustand';
 import type {
   Asset,
+  CollectionItem,
   ConnectionStatus,
   JobStatus,
   Lineage,
   RotationSet,
   RotationView,
-  SpaceRelation,
   TilePosition,
   TileSet,
   UserPresence,
   Variant,
+  SpaceCollection,
+  SpaceRelation,
 } from './protocol';
 import type { SpaceStateSnapshot } from './spaceSnapshots';
 
@@ -29,6 +31,8 @@ export interface SpaceSessionState {
   variants: Variant[];
   lineage: Lineage[];
   relations: SpaceRelation[];
+  collections: SpaceCollection[];
+  collectionItems: CollectionItem[];
   jobs: Map<string, JobStatus>;
   presence: UserPresence[];
   rotationSets: RotationSet[];
@@ -43,6 +47,8 @@ export interface SpaceSessionState {
   setVariants: (updater: StateUpdater<Variant[]>) => void;
   setLineage: (updater: StateUpdater<Lineage[]>) => void;
   setRelations: (updater: StateUpdater<SpaceRelation[]>) => void;
+  setCollections: (updater: StateUpdater<SpaceCollection[]>) => void;
+  setCollectionItems: (updater: StateUpdater<CollectionItem[]>) => void;
   setJobs: (updater: StateUpdater<Map<string, JobStatus>>) => void;
   setPresence: (updater: StateUpdater<UserPresence[]>) => void;
   setRotationSets: (updater: StateUpdater<RotationSet[]>) => void;
@@ -60,6 +66,8 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
   variants: [],
   lineage: [],
   relations: [],
+  collections: [],
+  collectionItems: [],
   jobs: new Map(),
   presence: [],
   rotationSets: [],
@@ -75,6 +83,8 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
     variants: snapshot?.variants ?? [],
     lineage: snapshot?.lineage ?? [],
     relations: snapshot?.relations ?? [],
+    collections: snapshot?.collections ?? [],
+    collectionItems: snapshot?.collectionItems ?? [],
     presence: snapshot?.presence ?? [],
     rotationSets: snapshot?.rotationSets ?? [],
     rotationViews: snapshot?.rotationViews ?? [],
@@ -89,6 +99,8 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
   setVariants: (updater) => set((state) => ({ variants: resolveStateUpdater(state.variants, updater) })),
   setLineage: (updater) => set((state) => ({ lineage: resolveStateUpdater(state.lineage, updater) })),
   setRelations: (updater) => set((state) => ({ relations: resolveStateUpdater(state.relations, updater) })),
+  setCollections: (updater) => set((state) => ({ collections: resolveStateUpdater(state.collections, updater) })),
+  setCollectionItems: (updater) => set((state) => ({ collectionItems: resolveStateUpdater(state.collectionItems, updater) })),
   setJobs: (updater) => set((state) => ({ jobs: resolveStateUpdater(state.jobs, updater) })),
   setPresence: (updater) => set((state) => ({ presence: resolveStateUpdater(state.presence, updater) })),
   setRotationSets: (updater) => set((state) => ({ rotationSets: resolveStateUpdater(state.rotationSets, updater) })),
@@ -101,6 +113,8 @@ export const EMPTY_ASSETS: Asset[] = [];
 export const EMPTY_VARIANTS: Variant[] = [];
 export const EMPTY_LINEAGE: Lineage[] = [];
 export const EMPTY_RELATIONS: SpaceRelation[] = [];
+export const EMPTY_COLLECTIONS: SpaceCollection[] = [];
+export const EMPTY_COLLECTION_ITEMS: CollectionItem[] = [];
 export const EMPTY_JOBS = new Map<string, JobStatus>();
 export const EMPTY_PRESENCE: UserPresence[] = [];
 export const EMPTY_ROTATION_SETS: RotationSet[] = [];

@@ -60,6 +60,7 @@ export class SyncController extends BaseController {
       variants: state.variants,
       presence,
       collections: state.collections,
+      collectionItems: state.collectionItems,
       compositions: state.compositions,
       rotationSets: state.rotationSets,
       rotationViews: state.rotationViews,

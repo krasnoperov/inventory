@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import type { UseSpaceWebSocketParams, UseSpaceWebSocketReturn } from './protocol';
 import {
   EMPTY_ASSETS,
+  EMPTY_COLLECTION_ITEMS,
+  EMPTY_COLLECTIONS,
   EMPTY_JOBS,
   EMPTY_LINEAGE,
   EMPTY_PRESENCE,
@@ -93,6 +95,8 @@ export function useSpaceWebSocket({
   const rawVariants = useSpaceSessionStore((state) => state.variants);
   const rawLineage = useSpaceSessionStore((state) => state.lineage);
   const rawRelations = useSpaceSessionStore((state) => state.relations);
+  const rawCollections = useSpaceSessionStore((state) => state.collections);
+  const rawCollectionItems = useSpaceSessionStore((state) => state.collectionItems);
   const rawJobs = useSpaceSessionStore((state) => state.jobs);
   const rawPresence = useSpaceSessionStore((state) => state.presence);
   const rawRotationSets = useSpaceSessionStore((state) => state.rotationSets);
@@ -109,6 +113,8 @@ export function useSpaceWebSocket({
   const variants = ownsState ? rawVariants : EMPTY_VARIANTS;
   const lineage = ownsState ? rawLineage : EMPTY_LINEAGE;
   const relations = ownsState ? rawRelations : EMPTY_RELATIONS;
+  const collections = ownsState ? rawCollections : EMPTY_COLLECTIONS;
+  const collectionItems = ownsState ? rawCollectionItems : EMPTY_COLLECTION_ITEMS;
   const jobs = ownsState ? rawJobs : EMPTY_JOBS;
   const presence = ownsState ? rawPresence : EMPTY_PRESENCE;
   const rotationSets = ownsState ? rawRotationSets : EMPTY_ROTATION_SETS;
@@ -132,6 +138,13 @@ export function useSpaceWebSocket({
     createRelation,
     updateRelation,
     deleteRelation,
+    createCollection,
+    updateCollection,
+    deleteCollection,
+    addCollectionItem,
+    updateCollectionItem,
+    reorderCollectionItems,
+    deleteCollectionItem,
     requestSync,
     requestOverviewSync,
     trackJob,
@@ -238,6 +251,8 @@ export function useSpaceWebSocket({
     variants,
     lineage,
     relations,
+    collections,
+    collectionItems,
     jobs,
     presence,
     sendMessage,
@@ -253,6 +268,13 @@ export function useSpaceWebSocket({
     createRelation,
     updateRelation,
     deleteRelation,
+    createCollection,
+    updateCollection,
+    deleteCollection,
+    addCollectionItem,
+    updateCollectionItem,
+    reorderCollectionItems,
+    deleteCollectionItem,
     requestSync,
     requestOverviewSync,
     trackJob,

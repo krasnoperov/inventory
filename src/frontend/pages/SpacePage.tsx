@@ -32,8 +32,7 @@ import {
 } from '../components/CanvasToolbar';
 import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
-import { AssetCanvas, layoutAlgorithms, type LayoutAlgorithm } from '../components/AssetCanvas';
-import { HyperbolicCanvas } from '../components/HyperbolicCanvas';
+import { SpaceBoard } from '../components/SpaceBoard';
 import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -115,6 +114,8 @@ export default function SpacePage() {
     hasSynced,
     assets,
     variants,
+    collections,
+    collectionItems,
     jobs,
     requestOverviewSync,
     clearJob,
@@ -124,8 +125,14 @@ export default function SpacePage() {
     requestChatHistory,
     clearChatSession,
     forkAsset,
-    updateAsset,
     createRelation,
+    createCollection,
+    updateCollection,
+    deleteCollection,
+    addCollectionItem,
+    updateCollectionItem,
+    reorderCollectionItems,
+    deleteCollectionItem,
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,
@@ -230,12 +237,6 @@ export default function SpacePage() {
   const [showStylePanel, setShowStylePanel] = useState(false);
   const currentStyle = useStyleStore((s) => s.style);
 
-  // Layout algorithm state
-  const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('dagre');
-
-  // Canvas view mode: React Flow graph vs. hyperbolic Poincaré-disk (prototype)
-  const [viewMode, setViewMode] = useState<'flow' | 'hyperbolic'>('flow');
-
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -280,11 +281,6 @@ export default function SpacePage() {
     addTemporaryUserMessage(content);
     sendPersistentChatMessage(content, forgeContext);
   }, [sendPersistentChatMessage, addTemporaryUserMessage]);
-
-  // Handle asset reparenting via drag-and-drop on canvas
-  const handleReparent = useCallback((childAssetId: string, newParentAssetId: string | null) => {
-    updateAsset(childAssetId, { parentAssetId: newParentAssetId });
-  }, [updateAsset]);
 
   const handleCreateRelation = useCallback((params: {
     subject: SpaceSubject;
@@ -424,34 +420,27 @@ export default function SpacePage() {
 
       {/* Full-screen canvas container */}
       <div className={styles.canvasContainer}>
-        {/* Asset Canvas - fills entire container */}
-        {viewMode === 'hyperbolic' ? (
-          <HyperbolicCanvas
-            spaceId={spaceId}
-            assets={assets}
-            variants={variants}
-            jobs={jobs}
-            isInitialSyncPending={!hasSynced}
-            onAssetClick={(clickedAsset) => {
-              navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
-            }}
-          />
-        ) : (
-          <AssetCanvas
-            spaceId={spaceId}
-            assets={assets}
-            variants={variants}
-            jobs={jobs}
-            isInitialSyncPending={!hasSynced}
-            onAssetClick={(clickedAsset) => {
-              navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
-            }}
-            onAddToTray={canEdit ? handleAddToTray : undefined}
-            onCreateRelation={canEdit ? setRelationSubject : undefined}
-            onReparent={canEdit ? handleReparent : undefined}
-            layoutAlgorithm={layoutAlgorithm}
-          />
-        )}
+        <SpaceBoard
+          spaceId={spaceId || ''}
+          assets={assets}
+          variants={variants}
+          collections={collections}
+          collectionItems={collectionItems}
+          canEdit={canEdit}
+          isInitialSyncPending={!hasSynced}
+          onAssetClick={(clickedAsset) => {
+            navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
+          }}
+          onAddToTray={canEdit ? handleAddToTray : undefined}
+          onCreateRelation={canEdit ? setRelationSubject : undefined}
+          createCollection={createCollection}
+          updateCollection={updateCollection}
+          deleteCollection={deleteCollection}
+          addCollectionItem={addCollectionItem}
+          updateCollectionItem={updateCollectionItem}
+          reorderCollectionItems={reorderCollectionItems}
+          deleteCollectionItem={deleteCollectionItem}
+        />
 
         <CanvasToolbar ariaLabel="Space controls">
           <CanvasToolbarTitle>
@@ -488,32 +477,6 @@ export default function SpacePage() {
               {assets.length}
             </CanvasToolbarStat>
             {wsStatus === 'connected' && <CanvasToolbarLive />}
-          </CanvasToolbarGroup>
-          <CanvasToolbarDivider />
-          {/* Layout switcher (only for the React Flow view) */}
-          {viewMode === 'flow' && (
-            <CanvasToolbarGroup className={styles.layoutSwitcher}>
-              {layoutAlgorithms.map((algo) => (
-                <CanvasToolbarButton
-                  key={algo.id}
-                  active={layoutAlgorithm === algo.id}
-                  onClick={() => setLayoutAlgorithm(algo.id)}
-                  title={`${algo.name}: ${algo.description}`}
-                >
-                  {algo.icon}
-                </CanvasToolbarButton>
-              ))}
-            </CanvasToolbarGroup>
-          )}
-          {/* View-mode toggle: flat graph vs. hyperbolic disk (prototype) */}
-          <CanvasToolbarGroup className={styles.layoutSwitcher}>
-            <CanvasToolbarButton
-              active={viewMode === 'hyperbolic'}
-              onClick={() => setViewMode((m) => (m === 'hyperbolic' ? 'flow' : 'hyperbolic'))}
-              title="Toggle hyperbolic (Poincaré-disk) view"
-            >
-              ◉
-            </CanvasToolbarButton>
           </CanvasToolbarGroup>
           <CanvasToolbarDivider />
           <CanvasToolbarButton
@@ -669,17 +632,6 @@ export default function SpacePage() {
         />
       )}
 
-      {relationSubject && (
-        <RelationEditorDialog
-          mode="create"
-          assets={assets}
-          variants={variants}
-          sourceSubject={relationSubject}
-          onCancel={() => setRelationSubject(null)}
-          onCreate={handleCreateRelation}
-        />
-      )}
-
       {/* Style Panel - floating panel from toolbar */}
       {showStylePanel && spaceId && (
         <div className={styles.stylePanelContainer}>
@@ -691,6 +643,16 @@ export default function SpacePage() {
             sendStyleToggle={sendStyleToggle}
           />
         </div>
+      )}
+      {relationSubject && (
+        <RelationEditorDialog
+          mode="create"
+          sourceSubject={relationSubject}
+          assets={assets}
+          variants={variants}
+          onCreate={handleCreateRelation}
+          onCancel={() => setRelationSubject(null)}
+        />
       )}
     </div>
   );
