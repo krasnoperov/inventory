@@ -71,7 +71,7 @@ export interface InternalApiControllers {
   };
   variant: {
     httpApplyVariant(data: {
-      jobId: string;
+      jobId: string | null;
       variantId: string;
       assetId: string;
       imageKey: string;

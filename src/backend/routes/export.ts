@@ -87,7 +87,9 @@ interface ExportRelation {
   objectAssetId: string | null;
   objectVariantId: string | null;
   relationType: string;
+  label: string | null;
   context: string | null;
+  metadata: unknown;
   sortIndex: number;
 }
 
@@ -106,6 +108,7 @@ interface ExportCompositionItem {
   id: string;
   compositionId: string;
   role: string;
+  label: string | null;
   assetId: string | null;
   variantId: string;
   metadata: unknown;
@@ -256,6 +259,9 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
 
 function validateManifestMetadata(manifest: ExportManifest): string | null {
   try {
+    for (const relation of optionalArray(manifest.relations)) {
+      parseMetadataObject(relation.metadata, `Relation ${relation.id} metadata`);
+    }
     for (const composition of optionalArray(manifest.compositions)) {
       parseMetadataObject(composition.metadata, `Composition ${composition.id} metadata`);
     }
@@ -358,7 +364,9 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       object_asset_id: string | null;
       object_variant_id: string | null;
       relation_type: string;
+      label?: string | null;
       context: string | null;
+      metadata?: string;
       sort_index: number;
     }>;
     compositions?: Array<{
@@ -375,6 +383,7 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       id: string;
       composition_id: string;
       role: string;
+      label?: string | null;
       asset_id: string | null;
       variant_id: string;
       metadata: string;
@@ -424,7 +433,9 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       objectAssetId: relation.object_asset_id,
       objectVariantId: relation.object_variant_id,
       relationType: relation.relation_type,
+      label: relation.label ?? null,
       context: relation.context,
+      metadata: parseJsonForManifest(relation.metadata),
       sortIndex: relation.sort_index,
     })),
     compositions: (state.compositions || []).map(composition => ({
@@ -441,6 +452,7 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       id: item.id,
       compositionId: item.composition_id,
       role: item.role,
+      label: item.label ?? null,
       assetId: item.asset_id,
       variantId: item.variant_id,
       metadata: parseJsonForManifest(item.metadata),
@@ -821,7 +833,9 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
           `Relation ${relation.id} object`
         ),
         relationType: relation.relationType,
+        label: relation.label ?? null,
         context: relation.context,
+        metadata: parseMetadataObject(relation.metadata, `Relation ${relation.id} metadata`),
         sortIndex: relation.sortIndex,
         createdBy: userId,
       }),
@@ -862,6 +876,7 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
       body: JSON.stringify({
         id: newItemId,
         role: item.role,
+        label: item.label ?? null,
         assetId: requireMappedId(assetIdMap, item.assetId, `Composition item ${item.id} assetId`),
         variantId: requireMappedId(variantIdMap, item.variantId, `Composition item ${item.id} variantId`),
         metadata: parseMetadataObject(item.metadata, `Composition item ${item.id} metadata`),

@@ -180,8 +180,8 @@ export const SpaceRelationQueries = {
   GET_ALL: 'SELECT * FROM space_relations ORDER BY sort_index ASC, created_at ASC',
   GET_BY_ID: 'SELECT * FROM space_relations WHERE id = ?',
   INSERT: `INSERT INTO space_relations
-           (id, subject_type, subject_asset_id, subject_variant_id, object_type, object_asset_id, object_variant_id, relation_type, context, sort_index, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, subject_type, subject_asset_id, subject_variant_id, object_type, object_asset_id, object_variant_id, relation_type, label, context, metadata, sort_index, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   DELETE: 'DELETE FROM space_relations WHERE id = ?',
 } as const;
 
@@ -199,8 +199,8 @@ export const CompositionItemQueries = {
   GET_BY_ID: 'SELECT * FROM composition_items WHERE id = ?',
   GET_BY_COMPOSITION: 'SELECT * FROM composition_items WHERE composition_id = ? ORDER BY sort_index ASC, created_at ASC',
   INSERT: `INSERT INTO composition_items
-           (id, composition_id, role, asset_id, variant_id, metadata, sort_index, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, composition_id, role, label, asset_id, variant_id, metadata, sort_index, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   DELETE: 'DELETE FROM composition_items WHERE id = ?',
 } as const;
 

@@ -78,14 +78,18 @@ interface RelationInput {
   subject?: SubjectInput;
   object?: SubjectInput;
   relationType?: unknown;
+  label?: unknown;
   context?: unknown;
+  metadata?: unknown;
   sortIndex?: unknown;
   createdBy?: unknown;
 }
 
 interface RelationUpdateInput {
   relationType?: unknown;
+  label?: unknown;
   context?: unknown;
+  metadata?: unknown;
   sortIndex?: unknown;
 }
 
@@ -114,6 +118,7 @@ interface CompositionUpdateInput {
 interface CompositionItemInput {
   id?: unknown;
   role?: unknown;
+  label?: unknown;
   assetId?: unknown;
   variantId?: unknown;
   metadata?: unknown;
@@ -123,6 +128,7 @@ interface CompositionItemInput {
 
 interface CompositionItemUpdateInput {
   role?: unknown;
+  label?: unknown;
   assetId?: unknown;
   variantId?: unknown;
   metadata?: unknown;
@@ -448,7 +454,9 @@ export class OrganizationController extends BaseController {
       subject,
       object,
       relationType: normalizeRelationType(data.relationType),
+      label: normalizeOptionalString(data.label),
       context: data.context === undefined ? null : normalizeNullableStringOrJson(data.context, 'context'),
+      metadata: normalizeMetadata(data.metadata),
       sortIndex: normalizeOptionalInteger(data.sortIndex, 'sortIndex') ?? 0,
       createdBy: normalizeRequiredString(data.createdBy, 'createdBy'),
     });
@@ -457,7 +465,9 @@ export class OrganizationController extends BaseController {
   private async updateRelation(relationId: string, data: RelationUpdateInput): Promise<SpaceRelation> {
     const relation = await this.repo.updateRelation(normalizeRequiredString(relationId, 'relationId'), {
       relationType: data.relationType === undefined ? undefined : normalizeRelationType(data.relationType),
+      label: data.label === undefined ? undefined : normalizeOptionalString(data.label),
       context: data.context === undefined ? undefined : normalizeNullableStringOrJson(data.context, 'context'),
+      metadata: data.metadata === undefined ? undefined : normalizeMetadata(data.metadata),
       sortIndex: data.sortIndex === undefined ? undefined : normalizeInteger(data.sortIndex, 'sortIndex'),
     });
     if (!relation) {
@@ -524,6 +534,7 @@ export class OrganizationController extends BaseController {
       id: normalizeOptionalString(data.id) ?? crypto.randomUUID(),
       compositionId,
       role: normalizeCompositionRole(data.role),
+      label: normalizeOptionalString(data.label),
       variantId: variant.id,
       assetId,
       metadata: normalizeMetadata(data.metadata),
@@ -543,6 +554,7 @@ export class OrganizationController extends BaseController {
       : await this.normalizeCompositionItemAsset(data.assetId, referenceAssetId);
     const item = await this.repo.updateCompositionItem(existing.id, {
       role: data.role === undefined ? undefined : normalizeCompositionRole(data.role),
+      label: data.label === undefined ? undefined : normalizeOptionalString(data.label),
       variantId: variant?.id,
       assetId,
       metadata: data.metadata === undefined ? undefined : normalizeMetadata(data.metadata),

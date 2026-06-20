@@ -600,6 +600,28 @@ describe('VariantController', () => {
       assert.strictEqual(broadcasts.filter((b) => b.type === 'variant:created').length, 0);
     });
 
+    test('creates import variants without workflow idempotency lookup', async () => {
+      const getVariantByWorkflowId = mock.fn(async () => {
+        throw new Error('workflow id lookup should not run without a workflow id');
+      });
+      const { ctx } = createMockContext({ getVariantByWorkflowId });
+      const controller = new VariantController(ctx);
+
+      const result = await controller.httpApplyVariant({
+        jobId: null,
+        variantId: 'import-var',
+        assetId: 'asset-1',
+        imageKey: 'images/import.png',
+        thumbKey: 'thumbs/import.png',
+        recipe: '{"type":"import"}',
+        createdBy: 'user-1',
+      });
+
+      assert.strictEqual(result.created, true);
+      assert.strictEqual(result.variant.workflow_id, null);
+      assert.strictEqual(getVariantByWorkflowId.mock.calls.length, 0);
+    });
+
     test('creates lineage records when parent variants specified', async () => {
       const { ctx, broadcasts } = createMockContext({
         getVariantByWorkflowId: mock.fn(async () => null),

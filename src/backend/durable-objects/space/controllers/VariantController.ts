@@ -98,7 +98,7 @@ export class VariantController extends BaseController {
    * Idempotently applies a variant from a workflow job.
    */
   async httpApplyVariant(data: {
-    jobId: string;
+    jobId: string | null;
     variantId: string;
     assetId: string;
     imageKey: string | null;
@@ -492,7 +492,7 @@ export class VariantController extends BaseController {
    * will be created upfront and this will be replaced by httpCompleteVariant.
    */
   private async applyVariant(data: {
-    jobId: string;
+    jobId: string | null;
     variantId: string;
     assetId: string;
     imageKey: string | null;
@@ -521,7 +521,7 @@ export class VariantController extends BaseController {
     providerMetadata?: Record<string, unknown> | string | null;
   }): Promise<{ created: boolean; variant: Variant }> {
     // Check if variant already exists (idempotency via workflowId/jobId)
-    const existing = await this.repo.getVariantByWorkflowId(data.jobId);
+    const existing = data.jobId ? await this.repo.getVariantByWorkflowId(data.jobId) : null;
     if (existing) {
       return { created: false, variant: existing };
     }

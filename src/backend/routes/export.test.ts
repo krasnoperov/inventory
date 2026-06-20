@@ -296,7 +296,9 @@ describe('exportRoutes', () => {
           object_asset_id: null,
           object_variant_id: 'variant-2',
           relation_type: 'reference_for',
+          label: 'Paintover source',
           context: '{"label":"paintover"}',
+          metadata: '{"confidence":"approved"}',
           sort_index: 6,
         }],
         compositions: [{
@@ -313,6 +315,7 @@ describe('exportRoutes', () => {
           id: 'composition-item-1',
           composition_id: 'composition-1',
           role: 'output',
+          label: 'Final frame',
           asset_id: 'asset-1',
           variant_id: 'variant-2',
           metadata: '{"layer":"final"}',
@@ -346,7 +349,10 @@ describe('exportRoutes', () => {
     assert.equal(manifest.collections[0].name, 'Opening Kit');
     assert.equal(manifest.collectionItems[0].pinnedVariantId, 'variant-2');
     assert.equal(manifest.relations[0].relationType, 'reference_for');
+    assert.equal(manifest.relations[0].label, 'Paintover source');
+    assert.deepEqual(manifest.relations[0].metadata, { confidence: 'approved' });
     assert.deepEqual(manifest.compositions[0].metadata, { shot: '010' });
+    assert.equal(manifest.compositionItems[0].label, 'Final frame');
     assert.deepEqual(manifest.compositionItems[0].metadata, { layer: 'final' });
   });
 
@@ -490,7 +496,9 @@ describe('exportRoutes', () => {
         objectAssetId: null,
         objectVariantId: 'variant-child',
         relationType: 'reference_for',
+        label: 'Paintover source',
         context: '{"label":"paintover"}',
+        metadata: { confidence: 'approved' },
         sortIndex: 3,
       }],
       compositions: [{
@@ -507,6 +515,7 @@ describe('exportRoutes', () => {
         id: 'composition-item-source',
         compositionId: 'composition-source',
         role: 'output',
+        label: 'Final frame',
         assetId: 'asset-source',
         variantId: 'variant-child',
         metadata: { layer: 'final' },
@@ -568,7 +577,9 @@ describe('exportRoutes', () => {
     assert.deepEqual(relationCall.body!.subject, { subjectType: 'asset', assetId });
     assert.deepEqual(relationCall.body!.object, { subjectType: 'variant', variantId: childVariantId });
     assert.equal(relationCall.body!.relationType, 'reference_for');
+    assert.equal(relationCall.body!.label, 'Paintover source');
     assert.equal(relationCall.body!.context, '{"label":"paintover"}');
+    assert.deepEqual(relationCall.body!.metadata, { confidence: 'approved' });
 
     const compositionCall = doCalls.find((call) => call.path === '/internal/compositions')!;
     assert.equal(compositionCall.body!.outputAssetId, assetId);
@@ -579,6 +590,7 @@ describe('exportRoutes', () => {
     assert.equal(compositionItemCall.body!.assetId, assetId);
     assert.equal(compositionItemCall.body!.variantId, childVariantId);
     assert.equal(compositionItemCall.body!.role, 'output');
+    assert.equal(compositionItemCall.body!.label, 'Final frame');
     assert.deepEqual(compositionItemCall.body!.metadata, { layer: 'final' });
   });
 
