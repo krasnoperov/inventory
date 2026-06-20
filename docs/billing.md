@@ -125,8 +125,8 @@ Additional optional guardrail keys are local platform controls:
 
 | Key | Unit | Scope |
 |-----|------|-------|
-| `managed_provider_spend_micro_usd` | micro-USD | Account billing period provider spend for managed generation. |
-| `managed_provider_spend_daily_micro_usd` | micro-USD | Account UTC-day provider spend for managed generation. |
+| `managed_provider_spend_micro_usd` | micro-USD | Account billing period provider cost for managed generation. |
+| `managed_provider_spend_daily_micro_usd` | micro-USD | Account UTC-day provider cost for managed generation. |
 | `platform_storage_bytes` | byte | Account billing period platform storage. |
 | `platform_workflow_runs` | run | Account billing period workflow starts. |
 | `platform_delivery_bytes` | byte | Account billing period authenticated media delivery. |
@@ -215,14 +215,14 @@ estimatedCost: { amount, currency } | undefined
 3. **Retry**: Cron job syncs pending events (max 3 attempts)
 4. **Eventual consistency**: User requests never blocked by sync failures
 
-## Provider Spend Ledger
+## Provider Cost Ledger
 
 `usage_events` remains the customer-metering source of truth synced to Polar.
-Provider-side spend attribution is stored separately in `provider_usage_ledger`
+Provider-side cost attribution is stored separately in `provider_usage_ledger`
 so raw provider cost can be reconciled without changing customer meter totals.
 Each row has a unique `attribution_key` plus optional keys for `usage_event_id`,
 `space_id`, `asset_id`, `variant_id`, `workflow_id`, `request_id`, and provider
-request/usage IDs. Total spend is stored as integer micro-USD.
+request/usage IDs. Total provider cost is stored as integer micro-USD.
 
 Provider price resolution lives in `src/backend/billing/providerPricing.ts`.
 `ACTIVE_PROVIDER_PRICE_CATALOG` is the active versioned price snapshot, and
@@ -254,7 +254,7 @@ against internal activity.
 
 When provider attribution exists, the customer charge row is linked to the
 matching `provider_usage_ledger` row through `provider_usage_ledger_id`. This
-keeps customer metering, Polar sync, and raw provider spend reconcilable without
+keeps customer metering, Polar sync, and raw provider cost reconcilable without
 making provider cost the source of truth for customer charges.
 
 ## Operational Checks
