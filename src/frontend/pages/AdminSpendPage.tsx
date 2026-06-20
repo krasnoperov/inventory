@@ -81,7 +81,7 @@ function spendErrorMessage(error: unknown): string | null {
   if (error instanceof ApiFetchError && error.status === 403) {
     return 'Admin access required';
   }
-  return error instanceof Error ? error.message : 'Failed to load spend analytics';
+  return error instanceof Error ? error.message : 'Failed to load provider cost analytics';
 }
 
 function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
@@ -97,7 +97,7 @@ function Stat({ label, value, detail }: { label: string; value: string; detail?:
 function EmptyRows({ columns }: { columns: number }) {
   return (
     <tr>
-      <td colSpan={columns} className={styles.emptyCell}>No spend rows</td>
+      <td colSpan={columns} className={styles.emptyCell}>No provider cost rows</td>
     </tr>
   );
 }
@@ -126,7 +126,7 @@ function SpendTable({
           <thead>
             <tr>
               <th>{labelHeader}</th>
-              <th>Spend</th>
+              <th>Provider cost</th>
               <th>Quantity</th>
               <th>Entries</th>
               <th>Unpriced</th>
@@ -162,7 +162,7 @@ export default function AdminSpendPage() {
   const [draftFilters, setDraftFilters] = useState<AdminSpendFilters>(filters);
   const spendQuery = useQuery(adminSpendQueryOptions(filters));
 
-  useDocumentTitle('Admin Spend');
+  useDocumentTitle('Admin Provider Cost');
 
   useEffect(() => {
     if (!user) {
@@ -220,7 +220,7 @@ export default function AdminSpendPage() {
           <div className={styles.header}>
             <div>
               <p className={styles.kicker}>Admin</p>
-              <h1>Provider Spend</h1>
+              <h1>Provider Cost</h1>
             </div>
             <div className={styles.period}>{summary ? formatPeriod(summary.period) : 'Loading'}</div>
           </div>
@@ -288,7 +288,7 @@ export default function AdminSpendPage() {
             <>
               <section className={styles.statsGrid}>
                 <Stat
-                  label="Total spend"
+                  label="Provider cost"
                   value={formatUsd(summary.totals.amountMicroUsd)}
                   detail={`${formatNumber(summary.totals.quantity)} units`}
                 />

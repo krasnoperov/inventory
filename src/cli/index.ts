@@ -268,7 +268,7 @@ Project:
   productions export --production-id <id>
                                  Export production scene args from Space records
   usage [summary] [--space <id>] Show platform storage and workflow consumption
-  spend [summary]               Show admin provider spend summary
+  spend [summary]               Show admin provider cost summary
 
 Billing (Polar.sh):
   billing status               Show sync status (pending, failed, synced events)
@@ -778,13 +778,13 @@ Usage:
   makefx spend --json
 
 Options:
-  --from <date>        Include spend at or after this date or ISO timestamp
-  --to <date>          Include spend at or before this date or ISO timestamp
+  --from <date>        Include provider cost at or after this date or ISO timestamp
+  --to <date>          Include provider cost at or before this date or ISO timestamp
   --user-id <id>       Filter to one user ID
   --space-id <id>      Filter to one space ID
   --space <id>         Alias for --space-id
   --provider <name>    Filter to one provider
-  --media-kind <kind>  Filter to image, audio, or video spend
+  --media-kind <kind>  Filter to image, audio, or video provider cost
   --json               Print machine-readable output
   --env <env>          Environment (production|stage|local)
   --local              Shortcut for --env local

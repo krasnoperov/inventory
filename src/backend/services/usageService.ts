@@ -622,7 +622,7 @@ export class UsageService {
         rateLimitRemaining,
         rateLimitResetsAt,
         denyReason: 'quota_exceeded',
-        denyMessage: `Monthly quota exceeded for ${service}. Please upgrade your plan.`,
+        denyMessage: `Current-period quota exceeded for ${service}. Review billing in Profile.`,
       };
     }
 

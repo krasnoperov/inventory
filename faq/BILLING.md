@@ -2,13 +2,17 @@
 
 ## How does billing work?
 
-We use a **usage-based billing model** powered by [Polar](https://polar.sh). This means you only pay for what you use, with clear limits and transparent tracking.
+Make Effects supports two generation paths:
 
-### Your Plan Includes:
+- **Paid Generation** uses the hosted Make Effects provider configuration and is managed through [Polar](https://polar.sh).
+- **BYOK** uses provider keys you add in your Profile. Provider usage is billed by that provider account, while Make Effects still applies platform guardrails such as workflow, storage, delivery, video, and rate limits.
 
-- **Monthly usage allowances** for AI features (Claude chat, image generation)
+### Paid Generation Includes:
+
+- **Current-period usage meters** for AI features such as Claude tokens, Gemini image/video/audio usage, and ElevenLabs audio usage
 - **Real-time usage tracking** so you always know where you stand
-- **Automatic renewal** at the start of each billing cycle
+- **Automatic renewal** while your subscription is active
+- **Access through the Polar checkout and customer portal**
 
 ---
 
@@ -19,9 +23,10 @@ We use a **usage-based billing model** powered by [Polar](https://polar.sh). Thi
 Visit your **Profile** page to view the **Billing** section. Here you'll find:
 
 - Your current plan name
-- Usage meters showing how much you've consumed vs. your limit
+- Usage meters showing how much you've consumed and, when your plan has a finite meter credit, the current-period limit
 - Visual progress bars with color-coded status
-- Your renewal date
+- Your renewal or access-end date when a subscription is active
+- Estimated provider cost for usage attribution. This is not the same thing as your customer invoice.
 
 ### What do the usage colors mean?
 
@@ -35,10 +40,10 @@ Visit your **Profile** page to view the **Billing** section. Here you'll find:
 ### What happens when I reach my limit?
 
 When you hit your usage limit, that feature will be temporarily unavailable until:
-- Your billing cycle resets (usage allowances renew monthly), or
-- You upgrade to a higher tier with more allowance
+- Your billing period resets, or
+- Your account receives a different entitlement or meter-credit configuration
 
-You'll see a friendly message explaining the situation and suggesting an upgrade if needed.
+You'll see a message explaining the limit and linking to Profile when billing action is available.
 
 ---
 
@@ -46,7 +51,7 @@ You'll see a friendly message explaining the situation and suggesting an upgrade
 
 ### How do I view or change my subscription?
 
-Click the **"Manage Billing"** link in your Profile's Billing section. This opens the Polar customer portal where you can:
+Click **"Manage plan"** in your Profile's Billing section when it is available. This opens the Polar customer portal where you can:
 
 - View your current subscription details
 - See your complete invoice history
@@ -55,18 +60,17 @@ Click the **"Manage Billing"** link in your Profile's Billing section. This open
 
 ### When does my usage reset?
 
-Your usage allowances reset at the start of each billing cycle. The exact renewal date is shown in your Billing section.
+Finite meter credits reset at the start of each billing period. The exact renewal date is shown in your Billing section when subscription period data is available.
 
-### How do I upgrade my plan?
+### How do I start Paid Generation?
 
 1. Go to your **Profile** page
-2. Click **"Manage Billing"** to open the customer portal
-3. Select a new plan with higher limits
-4. Your new limits take effect immediately
+2. Click **"Start Paid Generation"** when checkout is available
+3. Complete Polar checkout
 
 ### How do I cancel?
 
-1. Click **"Manage Billing"** in your Profile
+1. Click **"Manage plan"** in your Profile
 2. In the customer portal, find your subscription
 3. Click "Cancel subscription"
 4. You'll retain access until the end of your current billing period
@@ -83,9 +87,13 @@ Every conversation with the AI assistant uses tokens. We track:
 
 Longer conversations use more tokens. The token count depends on the complexity and length of your prompts and responses.
 
-### Image Generation
+### Managed Generation
 
-Each image you generate counts toward your image generation limit. Usage is tracked per image created.
+Managed generation tracks provider-specific meters such as Gemini images, videos, audio, input tokens, output tokens, and ElevenLabs audio units. The exact meters shown depend on the active plan configuration.
+
+### BYOK Provider Keys
+
+When you add a matching provider key in Profile, supported generation can use that key without requiring Paid Generation. Provider usage is billed by your provider account. Make Effects still records platform usage and may block requests when platform or rate limits are exhausted.
 
 ---
 
@@ -93,7 +101,7 @@ Each image you generate counts toward your image generation limit. Usage is trac
 
 ### Why was I charged?
 
-Charges occur at the start of each billing cycle for your subscription. Visit the customer portal via "Manage Billing" to see detailed invoice history.
+Subscription charges and invoices are managed by Polar for Paid Generation. Visit the customer portal via **"Manage plan"** to see invoice history.
 
 ### Is my payment information secure?
 
@@ -105,12 +113,12 @@ Refund policies are managed through Polar. Contact support through the customer 
 
 ### What if I don't want to pay?
 
-You can use the free tier with basic usage limits. When you reach the free tier limits, you can choose to upgrade or wait for the next month when limits reset.
+You can add supported provider keys in Profile and use BYOK where available. Otherwise, hosted provider generation requires Paid Generation or internal access.
 
 ### I'm having billing issues. Who do I contact?
 
 For billing-related issues:
-1. First, check the customer portal via "Manage Billing" for answers
+1. First, check the customer portal via **"Manage plan"** for answers
 2. Use the support options available in the Polar customer portal
 
 ---

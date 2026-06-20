@@ -179,16 +179,16 @@ function optionValue(value: string | undefined): string | undefined {
 }
 
 function printSpendSummary(summary: SpendSummary, print: (message: string) => void): void {
-  print('\nSpend summary\n');
+  print('\nProvider cost summary\n');
   print(`  Period:       ${formatPeriod(summary.period)}`);
   print(`  Filters:      ${formatFilters(summary.filters)}`);
-  print(`  Total spend:  ${formatUsd(summary.totals.amountMicroUsd)}`);
+  print(`  Provider cost: ${formatUsd(summary.totals.amountMicroUsd)}`);
   print(`  Entries:      ${summary.totals.entries}`);
   print(`  Unpriced:     ${summary.totals.unpricedEntries}`);
   print(`  Quantity:     ${formatNumber(summary.totals.quantity)}`);
 
   if (summary.byProvider.length > 0) {
-    printSpendTable('\nBy provider:', ['Provider', 'Spend', 'Entries', 'Unpriced', 'Quantity'], summary.byProvider.map((row) => [
+    printSpendTable('\nBy provider:', ['Provider', 'Cost', 'Entries', 'Unpriced', 'Quantity'], summary.byProvider.map((row) => [
       row.provider,
       formatUsd(row.amountMicroUsd),
       String(row.entries),
@@ -198,7 +198,7 @@ function printSpendSummary(summary: SpendSummary, print: (message: string) => vo
   }
 
   if (summary.byModel.length > 0) {
-    printSpendTable('\nBy model:', ['Provider', 'Model', 'Spend', 'Entries', 'Unpriced'], summary.byModel.map((row) => [
+    printSpendTable('\nBy model:', ['Provider', 'Model', 'Cost', 'Entries', 'Unpriced'], summary.byModel.map((row) => [
       row.provider,
       row.providerModel,
       formatUsd(row.amountMicroUsd),
@@ -208,7 +208,7 @@ function printSpendSummary(summary: SpendSummary, print: (message: string) => vo
   }
 
   if (summary.byMediaKind.length > 0) {
-    printSpendTable('\nBy media kind:', ['Media', 'Spend', 'Entries', 'Unpriced', 'Quantity'], summary.byMediaKind.map((row) => [
+    printSpendTable('\nBy media kind:', ['Media', 'Cost', 'Entries', 'Unpriced', 'Quantity'], summary.byMediaKind.map((row) => [
       row.mediaKind || '-',
       formatUsd(row.amountMicroUsd),
       String(row.entries),
@@ -218,7 +218,7 @@ function printSpendSummary(summary: SpendSummary, print: (message: string) => vo
   }
 
   if (summary.byMeterEventName.length > 0) {
-    printSpendTable('\nBy meter:', ['Meter', 'Spend', 'Entries', 'Unpriced', 'Quantity'], summary.byMeterEventName.map((row) => [
+    printSpendTable('\nBy meter:', ['Meter', 'Cost', 'Entries', 'Unpriced', 'Quantity'], summary.byMeterEventName.map((row) => [
       row.meterEventName || '-',
       formatUsd(row.amountMicroUsd),
       String(row.entries),
@@ -284,13 +284,13 @@ Usage:
   makefx spend --json
 
 Options:
-  --from <date>        Include spend at or after this date or ISO timestamp
-  --to <date>          Include spend at or before this date or ISO timestamp
+  --from <date>        Include provider cost at or after this date or ISO timestamp
+  --to <date>          Include provider cost at or before this date or ISO timestamp
   --user-id <id>       Filter to one user ID
   --space-id <id>      Filter to one space ID
   --space <id>         Alias for --space-id
   --provider <name>    Filter to one provider
-  --media-kind <kind>  Filter to image, audio, or video spend
+  --media-kind <kind>  Filter to image, audio, or video provider cost
   --json               Print machine-readable output
   --env <env>          Environment (production|stage|local)
   --local              Shortcut for --env local

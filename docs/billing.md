@@ -230,7 +230,7 @@ Provider price resolution lives in `src/backend/billing/providerPricing.ts`.
 normalized usage unit, unit price, USD amount, and integer micro-USD amount for
 ledger writes and usage-cost estimates.
 
-Admin provider spend summaries are available through:
+Admin provider cost summaries are available through:
 
 ```bash
 makefx spend --from 2026-06-01 --to 2026-06-30

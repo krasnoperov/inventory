@@ -25,10 +25,10 @@ const PLANS: PricingPlan[] = [
   {
     name: 'Managed AI',
     eyebrow: 'Hosted provider keys',
-    price: 'Usage-based',
-    cadence: 'Metered by media and token usage',
+    price: 'Paid Generation',
+    cadence: 'Metered in Polar by media and token usage',
     description:
-      'Use Make Effects managed generation for teams that want one checkout-backed bill instead of separate provider setup.',
+      'Use Make Effects managed generation when you want provider access handled by the hosted app instead of separate provider setup.',
     cta: 'Start managed AI',
     ctaTo: '/login',
     highlighted: true,
@@ -47,10 +47,10 @@ const PLANS: PricingPlan[] = [
   {
     name: 'BYOK Platform',
     eyebrow: 'Bring your own keys',
-    price: 'Platform usage',
-    cadence: 'Provider usage is billed by your provider account',
+    price: 'Your provider bill',
+    cadence: 'Make Effects tracks platform guardrails separately',
     description:
-      'Connect supported provider keys and use Make Effects for storage, workflow orchestration, collaboration, and production handoff.',
+      'Connect supported provider keys and use Make Effects for storage, workflow orchestration, collaboration, and production handoff. Provider charges stay with your provider account.',
     cta: 'Set up BYOK',
     ctaTo: '/login',
     features: [
@@ -68,9 +68,9 @@ const PLANS: PricingPlan[] = [
 ];
 
 const COMPARE_ROWS = [
-  ['Provider billing', 'On the Make Effects bill', 'On your provider account'],
+  ['Provider billing', 'Through the Make Effects Paid Generation plan', 'Directly on your provider account'],
   ['Provider setup', 'No provider keys required', 'Add supported provider keys in profile'],
-  ['Usage controls', 'Managed quotas, rate limits, and spend guardrails', 'Platform fair-use limits and rate limits'],
+  ['Usage controls', 'Managed quotas, rate limits, and provider-spend guardrails', 'Platform guardrails and rate limits'],
   ['Best for', 'Teams that want hosted generation ready immediately', 'Teams with existing provider contracts or credits'],
 ] as const;
 
@@ -130,9 +130,9 @@ export default function PricingPage() {
         <section className={styles.hero}>
           <div className={styles.container}>
             <p className={styles.eyebrow}>Pricing</p>
-            <h1 className={styles.headline}>Managed AI when you want one bill. BYOK when you bring the provider account.</h1>
+            <h1 className={styles.headline}>Managed AI for hosted generation. BYOK when you bring the provider account.</h1>
             <p className={styles.subtitle}>
-              Make Effects separates provider spend from platform workflow usage, so a studio can choose hosted generation or route jobs through its own keys without changing the asset workspace.
+              Make Effects separates customer metering, provider-cost attribution, and platform guardrails, so a studio can choose hosted generation or route jobs through its own keys without changing the asset workspace.
             </p>
             <div className={styles.heroActions}>
               <Link to={ctaTarget} className={styles.ctaButton}>

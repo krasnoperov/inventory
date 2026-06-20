@@ -1384,7 +1384,7 @@ export function ForgeTray({
                 <span>Estimating usage...</span>
               ) : estimate ? (
                 <>
-                  <span>{formatEstimatedUsd(estimate.providerCostMicroUsd)} provider cost</span>
+                  <span>{formatEstimatedUsd(estimate.providerCostMicroUsd)} est. provider cost</span>
                   <span>{formatEstimateQuantity(estimate.quotaQuantity, estimateMeterLabel)}</span>
                   <span>{formatEstimateQuantity(estimate.platformWorkflowRuns, 'workflow')}</span>
                   {estimate.billingMode === 'byok' && <span>BYOK</span>}

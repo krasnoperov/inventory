@@ -576,7 +576,7 @@ export async function preCheck(
       rateLimitMax: rateLimitConfig.maxRequests,
       rateLimitRemaining,
       denyReason: 'quota_exceeded',
-      denyMessage: `Monthly quota exceeded for ${service}. Please upgrade your plan.`,
+      denyMessage: `Current-period quota exceeded for ${service}. Review billing in Profile.`,
     };
   }
 

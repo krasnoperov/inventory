@@ -77,7 +77,7 @@ export function BillingSection() {
   const geminiSpendCard = (
     <div className={styles.spendCard}>
       <div className={styles.spendInfo}>
-        <span className={styles.spendLabel}>Gemini spend this period</span>
+        <span className={styles.spendLabel}>Estimated Gemini provider cost</span>
         <span className={styles.spendValue}>{geminiSpendDisplay}</span>
       </div>
       {usageError && (
@@ -165,7 +165,7 @@ export function BillingSection() {
         {geminiSpendCard}
         <div className={styles.usageSummaryGrid}>
           <div className={styles.summaryCard}>
-            <span className={styles.summaryLabel}>Estimated total spend</span>
+            <span className={styles.summaryLabel}>Estimated provider cost</span>
             <span className={styles.summaryValue}>{totalSpendDisplay}</span>
           </div>
           <div className={styles.summaryCard}>
@@ -263,7 +263,7 @@ export function BillingSection() {
 
       <div className={styles.usageSummaryGrid}>
         <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Estimated total spend</span>
+          <span className={styles.summaryLabel}>Estimated provider cost</span>
           <span className={styles.summaryValue}>{totalSpendDisplay}</span>
         </div>
         <div className={styles.summaryCard}>

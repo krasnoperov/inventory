@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import PricingPage from '../pages/PricingPage';
 
 const DESCRIPTION =
-  'Make Effects pricing for managed AI generation and BYOK platform workflows.';
+  'Make Effects pricing for managed AI generation, BYOK provider accounts, and platform guardrails.';
 
 export const Route = createFileRoute('/pricing')({
   head: () => ({
