@@ -24,6 +24,7 @@ and consistency across images, video, and audio.
 | [model-and-parameter-selection.md](./model-and-parameter-selection.md) | Which model and parameters to pick for images, video, and audio |
 | [design.md](./design.md) | Visual design system and patterns |
 | [billing.md](./billing.md) | Polar metering, Paid Generation, and provider-cost accounting |
+| [byok-deployment-boundary.md](./byok-deployment-boundary.md) | Broker deployment, RBAC, staging, and observability proof |
 | [byok-key-broker.md](./byok-key-broker.md) | Broker custody boundary for BYOK provider keys |
 | [byok-rotation-runbook.md](./byok-rotation-runbook.md) | DEK/KEK rotation staging, production, rollback, and verification |
 | [cli.md](./cli.md) | Command-line interface usage |

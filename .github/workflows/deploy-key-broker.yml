@@ -1,0 +1,81 @@
+name: Deploy BYOK Key Broker
+
+run-name: >-
+  Deploy BYOK key broker ${{
+    github.event.inputs.environment
+  }} @ ${{ github.event.inputs.ref || 'main' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Broker environment to deploy
+        required: true
+        type: choice
+        options:
+          - stage
+          - production
+      ref:
+        description: Optional branch, tag, or commit SHA to deploy
+        required: false
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: deploy-key-broker-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --dns-result-order=ipv4first
+
+jobs:
+  deploy:
+    name: Deploy broker
+    runs-on:
+      - self-hosted
+      - self-hosted-host
+    environment:
+      name: key-broker-${{ github.event.inputs.environment }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || 'refs/heads/main' }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
+      - uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: broker-deploy-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prove static BYOK deployment boundary
+        run: pnpm run byok:prove-boundary
+
+      - name: Materialize broker config
+        env:
+          BYOK_SECRET_STORE_ID: ${{ secrets.BYOK_SECRET_STORE_ID }}
+        run: |
+          set -euo pipefail
+          node scripts/prove-byok-deployment-boundary.mjs \
+            --materialize-broker-config '${{ github.event.inputs.environment }}' \
+            --out ".tmp/wrangler.key-broker.${{ github.event.inputs.environment }}.toml"
+
+      - name: Deploy key broker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_KEY_BROKER_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          CONFIG=".tmp/wrangler.key-broker.${{ github.event.inputs.environment }}.toml"
+          if [[ '${{ github.event.inputs.environment }}' == 'production' ]]; then
+            pnpm exec wrangler deploy --config "${CONFIG}" --env production
+          else
+            pnpm exec wrangler deploy --config "${CONFIG}" --env=""
+          fi
