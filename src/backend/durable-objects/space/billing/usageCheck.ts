@@ -6,6 +6,7 @@
  */
 
 import type { D1Database } from '@cloudflare/workers-types';
+import { priceProviderUsageEvent } from '../../../billing/providerPricing';
 import {
   hasPaidGenerationAccess,
   isPaidGenerationAccessExpired,
@@ -54,6 +55,26 @@ export const VIDEO_WITH_AUDIO_QUOTA_UNITS = 2;
 
 export function getVideoQuotaUnits(videoCount: number, generateAudio = true): number {
   return videoCount * (generateAudio ? VIDEO_WITH_AUDIO_QUOTA_UNITS : 1);
+}
+
+export interface UsageTrackingResult {
+  usageEventId: string;
+  eventName: string;
+  quantity: number;
+  metadata: Record<string, unknown> | undefined;
+  createdAt: string;
+}
+
+export interface ProviderUsageAttribution {
+  spaceId: string;
+  assetId?: string | null;
+  variantId?: string | null;
+  workflowId?: string | null;
+  requestId?: string | null;
+  providerRequestId?: string | null;
+  providerResponseId?: string | null;
+  providerUsageId?: string | null;
+  mediaKind?: 'image' | 'audio' | 'video' | null;
 }
 
 function isUsableIsoDate(value: string | null | undefined): value is string {
@@ -260,7 +281,7 @@ export async function trackUsage(
   quantity: number,
   metadata?: Record<string, unknown>,
   adminUserIds?: string
-): Promise<void> {
+): Promise<UsageTrackingResult> {
   const polarBillable = await isBillableUser(db, userId, adminUserIds);
 
   const id = crypto.randomUUID();
@@ -278,6 +299,120 @@ export async function trackUsage(
     polarBillable ? 1 : 0,
     now
   ).run();
+
+  return {
+    usageEventId: id,
+    eventName,
+    quantity,
+    metadata,
+    createdAt: now,
+  };
+}
+
+async function trackProviderUsageLedger(
+  db: D1Database,
+  userId: number,
+  usage: UsageTrackingResult,
+  attribution?: ProviderUsageAttribution
+): Promise<void> {
+  if (!attribution) return;
+
+  const price = priceProviderUsageEvent({
+    eventName: usage.eventName,
+    quantity: usage.quantity,
+    metadata: usage.metadata,
+  });
+  const provider = price.provider ?? inferProviderFromEventName(usage.eventName);
+  const providerModel = price.model ?? getMetadataString(usage.metadata, 'model') ?? 'unknown';
+  const usageUnit = price.unit ?? usage.eventName;
+  const attributionKey = buildProviderUsageAttributionKey(usage, attribution);
+  const metadata = {
+    ...usage.metadata,
+    catalog_version: price.catalogVersion,
+    pricing_status: 'reason' in price ? 'miss' : 'priced',
+    pricing_reason: 'reason' in price ? price.reason : undefined,
+    rate_table: 'rateTable' in price ? price.rateTable : undefined,
+  };
+
+  await db.prepare(`
+    INSERT OR IGNORE INTO provider_usage_ledger (
+      id,
+      attribution_key,
+      usage_event_id,
+      user_id,
+      space_id,
+      asset_id,
+      variant_id,
+      workflow_id,
+      request_id,
+      provider,
+      provider_model,
+      operation,
+      media_kind,
+      meter_event_name,
+      usage_unit,
+      quantity,
+      unit_price_usd,
+      amount_micro_usd,
+      currency,
+      pricing_source,
+      provider_request_id,
+      provider_response_id,
+      provider_usage_id,
+      metadata,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'USD', ?, ?, ?, ?, ?, ?)
+  `).bind(
+    crypto.randomUUID(),
+    attributionKey,
+    usage.usageEventId,
+    userId,
+    attribution.spaceId,
+    attribution.assetId ?? null,
+    attribution.variantId ?? null,
+    attribution.workflowId ?? null,
+    attribution.requestId ?? null,
+    provider,
+    providerModel,
+    getMetadataString(usage.metadata, 'operation'),
+    attribution.mediaKind ?? null,
+    usage.eventName,
+    usageUnit,
+    price.quantity,
+    'unitPriceUsd' in price ? price.unitPriceUsd : null,
+    price.amountMicroUsd,
+    'pricingSource' in price ? price.pricingSource : null,
+    attribution.providerRequestId ?? null,
+    attribution.providerResponseId ?? null,
+    attribution.providerUsageId ?? null,
+    JSON.stringify(metadata),
+    usage.createdAt
+  ).run();
+}
+
+function buildProviderUsageAttributionKey(
+  usage: UsageTrackingResult,
+  attribution: ProviderUsageAttribution
+): string {
+  if (attribution.workflowId) {
+    return `workflow:${attribution.workflowId}:meter:${usage.eventName}`;
+  }
+  if (attribution.variantId) {
+    return `variant:${attribution.variantId}:meter:${usage.eventName}`;
+  }
+  return `usage_event:${usage.usageEventId}`;
+}
+
+function inferProviderFromEventName(eventName: string): string {
+  if (eventName.startsWith('elevenlabs_')) return 'elevenlabs';
+  if (eventName.startsWith('claude_')) return 'claude';
+  return 'gemini';
+}
+
+function getMetadataString(metadata: Record<string, unknown> | undefined, key: string): string | null {
+  const value = metadata?.[key];
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 async function isBillableUser(db: D1Database, userId: number, adminUserIds?: string): Promise<boolean> {
@@ -327,9 +462,12 @@ export async function trackImageGeneration(
   model: string,
   operation?: string,
   imageSize?: string,
-  adminUserIds?: string
-): Promise<void> {
-  await trackUsage(db, userId, 'gemini_images', imageCount, { model, operation, imageSize }, adminUserIds);
+  adminUserIds?: string,
+  attribution?: ProviderUsageAttribution
+): Promise<UsageTrackingResult> {
+  const usage = await trackUsage(db, userId, 'gemini_images', imageCount, { model, operation, imageSize }, adminUserIds);
+  await trackProviderUsageLedger(db, userId, usage, attribution);
+  return usage;
 }
 
 /**
@@ -344,8 +482,9 @@ export async function trackElevenLabsAudioGeneration(
   assetType?: string,
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number },
   adminUserIds?: string,
-): Promise<void> {
-  await trackUsage(db, userId, 'elevenlabs_audio', quantity, {
+  attribution?: ProviderUsageAttribution,
+): Promise<UsageTrackingResult> {
+  const trackedUsage = await trackUsage(db, userId, 'elevenlabs_audio', quantity, {
     provider: 'elevenlabs',
     model,
     operation,
@@ -354,6 +493,8 @@ export async function trackElevenLabsAudioGeneration(
     output_tokens: usage?.outputTokens,
     total_tokens: usage?.totalTokens,
   }, adminUserIds);
+  await trackProviderUsageLedger(db, userId, trackedUsage, attribution);
+  return trackedUsage;
 }
 
 /**
@@ -369,8 +510,9 @@ export async function trackGeminiAudioGeneration(
   durationMs?: number | null,
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number },
   adminUserIds?: string,
-): Promise<void> {
-  await trackUsage(db, userId, 'gemini_audio', audioCount, {
+  attribution?: ProviderUsageAttribution,
+): Promise<UsageTrackingResult> {
+  const trackedUsage = await trackUsage(db, userId, 'gemini_audio', audioCount, {
     provider: 'lyria',
     model,
     operation,
@@ -380,6 +522,8 @@ export async function trackGeminiAudioGeneration(
     output_tokens: usage?.outputTokens,
     total_tokens: usage?.totalTokens,
   }, adminUserIds);
+  await trackProviderUsageLedger(db, userId, trackedUsage, attribution);
+  return trackedUsage;
 }
 
 /**
@@ -394,9 +538,10 @@ export async function trackVideoGeneration(
   resolution?: string,
   durationSeconds?: number,
   generateAudio = true,
-  adminUserIds?: string
-): Promise<void> {
-  await trackUsage(db, userId, 'gemini_videos', getVideoQuotaUnits(videoCount, generateAudio), {
+  adminUserIds?: string,
+  attribution?: ProviderUsageAttribution
+): Promise<UsageTrackingResult> {
+  const usage = await trackUsage(db, userId, 'gemini_videos', getVideoQuotaUnits(videoCount, generateAudio), {
     model,
     operation,
     resolution,
@@ -404,4 +549,6 @@ export async function trackVideoGeneration(
     generate_audio: generateAudio === true,
     video_count: videoCount,
   }, adminUserIds);
+  await trackProviderUsageLedger(db, userId, usage, attribution);
+  return usage;
 }

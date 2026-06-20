@@ -859,6 +859,7 @@ describe('GenerationController pipeline hooks', () => {
             image_key: imageKey,
             thumb_key: thumbKey,
             media_key: mediaMetadata.mediaKey ?? imageKey,
+            workflow_id: 'workflow-image',
             status: 'completed',
             created_by: '123',
             recipe: JSON.stringify({
@@ -875,19 +876,79 @@ describe('GenerationController pipeline hooks', () => {
 
       await controller.httpCompleteVariant({
         variantId: 'variant-image',
+        requestId: 'request-image',
         imageKey: 'images/space-1/variant-image.png',
         thumbKey: 'thumbs/space-1/variant-image.webp',
       });
 
-      assert.strictEqual(statements.length, 1);
-      assert.strictEqual(statements[0].bindings[1], 123);
-      assert.strictEqual(statements[0].bindings[2], 'gemini_images');
-      assert.strictEqual(statements[0].bindings[3], 1);
-      assert.deepStrictEqual(JSON.parse(statements[0].bindings[4]), {
+      assert.strictEqual(statements.length, 2);
+      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
+      assert.strictEqual(usageInsert.bindings[1], 123);
+      assert.strictEqual(usageInsert.bindings[2], 'gemini_images');
+      assert.strictEqual(usageInsert.bindings[3], 1);
+      assert.deepStrictEqual(JSON.parse(usageInsert.bindings[4]), {
         model: 'gemini-3-pro-image-preview',
         operation: 'generate',
         imageSize: '4K',
       });
+      assert.strictEqual(ledgerInsert.bindings[1], 'workflow:workflow-image:meter:gemini_images');
+      assert.strictEqual(ledgerInsert.bindings[2], usageInsert.bindings[0]);
+      assert.strictEqual(ledgerInsert.bindings[4], 'space-1');
+      assert.strictEqual(ledgerInsert.bindings[5], 'asset-1');
+      assert.strictEqual(ledgerInsert.bindings[6], 'variant-image');
+      assert.strictEqual(ledgerInsert.bindings[7], 'workflow-image');
+      assert.strictEqual(ledgerInsert.bindings[8], 'request-image');
+      assert.strictEqual(ledgerInsert.bindings[9], 'gemini');
+      assert.strictEqual(ledgerInsert.bindings[10], 'gemini-3-pro-image');
+      assert.strictEqual(ledgerInsert.bindings[12], 'image');
+      assert.strictEqual(ledgerInsert.bindings[13], 'gemini_images');
+      assert.strictEqual(ledgerInsert.bindings[14], 'image');
+      assert.strictEqual(ledgerInsert.bindings[17], 240000);
+    });
+
+    test('does not collect provider spend for fake image completions', async () => {
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          id: 'variant-fake-image',
+          media_kind: 'image',
+        })),
+        completeVariant: mock.fn(async (id, imageKey, thumbKey, mediaMetadata = {}) =>
+          createMockVariant({
+            id,
+            image_key: imageKey,
+            thumb_key: thumbKey,
+            media_key: mediaMetadata.mediaKey ?? imageKey,
+            provider_metadata: mediaMetadata.providerMetadata === undefined
+              ? null
+              : JSON.stringify(mediaMetadata.providerMetadata),
+            status: 'completed',
+            created_by: '123',
+            recipe: JSON.stringify({
+              mediaKind: 'image',
+              model: 'gemini-3-pro-image-preview',
+              operation: 'generate',
+            }),
+          })
+        ),
+      });
+      ctx.env = { DB: db } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-fake-image',
+        imageKey: 'images/space-1/variant-fake-image.png',
+        thumbKey: 'thumbs/space-1/variant-fake-image.webp',
+        providerMetadata: {
+          provider: 'fake',
+          model: 'fake-image-model',
+        },
+      });
+
+      assert.strictEqual(statements.length, 1);
+      assert.match(statements[0].sql, /INSERT INTO usage_events/);
+      assert.strictEqual(statements[0].bindings[2], 'gemini_images');
     });
 
     test('completes media-only video variants without image keys and tracks video usage', async () => {
@@ -921,6 +982,7 @@ describe('GenerationController pipeline hooks', () => {
             media_mime_type: mediaMetadata.mimeType,
             media_size_bytes: mediaMetadata.sizeBytes,
             media_duration_ms: mediaMetadata.durationMs,
+            workflow_id: 'workflow-video',
             provider_metadata: mediaMetadata.providerMetadata === undefined
               ? null
               : JSON.stringify(mediaMetadata.providerMetadata),
@@ -939,6 +1001,7 @@ describe('GenerationController pipeline hooks', () => {
 
       const result = await controller.httpCompleteVariant({
         variantId: 'variant-video',
+        requestId: 'request-video',
         imageKey: null,
         thumbKey: null,
         mediaKey: 'media/space-1/variant-video.mp4',
@@ -960,7 +1023,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(result.variant.media_key, 'media/space-1/variant-video.mp4');
       assert.strictEqual(result.variant.media_mime_type, 'video/mp4');
       assert.strictEqual(result.variant.media_duration_ms, 8000);
-      assert.strictEqual(prepare.mock.calls.length, 2);
+      assert.strictEqual(prepare.mock.calls.length, 3);
       assert.strictEqual(bind.mock.calls[0].arguments[1], 123);
       assert.strictEqual(bind.mock.calls[0].arguments[2], 'gemini_videos');
       assert.strictEqual(bind.mock.calls[0].arguments[3], 2);
@@ -972,7 +1035,18 @@ describe('GenerationController pipeline hooks', () => {
         generate_audio: true,
         video_count: 1,
       });
-      assert.strictEqual(run.mock.calls.length, 1);
+      assert.strictEqual(bind.mock.calls[1].arguments[1], 'workflow:workflow-video:meter:gemini_videos');
+      assert.strictEqual(bind.mock.calls[1].arguments[4], 'space-1');
+      assert.strictEqual(bind.mock.calls[1].arguments[6], 'variant-video');
+      assert.strictEqual(bind.mock.calls[1].arguments[7], 'workflow-video');
+      assert.strictEqual(bind.mock.calls[1].arguments[8], 'request-video');
+      assert.strictEqual(bind.mock.calls[1].arguments[9], 'gemini');
+      assert.strictEqual(bind.mock.calls[1].arguments[10], 'veo-3.1-generate-preview');
+      assert.strictEqual(bind.mock.calls[1].arguments[12], 'video');
+      assert.strictEqual(bind.mock.calls[1].arguments[14], 'video_second');
+      assert.strictEqual(bind.mock.calls[1].arguments[15], 8);
+      assert.strictEqual(bind.mock.calls[1].arguments[17], 3200000);
+      assert.strictEqual(run.mock.calls.length, 2);
 
       const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
       assert.deepStrictEqual(completeCall.arguments[3], {
@@ -1072,6 +1146,7 @@ describe('GenerationController pipeline hooks', () => {
           media_kind: 'audio',
           recipe: JSON.stringify({ operation: 'generate', assetType: 'music' }),
           created_by: '42',
+          workflow_id: 'workflow-elevenlabs',
           media_key: 'media/space-1/variant-1.mp3',
           media_mime_type: 'audio/mpeg',
           media_size_bytes: 4096,
@@ -1083,6 +1158,7 @@ describe('GenerationController pipeline hooks', () => {
 
       await controller.httpCompleteVariant({
         variantId: 'variant-1',
+        requestId: 'request-elevenlabs',
         imageKey: null,
         thumbKey: null,
         mediaKey: 'media/space-1/variant-1.mp3',
@@ -1097,17 +1173,26 @@ describe('GenerationController pipeline hooks', () => {
         },
       });
 
-      assert.strictEqual(statements.length, 1);
-      assert.match(statements[0].sql, /INSERT INTO usage_events/);
-      assert.strictEqual(statements[0].bindings[1], 42);
-      assert.strictEqual(statements[0].bindings[2], 'elevenlabs_audio');
-      assert.strictEqual(statements[0].bindings[3], 37);
-      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      assert.strictEqual(statements.length, 2);
+      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
+      assert.strictEqual(usageInsert.bindings[1], 42);
+      assert.strictEqual(usageInsert.bindings[2], 'elevenlabs_audio');
+      assert.strictEqual(usageInsert.bindings[3], 37);
+      const metadata = JSON.parse(String(usageInsert.bindings[4]));
       assert.strictEqual(metadata.provider, 'elevenlabs');
       assert.strictEqual(metadata.model, 'music_v1');
       assert.strictEqual(metadata.operation, 'generate');
       assert.strictEqual(metadata.asset_type, 'music');
       assert.strictEqual(metadata.total_tokens, 37);
+      assert.strictEqual(ledgerInsert.bindings[1], 'workflow:workflow-elevenlabs:meter:elevenlabs_audio');
+      assert.strictEqual(ledgerInsert.bindings[2], usageInsert.bindings[0]);
+      assert.strictEqual(ledgerInsert.bindings[8], 'request-elevenlabs');
+      assert.strictEqual(ledgerInsert.bindings[9], 'elevenlabs');
+      assert.strictEqual(ledgerInsert.bindings[10], 'music_v1');
+      assert.strictEqual(ledgerInsert.bindings[12], 'audio');
+      assert.strictEqual(ledgerInsert.bindings[14], 'character');
+      assert.strictEqual(ledgerInsert.bindings[15], 37);
     });
 
     test('tracks ElevenLabs speech and dialogue audio by prompt characters when provider usage is missing', async () => {
@@ -1124,6 +1209,7 @@ describe('GenerationController pipeline hooks', () => {
           media_kind: 'audio',
           recipe: JSON.stringify({ prompt, operation: 'generate', assetType: 'dialogue' }),
           created_by: '42',
+          workflow_id: 'workflow-dialogue',
           media_key: 'media/space-1/variant-1.mp3',
           media_mime_type: 'audio/mpeg',
           media_size_bytes: 4096,
@@ -1135,6 +1221,7 @@ describe('GenerationController pipeline hooks', () => {
 
       await controller.httpCompleteVariant({
         variantId: 'variant-1',
+        requestId: 'request-dialogue',
         imageKey: null,
         thumbKey: null,
         mediaKey: 'media/space-1/variant-1.mp3',
@@ -1145,15 +1232,19 @@ describe('GenerationController pipeline hooks', () => {
         audioUsage: null,
       });
 
-      assert.strictEqual(statements.length, 1);
-      assert.strictEqual(statements[0].bindings[2], 'elevenlabs_audio');
-      assert.strictEqual(statements[0].bindings[3], expectedQuantity);
-      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      assert.strictEqual(statements.length, 2);
+      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
+      assert.strictEqual(usageInsert.bindings[2], 'elevenlabs_audio');
+      assert.strictEqual(usageInsert.bindings[3], expectedQuantity);
+      const metadata = JSON.parse(String(usageInsert.bindings[4]));
       assert.strictEqual(metadata.model, 'eleven_v3');
       assert.strictEqual(metadata.asset_type, 'dialogue');
       assert.strictEqual(metadata.input_tokens, expectedQuantity);
       assert.strictEqual(metadata.output_tokens, 0);
       assert.strictEqual(metadata.total_tokens, expectedQuantity);
+      assert.strictEqual(ledgerInsert.bindings[1], 'workflow:workflow-dialogue:meter:elevenlabs_audio');
+      assert.strictEqual(ledgerInsert.bindings[2], usageInsert.bindings[0]);
     });
 
     test('tracks Lyria music completions as Gemini audio usage', async () => {
@@ -1168,6 +1259,7 @@ describe('GenerationController pipeline hooks', () => {
           media_kind: 'audio',
           recipe: JSON.stringify({ operation: 'generate', assetType: 'music', musicProvider: 'lyria' }),
           created_by: '42',
+          workflow_id: 'workflow-lyria',
           media_key: 'media/space-1/variant-1.mp3',
           media_mime_type: 'audio/mpeg',
           media_size_bytes: 4096,
@@ -1180,6 +1272,7 @@ describe('GenerationController pipeline hooks', () => {
 
       await controller.httpCompleteVariant({
         variantId: 'variant-1',
+        requestId: 'request-lyria',
         imageKey: null,
         thumbKey: null,
         mediaKey: 'media/space-1/variant-1.mp3',
@@ -1195,18 +1288,28 @@ describe('GenerationController pipeline hooks', () => {
         },
       });
 
-      assert.strictEqual(statements.length, 1);
-      assert.match(statements[0].sql, /INSERT INTO usage_events/);
-      assert.strictEqual(statements[0].bindings[1], 42);
-      assert.strictEqual(statements[0].bindings[2], 'gemini_audio');
-      assert.strictEqual(statements[0].bindings[3], 1);
-      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      assert.strictEqual(statements.length, 2);
+      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
+      assert.strictEqual(usageInsert.bindings[1], 42);
+      assert.strictEqual(usageInsert.bindings[2], 'gemini_audio');
+      assert.strictEqual(usageInsert.bindings[3], 1);
+      const metadata = JSON.parse(String(usageInsert.bindings[4]));
       assert.strictEqual(metadata.provider, 'lyria');
       assert.strictEqual(metadata.model, 'lyria-3-clip-preview');
       assert.strictEqual(metadata.operation, 'generate');
       assert.strictEqual(metadata.asset_type, 'music');
       assert.strictEqual(metadata.duration_ms, 30_000);
       assert.strictEqual(metadata.total_tokens, 12);
+      assert.strictEqual(ledgerInsert.bindings[1], 'workflow:workflow-lyria:meter:gemini_audio');
+      assert.strictEqual(ledgerInsert.bindings[2], usageInsert.bindings[0]);
+      assert.strictEqual(ledgerInsert.bindings[8], 'request-lyria');
+      assert.strictEqual(ledgerInsert.bindings[9], 'gemini');
+      assert.strictEqual(ledgerInsert.bindings[10], 'lyria-3-clip-preview');
+      assert.strictEqual(ledgerInsert.bindings[12], 'audio');
+      assert.strictEqual(ledgerInsert.bindings[14], 'generation');
+      assert.strictEqual(ledgerInsert.bindings[15], 1);
+      assert.strictEqual(ledgerInsert.bindings[17], 40000);
     });
 
     test('does not track fake audio completions as ElevenLabs usage', async () => {

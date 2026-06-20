@@ -29,6 +29,7 @@ import {
   trackGeminiAudioGeneration,
   trackVideoGeneration,
   getVideoQuotaUnits,
+  type ProviderUsageAttribution,
 } from '../billing/usageCheck';
 import {
   VariantFactory,
@@ -163,6 +164,42 @@ function getVideoBillingDimensions(data: {
     resolution,
     durationSeconds,
     generateAudio: metadataGenerateAudio ?? parseRecipeGenerateAudio(variant.recipe) ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON,
+  };
+}
+
+function getMetadataString(metadata: Record<string, unknown> | null, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = metadata?.[key];
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function getProviderUsageAttribution(
+  spaceId: string,
+  variant: Variant,
+  data: {
+    requestId?: string | null;
+    providerMetadata?: Record<string, unknown> | string | null;
+  }
+): ProviderUsageAttribution | undefined {
+  const providerMetadata = parseObjectMetadata(data.providerMetadata) ?? parseObjectMetadata(variant.provider_metadata);
+  if (getMetadataString(providerMetadata, 'provider') === 'fake') {
+    return undefined;
+  }
+
+  return {
+    spaceId,
+    assetId: variant.asset_id,
+    variantId: variant.id,
+    workflowId: variant.workflow_id,
+    requestId: data.requestId ?? null,
+    mediaKind: variant.media_kind,
+    providerRequestId: getMetadataString(providerMetadata, 'providerRequestId', 'provider_request_id'),
+    providerResponseId: getMetadataString(providerMetadata, 'providerResponseId', 'provider_response_id'),
+    providerUsageId: getMetadataString(providerMetadata, 'providerUsageId', 'provider_usage_id'),
   };
 }
 
@@ -663,6 +700,7 @@ export class GenerationController extends BaseController {
     renderMetadataMimeType?: string | null;
     renderMetadataSizeBytes?: number | null;
     providerMetadata?: Record<string, unknown> | string | null;
+    requestId?: string | null;
     audioProvider?: string | null;
     audioModel?: string | null;
     audioUsage?: AudioUsage | null;
@@ -719,6 +757,7 @@ export class GenerationController extends BaseController {
     if (!variant) {
       throw new NotFoundError('Variant not found');
     }
+    const providerUsageAttribution = getProviderUsageAttribution(this.spaceId, variant, data);
 
     // Track usage for successful generation
     if (
@@ -757,7 +796,8 @@ export class GenerationController extends BaseController {
             billingDimensions.resolution,
             billingDimensions.durationSeconds,
             billingDimensions.generateAudio,
-            this.env.ADMIN_USER_IDS
+            this.env.ADMIN_USER_IDS,
+            providerUsageAttribution
           );
         } else {
           await trackImageGeneration(
@@ -767,7 +807,8 @@ export class GenerationController extends BaseController {
             usageModel,
             operation,
             imageSize,
-            this.env.ADMIN_USER_IDS
+            this.env.ADMIN_USER_IDS,
+            providerUsageAttribution
           );
         }
       } catch (err) {
@@ -806,7 +847,8 @@ export class GenerationController extends BaseController {
           operation,
           assetType,
           audioUsage,
-          this.env.ADMIN_USER_IDS
+          this.env.ADMIN_USER_IDS,
+          providerUsageAttribution
         );
       } catch (err) {
         log.warn('Failed to track ElevenLabs audio usage', {
@@ -842,7 +884,8 @@ export class GenerationController extends BaseController {
           assetType,
           data.mediaDurationMs,
           data.audioUsage ?? undefined,
-          this.env.ADMIN_USER_IDS
+          this.env.ADMIN_USER_IDS,
+          providerUsageAttribution
         );
       } catch (err) {
         log.warn('Failed to track Lyria audio usage', {

@@ -418,6 +418,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               variantId,
+              requestId,
               imageKey,
               thumbKey,
               mediaKey,
@@ -611,6 +612,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               variantId,
+              requestId,
               imageKey: null,
               thumbKey: null,
               mediaKey,
