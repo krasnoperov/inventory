@@ -129,6 +129,12 @@ interface CompositionItemUpdateInput {
   sortIndex?: unknown;
 }
 
+interface ParentHierarchyBackfillInput {
+  createManualRelations?: unknown;
+  createStarterCollectionsForAllNullParents?: unknown;
+  createdBy?: unknown;
+}
+
 export class OrganizationController extends BaseController {
   constructor(ctx: ControllerContext) {
     super(ctx);
@@ -202,6 +208,15 @@ export class OrganizationController extends BaseController {
   async httpDeleteRelation(relationId: string): Promise<void> {
     await this.deleteRelation(relationId);
     this.broadcast({ type: 'relation:deleted', relationId });
+  }
+
+  async httpBackfillParentHierarchy(input: unknown = {}) {
+    const data = normalizeBackfillInput(input);
+    return this.repo.backfillParentHierarchyToOrganization({
+      createManualRelations: normalizeOptionalBoolean(data.createManualRelations),
+      createStarterCollectionsForAllNullParents: normalizeOptionalBoolean(data.createStarterCollectionsForAllNullParents),
+      createdBy: normalizeOptionalString(data.createdBy) ?? undefined,
+    });
   }
 
   async httpListCompositions(): Promise<Composition[]> {
@@ -740,6 +755,22 @@ function normalizeInteger(value: unknown, field: string): number {
 function normalizeOptionalInteger(value: unknown, field: string): number | null {
   if (value === undefined || value === null) return null;
   return normalizeInteger(value, field);
+}
+
+function normalizeOptionalBoolean(value: unknown): boolean | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'boolean') {
+    throw new ValidationError('boolean option must be a boolean');
+  }
+  return value;
+}
+
+function normalizeBackfillInput(value: unknown): ParentHierarchyBackfillInput {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new ValidationError('backfill options must be an object');
+  }
+  return value as ParentHierarchyBackfillInput;
 }
 
 function normalizeIdArray(value: unknown, field: string): string[] {
