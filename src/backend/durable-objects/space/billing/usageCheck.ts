@@ -8,6 +8,10 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { priceProviderUsageEvent } from '../../../billing/providerPricing';
 import {
+  buildCustomerChargeKey,
+  inferCustomerChargeUnit,
+} from '../../../billing/customerChargeLedger';
+import {
   hasPaidGenerationAccess,
   isPaidGenerationAccessExpired,
   isNonBillablePaidGenerationEntitlement,
@@ -302,6 +306,37 @@ export async function trackUsage(
     now
   ).run();
 
+  await db.prepare(`
+    INSERT OR IGNORE INTO customer_charge_ledger (
+      id,
+      charge_key,
+      usage_event_id,
+      provider_usage_ledger_id,
+      user_id,
+      meter_event_name,
+      charge_unit,
+      quantity,
+      polar_billable,
+      billing_external_id,
+      customer_amount_micro_usd,
+      metadata,
+      created_at
+    )
+    VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+  `).bind(
+    crypto.randomUUID(),
+    buildCustomerChargeKey(id),
+    id,
+    userId,
+    eventName,
+    inferCustomerChargeUnit(eventName),
+    quantity,
+    polarBillable ? 1 : 0,
+    id,
+    metadata ? JSON.stringify(metadata) : null,
+    now
+  ).run();
+
   return {
     usageEventId: id,
     eventName,
@@ -335,6 +370,7 @@ async function trackProviderUsageLedger(
     : price?.model ?? getMetadataString(usage.metadata, 'model') ?? 'unknown';
   const usageUnit = price?.unit ?? inferUsageUnitFromEventName(usage.eventName);
   const attributionKey = buildProviderUsageAttributionKey(usage, attribution);
+  const providerUsageLedgerId = crypto.randomUUID();
   const metadata = {
     ...usage.metadata,
     provider: attribution.provider ?? undefined,
@@ -375,7 +411,7 @@ async function trackProviderUsageLedger(
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'USD', ?, ?, ?, ?, ?, ?)
   `).bind(
-    crypto.randomUUID(),
+    providerUsageLedgerId,
     attributionKey,
     usage.usageEventId,
     userId,
@@ -400,6 +436,15 @@ async function trackProviderUsageLedger(
     JSON.stringify(metadata),
     usage.createdAt
   ).run();
+
+  await db.prepare(`
+    UPDATE customer_charge_ledger
+    SET provider_usage_ledger_id = (
+      SELECT id FROM provider_usage_ledger WHERE attribution_key = ?
+    )
+    WHERE usage_event_id = ?
+      AND provider_usage_ledger_id IS NULL
+  `).bind(attributionKey, usage.usageEventId).run();
 }
 
 function buildProviderUsageAttributionKey(

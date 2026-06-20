@@ -164,6 +164,20 @@ Provider price resolution lives in `src/backend/billing/providerPricing.ts`.
 normalized usage unit, unit price, USD amount, and integer micro-USD amount for
 ledger writes and usage-cost estimates.
 
+## Customer Charge Ledger
+
+Every local `usage_events` row also writes one `customer_charge_ledger` row.
+The customer ledger uses the usage event ID as the Polar billing external ID and
+records the meter event name, customer charge unit, quantity, billable flag, and
+metadata used for Polar ingestion. Non-billable internal usage is included with
+`polar_billable = 0` so usage audits can compare customer-visible metering
+against internal activity.
+
+When provider attribution exists, the customer charge row is linked to the
+matching `provider_usage_ledger` row through `provider_usage_ledger_id`. This
+keeps customer metering, Polar sync, and raw provider spend reconcilable without
+making provider cost the source of truth for customer charges.
+
 ## Operational Checks
 
 Run production billing checks from an authenticated admin CLI session:
