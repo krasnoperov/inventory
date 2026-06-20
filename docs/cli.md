@@ -65,7 +65,7 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
 | `tileset` | Generate and monitor consistent tile sets |
 | `listen` | Connect to WebSocket and stream all events |
-| `upload` | Upload media files or JSON manifests to create assets, variants, and import metadata |
+| `upload` | Upload media files with provenance, lineage, collection placement, and manual relations |
 | `generate` | Create a new asset through the website generation workflow |
 | `refine` | Refine an existing variant through the website generation workflow |
 | `derive` | Create a new asset from variant IDs and/or local image refs |
@@ -354,9 +354,9 @@ Press Ctrl+C to exit
 ## Upload
 
 Import one image, audio, or video file to create a new asset or add a variant to
-an existing asset. Use `makefx upload <manifest.json>` for JSON manifest
-batches, same-batch lineage, collections, manual relations, compositions, or
-style presets.
+an existing asset. Upload can also attach imported provenance, immutable
+lineage from existing variants, collection placement, and manual relations in
+the same file-oriented command.
 
 ### Create New Asset
 
@@ -368,12 +368,6 @@ makefx upload <file> --name <name> [--space <id>] [options]
 
 ```bash
 makefx upload <file> --asset <id> [--space <id>]
-```
-
-### Upload Manifest
-
-```bash
-makefx upload <manifest.json> [--space <id>] [--dry-run] [--json]
 ```
 
 **Arguments:**
@@ -393,8 +387,15 @@ makefx upload <manifest.json> [--space <id>] [--dry-run] [--json]
 | `--source-variant <id>` | No | Existing Space variant to record as import lineage source |
 | `--relation-type <type>` | No | Lineage type: `derived`, `refined`, or `forked` (default: `derived`) |
 | `--active-variant-behavior <behavior>` | No | `if-missing`, `set-active`, or `keep` |
-| `--dry-run` | No | Validate a JSON manifest without uploading media bytes |
-| `--json` | No | Print machine-readable manifest import or dry-run output |
+| `--collection <ids>` | No | Comma-separated collection IDs for the uploaded asset or variant |
+| `--collection-role <role>` | No | Collection item role (default: `member`) |
+| `--collection-subject <type>` | No | `asset` or `variant` (default: `asset`) |
+| `--collection-pinned-variant <id\|uploaded\|none>` | No | Pin asset collection placement to the uploaded variant by default |
+| `--manual-relation <spec>` | No | Comma-separated `<type>:asset:<id>` or `<type>:variant:<id>` relation targets |
+| `--manual-relation-subject <type>` | No | Uploaded relation subject: `asset` or `variant` (default: `variant`) |
+| `--manual-relation-label <text>` | No | Manual relation label |
+| `--manual-relation-context <json\|text>` | No | Manual relation context |
+| `--manual-relation-metadata <json>` | No | Manual relation metadata object |
 | `--env <env>` | No | `production`, `stage`, or `local` (default: `production`) |
 | `--local` | No | Shortcut for `--env local` |
 
@@ -432,153 +433,31 @@ makefx upload paintover.png --space abc123 --asset def456 \
 # Upload against local dev server
 makefx upload hero.png --space abc123 --name "Hero" --local
 
-# Validate a manifest before upload
-makefx upload import-manifest.json --space abc123 --dry-run --json
+# Place the uploaded asset in a collection and pin the uploaded variant
+makefx upload hero.png --space abc123 --name "Hero" \
+  --collection collection_cast \
+  --collection-role character
+
+# Place the exact uploaded variant in a collection
+makefx upload hero-pose.png --space abc123 --asset asset_hero \
+  --collection collection_poses \
+  --collection-subject variant
+
+# Create a manual relation from the uploaded variant to an existing asset
+makefx upload thumbnail.png --space abc123 --asset asset_thumb \
+  --manual-relation thumbnail_for:asset:asset_target
+
+# Add relation metadata
+makefx upload prop.png --space abc123 --name "Market Prop" \
+  --manual-relation appears_in:variant:variant_scene \
+  --manual-relation-context '{"scene":"market"}'
 ```
 
----
-
-## Manifest Upload
-
-Import a JSON manifest of externally generated files with prompt, model,
-provider metadata, generation provenance, related source images, and immutable
-variant lineage.
-
-```bash
-makefx upload import-manifest.json --space abc123 --dry-run
-makefx upload import-manifest.json --space abc123 --json
-```
-
-The manifest may be a top-level array or `{ "records": [...] }`. File paths are
-resolved relative to the manifest file. Each record sets `file`, either `assetId`
-for an existing asset or `name` for a new asset, optional `assetType`/`type`,
-`mediaKind`, `activeVariantBehavior` (`if-missing`, `set-active`, or `keep`),
-`prompt`, `model`, `provider`, `providerMetadata`, and arbitrary
-`generationProvenance` fields. Those fields become provenance on the imported
-variant; they are not editable organization metadata.
-
-Lineage is import-only provenance. Each `lineage` entry must use relation type
-`derived`, `refined`, or `forked`, and set exactly one source: `sourceFile` for
-another record in the same manifest, or `sourceVariantId` for an existing Space
-variant. Use manual `relations`, `collections`, and `compositions` for
-organization instead of editing lineage.
-
-```json
-{
-  "records": [
-    {
-      "key": "base",
-      "file": "renders/base.png",
-      "name": "Base Render",
-      "assetType": "character",
-      "prompt": "full-body hero sheet, leather armor, neutral pose",
-      "model": "stable-diffusion-xl",
-      "provider": "comfyui",
-      "providerMetadata": { "seed": 42, "sampler": "dpmpp-2m" },
-      "generationProvenance": {
-        "tool": "comfyui",
-        "workflow": "character-sheet-v4",
-        "sourceImages": ["refs/leather-armor.png", "refs/face-sketch.png"]
-      }
-    },
-    {
-      "key": "refined",
-      "file": "renders/refined.png",
-      "assetId": "asset_existing",
-      "activeVariantBehavior": "set-active",
-      "prompt": "same hero, cleaner silhouette, stronger inventory icon read",
-      "model": "gemini-3-pro-image-preview",
-      "provider": "gemini",
-      "providerMetadata": { "requestId": "external-job-7781" },
-      "generationProvenance": { "importedFrom": "external paintover batch" },
-      "lineage": [
-        { "sourceFile": "base", "relationType": "refined" },
-        { "sourceVariantId": "variant_existing", "relationType": "derived" }
-      ]
-    }
-  ]
-}
-```
-
-`--dry-run` validates files, authentication, Space membership, target assets,
-external source variant IDs, same-batch source keys, duplicate local keys, media
-kinds, and lineage relation types without uploading media bytes.
-
-Manifests can also import organization metadata after upload. Collection and
-composition references use existing names unless a top-level entry explicitly
-sets `create: true`. Same-batch references use the imported record `key`.
-Collections organize assets or pinned variants, manual relations describe
-user-authored links, and compositions bind exact variants into final mixes.
-None of those organization sections rewrites lineage.
-
-```json
-{
-  "collections": [
-    { "name": "Backgrounds", "create": true }
-  ],
-  "styleCollections": [
-    { "name": "Painterly refs", "create": true }
-  ],
-  "compositions": [
-    { "name": "Opening Shot", "create": true, "output": { "recordKey": "final" } }
-  ],
-  "records": [
-    {
-      "key": "style-ref",
-      "file": "refs/painterly.png",
-      "name": "Painterly Reference",
-      "styleCollections": ["Painterly refs"]
-    },
-    {
-      "key": "final",
-      "file": "renders/final.png",
-      "name": "Final Keyframe",
-      "prompt": "hero entering the market, painterly adventure game style",
-      "model": "external-compositor-1",
-      "provider": "local-render-farm",
-      "providerMetadata": { "jobId": "render-90210" },
-      "generationProvenance": {
-        "sourceImages": ["style-ref", "asset_thumbnail_target"],
-        "operator": "outsourced-art-pass"
-      },
-      "collections": [
-        { "collection": "Backgrounds", "role": "background", "subjectType": "asset" }
-      ],
-      "compositionItems": [
-        { "composition": "Opening Shot", "role": "output", "label": "Final frame" }
-      ],
-      "relations": [
-        {
-          "object": { "assetId": "asset_thumbnail_target", "subjectType": "asset" },
-          "relationType": "thumbnail_for"
-        }
-      ]
-    }
-  ],
-  "stylePresets": [
-    {
-      "name": "Painterly",
-      "create": true,
-      "collection": "Painterly refs",
-      "stylePrompt": "Painterly adventure game",
-      "default": true
-    }
-  ]
-}
-```
-
-Top-level `collectionItems`, `relations`, and `compositionItems` are also
-accepted. Composition item roles are `output`, `background`, `character`,
-`prop`, `style_ref`, `overlay`, `map`, `thumbnail`, or `custom`. Manual relation
-types include `appears_in`, `background_for`, `thumbnail_for`, `map_for`,
-`style_reference_for`, and `reference_for`. JSON output reports created asset
-IDs, variant IDs, lineage IDs, collection item IDs, relation IDs, composition
-item IDs, and style preset IDs after import.
-
-Style reference imports use the same model as the rest of the Space: import the
-reference images as normal assets, add them to style collections, then create or
-update style presets that point to those collections. There is no separate
-style-only upload path.
+Manual relation types include `appears_in`, `background_for`,
+`thumbnail_for`, `map_for`, `style_reference_for`, and `reference_for`.
+Collection and manual relation targets are existing Space IDs. Use
+`--source-variant` only for immutable import lineage; use
+`--manual-relation` for editable organization links.
 
 ---
 

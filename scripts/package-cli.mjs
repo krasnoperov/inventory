@@ -197,7 +197,7 @@ lineage, and stored media.
 | \`generate\`, \`refine\`, \`derive\`, \`batch\` | Generate image assets |
 | \`audio\` | Generate speech, dialogue, music, and sound effects |
 | \`video\` | Generate, refine, and derive video assets |
-| \`upload\` | Upload local media files or JSON import manifests |
+| \`upload\` | Upload local media files with provenance and organization metadata |
 | \`assets\`, \`variants\` | Inspect, download, curate, retry, or delete outputs |
 | \`rotation\`, \`tileset\` | Generate game-ready reference sets |
 | \`productions\` | Place and export production handoff records |

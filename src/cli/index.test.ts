@@ -70,7 +70,9 @@ test('help command displays available commands', async () => {
   assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
   assert.ok(result.stdout.includes('login'), 'Help output should include login command');
   assert.ok(result.stdout.includes('logout'), 'Help output should include logout command');
-  assert.ok(result.stdout.includes('upload <manifest.json>'), 'Help output should include upload manifest entrypoint');
+  assert.ok(result.stdout.includes('upload <file> --collection <id>'), 'Help output should include upload collection placement');
+  assert.ok(result.stdout.includes('upload <file> --manual-relation <spec>'), 'Help output should include upload manual relations');
+  assert.ok(!result.stdout.includes('upload <manifest.json>'), 'Help output should not advertise manifest upload');
   assert.ok(!result.stdout.includes('makefx import'), 'Help output should not advertise removed import command');
   assert.ok(!result.stdout.includes('rotation --variant'), 'Help output should hide disabled rotation command');
 });
@@ -324,7 +326,9 @@ test('local help exits without toggling TLS warnings', async () => {
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
     assert.ok(result.stdout.includes('makefx upload <file>'));
-    assert.ok(result.stdout.includes('makefx upload <manifest.json>'));
+    assert.ok(result.stdout.includes('--collection <ids>'));
+    assert.ok(result.stdout.includes('--manual-relation <spec>'));
+    assert.ok(!result.stdout.includes('makefx upload <manifest.json>'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }

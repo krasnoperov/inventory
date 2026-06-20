@@ -121,8 +121,8 @@ makefx generate "A neutral prop sheet" --no-style --name "Props" --type prop -o 
 ```
 
 When `--style-preset` is used, the CLI prints the resolved preset ID, collection,
-and reference count before creating the job. Import manifest assignment to
-collections or presets is handled by the upload manifest workflow.
+and reference count before creating the job. Imported files can be placed in
+collections with `makefx upload --collection`.
 `--no-style` disables preset injection for that request without changing the
 Space default.
 
@@ -337,102 +337,24 @@ makefx upload renders/hero-final.png \
   --relation-type derived
 ```
 
-Use `makefx upload <manifest.json>` when the import needs a JSON manifest for
-multiple files, same-batch lineage, collections, manual relations,
-compositions, style collections, or style presets. Import records can include
-prompt, model, provider, provider metadata, generation provenance, and lineage
-links to related source images at import time:
-
-```json
-{
-  "records": [
-    {
-      "key": "armor-ref",
-      "file": "refs/leather-armor.png",
-      "name": "Leather Armor Reference",
-      "assetType": "reference",
-      "prompt": "reference photo selected by art director",
-      "model": "manual",
-      "provider": "external",
-      "generationProvenance": { "source": "licensed art pack" }
-    },
-    {
-      "key": "hero-final",
-      "file": "renders/hero-final.png",
-      "name": "Hero Final",
-      "assetType": "character",
-      "prompt": "full-body hero sheet, leather armor, neutral pose",
-      "model": "stable-diffusion-xl",
-      "provider": "comfyui",
-      "providerMetadata": { "seed": 42, "sampler": "dpmpp-2m" },
-      "generationProvenance": {
-        "workflow": "character-sheet-v4",
-        "sourceImages": ["armor-ref", "variant_face_sketch"]
-      },
-      "lineage": [
-        { "sourceFile": "armor-ref", "relationType": "derived" },
-        { "sourceVariantId": "variant_face_sketch", "relationType": "derived" }
-      ]
-    }
-  ]
-}
-```
+Lineage created during import is immutable provenance. It is not the Space
+organization model and should not be edited to arrange assets. Use collection
+and manual relation flags for editable organization metadata:
 
 ```bash
-makefx upload import-manifest.json --dry-run --json
-makefx upload import-manifest.json
-```
+makefx upload refs/painterly.png \
+  --name "Painterly Reference" \
+  --type reference \
+  --collection collection_painterly_refs \
+  --collection-role style_ref
 
-Lineage created during import is immutable provenance. It is not the Space
-organization model and should not be edited to arrange assets. Add organization
-metadata in the same manifest with collections, manual relations, compositions,
-style collections, and style presets:
-
-```json
-{
-  "collections": [
-    { "name": "Cast", "create": true },
-    { "name": "Painterly refs", "create": true }
-  ],
-  "records": [
-    {
-      "key": "style-ref",
-      "file": "refs/painterly.png",
-      "name": "Painterly Reference",
-      "assetType": "reference",
-      "styleCollections": ["Painterly refs"]
-    },
-    {
-      "key": "hero-final",
-      "file": "renders/hero-final.png",
-      "name": "Hero Final",
-      "collections": [
-        { "collection": "Cast", "role": "character", "subjectType": "asset" }
-      ],
-      "relations": [
-        {
-          "object": { "assetId": "asset_opening_scene", "subjectType": "asset" },
-          "relationType": "appears_in"
-        }
-      ],
-      "compositionItems": [
-        { "composition": "Opening Shot", "role": "character", "label": "Hero" }
-      ]
-    }
-  ],
-  "compositions": [
-    { "name": "Opening Shot", "create": true, "output": { "recordKey": "hero-final" } }
-  ],
-  "stylePresets": [
-    {
-      "name": "Painterly",
-      "create": true,
-      "collection": "Painterly refs",
-      "stylePrompt": "Painterly adventure game",
-      "default": true
-    }
-  ]
-}
+makefx upload renders/hero-final.png \
+  --name "Hero Final" \
+  --type character \
+  --collection collection_cast \
+  --collection-role character \
+  --manual-relation appears_in:asset:asset_opening_scene \
+  --manual-relation-context '{"scene":"Opening Shot"}'
 ```
 
 Audio generation currently supports only `generate` and `batch` for the

@@ -113,7 +113,7 @@ staging or `--local` for a local development server.
 | `makefx batch` | Generate multiple images and write a debug run manifest |
 | `makefx audio` | Generate speech, dialogue, music, or sound effects |
 | `makefx video` | Generate, refine, or derive video assets |
-| `makefx upload` | Upload local media files or JSON import manifests |
+| `makefx upload` | Upload local media files with provenance and organization metadata |
 | `makefx assets` | List, show, download, rename, delete, and set active assets |
 | `makefx variants` | Retry, star, rate, or delete variants |
 | `makefx styles` | List style references, manage style reference collections, and manage style presets |
