@@ -18,6 +18,8 @@ import {
   type Asset,
   type Variant,
 } from './useSpaceWebSocket';
+import { handleSpaceServerMessage } from '../space/handleSpaceServerMessage';
+import { useSpaceSessionStore } from '../space/spaceStore';
 
 function asset(overrides: Partial<Asset> = {}): Asset {
   return {
@@ -151,6 +153,42 @@ describe('space state snapshot cache', () => {
     assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-1', 'overview', 0), 'overview');
     assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-2', 'full', 1), null);
     assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-1', 'full', 3), null);
+  });
+});
+
+describe('space message handling', () => {
+  test('applies state updates even when no view callbacks are registered', () => {
+    const store = useSpaceSessionStore.getState();
+    store.hydrateFromSnapshot('space-1', null);
+
+    handleSpaceServerMessage({
+      type: 'sync:state',
+      assets: [asset()],
+      variants: [variant()],
+      lineage: [],
+    }, {
+      syncModeRef: { current: null },
+      variantIdsRef: { current: new Set() },
+      sendMessage: () => {},
+      markSynced: store.markSynced,
+      setAssets: store.setAssets,
+      setVariants: store.setVariants,
+      setLineage: store.setLineage,
+      setJobs: store.setJobs,
+      setPresence: store.setPresence,
+      setRotationSets: store.setRotationSets,
+      setRotationViews: store.setRotationViews,
+      setTileSets: store.setTileSets,
+      setTilePositions: store.setTilePositions,
+      setError: store.setError,
+    });
+
+    const next = useSpaceSessionStore.getState();
+    assert.equal(next.hasSynced, true);
+    assert.equal(next.assets.length, 1);
+    assert.equal(next.assets[0]?.id, 'asset-1');
+    assert.equal(next.variants.length, 1);
+    assert.equal(next.variants[0]?.id, 'variant-1');
   });
 });
 
