@@ -1592,11 +1592,6 @@ export class SpaceRepository {
     const existingById = await this.getCollectionById(deterministicId);
     if (existingById) return existingById;
 
-    const existingByName = (await this.listCollections()).find(
-      (collection) => collection.name.toLowerCase() === 'style references'
-    );
-    if (existingByName) return existingByName;
-
     return this.createCollection({
       id: deterministicId,
       name: 'Style References',

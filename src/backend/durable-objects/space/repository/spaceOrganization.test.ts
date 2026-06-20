@@ -687,6 +687,41 @@ describe('Space organization repository', () => {
     ]);
   });
 
+  test('backfill does not reuse user collections named Style References', async () => {
+    await createAssetWithVariant('unrelated-asset', 'unrelated-variant');
+    await repo.createCollection({
+      id: 'user-style-references',
+      name: 'Style References',
+      createdBy: 'user-1',
+    });
+    await repo.createCollectionItem({
+      id: 'unrelated-item',
+      collectionId: 'user-style-references',
+      subjectType: 'asset',
+      assetId: 'unrelated-asset',
+      pinnedVariantId: 'unrelated-variant',
+      createdBy: 'user-1',
+    });
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Watercolor props',
+      imageKeys: ['styles/space-1/legacy.png'],
+      createdBy: 'user-1',
+    });
+
+    const result = await repo.backfillLegacySpaceStyle();
+    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+
+    assert.notEqual(result.collectionId, 'user-style-references');
+    assert.deepEqual(
+      (await repo.listCollectionItems('user-style-references')).map((item) => item.pinned_variant_id),
+      ['unrelated-variant']
+    );
+    assert.deepEqual((await repo.listCollectionItems(result.collectionId!)).map((item) => item.pinned_variant_id), result.variantIds);
+    assert.deepEqual(resolved.styleReferenceVariantIds, result.variantIds);
+    assert.deepEqual(resolved.styleKeys, ['styles/space-1/legacy.png']);
+  });
+
   test('backfill is idempotent across repeated runs', async () => {
     await repo.createStyle({
       id: 'legacy-style',
