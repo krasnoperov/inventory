@@ -99,6 +99,8 @@ function createMockCollection(overrides: Partial<SpaceCollection> = {}): SpaceCo
   return {
     id: 'style-collection-1',
     name: 'Style References',
+    kind: 'style_refs',
+    color: null,
     description: 'Migrated references from the legacy space style.',
     sort_index: 0,
     created_by: 'user-1',
