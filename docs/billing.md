@@ -158,6 +158,12 @@ Each row has a unique `attribution_key` plus optional keys for `usage_event_id`,
 `space_id`, `asset_id`, `variant_id`, `workflow_id`, `request_id`, and provider
 request/usage IDs. Total spend is stored as integer micro-USD.
 
+Provider price resolution lives in `src/backend/billing/providerPricing.ts`.
+`ACTIVE_PROVIDER_PRICE_CATALOG` is the active versioned price snapshot, and
+`resolveProviderUsagePrice` returns the catalog version, pricing source,
+normalized usage unit, unit price, USD amount, and integer micro-USD amount for
+ledger writes and usage-cost estimates.
+
 ## Operational Checks
 
 Run production billing checks from an authenticated admin CLI session:
