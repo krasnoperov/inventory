@@ -239,6 +239,28 @@ function buildOrganizationImportManifest(): Record<string, any> {
   };
 }
 
+function addSecondAsset(manifest: Record<string, any>): void {
+  manifest.assets.push({
+    id: 'asset-other',
+    name: 'Other',
+    type: 'prop',
+    mediaKind: 'image',
+    tags: [],
+    activeVariantId: 'variant-other',
+    createdAt: 3,
+    variants: [{
+      id: 'variant-other',
+      assetId: 'asset-other',
+      mediaKind: 'image',
+      mediaFile: 'images/Other/variant-other.png',
+      imageFile: 'images/Other/variant-other.png',
+      thumbFile: null,
+      recipe: { operation: 'generate' },
+      createdAt: 4,
+    }],
+  });
+}
+
 describe('exportRoutes', () => {
   it('exports media-only generated video variants as canonical media files', async () => {
     const { app } = buildApp({
@@ -723,7 +745,7 @@ describe('exportRoutes', () => {
     assert.equal(puts.length, 0);
   });
 
-  it('rejects invalid import vocabulary before mutating the target space', async () => {
+  it('rejects invalid import manifest fields before mutating the target space', async () => {
     const cases: Array<{
       name: string;
       mutate: (manifest: Record<string, any>) => void;
@@ -743,6 +765,32 @@ describe('exportRoutes', () => {
         name: 'variant media kind mismatch',
         mutate: (manifest) => { manifest.assets[0].variants[0].mediaKind = 'video'; },
         expected: /Variant variant-source mediaKind must match asset asset-source mediaKind: image/,
+      },
+      {
+        name: 'variant asset membership',
+        mutate: (manifest) => { manifest.assets[0].variants[0].assetId = 'asset-other'; },
+        expected: /Variant variant-source assetId must match asset asset-source/,
+      },
+      {
+        name: 'pinned variant asset membership',
+        mutate: (manifest) => {
+          addSecondAsset(manifest);
+          manifest.collectionItems[0].subjectType = 'asset';
+          manifest.collectionItems[0].assetId = 'asset-source';
+          manifest.collectionItems[0].variantId = null;
+          manifest.collectionItems[0].pinnedVariantId = 'variant-other';
+        },
+        expected: /Collection item collection-item-source pinnedVariantId must reference a variant on the asset subject/,
+      },
+      {
+        name: 'collection name',
+        mutate: (manifest) => { manifest.collections[0].name = 5; },
+        expected: /Collection collection-source name is required/,
+      },
+      {
+        name: 'collection item role',
+        mutate: (manifest) => { manifest.collectionItems[0].role = 5; },
+        expected: /Collection item collection-item-source role is required/,
       },
       {
         name: 'lineage relation type',
@@ -765,9 +813,42 @@ describe('exportRoutes', () => {
         expected: /Relation relation-source relationType is invalid/,
       },
       {
+        name: 'manual relation context',
+        mutate: (manifest) => { manifest.relations[0].context = 5; },
+        expected: /Relation relation-source context must be a string, object, or null/,
+      },
+      {
+        name: 'composition name',
+        mutate: (manifest) => { manifest.compositions[0].name = 5; },
+        expected: /Composition composition-source name is required/,
+      },
+      {
+        name: 'composition output ownership',
+        mutate: (manifest) => {
+          addSecondAsset(manifest);
+          manifest.compositions[0].outputAssetId = 'asset-source';
+          manifest.compositions[0].outputVariantId = 'variant-other';
+        },
+        expected: /Composition composition-source outputVariantId must belong to outputAssetId/,
+      },
+      {
         name: 'composition status',
         mutate: (manifest) => { manifest.compositions[0].status = 'published'; },
         expected: /Composition composition-source status must be draft or final/,
+      },
+      {
+        name: 'composition item asset ownership',
+        mutate: (manifest) => {
+          addSecondAsset(manifest);
+          manifest.compositionItems[0].assetId = 'asset-other';
+          manifest.compositionItems[0].variantId = 'variant-source';
+        },
+        expected: /Composition item composition-item-source assetId must match the variant asset/,
+      },
+      {
+        name: 'composition item label',
+        mutate: (manifest) => { manifest.compositionItems[0].label = 5; },
+        expected: /Composition item composition-item-source label must be a string or null/,
       },
       {
         name: 'composition item role',

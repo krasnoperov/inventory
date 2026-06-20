@@ -194,9 +194,35 @@ function getVariantImportMediaFile(variant: ExportVariant): string | null {
   return variant.mediaFile ?? variant.imageFile ?? null;
 }
 
+function requiredStringField(value: unknown, label: string): string | null {
+  return typeof value === 'string' && value.trim() ? null : `${label} is required`;
+}
+
+function optionalNullableStringField(value: unknown, label: string): string | null {
+  return value === undefined || value === null || typeof value === 'string'
+    ? null
+    : `${label} must be a string or null`;
+}
+
+function optionalNullableStringOrJsonField(value: unknown, label: string): string | null {
+  if (value === undefined || value === null || typeof value === 'string') return null;
+  return typeof value === 'object' ? null : `${label} must be a string, object, or null`;
+}
+
+function integerField(value: unknown, label: string): string | null {
+  return Number.isInteger(value) ? null : `${label} must be an integer`;
+}
+
+function validateOptionalArraySection(value: unknown, label: string): string | null {
+  return value === undefined || Array.isArray(value) ? null : `${label} must be an array`;
+}
+
 function validateManifestReferences(manifest: ExportManifest): string | null {
   const assetIds = new Set(manifest.assets.map((asset) => asset.id));
   const variantIds = new Set(manifest.assets.flatMap((asset) => asset.variants.map((variant) => variant.id)));
+  const variantAssetIds = new Map(
+    manifest.assets.flatMap((asset) => asset.variants.map((variant) => [variant.id, asset.id] as const))
+  );
   const collectionIds = new Set(optionalArray(manifest.collections).map((collection) => collection.id));
   const compositionIds = new Set(optionalArray(manifest.compositions).map((composition) => composition.id));
 
@@ -219,8 +245,16 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
   };
 
   for (const asset of manifest.assets) {
+    for (const variant of asset.variants) {
+      if (variant.assetId && variant.assetId !== asset.id) {
+        return `Variant ${variant.id} assetId must match asset ${asset.id}`;
+      }
+    }
     const error = hasVariant(asset.activeVariantId, `Asset ${asset.id} activeVariantId`);
     if (error) return error;
+    if (asset.activeVariantId && variantAssetIds.get(asset.activeVariantId) !== asset.id) {
+      return `Asset ${asset.id} activeVariantId must reference a variant on the asset`;
+    }
   }
   for (const lineage of manifest.lineage ?? []) {
     const parentError = hasVariant(lineage.parentVariantId, 'Lineage parentVariantId');
@@ -234,6 +268,14 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
     if (subjectError) return subjectError;
     const pinnedError = hasVariant(item.pinnedVariantId, `Collection item ${item.id} pinnedVariantId`);
     if (pinnedError) return pinnedError;
+    if (
+      item.subjectType === 'asset' &&
+      item.assetId &&
+      item.pinnedVariantId &&
+      variantAssetIds.get(item.pinnedVariantId) !== item.assetId
+    ) {
+      return `Collection item ${item.id} pinnedVariantId must reference a variant on the asset subject`;
+    }
   }
   for (const relation of optionalArray(manifest.relations)) {
     const subjectError = hasSubject(
@@ -256,6 +298,13 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
     if (assetError) return assetError;
     const variantError = hasVariant(composition.outputVariantId, `Composition ${composition.id} outputVariantId`);
     if (variantError) return variantError;
+    if (
+      composition.outputAssetId &&
+      composition.outputVariantId &&
+      variantAssetIds.get(composition.outputVariantId) !== composition.outputAssetId
+    ) {
+      return `Composition ${composition.id} outputVariantId must belong to outputAssetId`;
+    }
   }
   for (const item of optionalArray(manifest.compositionItems)) {
     if (!compositionIds.has(item.compositionId)) return `Composition item ${item.id} references unknown composition: ${item.compositionId}`;
@@ -264,7 +313,88 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
     if (!item.variantId) return `Composition item ${item.id} is missing variantId`;
     const variantError = hasVariant(item.variantId, `Composition item ${item.id} variantId`);
     if (variantError) return variantError;
+    if (item.assetId && variantAssetIds.get(item.variantId) !== item.assetId) {
+      return `Composition item ${item.id} assetId must match the variant asset`;
+    }
   }
+  return null;
+}
+
+function validateManifestOrganizationFields(manifest: ExportManifest): string | null {
+  const rawManifest = manifest as {
+    collections?: unknown;
+    collectionItems?: unknown;
+    relations?: unknown;
+    compositions?: unknown;
+    compositionItems?: unknown;
+  };
+  const optionalSections: Array<[unknown, string]> = [
+    [rawManifest.collections, 'collections'],
+    [rawManifest.collectionItems, 'collectionItems'],
+    [rawManifest.relations, 'relations'],
+    [rawManifest.compositions, 'compositions'],
+    [rawManifest.compositionItems, 'compositionItems'],
+  ];
+  for (const [value, label] of optionalSections) {
+    const error = validateOptionalArraySection(value, label);
+    if (error) return error;
+  }
+
+  for (const collection of optionalArray(manifest.collections)) {
+    const idError = requiredStringField(collection.id, 'Collection id');
+    if (idError) return idError;
+    const nameError = requiredStringField(collection.name, `Collection ${collection.id} name`);
+    if (nameError) return nameError;
+    const descriptionError = optionalNullableStringField(collection.description, `Collection ${collection.id} description`);
+    if (descriptionError) return descriptionError;
+    const sortIndexError = integerField(collection.sortIndex, `Collection ${collection.id} sortIndex`);
+    if (sortIndexError) return sortIndexError;
+  }
+
+  for (const item of optionalArray(manifest.collectionItems)) {
+    const idError = requiredStringField(item.id, 'Collection item id');
+    if (idError) return idError;
+    const collectionIdError = requiredStringField(item.collectionId, `Collection item ${item.id} collectionId`);
+    if (collectionIdError) return collectionIdError;
+    const roleError = requiredStringField(item.role, `Collection item ${item.id} role`);
+    if (roleError) return roleError;
+    const sortIndexError = integerField(item.sortIndex, `Collection item ${item.id} sortIndex`);
+    if (sortIndexError) return sortIndexError;
+  }
+
+  for (const relation of optionalArray(manifest.relations)) {
+    const idError = requiredStringField(relation.id, 'Relation id');
+    if (idError) return idError;
+    const labelError = optionalNullableStringField(relation.label, `Relation ${relation.id} label`);
+    if (labelError) return labelError;
+    const contextError = optionalNullableStringOrJsonField(relation.context, `Relation ${relation.id} context`);
+    if (contextError) return contextError;
+    const sortIndexError = integerField(relation.sortIndex, `Relation ${relation.id} sortIndex`);
+    if (sortIndexError) return sortIndexError;
+  }
+
+  for (const composition of optionalArray(manifest.compositions)) {
+    const idError = requiredStringField(composition.id, 'Composition id');
+    if (idError) return idError;
+    const nameError = requiredStringField(composition.name, `Composition ${composition.id} name`);
+    if (nameError) return nameError;
+    const descriptionError = optionalNullableStringField(composition.description, `Composition ${composition.id} description`);
+    if (descriptionError) return descriptionError;
+    const sortIndexError = integerField(composition.sortIndex, `Composition ${composition.id} sortIndex`);
+    if (sortIndexError) return sortIndexError;
+  }
+
+  for (const item of optionalArray(manifest.compositionItems)) {
+    const idError = requiredStringField(item.id, 'Composition item id');
+    if (idError) return idError;
+    const compositionIdError = requiredStringField(item.compositionId, `Composition item ${item.id} compositionId`);
+    if (compositionIdError) return compositionIdError;
+    const labelError = optionalNullableStringField(item.label, `Composition item ${item.id} label`);
+    if (labelError) return labelError;
+    const sortIndexError = integerField(item.sortIndex, `Composition item ${item.id} sortIndex`);
+    if (sortIndexError) return sortIndexError;
+  }
+
   return null;
 }
 
@@ -680,6 +810,10 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
     return c.json({ error: `Unsupported export version: ${manifest.version}` }, 400);
   }
 
+  const manifestFieldError = validateManifestOrganizationFields(manifest);
+  if (manifestFieldError) {
+    return c.json({ error: `Invalid export manifest: ${manifestFieldError}` }, 400);
+  }
   const manifestVocabularyError = validateManifestVocabulary(manifest);
   if (manifestVocabularyError) {
     return c.json({ error: `Invalid export manifest: ${manifestVocabularyError}` }, 400);
