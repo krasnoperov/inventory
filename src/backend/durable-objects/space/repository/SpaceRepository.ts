@@ -784,6 +784,7 @@ export class SpaceRepository {
     parentVariantId: string;
     childVariantId: string;
     relationType: 'derived' | 'refined' | 'forked';
+    severed?: boolean;
   }): Promise<Lineage> {
     const now = Date.now();
 
@@ -806,7 +807,7 @@ export class SpaceRepository {
       lineage.parentVariantId,
       lineage.childVariantId,
       lineage.relationType,
-      0, // severed = false
+      lineage.severed ? 1 : 0,
       now
     );
 

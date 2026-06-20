@@ -13,12 +13,17 @@ interface ExportManifest {
   spaceName: string;
   assets: ExportAsset[];
   lineage: ExportLineage[];
+  collections?: ExportCollection[];
+  collectionItems?: ExportCollectionItem[];
+  relations?: ExportRelation[];
+  compositions?: ExportComposition[];
+  compositionItems?: ExportCompositionItem[];
 }
 
 interface ExportAsset {
   id: string;
   name: string;
-  type: 'character' | 'item' | 'scene' | 'composite';
+  type: string;
   mediaKind?: MediaKind;
   tags: string[];
   activeVariantId: string | null;
@@ -40,13 +45,71 @@ interface ExportVariant {
   imageFile?: string | null; // legacy image filename in ZIP
   thumbFile?: string | null; // legacy thumbnail filename in ZIP
   recipe: Record<string, unknown> | null;
+  generation_provenance?: unknown;
+  provider_metadata?: unknown;
   createdAt: number;
 }
 
 interface ExportLineage {
+  id?: string;
   parentVariantId: string;
   childVariantId: string;
   relationType: 'derived' | 'refined' | 'forked';
+  severed?: boolean;
+}
+
+type ExportSubjectType = 'asset' | 'variant';
+
+interface ExportCollection {
+  id: string;
+  name: string;
+  description: string | null;
+  sortIndex: number;
+}
+
+interface ExportCollectionItem {
+  id: string;
+  collectionId: string;
+  subjectType: ExportSubjectType;
+  assetId: string | null;
+  variantId: string | null;
+  role: string;
+  pinnedVariantId: string | null;
+  sortIndex: number;
+}
+
+interface ExportRelation {
+  id: string;
+  subjectType: ExportSubjectType;
+  subjectAssetId: string | null;
+  subjectVariantId: string | null;
+  objectType: ExportSubjectType;
+  objectAssetId: string | null;
+  objectVariantId: string | null;
+  relationType: string;
+  context: string | null;
+  sortIndex: number;
+}
+
+interface ExportComposition {
+  id: string;
+  name: string;
+  description: string | null;
+  status: 'draft' | 'final';
+  outputAssetId: string | null;
+  outputVariantId: string | null;
+  metadata: unknown;
+  sortIndex: number;
+}
+
+interface ExportCompositionItem {
+  id: string;
+  compositionId: string;
+  role: string;
+  assetId: string | null;
+  variantId: string;
+  metadata: unknown;
+  sortIndex: number;
 }
 
 export const exportRoutes = new Hono<AppContext>();
@@ -64,6 +127,145 @@ function getMediaImportExtension(file: string | null | undefined, mediaKind: Med
   if (mediaKind === 'audio') return 'mp3';
   if (mediaKind === 'video') return 'mp4';
   return 'png';
+}
+
+function parseJsonForManifest(value: string | null | undefined): unknown {
+  if (value === undefined || value === null) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function parseMetadataObject(value: unknown, label: string): Record<string, unknown> {
+  if (value === undefined || value === null) return {};
+  if (typeof value === 'string') {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    throw new Error(`${label} must be a JSON object`);
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  throw new Error(`${label} must be an object`);
+}
+
+function requireMappedId(map: Map<string, string>, id: string | null | undefined, label: string): string | null {
+  if (!id) return null;
+  const mapped = map.get(id);
+  if (!mapped) {
+    throw new Error(`${label} references unknown ID: ${id}`);
+  }
+  return mapped;
+}
+
+function subjectInput(
+  subjectType: ExportSubjectType,
+  assetId: string | null | undefined,
+  variantId: string | null | undefined,
+  assetIdMap: Map<string, string>,
+  variantIdMap: Map<string, string>,
+  label: string
+): { subjectType: ExportSubjectType; assetId?: string; variantId?: string } {
+  if (subjectType === 'asset') {
+    return { subjectType, assetId: requireMappedId(assetIdMap, assetId, label) ?? undefined };
+  }
+  return { subjectType, variantId: requireMappedId(variantIdMap, variantId, label) ?? undefined };
+}
+
+function optionalArray<T>(value: T[] | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function validateManifestReferences(manifest: ExportManifest): string | null {
+  const assetIds = new Set(manifest.assets.map((asset) => asset.id));
+  const variantIds = new Set(manifest.assets.flatMap((asset) => asset.variants.map((variant) => variant.id)));
+  const collectionIds = new Set(optionalArray(manifest.collections).map((collection) => collection.id));
+  const compositionIds = new Set(optionalArray(manifest.compositions).map((composition) => composition.id));
+
+  const hasAsset = (id: string | null | undefined, label: string) =>
+    !id || assetIds.has(id) ? null : `${label} references unknown asset: ${id}`;
+  const hasVariant = (id: string | null | undefined, label: string) =>
+    !id || variantIds.has(id) ? null : `${label} references unknown variant: ${id}`;
+  const hasSubject = (
+    subjectType: ExportSubjectType,
+    assetId: string | null | undefined,
+    variantId: string | null | undefined,
+    label: string
+  ) => {
+    if (subjectType === 'asset') {
+      if (!assetId) return `${label} is missing assetId`;
+      return hasAsset(assetId, label);
+    }
+    if (!variantId) return `${label} is missing variantId`;
+    return hasVariant(variantId, label);
+  };
+
+  for (const asset of manifest.assets) {
+    const error = hasVariant(asset.activeVariantId, `Asset ${asset.id} activeVariantId`);
+    if (error) return error;
+  }
+  for (const lineage of manifest.lineage ?? []) {
+    const parentError = hasVariant(lineage.parentVariantId, 'Lineage parentVariantId');
+    if (parentError) return parentError;
+    const childError = hasVariant(lineage.childVariantId, 'Lineage childVariantId');
+    if (childError) return childError;
+  }
+  for (const item of optionalArray(manifest.collectionItems)) {
+    if (!collectionIds.has(item.collectionId)) return `Collection item ${item.id} references unknown collection: ${item.collectionId}`;
+    const subjectError = hasSubject(item.subjectType, item.assetId, item.variantId, `Collection item ${item.id}`);
+    if (subjectError) return subjectError;
+    const pinnedError = hasVariant(item.pinnedVariantId, `Collection item ${item.id} pinnedVariantId`);
+    if (pinnedError) return pinnedError;
+  }
+  for (const relation of optionalArray(manifest.relations)) {
+    const subjectError = hasSubject(
+      relation.subjectType,
+      relation.subjectAssetId,
+      relation.subjectVariantId,
+      `Relation ${relation.id} subject`
+    );
+    if (subjectError) return subjectError;
+    const objectError = hasSubject(
+      relation.objectType,
+      relation.objectAssetId,
+      relation.objectVariantId,
+      `Relation ${relation.id} object`
+    );
+    if (objectError) return objectError;
+  }
+  for (const composition of optionalArray(manifest.compositions)) {
+    const assetError = hasAsset(composition.outputAssetId, `Composition ${composition.id} outputAssetId`);
+    if (assetError) return assetError;
+    const variantError = hasVariant(composition.outputVariantId, `Composition ${composition.id} outputVariantId`);
+    if (variantError) return variantError;
+  }
+  for (const item of optionalArray(manifest.compositionItems)) {
+    if (!compositionIds.has(item.compositionId)) return `Composition item ${item.id} references unknown composition: ${item.compositionId}`;
+    const assetError = hasAsset(item.assetId, `Composition item ${item.id} assetId`);
+    if (assetError) return assetError;
+    if (!item.variantId) return `Composition item ${item.id} is missing variantId`;
+    const variantError = hasVariant(item.variantId, `Composition item ${item.id} variantId`);
+    if (variantError) return variantError;
+  }
+  return null;
+}
+
+function validateManifestMetadata(manifest: ExportManifest): string | null {
+  try {
+    for (const composition of optionalArray(manifest.compositions)) {
+      parseMetadataObject(composition.metadata, `Composition ${composition.id} metadata`);
+    }
+    for (const item of optionalArray(manifest.compositionItems)) {
+      parseMetadataObject(item.metadata, `Composition item ${item.id} metadata`);
+    }
+  } catch (error) {
+    return error instanceof Error ? error.message : 'Invalid metadata';
+  }
+  return null;
 }
 
 // All export routes require authentication
@@ -101,7 +303,7 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
     assets: Array<{
       id: string;
       name: string;
-      type: 'character' | 'item' | 'scene' | 'composite';
+      type: string;
       media_kind?: MediaKind;
       tags: string;
       active_variant_id: string | null;
@@ -119,13 +321,64 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       media_width?: number | null;
       media_height?: number | null;
       media_duration_ms?: number | null;
+      generation_provenance?: string | null;
+      provider_metadata?: string | null;
       recipe: string;
       created_at: number;
     }>;
     lineage?: Array<{
+      id?: string;
       parent_variant_id: string;
       child_variant_id: string;
       relation_type: string;
+      severed?: boolean | number;
+    }>;
+    collections?: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      sort_index: number;
+    }>;
+    collectionItems?: Array<{
+      id: string;
+      collection_id: string;
+      subject_type: ExportSubjectType;
+      asset_id: string | null;
+      variant_id: string | null;
+      role: string;
+      pinned_variant_id: string | null;
+      sort_index: number;
+    }>;
+    relations?: Array<{
+      id: string;
+      subject_type: ExportSubjectType;
+      subject_asset_id: string | null;
+      subject_variant_id: string | null;
+      object_type: ExportSubjectType;
+      object_asset_id: string | null;
+      object_variant_id: string | null;
+      relation_type: string;
+      context: string | null;
+      sort_index: number;
+    }>;
+    compositions?: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      status: 'draft' | 'final';
+      output_asset_id: string | null;
+      output_variant_id: string | null;
+      metadata: string;
+      sort_index: number;
+    }>;
+    compositionItems?: Array<{
+      id: string;
+      composition_id: string;
+      role: string;
+      asset_id: string | null;
+      variant_id: string;
+      metadata: string;
+      sort_index: number;
     }>;
   };
 
@@ -140,9 +393,58 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
     spaceName: 'Space', // Could fetch from space table if needed
     assets: [],
     lineage: (state.lineage || []).map(l => ({
+      id: l.id,
       parentVariantId: l.parent_variant_id,
       childVariantId: l.child_variant_id,
       relationType: l.relation_type as ExportLineage['relationType'],
+      severed: Boolean(l.severed),
+    })),
+    collections: (state.collections || []).map(collection => ({
+      id: collection.id,
+      name: collection.name,
+      description: collection.description,
+      sortIndex: collection.sort_index,
+    })),
+    collectionItems: (state.collectionItems || []).map(item => ({
+      id: item.id,
+      collectionId: item.collection_id,
+      subjectType: item.subject_type,
+      assetId: item.asset_id,
+      variantId: item.variant_id,
+      role: item.role,
+      pinnedVariantId: item.pinned_variant_id,
+      sortIndex: item.sort_index,
+    })),
+    relations: (state.relations || []).map(relation => ({
+      id: relation.id,
+      subjectType: relation.subject_type,
+      subjectAssetId: relation.subject_asset_id,
+      subjectVariantId: relation.subject_variant_id,
+      objectType: relation.object_type,
+      objectAssetId: relation.object_asset_id,
+      objectVariantId: relation.object_variant_id,
+      relationType: relation.relation_type,
+      context: relation.context,
+      sortIndex: relation.sort_index,
+    })),
+    compositions: (state.compositions || []).map(composition => ({
+      id: composition.id,
+      name: composition.name,
+      description: composition.description,
+      status: composition.status,
+      outputAssetId: composition.output_asset_id,
+      outputVariantId: composition.output_variant_id,
+      metadata: parseJsonForManifest(composition.metadata),
+      sortIndex: composition.sort_index,
+    })),
+    compositionItems: (state.compositionItems || []).map(item => ({
+      id: item.id,
+      compositionId: item.composition_id,
+      role: item.role,
+      assetId: item.asset_id,
+      variantId: item.variant_id,
+      metadata: parseJsonForManifest(item.metadata),
+      sortIndex: item.sort_index,
     })),
   };
 
@@ -220,6 +522,8 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
         imageFile,
         thumbFile,
         recipe,
+        generation_provenance: parseJsonForManifest(variant.generation_provenance),
+        provider_metadata: parseJsonForManifest(variant.provider_metadata),
         createdAt: variant.created_at,
       });
     }
@@ -285,6 +589,15 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
     return c.json({ error: `Unsupported export version: ${manifest.version}` }, 400);
   }
 
+  const manifestReferenceError = validateManifestReferences(manifest);
+  if (manifestReferenceError) {
+    return c.json({ error: `Invalid export manifest: ${manifestReferenceError}` }, 400);
+  }
+  const manifestMetadataError = validateManifestMetadata(manifest);
+  if (manifestMetadataError) {
+    return c.json({ error: `Invalid export manifest: ${manifestMetadataError}` }, 400);
+  }
+
   // Get DO stub
   if (!env.SPACES_DO) {
     return c.json({ error: 'Asset storage not available' }, 503);
@@ -296,9 +609,19 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
   // Track ID mappings (old -> new) for lineage reconstruction
   const variantIdMap = new Map<string, string>();
   const assetIdMap = new Map<string, string>();
+  const collectionIdMap = new Map<string, string>();
+  const collectionItemIdMap = new Map<string, string>();
+  const relationIdMap = new Map<string, string>();
+  const compositionIdMap = new Map<string, string>();
+  const compositionItemIdMap = new Map<string, string>();
 
   const importedAssets: string[] = [];
   const importedVariants: string[] = [];
+  const importedCollections: string[] = [];
+  const importedCollectionItems: string[] = [];
+  const importedRelations: string[] = [];
+  const importedCompositions: string[] = [];
+  const importedCompositionItems: string[] = [];
 
   // Import each asset
   for (const asset of manifest.assets) {
@@ -331,8 +654,7 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
       const mediaFile = variant.mediaFile ?? variant.imageFile ?? null;
       const mediaData = mediaFile ? unzipped[mediaFile] : undefined;
       if (!mediaData) {
-        console.warn(`Media not found in ZIP: ${mediaFile ?? '(missing media file)'}`);
-        continue;
+        return c.json({ error: `Invalid export file: missing media for variant ${variant.id}` }, 400);
       }
 
       const imageData = variant.imageFile ? unzipped[variant.imageFile] : undefined;
@@ -381,11 +703,9 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
           mediaWidth: variant.mediaWidth,
           mediaHeight: variant.mediaHeight,
           mediaDurationMs: variant.mediaDurationMs,
-          recipe: JSON.stringify({
-            type: 'import',
-            originalRecipe: variant.recipe,
-            importedAt: new Date().toISOString(),
-          }),
+          recipe: JSON.stringify(variant.recipe ?? { type: 'import' }),
+          generationProvenance: variant.generation_provenance,
+          providerMetadata: variant.provider_metadata,
           createdBy: userId,
         }),
       }));
@@ -415,19 +735,142 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
     const newParentId = variantIdMap.get(lineage.parentVariantId);
     const newChildId = variantIdMap.get(lineage.childVariantId);
 
-    if (newParentId && newChildId) {
-      // Add lineage via DO
-      await doStub.fetch(new Request('http://do/internal/add-lineage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          parentVariantId: newParentId,
-          childVariantId: newChildId,
-          relationType: lineage.relationType,
-        }),
-      }));
-      lineageImported++;
+    if (!newParentId || !newChildId) {
+      return c.json({ error: `Invalid export manifest: lineage references a variant that was not imported` }, 400);
     }
+
+    // Space ZIP import is a data portability path. It remaps immutable lineage
+    // from the source Space; do not use it as a casual lineage editing surface.
+    const lineageResponse = await doStub.fetch(new Request('http://do/internal/add-lineage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        parentVariantId: newParentId,
+        childVariantId: newChildId,
+        relationType: lineage.relationType,
+        severed: lineage.severed ?? false,
+      }),
+    }));
+    if (!lineageResponse.ok) {
+      const error = await lineageResponse.json().catch(() => ({})) as { error?: string };
+      return c.json({ error: error.error || 'Failed to import lineage' }, lineageResponse.status as 400 | 500);
+    }
+    lineageImported++;
+  }
+
+  for (const collection of optionalArray(manifest.collections)) {
+    const newCollectionId = crypto.randomUUID();
+    collectionIdMap.set(collection.id, newCollectionId);
+    const response = await doStub.fetch(new Request('http://do/internal/collections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: newCollectionId,
+        name: collection.name,
+        description: collection.description,
+        sortIndex: collection.sortIndex,
+        createdBy: userId,
+      }),
+    }));
+    if (!response.ok) return c.json({ error: 'Failed to import collection' }, response.status as 400 | 500);
+    importedCollections.push(newCollectionId);
+  }
+
+  for (const item of optionalArray(manifest.collectionItems)) {
+    const newItemId = crypto.randomUUID();
+    collectionItemIdMap.set(item.id, newItemId);
+    const newCollectionId = requireMappedId(collectionIdMap, item.collectionId, `Collection item ${item.id} collectionId`)!;
+    const response = await doStub.fetch(new Request(`http://do/internal/collections/${newCollectionId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: newItemId,
+        ...subjectInput(item.subjectType, item.assetId, item.variantId, assetIdMap, variantIdMap, `Collection item ${item.id}`),
+        role: item.role,
+        pinnedVariantId: requireMappedId(variantIdMap, item.pinnedVariantId, `Collection item ${item.id} pinnedVariantId`),
+        sortIndex: item.sortIndex,
+        createdBy: userId,
+      }),
+    }));
+    if (!response.ok) return c.json({ error: 'Failed to import collection item' }, response.status as 400 | 500);
+    importedCollectionItems.push(newItemId);
+  }
+
+  for (const relation of optionalArray(manifest.relations)) {
+    const newRelationId = crypto.randomUUID();
+    relationIdMap.set(relation.id, newRelationId);
+    const response = await doStub.fetch(new Request('http://do/internal/relations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: newRelationId,
+        subject: subjectInput(
+          relation.subjectType,
+          relation.subjectAssetId,
+          relation.subjectVariantId,
+          assetIdMap,
+          variantIdMap,
+          `Relation ${relation.id} subject`
+        ),
+        object: subjectInput(
+          relation.objectType,
+          relation.objectAssetId,
+          relation.objectVariantId,
+          assetIdMap,
+          variantIdMap,
+          `Relation ${relation.id} object`
+        ),
+        relationType: relation.relationType,
+        context: relation.context,
+        sortIndex: relation.sortIndex,
+        createdBy: userId,
+      }),
+    }));
+    if (!response.ok) return c.json({ error: 'Failed to import relation' }, response.status as 400 | 500);
+    importedRelations.push(newRelationId);
+  }
+
+  for (const composition of optionalArray(manifest.compositions)) {
+    const newCompositionId = crypto.randomUUID();
+    compositionIdMap.set(composition.id, newCompositionId);
+    const response = await doStub.fetch(new Request('http://do/internal/compositions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: newCompositionId,
+        name: composition.name,
+        description: composition.description,
+        status: composition.status,
+        outputAssetId: requireMappedId(assetIdMap, composition.outputAssetId, `Composition ${composition.id} outputAssetId`),
+        outputVariantId: requireMappedId(variantIdMap, composition.outputVariantId, `Composition ${composition.id} outputVariantId`),
+        metadata: parseMetadataObject(composition.metadata, `Composition ${composition.id} metadata`),
+        sortIndex: composition.sortIndex,
+        createdBy: userId,
+      }),
+    }));
+    if (!response.ok) return c.json({ error: 'Failed to import composition' }, response.status as 400 | 500);
+    importedCompositions.push(newCompositionId);
+  }
+
+  for (const item of optionalArray(manifest.compositionItems)) {
+    const newItemId = crypto.randomUUID();
+    compositionItemIdMap.set(item.id, newItemId);
+    const newCompositionId = requireMappedId(compositionIdMap, item.compositionId, `Composition item ${item.id} compositionId`)!;
+    const response = await doStub.fetch(new Request(`http://do/internal/compositions/${newCompositionId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: newItemId,
+        role: item.role,
+        assetId: requireMappedId(assetIdMap, item.assetId, `Composition item ${item.id} assetId`),
+        variantId: requireMappedId(variantIdMap, item.variantId, `Composition item ${item.id} variantId`),
+        metadata: parseMetadataObject(item.metadata, `Composition item ${item.id} metadata`),
+        sortIndex: item.sortIndex,
+        createdBy: userId,
+      }),
+    }));
+    if (!response.ok) return c.json({ error: 'Failed to import composition item' }, response.status as 400 | 500);
+    importedCompositionItems.push(newItemId);
   }
 
   return c.json({
@@ -436,6 +879,11 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
       assets: importedAssets.length,
       variants: importedVariants.length,
       lineage: lineageImported,
+      collections: importedCollections.length,
+      collectionItems: importedCollectionItems.length,
+      relations: importedRelations.length,
+      compositions: importedCompositions.length,
+      compositionItems: importedCompositionItems.length,
     },
   });
 });

@@ -123,6 +123,8 @@ export class VariantController extends BaseController {
     mediaKind?: MediaKind;
     parentVariantIds?: string[];
     relationType?: 'derived' | 'refined';
+    generationProvenance?: Record<string, unknown> | string | null;
+    providerMetadata?: Record<string, unknown> | string | null;
   }): Promise<{ created: boolean; variant: Variant }> {
     return this.applyVariant(data);
   }
@@ -515,6 +517,8 @@ export class VariantController extends BaseController {
     mediaKind?: MediaKind;
     parentVariantIds?: string[];
     relationType?: 'derived' | 'refined';
+    generationProvenance?: Record<string, unknown> | string | null;
+    providerMetadata?: Record<string, unknown> | string | null;
   }): Promise<{ created: boolean; variant: Variant }> {
     // Check if variant already exists (idempotency via workflowId/jobId)
     const existing = await this.repo.getVariantByWorkflowId(data.jobId);
@@ -554,8 +558,10 @@ export class VariantController extends BaseController {
       render_metadata_key: data.renderMetadataKey ?? null,
       render_metadata_mime_type: data.renderMetadataMimeType ?? null,
       render_metadata_size_bytes: data.renderMetadataSizeBytes ?? null,
-      generation_provenance: serializeGenerationProvenance(data.recipe, data.relationType ?? 'derive'),
-      provider_metadata: null,
+      generation_provenance: data.generationProvenance === undefined
+        ? serializeGenerationProvenance(data.recipe, data.relationType ?? 'derive')
+        : serializeProviderMetadata(data.generationProvenance),
+      provider_metadata: serializeProviderMetadata(data.providerMetadata),
       recipe: data.recipe,
       starred: false,
       created_by: data.createdBy,

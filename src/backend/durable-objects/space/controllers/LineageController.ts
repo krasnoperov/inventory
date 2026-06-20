@@ -101,12 +101,14 @@ export class LineageController extends BaseController {
     parentVariantId: string;
     childVariantId: string;
     relationType: 'derived' | 'refined' | 'forked';
+    severed?: boolean;
   }): Promise<Lineage> {
     const lineage = await this.repo.createLineage({
       id: crypto.randomUUID(),
       parentVariantId: data.parentVariantId,
       childVariantId: data.childVariantId,
       relationType: data.relationType,
+      severed: data.severed,
     });
 
     this.broadcast({ type: 'lineage:created', lineage });

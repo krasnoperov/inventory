@@ -118,6 +118,21 @@ function buildApp(options: {
             if (path === '/internal/add-lineage') {
               return Response.json({ success: true, id: 'lineage-new' });
             }
+            if (path === '/internal/collections' && request.method === 'POST') {
+              return Response.json({ success: true, collection: body });
+            }
+            if (/^\/internal\/collections\/[^/]+\/items$/.test(path) && request.method === 'POST') {
+              return Response.json({ success: true, item: body });
+            }
+            if (path === '/internal/relations' && request.method === 'POST') {
+              return Response.json({ success: true, relation: body });
+            }
+            if (path === '/internal/compositions' && request.method === 'POST') {
+              return Response.json({ success: true, composition: body });
+            }
+            if (/^\/internal\/compositions\/[^/]+\/items$/.test(path) && request.method === 'POST') {
+              return Response.json({ success: true, item: body });
+            }
             return Response.json({ error: 'Unexpected DO route' }, { status: 404 });
           },
         }),
@@ -200,6 +215,141 @@ describe('exportRoutes', () => {
     assert.equal(strFromU8(unzipped[variant.mediaFile]), 'video-data');
   });
 
+  it('exports organization records and full variant provenance', async () => {
+    const longPrompt = `A production prompt ${'with exact wording '.repeat(20)}model suffix`;
+    const { app } = buildApp({
+      state: {
+        assets: [{
+          id: 'asset-1',
+          name: 'Hero',
+          type: 'character',
+          media_kind: 'image',
+          tags: '[]',
+          active_variant_id: 'variant-2',
+          created_at: 1,
+        }],
+        variants: [
+          {
+            id: 'variant-1',
+            asset_id: 'asset-1',
+            media_kind: 'image',
+            image_key: 'images/space-1/variant-1.png',
+            thumb_key: null,
+            media_key: 'images/space-1/variant-1.png',
+            media_mime_type: 'image/png',
+            media_size_bytes: 10,
+            media_width: 100,
+            media_height: 100,
+            media_duration_ms: null,
+            generation_provenance: JSON.stringify({ prompt: longPrompt, model: 'provider-model-id-without-truncation' }),
+            provider_metadata: JSON.stringify({ providerRequestId: 'request-id-without-truncation' }),
+            recipe: '{"operation":"generate"}',
+            created_at: 2,
+          },
+          {
+            id: 'variant-2',
+            asset_id: 'asset-1',
+            media_kind: 'image',
+            image_key: 'images/space-1/variant-2.png',
+            thumb_key: null,
+            media_key: 'images/space-1/variant-2.png',
+            media_mime_type: 'image/png',
+            media_size_bytes: 12,
+            media_width: 100,
+            media_height: 100,
+            media_duration_ms: null,
+            generation_provenance: JSON.stringify({ prompt: 'child prompt' }),
+            provider_metadata: null,
+            recipe: '{"operation":"refine"}',
+            created_at: 3,
+          },
+        ],
+        lineage: [{
+          id: 'lineage-1',
+          parent_variant_id: 'variant-1',
+          child_variant_id: 'variant-2',
+          relation_type: 'refined',
+          severed: 1,
+        }],
+        collections: [{
+          id: 'collection-1',
+          name: 'Opening Kit',
+          description: 'Launch assets',
+          sort_index: 4,
+        }],
+        collectionItems: [{
+          id: 'collection-item-1',
+          collection_id: 'collection-1',
+          subject_type: 'variant',
+          asset_id: null,
+          variant_id: 'variant-2',
+          role: 'hero',
+          pinned_variant_id: 'variant-2',
+          sort_index: 5,
+        }],
+        relations: [{
+          id: 'relation-1',
+          subject_type: 'asset',
+          subject_asset_id: 'asset-1',
+          subject_variant_id: null,
+          object_type: 'variant',
+          object_asset_id: null,
+          object_variant_id: 'variant-2',
+          relation_type: 'reference_for',
+          context: '{"label":"paintover"}',
+          sort_index: 6,
+        }],
+        compositions: [{
+          id: 'composition-1',
+          name: 'Final Mix',
+          description: 'Composite output',
+          status: 'final',
+          output_asset_id: 'asset-1',
+          output_variant_id: 'variant-2',
+          metadata: '{"shot":"010"}',
+          sort_index: 7,
+        }],
+        compositionItems: [{
+          id: 'composition-item-1',
+          composition_id: 'composition-1',
+          role: 'output',
+          asset_id: 'asset-1',
+          variant_id: 'variant-2',
+          metadata: '{"layer":"final"}',
+          sort_index: 8,
+        }],
+      },
+      objects: {
+        'images/space-1/variant-1.png': makeObject('images/space-1/variant-1.png', 'parent-image', 'image/png'),
+        'images/space-1/variant-2.png': makeObject('images/space-1/variant-2.png', 'child-image', 'image/png'),
+      },
+    });
+
+    const res = await app.fetch(new Request('https://app.example/api/spaces/space-1/export', {
+      headers: { Authorization: 'Bearer test-token' },
+    }));
+
+    assert.equal(res.status, 200);
+    const unzipped = unzipSync(new Uint8Array(await res.arrayBuffer()));
+    const manifest = JSON.parse(strFromU8(unzipped['manifest.json'])) as any;
+    const exportedVariant = manifest.assets[0].variants[0];
+    assert.equal(exportedVariant.generation_provenance.prompt, longPrompt);
+    assert.equal(exportedVariant.generation_provenance.model, 'provider-model-id-without-truncation');
+    assert.equal(exportedVariant.provider_metadata.providerRequestId, 'request-id-without-truncation');
+    assert.deepEqual(manifest.lineage[0], {
+      id: 'lineage-1',
+      parentVariantId: 'variant-1',
+      childVariantId: 'variant-2',
+      relationType: 'refined',
+      severed: true,
+    });
+    assert.equal(manifest.collections[0].name, 'Opening Kit');
+    assert.equal(manifest.collectionItems[0].pinnedVariantId, 'variant-2');
+    assert.equal(manifest.relations[0].relationType, 'reference_for');
+    assert.deepEqual(manifest.compositions[0].metadata, { shot: '010' });
+    assert.deepEqual(manifest.compositionItems[0].metadata, { layer: 'final' });
+  });
+
   it('imports media-only video variants without requiring legacy image files', async () => {
     const manifest = {
       version: '1.0',
@@ -265,5 +415,206 @@ describe('exportRoutes', () => {
       body: 'video-data',
       contentType: 'video/mp4',
     }]);
+  });
+
+  it('imports organization records with remapped relation, composition, and severed lineage IDs', async () => {
+    const manifest = {
+      version: '1.0',
+      exportedAt: '2026-06-16T00:00:00.000Z',
+      spaceId: 'source-space',
+      spaceName: 'Source',
+      assets: [{
+        id: 'asset-source',
+        name: 'Hero',
+        type: 'character',
+        mediaKind: 'image',
+        tags: [],
+        activeVariantId: 'variant-child',
+        createdAt: 1,
+        variants: [
+          {
+            id: 'variant-parent',
+            assetId: 'asset-source',
+            mediaKind: 'image',
+            mediaFile: 'images/Hero/variant-parent.png',
+            imageFile: 'images/Hero/variant-parent.png',
+            thumbFile: null,
+            recipe: { operation: 'generate', prompt: 'parent' },
+            generation_provenance: { prompt: 'parent prompt', model: 'model-parent' },
+            provider_metadata: { providerRequestId: 'request-parent' },
+            createdAt: 2,
+          },
+          {
+            id: 'variant-child',
+            assetId: 'asset-source',
+            mediaKind: 'image',
+            mediaFile: 'images/Hero/variant-child.png',
+            imageFile: 'images/Hero/variant-child.png',
+            thumbFile: null,
+            recipe: { operation: 'refine', prompt: 'child' },
+            generation_provenance: { prompt: 'child prompt', model: 'model-child' },
+            provider_metadata: { providerRequestId: 'request-child' },
+            createdAt: 3,
+          },
+        ],
+      }],
+      lineage: [{
+        id: 'lineage-source',
+        parentVariantId: 'variant-parent',
+        childVariantId: 'variant-child',
+        relationType: 'refined',
+        severed: true,
+      }],
+      collections: [{
+        id: 'collection-source',
+        name: 'Opening Kit',
+        description: 'Launch assets',
+        sortIndex: 1,
+      }],
+      collectionItems: [{
+        id: 'collection-item-source',
+        collectionId: 'collection-source',
+        subjectType: 'variant',
+        assetId: null,
+        variantId: 'variant-child',
+        role: 'hero',
+        pinnedVariantId: 'variant-child',
+        sortIndex: 2,
+      }],
+      relations: [{
+        id: 'relation-source',
+        subjectType: 'asset',
+        subjectAssetId: 'asset-source',
+        subjectVariantId: null,
+        objectType: 'variant',
+        objectAssetId: null,
+        objectVariantId: 'variant-child',
+        relationType: 'reference_for',
+        context: '{"label":"paintover"}',
+        sortIndex: 3,
+      }],
+      compositions: [{
+        id: 'composition-source',
+        name: 'Final Mix',
+        description: 'Composite output',
+        status: 'final',
+        outputAssetId: 'asset-source',
+        outputVariantId: 'variant-child',
+        metadata: { shot: '010' },
+        sortIndex: 4,
+      }],
+      compositionItems: [{
+        id: 'composition-item-source',
+        compositionId: 'composition-source',
+        role: 'output',
+        assetId: 'asset-source',
+        variantId: 'variant-child',
+        metadata: { layer: 'final' },
+        sortIndex: 5,
+      }],
+    };
+    const zip = zipSync({
+      'manifest.json': strToU8(JSON.stringify(manifest)),
+      'images/Hero/variant-parent.png': strToU8('parent-image'),
+      'images/Hero/variant-child.png': strToU8('child-image'),
+    });
+    const formData = new FormData();
+    formData.set('file', new File([zip], 'export.zip', { type: 'application/zip' }));
+    const { app, doCalls } = buildApp();
+
+    const res = await app.fetch(new Request('https://app.example/api/spaces/space-1/import', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-token' },
+      body: formData,
+    }));
+
+    assert.equal(res.status, 200);
+    const body = await res.json() as { imported: Record<string, number> };
+    assert.deepEqual(body.imported, {
+      assets: 1,
+      variants: 2,
+      lineage: 1,
+      collections: 1,
+      collectionItems: 1,
+      relations: 1,
+      compositions: 1,
+      compositionItems: 1,
+    });
+
+    const assetId = doCalls.find((call) => call.path === '/internal/create-asset')!.body!.id;
+    const applyCalls = doCalls.filter((call) => call.path === '/internal/apply-variant');
+    const parentVariantId = applyCalls[0].body!.variantId;
+    const childVariantId = applyCalls[1].body!.variantId;
+    assert.notEqual(assetId, 'asset-source');
+    assert.notEqual(parentVariantId, 'variant-parent');
+    assert.notEqual(childVariantId, 'variant-child');
+    assert.deepEqual(applyCalls[1].body!.generationProvenance, { prompt: 'child prompt', model: 'model-child' });
+    assert.deepEqual(applyCalls[1].body!.providerMetadata, { providerRequestId: 'request-child' });
+
+    const lineageCall = doCalls.find((call) => call.path === '/internal/add-lineage')!;
+    assert.deepEqual(lineageCall.body, {
+      parentVariantId,
+      childVariantId,
+      relationType: 'refined',
+      severed: true,
+    });
+
+    const collectionItemCall = doCalls.find((call) => /^\/internal\/collections\/[^/]+\/items$/.test(call.path))!;
+    assert.equal(collectionItemCall.body!.variantId, childVariantId);
+    assert.equal(collectionItemCall.body!.pinnedVariantId, childVariantId);
+    assert.equal(collectionItemCall.body!.role, 'hero');
+
+    const relationCall = doCalls.find((call) => call.path === '/internal/relations')!;
+    assert.deepEqual(relationCall.body!.subject, { subjectType: 'asset', assetId });
+    assert.deepEqual(relationCall.body!.object, { subjectType: 'variant', variantId: childVariantId });
+    assert.equal(relationCall.body!.relationType, 'reference_for');
+    assert.equal(relationCall.body!.context, '{"label":"paintover"}');
+
+    const compositionCall = doCalls.find((call) => call.path === '/internal/compositions')!;
+    assert.equal(compositionCall.body!.outputAssetId, assetId);
+    assert.equal(compositionCall.body!.outputVariantId, childVariantId);
+    assert.deepEqual(compositionCall.body!.metadata, { shot: '010' });
+
+    const compositionItemCall = doCalls.find((call) => /^\/internal\/compositions\/[^/]+\/items$/.test(call.path))!;
+    assert.equal(compositionItemCall.body!.assetId, assetId);
+    assert.equal(compositionItemCall.body!.variantId, childVariantId);
+    assert.equal(compositionItemCall.body!.role, 'output');
+    assert.deepEqual(compositionItemCall.body!.metadata, { layer: 'final' });
+  });
+
+  it('rejects organization records that reference unknown variants', async () => {
+    const manifest = {
+      version: '1.0',
+      exportedAt: '2026-06-16T00:00:00.000Z',
+      spaceId: 'source-space',
+      spaceName: 'Source',
+      assets: [],
+      lineage: [],
+      collections: [{ id: 'collection-1', name: 'Broken', description: null, sortIndex: 0 }],
+      collectionItems: [{
+        id: 'item-1',
+        collectionId: 'collection-1',
+        subjectType: 'variant',
+        assetId: null,
+        variantId: 'missing-variant',
+        role: 'custom',
+        pinnedVariantId: null,
+        sortIndex: 0,
+      }],
+    };
+    const zip = zipSync({ 'manifest.json': strToU8(JSON.stringify(manifest)) });
+    const formData = new FormData();
+    formData.set('file', new File([zip], 'export.zip', { type: 'application/zip' }));
+    const { app, doCalls } = buildApp();
+
+    const res = await app.fetch(new Request('https://app.example/api/spaces/space-1/import', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-token' },
+      body: formData,
+    }));
+
+    assert.equal(res.status, 400);
+    assert.match(await res.text(), /unknown variant: missing-variant/);
+    assert.equal(doCalls.filter((call) => call.path !== '/internal/state').length, 0);
   });
 });
