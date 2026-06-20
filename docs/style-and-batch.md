@@ -6,26 +6,26 @@ Space-level visual identity and multi-variant generation.
 
 ## Style Anchoring
 
-Each space can have one **style** — a description and up to 5 reference images that are automatically injected into every generation request. This keeps all assets in a space visually consistent without users repeating style instructions.
+Each space can have named **style presets** backed by normal Space inventory.
+A preset contains a style prompt and points at a `style_refs` collection whose
+items resolve to completed image variants. The default enabled preset is
+automatically injected into generation requests unless a request selects another
+preset, selects ad hoc style variants, or disables style.
 
 ### Data Model
 
-```
-┌───────────────────────────────────────┐
-│              SpaceStyle               │
-├───────────────────────────────────────┤
-│ id            TEXT PRIMARY KEY        │
-│ name          TEXT                    │
-│ description   TEXT                    │  ← "Pixel art, 16-bit, vibrant colors"
-│ image_keys    TEXT (JSON array)       │  ← R2 keys for reference images
-│ enabled       INTEGER (0/1)          │
-│ created_by    TEXT                    │
-│ created_at    INTEGER                │
-│ updated_at    INTEGER                │
-└───────────────────────────────────────┘
-```
+Style is modeled with normal Space tables:
 
-Stored in per-space DO SQLite (same as assets, variants, lineage).
+- `assets` and `variants` hold style reference media.
+- `space_collections` with `kind = 'style_refs'` group reusable reference sets.
+- `collection_items` with `role = 'style_ref'` pin assets or exact variants.
+- `style_presets` name a style prompt, collection, enabled flag, and default flag.
+- `space_relations` records generated usage with `relation_type = 'style_reference_for'`.
+
+The legacy `space_styles` table is migration-only compatibility. On Durable
+Object startup, `backfillLegacySpaceStyle()` converts an existing row into
+style reference assets, a `style_refs` collection, and a style preset. New
+requests do not read `space_styles` for style injection.
 
 ### How Injection Works
 
@@ -33,13 +33,12 @@ When `VariantFactory` creates a variant (generate, derive, refine, or batch), it
 
 1. Resolve `stylePresetId` when provided, otherwise the default asset-backed style preset
 2. If ad hoc `styleVariantIds` are provided, resolve those completed image variants as style inputs
-3. If no asset-backed style applies, fall back to the legacy active `space_styles` row
-4. If no style exists, `enabled = 0`, or `disableStyle = true` → skip style image inputs
-5. **Prompt**: Prepend `[Style: <stylePrompt or description>]\n\n` to the user's prompt
-6. **Images**: Prepend style image keys before user reference images in `sourceImageKeys`
-7. Record exact style preset, collection, style prompt, style reference variant IDs, and image keys in the recipe
-8. Create `space_relations` rows from each style reference variant to the generated variant with `relation_type = 'style_reference_for'`
-9. If `disableStyle` was set, record `styleOverride: true` instead
+3. If no asset-backed style applies or `disableStyle = true` → skip style image inputs
+4. **Prompt**: Prepend `[Style: <stylePrompt>]\n\n` to the user's prompt when a style prompt exists
+5. **Images**: Prepend style image keys before user reference images in `sourceImageKeys`
+6. Record exact style preset, collection, style prompt, style reference variant IDs, and image keys in the recipe
+7. Create `space_relations` rows from each style reference variant to the generated variant with `relation_type = 'style_reference_for'`
+8. If `disableStyle` was set, record `styleOverride: true` instead
 
 ```
 User prompt:    "A brave knight"
@@ -105,37 +104,24 @@ WebSocket generation request, and `--style-preset` is mutually exclusive with
 `--no-style`.
 
 The CLI does not call the legacy `space_styles` singleton or upload raw hidden
-style images for these asset-backed workflows.
+style images.
 
 ---
 
-## Style CRUD
+## Style Preset CRUD
 
 ### WebSocket Messages
 
 | Direction | Message | Fields | Description |
 |-----------|---------|--------|-------------|
-| C → S | `style:get` | — | Request current style |
-| C → S | `style:set` | `description`, `imageKeys[]`, `name?`, `enabled?` | Create or update style |
-| C → S | `style:delete` | — | Delete style |
-| C → S | `style:toggle` | `enabled: boolean` | Enable/disable |
-| S → C | `style:state` | `style` (or null) | Current style (unicast to requester) |
-| S → C | `style:updated` | `style` | Style created/updated (broadcast) |
-| S → C | `style:deleted` | — | Style deleted (broadcast) |
+| C → S | `style_preset:create` | `id?`, `name`, `description?`, `stylePrompt?`, `collectionId?`, `enabled?`, `isDefault?` | Create a style preset |
+| C → S | `style_preset:update` | `presetId`, `changes` | Update a style preset |
+| C → S | `style_preset:delete` | `presetId` | Delete a style preset |
+| S → C | `style_preset:created` | `preset` | Preset created |
+| S → C | `style_preset:updated` | `preset` | Preset updated |
+| S → C | `style_preset:deleted` | `presetId` | Preset deleted |
 
 All mutations require **editor** or **owner** role.
-
-### Style Image Upload
-
-```
-POST /api/spaces/:id/style-images
-Content-Type: multipart/form-data
-Body: file=<image>
-
-Response: { success: true, imageKey: "styles/<spaceId>/<uuid>.png" }
-```
-
-Images are stored in R2 under `styles/<spaceId>/`. A thumbnail is also generated at `styles/<spaceId>/<uuid>_thumb.webp`. The returned `imageKey` is then sent to the DO via `style:set` to associate it with the style.
 
 ---
 
@@ -221,17 +207,17 @@ interface GenerationRecipe {
 ## References
 
 **Backend:**
-- `src/backend/durable-objects/space/controllers/StyleController.ts` — Style CRUD
+- `src/backend/durable-objects/space/controllers/StylePresetController.ts` — Style preset CRUD
+- `src/backend/durable-objects/space/repository/SpaceRepository.ts` — Style collection/preset resolution and legacy backfill
 - `src/backend/durable-objects/space/generation/VariantFactory.ts` — Style injection, batch creation
-- `src/backend/routes/upload.ts` — Style image upload endpoint
-- `src/backend/durable-objects/space/types.ts` — `SpaceStyle` type
+- `src/backend/durable-objects/space/types.ts` — Style preset, collection, and relation types
 
 **Frontend:**
 - `src/frontend/components/ForgeTray/StylePanel.tsx` — Style management UI
-- `src/frontend/stores/styleStore.ts` — Style Zustand store
 - `src/frontend/stores/forgeTrayStore.ts` — Dynamic `maxSlots`
-- `src/frontend/hooks/useSpaceWebSocket.ts` — Style + batch WS messages
+- `src/frontend/hooks/useSpaceWebSocket.ts` — Style preset + batch WS messages
 
 **Tests:**
-- `src/backend/durable-objects/space/controllers/StyleController.test.ts`
+- `src/backend/durable-objects/space/controllers/StylePresetController.test.ts`
+- `src/backend/durable-objects/space/repository/spaceOrganization.test.ts`
 - `src/backend/durable-objects/space/generation/VariantFactory.style.test.ts`

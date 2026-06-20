@@ -26,7 +26,6 @@ import {
   type CompositionShortcut,
   type RelationShortcut,
 } from '../../productionShortcuts';
-import { useStyleStore } from '../../stores/styleStore';
 import type { CollectionPlacementInput, MediaKind, MusicGenerationProvider } from '../../../shared/websocket-types';
 import {
   IMAGE_ASPECT_RATIOS,
@@ -163,12 +162,9 @@ export interface ForgeTrayProps {
   requestChatHistory?: () => void;
   /** Handler to clear chat session */
   clearChatSession?: () => void;
-  /** Space ID for style panel upload */
+  /** Space ID for style panel */
   spaceId?: string;
-  /** Style methods */
-  sendStyleSet?: (data: { name?: string; description?: string; imageKeys?: string[]; enabled?: boolean }) => void;
-  sendStyleDelete?: () => void;
-  sendStyleToggle?: (enabled: boolean) => void;
+  /** Asset-backed style methods */
   createStylePreset?: (params: StylePresetCreateParams) => void;
   updateStylePreset?: (presetId: string, changes: StylePresetUpdateParams) => void;
   deleteStylePreset?: (presetId: string) => void;
@@ -405,9 +401,6 @@ export function ForgeTray({
   requestChatHistory,
   clearChatSession,
   spaceId,
-  sendStyleSet,
-  sendStyleDelete,
-  sendStyleToggle,
   createStylePreset,
   updateStylePreset,
   deleteStylePreset,
@@ -422,7 +415,6 @@ export function ForgeTray({
   collectionItems = [],
 }: ForgeTrayProps) {
   const { slots, prompt, setPrompt, clearSlots, removeSlot, setMaxSlots } = useForgeTrayStore();
-  const style = useStyleStore((s) => s.style);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -562,16 +554,13 @@ export function ForgeTray({
   const styleOverride = styleSelection.mode === 'none';
   const selectedStyleCount = styleSelection.mode === 'custom'
     ? styleVariantIds.length
-    : selectedStylePreset?.reference_count ?? (
-      styleSelection.mode === 'default' && !selectedStylePreset && style?.enabled ? style.imageKeys.length : 0
-    );
+    : selectedStylePreset?.reference_count ?? 0;
   const styleImageCount = mediaModeConfig.supportsStyle && !styleOverride ? selectedStyleCount : 0;
   const styleChipLabel = (() => {
     if (!mediaModeConfig.supportsStyle) return '';
     if (styleSelection.mode === 'none') return 'Style: No style';
     if (styleSelection.mode === 'custom') return `Style: Custom selected refs · ${formatRefCount(styleVariantIds.length)}`;
     if (selectedStylePreset) return `Style: ${selectedStylePreset.name} · ${formatRefCount(selectedStylePreset.reference_count)}`;
-    if (style?.enabled) return `Style: ${style.name || 'Legacy space style'} · ${formatRefCount(style.imageKeys.length)}`;
     return 'Style: Default style';
   })();
   const referenceSlotLimit = currentMediaGroup === 'image'
@@ -1717,9 +1706,6 @@ export function ForgeTray({
           createStylePreset={createStylePreset}
           updateStylePreset={updateStylePreset}
           deleteStylePreset={deleteStylePreset}
-          sendStyleSet={sendStyleSet}
-          sendStyleDelete={sendStyleDelete}
-          sendStyleToggle={sendStyleToggle}
         />
       )}
 

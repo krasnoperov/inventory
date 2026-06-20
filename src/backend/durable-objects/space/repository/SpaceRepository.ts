@@ -127,7 +127,6 @@ export interface SpaceState {
   rotationViews: RotationView[];
   tileSets: TileSet[];
   tilePositions: TilePosition[];
-  style: SpaceStyle | null;
 }
 
 /** Lightweight state for the space overview canvas */
@@ -143,7 +142,6 @@ export interface SpaceOverviewState {
   rotationViews: RotationView[];
   tileSets: TileSet[];
   tilePositions: TilePosition[];
-  style: SpaceStyle | null;
 }
 
 /** Asset with variant count for bot context */
@@ -1643,11 +1641,6 @@ export class SpaceRepository {
     await this.updateStylePreset(presetId, { enabled: false });
   }
 
-  private async deleteLegacyStylePreset(styleId: string): Promise<void> {
-    const presetId = stableLegacyId('legacy-style-preset', styleId);
-    await this.deleteStylePreset(presetId);
-  }
-
   private async getLegacyStyleMediaMetadata(imageKey: string): Promise<{
     sizeBytes: number | null;
     thumbKey: string | null;
@@ -2623,7 +2616,6 @@ export class SpaceRepository {
       rotationViews,
       tileSets,
       tilePositions,
-      style,
     ] = await Promise.all([
       this.getAllAssets(),
       this.getAllVariants(),
@@ -2639,7 +2631,6 @@ export class SpaceRepository {
       this.getAllRotationViews(),
       this.getAllTileSets(),
       this.getAllTilePositions(),
-      this.getActiveStyle(),
     ]);
     return {
       assets,
@@ -2656,7 +2647,6 @@ export class SpaceRepository {
       rotationViews,
       tileSets,
       tilePositions,
-      style,
     };
   }
 
@@ -2673,7 +2663,6 @@ export class SpaceRepository {
       rotationViews,
       tileSets,
       tilePositions,
-      style,
     ] = await Promise.all([
       this.getAllAssets(),
       this.getOverviewVariants(),
@@ -2686,7 +2675,6 @@ export class SpaceRepository {
       this.getAllRotationViews(),
       this.getAllTileSets(),
       this.getAllTilePositions(),
-      this.getActiveStyle(),
     ]);
     const variantIds = new Set(overviewVariants.map((variant) => variant.id));
     const referencedVariantIds = [
@@ -2702,7 +2690,7 @@ export class SpaceRepository {
     ].filter((variantId): variantId is string => typeof variantId === 'string' && !variantIds.has(variantId));
     const referencedVariants = await this.getVariantsByIds(referencedVariantIds);
     const variants = [...overviewVariants, ...referencedVariants.filter((variant) => !variantIds.has(variant.id))];
-    return { assets, variants, collections, collectionItems, compositions, stylePresets, styleReferenceCollections, rotationSets, rotationViews, tileSets, tilePositions, style };
+    return { assets, variants, collections, collectionItems, compositions, stylePresets, styleReferenceCollections, rotationSets, rotationViews, tileSets, tilePositions };
   }
 
   // ==========================================================================
@@ -2997,111 +2985,6 @@ export class SpaceRepository {
   async getStyleById(id: string): Promise<SpaceStyle | null> {
     const result = await this.sql.exec('SELECT * FROM space_styles WHERE id = ?', id);
     return (result.toArray()[0] as SpaceStyle) ?? null;
-  }
-
-  async createStyle(data: {
-    id: string;
-    name?: string;
-    description: string;
-    imageKeys: string[];
-    enabled?: boolean;
-    createdBy: string;
-  }): Promise<SpaceStyle> {
-    const now = Date.now();
-    await this.sql.exec(
-      `INSERT INTO space_styles (id, name, description, image_keys, enabled, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      data.id,
-      data.name || 'Default Style',
-      data.description,
-      JSON.stringify(data.imageKeys),
-      data.enabled !== false ? 1 : 0,
-      data.createdBy,
-      now,
-      now
-    );
-
-    // Increment image refs for style images
-    for (const key of data.imageKeys) {
-      await this.incrementImageRef(key);
-    }
-
-    return (await this.getStyleById(data.id))!;
-  }
-
-  async updateStyle(id: string, changes: {
-    name?: string;
-    description?: string;
-    imageKeys?: string[];
-    enabled?: boolean;
-  }): Promise<SpaceStyle | null> {
-    const existing = await this.getStyleById(id);
-    if (!existing) return null;
-
-    const updates: string[] = [];
-    const values: unknown[] = [];
-
-    if (changes.name !== undefined) {
-      updates.push('name = ?');
-      values.push(changes.name);
-    }
-    if (changes.description !== undefined) {
-      updates.push('description = ?');
-      values.push(changes.description);
-    }
-    if (changes.imageKeys !== undefined) {
-      updates.push('image_keys = ?');
-      values.push(JSON.stringify(changes.imageKeys));
-
-      // Diff old vs new image keys for ref counting
-      const oldKeys: string[] = JSON.parse(existing.image_keys);
-      const newKeys = changes.imageKeys;
-      const added = newKeys.filter(k => !oldKeys.includes(k));
-      const removed = oldKeys.filter(k => !newKeys.includes(k));
-
-      for (const key of added) {
-        await this.incrementImageRef(key);
-      }
-      for (const key of removed) {
-        await this.decrementImageRef(key);
-      }
-    }
-    if (changes.enabled !== undefined) {
-      updates.push('enabled = ?');
-      values.push(changes.enabled ? 1 : 0);
-    }
-
-    if (updates.length === 0) return existing;
-
-    updates.push('updated_at = ?');
-    values.push(Date.now());
-
-    await this.sql.exec(
-      `UPDATE space_styles SET ${updates.join(', ')} WHERE id = ?`,
-      ...values,
-      id
-    );
-
-    return this.getStyleById(id);
-  }
-
-  async deleteStyle(id: string): Promise<boolean> {
-    const existing = await this.getStyleById(id);
-    if (!existing) return false;
-
-    // Decrement image refs for style images
-    const imageKeys: string[] = JSON.parse(existing.image_keys);
-    for (const key of imageKeys) {
-      await this.decrementImageRef(key);
-    }
-
-    await this.deleteLegacyStylePreset(id);
-    await this.sql.exec('DELETE FROM space_styles WHERE id = ?', id);
-    return true;
-  }
-
-  async toggleStyle(id: string, enabled: boolean): Promise<SpaceStyle | null> {
-    return this.updateStyle(id, { enabled });
   }
 
   // ==========================================================================

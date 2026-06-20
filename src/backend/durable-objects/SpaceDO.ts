@@ -31,7 +31,6 @@ import {
   VariantController,
   GenerationController,
   VisionController,
-  StyleController,
   StylePresetController,
   RotationController,
   TileController,
@@ -60,7 +59,6 @@ export class SpaceDO extends DurableObject<Env> {
   private variantCtrl!: VariantController;
   private generationCtrl!: GenerationController;
   private visionCtrl!: VisionController;
-  private styleCtrl!: StyleController;
   private stylePresetCtrl!: StylePresetController;
   private approvalCtrl!: ApprovalController;
   private sessionCtrl!: SessionController;
@@ -136,7 +134,6 @@ export class SpaceDO extends DurableObject<Env> {
       this.variantCtrl = new VariantController(ctx);
       this.generationCtrl = new GenerationController(ctx);
       this.visionCtrl = new VisionController(ctx);
-      this.styleCtrl = new StyleController(ctx);
       this.stylePresetCtrl = new StylePresetController(ctx);
       this.approvalCtrl = new ApprovalController(ctx);
       this.sessionCtrl = new SessionController(ctx);
@@ -372,15 +369,7 @@ export class SpaceDO extends DurableObject<Env> {
       case 'presence:update':
         return this.presenceCtrl.handleUpdate(meta, msg.viewing);
 
-      // Style anchoring
-      case 'style:get':
-        return this.styleCtrl.handleGetStyle(ws);
-      case 'style:set':
-        return this.styleCtrl.handleSetStyle(ws, meta, msg as { type: 'style:set'; name?: string; description: string; imageKeys: string[]; enabled?: boolean });
-      case 'style:delete':
-        return this.styleCtrl.handleDeleteStyle(ws, meta);
-      case 'style:toggle':
-        return this.styleCtrl.handleToggleStyle(ws, meta, (msg as { type: 'style:toggle'; enabled: boolean }).enabled);
+      // Style presets and asset-backed style references
       case 'style_preset:create':
         return this.stylePresetCtrl.handleCreateStylePreset(ws, meta, msg);
       case 'style_preset:update':

@@ -28,6 +28,56 @@ function createMockStyle(overrides: Partial<SpaceStyle> = {}): SpaceStyle {
   };
 }
 
+function setupDefaultStylePreset(
+  repo: SpaceRepository,
+  options: {
+    prompt: string;
+    variantIds?: string[];
+    imageKeys?: string[];
+    presetId?: string;
+    collectionId?: string;
+  }
+): void {
+  const presetId = options.presetId ?? 'preset-default';
+  const collectionId = options.collectionId ?? 'collection-style';
+  const variantIds = options.variantIds ?? [];
+  const imageKeys = options.imageKeys ?? variantIds.map((variantId) => `images/${variantId}.png`);
+  asMock(repo.getDefaultStylePreset).mock.mockImplementation(async () => ({
+    id: presetId,
+    name: 'House Style',
+    style_prompt: options.prompt,
+    collection_id: collectionId,
+    enabled: 1,
+    is_default: 1,
+    created_by: 'user-1',
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  }));
+  asMock(repo.resolveStylePresetReferences).mock.mockImplementation(async () => ({
+    preset: {
+      id: presetId,
+      name: 'House Style',
+      style_prompt: options.prompt,
+      collection_id: collectionId,
+      enabled: 1,
+      is_default: 1,
+      created_by: 'user-1',
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    },
+    stylePresetId: presetId,
+    styleCollectionId: collectionId,
+    stylePrompt: options.prompt,
+    styleReferenceVariantIds: variantIds,
+    styleReferenceImageKeys: imageKeys,
+  }));
+  asMock(repo.getVariantById).mock.mockImplementation(async (variantId: string) => {
+    const index = variantIds.indexOf(variantId);
+    if (index === -1) return null;
+    return { id: variantId, image_key: imageKeys[index] };
+  });
+}
+
 function createMockRepo(): SpaceRepository {
   return {
     getAssetById: mock.fn(async () => null),
@@ -225,9 +275,7 @@ describe('VariantFactory - Style Injection', () => {
   describe('style with description only', () => {
     test('prompt prepended with style description', async () => {
       const repo = createMockRepo();
-      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
-        createMockStyle({ image_keys: '[]', description: 'Watercolor painting' })
-      );
+      setupDefaultStylePreset(repo, { prompt: 'Watercolor painting' });
 
       const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
       const meta = createMockMeta();
@@ -240,7 +288,8 @@ describe('VariantFactory - Style Injection', () => {
       const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
       assert.ok(recipe.prompt.startsWith('[Style: Watercolor painting]'));
       assert.ok(recipe.prompt.includes('A warrior'));
-      assert.strictEqual(recipe.styleId, 'style-1');
+      assert.strictEqual(recipe.stylePresetId, 'preset-default');
+      assert.strictEqual(recipe.styleId, undefined);
       // No style images
       assert.strictEqual(result.styleImageKeys, undefined);
     });
@@ -429,12 +478,11 @@ describe('VariantFactory - Style Injection', () => {
 
     test('sourceImageKeys prepended with style images', async () => {
       const repo = createMockRepo();
-      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
-        createMockStyle({
-          description: 'Pixel art',
-          image_keys: '["styles/space-1/ref1.png","styles/space-1/ref2.png"]',
-        })
-      );
+      setupDefaultStylePreset(repo, {
+        prompt: 'Pixel art',
+        variantIds: ['style-v1', 'style-v2'],
+        imageKeys: ['styles/space-1/ref1.png', 'styles/space-1/ref2.png'],
+      });
 
       const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
       const meta = createMockMeta();
@@ -492,9 +540,11 @@ describe('VariantFactory - Style Injection', () => {
 
     test('style images come before source images in combined keys', async () => {
       const repo = createMockRepo();
-      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
-        createMockStyle({ image_keys: '["styles/space-1/ref1.png"]' })
-      );
+      setupDefaultStylePreset(repo, {
+        prompt: 'Pixel art, 16-bit, vibrant colors',
+        variantIds: ['style-v1'],
+        imageKeys: ['styles/space-1/ref1.png'],
+      });
       asMock(repo.getVariantImageKey).mock.mockImplementation(async () => 'images/user-ref.png');
 
       const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
@@ -518,11 +568,11 @@ describe('VariantFactory - Style Injection', () => {
 
     test('video generation caps style-only references to Veo limit', async () => {
       const repo = createMockRepo();
-      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
-        createMockStyle({
-          image_keys: '["styles/ref1.png","styles/ref2.png","styles/ref3.png","styles/ref4.png"]',
-        })
-      );
+      setupDefaultStylePreset(repo, {
+        prompt: 'Pixel art, 16-bit, vibrant colors',
+        variantIds: ['style-v1', 'style-v2', 'style-v3', 'style-v4'],
+        imageKeys: ['styles/ref1.png', 'styles/ref2.png', 'styles/ref3.png', 'styles/ref4.png'],
+      });
 
       const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
       const meta = createMockMeta();
@@ -550,11 +600,11 @@ describe('VariantFactory - Style Injection', () => {
 
     test('video refine preserves source reference before filling style budget', async () => {
       const repo = createMockRepo();
-      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
-        createMockStyle({
-          image_keys: '["styles/ref1.png","styles/ref2.png","styles/ref3.png","styles/ref4.png"]',
-        })
-      );
+      setupDefaultStylePreset(repo, {
+        prompt: 'Pixel art, 16-bit, vibrant colors',
+        variantIds: ['style-v1', 'style-v2', 'style-v3', 'style-v4'],
+        imageKeys: ['styles/ref1.png', 'styles/ref2.png', 'styles/ref3.png', 'styles/ref4.png'],
+      });
       asMock(repo.getAssetById).mock.mockImplementation(async () => ({
         id: 'asset-video',
         name: 'Video Asset',
@@ -567,14 +617,16 @@ describe('VariantFactory - Style Injection', () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       }));
-      asMock(repo.getVariantById).mock.mockImplementation(async () => ({
+      asMock(repo.getVariantById).mock.mockImplementation(async (variantId: string) => ({
         id: 'variant-source',
         asset_id: 'asset-video',
         media_kind: 'video',
         workflow_id: null,
         status: 'completed',
         error_message: null,
-        image_key: 'images/source.png',
+        image_key: variantId.startsWith('style-v')
+          ? `styles/ref${Number(variantId.slice('style-v'.length))}.png`
+          : 'images/source.png',
         thumb_key: 'images/source_thumb.webp',
         media_key: 'images/source.png',
         media_mime_type: 'image/png',
@@ -805,13 +857,11 @@ describe('VariantFactory - Style Injection', () => {
 
     test('style images skipped when total exceeds 14', async () => {
       const repo = createMockRepo();
-      // Style has 3 images
-      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
-        createMockStyle({
-          description: 'Test style',
-          image_keys: '["s1.png","s2.png","s3.png"]',
-        })
-      );
+      setupDefaultStylePreset(repo, {
+        prompt: 'Test style',
+        variantIds: ['style-v1', 'style-v2', 'style-v3'],
+        imageKeys: ['s1.png', 's2.png', 's3.png'],
+      });
       // User provides 12 source images
       const variantKeys = Array.from({ length: 12 }, (_, i) => `images/ref-${i}.png`);
       const variantIds = Array.from({ length: 12 }, (_, i) => `var-${i}`);
@@ -845,12 +895,11 @@ describe('VariantFactory - Style Injection', () => {
 
     test('style images skipped when Flash source references fill its model limit', async () => {
       const repo = createMockRepo();
-      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
-        createMockStyle({
-          description: 'Test style',
-          image_keys: '["styles/ref1.png"]',
-        })
-      );
+      setupDefaultStylePreset(repo, {
+        prompt: 'Test style',
+        variantIds: ['style-v1'],
+        imageKeys: ['styles/ref1.png'],
+      });
       asMock(repo.getVariantImageKey).mock.mockImplementation(async () => 'images/user-ref.png');
 
       const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
@@ -1003,9 +1052,7 @@ describe('VariantFactory - Batch Creation', () => {
   describe('batch with style', () => {
     test('style injected once and shared across all batch variants', async () => {
       const repo = createMockRepo();
-      asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
-        createMockStyle({ description: 'Batch style' })
-      );
+      setupDefaultStylePreset(repo, { prompt: 'Batch style' });
 
       const broadcast = createMockBroadcast();
       const factory = new VariantFactory('space-1', repo, createMockEnv(), broadcast);
@@ -1026,11 +1073,11 @@ describe('VariantFactory - Batch Creation', () => {
       for (const result of results) {
         const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
         assert.ok(recipe.prompt.startsWith('[Style: Batch style]'));
-        assert.strictEqual(recipe.styleId, 'style-1');
+        assert.strictEqual(recipe.stylePresetId, 'preset-default');
+        assert.strictEqual(recipe.styleId, undefined);
       }
 
-      // getActiveStyle should only be called once (not per variant)
-      assert.strictEqual(asMock(repo.getActiveStyle).mock.calls.length, 1);
+      assert.strictEqual(asMock(repo.getDefaultStylePreset).mock.calls.length, 1);
     });
   });
 });

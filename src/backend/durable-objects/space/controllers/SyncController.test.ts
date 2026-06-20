@@ -191,7 +191,7 @@ describe('SyncController', () => {
       variants: sent[0].variants,
       lineage: sent[0].lineage,
       presence: sent[0].presence,
-      style: sent[0].style,
+      style: 'style' in sent[0] ? sent[0].style : undefined,
     };
 
     assert.deepStrictEqual(legacyShape, {
@@ -199,7 +199,7 @@ describe('SyncController', () => {
       variants: [],
       lineage: [],
       presence: [],
-      style: null,
+      style: undefined,
     });
   });
 });

@@ -134,14 +134,13 @@ snapshots.
 | `approval:reject` | `approvalId` | Reject pending tool call |
 | `approval:list` | - | List pending approvals |
 
-### Style
+### Style Presets
 
 | Message | Fields | Description |
 |---------|--------|-------------|
-| `style:get` | — | Request current style |
-| `style:set` | `description`, `imageKeys[]`, `name?`, `enabled?` | Create or update style |
-| `style:delete` | — | Delete style |
-| `style:toggle` | `enabled: boolean` | Enable/disable style |
+| `style_preset:create` | `id?`, `name`, `description?`, `stylePrompt?`, `collectionId?`, `enabled?`, `isDefault?` | Create an asset-backed style preset |
+| `style_preset:update` | `presetId`, `changes` | Update an asset-backed style preset |
+| `style_preset:delete` | `presetId` | Delete an asset-backed style preset |
 
 ### Session
 
@@ -298,13 +297,13 @@ present, is served through
 | `batch:started` | `requestId`, `batchId`, `results[]` | Batch generation started |
 | `batch:error` | `requestId`, `error`, `code` | Batch pre-check error |
 
-### Style
+### Style Presets
 
 | Message | Fields | Description |
 |---------|--------|-------------|
-| `style:state` | `style` (or null) | Current style (unicast to requester) |
-| `style:updated` | `style` | Style created/updated (broadcast) |
-| `style:deleted` | — | Style deleted (broadcast) |
+| `style_preset:created` | `preset` | Style preset created |
+| `style_preset:updated` | `preset` | Style preset updated |
+| `style_preset:deleted` | `presetId` | Style preset deleted |
 
 ### Vision
 

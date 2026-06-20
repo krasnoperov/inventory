@@ -73,23 +73,6 @@ const imageReferenceAssets = [
 
 const imageReferenceVariants = imageReferenceAssets.map((entry) => variant(entry.id, 'image'));
 
-const activeStyle = {
-  id: 'style-1',
-  name: 'House Style',
-  description: 'Painterly house style',
-  imageKeys: ['styles/space/style-1.png'],
-  enabled: true,
-  createdBy: 'user-1',
-  createdAt: baseTime,
-  updatedAt: baseTime,
-};
-
-const overflowingStyle = {
-  ...activeStyle,
-  id: 'style-2',
-  imageKeys: ['styles/space/style-1.png', 'styles/space/style-2.png'],
-};
-
 const composition = {
   id: 'composition-1',
   name: 'Scene X composition',
@@ -178,7 +161,6 @@ test('forge tray renders a screenshot matrix for every media mode', async ({ pag
     allVariants: [],
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
     sendChatMessage: '__noop__',
   });
   await disableAnimations(page);
@@ -205,7 +187,6 @@ test('forge tray collapses the media type into a popover trigger', async ({ page
     allVariants: [],
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 
@@ -234,7 +215,6 @@ test('forge tray makes the prompt the hero above the controls', async ({ page })
     allVariants: [],
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 
@@ -261,7 +241,6 @@ test('forge tray auto-names by media group and stays editable', async ({ page })
     allVariants: [],
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 
@@ -286,7 +265,6 @@ test('forge tray image options expose batch count', async ({ page }) => {
     allVariants: [],
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 
@@ -311,7 +289,6 @@ test('forge tray submits a generate-to-composition output shortcut', async ({ pa
     compositionItems: [],
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 
@@ -337,7 +314,6 @@ test('forge tray image model selection enforces reference budget', async ({ page
     allVariants: imageReferenceVariants,
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 
@@ -369,8 +345,7 @@ test('forge tray keeps one fork setup slot when style consumes Flash reference b
     allVariants: imageReferenceVariants,
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
-    __styleStore: activeStyle,
+    stylePresets: [{ ...russafaPreset, reference_count: 2 }],
   });
   await disableAnimations(page);
 
@@ -397,8 +372,7 @@ test('forge tray counts style-only references against the selected model budget'
     allVariants: imageReferenceVariants,
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
-    __styleStore: overflowingStyle,
+    stylePresets: [{ ...russafaPreset, reference_count: 2 }],
   });
   await disableAnimations(page);
 
@@ -417,7 +391,6 @@ test('forge tray video mode exposes Veo options and audio default-on status', as
     allVariants: [],
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 
@@ -455,7 +428,6 @@ test('forge tray video picker enforces the three-reference budget', async ({ pag
     allVariants: imageReferenceVariants,
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 
@@ -486,9 +458,6 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
     spaceId: 'space-1',
-    sendStyleSet: '__noop__',
-    sendStyleDelete: '__noop__',
-    sendStyleToggle: '__noop__',
     sendChatMessage: '__noop__',
     requestChatHistory: '__noop__',
     clearChatSession: '__noop__',
@@ -676,7 +645,6 @@ test('forge tray with references renders the reference strip', async ({ page }) 
     allVariants: matrixVariants,
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 
@@ -698,7 +666,6 @@ test('forge tray on asset detail shows Current/New header', async ({ page }) => 
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
     currentAsset: matrixAssets[0],
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 
@@ -722,7 +689,6 @@ test('forge tray dark theme polish', async ({ page }) => {
     allVariants: [],
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
     sendChatMessage: '__noop__',
   });
   await disableAnimations(page);
@@ -749,7 +715,6 @@ test('forge tray picker disables references incompatible with the selected media
     allVariants: matrixVariants,
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    sendStyleSet: '__noop__',
   });
   await disableAnimations(page);
 

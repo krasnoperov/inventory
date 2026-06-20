@@ -350,7 +350,6 @@ export class TileController extends BaseController {
       disableStyle: config.disableStyle,
       stylePresetId: config.stylePresetId,
       styleVariantIds: config.styleVariantIds,
-      useLegacyFallback: true,
     });
     if (style.styleKeys.length + adjacentKeys.length > 14) {
       style = withoutStyleReferenceImages(style);
@@ -566,7 +565,6 @@ export class TileController extends BaseController {
       disableStyle: msg.disableStyle,
       stylePresetId: msg.stylePresetId,
       styleVariantIds: msg.styleVariantIds,
-      useLegacyFallback: true,
     });
     if (style.styleKeys.length > 14) {
       style = withoutStyleReferenceImages(style);
@@ -743,7 +741,6 @@ export class TileController extends BaseController {
       disableStyle: config.disableStyle,
       stylePresetId: config.stylePresetId,
       styleVariantIds: config.styleVariantIds,
-      useLegacyFallback: true,
     });
     if (style.styleKeys.length + allKeys.length > 14) {
       style = withoutStyleReferenceImages(style);
