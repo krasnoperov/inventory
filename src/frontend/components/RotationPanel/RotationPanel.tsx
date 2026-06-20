@@ -65,10 +65,12 @@ export function RotationPanel({
 
   // Pre-fill config from the most relevant existing set (failed > completed)
   const prefillSet = failedSet || completedSet;
+  const prefillSetId = prefillSet?.id;
+  const prefillSetConfig = prefillSet?.config;
   useEffect(() => {
-    if (!prefillSet) return;
+    if (!prefillSetId || prefillSetConfig == null) return;
     try {
-      const parsed = JSON.parse(prefillSet.config) as {
+      const parsed = JSON.parse(prefillSetConfig) as {
         type?: RotationConfig;
         subjectDescription?: string;
         disableStyle?: boolean;
@@ -79,7 +81,7 @@ export function RotationPanel({
       if (parsed.disableStyle) setDisableStyle(true);
       /* eslint-enable react-hooks/set-state-in-effect */
     } catch { /* ignore malformed config */ }
-  }, [prefillSet?.id]);
+  }, [prefillSetId, prefillSetConfig]);
 
   // Close on Escape
   useEffect(() => {
