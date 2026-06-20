@@ -2,7 +2,16 @@ import type { ParsedArgs } from './types';
 
 const BOOLEAN_LONG_OPTIONS = new Set([
   'audio',
+  'append',
+  'default',
+  'disable',
+  'enable',
+  'json',
+  'local',
+  'no-collection',
+  'no-default',
   'no-audio',
+  'no-style',
 ]);
 
 export function parseArgs(argv: string[]): ParsedArgs {

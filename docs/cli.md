@@ -59,6 +59,7 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `spaces` | List, view, or create spaces |
 | `assets` | List/show/download assets; delete, rename, set-active |
 | `variants` | Delete, retry, star/unstar, and rate variants |
+| `styles` | List style references, manage style reference collections, and manage style presets |
 | `usage` | Show platform storage and workflow consumption for a space |
 | `spend` | Show admin provider cost summaries |
 | `rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
@@ -181,6 +182,40 @@ makefx spend --json
 The command calls `GET /api/billing/spend/summary` and requires an authenticated
 admin session. Human-readable output includes total provider cost, entry counts,
 unpriced entry counts, and breakdowns by provider, model, media kind, and meter.
+
+## Style Libraries
+
+Manage asset-backed style references for the initialized project space:
+
+```bash
+makefx styles references
+makefx styles collections list
+makefx styles collections create "Painterly refs" --refs asset_123,variant_456
+makefx styles collections update collection_123 --refs asset_789,variant_999
+makefx styles presets list
+makefx styles presets create "Painterly" --collection collection_123 --prompt "Painterly adventure game" --default
+makefx styles presets update preset_123 --prompt "Painterly adventure game, crisp ink"
+makefx styles presets disable preset_123
+makefx styles presets enable preset_123
+makefx styles presets delete preset_123
+```
+
+Style reference collections are normal Space collections whose items use the
+`style_ref` role. Passing asset IDs pins each asset's active variant; passing
+variant IDs references those variants directly. The CLI uses the authenticated
+Space REST APIs and does not upload raw hidden style images.
+
+Generation can select an enabled style preset by ID or exact name:
+
+```bash
+makefx generate "A market background" --style-preset Painterly --name "Market" --type scene -o market.png
+makefx derive --refs character_variant --style-preset preset_123 --name "Market Keyframe" --type scene "Place the hero in the market" -o keyframe.png
+makefx generate "A neutral prop sheet" --no-style --name "Props" --type prop -o props.png
+```
+
+When a preset is selected, generation output prints the resolved preset ID,
+collection, and reference count before the job starts. `--style-preset` is
+mutually exclusive with `--no-style`.
 
 ### Managing Assets and Variants
 
