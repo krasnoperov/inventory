@@ -351,10 +351,10 @@ makefx upload renders/hero-final.png \
 
 Collection and manual relation targets are validated before media bytes are
 uploaded, so a mistyped organization ID does not create a duplicate asset on
-retry. Immutable import lineage still uses `--source-variant`; editable
+retry. Immutable upload lineage still uses `--source-variant`; editable
 organization links use `--manual-relation`.
 
-For multi-step imports, chain commands through IDs returned by `--json`. Local
+For multi-step uploads, chain commands through IDs returned by `--json`. Local
 filenames are not durable identifiers after upload:
 
 ```bash
@@ -499,25 +499,25 @@ production handoff state.
 Example command shape for Diario de Russafa S01E01 A2:
 
 ```bash
-inventory login
-inventory spaces create "Diario de Russafa S01E01" --init
+makefx login
+makefx spaces create "Diario de Russafa S01E01" --init
 
-inventory upload ../subtitles/art/social-video/cast/anna-sheet-v1.jpg \
+makefx upload ../subtitles/art/social-video/cast/anna-sheet-v1.jpg \
   --name "Anna cast sheet" \
   --type character
 
-inventory upload ../subtitles/art/social-video/references/episode-backdrop-s01e01-kitchen-16x9-v1.jpg \
+makefx upload ../subtitles/art/social-video/references/episode-backdrop-s01e01-kitchen-16x9-v1.jpg \
   --name "S01E01 kitchen backdrop" \
   --type scene
 
-inventory derive \
+makefx derive \
   --refs <backdrop_variant>,<anna_variant>,<roman_variant> \
   --name "S01E01 A2 shot 01 keyframe" \
   --type scene \
   -o ../subtitles/art/social-video/references/episode-scene-s01e01-a2-01.jpg \
   "Compose the Cocina keyframe from the selected backdrop and cast references."
 
-inventory video derive \
+makefx video derive \
   --refs <shot01_keyframe_variant> \
   --shot-id s01e01-a2-01 \
   --production-id s01e01-a2 \
@@ -527,7 +527,7 @@ inventory video derive \
   -o ../subtitles/art/social-video/russafa/clips/clip-s01e01-a2-01.mp4 \
   "medium shot; Anna moves toward the door; slow push-in"
 
-inventory productions export \
+makefx productions export \
   --production-id s01e01-a2 \
   > ../subtitles/art/social-video/russafa/s01e01-a2.scenes.args
 ```

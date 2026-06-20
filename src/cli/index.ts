@@ -436,21 +436,21 @@ Usage:
 function printUploadHelp(): void {
   console.log(`
 Usage:
-  makefx upload <file> --asset <id> [--space <id>]     Import media to existing asset
-  makefx upload <file> --name <name> [--space <id>]    Import media as a new asset
+  makefx upload <file> --asset <id> [--space <id>]     Upload media to existing asset
+  makefx upload <file> --name <name> [--space <id>]    Upload media as a new asset
 
 Options:
   --space <id>      Target space ID; defaults from initialized project
-  --asset <id>      Target asset ID (import as new variant)
+  --asset <id>      Target asset ID (upload as new variant)
   --name <name>     New asset name (creates asset + variant)
   --type <type>     Asset type for new assets (default: character)
   --media-kind <k>  Optional explicit kind: image, audio, or video
-  --prompt <text>   Imported prompt provenance
-  --model <model>   Imported model provenance
-  --provider <name> Imported provider provenance
+  --prompt <text>   Prompt provenance for uploaded media
+  --model <model>   Model provenance for uploaded media
+  --provider <name> Provider provenance for uploaded media
   --provider-metadata <json>     Provider metadata JSON object
   --generation-provenance <json> Extra provenance JSON object
-  --source-variant <id>          Existing source variant for import lineage
+  --source-variant <id>          Existing source variant for upload lineage
   --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
   --active-variant-behavior <b>  if-missing, set-active, or keep
   --collection <ids>             Comma-separated collection IDs for the uploaded asset or variant

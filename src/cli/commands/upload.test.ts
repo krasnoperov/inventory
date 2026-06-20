@@ -272,7 +272,7 @@ test('upload sends video files with explicit media kind and MIME type', async ()
   }
 });
 
-test('upload sends single-file import provenance and lineage metadata', async () => {
+test('upload sends single-file provenance and lineage metadata', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
   const filePath = path.join(dir, 'paintover.png');
   const capturedBodies: BodyInit[] = [];
@@ -309,7 +309,7 @@ test('upload sends single-file import provenance and lineage metadata', async ()
     assert.deepEqual(JSON.parse(String(formData.get('lineage'))), [
       { parentVariantId: 'variant-source', relationType: 'refined' },
     ]);
-    assert.match(output.join('\n'), /Importing/);
+    assert.match(output.join('\n'), /Uploading/);
     assert.match(output.join('\n'), /Source variant: variant-source \(refined\)/);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -625,7 +625,7 @@ test('upload treats JSON files as unsupported direct media instead of manifests'
   }
 });
 
-test('upload rejects dry-run because direct upload is the only import workflow', async () => {
+test('upload rejects dry-run because direct upload is the only workflow', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
   const filePath = path.join(dir, 'hero.png');
   const capturedBodies: BodyInit[] = [];

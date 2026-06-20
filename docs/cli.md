@@ -377,16 +377,16 @@ makefx upload <file> --asset <id> [--space <id>]
 |----------|----------|-------------|
 | `<file>` | Yes | Path to image, audio, or video file |
 | `--space <id>` | No | Target space ID; defaults from initialized project |
-| `--asset <id>` | * | Target asset ID (import as new variant) |
+| `--asset <id>` | * | Target asset ID (upload as new variant) |
 | `--name <name>` | * | New asset name (creates asset + variant) |
 | `--type <type>` | No | Asset type for new assets (default: `character`) |
 | `--media-kind <kind>` | No | Optional explicit kind: `image`, `audio`, or `video` |
-| `--prompt <text>` | No | Imported prompt provenance |
-| `--model <model>` | No | Imported model provenance |
-| `--provider <name>` | No | Imported provider provenance |
+| `--prompt <text>` | No | Prompt provenance for uploaded media |
+| `--model <model>` | No | Model provenance for uploaded media |
+| `--provider <name>` | No | Provider provenance for uploaded media |
 | `--provider-metadata <json>` | No | Provider metadata JSON object |
 | `--generation-provenance <json>` | No | Extra provenance JSON object |
-| `--source-variant <id>` | No | Existing Space variant to record as import lineage source |
+| `--source-variant <id>` | No | Existing Space variant to record as upload lineage source |
 | `--relation-type <type>` | No | Lineage type: `derived`, `refined`, or `forked` (default: `derived`) |
 | `--active-variant-behavior <behavior>` | No | `if-missing`, `set-active`, or `keep` |
 | `--collection <ids>` | No | Comma-separated collection IDs for the uploaded asset or variant |
@@ -476,7 +476,7 @@ Manual relation types include `appears_in`, `background_for`,
 Collection and manual relation targets are existing Space IDs and are checked
 before the media upload starts. Use `--collection-name` only when an exact
 collection name is intentional; if more than one collection has that name, use
-`--collection <id>`. Use `--source-variant` only for immutable import lineage;
+`--collection <id>`. Use `--source-variant` only for immutable upload lineage;
 use `--manual-relation` for editable organization links.
 
 ---
