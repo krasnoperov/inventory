@@ -1,12 +1,11 @@
 /**
  * Asset Controller
  *
- * Handles asset CRUD operations, forking, and hierarchy management.
+ * Handles asset CRUD operations and forking.
  * Assets are the primary containers for variants in the inventory system.
  */
 
 import type { Asset, Variant, Lineage, MediaKind, WebSocketMeta } from '../types';
-import { getAncestorChain } from '../asset/hierarchy';
 import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { loggers } from '../../../../shared/logger';
@@ -258,25 +257,6 @@ export class AssetController extends BaseController {
     });
 
     return { asset, variants, lineage };
-  }
-
-  /**
-   * Handle GET /internal/asset/:assetId/children HTTP request
-   */
-  async httpGetChildren(assetId: string): Promise<Asset[]> {
-    return this.repo.getAssetsByParent(assetId);
-  }
-
-  /**
-   * Handle GET /internal/asset/:assetId/ancestors HTTP request
-   * Returns ancestors in root-first order (for breadcrumbs)
-   */
-  async httpGetAncestors(assetId: string): Promise<Asset[]> {
-    return getAncestorChain<Asset>(
-      assetId,
-      (id) => this.repo.getAssetById(id),
-      (asset) => asset.parent_asset_id
-    );
   }
 
   /**

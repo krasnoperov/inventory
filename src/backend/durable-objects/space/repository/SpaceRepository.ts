@@ -465,7 +465,6 @@ export class SpaceRepository {
       name?: string;
       tags?: string[];
       type?: string;
-      parent_asset_id?: string | null;
       active_variant_id?: string | null;
     }
   ): Promise<Asset | null> {

@@ -58,8 +58,6 @@ export interface InternalApiControllers {
       createdBy: string;
     }): Promise<unknown>;
     httpGetDetails(assetId: string): Promise<unknown>;
-    httpGetChildren(assetId: string): Promise<unknown>;
-    httpGetAncestors(assetId: string): Promise<unknown>;
     httpFork(data: {
       sourceVariantId: string;
       name: string;
@@ -365,18 +363,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     const assetId = c.req.param('assetId');
     const result = await controllers.asset.httpGetDetails(assetId);
     return c.json({ success: true, ...(result as object) });
-  });
-
-  app.get('/internal/asset/:assetId/children', async (c) => {
-    const assetId = c.req.param('assetId');
-    const children = await controllers.asset.httpGetChildren(assetId);
-    return c.json({ success: true, children });
-  });
-
-  app.get('/internal/asset/:assetId/ancestors', async (c) => {
-    const assetId = c.req.param('assetId');
-    const ancestors = await controllers.asset.httpGetAncestors(assetId);
-    return c.json({ success: true, ancestors });
   });
 
   app.post('/internal/fork', async (c) => {

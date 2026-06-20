@@ -20,14 +20,8 @@ export const AssetQueries = {
   /** Get asset by ID */
   GET_BY_ID: 'SELECT * FROM assets WHERE id = ?',
 
-  /** Get parent_asset_id for an asset */
-  GET_PARENT_ID: 'SELECT parent_asset_id FROM assets WHERE id = ?',
-
   /** Get assets by parent ID */
   GET_BY_PARENT: 'SELECT * FROM assets WHERE parent_asset_id = ? ORDER BY updated_at DESC',
-
-  /** Get children count for an asset */
-  GET_CHILDREN_COUNT: 'SELECT COUNT(*) as count FROM assets WHERE parent_asset_id = ?',
 
   /** Insert new asset */
   INSERT: `INSERT INTO assets (id, name, type, media_kind, tags, parent_asset_id, active_variant_id, created_by, created_at, updated_at)
@@ -682,11 +676,6 @@ export function buildAssetUpdateQuery(changes: AssetChanges): { sql: string; val
   if (changes.type !== undefined) {
     updates.push('type = ?');
     values.push(changes.type);
-  }
-
-  if (changes.parent_asset_id !== undefined) {
-    updates.push('parent_asset_id = ?');
-    values.push(changes.parent_asset_id);
   }
 
   if (changes.active_variant_id !== undefined) {

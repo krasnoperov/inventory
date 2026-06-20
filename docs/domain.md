@@ -108,7 +108,7 @@ Organizational structure for grouping related assets into logical trees.
 |----------|-------|
 | Mutable | Yes - users can rearrange |
 | Cycle prevention | Yes - backend validates |
-| Cascade delete | No - orphans children (SET NULL) |
+| Cascade delete | Collection and relation rows are removed or nulled with their targets |
 
 ### Variant Lineage
 
@@ -139,7 +139,7 @@ organization is represented by collections, relations, and compositions.
 |------|-------|---------|
 | **Space (Catalog)** | Assets with active variant thumbnails | Browse, organize, add to tray |
 | **Asset Detail** | All variants of one asset | Manage variants, compare iterations |
-| **Asset Canvas** | Asset hierarchy as DAG | Visualize parent-child relationships |
+| **Asset Canvas** | Asset thumbnails | Browse assets spatially |
 | **Variant Canvas** | Variant lineage graph | Visualize generation history |
 
 ---
@@ -210,14 +210,14 @@ CLI generation commands, docs, and tests should use the same matrix.
 ## References
 
 **Backend:**
-- `src/backend/durable-objects/space/controllers/AssetController.ts` — Hierarchy, spawn
+- `src/backend/durable-objects/space/controllers/AssetController.ts` — Asset CRUD and fork
 - `src/backend/durable-objects/space/controllers/GenerationController.ts` — Derive/compose
 - `src/backend/durable-objects/space/controllers/LineageController.ts` — Lineage queries
 - `src/backend/durable-objects/space/schema/SchemaManager.ts` — Schema definitions
 
 **Frontend:**
 - `src/frontend/components/ForgeTray/` — Tray implementation
-- `src/frontend/components/AssetCanvas/` — Asset hierarchy visualization
+- `src/frontend/components/AssetCanvas/` — Spatial asset visualization
 - `src/frontend/components/VariantCanvas/` — Lineage visualization
 - `src/frontend/pages/SpacePage.tsx` — Catalog view
 - `src/frontend/pages/AssetDetailPage.tsx` — Variant management

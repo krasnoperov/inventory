@@ -76,8 +76,9 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 
 ### Organization
 
-Manual organization records are separate from asset hierarchy and variant
-lineage. Mutations require editor access; viewers can receive sync snapshots.
+Manual organization records are separate from legacy parent compatibility data
+and variant lineage. Mutations require editor access; viewers can receive sync
+snapshots.
 
 | Message | Fields | Description |
 |---------|--------|-------------|

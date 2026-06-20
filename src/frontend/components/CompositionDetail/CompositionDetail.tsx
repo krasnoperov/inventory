@@ -289,7 +289,7 @@ export function CompositionDetail({
             </div>
 
             <div className={styles.notice}>
-              Exact variant usage is stored here. Asset hierarchy, collection membership, and generation lineage remain separate.
+              Exact variant usage is stored here. Collection membership, relations, and generation lineage remain separate.
             </div>
 
             <SlotBlock

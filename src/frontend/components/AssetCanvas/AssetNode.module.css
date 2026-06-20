@@ -25,19 +25,6 @@
   box-shadow: 0 0 0 3px oklch(55% 0.18 276 / 0.3);
 }
 
-/* Handles (connection points) - counter-scaled to stay clickable */
-.handle {
-  width: calc(10px / var(--rf-zoom, 1)) !important;
-  height: calc(10px / var(--rf-zoom, 1)) !important;
-  background: var(--color-border) !important;
-  border: calc(2px / var(--rf-zoom, 1)) solid var(--color-surface) !important;
-  transition: background 0.15s ease;
-}
-
-.node:hover .handle {
-  background: var(--color-primary) !important;
-}
-
 /* Thumbnail container - fixed height; width is set inline to match the
    image aspect ratio exactly (no crop, no letterbox bars). */
 .thumbnail {

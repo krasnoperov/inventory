@@ -2,10 +2,10 @@
  * Layout algorithms for AssetCanvas
  *
  * Supports multiple intelligent layout strategies:
- * - dagre: Hierarchical tree layout (good for parent-child relationships)
+ * - dagre: Layered layout
  * - force: Force-directed layout (organic clustering, reveals relationships)
  * - grid: Compact grid layout (efficient space usage)
- * - radial: Radial tree layout (center-focused hierarchy)
+ * - radial: Concentric layout
  * - circular: Nodes arranged in a circle
  */
 
@@ -330,7 +330,7 @@ function layoutGrid(
   return { nodes: layoutedNodes, edges };
 }
 
-/** Radial tree layout - hierarchy radiating from center */
+/** Radial layout - nodes radiating from center */
 function layoutRadial(
   nodes: AssetNodeType[],
   edges: Edge[],
@@ -364,7 +364,7 @@ function layoutRadial(
   // Start with actual roots (connected nodes with no parent)
   const connectedRoots = rootNodes.filter(n => !orphanNodes.includes(n));
   if (connectedRoots.length === 0 && nodes.length > 0) {
-    // No clear hierarchy, just use first node
+    // No connected root, just use first node
     queue.push({ id: nodes[0].id, level: 0 });
   } else {
     connectedRoots.forEach(r => queue.push({ id: r.id, level: 0 }));
@@ -568,8 +568,8 @@ export const layoutAlgorithms: Array<{
 }> = [
   {
     id: 'dagre',
-    name: 'Tree',
-    description: 'Hierarchical tree layout, best for parent-child relationships',
+    name: 'Layered',
+    description: 'Layered layout for connected assets',
     icon: '🌲',
   },
   {
@@ -587,7 +587,7 @@ export const layoutAlgorithms: Array<{
   {
     id: 'radial',
     name: 'Radial',
-    description: 'Radial tree with hierarchy radiating from center',
+    description: 'Concentric layout radiating from center',
     icon: '◎',
   },
   {
