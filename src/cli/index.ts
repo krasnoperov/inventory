@@ -17,6 +17,7 @@ import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
 import { handleVariants } from './commands/variants';
 import { handleProductions } from './commands/productions';
+import { handleUsage } from './commands/usage';
 import { handleRotation, handleTileSet } from './commands/pipelines';
 import {
   AUDIO_FORGE_MEDIA_MODES,
@@ -198,6 +199,9 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'assets':
       printAssetsHelp();
       return;
+    case 'usage':
+      printUsageHelp();
+      return;
     case 'variants':
     case 'variant':
       printVariantsHelp();
@@ -259,6 +263,7 @@ Project:
                                  List Space-backed production placements
   productions export --production-id <id>
                                  Export production scene args from Space records
+  usage [summary] [--space <id>] Show platform storage and workflow consumption
 
 Billing (Polar.sh):
   billing status               Show sync status (pending, failed, synced events)
@@ -323,6 +328,7 @@ Examples:
   makefx video generate "A looping idle animation" --name "Idle Animation" --type animation --duration 6 --resolution 1080p --tier fast -o idle.mp4
   makefx productions export --production-id s01e01-a2
   makefx assets
+  makefx usage --from 2026-06-01
   makefx assets download variant_123 -o variant.mp4
   makefx assets rename asset_123 "Hero (moving)"
   makefx assets set-active asset_123 variant_456
@@ -742,6 +748,22 @@ Usage:
 `);
 }
 
+function printUsageHelp(): void {
+  console.log(`
+Usage:
+  makefx usage [summary] [--space <id>] [--from <date>] [--to <date>]
+  makefx usage --json
+
+Options:
+  --space <id>      Target space ID; defaults from the initialized project
+  --from <date>     Include usage at or after this date or ISO timestamp
+  --to <date>       Include usage at or before this date or ISO timestamp
+  --json            Print machine-readable output
+  --env <env>       Environment (production|stage|local)
+  --local           Shortcut for --env local
+`);
+}
+
 async function dispatchCommand(command: string, parsed: ReturnType<typeof parseArgs>) {
   switch (command) {
     case 'init':
@@ -788,6 +810,9 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
       break;
     case 'assets':
       await handleAssets(parsed);
+      break;
+    case 'usage':
+      await handleUsage(parsed);
       break;
     case 'variants':
     case 'variant':

@@ -15,6 +15,7 @@ import {
   ListProviderKeysResponseSchema,
   ListSpacesResponseSchema,
   PlaceProductionRecordRequestSchema,
+  PlatformUsageSummaryResponseSchema,
   ProviderKeyParamsSchema,
   ProviderKeyResponseSchema,
   ProductionIdParamsSchema,
@@ -29,6 +30,7 @@ import {
   ProductionShotResponseSchema,
   SpaceIdParamsSchema,
   SuccessResponseSchema,
+  UsageSummaryQuerySchema,
   UpsertProductionCueRequestSchema,
   UpsertProductionPlacementRequestSchema,
   UpsertProductionRequestSchema,
@@ -304,6 +306,23 @@ export const listSpaceAssetsRoute = createRoute({
     403: errorResponse,
     500: errorResponse,
     503: errorResponse,
+  },
+});
+
+export const getSpaceUsageSummaryRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/usage/summary',
+  request: {
+    params: SpaceIdParamsSchema,
+    query: UsageSummaryQuerySchema,
+  },
+  responses: {
+    200: {
+      ...json(PlatformUsageSummaryResponseSchema),
+      description: 'Platform storage, workflow, and delivery usage summary for a space',
+    },
+    400: errorResponse,
+    403: errorResponse,
   },
 });
 

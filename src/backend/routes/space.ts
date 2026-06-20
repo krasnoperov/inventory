@@ -1,6 +1,7 @@
 import { authMiddleware } from '../middleware/auth-middleware';
 import { SpaceDAO } from '../../dao/space-dao';
 import { MemberDAO } from '../../dao/member-dao';
+import { PlatformUsageEventDAO } from '../../dao/platform-usage-event-dao';
 import { createOpenApiRouter, toApiSpace } from './openapi';
 import {
   deleteSpaceRoute,
@@ -11,6 +12,7 @@ import {
   deleteProductionShotRoute,
   getSpaceRoute,
   getProductionRoute,
+  getSpaceUsageSummaryRoute,
   listProductionRecordsRoute,
   listProductionsRoute,
   listSpaceAssetsRoute,
@@ -26,6 +28,7 @@ import {
   ListProductionRecordsResponseSchema,
   ListProductionsResponseSchema,
   ListSpaceAssetsResponseSchema,
+  PlatformUsageSummaryResponseSchema,
   ProductionCueResponseSchema,
   ProductionDetailResponseSchema,
   ProductionPlacementResponseSchema,
@@ -39,6 +42,23 @@ const spaceRoutes = createOpenApiRouter();
 
 // All space routes require authentication
 spaceRoutes.use('/api/spaces/*', authMiddleware);
+
+function normalizeUsageBound(value: string | undefined, name: 'from' | 'to'): string | null | { error: string } {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const normalized = `${value}T${name === 'from' ? '00:00:00.000' : '23:59:59.999'}Z`;
+    const timestamp = new Date(normalized).getTime();
+    if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString().slice(0, 10) !== value) {
+      return { error: `${name} must be a valid date or ISO timestamp` };
+    }
+    return normalized;
+  }
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) {
+    return { error: `${name} must be a valid date or ISO timestamp` };
+  }
+  return new Date(timestamp).toISOString();
+}
 
 // POST /api/spaces - Create space
 spaceRoutes.openapi(postSpaceRoute, async (c) => {
@@ -160,6 +180,40 @@ spaceRoutes.openapi(listSpaceAssetsRoute, async (c) => {
     assets: state.assets,
   });
 
+  return c.json(payload, 200);
+});
+
+// GET /api/spaces/:id/usage/summary - Platform usage summary for a space
+spaceRoutes.openapi(getSpaceUsageSummaryRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const container = c.get('container');
+  const memberDAO = container.get(MemberDAO);
+  const usageDAO = container.get(PlatformUsageEventDAO);
+
+  const { id: spaceId } = c.req.valid('param');
+  const query = c.req.valid('query');
+  const from = normalizeUsageBound(query.from, 'from');
+  if (from && typeof from !== 'string') {
+    return c.json({ error: from.error }, 400);
+  }
+  const to = normalizeUsageBound(query.to, 'to');
+  if (to && typeof to !== 'string') {
+    return c.json({ error: to.error }, 400);
+  }
+  if (from && to && new Date(from).getTime() > new Date(to).getTime()) {
+    return c.json({ error: 'from must be before to' }, 400);
+  }
+
+  const member = await memberDAO.getMember(spaceId, userId);
+  if (!member) {
+    return c.json({ error: 'Access denied' }, 403);
+  }
+
+  const summary = await usageDAO.getSpaceSummary(spaceId, { from, to });
+  const payload = PlatformUsageSummaryResponseSchema.parse({
+    success: true as const,
+    ...summary,
+  });
   return c.json(payload, 200);
 });
 

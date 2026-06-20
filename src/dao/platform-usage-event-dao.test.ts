@@ -86,4 +86,82 @@ describe('PlatformUsageEventDAO', () => {
     assert.equal(events[0].usage_type, 'workflow');
     assert.deepEqual(await dao.getSpaceTotals('space-1'), { workflow: 1 });
   });
+
+  test('summarizes storage, workflow, and delivery usage within date bounds', async () => {
+    await dao.create({
+      idempotencyKey: 'storage:old',
+      spaceId: 'space-1',
+      userId,
+      usageType: 'storage',
+      quantity: 100,
+      unit: 'byte',
+      mediaKind: 'image',
+      createdAt: '2026-05-31T23:59:59.000Z',
+    });
+    await dao.create({
+      idempotencyKey: 'storage:new',
+      spaceId: 'space-1',
+      userId,
+      usageType: 'storage',
+      quantity: 2048,
+      unit: 'byte',
+      mediaKind: 'video',
+      createdAt: '2026-06-01T12:00:00.000Z',
+    });
+    await dao.create({
+      idempotencyKey: 'storage:deleted',
+      spaceId: 'space-1',
+      userId,
+      usageType: 'storage',
+      quantity: -512,
+      unit: 'byte',
+      mediaKind: 'video',
+      createdAt: '2026-06-02T12:00:00.000Z',
+    });
+    await dao.create({
+      idempotencyKey: 'workflow:new',
+      spaceId: 'space-1',
+      userId,
+      usageType: 'workflow',
+      quantity: 1,
+      unit: 'run',
+      mediaKind: 'video',
+      createdAt: '2026-06-02T12:00:00.000Z',
+    });
+    await dao.create({
+      idempotencyKey: 'delivery:new',
+      spaceId: 'space-1',
+      userId,
+      usageType: 'delivery',
+      quantity: 256,
+      unit: 'byte',
+      mediaKind: 'video',
+      createdAt: '2026-06-03T12:00:00.000Z',
+    });
+
+    const summary = await dao.getSpaceSummary('space-1', {
+      from: '2026-06-01T00:00:00.000Z',
+      to: '2026-06-30T23:59:59.999Z',
+    });
+
+    assert.deepEqual(summary.totals, {
+      storageBytes: 1536,
+      workflowRuns: 1,
+      deliveryBytes: 256,
+    });
+    assert.deepEqual(summary.byType, [
+      { usageType: 'delivery', unit: 'byte', quantity: 256, events: 1 },
+      { usageType: 'storage', unit: 'byte', quantity: 1536, events: 2 },
+      { usageType: 'workflow', unit: 'run', quantity: 1, events: 1 },
+    ]);
+    assert.deepEqual(summary.byMediaKind, [
+      {
+        mediaKind: 'video',
+        storageBytes: 1536,
+        workflowRuns: 1,
+        deliveryBytes: 256,
+        events: 4,
+      },
+    ]);
+  });
 });

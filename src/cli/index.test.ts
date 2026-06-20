@@ -138,11 +138,14 @@ test('help is side-effect-free across command and subcommand levels', async () =
       ['assets', '--help'],
       ['assets', 'show', '--help'],
       ['assets', 'download', '--help'],
+      ['usage', '--help'],
+      ['usage', 'summary', '--help'],
       ['productions', '--help'],
       ['productions', 'export', '--help'],
       ['help', 'audio', 'batch'],
       ['help', 'video', 'derive'],
       ['help', 'assets', 'show'],
+      ['help', 'usage', 'summary'],
       ['help', 'productions', 'export'],
     ];
 

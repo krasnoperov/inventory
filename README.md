@@ -78,6 +78,7 @@ Inspect and reuse tracked results:
 makefx assets
 makefx assets show ASSET_ID --json
 makefx assets download VARIANT_ID -o references/variant.png
+makefx usage --from 2026-06-01
 makefx listen --space YOUR_SPACE_ID
 makefx rotation --variant VARIANT_ID --config 8-directional
 makefx tileset "cohesive grass, path, and stone terrain tiles" --type terrain --grid 3x3
@@ -109,6 +110,7 @@ staging or `--local` for a local development server.
 | `makefx upload` | Upload local image, audio, or video files |
 | `makefx assets` | List, show, download, rename, delete, and set active assets |
 | `makefx variants` | Retry, star, rate, or delete variants |
+| `makefx usage` | Show platform storage and workflow consumption for a space |
 | `makefx rotation` | Generate and monitor rotation views from a completed image variant |
 | `makefx tileset` | Generate and monitor consistent tile sets |
 | `makefx listen` | Stream real-time space events |
