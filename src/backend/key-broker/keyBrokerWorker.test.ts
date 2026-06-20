@@ -6,6 +6,7 @@ import { createLocalKeyBrokerServiceBinding } from './testHarness';
 import {
   decryptProviderApiKeyV2,
   decryptProviderApiKeyWithVersionedKek,
+  encryptLegacyProviderApiKey,
   encryptProviderApiKeyV2,
   encryptProviderApiKeyWithVersionedKek,
   unwrapProviderKeyDek,
@@ -570,6 +571,43 @@ describe('key broker service binding contract', () => {
     assert.equal('wrappedDek' in resolved, false);
   });
 
+  test('runtime broker reads migrate legacy provider rows through the active envelope', async () => {
+    const db = new FakeD1();
+    const broker = keyBrokerClient(
+      createLocalKeyBrokerServiceBinding({
+        DB: db as never,
+        BYOK_ACTIVE_KEK_VERSION: '2',
+        BYOK_KEK_V1: encryptionKey(),
+        BYOK_KEK_V2: rotatedEncryptionKey(),
+      })
+    );
+    const tenant = { type: 'user' as const, userId: 7 };
+    const legacyEncrypted = await encryptLegacyProviderApiKey(
+      'legacy-elevenlabs-key',
+      encryptionKey(),
+      7,
+      'elevenlabs',
+    );
+    db.rows.set('7:elevenlabs', {
+      user_id: 7,
+      provider: 'elevenlabs',
+      encrypted_api_key: legacyEncrypted,
+      key_hint: 'legacy',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+
+    const resolved = await broker.resolveProviderKey({
+      tenant,
+      provider: 'elevenlabs',
+      purpose: 'runtime',
+    });
+
+    assert.equal(resolved.apiKey, 'legacy-elevenlabs-key');
+    assert.match(db.rows.get('7:elevenlabs')?.encrypted_api_key ?? '', /^enc:v2:2:1:/);
+    assert.notEqual(db.rows.get('7:elevenlabs')?.encrypted_api_key, legacyEncrypted);
+    assert.equal(db.envelopes.get('user:7')?.kek_version, 2);
+  });
+
   test('requires KEK material for an authorized generation with a stored BYOK key', async () => {
     const db = new FakeD1();
     const broker = keyBrokerClient(
@@ -743,7 +781,7 @@ describe('key broker service binding contract', () => {
     assert.match(db.rows.get('7:google_ai')?.encrypted_api_key ?? '', /^enc:v2:1:1:/);
   });
 
-  test('rotates only the target tenant DEK and provider ciphertexts', async () => {
+  test('rotates only the target tenant DEK and provider ciphertexts with mixed legacy rows', async () => {
     const db = new FakeD1();
     const broker = keyBrokerClient(
       createLocalKeyBrokerServiceBinding({
@@ -756,7 +794,13 @@ describe('key broker service binding contract', () => {
     const targetTenant = { type: 'user' as const, userId: 7 };
 
     await broker.storeProviderKey({ tenant: targetTenant, provider: 'google_ai', apiKey: 'target-google-secret' });
-    await broker.storeProviderKey({ tenant: targetTenant, provider: 'anthropic', apiKey: 'sk-ant-target-secret' });
+    db.rows.set('7:anthropic', {
+      user_id: 7,
+      provider: 'anthropic',
+      encrypted_api_key: await encryptLegacyProviderApiKey('sk-ant-target-secret', encryptionKey(), 7, 'anthropic'),
+      key_hint: 'legacy-hint',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
     await broker.storeProviderKey({
       tenant: { type: 'user', userId: 8 },
       provider: 'google_ai',

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   deleteProviderApiKey,
   decryptProviderApiKeyV2,
+  encryptLegacyProviderApiKey,
   encryptProviderApiKeyV2,
   listProviderKeySummaries,
   ProviderKeyEncryptionError,
@@ -319,6 +320,40 @@ describe('providerKeyVault', () => {
     );
     assert.equal(db.rows.get('7:google_ai')?.encrypted_api_key, 'not-current-format');
     assert.equal(db.envelopes.size, 0);
+  });
+
+  test('resolves and migrates legacy provider rows with explicit versioned KEKs', async () => {
+    const db = new FakeD1();
+    const oldKek = encryptionKey();
+    const newKek = rotatedEncryptionKey();
+    const legacyEncrypted = await encryptLegacyProviderApiKey(
+      'legacy-google-secret',
+      oldKek,
+      7,
+      'google_ai',
+    );
+    db.rows.set('7:google_ai', {
+      user_id: 7,
+      provider: 'google_ai',
+      encrypted_api_key: legacyEncrypted,
+      key_hint: 'legacy',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+
+    const env = {
+      BYOK_ACTIVE_KEK_VERSION: '2',
+      BYOK_KEK_V1: oldKek,
+      BYOK_KEK_V2: newKek,
+    };
+
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', env),
+      'legacy-google-secret',
+    );
+    assert.match(db.rows.get('7:google_ai')?.encrypted_api_key ?? '', /^enc:v2:2:1:/);
+    assert.notEqual(db.rows.get('7:google_ai')?.encrypted_api_key, legacyEncrypted);
+    assert.equal(db.rows.get('7:google_ai')?.key_hint, '****cret');
+    assert.equal(db.envelopes.get('user:7')?.kek_version, 2);
   });
 
   test('direct env callers resolve mixed KEK envelope versions during rewrap rollout', async () => {
