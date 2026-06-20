@@ -337,6 +337,22 @@ makefx upload renders/hero-final.png \
   --relation-type derived
 ```
 
+The same direct upload can place the uploaded asset or exact variant into
+existing collections and create editable manual relations by ID:
+
+```bash
+makefx upload renders/hero-final.png \
+  --name "Hero Final" \
+  --collection collection_cast \
+  --collection-role character \
+  --manual-relation thumbnail_for:asset:asset_hero_sheet
+```
+
+Collection and manual relation targets are validated before media bytes are
+uploaded, so a mistyped organization ID does not create a duplicate asset on
+retry. Immutable import lineage still uses `--source-variant`; editable
+organization links use `--manual-relation`.
+
 Use `makefx upload <manifest.json>` when the import needs a JSON manifest for
 multiple files, same-batch lineage, collections, manual relations,
 compositions, style collections, or style presets. Import records can include
