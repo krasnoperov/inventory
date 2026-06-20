@@ -79,6 +79,7 @@ export default function DashboardPage() {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+      timeZone: 'UTC',
     });
   };
 
