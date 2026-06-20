@@ -5,7 +5,7 @@
  * Manages image reference counting to ensure proper R2 cleanup.
  */
 
-import type { Asset, MediaKind, Variant, WebSocketMeta } from '../types';
+import type { Asset, Lineage, MediaKind, Variant, WebSocketMeta } from '../types';
 import {
   INCREMENT_REF_SQL,
   DECREMENT_REF_SQL,
@@ -24,6 +24,10 @@ import {
 
 const log = loggers.variantController;
 type UploadActiveVariantBehavior = 'if_missing' | 'set_active' | 'keep';
+type UploadLineageInput = {
+  parentVariantId: string;
+  relationType: 'derived' | 'refined' | 'forked';
+};
 
 export class VariantController extends BaseController {
   constructor(ctx: ControllerContext) {
@@ -294,7 +298,8 @@ export class VariantController extends BaseController {
     renderMetadataSizeBytes?: number | null;
     providerMetadata?: Record<string, unknown> | string | null;
     activeVariantBehavior?: UploadActiveVariantBehavior;
-  }): Promise<{ variant: Variant }> {
+    lineage?: UploadLineageInput[];
+  }): Promise<{ variant: Variant; lineage?: Lineage[] }> {
     const now = Date.now();
 
     // Get the variant
@@ -308,6 +313,20 @@ export class VariantController extends BaseController {
     }
     if (hasAudioSidecarKeys(data) && existing.media_kind !== 'audio') {
       throw new ValidationError('Audio sidecars can only be attached to audio variants');
+    }
+    const lineageInputs = data.lineage ?? [];
+    for (const lineageInput of lineageInputs) {
+      if (
+        lineageInput.relationType !== 'derived' &&
+        lineageInput.relationType !== 'refined' &&
+        lineageInput.relationType !== 'forked'
+      ) {
+        throw new ValidationError('Lineage relationType must be derived, refined, or forked');
+      }
+      const parent = await this.repo.getVariantById(lineageInput.parentVariantId);
+      if (!parent) {
+        throw new NotFoundError(`Lineage parent variant not found: ${lineageInput.parentVariantId}`);
+      }
     }
 
     // Update variant with image keys and completed status
@@ -367,6 +386,18 @@ export class VariantController extends BaseController {
 
     await this.trackStoredVariant(variant, 'uploaded');
 
+    const lineage: Lineage[] = [];
+    for (const lineageInput of lineageInputs) {
+      const created = await this.repo.createLineage({
+        id: crypto.randomUUID(),
+        parentVariantId: lineageInput.parentVariantId,
+        childVariantId: variant.id,
+        relationType: lineageInput.relationType,
+      });
+      lineage.push(created);
+      this.broadcast({ type: 'lineage:created', lineage: created });
+    }
+
     // Set as active according to upload/import policy.
     const asset = await this.repo.getAssetById(variant.asset_id);
     const activeBehavior = data.activeVariantBehavior ?? 'if_missing';
@@ -395,7 +426,10 @@ export class VariantController extends BaseController {
       assetId: variant.asset_id,
     });
 
-    return { variant };
+    return {
+      variant,
+      ...(lineage.length > 0 ? { lineage } : {}),
+    };
   }
 
   /**

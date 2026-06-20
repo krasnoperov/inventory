@@ -13,6 +13,7 @@
 
 import { Hono } from 'hono';
 import type {
+  Lineage,
   MediaKind,
   Variant,
   PendingApproval,
@@ -123,7 +124,13 @@ export interface InternalApiControllers {
       renderMetadataKey?: string | null;
       renderMetadataMimeType?: string | null;
       renderMetadataSizeBytes?: number | null;
-    }): Promise<{ variant: Variant }>;
+      providerMetadata?: Record<string, unknown> | string | null;
+      activeVariantBehavior?: 'if_missing' | 'set_active' | 'keep';
+      lineage?: Array<{
+        parentVariantId: string;
+        relationType: 'derived' | 'refined' | 'forked';
+      }>;
+    }): Promise<{ variant: Variant; lineage?: Lineage[] }>;
     httpFailUpload(data: {
       variantId: string;
       error: string;
@@ -410,6 +417,10 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       renderMetadataSizeBytes?: number | null;
       providerMetadata?: Record<string, unknown> | string | null;
       activeVariantBehavior?: 'if_missing' | 'set_active' | 'keep';
+      lineage?: Array<{
+        parentVariantId: string;
+        relationType: 'derived' | 'refined' | 'forked';
+      }>;
     };
     const result = await controllers.variant.httpCompleteUpload(data);
     return c.json(result);

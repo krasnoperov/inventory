@@ -61,7 +61,10 @@ async function toBytes(value: unknown): Promise<Uint8Array> {
   throw new Error('Unsupported R2 put body');
 }
 
-function buildApp(options: { role?: 'owner' | 'editor' | 'viewer' | null } = {}) {
+function buildApp(options: {
+  role?: 'owner' | 'editor' | 'viewer' | null;
+  completeUploadErrorForParent?: string;
+} = {}) {
   const app = new Hono<AppContext>();
   const puts: PutCall[] = [];
   const deletes: string[] = [];
@@ -160,6 +163,15 @@ function buildApp(options: { role?: 'owner' | 'editor' | 'viewer' | null } = {})
               const mediaKind = placeholder.mediaKind === 'image' || placeholder.mediaKind === 'audio' || placeholder.mediaKind === 'video'
                 ? placeholder.mediaKind
                 : 'image';
+              const lineageInputs = Array.isArray(body.lineage)
+                ? body.lineage as Array<{ parentVariantId?: string; relationType?: string }>
+                : [];
+              if (
+                options.completeUploadErrorForParent &&
+                lineageInputs.some((lineage) => lineage.parentVariantId === options.completeUploadErrorForParent)
+              ) {
+                return Response.json({ error: 'Lineage parent variant not found' }, { status: 404 });
+              }
 
               return Response.json({
                 variant: {
@@ -192,6 +204,14 @@ function buildApp(options: { role?: 'owner' | 'editor' | 'viewer' | null } = {})
                   created_at: 1_780_000_000_000,
                   updated_at: 1_780_000_000_000,
                 },
+                lineage: lineageInputs.map((lineage, index) => ({
+                  id: `lineage-${index + 1}`,
+                  parent_variant_id: lineage.parentVariantId,
+                  child_variant_id: body.variantId,
+                  relation_type: lineage.relationType,
+                  severed: false,
+                  created_at: 1_780_000_000_000,
+                })),
               });
             }
 
@@ -387,11 +407,60 @@ describe('uploadRoutes', () => {
     assert.ok(complete);
     assert.deepStrictEqual(complete.body.providerMetadata, { seed: 42 });
     assert.strictEqual(complete.body.activeVariantBehavior, 'set_active');
+    assert.deepStrictEqual(complete.body.lineage, [
+      { parentVariantId: 'variant-source', relationType: 'derived' },
+    ]);
 
-    const lineage = doCalls.find((call) => call.path === '/internal/add-lineage');
-    assert.ok(lineage);
-    assert.strictEqual(lineage.body.parentVariantId, 'variant-source');
-    assert.strictEqual(lineage.body.relationType, 'derived');
+    assert.strictEqual(doCalls.some((call) => call.path === '/internal/add-lineage'), false);
+  });
+
+  it('rejects lineage on non-import uploads before creating placeholders', async () => {
+    const { app, puts, doCalls } = buildApp();
+    const formData = new FormData();
+    formData.append('file', new File([new Uint8Array([1, 2, 3])], 'hero.png', { type: 'image/png' }));
+    formData.append('assetName', 'Hero');
+    formData.append('lineage', JSON.stringify([
+      { parentVariantId: 'variant-source', relationType: 'derived' },
+    ]));
+
+    const res = await app.fetch(uploadRequest('space-1', formData));
+    const body = await res.json() as { error: string };
+
+    assert.strictEqual(res.status, 400);
+    assert.match(body.error, /operation=import/);
+    assert.strictEqual(puts.length, 0);
+    assert.strictEqual(doCalls.length, 0);
+  });
+
+  it('fails and cleans uploaded bytes when import lineage parent is missing at completion', async () => {
+    const { app, puts, deletes, doCalls } = buildApp({
+      completeUploadErrorForParent: 'deleted-source',
+    });
+    const formData = new FormData();
+    formData.append('file', new File([new Uint8Array([1, 2, 3])], 'hero.png', { type: 'image/png' }));
+    formData.append('assetName', 'Hero');
+    formData.append('operation', 'import');
+    formData.append('lineage', JSON.stringify([
+      { parentVariantId: 'deleted-source', relationType: 'derived' },
+    ]));
+
+    const res = await app.fetch(uploadRequest('space-1', formData));
+    const body = await res.json() as { error: string };
+
+    assert.strictEqual(res.status, 404);
+    assert.match(body.error, /Lineage parent variant not found/);
+    assert.ok(puts.length >= 1);
+    assert.ok(deletes.includes(puts[0].key));
+
+    const complete = doCalls.find((call) => call.path === '/internal/complete-upload');
+    assert.ok(complete);
+    assert.deepStrictEqual(complete.body.lineage, [
+      { parentVariantId: 'deleted-source', relationType: 'derived' },
+    ]);
+    const fail = doCalls.find((call) => call.path === '/internal/fail-upload');
+    assert.ok(fail);
+    assert.strictEqual(fail.body.variantId, complete.body.variantId);
+    assert.strictEqual(doCalls.some((call) => call.path === '/internal/add-lineage'), false);
   });
 
   it('uploads audio transcript, word timings, and render metadata sidecars', async () => {
