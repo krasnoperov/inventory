@@ -1067,6 +1067,84 @@ describe('GenerationController pipeline hooks', () => {
       });
     });
 
+    test('prices muted video provider spend without generated-audio rates', async () => {
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          id: 'variant-muted-video',
+          media_kind: 'video',
+          image_key: null,
+          thumb_key: null,
+          media_key: null,
+        })),
+        completeVariant: mock.fn(async (id, imageKey, thumbKey, mediaMetadata = {}) =>
+          createMockVariant({
+            id,
+            media_kind: 'video',
+            image_key: imageKey,
+            thumb_key: thumbKey,
+            media_key: mediaMetadata.mediaKey,
+            media_mime_type: mediaMetadata.mimeType,
+            media_size_bytes: mediaMetadata.sizeBytes,
+            media_duration_ms: mediaMetadata.durationMs,
+            workflow_id: 'workflow-muted-video',
+            provider_metadata: mediaMetadata.providerMetadata === undefined
+              ? null
+              : JSON.stringify(mediaMetadata.providerMetadata),
+            status: 'completed',
+            created_by: '123',
+            recipe: JSON.stringify({
+              mediaKind: 'video',
+              model: 'veo-3.1-generate-preview',
+              operation: 'generate',
+              generateAudio: false,
+            }),
+          })
+        ),
+      });
+      ctx.env = { DB: db } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-muted-video',
+        requestId: 'request-muted-video',
+        imageKey: null,
+        thumbKey: null,
+        mediaKey: 'media/space-1/variant-muted-video.mp4',
+        mediaMimeType: 'video/mp4',
+        mediaSizeBytes: 4096,
+        mediaDurationMs: 8000,
+        providerMetadata: {
+          provider: 'google-veo',
+          model: 'veo-3.1-generate-preview',
+          operation: 'generate',
+          resolution: '720p',
+          durationSeconds: 8,
+          generateAudio: false,
+        },
+      });
+
+      assert.strictEqual(statements.length, 2);
+      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
+      assert.strictEqual(usageInsert.bindings[2], 'gemini_videos');
+      assert.strictEqual(usageInsert.bindings[3], 1);
+      assert.deepStrictEqual(JSON.parse(String(usageInsert.bindings[4])), {
+        model: 'veo-3.1-generate-preview',
+        operation: 'generate',
+        resolution: '720p',
+        duration_seconds: 8,
+        generate_audio: false,
+        video_count: 1,
+      });
+      assert.strictEqual(ledgerInsert.bindings[1], 'workflow:workflow-muted-video:meter:gemini_videos');
+      assert.strictEqual(ledgerInsert.bindings[8], 'request-muted-video');
+      assert.strictEqual(ledgerInsert.bindings[14], 'video_second');
+      assert.strictEqual(ledgerInsert.bindings[15], 8);
+      assert.strictEqual(ledgerInsert.bindings[16], 0.2);
+      assert.strictEqual(ledgerInsert.bindings[17], 1600000);
+    });
+
     test('passes generated audio sidecars to repository completion', async () => {
       const { ctx } = createMockContext({
         getVariantById: mock.fn(async () => createMockVariant({ media_kind: 'audio' })),
