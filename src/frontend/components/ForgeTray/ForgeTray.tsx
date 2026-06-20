@@ -7,6 +7,8 @@ import {
   type ChatMessageClient,
   type ChatForgeContext,
   type ForgeChatProgressResult,
+  type GenerationEstimateRequestParams,
+  type GenerationEstimateResult,
 } from '../../hooks/useSpaceWebSocket';
 import { useStyleStore } from '../../stores/styleStore';
 import type { MediaKind, MusicGenerationProvider } from '../../../shared/websocket-types';
@@ -141,6 +143,10 @@ export interface ForgeTrayProps {
   forgeError?: string | null;
   /** Forge error code for programmatic handling */
   forgeErrorCode?: string | null;
+  /** Latest generation usage/cost estimate response from the Space WebSocket */
+  generationEstimate?: GenerationEstimateResult | null;
+  /** Request a preflight usage/cost estimate for the current Forge Tray state */
+  sendGenerationEstimateRequest?: (params: GenerationEstimateRequestParams) => string;
 }
 
 const ACCEPTED_UPLOAD_MIME_TYPES = [
@@ -193,6 +199,13 @@ const VIDEO_TIER_LABELS: Record<VideoGenerationTier, string> = {
   generate: 'Generate',
   fast: 'Fast',
   lite: 'Lite',
+};
+
+const ESTIMATE_METER_LABELS: Record<string, string> = {
+  gemini_images: 'Gemini image',
+  gemini_videos: 'Veo video unit',
+  gemini_audio: 'Lyria generation',
+  elevenlabs_audio: 'ElevenLabs unit',
 };
 
 function getMediaGroup(mode: ForgeMediaMode): MediaGroup {
@@ -267,6 +280,18 @@ function formatMediaKindList(mediaKinds: readonly MediaKind[]): string {
   return `${mediaKinds.slice(0, -1).join(', ')} or ${mediaKinds[mediaKinds.length - 1]}`;
 }
 
+function formatEstimatedUsd(microUsd: number): string {
+  if (!Number.isFinite(microUsd) || microUsd <= 0) return '$0.00';
+  if (microUsd < 10_000) return '<$0.01';
+  return `$${(microUsd / 1_000_000).toFixed(2)}`;
+}
+
+function formatEstimateQuantity(quantity: number, singular: string): string {
+  const normalized = Number.isFinite(quantity) ? quantity : 0;
+  const suffix = normalized === 1 ? singular : `${singular}s`;
+  return `${normalized.toLocaleString()} ${suffix}`;
+}
+
 function isVeoImageInput(slot: { variant: Variant }): boolean {
   return slot.variant.media_kind === 'image' || Boolean(slot.variant.image_key);
 }
@@ -302,6 +327,8 @@ export function ForgeTray({
   sendStyleToggle,
   forgeError,
   forgeErrorCode,
+  generationEstimate,
+  sendGenerationEstimateRequest,
 }: ForgeTrayProps) {
   const { slots, prompt, setPrompt, clearSlots, removeSlot, setMaxSlots } = useForgeTrayStore();
   const style = useStyleStore((s) => s.style);
@@ -316,6 +343,8 @@ export function ForgeTray({
   const [noStyle, setNoStyle] = useState(false);
   const [batchCount, setBatchCount] = useState(1);
   const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
+  const [activeEstimate, setActiveEstimate] = useState<GenerationEstimateResult | null>(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
   const [imageModel, setImageModel] = useState<ImageModelSelection>('pro');
   const [imageSize, setImageSize] = useState<ImageSize>('1K');
   const imageModelCapabilities = getImageModelCapabilities(imageModel);
@@ -333,6 +362,7 @@ export function ForgeTray({
   const [videoTier, setVideoTier] = useState<VideoGenerationTier>(DEFAULT_VIDEO_GENERATION_TIER);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const estimateRequestIdRef = useRef<string | null>(null);
 
   const handleVideoTierSelect = useCallback((tier: VideoGenerationTier) => {
     setVideoTier(tier);
@@ -641,6 +671,7 @@ export function ForgeTray({
     // Forge operations cannot consume references from a different media mode.
     if (hasIncompatibleMediaSlots) return;
     if (isOverReferenceBudget) return;
+    if (activeEstimate?.success && activeEstimate.estimate && !activeEstimate.estimate.allowed) return;
 
     setIsSubmitting(true);
     try {
@@ -705,7 +736,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -738,6 +769,71 @@ export function ForgeTray({
     return hasPrompt;
   }, [isSubmitting, operation, hasPrompt, effectiveDestinationType, canUseExistingDestination, hasIncompatibleMediaSlots, isOverReferenceBudget]);
 
+  useEffect(() => {
+    if (!generationEstimate || generationEstimate.requestId !== estimateRequestIdRef.current) {
+      return;
+    }
+    setEstimateLoading(false);
+    setActiveEstimate(generationEstimate);
+  }, [generationEstimate]);
+
+  useEffect(() => {
+    if (!sendGenerationEstimateRequest || !canSubmit || operation === 'fork') {
+      estimateRequestIdRef.current = null;
+      setEstimateLoading(false);
+      setActiveEstimate(null);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      const sourceAsset = slots.length > 0 ? slots[0].asset : null;
+      const assetType = effectiveDestinationType === 'new_asset'
+        ? getAssetTypeForForgeMode(mediaMode, sourceAsset?.type)
+        : targetAsset?.type;
+      const estimateOperation = effectiveBatchCount > 1 && effectiveDestinationType === 'new_asset'
+        ? 'batch'
+        : operation;
+      const requestId = sendGenerationEstimateRequest({
+        operation: estimateOperation,
+        assetId: effectiveDestinationType === 'existing_asset' ? targetAsset?.id : undefined,
+        assetType,
+        mediaKind: selectedMediaKind,
+        prompt: prompt.trim() || undefined,
+        count: effectiveBatchCount,
+        model: selectedMediaKind === 'image' ? imageModel : undefined,
+        imageSize: selectedMediaKind === 'image' ? imageSize : undefined,
+        musicProvider: mediaMode === 'music' && musicProviderExplicit ? musicProvider : undefined,
+        generateAudio: mediaMode === 'video' ? VIDEO_GENERATION_AUDIO_ALWAYS_ON : undefined,
+        videoResolution: mediaMode === 'video' ? videoResolution : undefined,
+        videoDurationSeconds: mediaMode === 'video' ? videoDurationSeconds : undefined,
+        videoTier: mediaMode === 'video' ? videoTier : undefined,
+      });
+      estimateRequestIdRef.current = requestId;
+      setActiveEstimate(null);
+      setEstimateLoading(true);
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    sendGenerationEstimateRequest,
+    canSubmit,
+    operation,
+    slots,
+    effectiveDestinationType,
+    mediaMode,
+    targetAsset,
+    selectedMediaKind,
+    prompt,
+    effectiveBatchCount,
+    imageModel,
+    imageSize,
+    musicProvider,
+    musicProviderExplicit,
+    videoResolution,
+    videoDurationSeconds,
+    videoTier,
+  ]);
+
   const canAddMore = slots.length < effectiveMaxSlots;
   // Show destination toggle on AssetDetailPage (has currentAsset) so user can choose existing vs new
   const showDestinationToggle = !!currentAsset;
@@ -747,6 +843,13 @@ export function ForgeTray({
   // Empty-state reference add lives in the control bar; once slots exist the
   // thumbnail strip carries its own "+".
   const showUpload = !!((onUpload && targetAsset) || onUploadNewAsset);
+  const estimate = activeEstimate?.success ? activeEstimate.estimate : undefined;
+  const estimateError = activeEstimate && !activeEstimate.success ? activeEstimate.error : undefined;
+  const estimateMeterLabel = estimate ? ESTIMATE_METER_LABELS[estimate.meterEventName] ?? estimate.meterEventName : '';
+  const estimateRemaining = estimate?.quota?.remaining;
+  const estimateRemainingLabel = typeof estimateRemaining === 'number'
+    ? `${estimateRemaining.toLocaleString()} remaining`
+    : null;
 
   // Media-type popover (single trigger button → floating choices)
   const [showModePopover, setShowModePopover] = useState(false);
@@ -1247,7 +1350,7 @@ export function ForgeTray({
               <button
                 className={styles.forgeButton}
                 onClick={handleSubmit}
-                disabled={!canSubmit}
+                disabled={!canSubmit || estimate?.allowed === false}
                 title={`${operationLabel} (Cmd+Enter)`}
               >
                 {isSubmitting ? (
@@ -1271,6 +1374,25 @@ export function ForgeTray({
                 <Link to="/profile" className={styles.forgeErrorAction}>
                   Upgrade
                 </Link>
+              )}
+            </div>
+          )}
+
+          {(estimateLoading || estimate || estimateError) && (
+            <div className={`${styles.estimateRow} ${estimate && !estimate.allowed ? styles.estimateBlocked : ''}`}>
+              {estimateLoading && !estimate && !estimateError ? (
+                <span>Estimating usage...</span>
+              ) : estimate ? (
+                <>
+                  <span>{formatEstimatedUsd(estimate.providerCostMicroUsd)} provider cost</span>
+                  <span>{formatEstimateQuantity(estimate.quotaQuantity, estimateMeterLabel)}</span>
+                  <span>{formatEstimateQuantity(estimate.platformWorkflowRuns, 'workflow')}</span>
+                  {estimate.billingMode === 'byok' && <span>BYOK</span>}
+                  {estimateRemainingLabel && <span>{estimateRemainingLabel}</span>}
+                  {!estimate.allowed && estimate.denyMessage && <span>{estimate.denyMessage}</span>}
+                </>
+              ) : (
+                <span>{estimateError}</span>
               )}
             </div>
           )}

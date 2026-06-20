@@ -13,6 +13,7 @@ import type {
   Variant,
   ChatForgeContext,
   SpaceStyleRaw,
+  GenerationEstimateResult,
 } from '../hooks/useSpaceWebSocket';
 import { HeaderNav } from '../components/HeaderNav';
 import { WorkspaceChrome } from '../components/WorkspaceChrome';
@@ -44,6 +45,7 @@ export default function SpacePage() {
   const error = spaceDataQuery.error instanceof Error ? spaceDataQuery.error.message : null;
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
+  const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
 
   // Set page title
   useDocumentTitle(space?.name);
@@ -112,6 +114,7 @@ export default function SpacePage() {
     sendStyleDelete,
     sendStyleToggle,
     sendBatchRequest,
+    sendGenerationEstimateRequest,
     tileSets,
     tilePositions,
     sendTileSetRequest,
@@ -194,6 +197,7 @@ export default function SpacePage() {
         setForgeErrorCode(null);
       }, 5000);
     },
+    onGenerationEstimate: setGenerationEstimate,
     onError: (error) => {
       // Handle WebSocket errors - clear chat loading state
       if (isChatLoading) {
@@ -616,6 +620,8 @@ export default function SpacePage() {
           sendStyleToggle={sendStyleToggle}
           forgeError={forgeError}
           forgeErrorCode={forgeErrorCode}
+          generationEstimate={generationEstimate}
+          sendGenerationEstimateRequest={sendGenerationEstimateRequest}
         />
       )}
 

@@ -10,6 +10,8 @@
 import type {
   GenerateRequestMessage,
   RefineRequestMessage,
+  GenerationEstimateRequestMessage,
+  GenerationUsageEstimate,
   DescribeRequestMessage,
   CompareRequestMessage,
   EnhanceRequestMessage,
@@ -488,6 +490,7 @@ export type ClientMessage =
   | { type: 'session:get' }
   | { type: 'session:update'; viewingAssetId?: string | null; viewingVariantId?: string | null; forgeContext?: string | null }
   // Workflow-triggering messages
+  | GenerationEstimateRequestMessage
   | GenerateRequestMessage
   | RefineRequestMessage
   // Vision (describe/compare) messages
@@ -569,6 +572,8 @@ export type ServerMessage =
   // Errors
   | { type: 'error'; code: ErrorCode; message: string }
   // Workflow response messages
+  | { type: 'generation:estimate'; requestId: string; success: true; estimate: GenerationUsageEstimate }
+  | { type: 'generation:estimate'; requestId: string; success: false; error: string; code: ErrorCode }
   | { type: 'chat:response'; requestId: string; success: boolean; response?: unknown; error?: string; deferredActions?: DeferredAction[] }
   | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }
   | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }

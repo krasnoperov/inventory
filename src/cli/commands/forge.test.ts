@@ -120,6 +120,7 @@ class FakeClient {
   generateParams: unknown;
   refineParams: unknown;
   batchParams: unknown;
+  estimateParams: unknown[] = [];
   followParams: unknown;
   syncHandler?: (state: { assets: unknown[]; variants: unknown[]; lineage: unknown[] }) => void;
   connected = false;
@@ -232,6 +233,29 @@ class FakeClient {
         }),
       ],
       failed: [],
+    };
+  }
+
+  async sendGenerationEstimateRequest(params: unknown) {
+    this.estimateParams.push(params);
+    return {
+      type: 'generation:estimate' as const,
+      requestId: 'estimate-1',
+      success: true,
+      estimate: {
+        operation: (params as { operation?: 'generate' }).operation || 'generate',
+        mediaKind: (params as { mediaKind?: 'image' | 'audio' | 'video' }).mediaKind || 'image',
+        billingMode: 'managed' as const,
+        billingService: 'nanobanana' as const,
+        meterEventName: 'gemini_images' as const,
+        quotaQuantity: (params as { count?: number }).count || 1,
+        rateLimitQuantity: (params as { count?: number }).count || 1,
+        platformWorkflowRuns: (params as { count?: number }).count || 1,
+        providerCostMicroUsd: 39_000,
+        providerCostUsd: 0.039,
+        currency: 'USD' as const,
+        allowed: true,
+      },
     };
   }
 
@@ -503,6 +527,15 @@ test('generate sends generate request and downloads completed image', async () =
 
   assert.equal(client.connected, true);
   assert.equal(client.disconnected, true);
+  assert.deepEqual(client.estimateParams, [{
+    operation: 'generate',
+    assetType: 'scene',
+    mediaKind: 'image',
+    prompt: 'A market background',
+    count: 1,
+    model: undefined,
+    imageSize: undefined,
+  }]);
   assert.deepEqual(client.generateParams, {
     name: 'Market',
     assetType: 'scene',

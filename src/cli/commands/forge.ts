@@ -30,11 +30,12 @@ import {
   getGenerationRequestTimeoutMs,
   WebSocketClient,
   type BatchResult,
+  type GenerationEstimateResult,
   type GenerateStarted,
   type GenerateResult,
   type Variant,
 } from '../lib/websocket-client';
-import type { MediaKind, MusicGenerationProvider } from '../../shared/websocket-types';
+import type { GenerationEstimateOperation, MediaKind, MusicGenerationProvider } from '../../shared/websocket-types';
 import {
   DEFAULT_VIDEO_GENERATION_TIER,
   doesVideoGenerationModelSupportAudioToggle,
@@ -150,6 +151,21 @@ interface ForgeClient {
     dialogueVoiceIds?: string[];
     musicProvider?: MusicGenerationProvider;
   }): Promise<BatchResult>;
+  sendGenerationEstimateRequest(params: {
+    operation: GenerationEstimateOperation;
+    assetId?: string;
+    assetType?: string;
+    mediaKind?: MediaKind;
+    prompt?: string;
+    count?: number;
+    model?: string;
+    imageSize?: string;
+    musicProvider?: MusicGenerationProvider;
+    generateAudio?: boolean;
+    videoResolution?: VideoGenerationResolution;
+    videoDurationSeconds?: VideoGenerationDurationSeconds;
+    videoTier?: VideoGenerationTier;
+  }): Promise<GenerationEstimateResult>;
   followVariant(params: {
     variantId: string;
     requestId?: string;
@@ -256,6 +272,59 @@ interface GenerationRecipeSummary {
   assetType?: string;
   mediaKind?: MediaKind;
   parentVariantIds?: string[];
+}
+
+const ESTIMATE_METER_LABELS: Record<string, string> = {
+  gemini_images: 'Gemini image',
+  gemini_videos: 'Veo video unit',
+  gemini_audio: 'Lyria generation',
+  elevenlabs_audio: 'ElevenLabs unit',
+};
+
+function formatEstimatedUsd(microUsd: number): string {
+  if (!Number.isFinite(microUsd) || microUsd <= 0) return '$0.00';
+  if (microUsd < 10_000) return '<$0.01';
+  return `$${(microUsd / 1_000_000).toFixed(2)}`;
+}
+
+function formatEstimateQuantity(quantity: number, singular: string): string {
+  const normalized = Number.isFinite(quantity) ? quantity : 0;
+  const suffix = normalized === 1 ? singular : `${singular}s`;
+  return `${normalized.toLocaleString()} ${suffix}`;
+}
+
+async function printPreflightEstimate(
+  client: ForgeClient,
+  params: Parameters<ForgeClient['sendGenerationEstimateRequest']>[0]
+): Promise<void> {
+  let result: GenerationEstimateResult;
+  try {
+    result = await client.sendGenerationEstimateRequest(params);
+  } catch (error) {
+    console.warn(`Preflight estimate unavailable: ${error instanceof Error ? error.message : String(error)}`);
+    return;
+  }
+
+  if (!result.success || !result.estimate) {
+    console.warn(`Preflight estimate unavailable: ${result.error || 'unknown error'}`);
+    return;
+  }
+
+  const estimate = result.estimate;
+  const meterLabel = ESTIMATE_METER_LABELS[estimate.meterEventName] ?? estimate.meterEventName;
+  const quotaLine = estimate.quota?.limit === null || estimate.quota?.limit === undefined
+    ? undefined
+    : `${estimate.quota.used.toLocaleString()} used / ${estimate.quota.limit.toLocaleString()} limit`;
+  console.log('Preflight estimate:');
+  console.log(`  Usage: ${formatEstimateQuantity(estimate.quotaQuantity, meterLabel)}, ${formatEstimateQuantity(estimate.platformWorkflowRuns, 'workflow')}`);
+  console.log(`  Estimated provider cost: ${formatEstimatedUsd(estimate.providerCostMicroUsd)}${estimate.billingMode === 'byok' ? ' (BYOK)' : ''}`);
+  if (quotaLine) {
+    console.log(`  Quota: ${quotaLine}`);
+  }
+
+  if (!estimate.allowed) {
+    throw new Error(estimate.denyMessage || 'Preflight check denied this generation request');
+  }
 }
 
 export async function handleGenerate(parsed: ParsedArgs): Promise<void> {
@@ -450,6 +519,19 @@ async function executeGenerate(
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
 
+  await printPreflightEstimate(client, {
+    operation: 'generate',
+    assetType,
+    mediaKind,
+    prompt,
+    count: 1,
+    model: imageOptions.model,
+    imageSize: imageOptions.imageSize,
+    ...(musicProvider ? { musicProvider } : {}),
+    ...videoAudioOptions,
+    ...videoOptions,
+  });
+
   console.log(`Generating "${name}" in space ${ctx.spaceId}...`);
   const audioVoiceOptions = mediaKind === 'audio' ? parseAudioVoiceOptions(parsed) : {};
   const result = await client.sendGenerateRequest({
@@ -555,6 +637,19 @@ async function executeRefine(
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
 
+  await printPreflightEstimate(client, {
+    operation: 'refine',
+    assetId: sourceVariant.asset_id,
+    assetType: sourceAsset?.type || undefined,
+    mediaKind,
+    prompt,
+    count: 1,
+    model: imageOptions.model,
+    imageSize: imageOptions.imageSize,
+    ...videoAudioOptions,
+    ...videoOptions,
+  });
+
   console.log(`Refining variant ${sourceVariantId}...`);
   const result = await client.sendRefineRequest({
     assetId: sourceVariant.asset_id,
@@ -631,6 +726,18 @@ async function executeDerive(
   });
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
+
+  await printPreflightEstimate(client, {
+    operation: 'derive',
+    assetType,
+    mediaKind,
+    prompt,
+    count: 1,
+    model: imageOptions.model,
+    imageSize: imageOptions.imageSize,
+    ...videoAudioOptions,
+    ...videoOptions,
+  });
 
   console.log(`Deriving "${name}" from ${referenceVariantIds.length} reference(s)...`);
   const result = await client.sendGenerateRequest({
@@ -904,6 +1011,17 @@ async function executeBatch(
     : undefined;
   const startedAt = new Date().toISOString();
   const runId = deps.createRunId();
+
+  await printPreflightEstimate(client, {
+    operation: 'batch',
+    assetType,
+    mediaKind,
+    prompt,
+    count,
+    model: imageOptions.model,
+    imageSize: imageOptions.imageSize,
+    ...(musicProvider ? { musicProvider } : {}),
+  });
 
   const mediaLabel = mediaKind === 'image' ? 'image' : mediaKind === 'video' ? 'video' : 'audio file';
   console.log(`Batch generating ${count} ${mediaLabel}(s) for "${name}"...`);

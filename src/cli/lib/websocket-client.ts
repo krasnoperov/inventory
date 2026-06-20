@@ -11,7 +11,15 @@ import https from 'node:https';
 import WebSocket from 'ws';
 import { loadStoredConfig, resolveBaseUrl } from './config';
 import { loginCommandForEnvironment } from './command-context';
-import type { DescribeFocus, ClaudeUsage, MediaKind, MusicGenerationProvider, SimplePlan } from '../../shared/websocket-types';
+import type {
+  DescribeFocus,
+  ClaudeUsage,
+  GenerationEstimateOperation,
+  GenerationUsageEstimate,
+  MediaKind,
+  MusicGenerationProvider,
+  SimplePlan,
+} from '../../shared/websocket-types';
 import type {
   VideoGenerationDurationSeconds,
   VideoGenerationResolution,
@@ -159,6 +167,24 @@ interface BatchRequestMessage {
   musicProvider?: MusicGenerationProvider;
 }
 
+interface GenerationEstimateRequestMessage {
+  type: 'generation:estimate';
+  requestId: string;
+  operation: GenerationEstimateOperation;
+  assetId?: string;
+  assetType?: string;
+  mediaKind?: MediaKind;
+  prompt?: string;
+  count?: number;
+  model?: string;
+  imageSize?: string;
+  musicProvider?: MusicGenerationProvider;
+  generateAudio?: boolean;
+  videoResolution?: VideoGenerationResolution;
+  videoDurationSeconds?: VideoGenerationDurationSeconds;
+  videoTier?: VideoGenerationTier;
+}
+
 interface DescribeRequestMessage {
   type: 'describe:request';
   requestId: string;
@@ -287,6 +313,15 @@ interface BatchError {
   requestId: string;
   error: string;
   code: string;
+}
+
+export interface GenerationEstimateResult {
+  type: 'generation:estimate';
+  requestId: string;
+  success: boolean;
+  estimate?: GenerationUsageEstimate;
+  error?: string;
+  code?: string;
 }
 
 interface VariantUpdated {
@@ -523,6 +558,7 @@ type ServerMessage =
   | GenerateError
   | RefineError
   | BatchError
+  | GenerationEstimateResult
   | GenerateResult
   | RefineResult
   | VariantUpdated
@@ -633,6 +669,12 @@ export class WebSocketClient {
     pending: Set<string>;
     completed: Variant[];
     failed: Array<{ variantId: string; error: string }>;
+  }> = new Map();
+
+  private estimateHandlers: Map<string, {
+    resolve: (result: GenerationEstimateResult) => void;
+    reject: (error: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
   }> = new Map();
 
   private batchVariantToRequestId: Map<string, string> = new Map();
@@ -960,6 +1002,17 @@ export class WebSocketClient {
         break;
       }
 
+      case 'generation:estimate': {
+        const estimateMsg = message as GenerationEstimateResult;
+        const handler = this.estimateHandlers.get(estimateMsg.requestId);
+        if (handler) {
+          this.estimateHandlers.delete(estimateMsg.requestId);
+          clearTimeout(handler.timeout);
+          handler.resolve(estimateMsg);
+        }
+        break;
+      }
+
       case 'variant:updated': {
         const updateMsg = message as VariantUpdated;
         const variant = updateMsg.variant;
@@ -1064,7 +1117,8 @@ export class WebSocketClient {
         const error = new Error(`${errorMsg.code}: ${errorMsg.message}`);
         const mutationConsumed = this.failMutationWaiters(error);
         const pipelineConsumed = this.failPipelineHandlers(error);
-        const consumed = mutationConsumed || pipelineConsumed;
+        const estimateConsumed = this.failEstimateHandlers(error);
+        const consumed = mutationConsumed || pipelineConsumed || estimateConsumed;
         if (!consumed) {
           console.error(`[WebSocketClient] Server error: ${errorMsg.code} - ${errorMsg.message}`);
           this.onError?.(new Error(errorMsg.message));
@@ -1186,6 +1240,16 @@ export class WebSocketClient {
     }
     this.tileSetToRequestId.clear();
 
+    return true;
+  }
+
+  private failEstimateHandlers(error: Error): boolean {
+    if (this.estimateHandlers.size === 0) return false;
+    for (const [requestId, handler] of this.estimateHandlers) {
+      clearTimeout(handler.timeout);
+      this.estimateHandlers.delete(requestId);
+      handler.reject(error);
+    }
     return true;
   }
 
@@ -1655,6 +1719,61 @@ export class WebSocketClient {
           reject(new Error('Chat request timed out'));
         }
       }, 120000);
+    });
+  }
+
+  async sendGenerationEstimateRequest(params: {
+    operation: GenerationEstimateOperation;
+    assetId?: string;
+    assetType?: string;
+    mediaKind?: MediaKind;
+    prompt?: string;
+    count?: number;
+    model?: string;
+    imageSize?: string;
+    musicProvider?: MusicGenerationProvider;
+    generateAudio?: boolean;
+    videoResolution?: VideoGenerationResolution;
+    videoDurationSeconds?: VideoGenerationDurationSeconds;
+    videoTier?: VideoGenerationTier;
+  }): Promise<GenerationEstimateResult> {
+    const requestId = crypto.randomUUID();
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        if (this.estimateHandlers.has(requestId)) {
+          this.estimateHandlers.delete(requestId);
+          reject(new Error('Generation estimate request timed out'));
+        }
+      }, 30_000);
+
+      this.estimateHandlers.set(requestId, { resolve, reject, timeout });
+
+      const message: GenerationEstimateRequestMessage = {
+        type: 'generation:estimate',
+        requestId,
+        operation: params.operation,
+        assetId: params.assetId,
+        assetType: params.assetType,
+        mediaKind: params.mediaKind,
+        prompt: params.prompt,
+        count: params.count,
+        model: params.model,
+        imageSize: params.imageSize,
+        musicProvider: params.musicProvider,
+        generateAudio: params.generateAudio,
+        videoResolution: params.videoResolution,
+        videoDurationSeconds: params.videoDurationSeconds,
+        videoTier: params.videoTier,
+      };
+
+      try {
+        this.send(message);
+      } catch (err) {
+        this.estimateHandlers.delete(requestId);
+        clearTimeout(timeout);
+        reject(err);
+      }
     });
   }
 

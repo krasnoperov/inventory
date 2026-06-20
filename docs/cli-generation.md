@@ -71,6 +71,11 @@ makefx generate "A watercolor background of Russafa market" \
   -o backgrounds/russafa-market.png
 ```
 
+Before opening a website generation job, `generate`, `refine`, `derive`, and
+`batch` print a preflight estimate with the billable usage units, workflow run
+count, and estimated provider cost. If the server preflight denies the request,
+the CLI stops before creating placeholder variants.
+
 Refine an existing variant:
 
 ```bash

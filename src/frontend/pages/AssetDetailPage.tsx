@@ -18,6 +18,7 @@ import {
   type Variant,
   type ChatForgeContext,
   type SpaceStyleRaw,
+  type GenerationEstimateResult,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
@@ -59,6 +60,7 @@ export default function AssetDetailPage() {
   const [actionInProgress, setActionInProgress] = useState(false);
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
+  const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
 
   // Variant selection state (persisted in store)
   const selectedVariantId = useSelectedVariantId(assetId || '');
@@ -140,6 +142,7 @@ export default function AssetDetailPage() {
     sendStyleDelete,
     sendStyleToggle,
     sendBatchRequest,
+    sendGenerationEstimateRequest,
     rotationSets,
     rotationViews,
     sendRotationRequest,
@@ -229,6 +232,7 @@ export default function AssetDetailPage() {
         setForgeErrorCode(null);
       }, 5000);
     },
+    onGenerationEstimate: setGenerationEstimate,
     onError: (error) => {
       // Handle WebSocket errors - clear chat loading state
       if (isChatLoading) {
@@ -818,6 +822,8 @@ export default function AssetDetailPage() {
         sendStyleToggle={sendStyleToggle}
         forgeError={forgeError}
         forgeErrorCode={forgeErrorCode}
+        generationEstimate={generationEstimate}
+        sendGenerationEstimateRequest={sendGenerationEstimateRequest}
       />
 
       {/* Rotation Panel modal */}
