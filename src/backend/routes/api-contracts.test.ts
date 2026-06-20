@@ -172,6 +172,29 @@ const collectionItem = {
   updated_at: 1_780_000_000_401,
 };
 
+const styleReferenceCollection = {
+  ...collection,
+  reference_count: 1,
+  preset_count: 1,
+};
+
+const stylePreset = {
+  id: 'preset-1',
+  name: 'Painterly',
+  description: 'Painted house style',
+  style_prompt: 'Loose brushwork',
+  collection_id: collection.id,
+  enabled: true,
+  is_default: true,
+  created_by: String(user.id),
+  created_at: 1_780_000_000_405,
+  updated_at: 1_780_000_000_405,
+  collection_name: collection.name,
+  reference_count: 1,
+  style_reference_variant_ids: [variant.id],
+  style_reference_image_keys: ['images/variant-1.png'],
+};
+
 const relation = {
   id: 'relation-1',
   subject_type: 'asset' as const,
@@ -590,6 +613,222 @@ describe('API contracts', () => {
       'POST /internal/production/placements',
       'DELETE /internal/production/records/record-1',
     ]);
+  });
+
+  it('round-trips style preset routes and preserves distinct API errors', async () => {
+    const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async (request: Request) => {
+          const path = new URL(request.url).pathname;
+          const method = request.method;
+          const body = method === 'POST' || method === 'PATCH'
+            ? await request.json<Record<string, unknown>>()
+            : undefined;
+          calls.push({ path, method, body });
+
+          if (path === '/internal/style-reference-collections' && method === 'GET') {
+            return Response.json({ success: true, collections: [styleReferenceCollection] });
+          }
+          if (path === '/internal/style-presets' && method === 'GET') {
+            return Response.json({ success: true, presets: [stylePreset] });
+          }
+          if (path === '/internal/style-presets' && method === 'POST') {
+            assert.equal(body?.createdBy, String(user.id));
+            assert.equal(body?.collectionId, collection.id);
+            return Response.json({ success: true, preset: stylePreset });
+          }
+          if (path === '/internal/style-presets/preset-1' && method === 'PATCH') {
+            return Response.json({
+              success: true,
+              preset: {
+                ...stylePreset,
+                description: 'Updated description',
+                style_prompt: 'Crisp pixel art',
+                updated_at: 1_780_000_000_500,
+              },
+            });
+          }
+          if (path === '/internal/style-presets/preset-1' && method === 'DELETE') {
+            return Response.json({ success: true });
+          }
+          if (path === '/internal/style-presets/missing-preset' && method === 'PATCH') {
+            return Response.json({ error: 'Style preset not found' }, { status: 404 });
+          }
+          if (path === '/internal/style-presets/missing-collection' && method === 'PATCH') {
+            return Response.json({ error: 'Style reference collection not found' }, { status: 404 });
+          }
+          if (path === '/internal/style-presets/invalid-collection' && method === 'PATCH') {
+            return Response.json({ error: 'Invalid style reference collection' }, { status: 400 });
+          }
+          if (path === '/internal/style-presets/default-conflict' && method === 'PATCH') {
+            return Response.json({
+              error: 'Default style preset must be enabled',
+              code: 'DEFAULT_STYLE_PRESET_CONFLICT',
+            }, { status: 409 });
+          }
+
+          return Response.json({ error: 'Unexpected route' }, { status: 404 });
+        },
+      }),
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const fakeMemberDAO = {
+      getMember: async () => ({ space_id: space.id, user_id: String(user.id), role: 'editor', joined_at: Date.now() }),
+    };
+    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [MemberDAO, fakeMemberDAO],
+    ]), {
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
+    const fetch = bindFetch(app);
+    const authHeaders = { Authorization: 'Bearer test-token' };
+
+    const collections = await apiFetch('GET /api/spaces/:id/style-reference-collections', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    assert.equal(collections.collections[0].reference_count, 1);
+
+    const listed = await apiFetch('GET /api/spaces/:id/style-presets', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    assert.equal(listed.presets[0].collection_name, collection.name);
+    assert.equal(listed.presets[0].enabled, true);
+    assert.equal(listed.presets[0].is_default, true);
+
+    const created = await apiFetch('POST /api/spaces/:id/style-presets', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+      json: {
+        id: 'preset-1',
+        name: 'Painterly',
+        description: 'Painted house style',
+        stylePrompt: 'Loose brushwork',
+        collectionId: collection.id,
+        isDefault: true,
+      },
+    });
+    assert.equal(created.preset.reference_count, 1);
+
+    const updated = await apiFetch('PATCH /api/spaces/:id/style-presets/:presetId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, presetId: 'preset-1' },
+      json: {
+        description: 'Updated description',
+        stylePrompt: 'Crisp pixel art',
+        enabled: true,
+      },
+    });
+    assert.equal(updated.preset.description, 'Updated description');
+    assert.equal(updated.preset.style_prompt, 'Crisp pixel art');
+
+    const missingPreset = await fetch(`${baseUrl}/api/spaces/${space.id}/style-presets/missing-preset`, {
+      method: 'PATCH',
+      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Missing' }),
+    });
+    assert.equal(missingPreset.status, 404);
+    assert.deepEqual(await missingPreset.json(), { error: 'Style preset not found' });
+
+    const missingCollection = await fetch(`${baseUrl}/api/spaces/${space.id}/style-presets/missing-collection`, {
+      method: 'PATCH',
+      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collectionId: 'missing-collection' }),
+    });
+    assert.equal(missingCollection.status, 404);
+    assert.deepEqual(await missingCollection.json(), { error: 'Style reference collection not found' });
+
+    const invalidCollection = await fetch(`${baseUrl}/api/spaces/${space.id}/style-presets/invalid-collection`, {
+      method: 'PATCH',
+      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collectionId: 'general-collection' }),
+    });
+    assert.equal(invalidCollection.status, 400);
+    assert.deepEqual(await invalidCollection.json(), { error: 'Invalid style reference collection' });
+
+    const conflict = await fetch(`${baseUrl}/api/spaces/${space.id}/style-presets/default-conflict`, {
+      method: 'PATCH',
+      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: false }),
+    });
+    assert.equal(conflict.status, 409);
+    assert.deepEqual(await conflict.json(), {
+      error: 'Default style preset must be enabled',
+      code: 'DEFAULT_STYLE_PRESET_CONFLICT',
+    });
+
+    const deleted = await apiFetch('DELETE /api/spaces/:id/style-presets/:presetId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, presetId: 'preset-1' },
+    });
+    assert.equal(deleted.success, true);
+
+    assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`), [
+      'GET /internal/style-reference-collections',
+      'GET /internal/style-presets',
+      'POST /internal/style-presets',
+      'PATCH /internal/style-presets/preset-1',
+      'PATCH /internal/style-presets/missing-preset',
+      'PATCH /internal/style-presets/missing-collection',
+      'PATCH /internal/style-presets/invalid-collection',
+      'PATCH /internal/style-presets/default-conflict',
+      'DELETE /internal/style-presets/preset-1',
+    ]);
+  });
+
+  it('denies viewer style preset mutations before calling SpaceDO', async () => {
+    let calledSpaceDo = false;
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async () => {
+          calledSpaceDo = true;
+          return Response.json({ error: 'Unexpected route' }, { status: 500 });
+        },
+      }),
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const fakeMemberDAO = {
+      getMember: async () => ({ space_id: space.id, user_id: String(user.id), role: 'viewer', joined_at: Date.now() }),
+    };
+    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [MemberDAO, fakeMemberDAO],
+    ]), {
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
+    const fetch = bindFetch(app);
+
+    const response = await fetch(`${baseUrl}/api/spaces/${space.id}/style-presets`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Viewer preset' }),
+    });
+
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: 'Viewers cannot modify style presets' });
+    assert.equal(calledSpaceDo, false);
   });
 
   it('round-trips normalized production model routes through the shared client contract', async () => {

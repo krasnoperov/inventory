@@ -347,6 +347,7 @@ export interface CollectionItem {
 export interface StylePreset {
   id: string;
   name: string;
+  description: string | null;
   style_prompt: string;
   collection_id: string | null;
   enabled: number;
@@ -354,6 +355,18 @@ export interface StylePreset {
   created_by: string;
   created_at: number;
   updated_at: number;
+}
+
+export interface StyleReferenceCollectionPreview extends SpaceCollection {
+  reference_count: number;
+  preset_count: number;
+}
+
+export interface StylePresetPreview extends StylePreset {
+  collection_name: string | null;
+  reference_count: number;
+  style_reference_variant_ids: string[];
+  style_reference_image_keys: string[];
 }
 
 export interface SpaceRelation {
@@ -654,6 +667,9 @@ export type ClientMessage =
   | { type: 'style:set'; name?: string; description: string; imageKeys: string[]; enabled?: boolean }
   | { type: 'style:delete' }
   | { type: 'style:toggle'; enabled: boolean }
+  | { type: 'style_preset:create'; id?: string; name: string; description?: string | null; stylePrompt?: string; collectionId?: string | null; enabled?: boolean; isDefault?: boolean }
+  | { type: 'style_preset:update'; presetId: string; changes: { name?: string; description?: string | null; stylePrompt?: string; collectionId?: string | null; enabled?: boolean; isDefault?: boolean } }
+  | { type: 'style_preset:delete'; presetId: string }
   // Batch generation messages
   | BatchRequestMessage
   // Rotation pipeline messages
@@ -677,8 +693,8 @@ export type ClientMessage =
  */
 export type ServerMessage =
   // Sync (full state)
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; relations?: SpaceRelation[]; compositions?: Composition[]; compositionItems?: CompositionItem[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null; collections?: SpaceCollectionOverview[]; compositions?: CompositionOverview[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; relations?: SpaceRelation[]; compositions?: Composition[]; compositionItems?: CompositionItem[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; compositions?: CompositionOverview[] }
   // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
   // Consider implementing for WebSocket reconnection state recovery.
   // | { type: 'sync:chat_state'; messages: ChatMessage[]; plan: Plan | null; planSteps: PlanStep[]; approvals: PendingApproval[]; autoExecuted: AutoExecuted[] }
@@ -765,6 +781,9 @@ export type ServerMessage =
   | { type: 'style:state'; style: SpaceStyle | null }
   | { type: 'style:updated'; style: SpaceStyle }
   | { type: 'style:deleted' }
+  | { type: 'style_preset:created'; preset: StylePresetPreview }
+  | { type: 'style_preset:updated'; preset: StylePresetPreview }
+  | { type: 'style_preset:deleted'; presetId: string }
   // Batch generation messages
   | { type: 'batch:started'; requestId: string; batchId: string; jobIds: string[]; assetIds: string[]; count: number; mode: BatchMode }
   | { type: 'batch:progress'; batchId: string; completedCount: number; failedCount: number; totalCount: number; variant: Variant }

@@ -105,6 +105,17 @@ export class ValidationError extends Error {
   }
 }
 
+/**
+ * Conflict error - thrown when a request violates a current-state invariant.
+ */
+export class ConflictError extends Error {
+  override readonly name = 'ConflictError' as const;
+
+  constructor(message: string = 'Conflict') {
+    super(message);
+  }
+}
+
 // ============================================================================
 // Base Controller
 // ============================================================================

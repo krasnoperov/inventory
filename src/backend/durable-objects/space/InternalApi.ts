@@ -28,12 +28,14 @@ import type {
   ProductionPlacementTargetKind,
   SpaceCollection,
   CollectionItem,
+  StylePresetPreview,
+  StyleReferenceCollectionPreview,
   SpaceRelation,
   Composition,
   CompositionItem,
 } from './types';
 import type { ParentHierarchyBackfillResult } from './repository/SpaceRepository';
-import { NotFoundError, ValidationError } from './controllers/types';
+import { ConflictError, NotFoundError, ValidationError } from './controllers/types';
 import { loggers } from '../../../shared/logger';
 
 const log = loggers.internalApi;
@@ -250,6 +252,13 @@ export interface InternalApiControllers {
     httpReorderCompositionItems(compositionId: string, itemIds: unknown): Promise<CompositionItem[]>;
     httpDeleteCompositionItem(compositionId: string, itemId: string): Promise<void>;
   };
+  stylePreset: {
+    httpListStyleReferenceCollections(): Promise<StyleReferenceCollectionPreview[]>;
+    httpListStylePresets(): Promise<StylePresetPreview[]>;
+    httpCreateStylePreset(data: unknown): Promise<StylePresetPreview>;
+    httpUpdateStylePreset(presetId: string, data: unknown): Promise<StylePresetPreview>;
+    httpDeleteStylePreset(presetId: string): Promise<void>;
+  };
   production: {
     httpListProductions(): Promise<Production[]>;
     httpGetProduction(productionId: string): Promise<{
@@ -335,6 +344,9 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     }
     if (err instanceof ValidationError) {
       return c.json({ error: err.message }, 400);
+    }
+    if (err instanceof ConflictError) {
+      return c.json({ error: err.message, code: 'DEFAULT_STYLE_PRESET_CONFLICT' }, 409);
     }
     log.error('Internal server error', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Internal server error' }, 500);
@@ -770,6 +782,38 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       c.req.param('compositionId'),
       c.req.param('itemId')
     );
+    return c.json({ success: true });
+  });
+
+  // ==========================================================================
+  // Style Preset Routes
+  // ==========================================================================
+
+  app.get('/internal/style-reference-collections', async (c) => {
+    const collections = await controllers.stylePreset.httpListStyleReferenceCollections();
+    return c.json({ success: true, collections });
+  });
+
+  app.get('/internal/style-presets', async (c) => {
+    const presets = await controllers.stylePreset.httpListStylePresets();
+    return c.json({ success: true, presets });
+  });
+
+  app.post('/internal/style-presets', async (c) => {
+    const preset = await controllers.stylePreset.httpCreateStylePreset(await c.req.json());
+    return c.json({ success: true, preset });
+  });
+
+  app.patch('/internal/style-presets/:presetId', async (c) => {
+    const preset = await controllers.stylePreset.httpUpdateStylePreset(
+      c.req.param('presetId'),
+      await c.req.json()
+    );
+    return c.json({ success: true, preset });
+  });
+
+  app.delete('/internal/style-presets/:presetId', async (c) => {
+    await controllers.stylePreset.httpDeleteStylePreset(c.req.param('presetId'));
     return c.json({ success: true });
   });
 

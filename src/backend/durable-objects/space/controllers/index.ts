@@ -14,6 +14,7 @@ export {
   PermissionError,
   NotFoundError,
   ValidationError,
+  ConflictError,
 } from './types';
 
 // Domain controllers
@@ -25,6 +26,7 @@ export { VariantController } from './VariantController';
 export { GenerationController } from './GenerationController';
 export { VisionController } from './VisionController';
 export { StyleController } from './StyleController';
+export { StylePresetController } from './StylePresetController';
 export { RotationController } from './RotationController';
 export { TileController } from './TileController';
 export { ProductionController } from './ProductionController';

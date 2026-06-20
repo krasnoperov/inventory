@@ -140,6 +140,7 @@ export class SchemaManager {
       CREATE TABLE IF NOT EXISTS style_presets (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        description TEXT,
         style_prompt TEXT NOT NULL DEFAULT '',
         collection_id TEXT REFERENCES space_collections(id) ON DELETE SET NULL,
         enabled INTEGER NOT NULL DEFAULT 1,
@@ -702,6 +703,7 @@ export class SchemaManager {
       CREATE TABLE IF NOT EXISTS style_presets (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        description TEXT,
         style_prompt TEXT NOT NULL DEFAULT '',
         collection_id TEXT REFERENCES space_collections(id) ON DELETE SET NULL,
         enabled INTEGER NOT NULL DEFAULT 1,
@@ -715,6 +717,12 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_style_presets_enabled ON style_presets(enabled, created_at);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_style_presets_default ON style_presets(is_default) WHERE is_default = 1;
     `);
+
+    const result = await this.sql.exec(`PRAGMA table_info(style_presets)`);
+    const columns = result.toArray() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === 'description')) {
+      await this.sql.exec(`ALTER TABLE style_presets ADD COLUMN description TEXT;`);
+    }
   }
 
   /**
