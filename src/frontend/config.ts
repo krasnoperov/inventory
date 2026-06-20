@@ -1,12 +1,8 @@
 import type { User } from './contexts/AuthContextProvider';
+import type { StartSession } from './app-context';
 import { apiFetch } from '../api/client';
 
-interface Config {
-  googleClientId: string;
-}
-
-interface Session {
-  config: Config;
+interface Session extends StartSession {
   user: User | null;
 }
 
@@ -21,7 +17,7 @@ export async function loadSession(): Promise<Session> {
     console.error('Error loading session (backend might not be running):', error);
     // Return dummy data for development when backend is not running
     return {
-      config: { googleClientId: 'dummy-client-id-for-dev' },
+      config: { googleClientId: 'dummy-client-id-for-dev', features: { rotation: false } },
       user: null,
     };
   }

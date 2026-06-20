@@ -127,10 +127,45 @@ function depsFor(client: FakePipelineClient) {
       loadProjectConfig: async () => null,
       resolveBaseUrl: () => 'https://makefx-stage.example.test',
       createClient: async () => client,
+      isRotationEnabled: () => true,
       print: (message: string) => printed.push(message),
     },
   };
 }
+
+test('rotation command is blocked before auth or WebSocket when feature flag is off', async () => {
+  const client = new FakePipelineClient();
+  let loadConfigCalled = false;
+  let createClientCalled = false;
+
+  await assert.rejects(
+    executePipelineCommand('rotation', {
+      positionals: [],
+      options: {
+        space: 'space-1',
+        variant: 'variant-source',
+      },
+    }, {
+      loadConfig: async () => {
+        loadConfigCalled = true;
+        return config;
+      },
+      loadProjectConfig: async () => null,
+      resolveBaseUrl: () => 'https://makefx-stage.example.test',
+      createClient: async () => {
+        createClientCalled = true;
+        return client;
+      },
+      isRotationEnabled: () => false,
+      print: () => {},
+    }),
+    /Rotation features are disabled/
+  );
+
+  assert.equal(loadConfigCalled, false);
+  assert.equal(createClientCalled, false);
+  assert.equal(client.connected, false);
+});
 
 test('rotation command starts a configured pipeline and can detach', async () => {
   const client = new FakePipelineClient();

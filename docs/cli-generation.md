@@ -195,6 +195,10 @@ Rotation and tile-set commands stream WebSocket progress and wait for completion
 by default. Use `--detach` when an agent only needs to enqueue the pipeline and
 continue with other work.
 
+Rotation generation is experimental and hidden unless explicitly enabled with
+`MAKEFX_ROTATION_ENABLED=true`. Keep the flag off until rotation quality is good
+enough to present as a normal asset workflow.
+
 When the website is configured with `INVENTORY_AUDIO_PROVIDER=elevenlabs`,
 `audio music ...` prompts are generated through ElevenLabs music,
 `audio sfx ...` prompts are generated through ElevenLabs sound effects, and

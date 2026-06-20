@@ -16,6 +16,7 @@ import {
   type TileSetPipelineResult,
   type TileType,
 } from '../lib/websocket-client';
+import { isCliRotationEnabled, rotationDisabledMessage } from '../lib/feature-flags';
 
 type PipelineCommand = 'rotation' | 'tileset';
 type PipelineResult =
@@ -29,6 +30,7 @@ interface PipelineDeps {
   loadProjectConfig: () => Promise<ProjectConfig | null>;
   resolveBaseUrl: (env: string) => string;
   createClient: (env: string, spaceId: string) => Promise<PipelineClient>;
+  isRotationEnabled?: () => boolean;
   print: (message: string) => void;
 }
 
@@ -46,6 +48,7 @@ const defaultDeps: PipelineDeps = {
   loadProjectConfig,
   resolveBaseUrl,
   createClient: (env, spaceId) => WebSocketClient.create(env, spaceId),
+  isRotationEnabled: isCliRotationEnabled,
   print: console.log,
 };
 
@@ -64,8 +67,11 @@ async function handlePipelineCommand(command: PipelineCommand, parsed: ParsedArg
       process.exitCode = 1;
     }
   } catch (error) {
-    console.error('Error:', error instanceof Error ? error.message : error);
-    printUsage(command);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Error:', message);
+    if (message !== rotationDisabledMessage()) {
+      printUsage(command);
+    }
     process.exitCode = 1;
   }
 }
@@ -75,6 +81,11 @@ export async function executePipelineCommand(
   parsed: ParsedArgs,
   deps: PipelineDeps = defaultDeps
 ): Promise<PipelineResult> {
+  const rotationEnabled = deps.isRotationEnabled ?? isCliRotationEnabled;
+  if (command === 'rotation' && !rotationEnabled()) {
+    throw new Error(rotationDisabledMessage());
+  }
+
   const ctx = await buildContext(parsed, deps);
   const client = await deps.createClient(ctx.env, ctx.spaceId);
 
@@ -356,6 +367,11 @@ function printJsonOrText(
 
 function printUsage(command: PipelineCommand): void {
   if (command === 'rotation') {
+    if (!isCliRotationEnabled()) {
+      console.log(rotationDisabledMessage());
+      return;
+    }
+
     console.log(`
 Usage:
   makefx rotation --variant <variant-id> [--config 4-directional|8-directional|turnaround]

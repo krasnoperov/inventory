@@ -81,7 +81,6 @@ makefx assets download VARIANT_ID -o references/variant.png
 makefx usage --from 2026-06-01
 makefx spend --from 2026-06-01 --provider gemini
 makefx listen --space YOUR_SPACE_ID
-makefx rotation --variant VARIANT_ID --config 8-directional
 makefx tileset "cohesive grass, path, and stone terrain tiles" --type terrain --grid 3x3
 ```
 
@@ -113,7 +112,7 @@ staging or `--local` for a local development server.
 | `makefx variants` | Retry, star, rate, or delete variants |
 | `makefx usage` | Show platform storage and workflow consumption for a space |
 | `makefx spend` | Show admin provider cost summaries |
-| `makefx rotation` | Generate and monitor rotation views from a completed image variant |
+| `makefx rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
 | `makefx tileset` | Generate and monitor consistent tile sets |
 | `makefx listen` | Stream real-time space events |
 | `makefx productions` | Place, list, and export production records |

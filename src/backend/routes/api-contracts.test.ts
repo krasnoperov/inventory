@@ -239,6 +239,9 @@ describe('API contracts', () => {
         config: {
           googleClientId: 'google-client',
           environment: 'test',
+          features: {
+            rotation: true,
+          },
         },
       }, 200),
       googleAuth: async (c: Context) => {
@@ -253,6 +256,7 @@ describe('API contracts', () => {
 
     const session = await apiFetch('GET /api/auth/session', { fetch, baseUrl });
     assert.equal(session.config.environment, 'test');
+    assert.equal(session.config.features.rotation, true);
     assert.equal(session.user?.id, user.id);
 
     const login = await apiFetch('POST /api/auth/google', {
