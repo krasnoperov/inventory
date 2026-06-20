@@ -936,7 +936,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
   }): Promise<void> {
     try {
       await trackPlatformUsage(this.env.DB, {
-        idempotencyKey: `workflow:${input.spaceId}:${input.jobId}:start`,
+        idempotencyKey: `workflow:${input.spaceId}:${input.jobId}:${input.requestId}:start`,
         spaceId: input.spaceId,
         userId: parsePlatformUsageUserId(input.userId),
         usageType: 'workflow',
