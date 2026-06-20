@@ -148,9 +148,10 @@ makefx video derive \
   -o video/attack.mp4
 ```
 
-Current Veo video models generate audio with video. There is no per-request
-audio on/off switch in the Gemini API for these models; describe dialogue, SFX,
-score, or ambience in the prompt when the sound track matters.
+By default, video requests ask for native synchronized Veo audio. Pass
+`--no-audio` to record a silent-video request and add a silent-video instruction
+to the provider prompt. Pass `--audio` explicitly when the soundtrack matters,
+and describe dialogue, SFX, score, or ambience in the prompt.
 
 ## Durable Follow Mode
 

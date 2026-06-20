@@ -134,6 +134,16 @@ function getRecipeGenerateAudio(recipe: Pick<GenerationRecipe, 'generateAudio'> 
   return toBoolean(recipe.generateAudio) ?? toBoolean(recipe.audio);
 }
 
+function parseRecipeGenerateAudio(recipeJson: string | null | undefined): boolean | undefined {
+  if (!recipeJson) return undefined;
+  try {
+    const parsed = JSON.parse(recipeJson) as Pick<GenerationRecipe, 'generateAudio'> & { audio?: unknown };
+    return getRecipeGenerateAudio(parsed);
+  } catch {
+    return undefined;
+  }
+}
+
 function getVideoBillingDimensions(data: {
   mediaDurationMs?: number | null;
   providerMetadata?: Record<string, unknown> | string | null;
@@ -148,7 +158,12 @@ function getVideoBillingDimensions(data: {
     ?? (dataDurationMs === undefined ? undefined : Math.round(dataDurationMs / 1000))
     ?? (variantDurationMs === undefined ? undefined : Math.round(variantDurationMs / 1000));
 
-  return { resolution, durationSeconds, generateAudio: VIDEO_GENERATION_AUDIO_ALWAYS_ON };
+  const metadataGenerateAudio = toBoolean(metadata?.generateAudio) ?? toBoolean(metadata?.generate_audio);
+  return {
+    resolution,
+    durationSeconds,
+    generateAudio: metadataGenerateAudio ?? parseRecipeGenerateAudio(variant.recipe) ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON,
+  };
 }
 
 function getQuotaCheckQuantity(
@@ -174,7 +189,9 @@ function getQuotaCheckQuantity(
 }
 
 function getVideoGenerateAudio(mediaKind?: string | null, requestedGenerateAudio?: boolean): boolean | undefined {
-  return mediaKind === 'video' ? VIDEO_GENERATION_AUDIO_ALWAYS_ON : requestedGenerateAudio;
+  return mediaKind === 'video'
+    ? requestedGenerateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON
+    : requestedGenerateAudio;
 }
 
 function getGenerationLimitErrorCode(denyReason: GenerationLimitDenyReason | undefined): 'RATE_LIMITED' | 'PAID_GENERATION_REQUIRED' | 'QUOTA_EXCEEDED' {

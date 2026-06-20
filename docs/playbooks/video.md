@@ -66,10 +66,10 @@ Reach for precise terms that Veo measurably rewards:[^deepmind-veo][^leonardo]
 
 Two rules carry over from the image playbook. **Use positive framing** — "a
 desolate landscape with no buildings or roads" reads better than "no man-made
-structures."[^gcloud-veo] Current Veo video models generate audio with video, so
-there is no Make Effects audio toggle for these models. When the soundtrack
-matters, describe dialogue, SFX, score, or ambience directly in the prompt (see
-the [audio playbook](./audio.md)).
+structures."[^gcloud-veo] Video defaults to generated audio. Use `--no-audio` to
+record a silent-video request and add a silent-video instruction. When the
+soundtrack matters, describe dialogue, SFX, score, or ambience directly in the
+prompt (see the [audio playbook](./audio.md)).
 
 ## Choreograph Multi-Beat Shots With Timestamps
 

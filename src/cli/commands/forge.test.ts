@@ -153,6 +153,7 @@ class FakeClient {
 
   async sendGenerateRequest(params: unknown): Promise<GenerateResult> {
     const requestParams = { ...(params as Record<string, unknown>) };
+    (requestParams.onStarted as ((started: { jobId: string }) => void) | undefined)?.({ jobId: 'variant-started' });
     delete requestParams.onStarted;
     this.generateParams = requestParams;
     if ((requestParams as { mediaKind?: string }).mediaKind === 'audio') {
@@ -307,6 +308,19 @@ function depsFor(client: FakeClient) {
     manifestRoots,
     productionRecords,
   };
+}
+
+async function captureConsoleLog<T>(fn: () => Promise<T>): Promise<{ result: T; output: string[] }> {
+  const original = console.log;
+  const output: string[] = [];
+  console.log = (...args: unknown[]) => {
+    output.push(args.join(' '));
+  };
+  try {
+    return { result: await fn(), output };
+  } finally {
+    console.log = original;
+  }
 }
 
 test('parseRefs trims comma-separated refs', () => {
@@ -1181,6 +1195,75 @@ test('audio speech generate sends selected voice ID', async () => {
   });
 });
 
+test('audio speech generate requires a voice before opening a job', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeAudioCommand('generate', {
+      positionals: ['Narration'],
+      options: {
+        space: 'space-1',
+        name: 'Narration',
+        o: 'narration.wav',
+      },
+    }, deps, { mode: 'speech' }),
+    /Speech generation requires --voice/
+  );
+
+  assert.equal(client.connected, false);
+});
+
+test('audio speech follow does not require repeating voice flags', async () => {
+  const client = new FakeClient(
+    {
+      assets: [],
+      variants: [completedAudioResult({ id: 'variant-follow' }).variant],
+      lineage: [],
+    },
+    undefined,
+    completedAudioResult({ id: 'variant-follow' })
+  );
+  const { deps, mediaDownloads } = depsFor(client);
+
+  await executeAudioCommand('generate', {
+    positionals: [],
+    options: {
+      space: 'space-1',
+      follow: 'variant-follow',
+      o: 'narration.wav',
+    },
+  }, deps, { mode: 'speech' });
+
+  assert.equal(client.connected, true);
+  assert.deepEqual(mediaDownloads, [{
+    baseUrl: 'https://makefx-stage.example.test',
+    accessToken: 'token',
+    requestPath: '/api/spaces/space-1/variants/variant-follow/media',
+    outputPath: 'narration.wav',
+    force: false,
+  }]);
+});
+
+test('mode-specific audio generate prints mode-preserving follow hint', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  const { output } = await captureConsoleLog(() => executeAudioCommand('generate', {
+    positionals: ['Selected', 'voice', 'narration'],
+    options: {
+      space: 'space-1',
+      name: 'Narration',
+      voice: 'voice-narrator',
+      o: 'narration.wav',
+    },
+  }, deps, { mode: 'speech' }));
+
+  assert.ok(output.some((line) => line.includes(
+    'Follow: makefx audio speech generate --follow variant-started -o narration.wav --env production --space space-1'
+  )));
+});
+
 test('explicit audio modes send canonical asset types', async () => {
   const cases = [
     ['speech', 'speech'],
@@ -1199,6 +1282,8 @@ test('explicit audio modes send canonical asset types', async () => {
         space: 'space-1',
         name: `${mode} asset`,
         o: `${mode}.wav`,
+        ...(mode === 'speech' ? { voice: 'voice-narrator' } : {}),
+        ...(mode === 'dialogue' ? { 'dialogue-voices': 'voice-ada,voice-ben' } : {}),
       },
     }, deps, { mode });
 
@@ -1210,6 +1295,8 @@ test('explicit audio modes send canonical asset types', async () => {
       parentAssetId: undefined,
       disableStyle: false,
       mediaKind: 'audio',
+      ...(mode === 'speech' ? { voiceId: 'voice-narrator' } : {}),
+      ...(mode === 'dialogue' ? { dialogueVoiceIds: ['voice-ada', 'voice-ben'] } : {}),
     });
   }
 });
@@ -1274,6 +1361,7 @@ test('dialogue audio generate reads multiline prompt from input file', async () 
         space: 'space-1',
         name: 'Forge Dialogue',
         input: inputPath,
+        'dialogue-voices': 'voice-narrator,voice-hero',
         o: 'dialogue.wav',
       },
     }, deps, { mode: 'dialogue' });
@@ -1286,6 +1374,7 @@ test('dialogue audio generate reads multiline prompt from input file', async () 
       parentAssetId: undefined,
       disableStyle: false,
       mediaKind: 'audio',
+      dialogueVoiceIds: ['voice-narrator', 'voice-hero'],
     });
   } finally {
     await rm(cwd, { recursive: true, force: true });
@@ -1653,23 +1742,55 @@ test('video derive accepts image and video refs and sends video request', async 
   });
 });
 
-test('video audio flags are rejected because current Veo models always include audio', async () => {
+test('video audio flags are forwarded to website jobs', async () => {
   const client = new FakeClient();
   const { deps } = depsFor(client);
 
-  await assert.rejects(
-    () => executeVideoCommand('generate', {
-      positionals: ['A', 'market', 'shot', 'with', 'ambience'],
-      options: {
-        space: 'space-1',
-        name: 'Market Shot',
-        type: 'animation',
-        o: 'market.mp4',
-        audio: 'true',
-      },
-    }, deps),
-    /Current Veo video models always generate audio/
-  );
+  await executeVideoCommand('generate', {
+    positionals: ['A', 'market', 'shot', 'with', 'ambience'],
+    options: {
+      space: 'space-1',
+      name: 'Market Shot',
+      type: 'animation',
+      o: 'market.mp4',
+      audio: 'true',
+    },
+  }, deps);
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Market Shot',
+    assetType: 'animation',
+    prompt: 'A market shot with ambience',
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'video',
+    generateAudio: true,
+  });
+
+  const silentClient = new FakeClient();
+  const { deps: silentDeps } = depsFor(silentClient);
+  await executeVideoCommand('generate', {
+    positionals: ['A', 'silent', 'market', 'shot'],
+    options: {
+      space: 'space-1',
+      name: 'Silent Market Shot',
+      type: 'animation',
+      o: 'silent-market.mp4',
+      'no-audio': 'true',
+    },
+  }, silentDeps);
+
+  assert.deepEqual(silentClient.generateParams, {
+    name: 'Silent Market Shot',
+    assetType: 'animation',
+    prompt: 'A silent market shot',
+    aspectRatio: undefined,
+    parentAssetId: undefined,
+    disableStyle: false,
+    mediaKind: 'video',
+    generateAudio: false,
+  });
 });
 
 test('video generate sends resolution, duration, and tier controls', async () => {
@@ -1763,7 +1884,7 @@ test('image commands reject video audio flags before opening a website job', asy
         audio: 'true',
       },
     }, deps),
-    /Current Veo video models always generate audio/
+    /--audio and --no-audio are only supported for video generation/
   );
 
   assert.equal(client.connected, false);

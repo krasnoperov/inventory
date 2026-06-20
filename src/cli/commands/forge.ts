@@ -225,6 +225,7 @@ interface CommandContext {
 interface ExecuteForgeOptions {
   mediaKind?: GenerationMediaKind;
   saveBatchManifest?: boolean;
+  audioMode?: AudioForgeMediaMode;
 }
 
 interface ExecuteAudioOptions {
@@ -241,6 +242,10 @@ interface VideoGenerationOptions {
   videoResolution?: VideoGenerationResolution;
   videoDurationSeconds?: VideoGenerationDurationSeconds;
   videoTier?: VideoGenerationTier;
+}
+
+interface FollowCommandOptions {
+  audioMode?: AudioForgeMediaMode;
 }
 
 interface GenerationRecipeSummary {
@@ -313,11 +318,11 @@ export async function executeForgeCommand(
 
     switch (command) {
       case 'generate':
-        return await executeGenerate(parsed, ctx, client, deps, mediaKind);
+        return await executeGenerate(parsed, ctx, client, deps, mediaKind, { audioMode: options.audioMode });
       case 'refine':
         return await executeRefine(parsed, ctx, client, deps, mediaKind);
       case 'derive':
-        return await executeDerive(parsed, ctx, client, deps, mediaKind);
+        return await executeDerive(parsed, ctx, client, deps, mediaKind, { audioMode: options.audioMode });
       case 'batch':
         return await executeBatch(parsed, ctx, client, deps, mediaKind, saveBatchManifest);
     }
@@ -355,6 +360,7 @@ export async function executeAudioCommand(
   return executeForgeCommand(command, audioParsed, deps, {
     mediaKind: audioProfile.mediaKind,
     saveBatchManifest: audioProfile.savesBatchManifest,
+    audioMode: options.mode,
   });
 }
 
@@ -398,7 +404,23 @@ async function prepareAudioParsedArgs(
     positionals.push(input);
   }
 
+  if (!options.follow) {
+    validateAudioModeRequiredVoiceOptions(options, effectiveMode);
+  }
+
   return { options, positionals };
+}
+
+function validateAudioModeRequiredVoiceOptions(
+  options: Record<string, string>,
+  mode?: AudioForgeMediaMode
+): void {
+  if (mode === 'speech' && !normalizeCliOption(options.voice)) {
+    throw new Error('Speech generation requires --voice <voice_id>. Run: makefx audio voices');
+  }
+  if (mode === 'dialogue' && !normalizeCliOption(options['dialogue-voices'] ?? options.dialogueVoices)) {
+    throw new Error('Dialogue generation requires --dialogue-voices <voice_id,voice_id>. Run: makefx audio voices');
+  }
 }
 
 async function executeGenerate(
@@ -406,7 +428,8 @@ async function executeGenerate(
   ctx: CommandContext,
   client: ForgeClient,
   deps: CommandDeps,
-  mediaKind: GenerationMediaKind
+  mediaKind: GenerationMediaKind,
+  followOptions: FollowCommandOptions = {}
 ): Promise<GenerateResult> {
   const prompt = getPrompt(parsed, 'generate');
   const outputPath = getOutputPath(parsed);
@@ -439,7 +462,7 @@ async function executeGenerate(
     ...(musicProvider ? { musicProvider } : {}),
     ...videoAudioOptions,
     ...videoOptions,
-    onStarted: (started) => printFollowHint(started, ctx, outputPath, 'generate', mediaKind),
+    onStarted: (started) => printFollowHint(started, ctx, outputPath, 'generate', mediaKind, followOptions),
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -576,7 +599,8 @@ async function executeDerive(
   ctx: CommandContext,
   client: ForgeClient,
   deps: CommandDeps,
-  mediaKind: GenerationMediaKind
+  mediaKind: GenerationMediaKind,
+  followOptions: FollowCommandOptions = {}
 ): Promise<GenerateResult> {
   const prompt = getPrompt(parsed, 'derive');
   const outputPath = getOutputPath(parsed);
@@ -618,7 +642,7 @@ async function executeDerive(
     mediaKind,
     ...videoAudioOptions,
     ...videoOptions,
-    onStarted: (started) => printFollowHint(started, ctx, outputPath, 'derive', mediaKind),
+    onStarted: (started) => printFollowHint(started, ctx, outputPath, 'derive', mediaKind, followOptions),
   });
 
   const productionRecord = await placeProductionRecordFromScene({
@@ -1222,10 +1246,11 @@ function printFollowHint(
   ctx: CommandContext,
   outputPath: string,
   command: Exclude<ForgeCommand, 'batch'>,
-  mediaKind: GenerationMediaKind
+  mediaKind: GenerationMediaKind,
+  options: FollowCommandOptions = {}
 ): void {
   console.log(`  Started variant: ${started.jobId}`);
-  console.log(`  Follow: ${formatFollowCommand(started.jobId, outputPath, ctx, command, mediaKind)}`);
+  console.log(`  Follow: ${formatFollowCommand(started.jobId, outputPath, ctx, command, mediaKind, options)}`);
 }
 
 function formatFollowCommand(
@@ -1233,10 +1258,11 @@ function formatFollowCommand(
   outputPath: string,
   ctx: CommandContext,
   command: Exclude<ForgeCommand, 'batch'>,
-  mediaKind: GenerationMediaKind
+  mediaKind: GenerationMediaKind,
+  options: FollowCommandOptions = {}
 ): string {
   const baseCommand = mediaKind === 'audio'
-    ? ['makefx', 'audio', 'generate']
+    ? ['makefx', 'audio', options.audioMode, 'generate'].filter((part): part is string => Boolean(part))
     : mediaKind === 'video'
       ? ['makefx', 'video', command]
       : ['makefx', command];
@@ -1328,16 +1354,24 @@ function parseAudioVoiceOptions(parsed: ParsedArgs): AudioVoiceOptions {
 function validateVideoAudioOptions(parsed: ParsedArgs, mediaKind: GenerationMediaKind): void {
   const hasAudioFlag = parsed.options.audio !== undefined || parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined;
   if (!hasAudioFlag) return;
-  void mediaKind;
-  throw new Error('Current Veo video models always generate audio; --audio and --no-audio are not supported');
+  if (mediaKind !== 'video') {
+    throw new Error('--audio and --no-audio are only supported for video generation');
+  }
+  if (parsed.options.audio !== undefined && (parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined)) {
+    throw new Error('Pass either --audio or --no-audio, not both');
+  }
 }
 
 function parseVideoAudioOptions(
   parsed: ParsedArgs,
   mediaKind: GenerationMediaKind
 ): { generateAudio?: boolean } {
-  void parsed;
-  void mediaKind;
+  if (mediaKind === 'video') {
+    if (parsed.options.audio !== undefined) return { generateAudio: true };
+    if (parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined) {
+      return { generateAudio: false };
+    }
+  }
   return {};
 }
 

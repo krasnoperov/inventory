@@ -323,7 +323,7 @@ test('forge tray counts style-only references against the selected model budget'
   await expect(page.getByRole('button', { name: 'Generate' })).toBeDisabled();
 });
 
-test('forge tray video mode exposes Veo options and audio always-on status', async ({ page }) => {
+test('forge tray video mode exposes Veo options and audio default-on status', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
   await mountComponent(page, 'ForgeTray', {
@@ -357,7 +357,7 @@ test('forge tray video mode exposes Veo options and audio always-on status', asy
   await expect(page.getByRole('button', { name: '1080p' })).toHaveClass(/active/);
   await expect(page.getByRole('button', { name: '4k' })).toBeDisabled();
 
-  await expect(page.getByText('Audio always on')).toBeVisible();
+  await expect(page.getByText('Audio default on')).toBeVisible();
   await expect(page.getByLabel('Audio')).toHaveCount(0);
 });
 

@@ -1001,8 +1001,8 @@ export function ForgeTray({
                     ))}
                   </div>
                   {VIDEO_GENERATION_AUDIO_ALWAYS_ON && (
-                    <span className={styles.optChipMuted} title="Current Veo models generate audio with video">
-                      Audio always on
+                    <span className={styles.optChipMuted} title="Video generation defaults to audio">
+                      Audio default on
                     </span>
                   )}
                 </>
