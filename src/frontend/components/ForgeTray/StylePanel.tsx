@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useMemo, useState, useCallback, useRef } from 'react';
 import { useStyleStore } from '../../stores/styleStore';
 import styles from './StylePanel.module.css';
 
@@ -23,7 +23,7 @@ export function StylePanel({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const imageKeys = style?.imageKeys || [];
+  const imageKeys = useMemo(() => style?.imageKeys ?? [], [style?.imageKeys]);
 
   const handleSaveDescription = useCallback(() => {
     sendStyleSet({ description });

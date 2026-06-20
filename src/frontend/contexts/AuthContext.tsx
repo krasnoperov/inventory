@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from 'react';
+import { useCallback, useRef, useState, useEffect, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { useNavigate } from '../hooks/useNavigate';
@@ -20,16 +20,18 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children, initialUser }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(initialUser || null);
+  const userRef = useRef<User | null>(initialUser || null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  const applyUser = (nextUser: User | null) => {
-    const previousUser = queryClient.getQueryData<StartSession>(sessionQueryKey)?.user ?? user;
+  const applyUser = useCallback((nextUser: User | null) => {
+    const previousUser = queryClient.getQueryData<StartSession>(sessionQueryKey)?.user ?? userRef.current;
     if (previousUser?.id !== nextUser?.id) {
       clearUserScopedQueries(queryClient);
     }
+    userRef.current = nextUser;
     setUser(nextUser);
 
     queryClient.setQueryData<StartSession>(sessionQueryKey, (current) => {
@@ -43,9 +45,9 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     });
 
     void router.invalidate();
-  };
+  }, [queryClient, router]);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiFetch('GET /api/auth/session');
@@ -56,19 +58,19 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [applyUser]);
 
   useEffect(() => {
     if (initialUser === undefined) {
       fetchUser();
     }
-  }, [initialUser]);
+  }, [fetchUser, initialUser]);
 
-  const login = (user: User) => {
+  const login = useCallback((user: User) => {
     applyUser(user);
-  };
+  }, [applyUser]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await apiFetch('POST /api/auth/logout');
       applyUser(null);
@@ -76,11 +78,11 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     } catch (error) {
       console.error("Error during logout:", error);
     }
-  };
+  }, [applyUser, navigate]);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     await fetchUser();
-  };
+  }, [fetchUser]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>

@@ -149,6 +149,15 @@ status: ok | warning | critical | exceeded
 3. **Retry**: Cron job syncs pending events (max 3 attempts)
 4. **Eventual consistency**: User requests never blocked by sync failures
 
+## Provider Spend Ledger
+
+`usage_events` remains the customer-metering source of truth synced to Polar.
+Provider-side spend attribution is stored separately in `provider_usage_ledger`
+so raw provider cost can be reconciled without changing customer meter totals.
+Each row has a unique `attribution_key` plus optional keys for `usage_event_id`,
+`space_id`, `asset_id`, `variant_id`, `workflow_id`, `request_id`, and provider
+request/usage IDs. Total spend is stored as integer micro-USD.
+
 ## Operational Checks
 
 Run production billing checks from an authenticated admin CLI session:

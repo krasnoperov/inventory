@@ -66,11 +66,42 @@ export interface UsageEventsTable {
   last_sync_attempt_at: string | null;
 }
 
+export type ProviderUsageMediaKind = 'image' | 'audio' | 'video';
+
+export interface ProviderUsageLedgerTable {
+  id: Generated<string>;
+  attribution_key: string;
+  usage_event_id: string | null;
+  user_id: number;
+  space_id: string | null;
+  asset_id: string | null;
+  variant_id: string | null;
+  workflow_id: string | null;
+  request_id: string | null;
+  provider: string;
+  provider_model: string;
+  operation: string | null;
+  media_kind: ProviderUsageMediaKind | null;
+  meter_event_name: string | null;
+  usage_unit: string;
+  quantity: number;
+  unit_price_usd: number | null;
+  amount_micro_usd: number | null;
+  currency: string;
+  pricing_source: string | null;
+  provider_request_id: string | null;
+  provider_response_id: string | null;
+  provider_usage_id: string | null;
+  metadata: string | null;
+  created_at: string;
+}
+
 export interface Database {
   users: UsersTable;
   spaces: SpacesTable;
   space_members: SpaceMembersTable;
   usage_events: UsageEventsTable;
+  provider_usage_ledger: ProviderUsageLedgerTable;
   // Phase 2: Assistant Memory
   user_patterns: UserPatternsTable;
   user_feedback: UserFeedbackTable;
@@ -104,6 +135,11 @@ export type SpaceMemberUpdate = Updateable<SpaceMembersTable>;
 export type UsageEvent = Selectable<UsageEventsTable>;
 export type NewUsageEvent = Insertable<UsageEventsTable>;
 export type UsageEventUpdate = Updateable<UsageEventsTable>;
+
+// Provider usage ledger types
+export type ProviderUsageLedgerEntry = Selectable<ProviderUsageLedgerTable>;
+export type NewProviderUsageLedgerEntry = Insertable<ProviderUsageLedgerTable>;
+export type ProviderUsageLedgerEntryUpdate = Updateable<ProviderUsageLedgerTable>;
 
 // ============================================================================
 // PHASE 2 - Assistant Memory & Personalization

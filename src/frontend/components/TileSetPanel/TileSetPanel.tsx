@@ -50,15 +50,19 @@ export function TileSetPanel({
   const failedSet = [...tileSets].reverse().find(
     (ts) => ts.status === 'failed' && ts.id !== dismissedFailedSetId
   );
+  const failedSetId = failedSet?.id;
+  const failedSetTileType = failedSet?.tile_type;
+  const failedSetGridWidth = failedSet?.grid_width;
+  const failedSetConfig = failedSet?.config;
 
   // Pre-fill form state from the failed set so "Try Again" works
   useEffect(() => {
-    if (!failedSet) return;
+    if (!failedSetId || !failedSetTileType || failedSetGridWidth == null || failedSetConfig == null) return;
     /* eslint-disable react-hooks/set-state-in-effect -- prefilling form state when a failed set appears */
-    setTileType(failedSet.tile_type);
-    setGridSize(failedSet.grid_width);
+    setTileType(failedSetTileType);
+    setGridSize(failedSetGridWidth);
     try {
-      const parsed = JSON.parse(failedSet.config) as {
+      const parsed = JSON.parse(failedSetConfig) as {
         prompt?: string;
         disableStyle?: boolean;
       };
@@ -66,7 +70,7 @@ export function TileSetPanel({
       if (parsed.disableStyle) setDisableStyle(true);
     } catch { /* ignore malformed config */ }
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [failedSet?.id]);
+  }, [failedSetId, failedSetTileType, failedSetGridWidth, failedSetConfig]);
 
   // Close on Escape
   useEffect(() => {
