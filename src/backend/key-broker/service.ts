@@ -44,6 +44,43 @@ function assertProvider(provider: ProviderKeyProvider): ProviderKeyProvider {
   return provider;
 }
 
+function assertNonEmptyString(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new ProviderKeyEncryptionError(`Key broker ${label} is invalid`);
+  }
+  return value;
+}
+
+async function assertGenerationAuthorized(
+  env: KeyBrokerWorkerEnv,
+  userId: number,
+  request: ResolveProviderKeyRequest,
+): Promise<void> {
+  if (request.purpose !== 'generation') {
+    throw new ProviderKeyEncryptionError('Key broker resolve purpose is invalid');
+  }
+
+  const jobId = assertNonEmptyString(request.generation?.jobId, 'generation job');
+  const requestId = assertNonEmptyString(request.generation?.requestId, 'generation request');
+  const spaceId = assertNonEmptyString(request.generation?.spaceId, 'generation space');
+
+  const row = await env.DB.prepare(`
+    SELECT 1 AS authorized
+    FROM platform_usage_events
+    WHERE user_id = ?
+      AND usage_type = 'workflow'
+      AND workflow_id = ?
+      AND variant_id = ?
+      AND request_id = ?
+      AND space_id = ?
+    LIMIT 1
+  `).bind(userId, jobId, jobId, requestId, spaceId).first<{ authorized: number }>();
+
+  if (row?.authorized !== 1) {
+    throw new ProviderKeyEncryptionError('Key broker generation authorization denied');
+  }
+}
+
 function getActiveKekVersion(env: KeyBrokerWorkerEnv): number {
   const rawVersion = env.BYOK_ACTIVE_KEK_VERSION ?? '1';
   if (!/^[1-9]\d*$/.test(rawVersion)) {
@@ -115,6 +152,7 @@ export async function resolveProviderKey(
 ): Promise<ResolveProviderKeyResponse> {
   const userId = assertUserTenant(request.tenant);
   const provider = assertProvider(request.provider);
+  await assertGenerationAuthorized(env, userId, request);
   const kek = await getActiveKek(env);
   const apiKey = await resolveStoredProviderApiKey(
     env.DB,

@@ -24,6 +24,15 @@ type KeyEnvelopeRow = {
   updated_at: string;
 };
 
+type PlatformUsageRow = {
+  user_id: number | null;
+  usage_type: string;
+  space_id: string;
+  workflow_id: string | null;
+  variant_id: string | null;
+  request_id: string | null;
+};
+
 class FakeSecretsStoreSecret {
   getCalls = 0;
 
@@ -38,9 +47,10 @@ class FakeSecretsStoreSecret {
 class FakeD1 {
   rows = new Map<string, ProviderKeyRow>();
   envelopes = new Map<string, KeyEnvelopeRow>();
+  platformUsage: PlatformUsageRow[] = [];
 
   prepare(sql: string) {
-    const { rows, envelopes } = this;
+    const { rows, envelopes, platformUsage } = this;
     return {
       bindings: [] as unknown[],
       bind(...bindings: unknown[]) {
@@ -48,6 +58,19 @@ class FakeD1 {
         return this;
       },
       async first<T>() {
+        if (sql.includes('FROM platform_usage_events')) {
+          const [userId, jobId, variantId, requestId, spaceId] = this.bindings;
+          const row = platformUsage.find((candidate) => (
+            candidate.user_id === userId &&
+            candidate.usage_type === 'workflow' &&
+            candidate.workflow_id === jobId &&
+            candidate.variant_id === variantId &&
+            candidate.request_id === requestId &&
+            candidate.space_id === spaceId
+          ));
+          return (row ? { authorized: 1 } : null) as T | null;
+        }
+
         if (sql.includes('FROM key_envelopes')) {
           const [scopeId] = this.bindings;
           const row = envelopes.get(String(scopeId));
@@ -173,10 +196,24 @@ describe('key broker service binding contract', () => {
     assert.notEqual(row.encrypted_api_key, 'tiny');
     assert.match(row.encrypted_api_key, /^enc:v2:1:1:/);
     assert.equal(db.envelopes.has('user:7'), true);
+    db.platformUsage.push({
+      user_id: 7,
+      usage_type: 'workflow',
+      space_id: 'space-1',
+      workflow_id: 'variant-1',
+      variant_id: 'variant-1',
+      request_id: 'request-1',
+    });
 
     const resolved = await broker.resolveProviderKey({
       tenant,
       provider: 'google_ai',
+      purpose: 'generation',
+      generation: {
+        jobId: 'variant-1',
+        requestId: 'request-1',
+        spaceId: 'space-1',
+      },
     });
 
     assert.deepEqual(resolved, {
@@ -195,6 +232,111 @@ describe('key broker service binding contract', () => {
     assert.equal(deleted.provider, 'google_ai');
     assert.match(deleted.deletedAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.equal(db.rows.has('7:google_ai'), false);
+  });
+
+  test('denies cross-tenant and job-substituted generation key resolution before unwrapping key material', async () => {
+    const db = new FakeD1();
+    const secret = new FakeSecretsStoreSecret(encryptionKey());
+    const broker = keyBrokerClient(
+      createLocalKeyBrokerServiceBinding({
+        DB: db as never,
+        BYOK_ACTIVE_KEK_VERSION: '1',
+        BYOK_KEK_V1: secret,
+      })
+    );
+
+    await broker.storeProviderKey({
+      tenant: { type: 'user', userId: 7 },
+      provider: 'google_ai',
+      apiKey: 'tenant-7-key',
+    });
+    assert.equal(secret.getCalls, 1);
+
+    db.platformUsage.push({
+      user_id: 8,
+      usage_type: 'workflow',
+      space_id: 'space-1',
+      workflow_id: 'variant-1',
+      variant_id: 'variant-1',
+      request_id: 'request-1',
+    });
+    db.platformUsage.push({
+      user_id: 7,
+      usage_type: 'workflow',
+      space_id: 'space-1',
+      workflow_id: 'variant-2',
+      variant_id: 'variant-2',
+      request_id: 'request-2',
+    });
+
+    await assert.rejects(
+      broker.resolveProviderKey({
+        tenant: { type: 'user', userId: 7 },
+        provider: 'google_ai',
+        purpose: 'generation',
+        generation: {
+          jobId: 'variant-1',
+          requestId: 'request-1',
+          spaceId: 'space-1',
+        },
+      }),
+      /authorization denied/i
+    );
+    assert.equal(secret.getCalls, 1);
+
+    await assert.rejects(
+      broker.resolveProviderKey({
+        tenant: { type: 'user', userId: 7 },
+        provider: 'google_ai',
+        purpose: 'generation',
+        generation: {
+          jobId: 'variant-2',
+          requestId: 'request-1',
+          spaceId: 'space-1',
+        },
+      }),
+      /authorization denied/i
+    );
+    assert.equal(secret.getCalls, 1);
+  });
+
+  test('returns missing for an authorized generation with no stored BYOK key', async () => {
+    const db = new FakeD1();
+    const broker = keyBrokerClient(
+      createLocalKeyBrokerServiceBinding({
+        DB: db as never,
+        BYOK_KEK_V1: encryptionKey(),
+      })
+    );
+    const tenant = { type: 'user' as const, userId: 7 };
+    db.platformUsage.push({
+      user_id: 7,
+      usage_type: 'workflow',
+      space_id: 'space-1',
+      workflow_id: 'variant-1',
+      variant_id: 'variant-1',
+      request_id: 'request-1',
+    });
+
+    const resolved = await broker.resolveProviderKey({
+      tenant,
+      provider: 'google_ai',
+      purpose: 'generation',
+      generation: {
+        jobId: 'variant-1',
+        requestId: 'request-1',
+        spaceId: 'space-1',
+      },
+    });
+
+    assert.deepEqual(resolved, {
+      tenant,
+      provider: 'google_ai',
+      apiKey: null,
+      keySource: 'missing',
+    });
+    assert.equal('dek' in resolved, false);
+    assert.equal('wrappedDek' in resolved, false);
   });
 
   test('does not return DEK material from rotation scaffold methods', async () => {

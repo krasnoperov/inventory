@@ -57,6 +57,7 @@ import { LyriaApiError, LyriaMusicProvider } from '../services/lyriaMusicProvide
 import { resolveAudioProvider } from '../services/audioProviderSelection';
 import {
   resolveGenerationProviderApiKey,
+  type GenerationProviderKeyContext,
   type ProviderKeySource,
 } from '../services/generationProviderKeys';
 import { arrayBufferToBase64 } from '../utils/image-utils';
@@ -138,6 +139,12 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       mediaKind: requestedMediaKind,
     } = event.payload;
     const mediaKind = requestedMediaKind ?? DEFAULT_MEDIA_KIND;
+    const providerKeyContext: GenerationProviderKeyContext = {
+      userId,
+      jobId,
+      requestId,
+      spaceId,
+    };
 
     const refCount = sourceImageKeys?.length || 0;
     log.info('Starting workflow', { requestId, jobId, spaceId, assetName, operation, mediaKind, refCount });
@@ -260,7 +267,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           try {
             const googleKey = await resolveGenerationProviderApiKey(
               this.env,
-              userId,
+              providerKeyContext,
               'google_ai',
               this.env.GOOGLE_AI_API_KEY
             );
@@ -315,7 +322,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         } else {
           const googleKey = await resolveGenerationProviderApiKey(
             this.env,
-            userId,
+            providerKeyContext,
             'google_ai',
             this.env.GOOGLE_AI_API_KEY
           );
@@ -526,6 +533,12 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     }
 
     const variantId = jobId;
+    const providerKeyContext: GenerationProviderKeyContext = {
+      userId,
+      jobId,
+      requestId,
+      spaceId,
+    };
     let mediaKey: string;
     let mediaMimeType: string;
     let mediaSizeBytes: number;
@@ -554,7 +567,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         }
 
         const { provider, providerName, keySource } = await this.createAudioProvider(
-          userId,
+          providerKeyContext,
           assetType,
           { voiceId, dialogueVoiceIds, musicProvider }
         );
@@ -703,16 +716,16 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
   }
 
   private async createAudioProvider(
-    userId: string,
+    keyContext: GenerationProviderKeyContext,
     assetType: string,
     voiceOverrides: { voiceId?: string; dialogueVoiceIds?: string[]; musicProvider?: 'elevenlabs' | 'lyria' } = {}
   ): Promise<{ provider: AudioGenerationProvider; providerName: string; keySource?: ProviderKeySource }> {
     const provider = resolveAudioProvider(this.env);
     if (assetType === 'music' && voiceOverrides.musicProvider === 'lyria') {
-      return this.createLyriaMusicProvider(userId);
+      return this.createLyriaMusicProvider(keyContext);
     }
     if (assetType === 'music' && voiceOverrides.musicProvider === 'elevenlabs') {
-      return this.createElevenLabsMusicProvider(userId);
+      return this.createElevenLabsMusicProvider(keyContext);
     }
     if (provider === 'fake') {
       return { provider: new FakeAudioProvider(), providerName: 'fake' };
@@ -720,7 +733,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     if (provider === 'elevenlabs') {
       const elevenLabsKey = await resolveGenerationProviderApiKey(
         this.env,
-        userId,
+        keyContext,
         'elevenlabs',
         this.env.ELEVENLABS_API_KEY
       );
@@ -728,7 +741,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         throw new NonRetryableError('ELEVENLABS_API_KEY not configured');
       }
       if (assetType === 'music') {
-        return this.createElevenLabsMusicProvider(userId);
+        return this.createElevenLabsMusicProvider(keyContext);
       }
       if (assetType === 'sfx') {
         return {
@@ -757,14 +770,14 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     throw new NonRetryableError(`Unsupported audio provider: ${provider}`);
   }
 
-  private async createElevenLabsMusicProvider(userId: string): Promise<{
+  private async createElevenLabsMusicProvider(keyContext: GenerationProviderKeyContext): Promise<{
     provider: AudioGenerationProvider;
     providerName: string;
     keySource?: ProviderKeySource;
   }> {
     const elevenLabsKey = await resolveGenerationProviderApiKey(
       this.env,
-      userId,
+      keyContext,
       'elevenlabs',
       this.env.ELEVENLABS_API_KEY
     );
@@ -782,7 +795,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     };
   }
 
-  private async createLyriaMusicProvider(userId: string): Promise<{
+  private async createLyriaMusicProvider(keyContext: GenerationProviderKeyContext): Promise<{
     provider: AudioGenerationProvider;
     providerName: string;
     keySource?: ProviderKeySource;
@@ -790,7 +803,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     if (!this.env.LYRIA_PROJECT_ID) {
       throw new NonRetryableError('LYRIA_PROJECT_ID not configured');
     }
-    const storedLyriaKey = await resolveGenerationProviderApiKey(this.env, userId, 'lyria', undefined);
+    const storedLyriaKey = await resolveGenerationProviderApiKey(this.env, keyContext, 'lyria', undefined);
     const usingByokApiKey = Boolean(storedLyriaKey.apiKey);
     const keySource = usingByokApiKey
       ? storedLyriaKey.keySource
