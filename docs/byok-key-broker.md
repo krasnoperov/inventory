@@ -24,13 +24,14 @@ proxy provider requests, or return DEK material.
 
 DEK/KEK rotation operations and operator verification steps are documented in
 [`byok-rotation-runbook.md`](./byok-rotation-runbook.md).
-Deployment/RBAC proof is documented in
-[`byok-deployment-boundary.md`](./byok-deployment-boundary.md).
 
-## Deployment Review Notes
+## Deployment
 
-`wrangler.key-broker.toml` is isolated from the current app and generation
-Worker configs. Before deployment, confirm:
+`wrangler.key-broker.toml` is the deploy config for the separate key broker
+Worker. The normal GitHub Actions deploy workflow does not deploy this Worker
+and does not need broker credentials.
+
+Before deployment, confirm:
 
 - The key broker Worker is deployed first.
 - The only versioned KEK bindings are Secrets Store bindings on the broker
@@ -38,25 +39,38 @@ Worker configs. Before deployment, confirm:
 - App and generation Workers receive only a service binding named `KEY_BROKER`
   for BYOK key custody.
 - The broker has no public route and `workers_dev = false`.
-- `pnpm run byok:prove-boundary` passes.
 
-Actual Secrets Store IDs are protected-environment values, not committed
-repository data. The broker deploy workflow materializes them into a temporary
-Wrangler config at deploy time.
+Secrets Store IDs are committed in `wrangler.key-broker.toml`, like D1 and KV
+binding IDs. Secret values are stored only in Cloudflare Secrets Store. The
+default config binds only the active KEK, `BYOK_KEK_V1`; add another KEK version
+only while staging or running a rotation.
 
-Cloudflare's Wrangler syntax for Secrets Store bindings is:
+Deploy stage manually with a broker-scoped Cloudflare token:
+
+```bash
+CLOUDFLARE_API_TOKEN="$CLOUDFLARE_KEY_BROKER_API_TOKEN" \
+  pnpm exec wrangler deploy --config wrangler.key-broker.toml --env=""
+```
+
+Deploy production manually with the same broker-scoped token:
+
+```bash
+CLOUDFLARE_API_TOKEN="$CLOUDFLARE_KEY_BROKER_API_TOKEN" \
+  pnpm exec wrangler deploy --config wrangler.key-broker.toml --env production
+```
+
+Cloudflare's Wrangler syntax for the active Secrets Store binding is:
 
 ```toml
 [[secrets_store_secrets]]
 binding = "BYOK_KEK_V1"
 store_id = "<secret-store-id>"
 secret_name = "BYOK_KEK_V1"
-
-[[secrets_store_secrets]]
-binding = "BYOK_KEK_V2"
-store_id = "<secret-store-id>"
-secret_name = "BYOK_KEK_V2"
 ```
+
+For a rotation window, add the next binding directly to
+`wrangler.key-broker.toml`, deploy the broker, complete the rotation, and remove
+the old binding after verification.
 
 Cloudflare's service binding syntax for a caller Worker is:
 

@@ -14,8 +14,9 @@ through a controlled Worker service binding to the key broker.
 
 1. Runtime provider-key reads and writes are broker-backed for the target
    environment.
-2. The key broker Worker has explicit versioned Secrets Store bindings for both
-   the old and new KEKs, for example `BYOK_KEK_V1` and `BYOK_KEK_V2`.
+2. The key broker Worker normally has only the active KEK binding. During a
+   rotation window it must have explicit versioned Secrets Store bindings for
+   both the old and new KEKs, for example `BYOK_KEK_V1` and `BYOK_KEK_V2`.
 3. `BYOK_ACTIVE_KEK_VERSION` is set to the intended write version before tenant
    DEK rotation or new provider-key writes.
 4. A recent D1 backup exists before production tenant DEK rotation. KEK rewrap
@@ -24,7 +25,8 @@ through a controlled Worker service binding to the key broker.
 
 ## Staging Rehearsal
 
-1. Bind both staging KEKs on the key broker Worker:
+1. Add both staging KEK bindings to `wrangler.key-broker.toml` for the rotation
+   window:
 
    ```toml
    [[secrets_store_secrets]]
@@ -66,8 +68,9 @@ through a controlled Worker service binding to the key broker.
 
 ## Production Execution
 
-1. Confirm the production key broker has both KEK bindings and the app and
-   generation Workers call `KEY_BROKER`.
+1. Confirm the app and generation Workers call `KEY_BROKER`, then update
+   `wrangler.key-broker.toml` so production includes the old and new KEK
+   bindings.
 2. Create or verify the D1 backup.
 3. Set `BYOK_ACTIVE_KEK_VERSION = "2"` on the key broker and deploy.
 4. Run:
@@ -104,6 +107,9 @@ await env.KEY_BROKER.rewrapAllDeks({ fromKekVersion: 2, toKekVersion: 1 });
 Then redeploy with `BYOK_ACTIVE_KEK_VERSION = "1"` if new writes should return
 to V1. Do not remove `BYOK_KEK_V2` until verification shows no envelopes still
 need it.
+
+After the rollback window closes and verification shows no envelope needs the
+old KEK, redeploy the broker with only the active KEK binding.
 
 For tenant DEK rotation rollback, restore the pre-rotation D1 backup. The old
 DEK is intentionally not retained in broker responses or a generic decrypt API.
