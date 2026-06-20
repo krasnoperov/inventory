@@ -43,6 +43,8 @@ export interface VariantNodeData extends Record<string, unknown> {
   onDeleteVariant?: (variant: Variant) => void;
   /** Handler for creating a manual relation from this variant */
   onCreateRelation?: (subject: SpaceSubject) => void;
+  /** Handler for adding this exact variant to the active collection target */
+  onAddVariantToCollection?: (variant: Variant) => void;
   /** Total number of variants (to disable delete when only 1) */
   variantCount?: number;
   /** Space ID for authenticated media downloads */
@@ -75,6 +77,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     onStarVariant,
     onDeleteVariant,
     onCreateRelation,
+    onAddVariantToCollection,
     variantCount = 0,
     spaceId,
     thumbWidth,
@@ -145,6 +148,11 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     e.stopPropagation();
     onCreateRelation?.({ subjectType: 'variant', variantId: variant.id });
   }, [onCreateRelation, variant.id]);
+
+  const handleAddVariantToCollectionClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAddVariantToCollection?.(variant);
+  }, [onAddVariantToCollection, variant]);
 
   const handleCloseExpanded = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -427,6 +435,21 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
                   <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
                   <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
+                </svg>
+              </button>
+            )}
+            {onAddVariantToCollection && (
+              <button
+                className={styles.detailActionButton}
+                onClick={handleAddVariantToCollectionClick}
+                title="Add variant to collection"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <path d="M4 6h16" />
+                  <path d="M4 12h10" />
+                  <path d="M4 18h7" />
+                  <path d="M18 15v6" />
+                  <path d="M15 18h6" />
                 </svg>
               </button>
             )}

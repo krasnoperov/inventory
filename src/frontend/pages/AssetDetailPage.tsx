@@ -554,17 +554,22 @@ export default function AssetDetailPage() {
     }
   }, [addSlot, asset]);
 
-  const handleAddSelectedVariantToCollection = useCallback(() => {
-    if (!selectedVariant || !variantCollectionId) return;
+  const handleAddVariantToCollection = useCallback((variant: Variant) => {
+    if (!variantCollectionId) return;
     const sortIndex = collectionItems.filter((item) => item.collection_id === variantCollectionId).length;
     addCollectionItem({
       collectionId: variantCollectionId,
       subjectType: 'variant',
-      variantId: selectedVariant.id,
+      variantId: variant.id,
       role: variantCollectionRole.trim() || 'custom',
       sortIndex,
     });
-  }, [addCollectionItem, collectionItems, selectedVariant, variantCollectionId, variantCollectionRole]);
+  }, [addCollectionItem, collectionItems, variantCollectionId, variantCollectionRole]);
+
+  const handleAddSelectedVariantToCollection = useCallback(() => {
+    if (!selectedVariant) return;
+    handleAddVariantToCollection(selectedVariant);
+  }, [handleAddVariantToCollection, selectedVariant]);
 
   // Handle retry recipe - restore ForgeTray state from variant's recipe and lineage
   const handleRetryRecipe = useCallback((variant: Variant) => {
@@ -693,6 +698,7 @@ export default function AssetDetailPage() {
           onStarVariant={handleStarVariant}
           onDeleteVariant={handleDeleteVariant}
           onCreateRelation={handleOpenCreateRelation}
+          onAddVariantToCollection={collections.length > 0 ? handleAddVariantToCollection : undefined}
         />
 
         {/* Tile Grid overlay for tile-set assets */}

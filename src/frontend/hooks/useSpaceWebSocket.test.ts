@@ -238,6 +238,41 @@ describe('space message handling', () => {
     assert.equal(useSpaceSessionStore.getState().collectionItems[0]?.role, 'lead');
 
     handleSpaceServerMessage({
+      type: 'collection:created',
+      collection: { id: 'collection-2', name: 'Scenes', kind: 'scenes', color: '#c47d25', description: null, sort_index: 1, created_at: 2, updated_at: 2 },
+    }, context);
+    handleSpaceServerMessage({
+      type: 'collection:updated',
+      collection: { id: 'collection-2', name: 'Final Scenes', kind: 'scenes', color: '#c47d25', description: null, sort_index: -1, created_at: 2, updated_at: 3 },
+    }, context);
+
+    assert.deepEqual(
+      useSpaceSessionStore.getState().collections.map((collection) => collection.id),
+      ['collection-2', 'collection-1'],
+    );
+    assert.equal(useSpaceSessionStore.getState().collections[0]?.name, 'Final Scenes');
+
+    handleSpaceServerMessage({
+      type: 'collection_item:created',
+      item: { id: 'item-2', collection_id: 'collection-1', subject_type: 'variant', asset_id: null, variant_id: 'variant-1', role: 'thumbnail', pinned_variant_id: null, sort_index: 1, created_by: 'user-1', created_at: 2, updated_at: 2 },
+    }, context);
+    handleSpaceServerMessage({
+      type: 'collection_items:reordered',
+      collectionId: 'collection-1',
+      items: [
+        { id: 'item-2', collection_id: 'collection-1', subject_type: 'variant', asset_id: null, variant_id: 'variant-1', role: 'thumbnail', pinned_variant_id: null, sort_index: 0, created_by: 'user-1', created_at: 2, updated_at: 3 },
+        { id: 'item-1', collection_id: 'collection-1', subject_type: 'asset', asset_id: 'asset-1', variant_id: null, role: 'lead', pinned_variant_id: null, sort_index: 1, created_by: 'user-1', created_at: 1, updated_at: 3 },
+      ],
+    }, context);
+
+    assert.deepEqual(
+      useSpaceSessionStore.getState().collectionItems
+        .filter((item) => item.collection_id === 'collection-1')
+        .map((item) => item.id),
+      ['item-2', 'item-1'],
+    );
+
+    handleSpaceServerMessage({
       type: 'collection_item:updated',
       item: { id: 'item-1', collection_id: 'collection-1', subject_type: 'asset', asset_id: 'asset-1', variant_id: null, role: 'hero', pinned_variant_id: 'variant-1', sort_index: 0, created_by: 'user-1', created_at: 1, updated_at: 2 },
     }, context);
@@ -251,6 +286,14 @@ describe('space message handling', () => {
       itemId: 'item-1',
     }, context);
 
+    assert.deepEqual(useSpaceSessionStore.getState().collectionItems.map((item) => item.id), ['item-2']);
+
+    handleSpaceServerMessage({
+      type: 'collection:deleted',
+      collectionId: 'collection-1',
+    }, context);
+
+    assert.equal(useSpaceSessionStore.getState().collections.some((collection) => collection.id === 'collection-1'), false);
     assert.equal(useSpaceSessionStore.getState().collectionItems.length, 0);
   });
 });

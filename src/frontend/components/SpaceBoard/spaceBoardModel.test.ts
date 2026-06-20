@@ -105,4 +105,18 @@ describe('space board model', () => {
     assert.deepEqual(unfiled.map((candidate) => candidate.id), ['asset-1']);
     assert.equal(getItemAsset(item({ subject_type: 'variant', asset_id: null, variant_id: 'variant-2' }), [anna, roman], [annaVariant, romanVariant])?.id, 'asset-2');
   });
+
+  test('keeps asset items filed when their pinned variant changes', () => {
+    const anna = asset();
+    const roman = asset({ id: 'asset-2', name: 'Roman', active_variant_id: 'variant-2' });
+    const annaVariant = variant();
+    const romanVariant = variant({ id: 'variant-2', asset_id: 'asset-2' });
+    const filedItem = item({ asset_id: 'asset-2', pinned_variant_id: 'variant-2' });
+
+    assert.equal(getDisplayVariant(filedItem, roman, [annaVariant, romanVariant])?.id, 'variant-2');
+    assert.deepEqual(
+      getUnfiledAssets([anna, roman], [filedItem], [annaVariant, romanVariant]).map((candidate) => candidate.id),
+      ['asset-1'],
+    );
+  });
 });
