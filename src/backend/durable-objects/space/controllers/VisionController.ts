@@ -21,8 +21,18 @@ import {
 import { BaseController, type ControllerContext } from './types';
 import type { Variant } from '../types';
 import { loggers } from '../../../../shared/logger';
+import { resolveStoredProviderApiKey } from '../../../services/providerKeyVault';
 
 const log = loggers.visionController;
+
+async function resolveAnthropicApiKey(env: ControllerContext['env'], userId: string): Promise<string | undefined> {
+  const numericUserId = Number.parseInt(userId, 10);
+  if (Number.isSafeInteger(numericUserId)) {
+    const stored = await resolveStoredProviderApiKey(env.DB, numericUserId, 'anthropic', env);
+    if (stored) return stored;
+  }
+  return env.ANTHROPIC_API_KEY;
+}
 
 export class VisionController extends BaseController {
   constructor(ctx: ControllerContext) {
@@ -33,9 +43,9 @@ export class VisionController extends BaseController {
    * Handle describe:request WebSocket message
    * Non-blocking: processes async and sends response when ready
    */
-  async handleDescribe(ws: WebSocket, msg: DescribeRequestMessage): Promise<void> {
+  async handleDescribe(ws: WebSocket, userId: string, msg: DescribeRequestMessage): Promise<void> {
     // Process async - don't block the WebSocket handler
-    this.processDescribeRequest(ws, msg).catch((error) => {
+    this.processDescribeRequest(ws, userId, msg).catch((error) => {
       log.error('Error processing describe request', {
         requestId: msg.requestId,
         spaceId: this.spaceId,
@@ -55,9 +65,9 @@ export class VisionController extends BaseController {
    * Handle compare:request WebSocket message
    * Non-blocking: processes async and sends response when ready
    */
-  async handleCompare(ws: WebSocket, msg: CompareRequestMessage): Promise<void> {
+  async handleCompare(ws: WebSocket, userId: string, msg: CompareRequestMessage): Promise<void> {
     // Process async - don't block the WebSocket handler
-    this.processCompareRequest(ws, msg).catch((error) => {
+    this.processCompareRequest(ws, userId, msg).catch((error) => {
       log.error('Error processing compare request', {
         requestId: msg.requestId,
         spaceId: this.spaceId,
@@ -78,8 +88,8 @@ export class VisionController extends BaseController {
    * Auto-describes a variant and caches the description in the database.
    * Triggered when a variant is added to ForgeTray.
    */
-  async handleAutoDescribe(ws: WebSocket, msg: AutoDescribeRequestMessage): Promise<void> {
-    this.processAutoDescribeRequest(ws, msg).catch((error) => {
+  async handleAutoDescribe(ws: WebSocket, userId: string, msg: AutoDescribeRequestMessage): Promise<void> {
+    this.processAutoDescribeRequest(ws, userId, msg).catch((error) => {
       log.error('Error processing auto-describe request', {
         requestId: msg.requestId,
         spaceId: this.spaceId,
@@ -100,9 +110,10 @@ export class VisionController extends BaseController {
   // Private Helpers
   // ==========================================================================
 
-  private async processDescribeRequest(ws: WebSocket, msg: DescribeRequestMessage): Promise<void> {
+  private async processDescribeRequest(ws: WebSocket, userId: string, msg: DescribeRequestMessage): Promise<void> {
     // Check prerequisites
-    if (!hasApiKey(this.env.ANTHROPIC_API_KEY)) {
+    const anthropicApiKey = await resolveAnthropicApiKey(this.env, userId);
+    if (!hasApiKey(anthropicApiKey)) {
       this.send(ws, {
         type: 'describe:response',
         requestId: msg.requestId,
@@ -130,7 +141,7 @@ export class VisionController extends BaseController {
 
     try {
       // Build dependencies and process
-      const deps = this.buildVisionDependencies();
+      const deps = this.buildVisionDependencies(anthropicApiKey!);
       const result = await processDescribe(
         {
           variantId: msg.variantId,
@@ -168,9 +179,10 @@ export class VisionController extends BaseController {
     }
   }
 
-  private async processCompareRequest(ws: WebSocket, msg: CompareRequestMessage): Promise<void> {
+  private async processCompareRequest(ws: WebSocket, userId: string, msg: CompareRequestMessage): Promise<void> {
     // Check prerequisites
-    if (!hasApiKey(this.env.ANTHROPIC_API_KEY)) {
+    const anthropicApiKey = await resolveAnthropicApiKey(this.env, userId);
+    if (!hasApiKey(anthropicApiKey)) {
       this.send(ws, {
         type: 'compare:response',
         requestId: msg.requestId,
@@ -198,7 +210,7 @@ export class VisionController extends BaseController {
 
     try {
       // Build dependencies and process
-      const deps = this.buildVisionDependencies();
+      const deps = this.buildVisionDependencies(anthropicApiKey!);
       const result = await processCompare({ variantIds: msg.variantIds, aspects: msg.aspects }, deps);
 
       if (result.success) {
@@ -228,9 +240,10 @@ export class VisionController extends BaseController {
     }
   }
 
-  private async processAutoDescribeRequest(ws: WebSocket, msg: AutoDescribeRequestMessage): Promise<void> {
+  private async processAutoDescribeRequest(ws: WebSocket, userId: string, msg: AutoDescribeRequestMessage): Promise<void> {
     // Check prerequisites
-    if (!hasApiKey(this.env.ANTHROPIC_API_KEY)) {
+    const anthropicApiKey = await resolveAnthropicApiKey(this.env, userId);
+    if (!hasApiKey(anthropicApiKey)) {
       this.send(ws, {
         type: 'auto-describe:response',
         requestId: msg.requestId,
@@ -279,7 +292,7 @@ export class VisionController extends BaseController {
 
     try {
       // Get variant with asset name
-      const deps = this.buildVisionDependencies();
+      const deps = this.buildVisionDependencies(anthropicApiKey!);
       const variantWithAsset = await deps.getVariantWithAsset(msg.variantId);
 
       if (!variantWithAsset) {
@@ -361,8 +374,8 @@ export class VisionController extends BaseController {
    * Build vision dependencies with injected SQL queries and services.
    * Centralizes the dependency creation to eliminate duplication.
    */
-  private buildVisionDependencies(): VisionDependencies {
-    const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY!);
+  private buildVisionDependencies(apiKey: string): VisionDependencies {
+    const claudeService = new ClaudeService(apiKey);
 
     return {
       getVariant: async (id) => {

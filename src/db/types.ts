@@ -117,6 +117,17 @@ export interface PlatformUsageEventsTable {
   created_at: string;
 }
 
+export type UserProviderKeyProvider = 'google_ai' | 'anthropic' | 'elevenlabs' | 'lyria';
+
+export interface UserProviderKeysTable {
+  user_id: number;
+  provider: UserProviderKeyProvider;
+  encrypted_api_key: string;
+  key_hint: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Database {
   users: UsersTable;
   spaces: SpacesTable;
@@ -124,6 +135,7 @@ export interface Database {
   usage_events: UsageEventsTable;
   provider_usage_ledger: ProviderUsageLedgerTable;
   platform_usage_events: PlatformUsageEventsTable;
+  user_provider_keys: UserProviderKeysTable;
   // Phase 2: Assistant Memory
   user_patterns: UserPatternsTable;
   user_feedback: UserFeedbackTable;
@@ -167,6 +179,10 @@ export type ProviderUsageLedgerEntryUpdate = Updateable<ProviderUsageLedgerTable
 export type PlatformUsageEvent = Selectable<PlatformUsageEventsTable>;
 export type NewPlatformUsageEvent = Insertable<PlatformUsageEventsTable>;
 export type PlatformUsageEventUpdate = Updateable<PlatformUsageEventsTable>;
+
+export type UserProviderKey = Selectable<UserProviderKeysTable>;
+export type NewUserProviderKey = Insertable<UserProviderKeysTable>;
+export type UserProviderKeyUpdate = Updateable<UserProviderKeysTable>;
 
 // ============================================================================
 // PHASE 2 - Assistant Memory & Personalization

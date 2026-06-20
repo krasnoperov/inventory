@@ -4,6 +4,21 @@ import { Hono } from 'hono';
 import { AuthService } from '../features/auth/auth-service';
 import type { AppContext } from './types';
 import { voicesRoutes } from './voices';
+import { encryptProviderApiKey } from '../services/providerKeyVault';
+
+function encryptionKey(): string {
+  return Buffer.from(new Uint8Array(32).fill(9)).toString('base64');
+}
+
+function providerKeyDb(encryptedKey: string) {
+  return {
+    prepare: () => ({
+      bind: () => ({
+        first: async () => ({ encrypted_api_key: encryptedKey }),
+      }),
+    }),
+  };
+}
 
 function routeApp(env: Partial<AppContext['Bindings']> = {}) {
   const deps = new Map<unknown, unknown>();
@@ -68,6 +83,31 @@ describe('voicesRoutes', () => {
     assert.equal(body.voices.length, 1);
     assert.equal(body.voices[0].voiceId, 'v1');
     assert.equal(body.voices[0].name, 'Rachel');
+  });
+
+  test('uses a stored ElevenLabs BYOK key for voice listing', async () => {
+    const secret = encryptionKey();
+    const encrypted = await encryptProviderApiKey('user-elevenlabs-key', secret, 7, 'elevenlabs');
+    let observedKey: string | null = null;
+    mock.method(globalThis, 'fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+      observedKey = new Headers(init?.headers).get('xi-api-key');
+      return new Response(JSON.stringify({ voices: [{ voice_id: 'v1', name: 'Rachel' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    const response = await authedRequest(
+      routeApp({
+        INVENTORY_AUDIO_PROVIDER: 'elevenlabs',
+        ELEVENLABS_API_KEY: 'platform-key',
+        ENCRYPTION_KEY: secret,
+        DB: providerKeyDb(encrypted) as never,
+      })
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(observedKey, 'user-elevenlabs-key');
   });
 
   test('treats ElevenLabs as the provider in production without an explicit override', async () => {

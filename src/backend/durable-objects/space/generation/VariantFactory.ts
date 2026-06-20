@@ -113,6 +113,8 @@ export interface CreateAssetVariantInput {
   model?: string;
   /** Image output size (`1K`, `2K`, `4K`) */
   imageSize?: string;
+  /** Image model provider (`gemini` or `custom`) */
+  modelProvider?: 'gemini' | 'custom';
   /** Parent asset ID for hierarchy */
   parentAssetId?: string;
   /** Reference asset IDs (resolved to active variants) */
@@ -153,6 +155,8 @@ export interface RefineVariantInput {
   model?: string;
   /** Image output size (`1K`, `2K`, `4K`) */
   imageSize?: string;
+  /** Image model provider (`gemini` or `custom`) */
+  modelProvider?: 'gemini' | 'custom';
   /** Single source variant (legacy) */
   sourceVariantId?: string;
   /** Multiple source variants from ForgeTray */
@@ -271,6 +275,7 @@ export class VariantFactory {
       model: recipeModel,
       aspectRatio: input.aspectRatio,
       imageSize: recipeImageSize,
+      modelProvider: (input.mediaKind ?? DEFAULT_MEDIA_KIND) === 'image' ? input.modelProvider : undefined,
       videoResolution: videoOptions.videoResolution,
       videoDurationSeconds: videoOptions.videoDurationSeconds,
       videoTier: videoOptions.videoTier,
@@ -390,6 +395,7 @@ export class VariantFactory {
       model: recipeModel,
       aspectRatio: input.aspectRatio,
       imageSize: recipeImageSize,
+      modelProvider: mediaKind === 'image' ? input.modelProvider : undefined,
       videoResolution: videoOptions.videoResolution,
       videoDurationSeconds: videoOptions.videoDurationSeconds,
       videoTier: videoOptions.videoTier,
@@ -652,6 +658,7 @@ export class VariantFactory {
       model: recipeModel,
       aspectRatio: input.aspectRatio,
       imageSize: recipeImageSize,
+      modelProvider: mediaKind === 'image' ? input.modelProvider : undefined,
       videoResolution: videoOptions.videoResolution,
       videoDurationSeconds: videoOptions.videoDurationSeconds,
       videoTier: videoOptions.videoTier,

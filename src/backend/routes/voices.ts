@@ -3,6 +3,7 @@ import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { listElevenLabsVoices, ElevenLabsApiError } from '../services/elevenLabsAudioProvider';
 import { resolveAudioProvider } from '../services/audioProviderSelection';
+import { resolveStoredProviderApiKey } from '../services/providerKeyVault';
 import { loggers } from '../../shared/logger';
 
 const log = loggers.generationController;
@@ -23,13 +24,17 @@ voicesRoutes.use('/api/voices', authMiddleware);
  */
 voicesRoutes.get('/api/voices', async (c) => {
   const env = c.env;
+  const userId = c.get('userId')!;
 
-  if (resolveAudioProvider(env) !== 'elevenlabs' || !env.ELEVENLABS_API_KEY) {
+  const storedKey = await resolveStoredProviderApiKey(env.DB, userId, 'elevenlabs', env);
+  const apiKey = storedKey ?? env.ELEVENLABS_API_KEY;
+
+  if (resolveAudioProvider(env) !== 'elevenlabs' || !apiKey) {
     return c.json({ available: false, voices: [] });
   }
 
   try {
-    const voices = await listElevenLabsVoices(env.ELEVENLABS_API_KEY);
+    const voices = await listElevenLabsVoices(apiKey);
     // Voices change rarely; let clients/CDN cache briefly to avoid hammering ElevenLabs.
     c.header('Cache-Control', 'private, max-age=300');
     return c.json({ available: true, voices });

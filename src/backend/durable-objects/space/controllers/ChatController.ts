@@ -12,6 +12,7 @@ import { BaseController, type ControllerContext } from './types';
 import type { ChatMessage } from '../types';
 import { loggers } from '../../../../shared/logger';
 import { nanoid } from 'nanoid';
+import { resolveStoredProviderApiKey } from '../../../services/providerKeyVault';
 
 const log = loggers.chatController;
 
@@ -46,6 +47,15 @@ interface ChatSendMessage {
 }
 
 const HISTORY_LIMIT = 50;
+
+async function resolveAnthropicApiKey(env: ControllerContext['env'], userId: string): Promise<string | undefined> {
+  const numericUserId = Number.parseInt(userId, 10);
+  if (Number.isSafeInteger(numericUserId)) {
+    const stored = await resolveStoredProviderApiKey(env.DB, numericUserId, 'anthropic', env);
+    if (stored) return stored;
+  }
+  return env.ANTHROPIC_API_KEY;
+}
 
 export class ChatController extends BaseController {
   constructor(ctx: ControllerContext) {
@@ -92,8 +102,8 @@ export class ChatController extends BaseController {
       return;
     }
 
-    // Check Claude API key
-    if (!hasApiKey(this.env.ANTHROPIC_API_KEY)) {
+    const anthropicApiKey = await resolveAnthropicApiKey(this.env, userId);
+    if (!hasApiKey(anthropicApiKey)) {
       this.sendError(ws, 'INTERNAL_ERROR', 'Claude API not configured');
       return;
     }
@@ -178,7 +188,7 @@ export class ChatController extends BaseController {
       const collectedDescriptions: Array<{ variantId: string; assetName: string; description: string; cached: boolean }> = [];
       let images: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; assetName: string }> | undefined;
 
-      const claudeService = new ClaudeService(this.env.ANTHROPIC_API_KEY!);
+      const claudeService = new ClaudeService(anthropicApiKey!);
 
       // For first message with images, generate descriptions on-demand with progress
       if (isFirstMessage && hasImages) {

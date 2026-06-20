@@ -81,6 +81,7 @@ function createQuotaCheckDb(options: {
   quotaUsed?: number;
   rateLimitCount?: number;
   paidGenerationEntitlement?: 'none' | 'paid' | 'internal';
+  hasProviderKey?: boolean;
   bindings?: unknown[][];
 }) {
   return {
@@ -89,6 +90,9 @@ function createQuotaCheckDb(options: {
         options.bindings?.push(bindings);
         return {
           first: mock.fn(async () => {
+            if (sql.includes('SELECT 1 AS present')) {
+              return options.hasProviderKey ? { present: 1 } : null;
+            }
             if (sql.includes('FROM users')) {
               return {
                 paid_generation_entitlement: options.paidGenerationEntitlement ?? 'paid',
@@ -228,6 +232,76 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
         type: 'generate:error',
         requestId: 'request-paid-required',
+        error: 'Paid generation is not enabled for this account. Please upgrade your plan.',
+        code: 'PAID_GENERATION_REQUIRED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
+    test('allows BYOK provider keys without paid-generation entitlement', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 0,
+        paidGenerationEntitlement: 'none',
+        hasProviderKey: true,
+      }) as any;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-byok',
+          name: 'Music cue',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'short heroic orchestral loop',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 1);
+      assert.strictEqual(workflowCreate.mock.calls.length, 1);
+    });
+
+    test('does not use Google BYOK to bypass custom image provider billing', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 0,
+        quotaLimitsJson: JSON.stringify({ gemini_images: 0 }),
+        paidGenerationEntitlement: 'none',
+        hasProviderKey: true,
+      }) as any;
+      ctx.env.CUSTOM_MODEL_ENDPOINT = 'https://custom.example.test/generate';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-custom-byok',
+          name: 'Custom image',
+          assetType: 'item',
+          mediaKind: 'image',
+          prompt: 'custom model image',
+          modelProvider: 'custom',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'generate:error',
+        requestId: 'request-custom-byok',
         error: 'Paid generation is not enabled for this account. Please upgrade your plan.',
         code: 'PAID_GENERATION_REQUIRED',
       });
