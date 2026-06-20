@@ -18,6 +18,7 @@ import {
   getCollectionItems,
   getDisplayVariant,
   getItemAsset,
+  getPinnedVariantIdForAssetCollection,
   getUnfiledAssets,
   moveId,
   sortCollections,
@@ -121,12 +122,15 @@ export function SpaceBoard({
   };
 
   const addAssetToCollection = (collectionId: string, assetId: string, role = getCollectionRole(collectionId)) => {
+    const collection = collections.find((candidate) => candidate.id === collectionId);
+    const asset = assets.find((candidate) => candidate.id === assetId);
     const items = getCollectionItems(collectionId, collectionItems);
     addCollectionItem({
       collectionId,
       subjectType: 'asset',
       assetId,
       role,
+      pinnedVariantId: getPinnedVariantIdForAssetCollection(collection, asset),
       sortIndex: items.length,
     });
   };
@@ -155,11 +159,13 @@ export function SpaceBoard({
       };
     }
     const items = collection ? getCollectionItems(collection.id, collectionItems) : [];
+    const asset = assets.find((candidate) => candidate.id === assetId);
     addCollectionItem({
       collectionId,
       subjectType: 'asset',
       assetId,
       role: 'style_ref',
+      pinnedVariantId: getPinnedVariantIdForAssetCollection(collection, asset),
       sortIndex: items.length,
     });
   };
@@ -167,6 +173,11 @@ export function SpaceBoard({
   const renderAssetCard = (asset: Asset, item: CollectionItem | null, collectionId?: string) => {
     const displayVariant = getDisplayVariant(item, asset, variants);
     const assetVariants = variants.filter((variant) => variant.asset_id === asset.id);
+    const itemCollection = item ? collections.find((collection) => collection.id === item.collection_id) : null;
+    const itemPinnedVariantId =
+      item?.subject_type === 'asset'
+        ? (item.pinned_variant_id ?? getPinnedVariantIdForAssetCollection(itemCollection, asset) ?? '')
+        : '';
     const cardKey = `${collectionId ?? 'unfiled'}:${item?.id ?? asset.id}`;
     const targetCollectionId = cardTargets[cardKey] ?? orderedCollections[0]?.id ?? '';
 
@@ -201,11 +212,15 @@ export function SpaceBoard({
               {item.subject_type === 'asset' && assetVariants.length > 0 && (
                 <select
                   className={styles.compactSelect}
-                  value={item.pinned_variant_id ?? ''}
+                  value={itemPinnedVariantId}
                   aria-label={`Pinned variant for ${asset.name}`}
-                  onChange={(event) => updateCollectionItem(item.collection_id, item.id, { pinnedVariantId: event.target.value || null })}
+                  onChange={(event) => {
+                    const pinnedVariantId =
+                      event.target.value || getPinnedVariantIdForAssetCollection(itemCollection, asset);
+                    updateCollectionItem(item.collection_id, item.id, { pinnedVariantId });
+                  }}
                 >
-                  <option value="">Active variant</option>
+                  {itemCollection?.kind !== 'style_refs' && <option value="">Active variant</option>}
                   {assetVariants.map((variant, index) => (
                     <option key={variant.id} value={variant.id}>
                       Variant {index + 1}{variant.starred ? ' star' : ''}

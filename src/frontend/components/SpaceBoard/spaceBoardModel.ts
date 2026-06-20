@@ -70,6 +70,14 @@ export function getDisplayVariant(item: CollectionItem | null, asset: Asset, var
   return variants.find((variant) => variant.asset_id === asset.id) ?? null;
 }
 
+export function getPinnedVariantIdForAssetCollection(
+  collection: SpaceCollection | null | undefined,
+  asset: Asset | null | undefined,
+): string | null {
+  if (collection?.kind !== 'style_refs') return null;
+  return asset?.active_variant_id ?? null;
+}
+
 export function getUnfiledAssets(assets: Asset[], items: CollectionItem[], variants: Variant[] = []): Asset[] {
   const filedAssetIds = new Set<string>();
   for (const item of items) {

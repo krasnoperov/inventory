@@ -4,6 +4,7 @@ import type { Asset, CollectionItem, SpaceCollection, Variant } from '../../spac
 import {
   getDisplayVariant,
   getItemAsset,
+  getPinnedVariantIdForAssetCollection,
   getUnfiledAssets,
   moveId,
   sortCollections,
@@ -118,5 +119,29 @@ describe('space board model', () => {
       getUnfiledAssets([anna, roman], [filedItem], [annaVariant, romanVariant]).map((candidate) => candidate.id),
       ['asset-1'],
     );
+  });
+
+  test('pins active variants only for asset style reference collection items', () => {
+    const anna = asset();
+    const styleCollection: SpaceCollection = {
+      id: 'style-refs',
+      name: 'Style References',
+      kind: 'style_refs',
+      color: null,
+      description: null,
+      sort_index: 0,
+      created_at: 1,
+      updated_at: 1,
+    };
+    const castCollection: SpaceCollection = {
+      ...styleCollection,
+      id: 'cast',
+      name: 'Cast',
+      kind: 'cast',
+    };
+
+    assert.equal(getPinnedVariantIdForAssetCollection(styleCollection, anna), 'variant-1');
+    assert.equal(getPinnedVariantIdForAssetCollection(castCollection, anna), null);
+    assert.equal(getPinnedVariantIdForAssetCollection(styleCollection, asset({ active_variant_id: null })), null);
   });
 });
