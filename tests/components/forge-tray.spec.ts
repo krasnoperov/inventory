@@ -528,7 +528,7 @@ test('style library creates a preset from a style collection', async ({ page }) 
   await page.getByLabel('Preset name').fill('Painterly market');
   await page.getByLabel('Style prompt').fill('sun-washed watercolor with ink outlines');
   await page.getByLabel('Style description').fill('For the market scene');
-  await page.getByRole('checkbox').first().check();
+  await page.getByLabel('Set as space default').check();
   await page.getByRole('button', { name: 'Create preset' }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
