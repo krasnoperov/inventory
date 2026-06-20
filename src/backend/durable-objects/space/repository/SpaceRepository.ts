@@ -217,6 +217,15 @@ export interface ResolvedStylePreset {
   styleReferenceImageKeys: string[];
 }
 
+export interface LegacyStyleBackfillResult {
+  migrated: boolean;
+  styleId: string | null;
+  collectionId: string | null;
+  presetId: string | null;
+  assetIds: string[];
+  variantIds: string[];
+}
+
 export interface SpaceSubjectInput {
   subjectType: SpaceSubjectType;
   assetId?: string | null;
@@ -340,6 +349,41 @@ function starterCollectionId(key: string): string {
 
 function starterCollectionItemId(key: string, assetId: string): string {
   return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:starter-item:${key}:${assetId}`;
+}
+
+function stableLegacyId(prefix: string, ...parts: string[]): string {
+  const input = parts.join('\0');
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < input.length; index++) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${prefix}-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+function parseImageKeys(imageKeys: string): string[] {
+  try {
+    const parsed = JSON.parse(imageKeys) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return [...new Set(parsed.filter((key): key is string => typeof key === 'string' && key.length > 0))];
+  } catch {
+    return [];
+  }
+}
+
+function inferMimeTypeFromKey(imageKey: string): string | null {
+  const ext = imageKey.split('.').pop()?.toLowerCase();
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'gif') return 'image/gif';
+  return null;
+}
+
+function getLegacyStyleThumbKey(imageKey: string): string | null {
+  const extensionStart = imageKey.lastIndexOf('.');
+  if (extensionStart <= 0) return null;
+  return `${imageKey.slice(0, extensionStart)}_thumb.webp`;
 }
 
 // ============================================================================
@@ -534,7 +578,7 @@ export class SpaceRepository {
     mediaKind?: MediaKind;
     workflowId?: string | null;
     imageKey: string;
-    thumbKey: string;
+    thumbKey: string | null;
     mediaMetadata?: VariantMediaMetadata;
     recipe: string;
     createdBy: string;
@@ -1399,6 +1443,204 @@ export class SpaceRepository {
       styleReferenceVariantIds,
       styleReferenceImageKeys,
     };
+  }
+
+  async backfillLegacySpaceStyle(): Promise<LegacyStyleBackfillResult> {
+    const style = await this.getActiveStyle();
+    if (!style) {
+      return {
+        migrated: false,
+        styleId: null,
+        collectionId: null,
+        presetId: null,
+        assetIds: [],
+        variantIds: [],
+      };
+    }
+
+    const imageKeys = parseImageKeys(style.image_keys);
+    const hasStyleState = style.description.trim().length > 0 || imageKeys.length > 0;
+    if (!hasStyleState) {
+      return {
+        migrated: false,
+        styleId: style.id,
+        collectionId: null,
+        presetId: null,
+        assetIds: [],
+        variantIds: [],
+      };
+    }
+
+    const collection = await this.getOrCreateLegacyStyleCollection(style);
+    const assetIds: string[] = [];
+    const variantIds: string[] = [];
+
+    for (const [index, imageKey] of imageKeys.entries()) {
+      const ids = {
+        assetId: stableLegacyId('legacy-style-asset', style.id, imageKey),
+        variantId: stableLegacyId('legacy-style-variant', style.id, imageKey),
+        itemId: stableLegacyId('legacy-style-item', style.id, imageKey),
+      };
+      const assetName = imageKeys.length === 1
+        ? 'Legacy Style Reference'
+        : `Legacy Style Reference ${index + 1}`;
+
+      let asset = await this.getAssetById(ids.assetId);
+      if (!asset) {
+        asset = await this.createAsset({
+          id: ids.assetId,
+          name: assetName,
+          type: 'style-sheet',
+          mediaKind: 'image',
+          tags: ['style-reference', 'legacy-space-style'],
+          createdBy: style.created_by,
+        });
+      }
+
+      let variant = await this.getVariantById(ids.variantId);
+      if (!variant) {
+        const metadata = await this.getLegacyStyleMediaMetadata(imageKey);
+        variant = await this.createVariant({
+          id: ids.variantId,
+          assetId: ids.assetId,
+          mediaKind: 'image',
+          imageKey,
+          thumbKey: metadata.thumbKey,
+          mediaMetadata: {
+            mediaKey: imageKey,
+            mimeType: inferMimeTypeFromKey(imageKey),
+            sizeBytes: metadata.sizeBytes,
+          },
+          recipe: JSON.stringify({
+            operation: 'upload',
+            assetType: 'style-sheet',
+            mediaKind: 'image',
+            prompt: style.description,
+            source: 'legacy-space-style',
+            styleId: style.id,
+            originalImageKey: imageKey,
+            migratedAt: new Date(style.updated_at || Date.now()).toISOString(),
+          }),
+          createdBy: style.created_by,
+        });
+      }
+
+      if (asset.active_variant_id !== ids.variantId) {
+        await this.updateAsset(ids.assetId, { active_variant_id: ids.variantId });
+      }
+
+      const existingItem = await this.getCollectionItemById(ids.itemId);
+      if (!existingItem) {
+        await this.createCollectionItem({
+          id: ids.itemId,
+          collectionId: collection.id,
+          subjectType: 'asset',
+          assetId: ids.assetId,
+          role: 'style_ref',
+          pinnedVariantId: ids.variantId,
+          sortIndex: index,
+          createdBy: style.created_by,
+        });
+      }
+
+      assetIds.push(ids.assetId);
+      variantIds.push(ids.variantId);
+    }
+
+    const presetId = stableLegacyId('legacy-style-preset', style.id);
+    const existingPreset = await this.getStylePresetById(presetId);
+    const defaultPreset = await this.getDefaultStylePreset();
+    if (!existingPreset) {
+      await this.createStylePreset({
+        id: presetId,
+        name: style.name || 'Default Style',
+        stylePrompt: style.description,
+        collectionId: collection.id,
+        enabled: style.enabled !== 0,
+        isDefault: !defaultPreset,
+        createdBy: style.created_by,
+      });
+    } else {
+      const shouldPromote = !defaultPreset && existingPreset.is_default !== 1;
+      const shouldUpdate =
+        existingPreset.style_prompt !== style.description ||
+        existingPreset.collection_id !== collection.id ||
+        existingPreset.enabled !== (style.enabled !== 0 ? 1 : 0) ||
+        shouldPromote;
+      if (shouldUpdate) {
+        await this.updateStylePreset(presetId, {
+          stylePrompt: style.description,
+          collectionId: collection.id,
+          enabled: style.enabled !== 0,
+          isDefault: shouldPromote ? true : undefined,
+        });
+      }
+    }
+
+    return {
+      migrated: true,
+      styleId: style.id,
+      collectionId: collection.id,
+      presetId,
+      assetIds,
+      variantIds,
+    };
+  }
+
+  private async getOrCreateLegacyStyleCollection(style: SpaceStyle): Promise<SpaceCollection> {
+    const deterministicId = stableLegacyId('legacy-style-collection', style.id);
+    const existingById = await this.getCollectionById(deterministicId);
+    if (existingById) return existingById;
+
+    const existingByName = (await this.listCollections()).find(
+      (collection) => collection.name.toLowerCase() === 'style references'
+    );
+    if (existingByName) return existingByName;
+
+    return this.createCollection({
+      id: deterministicId,
+      name: 'Style References',
+      description: 'Migrated references from the legacy space style.',
+      createdBy: style.created_by,
+    });
+  }
+
+  private async getLegacyStyleMediaMetadata(imageKey: string): Promise<{
+    sizeBytes: number | null;
+    thumbKey: string | null;
+  }> {
+    let sizeBytes: number | null = null;
+    let thumbKey = getLegacyStyleThumbKey(imageKey);
+
+    if (!this.images?.head) {
+      return { sizeBytes, thumbKey };
+    }
+
+    try {
+      const object = await this.images.head(imageKey);
+      sizeBytes = object?.size ?? null;
+    } catch (error) {
+      log.warn('Failed to read legacy style image metadata during backfill', {
+        imageKey,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    if (thumbKey) {
+      try {
+        const thumb = await this.images.head(thumbKey);
+        if (!thumb) thumbKey = null;
+      } catch (error) {
+        log.warn('Failed to read legacy style thumbnail metadata during backfill', {
+          imageKey,
+          thumbKey,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        thumbKey = null;
+      }
+    }
+
+    return { sizeBytes, thumbKey };
   }
 
   async listRelations(): Promise<SpaceRelation[]> {
