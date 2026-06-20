@@ -77,9 +77,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     onSessionCreatedRef,
     onPlanUpdatedRef,
     onPlanArchivedRef,
-    onStyleStateRef,
-    onStyleUpdatedRef,
-    onStyleDeletedRef,
     onBatchStartedRef,
     onBatchProgressRef,
     onBatchCompletedRef,
@@ -121,10 +118,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setTilePositions(message.tilePositions || []);
                 setStylePresets?.(message.stylePresets || []);
                 setStyleReferenceCollections?.(message.styleReferenceCollections || []);
-                // Handle style included in sync:state
-                if (message.style !== undefined) {
-                  onStyleStateRef.current?.(message.style ?? null);
-                }
                 setError(null);
                 break;
 
@@ -152,9 +145,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setTilePositions(message.tilePositions || []);
                 setStylePresets?.(message.stylePresets || []);
                 setStyleReferenceCollections?.(message.styleReferenceCollections || []);
-                if (message.style !== undefined) {
-                  onStyleStateRef.current?.(message.style ?? null);
-                }
                 setError(null);
                 break;
 
@@ -679,19 +669,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
 
               case 'simple_plan:archived':
                 onPlanArchivedRef.current?.(message.planId);
-                break;
-
-              // Style messages
-              case 'style:state':
-                onStyleStateRef.current?.(message.style);
-                break;
-
-              case 'style:updated':
-                onStyleUpdatedRef.current?.(message.style);
-                break;
-
-              case 'style:deleted':
-                onStyleDeletedRef.current?.();
                 break;
 
               case 'style_preset:created':

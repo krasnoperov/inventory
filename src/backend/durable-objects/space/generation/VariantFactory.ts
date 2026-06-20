@@ -879,7 +879,6 @@ export class VariantFactory {
     let style = await resolveStyleReferences(this.repo, {
       stylePresetId: options.stylePresetId,
       styleVariantIds: options.styleVariantIds,
-      useLegacyFallback: true,
     });
     if (!style.styleDescription && style.styleKeys.length === 0 && !style.stylePresetId) {
       return { recipe: effectiveRecipe, sourceImageKeys: effectiveSourceImageKeys, styleReferenceVariantIds: [] };

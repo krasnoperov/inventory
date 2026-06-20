@@ -13,6 +13,7 @@ import type { ChatMessage } from '../types';
 import { loggers } from '../../../../shared/logger';
 import { nanoid } from 'nanoid';
 import { resolveRuntimeProviderApiKey } from '../../../services/runtimeProviderKeys';
+import { resolveStyleReferences } from '../generation/refLimits';
 
 const log = loggers.chatController;
 
@@ -298,12 +299,12 @@ export class ChatController extends BaseController {
         variantDescriptions.push(...cached);
       }
 
-      // Fetch active style for context
-      const activeStyle = await this.repo.getActiveStyle();
-      const styleContext = activeStyle ? {
-        description: activeStyle.description,
-        imageCount: JSON.parse(activeStyle.image_keys || '[]').length,
-        enabled: activeStyle.enabled === 1,
+      // Fetch asset-backed default style for context
+      const activeStyle = await resolveStyleReferences(this.repo);
+      const styleContext = activeStyle.styleDescription || activeStyle.styleKeys.length > 0 ? {
+        description: activeStyle.styleDescription ?? '',
+        imageCount: activeStyle.styleKeys.length,
+        enabled: true,
       } : undefined;
 
       // Call Claude with all context

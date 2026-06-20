@@ -87,10 +87,6 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'startNewSession'
   | 'sendPersistentChatMessage'
   | 'clearChatSession'
-  | 'sendStyleGet'
-  | 'sendStyleSet'
-  | 'sendStyleDelete'
-  | 'sendStyleToggle'
   | 'createStylePreset'
   | 'updateStylePreset'
   | 'deleteStylePreset'
@@ -475,23 +471,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
     sendMessage({ type: 'chat:clear' });
   }, [sendMessage]);
 
-  // Style methods
-  const sendStyleGet = useCallback(() => {
-    sendMessage({ type: 'style:get' });
-  }, [sendMessage]);
-
-  const sendStyleSet = useCallback((data: { name?: string; description?: string; imageKeys?: string[]; enabled?: boolean }) => {
-    sendMessage({ type: 'style:set', ...data });
-  }, [sendMessage]);
-
-  const sendStyleDelete = useCallback(() => {
-    sendMessage({ type: 'style:delete' });
-  }, [sendMessage]);
-
-  const sendStyleToggle = useCallback((enabled: boolean) => {
-    sendMessage({ type: 'style:toggle', enabled });
-  }, [sendMessage]);
-
   const createStylePreset = useCallback((params: StylePresetCreateParams) => {
     sendMessage({
       type: 'style_preset:create',
@@ -690,10 +669,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
     startNewSession,
     sendPersistentChatMessage,
     clearChatSession,
-    sendStyleGet,
-    sendStyleSet,
-    sendStyleDelete,
-    sendStyleToggle,
     createStylePreset,
     updateStylePreset,
     deleteStylePreset,

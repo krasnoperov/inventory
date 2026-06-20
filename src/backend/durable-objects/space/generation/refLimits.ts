@@ -64,14 +64,14 @@ export function capRefs(
 }
 
 /**
- * Get style image keys for the current space.
- * Fetches the active style and returns its image keys + description.
+ * Get default style image keys for the current space.
+ * Resolves the asset-backed default preset and returns its image keys + prompt.
  */
 export async function getStyleImageKeys(
   repo: SpaceRepository,
   disableStyle?: boolean
 ): Promise<{ styleKeys: string[]; styleDescription: string | null }> {
-  const resolved = await resolveStyleReferences(repo, { disableStyle, useLegacyFallback: true });
+  const resolved = await resolveStyleReferences(repo, { disableStyle });
   return { styleKeys: resolved.styleKeys, styleDescription: resolved.styleDescription };
 }
 
@@ -81,7 +81,6 @@ export async function resolveStyleReferences(
     disableStyle?: boolean;
     stylePresetId?: string;
     styleVariantIds?: string[];
-    useLegacyFallback?: boolean;
   } = {}
 ): Promise<ResolvedStyleReferences> {
   const resolverRepo = repo as StyleResolverRepository;
@@ -138,23 +137,7 @@ export async function resolveStyleReferences(
     });
   }
 
-  if (!input.useLegacyFallback) {
-    return emptyResolvedStyle();
-  }
-
-  const style = await repo.getActiveStyle();
-  if (!style || !style.enabled) return emptyResolvedStyle();
-  let keys: string[] = [];
-  try { keys = JSON.parse(style.image_keys); } catch { /* ignore malformed JSON */ }
-  const dedupedKeys = uniqueStrings(keys);
-  return {
-    styleKeys: dedupedKeys,
-    styleDescription: style.description || null,
-    styleId: style.id,
-    styleReferenceVariantIds: [],
-    styleReferenceImageKeys: dedupedKeys,
-    references: dedupedKeys.map((imageKey) => ({ imageKey })),
-  };
+  return emptyResolvedStyle();
 }
 
 export function withStyleReferenceLimit(

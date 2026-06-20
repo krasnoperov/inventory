@@ -263,7 +263,6 @@ export class RotationController extends BaseController {
       disableStyle: config.disableStyle,
       stylePresetId: config.stylePresetId,
       styleVariantIds: config.styleVariantIds,
-      useLegacyFallback: true,
     });
 
     // Cap refs to fit Gemini limit
@@ -544,7 +543,6 @@ export class RotationController extends BaseController {
       disableStyle: msg.disableStyle,
       stylePresetId: msg.stylePresetId,
       styleVariantIds: msg.styleVariantIds,
-      useLegacyFallback: true,
     });
     if (style.styleKeys.length + 1 > 14) {
       style = withoutStyleReferenceImages(style);

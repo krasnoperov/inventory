@@ -6,7 +6,6 @@ import type {
   Variant,
   TileSetRequestParams,
 } from '../../hooks/useSpaceWebSocket';
-import { useStyleStore } from '../../stores/styleStore';
 import styles from './TileSetPanel.module.css';
 
 const TILE_TYPES: { value: TileType; label: string; icon: string }[] = [
@@ -25,6 +24,7 @@ interface TileSetPanelProps {
   onSubmit: (params: TileSetRequestParams) => void;
   onCancel: (tileSetId: string) => void;
   onClose: () => void;
+  hasDefaultStyle?: boolean;
 }
 
 export function TileSetPanel({
@@ -34,6 +34,7 @@ export function TileSetPanel({
   onSubmit,
   onCancel,
   onClose,
+  hasDefaultStyle = false,
 }: TileSetPanelProps) {
   const [tileType, setTileType] = useState<TileType>('terrain');
   const [gridSize, setGridSize] = useState(3);
@@ -41,7 +42,6 @@ export function TileSetPanel({
   const [disableStyle, setDisableStyle] = useState(false);
   const [generationMode, setGenerationMode] = useState<'sequential' | 'single-shot'>('sequential');
   const [dismissedFailedSetId, setDismissedFailedSetId] = useState<string | null>(null);
-  const style = useStyleStore((s) => s.style);
 
   // Check for active tile sets
   const activeSet = tileSets.find((ts) => ts.status === 'generating');
@@ -312,7 +312,7 @@ export function TileSetPanel({
           </div>
 
           {/* No style checkbox */}
-          {style?.enabled && (
+          {hasDefaultStyle && (
             <label className={styles.noStyleCheck}>
               <input
                 type="checkbox"

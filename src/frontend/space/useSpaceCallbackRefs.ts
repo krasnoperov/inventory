@@ -23,9 +23,6 @@ export function useSpaceCallbackRefs({
   onSessionCreated,
   onPlanUpdated,
   onPlanArchived,
-  onStyleState,
-  onStyleUpdated,
-  onStyleDeleted,
   onBatchStarted,
   onBatchProgress,
   onBatchCompleted,
@@ -68,9 +65,6 @@ export function useSpaceCallbackRefs({
   const onSessionCreatedRef = useRef(onSessionCreated);
   const onPlanUpdatedRef = useRef(onPlanUpdated);
   const onPlanArchivedRef = useRef(onPlanArchived);
-  const onStyleStateRef = useRef(onStyleState);
-  const onStyleUpdatedRef = useRef(onStyleUpdated);
-  const onStyleDeletedRef = useRef(onStyleDeleted);
   const onBatchStartedRef = useRef(onBatchStarted);
   const onBatchProgressRef = useRef(onBatchProgress);
   const onBatchCompletedRef = useRef(onBatchCompleted);
@@ -114,9 +108,6 @@ export function useSpaceCallbackRefs({
     onSessionCreatedRef.current = onSessionCreated;
     onPlanUpdatedRef.current = onPlanUpdated;
     onPlanArchivedRef.current = onPlanArchived;
-    onStyleStateRef.current = onStyleState;
-    onStyleUpdatedRef.current = onStyleUpdated;
-    onStyleDeletedRef.current = onStyleDeleted;
     onBatchStartedRef.current = onBatchStarted;
     onBatchProgressRef.current = onBatchProgress;
     onBatchCompletedRef.current = onBatchCompleted;
@@ -160,9 +151,6 @@ export function useSpaceCallbackRefs({
     onSessionCreatedRef,
     onPlanUpdatedRef,
     onPlanArchivedRef,
-    onStyleStateRef,
-    onStyleUpdatedRef,
-    onStyleDeletedRef,
     onBatchStartedRef,
     onBatchProgressRef,
     onBatchCompletedRef,

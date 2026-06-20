@@ -77,16 +77,43 @@ describe('capRefs', () => {
 });
 
 describe('getStyleImageKeys', () => {
-  function mockRepo(style: unknown): SpaceRepository {
-    return { getActiveStyle: mock.fn(async () => style) } as unknown as SpaceRepository;
+  function mockRepo(options: {
+    disabled?: boolean;
+    prompt?: string;
+    variantIds?: string[];
+    imageKeys?: string[];
+  } = {}): SpaceRepository {
+    const variantIds = options.variantIds ?? [];
+    const imageKeys = options.imageKeys ?? variantIds.map((id) => `images/${id}.png`);
+    return {
+      getDefaultStylePreset: mock.fn(async () => (
+        options.disabled || (!options.prompt && variantIds.length === 0)
+          ? null
+          : { id: 'preset-1', enabled: 1 }
+      )),
+      resolveStylePresetReferences: mock.fn(async () => ({
+        preset: { id: 'preset-1', enabled: options.disabled ? 0 : 1 },
+        stylePresetId: 'preset-1',
+        styleCollectionId: 'collection-1',
+        stylePrompt: options.prompt ?? '',
+        styleReferenceVariantIds: variantIds,
+        styleReferenceImageKeys: imageKeys,
+      })),
+      getVariantById: mock.fn(async (variantId: string) => {
+        const index = variantIds.indexOf(variantId);
+        return index === -1 ? null : { id: variantId, image_key: imageKeys[index] };
+      }),
+      getActiveStyle: mock.fn(async () => {
+        throw new Error('legacy space_styles should not be read');
+      }),
+    } as unknown as SpaceRepository;
   }
 
-  test('returns keys and description from active style', async () => {
+  test('returns keys and description from default asset-backed style preset', async () => {
     const repo = mockRepo({
-      id: 's1',
-      image_keys: '["styles/a.png","styles/b.png"]',
-      description: 'Pixel art style',
-      enabled: 1,
+      prompt: 'Pixel art style',
+      variantIds: ['style-a', 'style-b'],
+      imageKeys: ['styles/a.png', 'styles/b.png'],
     });
     const result = await getStyleImageKeys(repo);
     assert.deepStrictEqual(result.styleKeys, ['styles/a.png', 'styles/b.png']);
@@ -94,57 +121,41 @@ describe('getStyleImageKeys', () => {
   });
 
   test('returns empty when disableStyle is true', async () => {
-    const repo = mockRepo({
-      id: 's1',
-      image_keys: '["styles/a.png"]',
-      description: 'Some style',
-      enabled: 1,
-    });
+    const repo = mockRepo({ prompt: 'Some style', variantIds: ['style-a'], imageKeys: ['styles/a.png'] });
     const result = await getStyleImageKeys(repo, true);
     assert.deepStrictEqual(result.styleKeys, []);
     assert.strictEqual(result.styleDescription, null);
   });
 
-  test('returns empty when no active style', async () => {
-    const repo = mockRepo(null);
+  test('returns empty when no default style preset exists', async () => {
+    const repo = mockRepo();
     const result = await getStyleImageKeys(repo);
     assert.deepStrictEqual(result.styleKeys, []);
     assert.strictEqual(result.styleDescription, null);
   });
 
-  test('returns empty when style is disabled', async () => {
-    const repo = mockRepo({
-      id: 's1',
-      image_keys: '["styles/a.png"]',
-      description: 'Some style',
-      enabled: 0,
-    });
+  test('returns empty when default style preset is disabled', async () => {
+    const repo = mockRepo({ disabled: true, prompt: 'Some style', variantIds: ['style-a'], imageKeys: ['styles/a.png'] });
     const result = await getStyleImageKeys(repo);
     assert.deepStrictEqual(result.styleKeys, []);
     assert.strictEqual(result.styleDescription, null);
   });
 
-  test('returns null description when style has empty description', async () => {
+  test('returns null description when default style preset has empty prompt', async () => {
     const repo = mockRepo({
-      id: 's1',
-      image_keys: '["styles/a.png"]',
-      description: '',
-      enabled: 1,
+      prompt: '',
+      variantIds: ['style-a'],
+      imageKeys: ['styles/a.png'],
     });
     const result = await getStyleImageKeys(repo);
     assert.deepStrictEqual(result.styleKeys, ['styles/a.png']);
     assert.strictEqual(result.styleDescription, null);
   });
 
-  test('handles malformed image_keys JSON gracefully', async () => {
-    const repo = mockRepo({
-      id: 's1',
-      image_keys: 'not-valid-json',
-      description: 'A style',
-      enabled: 1,
-    });
+  test('does not read legacy singleton style rows', async () => {
+    const repo = mockRepo();
     const result = await getStyleImageKeys(repo);
     assert.deepStrictEqual(result.styleKeys, []);
-    assert.strictEqual(result.styleDescription, 'A style');
+    assert.strictEqual(result.styleDescription, null);
   });
 });

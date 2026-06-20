@@ -76,8 +76,6 @@ import {
   UpsertProviderKeyRequestSchema,
   UploadMediaRequestSchema,
   UploadMediaResponseSchema,
-  UploadStyleImageRequestSchema,
-  UploadStyleImageResponseSchema,
   UserProfileSchema,
   UserProfileUpdateResponseSchema,
   UserSettingsResponseSchema,
@@ -465,13 +463,6 @@ export const apiEndpoints = {
     paramsSchema: SpaceIdParamsSchema,
     formSchema: UploadMediaRequestSchema,
     responseSchema: UploadMediaResponseSchema,
-  },
-  'POST /api/spaces/:id/style-images': {
-    method: 'POST',
-    path: '/api/spaces/:id/style-images',
-    paramsSchema: SpaceIdParamsSchema,
-    formSchema: UploadStyleImageRequestSchema,
-    responseSchema: UploadStyleImageResponseSchema,
   },
   'GET /api/spaces/:spaceId/variants/:variantId/media': {
     method: 'GET',

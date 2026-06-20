@@ -210,8 +210,6 @@ export type {
   UpsertProviderKeyRequest,
   UploadMediaRequest,
   UploadMediaResponse,
-  UploadStyleImageRequest,
-  UploadStyleImageResponse,
   UserProfile,
   UserProfileUpdateResponse,
   UserSettingsResponse,

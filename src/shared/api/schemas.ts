@@ -1142,20 +1142,6 @@ export const UploadMediaResponseSchema = z
   })
   .openapi('UploadMediaResponse');
 
-export const UploadStyleImageRequestSchema = z
-  .object({
-    file: UploadFileSchema,
-  })
-  .openapi('UploadStyleImageRequest');
-
-export const UploadStyleImageResponseSchema = z
-  .object({
-    success: z.literal(true),
-    imageKey: z.string(),
-    warning: z.string().optional(),
-  })
-  .openapi('UploadStyleImageResponse');
-
 export const VariantMediaParamsSchema = z.object({
   spaceId: z.string().openapi({
     param: {
@@ -1265,5 +1251,3 @@ export type Variant = z.infer<typeof VariantSchema>;
 export type Lineage = z.infer<typeof LineageSchema>;
 export type UploadMediaRequest = z.infer<typeof UploadMediaRequestSchema>;
 export type UploadMediaResponse = z.infer<typeof UploadMediaResponseSchema>;
-export type UploadStyleImageRequest = z.infer<typeof UploadStyleImageRequestSchema>;
-export type UploadStyleImageResponse = z.infer<typeof UploadStyleImageResponseSchema>;

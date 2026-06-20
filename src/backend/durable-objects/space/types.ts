@@ -679,11 +679,7 @@ export type ClientMessage =
   | AutoDescribeRequestMessage
   // ForgeChat messages (multi-turn prompt refinement)
   | ForgeChatRequestMessage
-  // Style anchoring messages
-  | { type: 'style:get' }
-  | { type: 'style:set'; name?: string; description: string; imageKeys: string[]; enabled?: boolean }
-  | { type: 'style:delete' }
-  | { type: 'style:toggle'; enabled: boolean }
+  // Asset-backed style preset messages
   | { type: 'style_preset:create'; id?: string; name: string; description?: string | null; stylePrompt?: string; collectionId?: string | null; enabled?: boolean; isDefault?: boolean }
   | { type: 'style_preset:update'; presetId: string; changes: { name?: string; description?: string | null; stylePrompt?: string; collectionId?: string | null; enabled?: boolean; isDefault?: boolean } }
   | { type: 'style_preset:delete'; presetId: string }
@@ -710,8 +706,8 @@ export type ClientMessage =
  */
 export type ServerMessage =
   // Sync (full state)
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; relations?: SpaceRelation[]; compositions?: Composition[]; compositionItems?: CompositionItem[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; collectionItems?: CollectionItem[]; compositions?: CompositionOverview[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; relations?: SpaceRelation[]; compositions?: Composition[]; compositionItems?: CompositionItem[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; collectionItems?: CollectionItem[]; compositions?: CompositionOverview[] }
   // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
   // Consider implementing for WebSocket reconnection state recovery.
   // | { type: 'sync:chat_state'; messages: ChatMessage[]; plan: Plan | null; planSteps: PlanStep[]; approvals: PendingApproval[]; autoExecuted: AutoExecuted[] }
@@ -794,10 +790,7 @@ export type ServerMessage =
   | { type: 'chat:error'; requestId: string; error: string; code: string }
   | { type: 'generate:error'; requestId: string; error: string; code: string }
   | { type: 'refine:error'; requestId: string; error: string; code: string }
-  // Style anchoring messages
-  | { type: 'style:state'; style: SpaceStyle | null }
-  | { type: 'style:updated'; style: SpaceStyle }
-  | { type: 'style:deleted' }
+  // Asset-backed style preset messages
   | { type: 'style_preset:created'; preset: StylePresetPreview }
   | { type: 'style_preset:updated'; preset: StylePresetPreview }
   | { type: 'style_preset:deleted'; presetId: string }
