@@ -1,9 +1,5 @@
-import { isFeatureFlagEnabled } from '../shared/featureFlags';
+import type { StartSession } from './app-context';
 
-declare const __MAKEFX_ROTATION_ENABLED__: string | undefined;
-
-export function isWebRotationEnabled(): boolean {
-  return isFeatureFlagEnabled(typeof __MAKEFX_ROTATION_ENABLED__ === 'undefined'
-    ? undefined
-    : __MAKEFX_ROTATION_ENABLED__);
+export function isWebRotationEnabled(session: StartSession | null | undefined): boolean {
+  return session?.config.features.rotation === true;
 }

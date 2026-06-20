@@ -11,6 +11,7 @@ import type {
   ErrorResponse,
   SuccessResponse,
 } from '../../../shared/api/schemas';
+import { isFeatureFlagEnabled } from '../../../shared/featureFlags';
 import { toApiUser } from '../../routes/openapi';
 import {
   consumeAuthorizationCode,
@@ -413,6 +414,9 @@ export class AuthHandler {
       config: {
         googleClientId: c.env.GOOGLE_CLIENT_ID || '',
         environment: c.env.ENVIRONMENT || 'development',
+        features: {
+          rotation: isFeatureFlagEnabled(c.env.MAKEFX_ROTATION_ENABLED),
+        },
       }
     };
 

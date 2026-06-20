@@ -27,9 +27,6 @@ const ladleConfig = defineConfig({
 });
 
 const appConfig = defineConfig({
-  define: {
-    __MAKEFX_ROTATION_ENABLED__: JSON.stringify(process.env.MAKEFX_ROTATION_ENABLED ?? ''),
-  },
   plugins: [
     cloudflare({
       configPath: process.env.CLOUDFLARE_VITE_CONFIG_PATH ?? 'wrangler.toml',

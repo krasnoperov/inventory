@@ -27,7 +27,7 @@ import { useImageUpload } from '../hooks/useImageUpload';
 import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { TileGrid } from '../components/TileGrid/TileGrid';
 import { formatMediaKind } from '../mediaKind';
-import { assetDetailsQueryOptions } from '../queries';
+import { assetDetailsQueryOptions, sessionQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
 import styles from './AssetDetailPage.module.css';
 
@@ -49,6 +49,7 @@ export default function AssetDetailPage() {
     ...assetDetailsQueryOptions(spaceId || '', assetId || ''),
     enabled: Boolean(user && spaceId && assetId),
   });
+  const sessionQuery = useQuery(sessionQueryOptions());
 
   const queryAsset = assetDetailsQuery.data?.asset ?? null;
   const queryVariants = assetDetailsQuery.data?.variants ?? [];
@@ -62,7 +63,7 @@ export default function AssetDetailPage() {
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
-  const rotationEnabled = isWebRotationEnabled();
+  const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
   // Variant selection state (persisted in store)
   const selectedVariantId = useSelectedVariantId(assetId || '');

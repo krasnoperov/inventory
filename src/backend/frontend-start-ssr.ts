@@ -7,6 +7,7 @@ import { AuthHandler } from './features/auth/auth-handler';
 import type { AppContext } from './routes/types';
 import type { AuthSessionResponse } from '../shared/api/schemas';
 import type { StartServerContext } from '../frontend/app-context';
+import { isFeatureFlagEnabled } from '../shared/featureFlags';
 
 function looksLikeStaticFile(pathname: string): boolean {
   return /\.[a-z0-9]+$/i.test(pathname);
@@ -24,6 +25,9 @@ async function resolveStartSession(c: Context<AppContext>): Promise<AuthSessionR
     config: {
       googleClientId: c.env.GOOGLE_CLIENT_ID || '',
       environment: c.env.ENVIRONMENT || 'development',
+      features: {
+        rotation: isFeatureFlagEnabled(c.env.MAKEFX_ROTATION_ENABLED),
+      },
     },
   };
 
@@ -81,6 +85,7 @@ export async function renderStartApp(
         config: {
           googleClientId: session.config.googleClientId || '',
           environment: session.config.environment,
+          features: session.config.features,
         },
         user: session.user ?? null,
       },
