@@ -74,7 +74,7 @@ function paidGenerationProduct(overrides: Record<string, unknown> = {}) {
 }
 
 describe('billingRoutes', () => {
-  test('usage route forwards period usage and provider spend', async () => {
+  test('usage route forwards period usage and provider cost', async () => {
     const deps = new Map<unknown, unknown>();
     deps.set(AuthService, {
       verifyJWT: async () => ({ userId: 42 }),
@@ -468,7 +468,7 @@ describe('billingRoutes', () => {
     assert.ok(body.checks.polarMeters.missing.includes('claude_input_tokens'));
   });
 
-  test('spend summary forwards admin filters to provider spend ledger', async () => {
+  test('spend summary forwards admin filters to provider cost ledger', async () => {
     const calls: unknown[] = [];
     const deps = new Map<unknown, unknown>();
     deps.set(AuthService, {

@@ -374,7 +374,7 @@ export async function checkGenerationGuardrails(
       if (used + requestedProviderCost > periodLimit.value) {
         return denyGuardrail({
           denyReason: 'quota_exceeded',
-          denyMessage: 'Managed provider spend cap exceeded.',
+          denyMessage: 'Managed provider cost cap exceeded.',
           limitKey: periodLimit.key,
           used,
           requested: requestedProviderCost,
@@ -390,7 +390,7 @@ export async function checkGenerationGuardrails(
       if (used + requestedProviderCost > dailyLimit.value) {
         return denyGuardrail({
           denyReason: 'quota_exceeded',
-          denyMessage: 'Daily managed provider spend cap exceeded.',
+          denyMessage: 'Daily managed provider cost cap exceeded.',
           limitKey: dailyLimit.key,
           used,
           requested: requestedProviderCost,

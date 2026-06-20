@@ -439,7 +439,7 @@ describe('SpaceDO usage preCheck', () => {
 });
 
 describe('SpaceDO generation guardrails', () => {
-  test('blocks managed generation when provider spend cap would be exceeded', async () => {
+  test('blocks managed generation when provider cost cap would be exceeded', async () => {
     const db = {
       prepare: mock.fn((sql: string) => ({
         bind: mock.fn(() => ({

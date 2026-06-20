@@ -1120,7 +1120,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(ledgerInsert.bindings[17], 240000);
     });
 
-    test('does not collect provider spend for fake image completions', async () => {
+    test('does not collect provider cost for fake image completions', async () => {
       const { db, statements } = createMockD1();
       const { ctx } = createMockContext({
         getVariantById: mock.fn(async () => createMockVariant({
@@ -1169,7 +1169,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(usageStatements[0].bindings[2], 'gemini_images');
     });
 
-    test('records custom image completions as zero-cost custom provider spend', async () => {
+    test('records custom image completions as zero-cost custom provider cost', async () => {
       const { db, statements } = createMockD1();
       const { ctx } = createMockContext({
         getVariantById: mock.fn(async () => createMockVariant({
@@ -1363,7 +1363,7 @@ describe('GenerationController pipeline hooks', () => {
       });
     });
 
-    test('prices muted video provider spend without generated-audio rates', async () => {
+    test('prices muted video provider cost without generated-audio rates', async () => {
       const { db, statements } = createMockD1();
       const { ctx } = createMockContext({
         getVariantById: mock.fn(async () => createMockVariant({

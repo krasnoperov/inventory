@@ -203,6 +203,8 @@ lineage, and stored media.
 | \`productions\` | Place and export production handoff records |
 | \`listen\` | Stream real-time space events |
 | \`runs\` | Inspect local debug manifests |
+| \`usage\` | Inspect platform storage and workflow consumption |
+| \`spend\` | Inspect admin provider cost summaries |
 | \`billing\` | Inspect billing sync and operational status |
 
 Run \`makefx --help\` or \`makefx help <command>\` for command-specific options.

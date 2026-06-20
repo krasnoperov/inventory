@@ -380,7 +380,7 @@ billingRoutes.get('/api/billing/sync-status', adminMiddleware, async (c) => {
 });
 
 /**
- * Get provider spend summary for CLI/admin use.
+ * Get provider cost summary for CLI/admin use.
  * GET /api/billing/spend/summary
  */
 billingRoutes.get('/api/billing/spend/summary', adminMiddleware, async (c) => {
