@@ -11,6 +11,7 @@ import {
   isVariantReady,
   isVariantVideoReady,
   saveSpaceStateSnapshotForTests,
+  shouldApplyOverviewSyncForTests,
   shouldPersistSpaceStateSnapshotForTests,
   shouldReuseSharedSpaceSocketForTests,
   type Asset,
@@ -119,6 +120,12 @@ describe('space state snapshot cache', () => {
     assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-1', 2), false);
     assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-1', 3), false);
     assert.equal(shouldReuseSharedSpaceSocketForTests(null, 'space-1', 1), false);
+  });
+
+  test('ignores overview sync once full sync is the desired mode', () => {
+    assert.equal(shouldApplyOverviewSyncForTests(null), true);
+    assert.equal(shouldApplyOverviewSyncForTests('overview'), true);
+    assert.equal(shouldApplyOverviewSyncForTests('full'), false);
   });
 });
 

@@ -458,6 +458,10 @@ function shouldReuseSharedSpaceSocket(
   );
 }
 
+function shouldApplyOverviewSync(currentSyncMode: 'full' | 'overview' | null): boolean {
+  return currentSyncMode !== 'full';
+}
+
 export function getSharedSpaceSocketSessionForTests(): Pick<
   SharedSpaceSocketSession,
   'spaceId' | 'syncMode' | 'reconnectAttempts'
@@ -479,6 +483,10 @@ export function shouldReuseSharedSpaceSocketForTests(
   readyState: number | null
 ): boolean {
   return shouldReuseSharedSpaceSocket(currentSpaceId, requestedSpaceId, readyState);
+}
+
+export function shouldApplyOverviewSyncForTests(currentSyncMode: 'full' | 'overview' | null): boolean {
+  return shouldApplyOverviewSync(currentSyncMode);
 }
 
 export interface ChatMessage {
@@ -1837,6 +1845,9 @@ export function useSpaceWebSocket({
                 break;
 
               case 'sync:overview':
+                if (!shouldApplyOverviewSync(syncModeRef.current)) {
+                  break;
+                }
                 syncModeRef.current = 'overview';
                 sharedSpaceSocketSession.syncMode = 'overview';
                 variantIdsRef.current = new Set(message.variants.map((variant) => variant.id));
