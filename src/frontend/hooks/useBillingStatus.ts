@@ -1,26 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../../api/client';
+import type { BillingStatusResponse, BillingMeterStatus } from '../../api/types';
 
-export interface MeterStatus {
-  name: string;
-  consumed: number;
-  credited: number;
-  remaining: number;
-  percentUsed: number;
-  hasLimit: boolean;
-  status: 'ok' | 'warning' | 'critical' | 'exceeded';
-}
-
-export interface BillingStatus {
-  configured: boolean;
-  hasSubscription: boolean;
-  entitlement: 'none' | 'paid' | 'internal';
-  meters: MeterStatus[];
-  subscription: {
-    status: string;
-    renewsAt: string | null;
-  } | null;
-  portalUrl: string | null;
-}
+export type MeterStatus = BillingMeterStatus;
+export type BillingStatus = BillingStatusResponse;
 
 interface UseBillingStatusResult {
   billing: BillingStatus | null;
@@ -39,19 +22,7 @@ export function useBillingStatus(): UseBillingStatusResult {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch('/api/billing/status', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication required');
-        }
-        throw new Error('Failed to fetch billing status');
-      }
-
-      const data = await response.json() as BillingStatus;
-      setBilling(data);
+      setBilling(await apiFetch('GET /api/billing/status'));
     } catch (err) {
       console.error('Billing status fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load billing');
@@ -96,4 +67,10 @@ export function formatNumber(num: number): string {
     return `${(num / 1000).toFixed(1)}K`;
   }
   return num.toLocaleString();
+}
+
+export function formatBillingPlanStatus(billing: BillingStatus): string {
+  if (billing.plan.status === 'internal') return 'Internal access';
+  if (billing.plan.status === 'active') return billing.plan.displayName;
+  return 'No paid generation plan';
 }

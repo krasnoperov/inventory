@@ -148,6 +148,7 @@ prefixed key is present, for example `internal_platform_workflow_runs`.
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/billing/status` | Meter usage + limits (for healthbar UI) |
+| `GET /api/billing/usage` | Current-period customer usage and estimated local provider cost |
 | `GET /api/billing/checkout` | Polar checkout URL for first-time paid generation access |
 | `GET /api/billing/portal` | Polar customer portal URL |
 | `GET /api/billing/operational-checks` | Admin check for Polar meter readiness and local sync health |
@@ -156,12 +157,31 @@ prefixed key is present, for example `internal_platform_workflow_runs`.
 ### Status Response
 
 ```
+configured: boolean
+available: boolean
 entitlement: none | paid | internal
+plan: {
+  key: paid_generation
+  displayName: Paid Generation
+  status: inactive | active | internal
+  checkoutAvailable: boolean
+  portalAvailable: boolean
+}
 portalUrl: string | null
 meters: [
-  { name, consumed, credited, remaining, percentUsed, status }
+  { name, consumed, credited, remaining, percentUsed, hasLimit, status }
 ]
-status: ok | warning | critical | exceeded
+subscription: { status, periodStart, renewsAt } | null
+```
+
+### Usage Response
+
+```
+period: { start, end }
+usage: {
+  [meterName]: { used, limit, remaining, costUsd? }
+}
+estimatedCost: { amount, currency } | undefined
 ```
 
 ### Error Responses

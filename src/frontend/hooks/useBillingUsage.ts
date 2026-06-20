@@ -1,23 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { apiFetch } from '../../api/client';
+import type { BillingUsageMeter, BillingUsageResponse } from '../../api/types';
 
-export interface BillingUsageMeter {
-  used: number;
-  limit: number | null;
-  remaining: number | null;
-  costUsd?: number;
-}
-
-export interface BillingUsage {
-  period: {
-    start: string;
-    end: string;
-  };
-  usage: Record<string, BillingUsageMeter>;
-  estimatedCost?: {
-    amount: number;
-    currency: string;
-  };
-}
+export type { BillingUsageMeter };
+export type BillingUsage = BillingUsageResponse;
 
 interface UseBillingUsageResult {
   usage: BillingUsage | null;
@@ -58,19 +44,7 @@ export function useBillingUsage(): UseBillingUsageResult {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch('/api/billing/usage', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Authentication required');
-        }
-        throw new Error('Failed to fetch billing usage');
-      }
-
-      const data = await response.json() as BillingUsage;
-      setUsage(data);
+      setUsage(await apiFetch('GET /api/billing/usage'));
     } catch (err) {
       console.error('Billing usage fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load usage');
@@ -89,4 +63,22 @@ export function useBillingUsage(): UseBillingUsageResult {
     error,
     refresh: fetchBillingUsage,
   };
+}
+
+export function formatBillingPeriod(usage: BillingUsage | null): string {
+  if (!usage) return 'Current billing period';
+
+  const start = new Date(usage.period.start);
+  const end = new Date(usage.period.end);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+    return 'Current billing period';
+  }
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+  return `${formatter.format(start)} - ${formatter.format(end)}`;
 }

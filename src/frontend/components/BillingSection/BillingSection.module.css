@@ -21,17 +21,27 @@
   color: var(--color-text);
 }
 
-.manageLink {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-primary);
-  text-decoration: none;
-  transition: color 0.2s ease;
+.refreshButton {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.manageLink:hover {
-  color: var(--color-primary-hover);
-  text-decoration: underline;
+.refreshButton:hover:not(:disabled) {
+  background: var(--color-surface-elevated);
+  transform: translateY(-1px);
+}
+
+.refreshButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 /* Loading & Error states */
@@ -97,6 +107,36 @@
   color: var(--color-text);
 }
 
+.planStatusBadge {
+  align-self: flex-start;
+  width: max-content;
+  padding: 0.18rem 0.5rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.planStatusBadge.active {
+  border-color: var(--color-success);
+  color: var(--color-success);
+  background: var(--color-status-completed-bg);
+}
+
+.planStatusBadge.internal {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-status-processing-bg);
+}
+
+.planStatusBadge.inactive {
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+}
+
 .renewalDate {
   font-size: 0.95rem;
   font-weight: 500;
@@ -105,6 +145,13 @@
 
 .renewalInfo {
   text-align: right;
+}
+
+.planActions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin: -0.5rem 0 1.5rem;
 }
 
 .spendCard {
@@ -145,6 +192,40 @@
   color: var(--color-text-muted);
   font-size: 0.8rem;
   text-align: right;
+}
+
+.usageSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.summaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  min-width: 0;
+}
+
+.summaryLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.summaryValue {
+  color: var(--color-text);
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 /* Meters Container */
@@ -275,7 +356,6 @@
 .upgradeButton {
   display: block;
   width: 100%;
-  margin-top: 1.5rem;
   padding: 0.875rem;
   background: var(--button-primary-bg);
   color: var(--button-primary-text);
@@ -302,6 +382,29 @@
   transform: none;
 }
 
+.secondaryButton {
+  width: 100%;
+  padding: 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--color-surface-elevated);
+  transform: translateY(-1px);
+}
+
+.secondaryButton:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .section {
@@ -317,6 +420,15 @@
   .spendCard {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .sectionHeader {
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .refreshButton {
+    align-self: flex-start;
   }
 
   .spendNote {

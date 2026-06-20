@@ -2,6 +2,10 @@ import { z } from '@hono/zod-openapi';
 import {
   AuthGoogleResponseSchema,
   AuthSessionResponseSchema,
+  BillingStatusResponseSchema,
+  BillingUrlQuerySchema,
+  BillingUrlResponseSchema,
+  BillingUsageResponseSchema,
   CreateSpaceRequestSchema,
   CreateSpaceResponseSchema,
   DeleteSpaceResponseSchema,
@@ -129,6 +133,28 @@ export const apiEndpoints = {
     paramsSchema: SpaceIdParamsSchema,
     querySchema: UsageSummaryQuerySchema,
     responseSchema: PlatformUsageSummaryResponseSchema,
+  },
+  'GET /api/billing/status': {
+    method: 'GET',
+    path: '/api/billing/status',
+    responseSchema: BillingStatusResponseSchema,
+  },
+  'GET /api/billing/usage': {
+    method: 'GET',
+    path: '/api/billing/usage',
+    responseSchema: BillingUsageResponseSchema,
+  },
+  'GET /api/billing/checkout': {
+    method: 'GET',
+    path: '/api/billing/checkout',
+    querySchema: BillingUrlQuerySchema,
+    responseSchema: BillingUrlResponseSchema,
+  },
+  'GET /api/billing/portal': {
+    method: 'GET',
+    path: '/api/billing/portal',
+    querySchema: BillingUrlQuerySchema,
+    responseSchema: BillingUrlResponseSchema,
   },
   'GET /api/billing/spend/summary': {
     method: 'GET',
