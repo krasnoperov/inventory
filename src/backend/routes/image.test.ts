@@ -23,6 +23,7 @@ interface GetCall {
 interface VariantMediaFixture {
   id: string;
   status: string;
+  media_kind?: 'image' | 'audio' | 'video' | null;
   image_key?: string | null;
   media_key?: string | null;
   media_mime_type?: string | null;
@@ -72,12 +73,23 @@ function buildApp(input: {
 } = {}) {
   const app = new Hono<AppContext>();
   const calls: GetCall[] = [];
+  const platformEvents: unknown[][] = [];
   const variants = input.variants ?? {};
   const includeImages = input.includeImages ?? true;
   const includeSpacesDO = input.includeSpacesDO ?? true;
 
   app.use('*', async (c, next) => {
     c.env = {
+      DB: {
+        prepare: () => ({
+          bind: (...args: unknown[]) => ({
+            run: async () => {
+              platformEvents.push(args);
+              return { success: true };
+            },
+          }),
+        }),
+      },
       IMAGES: includeImages ? {
         get: async (key: string, options?: R2GetOptions) => {
           calls.push({ key, options });
@@ -115,7 +127,7 @@ function buildApp(input: {
   });
   app.route('/', imageRoutes);
 
-  return { app, calls };
+  return { app, calls, platformEvents };
 }
 
 describe('imageRoutes', () => {
@@ -176,9 +188,9 @@ describe('imageRoutes', () => {
   });
 
   it('serves authenticated variant media_key objects with media MIME inference', async () => {
-    const { app, calls } = buildApp({
+    const { app, calls, platformEvents } = buildApp({
       variants: {
-        'variant-1': { id: 'variant-1', status: 'completed', media_key: 'media/space/variant.mp4' },
+        'variant-1': { id: 'variant-1', status: 'completed', media_kind: 'video', media_key: 'media/space/variant.mp4' },
       },
       objects: {
         'media/space/variant.mp4': makeObject({
@@ -198,6 +210,13 @@ describe('imageRoutes', () => {
     assert.strictEqual(res.headers.get('cache-control'), 'private, max-age=31536000, immutable');
     assert.strictEqual(res.headers.get('accept-ranges'), 'bytes');
     assert.strictEqual(await res.text(), 'video-data');
+    assert.equal(platformEvents.length, 1);
+    assert.equal(platformEvents[0][2], 'space-1');
+    assert.equal(platformEvents[0][4], 'delivery');
+    assert.equal(platformEvents[0][5], 10);
+    assert.equal(platformEvents[0][8], 'variant-1');
+    assert.equal(platformEvents[0][11], 'media/space/variant.mp4');
+    assert.equal(platformEvents[0][13], 'video');
   });
 
   it('serves legacy image_key objects through authenticated variant media', async () => {
@@ -361,9 +380,9 @@ describe('imageRoutes', () => {
   });
 
   it('returns 206 for range requests against authenticated variant media', async () => {
-    const { app, calls } = buildApp({
+    const { app, calls, platformEvents } = buildApp({
       variants: {
-        'variant-1': { id: 'variant-1', status: 'completed', media_key: 'media/space/variant.mp4' },
+        'variant-1': { id: 'variant-1', status: 'completed', media_kind: 'video', media_key: 'media/space/variant.mp4' },
       },
       objects: {
         'media/space/variant.mp4': makeObject({
@@ -386,10 +405,13 @@ describe('imageRoutes', () => {
     assert.strictEqual(res.headers.get('content-length'), '4');
     assert.strictEqual(res.headers.get('accept-ranges'), 'bytes');
     assert.strictEqual(await res.text(), 'cdef');
+    assert.equal(platformEvents.length, 1);
+    assert.equal(platformEvents[0][5], 4);
+    assert.match(String(platformEvents[0][14]), /"status":206/);
   });
 
   it('returns 304 when the client already has the current object', async () => {
-    const { app } = buildApp({
+    const { app, platformEvents } = buildApp({
       variants: {
         'variant-1': { id: 'variant-1', status: 'completed', media_key: 'media/space/variant.mp3' },
       },
@@ -409,6 +431,7 @@ describe('imageRoutes', () => {
 
     assert.strictEqual(res.status, 304);
     assert.strictEqual(await res.text(), '');
+    assert.equal(platformEvents.length, 0);
   });
 
   it('requires authentication for variant media routes', async () => {

@@ -81,8 +81,14 @@ export interface SqlStorageResult {
   toArray(): unknown[];
 }
 
+export interface DeletedImageRef {
+  imageKey: string;
+  sizeBytes: number;
+}
+
 /** R2 bucket interface for image storage */
 export interface ImageStorage {
+  head?(key: string): Promise<{ size: number } | null>;
   delete(key: string): Promise<void>;
 }
 
@@ -285,15 +291,19 @@ export class SpaceRepository {
     return this.getAssetById(id);
   }
 
-  async deleteAsset(id: string): Promise<void> {
+  async deleteAsset(id: string): Promise<DeletedImageRef[]> {
     // Get all variants to decrement refs
     const variants = await this.getVariantsByAsset(id);
+    const deletedImageRefs: DeletedImageRef[] = [];
 
     // Decrement refs for all images
     for (const variant of variants) {
       const imageKeys = getVariantImageKeys(variant);
       for (const key of imageKeys) {
-        await this.decrementImageRef(key);
+        const deletion = await this.decrementImageRef(key);
+        if (deletion.deleted && deletion.sizeBytes > 0) {
+          deletedImageRefs.push({ imageKey: key, sizeBytes: deletion.sizeBytes });
+        }
       }
     }
 
@@ -307,6 +317,7 @@ export class SpaceRepository {
 
     // Delete asset (cascades to variants via FK)
     await this.sql.exec(AssetQueries.DELETE, id);
+    return deletedImageRefs;
   }
 
   async setActiveVariant(assetId: string, variantId: string): Promise<Asset | null> {
@@ -1912,15 +1923,30 @@ export class SpaceRepository {
     await this.sql.exec(INCREMENT_REF_SQL, imageKey);
   }
 
-  private async decrementImageRef(imageKey: string): Promise<void> {
+  private async decrementImageRef(imageKey: string): Promise<{ deleted: boolean; sizeBytes: number }> {
     const result = await this.sql.exec(DECREMENT_REF_SQL, imageKey);
     const row = result.toArray()[0] as { ref_count: number } | undefined;
 
     if (row && row.ref_count <= 0) {
+      let sizeBytes = 0;
+      if (this.images?.head) {
+        try {
+          const object = await this.images.head(imageKey);
+          sizeBytes = object?.size ?? 0;
+        } catch (error) {
+          log.warn('Failed to read R2 object size before delete', {
+            imageKey,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
       // Delete from R2 if storage is available
+      let deleteSucceeded = false;
       if (this.images) {
         try {
           await this.images.delete(imageKey);
+          deleteSucceeded = true;
         } catch (error) {
           log.error('Failed to delete image from R2', {
             imageKey,
@@ -1930,6 +1956,9 @@ export class SpaceRepository {
       }
       // Delete ref record
       await this.sql.exec(DELETE_REF_SQL, imageKey);
+      return { deleted: deleteSucceeded, sizeBytes };
     }
+
+    return { deleted: false, sizeBytes: 0 };
   }
 }

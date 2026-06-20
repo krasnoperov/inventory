@@ -67,6 +67,8 @@ export interface UsageEventsTable {
 }
 
 export type ProviderUsageMediaKind = 'image' | 'audio' | 'video';
+export type PlatformUsageType = 'storage' | 'workflow' | 'delivery';
+export type PlatformUsageUnit = 'byte' | 'run';
 
 export interface ProviderUsageLedgerTable {
   id: Generated<string>;
@@ -96,12 +98,32 @@ export interface ProviderUsageLedgerTable {
   created_at: string;
 }
 
+export interface PlatformUsageEventsTable {
+  id: Generated<string>;
+  idempotency_key: string;
+  space_id: string;
+  user_id: number | null;
+  usage_type: PlatformUsageType;
+  quantity: number;
+  unit: PlatformUsageUnit;
+  asset_id: string | null;
+  variant_id: string | null;
+  workflow_id: string | null;
+  request_id: string | null;
+  artifact_key: string | null;
+  operation: string | null;
+  media_kind: ProviderUsageMediaKind | null;
+  metadata: string | null;
+  created_at: string;
+}
+
 export interface Database {
   users: UsersTable;
   spaces: SpacesTable;
   space_members: SpaceMembersTable;
   usage_events: UsageEventsTable;
   provider_usage_ledger: ProviderUsageLedgerTable;
+  platform_usage_events: PlatformUsageEventsTable;
   // Phase 2: Assistant Memory
   user_patterns: UserPatternsTable;
   user_feedback: UserFeedbackTable;
@@ -140,6 +162,11 @@ export type UsageEventUpdate = Updateable<UsageEventsTable>;
 export type ProviderUsageLedgerEntry = Selectable<ProviderUsageLedgerTable>;
 export type NewProviderUsageLedgerEntry = Insertable<ProviderUsageLedgerTable>;
 export type ProviderUsageLedgerEntryUpdate = Updateable<ProviderUsageLedgerTable>;
+
+// Platform usage event types
+export type PlatformUsageEvent = Selectable<PlatformUsageEventsTable>;
+export type NewPlatformUsageEvent = Insertable<PlatformUsageEventsTable>;
+export type PlatformUsageEventUpdate = Updateable<PlatformUsageEventsTable>;
 
 // ============================================================================
 // PHASE 2 - Assistant Memory & Personalization

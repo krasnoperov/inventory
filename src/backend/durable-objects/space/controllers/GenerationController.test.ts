@@ -67,6 +67,14 @@ function createMockD1() {
   };
 }
 
+function usageEventStatements(statements: Array<{ sql: string; bindings: unknown[] }>) {
+  return statements.filter((statement) => /INSERT INTO usage_events\b/.test(statement.sql));
+}
+
+function platformUsageStatements(statements: Array<{ sql: string; bindings: unknown[] }>) {
+  return statements.filter((statement) => /INSERT INTO platform_usage_events\b/.test(statement.sql));
+}
+
 function createQuotaCheckDb(options: {
   quotaLimit: number;
   quotaLimitsJson?: string;
@@ -881,8 +889,10 @@ describe('GenerationController pipeline hooks', () => {
         thumbKey: 'thumbs/space-1/variant-image.webp',
       });
 
-      assert.strictEqual(statements.length, 2);
-      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      const usageInsert = usageStatements[0];
       const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
       assert.strictEqual(usageInsert.bindings[1], 123);
       assert.strictEqual(usageInsert.bindings[2], 'gemini_images');
@@ -946,9 +956,14 @@ describe('GenerationController pipeline hooks', () => {
         },
       });
 
-      assert.strictEqual(statements.length, 1);
-      assert.match(statements[0].sql, /INSERT INTO usage_events/);
-      assert.strictEqual(statements[0].bindings[2], 'gemini_images');
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      assert.strictEqual(
+        statements.filter((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger')).length,
+        0
+      );
+      assert.strictEqual(usageStatements[0].bindings[2], 'gemini_images');
     });
 
     test('records custom image completions as zero-cost custom provider spend', async () => {
@@ -993,8 +1008,10 @@ describe('GenerationController pipeline hooks', () => {
         },
       });
 
-      assert.strictEqual(statements.length, 2);
-      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      const usageInsert = usageStatements[0];
       const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
       assert.strictEqual(usageInsert.bindings[2], 'gemini_images');
       assert.strictEqual(ledgerInsert.bindings[1], 'workflow:workflow-custom-image:meter:gemini_images');
@@ -1087,7 +1104,10 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(result.variant.media_key, 'media/space-1/variant-video.mp4');
       assert.strictEqual(result.variant.media_mime_type, 'video/mp4');
       assert.strictEqual(result.variant.media_duration_ms, 8000);
-      assert.strictEqual(prepare.mock.calls.length, 3);
+      const preparedSql = prepare.mock.calls.map((call) => String(call.arguments[0]));
+      assert.strictEqual(preparedSql.filter((sql) => /INSERT INTO usage_events\b/.test(sql)).length, 1);
+      assert.strictEqual(preparedSql.filter((sql) => /INSERT INTO platform_usage_events\b/.test(sql)).length, 1);
+      assert.strictEqual(preparedSql.filter((sql) => /INSERT OR IGNORE INTO provider_usage_ledger\b/.test(sql)).length, 1);
       assert.strictEqual(bind.mock.calls[0].arguments[1], 123);
       assert.strictEqual(bind.mock.calls[0].arguments[2], 'gemini_videos');
       assert.strictEqual(bind.mock.calls[0].arguments[3], 2);
@@ -1110,7 +1130,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(bind.mock.calls[1].arguments[14], 'video_second');
       assert.strictEqual(bind.mock.calls[1].arguments[15], 8);
       assert.strictEqual(bind.mock.calls[1].arguments[17], 3200000);
-      assert.strictEqual(run.mock.calls.length, 2);
+      assert.strictEqual(run.mock.calls.length, 3);
 
       const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
       assert.deepStrictEqual(completeCall.arguments[3], {
@@ -1188,8 +1208,10 @@ describe('GenerationController pipeline hooks', () => {
         },
       });
 
-      assert.strictEqual(statements.length, 2);
-      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      const usageInsert = usageStatements[0];
       const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
       assert.strictEqual(usageInsert.bindings[2], 'gemini_videos');
       assert.strictEqual(usageInsert.bindings[3], 1);
@@ -1315,8 +1337,11 @@ describe('GenerationController pipeline hooks', () => {
         },
       });
 
-      assert.strictEqual(statements.length, 2);
-      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      assert.match(usageStatements[0].sql, /INSERT INTO usage_events/);
+      const usageInsert = usageStatements[0];
       const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
       assert.strictEqual(usageInsert.bindings[1], 42);
       assert.strictEqual(usageInsert.bindings[2], 'elevenlabs_audio');
@@ -1374,8 +1399,10 @@ describe('GenerationController pipeline hooks', () => {
         audioUsage: null,
       });
 
-      assert.strictEqual(statements.length, 2);
-      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      const usageInsert = usageStatements[0];
       const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
       assert.strictEqual(usageInsert.bindings[2], 'elevenlabs_audio');
       assert.strictEqual(usageInsert.bindings[3], expectedQuantity);
@@ -1430,8 +1457,11 @@ describe('GenerationController pipeline hooks', () => {
         },
       });
 
-      assert.strictEqual(statements.length, 2);
-      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      assert.match(usageStatements[0].sql, /INSERT INTO usage_events/);
+      const usageInsert = usageStatements[0];
       const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
       assert.strictEqual(usageInsert.bindings[1], 42);
       assert.strictEqual(usageInsert.bindings[2], 'gemini_audio');
@@ -1473,7 +1503,8 @@ describe('GenerationController pipeline hooks', () => {
         audioProvider: 'fake',
       });
 
-      assert.strictEqual(statements.length, 0);
+      assert.strictEqual(usageEventStatements(statements).length, 0);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
     });
 
     test('hook errors do not fail completion', async () => {

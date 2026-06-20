@@ -1,0 +1,89 @@
+import { afterEach, beforeEach, describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import type { Kysely } from 'kysely';
+import type { Database } from '../db/types';
+import { PlatformUsageEventDAO } from './platform-usage-event-dao';
+import { createTestDatabase, cleanupTestDatabase } from '../test-utils/database';
+import { TestUserBuilder } from '../test-utils/test-data-builders';
+
+describe('PlatformUsageEventDAO', () => {
+  let db: Kysely<Database>;
+  let dao: PlatformUsageEventDAO;
+  let userId: number;
+
+  beforeEach(async () => {
+    db = await createTestDatabase();
+    dao = new PlatformUsageEventDAO(db);
+
+    const user = await new TestUserBuilder()
+      .withEmail('platform-usage@example.com')
+      .withName('Platform Usage User')
+      .create(db);
+    userId = user.id;
+
+    await db.insertInto('spaces').values({
+      id: 'space-1',
+      name: 'Usage Space',
+      owner_id: String(userId),
+      created_at: Date.now(),
+    }).execute();
+  });
+
+  afterEach(async () => {
+    await cleanupTestDatabase(db);
+  });
+
+  test('persists platform usage by space and type', async () => {
+    await dao.create({
+      idempotencyKey: 'storage:space-1:variant-1:generated',
+      spaceId: 'space-1',
+      userId,
+      usageType: 'storage',
+      quantity: 2048,
+      unit: 'byte',
+      assetId: 'asset-1',
+      variantId: 'variant-1',
+      workflowId: 'workflow-1',
+      mediaKind: 'image',
+      metadata: { reason: 'generated' },
+    });
+    await dao.create({
+      idempotencyKey: 'delivery:space-1:variant-1:req-1',
+      spaceId: 'space-1',
+      userId,
+      usageType: 'delivery',
+      quantity: 512,
+      unit: 'byte',
+      variantId: 'variant-1',
+      artifactKey: 'images/space-1/variant-1.png',
+    });
+
+    const events = await dao.findBySpace('space-1');
+    assert.equal(events.length, 2);
+    assert.deepEqual(await dao.getSpaceTotals('space-1'), {
+      delivery: 512,
+      storage: 2048,
+    });
+  });
+
+  test('does not duplicate deterministic idempotency keys', async () => {
+    const event = {
+      idempotencyKey: 'workflow:space-1:variant-1:start',
+      spaceId: 'space-1',
+      userId,
+      usageType: 'workflow' as const,
+      quantity: 1,
+      unit: 'run' as const,
+      variantId: 'variant-1',
+      workflowId: 'variant-1',
+    };
+
+    await dao.create(event);
+    await dao.create(event);
+
+    const events = await dao.findBySpace('space-1');
+    assert.equal(events.length, 1);
+    assert.equal(events[0].usage_type, 'workflow');
+    assert.deepEqual(await dao.getSpaceTotals('space-1'), { workflow: 1 });
+  });
+});

@@ -101,6 +101,23 @@ function createMockSql(): SqlStorage {
   } as unknown as SqlStorage;
 }
 
+function createMockD1() {
+  const statements: Array<{ sql: string; bindings: unknown[] }> = [];
+  return {
+    db: {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn((...bindings: unknown[]) => ({
+          run: mock.fn(async () => {
+            statements.push({ sql, bindings });
+            return { success: true };
+          }),
+        })),
+      })),
+    },
+    statements,
+  };
+}
+
 function createMockContext(
   repoOverrides?: Partial<SpaceRepository>,
   sqlOverrides?: Partial<SqlStorage>
@@ -155,6 +172,44 @@ describe('AssetController', () => {
 
       // Verify broadcast
       assert.ok(broadcasts.some((b) => b.type === 'asset:deleted' && b.assetId === 'asset-1'));
+    });
+
+    test('tracks deleted storage usage for asset deletions', async () => {
+      const d1 = createMockD1();
+      const variant = createMockVariant({
+        id: 'variant-delete',
+        asset_id: 'asset-delete',
+        image_key: 'images/deleted.png',
+        thumb_key: 'thumbs/deleted.webp',
+        media_key: 'images/deleted.png',
+        media_kind: 'image',
+      });
+      const { ctx } = createMockContext({
+        getVariantsByAsset: mock.fn(async () => [variant]),
+        deleteAsset: mock.fn(async () => [
+          { imageKey: 'images/deleted.png', sizeBytes: 2048 },
+        ]),
+      });
+      ctx.env.DB = d1.db as never;
+      const controller = new AssetController(ctx);
+
+      await controller.handleDelete(
+        {} as WebSocket,
+        { userId: '42', role: 'owner' },
+        'asset-delete'
+      );
+
+      assert.strictEqual(d1.statements.length, 1);
+      const statement = d1.statements[0];
+      assert.match(statement.sql, /INSERT INTO platform_usage_events/);
+      assert.strictEqual(statement.bindings[2], 'space-1');
+      assert.strictEqual(statement.bindings[3], 42);
+      assert.strictEqual(statement.bindings[4], 'storage');
+      assert.strictEqual(statement.bindings[5], -2048);
+      assert.strictEqual(statement.bindings[7], 'asset-delete');
+      assert.strictEqual(statement.bindings[8], 'variant-delete');
+      assert.strictEqual(statement.bindings[11], 'images/deleted.png');
+      assert.strictEqual(statement.bindings[13], 'image');
     });
 
     test('reparents child assets to root when parent deleted', async () => {

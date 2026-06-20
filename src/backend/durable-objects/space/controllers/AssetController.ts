@@ -11,6 +11,10 @@ import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
+import {
+  parsePlatformUsageUserId,
+  trackDeletedStorageUsage,
+} from '../../../platform/platformUsage';
 
 const log = loggers.spaceDO;
 
@@ -90,8 +94,40 @@ export class AssetController extends BaseController {
 
     // Get child assets before deletion - they will be reparented to root
     const childAssets = await this.repo.getAssetsByParent(assetId);
+    const variants = await this.repo.getVariantsByAsset(assetId);
+    const variantByImageKey = new Map<string, Variant>();
+    for (const variant of variants) {
+      for (const key of getVariantImageKeys(variant)) {
+        if (!variantByImageKey.has(key)) {
+          variantByImageKey.set(key, variant);
+        }
+      }
+    }
 
-    await this.repo.deleteAsset(assetId);
+    const deletedImageRefs = await this.repo.deleteAsset(assetId);
+    if (Array.isArray(deletedImageRefs)) {
+      for (const deletedImageRef of deletedImageRefs) {
+        const variant = variantByImageKey.get(deletedImageRef.imageKey);
+        try {
+          await trackDeletedStorageUsage(this.env.DB, {
+            spaceId: this.spaceId,
+            userId: parsePlatformUsageUserId(meta.userId),
+            assetId,
+            variantId: variant?.id ?? null,
+            mediaKind: variant?.media_kind ?? null,
+            artifactKey: deletedImageRef.imageKey,
+            sizeBytes: deletedImageRef.sizeBytes,
+          });
+        } catch (error) {
+          log.warn('Failed to track asset deleted storage usage', {
+            spaceId: this.spaceId,
+            assetId,
+            imageKey: deletedImageRef.imageKey,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
     this.broadcast({ type: 'asset:deleted', assetId });
 
     // Broadcast updates for reparented children (now at root level)

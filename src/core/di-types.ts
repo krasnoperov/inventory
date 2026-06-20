@@ -10,6 +10,7 @@ export const TYPES = {
   SpaceDAO: Symbol.for('SpaceDAO'),
   MemberDAO: Symbol.for('MemberDAO'),
   UsageEventDAO: Symbol.for('UsageEventDAO'),
+  PlatformUsageEventDAO: Symbol.for('PlatformUsageEventDAO'),
   MemoryDAO: Symbol.for('MemoryDAO'),
 
   // For classes, we use the class constructor directly
