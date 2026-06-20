@@ -636,18 +636,6 @@ export interface GenerationEstimateResult {
   code?: string;
 }
 
-// Style data from server (raw format)
-export interface SpaceStyleRaw {
-  id: string;
-  name: string;
-  description: string;
-  image_keys: string; // JSON array
-  enabled: number; // 0/1
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-}
-
 export interface StyleReferenceCollectionRaw {
   id: string;
   name: string;
@@ -918,10 +906,6 @@ export interface UseSpaceWebSocketParams {
   // SimplePlan callbacks
   onPlanUpdated?: (plan: SimplePlan) => void;
   onPlanArchived?: (planId: string) => void;
-  // Style callbacks
-  onStyleState?: (style: SpaceStyleRaw | null) => void;
-  onStyleUpdated?: (style: SpaceStyleRaw) => void;
-  onStyleDeleted?: () => void;
   // Batch callbacks
   onBatchStarted?: (data: BatchStartedResult) => void;
   onBatchProgress?: (data: BatchProgressResult) => void;
@@ -977,8 +961,8 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 export type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: Composition[]; compositionItems?: CompositionItem[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: CompositionOverview[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: Composition[]; compositionItems?: CompositionItem[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: CompositionOverview[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -1040,10 +1024,7 @@ export type ServerMessage =
   | { type: 'chat:history'; messages: ChatMessageClient[]; sessionId: string | null }
   // Chat session created
   | { type: 'chat:session_created'; session: ChatSession }
-  // Style messages
-  | { type: 'style:state'; style: SpaceStyleRaw | null }
-  | { type: 'style:updated'; style: SpaceStyleRaw }
-  | { type: 'style:deleted' }
+  // Asset-backed style preset messages
   | { type: 'style_preset:created'; preset: StylePresetRaw }
   | { type: 'style_preset:updated'; preset: StylePresetRaw }
   | { type: 'style_preset:deleted'; presetId: string }
@@ -1181,11 +1162,7 @@ export interface UseSpaceWebSocketReturn {
   // Persistent chat methods
   sendPersistentChatMessage: (content: string, forgeContext?: ChatForgeContext) => void;
   clearChatSession: () => void;
-  // Style methods
-  sendStyleGet: () => void;
-  sendStyleSet: (data: { name?: string; description?: string; imageKeys?: string[]; enabled?: boolean }) => void;
-  sendStyleDelete: () => void;
-  sendStyleToggle: (enabled: boolean) => void;
+  // Asset-backed style preset methods
   createStylePreset: (params: StylePresetCreateParams) => void;
   updateStylePreset: (presetId: string, changes: StylePresetUpdateParams) => void;
   deleteStylePreset: (presetId: string) => void;

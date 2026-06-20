@@ -20,6 +20,8 @@ function createMockRepo(): SpaceRepository {
     getVariantById: mock.fn(async () => null),
     getVariantImageKey: mock.fn(async () => null),
     getActiveStyle: mock.fn(async () => null),
+    getDefaultStylePreset: mock.fn(async () => null),
+    resolveStylePresetReferences: mock.fn(async () => null),
     createAsset: mock.fn(async (input) => ({
       id: input.id,
       name: input.name,
@@ -72,6 +74,21 @@ function createMockRepo(): SpaceRepository {
       relation_type: input.relationType,
       severed: false,
       created_at: Date.now(),
+    })),
+    createRelation: mock.fn(async (input) => ({
+      id: input.id,
+      subject_type: input.subject.subjectType,
+      subject_asset_id: input.subject.assetId ?? null,
+      subject_variant_id: input.subject.variantId ?? null,
+      object_type: input.object.subjectType,
+      object_asset_id: input.object.assetId ?? null,
+      object_variant_id: input.object.variantId ?? null,
+      relation_type: input.relationType,
+      context: input.context ?? null,
+      sort_index: input.sortIndex ?? 0,
+      created_by: input.createdBy,
+      created_at: Date.now(),
+      updated_at: Date.now(),
     })),
     updateAsset: mock.fn(async () => ({})),
     updateVariantWorkflow: mock.fn(async (id, workflowId, status) => ({
@@ -547,13 +564,26 @@ describe('VariantFactory', () => {
       const factory = new VariantFactory('space-1', repo, env, broadcast);
       const meta = createMockMeta();
 
-      asMock(repo.getActiveStyle).mock.mockImplementation(async () => ({
-        id: 'style-1',
-        name: 'House Style',
-        description: '',
-        image_keys: JSON.stringify(['images/style.png']),
+      (repo as unknown as {
+        getDefaultStylePreset: () => Promise<unknown>;
+        resolveStylePresetReferences: () => Promise<unknown>;
+      }).getDefaultStylePreset = mock.fn(async () => ({
+        id: 'preset-style',
         enabled: 1,
       }));
+      (repo as unknown as {
+        resolveStylePresetReferences: () => Promise<unknown>;
+      }).resolveStylePresetReferences = mock.fn(async () => ({
+        preset: { id: 'preset-style', enabled: 1 },
+        stylePresetId: 'preset-style',
+        styleCollectionId: 'collection-style',
+        stylePrompt: '',
+        styleReferenceVariantIds: ['style-var'],
+        styleReferenceImageKeys: ['images/style.png'],
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async (variantId: string) => (
+        variantId === 'style-var' ? { id: variantId, image_key: 'images/style.png' } : null
+      ));
       asMock(repo.getVariantImageKey).mock.mockImplementation(async (variantId: string) => `images/${variantId}.png`);
 
       const result = await factory.createAssetWithVariant(

@@ -240,6 +240,74 @@ describe('Space organization repository', () => {
     return row?.ref_count ?? null;
   }
 
+  async function seedLegacyStyle(data: {
+    id?: string;
+    name?: string;
+    description: string;
+    imageKeys: string[];
+    enabled?: boolean;
+    createdBy?: string;
+  }): Promise<void> {
+    const now = Date.now();
+    await sql.exec(
+      `INSERT INTO space_styles (id, name, description, image_keys, enabled, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      data.id ?? 'legacy-style',
+      data.name ?? 'Default Style',
+      data.description,
+      JSON.stringify(data.imageKeys),
+      data.enabled === false ? 0 : 1,
+      data.createdBy ?? 'user-1',
+      now,
+      now
+    );
+    for (const key of data.imageKeys) {
+      await sql.exec(
+        `INSERT INTO image_refs (image_key, ref_count) VALUES (?, 1)
+         ON CONFLICT(image_key) DO UPDATE SET ref_count = ref_count + 1`,
+        key
+      );
+    }
+  }
+
+  async function updateLegacyStyle(
+    id: string,
+    changes: { description?: string; imageKeys?: string[]; enabled?: boolean }
+  ): Promise<void> {
+    const existing = await repo.getActiveStyle();
+    assert.equal(existing?.id, id);
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    if (changes.description !== undefined) {
+      updates.push('description = ?');
+      values.push(changes.description);
+    }
+    if (changes.imageKeys !== undefined) {
+      const oldKeys = JSON.parse(existing.image_keys) as string[];
+      const newKeys = changes.imageKeys;
+      updates.push('image_keys = ?');
+      values.push(JSON.stringify(newKeys));
+      for (const key of newKeys.filter((key) => !oldKeys.includes(key))) {
+        await sql.exec(
+          `INSERT INTO image_refs (image_key, ref_count) VALUES (?, 1)
+           ON CONFLICT(image_key) DO UPDATE SET ref_count = ref_count + 1`,
+          key
+        );
+      }
+      for (const key of oldKeys.filter((key) => !newKeys.includes(key))) {
+        await sql.exec('UPDATE image_refs SET ref_count = ref_count - 1 WHERE image_key = ?', key);
+      }
+    }
+    if (changes.enabled !== undefined) {
+      updates.push('enabled = ?');
+      values.push(changes.enabled ? 1 : 0);
+    }
+    if (updates.length === 0) return;
+    updates.push('updated_at = ?');
+    values.push(Date.now(), id);
+    await sql.exec(`UPDATE space_styles SET ${updates.join(', ')} WHERE id = ?`, ...values);
+  }
+
   function createImageStorage(sizes: Record<string, number | null>): ImageStorage {
     return {
       async head(key: string) {
@@ -608,7 +676,7 @@ describe('Space organization repository', () => {
 
   test('keeps legacy singleton style reads separate from style presets', async () => {
     await repo.createCollection({ id: 'collection-1', name: 'Style refs', createdBy: 'user-1' });
-    await repo.createStyle({
+    await seedLegacyStyle({
       id: 'legacy-style',
       name: 'Legacy Style',
       description: 'Legacy space style row',
@@ -631,7 +699,7 @@ describe('Space organization repository', () => {
   });
 
   test('backfills legacy style description into a default asset-backed preset', async () => {
-    await repo.createStyle({
+    await seedLegacyStyle({
       id: 'legacy-style',
       name: 'Legacy Style',
       description: 'Painterly fantasy UI concept art',
@@ -663,7 +731,7 @@ describe('Space organization repository', () => {
   });
 
   test('backfills multiple legacy style image keys as style reference assets and variants', async () => {
-    await repo.createStyle({
+    await seedLegacyStyle({
       id: 'legacy-style',
       name: 'Legacy Style',
       description: 'Pixel art with warm rim light',
@@ -705,7 +773,7 @@ describe('Space organization repository', () => {
     assert.equal(getRefCount('styles/space-1/one.png'), 2);
     assert.equal(getRefCount('styles/space-1/two.webp'), 2);
 
-    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+    const resolved = await resolveStyleReferences(repo);
     assert.equal(resolved.stylePresetId, result.presetId);
     assert.equal(resolved.styleId, undefined);
     assert.deepEqual(resolved.styleReferenceVariantIds, result.variantIds);
@@ -730,7 +798,7 @@ describe('Space organization repository', () => {
       pinnedVariantId: 'unrelated-variant',
       createdBy: 'user-1',
     });
-    await repo.createStyle({
+    await seedLegacyStyle({
       id: 'legacy-style',
       description: 'Watercolor props',
       imageKeys: ['styles/space-1/legacy.png'],
@@ -738,7 +806,7 @@ describe('Space organization repository', () => {
     });
 
     const result = await repo.backfillLegacySpaceStyle();
-    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+    const resolved = await resolveStyleReferences(repo);
 
     assert.notEqual(result.collectionId, 'user-style-references');
     assert.deepEqual(
@@ -751,7 +819,7 @@ describe('Space organization repository', () => {
   });
 
   test('backfill refreshes migrated preset after legacy style edits', async () => {
-    await repo.createStyle({
+    await seedLegacyStyle({
       id: 'legacy-style',
       description: 'Old watercolor props',
       imageKeys: ['styles/space-1/old.png'],
@@ -759,13 +827,13 @@ describe('Space organization repository', () => {
     });
     const first = await repo.backfillLegacySpaceStyle();
 
-    await repo.updateStyle('legacy-style', {
+    await updateLegacyStyle('legacy-style', {
       description: 'Updated ink props',
       imageKeys: ['styles/space-1/new.png'],
     });
     const second = await repo.backfillLegacySpaceStyle();
     const preset = await repo.getStylePresetById(second.presetId!);
-    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+    const resolved = await resolveStyleReferences(repo);
 
     assert.equal(second.collectionId, first.collectionId);
     assert.equal(preset?.style_prompt, 'Updated ink props');
@@ -777,7 +845,7 @@ describe('Space organization repository', () => {
   });
 
   test('backfill refreshes migrated collection item order after legacy style image reorder', async () => {
-    await repo.createStyle({
+    await seedLegacyStyle({
       id: 'legacy-style',
       description: 'Ordered watercolor props',
       imageKeys: [
@@ -788,7 +856,7 @@ describe('Space organization repository', () => {
     });
     const first = await repo.backfillLegacySpaceStyle();
 
-    await repo.updateStyle('legacy-style', {
+    await updateLegacyStyle('legacy-style', {
       imageKeys: [
         'styles/space-1/second.png',
         'styles/space-1/first.png',
@@ -796,7 +864,7 @@ describe('Space organization repository', () => {
     });
     const second = await repo.backfillLegacySpaceStyle();
     const collectionItems = await repo.listCollectionItems(second.collectionId!);
-    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+    const resolved = await resolveStyleReferences(repo);
 
     assert.equal(second.collectionId, first.collectionId);
     assert.deepEqual(collectionItems.map((item) => [item.pinned_variant_id, item.sort_index]), [
@@ -812,8 +880,8 @@ describe('Space organization repository', () => {
     assert.equal(getRefCount('styles/space-1/second.png'), 2);
   });
 
-  test('backfill disables and removes migrated defaults as legacy style state is cleared', async () => {
-    await repo.createStyle({
+  test('backfill disables migrated defaults when legacy style row is disabled', async () => {
+    await seedLegacyStyle({
       id: 'legacy-style',
       description: 'Watercolor props',
       imageKeys: ['styles/space-1/one.png'],
@@ -821,32 +889,16 @@ describe('Space organization repository', () => {
     });
     const migrated = await repo.backfillLegacySpaceStyle();
 
-    await repo.toggleStyle('legacy-style', false);
+    await updateLegacyStyle('legacy-style', { enabled: false });
     await repo.backfillLegacySpaceStyle();
 
-    let resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+    const resolved = await resolveStyleReferences(repo);
     assert.equal((await repo.getStylePresetById(migrated.presetId!))?.enabled, 0);
     assert.deepEqual(resolved.styleKeys, []);
-
-    await repo.deleteStyle('legacy-style');
-    assert.equal(await repo.getStylePresetById(migrated.presetId!), null);
-
-    await repo.createStyle({
-      id: 'replacement-style',
-      description: 'Replacement ink props',
-      imageKeys: ['styles/space-1/replacement.png'],
-      createdBy: 'user-1',
-    });
-    const replacement = await repo.backfillLegacySpaceStyle();
-    resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
-
-    assert.equal((await repo.getDefaultStylePreset())?.id, replacement.presetId);
-    assert.equal(resolved.stylePresetId, replacement.presetId);
-    assert.deepEqual(resolved.styleKeys, ['styles/space-1/replacement.png']);
   });
 
   test('backfill is idempotent across repeated runs', async () => {
-    await repo.createStyle({
+    await seedLegacyStyle({
       id: 'legacy-style',
       description: 'Watercolor props',
       imageKeys: ['styles/space-1/one.png'],
@@ -866,7 +918,7 @@ describe('Space organization repository', () => {
   });
 
   test('backfill tolerates missing R2 image metadata', async () => {
-    await repo.createStyle({
+    await seedLegacyStyle({
       id: 'legacy-style',
       description: 'Ink wash silhouettes',
       imageKeys: ['styles/space-1/missing.png'],
@@ -891,7 +943,7 @@ describe('Space organization repository', () => {
   });
 
   test('backfill leaves historical legacy style recipe snapshots displayable', async () => {
-    await repo.createStyle({
+    await seedLegacyStyle({
       id: 'legacy-style',
       description: 'Pastel concept art',
       imageKeys: ['styles/space-1/style.png'],

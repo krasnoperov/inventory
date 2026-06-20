@@ -24,9 +24,6 @@ export interface StylePanelProps {
   createStylePreset?: (params: StylePresetCreateParams) => void;
   updateStylePreset?: (presetId: string, changes: StylePresetUpdateParams) => void;
   deleteStylePreset?: (presetId: string) => void;
-  sendStyleSet?: (data: { name?: string; description?: string; imageKeys?: string[]; enabled?: boolean }) => void;
-  sendStyleDelete?: () => void;
-  sendStyleToggle?: (enabled: boolean) => void;
 }
 
 function isEnabledPreset(preset: StylePresetRaw): boolean {

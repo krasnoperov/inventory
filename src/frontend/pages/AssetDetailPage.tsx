@@ -7,7 +7,6 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useParams } from '../hooks/useParams';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore } from '../stores/chatStore';
-import { useStyleStore, type SpaceStyleClient } from '../stores/styleStore';
 import { useAssetDetailStore, useSelectedVariantId } from '../stores/assetDetailStore';
 import { HeaderNav } from '../components/HeaderNav';
 import { WorkspaceChrome } from '../components/WorkspaceChrome';
@@ -33,7 +32,6 @@ import {
   type SpaceRelationContext,
   type SpaceRelationType,
   type SpaceSubject,
-  type SpaceStyleRaw,
   type GenerationEstimateResult,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
@@ -125,21 +123,6 @@ export default function AssetDetailPage() {
   // Forge tray store
   const { addSlot, prefillFromVariant } = useForgeTrayStore();
 
-  // Style store
-  const setStyle = useStyleStore((s) => s.setStyle);
-  const clearStyle = useStyleStore((s) => s.clearStyle);
-
-  const parseStyle = useCallback((raw: SpaceStyleRaw): SpaceStyleClient => ({
-    id: raw.id,
-    name: raw.name,
-    description: raw.description,
-    imageKeys: JSON.parse(raw.image_keys || '[]'),
-    enabled: raw.enabled === 1,
-    createdBy: raw.created_by,
-    createdAt: raw.created_at,
-    updatedAt: raw.updated_at,
-  }), []);
-
   // Persistent chat state from Zustand store (shared across pages)
   const chatMessages = useChatStore((state) => state.messages);
   const isChatLoading = useChatStore((state) => state.isLoading);
@@ -205,9 +188,6 @@ export default function AssetDetailPage() {
     reorderCompositionItems,
     deleteCompositionItem,
     updateSession,
-    sendStyleSet,
-    sendStyleDelete,
-    sendStyleToggle,
     createStylePreset,
     updateStylePreset,
     deleteStylePreset,
@@ -266,27 +246,6 @@ export default function AssetDetailPage() {
     },
     onPersistentChatProgress: (progress) => {
       setChatProgress(progress);
-    },
-    onStyleState: (raw) => {
-      if (raw) {
-        const parsed = parseStyle(raw);
-        setStyle(parsed);
-        const imageCount = parsed.enabled ? parsed.imageKeys.length : 0;
-        useForgeTrayStore.getState().setMaxSlots(14 - imageCount);
-      } else {
-        clearStyle();
-        useForgeTrayStore.getState().setMaxSlots(14);
-      }
-    },
-    onStyleUpdated: (raw) => {
-      const parsed = parseStyle(raw);
-      setStyle(parsed);
-      const imageCount = parsed.enabled ? parsed.imageKeys.length : 0;
-      useForgeTrayStore.getState().setMaxSlots(14 - imageCount);
-    },
-    onStyleDeleted: () => {
-      clearStyle();
-      useForgeTrayStore.getState().setMaxSlots(14);
     },
     onGenerateError: (data) => {
       setForgeError(data.error);
@@ -1220,9 +1179,6 @@ export default function AssetDetailPage() {
         requestChatHistory={requestChatHistory}
         clearChatSession={clearChatSession}
         spaceId={spaceId}
-        sendStyleSet={sendStyleSet}
-        sendStyleDelete={sendStyleDelete}
-        sendStyleToggle={sendStyleToggle}
         createStylePreset={createStylePreset}
         updateStylePreset={updateStylePreset}
         deleteStylePreset={deleteStylePreset}
@@ -1245,6 +1201,10 @@ export default function AssetDetailPage() {
           rotationSets={rotationSets}
           rotationViews={rotationViews}
           variants={wsVariants}
+          hasDefaultStyle={stylePresets.some((preset) => (
+            (preset.enabled === true || preset.enabled === 1) &&
+            (preset.is_default === true || preset.is_default === 1)
+          ))}
           onSubmit={(params) => {
             sendRotationRequest(params);
           }}

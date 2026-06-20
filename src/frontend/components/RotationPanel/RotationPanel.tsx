@@ -7,7 +7,6 @@ import type {
   RotationView,
   RotationRequestParams,
 } from '../../hooks/useSpaceWebSocket';
-import { useStyleStore } from '../../stores/styleStore';
 import styles from './RotationPanel.module.css';
 
 const CONFIGS: { value: RotationConfig; label: string; icon: string; count: number }[] = [
@@ -25,6 +24,7 @@ interface RotationPanelProps {
   onSubmit: (params: RotationRequestParams & { generationMode?: 'sequential' | 'single-shot' }) => void;
   onCancel: (rotationSetId: string) => void;
   onClose: () => void;
+  hasDefaultStyle?: boolean;
   onRateVariant?: (variantId: string, rating: 'approved' | 'rejected') => void;
   onExportTrainingData?: () => void;
 }
@@ -38,6 +38,7 @@ export function RotationPanel({
   onSubmit,
   onCancel,
   onClose,
+  hasDefaultStyle = false,
   onRateVariant,
   onExportTrainingData,
 }: RotationPanelProps) {
@@ -48,7 +49,6 @@ export function RotationPanel({
   const [disableStyle, setDisableStyle] = useState(false);
   const [generationMode, setGenerationMode] = useState<'sequential' | 'single-shot'>('sequential');
   const [dismissedFailedSetId, setDismissedFailedSetId] = useState<string | null>(null);
-  const style = useStyleStore((s) => s.style);
 
   // Check if there's an active rotation set for this variant
   const activeSet = rotationSets.find(
@@ -390,7 +390,7 @@ export function RotationPanel({
           </div>
 
           {/* No style checkbox */}
-          {style?.enabled && (
+          {hasDefaultStyle && (
             <label className={styles.noStyleCheck}>
               <input
                 type="checkbox"

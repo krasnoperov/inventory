@@ -7,7 +7,6 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useParams } from '../hooks/useParams';
 import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore } from '../stores/chatStore';
-import { useStyleStore, type SpaceStyleClient } from '../stores/styleStore';
 import type {
   Asset,
   Variant,
@@ -15,7 +14,6 @@ import type {
   SpaceRelationContext,
   SpaceRelationType,
   SpaceSubject,
-  SpaceStyleRaw,
   GenerationEstimateResult,
 } from '../hooks/useSpaceWebSocket';
 import { HeaderNav } from '../components/HeaderNav';
@@ -77,22 +75,6 @@ export default function SpacePage() {
 
   // Forge tray store
   const { addSlot } = useForgeTrayStore();
-
-  // Style store
-  const setStyle = useStyleStore((s) => s.setStyle);
-  const clearStyle = useStyleStore((s) => s.clearStyle);
-
-  // Parse raw style from server into client format
-  const parseStyle = useCallback((raw: SpaceStyleRaw): SpaceStyleClient => ({
-    id: raw.id,
-    name: raw.name,
-    description: raw.description,
-    imageKeys: JSON.parse(raw.image_keys || '[]'),
-    enabled: raw.enabled === 1,
-    createdBy: raw.created_by,
-    createdAt: raw.created_at,
-    updatedAt: raw.updated_at,
-  }), []);
 
   // Persistent chat state from Zustand store (shared across pages)
   const chatMessages = useChatStore((state) => state.messages);
@@ -156,9 +138,6 @@ export default function SpacePage() {
     updateCompositionItem,
     reorderCompositionItems,
     deleteCompositionItem,
-    sendStyleSet,
-    sendStyleDelete,
-    sendStyleToggle,
     createStylePreset,
     updateStylePreset,
     deleteStylePreset,
@@ -210,27 +189,6 @@ export default function SpacePage() {
     onPersistentChatProgress: (progress) => {
       setChatProgress(progress);
     },
-    onStyleState: (raw) => {
-      if (raw) {
-        const parsed = parseStyle(raw);
-        setStyle(parsed);
-        const imageCount = parsed.enabled ? parsed.imageKeys.length : 0;
-        useForgeTrayStore.getState().setMaxSlots(14 - imageCount);
-      } else {
-        clearStyle();
-        useForgeTrayStore.getState().setMaxSlots(14);
-      }
-    },
-    onStyleUpdated: (raw) => {
-      const parsed = parseStyle(raw);
-      setStyle(parsed);
-      const imageCount = parsed.enabled ? parsed.imageKeys.length : 0;
-      useForgeTrayStore.getState().setMaxSlots(14 - imageCount);
-    },
-    onStyleDeleted: () => {
-      clearStyle();
-      useForgeTrayStore.getState().setMaxSlots(14);
-    },
     onGenerateError: (data) => {
       setForgeError(data.error);
       setForgeErrorCode(data.code);
@@ -278,7 +236,10 @@ export default function SpacePage() {
 
   // Style panel state
   const [showStylePanel, setShowStylePanel] = useState(false);
-  const currentStyle = useStyleStore((s) => s.style);
+  const defaultStylePreset = stylePresets.find((preset) => (
+    (preset.enabled === true || preset.enabled === 1) &&
+    (preset.is_default === true || preset.is_default === 1)
+  ));
 
   useEffect(() => {
     if (!user) {
@@ -652,9 +613,9 @@ export default function SpacePage() {
                 </svg>
               </CanvasToolbarButton>
               <CanvasToolbarButton
-                className={currentStyle?.enabled ? styles.styleActive : undefined}
+                className={defaultStylePreset ? styles.styleActive : undefined}
                 onClick={() => setShowStylePanel(v => !v)}
-                title={currentStyle?.enabled ? `Style: ${currentStyle.description}` : 'Configure space style'}
+                title={defaultStylePreset ? `Style: ${defaultStylePreset.name}` : 'Configure style presets'}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.8-.1 2.6-.4.5-.2.8-.7.7-1.2-.1-.4-.3-.7-.6-.9-.4-.3-.6-.8-.6-1.3 0-1 .8-1.8 1.8-1.8h2.1c3 0 5.5-2.5 5.5-5.5C23.5 5.5 18.5 2 12 2z" />
@@ -720,9 +681,6 @@ export default function SpacePage() {
           requestChatHistory={requestChatHistory}
           clearChatSession={clearChatSession}
           spaceId={spaceId}
-          sendStyleSet={sendStyleSet}
-          sendStyleDelete={sendStyleDelete}
-          sendStyleToggle={sendStyleToggle}
           createStylePreset={createStylePreset}
           updateStylePreset={updateStylePreset}
           deleteStylePreset={deleteStylePreset}
@@ -744,6 +702,7 @@ export default function SpacePage() {
           tileSets={tileSets}
           tilePositions={tilePositions}
           variants={variants}
+          hasDefaultStyle={Boolean(defaultStylePreset)}
           onSubmit={(params) => {
             sendTileSetRequest(params);
           }}
@@ -790,9 +749,6 @@ export default function SpacePage() {
           <StylePanel
             spaceId={spaceId}
             onClose={() => setShowStylePanel(false)}
-            sendStyleSet={sendStyleSet}
-            sendStyleDelete={sendStyleDelete}
-            sendStyleToggle={sendStyleToggle}
             createStylePreset={createStylePreset}
             updateStylePreset={updateStylePreset}
             deleteStylePreset={deleteStylePreset}

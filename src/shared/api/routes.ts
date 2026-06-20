@@ -72,8 +72,6 @@ import {
   UpsertProviderKeyRequestSchema,
   UploadMediaRequestSchema,
   UploadMediaResponseSchema,
-  UploadStyleImageRequestSchema,
-  UploadStyleImageResponseSchema,
   UserProfileSchema,
   UserProfileUpdateResponseSchema,
   UserSettingsResponseSchema,
@@ -1280,29 +1278,6 @@ export const uploadMediaRoute = createRoute({
     413: errorResponse,
     403: errorResponse,
     404: errorResponse,
-    500: errorResponse,
-    503: errorResponse,
-  },
-});
-
-export const uploadStyleImageRoute = createRoute({
-  method: 'post',
-  path: '/api/spaces/{id}/style-images',
-  request: {
-    params: SpaceIdParamsSchema,
-    body: {
-      ...multipart(UploadStyleImageRequestSchema),
-      required: true,
-    },
-  },
-  responses: {
-    200: {
-      ...json(UploadStyleImageResponseSchema),
-      description: 'Uploaded style reference image',
-    },
-    400: errorResponse,
-    413: errorResponse,
-    403: errorResponse,
     500: errorResponse,
     503: errorResponse,
   },
