@@ -458,8 +458,67 @@ Lineage is import-only. Each `lineage` entry must use relation type `derived`,
 
 `--dry-run` validates files, authentication, Space membership, target assets,
 external source variant IDs, same-batch source keys, duplicate local keys, media
-kinds, and lineage relation types without uploading media bytes. JSON output
-reports created asset IDs, variant IDs, and lineage IDs after import.
+kinds, and lineage relation types without uploading media bytes.
+
+Manifests can also organize imported records after upload. Collection and
+composition references use existing names unless a top-level entry explicitly
+sets `create: true`. Same-batch references use the imported record `key`.
+
+```json
+{
+  "collections": [
+    { "name": "Backgrounds", "create": true }
+  ],
+  "styleCollections": [
+    { "name": "Painterly refs", "create": true }
+  ],
+  "compositions": [
+    { "name": "Opening Shot", "create": true, "output": { "recordKey": "final" } }
+  ],
+  "records": [
+    {
+      "key": "style-ref",
+      "file": "refs/painterly.png",
+      "name": "Painterly Reference",
+      "styleCollections": ["Painterly refs"]
+    },
+    {
+      "key": "final",
+      "file": "renders/final.png",
+      "name": "Final Keyframe",
+      "collections": [
+        { "collection": "Backgrounds", "role": "background", "subjectType": "asset" }
+      ],
+      "compositionItems": [
+        { "composition": "Opening Shot", "role": "output", "label": "Final frame" }
+      ],
+      "relations": [
+        {
+          "object": { "assetId": "asset_thumbnail_target", "subjectType": "asset" },
+          "relationType": "thumbnail_for"
+        }
+      ]
+    }
+  ],
+  "stylePresets": [
+    {
+      "name": "Painterly",
+      "create": true,
+      "collection": "Painterly refs",
+      "stylePrompt": "Painterly adventure game",
+      "default": true
+    }
+  ]
+}
+```
+
+Top-level `collectionItems`, `relations`, and `compositionItems` are also
+accepted. Composition item roles are `output`, `background`, `character`,
+`prop`, `style_ref`, `overlay`, `map`, `thumbnail`, or `custom`. Manual relation
+types include `appears_in`, `background_for`, `thumbnail_for`, `map_for`,
+`style_reference_for`, and `reference_for`. JSON output reports created asset
+IDs, variant IDs, lineage IDs, collection item IDs, relation IDs, composition
+item IDs, and style preset IDs after import.
 
 ---
 
