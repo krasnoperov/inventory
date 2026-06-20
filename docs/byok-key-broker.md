@@ -1,15 +1,16 @@
 # BYOK Key Broker Worker
 
-The BYOK key broker is a separate Worker for provider-key custody. The current
-app and generation Workers still use the existing provider-key read/write paths;
-this scaffold only introduces the typed service-binding contract for later
-traffic migration.
+The BYOK key broker is a separate Worker for provider-key custody. Provider-key
+save, replace, and delete routes call the broker service binding so the app
+Worker does not persist key material directly. Generation Workers may still use
+legacy read paths until their traffic is migrated.
 
 ## Contract
 
 The broker RPC surface is limited to:
 
 - `storeProviderKey`
+- `deleteProviderKey`
 - `resolveProviderKey`
 - `rotateTenantDek`
 - `rewrapAllDeks`
@@ -26,8 +27,8 @@ Worker configs. Before deployment, a human should confirm:
 - The key broker Worker is deployed first.
 - The only versioned KEK bindings are Secrets Store bindings on the broker
   Worker, for example `BYOK_KEK_V1`.
-- App and generation Workers receive only a service binding named `KEY_BROKER`
-  when a later issue migrates callers.
+- App Workers receive only a service binding named `KEY_BROKER`; generation
+  Workers should receive the same binding when their read path is migrated.
 - The broker has no public route and `workers_dev = false`.
 
 Cloudflare's Wrangler syntax for Secrets Store bindings is:

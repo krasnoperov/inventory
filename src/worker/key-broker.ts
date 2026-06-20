@@ -1,11 +1,13 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import type {
+  DeleteProviderKeyRequest,
   ResolveProviderKeyRequest,
   RewrapAllDeksRequest,
   RotateTenantDekRequest,
   StoreProviderKeyRequest,
 } from '../backend/key-broker/contract';
 import {
+  deleteProviderKey,
   resolveProviderKey,
   rewrapAllDeks,
   rotateTenantDek,
@@ -20,6 +22,10 @@ export default class KeyBrokerWorker extends WorkerEntrypoint<KeyBrokerWorkerEnv
 
   async storeProviderKey(request: StoreProviderKeyRequest) {
     return storeProviderKey(this.env, request);
+  }
+
+  async deleteProviderKey(request: DeleteProviderKeyRequest) {
+    return deleteProviderKey(this.env, request);
   }
 
   async resolveProviderKey(request: ResolveProviderKeyRequest) {

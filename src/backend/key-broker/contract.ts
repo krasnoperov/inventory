@@ -2,6 +2,7 @@ import type { ProviderKeyProvider } from '../services/providerKeyVault';
 
 export const KEY_BROKER_METHODS = [
   'storeProviderKey',
+  'deleteProviderKey',
   'resolveProviderKey',
   'rotateTenantDek',
   'rewrapAllDeks',
@@ -25,6 +26,17 @@ export interface StoreProviderKeyResponse {
   provider: ProviderKeyProvider;
   keyHint: string;
   updatedAt: string;
+}
+
+export interface DeleteProviderKeyRequest {
+  tenant: KeyBrokerTenantScope;
+  provider: ProviderKeyProvider;
+}
+
+export interface DeleteProviderKeyResponse {
+  tenant: KeyBrokerTenantScope;
+  provider: ProviderKeyProvider;
+  deletedAt: string;
 }
 
 export interface ResolveProviderKeyRequest {
@@ -61,6 +73,7 @@ export interface RewrapAllDeksResponse {
 
 export interface KeyBrokerService {
   storeProviderKey(request: StoreProviderKeyRequest): Promise<StoreProviderKeyResponse>;
+  deleteProviderKey(request: DeleteProviderKeyRequest): Promise<DeleteProviderKeyResponse>;
   resolveProviderKey(request: ResolveProviderKeyRequest): Promise<ResolveProviderKeyResponse>;
   rotateTenantDek(request: RotateTenantDekRequest): Promise<RotateTenantDekResponse>;
   rewrapAllDeks(request: RewrapAllDeksRequest): Promise<RewrapAllDeksResponse>;

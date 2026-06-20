@@ -1,12 +1,15 @@
 import type { ProviderKeyProvider } from '../services/providerKeyVault';
 import {
   ProviderKeyEncryptionError,
+  deleteProviderApiKey,
   isProviderKeyProvider,
   maskProviderKey,
   resolveStoredProviderApiKey,
   upsertProviderApiKey,
 } from '../services/providerKeyVault';
 import type {
+  DeleteProviderKeyRequest,
+  DeleteProviderKeyResponse,
   KeyBrokerService,
   KeyBrokerTenantScope,
   ResolveProviderKeyRequest,
@@ -90,6 +93,22 @@ export async function storeProviderKey(
   };
 }
 
+export async function deleteProviderKey(
+  env: KeyBrokerWorkerEnv,
+  request: DeleteProviderKeyRequest,
+): Promise<DeleteProviderKeyResponse> {
+  const userId = assertUserTenant(request.tenant);
+  const provider = assertProvider(request.provider);
+
+  await deleteProviderApiKey(env.DB, userId, provider);
+
+  return {
+    tenant: request.tenant,
+    provider,
+    deletedAt: new Date().toISOString(),
+  };
+}
+
 export async function resolveProviderKey(
   env: KeyBrokerWorkerEnv,
   request: ResolveProviderKeyRequest,
@@ -133,6 +152,7 @@ export async function rewrapAllDeks(
 export function createKeyBrokerService(env: KeyBrokerWorkerEnv): KeyBrokerService {
   return {
     storeProviderKey: (request) => storeProviderKey(env, request),
+    deleteProviderKey: (request) => deleteProviderKey(env, request),
     resolveProviderKey: (request) => resolveProviderKey(env, request),
     rotateTenantDek: (request) => rotateTenantDek(env, request),
     rewrapAllDeks: (request) => rewrapAllDeks(env, request),

@@ -10,15 +10,18 @@ import {
   putUserSettingsRoute,
 } from '../../shared/api/routes';
 import {
-  deleteProviderApiKey,
   isProviderKeyProvider,
   listProviderKeySummaries,
   ProviderKeyEncryptionError,
-  upsertProviderApiKey,
-  validateProviderApiKey,
 } from '../services/providerKeyVault';
+import { keyBrokerClient } from '../key-broker/client';
 
 const userRoutes = createOpenApiRouter();
+
+function isProviderKeyEncryptionError(err: unknown): err is ProviderKeyEncryptionError {
+  return err instanceof ProviderKeyEncryptionError ||
+    (err instanceof Error && err.name === 'ProviderKeyEncryptionError');
+}
 
 // All user routes require authentication
 userRoutes.use('/api/user/*', authMiddleware);
@@ -106,15 +109,23 @@ userRoutes.openapi(putProviderKeyRoute, async (c) => {
     return c.json({ error: 'Unknown provider' }, 400);
   }
 
-  const validationError = validateProviderApiKey(provider, apiKey);
-  if (validationError) {
-    return c.json({ error: validationError }, 400);
+  const trimmed = apiKey.trim();
+  if (!trimmed) {
+    return c.json({ error: 'API key is required' }, 400);
+  }
+
+  if (!c.env.KEY_BROKER) {
+    return c.json({ error: 'Provider key broker is not configured' }, 503);
   }
 
   try {
-    await upsertProviderApiKey(c.env.DB, userId, provider, apiKey, c.env);
+    await keyBrokerClient(c.env.KEY_BROKER).storeProviderKey({
+      tenant: { type: 'user', userId },
+      provider,
+      apiKey: trimmed,
+    });
   } catch (err) {
-    if (err instanceof ProviderKeyEncryptionError) {
+    if (isProviderKeyEncryptionError(err)) {
       return c.json({ error: err.message }, 503);
     }
     throw err;
@@ -133,7 +144,21 @@ userRoutes.openapi(deleteProviderKeyRoute, async (c) => {
     return c.json({ error: 'Unknown provider' }, 400);
   }
 
-  await deleteProviderApiKey(c.env.DB, userId, provider);
+  if (!c.env.KEY_BROKER) {
+    return c.json({ error: 'Provider key broker is not configured' }, 503);
+  }
+
+  try {
+    await keyBrokerClient(c.env.KEY_BROKER).deleteProviderKey({
+      tenant: { type: 'user', userId },
+      provider,
+    });
+  } catch (err) {
+    if (isProviderKeyEncryptionError(err)) {
+      return c.json({ error: err.message }, 503);
+    }
+    throw err;
+  }
 
   const providers = await listProviderKeySummaries(c.env.DB, userId, c.env);
   const summary = providers.find((item) => item.provider === provider)!;
