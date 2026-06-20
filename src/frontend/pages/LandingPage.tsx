@@ -470,10 +470,15 @@ export default function LandingPage() {
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
+    // Pin the timezone so the SSR render (Cloudflare Worker, UTC) and the
+    // client render (user's local timezone) format to the same calendar day.
+    // Without this, a `created_at` near midnight produces a text hydration
+    // mismatch (React #418) on the logged-in dashboard.
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+      timeZone: 'UTC',
     });
   };
 
