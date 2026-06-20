@@ -149,6 +149,15 @@ export interface UserProviderKeysTable {
   updated_at: string;
 }
 
+export interface KeyEnvelopesTable {
+  scope_id: string;
+  wrapped_dek: string;
+  dek_version: number;
+  kek_version: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Database {
   users: UsersTable;
   spaces: SpacesTable;
@@ -158,6 +167,7 @@ export interface Database {
   customer_charge_ledger: CustomerChargeLedgerTable;
   platform_usage_events: PlatformUsageEventsTable;
   user_provider_keys: UserProviderKeysTable;
+  key_envelopes: KeyEnvelopesTable;
   // Phase 2: Assistant Memory
   user_patterns: UserPatternsTable;
   user_feedback: UserFeedbackTable;

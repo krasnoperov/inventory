@@ -4,7 +4,7 @@ import { Hono } from 'hono';
 import { AuthService } from '../features/auth/auth-service';
 import type { AppContext } from './types';
 import { voicesRoutes } from './voices';
-import { encryptProviderApiKey } from '../services/providerKeyVault';
+import { encryptLegacyProviderApiKey } from '../services/providerKeyVault';
 
 function encryptionKey(): string {
   return Buffer.from(new Uint8Array(32).fill(9)).toString('base64');
@@ -87,7 +87,7 @@ describe('voicesRoutes', () => {
 
   test('uses a stored ElevenLabs BYOK key for voice listing', async () => {
     const secret = encryptionKey();
-    const encrypted = await encryptProviderApiKey('user-elevenlabs-key', secret, 7, 'elevenlabs');
+    const encrypted = await encryptLegacyProviderApiKey('user-elevenlabs-key', secret, 7, 'elevenlabs');
     let observedKey: string | null = null;
     mock.method(globalThis, 'fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
       observedKey = new Headers(init?.headers).get('xi-api-key');

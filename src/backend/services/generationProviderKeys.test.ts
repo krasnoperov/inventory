@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Env } from '../../core/types';
-import { encryptProviderApiKey } from './providerKeyVault';
+import { encryptLegacyProviderApiKey } from './providerKeyVault';
 import { resolveGenerationProviderApiKey } from './generationProviderKeys';
 
 function encryptionKey(): string {
@@ -34,7 +34,7 @@ function providerKeyDb(rows: ProviderKeyRow[] = [], calls?: unknown[][]) {
 describe('resolveGenerationProviderApiKey', () => {
   test('prefers the customer BYOK key over the managed platform key', async () => {
     const secret = encryptionKey();
-    const encrypted = await encryptProviderApiKey('user-google-key', secret, 7, 'google_ai');
+    const encrypted = await encryptLegacyProviderApiKey('user-google-key', secret, 7, 'google_ai');
     const env = {
       DB: providerKeyDb([{ user_id: 7, provider: 'google_ai', encrypted_api_key: encrypted }]),
       ENCRYPTION_KEY: secret,
@@ -90,7 +90,7 @@ describe('resolveGenerationProviderApiKey', () => {
 
   test('does not silently fall back to managed credentials when a stored key cannot decrypt', async () => {
     const secret = encryptionKey();
-    const encrypted = await encryptProviderApiKey('user-google-key', secret, 7, 'google_ai');
+    const encrypted = await encryptLegacyProviderApiKey('user-google-key', secret, 7, 'google_ai');
     const env = {
       DB: providerKeyDb([{ user_id: 8, provider: 'google_ai', encrypted_api_key: encrypted }]),
       ENCRYPTION_KEY: secret,
