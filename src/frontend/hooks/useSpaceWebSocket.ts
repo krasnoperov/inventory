@@ -240,6 +240,70 @@ export interface UserPresence {
   lastSeen: number;
 }
 
+export interface SpaceStateSnapshot {
+  assets: Asset[];
+  variants: Variant[];
+  lineage: Lineage[];
+  presence: UserPresence[];
+  rotationSets: RotationSet[];
+  rotationViews: RotationView[];
+  tileSets: TileSet[];
+  tilePositions: TilePosition[];
+  syncMode: 'full' | 'overview';
+  updatedAt: number;
+}
+
+const spaceStateSnapshots = new Map<string, SpaceStateSnapshot>();
+
+function cloneSpaceStateSnapshot(snapshot: SpaceStateSnapshot): SpaceStateSnapshot {
+  return {
+    assets: [...snapshot.assets],
+    variants: [...snapshot.variants],
+    lineage: [...snapshot.lineage],
+    presence: [...snapshot.presence],
+    rotationSets: [...snapshot.rotationSets],
+    rotationViews: [...snapshot.rotationViews],
+    tileSets: [...snapshot.tileSets],
+    tilePositions: [...snapshot.tilePositions],
+    syncMode: snapshot.syncMode,
+    updatedAt: snapshot.updatedAt,
+  };
+}
+
+function getCachedSpaceStateSnapshot(spaceId: string): SpaceStateSnapshot | null {
+  if (!spaceId) return null;
+  const snapshot = spaceStateSnapshots.get(spaceId);
+  return snapshot ? cloneSpaceStateSnapshot(snapshot) : null;
+}
+
+function shouldPersistSpaceStateSnapshot(
+  spaceId: string,
+  stateSpaceId: string,
+  hasSynced: boolean
+): boolean {
+  return Boolean(spaceId && hasSynced && stateSpaceId === spaceId);
+}
+
+export function getSpaceStateSnapshotForTests(spaceId: string): SpaceStateSnapshot | null {
+  return getCachedSpaceStateSnapshot(spaceId);
+}
+
+export function shouldPersistSpaceStateSnapshotForTests(
+  spaceId: string,
+  stateSpaceId: string,
+  hasSynced: boolean
+): boolean {
+  return shouldPersistSpaceStateSnapshot(spaceId, stateSpaceId, hasSynced);
+}
+
+export function clearSpaceStateSnapshotCacheForTests(): void {
+  spaceStateSnapshots.clear();
+}
+
+export function saveSpaceStateSnapshotForTests(spaceId: string, snapshot: SpaceStateSnapshot): void {
+  spaceStateSnapshots.set(spaceId, cloneSpaceStateSnapshot(snapshot));
+}
+
 export interface ChatMessage {
   id: string;
   userId: string;
@@ -818,6 +882,7 @@ export interface ForkParams {
 export interface UseSpaceWebSocketReturn {
   status: ConnectionStatus;
   error: string | null;
+  hasSynced: boolean;
   assets: Asset[];
   variants: Variant[];
   lineage: Lineage[];
@@ -937,24 +1002,73 @@ export function useSpaceWebSocket({
   onBatchError,
   onError,
 }: UseSpaceWebSocketParams): UseSpaceWebSocketReturn {
+  const initialSnapshot = getCachedSpaceStateSnapshot(spaceId);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [variants, setVariants] = useState<Variant[]>([]);
-  const [lineage, setLineage] = useState<Lineage[]>([]);
+  const [stateSpaceId, setStateSpaceId] = useState(spaceId);
+  const [hasSynced, setHasSynced] = useState(Boolean(initialSnapshot));
+  const [assets, setAssets] = useState<Asset[]>(initialSnapshot?.assets ?? []);
+  const [variants, setVariants] = useState<Variant[]>(initialSnapshot?.variants ?? []);
+  const [lineage, setLineage] = useState<Lineage[]>(initialSnapshot?.lineage ?? []);
   const [jobs, setJobs] = useState<Map<string, JobStatus>>(new Map());
-  const [presence, setPresence] = useState<UserPresence[]>([]);
-  const [rotationSets, setRotationSets] = useState<RotationSet[]>([]);
-  const [rotationViews, setRotationViews] = useState<RotationView[]>([]);
-  const [tileSets, setTileSets] = useState<TileSet[]>([]);
-  const [tilePositions, setTilePositions] = useState<TilePosition[]>([]);
+  const [presence, setPresence] = useState<UserPresence[]>(initialSnapshot?.presence ?? []);
+  const [rotationSets, setRotationSets] = useState<RotationSet[]>(initialSnapshot?.rotationSets ?? []);
+  const [rotationViews, setRotationViews] = useState<RotationView[]>(initialSnapshot?.rotationViews ?? []);
+  const [tileSets, setTileSets] = useState<TileSet[]>(initialSnapshot?.tileSets ?? []);
+  const [tilePositions, setTilePositions] = useState<TilePosition[]>(initialSnapshot?.tilePositions ?? []);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const syncModeRef = useRef<'full' | 'overview' | null>(null);
+  const syncModeRef = useRef<'full' | 'overview' | null>(initialSnapshot?.syncMode ?? null);
   const variantIdsRef = useRef<Set<string>>(new Set());
   const reconnectAttempts = useRef(0);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const maxReconnectAttempts = 5;
+
+  useEffect(() => {
+    const cached = getCachedSpaceStateSnapshot(spaceId);
+    syncModeRef.current = cached?.syncMode ?? null;
+    variantIdsRef.current = new Set(cached?.variants.map((variant) => variant.id) ?? []);
+    setStateSpaceId(spaceId);
+    setHasSynced(Boolean(cached));
+    setAssets(cached?.assets ?? []);
+    setVariants(cached?.variants ?? []);
+    setLineage(cached?.lineage ?? []);
+    setPresence(cached?.presence ?? []);
+    setRotationSets(cached?.rotationSets ?? []);
+    setRotationViews(cached?.rotationViews ?? []);
+    setTileSets(cached?.tileSets ?? []);
+    setTilePositions(cached?.tilePositions ?? []);
+  }, [spaceId]);
+
+  useEffect(() => {
+    if (!shouldPersistSpaceStateSnapshot(spaceId, stateSpaceId, hasSynced)) return;
+
+    const existing = spaceStateSnapshots.get(spaceId);
+    spaceStateSnapshots.set(spaceId, {
+      assets: [...assets],
+      variants: [...variants],
+      lineage: syncModeRef.current === 'overview' ? [...(existing?.lineage ?? lineage)] : [...lineage],
+      presence: [...presence],
+      rotationSets: [...rotationSets],
+      rotationViews: [...rotationViews],
+      tileSets: [...tileSets],
+      tilePositions: [...tilePositions],
+      syncMode: syncModeRef.current ?? existing?.syncMode ?? 'overview',
+      updatedAt: Date.now(),
+    });
+  }, [
+    spaceId,
+    stateSpaceId,
+    hasSynced,
+    assets,
+    variants,
+    lineage,
+    presence,
+    rotationSets,
+    rotationViews,
+    tileSets,
+    tilePositions,
+  ]);
 
   useEffect(() => {
     variantIdsRef.current = new Set(variants.map((variant) => variant.id));
@@ -1490,6 +1604,7 @@ export function useSpaceWebSocket({
               case 'sync:state':
                 syncModeRef.current = 'full';
                 variantIdsRef.current = new Set(message.variants.map((variant) => variant.id));
+                setHasSynced(true);
                 setAssets(message.assets);
                 setVariants(message.variants);
                 setLineage(message.lineage || []);
@@ -1508,6 +1623,7 @@ export function useSpaceWebSocket({
               case 'sync:overview':
                 syncModeRef.current = 'overview';
                 variantIdsRef.current = new Set(message.variants.map((variant) => variant.id));
+                setHasSynced(true);
                 setAssets(message.assets);
                 setVariants(message.variants);
                 setLineage([]);
@@ -2255,6 +2371,7 @@ export function useSpaceWebSocket({
   return {
     status,
     error,
+    hasSynced,
     assets,
     variants,
     lineage,

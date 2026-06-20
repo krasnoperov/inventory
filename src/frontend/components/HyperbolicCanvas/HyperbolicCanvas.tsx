@@ -41,6 +41,7 @@ export interface HyperbolicCanvasProps {
   assets: Asset[];
   variants: Variant[];
   jobs?: Map<string, { assetId?: string; status: string }>;
+  isInitialSyncPending?: boolean;
   onAssetClick?: (asset: Asset) => void;
 }
 
@@ -71,6 +72,7 @@ export function HyperbolicCanvas({
   assets,
   variants,
   jobs,
+  isInitialSyncPending,
   onAssetClick,
 }: HyperbolicCanvasProps) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -260,6 +262,14 @@ export function HyperbolicCanvas({
       })
       .filter((e): e is NonNullable<typeof e> => e !== null);
   }, [edges, diskPositions, cam, viewport]);
+
+  if (assets.length === 0 && isInitialSyncPending) {
+    return (
+      <div className={styles.empty}>
+        <p className={styles.emptyText}>Loading assets...</p>
+      </div>
+    );
+  }
 
   if (assets.length === 0) {
     return (

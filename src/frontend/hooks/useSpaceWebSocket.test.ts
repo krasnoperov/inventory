@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+  clearSpaceStateSnapshotCacheForTests,
+  getSpaceStateSnapshotForTests,
   getVariantMediaUrl,
   getVariantThumbnailUrl,
   isVariantAudioReady,
@@ -8,8 +10,27 @@ import {
   isVariantImageReady,
   isVariantReady,
   isVariantVideoReady,
+  saveSpaceStateSnapshotForTests,
+  shouldPersistSpaceStateSnapshotForTests,
+  type Asset,
   type Variant,
 } from './useSpaceWebSocket';
+
+function asset(overrides: Partial<Asset> = {}): Asset {
+  return {
+    id: 'asset-1',
+    name: 'Asset One',
+    type: 'scene',
+    media_kind: 'image',
+    tags: '[]',
+    parent_asset_id: null,
+    active_variant_id: 'variant-1',
+    created_by: 'user-1',
+    created_at: 1,
+    updated_at: 1,
+    ...overrides,
+  };
+}
 
 function variant(overrides: Partial<Variant> = {}): Variant {
   return {
@@ -49,6 +70,47 @@ function variant(overrides: Partial<Variant> = {}): Variant {
     ...overrides,
   };
 }
+
+describe('space state snapshot cache', () => {
+  test('preserves loaded assets for same-space remounts without exposing mutable cache state', () => {
+    clearSpaceStateSnapshotCacheForTests();
+
+    saveSpaceStateSnapshotForTests('space-1', {
+      assets: [asset()],
+      variants: [variant()],
+      lineage: [],
+      presence: [],
+      rotationSets: [],
+      rotationViews: [],
+      tileSets: [],
+      tilePositions: [],
+      syncMode: 'overview',
+      updatedAt: 1,
+    });
+
+    const firstRead = getSpaceStateSnapshotForTests('space-1');
+    assert.equal(firstRead?.assets.length, 1);
+    assert.equal(firstRead?.variants.length, 1);
+
+    firstRead?.assets.push(asset({ id: 'asset-2' }));
+
+    const secondRead = getSpaceStateSnapshotForTests('space-1');
+    assert.equal(secondRead?.assets.length, 1);
+    assert.equal(secondRead?.assets[0]?.id, 'asset-1');
+  });
+
+  test('returns no snapshot for spaces that have not synced yet', () => {
+    clearSpaceStateSnapshotCacheForTests();
+
+    assert.equal(getSpaceStateSnapshotForTests('new-space'), null);
+  });
+
+  test('does not persist stale state under a new space id during navigation', () => {
+    assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-1', true), false);
+    assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-2', false), false);
+    assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-2', true), true);
+  });
+});
 
 describe('variant media helpers', () => {
   test('keeps image variants thumbnail-backed and image-ready', () => {

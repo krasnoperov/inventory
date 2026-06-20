@@ -97,6 +97,7 @@ export default function SpacePage() {
   // WebSocket connection for real-time updates
   const {
     status: wsStatus,
+    hasSynced,
     assets,
     variants,
     jobs,
@@ -409,6 +410,7 @@ export default function SpacePage() {
             assets={assets}
             variants={variants}
             jobs={jobs}
+            isInitialSyncPending={!hasSynced}
             onAssetClick={(clickedAsset) => {
               navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
             }}
@@ -419,6 +421,7 @@ export default function SpacePage() {
             assets={assets}
             variants={variants}
             jobs={jobs}
+            isInitialSyncPending={!hasSynced}
             onAssetClick={(clickedAsset) => {
               navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
             }}

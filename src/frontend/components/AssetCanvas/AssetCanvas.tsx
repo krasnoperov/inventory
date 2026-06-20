@@ -44,6 +44,7 @@ export interface AssetCanvasProps {
   assets: Asset[];
   variants: Variant[];
   jobs?: Map<string, { assetId?: string; status: string }>;
+  isInitialSyncPending?: boolean;
   onAssetClick?: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   /** Called when user drags an edge to reparent an asset. Set childAssetId's parent to newParentAssetId (or null to unparent) */
@@ -66,6 +67,7 @@ function AssetCanvasInner({
   assets,
   variants,
   jobs,
+  isInitialSyncPending,
   onAssetClick,
   onAddToTray,
   onReparent,
@@ -208,6 +210,14 @@ function AssetCanvasInner({
     }
   }, [onReparent]);
 
+  if (assets.length === 0 && isInitialSyncPending) {
+    return (
+      <div className={styles.empty}>
+        <p className={styles.emptyText}>Loading assets...</p>
+      </div>
+    );
+  }
+
   if (assets.length === 0) {
     return (
       <div className={styles.empty}>
@@ -260,6 +270,7 @@ export function AssetCanvas({
   assets,
   variants,
   jobs,
+  isInitialSyncPending,
   onAssetClick,
   onAddToTray,
   onReparent,
@@ -345,6 +356,7 @@ export function AssetCanvas({
         spaceId={spaceId}
         variants={variants}
         jobs={jobs}
+        isInitialSyncPending={isInitialSyncPending}
         onAssetClick={onAssetClick}
         onAddToTray={onAddToTray}
         onReparent={onReparent}
