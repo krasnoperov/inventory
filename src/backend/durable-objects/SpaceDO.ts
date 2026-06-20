@@ -115,6 +115,7 @@ export class SpaceDO extends DurableObject<Env> {
 
         // Initialize repository
         this.repo = new SpaceRepository(this.ctx.storage.sql, this.env.IMAGES);
+        await this.repo.backfillLegacySpaceStyle();
 
       // Create controller context
       const ctx: ControllerContext = {
