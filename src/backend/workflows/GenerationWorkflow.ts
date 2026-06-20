@@ -150,19 +150,26 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     log.info('Starting workflow', { requestId, jobId, spaceId, assetName, operation, mediaKind, refCount });
 
     // Step 1: Update variant status to processing via DO
-    await step.do('update-variant-processing', {
-      retries: { limit: 3, delay: '2 seconds', backoff: 'exponential' },
-    }, async () => {
-      await this.updateVariantStatus(spaceId, jobId, 'processing');
-      await this.trackWorkflowStart({
-        spaceId,
-        userId,
-        jobId,
-        requestId,
-        operation,
-        mediaKind,
+    try {
+      await step.do('update-variant-processing', {
+        retries: { limit: 3, delay: '2 seconds', backoff: 'exponential' },
+      }, async () => {
+        await this.updateVariantStatus(spaceId, jobId, 'processing');
+        await this.trackWorkflowStart({
+          spaceId,
+          userId,
+          jobId,
+          requestId,
+          operation,
+          mediaKind,
+        });
       });
-    });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start generation workflow';
+      log.error('Workflow start error', { requestId, jobId, spaceId, error: errorMessage });
+      await this.handleFailure(spaceId, jobId, requestId, errorMessage);
+      return { requestId, jobId, success: false, error: errorMessage };
+    }
 
     if (mediaKind === 'audio') {
       return this.runAudioWorkflow(event, step);
@@ -923,11 +930,16 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     const doStub = this.env.SPACES_DO.get(doId);
 
     try {
-      await doStub.fetch(new Request('http://do/internal/fail-variant', {
+      const response = await doStub.fetch(new Request('http://do/internal/fail-variant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ variantId, error }),
       }));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`DO fail-variant failed (${response.status}): ${errorText}`);
+      }
     } catch (fetchError) {
       log.error('Failed to mark variant as failed', { spaceId, variantId, error: fetchError instanceof Error ? fetchError.message : String(fetchError) });
     }
