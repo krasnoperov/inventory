@@ -298,6 +298,16 @@ export const ListSpaceAssetsResponseSchema = z
   .openapi('ListSpaceAssetsResponse');
 
 export const SpaceSubjectTypeSchema = z.enum(['asset', 'variant']);
+export const CollectionKindSchema = z.enum([
+  'cast',
+  'style_refs',
+  'backgrounds',
+  'scenes',
+  'thumbnails',
+  'maps',
+  'deliverables',
+  'custom',
+]);
 export const SpaceRelationTypeSchema = z.enum([
   'appears_in',
   'background_for',
@@ -389,6 +399,8 @@ export const SpaceCollectionSchema = z
   .object({
     id: z.string(),
     name: z.string(),
+    kind: CollectionKindSchema,
+    color: z.string().nullable(),
     description: z.string().nullable(),
     sort_index: z.number().int(),
     created_by: z.string(),
@@ -493,6 +505,8 @@ export const UpsertCollectionRequestSchema = z
   .object({
     id: z.string().optional(),
     name: z.string().min(1),
+    kind: CollectionKindSchema.optional(),
+    color: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     sortIndex: z.number().int().optional(),
   })
@@ -1187,6 +1201,7 @@ export type ListSpacesResponse = z.infer<typeof ListSpacesResponseSchema>;
 export type GetSpaceResponse = z.infer<typeof GetSpaceResponseSchema>;
 export type ListSpaceAssetsResponse = z.infer<typeof ListSpaceAssetsResponseSchema>;
 export type SpaceSubjectType = z.infer<typeof SpaceSubjectTypeSchema>;
+export type CollectionKind = z.infer<typeof CollectionKindSchema>;
 export type SpaceRelationType = z.infer<typeof SpaceRelationTypeSchema>;
 export type CompositionItemRole = z.infer<typeof CompositionItemRoleSchema>;
 export type CompositionStatus = z.infer<typeof CompositionStatusSchema>;

@@ -66,6 +66,8 @@ export interface VariantCanvasProps {
   onDeleteVariant?: (variant: Variant) => void;
   /** Handler for creating a manual relation from a variant */
   onCreateRelation?: (subject: SpaceSubject) => void;
+  /** Handler for adding an exact variant to the current collection target */
+  onAddVariantToCollection?: (variant: Variant) => void;
 }
 
 /** Calculate node bounding width from image dimensions (height fixed, width follows aspect ratio) */
@@ -230,6 +232,7 @@ function VariantCanvasInner({
   onStarVariant,
   onDeleteVariant,
   onCreateRelation,
+  onAddVariantToCollection,
   dimensionsReady,
   imageDimensions,
 }: VariantCanvasProps & {
@@ -333,6 +336,7 @@ function VariantCanvasInner({
           onStarVariant,
           onDeleteVariant,
           onCreateRelation,
+          onAddVariantToCollection,
           variantCount: variants.length,
           spaceId,
           // Exact thumbnail width so the card matches the image aspect ratio
@@ -524,7 +528,7 @@ function VariantCanvasInner({
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, onStarVariant, onDeleteVariant, onCreateRelation, spaceId]);
+  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, onStarVariant, onDeleteVariant, onCreateRelation, onAddVariantToCollection, spaceId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -622,6 +626,7 @@ export function VariantCanvas({
   onStarVariant,
   onDeleteVariant,
   onCreateRelation,
+  onAddVariantToCollection,
 }: VariantCanvasProps) {
   // Track loaded image dimensions
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
@@ -714,6 +719,7 @@ export function VariantCanvas({
         onStarVariant={onStarVariant}
         onDeleteVariant={onDeleteVariant}
         onCreateRelation={onCreateRelation}
+        onAddVariantToCollection={onAddVariantToCollection}
         dimensionsReady={dimensionsReady}
         imageDimensions={imageDimensions}
       />

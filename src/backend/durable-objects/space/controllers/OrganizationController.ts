@@ -1,5 +1,6 @@
 import type {
   CollectionItem,
+  CollectionKind,
   Composition,
   CompositionItem,
   CompositionItemRole,
@@ -39,6 +40,17 @@ const COMPOSITION_ROLES = new Set<CompositionItemRole>([
 
 const COMPOSITION_STATUSES = new Set<CompositionStatus>(['draft', 'final']);
 
+const COLLECTION_KINDS = new Set<CollectionKind>([
+  'cast',
+  'style_refs',
+  'backgrounds',
+  'scenes',
+  'thumbnails',
+  'maps',
+  'deliverables',
+  'custom',
+]);
+
 interface SubjectInput {
   subjectType?: unknown;
   assetId?: unknown;
@@ -48,6 +60,8 @@ interface SubjectInput {
 interface CollectionInput {
   id?: unknown;
   name?: unknown;
+  kind?: unknown;
+  color?: unknown;
   description?: unknown;
   sortIndex?: unknown;
   createdBy?: unknown;
@@ -55,6 +69,8 @@ interface CollectionInput {
 
 interface CollectionUpdateInput {
   name?: unknown;
+  kind?: unknown;
+  color?: unknown;
   description?: unknown;
   sortIndex?: unknown;
 }
@@ -436,6 +452,8 @@ export class OrganizationController extends BaseController {
     return this.repo.createCollection({
       id: normalizeOptionalString(data.id) ?? crypto.randomUUID(),
       name,
+      kind: data.kind === undefined ? 'custom' : normalizeCollectionKind(data.kind),
+      color: normalizeCollectionColor(data.color),
       description: normalizeOptionalString(data.description),
       sortIndex: normalizeOptionalInteger(data.sortIndex, 'sortIndex') ?? 0,
       createdBy,
@@ -445,6 +463,8 @@ export class OrganizationController extends BaseController {
   private async updateCollection(collectionId: string, data: CollectionUpdateInput): Promise<SpaceCollection> {
     const collection = await this.repo.updateCollection(normalizeRequiredString(collectionId, 'collectionId'), {
       name: data.name === undefined ? undefined : normalizeRequiredString(data.name, 'name'),
+      kind: data.kind === undefined ? undefined : normalizeCollectionKind(data.kind),
+      color: data.color === undefined ? undefined : normalizeCollectionColor(data.color),
       description: data.description === undefined ? undefined : normalizeOptionalString(data.description),
       sortIndex: data.sortIndex === undefined ? undefined : normalizeInteger(data.sortIndex, 'sortIndex'),
     });
@@ -864,6 +884,22 @@ function normalizeSubjectType(value: unknown): SpaceSubjectType {
     return value;
   }
   throw new ValidationError('subjectType must be asset or variant');
+}
+
+function normalizeCollectionKind(value: unknown): CollectionKind {
+  if (typeof value === 'string' && COLLECTION_KINDS.has(value as CollectionKind)) {
+    return value as CollectionKind;
+  }
+  throw new ValidationError('Invalid collection kind');
+}
+
+function normalizeCollectionColor(value: unknown): string | null {
+  const color = normalizeOptionalString(value);
+  if (!color) return null;
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
+    throw new ValidationError('color must be a hex color');
+  }
+  return color.toLowerCase();
 }
 
 function normalizeRelationType(value: unknown): SpaceRelationType {

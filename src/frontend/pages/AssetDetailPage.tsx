@@ -84,6 +84,8 @@ export default function AssetDetailPage() {
   });
   const sessionQuery = useQuery(sessionQueryOptions());
 
+  const space = spaceDataQuery.data?.space ?? null;
+  const canEdit = space?.role === 'owner' || space?.role === 'editor';
   const queryAsset = assetDetailsQuery.data?.asset ?? null;
   const queryVariants = assetDetailsQuery.data?.variants ?? [];
   const queryLineage = useMemo(
@@ -91,14 +93,16 @@ export default function AssetDetailPage() {
     [assetDetailsQuery.data?.lineage],
   );
   const error = assetDetailsQuery.error instanceof Error ? assetDetailsQuery.error.message : null;
-  const space = spaceDataQuery.data?.space ?? null;
-  const canEdit = space?.role === 'owner' || space?.role === 'editor';
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
+  const [variantCollectionId, setVariantCollectionId] = useState('');
+  const [variantCollectionRole, setVariantCollectionRole] = useState('custom');
   const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
+  const [showCompositionPanel, setShowCompositionPanel] = useState(false);
+  const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
   const pendingCompositionShortcutsRef = React.useRef(new Map<string, CompositionShortcut>());
   const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
@@ -108,10 +112,6 @@ export default function AssetDetailPage() {
 
   // Rotation panel state
   const [showRotationPanel, setShowRotationPanel] = useState(false);
-
-  // Composition detail panel state
-  const [showCompositionPanel, setShowCompositionPanel] = useState(false);
-  const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
 
   // Inline editing state
   const [editingName, setEditingName] = useState(false);
@@ -164,18 +164,19 @@ export default function AssetDetailPage() {
   const {
     assets: wsAssets,
     variants: wsVariants,
-    lineage: wsLineage,
-    relations: wsRelations,
     collections,
     collectionItems,
     compositions,
     compositionItems,
+    lineage: wsLineage,
+    relations: wsRelations,
     jobs,
     setActiveVariant,
     deleteVariant,
     deleteAsset,
     starVariant,
     updateAsset,
+    addCollectionItem,
     createRelation,
     updateRelation,
     deleteRelation,
@@ -349,6 +350,14 @@ export default function AssetDetailPage() {
     if (!selectedVariantId) return null;
     return variants.find(v => v.id === selectedVariantId) || null;
   }, [selectedVariantId, variants]);
+
+  useEffect(() => {
+    if (!variantCollectionId && collections.length > 0) {
+      setVariantCollectionId(collections[0]!.id);
+    } else if (variantCollectionId && !collections.some((collection) => collection.id === variantCollectionId)) {
+      setVariantCollectionId(collections[0]?.id ?? '');
+    }
+  }, [collections, variantCollectionId]);
 
   // Set page title
   useDocumentTitle(asset?.name);
@@ -585,6 +594,23 @@ export default function AssetDetailPage() {
     }
   }, [addSlot, asset]);
 
+  const handleAddVariantToCollection = useCallback((variant: Variant) => {
+    if (!canEdit || !variantCollectionId) return;
+    const sortIndex = collectionItems.filter((item) => item.collection_id === variantCollectionId).length;
+    addCollectionItem({
+      collectionId: variantCollectionId,
+      subjectType: 'variant',
+      variantId: variant.id,
+      role: variantCollectionRole.trim() || 'custom',
+      sortIndex,
+    });
+  }, [addCollectionItem, canEdit, collectionItems, variantCollectionId, variantCollectionRole]);
+
+  const handleAddSelectedVariantToCollection = useCallback(() => {
+    if (!selectedVariant) return;
+    handleAddVariantToCollection(selectedVariant);
+  }, [handleAddVariantToCollection, selectedVariant]);
+
   // Handle retry recipe - restore ForgeTray state from variant's recipe and lineage
   const handleRetryRecipe = useCallback((variant: Variant) => {
     // Parse the recipe to get the prompt and parentVariantIds (fallback)
@@ -748,6 +774,7 @@ export default function AssetDetailPage() {
           onStarVariant={handleStarVariant}
           onDeleteVariant={handleDeleteVariant}
           onCreateRelation={handleOpenCreateRelation}
+          onAddVariantToCollection={canEdit && collections.length > 0 ? handleAddVariantToCollection : undefined}
         />
 
         {/* Tile Grid overlay for tile-set assets */}
@@ -916,6 +943,26 @@ export default function AssetDetailPage() {
             </div>
           )}
 
+          {canEdit && collections.length > 0 && selectedVariant && (
+            <div className={styles.collectionAddBar}>
+              <span>Add selected variant to</span>
+              <select
+                value={variantCollectionId}
+                onChange={(event) => setVariantCollectionId(event.target.value)}
+              >
+                {collections.map((collection) => (
+                  <option key={collection.id} value={collection.id}>{collection.name}</option>
+                ))}
+              </select>
+              <input
+                value={variantCollectionRole}
+                onChange={(event) => setVariantCollectionRole(event.target.value)}
+                aria-label="Collection item role"
+              />
+              <button onClick={handleAddSelectedVariantToCollection}>Add variant</button>
+            </div>
+          )}
+
           {relationSubjects.length > 0 && (
             <RelationsPanel
               assets={relationAssets}
@@ -1013,23 +1060,6 @@ export default function AssetDetailPage() {
         </div>
       )}
 
-      {relationEditor && (
-        <RelationEditorDialog
-          mode={relationEditor.mode}
-          assets={relationAssets}
-          variants={relationVariants}
-          sourceSubject={relationEditor.mode === 'create' ? relationEditor.subject : (
-            relationEditor.relation.subject_type === 'asset'
-              ? { subjectType: 'asset', assetId: relationEditor.relation.subject_asset_id ?? undefined }
-              : { subjectType: 'variant', variantId: relationEditor.relation.subject_variant_id ?? undefined }
-          )}
-          relation={relationEditor.mode === 'edit' ? relationEditor.relation : undefined}
-          onCancel={() => setRelationEditor(null)}
-          onCreate={handleCreateRelation}
-          onUpdate={handleUpdateRelation}
-        />
-      )}
-
       {showCompositionPanel && (
         <div className={styles.compositionPanelContainer}>
           <CompositionDetail
@@ -1109,6 +1139,22 @@ export default function AssetDetailPage() {
           onClose={() => setShowRotationPanel(false)}
           onRateVariant={sendVariantRate}
           onExportTrainingData={() => handleExportTrainingData('rotations')}
+        />
+      )}
+      {relationEditor && (
+        <RelationEditorDialog
+          mode={relationEditor.mode}
+          assets={relationAssets}
+          variants={relationVariants}
+          sourceSubject={relationEditor.mode === 'create' ? relationEditor.subject : (
+            relationEditor.relation.subject_type === 'asset'
+              ? { subjectType: 'asset', assetId: relationEditor.relation.subject_asset_id ?? undefined }
+              : { subjectType: 'variant', variantId: relationEditor.relation.subject_variant_id ?? undefined }
+          )}
+          relation={relationEditor.mode === 'edit' ? relationEditor.relation : undefined}
+          onCancel={() => setRelationEditor(null)}
+          onCreate={handleCreateRelation}
+          onUpdate={handleUpdateRelation}
         />
       )}
     </div>

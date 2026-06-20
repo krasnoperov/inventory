@@ -239,6 +239,8 @@ function startSnapshotPersistence(spaceId: string): void {
       variants: state.variants,
       lineage: state.lineage,
       relations: state.relations,
+      collections: state.collections,
+      collectionItems: state.collectionItems,
       presence: state.presence,
       rotationSets: state.rotationSets,
       rotationViews: state.rotationViews,

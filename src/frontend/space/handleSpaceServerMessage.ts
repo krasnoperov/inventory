@@ -133,8 +133,11 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setAssets(message.assets);
                 setVariants(message.variants);
                 setLineage([]);
-                setRelations([]);
+                setRelations(message.relations || []);
                 setCollections(message.collections || []);
+                if (message.collectionItems !== undefined) {
+                  setCollectionItems(message.collectionItems);
+                }
                 setCompositions(message.compositions || []);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
@@ -256,15 +259,15 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setCollections((prev) => (
                   prev.some((collection) => collection.id === message.collection.id)
                     ? prev
-                    : [...prev, message.collection]
+                    : [...prev, message.collection].sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at)
                 ));
                 break;
 
               case 'collection:updated':
                 setCollections((prev) =>
-                  prev.map((collection) =>
-                    collection.id === message.collection.id ? message.collection : collection
-                  )
+                  prev
+                    .map((collection) => collection.id === message.collection.id ? message.collection : collection)
+                    .sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at)
                 );
                 break;
 
@@ -277,21 +280,26 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setCollectionItems((prev) => (
                   prev.some((item) => item.id === message.item.id)
                     ? prev
-                    : [...prev, message.item]
+                    : [...prev, message.item].sort((a, b) => a.collection_id.localeCompare(b.collection_id) || a.sort_index - b.sort_index || a.created_at - b.created_at)
                 ));
                 break;
 
               case 'collection_item:updated':
                 setCollectionItems((prev) =>
-                  prev.map((item) => item.id === message.item.id ? message.item : item)
+                  prev
+                    .map((item) => item.id === message.item.id ? message.item : item)
+                    .sort((a, b) => a.collection_id.localeCompare(b.collection_id) || a.sort_index - b.sort_index || a.created_at - b.created_at)
                 );
                 break;
 
               case 'collection_items:reordered':
-                setCollectionItems((prev) => [
-                  ...prev.filter((item) => item.collection_id !== message.collectionId),
-                  ...message.items,
-                ]);
+                setCollectionItems((prev) => {
+                  const reorderedIds = new Set(message.items.map((item) => item.id));
+                  return [
+                    ...prev.filter((item) => item.collection_id !== message.collectionId || !reorderedIds.has(item.id)),
+                    ...message.items,
+                  ].sort((a, b) => a.collection_id.localeCompare(b.collection_id) || a.sort_index - b.sort_index || a.created_at - b.created_at);
+                });
                 break;
 
               case 'collection_item:deleted':
@@ -302,15 +310,15 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setCompositions((prev) => (
                   prev.some((composition) => composition.id === message.composition.id)
                     ? prev
-                    : [...prev, message.composition]
+                    : [...prev, message.composition].sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at)
                 ));
                 break;
 
               case 'composition:updated':
                 setCompositions((prev) =>
-                  prev.map((composition) =>
-                    composition.id === message.composition.id ? message.composition : composition
-                  )
+                  prev
+                    .map((composition) => composition.id === message.composition.id ? message.composition : composition)
+                    .sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at)
                 );
                 break;
 
@@ -323,21 +331,26 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setCompositionItems((prev) => (
                   prev.some((item) => item.id === message.item.id)
                     ? prev
-                    : [...prev, message.item]
+                    : [...prev, message.item].sort((a, b) => a.composition_id.localeCompare(b.composition_id) || a.sort_index - b.sort_index || a.created_at - b.created_at)
                 ));
                 break;
 
               case 'composition_item:updated':
                 setCompositionItems((prev) =>
-                  prev.map((item) => item.id === message.item.id ? message.item : item)
+                  prev
+                    .map((item) => item.id === message.item.id ? message.item : item)
+                    .sort((a, b) => a.composition_id.localeCompare(b.composition_id) || a.sort_index - b.sort_index || a.created_at - b.created_at)
                 );
                 break;
 
               case 'composition_items:reordered':
-                setCompositionItems((prev) => [
-                  ...prev.filter((item) => item.composition_id !== message.compositionId),
-                  ...message.items,
-                ]);
+                setCompositionItems((prev) => {
+                  const reorderedIds = new Set(message.items.map((item) => item.id));
+                  return [
+                    ...prev.filter((item) => item.composition_id !== message.compositionId || !reorderedIds.has(item.id)),
+                    ...message.items,
+                  ].sort((a, b) => a.composition_id.localeCompare(b.composition_id) || a.sort_index - b.sort_index || a.created_at - b.created_at);
+                });
                 break;
 
               case 'composition_item:deleted':

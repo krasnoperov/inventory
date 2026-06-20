@@ -1,5 +1,6 @@
 import type {
   Asset,
+  CollectionItem,
   Lineage,
   RotationSet,
   RotationView,
@@ -8,6 +9,7 @@ import type {
   TileSet,
   UserPresence,
   Variant,
+  SpaceCollection,
 } from './protocol';
 
 export interface SpaceStateSnapshot {
@@ -15,6 +17,8 @@ export interface SpaceStateSnapshot {
   variants: Variant[];
   lineage: Lineage[];
   relations: SpaceRelation[];
+  collections: SpaceCollection[];
+  collectionItems: CollectionItem[];
   presence: UserPresence[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
@@ -32,6 +36,8 @@ function cloneSpaceStateSnapshot(snapshot: SpaceStateSnapshot): SpaceStateSnapsh
     variants: [...snapshot.variants],
     lineage: [...snapshot.lineage],
     relations: [...snapshot.relations],
+    collections: [...snapshot.collections],
+    collectionItems: [...snapshot.collectionItems],
     presence: [...snapshot.presence],
     rotationSets: [...snapshot.rotationSets],
     rotationViews: [...snapshot.rotationViews],
@@ -82,6 +88,8 @@ export function persistSpaceStateSnapshot(args: {
   variants: Variant[];
   lineage: Lineage[];
   relations: SpaceRelation[];
+  collections: SpaceCollection[];
+  collectionItems: CollectionItem[];
   presence: UserPresence[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
@@ -95,6 +103,8 @@ export function persistSpaceStateSnapshot(args: {
     variants: [...args.variants],
     lineage: args.syncMode === 'overview' ? [...(existing?.lineage ?? args.lineage)] : [...args.lineage],
     relations: args.syncMode === 'overview' ? [...(existing?.relations ?? args.relations)] : [...args.relations],
+    collections: [...args.collections],
+    collectionItems: [...args.collectionItems],
     presence: [...args.presence],
     rotationSets: [...args.rotationSets],
     rotationViews: [...args.rotationViews],

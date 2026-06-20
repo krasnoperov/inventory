@@ -85,6 +85,8 @@ describe('space state snapshot cache', () => {
       variants: [variant()],
       lineage: [],
       relations: [],
+      collections: [],
+      collectionItems: [],
       presence: [],
       rotationSets: [],
       rotationViews: [],
@@ -140,6 +142,8 @@ describe('space state snapshot cache', () => {
       variants: [variant()],
       lineage: [],
       relations: [],
+      collections: [],
+      collectionItems: [],
       presence: [],
       rotationSets: [],
       rotationViews: [],
@@ -193,6 +197,8 @@ describe('space message handling', () => {
       variants: [variant()],
       lineage: [],
       relations: [],
+      collections: [],
+      collectionItems: [],
     }, messageContext(store));
 
     const next = useSpaceSessionStore.getState();
@@ -203,60 +209,80 @@ describe('space message handling', () => {
     assert.equal(next.variants[0]?.id, 'variant-1');
   });
 
-  test('applies manual relation create update and delete events', () => {
+  test('applies live collection mutations and overview collection items', () => {
     const store = useSpaceSessionStore.getState();
-    store.hydrateFromSnapshot('space-relations', {
-      assets: [asset()],
-      variants: [variant()],
-      lineage: [],
-      relations: [],
-      presence: [],
-      rotationSets: [],
-      rotationViews: [],
-      tileSets: [],
-      tilePositions: [],
-      syncMode: 'full',
-      updatedAt: 1,
-    });
-
+    store.hydrateFromSnapshot('space-collections', null);
     const context = messageContext(store);
 
     handleSpaceServerMessage({
-      type: 'relation:created',
-      relation: {
-        id: 'relation-1',
-        subject_type: 'asset',
-        subject_asset_id: 'asset-1',
-        subject_variant_id: null,
-        object_type: 'variant',
-        object_asset_id: null,
-        object_variant_id: 'variant-1',
-        relation_type: 'thumbnail_for',
-        context: null,
-        sort_index: 0,
-        created_by: 'user-1',
-        created_at: 1,
-        updated_at: 1,
-      },
+      type: 'sync:overview',
+      assets: [asset()],
+      variants: [variant()],
+      collections: [{ id: 'collection-1', name: 'Cast', kind: 'cast', color: '#4f7cff', description: null, sort_index: 0, created_at: 1, updated_at: 1 }],
+      collectionItems: [{ id: 'item-1', collection_id: 'collection-1', subject_type: 'asset', asset_id: 'asset-1', variant_id: null, role: 'lead', pinned_variant_id: null, sort_index: 0, created_by: 'user-1', created_at: 1, updated_at: 1 }],
     }, context);
 
-    assert.equal(useSpaceSessionStore.getState().relations.length, 1);
+    assert.equal(useSpaceSessionStore.getState().collections.length, 1);
+    assert.equal(useSpaceSessionStore.getState().collectionItems[0]?.role, 'lead');
 
     handleSpaceServerMessage({
-      type: 'relation:updated',
-      relation: {
-        ...useSpaceSessionStore.getState().relations[0]!,
-        relation_type: 'map_for',
-        context: '{"label":"map"}',
-      },
+      type: 'collection:created',
+      collection: { id: 'collection-2', name: 'Scenes', kind: 'scenes', color: '#c47d25', description: null, sort_index: 1, created_at: 2, updated_at: 2 },
+    }, context);
+    handleSpaceServerMessage({
+      type: 'collection:updated',
+      collection: { id: 'collection-2', name: 'Final Scenes', kind: 'scenes', color: '#c47d25', description: null, sort_index: -1, created_at: 2, updated_at: 3 },
     }, context);
 
-    assert.equal(useSpaceSessionStore.getState().relations[0]?.relation_type, 'map_for');
-    assert.equal(useSpaceSessionStore.getState().relations[0]?.context, '{"label":"map"}');
+    assert.deepEqual(
+      useSpaceSessionStore.getState().collections.map((collection) => collection.id),
+      ['collection-2', 'collection-1'],
+    );
+    assert.equal(useSpaceSessionStore.getState().collections[0]?.name, 'Final Scenes');
 
-    handleSpaceServerMessage({ type: 'relation:deleted', relationId: 'relation-1' }, context);
+    handleSpaceServerMessage({
+      type: 'collection_item:created',
+      item: { id: 'item-2', collection_id: 'collection-1', subject_type: 'variant', asset_id: null, variant_id: 'variant-1', role: 'thumbnail', pinned_variant_id: null, sort_index: 1, created_by: 'user-1', created_at: 2, updated_at: 2 },
+    }, context);
+    handleSpaceServerMessage({
+      type: 'collection_items:reordered',
+      collectionId: 'collection-1',
+      items: [
+        { id: 'item-2', collection_id: 'collection-1', subject_type: 'variant', asset_id: null, variant_id: 'variant-1', role: 'thumbnail', pinned_variant_id: null, sort_index: 0, created_by: 'user-1', created_at: 2, updated_at: 3 },
+        { id: 'item-1', collection_id: 'collection-1', subject_type: 'asset', asset_id: 'asset-1', variant_id: null, role: 'lead', pinned_variant_id: null, sort_index: 1, created_by: 'user-1', created_at: 1, updated_at: 3 },
+      ],
+    }, context);
 
-    assert.deepEqual(useSpaceSessionStore.getState().relations, []);
+    assert.deepEqual(
+      useSpaceSessionStore.getState().collectionItems
+        .filter((item) => item.collection_id === 'collection-1')
+        .map((item) => item.id),
+      ['item-2', 'item-1'],
+    );
+
+    handleSpaceServerMessage({
+      type: 'collection_item:updated',
+      item: { id: 'item-1', collection_id: 'collection-1', subject_type: 'asset', asset_id: 'asset-1', variant_id: null, role: 'hero', pinned_variant_id: 'variant-1', sort_index: 0, created_by: 'user-1', created_at: 1, updated_at: 2 },
+    }, context);
+
+    assert.equal(useSpaceSessionStore.getState().collectionItems[0]?.role, 'hero');
+    assert.equal(useSpaceSessionStore.getState().collectionItems[0]?.pinned_variant_id, 'variant-1');
+
+    handleSpaceServerMessage({
+      type: 'collection_item:deleted',
+      collectionId: 'collection-1',
+      itemId: 'item-1',
+    }, context);
+
+    assert.deepEqual(useSpaceSessionStore.getState().collectionItems.map((item) => item.id), ['item-2']);
+
+    handleSpaceServerMessage({
+      type: 'collection:deleted',
+      collectionId: 'collection-1',
+    }, context);
+
+    assert.equal(useSpaceSessionStore.getState().collections.some((collection) => collection.id === 'collection-1'), false);
+    assert.equal(useSpaceSessionStore.getState().collectionItems.length, 0);
   });
 
   test('applies remote composition mutations to live store state', () => {
@@ -329,6 +355,8 @@ describe('space message handling', () => {
     const collection = {
       id: 'collection-1',
       name: 'Cast',
+      kind: 'cast' as const,
+      color: '#4f7cff',
       description: null,
       sort_index: 0,
       created_by: 'user-1',

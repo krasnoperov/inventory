@@ -5,11 +5,15 @@ import type {
   AutoDescribeRequestParams,
   BatchRequestParams,
   ChatForgeContext,
+  ChatRequestParams,
+  CollectionCreateParams,
+  CollectionItemCreateParams,
+  CollectionItemUpdateParams,
+  CollectionUpdateParams,
   CompositionCreateParams,
   CompositionItemCreateParams,
   CompositionItemUpdateParams,
   CompositionUpdateParams,
-  ChatRequestParams,
   CompareRequestParams,
   DescribeRequestParams,
   ForkParams,
@@ -48,6 +52,13 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'createRelation'
   | 'updateRelation'
   | 'deleteRelation'
+  | 'createCollection'
+  | 'updateCollection'
+  | 'deleteCollection'
+  | 'addCollectionItem'
+  | 'updateCollectionItem'
+  | 'reorderCollectionItems'
+  | 'deleteCollectionItem'
   | 'createComposition'
   | 'updateComposition'
   | 'deleteComposition'
@@ -181,6 +192,52 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
 
   const deleteRelation = useCallback((relationId: string) => {
     sendMessage({ type: 'relation:delete', relationId });
+  }, [sendMessage]);
+
+  const createCollection = useCallback((params: CollectionCreateParams) => {
+    sendMessage({
+      type: 'collection:create',
+      id: params.id,
+      name: params.name,
+      kind: params.kind,
+      color: params.color,
+      description: params.description,
+      sortIndex: params.sortIndex,
+    });
+  }, [sendMessage]);
+
+  const updateCollection = useCallback((collectionId: string, changes: CollectionUpdateParams) => {
+    sendMessage({ type: 'collection:update', collectionId, changes });
+  }, [sendMessage]);
+
+  const deleteCollection = useCallback((collectionId: string) => {
+    sendMessage({ type: 'collection:delete', collectionId });
+  }, [sendMessage]);
+
+  const addCollectionItem = useCallback((params: CollectionItemCreateParams) => {
+    sendMessage({
+      type: 'collection_item:create',
+      collectionId: params.collectionId,
+      id: params.id,
+      subjectType: params.subjectType,
+      assetId: params.assetId,
+      variantId: params.variantId,
+      role: params.role,
+      pinnedVariantId: params.pinnedVariantId,
+      sortIndex: params.sortIndex,
+    });
+  }, [sendMessage]);
+
+  const updateCollectionItem = useCallback((collectionId: string, itemId: string, changes: CollectionItemUpdateParams) => {
+    sendMessage({ type: 'collection_item:update', collectionId, itemId, changes });
+  }, [sendMessage]);
+
+  const reorderCollectionItems = useCallback((collectionId: string, itemIds: string[]) => {
+    sendMessage({ type: 'collection_items:reorder', collectionId, itemIds });
+  }, [sendMessage]);
+
+  const deleteCollectionItem = useCallback((collectionId: string, itemId: string) => {
+    sendMessage({ type: 'collection_item:delete', collectionId, itemId });
   }, [sendMessage]);
 
   const createComposition = useCallback((params: CompositionCreateParams): string => {
@@ -595,6 +652,13 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
     createRelation,
     updateRelation,
     deleteRelation,
+    createCollection,
+    updateCollection,
+    deleteCollection,
+    addCollectionItem,
+    updateCollectionItem,
+    reorderCollectionItems,
+    deleteCollectionItem,
     createComposition,
     updateComposition,
     deleteComposition,

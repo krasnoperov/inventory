@@ -23,10 +23,31 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
         ? { id: 'variant-2', asset_id: 'asset-2', media_kind: 'image' }
       : null),
     getCollectionById: mock.fn(async (id: string) => id === 'collection-1'
-      ? { id: 'collection-1', name: 'Scene Kit' }
+      ? { id: 'collection-1', name: 'Scene Kit', kind: 'custom', color: null }
       : null),
+    createCollection: mock.fn(async (data: Record<string, unknown>) => ({
+      id: data.id,
+      name: data.name,
+      kind: data.kind,
+      color: data.color ?? null,
+      description: data.description ?? null,
+      sort_index: data.sortIndex ?? 0,
+      created_by: data.createdBy,
+      created_at: 1,
+      updated_at: 1,
+    })),
     updateCollection: mock.fn(async (id: string, changes: Record<string, unknown>) => id === 'collection-1'
-      ? { id, name: changes.name ?? 'Scene Kit', description: changes.description ?? null, sort_index: changes.sortIndex ?? 0 }
+      ? {
+        id,
+        name: changes.name ?? 'Scene Kit',
+        kind: changes.kind ?? 'custom',
+        color: changes.color ?? null,
+        description: changes.description ?? null,
+        sort_index: changes.sortIndex ?? 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 2,
+      }
       : null),
     deleteCollection: mock.fn(async (id: string) => id === 'collection-1'),
     listCollectionItems: mock.fn(async () => [{
@@ -165,6 +186,66 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
 }
 
 describe('OrganizationController', () => {
+  test('editor collection creation and update normalize board metadata', async () => {
+    const { ctx, broadcasts } = createContext({});
+    const controller = new OrganizationController(ctx);
+
+    await controller.handleCreateCollection({} as WebSocket, {
+      userId: 'user-1',
+      role: 'editor',
+      name: 'Editor',
+      clientSessionId: 'client-1',
+    }, {
+      name: 'Cast',
+      kind: 'cast',
+      color: '#4F7CFF',
+      sortIndex: 0,
+    });
+
+    assert.equal(broadcasts[0].type, 'collection:created');
+    assert.equal(broadcasts[0].collection.kind, 'cast');
+    assert.equal(broadcasts[0].collection.color, '#4f7cff');
+
+    await controller.handleUpdateCollection({} as WebSocket, {
+      userId: 'user-1',
+      role: 'editor',
+      name: 'Editor',
+      clientSessionId: 'client-1',
+    }, 'collection-1', {
+      name: 'Scenes',
+      kind: 'scenes',
+      color: null,
+      sortIndex: 1,
+    });
+
+    assert.equal(broadcasts[1].type, 'collection:updated');
+    assert.equal(broadcasts[1].collection.kind, 'scenes');
+  });
+
+  test('collection creation rejects invalid kind and color before writing', async () => {
+    const { ctx } = createContext({});
+    const controller = new OrganizationController(ctx);
+
+    await assert.rejects(
+      () => controller.httpCreateCollection({
+        name: 'Bad',
+        kind: 'characters',
+        createdBy: 'user-1',
+      }),
+      ValidationError
+    );
+
+    await assert.rejects(
+      () => controller.httpCreateCollection({
+        name: 'Bad',
+        kind: 'cast',
+        color: 'blue',
+        createdBy: 'user-1',
+      }),
+      ValidationError
+    );
+  });
+
   test('editor collection item creation validates subject and broadcasts payload', async () => {
     const { ctx, broadcasts } = createContext({});
     const controller = new OrganizationController(ctx);

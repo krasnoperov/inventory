@@ -193,6 +193,43 @@ export interface SpaceRelation {
   updated_at: number;
 }
 
+export type CollectionKind =
+  | 'cast'
+  | 'style_refs'
+  | 'backgrounds'
+  | 'scenes'
+  | 'thumbnails'
+  | 'maps'
+  | 'deliverables'
+  | 'custom';
+
+export interface SpaceCollection {
+  id: string;
+  name: string;
+  kind: CollectionKind;
+  color: string | null;
+  description: string | null;
+  sort_index: number;
+  item_count?: number;
+  created_by?: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface CollectionItem {
+  id: string;
+  collection_id: string;
+  subject_type: 'asset' | 'variant';
+  asset_id: string | null;
+  variant_id: string | null;
+  role: string;
+  pinned_variant_id: string | null;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
 export type CompositionItemRole =
   | 'output'
   | 'background'
@@ -205,30 +242,6 @@ export type CompositionItemRole =
   | 'custom';
 
 export type CompositionStatus = 'draft' | 'final';
-
-export interface SpaceCollection {
-  id: string;
-  name: string;
-  description: string | null;
-  sort_index: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-}
-
-export interface CollectionItem {
-  id: string;
-  collection_id: string;
-  subject_type: SpaceSubjectType;
-  asset_id: string | null;
-  variant_id: string | null;
-  role: string;
-  pinned_variant_id: string | null;
-  sort_index: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-}
 
 export interface Composition {
   id: string;
@@ -600,44 +613,6 @@ export interface GenerationEstimateRequestParams {
   videoTier?: VideoGenerationTier;
 }
 
-export interface CompositionCreateParams {
-  id?: string;
-  name: string;
-  description?: string | null;
-  status?: CompositionStatus;
-  outputAssetId?: string | null;
-  outputVariantId?: string | null;
-  metadata?: Record<string, unknown>;
-  sortIndex?: number;
-}
-
-export interface CompositionUpdateParams {
-  name?: string;
-  description?: string | null;
-  status?: CompositionStatus;
-  outputAssetId?: string | null;
-  outputVariantId?: string | null;
-  metadata?: Record<string, unknown>;
-  sortIndex?: number;
-}
-
-export interface CompositionItemCreateParams {
-  id?: string;
-  role: CompositionItemRole;
-  assetId?: string | null;
-  variantId: string;
-  metadata?: Record<string, unknown>;
-  sortIndex?: number;
-}
-
-export interface CompositionItemUpdateParams {
-  role?: CompositionItemRole;
-  assetId?: string | null;
-  variantId?: string;
-  metadata?: Record<string, unknown>;
-  sortIndex?: number;
-}
-
 export interface GenerationEstimateResult {
   requestId: string;
   success: boolean;
@@ -735,6 +710,78 @@ export interface CompareRequestParams {
 // Auto-describe request parameters (lazy description caching)
 export interface AutoDescribeRequestParams {
   variantId: string;
+}
+
+export interface CollectionCreateParams {
+  id?: string;
+  name: string;
+  kind?: CollectionKind;
+  color?: string | null;
+  description?: string | null;
+  sortIndex?: number;
+}
+
+export interface CollectionUpdateParams {
+  name?: string;
+  kind?: CollectionKind;
+  color?: string | null;
+  description?: string | null;
+  sortIndex?: number;
+}
+
+export interface CollectionItemCreateParams {
+  id?: string;
+  collectionId: string;
+  subjectType: 'asset' | 'variant';
+  assetId?: string;
+  variantId?: string;
+  role?: string;
+  pinnedVariantId?: string | null;
+  sortIndex?: number;
+}
+
+export interface CollectionItemUpdateParams {
+  role?: string;
+  pinnedVariantId?: string | null;
+  sortIndex?: number;
+}
+
+export interface CompositionCreateParams {
+  id?: string;
+  name: string;
+  description?: string | null;
+  status?: CompositionStatus;
+  outputAssetId?: string | null;
+  outputVariantId?: string | null;
+  metadata?: Record<string, unknown>;
+  sortIndex?: number;
+}
+
+export interface CompositionUpdateParams {
+  name?: string;
+  description?: string | null;
+  status?: CompositionStatus;
+  outputAssetId?: string | null;
+  outputVariantId?: string | null;
+  metadata?: Record<string, unknown>;
+  sortIndex?: number;
+}
+
+export interface CompositionItemCreateParams {
+  id?: string;
+  role: CompositionItemRole;
+  assetId?: string | null;
+  variantId: string;
+  metadata?: Record<string, unknown>;
+  sortIndex?: number;
+}
+
+export interface CompositionItemUpdateParams {
+  role?: CompositionItemRole;
+  assetId?: string | null;
+  variantId?: string;
+  metadata?: Record<string, unknown>;
+  sortIndex?: number;
 }
 
 // Deferred action from agentic loop (tray operations)
@@ -896,8 +943,8 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 export type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: Composition[]; compositionItems?: CompositionItem[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[]; collections?: SpaceCollection[]; compositions?: CompositionOverview[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: Composition[]; compositionItems?: CompositionItem[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: CompositionOverview[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -1058,6 +1105,13 @@ export interface UseSpaceWebSocketReturn {
     context?: SpaceRelationContext | string | null;
   }) => void;
   deleteRelation: (relationId: string) => void;
+  createCollection: (params: CollectionCreateParams) => void;
+  updateCollection: (collectionId: string, changes: CollectionUpdateParams) => void;
+  deleteCollection: (collectionId: string) => void;
+  addCollectionItem: (params: CollectionItemCreateParams) => void;
+  updateCollectionItem: (collectionId: string, itemId: string, changes: CollectionItemUpdateParams) => void;
+  reorderCollectionItems: (collectionId: string, itemIds: string[]) => void;
+  deleteCollectionItem: (collectionId: string, itemId: string) => void;
   createComposition: (params: CompositionCreateParams) => string;
   updateComposition: (compositionId: string, changes: CompositionUpdateParams) => void;
   deleteComposition: (compositionId: string) => void;

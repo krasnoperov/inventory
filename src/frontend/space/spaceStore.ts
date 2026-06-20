@@ -10,12 +10,12 @@ import type {
   Lineage,
   RotationSet,
   RotationView,
-  SpaceRelation,
-  SpaceCollection,
   TilePosition,
   TileSet,
   UserPresence,
   Variant,
+  SpaceCollection,
+  SpaceRelation,
 } from './protocol';
 import type { SpaceStateSnapshot } from './spaceSnapshots';
 
@@ -92,8 +92,8 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
     variants: snapshot?.variants ?? [],
     lineage: snapshot?.lineage ?? [],
     relations: snapshot?.relations ?? [],
-    collections: [],
-    collectionItems: [],
+    collections: snapshot?.collections ?? [],
+    collectionItems: snapshot?.collectionItems ?? [],
     compositions: [],
     compositionItems: [],
     presence: snapshot?.presence ?? [],

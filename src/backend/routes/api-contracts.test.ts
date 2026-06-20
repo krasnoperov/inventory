@@ -151,6 +151,8 @@ const productionPlacement = {
 const collection = {
   id: 'collection-1',
   name: 'Scene Kit',
+  kind: 'scenes' as const,
+  color: '#2f9e73',
   description: null,
   sort_index: 0,
   created_by: String(user.id),

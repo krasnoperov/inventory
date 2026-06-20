@@ -295,6 +295,16 @@ export interface ProductionPlacement {
 
 export type SpaceSubjectType = 'asset' | 'variant';
 
+export type CollectionKind =
+  | 'cast'
+  | 'style_refs'
+  | 'backgrounds'
+  | 'scenes'
+  | 'thumbnails'
+  | 'maps'
+  | 'deliverables'
+  | 'custom';
+
 export type SpaceRelationType =
   | 'appears_in'
   | 'background_for'
@@ -323,6 +333,8 @@ export type CompositionStatus = 'draft' | 'final';
 export interface SpaceCollection {
   id: string;
   name: string;
+  kind: CollectionKind;
+  color: string | null;
   description: string | null;
   sort_index: number;
   created_by: string;
@@ -418,6 +430,8 @@ export interface CompositionItem {
 export interface SpaceCollectionOverview {
   id: string;
   name: string;
+  kind: CollectionKind;
+  color: string | null;
   description: string | null;
   sort_index: number;
   item_count: number;
@@ -616,8 +630,8 @@ export type ClientMessage =
   | { type: 'asset:setActive'; assetId: string; variantId: string }
   | { type: 'asset:fork'; sourceAssetId?: string; sourceVariantId?: string; name: string; assetType: string; mediaKind?: MediaKind; parentAssetId?: string }
   // Manual organization operations
-  | { type: 'collection:create'; id?: string; name: string; description?: string | null; sortIndex?: number }
-  | { type: 'collection:update'; collectionId: string; changes: { name?: string; description?: string | null; sortIndex?: number } }
+  | { type: 'collection:create'; id?: string; name: string; kind?: CollectionKind; color?: string | null; description?: string | null; sortIndex?: number }
+  | { type: 'collection:update'; collectionId: string; changes: { name?: string; kind?: CollectionKind; color?: string | null; description?: string | null; sortIndex?: number } }
   | { type: 'collection:delete'; collectionId: string }
   | { type: 'collection_item:create'; collectionId: string; id?: string; subjectType: SpaceSubjectType; assetId?: string; variantId?: string; role?: string; pinnedVariantId?: string | null; sortIndex?: number }
   | { type: 'collection_item:update'; collectionId: string; itemId: string; changes: { role?: string; pinnedVariantId?: string | null; sortIndex?: number } }
@@ -697,7 +711,7 @@ export type ClientMessage =
 export type ServerMessage =
   // Sync (full state)
   | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; relations?: SpaceRelation[]; compositions?: Composition[]; compositionItems?: CompositionItem[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; compositions?: CompositionOverview[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyle | null; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; collectionItems?: CollectionItem[]; compositions?: CompositionOverview[] }
   // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
   // Consider implementing for WebSocket reconnection state recovery.
   // | { type: 'sync:chat_state'; messages: ChatMessage[]; plan: Plan | null; planSteps: PlanStep[]; approvals: PendingApproval[]; autoExecuted: AutoExecuted[] }
