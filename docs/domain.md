@@ -21,7 +21,8 @@ A named catalog entry representing a conceptual thing (character, item, scene, s
 
 - **Type** describes what it represents: `character`, `item`, `scene`, `sprite-sheet`, `style-sheet`, `reference`, `tile-set`, `animation` (unconstrained string — additional types can be added freely)
 - **Media kind** describes the stored output medium: `image`, `audio`, or `video`
-- **Hierarchy** via `parent_asset_id` — assets can nest under other assets
+- **Collections and relations** organize assets without changing generation lineage
+- **Legacy parent compatibility** via `parent_asset_id` remains readable for migrated Spaces but is not a user-facing organization model
 - **Active variant** — one variant represents the asset in catalog view
 - Users select Assets (not variants) when composing
 
@@ -72,15 +73,14 @@ Tracks how variants relate to each other.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    ASSET HIERARCHY                               │
+│                    COLLECTIONS / RELATIONS                        │
 │                 (Organizational, Mutable)                        │
 │                                                                 │
-│    Character A                    Scene B                        │
-│        │                             │                           │
-│    ┌───┴───┐                     ┌───┴───┐                       │
-│   Head   Body                 Props    Background                │
+│    Cast                         Scenes                           │
+│    ├── Hero                     ├── Tavern                       │
+│    └── Merchant                 └── Forest                       │
 │                                                                 │
-│  Users CAN rearrange via drag-to-reparent                       │
+│  Users organize assets without mutating lineage or legacy parent │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -100,7 +100,7 @@ Tracks how variants relate to each other.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Asset Hierarchy
+### Collections And Relations
 
 Organizational structure for grouping related assets into logical trees.
 
@@ -108,7 +108,7 @@ Organizational structure for grouping related assets into logical trees.
 |----------|-------|
 | Mutable | Yes - users can rearrange |
 | Cycle prevention | Yes - backend validates |
-| Cascade delete | No - orphans children (SET NULL) |
+| Cascade delete | Collection and relation rows are removed or nulled with their targets |
 
 ### Variant Lineage
 
@@ -124,12 +124,12 @@ Immutable generation history for audit trail and reproducibility.
 
 Generation, derive, batch, fork, and upload flows record provenance through
 variant lineage. They do not infer asset hierarchy from references or source
-variants. Asset hierarchy is organizational state set explicitly by clients or
-by user reparenting.
+variants. Historical asset hierarchy is legacy compatibility data; user
+organization is represented by collections, relations, and compositions.
 
-- Changing asset hierarchy does NOT affect variant lineage
-- Creating lineage does NOT change asset hierarchy
-- Deleting an asset orphans children but cascades variant deletion
+- Changing collections or relations does NOT affect variant lineage
+- Creating lineage does NOT change collection membership
+- Deleting an asset removes its organization rows and cascades variant deletion
 
 ---
 
@@ -139,7 +139,7 @@ by user reparenting.
 |------|-------|---------|
 | **Space (Catalog)** | Assets with active variant thumbnails | Browse, organize, add to tray |
 | **Asset Detail** | All variants of one asset | Manage variants, compare iterations |
-| **Asset Canvas** | Asset hierarchy as DAG | Visualize parent-child relationships |
+| **Asset Canvas** | Asset thumbnails | Browse assets spatially |
 | **Variant Canvas** | Variant lineage graph | Visualize generation history |
 
 ---
@@ -203,7 +203,6 @@ CLI generation commands, docs, and tests should use the same matrix.
 | **Add to Tray** | Add active variant to Forge Tray |
 | **Rename** | Change asset name |
 | **Change Type** | Update asset type |
-| **Re-parent** | Move to different parent or root |
 | **Delete** | Remove asset and all variants |
 
 ---
@@ -211,14 +210,14 @@ CLI generation commands, docs, and tests should use the same matrix.
 ## References
 
 **Backend:**
-- `src/backend/durable-objects/space/controllers/AssetController.ts` — Hierarchy, spawn
+- `src/backend/durable-objects/space/controllers/AssetController.ts` — Asset CRUD and fork
 - `src/backend/durable-objects/space/controllers/GenerationController.ts` — Derive/compose
 - `src/backend/durable-objects/space/controllers/LineageController.ts` — Lineage queries
 - `src/backend/durable-objects/space/schema/SchemaManager.ts` — Schema definitions
 
 **Frontend:**
 - `src/frontend/components/ForgeTray/` — Tray implementation
-- `src/frontend/components/AssetCanvas/` — Asset hierarchy visualization
+- `src/frontend/components/AssetCanvas/` — Spatial asset visualization
 - `src/frontend/components/VariantCanvas/` — Lineage visualization
 - `src/frontend/pages/SpacePage.tsx` — Catalog view
 - `src/frontend/pages/AssetDetailPage.tsx` — Variant management

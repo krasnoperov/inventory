@@ -39,16 +39,19 @@ export interface DeleteProviderKeyResponse {
   deletedAt: string;
 }
 
-export interface ResolveProviderKeyRequest {
+export type ResolveProviderKeyRequest = {
   tenant: KeyBrokerTenantScope;
   provider: ProviderKeyProvider;
+} & ({
   purpose: 'generation';
   generation: {
     jobId: string;
     requestId: string;
     spaceId: string;
   };
-}
+} | {
+  purpose: 'runtime';
+});
 
 export interface ResolveProviderKeyResponse {
   tenant: KeyBrokerTenantScope;
@@ -64,7 +67,10 @@ export interface RotateTenantDekRequest {
 
 export interface RotateTenantDekResponse {
   tenant: KeyBrokerTenantScope;
-  status: 'not_implemented';
+  status: 'rotated' | 'noop';
+  rotatedProviders: number;
+  dekVersion: number | null;
+  kekVersion: number | null;
 }
 
 export interface RewrapAllDeksRequest {
@@ -74,7 +80,13 @@ export interface RewrapAllDeksRequest {
 }
 
 export interface RewrapAllDeksResponse {
-  status: 'not_implemented';
+  status: 'completed' | 'dry_run';
+  fromKekVersion: number;
+  toKekVersion: number;
+  scanned: number;
+  rewrapped: number;
+  alreadyRewrapped: number;
+  skipped: number;
 }
 
 export interface KeyBrokerService {

@@ -399,10 +399,6 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
           type: 'string',
           description: 'Detailed prompt describing what to generate. Include: subject, style, lighting, mood, composition.',
         },
-        parentAssetId: {
-          type: 'string',
-          description: 'Optional: ID of parent asset if this is a child/derived asset',
-        },
         disableStyle: {
           type: 'boolean',
           description: 'Set to true to skip the space style for this generation. Only use when the user explicitly wants to override the style.',
@@ -429,10 +425,6 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
           type: 'string',
           enum: ['character', 'item', 'scene', 'prop', 'effect', 'ui'],
           description: 'Type of the forked asset',
-        },
-        parentAssetId: {
-          type: 'string',
-          description: 'Optional: ID of parent asset in the hierarchy',
         },
       },
       required: ['sourceAssetId', 'name', 'type'],
@@ -461,10 +453,6 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
           type: 'array',
           items: { type: 'string' },
           description: 'Asset IDs to use as references (1-14). For multiple refs, order matters: image 1, image 2, etc.',
-        },
-        parentAssetId: {
-          type: 'string',
-          description: 'Optional: ID of parent asset if this is a child/derived asset',
         },
         disableStyle: {
           type: 'boolean',

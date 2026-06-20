@@ -378,7 +378,6 @@ function printAssetDetails(details: AssetDetails, ctx: AssetsContext, print: (me
   print(`  Type:     ${asset.type || 'unknown'}`);
   print(`  Media:    ${asset.media_kind || '-'}`);
   print(`  Active:   ${asset.active_variant_id || '-'}`);
-  print(`  Parent:   ${asset.parent_asset_id || '-'}`);
   print(`  Created:  ${formatTimestamp(asset.created_at)}`);
   print(`  Updated:  ${formatTimestamp(asset.updated_at)}`);
   print(`  Web:      ${ctx.baseUrl}/spaces/${ctx.spaceId}/assets/${asset.id}`);
@@ -433,7 +432,6 @@ function toAssetJson(asset: Asset): Record<string, unknown> {
     type: asset.type,
     media_kind: asset.media_kind || null,
     activeVariantId: asset.active_variant_id,
-    parentAssetId: asset.parent_asset_id || null,
     createdAt: asset.created_at || null,
     updatedAt: asset.updated_at || null,
   };

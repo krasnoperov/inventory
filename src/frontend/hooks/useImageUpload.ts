@@ -26,7 +26,6 @@ export interface UploadNewAssetParams {
   file: File;
   assetName: string;
   assetType?: string;
-  parentAssetId?: string | null;
 }
 
 export interface UseImageUploadReturn {
@@ -108,7 +107,7 @@ export function useImageUpload({
   }, [spaceId, onSuccess, onError]);
 
   const uploadNewAsset = useCallback(async (params: UploadNewAssetParams): Promise<{ variant: Variant; asset: Asset } | null> => {
-    const { file, assetName, assetType = 'character', parentAssetId } = params;
+    const { file, assetName, assetType = 'character' } = params;
 
     // Clear previous error
     setError(null);
@@ -120,9 +119,6 @@ export function useImageUpload({
       formData.append('file', file);
       formData.append('assetName', assetName);
       formData.append('assetType', assetType);
-      if (parentAssetId) {
-        formData.append('parentAssetId', parentAssetId);
-      }
 
       // Upload
       const response = await fetch(`/api/spaces/${spaceId}/upload`, {

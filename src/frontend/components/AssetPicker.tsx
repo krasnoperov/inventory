@@ -8,17 +8,13 @@ export interface AssetPickerProps {
   assets: Asset[];
   variants: Variant[];
   selectedAssetId?: string | null;
-  allowRoot?: boolean;
-  rootLabel?: string;
-  onSelect: (assetId: string | null) => void;
+  onSelect: (assetId: string) => void;
 }
 
 export function AssetPicker({
   assets,
   variants,
   selectedAssetId,
-  allowRoot = true,
-  rootLabel = 'Root (no parent)',
   onSelect,
 }: AssetPickerProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,11 +30,6 @@ export function AssetPicker({
     );
   }, [assets, searchQuery]);
 
-  // Group assets by parent for tree structure
-  const rootAssets = useMemo(() => {
-    return filteredAssets.filter(a => !a.parent_asset_id);
-  }, [filteredAssets]);
-
   // Get the active variant for an asset (for thumbnail display)
   const getAssetVariant = useCallback((asset: Asset): Variant | null => {
     // Prefer the active variant
@@ -52,16 +43,14 @@ export function AssetPicker({
   }, [variants]);
 
   // Render a single asset option
-  const renderAssetOption = (asset: Asset, depth: number = 0) => {
+  const renderAssetOption = (asset: Asset) => {
     const variant = getAssetVariant(asset);
     const isSelected = selectedAssetId === asset.id;
-    const children = filteredAssets.filter(a => a.parent_asset_id === asset.id);
 
     return (
       <div key={asset.id}>
         <button
           className={`${styles.option} ${isSelected ? styles.selected : ''}`}
-          style={{ paddingLeft: `${0.75 + depth * 1.25}rem` }}
           onClick={() => onSelect(asset.id)}
         >
           <Thumbnail variant={variant} size="xs" className={styles.thumbnail} />
@@ -79,7 +68,6 @@ export function AssetPicker({
             </span>
           )}
         </button>
-        {children.map(child => renderAssetOption(child, depth + 1))}
       </div>
     );
   };
@@ -103,35 +91,8 @@ export function AssetPicker({
 
       {/* Options list */}
       <div className={styles.options}>
-        {/* Root option */}
-        {allowRoot && (
-          <button
-            className={`${styles.option} ${selectedAssetId === null ? styles.selected : ''}`}
-            onClick={() => onSelect(null)}
-          >
-            <div className={styles.thumbnail}>
-              <div className={styles.thumbnailPlaceholder}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                  <polyline points="9 22 9 12 15 12 15 22" />
-                </svg>
-              </div>
-            </div>
-            <div className={styles.optionInfo}>
-              <span className={styles.optionName}>{rootLabel}</span>
-            </div>
-            {selectedAssetId === null && (
-              <span className={styles.checkmark}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              </span>
-            )}
-          </button>
-        )}
-
         {/* Asset options */}
-        {rootAssets.map(asset => renderAssetOption(asset))}
+        {filteredAssets.map(asset => renderAssetOption(asset))}
 
         {/* Empty state - no search results */}
         {filteredAssets.length === 0 && searchQuery && (

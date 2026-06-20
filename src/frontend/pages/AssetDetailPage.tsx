@@ -203,7 +203,6 @@ export default function AssetDetailPage() {
     updateCompositionItem,
     reorderCompositionItems,
     deleteCompositionItem,
-    getChildren,
     updateSession,
     sendStyleSet,
     sendStyleDelete,
@@ -372,26 +371,8 @@ export default function AssetDetailPage() {
   // Set page title
   useDocumentTitle(asset?.name);
 
-  // Compute parent asset
-  const parentAsset = useMemo(() => {
-    if (!asset?.parent_asset_id) return null;
-    return wsAssets.find(a => a.id === asset.parent_asset_id) || null;
-  }, [asset, wsAssets]);
-
-  // Build breadcrumb path (ancestors)
-  const ancestorPath = useMemo(() => {
-    const path: Asset[] = [];
-    let current = parentAsset;
-    while (current) {
-      path.unshift(current);
-      current = wsAssets.find(a => a.id === current?.parent_asset_id) || null;
-    }
-    return path;
-  }, [parentAsset, wsAssets]);
-
-  // Child assets - combine two sources:
-  // 1. Direct children via parent_asset_id (asset hierarchy)
-  // 2. Assets with variants that are children of this asset's variants (lineage)
+  // Child assets derived from variant lineage. Historical parent_asset_id values
+  // stay readable in asset payloads but are no longer used as organization UI.
   const childAssets = useMemo(() => {
     if (!assetId) return [];
 
@@ -412,18 +393,8 @@ export default function AssetDetailPage() {
         .map(v => v.asset_id)
     );
 
-    // Combine: direct children + lineage-derived children
-    const directChildren = getChildren(assetId);
-    const lineageChildren = wsAssets.filter(a => lineageChildAssetIds.has(a.id));
-
-    // Deduplicate by id
-    const allChildIds = new Set([
-      ...directChildren.map(a => a.id),
-      ...lineageChildren.map(a => a.id),
-    ]);
-
-    return wsAssets.filter(a => allChildIds.has(a.id));
-  }, [assetId, variants, wsLineage, wsVariants, wsAssets, getChildren]);
+    return wsAssets.filter(a => lineageChildAssetIds.has(a.id));
+  }, [assetId, variants, wsLineage, wsVariants, wsAssets]);
 
   const styleUsage = useMemo(() => {
     if (!assetId) {
@@ -993,18 +964,6 @@ export default function AssetDetailPage() {
               </svg>
             </CanvasToolbarButton>
           </CanvasToolbar>
-
-          {ancestorPath.length > 0 && (
-            <nav className={styles.breadcrumb} aria-label="Asset ancestors">
-              <Link to={`/spaces/${spaceId}`}>Space</Link>
-              {ancestorPath.map((ancestor) => (
-                <React.Fragment key={ancestor.id}>
-                  <span>/</span>
-                  <Link to={`/spaces/${spaceId}/assets/${ancestor.id}`}>{ancestor.name}</Link>
-                </React.Fragment>
-              ))}
-            </nav>
-          )}
 
           {/* Child assets (forks/derivatives) */}
           {childAssets.length > 0 && (

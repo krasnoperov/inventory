@@ -4,7 +4,7 @@ import { Hono } from 'hono';
 import { AuthService } from '../features/auth/auth-service';
 import type { AppContext } from './types';
 import { voicesRoutes } from './voices';
-import { decryptProviderApiKeyV2, encryptLegacyProviderApiKey } from '../services/providerKeyVault';
+import { decryptProviderApiKeyV2, encryptProviderApiKeyV2 } from '../services/providerKeyVault';
 
 function encryptionKey(): string {
   return Buffer.from(new Uint8Array(32).fill(9)).toString('base64');
@@ -13,7 +13,7 @@ function encryptionKey(): string {
 function providerKeyDb(encryptedKey: string) {
   const row = {
     encrypted_api_key: encryptedKey,
-    key_hint: 'legacy-hint',
+    key_hint: '****-key',
     updated_at: '2026-01-01T00:00:00.000Z',
   };
   const envelopes = new Map<string, { wrapped_dek: string; dek_version: number; kek_version: number }>();
@@ -136,8 +136,14 @@ describe('voicesRoutes', () => {
 
   test('uses a stored ElevenLabs BYOK key for voice listing', async () => {
     const secret = encryptionKey();
-    const encrypted = await encryptLegacyProviderApiKey('user-elevenlabs-key', secret, 7, 'elevenlabs');
-    const db = providerKeyDb(encrypted);
+    const db = providerKeyDb('');
+    db.row.encrypted_api_key = await encryptProviderApiKeyV2(
+      db as never,
+      'user-elevenlabs-key',
+      secret,
+      7,
+      'elevenlabs',
+    );
     let observedKey: string | null = null;
     mock.method(globalThis, 'fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
       observedKey = new Headers(init?.headers).get('xi-api-key');
@@ -163,6 +169,44 @@ describe('voicesRoutes', () => {
       await decryptProviderApiKeyV2(db as never, db.row.encrypted_api_key, secret, 7, 'elevenlabs'),
       'user-elevenlabs-key',
     );
+  });
+
+  test('uses the key broker for stored BYOK keys when app KEK bindings are absent', async () => {
+    let brokerCall: unknown = null;
+    let observedKey: string | null = null;
+    mock.method(globalThis, 'fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+      observedKey = new Headers(init?.headers).get('xi-api-key');
+      return new Response(JSON.stringify({ voices: [{ voice_id: 'v1', name: 'Rachel' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    const response = await authedRequest(
+      routeApp({
+        INVENTORY_AUDIO_PROVIDER: 'elevenlabs',
+        ELEVENLABS_API_KEY: 'platform-key',
+        KEY_BROKER: {
+          async resolveProviderKey(request: unknown) {
+            brokerCall = request;
+            return {
+              tenant: { type: 'user', userId: 7 },
+              provider: 'elevenlabs',
+              apiKey: 'broker-elevenlabs-key',
+              keySource: 'byok',
+            };
+          },
+        } as never,
+      })
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(observedKey, 'broker-elevenlabs-key');
+    assert.deepEqual(brokerCall, {
+      tenant: { type: 'user', userId: 7 },
+      provider: 'elevenlabs',
+      purpose: 'runtime',
+    });
   });
 
   test('treats ElevenLabs as the provider in production without an explicit override', async () => {

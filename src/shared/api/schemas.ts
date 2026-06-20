@@ -1119,7 +1119,6 @@ export const UploadMediaRequestSchema = z
     assetName: z.string().optional(),
     assetType: z.string().optional(),
     mediaKind: MediaKindSchema.optional(),
-    parentAssetId: z.string().optional(),
     operation: z.string().optional(),
     prompt: z.string().optional(),
     model: z.string().optional(),

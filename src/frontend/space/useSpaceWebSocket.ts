@@ -135,7 +135,7 @@ export function useSpaceWebSocket({
   const styleReferenceCollections = ownsState ? rawStyleReferenceCollections : EMPTY_STYLE_REFERENCE_COLLECTIONS;
 
   const syncModeRef = getSpaceSessionSyncModeRef();
-  const commands = useSpaceCommands({ spaceId, assets, setJobs, syncModeRef });
+  const commands = useSpaceCommands({ spaceId, setJobs, syncModeRef });
   const {
     sendMessage,
     createAsset,
@@ -176,9 +176,6 @@ export function useSpaceWebSocket({
     sendDescribeRequest,
     sendCompareRequest,
     sendAutoDescribeRequest,
-    getChildren,
-    getAncestors,
-    getRootAssets,
     approveApproval,
     rejectApproval,
     listApprovals,
@@ -320,9 +317,6 @@ export function useSpaceWebSocket({
     sendDescribeRequest,
     sendCompareRequest,
     sendAutoDescribeRequest,
-    getChildren,
-    getAncestors,
-    getRootAssets,
     // Approval methods
     approveApproval,
     rejectApproval,

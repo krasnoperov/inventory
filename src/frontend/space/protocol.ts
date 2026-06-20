@@ -21,7 +21,7 @@ export interface Asset {
   type: string;  // User-editable: character, item, scene, sprite-sheet, animation, style-sheet, reference, etc.
   media_kind: MediaKind;
   tags: string;
-  parent_asset_id: string | null;  // NULL = root asset, else nested under parent
+  parent_asset_id: string | null;  // Legacy compatibility field; not writable organization state
   active_variant_id: string | null;
   created_by: string;
   created_at: number;
@@ -524,7 +524,6 @@ export interface GenerateRequestParams {
   aspectRatio?: string;
   /** Image output size (`1K`, `2K`, `4K`) */
   imageSize?: string;
-  parentAssetId?: string;
   /** Disable style anchoring */
   disableStyle?: boolean;
   /** Named asset-backed style preset to apply */
@@ -602,7 +601,6 @@ export interface BatchRequestParams {
   model?: string;
   aspectRatio?: string;
   imageSize?: string;
-  parentAssetId?: string;
   disableStyle?: boolean;
   stylePresetId?: string;
   styleVariantIds?: string[];
@@ -1091,7 +1089,6 @@ export interface AssetChanges {
   name?: string;
   type?: string;
   tags?: string[];
-  parentAssetId?: string | null;
 }
 
 // Fork params for creating new asset from an existing asset or variant
@@ -1102,7 +1099,6 @@ export interface ForkParams {
   name: string;
   assetType: string;
   mediaKind?: MediaKind;
-  parentAssetId?: string;
   collectionPlacements?: CollectionPlacementInput[];
 }
 
@@ -1124,7 +1120,7 @@ export interface UseSpaceWebSocketReturn {
   stylePresets: StylePresetRaw[];
   styleReferenceCollections: StyleReferenceCollectionRaw[];
   sendMessage: (msg: object) => void;
-  createAsset: (name: string, type: string, parentAssetId?: string) => void;
+  createAsset: (name: string, type: string) => void;
   updateAsset: (assetId: string, changes: AssetChanges) => void;
   deleteAsset: (assetId: string) => void;
   setActiveVariant: (assetId: string, variantId: string) => void;
@@ -1171,10 +1167,6 @@ export interface UseSpaceWebSocketReturn {
   sendDescribeRequest: (params: DescribeRequestParams) => string;  // Returns requestId
   sendCompareRequest: (params: CompareRequestParams) => string;  // Returns requestId
   sendAutoDescribeRequest: (params: AutoDescribeRequestParams) => string;  // Returns requestId
-  // Helper methods for hierarchy navigation
-  getChildren: (assetId: string) => Asset[];
-  getAncestors: (assetId: string) => Asset[];
-  getRootAssets: () => Asset[];
   // Approval methods
   approveApproval: (approvalId: string) => void;
   rejectApproval: (approvalId: string) => void;

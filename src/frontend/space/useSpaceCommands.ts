@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import type {
-  Asset,
   AssetChanges,
   AutoDescribeRequestParams,
   BatchRequestParams,
@@ -35,7 +34,6 @@ import { sharedSpaceSocketSession } from './spaceSocketSession';
 
 interface SpaceCommandsInput {
   spaceId: string;
-  assets: Asset[];
   setJobs: SpaceSessionState['setJobs'];
   syncModeRef: { current: 'full' | 'overview' | null };
 }
@@ -80,9 +78,6 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'sendDescribeRequest'
   | 'sendCompareRequest'
   | 'sendAutoDescribeRequest'
-  | 'getChildren'
-  | 'getAncestors'
-  | 'getRootAssets'
   | 'approveApproval'
   | 'rejectApproval'
   | 'listApprovals'
@@ -111,7 +106,7 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'sendVariantRate'
 >;
 
-export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: SpaceCommandsInput): SpaceCommands {
+export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommandsInput): SpaceCommands {
   // Send a message through the WebSocket
   const sendMessage = useCallback((msg: object) => {
     if (
@@ -125,8 +120,8 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
   }, [spaceId]);
 
   // Asset mutation methods
-  const createAsset = useCallback((name: string, type: string, parentAssetId?: string) => {
-    sendMessage({ type: 'asset:create', name, assetType: type, parentAssetId });
+  const createAsset = useCallback((name: string, type: string) => {
+    sendMessage({ type: 'asset:create', name, assetType: type });
   }, [sendMessage]);
 
   const updateAsset = useCallback((assetId: string, changes: AssetChanges) => {
@@ -154,7 +149,6 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       name: params.name,
       assetType: params.assetType,
       mediaKind: params.mediaKind,
-      parentAssetId: params.parentAssetId,
       collectionPlacements: params.collectionPlacements,
     });
   }, [sendMessage]);
@@ -352,7 +346,6 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       model: params.model,
       aspectRatio: params.aspectRatio,
       imageSize: params.imageSize,
-      parentAssetId: params.parentAssetId,
       disableStyle: params.disableStyle,
       stylePresetId: params.stylePresetId,
       styleVariantIds: params.styleVariantIds,
@@ -537,7 +530,6 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       model: params.model,
       aspectRatio: params.aspectRatio,
       imageSize: params.imageSize,
-      parentAssetId: params.parentAssetId,
       disableStyle: params.disableStyle,
       stylePresetId: params.stylePresetId,
       styleVariantIds: params.styleVariantIds,
@@ -630,32 +622,6 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
     sendMessage({ type: 'variant:rate', variantId, rating });
   }, [sendMessage]);
 
-  // Helper methods for hierarchy navigation
-  const getChildren = useCallback((assetId: string): Asset[] => {
-    return assets.filter(a => a.parent_asset_id === assetId);
-  }, [assets]);
-
-  const getAncestors = useCallback((assetId: string): Asset[] => {
-    const ancestors: Asset[] = [];
-    let current = assets.find(a => a.id === assetId);
-
-    while (current?.parent_asset_id) {
-      const parent = assets.find(a => a.id === current!.parent_asset_id);
-      if (parent) {
-        ancestors.unshift(parent);  // Add to front for root-first order
-        current = parent;
-      } else {
-        break;
-      }
-    }
-
-    return ancestors;
-  }, [assets]);
-
-  const getRootAssets = useCallback((): Asset[] => {
-    return assets.filter(a => a.parent_asset_id === null);
-  }, [assets]);
-
   // Job tracking methods
   const trackJob = useCallback((jobId: string, context?: JobContext) => {
     setJobs((prev) => {
@@ -741,9 +707,6 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
     sendRefineEdges,
     sendRefineTile,
     sendVariantRate,
-    getChildren,
-    getAncestors,
-    getRootAssets,
     trackJob,
     clearJob,
   };

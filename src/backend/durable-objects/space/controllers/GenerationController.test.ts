@@ -166,7 +166,7 @@ function createMockRepo(): SpaceRepository {
       type: input.type,
       media_kind: input.mediaKind ?? 'image',
       active_variant_id: null,
-      parent_asset_id: input.parentAssetId ?? null,
+      parent_asset_id: null,
     })),
     updateAsset: mock.fn(async () => null),
     createLineage: mock.fn(async (input) => ({ id: input.id })),

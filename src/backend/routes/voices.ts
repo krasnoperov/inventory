@@ -3,7 +3,7 @@ import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { listElevenLabsVoices, ElevenLabsApiError } from '../services/elevenLabsAudioProvider';
 import { resolveAudioProvider } from '../services/audioProviderSelection';
-import { resolveStoredProviderApiKey } from '../services/providerKeyVault';
+import { resolveRuntimeProviderApiKey } from '../services/runtimeProviderKeys';
 import { loggers } from '../../shared/logger';
 
 const log = loggers.generationController;
@@ -26,7 +26,7 @@ voicesRoutes.get('/api/voices', async (c) => {
   const env = c.env;
   const userId = c.get('userId')!;
 
-  const storedKey = await resolveStoredProviderApiKey(env.DB, userId, 'elevenlabs', env);
+  const storedKey = await resolveRuntimeProviderApiKey(env, userId, 'elevenlabs');
   const apiKey = storedKey ?? env.ELEVENLABS_API_KEY;
 
   if (resolveAudioProvider(env) !== 'elevenlabs' || !apiKey) {

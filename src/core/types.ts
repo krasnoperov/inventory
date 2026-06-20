@@ -84,6 +84,10 @@ export interface Env {
   INVENTORY_DEV_AUTH_TOKEN?: string;
   INVENTORY_DEV_USER_ID?: string;
   ENCRYPTION_KEY?: string;
+  BYOK_ACTIVE_KEK_VERSION?: string;
+  BYOK_KEK_V1?: string | SecretsStoreSecret;
+  BYOK_KEK_V2?: string | SecretsStoreSecret;
+  [binding: `BYOK_KEK_V${number}`]: string | SecretsStoreSecret | undefined;
 
   // R2 Storage for generated images (required for Make Effects)
   IMAGES: R2Bucket;
