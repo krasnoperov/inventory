@@ -1,6 +1,6 @@
 import { memo, useCallback, useState, useEffect } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantForgeTrayReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type SpaceSubject, type Variant, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantForgeTrayReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
 import { formatUtcDateTime } from '../../lib/dates';
 import { Thumbnail } from '../Thumbnail';
@@ -41,6 +41,8 @@ export interface VariantNodeData extends Record<string, unknown> {
   onStarVariant?: (variantId: string, starred: boolean) => void;
   /** Handler for deleting a variant */
   onDeleteVariant?: (variant: Variant) => void;
+  /** Handler for creating a manual relation from this variant */
+  onCreateRelation?: (subject: SpaceSubject) => void;
   /** Total number of variants (to disable delete when only 1) */
   variantCount?: number;
   /** Space ID for authenticated media downloads */
@@ -72,6 +74,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     layoutDirection = 'LR',
     onStarVariant,
     onDeleteVariant,
+    onCreateRelation,
     variantCount = 0,
     spaceId,
     thumbWidth,
@@ -137,6 +140,11 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     e.stopPropagation();
     onDeleteVariant?.(variant);
   }, [variant, onDeleteVariant]);
+
+  const handleCreateRelationClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCreateRelation?.({ subjectType: 'variant', variantId: variant.id });
+  }, [onCreateRelation, variant.id]);
 
   const handleCloseExpanded = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -407,6 +415,18 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
                   <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            )}
+            {onCreateRelation && (
+              <button
+                className={styles.detailActionButton}
+                onClick={handleCreateRelationClick}
+                title="Create relation"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
+                  <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
                 </svg>
               </button>
             )}

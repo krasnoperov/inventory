@@ -29,6 +29,10 @@ import {
   type Asset,
   type Variant,
   type ChatForgeContext,
+  type SpaceRelation,
+  type SpaceRelationContext,
+  type SpaceRelationType,
+  type SpaceSubject,
   type SpaceStyleRaw,
   type GenerationEstimateResult,
 } from '../hooks/useSpaceWebSocket';
@@ -38,6 +42,7 @@ import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { TileGrid } from '../components/TileGrid/TileGrid';
+import { RelationEditorDialog, RelationsPanel } from '../components/RelationsPanel';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
@@ -50,6 +55,10 @@ interface ConfirmDialog {
   message: string;
   onConfirm: () => void;
 }
+
+type RelationEditorState =
+  | { mode: 'create'; subject: SpaceSubject }
+  | { mode: 'edit'; relation: SpaceRelation };
 
 export default function AssetDetailPage() {
   const navigate = useNavigate();
@@ -75,6 +84,7 @@ export default function AssetDetailPage() {
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
+  const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
   const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
   // Variant selection state (persisted in store)
@@ -136,12 +146,16 @@ export default function AssetDetailPage() {
     assets: wsAssets,
     variants: wsVariants,
     lineage: wsLineage,
+    relations: wsRelations,
     jobs,
     setActiveVariant,
     deleteVariant,
     deleteAsset,
     starVariant,
     updateAsset,
+    createRelation,
+    updateRelation,
+    deleteRelation,
     clearJob,
     status: wsStatus,
     sendGenerateRequest,
@@ -275,6 +289,15 @@ export default function AssetDetailPage() {
       l => variantIds.has(l.child_variant_id) || variantIds.has(l.parent_variant_id)
     );
   }, [queryLineage, wsStatus, wsAssetVariants, wsLineage]);
+  const relationSubjects = useMemo<SpaceSubject[]>(() => {
+    if (!assetId) return [];
+    return [
+      { subjectType: 'asset', assetId },
+      ...variants.map((variant) => ({ subjectType: 'variant' as const, variantId: variant.id })),
+    ];
+  }, [assetId, variants]);
+  const relationAssets = wsAssets.length > 0 ? wsAssets : ([asset].filter(Boolean) as Asset[]);
+  const relationVariants = wsVariants.length > 0 ? wsVariants : variants;
   const isLoading = assetDetailsQuery.isPending && !asset;
 
   // Derive selectedVariant from variants array
@@ -479,6 +502,32 @@ export default function AssetDetailPage() {
     });
   }, [assetId, asset?.name, deleteAsset, navigate, spaceId]);
 
+  const handleOpenCreateRelation = useCallback((subject: SpaceSubject) => {
+    setRelationEditor({ mode: 'create', subject });
+  }, []);
+
+  const handleOpenEditRelation = useCallback((relation: SpaceRelation) => {
+    setRelationEditor({ mode: 'edit', relation });
+  }, []);
+
+  const handleCreateRelation = useCallback((params: {
+    subject: SpaceSubject;
+    object: SpaceSubject;
+    relationType: SpaceRelationType;
+    context: SpaceRelationContext | null;
+  }) => {
+    createRelation(params);
+    setRelationEditor(null);
+  }, [createRelation]);
+
+  const handleUpdateRelation = useCallback((relationId: string, changes: {
+    relationType: SpaceRelationType;
+    context: SpaceRelationContext | null;
+  }) => {
+    updateRelation(relationId, changes);
+    setRelationEditor(null);
+  }, [updateRelation]);
+
   const handleVariantClick = useCallback((variant: Variant) => {
     setSelectedVariantId(assetId!, variant.id);
   }, [assetId, setSelectedVariantId]);
@@ -618,6 +667,7 @@ export default function AssetDetailPage() {
           onGhostNodeClick={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
           onStarVariant={handleStarVariant}
           onDeleteVariant={handleDeleteVariant}
+          onCreateRelation={handleOpenCreateRelation}
         />
 
         {/* Tile Grid overlay for tile-set assets */}
@@ -717,6 +767,16 @@ export default function AssetDetailPage() {
               </CanvasToolbarButton>
             )}
             <CanvasToolbarButton
+              onClick={() => handleOpenCreateRelation({ subjectType: 'asset', assetId })}
+              disabled={actionInProgress}
+              title="Create relation"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
+                <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
+              </svg>
+            </CanvasToolbarButton>
+            <CanvasToolbarButton
               onClick={handleDeleteAsset}
               disabled={actionInProgress}
               danger
@@ -759,6 +819,19 @@ export default function AssetDetailPage() {
                 </Link>
               ))}
             </div>
+          )}
+
+          {relationSubjects.length > 0 && (
+            <RelationsPanel
+              assets={relationAssets}
+              variants={relationVariants}
+              relations={wsRelations}
+              subjects={relationSubjects}
+              primarySubject={{ subjectType: 'asset', assetId }}
+              onCreate={handleOpenCreateRelation}
+              onEdit={handleOpenEditRelation}
+              onDelete={deleteRelation}
+            />
           )}
 
         </div>
@@ -832,6 +905,23 @@ export default function AssetDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {relationEditor && (
+        <RelationEditorDialog
+          mode={relationEditor.mode}
+          assets={relationAssets}
+          variants={relationVariants}
+          sourceSubject={relationEditor.mode === 'create' ? relationEditor.subject : (
+            relationEditor.relation.subject_type === 'asset'
+              ? { subjectType: 'asset', assetId: relationEditor.relation.subject_asset_id ?? undefined }
+              : { subjectType: 'variant', variantId: relationEditor.relation.subject_variant_id ?? undefined }
+          )}
+          relation={relationEditor.mode === 'edit' ? relationEditor.relation : undefined}
+          onCancel={() => setRelationEditor(null)}
+          onCreate={handleCreateRelation}
+          onUpdate={handleUpdateRelation}
+        />
       )}
 
       {/* Forge Tray - persistent bottom bar for generation */}

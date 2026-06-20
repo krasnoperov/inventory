@@ -14,7 +14,7 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import dagre from 'dagre';
-import { type Asset, type Variant, type Lineage, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, type Lineage, type SpaceSubject, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
 import { VariantNode, type VariantNodeType } from './VariantNode';
 
 import '@xyflow/react/dist/style.css';
@@ -64,6 +64,8 @@ export interface VariantCanvasProps {
   onStarVariant?: (variantId: string, starred: boolean) => void;
   /** Handler for deleting a variant */
   onDeleteVariant?: (variant: Variant) => void;
+  /** Handler for creating a manual relation from a variant */
+  onCreateRelation?: (subject: SpaceSubject) => void;
 }
 
 /** Calculate node bounding width from image dimensions (height fixed, width follows aspect ratio) */
@@ -227,6 +229,7 @@ function VariantCanvasInner({
   layoutDirection = 'LR',
   onStarVariant,
   onDeleteVariant,
+  onCreateRelation,
   dimensionsReady,
   imageDimensions,
 }: VariantCanvasProps & {
@@ -329,6 +332,7 @@ function VariantCanvasInner({
           onGhostClick: onGhostNodeClick, // For forked-to/from navigation
           onStarVariant,
           onDeleteVariant,
+          onCreateRelation,
           variantCount: variants.length,
           spaceId,
           // Exact thumbnail width so the card matches the image aspect ratio
@@ -520,7 +524,7 @@ function VariantCanvasInner({
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, onStarVariant, onDeleteVariant, spaceId]);
+  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, onStarVariant, onDeleteVariant, onCreateRelation, spaceId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -617,6 +621,7 @@ export function VariantCanvas({
   layoutDirection = 'LR',
   onStarVariant,
   onDeleteVariant,
+  onCreateRelation,
 }: VariantCanvasProps) {
   // Track loaded image dimensions
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
@@ -708,6 +713,7 @@ export function VariantCanvas({
         layoutDirection={layoutDirection}
         onStarVariant={onStarVariant}
         onDeleteVariant={onDeleteVariant}
+        onCreateRelation={onCreateRelation}
         dimensionsReady={dimensionsReady}
         imageDimensions={imageDimensions}
       />

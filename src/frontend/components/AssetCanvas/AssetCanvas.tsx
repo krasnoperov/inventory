@@ -14,7 +14,7 @@ import {
   MarkerType,
   BackgroundVariant,
 } from '@xyflow/react';
-import { type Asset, type Variant, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type SpaceSubject, type Variant, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
 import { AssetNode, type AssetNodeType } from './AssetNode';
 import { applyLayout, type LayoutAlgorithm } from './layouts';
 
@@ -47,6 +47,7 @@ export interface AssetCanvasProps {
   isInitialSyncPending?: boolean;
   onAssetClick?: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
+  onCreateRelation?: (subject: SpaceSubject) => void;
   /** Called when user drags an edge to reparent an asset. Set childAssetId's parent to newParentAssetId (or null to unparent) */
   onReparent?: (childAssetId: string, newParentAssetId: string | null) => void;
   /** Layout direction: TB (top-bottom), LR (left-right), BT, RL. Default: LR */
@@ -70,6 +71,7 @@ function AssetCanvasInner({
   isInitialSyncPending,
   onAssetClick,
   onAddToTray,
+  onCreateRelation,
   onReparent,
   layoutDirection = 'LR',
   layoutAlgorithm = 'dagre',
@@ -127,6 +129,7 @@ function AssetCanvasInner({
           isGenerating: isAssetGenerating(asset.id),
           onAssetClick,
           onAddToTray,
+          onCreateRelation,
           // Exact thumbnail width so the card matches the image aspect ratio
           thumbWidth: dims ? dims.width - NODE_PADDING : undefined,
         },
@@ -159,7 +162,7 @@ function AssetCanvasInner({
     });
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, onAddToTray, imageDimensions, layoutDirection, layoutAlgorithm, spaceId]);
+  }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, onAddToTray, onCreateRelation, imageDimensions, layoutDirection, layoutAlgorithm, spaceId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<AssetNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -273,6 +276,7 @@ export function AssetCanvas({
   isInitialSyncPending,
   onAssetClick,
   onAddToTray,
+  onCreateRelation,
   onReparent,
   layoutDirection = 'LR',
   layoutAlgorithm = 'dagre',
@@ -359,6 +363,7 @@ export function AssetCanvas({
         isInitialSyncPending={isInitialSyncPending}
         onAssetClick={onAssetClick}
         onAddToTray={onAddToTray}
+        onCreateRelation={onCreateRelation}
         onReparent={onReparent}
         layoutDirection={layoutDirection}
         layoutAlgorithm={layoutAlgorithm}

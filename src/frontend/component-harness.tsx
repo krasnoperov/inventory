@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
 import { ForgeTray } from './components/ForgeTray';
 import { Pagination } from './components/Pagination';
+import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
 import { useStyleStore, type SpaceStyleClient } from './stores/styleStore';
 import './styles/theme.css';
 import './styles/global.css';
@@ -10,6 +11,7 @@ import './styles/global.css';
 declare global {
   interface Window {
     __componentHarnessCalls?: string[];
+    __componentHarnessCallDetails?: Array<{ eventName: string; args: unknown[] }>;
     __setHarnessProps?: (props: Record<string, unknown>) => void;
   }
 }
@@ -18,6 +20,8 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeader: AppHeader as ComponentType<Record<string, unknown>>,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
+  RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
+  RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,
 };
 
 function revive(value: unknown): unknown {
@@ -27,8 +31,9 @@ function revive(value: unknown): unknown {
 
   if (typeof value === 'string' && value.startsWith('__record__:')) {
     const eventName = value.slice('__record__:'.length);
-    return () => {
+    return (...args: unknown[]) => {
       window.__componentHarnessCalls = [...(window.__componentHarnessCalls ?? []), eventName];
+      window.__componentHarnessCallDetails = [...(window.__componentHarnessCallDetails ?? []), { eventName, args }];
     };
   }
 
@@ -87,6 +92,7 @@ function render(props: Record<string, unknown>) {
 }
 
 window.__componentHarnessCalls = [];
+window.__componentHarnessCallDetails = [];
 window.__setHarnessProps = (props) => render(revive(props) as Record<string, unknown>);
 
 render(readProps(searchParams));

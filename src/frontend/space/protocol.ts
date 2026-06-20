@@ -151,6 +151,48 @@ export interface Lineage {
   created_at: number;
 }
 
+export type SpaceSubjectType = 'asset' | 'variant';
+
+export type SpaceRelationType =
+  | 'appears_in'
+  | 'background_for'
+  | 'style_reference_for'
+  | 'thumbnail_for'
+  | 'alternate_of'
+  | 'prop_in'
+  | 'map_for'
+  | 'part_of'
+  | 'reference_for'
+  | 'custom';
+
+export interface SpaceSubject {
+  subjectType: SpaceSubjectType;
+  assetId?: string;
+  variantId?: string;
+}
+
+export interface SpaceRelationContext {
+  label?: string;
+  context?: string;
+  notes?: string;
+}
+
+export interface SpaceRelation {
+  id: string;
+  subject_type: SpaceSubjectType;
+  subject_asset_id: string | null;
+  subject_variant_id: string | null;
+  object_type: SpaceSubjectType;
+  object_asset_id: string | null;
+  object_variant_id: string | null;
+  relation_type: SpaceRelationType;
+  context: string | null;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
 // Rotation & Tile Set types
 
 export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
@@ -710,7 +752,7 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 export type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null }
   | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
@@ -721,6 +763,9 @@ export type ServerMessage =
   | { type: 'variant:deleted'; variantId: string }
   | { type: 'lineage:created'; lineage: Lineage }
   | { type: 'lineage:severed'; lineageId: string }
+  | { type: 'relation:created'; relation: SpaceRelation }
+  | { type: 'relation:updated'; relation: SpaceRelation }
+  | { type: 'relation:deleted'; relationId: string }
   | { type: 'job:progress'; jobId: string; status: string }
   | { type: 'job:completed'; jobId: string; variant: Variant }
   | { type: 'job:failed'; jobId: string; error: string }
@@ -824,6 +869,7 @@ export interface UseSpaceWebSocketReturn {
   assets: Asset[];
   variants: Variant[];
   lineage: Lineage[];
+  relations: SpaceRelation[];
   jobs: Map<string, JobStatus>;
   presence: UserPresence[];
   sendMessage: (msg: object) => void;
@@ -836,6 +882,17 @@ export interface UseSpaceWebSocketReturn {
   starVariant: (variantId: string, starred: boolean) => void;
   retryVariant: (variantId: string) => void;
   severLineage: (lineageId: string) => void;
+  createRelation: (params: {
+    subject: SpaceSubject;
+    object: SpaceSubject;
+    relationType: SpaceRelationType;
+    context?: SpaceRelationContext | string | null;
+  }) => void;
+  updateRelation: (relationId: string, changes: {
+    relationType?: SpaceRelationType;
+    context?: SpaceRelationContext | string | null;
+  }) => void;
+  deleteRelation: (relationId: string) => void;
   requestSync: () => void;
   requestOverviewSync: () => void;
   trackJob: (jobId: string, context?: JobContext) => void;

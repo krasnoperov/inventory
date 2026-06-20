@@ -84,6 +84,7 @@ describe('space state snapshot cache', () => {
       assets: [asset()],
       variants: [variant()],
       lineage: [],
+      relations: [],
       presence: [],
       rotationSets: [],
       rotationViews: [],
@@ -138,6 +139,7 @@ describe('space state snapshot cache', () => {
       assets: [asset()],
       variants: [variant()],
       lineage: [],
+      relations: [],
       presence: [],
       rotationSets: [],
       rotationViews: [],
@@ -166,6 +168,7 @@ describe('space message handling', () => {
       assets: [asset()],
       variants: [variant()],
       lineage: [],
+      relations: [],
     }, {
       syncModeRef: { current: null },
       variantIdsRef: { current: new Set() },
@@ -174,6 +177,7 @@ describe('space message handling', () => {
       setAssets: store.setAssets,
       setVariants: store.setVariants,
       setLineage: store.setLineage,
+      setRelations: store.setRelations,
       setJobs: store.setJobs,
       setPresence: store.setPresence,
       setRotationSets: store.setRotationSets,
@@ -189,6 +193,78 @@ describe('space message handling', () => {
     assert.equal(next.assets[0]?.id, 'asset-1');
     assert.equal(next.variants.length, 1);
     assert.equal(next.variants[0]?.id, 'variant-1');
+  });
+
+  test('applies manual relation create update and delete events', () => {
+    const store = useSpaceSessionStore.getState();
+    store.hydrateFromSnapshot('space-relations', {
+      assets: [asset()],
+      variants: [variant()],
+      lineage: [],
+      relations: [],
+      presence: [],
+      rotationSets: [],
+      rotationViews: [],
+      tileSets: [],
+      tilePositions: [],
+      syncMode: 'full',
+      updatedAt: 1,
+    });
+
+    const context = {
+      syncModeRef: { current: 'full' as const },
+      variantIdsRef: { current: new Set<string>() },
+      sendMessage: () => {},
+      markSynced: store.markSynced,
+      setAssets: store.setAssets,
+      setVariants: store.setVariants,
+      setLineage: store.setLineage,
+      setRelations: store.setRelations,
+      setJobs: store.setJobs,
+      setPresence: store.setPresence,
+      setRotationSets: store.setRotationSets,
+      setRotationViews: store.setRotationViews,
+      setTileSets: store.setTileSets,
+      setTilePositions: store.setTilePositions,
+      setError: store.setError,
+    };
+
+    handleSpaceServerMessage({
+      type: 'relation:created',
+      relation: {
+        id: 'relation-1',
+        subject_type: 'asset',
+        subject_asset_id: 'asset-1',
+        subject_variant_id: null,
+        object_type: 'variant',
+        object_asset_id: null,
+        object_variant_id: 'variant-1',
+        relation_type: 'thumbnail_for',
+        context: null,
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      },
+    }, context);
+
+    assert.equal(useSpaceSessionStore.getState().relations.length, 1);
+
+    handleSpaceServerMessage({
+      type: 'relation:updated',
+      relation: {
+        ...useSpaceSessionStore.getState().relations[0]!,
+        relation_type: 'map_for',
+        context: '{"label":"map"}',
+      },
+    }, context);
+
+    assert.equal(useSpaceSessionStore.getState().relations[0]?.relation_type, 'map_for');
+    assert.equal(useSpaceSessionStore.getState().relations[0]?.context, '{"label":"map"}');
+
+    handleSpaceServerMessage({ type: 'relation:deleted', relationId: 'relation-1' }, context);
+
+    assert.deepEqual(useSpaceSessionStore.getState().relations, []);
   });
 });
 

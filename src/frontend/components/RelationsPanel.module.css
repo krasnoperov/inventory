@@ -1,0 +1,367 @@
+.panel {
+  width: min(420px, calc(100vw - 1.5rem));
+  max-height: min(52vh, 480px);
+  overflow: auto;
+  display: grid;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: 0 8px 24px oklch(0% 0 0 / 0.16);
+}
+
+.header,
+.rowMain,
+.rowActions,
+.dialogHeader,
+.dialogActions,
+.subjectLine {
+  display: flex;
+  align-items: center;
+}
+
+.header {
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.iconButton,
+.closeButton {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.iconButton svg,
+.closeButton svg {
+  width: 14px;
+  height: 14px;
+}
+
+.iconButton:hover,
+.closeButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.group {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.groupTitle {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rows {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.row {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.rowMain {
+  gap: 0.5rem;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.directionBadge {
+  flex: 0 0 auto;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.rowText {
+  min-width: 0;
+  display: grid;
+  gap: 0.125rem;
+}
+
+.rowTitle {
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rowLabel,
+.rowMeta,
+.rowNotes,
+.empty {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.rowLabel {
+  color: var(--color-text);
+}
+
+.rowActions {
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.rowButton {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+
+.rowButton:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.empty {
+  padding: 0.375rem 0;
+}
+
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: oklch(0% 0 0 / 0.45);
+  backdrop-filter: blur(4px);
+}
+
+.dialog {
+  width: min(560px, 100%);
+  max-height: min(760px, calc(100vh - 2rem));
+  overflow: auto;
+  display: grid;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-elevated);
+}
+
+.dialogHeader {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dialogTitle {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.subjectLine {
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.75rem;
+}
+
+.subjectLine span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subjectLine svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-muted);
+}
+
+.field {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.field span {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-status-processing-bg);
+}
+
+.targetPicker {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.targetOptions {
+  max-height: 230px;
+  overflow: auto;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.targetOption {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.targetOption:hover,
+.targetOptionSelected {
+  border-color: var(--color-primary);
+  background: var(--color-status-processing-bg);
+}
+
+.targetThumb {
+  flex: 0 0 auto;
+}
+
+.targetText {
+  min-width: 0;
+  display: grid;
+  gap: 0.125rem;
+}
+
+.targetText span,
+.targetText small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.targetText span {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.targetText small,
+.emptyTarget {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.emptyTarget {
+  padding: 1rem;
+  text-align: center;
+}
+
+.dialogActions {
+  justify-content: flex-end;
+  gap: 0.625rem;
+}
+
+.primaryButton,
+.secondaryButton {
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primaryButton {
+  border: 1px solid var(--button-primary-bg);
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+}
+
+.primaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.secondaryButton {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+}
+
+.secondaryButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+@media (max-width: 640px) {
+  .panel {
+    max-height: 42vh;
+  }
+
+  .dialogOverlay {
+    align-items: stretch;
+  }
+}
