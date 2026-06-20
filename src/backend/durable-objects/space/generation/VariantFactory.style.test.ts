@@ -34,6 +34,23 @@ function createMockRepo(): SpaceRepository {
     getVariantById: mock.fn(async () => null),
     getVariantImageKey: mock.fn(async () => null),
     getActiveStyle: mock.fn(async () => null),
+    getDefaultStylePreset: mock.fn(async () => null),
+    resolveStylePresetReferences: mock.fn(async () => null),
+    createRelation: mock.fn(async (input) => ({
+      id: input.id,
+      subject_type: input.subject.subjectType,
+      subject_asset_id: input.subject.assetId ?? null,
+      subject_variant_id: input.subject.variantId ?? null,
+      object_type: input.object.subjectType,
+      object_asset_id: input.object.assetId ?? null,
+      object_variant_id: input.object.variantId ?? null,
+      relation_type: input.relationType,
+      context: input.context ?? null,
+      sort_index: input.sortIndex ?? 0,
+      created_by: input.createdBy,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    })),
     createAsset: mock.fn(async (input) => ({
       id: input.id,
       name: input.name,
@@ -230,6 +247,186 @@ describe('VariantFactory - Style Injection', () => {
   });
 
   describe('style with images', () => {
+    test('default style preset resolves exact variants and records provenance', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getDefaultStylePreset).mock.mockImplementation(async () => ({
+        id: 'preset-default',
+        name: 'House Style',
+        style_prompt: 'Painterly adventure game',
+        collection_id: 'collection-style',
+        enabled: 1,
+        is_default: 1,
+        created_by: 'user-1',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      }));
+      asMock(repo.resolveStylePresetReferences).mock.mockImplementation(async () => ({
+        preset: {
+          id: 'preset-default',
+          name: 'House Style',
+          style_prompt: 'Painterly adventure game',
+          collection_id: 'collection-style',
+          enabled: 1,
+          is_default: 1,
+          created_by: 'user-1',
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        },
+        stylePresetId: 'preset-default',
+        styleCollectionId: 'collection-style',
+        stylePrompt: 'Painterly adventure game',
+        styleReferenceVariantIds: ['style-v1', 'style-v2'],
+        styleReferenceImageKeys: ['images/style-v1.png', 'images/style-v2.png'],
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async (variantId: string) => ({
+        id: variantId,
+        image_key: `images/${variantId}.png`,
+      }));
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const meta = createMockMeta();
+
+      const result = await factory.createAssetWithVariant(
+        { name: 'Test', assetType: 'character', prompt: 'A warrior' },
+        meta
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.ok(recipe.prompt.startsWith('[Style: Painterly adventure game]'));
+      assert.strictEqual(recipe.stylePresetId, 'preset-default');
+      assert.strictEqual(recipe.styleCollectionId, 'collection-style');
+      assert.strictEqual(recipe.stylePrompt, 'Painterly adventure game');
+      assert.deepStrictEqual(recipe.styleReferenceVariantIds, ['style-v1', 'style-v2']);
+      assert.deepStrictEqual(recipe.styleReferenceImageKeys, ['images/style-v1.png', 'images/style-v2.png']);
+      assert.deepStrictEqual(recipe.styleImageKeys, ['images/style-v1.png', 'images/style-v2.png']);
+      assert.deepStrictEqual(result.styleReferenceVariantIds, ['style-v1', 'style-v2']);
+      assert.strictEqual(asMock(repo.createRelation).mock.calls.length, 2);
+      assert.deepStrictEqual(
+        asMock(repo.createRelation).mock.calls.map((call) => call.arguments[0].subject.variantId),
+        ['style-v1', 'style-v2']
+      );
+    });
+
+    test('explicit style preset wins over default preset', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getDefaultStylePreset).mock.mockImplementation(async () => {
+        throw new Error('default should not be read for explicit preset');
+      });
+      asMock(repo.resolveStylePresetReferences).mock.mockImplementation(async (presetId: string) => ({
+        preset: {
+          id: presetId,
+          name: 'Explicit Style',
+          style_prompt: 'Clean ink lines',
+          collection_id: 'collection-explicit',
+          enabled: 1,
+          is_default: 0,
+          created_by: 'user-1',
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        },
+        stylePresetId: presetId,
+        styleCollectionId: 'collection-explicit',
+        stylePrompt: 'Clean ink lines',
+        styleReferenceVariantIds: ['explicit-v1'],
+        styleReferenceImageKeys: ['images/explicit-v1.png'],
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async () => ({ image_key: 'images/explicit-v1.png' }));
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Test',
+          assetType: 'character',
+          prompt: 'A warrior',
+          stylePresetId: 'preset-explicit',
+        },
+        createMockMeta()
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.strictEqual(recipe.stylePresetId, 'preset-explicit');
+      assert.deepStrictEqual(recipe.styleReferenceVariantIds, ['explicit-v1']);
+      assert.strictEqual(asMock(repo.resolveStylePresetReferences).mock.calls[0].arguments[0], 'preset-explicit');
+    });
+
+    test('ad hoc style variants are snapped without applying default preset prompt', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getDefaultStylePreset).mock.mockImplementation(async () => {
+        throw new Error('default should not be read for ad hoc style variants');
+      });
+      asMock(repo.getVariantById).mock.mockImplementation(async (variantId: string) => ({
+        id: variantId,
+        image_key: `images/${variantId}.png`,
+      }));
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Test',
+          assetType: 'character',
+          prompt: 'A warrior',
+          styleVariantIds: ['style-a', 'style-b'],
+        },
+        createMockMeta()
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.strictEqual(recipe.prompt, 'A warrior');
+      assert.deepStrictEqual(recipe.sourceImageKeys, ['images/style-a.png', 'images/style-b.png']);
+      assert.deepStrictEqual(recipe.styleReferenceVariantIds, ['style-a', 'style-b']);
+      assert.deepStrictEqual(recipe.styleReferenceImageKeys, ['images/style-a.png', 'images/style-b.png']);
+      assert.strictEqual(asMock(repo.createRelation).mock.calls.length, 2);
+    });
+
+    test('snapshot does not change when collection resolution changes later', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getDefaultStylePreset).mock.mockImplementation(async () => ({
+        id: 'preset-default',
+        name: 'House Style',
+        style_prompt: 'Painterly',
+        collection_id: 'collection-style',
+        enabled: 1,
+        is_default: 1,
+        created_by: 'user-1',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      }));
+      let resolvedVariantIds = ['style-v1'];
+      asMock(repo.resolveStylePresetReferences).mock.mockImplementation(async () => ({
+        preset: {
+          id: 'preset-default',
+          name: 'House Style',
+          style_prompt: 'Painterly',
+          collection_id: 'collection-style',
+          enabled: 1,
+          is_default: 1,
+          created_by: 'user-1',
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        },
+        stylePresetId: 'preset-default',
+        styleCollectionId: 'collection-style',
+        stylePrompt: 'Painterly',
+        styleReferenceVariantIds: resolvedVariantIds,
+        styleReferenceImageKeys: resolvedVariantIds.map((id) => `images/${id}.png`),
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async (variantId: string) => ({
+        id: variantId,
+        image_key: `images/${variantId}.png`,
+      }));
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const result = await factory.createAssetWithVariant(
+        { name: 'Test', assetType: 'character', prompt: 'A warrior' },
+        createMockMeta()
+      );
+      resolvedVariantIds = ['style-v2'];
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.styleReferenceVariantIds, ['style-v1']);
+      assert.deepStrictEqual(recipe.styleReferenceImageKeys, ['images/style-v1.png']);
+    });
+
     test('sourceImageKeys prepended with style images', async () => {
       const repo = createMockRepo();
       asMock(repo.getActiveStyle).mock.mockImplementation(async () =>
@@ -419,6 +616,72 @@ describe('VariantFactory - Style Injection', () => {
       assert.deepStrictEqual(result.sourceImageKeys, recipe.sourceImageKeys);
       assert.deepStrictEqual(result.styleImageKeys, ['styles/ref1.png', 'styles/ref2.png']);
     });
+
+    test('video caps asset-backed style references and keeps style variant provenance aligned', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getDefaultStylePreset).mock.mockImplementation(async () => ({
+        id: 'preset-video',
+        name: 'Video Style',
+        style_prompt: 'Graphic novel animation',
+        collection_id: 'collection-video-style',
+        enabled: 1,
+        is_default: 1,
+        created_by: 'user-1',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      }));
+      asMock(repo.resolveStylePresetReferences).mock.mockImplementation(async () => ({
+        preset: {
+          id: 'preset-video',
+          name: 'Video Style',
+          style_prompt: 'Graphic novel animation',
+          collection_id: 'collection-video-style',
+          enabled: 1,
+          is_default: 1,
+          created_by: 'user-1',
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        },
+        stylePresetId: 'preset-video',
+        styleCollectionId: 'collection-video-style',
+        stylePrompt: 'Graphic novel animation',
+        styleReferenceVariantIds: ['style-v1', 'style-v2', 'style-v3', 'style-v4'],
+        styleReferenceImageKeys: [
+          'images/style-v1.png',
+          'images/style-v2.png',
+          'images/style-v3.png',
+          'images/style-v4.png',
+        ],
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async (variantId: string) => ({
+        id: variantId,
+        image_key: `images/${variantId}.png`,
+      }));
+      asMock(repo.getVariantImageKey).mock.mockImplementation(async (variantId: string) => `images/${variantId}.png`);
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Video Test',
+          assetType: 'animation',
+          mediaKind: 'video',
+          prompt: 'A slow camera orbit',
+          referenceVariantIds: ['user-ref'],
+        },
+        createMockMeta()
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.deepStrictEqual(recipe.styleImageKeys, ['images/style-v1.png', 'images/style-v2.png']);
+      assert.deepStrictEqual(recipe.styleReferenceVariantIds, ['style-v1', 'style-v2']);
+      assert.deepStrictEqual(recipe.styleReferenceImageKeys, ['images/style-v1.png', 'images/style-v2.png']);
+      assert.deepStrictEqual(recipe.sourceImageKeys, [
+        'images/style-v1.png',
+        'images/style-v2.png',
+        'images/user-ref.png',
+      ]);
+      assert.strictEqual(recipe.veoReferenceMode, 'reference-images');
+    });
   });
 
   describe('disableStyle', () => {
@@ -481,6 +744,65 @@ describe('VariantFactory - Style Injection', () => {
   });
 
   describe('image count validation', () => {
+    test('asset-backed style images are skipped with matching empty style provenance when model budget is full', async () => {
+      const repo = createMockRepo();
+      asMock(repo.getDefaultStylePreset).mock.mockImplementation(async () => ({
+        id: 'preset-default',
+        name: 'House Style',
+        style_prompt: 'Ink wash',
+        collection_id: 'collection-style',
+        enabled: 1,
+        is_default: 1,
+        created_by: 'user-1',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      }));
+      asMock(repo.resolveStylePresetReferences).mock.mockImplementation(async () => ({
+        preset: {
+          id: 'preset-default',
+          name: 'House Style',
+          style_prompt: 'Ink wash',
+          collection_id: 'collection-style',
+          enabled: 1,
+          is_default: 1,
+          created_by: 'user-1',
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        },
+        stylePresetId: 'preset-default',
+        styleCollectionId: 'collection-style',
+        stylePrompt: 'Ink wash',
+        styleReferenceVariantIds: ['style-v1'],
+        styleReferenceImageKeys: ['images/style-v1.png'],
+      }));
+      asMock(repo.getVariantById).mock.mockImplementation(async (variantId: string) => ({
+        id: variantId,
+        image_key: variantId === 'style-v1' ? 'images/style-v1.png' : null,
+      }));
+      asMock(repo.getVariantImageKey).mock.mockImplementation(async () => 'images/user-ref.png');
+
+      const factory = new VariantFactory('space-1', repo, createMockEnv(), createMockBroadcast());
+      const result = await factory.createAssetWithVariant(
+        {
+          name: 'Test',
+          assetType: 'character',
+          prompt: 'A warrior',
+          model: 'flash',
+          referenceVariantIds: ['user-ref'],
+        },
+        createMockMeta()
+      );
+
+      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
+      assert.ok(recipe.prompt.startsWith('[Style: Ink wash]'));
+      assert.strictEqual(recipe.stylePresetId, 'preset-default');
+      assert.deepStrictEqual(recipe.styleReferenceVariantIds, []);
+      assert.deepStrictEqual(recipe.styleReferenceImageKeys, []);
+      assert.strictEqual(result.styleImageKeys, undefined);
+      assert.deepStrictEqual(recipe.sourceImageKeys, ['images/user-ref.png']);
+      assert.strictEqual(asMock(repo.createRelation).mock.calls.length, 0);
+    });
+
     test('style images skipped when total exceeds 14', async () => {
       const repo = createMockRepo();
       // Style has 3 images

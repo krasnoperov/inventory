@@ -115,6 +115,8 @@ interface GenerateRequestMessage {
   imageSize?: string;
   parentAssetId?: string;
   disableStyle?: boolean;
+  stylePresetId?: string;
+  styleVariantIds?: string[];
   mediaKind?: MediaKind;
   voiceId?: string;
   dialogueVoiceIds?: string[];
@@ -137,6 +139,8 @@ interface RefineRequestMessage {
   aspectRatio?: string;
   imageSize?: string;
   disableStyle?: boolean;
+  stylePresetId?: string;
+  styleVariantIds?: string[];
   mediaKind?: MediaKind;
   voiceId?: string;
   dialogueVoiceIds?: string[];
@@ -161,6 +165,8 @@ interface BatchRequestMessage {
   imageSize?: string;
   parentAssetId?: string;
   disableStyle?: boolean;
+  stylePresetId?: string;
+  styleVariantIds?: string[];
   mediaKind?: MediaKind;
   voiceId?: string;
   dialogueVoiceIds?: string[];
@@ -614,6 +620,8 @@ export interface PipelineClient {
     subjectDescription?: string;
     aspectRatio?: string;
     disableStyle?: boolean;
+    stylePresetId?: string;
+    styleVariantIds?: string[];
     generationMode?: RotationGenerationMode;
     waitForCompletion?: boolean;
     timeoutMs?: number;
@@ -629,6 +637,8 @@ export interface PipelineClient {
     seedVariantId?: string;
     aspectRatio?: string;
     disableStyle?: boolean;
+    stylePresetId?: string;
+    styleVariantIds?: string[];
     generationMode?: RotationGenerationMode;
     waitForCompletion?: boolean;
     timeoutMs?: number;
@@ -1544,6 +1554,8 @@ export class WebSocketClient {
     subjectDescription?: string;
     aspectRatio?: string;
     disableStyle?: boolean;
+    stylePresetId?: string;
+    styleVariantIds?: string[];
     generationMode?: RotationGenerationMode;
     waitForCompletion?: boolean;
     timeoutMs?: number;
@@ -1583,6 +1595,8 @@ export class WebSocketClient {
           subjectDescription: params.subjectDescription,
           aspectRatio: params.aspectRatio,
           disableStyle: params.disableStyle,
+          stylePresetId: params.stylePresetId,
+          styleVariantIds: params.styleVariantIds,
           generationMode: params.generationMode,
         });
       } catch (err) {
@@ -1609,6 +1623,8 @@ export class WebSocketClient {
     seedVariantId?: string;
     aspectRatio?: string;
     disableStyle?: boolean;
+    stylePresetId?: string;
+    styleVariantIds?: string[];
     generationMode?: RotationGenerationMode;
     waitForCompletion?: boolean;
     timeoutMs?: number;
@@ -1652,6 +1668,8 @@ export class WebSocketClient {
           seedVariantId: params.seedVariantId,
           aspectRatio: params.aspectRatio,
           disableStyle: params.disableStyle,
+          stylePresetId: params.stylePresetId,
+          styleVariantIds: params.styleVariantIds,
           generationMode: params.generationMode,
         });
       } catch (err) {
@@ -1791,6 +1809,8 @@ export class WebSocketClient {
     imageSize?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
+    stylePresetId?: string;
+    styleVariantIds?: string[];
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
@@ -1844,6 +1864,8 @@ export class WebSocketClient {
         imageSize: params.imageSize,
         parentAssetId: params.parentAssetId,
         disableStyle: params.disableStyle,
+        stylePresetId: params.stylePresetId,
+        styleVariantIds: params.styleVariantIds,
         mediaKind: params.mediaKind,
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,
@@ -1915,6 +1937,8 @@ export class WebSocketClient {
     aspectRatio?: string;
     imageSize?: string;
     disableStyle?: boolean;
+    stylePresetId?: string;
+    styleVariantIds?: string[];
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
@@ -1966,6 +1990,8 @@ export class WebSocketClient {
         aspectRatio: params.aspectRatio,
         imageSize: params.imageSize,
         disableStyle: params.disableStyle,
+        stylePresetId: params.stylePresetId,
+        styleVariantIds: params.styleVariantIds,
         mediaKind: params.mediaKind,
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,
@@ -2000,6 +2026,8 @@ export class WebSocketClient {
     imageSize?: string;
     parentAssetId?: string;
     disableStyle?: boolean;
+    stylePresetId?: string;
+    styleVariantIds?: string[];
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
@@ -2044,6 +2072,8 @@ export class WebSocketClient {
         imageSize: params.imageSize,
         parentAssetId: params.parentAssetId,
         disableStyle: params.disableStyle,
+        stylePresetId: params.stylePresetId,
+        styleVariantIds: params.styleVariantIds,
         mediaKind: params.mediaKind,
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,

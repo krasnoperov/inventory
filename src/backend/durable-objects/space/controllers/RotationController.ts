@@ -15,7 +15,12 @@ import { ROTATION_DIRECTIONS } from '../types';
 import type { GenerationWorkflowInput } from '../../../workflows/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
-import { capRefs, getStyleImageKeys } from '../generation/refLimits';
+import {
+  capRefs,
+  resolveStyleReferences,
+  withoutStyleReferenceImages,
+  type ResolvedStyleReferences,
+} from '../generation/refLimits';
 import { PromptBuilder, ROTATION_CAMERA_SPECS, NEGATIVE_PROMPTS } from '../generation/PromptBuilder';
 import { ROTATION_GRID_LAYOUTS, sliceGridCell } from '../generation/gridSlice';
 import {
@@ -51,6 +56,8 @@ export class RotationController extends BaseController {
       subjectDescription?: string;
       aspectRatio?: string;
       disableStyle?: boolean;
+      stylePresetId?: string;
+      styleVariantIds?: string[];
       generationMode?: 'sequential' | 'single-shot';
     }
   ): Promise<void> {
@@ -168,6 +175,8 @@ export class RotationController extends BaseController {
       subjectDescription: msg.subjectDescription,
       aspectRatio: msg.aspectRatio,
       disableStyle: msg.disableStyle,
+      stylePresetId: msg.stylePresetId,
+      styleVariantIds: msg.styleVariantIds,
     });
 
     await this.repo.createRotationSet({
@@ -223,6 +232,8 @@ export class RotationController extends BaseController {
       subjectDescription?: string;
       aspectRatio?: string;
       disableStyle?: boolean;
+      stylePresetId?: string;
+      styleVariantIds?: string[];
     };
     const directions = ROTATION_DIRECTIONS[config.type];
 
@@ -248,14 +259,21 @@ export class RotationController extends BaseController {
     // Collect image keys from all completed views
     const viewImageKeys = completedViews.map(v => v.image_key);
 
-    // Get style refs (no-op until Tier 1)
-    const { styleKeys, styleDescription } = await getStyleImageKeys(this.repo, config.disableStyle);
+    let style = await resolveStyleReferences(this.repo, {
+      disableStyle: config.disableStyle,
+      stylePresetId: config.stylePresetId,
+      styleVariantIds: config.styleVariantIds,
+      useLegacyFallback: true,
+    });
 
     // Cap refs to fit Gemini limit
     // Pin both the source image and the front/first generated view
     const sourceKey = completedViews[0]?.image_key || '';
     const masterKey = completedViews.length > 1 ? completedViews[0].image_key : undefined;
-    const cappedKeys = capRefs(styleKeys, viewImageKeys, sourceKey, 14, masterKey);
+    if (style.styleKeys.length + viewImageKeys.length > 14) {
+      style = withoutStyleReferenceImages(style);
+    }
+    const cappedKeys = capRefs(style.styleKeys, viewImageKeys, sourceKey, 14, masterKey);
 
     // Build directional prompt
     const rotationAsset = await this.repo.getAssetById(set.asset_id);
@@ -269,8 +287,8 @@ export class RotationController extends BaseController {
       || 'the subject';
 
     const builder = new PromptBuilder();
-    if (styleDescription) {
-      builder.withStyle(styleDescription);
+    if (style.styleDescription) {
+      builder.withStyle(style.styleDescription);
     }
     builder.withRotationContext(completedViews, direction, subject);
     const prompt = builder.build();
@@ -283,7 +301,9 @@ export class RotationController extends BaseController {
       mediaKind,
       model,
       aspectRatio: config.aspectRatio,
-      sourceImageKeys: [...styleKeys, ...cappedKeys],
+      sourceImageKeys: [...style.styleKeys, ...cappedKeys],
+      styleImageKeys: style.styleKeys.length ? style.styleKeys : undefined,
+      ...this.getStyleRecipeFields(style),
       operation: 'derive',
     });
 
@@ -295,6 +315,7 @@ export class RotationController extends BaseController {
       createdBy: set.created_by,
     });
     this.broadcast({ type: 'variant:created', variant });
+    await this.createStyleReferenceRelations(style, variantId, set.created_by);
 
     // Register as rotation_view
     await this.repo.createRotationView({
@@ -320,7 +341,9 @@ export class RotationController extends BaseController {
           mediaKind,
           model,
           aspectRatio: config.aspectRatio,
-          sourceImageKeys: [...styleKeys, ...cappedKeys],
+          sourceImageKeys: [...style.styleKeys, ...cappedKeys],
+          styleImageKeys: style.styleKeys.length ? style.styleKeys : undefined,
+          ...this.getStyleWorkflowFields(style),
           operation: 'derive',
         };
 
@@ -398,6 +421,8 @@ export class RotationController extends BaseController {
       subjectDescription?: string;
       aspectRatio?: string;
       disableStyle?: boolean;
+      stylePresetId?: string;
+      styleVariantIds?: string[];
     }
   ): Promise<void> {
     // Validate source variant
@@ -491,6 +516,8 @@ export class RotationController extends BaseController {
       subjectDescription: msg.subjectDescription,
       aspectRatio: msg.aspectRatio,
       disableStyle: msg.disableStyle,
+      stylePresetId: msg.stylePresetId,
+      styleVariantIds: msg.styleVariantIds,
       generationMode: 'single-shot',
       cellSize,
     });
@@ -514,7 +541,15 @@ export class RotationController extends BaseController {
     });
 
     // Build sprite sheet prompt
-    const { styleKeys, styleDescription } = await getStyleImageKeys(this.repo, msg.disableStyle);
+    let style = await resolveStyleReferences(this.repo, {
+      disableStyle: msg.disableStyle,
+      stylePresetId: msg.stylePresetId,
+      styleVariantIds: msg.styleVariantIds,
+      useLegacyFallback: true,
+    });
+    if (style.styleKeys.length + 1 > 14) {
+      style = withoutStyleReferenceImages(style);
+    }
 
     const directionDescs = layout.directions.map((dir, i) => {
       const col = i % layout.cols;
@@ -532,7 +567,7 @@ export class RotationController extends BaseController {
       directionDescs,
       `The reference image shows the character. Generate the EXACT SAME character from each specified angle.`,
       `CRITICAL: IDENTICAL design, proportions, colors, clothing across ALL views.`,
-      styleDescription ? `[Style: ${styleDescription}]` : '',
+      style.styleDescription ? `[Style: ${style.styleDescription}]` : '',
       NEGATIVE_PROMPTS.characters,
     ].filter(Boolean).join('\n');
 
@@ -547,7 +582,9 @@ export class RotationController extends BaseController {
       mediaKind: sourceMediaKind,
       model,
       aspectRatio: msg.aspectRatio,
-      sourceImageKeys: [sourceVariant.image_key, ...styleKeys],
+      sourceImageKeys: [...style.styleKeys, sourceVariant.image_key],
+      styleImageKeys: style.styleKeys.length ? style.styleKeys : undefined,
+      ...this.getStyleRecipeFields(style),
       operation: 'derive',
       generationMode: 'single-shot',
       gridLayout: layout,
@@ -562,6 +599,7 @@ export class RotationController extends BaseController {
       createdBy: meta.userId,
     });
     this.broadcast({ type: 'variant:created', variant });
+    await this.createStyleReferenceRelations(style, variantId, meta.userId);
 
     // Trigger workflow
     if (this.env.GENERATION_WORKFLOW) {
@@ -578,7 +616,9 @@ export class RotationController extends BaseController {
           mediaKind: sourceMediaKind,
           model,
           aspectRatio: msg.aspectRatio,
-          sourceImageKeys: [sourceVariant.image_key, ...styleKeys],
+          sourceImageKeys: [...style.styleKeys, sourceVariant.image_key],
+          styleImageKeys: style.styleKeys.length ? style.styleKeys : undefined,
+          ...this.getStyleWorkflowFields(style),
           operation: 'derive',
         };
 
@@ -751,5 +791,50 @@ export class RotationController extends BaseController {
       rotationSetId: rotationSet.id,
       totalViews: layout.directions.length,
     });
+  }
+
+  private getStyleRecipeFields(style: ResolvedStyleReferences): Record<string, unknown> {
+    if (!style.stylePresetId && style.styleReferenceVariantIds.length === 0 && !style.styleOverride) return {};
+    return {
+      stylePresetId: style.stylePresetId,
+      styleCollectionId: style.styleCollectionId ?? undefined,
+      styleReferenceVariantIds: style.styleReferenceVariantIds,
+      styleReferenceImageKeys: style.styleReferenceImageKeys,
+      stylePrompt: style.stylePrompt,
+      styleOverride: style.styleOverride || undefined,
+    };
+  }
+
+  private getStyleWorkflowFields(style: ResolvedStyleReferences): Partial<GenerationWorkflowInput> {
+    return {
+      stylePresetId: style.stylePresetId,
+      styleCollectionId: style.styleCollectionId ?? undefined,
+      styleReferenceVariantIds: style.styleReferenceVariantIds,
+      styleReferenceImageKeys: style.styleReferenceImageKeys,
+      stylePrompt: style.stylePrompt,
+    };
+  }
+
+  private async createStyleReferenceRelations(
+    style: ResolvedStyleReferences,
+    childVariantId: string,
+    createdBy: string
+  ): Promise<void> {
+    for (let index = 0; index < style.styleReferenceVariantIds.length; index++) {
+      await this.repo.createRelation({
+        id: crypto.randomUUID(),
+        subject: { subjectType: 'variant', variantId: style.styleReferenceVariantIds[index] },
+        object: { subjectType: 'variant', variantId: childVariantId },
+        relationType: 'style_reference_for',
+        context: JSON.stringify({
+          role: 'style_reference',
+          stylePresetId: style.stylePresetId,
+          styleCollectionId: style.styleCollectionId,
+          styleImageKey: style.styleReferenceImageKeys[index],
+        }),
+        sortIndex: index,
+        createdBy,
+      });
+    }
   }
 }

@@ -31,12 +31,15 @@ Stored in per-space DO SQLite (same as assets, variants, lineage).
 
 When `VariantFactory` creates a variant (generate, derive, refine, or batch), it handles style injection:
 
-1. Fetch the space's active style via `repo.getActiveStyle()`
-2. If no style exists, or `enabled = 0`, or `disableStyle = true` → skip
-3. **Prompt**: Prepend `[Style: <description>]\n\n` to the user's prompt
-4. **Images**: Prepend style image keys before user reference images in `sourceImageKeys`
-5. Record `styleId` in the variant's recipe for traceability
-6. If `disableStyle` was set, record `styleOverride: true` instead
+1. Resolve `stylePresetId` when provided, otherwise the default asset-backed style preset
+2. If ad hoc `styleVariantIds` are provided, resolve those completed image variants as style inputs
+3. If no asset-backed style applies, fall back to the legacy active `space_styles` row
+4. If no style exists, `enabled = 0`, or `disableStyle = true` → skip style image inputs
+5. **Prompt**: Prepend `[Style: <stylePrompt or description>]\n\n` to the user's prompt
+6. **Images**: Prepend style image keys before user reference images in `sourceImageKeys`
+7. Record exact style preset, collection, style prompt, style reference variant IDs, and image keys in the recipe
+8. Create `space_relations` rows from each style reference variant to the generated variant with `relation_type = 'style_reference_for'`
+9. If `disableStyle` was set, record `styleOverride: true` instead
 
 ```
 User prompt:    "A brave knight"
@@ -175,7 +178,12 @@ interface GenerationRecipe {
   sourceImageKeys?: string[];  // Style images + user references (combined)
   parentVariantIds?: string[]; // For retry support
   operation: 'generate' | 'derive' | 'refine';
-  styleId?: string;            // Style that was active at generation time
+  styleId?: string;            // Legacy singleton style that was active at generation time
+  stylePresetId?: string;      // Asset-backed style preset selected at generation time
+  styleCollectionId?: string;  // Collection backing the selected style preset
+  styleReferenceVariantIds?: string[]; // Exact style variants used as provider inputs
+  styleReferenceImageKeys?: string[];  // Exact style image keys sent to the provider
+  stylePrompt?: string;        // Style prompt from the selected asset-backed preset
   styleOverride?: boolean;     // True if style was explicitly disabled
   model?: string;              // Gemini model name
   imageSize?: string;          // Output resolution (1K, 2K, 4K)

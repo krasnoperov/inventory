@@ -14,7 +14,12 @@ import type {
 import type { GenerationWorkflowInput } from '../../../workflows/types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
-import { capRefs, getStyleImageKeys } from '../generation/refLimits';
+import {
+  capRefs,
+  resolveStyleReferences,
+  withoutStyleReferenceImages,
+  type ResolvedStyleReferences,
+} from '../generation/refLimits';
 import { getSpiralOrder } from '../generation/spiralOrder';
 import { PromptBuilder, NEGATIVE_PROMPTS } from '../generation/PromptBuilder';
 import { sliceGridCell } from '../generation/gridSlice';
@@ -52,6 +57,8 @@ export class TileController extends BaseController {
       seedVariantId?: string;
       aspectRatio?: string;
       disableStyle?: boolean;
+      stylePresetId?: string;
+      styleVariantIds?: string[];
       generationMode?: 'sequential' | 'single-shot';
     }
   ): Promise<void> {
@@ -103,6 +110,8 @@ export class TileController extends BaseController {
       prompt: msg.prompt,
       aspectRatio: msg.aspectRatio || '1:1',
       disableStyle: msg.disableStyle,
+      stylePresetId: msg.stylePresetId,
+      styleVariantIds: msg.styleVariantIds,
       spiralOrder,
     });
 
@@ -328,22 +337,30 @@ export class TileController extends BaseController {
       prompt: string;
       aspectRatio?: string;
       disableStyle?: boolean;
+      stylePresetId?: string;
+      styleVariantIds?: string[];
     };
 
     // Get adjacent completed tiles
     const adjacents = await this.repo.getAdjacentTiles(tileSetId, gridX, gridY);
 
-    // Get style refs (no-op until Tier 1)
-    const { styleKeys, styleDescription } = await getStyleImageKeys(this.repo, config.disableStyle);
-
     // Collect adjacent image keys
     const adjacentKeys = adjacents.map(a => a.image_key);
-    const cappedKeys = capRefs(styleKeys, adjacentKeys, adjacentKeys[0] || '');
+    let style = await resolveStyleReferences(this.repo, {
+      disableStyle: config.disableStyle,
+      stylePresetId: config.stylePresetId,
+      styleVariantIds: config.styleVariantIds,
+      useLegacyFallback: true,
+    });
+    if (style.styleKeys.length + adjacentKeys.length > 14) {
+      style = withoutStyleReferenceImages(style);
+    }
+    const cappedKeys = capRefs(style.styleKeys, adjacentKeys, adjacentKeys[0] || '');
 
     // Build adjacency-aware prompt
     const builder = new PromptBuilder();
-    if (styleDescription) {
-      builder.withStyle(styleDescription);
+    if (style.styleDescription) {
+      builder.withStyle(style.styleDescription);
     }
     builder
       .withTileContext(adjacents, set.tile_type as TileType)
@@ -361,8 +378,10 @@ export class TileController extends BaseController {
       mediaKind,
       model,
       aspectRatio: config.aspectRatio || '1:1',
-      sourceImageKeys: [...styleKeys, ...cappedKeys],
-      operation: 'derive',
+      sourceImageKeys: [...style.styleKeys, ...cappedKeys],
+      styleImageKeys: style.styleKeys.length ? style.styleKeys : undefined,
+      ...this.getStyleRecipeFields(style),
+      operation: adjacents.length > 0 || style.styleKeys.length > 0 ? 'derive' : 'generate',
     });
 
     const variant = await this.repo.createPlaceholderVariant({
@@ -373,6 +392,7 @@ export class TileController extends BaseController {
       createdBy: userId,
     });
     this.broadcast({ type: 'variant:created', variant });
+    await this.createStyleReferenceRelations(style, variantId, userId);
 
     // Register tile position
     await this.repo.createTilePosition({
@@ -398,8 +418,10 @@ export class TileController extends BaseController {
           mediaKind,
           model,
           aspectRatio: config.aspectRatio || '1:1',
-          sourceImageKeys: cappedKeys.length > 0 ? [...styleKeys, ...cappedKeys] : undefined,
-          operation: adjacents.length > 0 ? 'derive' : 'generate',
+          sourceImageKeys: [...style.styleKeys, ...cappedKeys].length > 0 ? [...style.styleKeys, ...cappedKeys] : undefined,
+          styleImageKeys: style.styleKeys.length ? style.styleKeys : undefined,
+          ...this.getStyleWorkflowFields(style),
+          operation: adjacents.length > 0 || style.styleKeys.length > 0 ? 'derive' : 'generate',
         };
 
         const instance = await this.env.GENERATION_WORKFLOW.create({
@@ -476,6 +498,8 @@ export class TileController extends BaseController {
       prompt: string;
       aspectRatio?: string;
       disableStyle?: boolean;
+      stylePresetId?: string;
+      styleVariantIds?: string[];
     }
   ): Promise<void> {
     this.requireEditor(meta);
@@ -507,6 +531,8 @@ export class TileController extends BaseController {
       prompt: msg.prompt,
       aspectRatio: msg.aspectRatio || '1:1',
       disableStyle: msg.disableStyle,
+      stylePresetId: msg.stylePresetId,
+      styleVariantIds: msg.styleVariantIds,
       generationMode: 'single-shot',
       cellSize,
     });
@@ -536,11 +562,19 @@ export class TileController extends BaseController {
     const canvasW = msg.gridWidth * cellSize;
     const canvasH = msg.gridHeight * cellSize;
 
-    const { styleKeys, styleDescription } = await getStyleImageKeys(this.repo, msg.disableStyle);
+    let style = await resolveStyleReferences(this.repo, {
+      disableStyle: msg.disableStyle,
+      stylePresetId: msg.stylePresetId,
+      styleVariantIds: msg.styleVariantIds,
+      useLegacyFallback: true,
+    });
+    if (style.styleKeys.length > 14) {
+      style = withoutStyleReferenceImages(style);
+    }
 
     const builder = new PromptBuilder();
-    if (styleDescription) {
-      builder.withStyle(styleDescription);
+    if (style.styleDescription) {
+      builder.withStyle(style.styleDescription);
     }
 
     const gridPrompt = [
@@ -565,8 +599,10 @@ export class TileController extends BaseController {
       mediaKind,
       model,
       aspectRatio: msg.aspectRatio || '1:1',
-      sourceImageKeys: styleKeys,
-      operation: 'generate',
+      sourceImageKeys: style.styleKeys,
+      styleImageKeys: style.styleKeys.length ? style.styleKeys : undefined,
+      ...this.getStyleRecipeFields(style),
+      operation: style.styleKeys.length > 0 ? 'derive' : 'generate',
       generationMode: 'single-shot',
       gridWidth: msg.gridWidth,
       gridHeight: msg.gridHeight,
@@ -581,6 +617,7 @@ export class TileController extends BaseController {
       createdBy: meta.userId,
     });
     this.broadcast({ type: 'variant:created', variant });
+    await this.createStyleReferenceRelations(style, variantId, meta.userId);
 
     // Trigger workflow for the single grid image
     if (this.env.GENERATION_WORKFLOW) {
@@ -597,8 +634,10 @@ export class TileController extends BaseController {
           mediaKind,
           model,
           aspectRatio: msg.aspectRatio || '1:1',
-          sourceImageKeys: styleKeys.length > 0 ? styleKeys : undefined,
-          operation: 'generate',
+          sourceImageKeys: style.styleKeys.length > 0 ? style.styleKeys : undefined,
+          styleImageKeys: style.styleKeys.length ? style.styleKeys : undefined,
+          ...this.getStyleWorkflowFields(style),
+          operation: style.styleKeys.length > 0 ? 'derive' : 'generate',
         };
 
         const instance = await this.env.GENERATION_WORKFLOW.create({
@@ -683,6 +722,8 @@ export class TileController extends BaseController {
       prompt: string;
       aspectRatio?: string;
       disableStyle?: boolean;
+      stylePresetId?: string;
+      styleVariantIds?: string[];
     };
 
     // Get the tile variant
@@ -696,11 +737,18 @@ export class TileController extends BaseController {
     const adjacents = await this.repo.getAdjacentTiles(tileSetId, gridX, gridY);
     if (adjacents.length === 0) return; // No neighbors to blend with
 
-    const { styleKeys, styleDescription } = await getStyleImageKeys(this.repo, config.disableStyle);
-
     // Build compose prompt with tile + adjacents
     const allKeys = [tileVariant.image_key, ...adjacents.map(a => a.image_key)];
-    const cappedKeys = capRefs(styleKeys, allKeys, tileVariant.image_key);
+    let style = await resolveStyleReferences(this.repo, {
+      disableStyle: config.disableStyle,
+      stylePresetId: config.stylePresetId,
+      styleVariantIds: config.styleVariantIds,
+      useLegacyFallback: true,
+    });
+    if (style.styleKeys.length + allKeys.length > 14) {
+      style = withoutStyleReferenceImages(style);
+    }
+    const cappedKeys = capRefs(style.styleKeys, allKeys, tileVariant.image_key);
 
     const refLabels = adjacents.map((a, i) => `Image ${i + 2}: adjacent tile to the ${a.direction}`).join('\n');
     const prompt = [
@@ -709,7 +757,7 @@ export class TileController extends BaseController {
       `Refine Image 1 so its edges seamlessly match the adjacent tiles.`,
       `Blend colors, textures, and features at the boundaries.`,
       `Keep the interior of the tile unchanged.`,
-      styleDescription ? `[Style: ${styleDescription}]` : '',
+      style.styleDescription ? `[Style: ${style.styleDescription}]` : '',
     ].filter(Boolean).join('\n');
 
     // Create placeholder variant for refined tile
@@ -723,7 +771,9 @@ export class TileController extends BaseController {
       mediaKind,
       model,
       aspectRatio: config.aspectRatio || '1:1',
-      sourceImageKeys: [...styleKeys, ...cappedKeys],
+      sourceImageKeys: [...style.styleKeys, ...cappedKeys],
+      styleImageKeys: style.styleKeys.length ? style.styleKeys : undefined,
+      ...this.getStyleRecipeFields(style),
       operation: 'refine',
     });
 
@@ -735,6 +785,7 @@ export class TileController extends BaseController {
       createdBy: userId,
     });
     this.broadcast({ type: 'variant:created', variant });
+    await this.createStyleReferenceRelations(style, variantId, userId);
 
     // Update tile position to point to new variant
     await this.sql.exec(
@@ -758,7 +809,9 @@ export class TileController extends BaseController {
           mediaKind,
           model,
           aspectRatio: config.aspectRatio || '1:1',
-          sourceImageKeys: [...styleKeys, ...cappedKeys],
+          sourceImageKeys: [...style.styleKeys, ...cappedKeys],
+          styleImageKeys: style.styleKeys.length ? style.styleKeys : undefined,
+          ...this.getStyleWorkflowFields(style),
           operation: 'refine',
         };
 
@@ -933,5 +986,50 @@ export class TileController extends BaseController {
       gridSize: `${gridWidth}x${gridHeight}`,
       totalCells: gridWidth * gridHeight,
     });
+  }
+
+  private getStyleRecipeFields(style: ResolvedStyleReferences): Record<string, unknown> {
+    if (!style.stylePresetId && style.styleReferenceVariantIds.length === 0 && !style.styleOverride) return {};
+    return {
+      stylePresetId: style.stylePresetId,
+      styleCollectionId: style.styleCollectionId ?? undefined,
+      styleReferenceVariantIds: style.styleReferenceVariantIds,
+      styleReferenceImageKeys: style.styleReferenceImageKeys,
+      stylePrompt: style.stylePrompt,
+      styleOverride: style.styleOverride || undefined,
+    };
+  }
+
+  private getStyleWorkflowFields(style: ResolvedStyleReferences): Partial<GenerationWorkflowInput> {
+    return {
+      stylePresetId: style.stylePresetId,
+      styleCollectionId: style.styleCollectionId ?? undefined,
+      styleReferenceVariantIds: style.styleReferenceVariantIds,
+      styleReferenceImageKeys: style.styleReferenceImageKeys,
+      stylePrompt: style.stylePrompt,
+    };
+  }
+
+  private async createStyleReferenceRelations(
+    style: ResolvedStyleReferences,
+    childVariantId: string,
+    createdBy: string
+  ): Promise<void> {
+    for (let index = 0; index < style.styleReferenceVariantIds.length; index++) {
+      await this.repo.createRelation({
+        id: crypto.randomUUID(),
+        subject: { subjectType: 'variant', variantId: style.styleReferenceVariantIds[index] },
+        object: { subjectType: 'variant', variantId: childVariantId },
+        relationType: 'style_reference_for',
+        context: JSON.stringify({
+          role: 'style_reference',
+          stylePresetId: style.stylePresetId,
+          styleCollectionId: style.styleCollectionId,
+          styleImageKey: style.styleReferenceImageKeys[index],
+        }),
+        sortIndex: index,
+        createdBy,
+      });
+    }
   }
 }
