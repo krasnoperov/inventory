@@ -159,19 +159,10 @@ describe('space state snapshot cache', () => {
 });
 
 describe('space message handling', () => {
-  test('applies state updates even when no view callbacks are registered', () => {
-    const store = useSpaceSessionStore.getState();
-    store.hydrateFromSnapshot('space-1', null);
-
-    handleSpaceServerMessage({
-      type: 'sync:state',
-      assets: [asset()],
-      variants: [variant()],
-      lineage: [],
-      relations: [],
-    }, {
+  function messageContext(store: ReturnType<typeof useSpaceSessionStore.getState>) {
+    return {
       syncModeRef: { current: null },
-      variantIdsRef: { current: new Set() },
+      variantIdsRef: { current: new Set<string>() },
       sendMessage: () => {},
       markSynced: store.markSynced,
       setAssets: store.setAssets,
@@ -189,7 +180,20 @@ describe('space message handling', () => {
       setTileSets: store.setTileSets,
       setTilePositions: store.setTilePositions,
       setError: store.setError,
-    });
+    };
+  }
+
+  test('applies state updates even when no view callbacks are registered', () => {
+    const store = useSpaceSessionStore.getState();
+    store.hydrateFromSnapshot('space-1', null);
+
+    handleSpaceServerMessage({
+      type: 'sync:state',
+      assets: [asset()],
+      variants: [variant()],
+      lineage: [],
+      relations: [],
+    }, messageContext(store));
 
     const next = useSpaceSessionStore.getState();
     assert.equal(next.hasSynced, true);
@@ -215,23 +219,7 @@ describe('space message handling', () => {
       updatedAt: 1,
     });
 
-    const context = {
-      syncModeRef: { current: 'full' as const },
-      variantIdsRef: { current: new Set<string>() },
-      sendMessage: () => {},
-      markSynced: store.markSynced,
-      setAssets: store.setAssets,
-      setVariants: store.setVariants,
-      setLineage: store.setLineage,
-      setRelations: store.setRelations,
-      setJobs: store.setJobs,
-      setPresence: store.setPresence,
-      setRotationSets: store.setRotationSets,
-      setRotationViews: store.setRotationViews,
-      setTileSets: store.setTileSets,
-      setTilePositions: store.setTilePositions,
-      setError: store.setError,
-    };
+    const context = messageContext(store);
 
     handleSpaceServerMessage({
       type: 'relation:created',
@@ -269,6 +257,69 @@ describe('space message handling', () => {
     handleSpaceServerMessage({ type: 'relation:deleted', relationId: 'relation-1' }, context);
 
     assert.deepEqual(useSpaceSessionStore.getState().relations, []);
+  });
+
+  test('applies remote composition mutations to live store state', () => {
+    const store = useSpaceSessionStore.getState();
+    store.hydrateFromSnapshot('space-1', null);
+    const context = messageContext(store);
+    const composition = {
+      id: 'composition-1',
+      name: 'Scene composition',
+      description: null,
+      status: 'draft' as const,
+      output_asset_id: 'asset-1',
+      output_variant_id: 'variant-1',
+      metadata: '{}',
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: 1,
+      updated_at: 1,
+    };
+    const firstItem = {
+      id: 'item-1',
+      composition_id: 'composition-1',
+      role: 'character' as const,
+      asset_id: 'asset-1',
+      variant_id: 'variant-1',
+      metadata: '{}',
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: 1,
+      updated_at: 1,
+    };
+    const secondItem = {
+      ...firstItem,
+      id: 'item-2',
+      sort_index: 1,
+    };
+
+    handleSpaceServerMessage({ type: 'composition:created', composition }, context);
+    handleSpaceServerMessage({ type: 'composition_item:created', item: firstItem }, context);
+    handleSpaceServerMessage({ type: 'composition_item:created', item: secondItem }, context);
+    handleSpaceServerMessage({
+      type: 'composition:updated',
+      composition: { ...composition, name: 'Updated scene composition', updated_at: 2 },
+    }, context);
+    handleSpaceServerMessage({
+      type: 'composition_items:reordered',
+      compositionId: 'composition-1',
+      items: [
+        { ...secondItem, sort_index: 0, updated_at: 2 },
+        { ...firstItem, sort_index: 1, updated_at: 2 },
+      ],
+    }, context);
+    handleSpaceServerMessage({
+      type: 'composition_item:deleted',
+      compositionId: 'composition-1',
+      itemId: 'item-1',
+    }, context);
+
+    const next = useSpaceSessionStore.getState();
+    assert.equal(next.compositions.length, 1);
+    assert.equal(next.compositions[0]?.name, 'Updated scene composition');
+    assert.deepEqual(next.compositionItems.map((item) => item.id), ['item-2']);
+    assert.equal(next.compositionItems[0]?.sort_index, 0);
   });
 });
 
