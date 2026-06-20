@@ -59,6 +59,7 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `spaces` | List, view, or create spaces |
 | `assets` | List/show/download assets; delete, rename, set-active |
 | `variants` | Delete, retry, star/unstar, and rate variants |
+| `usage` | Show platform storage and workflow consumption for a space |
 | `rotation` | Generate and monitor rotation views from a completed image variant |
 | `tileset` | Generate and monitor consistent tile sets |
 | `listen` | Connect to WebSocket and stream all events |
@@ -147,6 +148,22 @@ can authorize the space membership before resolving the R2 key.
 files, create a local asset database, or sync state into `.inventory`; the
 website remains the source of truth. Use `--space`, `--env`, or `--local` to
 override the project binding when needed.
+
+## Platform Usage
+
+Inspect platform-side storage and workflow consumption for the initialized
+project space:
+
+```bash
+makefx usage
+makefx usage --from 2026-06-01 --to 2026-06-30
+makefx usage --json
+```
+
+The command calls `GET /api/spaces/:id/usage/summary` with the same authenticated
+space membership checks as asset reads. Human-readable output highlights current
+storage bytes, workflow runs, and delivered media bytes; `--json` returns the
+full summary including usage-type and media-kind breakdowns.
 
 ### Managing Assets and Variants
 

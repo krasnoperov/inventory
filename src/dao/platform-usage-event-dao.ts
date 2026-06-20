@@ -1,5 +1,6 @@
 import { inject, injectable } from 'inversify';
 import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import type { Database, PlatformUsageEvent } from '../db/types';
 import { TYPES } from '../core/di-types';
 import type {
@@ -7,6 +8,7 @@ import type {
   PlatformUsageType,
   PlatformUsageUnit,
 } from '../backend/platform/platformUsage';
+import type { MediaKind } from '../backend/durable-objects/space/types';
 
 export interface PlatformUsageEventCreateData {
   idempotencyKey: string;
@@ -24,6 +26,41 @@ export interface PlatformUsageEventCreateData {
   mediaKind?: 'image' | 'audio' | 'video' | null;
   metadata?: PlatformUsageMetadata | null;
   createdAt?: string;
+}
+
+export interface PlatformUsageSummaryOptions {
+  from?: string | null;
+  to?: string | null;
+}
+
+export interface PlatformUsageTypeSummary {
+  usageType: PlatformUsageType;
+  unit: PlatformUsageUnit;
+  quantity: number;
+  events: number;
+}
+
+export interface PlatformUsageMediaKindSummary {
+  mediaKind: MediaKind | null;
+  storageBytes: number;
+  workflowRuns: number;
+  deliveryBytes: number;
+  events: number;
+}
+
+export interface PlatformUsageSummary {
+  spaceId: string;
+  period: {
+    from: string | null;
+    to: string | null;
+  };
+  totals: {
+    storageBytes: number;
+    workflowRuns: number;
+    deliveryBytes: number;
+  };
+  byType: PlatformUsageTypeSummary[];
+  byMediaKind: PlatformUsageMediaKindSummary[];
 }
 
 @injectable()
@@ -83,5 +120,85 @@ export class PlatformUsageEventDAO {
       totals[row.usage_type] = Number(row.total_quantity) || 0;
     }
     return totals;
+  }
+
+  async getSpaceSummary(
+    spaceId: string,
+    options: PlatformUsageSummaryOptions = {}
+  ): Promise<PlatformUsageSummary> {
+    let byTypeQuery = this.db
+      .selectFrom('platform_usage_events')
+      .select(['usage_type', 'unit'])
+      .select((eb) => [
+        eb.fn.sum<number>('quantity').as('quantity'),
+        sql<number>`count(*)`.as('events'),
+      ])
+      .where('space_id', '=', spaceId);
+
+    let byMediaKindQuery = this.db
+      .selectFrom('platform_usage_events')
+      .select('media_kind')
+      .select((eb) => [
+        eb.fn.sum<number>(
+          eb.case().when('usage_type', '=', 'storage').then(eb.ref('quantity')).else(0).end()
+        ).as('storage_bytes'),
+        eb.fn.sum<number>(
+          eb.case().when('usage_type', '=', 'workflow').then(eb.ref('quantity')).else(0).end()
+        ).as('workflow_runs'),
+        eb.fn.sum<number>(
+          eb.case().when('usage_type', '=', 'delivery').then(eb.ref('quantity')).else(0).end()
+        ).as('delivery_bytes'),
+        sql<number>`count(*)`.as('events'),
+      ])
+      .where('space_id', '=', spaceId);
+
+    if (options.from) {
+      byTypeQuery = byTypeQuery.where('created_at', '>=', options.from);
+      byMediaKindQuery = byMediaKindQuery.where('created_at', '>=', options.from);
+    }
+    if (options.to) {
+      byTypeQuery = byTypeQuery.where('created_at', '<=', options.to);
+      byMediaKindQuery = byMediaKindQuery.where('created_at', '<=', options.to);
+    }
+
+    const byTypeRows = await byTypeQuery
+      .groupBy(['usage_type', 'unit'])
+      .orderBy('usage_type', 'asc')
+      .execute();
+
+    const byType: PlatformUsageTypeSummary[] = byTypeRows.map((row) => ({
+      usageType: row.usage_type,
+      unit: row.unit,
+      quantity: Number(row.quantity) || 0,
+      events: Number(row.events) || 0,
+    }));
+
+    const byMediaKindRows = await byMediaKindQuery
+      .groupBy('media_kind')
+      .orderBy('media_kind', 'asc')
+      .execute();
+
+    const byMediaKind: PlatformUsageMediaKindSummary[] = byMediaKindRows.map((row) => ({
+      mediaKind: row.media_kind,
+      storageBytes: Number(row.storage_bytes) || 0,
+      workflowRuns: Number(row.workflow_runs) || 0,
+      deliveryBytes: Number(row.delivery_bytes) || 0,
+      events: Number(row.events) || 0,
+    }));
+
+    return {
+      spaceId,
+      period: {
+        from: options.from ?? null,
+        to: options.to ?? null,
+      },
+      totals: {
+        storageBytes: byType.find((row) => row.usageType === 'storage')?.quantity ?? 0,
+        workflowRuns: byType.find((row) => row.usageType === 'workflow')?.quantity ?? 0,
+        deliveryBytes: byType.find((row) => row.usageType === 'delivery')?.quantity ?? 0,
+      },
+      byType,
+      byMediaKind,
+    };
   }
 }

@@ -214,6 +214,8 @@ export const GetSpaceResponseSchema = z
 
 export const MediaKindSchema = z.enum(['image', 'audio', 'video']);
 export const VariantStatusSchema = z.enum(['pending', 'processing', 'uploading', 'completed', 'failed']);
+export const PlatformUsageTypeSchema = z.enum(['storage', 'workflow', 'delivery']);
+export const PlatformUsageUnitSchema = z.enum(['byte', 'run']);
 export const BooleanFromSqliteSchema = z
   .union([z.boolean(), z.literal(0), z.literal(1)])
   .transform((value) => value === true || value === 1)
@@ -279,6 +281,48 @@ export const ListSpaceAssetsResponseSchema = z
     assets: z.array(AssetSchema),
   })
   .openapi('ListSpaceAssetsResponse');
+
+export const UsageSummaryQuerySchema = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+export const PlatformUsageTypeSummarySchema = z
+  .object({
+    usageType: PlatformUsageTypeSchema,
+    unit: PlatformUsageUnitSchema,
+    quantity: z.number().int(),
+    events: z.number().int().nonnegative(),
+  })
+  .openapi('PlatformUsageTypeSummary');
+
+export const PlatformUsageMediaKindSummarySchema = z
+  .object({
+    mediaKind: MediaKindSchema.nullable(),
+    storageBytes: z.number().int(),
+    workflowRuns: z.number().int(),
+    deliveryBytes: z.number().int(),
+    events: z.number().int().nonnegative(),
+  })
+  .openapi('PlatformUsageMediaKindSummary');
+
+export const PlatformUsageSummaryResponseSchema = z
+  .object({
+    success: z.literal(true),
+    spaceId: z.string(),
+    period: z.object({
+      from: z.string().nullable(),
+      to: z.string().nullable(),
+    }),
+    totals: z.object({
+      storageBytes: z.number().int(),
+      workflowRuns: z.number().int(),
+      deliveryBytes: z.number().int(),
+    }),
+    byType: z.array(PlatformUsageTypeSummarySchema),
+    byMediaKind: z.array(PlatformUsageMediaKindSummarySchema),
+  })
+  .openapi('PlatformUsageSummaryResponse');
 
 export const ProductionRecordSchema = z
   .object({
@@ -578,6 +622,9 @@ export type CreateSpaceResponse = z.infer<typeof CreateSpaceResponseSchema>;
 export type ListSpacesResponse = z.infer<typeof ListSpacesResponseSchema>;
 export type GetSpaceResponse = z.infer<typeof GetSpaceResponseSchema>;
 export type ListSpaceAssetsResponse = z.infer<typeof ListSpaceAssetsResponseSchema>;
+export type PlatformUsageTypeSummary = z.infer<typeof PlatformUsageTypeSummarySchema>;
+export type PlatformUsageMediaKindSummary = z.infer<typeof PlatformUsageMediaKindSummarySchema>;
+export type PlatformUsageSummaryResponse = z.infer<typeof PlatformUsageSummaryResponseSchema>;
 export type DeleteSpaceResponse = z.infer<typeof DeleteSpaceResponseSchema>;
 export type ProductionRecord = z.infer<typeof ProductionRecordSchema>;
 export type PlaceProductionRecordRequest = z.infer<typeof PlaceProductionRecordRequestSchema>;
