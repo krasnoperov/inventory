@@ -13,6 +13,10 @@ export interface SpaceMessageContext {
   setVariants: SpaceSessionState['setVariants'];
   setLineage: SpaceSessionState['setLineage'];
   setRelations: SpaceSessionState['setRelations'];
+  setCollections: SpaceSessionState['setCollections'];
+  setCollectionItems: SpaceSessionState['setCollectionItems'];
+  setCompositions: SpaceSessionState['setCompositions'];
+  setCompositionItems: SpaceSessionState['setCompositionItems'];
   setJobs: SpaceSessionState['setJobs'];
   setPresence: SpaceSessionState['setPresence'];
   setRotationSets: SpaceSessionState['setRotationSets'];
@@ -37,6 +41,10 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     setVariants,
     setLineage,
     setRelations,
+    setCollections,
+    setCollectionItems,
+    setCompositions,
+    setCompositionItems,
     setJobs,
     setPresence,
     setRotationSets,
@@ -98,6 +106,10 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setVariants(message.variants);
                 setLineage(message.lineage || []);
                 setRelations(message.relations || []);
+                setCollections(message.collections || []);
+                setCollectionItems(message.collectionItems || []);
+                setCompositions(message.compositions || []);
+                setCompositionItems(message.compositionItems || []);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
@@ -122,6 +134,10 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setVariants(message.variants);
                 setLineage([]);
                 setRelations([]);
+                setCollections(message.collections || []);
+                setCollectionItems([]);
+                setCompositions(message.compositions || []);
+                setCompositionItems([]);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
@@ -236,6 +252,98 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
 
               case 'relation:deleted':
                 setRelations((prev) => prev.filter((relation) => relation.id !== message.relationId));
+                break;
+
+              case 'collection:created':
+                setCollections((prev) => (
+                  prev.some((collection) => collection.id === message.collection.id)
+                    ? prev
+                    : [...prev, message.collection]
+                ));
+                break;
+
+              case 'collection:updated':
+                setCollections((prev) =>
+                  prev.map((collection) =>
+                    collection.id === message.collection.id ? message.collection : collection
+                  )
+                );
+                break;
+
+              case 'collection:deleted':
+                setCollections((prev) => prev.filter((collection) => collection.id !== message.collectionId));
+                setCollectionItems((prev) => prev.filter((item) => item.collection_id !== message.collectionId));
+                break;
+
+              case 'collection_item:created':
+                setCollectionItems((prev) => (
+                  prev.some((item) => item.id === message.item.id)
+                    ? prev
+                    : [...prev, message.item]
+                ));
+                break;
+
+              case 'collection_item:updated':
+                setCollectionItems((prev) =>
+                  prev.map((item) => item.id === message.item.id ? message.item : item)
+                );
+                break;
+
+              case 'collection_items:reordered':
+                setCollectionItems((prev) => [
+                  ...prev.filter((item) => item.collection_id !== message.collectionId),
+                  ...message.items,
+                ]);
+                break;
+
+              case 'collection_item:deleted':
+                setCollectionItems((prev) => prev.filter((item) => item.id !== message.itemId));
+                break;
+
+              case 'composition:created':
+                setCompositions((prev) => (
+                  prev.some((composition) => composition.id === message.composition.id)
+                    ? prev
+                    : [...prev, message.composition]
+                ));
+                break;
+
+              case 'composition:updated':
+                setCompositions((prev) =>
+                  prev.map((composition) =>
+                    composition.id === message.composition.id ? message.composition : composition
+                  )
+                );
+                break;
+
+              case 'composition:deleted':
+                setCompositions((prev) => prev.filter((composition) => composition.id !== message.compositionId));
+                setCompositionItems((prev) => prev.filter((item) => item.composition_id !== message.compositionId));
+                break;
+
+              case 'composition_item:created':
+                setCompositionItems((prev) => (
+                  prev.some((item) => item.id === message.item.id)
+                    ? prev
+                    : [...prev, message.item]
+                ));
+                break;
+
+              case 'composition_item:updated':
+                setCompositionItems((prev) =>
+                  prev.map((item) => item.id === message.item.id ? message.item : item)
+                );
+                break;
+
+              case 'composition_items:reordered':
+                setCompositionItems((prev) => [
+                  ...prev.filter((item) => item.composition_id !== message.compositionId),
+                  ...message.items,
+                ]);
+                break;
+
+              case 'composition_item:deleted':
+                setCompositionItems((prev) => prev.filter((item) => item.id !== message.itemId));
                 break;
 
               case 'job:progress':
