@@ -12,6 +12,7 @@ import {
   isVariantVideoReady,
   saveSpaceStateSnapshotForTests,
   shouldPersistSpaceStateSnapshotForTests,
+  shouldReuseSharedSpaceSocketForTests,
   type Asset,
   type Variant,
 } from './useSpaceWebSocket';
@@ -109,6 +110,15 @@ describe('space state snapshot cache', () => {
     assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-1', true), false);
     assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-2', false), false);
     assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-2', true), true);
+  });
+
+  test('reuses an open or connecting socket only for the same space', () => {
+    assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-1', 1), true);
+    assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-1', 0), true);
+    assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-2', 1), false);
+    assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-1', 2), false);
+    assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-1', 3), false);
+    assert.equal(shouldReuseSharedSpaceSocketForTests(null, 'space-1', 1), false);
   });
 });
 
