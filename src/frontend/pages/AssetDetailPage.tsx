@@ -574,7 +574,7 @@ export default function AssetDetailPage() {
   }, [addSlot, asset]);
 
   const handleAddVariantToCollection = useCallback((variant: Variant) => {
-    if (!variantCollectionId) return;
+    if (!canEdit || !variantCollectionId) return;
     const sortIndex = collectionItems.filter((item) => item.collection_id === variantCollectionId).length;
     addCollectionItem({
       collectionId: variantCollectionId,
@@ -583,7 +583,7 @@ export default function AssetDetailPage() {
       role: variantCollectionRole.trim() || 'custom',
       sortIndex,
     });
-  }, [addCollectionItem, collectionItems, variantCollectionId, variantCollectionRole]);
+  }, [addCollectionItem, canEdit, collectionItems, variantCollectionId, variantCollectionRole]);
 
   const handleAddSelectedVariantToCollection = useCallback(() => {
     if (!selectedVariant) return;
@@ -734,7 +734,7 @@ export default function AssetDetailPage() {
           onStarVariant={handleStarVariant}
           onDeleteVariant={handleDeleteVariant}
           onCreateRelation={handleOpenCreateRelation}
-          onAddVariantToCollection={collections.length > 0 ? handleAddVariantToCollection : undefined}
+          onAddVariantToCollection={canEdit && collections.length > 0 ? handleAddVariantToCollection : undefined}
         />
 
         {/* Tile Grid overlay for tile-set assets */}
@@ -903,7 +903,7 @@ export default function AssetDetailPage() {
             </div>
           )}
 
-          {collections.length > 0 && selectedVariant && (
+          {canEdit && collections.length > 0 && selectedVariant && (
             <div className={styles.collectionAddBar}>
               <span>Add selected variant to</span>
               <select
