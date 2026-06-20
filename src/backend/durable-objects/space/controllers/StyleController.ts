@@ -57,6 +57,7 @@ export class StyleController extends BaseController {
     }
 
     if (style) {
+      await this.repo.backfillLegacySpaceStyle();
       this.broadcast({ type: 'style:updated', style });
     }
   }
@@ -88,6 +89,7 @@ export class StyleController extends BaseController {
 
     const style = await this.repo.toggleStyle(existing.id, enabled);
     if (style) {
+      await this.repo.backfillLegacySpaceStyle();
       this.broadcast({ type: 'style:updated', style });
     }
   }

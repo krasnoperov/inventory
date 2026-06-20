@@ -1461,6 +1461,7 @@ export class SpaceRepository {
     const imageKeys = parseImageKeys(style.image_keys);
     const hasStyleState = style.description.trim().length > 0 || imageKeys.length > 0;
     if (!hasStyleState) {
+      await this.disableLegacyStylePreset(style.id);
       return {
         migrated: false,
         styleId: style.id,
@@ -1474,6 +1475,7 @@ export class SpaceRepository {
     const collection = await this.getOrCreateLegacyStyleCollection(style);
     const assetIds: string[] = [];
     const variantIds: string[] = [];
+    const currentItemIds = new Set<string>();
 
     for (const [index, imageKey] of imageKeys.entries()) {
       const ids = {
@@ -1481,6 +1483,7 @@ export class SpaceRepository {
         variantId: stableLegacyId('legacy-style-variant', style.id, imageKey),
         itemId: stableLegacyId('legacy-style-item', style.id, imageKey),
       };
+      currentItemIds.add(ids.itemId);
       const assetName = imageKeys.length === 1
         ? 'Legacy Style Reference'
         : `Legacy Style Reference ${index + 1}`;
@@ -1546,6 +1549,7 @@ export class SpaceRepository {
       assetIds.push(ids.assetId);
       variantIds.push(ids.variantId);
     }
+    await this.deleteStaleLegacyStyleCollectionItems(collection.id, currentItemIds);
 
     const presetId = stableLegacyId('legacy-style-preset', style.id);
     const existingPreset = await this.getStylePresetById(presetId);
@@ -1598,6 +1602,30 @@ export class SpaceRepository {
       description: 'Migrated references from the legacy space style.',
       createdBy: style.created_by,
     });
+  }
+
+  private async deleteStaleLegacyStyleCollectionItems(
+    collectionId: string,
+    currentItemIds: Set<string>
+  ): Promise<void> {
+    const items = await this.listCollectionItems(collectionId);
+    for (const item of items) {
+      if (!item.id.startsWith('legacy-style-item-') || currentItemIds.has(item.id)) continue;
+      await this.deleteCollectionItem(item.id);
+    }
+  }
+
+  private async disableLegacyStylePreset(styleId: string): Promise<void> {
+    const presetId = stableLegacyId('legacy-style-preset', styleId);
+    const existingPreset = await this.getStylePresetById(presetId);
+    if (!existingPreset || existingPreset.enabled === 0) return;
+
+    await this.updateStylePreset(presetId, { enabled: false });
+  }
+
+  private async deleteLegacyStylePreset(styleId: string): Promise<void> {
+    const presetId = stableLegacyId('legacy-style-preset', styleId);
+    await this.deleteStylePreset(presetId);
   }
 
   private async getLegacyStyleMediaMetadata(imageKey: string): Promise<{
@@ -3020,6 +3048,7 @@ export class SpaceRepository {
       await this.decrementImageRef(key);
     }
 
+    await this.deleteLegacyStylePreset(id);
     await this.sql.exec('DELETE FROM space_styles WHERE id = ?', id);
     return true;
   }

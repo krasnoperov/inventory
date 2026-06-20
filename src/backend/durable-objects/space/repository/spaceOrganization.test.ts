@@ -722,6 +722,65 @@ describe('Space organization repository', () => {
     assert.deepEqual(resolved.styleKeys, ['styles/space-1/legacy.png']);
   });
 
+  test('backfill refreshes migrated preset after legacy style edits', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Old watercolor props',
+      imageKeys: ['styles/space-1/old.png'],
+      createdBy: 'user-1',
+    });
+    const first = await repo.backfillLegacySpaceStyle();
+
+    await repo.updateStyle('legacy-style', {
+      description: 'Updated ink props',
+      imageKeys: ['styles/space-1/new.png'],
+    });
+    const second = await repo.backfillLegacySpaceStyle();
+    const preset = await repo.getStylePresetById(second.presetId!);
+    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+
+    assert.equal(second.collectionId, first.collectionId);
+    assert.equal(preset?.style_prompt, 'Updated ink props');
+    assert.deepEqual((await repo.listCollectionItems(first.collectionId!)).map((item) => item.pinned_variant_id), second.variantIds);
+    assert.deepEqual(resolved.styleReferenceVariantIds, second.variantIds);
+    assert.deepEqual(resolved.styleKeys, ['styles/space-1/new.png']);
+    assert.equal(getRefCount('styles/space-1/old.png'), 1);
+    assert.equal(getRefCount('styles/space-1/new.png'), 2);
+  });
+
+  test('backfill disables and removes migrated defaults as legacy style state is cleared', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Watercolor props',
+      imageKeys: ['styles/space-1/one.png'],
+      createdBy: 'user-1',
+    });
+    const migrated = await repo.backfillLegacySpaceStyle();
+
+    await repo.toggleStyle('legacy-style', false);
+    await repo.backfillLegacySpaceStyle();
+
+    let resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+    assert.equal((await repo.getStylePresetById(migrated.presetId!))?.enabled, 0);
+    assert.deepEqual(resolved.styleKeys, []);
+
+    await repo.deleteStyle('legacy-style');
+    assert.equal(await repo.getStylePresetById(migrated.presetId!), null);
+
+    await repo.createStyle({
+      id: 'replacement-style',
+      description: 'Replacement ink props',
+      imageKeys: ['styles/space-1/replacement.png'],
+      createdBy: 'user-1',
+    });
+    const replacement = await repo.backfillLegacySpaceStyle();
+    resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+
+    assert.equal((await repo.getDefaultStylePreset())?.id, replacement.presetId);
+    assert.equal(resolved.stylePresetId, replacement.presetId);
+    assert.deepEqual(resolved.styleKeys, ['styles/space-1/replacement.png']);
+  });
+
   test('backfill is idempotent across repeated runs', async () => {
     await repo.createStyle({
       id: 'legacy-style',

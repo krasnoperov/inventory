@@ -52,6 +52,14 @@ function createMockRepo(): SpaceRepository {
     toggleStyle: mock.fn(async (id, enabled) =>
       createMockStyle({ id, enabled: enabled ? 1 : 0 })
     ),
+    backfillLegacySpaceStyle: mock.fn(async () => ({
+      migrated: true,
+      styleId: 'style-1',
+      collectionId: 'collection-1',
+      presetId: 'preset-1',
+      assetIds: [],
+      variantIds: [],
+    })),
   } as unknown as SpaceRepository;
 }
 
@@ -143,6 +151,7 @@ describe('StyleController', () => {
       const createCall = asMock(ctx.repo.createStyle).mock.calls[0].arguments[0];
       assert.strictEqual(createCall.description, 'New style');
       assert.deepStrictEqual(createCall.imageKeys, ['styles/space-1/a.png']);
+      assert.strictEqual(asMock(ctx.repo.backfillLegacySpaceStyle).mock.calls.length, 1);
 
       // Verify broadcast
       assert.ok(broadcasts.some((b) => b.type === 'style:updated'));
@@ -164,6 +173,7 @@ describe('StyleController', () => {
       // Verify updateStyle was called (not createStyle)
       assert.strictEqual(asMock(ctx.repo.updateStyle).mock.calls.length, 1);
       assert.strictEqual(asMock(ctx.repo.createStyle).mock.calls.length, 0);
+      assert.strictEqual(asMock(ctx.repo.backfillLegacySpaceStyle).mock.calls.length, 1);
 
       // Verify broadcast
       assert.ok(broadcasts.some((b) => b.type === 'style:updated'));
@@ -249,6 +259,7 @@ describe('StyleController', () => {
 
       assert.strictEqual(asMock(ctx.repo.toggleStyle).mock.calls.length, 1);
       assert.strictEqual(asMock(ctx.repo.toggleStyle).mock.calls[0].arguments[1], false);
+      assert.strictEqual(asMock(ctx.repo.backfillLegacySpaceStyle).mock.calls.length, 1);
       assert.ok(broadcasts.some((b) => b.type === 'style:updated'));
     });
 
