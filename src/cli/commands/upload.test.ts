@@ -61,7 +61,7 @@ function depsFor(capturedBodies: BodyInit[], output: string[]) {
           status: 'completed',
           error_message: null,
           recipe: JSON.stringify({
-            operation: 'upload',
+            operation: 'import',
             originalFilename: 'clip.mp4',
             uploadedAt: '2026-06-16T00:00:00.000Z',
           }),
@@ -94,9 +94,11 @@ test('upload sends video files with explicit media kind and MIME type', async ()
     assert.equal(result.variant.id, 'variant-1');
     const formData = capturedBodies[0];
     assert.ok(formData instanceof FormData);
+    assert.equal(formData.get('operation'), 'import');
     assert.equal(formData.get('assetName'), 'Combat Clip');
     assert.equal(formData.get('assetType'), 'video');
     assert.equal(formData.get('mediaKind'), 'video');
+    assert.equal(formData.get('activeVariantBehavior'), 'if-missing');
 
     const file = formData.get('file');
     assert.ok(file instanceof File);
@@ -104,6 +106,50 @@ test('upload sends video files with explicit media kind and MIME type', async ()
     assert.equal(file.type, 'video/mp4');
     assert.match(output.join('\n'), /Media kind: video/);
     assert.match(output.join('\n'), /File:\s+media\/space-1\/variant-1.mp4/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload sends single-file import provenance and lineage metadata', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'paintover.png');
+  const capturedBodies: BodyInit[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await executeUpload({
+      positionals: [filePath],
+      options: {
+        space: 'space-1',
+        asset: 'asset-1',
+        prompt: 'clean silhouette paintover',
+        model: 'external-model',
+        provider: 'local-tool',
+        'provider-metadata': '{"seed":42}',
+        'generation-provenance': '{"workflow":"paintover-v1"}',
+        'source-variant': 'variant-source',
+        'relation-type': 'refined',
+        'active-variant-behavior': 'set-active',
+      },
+    }, depsFor(capturedBodies, output));
+
+    const formData = capturedBodies[0];
+    assert.ok(formData instanceof FormData);
+    assert.equal(formData.get('operation'), 'import');
+    assert.equal(formData.get('assetId'), 'asset-1');
+    assert.equal(formData.get('prompt'), 'clean silhouette paintover');
+    assert.equal(formData.get('model'), 'external-model');
+    assert.equal(formData.get('provider'), 'local-tool');
+    assert.equal(formData.get('activeVariantBehavior'), 'set-active');
+    assert.deepEqual(JSON.parse(String(formData.get('providerMetadata'))), { seed: 42 });
+    assert.deepEqual(JSON.parse(String(formData.get('generationProvenance'))), { workflow: 'paintover-v1' });
+    assert.deepEqual(JSON.parse(String(formData.get('lineage'))), [
+      { parentVariantId: 'variant-source', relationType: 'refined' },
+    ]);
+    assert.match(output.join('\n'), /Importing/);
+    assert.match(output.join('\n'), /Source variant: variant-source \(refined\)/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -130,6 +176,48 @@ test('upload supports audio WebM when requested explicitly', async () => {
     assert.ok(file instanceof File);
     assert.equal(file.name, 'recording.webm');
     assert.equal(file.type, 'audio/webm');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload rejects malformed import JSON before sending a request', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'hero.png');
+  const capturedBodies: BodyInit[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await assert.rejects(
+      () => executeUpload({
+        positionals: [filePath],
+        options: { space: 'space-1', name: 'Hero', 'provider-metadata': '[]' },
+      }, depsFor(capturedBodies, output)),
+      /--provider-metadata must be a JSON object/
+    );
+    assert.equal(capturedBodies.length, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload rejects relation type without a source variant before sending a request', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'hero.png');
+  const capturedBodies: BodyInit[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await assert.rejects(
+      () => executeUpload({
+        positionals: [filePath],
+        options: { space: 'space-1', name: 'Hero', 'relation-type': 'refined' },
+      }, depsFor(capturedBodies, output)),
+      /--relation-type requires --source-variant/
+    );
+    assert.equal(capturedBodies.length, 0);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

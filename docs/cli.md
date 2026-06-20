@@ -354,8 +354,9 @@ Press Ctrl+C to exit
 
 ## Upload
 
-Upload image, audio, or video files to create new assets or add variants to
-existing assets.
+Import one image, audio, or video file to create a new asset or add a variant to
+an existing asset. Use `makefx import` for JSON manifest batches, same-batch
+lineage, collections, manual relations, compositions, or style presets.
 
 ### Create New Asset
 
@@ -374,10 +375,18 @@ makefx upload <file> --asset <id> [--space <id>]
 |----------|----------|-------------|
 | `<file>` | Yes | Path to image, audio, or video file |
 | `--space <id>` | No | Target space ID; defaults from initialized project |
-| `--asset <id>` | * | Target asset ID (upload as new variant) |
+| `--asset <id>` | * | Target asset ID (import as new variant) |
 | `--name <name>` | * | New asset name (creates asset + variant) |
 | `--type <type>` | No | Asset type for new assets (default: `character`) |
 | `--media-kind <kind>` | No | Optional explicit kind: `image`, `audio`, or `video` |
+| `--prompt <text>` | No | Imported prompt provenance |
+| `--model <model>` | No | Imported model provenance |
+| `--provider <name>` | No | Imported provider provenance |
+| `--provider-metadata <json>` | No | Provider metadata JSON object |
+| `--generation-provenance <json>` | No | Extra provenance JSON object |
+| `--source-variant <id>` | No | Existing Space variant to record as import lineage source |
+| `--relation-type <type>` | No | Lineage type: `derived`, `refined`, or `forked` (default: `derived`) |
+| `--active-variant-behavior <behavior>` | No | `if-missing`, `set-active`, or `keep` |
 | `--env <env>` | No | `production`, `stage`, or `local` (default: `production`) |
 | `--local` | No | Shortcut for `--env local` |
 
@@ -401,6 +410,16 @@ makefx upload variant.jpg --space abc123 --asset def456
 # Upload audio and video assets
 makefx upload theme.mp3 --space abc123 --name "Theme Music" --type audio
 makefx upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
+
+# Import one externally produced file with provenance and lineage
+makefx upload paintover.png --space abc123 --asset def456 \
+  --prompt "cleaner silhouette" \
+  --provider local-tool \
+  --provider-metadata '{"seed":42}' \
+  --generation-provenance '{"workflow":"paintover-v1"}' \
+  --source-variant var789 \
+  --relation-type refined \
+  --active-variant-behavior set-active
 
 # Upload against local dev server
 makefx upload hero.png --space abc123 --name "Hero" --local
