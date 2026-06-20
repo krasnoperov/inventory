@@ -5,7 +5,7 @@
  * Each space can have one active style with description + reference images.
  */
 
-import type { Asset, CollectionItem, SpaceCollection, Variant, WebSocketMeta } from '../types';
+import type { Asset, CollectionItem, SpaceCollection, StylePresetPreview, Variant, WebSocketMeta } from '../types';
 import { BaseController, ValidationError } from './types';
 
 interface LegacyStyleBackfillSyncSnapshot {
@@ -13,6 +13,7 @@ interface LegacyStyleBackfillSyncSnapshot {
   variants: Variant[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
+  stylePresets: StylePresetPreview[];
 }
 
 export class StyleController extends BaseController {
@@ -76,9 +77,12 @@ export class StyleController extends BaseController {
     this.requireEditor(meta);
 
     const existing = await this.repo.getActiveStyle();
+    const before = await this.getLegacyStyleBackfillSyncSnapshot();
     if (existing) {
       await this.repo.deleteStyle(existing.id);
     }
+    const after = await this.getLegacyStyleBackfillSyncSnapshot();
+    this.broadcastLegacyStyleBackfillChanges(before, after);
 
     this.broadcast({ type: 'style:deleted' });
   }
@@ -109,13 +113,14 @@ export class StyleController extends BaseController {
   }
 
   private async getLegacyStyleBackfillSyncSnapshot(): Promise<LegacyStyleBackfillSyncSnapshot> {
-    const [assets, variants, collections, collectionItems] = await Promise.all([
+    const [assets, variants, collections, collectionItems, stylePresets] = await Promise.all([
       this.repo.getAllAssets(),
       this.repo.getAllVariants(),
       this.repo.listCollections(),
       this.repo.listAllCollectionItems(),
+      this.repo.listStylePresetPreviews(),
     ]);
-    return { assets, variants, collections, collectionItems };
+    return { assets, variants, collections, collectionItems, stylePresets };
   }
 
   private broadcastLegacyStyleBackfillChanges(
@@ -126,6 +131,7 @@ export class StyleController extends BaseController {
     this.broadcastCreatedAndUpdatedVariants(before.variants, after.variants);
     this.broadcastCreatedAndUpdatedCollections(before.collections, after.collections);
     this.broadcastCollectionItemChanges(before.collectionItems, after.collectionItems);
+    this.broadcastStylePresetChanges(before.stylePresets, after.stylePresets);
   }
 
   private broadcastCreatedAndUpdatedAssets(before: Asset[], after: Asset[]): void {
@@ -180,6 +186,26 @@ export class StyleController extends BaseController {
         this.broadcast({ type: 'collection_item:created', item });
       } else if (JSON.stringify(previous) !== JSON.stringify(item)) {
         this.broadcast({ type: 'collection_item:updated', item });
+      }
+    }
+  }
+
+  private broadcastStylePresetChanges(before: StylePresetPreview[], after: StylePresetPreview[]): void {
+    const afterById = new Map(after.map((preset) => [preset.id, preset]));
+    const beforeById = new Map(before.map((preset) => [preset.id, preset]));
+
+    for (const preset of before) {
+      if (!afterById.has(preset.id)) {
+        this.broadcast({ type: 'style_preset:deleted', presetId: preset.id });
+      }
+    }
+
+    for (const preset of after) {
+      const previous = beforeById.get(preset.id);
+      if (!previous) {
+        this.broadcast({ type: 'style_preset:created', preset });
+      } else if (JSON.stringify(previous) !== JSON.stringify(preset)) {
+        this.broadcast({ type: 'style_preset:updated', preset });
       }
     }
   }
