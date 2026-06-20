@@ -183,6 +183,10 @@ function optionalArray<T>(value: T[] | undefined): T[] {
   return Array.isArray(value) ? value : [];
 }
 
+function getVariantImportMediaFile(variant: ExportVariant): string | null {
+  return variant.mediaFile ?? variant.imageFile ?? null;
+}
+
 function validateManifestReferences(manifest: ExportManifest): string | null {
   const assetIds = new Set(manifest.assets.map((asset) => asset.id));
   const variantIds = new Set(manifest.assets.flatMap((asset) => asset.variants.map((variant) => variant.id)));
@@ -270,6 +274,18 @@ function validateManifestMetadata(manifest: ExportManifest): string | null {
     }
   } catch (error) {
     return error instanceof Error ? error.message : 'Invalid metadata';
+  }
+  return null;
+}
+
+function validateManifestMediaFiles(manifest: ExportManifest, unzipped: Record<string, Uint8Array>): string | null {
+  for (const asset of manifest.assets) {
+    for (const variant of asset.variants) {
+      const mediaFile = getVariantImportMediaFile(variant);
+      if (!mediaFile || !unzipped[mediaFile]) {
+        return `missing media for variant ${variant.id}`;
+      }
+    }
   }
   return null;
 }
@@ -607,6 +623,10 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
   if (manifestMetadataError) {
     return c.json({ error: `Invalid export manifest: ${manifestMetadataError}` }, 400);
   }
+  const manifestMediaError = validateManifestMediaFiles(manifest, unzipped);
+  if (manifestMediaError) {
+    return c.json({ error: `Invalid export file: ${manifestMediaError}` }, 400);
+  }
 
   // Get DO stub
   if (!env.SPACES_DO) {
@@ -661,11 +681,8 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
     // Import variants
     for (const variant of asset.variants) {
       const mediaKind = variant.mediaKind ?? asset.mediaKind ?? DEFAULT_MEDIA_KIND;
-      const mediaFile = variant.mediaFile ?? variant.imageFile ?? null;
-      const mediaData = mediaFile ? unzipped[mediaFile] : undefined;
-      if (!mediaData) {
-        return c.json({ error: `Invalid export file: missing media for variant ${variant.id}` }, 400);
-      }
+      const mediaFile = getVariantImportMediaFile(variant)!;
+      const mediaData = unzipped[mediaFile];
 
       const imageData = variant.imageFile ? unzipped[variant.imageFile] : undefined;
       const thumbData = variant.thumbFile ? unzipped[variant.thumbFile] : undefined;

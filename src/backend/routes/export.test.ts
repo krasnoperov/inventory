@@ -533,6 +533,116 @@ describe('exportRoutes', () => {
     }]);
   });
 
+  it('rejects missing import media before mutating the target space', async () => {
+    const manifest = {
+      version: '1.0',
+      exportedAt: '2026-06-16T00:00:00.000Z',
+      spaceId: 'source-space',
+      spaceName: 'Source',
+      assets: [{
+        id: 'asset-source',
+        name: 'Hero',
+        type: 'character',
+        mediaKind: 'image',
+        tags: [],
+        activeVariantId: 'variant-missing',
+        createdAt: 1,
+        variants: [
+          {
+            id: 'variant-present',
+            assetId: 'asset-source',
+            mediaKind: 'image',
+            mediaFile: 'images/Hero/variant-present.png',
+            imageFile: 'images/Hero/variant-present.png',
+            thumbFile: null,
+            recipe: { operation: 'generate' },
+            createdAt: 2,
+          },
+          {
+            id: 'variant-missing',
+            assetId: 'asset-source',
+            mediaKind: 'image',
+            mediaFile: 'images/Hero/variant-missing.png',
+            imageFile: 'images/Hero/variant-missing.png',
+            thumbFile: null,
+            recipe: { operation: 'refine' },
+            createdAt: 3,
+          },
+        ],
+      }],
+      lineage: [{
+        id: 'lineage-source',
+        parentVariantId: 'variant-present',
+        childVariantId: 'variant-missing',
+        relationType: 'refined',
+        severed: false,
+      }],
+      collections: [{ id: 'collection-source', name: 'Opening Kit', description: null, sortIndex: 0 }],
+      collectionItems: [{
+        id: 'collection-item-source',
+        collectionId: 'collection-source',
+        subjectType: 'variant',
+        assetId: null,
+        variantId: 'variant-missing',
+        role: 'hero',
+        pinnedVariantId: 'variant-missing',
+        sortIndex: 0,
+      }],
+      relations: [{
+        id: 'relation-source',
+        subjectType: 'asset',
+        subjectAssetId: 'asset-source',
+        subjectVariantId: null,
+        objectType: 'variant',
+        objectAssetId: null,
+        objectVariantId: 'variant-missing',
+        relationType: 'reference_for',
+        label: null,
+        context: null,
+        metadata: {},
+        sortIndex: 0,
+      }],
+      compositions: [{
+        id: 'composition-source',
+        name: 'Final Mix',
+        description: null,
+        status: 'final',
+        outputAssetId: 'asset-source',
+        outputVariantId: 'variant-missing',
+        metadata: {},
+        sortIndex: 0,
+      }],
+      compositionItems: [{
+        id: 'composition-item-source',
+        compositionId: 'composition-source',
+        role: 'output',
+        label: null,
+        assetId: 'asset-source',
+        variantId: 'variant-missing',
+        metadata: {},
+        sortIndex: 0,
+      }],
+    };
+    const zip = zipSync({
+      'manifest.json': strToU8(JSON.stringify(manifest)),
+      'images/Hero/variant-present.png': strToU8('present-image'),
+    });
+    const formData = new FormData();
+    formData.set('file', new File([zip], 'export.zip', { type: 'application/zip' }));
+    const { app, puts, doCalls } = buildApp();
+
+    const res = await app.fetch(new Request('https://app.example/api/spaces/space-1/import', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-token' },
+      body: formData,
+    }));
+
+    assert.equal(res.status, 400);
+    assert.match(await res.text(), /missing media for variant variant-missing/);
+    assert.equal(doCalls.length, 0);
+    assert.equal(puts.length, 0);
+  });
+
   it('imports organization records with remapped relation, composition, and severed lineage IDs', async () => {
     const manifest = {
       version: '1.0',
