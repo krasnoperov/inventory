@@ -36,6 +36,7 @@ import type {
   SpaceSubjectType,
   SpaceCollection,
   CollectionItem,
+  StylePreset,
   SpaceRelation,
   SpaceRelationType,
   Composition,
@@ -184,7 +185,21 @@ export interface VariantGenerationProvenance {
   styleImageKeys?: string[];
   parentVariantIds?: string[];
   styleId?: string;
+  stylePresetId?: string;
+  styleCollectionId?: string;
+  styleReferenceVariantIds?: string[];
+  styleReferenceImageKeys?: string[];
+  stylePrompt?: string;
   styleOverride?: boolean;
+}
+
+export interface ResolvedStylePreset {
+  preset: StylePreset;
+  stylePresetId: string;
+  styleCollectionId: string | null;
+  stylePrompt: string;
+  styleReferenceVariantIds: string[];
+  styleReferenceImageKeys: string[];
 }
 
 export interface SpaceSubjectInput {
@@ -977,6 +992,194 @@ export class SpaceRepository {
 
     await this.sql.exec(CollectionItemQueries.DELETE, itemId);
     return true;
+  }
+
+  async listStylePresets(): Promise<StylePreset[]> {
+    const result = await this.sql.exec(
+      'SELECT * FROM style_presets ORDER BY is_default DESC, created_at ASC'
+    );
+    return result.toArray() as StylePreset[];
+  }
+
+  async getStylePresetById(presetId: string): Promise<StylePreset | null> {
+    const result = await this.sql.exec('SELECT * FROM style_presets WHERE id = ?', presetId);
+    return (result.toArray()[0] as StylePreset) ?? null;
+  }
+
+  async getDefaultStylePreset(): Promise<StylePreset | null> {
+    const result = await this.sql.exec(
+      'SELECT * FROM style_presets WHERE is_default = 1 LIMIT 1'
+    );
+    return (result.toArray()[0] as StylePreset) ?? null;
+  }
+
+  async createStylePreset(data: {
+    id: string;
+    name: string;
+    stylePrompt?: string;
+    collectionId?: string | null;
+    enabled?: boolean;
+    isDefault?: boolean;
+    createdBy: string;
+  }): Promise<StylePreset> {
+    const now = Date.now();
+    if (data.isDefault) {
+      await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1', now);
+    }
+
+    await this.sql.exec(
+      `INSERT INTO style_presets
+       (id, name, style_prompt, collection_id, enabled, is_default, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      data.id,
+      data.name,
+      data.stylePrompt ?? '',
+      data.collectionId ?? null,
+      data.enabled !== false ? 1 : 0,
+      data.isDefault ? 1 : 0,
+      data.createdBy,
+      now,
+      now
+    );
+
+    return (await this.getStylePresetById(data.id))!;
+  }
+
+  async updateStylePreset(
+    presetId: string,
+    changes: {
+      name?: string;
+      stylePrompt?: string;
+      collectionId?: string | null;
+      enabled?: boolean;
+      isDefault?: boolean;
+    }
+  ): Promise<StylePreset | null> {
+    const existing = await this.getStylePresetById(presetId);
+    if (!existing) return null;
+
+    const now = Date.now();
+    if (changes.isDefault === true && existing.is_default !== 1) {
+      await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1', now);
+    }
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    if (changes.name !== undefined) {
+      updates.push('name = ?');
+      values.push(changes.name);
+    }
+    if (changes.stylePrompt !== undefined) {
+      updates.push('style_prompt = ?');
+      values.push(changes.stylePrompt);
+    }
+    if (changes.collectionId !== undefined) {
+      updates.push('collection_id = ?');
+      values.push(changes.collectionId);
+    }
+    if (changes.enabled !== undefined) {
+      updates.push('enabled = ?');
+      values.push(changes.enabled ? 1 : 0);
+    }
+    if (changes.isDefault !== undefined) {
+      updates.push('is_default = ?');
+      values.push(changes.isDefault ? 1 : 0);
+    }
+    if (updates.length === 0) return existing;
+
+    updates.push('updated_at = ?');
+    values.push(now);
+    await this.sql.exec(
+      `UPDATE style_presets SET ${updates.join(', ')} WHERE id = ?`,
+      ...values,
+      presetId
+    );
+    return this.getStylePresetById(presetId);
+  }
+
+  async setDefaultStylePreset(presetId: string | null): Promise<StylePreset | null> {
+    const now = Date.now();
+    if (presetId === null) {
+      await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1', now);
+      return null;
+    }
+
+    const existing = await this.getStylePresetById(presetId);
+    if (!existing) return null;
+
+    await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1', now);
+    await this.sql.exec('UPDATE style_presets SET is_default = 1, updated_at = ? WHERE id = ?', now, presetId);
+    return this.getStylePresetById(presetId);
+  }
+
+  async deleteStylePreset(presetId: string): Promise<boolean> {
+    const existing = await this.getStylePresetById(presetId);
+    if (!existing) return false;
+
+    await this.sql.exec('DELETE FROM style_presets WHERE id = ?', presetId);
+    return true;
+  }
+
+  async resolveStylePresetReferences(presetId: string): Promise<ResolvedStylePreset | null> {
+    const preset = await this.getStylePresetById(presetId);
+    if (!preset) return null;
+
+    if (!preset.collection_id) {
+      return {
+        preset,
+        stylePresetId: preset.id,
+        styleCollectionId: null,
+        stylePrompt: preset.style_prompt,
+        styleReferenceVariantIds: [],
+        styleReferenceImageKeys: [],
+      };
+    }
+
+    const result = await this.sql.exec(
+      `SELECT
+         v.id as variant_id,
+         v.image_key,
+         v.media_key
+       FROM collection_items ci
+       LEFT JOIN variants v ON v.id = CASE
+         WHEN ci.subject_type = 'variant' THEN ci.variant_id
+         ELSE ci.pinned_variant_id
+       END
+       WHERE ci.collection_id = ?
+       ORDER BY ci.sort_index ASC, ci.created_at ASC`,
+      preset.collection_id
+    );
+
+    const rows = result.toArray() as Array<{
+      variant_id: string | null;
+      image_key: string | null;
+      media_key: string | null;
+    }>;
+    const styleReferenceVariantIds: string[] = [];
+    const styleReferenceImageKeys: string[] = [];
+    const seenVariantIds = new Set<string>();
+    const seenImageKeys = new Set<string>();
+
+    for (const row of rows) {
+      if (!row.variant_id || seenVariantIds.has(row.variant_id)) continue;
+      seenVariantIds.add(row.variant_id);
+      styleReferenceVariantIds.push(row.variant_id);
+
+      const imageKey = row.image_key ?? row.media_key;
+      if (imageKey && !seenImageKeys.has(imageKey)) {
+        seenImageKeys.add(imageKey);
+        styleReferenceImageKeys.push(imageKey);
+      }
+    }
+
+    return {
+      preset,
+      stylePresetId: preset.id,
+      styleCollectionId: preset.collection_id,
+      stylePrompt: preset.style_prompt,
+      styleReferenceVariantIds,
+      styleReferenceImageKeys,
+    };
   }
 
   async listRelations(): Promise<SpaceRelation[]> {

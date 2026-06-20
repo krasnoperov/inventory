@@ -344,6 +344,18 @@ export interface CollectionItem {
   updated_at: number;
 }
 
+export interface StylePreset {
+  id: string;
+  name: string;
+  style_prompt: string;
+  collection_id: string | null;
+  enabled: number;
+  is_default: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface SpaceRelation {
   id: string;
   subject_type: SpaceSubjectType;

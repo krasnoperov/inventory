@@ -70,6 +70,16 @@ export interface GenerationRecipe {
   operation: OperationType;
   /** Style ID if a space style was applied */
   styleId?: string;
+  /** Asset-backed style preset selected for this generation */
+  stylePresetId?: string;
+  /** Collection backing the selected style preset */
+  styleCollectionId?: string;
+  /** Exact style reference variants resolved at generation time */
+  styleReferenceVariantIds?: string[];
+  /** Style reference image keys resolved from exact variants */
+  styleReferenceImageKeys?: string[];
+  /** Human-authored style prompt from the selected preset */
+  stylePrompt?: string;
   /** True if style was explicitly disabled for this generation */
   styleOverride?: boolean;
   /** Model provider ('gemini' or 'custom') */
