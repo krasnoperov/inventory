@@ -20,6 +20,7 @@ import { handleProductions } from './commands/productions';
 import { handleUsage } from './commands/usage';
 import { handleSpend } from './commands/spend';
 import { handleRotation, handleTileSet } from './commands/pipelines';
+import { isCliRotationEnabled, rotationDisabledMessage } from './lib/feature-flags';
 import {
   AUDIO_FORGE_MEDIA_MODES,
   isAudioForgeMediaMode,
@@ -229,6 +230,16 @@ function printCommandHelp(command: string, positionals: string[]): void {
 }
 
 function printHelp() {
+  const rotationHelp = isCliRotationEnabled()
+    ? `  rotation --variant <variant-id>
+                                 Generate rotation views from a completed image variant
+  rotation cancel <rotation-set-id>
+                                 Cancel an active rotation pipeline`
+    : '';
+  const rotationExample = isCliRotationEnabled()
+    ? '  makefx rotation --variant variant_456 --config 8-directional\n'
+    : '';
+
   console.log(`
 Make Effects CLI
 
@@ -256,10 +267,7 @@ Project:
   variants star <variant-id>      Star a variant (unstar to clear)
   variants rate <variant-id> approved|rejected
                                  Rate a variant for quality curation
-  rotation --variant <variant-id>
-                                 Generate rotation views from a completed image variant
-  rotation cancel <rotation-set-id>
-                                 Cancel an active rotation pipeline
+${rotationHelp}
   tileset "prompt" --type terrain --grid 3x3
                                  Generate a consistent tile set
   tileset cancel <tile-set-id>    Cancel an active tile-set pipeline
@@ -340,8 +348,7 @@ Examples:
   makefx assets set-active asset_123 variant_456
   makefx variants retry variant_456
   makefx variants delete variant_456
-  makefx rotation --variant variant_456 --config 8-directional
-  makefx tileset "grass and stone path tiles" --type terrain --grid 3x3
+${rotationExample}  makefx tileset "grass and stone path tiles" --type terrain --grid 3x3
 `);
 }
 
@@ -688,6 +695,11 @@ Options:
 }
 
 function printRotationHelp(): void {
+  if (!isCliRotationEnabled()) {
+    console.log(rotationDisabledMessage());
+    return;
+  }
+
   console.log(`
 Usage:
   makefx rotation --variant <variant-id> [--config 4-directional|8-directional|turnaround]

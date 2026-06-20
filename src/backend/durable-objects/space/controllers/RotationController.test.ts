@@ -157,6 +157,7 @@ function createMockContext(
     spaceId: 'space-1',
     repo: repo as SpaceRepository,
     env: {
+      MAKEFX_ROTATION_ENABLED: 'true',
       GENERATION_WORKFLOW: { create: mock.fn(async () => ({ id: 'wf-1' })) },
       ...envOverrides,
     } as Env,
@@ -187,6 +188,25 @@ describe('RotationController', () => {
   // ==========================================================================
 
   describe('handleRotationRequest', () => {
+    test('rejects when rotation feature flag is disabled', async () => {
+      const { ctx } = createMockContext({}, {
+        MAKEFX_ROTATION_ENABLED: 'false',
+      });
+      const controller = new RotationController(ctx);
+
+      await assert.rejects(
+        controller.handleRotationRequest({} as WebSocket, createEditorMeta(), {
+          type: 'rotation:request',
+          requestId: 'req-1',
+          sourceVariantId: 'variant-1',
+          config: '4-directional',
+        }),
+        /disabled/i
+      );
+
+      assert.strictEqual(asMock(ctx.repo.getVariantById).mock.calls.length, 0);
+    });
+
     test('rejects viewer', async () => {
       // Return cancelled set so advanceRotation returns immediately
       const { ctx } = createMockContext({
