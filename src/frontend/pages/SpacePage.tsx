@@ -110,7 +110,6 @@ export default function SpacePage() {
     clearChatSession,
     forkAsset,
     updateAsset,
-    updateSession,
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,
@@ -122,13 +121,9 @@ export default function SpacePage() {
     sendTileSetCancel,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
-    onConnect: () => {
-      requestOverviewSync();
-      requestChatHistory();
-      // Style is now included in sync overview, no need for separate sendStyleGet()
-      // Sync session: user is viewing space overview (no specific asset)
-      updateSession({ viewingAssetId: null, viewingVariantId: null });
-    },
+    syncMode: 'overview',
+    requestChatHistoryOnConnect: true,
+    sessionUpdateOnConnect: { viewingAssetId: null, viewingVariantId: null },
     onDisconnect: () => {
       // Reset chat loading states on disconnect
       resetChatOnDisconnect();

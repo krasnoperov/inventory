@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
   clearSpaceStateSnapshotCacheForTests,
+  getInitialSyncModeForSpaceForTests,
   getSpaceStateSnapshotForTests,
   getVariantMediaUrl,
   getVariantThumbnailUrl,
@@ -11,7 +12,9 @@ import {
   isVariantReady,
   isVariantVideoReady,
   saveSpaceStateSnapshotForTests,
+  shouldApplyOverviewSyncForTests,
   shouldPersistSpaceStateSnapshotForTests,
+  shouldReuseSharedSpaceSocketForTests,
   type Asset,
   type Variant,
 } from './useSpaceWebSocket';
@@ -109,6 +112,45 @@ describe('space state snapshot cache', () => {
     assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-1', true), false);
     assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-2', false), false);
     assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-2', true), true);
+  });
+
+  test('reuses an open or connecting socket only for the same space', () => {
+    assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-1', 1), true);
+    assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-1', 0), true);
+    assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-2', 1), false);
+    assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-1', 2), false);
+    assert.equal(shouldReuseSharedSpaceSocketForTests('space-1', 'space-1', 3), false);
+    assert.equal(shouldReuseSharedSpaceSocketForTests(null, 'space-1', 1), false);
+  });
+
+  test('ignores overview sync once full sync is the desired mode', () => {
+    assert.equal(shouldApplyOverviewSyncForTests(null), true);
+    assert.equal(shouldApplyOverviewSyncForTests('overview'), true);
+    assert.equal(shouldApplyOverviewSyncForTests('full'), false);
+  });
+
+  test('does not seed fresh connection sync mode from cached snapshots', () => {
+    clearSpaceStateSnapshotCacheForTests();
+
+    saveSpaceStateSnapshotForTests('space-1', {
+      assets: [asset()],
+      variants: [variant()],
+      lineage: [],
+      presence: [],
+      rotationSets: [],
+      rotationViews: [],
+      tileSets: [],
+      tilePositions: [],
+      syncMode: 'full',
+      updatedAt: 1,
+    });
+
+    assert.equal(getSpaceStateSnapshotForTests('space-1')?.syncMode, 'full');
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', null, null, null), null);
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-1', 'full', 1), 'full');
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-1', 'overview', 0), 'overview');
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-2', 'full', 1), null);
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-1', 'full', 3), null);
   });
 });
 

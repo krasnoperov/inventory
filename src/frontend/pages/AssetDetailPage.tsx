@@ -128,7 +128,6 @@ export default function AssetDetailPage() {
     starVariant,
     updateAsset,
     clearJob,
-    requestSync,
     status: wsStatus,
     sendGenerateRequest,
     sendRefineRequest,
@@ -155,11 +154,8 @@ export default function AssetDetailPage() {
     sendRefineTile,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
-    onConnect: () => {
-      requestSync();
-      requestChatHistory();
-      // Style is now included in sync:state, no need for separate sendStyleGet()
-    },
+    syncMode: 'full',
+    requestChatHistoryOnConnect: true,
     onDisconnect: () => {
       // Reset chat loading states on disconnect
       resetChatOnDisconnect();

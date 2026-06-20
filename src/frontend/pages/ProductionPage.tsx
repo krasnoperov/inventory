@@ -115,14 +115,10 @@ export default function ProductionPage() {
     status: wsStatus,
     assets,
     variants,
-    requestSync,
-    updateSession,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
-    onConnect: () => {
-      requestSync();
-      updateSession({ viewingAssetId: null, viewingVariantId: null });
-    },
+    syncMode: 'full',
+    sessionUpdateOnConnect: { viewingAssetId: null, viewingVariantId: null },
   });
 
   const recordsQuery = useQuery({
