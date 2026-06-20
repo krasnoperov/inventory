@@ -199,6 +199,20 @@ function buildApp(options: { role?: 'owner' | 'editor' | 'viewer' | null } = {})
               return Response.json({ variant: { id: body.variantId, status: 'failed' } });
             }
 
+            if (path === '/internal/add-lineage') {
+              return Response.json({
+                success: true,
+                lineage: {
+                  id: `lineage-${doCalls.filter((call) => call.path === '/internal/add-lineage').length}`,
+                  parent_variant_id: body.parentVariantId,
+                  child_variant_id: body.childVariantId,
+                  relation_type: body.relationType,
+                  severed: false,
+                  created_at: 1_780_000_000_000,
+                },
+              });
+            }
+
             return Response.json({ error: 'Unexpected DO route' }, { status: 404 });
           },
         }),
@@ -333,6 +347,51 @@ describe('uploadRoutes', () => {
     assert.strictEqual(complete.body.imageKey, null);
     assert.strictEqual(complete.body.thumbKey, null);
     assert.strictEqual(complete.body.mediaKey, puts[0].key);
+  });
+
+  it('stores import provenance, provider metadata, active behavior, and lineage', async () => {
+    const { app, doCalls } = buildApp();
+    const formData = new FormData();
+    formData.append('file', new File([new Uint8Array([1, 2, 3])], 'hero.png', { type: 'image/png' }));
+    formData.append('assetName', 'Hero');
+    formData.append('assetType', 'character');
+    formData.append('operation', 'import');
+    formData.append('prompt', 'hero prompt');
+    formData.append('model', 'external-model-1');
+    formData.append('provider', 'external-provider');
+    formData.append('providerMetadata', JSON.stringify({ seed: 42 }));
+    formData.append('generationProvenance', JSON.stringify({ workflow: 'local-tool' }));
+    formData.append('activeVariantBehavior', 'set-active');
+    formData.append('lineage', JSON.stringify([
+      { parentVariantId: 'variant-source', relationType: 'derived' },
+    ]));
+
+    const res = await app.fetch(uploadRequest('space-1', formData));
+    const body = await res.json() as { success: boolean; lineage: Array<{ id: string }> };
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(body.success, true);
+    assert.deepStrictEqual(body.lineage.map((lineage) => lineage.id), ['lineage-1']);
+
+    const placeholder = doCalls.find((call) => call.path === '/internal/upload-placeholder');
+    assert.ok(placeholder);
+    const recipe = JSON.parse(String(placeholder.body.recipe)) as Record<string, unknown>;
+    assert.strictEqual(recipe.operation, 'import');
+    assert.strictEqual(recipe.prompt, 'hero prompt');
+    assert.strictEqual(recipe.model, 'external-model-1');
+    assert.strictEqual(recipe.modelProvider, 'external-provider');
+    assert.strictEqual(recipe.workflow, 'local-tool');
+    assert.deepStrictEqual(recipe.parentVariantIds, ['variant-source']);
+
+    const complete = doCalls.find((call) => call.path === '/internal/complete-upload');
+    assert.ok(complete);
+    assert.deepStrictEqual(complete.body.providerMetadata, { seed: 42 });
+    assert.strictEqual(complete.body.activeVariantBehavior, 'set_active');
+
+    const lineage = doCalls.find((call) => call.path === '/internal/add-lineage');
+    assert.ok(lineage);
+    assert.strictEqual(lineage.body.parentVariantId, 'variant-source');
+    assert.strictEqual(lineage.body.relationType, 'derived');
   });
 
   it('uploads audio transcript, word timings, and render metadata sidecars', async () => {

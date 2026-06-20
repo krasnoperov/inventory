@@ -278,6 +278,18 @@ export const VariantSchema = z
   .passthrough()
   .openapi('Variant');
 
+export const LineageSchema = z
+  .object({
+    id: z.string(),
+    parent_variant_id: z.string(),
+    child_variant_id: z.string(),
+    relation_type: z.enum(['derived', 'refined', 'forked']),
+    severed: BooleanFromSqliteSchema.optional(),
+    created_at: z.number().optional(),
+  })
+  .passthrough()
+  .openapi('Lineage');
+
 export const ListSpaceAssetsResponseSchema = z
   .object({
     success: z.literal(true),
@@ -695,6 +707,14 @@ export const UploadMediaRequestSchema = z
     assetType: z.string().optional(),
     mediaKind: MediaKindSchema.optional(),
     parentAssetId: z.string().optional(),
+    operation: z.string().optional(),
+    prompt: z.string().optional(),
+    model: z.string().optional(),
+    provider: z.string().optional(),
+    providerMetadata: z.string().optional(),
+    generationProvenance: z.string().optional(),
+    lineage: z.string().optional(),
+    activeVariantBehavior: z.string().optional(),
     transcript: UploadFileSchema.optional(),
     wordTimings: UploadFileSchema.optional(),
     renderMetadata: UploadFileSchema.optional(),
@@ -706,6 +726,7 @@ export const UploadMediaResponseSchema = z
     success: z.literal(true),
     variant: VariantSchema,
     asset: AssetSchema.optional(),
+    lineage: z.array(LineageSchema).optional(),
   })
   .openapi('UploadMediaResponse');
 
@@ -797,6 +818,7 @@ export type ProductionShotResponse = z.infer<typeof ProductionShotResponseSchema
 export type ProductionCueResponse = z.infer<typeof ProductionCueResponseSchema>;
 export type ProductionPlacementResponse = z.infer<typeof ProductionPlacementResponseSchema>;
 export type Variant = z.infer<typeof VariantSchema>;
+export type Lineage = z.infer<typeof LineageSchema>;
 export type UploadMediaRequest = z.infer<typeof UploadMediaRequestSchema>;
 export type UploadMediaResponse = z.infer<typeof UploadMediaResponseSchema>;
 export type UploadStyleImageRequest = z.infer<typeof UploadStyleImageRequestSchema>;

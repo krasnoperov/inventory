@@ -9,7 +9,7 @@ import { createOpenApiRouter } from './openapi';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
 import { uploadMediaRoute, uploadStyleImageRoute } from '../../shared/api/routes';
-import { UploadMediaResponseSchema, type UploadMediaResponse } from '../../shared/api/schemas';
+import { UploadMediaResponseSchema, type Lineage, type UploadMediaResponse } from '../../shared/api/schemas';
 import { checkGenerationGuardrails } from '../durable-objects/space/billing/usageCheck';
 import {
   createThumbnail,
@@ -88,6 +88,11 @@ const TRANSCRIPT_MIME_TYPES = new Set(['text/plain', 'application/json']);
 const JSON_SIDECAR_MIME_TYPES = new Set(['application/json']);
 
 type AudioSidecarKind = 'transcript' | 'wordTimings' | 'renderMetadata';
+type UploadActiveVariantBehavior = 'if_missing' | 'set_active' | 'keep';
+type UploadLineageInput = {
+  parentVariantId: string;
+  relationType: 'derived' | 'refined' | 'forked';
+};
 
 interface AudioSidecarUpload {
   kind: AudioSidecarKind;
@@ -110,6 +115,58 @@ function getOptionalString(formData: FormData, key: string): string | null {
 function getOptionalFile(formData: FormData, key: string): File | null {
   const value = formData.get(key);
   return value instanceof File && value.size > 0 ? value : null;
+}
+
+function parseJsonObjectField(formData: FormData, key: string): Record<string, unknown> | null {
+  const raw = getOptionalString(formData, key);
+  if (!raw) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new UploadRequestError(`${key} must be valid JSON`, 400);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new UploadRequestError(`${key} must be a JSON object`, 400);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function parseUploadLineage(formData: FormData): UploadLineageInput[] {
+  const raw = getOptionalString(formData, 'lineage');
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new UploadRequestError('lineage must be valid JSON', 400);
+  }
+  if (!Array.isArray(parsed)) {
+    throw new UploadRequestError('lineage must be a JSON array', 400);
+  }
+  return parsed.map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new UploadRequestError(`lineage[${index}] must be an object`, 400);
+    }
+    const record = entry as Record<string, unknown>;
+    const parentVariantId = record.parentVariantId ?? record.sourceVariantId;
+    const relationType = record.relationType;
+    if (typeof parentVariantId !== 'string' || parentVariantId.length === 0) {
+      throw new UploadRequestError(`lineage[${index}].parentVariantId is required`, 400);
+    }
+    if (relationType !== 'derived' && relationType !== 'refined' && relationType !== 'forked') {
+      throw new UploadRequestError(`lineage[${index}].relationType must be derived, refined, or forked`, 400);
+    }
+    return { parentVariantId, relationType };
+  });
+}
+
+function parseActiveVariantBehavior(formData: FormData): UploadActiveVariantBehavior {
+  const raw = getOptionalString(formData, 'activeVariantBehavior');
+  if (!raw || raw === 'if-missing' || raw === 'if_missing') return 'if_missing';
+  if (raw === 'set-active' || raw === 'set_active') return 'set_active';
+  if (raw === 'keep') return 'keep';
+  throw new UploadRequestError('activeVariantBehavior must be if-missing, set-active, or keep', 400);
 }
 
 class UploadRequestError extends Error {
@@ -360,6 +417,21 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   const mediaKindValue = formData.get('mediaKind');
   const requestedMediaKind = parseMediaKind(mediaKindValue);
   const parentAssetId = getOptionalString(formData, 'parentAssetId');
+  let generationProvenance: Record<string, unknown> | null;
+  let providerMetadata: Record<string, unknown> | null;
+  let lineageInputs: UploadLineageInput[];
+  let activeVariantBehavior: UploadActiveVariantBehavior;
+  try {
+    generationProvenance = parseJsonObjectField(formData, 'generationProvenance');
+    providerMetadata = parseJsonObjectField(formData, 'providerMetadata');
+    lineageInputs = parseUploadLineage(formData);
+    activeVariantBehavior = parseActiveVariantBehavior(formData);
+  } catch (error) {
+    if (error instanceof UploadRequestError) {
+      return c.json({ error: error.message }, error.status);
+    }
+    throw error;
+  }
 
   if (
     mediaKindValue !== null &&
@@ -453,14 +525,25 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   }
 
   // Build recipe (consistent with generation recipes)
+  const operation = getOptionalString(formData, 'operation') || generationProvenance?.operation || 'upload';
+  const prompt = getOptionalString(formData, 'prompt');
+  const model = getOptionalString(formData, 'model');
+  const provider = getOptionalString(formData, 'provider');
+  const uploadedAt = new Date().toISOString();
   const recipe = JSON.stringify({
-    operation: 'upload',
-    assetType: assetType,
+    ...(generationProvenance ?? {}),
+    operation,
+    assetType,
     mediaKind,
     mimeType,
     originalFilename: file.name,
+    ...(prompt ? { prompt } : {}),
+    ...(model ? { model } : {}),
+    ...(provider ? { modelProvider: provider, provider } : {}),
+    ...(lineageInputs.length > 0 ? { parentVariantIds: lineageInputs.map((lineage) => lineage.parentVariantId) } : {}),
     sidecars: audioSidecars.map(({ kind, key, mimeType }) => ({ kind, key, mimeType })),
-    uploadedAt: new Date().toISOString(),
+    ...(operation === 'import' ? { importedAt: uploadedAt } : {}),
+    uploadedAt,
   });
 
   const doId = env.SPACES_DO.idFromName(spaceId);
@@ -575,6 +658,8 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
           mediaWidth: dimensions?.width ?? null,
           mediaHeight: dimensions?.height ?? null,
           mediaDurationMs: null,
+          providerMetadata,
+          activeVariantBehavior,
           ...getSidecarCompletionFields(audioSidecars, sidecarBytes),
         }),
       })
@@ -592,10 +677,44 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
     }
 
     const result = await completeResponse.json() as { variant: UploadMediaResponse['variant'] };
+    const createdLineage: Lineage[] = [];
+    for (const lineageInput of lineageInputs) {
+      const lineageResponse = await doStub.fetch(
+        new Request('http://do/internal/add-lineage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            parentVariantId: lineageInput.parentVariantId,
+            childVariantId: result.variant.id,
+            relationType: lineageInput.relationType,
+          }),
+        })
+      );
+
+      if (!lineageResponse.ok) {
+        const errorData = await lineageResponse.json().catch(() => ({})) as { error?: string };
+        return c.json(
+          { error: errorData.error || 'Failed to create import lineage' },
+          lineageResponse.status as 400 | 403 | 404 | 500
+        );
+      }
+
+      const lineageResult = await lineageResponse.json() as {
+        lineage?: Lineage;
+        id?: string;
+      };
+      createdLineage.push(lineageResult.lineage ?? {
+        id: String(lineageResult.id),
+        parent_variant_id: lineageInput.parentVariantId,
+        child_variant_id: result.variant.id,
+        relation_type: lineageInput.relationType,
+      });
+    }
     const responseBody = UploadMediaResponseSchema.parse({
       success: true as const,
       variant: result.variant,
       ...(createdNewAsset ? { asset: createdNewAsset } : {}), // Included when new asset was created
+      ...(createdLineage.length > 0 ? { lineage: createdLineage } : {}),
     });
 
     return c.json(responseBody, 200);

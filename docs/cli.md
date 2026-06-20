@@ -65,6 +65,7 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `tileset` | Generate and monitor consistent tile sets |
 | `listen` | Connect to WebSocket and stream all events |
 | `upload` | Upload image, audio, or video files to create assets or add variants |
+| `import` | Import a manifest of files with immutable provenance and lineage |
 | `generate` | Create a new asset through the website generation workflow |
 | `refine` | Refine an existing variant through the website generation workflow |
 | `derive` | Create a new asset from variant IDs and/or local image refs |
@@ -369,6 +370,61 @@ makefx upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
 # Upload against local dev server
 makefx upload hero.png --space abc123 --name "Hero" --local
 ```
+
+---
+
+## Manifest Import
+
+Import a JSON manifest of externally generated files with prompt, model,
+provider metadata, generation provenance, and variant lineage.
+
+```bash
+makefx import import-manifest.json --space abc123 --dry-run
+makefx import import-manifest.json --space abc123 --json
+```
+
+The manifest may be a top-level array or `{ "records": [...] }`. File paths are
+resolved relative to the manifest file. Each record sets `file`, either `assetId`
+for an existing asset or `name` for a new asset, optional `assetType`/`type`,
+`mediaKind`, `activeVariantBehavior` (`if-missing`, `set-active`, or `keep`),
+`prompt`, `model`, `provider`, `providerMetadata`, and arbitrary
+`generationProvenance` fields.
+
+Lineage is import-only. Each `lineage` entry must use relation type `derived`,
+`refined`, or `forked`, and set exactly one parent source:
+
+```json
+{
+  "records": [
+    {
+      "key": "base",
+      "file": "renders/base.png",
+      "name": "Base Render",
+      "assetType": "character",
+      "prompt": "external prompt",
+      "model": "external-model-id",
+      "provider": "external-provider",
+      "providerMetadata": { "seed": 42 },
+      "generationProvenance": { "tool": "local-renderer" }
+    },
+    {
+      "key": "refined",
+      "file": "renders/refined.png",
+      "assetId": "asset_existing",
+      "activeVariantBehavior": "set-active",
+      "lineage": [
+        { "sourceFile": "base", "relationType": "refined" },
+        { "sourceVariantId": "variant_existing", "relationType": "derived" }
+      ]
+    }
+  ]
+}
+```
+
+`--dry-run` validates files, authentication, Space membership, target assets,
+external source variant IDs, same-batch source keys, duplicate local keys, media
+kinds, and lineage relation types without uploading media bytes. JSON output
+reports created asset IDs, variant IDs, and lineage IDs after import.
 
 ---
 

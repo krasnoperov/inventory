@@ -23,6 +23,7 @@ import {
 } from '../../../platform/platformUsage';
 
 const log = loggers.variantController;
+type UploadActiveVariantBehavior = 'if_missing' | 'set_active' | 'keep';
 
 export class VariantController extends BaseController {
   constructor(ctx: ControllerContext) {
@@ -291,6 +292,8 @@ export class VariantController extends BaseController {
     renderMetadataKey?: string | null;
     renderMetadataMimeType?: string | null;
     renderMetadataSizeBytes?: number | null;
+    providerMetadata?: Record<string, unknown> | string | null;
+    activeVariantBehavior?: UploadActiveVariantBehavior;
   }): Promise<{ variant: Variant }> {
     const now = Date.now();
 
@@ -309,7 +312,7 @@ export class VariantController extends BaseController {
 
     // Update variant with image keys and completed status
     await this.sql.exec(
-      `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, media_key = ?, media_mime_type = ?, media_size_bytes = ?, media_width = ?, media_height = ?, media_duration_ms = ?, transcript_key = ?, transcript_mime_type = ?, transcript_size_bytes = ?, word_timings_key = ?, word_timings_mime_type = ?, word_timings_size_bytes = ?, render_metadata_key = ?, render_metadata_mime_type = ?, render_metadata_size_bytes = ?, updated_at = ? WHERE id = ?`,
+      `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, media_key = ?, media_mime_type = ?, media_size_bytes = ?, media_width = ?, media_height = ?, media_duration_ms = ?, transcript_key = ?, transcript_mime_type = ?, transcript_size_bytes = ?, word_timings_key = ?, word_timings_mime_type = ?, word_timings_size_bytes = ?, render_metadata_key = ?, render_metadata_mime_type = ?, render_metadata_size_bytes = ?, provider_metadata = ?, updated_at = ? WHERE id = ?`,
       data.imageKey,
       data.thumbKey,
       data.mediaKey ?? data.imageKey,
@@ -327,6 +330,7 @@ export class VariantController extends BaseController {
       data.renderMetadataKey ?? null,
       data.renderMetadataMimeType ?? null,
       data.renderMetadataSizeBytes ?? null,
+      serializeProviderMetadata(data.providerMetadata),
       now,
       data.variantId
     );
@@ -351,6 +355,7 @@ export class VariantController extends BaseController {
       render_metadata_key: data.renderMetadataKey ?? null,
       render_metadata_mime_type: data.renderMetadataMimeType ?? null,
       render_metadata_size_bytes: data.renderMetadataSizeBytes ?? null,
+      provider_metadata: serializeProviderMetadata(data.providerMetadata),
       updated_at: now,
     };
 
@@ -362,9 +367,14 @@ export class VariantController extends BaseController {
 
     await this.trackStoredVariant(variant, 'uploaded');
 
-    // Set as active variant if asset has none
+    // Set as active according to upload/import policy.
     const asset = await this.repo.getAssetById(variant.asset_id);
-    if (asset && !asset.active_variant_id) {
+    const activeBehavior = data.activeVariantBehavior ?? 'if_missing';
+    if (
+      asset &&
+      activeBehavior !== 'keep' &&
+      (activeBehavior === 'set_active' || !asset.active_variant_id)
+    ) {
       const updatedAsset = await this.repo.updateAsset(variant.asset_id, {
         active_variant_id: variant.id,
       });
@@ -745,4 +755,12 @@ function hasAudioSidecarKeys(data: {
   renderMetadataKey?: string | null;
 }): boolean {
   return Boolean(data.transcriptKey || data.wordTimingsKey || data.renderMetadataKey);
+}
+
+function serializeProviderMetadata(
+  metadata: Record<string, unknown> | string | null | undefined
+): string | null {
+  if (metadata === undefined || metadata === null) return null;
+  if (typeof metadata === 'string') return metadata;
+  return JSON.stringify(metadata);
 }

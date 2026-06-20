@@ -9,6 +9,7 @@ import { handleBilling } from './commands/billing';
 import { handleSpaces } from './commands/spaces';
 import { handleListen } from './commands/listen';
 import { handleUpload } from './commands/upload';
+import { handleImport } from './commands/import';
 import { handleGenerate, handleRefine, handleDerive, handleBatch } from './commands/forge';
 import { handleAudio } from './commands/audio';
 import { handleVideo } from './commands/video';
@@ -183,6 +184,9 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'upload':
       printUploadHelp();
       return;
+    case 'import':
+      printImportHelp();
+      return;
     case 'generate':
     case 'refine':
     case 'derive':
@@ -299,6 +303,7 @@ Listen:
 Upload:
   upload <file> --asset <id> [--space <id>]   Upload image, audio, or video to existing asset
   upload <file> --name <name> [--space <id>]  Upload media and create new asset
+  import <manifest.json> [--space <id>]       Import media manifest with provenance and lineage
 
 Forge:
   generate "prompt" --name <name> --type <type> -o <file>
@@ -340,6 +345,7 @@ Examples:
   makefx audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
   makefx video generate "A looping idle animation" --name "Idle Animation" --type animation --duration 6 --resolution 1080p --tier fast -o idle.mp4
   makefx productions export --production-id s01e01-a2
+  makefx import import-manifest.json --dry-run --json
   makefx assets
   makefx usage --from 2026-06-01
   makefx spend --from 2026-06-01 --provider gemini
@@ -429,6 +435,21 @@ Options:
   --type <type>     Asset type for new assets (default: character)
   --media-kind <k>  Optional explicit kind: image, audio, or video
   --parent <id>     Parent asset ID for new assets
+  --env <env>       Environment (production|stage|local)
+  --local           Shortcut for --env local
+`);
+}
+
+function printImportHelp(): void {
+  console.log(`
+Usage:
+  makefx import <manifest.json> [--space <id>]
+  makefx import <manifest.json> --dry-run [--json]
+
+Options:
+  --space <id>      Target space ID; defaults from initialized project
+  --dry-run         Validate manifest, files, targets, membership, and lineage references
+  --json            Print machine-readable import or dry-run output
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
 `);
@@ -825,6 +846,9 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
       break;
     case 'upload':
       await handleUpload(parsed);
+      break;
+    case 'import':
+      await handleImport(parsed);
       break;
     case 'generate':
       await handleGenerate(parsed);

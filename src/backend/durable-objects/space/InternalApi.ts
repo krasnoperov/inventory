@@ -409,6 +409,7 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       renderMetadataMimeType?: string | null;
       renderMetadataSizeBytes?: number | null;
       providerMetadata?: Record<string, unknown> | string | null;
+      activeVariantBehavior?: 'if_missing' | 'set_active' | 'keep';
     };
     const result = await controllers.variant.httpCompleteUpload(data);
     return c.json(result);
