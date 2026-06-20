@@ -166,11 +166,12 @@ export class ProviderUsageLedgerDAO {
   }
 
   async getSpendSummary(options: ProviderSpendSummaryOptions = {}): Promise<ProviderSpendSummary> {
+    const bounds = normalizeSpendBounds(options);
     let totalsQuery = this.applySpendFilters(
       this.db
         .selectFrom('provider_usage_ledger')
         .select(() => this.spendAggregateSelections()),
-      options
+      bounds
     );
 
     let byProviderQuery = this.applySpendFilters(
@@ -178,7 +179,7 @@ export class ProviderUsageLedgerDAO {
         .selectFrom('provider_usage_ledger')
         .select('provider')
         .select(() => this.spendAggregateSelections()),
-      options
+      bounds
     );
 
     let byModelQuery = this.applySpendFilters(
@@ -186,7 +187,7 @@ export class ProviderUsageLedgerDAO {
         .selectFrom('provider_usage_ledger')
         .select(['provider', 'provider_model'])
         .select(() => this.spendAggregateSelections()),
-      options
+      bounds
     );
 
     let byMediaKindQuery = this.applySpendFilters(
@@ -194,7 +195,7 @@ export class ProviderUsageLedgerDAO {
         .selectFrom('provider_usage_ledger')
         .select('media_kind')
         .select(() => this.spendAggregateSelections()),
-      options
+      bounds
     );
 
     let byMeterEventNameQuery = this.applySpendFilters(
@@ -202,7 +203,7 @@ export class ProviderUsageLedgerDAO {
         .selectFrom('provider_usage_ledger')
         .select('meter_event_name')
         .select(() => this.spendAggregateSelections()),
-      options
+      bounds
     );
 
     byProviderQuery = byProviderQuery.groupBy('provider').orderBy('provider', 'asc');
@@ -226,8 +227,8 @@ export class ProviderUsageLedgerDAO {
 
     return {
       period: {
-        from: options.from ?? null,
-        to: options.to ?? null,
+        from: bounds.from ?? null,
+        to: bounds.to ?? null,
       },
       filters: {
         userId: options.userId ?? null,
@@ -301,4 +302,19 @@ export class ProviderUsageLedgerDAO {
       unpricedEntries: Number(row?.unpriced_entries) || 0,
     };
   }
+}
+
+function normalizeSpendBounds(options: ProviderSpendSummaryOptions): ProviderSpendSummaryOptions {
+  return {
+    ...options,
+    from: normalizeDateOnlyBound(options.from, 'from'),
+    to: normalizeDateOnlyBound(options.to, 'to'),
+  };
+}
+
+function normalizeDateOnlyBound(value: string | null | undefined, name: 'from' | 'to'): string | null | undefined {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  return `${value}T${name === 'from' ? '00:00:00.000' : '23:59:59.999'}Z`;
 }

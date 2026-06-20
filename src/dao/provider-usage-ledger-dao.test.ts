@@ -213,6 +213,91 @@ describe('ProviderUsageLedgerDAO', () => {
     ]);
   });
 
+  test('date-only spend bounds include the whole selected day', async () => {
+    await ledgerDAO.create({
+      attributionKey: 'variant:variant-before:gemini_images',
+      userId,
+      spaceId: 'space-1',
+      variantId: 'variant-before',
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      mediaKind: 'image',
+      meterEventName: 'gemini_images',
+      usageUnit: 'image',
+      quantity: 1,
+      amountMicroUsd: 120000,
+      pricingSource: 'gemini',
+      createdAt: '2026-06-29T23:59:59.999Z',
+    });
+    await ledgerDAO.create({
+      attributionKey: 'variant:variant-day:gemini_images',
+      userId,
+      spaceId: 'space-1',
+      variantId: 'variant-day',
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      mediaKind: 'image',
+      meterEventName: 'gemini_images',
+      usageUnit: 'image',
+      quantity: 1,
+      amountMicroUsd: 240000,
+      pricingSource: 'gemini',
+      createdAt: '2026-06-30T12:00:00.000Z',
+    });
+    await ledgerDAO.create({
+      attributionKey: 'variant:variant-after:gemini_images',
+      userId,
+      spaceId: 'space-1',
+      variantId: 'variant-after',
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      mediaKind: 'image',
+      meterEventName: 'gemini_images',
+      usageUnit: 'image',
+      quantity: 1,
+      amountMicroUsd: 360000,
+      pricingSource: 'gemini',
+      createdAt: '2026-07-01T00:00:00.000Z',
+    });
+
+    const summary = await ledgerDAO.getSpendSummary({
+      from: '2026-06-30',
+      to: '2026-06-30',
+    });
+
+    assert.deepEqual(summary.period, {
+      from: '2026-06-30T00:00:00.000Z',
+      to: '2026-06-30T23:59:59.999Z',
+    });
+    assert.deepEqual(summary.totals, {
+      amountMicroUsd: 240000,
+      amountUsd: 0.24,
+      quantity: 1,
+      entries: 1,
+      unpricedEntries: 0,
+    });
+    assert.deepEqual(summary.byProvider, [
+      {
+        provider: 'gemini',
+        amountMicroUsd: 240000,
+        amountUsd: 0.24,
+        quantity: 1,
+        entries: 1,
+        unpricedEntries: 0,
+      },
+    ]);
+    assert.deepEqual(summary.byMeterEventName, [
+      {
+        meterEventName: 'gemini_images',
+        amountMicroUsd: 240000,
+        amountUsd: 0.24,
+        quantity: 1,
+        entries: 1,
+        unpricedEntries: 0,
+      },
+    ]);
+  });
+
   test('rejects duplicate attribution keys', async () => {
     const data = {
       attributionKey: 'variant:variant-3:gemini_images',
