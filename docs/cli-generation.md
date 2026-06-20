@@ -98,6 +98,32 @@ makefx derive \
   -o keyframes/lucia-market-001.png
 ```
 
+Reusable style libraries are managed with `styles`. A style reference collection
+is built from existing Space assets or variants, and a named preset points to a
+collection plus a style prompt:
+
+```bash
+makefx styles collections create "Painterly refs" --refs asset_123,variant_456
+makefx styles presets create "Painterly" --collection collection_123 --prompt "Painterly adventure game" --default
+```
+
+Generation commands can select an enabled preset by ID or exact name, or opt out
+of style explicitly:
+
+```bash
+makefx generate "A watercolor market background" \
+  --style-preset Painterly \
+  --name "Russafa Market Background" \
+  --type scene \
+  -o backgrounds/russafa-market.png
+
+makefx generate "A neutral prop sheet" --no-style --name "Props" --type prop -o props.png
+```
+
+When `--style-preset` is used, the CLI prints the resolved preset ID, collection,
+and reference count before creating the job. Import manifest assignment to
+collections or presets is handled by the separate import-manifest workflow.
+
 Batch generate multiple images and write a debug run manifest:
 
 ```bash

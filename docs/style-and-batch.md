@@ -84,6 +84,31 @@ Users can opt out of style for a specific generation by setting `disableStyle: t
 
 ---
 
+## CLI Style Libraries
+
+The CLI manages the asset-backed style model through the same authenticated REST
+routes used by the web UI:
+
+```bash
+makefx styles references
+makefx styles collections create "Painterly refs" --refs asset_123,variant_456
+makefx styles presets create "Painterly" --collection collection_123 --prompt "Painterly adventure game"
+makefx generate "A market background" --style-preset Painterly --name "Market" --type scene -o market.png
+```
+
+`styles collections` creates normal Space collections and `style_ref` collection
+items. Asset IDs are pinned to their current active variants; variant IDs are
+stored directly. `styles presets` creates, updates, enables, disables, and
+deletes named style presets that point to those collections. Generation commands
+resolve `--style-preset <id-or-name>` to a preset ID before sending the
+WebSocket generation request, and `--style-preset` is mutually exclusive with
+`--no-style`.
+
+The CLI does not call the legacy `space_styles` singleton or upload raw hidden
+style images for these asset-backed workflows.
+
+---
+
 ## Style CRUD
 
 ### WebSocket Messages
