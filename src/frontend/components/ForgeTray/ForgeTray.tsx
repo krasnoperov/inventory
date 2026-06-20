@@ -899,7 +899,11 @@ export function ForgeTray({
         model: selectedMediaKind === 'image' ? imageModel : undefined,
         aspectRatio: selectedMediaKind === 'image' ? aspectRatio : undefined,
         imageSize: selectedMediaKind === 'image' ? imageSize : undefined,
-        disableStyle: isAudioMode || styleSelection.mode === 'none' || undefined,
+        disableStyle:
+          isAudioMode ||
+          styleSelection.mode === 'none' ||
+          (styleSelection.mode === 'custom' && styleVariantIds.length === 0) ||
+          undefined,
         stylePresetId: !isAudioMode && styleSelection.mode === 'preset' ? styleSelection.presetId : undefined,
         styleVariantIds: !isAudioMode && styleSelection.mode === 'custom' && styleVariantIds.length > 0 ? styleVariantIds : undefined,
         voiceId: mediaMode === 'speech' ? voiceId : undefined,

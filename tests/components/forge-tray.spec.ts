@@ -630,6 +630,30 @@ test('forge tray submits custom selected style refs', async ({ page }) => {
   });
 });
 
+test('forge tray submits no-style override for empty custom style refs', async ({ page }) => {
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: imageReferenceAssets,
+    allVariants: imageReferenceVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    spaceId: 'space-1',
+    collections: [styleCollection],
+    collectionItems: [styleCollectionItem],
+  });
+
+  await page.getByLabel('Prompt').fill('A hand-painted doorway');
+  await page.getByLabel('Style selector').selectOption('custom');
+  await page.getByRole('button', { name: /Close/i }).click();
+  await expect(page.getByText('Style: Custom selected refs · 0 refs')).toBeVisible();
+  await page.getByRole('button', { name: /Generate/ }).click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.find((call) => call.eventName === 'forge-submit')?.args[0]).toMatchObject({
+    disableStyle: true,
+    styleVariantIds: undefined,
+  });
+});
+
 test('style reference usage panel displays reverse usage', async ({ page }) => {
   await mountComponent(page, 'StyleReferenceUsagePanel', {
     spaceId: 'space-1',
