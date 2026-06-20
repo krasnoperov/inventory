@@ -8,6 +8,7 @@ import { HeaderNav } from '../components/HeaderNav';
 import { ErrorMessage } from '../components/forms';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
+import { formatUtcDate } from '../lib/dates';
 import styles from './DashboardPage.module.css';
 
 export default function DashboardPage() {
@@ -71,16 +72,6 @@ export default function DashboardPage() {
     } finally {
       setIsCreating(false);
     }
-  };
-
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'UTC',
-    });
   };
 
   const getRoleBadgeClass = (role: string | undefined) => {
@@ -159,7 +150,7 @@ export default function DashboardPage() {
                   </div>
                   <div className={styles.spaceCardFooter}>
                     <span className={styles.spaceDate}>
-                      Created {formatDate(space.created_at)}
+                      Created {formatUtcDate(space.created_at)}
                     </span>
                   </div>
                 </Link>
