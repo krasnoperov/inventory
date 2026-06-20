@@ -4,6 +4,7 @@
 // Define your Cloudflare Workers bindings here
 
 import type { GenerationWorkflowInput } from '../backend/workflows/types';
+import type { KeyBrokerServiceBinding } from '../backend/key-broker/client';
 
 /** Cloudflare Workflow instance handle */
 export interface WorkflowInstance {
@@ -92,6 +93,10 @@ export interface Env {
 
   // Make Effects: Cloudflare Workflows
   GENERATION_WORKFLOW?: WorkflowBinding<GenerationWorkflowInput>;
+
+  // Make Effects: BYOK key custody boundary. Later app/generation changes should
+  // call this service binding instead of reading BYOK KEK material directly.
+  KEY_BROKER?: KeyBrokerServiceBinding;
 
   // Make Effects: Rate limiting for bots
   RATE_LIMIT_KV?: KVNamespace;
