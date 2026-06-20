@@ -36,6 +36,9 @@ import {
 } from '../lib/websocket-client';
 import type { MediaKind, MusicGenerationProvider } from '../../shared/websocket-types';
 import {
+  DEFAULT_VIDEO_GENERATION_TIER,
+  doesVideoGenerationModelSupportAudioToggle,
+  getVideoGenerationModelForTier,
   isVideoGenerationResolutionSupportedForTier,
   normalizeVideoGenerationAspectRatio,
   normalizeVideoGenerationDurationSeconds,
@@ -1359,6 +1362,22 @@ function validateVideoAudioOptions(parsed: ParsedArgs, mediaKind: GenerationMedi
   }
   if (parsed.options.audio !== undefined && (parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined)) {
     throw new Error('Pass either --audio or --no-audio, not both');
+  }
+  if (parsed.options['no-audio'] !== undefined || parsed.options.noAudio !== undefined) {
+    const tierValue =
+      readOptionalOption(parsed, 'tier', 'tier') ??
+      readOptionalOption(parsed, 'video-tier', 'videoTier');
+    const videoTier = tierValue === undefined
+      ? DEFAULT_VIDEO_GENERATION_TIER
+      : normalizeVideoGenerationTier(tierValue);
+    if (!videoTier) {
+      throw new Error('--tier must be generate, fast, or lite');
+    }
+
+    const model = getVideoGenerationModelForTier(videoTier);
+    if (!doesVideoGenerationModelSupportAudioToggle(model)) {
+      throw new Error(`${model} does not support --no-audio. Use the default audio-enabled output or omit the flag.`);
+    }
   }
 }
 

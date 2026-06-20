@@ -78,24 +78,18 @@ describe('GoogleVeoService', () => {
     assert.equal(Object.hasOwn(request.config, 'generateAudio'), false);
   });
 
-  test('records no-audio requests and adds a silent-video prompt instruction', async () => {
+  test('rejects no-audio requests for Veo instead of prompt-engineering silence', async () => {
     const { client, generateVideos } = createClient({});
     const service = new GoogleVeoService('test-key', client);
 
-    const result = await service.generate({
-      prompt: 'busy marketplace',
-      generateAudio: false,
-    });
-
-    assert.equal(result.generateAudio, false);
-    const request = generateVideos.mock.calls[0].arguments[0] as {
-      prompt: string;
-      config: { generateAudio?: boolean };
-    };
-    assert.match(request.prompt, /^busy marketplace/);
-    assert.match(request.prompt, /generate a silent video only/);
-    assert.equal(request.config.generateAudio, undefined);
-    assert.equal(Object.hasOwn(request.config, 'generateAudio'), false);
+    await assert.rejects(
+      service.generate({
+        prompt: 'busy marketplace',
+        generateAudio: false,
+      }),
+      /does not support disabling generated audio/
+    );
+    assert.equal(generateVideos.mock.calls.length, 0);
   });
 
   test('passes explicit Veo model, resolution, and duration controls', async () => {

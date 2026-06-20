@@ -155,8 +155,9 @@ ElevenLabs music generation by default and may request Lyria with
 `musicProvider: "lyria"`. `sfx` assets use ElevenLabs sound generation.
 Website video generation records the capable Google Veo model, `videoTier`,
 `videoResolution`, `videoDurationSeconds`, and `generateAudio` intent metadata.
-`generateAudio` defaults to `true`; explicit silent-video requests preserve
-`false` through recipes, workflow inputs, and variant metadata.
+`generateAudio` defaults to `true`. Current Veo models do not support
+`generateAudio: false`; clients should only send `false` for providers/models
+that expose a real audio-disable control.
 
 The backend enforces homogeneous assets. Variants inherit their asset's
 `media_kind`, and requests that try to create a variant or forked asset with a

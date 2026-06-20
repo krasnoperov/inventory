@@ -56,8 +56,9 @@ for legacy and omitted values. Website generation can produce images through
 Gemini image models, audio through the configured audio provider, and videos
 through Google Veo. Video recipes persist `videoTier`, `videoResolution`,
 `videoDurationSeconds`, and `generateAudio` metadata. `generateAudio` defaults
-to true; when false, Make Effects records the silent-video intent and adds a
-silent-video instruction to the provider prompt.
+to true. Current Veo models do not support disabling generated audio; requests
+for `generateAudio: false` must be rejected unless a future provider/model
+exposes a real audio toggle.
 ElevenLabs audio generation remains the default music path and routes `sfx`
 assets to sound-effect generation and other audio asset types to speech/dialogue
 generation; `music` assets may explicitly select Lyria as an alternate provider.

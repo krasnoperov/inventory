@@ -12,6 +12,7 @@ import {
   DEFAULT_VIDEO_GENERATION_MODEL,
   DEFAULT_VIDEO_GENERATION_RESOLUTION,
   VIDEO_GENERATION_AUDIO_ALWAYS_ON,
+  doesVideoGenerationModelSupportAudioToggle,
   normalizeVideoGenerationAspectRatio,
   normalizeVideoGenerationDurationSeconds,
   normalizeVideoGenerationResolution,
@@ -148,6 +149,9 @@ export class GoogleVeoService {
     const styleImageCount = Math.max(0, Math.min(options.styleImageCount ?? 0, sourceImages.length));
     const referenceMode = normalizeVeoReferenceMode(options.referenceMode, sourceImages.length, styleImageCount);
     const generateAudio = options.generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON;
+    if (generateAudio === false && !doesVideoGenerationModelSupportAudioToggle(model)) {
+      throw new Error(`${model} does not support disabling generated audio`);
+    }
 
     const config: GeminiVeoConfig = {
       aspectRatio,
@@ -158,7 +162,7 @@ export class GoogleVeoService {
 
     const request: GeminiVeoGenerateVideosParameters = {
       model,
-      prompt: generateAudio ? prompt : withoutAudioPrompt(prompt),
+      prompt,
       config,
     };
 
@@ -237,8 +241,4 @@ export class GoogleVeoService {
       videoMimeType: response.headers.get('Content-Type') ?? fallbackMimeType ?? 'video/mp4',
     };
   }
-}
-
-function withoutAudioPrompt(prompt: string): string {
-  return `${prompt}\n\nAudio: generate a silent video only. Do not include dialogue, sound effects, music, ambience, or other audible audio.`;
 }

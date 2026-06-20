@@ -30,6 +30,7 @@ export const VIDEO_GENERATION_DURATION_SECONDS: VideoGenerationDurationSeconds[]
 export const VIDEO_GENERATION_TIERS: VideoGenerationTier[] = ['generate', 'fast', 'lite'];
 export const DEFAULT_VIDEO_GENERATION_GENERATE_AUDIO = true;
 export const VIDEO_GENERATION_AUDIO_ALWAYS_ON = DEFAULT_VIDEO_GENERATION_GENERATE_AUDIO;
+export const VIDEO_GENERATION_AUDIO_TOGGLE_MODELS: VideoGenerationModel[] = [];
 export const VIDEO_GENERATION_RESOLUTIONS_BY_TIER: Record<VideoGenerationTier, VideoGenerationResolution[]> = {
   generate: VIDEO_GENERATION_RESOLUTIONS,
   fast: VIDEO_GENERATION_RESOLUTIONS,
@@ -102,4 +103,8 @@ export function getVideoGenerationTierForModel(
 ): VideoGenerationTier | undefined {
   if (typeof model !== 'string') return undefined;
   return VIDEO_GENERATION_TIERS.find((tier) => VIDEO_GENERATION_TIER_MODELS[tier] === model);
+}
+
+export function doesVideoGenerationModelSupportAudioToggle(model: VideoGenerationModel): boolean {
+  return VIDEO_GENERATION_AUDIO_TOGGLE_MODELS.includes(model);
 }
