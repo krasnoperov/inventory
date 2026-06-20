@@ -28,7 +28,8 @@ export const VIDEO_GENERATION_ASPECT_RATIOS: VideoGenerationAspectRatio[] = ['16
 export const VIDEO_GENERATION_RESOLUTIONS: VideoGenerationResolution[] = ['720p', '1080p', '4k'];
 export const VIDEO_GENERATION_DURATION_SECONDS: VideoGenerationDurationSeconds[] = [4, 6, 8];
 export const VIDEO_GENERATION_TIERS: VideoGenerationTier[] = ['generate', 'fast', 'lite'];
-export const VIDEO_GENERATION_AUDIO_ALWAYS_ON = true;
+export const DEFAULT_VIDEO_GENERATION_GENERATE_AUDIO = true;
+export const VIDEO_GENERATION_AUDIO_ALWAYS_ON = DEFAULT_VIDEO_GENERATION_GENERATE_AUDIO;
 export const VIDEO_GENERATION_RESOLUTIONS_BY_TIER: Record<VideoGenerationTier, VideoGenerationResolution[]> = {
   generate: VIDEO_GENERATION_RESOLUTIONS,
   fast: VIDEO_GENERATION_RESOLUTIONS,

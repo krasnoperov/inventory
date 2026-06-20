@@ -41,6 +41,7 @@ export interface GenerateVideoOptions {
   aspectRatio?: VideoAspectRatio;
   resolution?: VideoResolution;
   durationSeconds?: VideoDurationSeconds;
+  generateAudio?: boolean;
   sourceImages?: ImageInput[];
   styleImageCount?: number;
   referenceMode?: VeoReferenceMode;
@@ -146,7 +147,7 @@ export class GoogleVeoService {
     const durationSeconds = normalizeDuration(options.durationSeconds);
     const styleImageCount = Math.max(0, Math.min(options.styleImageCount ?? 0, sourceImages.length));
     const referenceMode = normalizeVeoReferenceMode(options.referenceMode, sourceImages.length, styleImageCount);
-    const generateAudio = VIDEO_GENERATION_AUDIO_ALWAYS_ON;
+    const generateAudio = options.generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON;
 
     const config: GeminiVeoConfig = {
       aspectRatio,
@@ -157,7 +158,7 @@ export class GoogleVeoService {
 
     const request: GeminiVeoGenerateVideosParameters = {
       model,
-      prompt,
+      prompt: generateAudio ? prompt : withoutAudioPrompt(prompt),
       config,
     };
 
@@ -236,4 +237,8 @@ export class GoogleVeoService {
       videoMimeType: response.headers.get('Content-Type') ?? fallbackMimeType ?? 'video/mp4',
     };
   }
+}
+
+function withoutAudioPrompt(prompt: string): string {
+  return `${prompt}\n\nAudio: generate a silent video only. Do not include dialogue, sound effects, music, ambience, or other audible audio.`;
 }

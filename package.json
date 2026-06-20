@@ -1,6 +1,6 @@
 {
   "name": "makefx",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Make Effects CLI and Cloudflare app for AI-assisted game asset production.",
   "license": "MIT",
   "private": true,
