@@ -301,7 +301,6 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--model <pro\|flash>` | top-level image commands | Optional image model selection; defaults to Pro |
 | `--size <1K\|2K\|4K>` | top-level image commands | Optional image output size; Flash supports only `1K` |
 | `--aspect <ratio>` | top-level image commands, video commands | Optional generation aspect ratio; video supports `16:9` or `9:16` |
-| `--parent <assetId>` | `generate`, `derive`, `video generate`, `video derive` | Optional parent asset |
 | `--no-style` | all generation and consistency pipeline commands | Disable active space style for this request |
 | `--detach` | `rotation`, `tileset` | Return after the pipeline starts instead of waiting for completion |
 | `--grid <size>` | `tileset` | Square tile grid size or `WIDTHxHEIGHT`, each dimension 2-5 |

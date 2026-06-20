@@ -1,11 +1,10 @@
 import { memo, useCallback } from 'react';
-import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
+import { type NodeProps, type Node } from '@xyflow/react';
 import { type Asset, type SpaceSubject, type Variant, isVariantForgeTrayReady } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
 import { Thumbnail } from '../Thumbnail';
 import styles from './AssetNode.module.css';
 
-/** Layout direction for handle positioning */
 export type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
 
 export interface AssetNodeData extends Record<string, unknown> {
@@ -14,7 +13,7 @@ export interface AssetNodeData extends Record<string, unknown> {
   onAssetClick?: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onCreateRelation?: (subject: SpaceSubject) => void;
-  /** Layout direction for handle positioning */
+  /** Layout direction retained for layout calculation by the canvas */
   layoutDirection?: LayoutDirection;
   /** Space ID for authenticated media preview URLs */
   spaceId?: string;
@@ -25,19 +24,7 @@ export interface AssetNodeData extends Record<string, unknown> {
 export type AssetNodeType = Node<AssetNodeData, 'asset'>;
 
 function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
-  const { asset, variant, onAssetClick, onAddToTray, onCreateRelation, layoutDirection = 'LR', spaceId, thumbWidth } = data;
-
-  // Determine handle positions based on layout direction
-  const getHandlePositions = () => {
-    switch (layoutDirection) {
-      case 'TB': return { target: Position.Top, source: Position.Bottom };
-      case 'BT': return { target: Position.Bottom, source: Position.Top };
-      case 'RL': return { target: Position.Right, source: Position.Left };
-      case 'LR':
-      default: return { target: Position.Left, source: Position.Right };
-    }
-  };
-  const { target: targetPosition, source: sourcePosition } = getHandlePositions();
+  const { asset, variant, onAssetClick, onAddToTray, onCreateRelation, spaceId, thumbWidth } = data;
 
   const handleClick = useCallback(() => {
     onAssetClick?.(asset);
@@ -71,9 +58,6 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
 
   return (
     <div className={`${styles.node} ${selected ? styles.selected : ''}`}>
-      {/* Input handle (for incoming edges from parents) */}
-      <Handle type="target" position={targetPosition} className={styles.handle} />
-
       {/* Thumbnail */}
       <div
         className={styles.thumbnail}
@@ -118,8 +102,6 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
         </span>
       </div>
 
-      {/* Output handle (for outgoing edges to children) */}
-      <Handle type="source" position={sourcePosition} className={styles.handle} />
     </div>
   );
 }

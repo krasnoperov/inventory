@@ -130,8 +130,6 @@ export interface CreateAssetVariantInput {
   imageSize?: string;
   /** Image model provider (`gemini` or `custom`) */
   modelProvider?: 'gemini' | 'custom';
-  /** Parent asset ID for hierarchy */
-  parentAssetId?: string;
   /** Reference asset IDs (resolved to active variants) */
   referenceAssetIds?: string[];
   /** Explicit variant IDs from ForgeTray */
@@ -322,7 +320,6 @@ export class VariantFactory {
       type: input.assetType,
       mediaKind: input.mediaKind,
       tags: [],
-      parentAssetId: input.parentAssetId,
       createdBy: meta.userId,
     });
     this.broadcast({ type: 'asset:created', asset });
@@ -726,7 +723,6 @@ export class VariantFactory {
         type: input.assetType,
         mediaKind: input.mediaKind,
         tags: [],
-        parentAssetId: input.parentAssetId,
         createdBy: meta.userId,
       });
       this.broadcast({ type: 'asset:created', asset });
@@ -780,7 +776,6 @@ export class VariantFactory {
           type: input.assetType,
           mediaKind: input.mediaKind,
           tags: [],
-          parentAssetId: input.parentAssetId,
           createdBy: meta.userId,
         });
         this.broadcast({ type: 'asset:created', asset });

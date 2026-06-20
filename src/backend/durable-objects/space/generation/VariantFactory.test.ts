@@ -26,7 +26,7 @@ function createMockRepo(): SpaceRepository {
       type: input.type,
       media_kind: input.mediaKind ?? 'image',
       tags: '[]',
-      parent_asset_id: input.parentAssetId || null,
+      parent_asset_id: null,
       active_variant_id: null,
       created_by: input.createdBy,
       created_at: Date.now(),
@@ -396,31 +396,11 @@ describe('VariantFactory', () => {
       );
 
       const createAssetCall = asMock(repo.createAsset).mock.calls[0];
-      assert.strictEqual(createAssetCall.arguments[0].parentAssetId, undefined);
+      assert.strictEqual('parentAssetId' in createAssetCall.arguments[0], false);
 
       const lineageCall = asMock(repo.createLineage).mock.calls[0];
       assert.strictEqual(lineageCall.arguments[0].parentVariantId, 'ref-var-1');
       assert.strictEqual(lineageCall.arguments[0].relationType, 'derived');
-    });
-
-    test('preserves explicit parentAssetId for compatibility', async () => {
-      const repo = createMockRepo();
-      const env = createMockEnv();
-      const broadcast = createMockBroadcast();
-      const factory = new VariantFactory('space-1', repo, env, broadcast);
-      const meta = createMockMeta();
-
-      await factory.createAssetWithVariant(
-        {
-          name: 'Explicit Child Asset',
-          assetType: 'character',
-          parentAssetId: 'explicit-parent',
-        },
-        meta
-      );
-
-      const createAssetCall = asMock(repo.createAsset).mock.calls[0];
-      assert.strictEqual(createAssetCall.arguments[0].parentAssetId, 'explicit-parent');
     });
 
     test('propagates explicit media kind to asset, placeholder variant, and recipe', async () => {
@@ -1065,7 +1045,7 @@ describe('VariantFactory', () => {
 
       assert.strictEqual(results.length, 2);
       assert.strictEqual(asMock(repo.createAsset).mock.calls.length, 1);
-      assert.strictEqual(asMock(repo.createAsset).mock.calls[0].arguments[0].parentAssetId, undefined);
+      assert.strictEqual('parentAssetId' in asMock(repo.createAsset).mock.calls[0].arguments[0], false);
       assert.deepStrictEqual(results.map((result) => result.parentVariantIds), [['ref-var'], ['ref-var']]);
       assert.strictEqual(asMock(repo.createLineage).mock.calls.length, 2);
       assert.ok(asMock(repo.createLineage).mock.calls.every((call) =>
@@ -1099,38 +1079,13 @@ describe('VariantFactory', () => {
       assert.strictEqual(results.length, 2);
       assert.strictEqual(asMock(repo.createAsset).mock.calls.length, 2);
       assert.ok(asMock(repo.createAsset).mock.calls.every((call) =>
-        call.arguments[0].parentAssetId === undefined
+        !('parentAssetId' in call.arguments[0])
       ));
       assert.deepStrictEqual(results.map((result) => result.parentVariantIds), [['ref-var'], ['ref-var']]);
       assert.strictEqual(asMock(repo.createLineage).mock.calls.length, 2);
       assert.ok(asMock(repo.createLineage).mock.calls.every((call) =>
         call.arguments[0].parentVariantId === 'ref-var' &&
         call.arguments[0].relationType === 'derived'
-      ));
-    });
-
-    test('preserves explicit parentAssetId for batch compatibility', async () => {
-      const repo = createMockRepo();
-      const env = createMockEnv();
-      const broadcast = createMockBroadcast();
-      const factory = new VariantFactory('space-1', repo, env, broadcast);
-      const meta = createMockMeta();
-
-      await factory.createBatchVariants(
-        {
-          name: 'Explicit Batch',
-          assetType: 'scene',
-          mediaKind: 'image',
-          prompt: 'Create batch',
-          parentAssetId: 'explicit-parent',
-          count: 2,
-          mode: 'set',
-        },
-        meta
-      );
-
-      assert.ok(asMock(repo.createAsset).mock.calls.every((call) =>
-        call.arguments[0].parentAssetId === 'explicit-parent'
       ));
     });
 

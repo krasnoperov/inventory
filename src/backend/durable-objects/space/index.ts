@@ -4,7 +4,7 @@
  * This module provides:
  * - Type definitions for DO SQLite schema and WebSocket messages
  * - SQL query constants and builders
- * - Domain-specific utilities (hierarchy, image refs, vision)
+ * - Domain-specific utilities (image refs, vision)
  */
 
 // Types
@@ -12,9 +12,6 @@ export * from './types';
 
 // SQL Queries and builders
 export * from './queries';
-
-// Asset hierarchy utilities (cycle detection, ancestor chain, descendants)
-export * from './asset/hierarchy';
 
 // Variant image reference counting
 export * from './variant/imageRefs';

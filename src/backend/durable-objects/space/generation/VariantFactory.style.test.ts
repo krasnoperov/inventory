@@ -57,7 +57,7 @@ function createMockRepo(): SpaceRepository {
       type: input.type,
       media_kind: input.mediaKind ?? 'image',
       tags: '[]',
-      parent_asset_id: input.parentAssetId || null,
+      parent_asset_id: null,
       active_variant_id: null,
       created_by: input.createdBy,
       created_at: Date.now(),

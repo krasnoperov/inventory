@@ -173,7 +173,7 @@ Client                          SpaceDO                         Workflows
 
 | Direction | Message | Fields |
 |-----------|---------|--------|
-| C → S | `batch:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt`, `count`, `mode`, `aspectRatio?`, `referenceVariantIds?`, `referenceAssetIds?`, `parentAssetId?`, `disableStyle?` |
+| C → S | `batch:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt`, `count`, `mode`, `aspectRatio?`, `referenceVariantIds?`, `referenceAssetIds?`, `disableStyle?` |
 | S → C | `batch:started` | `requestId`, `batchId`, `results[]` (assetId, variantId pairs) |
 | S → C | `batch:error` | `requestId`, `error`, `code` |
 

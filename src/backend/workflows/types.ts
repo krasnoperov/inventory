@@ -209,7 +209,6 @@ export interface GenerateRequestMessage {
   imageSize?: string;
   /** Image provider selection (`gemini` or `custom`) */
   modelProvider?: 'gemini' | 'custom';
-  parentAssetId?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
   /** Explicit asset-backed style preset to use instead of the default */
@@ -329,7 +328,6 @@ export interface BatchRequestMessage {
   imageSize?: string;
   /** Image provider selection (`gemini` or `custom`) */
   modelProvider?: 'gemini' | 'custom';
-  parentAssetId?: string;
   /** Disable style anchoring for this batch */
   disableStyle?: boolean;
   /** Explicit asset-backed style preset to use instead of the default */

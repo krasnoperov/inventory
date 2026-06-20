@@ -33,18 +33,6 @@ describe('Space Queries', () => {
       assert.strictEqual(values[0], 'scene');
     });
 
-    test('handles parent_asset_id change to new value', () => {
-      const { sql, values } = buildAssetUpdateQuery({ parent_asset_id: 'parent-123' });
-      assert(sql.includes('parent_asset_id = ?'));
-      assert.strictEqual(values[0], 'parent-123');
-    });
-
-    test('handles parent_asset_id change to null', () => {
-      const { sql, values } = buildAssetUpdateQuery({ parent_asset_id: null });
-      assert(sql.includes('parent_asset_id = ?'));
-      assert.strictEqual(values[0], null);
-    });
-
     test('handles active_variant_id change', () => {
       const { sql, values } = buildAssetUpdateQuery({ active_variant_id: 'variant-456' });
       assert(sql.includes('active_variant_id = ?'));
@@ -55,17 +43,14 @@ describe('Space Queries', () => {
       const { sql, values } = buildAssetUpdateQuery({
         name: 'Updated Name',
         type: 'character',
-        parent_asset_id: 'parent-789',
       });
 
       assert(sql.includes('name = ?'));
       assert(sql.includes('type = ?'));
-      assert(sql.includes('parent_asset_id = ?'));
       assert(sql.includes('updated_at = ?'));
       assert.strictEqual(values[0], 'Updated Name');
       assert.strictEqual(values[1], 'character');
-      assert.strictEqual(values[2], 'parent-789');
-      assert.strictEqual(values.length, 4); // 3 changes + timestamp
+      assert.strictEqual(values.length, 3); // 2 changes + timestamp
     });
 
     test('generates valid SQL syntax', () => {

@@ -113,7 +113,6 @@ interface GenerateRequestMessage {
   model?: string;
   aspectRatio?: string;
   imageSize?: string;
-  parentAssetId?: string;
   disableStyle?: boolean;
   stylePresetId?: string;
   styleVariantIds?: string[];
@@ -163,7 +162,6 @@ interface BatchRequestMessage {
   model?: string;
   aspectRatio?: string;
   imageSize?: string;
-  parentAssetId?: string;
   disableStyle?: boolean;
   stylePresetId?: string;
   styleVariantIds?: string[];
@@ -1479,7 +1477,7 @@ export class WebSocketClient {
   /** Rename an asset. Resolves with the updated asset record. */
   async renameAsset(assetId: string, name: string): Promise<AssetRecord> {
     // Match the new name too: `asset:updated` is broadcast for many reasons
-    // (concurrent edits, child reparenting), so matching the asset id alone
+    // (concurrent edits, compatibility-field broadcasts), so matching the asset id alone
     // could resolve on an unrelated broadcast.
     const result = await this.awaitServerMessage(
       { type: 'asset:update', assetId, changes: { name } },
@@ -1807,7 +1805,6 @@ export class WebSocketClient {
     model?: string;
     aspectRatio?: string;
     imageSize?: string;
-    parentAssetId?: string;
     disableStyle?: boolean;
     stylePresetId?: string;
     styleVariantIds?: string[];
@@ -1862,7 +1859,6 @@ export class WebSocketClient {
         model: params.model,
         aspectRatio: params.aspectRatio,
         imageSize: params.imageSize,
-        parentAssetId: params.parentAssetId,
         disableStyle: params.disableStyle,
         stylePresetId: params.stylePresetId,
         styleVariantIds: params.styleVariantIds,
@@ -2024,7 +2020,6 @@ export class WebSocketClient {
     model?: string;
     aspectRatio?: string;
     imageSize?: string;
-    parentAssetId?: string;
     disableStyle?: boolean;
     stylePresetId?: string;
     styleVariantIds?: string[];
@@ -2070,7 +2065,6 @@ export class WebSocketClient {
         model: params.model,
         aspectRatio: params.aspectRatio,
         imageSize: params.imageSize,
-        parentAssetId: params.parentAssetId,
         disableStyle: params.disableStyle,
         stylePresetId: params.stylePresetId,
         styleVariantIds: params.styleVariantIds,

@@ -430,7 +430,6 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
   const assetType = getOptionalString(formData, 'assetType') || 'character';
   const mediaKindValue = formData.get('mediaKind');
   const requestedMediaKind = parseMediaKind(mediaKindValue);
-  const parentAssetId = getOptionalString(formData, 'parentAssetId');
   let generationProvenance: Record<string, unknown> | null;
   let providerMetadata: Record<string, unknown> | null;
   let lineageInputs: UploadLineageInput[];
@@ -585,7 +584,6 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
           assetName: assetId ? undefined : assetName,
           assetType: assetId ? undefined : assetType,
           mediaKind,
-          parentAssetId: assetId ? undefined : parentAssetId,
           recipe,
           createdBy: userId,
         }),

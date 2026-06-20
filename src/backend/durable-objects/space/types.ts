@@ -57,7 +57,7 @@ export interface Asset {
   type: string; // User-editable: character, item, scene, sprite-sheet, animation, style-sheet, reference, etc.
   media_kind: MediaKind;
   tags: string; // JSON array
-  parent_asset_id: string | null; // NULL = root asset, else nested under parent
+  parent_asset_id: string | null; // Legacy compatibility field; not writable organization state
   active_variant_id: string | null;
   created_by: string;
   created_at: number;
@@ -624,11 +624,11 @@ export type ClientMessage =
   | { type: 'sync:request' }
   | { type: 'sync:overview' }
   // Asset operations
-  | { type: 'asset:create'; name: string; assetType: string; mediaKind?: MediaKind; parentAssetId?: string }
-  | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[]; type?: string; parentAssetId?: string | null } }
+  | { type: 'asset:create'; name: string; assetType: string; mediaKind?: MediaKind }
+  | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[]; type?: string } }
   | { type: 'asset:delete'; assetId: string }
   | { type: 'asset:setActive'; assetId: string; variantId: string }
-  | { type: 'asset:fork'; sourceAssetId?: string; sourceVariantId?: string; name: string; assetType: string; mediaKind?: MediaKind; parentAssetId?: string }
+  | { type: 'asset:fork'; sourceAssetId?: string; sourceVariantId?: string; name: string; assetType: string; mediaKind?: MediaKind }
   // Manual organization operations
   | { type: 'collection:create'; id?: string; name: string; kind?: CollectionKind; color?: string | null; description?: string | null; sortIndex?: number }
   | { type: 'collection:update'; collectionId: string; changes: { name?: string; kind?: CollectionKind; color?: string | null; description?: string | null; sortIndex?: number } }
@@ -831,7 +831,6 @@ export interface AssetChanges {
   name?: string;
   tags?: string[];
   type?: string;
-  parent_asset_id?: string | null;
   active_variant_id?: string | null;
 }
 
@@ -843,7 +842,6 @@ export interface CreateAssetInput {
   name: string;
   type: string;
   mediaKind?: MediaKind;
-  parentAssetId?: string;
   createdBy: string;
 }
 
@@ -855,7 +853,6 @@ export interface ForkAssetInput {
   name: string;
   type: string;
   mediaKind?: MediaKind;
-  parentAssetId?: string;
   createdBy: string;
 }
 

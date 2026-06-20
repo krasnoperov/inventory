@@ -121,7 +121,7 @@ serves `poster_key` when that artifact exists.
 
 ### Relationships
 
-- **Asset Hierarchy**: `parent_asset_id` enables tree structures. User can drag-to-reparent.
+- **Legacy Parent Compatibility**: `parent_asset_id` may exist on older assets and is used only for migration/debug compatibility. User organization is modeled with collections, relations, and compositions.
 - **Variant Lineage**: `lineage` table tracks generation history. Immutable for audit.
   - `derived`: Created from references as inspiration (derive operation)
   - `refined`: Refinement of existing asset (refine operation)
