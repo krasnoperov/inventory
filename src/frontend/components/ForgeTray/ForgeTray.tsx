@@ -7,13 +7,13 @@ import {
   type Composition,
   type CompositionItem,
   type CompositionOverview,
+  type SpaceCollection,
   type Variant,
   type ChatMessageClient,
   type ChatForgeContext,
   type ForgeChatProgressResult,
   type GenerationEstimateRequestParams,
   type GenerationEstimateResult,
-  type SpaceCollection,
   type StylePresetCreateParams,
   type StylePresetRaw,
   type StylePresetUpdateParams,
@@ -27,7 +27,7 @@ import {
   type RelationShortcut,
 } from '../../productionShortcuts';
 import { useStyleStore } from '../../stores/styleStore';
-import type { MediaKind, MusicGenerationProvider } from '../../../shared/websocket-types';
+import type { CollectionPlacementInput, MediaKind, MusicGenerationProvider } from '../../../shared/websocket-types';
 import {
   IMAGE_ASPECT_RATIOS,
   IMAGE_MODEL_SELECTIONS,
@@ -59,6 +59,7 @@ import { StylePanel } from './StylePanel';
 import { VoicePicker } from './VoicePicker';
 import { Thumbnail } from '../Thumbnail';
 import { Link } from '../Link';
+import { CollectionPlacementPicker } from '../CollectionPlacementPicker';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
   canUseSlotMediaKindForForgeMode,
@@ -122,6 +123,7 @@ export interface ForgeSubmitParams {
   shortcut?: {
     composition?: CompositionShortcut;
   };
+  collectionPlacements?: CollectionPlacementInput[];
 }
 
 export interface ForgeTrayProps {
@@ -135,11 +137,13 @@ export interface ForgeTrayProps {
   onUpload?: (file: File, assetId: string, shortcut?: {
     composition?: CompositionShortcut;
     relation?: RelationShortcut;
+    collectionPlacements?: CollectionPlacementInput[];
   }) => Promise<void>;
   /** Callback for uploading a media file to create a NEW asset (SpacePage) */
   onUploadNewAsset?: (file: File, assetName: string, shortcut?: {
     composition?: CompositionShortcut;
     relation?: RelationShortcut;
+    collectionPlacements?: CollectionPlacementInput[];
   }) => Promise<void>;
   /** Whether an upload is in progress */
   isUploading?: boolean;
@@ -449,6 +453,7 @@ export function ForgeTray({
   const [videoTier, setVideoTier] = useState<VideoGenerationTier>(DEFAULT_VIDEO_GENERATION_TIER);
   const [compositionShortcut, setCompositionShortcut] = useState<CompositionShortcut>({ kind: 'none' });
   const [relationShortcut, setRelationShortcut] = useState<RelationShortcut>({ kind: 'none' });
+  const [collectionPlacements, setCollectionPlacements] = useState<CollectionPlacementInput[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const estimateRequestIdRef = useRef<string | null>(null);
@@ -761,6 +766,7 @@ export function ForgeTray({
         await onUpload(file, targetAsset.id, {
           composition: compositionShortcut,
           relation: relationShortcut,
+          collectionPlacements,
         });
       } catch (error) {
         console.error('Upload failed:', error);
@@ -776,7 +782,7 @@ export function ForgeTray({
       setUploadAssetName(defaultName);
       setShowUploadPrompt(true);
     }
-  }, [targetAsset, onUpload, onUploadNewAsset, compositionShortcut, relationShortcut]);
+  }, [targetAsset, onUpload, onUploadNewAsset, compositionShortcut, relationShortcut, collectionPlacements]);
 
   const handleUploadPromptSubmit = useCallback(async () => {
     if (!pendingUploadFile || !onUploadNewAsset || !uploadAssetName.trim()) return;
@@ -785,6 +791,7 @@ export function ForgeTray({
       await onUploadNewAsset(pendingUploadFile, uploadAssetName.trim(), {
         composition: compositionShortcut,
         relation: relationShortcut,
+        collectionPlacements,
       });
     } catch (error) {
       console.error('Upload failed:', error);
@@ -794,7 +801,7 @@ export function ForgeTray({
     setPendingUploadFile(null);
     setUploadAssetName('');
     setShowUploadPrompt(false);
-  }, [pendingUploadFile, onUploadNewAsset, uploadAssetName, compositionShortcut, relationShortcut]);
+  }, [pendingUploadFile, onUploadNewAsset, uploadAssetName, compositionShortcut, relationShortcut, collectionPlacements]);
 
   const handleUploadPromptCancel = useCallback(() => {
     setPendingUploadFile(null);
@@ -837,6 +844,7 @@ export function ForgeTray({
         await onUpload(uploadFile, targetAsset.id, {
           composition: compositionShortcut,
           relation: relationShortcut,
+          collectionPlacements,
         });
       } catch (error) {
         console.error('Drop upload failed:', error);
@@ -851,7 +859,7 @@ export function ForgeTray({
       setUploadAssetName(defaultName);
       setShowUploadPrompt(true);
     }
-  }, [onUpload, onUploadNewAsset, targetAsset, compositionShortcut, relationShortcut]);
+  }, [onUpload, onUploadNewAsset, targetAsset, compositionShortcut, relationShortcut, collectionPlacements]);
 
   const handleRemoveSlot = useCallback((e: React.MouseEvent, slotId: string) => {
     e.stopPropagation();
@@ -919,6 +927,9 @@ export function ForgeTray({
         shortcut: {
           composition: compositionShortcut,
         },
+        collectionPlacements: collectionPlacements.length > 0 && effectiveBatchCount === 1
+          ? collectionPlacements
+          : undefined,
       });
 
       // Clear on success
@@ -938,12 +949,13 @@ export function ForgeTray({
       setVideoTier(DEFAULT_VIDEO_GENERATION_TIER);
       setCompositionShortcut({ kind: 'none' });
       setRelationShortcut({ kind: 'none' });
+      setCollectionPlacements([]);
     } catch (error) {
       console.error('Forge submit failed:', error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, styleSelection, styleVariantIds, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier, compositionShortcut]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, styleSelection, styleVariantIds, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier, compositionShortcut, collectionPlacements]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -1052,6 +1064,7 @@ export function ForgeTray({
   const showUpload = !!((onUpload && targetAsset) || onUploadNewAsset);
   const showCompositionShortcuts = compositionShortcutOptions.length > 1 && effectiveBatchCount === 1 && operation !== 'fork';
   const showRelationShortcuts = relationShortcutOptions.length > 1 && showUpload;
+  const showCollectionPlacements = collections.length > 0 && effectiveBatchCount === 1;
   const estimate = activeEstimate?.success ? activeEstimate.estimate : undefined;
   const estimateError = activeEstimate && !activeEstimate.success ? activeEstimate.error : undefined;
   const estimateMeterLabel = estimate ? ESTIMATE_METER_LABELS[estimate.meterEventName] ?? estimate.meterEventName : '';
@@ -1423,6 +1436,21 @@ export function ForgeTray({
                   ))}
                 </select>
               )}
+            </div>
+          )}
+
+          {showCollectionPlacements && (
+            <div className={styles.shortcutRow}>
+              <CollectionPlacementPicker
+                collections={collections}
+                value={collectionPlacements}
+                onChange={setCollectionPlacements}
+                label="Collection placement"
+                defaultSubjectType={effectiveDestinationType === 'new_asset' ? 'asset' : 'variant'}
+                allowSubjectChoice={effectiveDestinationType === 'new_asset'}
+                showPinToCreatedVariant={effectiveDestinationType === 'new_asset'}
+                disabled={isSubmitting || isUploading}
+              />
             </div>
           )}
 

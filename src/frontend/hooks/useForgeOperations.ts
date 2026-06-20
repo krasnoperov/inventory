@@ -101,6 +101,7 @@ export function useForgeOperations({
       videoResolution,
       videoDurationSeconds,
       videoTier,
+      collectionPlacements,
     } = params;
     const hasVariantRefs = referenceVariantIds.length > 0;
     const hasAssetRefs = referenceAssetIds && referenceAssetIds.length > 0;
@@ -112,6 +113,7 @@ export function useForgeOperations({
         name: destination.assetName || 'Forked Asset',
         assetType: destination.assetType || 'character',
         mediaKind,
+        collectionPlacements,
       });
       return ''; // forkAsset is synchronous, no requestId
     }
@@ -164,6 +166,7 @@ export function useForgeOperations({
         videoResolution,
         videoDurationSeconds,
         videoTier,
+        collectionPlacements,
       });
     } else {
       // Create new asset (generate, create, or combine)
@@ -186,6 +189,7 @@ export function useForgeOperations({
         videoResolution,
         videoDurationSeconds,
         videoTier,
+        collectionPlacements,
       });
     }
   }, [sendGenerateRequest, sendRefineRequest, forkAsset, sendBatchRequest]);

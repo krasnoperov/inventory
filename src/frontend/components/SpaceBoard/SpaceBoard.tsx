@@ -51,6 +51,7 @@ const DEFAULT_STARTERS: Array<{ name: string; kind: CollectionKind }> = [
   { name: 'Scenes', kind: 'scenes' },
   { name: 'Thumbnails', kind: 'thumbnails' },
   { name: 'Maps', kind: 'maps' },
+  { name: 'Deliverables', kind: 'deliverables' },
   { name: 'Style References', kind: 'style_refs' },
 ];
 

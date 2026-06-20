@@ -52,6 +52,9 @@ import {
   type CompositionShortcut,
   type RelationShortcut,
 } from '../productionShortcuts';
+import { applyCreatedOutputCollectionPlacements } from '../collectionPlacements';
+import { CollectionPlacementPicker } from '../components/CollectionPlacementPicker';
+import type { CollectionPlacementInput } from '../../shared/websocket-types';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
@@ -99,12 +102,13 @@ export default function AssetDetailPage() {
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
-  const [variantCollectionId, setVariantCollectionId] = useState('');
-  const [variantCollectionRole, setVariantCollectionRole] = useState('custom');
+  const [assetPlacementDrafts, setAssetPlacementDrafts] = useState<CollectionPlacementInput[]>([]);
+  const [variantPlacementDrafts, setVariantPlacementDrafts] = useState<CollectionPlacementInput[]>([]);
   const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
   const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
   const pendingCompositionShortcutsRef = React.useRef(new Map<string, CompositionShortcut>());
+  const collectionPanelRef = React.useRef<HTMLElement | null>(null);
   const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
   // Variant selection state (persisted in store)
@@ -179,6 +183,8 @@ export default function AssetDetailPage() {
     starVariant,
     updateAsset,
     addCollectionItem,
+    updateCollectionItem,
+    deleteCollectionItem,
     createRelation,
     updateRelation,
     deleteRelation,
@@ -354,21 +360,18 @@ export default function AssetDetailPage() {
     if (!selectedVariantId) return null;
     return variants.find(v => v.id === selectedVariantId) || null;
   }, [selectedVariantId, variants]);
+  const assetCollectionMemberships = useMemo(() => {
+    if (!assetId) return [];
+    return collectionItems.filter((item) => item.subject_type === 'asset' && item.asset_id === assetId);
+  }, [assetId, collectionItems]);
+  const selectedVariantCollectionMemberships = useMemo(() => {
+    if (!selectedVariant) return [];
+    return collectionItems.filter((item) => item.subject_type === 'variant' && item.variant_id === selectedVariant.id);
+  }, [collectionItems, selectedVariant]);
 
   useEffect(() => {
-    if (!variantCollectionId && collections.length > 0) {
-      setVariantCollectionId(collections[0]!.id);
-    } else if (variantCollectionId && !collections.some((collection) => collection.id === variantCollectionId)) {
-      setVariantCollectionId(collections[0]?.id ?? '');
-    }
-  }, [collections, variantCollectionId]);
-
-  useEffect(() => {
-    const collection = collections.find((candidate) => candidate.id === variantCollectionId);
-    if (collection?.kind === 'style_refs') {
-      setVariantCollectionRole('style_ref');
-    }
-  }, [collections, variantCollectionId]);
+    setVariantPlacementDrafts([]);
+  }, [selectedVariantId]);
 
   // Set page title
   useDocumentTitle(asset?.name);
@@ -606,6 +609,7 @@ export default function AssetDetailPage() {
 
   const handleVariantClick = useCallback((variant: Variant) => {
     setSelectedVariantId(assetId!, variant.id);
+    setVariantPlacementDrafts([]);
   }, [assetId, setSelectedVariantId]);
 
   // Handle add to forge tray
@@ -618,23 +622,37 @@ export default function AssetDetailPage() {
   }, [addSlot, asset]);
 
   const handleAddVariantToCollection = useCallback((variant: Variant) => {
-    if (!canEdit || !variantCollectionId) return;
-    const sortIndex = collectionItems.filter((item) => item.collection_id === variantCollectionId).length;
-    addCollectionItem({
-      collectionId: variantCollectionId,
-      subjectType: 'variant',
-      variantId: variant.id,
-      role: collections.find((collection) => collection.id === variantCollectionId)?.kind === 'style_refs'
-        ? 'style_ref'
-        : variantCollectionRole.trim() || 'custom',
-      sortIndex,
-    });
-  }, [addCollectionItem, canEdit, collectionItems, collections, variantCollectionId, variantCollectionRole]);
+    if (!assetId || !canEdit) return;
+    setSelectedVariantId(assetId, variant.id);
+    setVariantPlacementDrafts([]);
+    collectionPanelRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [assetId, canEdit, setSelectedVariantId]);
 
-  const handleAddSelectedVariantToCollection = useCallback(() => {
-    if (!selectedVariant) return;
-    handleAddVariantToCollection(selectedVariant);
-  }, [handleAddVariantToCollection, selectedVariant]);
+  const handleApplyAssetPlacements = useCallback(() => {
+    if (!asset || assetPlacementDrafts.length === 0) return;
+    const pinVariantId = selectedVariant?.id ?? asset.active_variant_id ?? variants[0]?.id;
+    if (!pinVariantId) return;
+    applyCreatedOutputCollectionPlacements(
+      assetPlacementDrafts,
+      { assetId: asset.id, variantId: pinVariantId },
+      collectionItems,
+      addCollectionItem,
+      'asset'
+    );
+    setAssetPlacementDrafts([]);
+  }, [addCollectionItem, asset, assetPlacementDrafts, collectionItems, selectedVariant, variants]);
+
+  const handleApplyVariantPlacements = useCallback(() => {
+    if (!asset || !selectedVariant || variantPlacementDrafts.length === 0) return;
+    applyCreatedOutputCollectionPlacements(
+      variantPlacementDrafts,
+      { assetId: asset.id, variantId: selectedVariant.id },
+      collectionItems,
+      addCollectionItem,
+      'variant'
+    );
+    setVariantPlacementDrafts([]);
+  }, [addCollectionItem, asset, collectionItems, selectedVariant, variantPlacementDrafts]);
 
   // Handle retry recipe - restore ForgeTray state from variant's recipe and lineage
   const handleRetryRecipe = useCallback((variant: Variant) => {
@@ -706,16 +724,24 @@ export default function AssetDetailPage() {
   const handleUpload = useCallback(async (file: File, assetId: string, shortcut?: {
     composition?: CompositionShortcut;
     relation?: RelationShortcut;
+    collectionPlacements?: CollectionPlacementInput[];
   }) => {
     const variant = await uploadImage(file, assetId);
     if (!variant) return;
+    applyCreatedOutputCollectionPlacements(
+      shortcut?.collectionPlacements,
+      { assetId, variantId: variant.id },
+      collectionItems,
+      addCollectionItem,
+      'variant'
+    );
     applyCompositionShortcut(shortcut?.composition, variant, compositionItems, {
       updateComposition,
       createCompositionItem,
       updateCompositionItem,
     });
     applyRelationShortcut(shortcut?.relation, variant, createRelation);
-  }, [compositionItems, createCompositionItem, createRelation, updateComposition, updateCompositionItem, uploadImage]);
+  }, [addCollectionItem, collectionItems, compositionItems, createCompositionItem, createRelation, updateComposition, updateCompositionItem, uploadImage]);
 
   const handleExportTrainingData = useCallback((pipeline: 'tiles' | 'rotations' | 'all') => {
     if (!spaceId) return;
@@ -956,24 +982,87 @@ export default function AssetDetailPage() {
             </div>
           )}
 
-          {canEdit && collections.length > 0 && selectedVariant && (
-            <div className={styles.collectionAddBar}>
-              <span>Add selected variant to</span>
-              <select
-                value={variantCollectionId}
-                onChange={(event) => setVariantCollectionId(event.target.value)}
-              >
-                {collections.map((collection) => (
-                  <option key={collection.id} value={collection.id}>{collection.name}</option>
-                ))}
-              </select>
-              <input
-                value={variantCollectionRole}
-                onChange={(event) => setVariantCollectionRole(event.target.value)}
-                aria-label="Collection item role"
+          {canEdit && collections.length > 0 && (
+            <section ref={collectionPanelRef} className={styles.collectionPanel} aria-label="Collection membership">
+              <div className={styles.collectionPanelHeader}>
+                <span>Asset collections</span>
+                {assetCollectionMemberships.length > 0 && <span>{assetCollectionMemberships.length}</span>}
+              </div>
+              {assetCollectionMemberships.map((item) => {
+                const collection = collections.find((entry) => entry.id === item.collection_id);
+                return (
+                  <div key={item.id} className={styles.collectionMembershipRow}>
+                    <span>{collection?.name ?? 'Collection'}</span>
+                    <input
+                      value={item.role}
+                      aria-label={`Role in ${collection?.name ?? 'collection'}`}
+                      onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                    />
+                    <select
+                      value={item.pinned_variant_id ?? ''}
+                      aria-label={`Pinned variant in ${collection?.name ?? 'collection'}`}
+                      onChange={(event) => updateCollectionItem(item.collection_id, item.id, { pinnedVariantId: event.target.value || null })}
+                    >
+                      <option value="">Active variant</option>
+                      {variants.map((variant, index) => (
+                        <option key={variant.id} value={variant.id}>
+                          Variant {index + 1}{variant.starred ? ' star' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button onClick={() => deleteCollectionItem(item.collection_id, item.id)}>Remove</button>
+                  </div>
+                );
+              })}
+              <CollectionPlacementPicker
+                collections={collections}
+                value={assetPlacementDrafts}
+                onChange={setAssetPlacementDrafts}
+                label="Add asset to collections"
+                defaultSubjectType="asset"
+                showPinToCreatedVariant={Boolean(selectedVariant)}
               />
-              <button onClick={handleAddSelectedVariantToCollection}>Add variant</button>
-            </div>
+              {assetPlacementDrafts.length > 0 && (
+                <button className={styles.collectionApplyButton} onClick={handleApplyAssetPlacements}>
+                  Add asset placement
+                </button>
+              )}
+
+              {selectedVariant && (
+                <>
+                  <div className={styles.collectionPanelHeader}>
+                    <span>Selected variant collections</span>
+                    {selectedVariantCollectionMemberships.length > 0 && <span>{selectedVariantCollectionMemberships.length}</span>}
+                  </div>
+                  {selectedVariantCollectionMemberships.map((item) => {
+                    const collection = collections.find((entry) => entry.id === item.collection_id);
+                    return (
+                      <div key={item.id} className={styles.collectionMembershipRow}>
+                        <span>{collection?.name ?? 'Collection'}</span>
+                        <input
+                          value={item.role}
+                          aria-label={`Variant role in ${collection?.name ?? 'collection'}`}
+                          onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                        />
+                        <button onClick={() => deleteCollectionItem(item.collection_id, item.id)}>Remove</button>
+                      </div>
+                    );
+                  })}
+                  <CollectionPlacementPicker
+                    collections={collections}
+                    value={variantPlacementDrafts}
+                    onChange={setVariantPlacementDrafts}
+                    label="Add selected variant to collections"
+                    defaultSubjectType="variant"
+                  />
+                  {variantPlacementDrafts.length > 0 && (
+                    <button className={styles.collectionApplyButton} onClick={handleApplyVariantPlacements}>
+                      Add variant placement
+                    </button>
+                  )}
+                </>
+              )}
+            </section>
           )}
 
           <StyleReferenceUsagePanel

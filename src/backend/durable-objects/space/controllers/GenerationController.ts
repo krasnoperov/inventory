@@ -628,6 +628,9 @@ export class GenerationController extends BaseController {
     }
 
     const modelProvider = normalizeImageModelProvider(msg.modelProvider);
+    const collectionPlacements = await this.normalizeCollectionPlacements(msg.collectionPlacements, 'asset', {
+      allowExplicitPinnedVariant: false,
+    });
 
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
@@ -696,6 +699,12 @@ export class GenerationController extends BaseController {
       meta
     );
 
+    await this.createCollectionPlacementsForOutput(
+      collectionPlacements,
+      { assetId: result.assetId, variantId: result.variantId },
+      meta.userId
+    );
+
     // Send generate:started so requestId can be correlated with variantId
     this.broadcast({
       type: 'generate:started',
@@ -732,6 +741,9 @@ export class GenerationController extends BaseController {
     }
 
     const modelProvider = normalizeImageModelProvider(msg.modelProvider);
+    const collectionPlacements = await this.normalizeCollectionPlacements(msg.collectionPlacements, 'variant', {
+      explicitPinnedVariantAssetId: msg.assetId,
+    });
 
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
@@ -808,6 +820,12 @@ export class GenerationController extends BaseController {
         modelProvider,
       },
       meta
+    );
+
+    await this.createCollectionPlacementsForOutput(
+      collectionPlacements,
+      { assetId: result.asset.id, variantId: result.variantId },
+      meta.userId
     );
 
     // Send refine:started so requestId can be correlated with variantId

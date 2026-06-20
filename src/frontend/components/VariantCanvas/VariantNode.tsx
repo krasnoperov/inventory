@@ -43,7 +43,7 @@ export interface VariantNodeData extends Record<string, unknown> {
   onDeleteVariant?: (variant: Variant) => void;
   /** Handler for creating a manual relation from this variant */
   onCreateRelation?: (subject: SpaceSubject) => void;
-  /** Handler for adding this exact variant to the active collection target */
+  /** Handler for selecting this exact variant for collection placement */
   onAddVariantToCollection?: (variant: Variant) => void;
   /** Total number of variants (to disable delete when only 1) */
   variantCount?: number;
@@ -442,7 +442,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
               <button
                 className={styles.detailActionButton}
                 onClick={handleAddVariantToCollectionClick}
-                title="Add variant to collection"
+                title="Select variant for collection placement"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
                   <path d="M4 6h16" />

@@ -149,6 +149,7 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
       name: params.name,
       assetType: params.assetType,
       mediaKind: params.mediaKind,
+      collectionPlacements: params.collectionPlacements,
     });
   }, [sendMessage]);
 
@@ -355,6 +356,7 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
       videoResolution: params.videoResolution,
       videoDurationSeconds: params.videoDurationSeconds,
       videoTier: params.videoTier,
+      collectionPlacements: params.collectionPlacements,
     });
     return requestId;
   }, [sendMessage]);
@@ -384,6 +386,7 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
       videoResolution: params.videoResolution,
       videoDurationSeconds: params.videoDurationSeconds,
       videoTier: params.videoTier,
+      collectionPlacements: params.collectionPlacements,
     });
     return requestId;
   }, [sendMessage]);

@@ -17,6 +17,16 @@ export const DEFAULT_MEDIA_KIND: MediaKind = 'image';
 /** Request-level music provider selection. Omitted keeps the server default. */
 export type MusicGenerationProvider = 'elevenlabs' | 'lyria';
 
+export type CollectionPlacementSubjectType = 'asset' | 'variant';
+
+export interface CollectionPlacementInput {
+  collectionId: string;
+  role?: string;
+  subjectType?: CollectionPlacementSubjectType;
+  pinnedVariantId?: string | null;
+  pinToCreatedVariant?: boolean;
+}
+
 export type GenerationEstimateOperation = 'generate' | 'derive' | 'refine' | 'batch';
 export type GenerationEstimateBillingMode = 'managed' | 'byok';
 

@@ -1,6 +1,7 @@
 import type {
   DescribeFocus,
   ClaudeUsage,
+  CollectionPlacementInput,
   GenerationEstimateOperation,
   GenerationUsageEstimate,
   MediaKind,
@@ -543,6 +544,7 @@ export interface GenerateRequestParams {
   videoDurationSeconds?: VideoGenerationDurationSeconds;
   /** Veo model tier (video assets only) */
   videoTier?: VideoGenerationTier;
+  collectionPlacements?: CollectionPlacementInput[];
 }
 
 // Refine request parameters
@@ -581,6 +583,7 @@ export interface RefineRequestParams {
   videoDurationSeconds?: VideoGenerationDurationSeconds;
   /** Veo model tier (video assets only) */
   videoTier?: VideoGenerationTier;
+  collectionPlacements?: CollectionPlacementInput[];
 }
 
 // Batch request parameters
@@ -1096,6 +1099,7 @@ export interface ForkParams {
   name: string;
   assetType: string;
   mediaKind?: MediaKind;
+  collectionPlacements?: CollectionPlacementInput[];
 }
 
 // Return type

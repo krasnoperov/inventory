@@ -47,6 +47,8 @@ import {
   type CompositionShortcut,
   type RelationShortcut,
 } from '../productionShortcuts';
+import { applyCreatedOutputCollectionPlacements } from '../collectionPlacements';
+import type { CollectionPlacementInput } from '../../shared/websocket-types';
 import { spacePageQueryOptions } from '../queries';
 import styles from './SpacePage.module.css';
 
@@ -315,30 +317,46 @@ export default function SpacePage() {
   const handleUpload = useCallback(async (file: File, assetId: string, shortcut?: {
     composition?: CompositionShortcut;
     relation?: RelationShortcut;
+    collectionPlacements?: CollectionPlacementInput[];
   }) => {
     const variant = await uploadImage(file, assetId);
     if (!variant) return;
+    applyCreatedOutputCollectionPlacements(
+      shortcut?.collectionPlacements,
+      { assetId, variantId: variant.id },
+      collectionItems,
+      addCollectionItem,
+      'variant'
+    );
     applyCompositionShortcut(shortcut?.composition, variant, compositionItems, {
       updateComposition,
       createCompositionItem,
       updateCompositionItem,
     });
     applyRelationShortcut(shortcut?.relation, variant, createRelation);
-  }, [compositionItems, createCompositionItem, createRelation, updateComposition, updateCompositionItem, uploadImage]);
+  }, [addCollectionItem, collectionItems, compositionItems, createCompositionItem, createRelation, updateComposition, updateCompositionItem, uploadImage]);
 
   const handleUploadNewAsset = useCallback(async (file: File, assetName: string, shortcut?: {
     composition?: CompositionShortcut;
     relation?: RelationShortcut;
+    collectionPlacements?: CollectionPlacementInput[];
   }) => {
     const result = await uploadNewAsset({ file, assetName });
     if (!result) return;
+    applyCreatedOutputCollectionPlacements(
+      shortcut?.collectionPlacements,
+      { assetId: result.asset.id, variantId: result.variant.id },
+      collectionItems,
+      addCollectionItem,
+      'asset'
+    );
     applyCompositionShortcut(shortcut?.composition, result.variant, compositionItems, {
       updateComposition,
       createCompositionItem,
       updateCompositionItem,
     });
     applyRelationShortcut(shortcut?.relation, result.variant, createRelation);
-  }, [compositionItems, createCompositionItem, createRelation, updateComposition, updateCompositionItem, uploadNewAsset]);
+  }, [addCollectionItem, collectionItems, compositionItems, createCompositionItem, createRelation, updateComposition, updateCompositionItem, uploadNewAsset]);
 
   // Handle add to forge tray
   const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
