@@ -49,9 +49,6 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
         updated_at: 2,
       }
       : null),
-    updateCollection: mock.fn(async (id: string, changes: Record<string, unknown>) => id === 'collection-1'
-      ? { id, name: changes.name ?? 'Scene Kit', description: changes.description ?? null, sort_index: changes.sortIndex ?? 0 }
-      : null),
     deleteCollection: mock.fn(async (id: string) => id === 'collection-1'),
     listCollectionItems: mock.fn(async () => [{
       id: 'item-1',
