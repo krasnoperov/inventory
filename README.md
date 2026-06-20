@@ -112,7 +112,7 @@ staging or `--local` for a local development server.
 | `makefx assets` | List, show, download, rename, delete, and set active assets |
 | `makefx variants` | Retry, star, rate, or delete variants |
 | `makefx usage` | Show platform storage and workflow consumption for a space |
-| `makefx spend` | Show admin provider spend summaries |
+| `makefx spend` | Show admin provider cost summaries |
 | `makefx rotation` | Generate and monitor rotation views from a completed image variant |
 | `makefx tileset` | Generate and monitor consistent tile sets |
 | `makefx listen` | Stream real-time space events |

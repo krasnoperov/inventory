@@ -60,7 +60,7 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `assets` | List/show/download assets; delete, rename, set-active |
 | `variants` | Delete, retry, star/unstar, and rate variants |
 | `usage` | Show platform storage and workflow consumption for a space |
-| `spend` | Show admin provider spend summaries |
+| `spend` | Show admin provider cost summaries |
 | `rotation` | Generate and monitor rotation views from a completed image variant |
 | `tileset` | Generate and monitor consistent tile sets |
 | `listen` | Connect to WebSocket and stream all events |
@@ -166,9 +166,9 @@ space membership checks as asset reads. Human-readable output highlights current
 storage bytes, workflow runs, and delivered media bytes; `--json` returns the
 full summary including usage-type and media-kind breakdowns.
 
-## Provider Spend
+## Provider Cost
 
-Admins can inspect raw provider spend recorded in the provider usage ledger:
+Admins can inspect raw provider cost recorded in the provider usage ledger:
 
 ```bash
 makefx spend
@@ -178,7 +178,7 @@ makefx spend --json
 ```
 
 The command calls `GET /api/billing/spend/summary` and requires an authenticated
-admin session. Human-readable output includes total spend, entry counts,
+admin session. Human-readable output includes total provider cost, entry counts,
 unpriced entry counts, and breakdowns by provider, model, media kind, and meter.
 
 ### Managing Assets and Variants

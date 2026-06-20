@@ -120,7 +120,7 @@ test('spend summary sends admin filters and prints totals', async () => {
     accept: 'application/json',
   }]);
   const text = output.join('\n');
-  assert.match(text, /Total spend:\s+\$0\.306/);
+  assert.match(text, /Provider cost:\s+\$0\.306/);
   assert.match(text, /Unpriced:\s+1/);
   assert.match(text, /gemini\s+\$0\.306\s+3\s+1\s+3/);
   assert.match(text, /gemini_images\s+\$0\.24\s+1\s+0\s+1/);

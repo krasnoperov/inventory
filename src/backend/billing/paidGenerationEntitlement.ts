@@ -3,7 +3,7 @@ export const PAID_GENERATION_ENTITLEMENTS = ['none', 'paid', 'internal'] as cons
 export type PaidGenerationEntitlement = (typeof PAID_GENERATION_ENTITLEMENTS)[number];
 
 export const PAID_GENERATION_REQUIRED_MESSAGE =
-  'Paid Generation is not enabled for this account. Start Paid Generation in Profile or use a matching BYOK provider key.';
+  'Paid Generation is not enabled for this account. Start Paid Generation in Profile.';
 
 export function normalizePaidGenerationEntitlement(value: unknown): PaidGenerationEntitlement {
   return value === 'paid' || value === 'internal' ? value : 'none';

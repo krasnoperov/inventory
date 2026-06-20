@@ -40,7 +40,7 @@ Visit your **Profile** page to view the **Billing** section. Here you'll find:
 ### What happens when I reach my limit?
 
 When you hit your usage limit, that feature will be temporarily unavailable until:
-- Your billing cycle resets (usage allowances renew monthly), or
+- Your billing period resets, or
 - Your account receives a different entitlement or meter-credit configuration
 
 You'll see a message explaining the limit and linking to Profile when billing action is available.
@@ -60,7 +60,7 @@ Click **"Manage plan"** in your Profile's Billing section when it is available. 
 
 ### When does my usage reset?
 
-Your usage allowances reset at the start of each billing cycle. The exact renewal date is shown in your Billing section.
+Finite meter credits reset at the start of each billing period. The exact renewal date is shown in your Billing section when subscription period data is available.
 
 ### How do I start Paid Generation?
 

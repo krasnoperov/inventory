@@ -323,7 +323,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
         type: 'generate:error',
         requestId: 'request-paid-required',
-        error: 'Paid Generation is not enabled for this account. Start Paid Generation in Profile or use a matching BYOK provider key.',
+        error: 'Paid Generation is not enabled for this account. Start Paid Generation in Profile.',
         code: 'PAID_GENERATION_REQUIRED',
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
@@ -431,7 +431,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
         type: 'generate:error',
         requestId: 'request-custom-byok',
-        error: 'Paid Generation is not enabled for this account. Start Paid Generation in Profile or use a matching BYOK provider key.',
+        error: 'Paid Generation is not enabled for this account. Start Paid Generation in Profile.',
         code: 'PAID_GENERATION_REQUIRED',
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
