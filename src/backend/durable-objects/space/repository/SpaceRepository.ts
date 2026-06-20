@@ -2068,6 +2068,7 @@ export class SpaceRepository {
       ...rotationViews.map((view) => view.variant_id),
       ...tileSets.flatMap((set) => set.seed_variant_id ? [set.seed_variant_id] : []),
       ...tilePositions.map((position) => position.variant_id),
+      ...compositions.flatMap((composition) => composition.output_variant_id ? [composition.output_variant_id] : []),
     ].filter((variantId) => !variantIds.has(variantId));
     const referencedVariants = await this.getVariantsByIds(referencedVariantIds);
     const variants = [...overviewVariants, ...referencedVariants.filter((variant) => !variantIds.has(variant.id))];

@@ -90,6 +90,10 @@ function createMockRepo(): SpaceRepository {
     ),
     updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
     deleteAsset: mock.fn(async () => {}),
+    listAllCollectionItems: mock.fn(async () => []),
+    listRelations: mock.fn(async () => []),
+    listCompositions: mock.fn(async () => []),
+    listAllCompositionItems: mock.fn(async () => []),
     createLineage: mock.fn(async (input) =>
       createMockLineage({
         id: input.id,
@@ -178,6 +182,88 @@ describe('AssetController', () => {
 
       // Verify broadcast
       assert.ok(broadcasts.some((b) => b.type === 'asset:deleted' && b.assetId === 'asset-1'));
+    });
+
+    test('broadcasts organization rows removed or nulled by delete cascades', async () => {
+      let deleted = false;
+      const collectionItem = {
+        id: 'collection-item-1',
+        collection_id: 'collection-1',
+        subject_type: 'asset',
+        asset_id: 'asset-1',
+        variant_id: null,
+        role: 'character',
+        pinned_variant_id: 'variant-1',
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      };
+      const relation = {
+        id: 'relation-1',
+        subject_type: 'asset',
+        subject_asset_id: 'asset-1',
+        subject_variant_id: null,
+        object_type: 'variant',
+        object_asset_id: null,
+        object_variant_id: 'variant-1',
+        relation_type: 'appears_in',
+        context: null,
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      };
+      const compositionBefore = {
+        id: 'composition-1',
+        name: 'Opening',
+        description: null,
+        status: 'draft',
+        output_asset_id: 'asset-1',
+        output_variant_id: 'variant-1',
+        metadata: '{}',
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      };
+      const compositionAfter = {
+        ...compositionBefore,
+        output_asset_id: null,
+        output_variant_id: null,
+        updated_at: 2,
+      };
+      const compositionItem = {
+        id: 'composition-item-1',
+        composition_id: 'composition-1',
+        role: 'output',
+        asset_id: 'asset-1',
+        variant_id: 'variant-1',
+        metadata: '{}',
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      };
+      const { ctx, broadcasts } = createMockContext({
+        getVariantsByAsset: mock.fn(async () => [createMockVariant({ id: 'variant-1', asset_id: 'asset-1' })]),
+        deleteAsset: mock.fn(async () => {
+          deleted = true;
+          return [];
+        }),
+        listAllCollectionItems: mock.fn(async () => deleted ? [] : [collectionItem]),
+        listRelations: mock.fn(async () => deleted ? [] : [relation]),
+        listCompositions: mock.fn(async () => deleted ? [compositionAfter] : [compositionBefore]),
+        listAllCompositionItems: mock.fn(async () => deleted ? [] : [compositionItem]),
+      });
+      const controller = new AssetController(ctx);
+
+      await controller.handleDelete({} as WebSocket, createOwnerMeta(), 'asset-1');
+
+      assert.ok(broadcasts.some((b) => b.type === 'collection_item:deleted' && b.itemId === 'collection-item-1'));
+      assert.ok(broadcasts.some((b) => b.type === 'relation:deleted' && b.relationId === 'relation-1'));
+      assert.ok(broadcasts.some((b) => b.type === 'composition:updated' && b.composition.output_asset_id === null));
+      assert.ok(broadcasts.some((b) => b.type === 'composition_item:deleted' && b.itemId === 'composition-item-1'));
     });
 
     test('tracks deleted storage usage for asset deletions', async () => {

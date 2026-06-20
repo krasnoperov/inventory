@@ -7,7 +7,14 @@
 
 import type { Env } from '../../../../core/types';
 import type { SpaceRepository, SqlStorage } from '../repository/SpaceRepository';
-import type { ServerMessage, WebSocketMeta } from '../types';
+import type {
+  CollectionItem,
+  Composition,
+  CompositionItem,
+  ServerMessage,
+  SpaceRelation,
+  WebSocketMeta,
+} from '../types';
 import type { ErrorCode } from '../../../../shared/websocket-types';
 
 // ============================================================================
@@ -52,6 +59,13 @@ export interface ControllerContext {
 
   /** Send error to a specific client */
   sendError: SendErrorFn;
+}
+
+interface OrganizationSnapshot {
+  collectionItems: CollectionItem[];
+  relations: SpaceRelation[];
+  compositions: Composition[];
+  compositionItems: CompositionItem[];
 }
 
 // ============================================================================
@@ -135,6 +149,56 @@ export abstract class BaseController {
   protected requireOwner(meta: WebSocketMeta): void {
     if (meta.role !== 'owner') {
       throw new PermissionError('Only owners can perform this action');
+    }
+  }
+
+  protected async getOrganizationSnapshot(): Promise<OrganizationSnapshot> {
+    const [collectionItems, relations, compositions, compositionItems] = await Promise.all([
+      this.repo.listAllCollectionItems(),
+      this.repo.listRelations(),
+      this.repo.listCompositions(),
+      this.repo.listAllCompositionItems(),
+    ]);
+    return { collectionItems, relations, compositions, compositionItems };
+  }
+
+  protected broadcastOrganizationCascadeChanges(
+    before: OrganizationSnapshot,
+    after: OrganizationSnapshot
+  ): void {
+    const collectionItemsAfter = new Map(after.collectionItems.map((item) => [item.id, item]));
+    for (const item of before.collectionItems) {
+      const current = collectionItemsAfter.get(item.id);
+      if (!current) {
+        this.broadcast({ type: 'collection_item:deleted', collectionId: item.collection_id, itemId: item.id });
+      } else if (JSON.stringify(current) !== JSON.stringify(item)) {
+        this.broadcast({ type: 'collection_item:updated', item: current });
+      }
+    }
+
+    const relationsAfter = new Set(after.relations.map((relation) => relation.id));
+    for (const relation of before.relations) {
+      if (!relationsAfter.has(relation.id)) {
+        this.broadcast({ type: 'relation:deleted', relationId: relation.id });
+      }
+    }
+
+    const compositionsAfter = new Map(after.compositions.map((composition) => [composition.id, composition]));
+    for (const composition of before.compositions) {
+      const current = compositionsAfter.get(composition.id);
+      if (current && JSON.stringify(current) !== JSON.stringify(composition)) {
+        this.broadcast({ type: 'composition:updated', composition: current });
+      }
+    }
+
+    const compositionItemsAfter = new Map(after.compositionItems.map((item) => [item.id, item]));
+    for (const item of before.compositionItems) {
+      const current = compositionItemsAfter.get(item.id);
+      if (!current) {
+        this.broadcast({ type: 'composition_item:deleted', compositionId: item.composition_id, itemId: item.id });
+      } else if (JSON.stringify(current) !== JSON.stringify(item)) {
+        this.broadcast({ type: 'composition_item:updated', item: current });
+      }
     }
   }
 }
