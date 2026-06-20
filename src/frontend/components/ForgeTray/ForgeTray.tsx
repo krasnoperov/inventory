@@ -3,6 +3,9 @@ import { useForgeTrayStore } from '../../stores/forgeTrayStore';
 import type { ForgeOperation } from '../../stores/forgeTrayStore';
 import {
   type Asset,
+  type Composition,
+  type CompositionItem,
+  type CompositionOverview,
   type Variant,
   type ChatMessageClient,
   type ChatForgeContext,
@@ -10,6 +13,14 @@ import {
   type GenerationEstimateRequestParams,
   type GenerationEstimateResult,
 } from '../../hooks/useSpaceWebSocket';
+import {
+  buildCompositionShortcutOptions,
+  buildRelationShortcutOptions,
+  compositionShortcutKey,
+  relationShortcutKey,
+  type CompositionShortcut,
+  type RelationShortcut,
+} from '../../productionShortcuts';
 import { useStyleStore } from '../../stores/styleStore';
 import type { MediaKind, MusicGenerationProvider } from '../../../shared/websocket-types';
 import {
@@ -100,6 +111,9 @@ export interface ForgeSubmitParams {
   videoDurationSeconds?: VideoGenerationDurationSeconds;
   /** Veo model tier (video mode) */
   videoTier?: VideoGenerationTier;
+  shortcut?: {
+    composition?: CompositionShortcut;
+  };
 }
 
 export interface ForgeTrayProps {
@@ -110,9 +124,15 @@ export interface ForgeTrayProps {
   /** Current asset context (for Asset Detail page) */
   currentAsset?: Asset | null;
   /** Callback for uploading a media file to create a variant on existing asset */
-  onUpload?: (file: File, assetId: string) => Promise<void>;
+  onUpload?: (file: File, assetId: string, shortcut?: {
+    composition?: CompositionShortcut;
+    relation?: RelationShortcut;
+  }) => Promise<void>;
   /** Callback for uploading a media file to create a NEW asset (SpacePage) */
-  onUploadNewAsset?: (file: File, assetName: string) => Promise<void>;
+  onUploadNewAsset?: (file: File, assetName: string, shortcut?: {
+    composition?: CompositionShortcut;
+    relation?: RelationShortcut;
+  }) => Promise<void>;
   /** Whether an upload is in progress */
   isUploading?: boolean;
   /** Persistent chat messages */
@@ -147,6 +167,10 @@ export interface ForgeTrayProps {
   generationEstimate?: GenerationEstimateResult | null;
   /** Request a preflight usage/cost estimate for the current Forge Tray state */
   sendGenerationEstimateRequest?: (params: GenerationEstimateRequestParams) => string;
+  /** Existing compositions available for optional output/slot shortcuts */
+  compositions?: Array<Composition | CompositionOverview>;
+  /** Existing composition items used to replace selected slots when known */
+  compositionItems?: CompositionItem[];
 }
 
 const ACCEPTED_UPLOAD_MIME_TYPES = [
@@ -329,6 +353,8 @@ export function ForgeTray({
   forgeErrorCode,
   generationEstimate,
   sendGenerationEstimateRequest,
+  compositions = [],
+  compositionItems = [],
 }: ForgeTrayProps) {
   const { slots, prompt, setPrompt, clearSlots, removeSlot, setMaxSlots } = useForgeTrayStore();
   const style = useStyleStore((s) => s.style);
@@ -360,6 +386,8 @@ export function ForgeTray({
   const [videoResolution, setVideoResolution] = useState<VideoGenerationResolution>(DEFAULT_VIDEO_GENERATION_RESOLUTION);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState<VideoGenerationDurationSeconds>(DEFAULT_VIDEO_GENERATION_DURATION_SECONDS);
   const [videoTier, setVideoTier] = useState<VideoGenerationTier>(DEFAULT_VIDEO_GENERATION_TIER);
+  const [compositionShortcut, setCompositionShortcut] = useState<CompositionShortcut>({ kind: 'none' });
+  const [relationShortcut, setRelationShortcut] = useState<RelationShortcut>({ kind: 'none' });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const estimateRequestIdRef = useRef<string | null>(null);
@@ -480,6 +508,16 @@ export function ForgeTray({
     [slots]
   );
   const veoModeLabel = getVeoReferenceModeLabel(veoImageSlotIds.length, videoStyleApplies, styleImageCount);
+  const compositionShortcutOptions = useMemo(
+    () => buildCompositionShortcutOptions(compositions, compositionItems),
+    [compositionItems, compositions],
+  );
+  const relationShortcutOptions = useMemo(
+    () => buildRelationShortcutOptions(allAssets),
+    [allAssets],
+  );
+  const selectedCompositionShortcutKey = compositionShortcutKey(compositionShortcut);
+  const selectedRelationShortcutKey = relationShortcutKey(relationShortcut);
 
   // Auto-generated asset name: "<Group> <next index>" (e.g. "Image 3").
   const assetCountForKind = useMemo(
@@ -567,7 +605,10 @@ export function ForgeTray({
     // If we have a target asset, upload to it directly
     if (targetAsset && onUpload) {
       try {
-        await onUpload(file, targetAsset.id);
+        await onUpload(file, targetAsset.id, {
+          composition: compositionShortcut,
+          relation: relationShortcut,
+        });
       } catch (error) {
         console.error('Upload failed:', error);
       }
@@ -582,13 +623,16 @@ export function ForgeTray({
       setUploadAssetName(defaultName);
       setShowUploadPrompt(true);
     }
-  }, [targetAsset, onUpload, onUploadNewAsset]);
+  }, [targetAsset, onUpload, onUploadNewAsset, compositionShortcut, relationShortcut]);
 
   const handleUploadPromptSubmit = useCallback(async () => {
     if (!pendingUploadFile || !onUploadNewAsset || !uploadAssetName.trim()) return;
 
     try {
-      await onUploadNewAsset(pendingUploadFile, uploadAssetName.trim());
+      await onUploadNewAsset(pendingUploadFile, uploadAssetName.trim(), {
+        composition: compositionShortcut,
+        relation: relationShortcut,
+      });
     } catch (error) {
       console.error('Upload failed:', error);
     }
@@ -597,7 +641,7 @@ export function ForgeTray({
     setPendingUploadFile(null);
     setUploadAssetName('');
     setShowUploadPrompt(false);
-  }, [pendingUploadFile, onUploadNewAsset, uploadAssetName]);
+  }, [pendingUploadFile, onUploadNewAsset, uploadAssetName, compositionShortcut, relationShortcut]);
 
   const handleUploadPromptCancel = useCallback(() => {
     setPendingUploadFile(null);
@@ -637,7 +681,10 @@ export function ForgeTray({
     // If we have a target asset, upload to it directly
     if (targetAsset && onUpload) {
       try {
-        await onUpload(uploadFile, targetAsset.id);
+        await onUpload(uploadFile, targetAsset.id, {
+          composition: compositionShortcut,
+          relation: relationShortcut,
+        });
       } catch (error) {
         console.error('Drop upload failed:', error);
       }
@@ -651,7 +698,7 @@ export function ForgeTray({
       setUploadAssetName(defaultName);
       setShowUploadPrompt(true);
     }
-  }, [onUpload, onUploadNewAsset, targetAsset]);
+  }, [onUpload, onUploadNewAsset, targetAsset, compositionShortcut, relationShortcut]);
 
   const handleRemoveSlot = useCallback((e: React.MouseEvent, slotId: string) => {
     e.stopPropagation();
@@ -710,6 +757,9 @@ export function ForgeTray({
           ? dialogueVoiceIds
           : undefined,
         musicProvider: mediaMode === 'music' && musicProviderExplicit ? musicProvider : undefined,
+        shortcut: {
+          composition: compositionShortcut,
+        },
       });
 
       // Clear on success
@@ -727,12 +777,14 @@ export function ForgeTray({
       setVideoResolution(DEFAULT_VIDEO_GENERATION_RESOLUTION);
       setVideoDurationSeconds(DEFAULT_VIDEO_GENERATION_DURATION_SECONDS);
       setVideoTier(DEFAULT_VIDEO_GENERATION_TIER);
+      setCompositionShortcut({ kind: 'none' });
+      setRelationShortcut({ kind: 'none' });
     } catch (error) {
       console.error('Forge submit failed:', error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier, compositionShortcut]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -839,6 +891,8 @@ export function ForgeTray({
   // Empty-state reference add lives in the control bar; once slots exist the
   // thumbnail strip carries its own "+".
   const showUpload = !!((onUpload && targetAsset) || onUploadNewAsset);
+  const showCompositionShortcuts = compositionShortcutOptions.length > 1 && effectiveBatchCount === 1 && operation !== 'fork';
+  const showRelationShortcuts = relationShortcutOptions.length > 1 && showUpload;
   const estimate = activeEstimate?.success ? activeEstimate.estimate : undefined;
   const estimateError = activeEstimate && !activeEstimate.success ? activeEstimate.error : undefined;
   const estimateMeterLabel = estimate ? ESTIMATE_METER_LABELS[estimate.meterEventName] ?? estimate.meterEventName : '';
@@ -1153,6 +1207,45 @@ export function ForgeTray({
                     </div>
                   )}
                 </>
+              )}
+            </div>
+          )}
+
+          {(showCompositionShortcuts || showRelationShortcuts) && (
+            <div className={styles.shortcutRow}>
+              {showCompositionShortcuts && (
+                <select
+                  className={styles.shortcutSelect}
+                  value={selectedCompositionShortcutKey}
+                  onChange={(event) => {
+                    const option = compositionShortcutOptions.find((entry) => entry.key === event.target.value);
+                    setCompositionShortcut(option?.shortcut ?? { kind: 'none' });
+                  }}
+                  disabled={isSubmitting}
+                  aria-label="Composition shortcut"
+                  title="Composition shortcut"
+                >
+                  {compositionShortcutOptions.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </select>
+              )}
+              {showRelationShortcuts && (
+                <select
+                  className={styles.shortcutSelect}
+                  value={selectedRelationShortcutKey}
+                  onChange={(event) => {
+                    const option = relationShortcutOptions.find((entry) => entry.key === event.target.value);
+                    setRelationShortcut(option?.shortcut ?? { kind: 'none' });
+                  }}
+                  disabled={isSubmitting || isUploading}
+                  aria-label="Upload relation shortcut"
+                  title="Upload relation shortcut"
+                >
+                  {relationShortcutOptions.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </select>
               )}
             </div>
           )}

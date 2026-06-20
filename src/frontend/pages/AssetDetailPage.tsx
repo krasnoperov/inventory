@@ -37,6 +37,7 @@ import {
   type GenerationEstimateResult,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
+import type { ForgeSubmitParams } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -44,6 +45,12 @@ import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { TileGrid } from '../components/TileGrid/TileGrid';
 import { RelationEditorDialog, RelationsPanel } from '../components/RelationsPanel';
 import { CompositionDetail, CompositionUsageList } from '../components/CompositionDetail';
+import {
+  applyCompositionShortcut,
+  applyRelationShortcut,
+  type CompositionShortcut,
+  type RelationShortcut,
+} from '../productionShortcuts';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
@@ -92,6 +99,7 @@ export default function AssetDetailPage() {
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
   const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
+  const pendingCompositionShortcutsRef = React.useRef(new Map<string, CompositionShortcut>());
   const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
   // Variant selection state (persisted in store)
@@ -217,6 +225,19 @@ export default function AssetDetailPage() {
       if (completedJob.assetId && completedJob.assetId !== assetId) {
         navigate(`/spaces/${spaceId}/assets/${completedJob.assetId}`);
       }
+    },
+    onGenerateResult: (data) => {
+      if (!data.success || !data.variant) {
+        pendingCompositionShortcutsRef.current.delete(data.requestId);
+        return;
+      }
+      const shortcut = pendingCompositionShortcutsRef.current.get(data.requestId);
+      pendingCompositionShortcutsRef.current.delete(data.requestId);
+      applyCompositionShortcut(shortcut, data.variant, compositionItems, {
+        updateComposition,
+        createCompositionItem,
+        updateCompositionItem,
+      });
     },
     onChatHistory: (messages) => {
       setChatMessages(messages);
@@ -617,14 +638,33 @@ export default function AssetDetailPage() {
     sendBatchRequest,
   });
 
+  const handleForgeSubmitWithShortcuts = useCallback((params: ForgeSubmitParams): string => {
+    const requestId = handleForgeSubmit(params);
+    const shortcut = params.shortcut?.composition;
+    if (requestId && shortcut && shortcut.kind !== 'none') {
+      pendingCompositionShortcutsRef.current.set(requestId, shortcut);
+    }
+    return requestId;
+  }, [handleForgeSubmit]);
+
   // Image upload hook
   const { upload: uploadImage, isUploading } = useImageUpload({
     spaceId: spaceId || '',
   });
 
-  const handleUpload = useCallback(async (file: File, assetId: string) => {
-    await uploadImage(file, assetId);
-  }, [uploadImage]);
+  const handleUpload = useCallback(async (file: File, assetId: string, shortcut?: {
+    composition?: CompositionShortcut;
+    relation?: RelationShortcut;
+  }) => {
+    const variant = await uploadImage(file, assetId);
+    if (!variant) return;
+    applyCompositionShortcut(shortcut?.composition, variant, compositionItems, {
+      updateComposition,
+      createCompositionItem,
+      updateCompositionItem,
+    });
+    applyRelationShortcut(shortcut?.relation, variant, createRelation);
+  }, [compositionItems, createCompositionItem, createRelation, updateComposition, updateCompositionItem, uploadImage]);
 
   const handleExportTrainingData = useCallback((pipeline: 'tiles' | 'rotations' | 'all') => {
     if (!spaceId) return;
@@ -1027,7 +1067,7 @@ export default function AssetDetailPage() {
       <ForgeTray
         allAssets={wsAssets}
         allVariants={wsVariants}
-        onSubmit={handleForgeSubmit}
+        onSubmit={handleForgeSubmitWithShortcuts}
         onBrandBackground={false}
         currentAsset={asset}
         onUpload={handleUpload}
@@ -1048,6 +1088,8 @@ export default function AssetDetailPage() {
         forgeErrorCode={forgeErrorCode}
         generationEstimate={generationEstimate}
         sendGenerationEstimateRequest={sendGenerationEstimateRequest}
+        compositions={compositions}
+        compositionItems={compositionItems}
       />
 
       {/* Rotation Panel modal */}
