@@ -321,10 +321,27 @@ references through these commands.
 
 ## Import Provenance And Organization
 
-Use `makefx import` when media was generated outside Make Effects and should
-enter the Space with durable provenance. Import records can include prompt,
-model, provider, provider metadata, generation provenance, and lineage links to
-related source images at import time:
+Use `makefx upload` for a single file generated outside Make Effects that should
+enter the Space with durable provenance:
+
+```bash
+makefx upload renders/hero-final.png \
+  --name "Hero Final" \
+  --type character \
+  --prompt "full-body hero sheet, leather armor, neutral pose" \
+  --model stable-diffusion-xl \
+  --provider comfyui \
+  --provider-metadata '{"seed":42,"sampler":"dpmpp-2m"}' \
+  --generation-provenance '{"workflow":"character-sheet-v4"}' \
+  --source-variant variant_face_sketch \
+  --relation-type derived
+```
+
+Use `makefx import` when the import needs a JSON manifest for multiple files,
+same-batch lineage, collections, manual relations, compositions, style
+collections, or style presets. Import records can include prompt, model,
+provider, provider metadata, generation provenance, and lineage links to related
+source images at import time:
 
 ```json
 {

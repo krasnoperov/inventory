@@ -1,9 +1,9 @@
 /**
- * Upload Command - Upload media to create variants
+ * Upload Command - Import one media file to create variants
  *
  * Usage:
- *   makefx upload <file> --space <id> --asset <id>     Upload to existing asset
- *   makefx upload <file> --space <id> --name <name>    Create new asset
+ *   makefx upload <file> --space <id> --asset <id>     Import to existing asset
+ *   makefx upload <file> --space <id> --name <name>    Import as new asset
  *   makefx upload <file> --space <id> --name <name> --type <type>
  */
 
@@ -28,6 +28,9 @@ export interface MediaType {
   mediaKind: MediaKind;
   mimeType: string;
 }
+
+type LineageRelationType = 'derived' | 'refined' | 'forked';
+type ActiveVariantBehavior = 'if-missing' | 'set-active' | 'keep';
 
 const EXT_TO_MEDIA_TYPE: Record<string, MediaType> = {
   '.aac': { mediaKind: 'audio', mimeType: 'audio/aac' },
@@ -98,6 +101,14 @@ export async function executeUpload(
   const assetName = parsed.options.name;
   const assetType = parsed.options.type || 'character';
   const requestedMediaKind = parsed.options['media-kind'] || parsed.options.mediaKind;
+  const prompt = parsed.options.prompt;
+  const model = parsed.options.model;
+  const provider = parsed.options.provider;
+  const rawProviderMetadata = parsed.options['provider-metadata'] ?? parsed.options.providerMetadata ?? parsed.options.provider_metadata;
+  const rawGenerationProvenance = parsed.options['generation-provenance'] ?? parsed.options.generationProvenance ?? parsed.options.generation_provenance;
+  const sourceVariantId = parsed.options['source-variant'] ?? parsed.options.sourceVariantId ?? parsed.options.parentVariantId;
+  const rawRelationType = parsed.options['relation-type'] ?? parsed.options.relationType;
+  const rawActiveVariantBehavior = parsed.options['active-variant-behavior'] ?? parsed.options.activeVariantBehavior;
   const filePath = parsed.positionals[0];
 
   // Validate required args
@@ -112,6 +123,15 @@ export async function executeUpload(
   if (!assetId && !assetName) {
     throw new UploadUsageError('Either --asset or --name is required');
   }
+
+  if (!sourceVariantId && (parsed.options['relation-type'] || parsed.options.relationType)) {
+    throw new UploadUsageError('--relation-type requires --source-variant');
+  }
+
+  const providerMetadata = parseJsonObjectOption(rawProviderMetadata, '--provider-metadata');
+  const generationProvenance = parseJsonObjectOption(rawGenerationProvenance, '--generation-provenance');
+  const relationType = normalizeRelationType(rawRelationType);
+  const activeVariantBehavior = normalizeActiveVariantBehavior(rawActiveVariantBehavior);
 
   // Validate file extension
   const ext = path.extname(filePath).toLowerCase();
@@ -155,7 +175,9 @@ export async function executeUpload(
     const formData = new FormData();
     const blob = new Blob([fileBuffer], { type: mediaType.mimeType });
     formData.append('file', blob, fileName);
+    formData.append('operation', 'import');
     formData.append('mediaKind', mediaType.mediaKind);
+    formData.append('activeVariantBehavior', activeVariantBehavior);
 
     if (assetId) {
       formData.append('assetId', assetId);
@@ -163,13 +185,24 @@ export async function executeUpload(
       formData.append('assetName', assetName!);
       formData.append('assetType', assetType);
     }
+    if (prompt) formData.append('prompt', prompt);
+    if (model) formData.append('model', model);
+    if (provider) formData.append('provider', provider);
+    if (providerMetadata) formData.append('providerMetadata', JSON.stringify(providerMetadata));
+    if (generationProvenance) formData.append('generationProvenance', JSON.stringify(generationProvenance));
+    if (sourceVariantId) {
+      formData.append('lineage', JSON.stringify([{ parentVariantId: sourceVariantId, relationType }]));
+    }
 
-    deps.print(`\nUploading "${fileName}" to space ${spaceId}...`);
+    deps.print(`\nImporting "${fileName}" to space ${spaceId}...`);
     deps.print(`  Media kind: ${mediaType.mediaKind}`);
     if (assetId) {
       deps.print(`  Target asset: ${assetId}`);
     } else {
       deps.print(`  Creating asset: "${assetName}" (${assetType})`);
+    }
+    if (sourceVariantId) {
+      deps.print(`  Source variant: ${sourceVariantId} (${relationType})`);
     }
 
     // Upload
@@ -184,12 +217,12 @@ export async function executeUpload(
     const data = await response.json() as UploadMediaResponse | ErrorResponse;
 
     if (!response.ok) {
-      throw new Error(`Upload failed: ${'error' in data ? data.error : response.statusText}`);
+      throw new Error(`Import failed: ${'error' in data ? data.error : response.statusText}`);
     }
 
     const upload = data as UploadMediaResponse;
 
-    deps.print('\nUpload successful!\n');
+    deps.print('\nImport successful!\n');
 
     if (upload.asset) {
       deps.print('New Asset:');
@@ -261,23 +294,60 @@ export function resolveMediaType(ext: string, requestedMediaKind?: string): Medi
   return mediaType;
 }
 
+function parseJsonObjectOption(value: string | undefined, optionName: string): Record<string, unknown> | undefined {
+  if (value === undefined) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new UploadUsageError(`${optionName} must be valid JSON`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new UploadUsageError(`${optionName} must be a JSON object`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function normalizeRelationType(value: string | undefined): LineageRelationType {
+  if (!value) return 'derived';
+  if (value === 'derived' || value === 'refined' || value === 'forked') return value;
+  throw new UploadUsageError('--relation-type must be derived, refined, or forked');
+}
+
+function normalizeActiveVariantBehavior(value: string | undefined): ActiveVariantBehavior {
+  if (!value || value === 'if-missing' || value === 'if_missing') return 'if-missing';
+  if (value === 'set-active' || value === 'set_active') return 'set-active';
+  if (value === 'keep') return 'keep';
+  throw new UploadUsageError('--active-variant-behavior must be if-missing, set-active, or keep');
+}
+
 function printUsage(): void {
   console.log(`
 Usage:
-  makefx upload <file> --asset <id> [--space <id>]     Upload media to existing asset
-  makefx upload <file> --name <name> [--space <id>]    Create new asset
+  makefx upload <file> --asset <id> [--space <id>]     Import media to existing asset
+  makefx upload <file> --name <name> [--space <id>]    Import media as a new asset
 
 Options:
   --space <id>      Target space ID; defaults from initialized project
-  --asset <id>      Target asset ID (upload as new variant)
+  --asset <id>      Target asset ID (import as new variant)
   --name <name>     New asset name (creates asset + variant)
   --type <type>     Asset type for new assets (default: character)
   --media-kind <k>  Optional explicit kind: image, audio, or video
+  --prompt <text>   Imported prompt provenance
+  --model <model>   Imported model provenance
+  --provider <name> Imported provider provenance
+  --provider-metadata <json>     Provider metadata JSON object
+  --generation-provenance <json> Extra provenance JSON object
+  --source-variant <id>          Existing source variant for import lineage
+  --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
+  --active-variant-behavior <b>  if-missing, set-active, or keep
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
 
 Examples:
   makefx upload hero.png --space abc123 --name "Hero Character"
+  makefx upload hero.png --space abc123 --name "Hero" --prompt "external render" --provider blender
+  makefx upload paintover.png --space abc123 --asset def456 --source-variant var123 --relation-type refined
   makefx upload theme.mp3 --space abc123 --name "Theme Music" --type audio
   makefx upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
   makefx upload variant.jpg --space abc123 --asset def456
