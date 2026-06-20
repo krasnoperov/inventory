@@ -65,8 +65,7 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
 | `tileset` | Generate and monitor consistent tile sets |
 | `listen` | Connect to WebSocket and stream all events |
-| `upload` | Upload image, audio, or video files to create assets or add variants |
-| `import` | Import a manifest of files with immutable provenance and lineage |
+| `upload` | Upload media files or JSON manifests to create assets, variants, and import metadata |
 | `generate` | Create a new asset through the website generation workflow |
 | `refine` | Refine an existing variant through the website generation workflow |
 | `derive` | Create a new asset from variant IDs and/or local image refs |
@@ -355,8 +354,9 @@ Press Ctrl+C to exit
 ## Upload
 
 Import one image, audio, or video file to create a new asset or add a variant to
-an existing asset. Use `makefx import` for JSON manifest batches, same-batch
-lineage, collections, manual relations, compositions, or style presets.
+an existing asset. Use `makefx upload <manifest.json>` for JSON manifest
+batches, same-batch lineage, collections, manual relations, compositions, or
+style presets.
 
 ### Create New Asset
 
@@ -368,6 +368,12 @@ makefx upload <file> --name <name> [--space <id>] [options]
 
 ```bash
 makefx upload <file> --asset <id> [--space <id>]
+```
+
+### Upload Manifest
+
+```bash
+makefx upload <manifest.json> [--space <id>] [--dry-run] [--json]
 ```
 
 **Arguments:**
@@ -387,6 +393,8 @@ makefx upload <file> --asset <id> [--space <id>]
 | `--source-variant <id>` | No | Existing Space variant to record as import lineage source |
 | `--relation-type <type>` | No | Lineage type: `derived`, `refined`, or `forked` (default: `derived`) |
 | `--active-variant-behavior <behavior>` | No | `if-missing`, `set-active`, or `keep` |
+| `--dry-run` | No | Validate a JSON manifest without uploading media bytes |
+| `--json` | No | Print machine-readable manifest import or dry-run output |
 | `--env <env>` | No | `production`, `stage`, or `local` (default: `production`) |
 | `--local` | No | Shortcut for `--env local` |
 
@@ -423,19 +431,22 @@ makefx upload paintover.png --space abc123 --asset def456 \
 
 # Upload against local dev server
 makefx upload hero.png --space abc123 --name "Hero" --local
+
+# Validate a manifest before upload
+makefx upload import-manifest.json --space abc123 --dry-run --json
 ```
 
 ---
 
-## Manifest Import
+## Manifest Upload
 
 Import a JSON manifest of externally generated files with prompt, model,
 provider metadata, generation provenance, related source images, and immutable
 variant lineage.
 
 ```bash
-makefx import import-manifest.json --space abc123 --dry-run
-makefx import import-manifest.json --space abc123 --json
+makefx upload import-manifest.json --space abc123 --dry-run
+makefx upload import-manifest.json --space abc123 --json
 ```
 
 The manifest may be a top-level array or `{ "records": [...] }`. File paths are

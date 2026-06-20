@@ -9,7 +9,6 @@ import { handleBilling } from './commands/billing';
 import { handleSpaces } from './commands/spaces';
 import { handleListen } from './commands/listen';
 import { handleUpload } from './commands/upload';
-import { handleImport } from './commands/import';
 import { handleGenerate, handleRefine, handleDerive, handleBatch } from './commands/forge';
 import { handleAudio } from './commands/audio';
 import { handleVideo } from './commands/video';
@@ -185,9 +184,6 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'upload':
       printUploadHelp();
       return;
-    case 'import':
-      printImportHelp();
-      return;
     case 'generate':
     case 'refine':
     case 'derive':
@@ -311,7 +307,7 @@ Listen:
 Upload:
   upload <file> --asset <id> [--space <id>]   Upload image, audio, or video to existing asset
   upload <file> --name <name> [--space <id>]  Import one media file as a new asset
-  import <manifest.json> [--space <id>]       Import media with provenance, lineage, and organization metadata
+  upload <manifest.json> [--space <id>]       Import media with provenance, lineage, and organization metadata
 
 Forge:
   generate "prompt" --name <name> --type <type> -o <file>
@@ -353,8 +349,8 @@ Examples:
   makefx audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
   makefx video generate "A looping idle animation" --name "Idle Animation" --type animation --duration 6 --resolution 1080p --tier fast -o idle.mp4
   makefx productions export --production-id s01e01-a2
-  makefx import import-manifest.json --dry-run --json
-  makefx import external-renders.json --space space_123
+  makefx upload import-manifest.json --dry-run --json
+  makefx upload external-renders.json --space space_123
   makefx assets
   makefx usage --from 2026-06-01
   makefx spend --from 2026-06-01 --provider gemini
@@ -439,6 +435,7 @@ function printUploadHelp(): void {
 Usage:
   makefx upload <file> --asset <id> [--space <id>]     Import media to existing asset
   makefx upload <file> --name <name> [--space <id>]    Import media as a new asset
+  makefx upload <manifest.json> [--space <id>]         Import a JSON manifest
 
 Options:
   --space <id>      Target space ID; defaults from initialized project
@@ -454,34 +451,10 @@ Options:
   --source-variant <id>          Existing source variant for import lineage
   --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
   --active-variant-behavior <b>  if-missing, set-active, or keep
+  --dry-run         Validate a manifest without uploading media bytes
+  --json            Print machine-readable manifest import or dry-run output
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
-`);
-}
-
-function printImportHelp(): void {
-  console.log(`
-Usage:
-  makefx import <manifest.json> [--space <id>]
-  makefx import <manifest.json> --dry-run [--json]
-
-Options:
-  --space <id>      Target space ID; defaults from initialized project
-  --dry-run         Validate manifest, files, targets, membership, lineage, and organization references
-  --json            Print machine-readable import or dry-run output
-  --env <env>       Environment (production|stage|local)
-  --local           Shortcut for --env local
-
-Manifest:
-  Records import files with prompt, model, provider, providerMetadata, and
-  generationProvenance. Lineage entries record immutable source provenance using
-  sourceFile or sourceVariantId; use collections, relations, and compositions
-  for editable organization metadata. Style references are normal assets grouped
-  into collections and selected through style presets.
-
-Examples:
-  makefx import external-renders.json --dry-run --json
-  makefx import external-renders.json --space space_123
 `);
 }
 
@@ -925,9 +898,6 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
       break;
     case 'upload':
       await handleUpload(parsed);
-      break;
-    case 'import':
-      await handleImport(parsed);
       break;
     case 'generate':
       await handleGenerate(parsed);
