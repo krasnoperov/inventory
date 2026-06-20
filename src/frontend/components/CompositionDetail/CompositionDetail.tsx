@@ -199,10 +199,10 @@ export function CompositionDetail({
     const reordered = [...roleItems];
     const [moved] = reordered.splice(currentIndex, 1);
     reordered.splice(nextIndex, 0, moved);
-    const reorderedRoleIds = new Set(reordered.map((entry) => entry.id));
-    const allIds = selectedItems.map((entry) => entry.id);
-    const firstRoleIndex = allIds.findIndex((id) => reorderedRoleIds.has(id));
-    allIds.splice(firstRoleIndex, reordered.length, ...reordered.map((entry) => entry.id));
+    const reorderedIds = reordered.map((entry) => entry.id);
+    const allIds = selectedItems.map((entry) =>
+      entry.role === item.role ? reorderedIds.shift()! : entry.id
+    );
     onReorderItems(selectedComposition.id, allIds);
   };
 
@@ -480,14 +480,14 @@ function VariantUsageRow({
         </small>
       </div>
       <div className={styles.rowActions}>
-        {onMoveUp && (
+        {canEdit && onMoveUp && (
           <button type="button" onClick={onMoveUp} title="Move up">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="m18 15-6-6-6 6" />
             </svg>
           </button>
         )}
-        {onMoveDown && (
+        {canEdit && onMoveDown && (
           <button type="button" onClick={onMoveDown} title="Move down">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="m6 9 6 6 6-6" />

@@ -179,6 +179,36 @@ test('composition detail adds, replaces, removes, and reorders slot items withou
   ));
 });
 
+test('composition detail preserves mixed slot order when reordering same-role items', async ({ page }) => {
+  await mountComponent(page, 'CompositionDetail', detailProps({
+    compositionItems: [
+      { id: 'item-1', composition_id: 'composition-1', role: 'character', asset_id: 'anna', variant_id: 'anna-v1', metadata: '{}', sort_index: 0, created_by: 'user-1', created_at: baseTime, updated_at: baseTime },
+      { id: 'item-prop', composition_id: 'composition-1', role: 'prop', asset_id: 'bar', variant_id: 'bar-v1', metadata: '{}', sort_index: 1, created_by: 'user-1', created_at: baseTime, updated_at: baseTime },
+      { id: 'item-2', composition_id: 'composition-1', role: 'character', asset_id: 'pilar', variant_id: 'pilar-v1', metadata: '{}', sort_index: 2, created_by: 'user-1', created_at: baseTime, updated_at: baseTime },
+    ],
+  }));
+
+  const characters = page.getByRole('heading', { name: 'Characters' }).locator('xpath=ancestor::section[1]');
+  await characters.getByTitle('Move down').click();
+
+  await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining(
+    'reorder-items:["composition-1",["item-2","item-prop","item-1"]]',
+  ));
+});
+
+test('composition detail hides reorder controls for viewers', async ({ page }) => {
+  await mountComponent(page, 'CompositionDetail', detailProps({
+    canEdit: false,
+    compositionItems: [
+      { id: 'item-1', composition_id: 'composition-1', role: 'character', asset_id: 'anna', variant_id: 'anna-v1', metadata: '{}', sort_index: 0, created_by: 'user-1', created_at: baseTime, updated_at: baseTime },
+      { id: 'item-2', composition_id: 'composition-1', role: 'character', asset_id: 'pilar', variant_id: 'pilar-v1', metadata: '{}', sort_index: 1, created_by: 'user-1', created_at: baseTime, updated_at: baseTime },
+    ],
+  }));
+
+  await expect(page.getByTitle('Move up')).toHaveCount(0);
+  await expect(page.getByTitle('Move down')).toHaveCount(0);
+});
+
 test('composition reverse lookup includes exact variant and asset matches', async ({ page }) => {
   await mountComponent(page, 'CompositionUsageList', {
     targetAssetId: 'anna',
