@@ -4,7 +4,7 @@ import { StyleController } from './StyleController';
 import type { ControllerContext, BroadcastFn } from './types';
 import type { SpaceRepository, SqlStorage } from '../repository/SpaceRepository';
 import type { Env } from '../../../../core/types';
-import type { SpaceStyle, WebSocketMeta, ServerMessage } from '../types';
+import type { Asset, CollectionItem, SpaceCollection, SpaceStyle, Variant, WebSocketMeta, ServerMessage } from '../types';
 
 // Helper to get mock from a function
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,9 +29,100 @@ function createMockStyle(overrides: Partial<SpaceStyle> = {}): SpaceStyle {
   };
 }
 
+function createMockAsset(overrides: Partial<Asset> = {}): Asset {
+  return {
+    id: 'style-asset-1',
+    name: 'Legacy Style Reference',
+    type: 'style-sheet',
+    media_kind: 'image',
+    tags: '["style-reference","legacy-space-style"]',
+    parent_asset_id: null,
+    active_variant_id: 'style-variant-1',
+    created_by: 'user-1',
+    created_at: 1,
+    updated_at: 1,
+    ...overrides,
+  };
+}
+
+function createMockVariant(overrides: Partial<Variant> = {}): Variant {
+  return {
+    id: 'style-variant-1',
+    asset_id: 'style-asset-1',
+    media_kind: 'image',
+    workflow_id: null,
+    status: 'completed',
+    error_message: null,
+    image_key: 'styles/space-1/img1.png',
+    thumb_key: 'styles/space-1/img1_thumb.webp',
+    media_key: 'styles/space-1/img1.png',
+    media_mime_type: 'image/png',
+    media_size_bytes: 1024,
+    media_width: null,
+    media_height: null,
+    media_duration_ms: null,
+    transcript_key: null,
+    transcript_mime_type: null,
+    transcript_size_bytes: null,
+    word_timings_key: null,
+    word_timings_mime_type: null,
+    word_timings_size_bytes: null,
+    render_metadata_key: null,
+    render_metadata_mime_type: null,
+    render_metadata_size_bytes: null,
+    generation_provenance: null,
+    provider_metadata: null,
+    recipe: '{}',
+    starred: false,
+    created_by: 'user-1',
+    created_at: 1,
+    updated_at: 1,
+    plan_step_id: null,
+    description: null,
+    batch_id: null,
+    quality_rating: null,
+    rated_at: null,
+    ...overrides,
+  };
+}
+
+function createMockCollection(overrides: Partial<SpaceCollection> = {}): SpaceCollection {
+  return {
+    id: 'style-collection-1',
+    name: 'Style References',
+    description: 'Migrated references from the legacy space style.',
+    sort_index: 0,
+    created_by: 'user-1',
+    created_at: 1,
+    updated_at: 1,
+    ...overrides,
+  };
+}
+
+function createMockCollectionItem(overrides: Partial<CollectionItem> = {}): CollectionItem {
+  return {
+    id: 'style-item-1',
+    collection_id: 'style-collection-1',
+    subject_type: 'asset',
+    asset_id: 'style-asset-1',
+    variant_id: null,
+    role: 'style_ref',
+    pinned_variant_id: 'style-variant-1',
+    sort_index: 0,
+    created_by: 'user-1',
+    created_at: 1,
+    updated_at: 1,
+    ...overrides,
+  };
+}
+
 function createMockRepo(): SpaceRepository {
   return {
     getActiveStyle: mock.fn(async () => null),
+    getAllAssets: mock.fn(async () => []),
+    getAllVariants: mock.fn(async () => []),
+    listCollections: mock.fn(async () => []),
+    listAllCollectionItems: mock.fn(async () => []),
     createStyle: mock.fn(async (data) =>
       createMockStyle({
         id: data.id,
@@ -179,6 +270,111 @@ describe('StyleController', () => {
       assert.ok(broadcasts.some((b) => b.type === 'style:updated'));
     });
 
+    test('broadcasts asset-backed state created by legacy style backfill', async () => {
+      const asset = createMockAsset();
+      const variant = createMockVariant();
+      const collection = createMockCollection();
+      const item = createMockCollectionItem();
+      let backfilled = false;
+      const { ctx, broadcasts } = createMockContext({
+        backfillLegacySpaceStyle: mock.fn(async () => {
+          backfilled = true;
+          return {
+            migrated: true,
+            styleId: 'style-1',
+            collectionId: collection.id,
+            presetId: 'preset-1',
+            assetIds: [asset.id],
+            variantIds: [variant.id],
+          };
+        }),
+        getAllAssets: mock.fn(async () => (backfilled ? [asset] : [])),
+        getAllVariants: mock.fn(async () => (backfilled ? [variant] : [])),
+        listCollections: mock.fn(async () => (backfilled ? [collection] : [])),
+        listAllCollectionItems: mock.fn(async () => (backfilled ? [item] : [])),
+      });
+      const controller = new StyleController(ctx);
+
+      await controller.handleSetStyle(
+        {} as WebSocket,
+        createEditorMeta(),
+        { description: 'New style', imageKeys: ['styles/space-1/img1.png'], enabled: true }
+      );
+
+      assert.deepStrictEqual(
+        broadcasts.map((message) => message.type),
+        [
+          'asset:created',
+          'variant:created',
+          'collection:created',
+          'collection_item:created',
+          'style:updated',
+        ]
+      );
+      assert.strictEqual((broadcasts[0] as { asset: Asset }).asset.id, asset.id);
+      assert.strictEqual((broadcasts[1] as { variant: Variant }).variant.id, variant.id);
+      assert.strictEqual((broadcasts[2] as { collection: SpaceCollection }).collection.id, collection.id);
+      assert.strictEqual((broadcasts[3] as { item: CollectionItem }).item.id, item.id);
+    });
+
+    test('broadcasts updated and removed collection items after legacy style image edits', async () => {
+      const existingStyle = createMockStyle();
+      const beforeItem = createMockCollectionItem({
+        id: 'style-item-retained',
+        pinned_variant_id: 'style-variant-retained',
+        sort_index: 1,
+        updated_at: 1,
+      });
+      const staleItem = createMockCollectionItem({
+        id: 'style-item-stale',
+        pinned_variant_id: 'style-variant-stale',
+      });
+      const afterItem = {
+        ...beforeItem,
+        sort_index: 0,
+        updated_at: 2,
+      };
+      let backfilled = false;
+      const { ctx, broadcasts } = createMockContext({
+        getActiveStyle: mock.fn(async () => existingStyle),
+        backfillLegacySpaceStyle: mock.fn(async () => {
+          backfilled = true;
+          return {
+            migrated: true,
+            styleId: 'style-1',
+            collectionId: 'style-collection-1',
+            presetId: 'preset-1',
+            assetIds: ['style-asset-retained'],
+            variantIds: ['style-variant-retained'],
+          };
+        }),
+        listAllCollectionItems: mock.fn(async () => (backfilled ? [afterItem] : [beforeItem, staleItem])),
+      });
+      const controller = new StyleController(ctx);
+
+      await controller.handleSetStyle(
+        {} as WebSocket,
+        createEditorMeta(),
+        { description: 'Updated style', imageKeys: ['styles/space-1/retained.png'], enabled: true }
+      );
+
+      assert.ok(
+        broadcasts.some((message) =>
+          message.type === 'collection_item:deleted' &&
+          message.itemId === staleItem.id &&
+          message.collectionId === staleItem.collection_id
+        )
+      );
+      assert.ok(
+        broadcasts.some((message) =>
+          message.type === 'collection_item:updated' &&
+          message.item.id === afterItem.id &&
+          message.item.sort_index === 0
+        )
+      );
+      assert.strictEqual(broadcasts.at(-1)?.type, 'style:updated');
+    });
+
     test('validates max 5 images', async () => {
       const { ctx } = createMockContext();
       const controller = new StyleController(ctx);
@@ -261,6 +457,37 @@ describe('StyleController', () => {
       assert.strictEqual(asMock(ctx.repo.toggleStyle).mock.calls[0].arguments[1], false);
       assert.strictEqual(asMock(ctx.repo.backfillLegacySpaceStyle).mock.calls.length, 1);
       assert.ok(broadcasts.some((b) => b.type === 'style:updated'));
+    });
+
+    test('broadcasts asset-backed backfill changes when toggling a legacy style', async () => {
+      const existingStyle = createMockStyle({ enabled: 0 });
+      const asset = createMockAsset();
+      const variant = createMockVariant();
+      let backfilled = false;
+      const { ctx, broadcasts } = createMockContext({
+        getActiveStyle: mock.fn(async () => existingStyle),
+        backfillLegacySpaceStyle: mock.fn(async () => {
+          backfilled = true;
+          return {
+            migrated: true,
+            styleId: 'style-1',
+            collectionId: 'style-collection-1',
+            presetId: 'preset-1',
+            assetIds: [asset.id],
+            variantIds: [variant.id],
+          };
+        }),
+        getAllAssets: mock.fn(async () => (backfilled ? [asset] : [])),
+        getAllVariants: mock.fn(async () => (backfilled ? [variant] : [])),
+      });
+      const controller = new StyleController(ctx);
+
+      await controller.handleToggleStyle({} as WebSocket, createEditorMeta(), true);
+
+      assert.deepStrictEqual(
+        broadcasts.map((message) => message.type),
+        ['asset:created', 'variant:created', 'style:updated']
+      );
     });
 
     test('throws when no style configured', async () => {
