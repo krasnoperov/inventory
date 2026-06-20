@@ -108,6 +108,107 @@ export class SchemaManager {
         created_at INTEGER NOT NULL
       );
 
+      -- Manual space organization. These are user-authored links, not generation provenance.
+      CREATE TABLE IF NOT EXISTS space_collections (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        sort_index INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS collection_items (
+        id TEXT PRIMARY KEY,
+        collection_id TEXT NOT NULL REFERENCES space_collections(id) ON DELETE CASCADE,
+        subject_type TEXT NOT NULL CHECK (subject_type IN ('asset', 'variant')),
+        asset_id TEXT REFERENCES assets(id) ON DELETE CASCADE,
+        variant_id TEXT REFERENCES variants(id) ON DELETE CASCADE,
+        role TEXT NOT NULL DEFAULT 'custom',
+        pinned_variant_id TEXT REFERENCES variants(id) ON DELETE SET NULL,
+        sort_index INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        CHECK (
+          (subject_type = 'asset' AND asset_id IS NOT NULL AND variant_id IS NULL) OR
+          (subject_type = 'variant' AND variant_id IS NOT NULL AND asset_id IS NULL)
+        )
+      );
+
+      CREATE TABLE IF NOT EXISTS space_relations (
+        id TEXT PRIMARY KEY,
+        subject_type TEXT NOT NULL CHECK (subject_type IN ('asset', 'variant')),
+        subject_asset_id TEXT REFERENCES assets(id) ON DELETE CASCADE,
+        subject_variant_id TEXT REFERENCES variants(id) ON DELETE CASCADE,
+        object_type TEXT NOT NULL CHECK (object_type IN ('asset', 'variant')),
+        object_asset_id TEXT REFERENCES assets(id) ON DELETE CASCADE,
+        object_variant_id TEXT REFERENCES variants(id) ON DELETE CASCADE,
+        relation_type TEXT NOT NULL CHECK (relation_type IN (
+          'appears_in',
+          'background_for',
+          'style_reference_for',
+          'thumbnail_for',
+          'alternate_of',
+          'prop_in',
+          'map_for',
+          'part_of',
+          'reference_for',
+          'custom'
+        )),
+        context TEXT,
+        sort_index INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        CHECK (
+          (subject_type = 'asset' AND subject_asset_id IS NOT NULL AND subject_variant_id IS NULL) OR
+          (subject_type = 'variant' AND subject_variant_id IS NOT NULL AND subject_asset_id IS NULL)
+        ),
+        CHECK (
+          (object_type = 'asset' AND object_asset_id IS NOT NULL AND object_variant_id IS NULL) OR
+          (object_type = 'variant' AND object_variant_id IS NOT NULL AND object_asset_id IS NULL)
+        )
+      );
+
+      CREATE TABLE IF NOT EXISTS compositions (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'final')),
+        output_asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,
+        output_variant_id TEXT REFERENCES variants(id) ON DELETE SET NULL,
+        metadata TEXT NOT NULL DEFAULT '{}',
+        sort_index INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS composition_items (
+        id TEXT PRIMARY KEY,
+        composition_id TEXT NOT NULL REFERENCES compositions(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK (role IN (
+          'output',
+          'background',
+          'character',
+          'prop',
+          'style_ref',
+          'overlay',
+          'map',
+          'thumbnail',
+          'custom'
+        )),
+        asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,
+        variant_id TEXT NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+        metadata TEXT NOT NULL DEFAULT '{}',
+        sort_index INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
       -- Simple plans (markdown-based, per-session)
       CREATE TABLE IF NOT EXISTS simple_plans (
         id TEXT PRIMARY KEY,
@@ -250,6 +351,23 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_lineage_parent ON lineage(parent_variant_id);
       CREATE INDEX IF NOT EXISTS idx_lineage_child ON lineage(child_variant_id);
+      CREATE INDEX IF NOT EXISTS idx_space_collections_sort ON space_collections(sort_index, created_at);
+      CREATE INDEX IF NOT EXISTS idx_collection_items_collection ON collection_items(collection_id, sort_index, created_at);
+      CREATE INDEX IF NOT EXISTS idx_collection_items_asset ON collection_items(asset_id);
+      CREATE INDEX IF NOT EXISTS idx_collection_items_variant ON collection_items(variant_id);
+      CREATE INDEX IF NOT EXISTS idx_collection_items_pinned_variant ON collection_items(pinned_variant_id);
+      CREATE INDEX IF NOT EXISTS idx_space_relations_subject_asset ON space_relations(subject_asset_id, relation_type);
+      CREATE INDEX IF NOT EXISTS idx_space_relations_subject_variant ON space_relations(subject_variant_id, relation_type);
+      CREATE INDEX IF NOT EXISTS idx_space_relations_object_asset ON space_relations(object_asset_id, relation_type);
+      CREATE INDEX IF NOT EXISTS idx_space_relations_object_variant ON space_relations(object_variant_id, relation_type);
+      CREATE INDEX IF NOT EXISTS idx_space_relations_type ON space_relations(relation_type, sort_index, created_at);
+      CREATE INDEX IF NOT EXISTS idx_compositions_status ON compositions(status, sort_index, created_at);
+      CREATE INDEX IF NOT EXISTS idx_compositions_output_asset ON compositions(output_asset_id);
+      CREATE INDEX IF NOT EXISTS idx_compositions_output_variant ON compositions(output_variant_id);
+      CREATE INDEX IF NOT EXISTS idx_composition_items_composition ON composition_items(composition_id, sort_index, created_at);
+      CREATE INDEX IF NOT EXISTS idx_composition_items_variant ON composition_items(variant_id);
+      CREATE INDEX IF NOT EXISTS idx_composition_items_asset ON composition_items(asset_id);
+      CREATE INDEX IF NOT EXISTS idx_composition_items_role ON composition_items(role, sort_index, created_at);
       CREATE INDEX IF NOT EXISTS idx_simple_plans_session ON simple_plans(session_id);
       CREATE INDEX IF NOT EXISTS idx_simple_plans_status ON simple_plans(status);
       CREATE INDEX IF NOT EXISTS idx_approvals_status ON pending_approvals(status);

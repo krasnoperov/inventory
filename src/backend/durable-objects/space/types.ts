@@ -293,6 +293,100 @@ export interface ProductionPlacement {
   updated_at: number;
 }
 
+export type SpaceSubjectType = 'asset' | 'variant';
+
+export type SpaceRelationType =
+  | 'appears_in'
+  | 'background_for'
+  | 'style_reference_for'
+  | 'thumbnail_for'
+  | 'alternate_of'
+  | 'prop_in'
+  | 'map_for'
+  | 'part_of'
+  | 'reference_for'
+  | 'custom';
+
+export type CompositionItemRole =
+  | 'output'
+  | 'background'
+  | 'character'
+  | 'prop'
+  | 'style_ref'
+  | 'overlay'
+  | 'map'
+  | 'thumbnail'
+  | 'custom';
+
+export type CompositionStatus = 'draft' | 'final';
+
+export interface SpaceCollection {
+  id: string;
+  name: string;
+  description: string | null;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface CollectionItem {
+  id: string;
+  collection_id: string;
+  subject_type: SpaceSubjectType;
+  asset_id: string | null;
+  variant_id: string | null;
+  role: string;
+  pinned_variant_id: string | null;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface SpaceRelation {
+  id: string;
+  subject_type: SpaceSubjectType;
+  subject_asset_id: string | null;
+  subject_variant_id: string | null;
+  object_type: SpaceSubjectType;
+  object_asset_id: string | null;
+  object_variant_id: string | null;
+  relation_type: SpaceRelationType;
+  context: string | null;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface Composition {
+  id: string;
+  name: string;
+  description: string | null;
+  status: CompositionStatus;
+  output_asset_id: string | null;
+  output_variant_id: string | null;
+  metadata: string;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface CompositionItem {
+  id: string;
+  composition_id: string;
+  role: CompositionItemRole;
+  asset_id: string | null;
+  variant_id: string;
+  metadata: string;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
 /**
  * Lineage - Parent-child relationship between variants
  */

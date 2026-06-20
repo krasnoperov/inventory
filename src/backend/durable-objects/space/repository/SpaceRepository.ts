@@ -33,6 +33,15 @@ import type {
   ProductionCueType,
   ProductionPlacement,
   ProductionPlacementTargetKind,
+  SpaceSubjectType,
+  SpaceCollection,
+  CollectionItem,
+  SpaceRelation,
+  SpaceRelationType,
+  Composition,
+  CompositionStatus,
+  CompositionItem,
+  CompositionItemRole,
 } from '../types';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import type { SimplePlan } from '../../../../shared/websocket-types';
@@ -54,6 +63,11 @@ import {
   ProductionShotQueries,
   ProductionCueQueries,
   ProductionPlacementQueries,
+  SpaceCollectionQueries,
+  CollectionItemQueries,
+  SpaceRelationQueries,
+  CompositionQueries,
+  CompositionItemQueries,
   buildAssetUpdateQuery,
   buildInClause,
 } from '../queries';
@@ -171,6 +185,24 @@ export interface VariantGenerationProvenance {
   parentVariantIds?: string[];
   styleId?: string;
   styleOverride?: boolean;
+}
+
+export interface SpaceSubjectInput {
+  subjectType: SpaceSubjectType;
+  assetId?: string | null;
+  variantId?: string | null;
+}
+
+function getSubjectColumns(subject: SpaceSubjectInput): {
+  assetId: string | null;
+  variantId: string | null;
+} {
+  if (subject.subjectType === 'asset') {
+    if (!subject.assetId) throw new Error('assetId is required for asset subjects');
+    return { assetId: subject.assetId, variantId: null };
+  }
+  if (!subject.variantId) throw new Error('variantId is required for variant subjects');
+  return { assetId: null, variantId: subject.variantId };
 }
 
 export function serializeGenerationProvenance(
@@ -768,6 +800,507 @@ export class SpaceRepository {
     if (!existing) return false;
 
     await this.sql.exec(LineageQueries.UPDATE_SEVERED, lineageId);
+    return true;
+  }
+
+  // ==========================================================================
+  // Space Organization Operations
+  // ==========================================================================
+
+  async listCollections(): Promise<SpaceCollection[]> {
+    const result = await this.sql.exec(SpaceCollectionQueries.GET_ALL);
+    return result.toArray() as SpaceCollection[];
+  }
+
+  async getCollectionById(collectionId: string): Promise<SpaceCollection | null> {
+    const result = await this.sql.exec(SpaceCollectionQueries.GET_BY_ID, collectionId);
+    return (result.toArray()[0] as SpaceCollection) ?? null;
+  }
+
+  async createCollection(data: {
+    id: string;
+    name: string;
+    description?: string | null;
+    sortIndex?: number;
+    createdBy: string;
+  }): Promise<SpaceCollection> {
+    const now = Date.now();
+    await this.sql.exec(
+      SpaceCollectionQueries.INSERT,
+      data.id,
+      data.name,
+      data.description ?? null,
+      data.sortIndex ?? 0,
+      data.createdBy,
+      now,
+      now
+    );
+    return (await this.getCollectionById(data.id))!;
+  }
+
+  async updateCollection(
+    collectionId: string,
+    changes: {
+      name?: string;
+      description?: string | null;
+      sortIndex?: number;
+    }
+  ): Promise<SpaceCollection | null> {
+    const existing = await this.getCollectionById(collectionId);
+    if (!existing) return null;
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    if (changes.name !== undefined) {
+      updates.push('name = ?');
+      values.push(changes.name);
+    }
+    if (changes.description !== undefined) {
+      updates.push('description = ?');
+      values.push(changes.description);
+    }
+    if (changes.sortIndex !== undefined) {
+      updates.push('sort_index = ?');
+      values.push(changes.sortIndex);
+    }
+    if (updates.length === 0) return existing;
+
+    updates.push('updated_at = ?');
+    values.push(Date.now());
+    await this.sql.exec(
+      `UPDATE space_collections SET ${updates.join(', ')} WHERE id = ?`,
+      ...values,
+      collectionId
+    );
+    return this.getCollectionById(collectionId);
+  }
+
+  async deleteCollection(collectionId: string): Promise<boolean> {
+    const existing = await this.getCollectionById(collectionId);
+    if (!existing) return false;
+
+    await this.sql.exec(SpaceCollectionQueries.DELETE, collectionId);
+    return true;
+  }
+
+  async listCollectionItems(collectionId: string): Promise<CollectionItem[]> {
+    const result = await this.sql.exec(CollectionItemQueries.GET_BY_COLLECTION, collectionId);
+    return result.toArray() as CollectionItem[];
+  }
+
+  async getCollectionItemById(itemId: string): Promise<CollectionItem | null> {
+    const result = await this.sql.exec(CollectionItemQueries.GET_BY_ID, itemId);
+    return (result.toArray()[0] as CollectionItem) ?? null;
+  }
+
+  async createCollectionItem(data: SpaceSubjectInput & {
+    id: string;
+    collectionId: string;
+    role?: string;
+    pinnedVariantId?: string | null;
+    sortIndex?: number;
+    createdBy: string;
+  }): Promise<CollectionItem> {
+    const now = Date.now();
+    const subject = getSubjectColumns(data);
+    await this.sql.exec(
+      CollectionItemQueries.INSERT,
+      data.id,
+      data.collectionId,
+      data.subjectType,
+      subject.assetId,
+      subject.variantId,
+      data.role ?? 'custom',
+      data.pinnedVariantId ?? null,
+      data.sortIndex ?? 0,
+      data.createdBy,
+      now,
+      now
+    );
+    return (await this.getCollectionItemById(data.id))!;
+  }
+
+  async updateCollectionItem(
+    itemId: string,
+    changes: {
+      role?: string;
+      pinnedVariantId?: string | null;
+      sortIndex?: number;
+    }
+  ): Promise<CollectionItem | null> {
+    const existing = await this.getCollectionItemById(itemId);
+    if (!existing) return null;
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    if (changes.role !== undefined) {
+      updates.push('role = ?');
+      values.push(changes.role);
+    }
+    if (changes.pinnedVariantId !== undefined) {
+      updates.push('pinned_variant_id = ?');
+      values.push(changes.pinnedVariantId);
+    }
+    if (changes.sortIndex !== undefined) {
+      updates.push('sort_index = ?');
+      values.push(changes.sortIndex);
+    }
+    if (updates.length === 0) return existing;
+
+    updates.push('updated_at = ?');
+    values.push(Date.now());
+    await this.sql.exec(
+      `UPDATE collection_items SET ${updates.join(', ')} WHERE id = ?`,
+      ...values,
+      itemId
+    );
+    return this.getCollectionItemById(itemId);
+  }
+
+  async reorderCollectionItems(collectionId: string, itemIds: string[]): Promise<CollectionItem[]> {
+    const now = Date.now();
+    for (const [index, itemId] of itemIds.entries()) {
+      await this.sql.exec(
+        'UPDATE collection_items SET sort_index = ?, updated_at = ? WHERE id = ? AND collection_id = ?',
+        index,
+        now,
+        itemId,
+        collectionId
+      );
+    }
+    return this.listCollectionItems(collectionId);
+  }
+
+  async deleteCollectionItem(itemId: string): Promise<boolean> {
+    const existing = await this.getCollectionItemById(itemId);
+    if (!existing) return false;
+
+    await this.sql.exec(CollectionItemQueries.DELETE, itemId);
+    return true;
+  }
+
+  async listRelations(): Promise<SpaceRelation[]> {
+    const result = await this.sql.exec(SpaceRelationQueries.GET_ALL);
+    return result.toArray() as SpaceRelation[];
+  }
+
+  async getRelationById(relationId: string): Promise<SpaceRelation | null> {
+    const result = await this.sql.exec(SpaceRelationQueries.GET_BY_ID, relationId);
+    return (result.toArray()[0] as SpaceRelation) ?? null;
+  }
+
+  async listRelationsForSubject(subjectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
+    const column = subjectType === 'asset' ? 'subject_asset_id' : 'subject_variant_id';
+    const result = await this.sql.exec(
+      `SELECT * FROM space_relations WHERE ${column} = ? ORDER BY sort_index ASC, created_at ASC`,
+      id
+    );
+    return result.toArray() as SpaceRelation[];
+  }
+
+  async listRelationsForObject(objectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
+    const column = objectType === 'asset' ? 'object_asset_id' : 'object_variant_id';
+    const result = await this.sql.exec(
+      `SELECT * FROM space_relations WHERE ${column} = ? ORDER BY sort_index ASC, created_at ASC`,
+      id
+    );
+    return result.toArray() as SpaceRelation[];
+  }
+
+  async listRelationsForEntity(subjectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
+    const subjectColumn = subjectType === 'asset' ? 'subject_asset_id' : 'subject_variant_id';
+    const objectColumn = subjectType === 'asset' ? 'object_asset_id' : 'object_variant_id';
+    const result = await this.sql.exec(
+      `SELECT * FROM space_relations WHERE ${subjectColumn} = ? OR ${objectColumn} = ? ORDER BY sort_index ASC, created_at ASC`,
+      id,
+      id
+    );
+    return result.toArray() as SpaceRelation[];
+  }
+
+  async createRelation(data: {
+    id: string;
+    subject: SpaceSubjectInput;
+    object: SpaceSubjectInput;
+    relationType: SpaceRelationType;
+    context?: string | null;
+    sortIndex?: number;
+    createdBy: string;
+  }): Promise<SpaceRelation> {
+    const now = Date.now();
+    const subject = getSubjectColumns(data.subject);
+    const object = getSubjectColumns(data.object);
+    await this.sql.exec(
+      SpaceRelationQueries.INSERT,
+      data.id,
+      data.subject.subjectType,
+      subject.assetId,
+      subject.variantId,
+      data.object.subjectType,
+      object.assetId,
+      object.variantId,
+      data.relationType,
+      data.context ?? null,
+      data.sortIndex ?? 0,
+      data.createdBy,
+      now,
+      now
+    );
+    return (await this.getRelationById(data.id))!;
+  }
+
+  async updateRelation(
+    relationId: string,
+    changes: {
+      relationType?: SpaceRelationType;
+      context?: string | null;
+      sortIndex?: number;
+    }
+  ): Promise<SpaceRelation | null> {
+    const existing = await this.getRelationById(relationId);
+    if (!existing) return null;
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    if (changes.relationType !== undefined) {
+      updates.push('relation_type = ?');
+      values.push(changes.relationType);
+    }
+    if (changes.context !== undefined) {
+      updates.push('context = ?');
+      values.push(changes.context);
+    }
+    if (changes.sortIndex !== undefined) {
+      updates.push('sort_index = ?');
+      values.push(changes.sortIndex);
+    }
+    if (updates.length === 0) return existing;
+
+    updates.push('updated_at = ?');
+    values.push(Date.now());
+    await this.sql.exec(
+      `UPDATE space_relations SET ${updates.join(', ')} WHERE id = ?`,
+      ...values,
+      relationId
+    );
+    return this.getRelationById(relationId);
+  }
+
+  async deleteRelation(relationId: string): Promise<boolean> {
+    const existing = await this.getRelationById(relationId);
+    if (!existing) return false;
+
+    await this.sql.exec(SpaceRelationQueries.DELETE, relationId);
+    return true;
+  }
+
+  async listCompositions(): Promise<Composition[]> {
+    const result = await this.sql.exec(CompositionQueries.GET_ALL);
+    return result.toArray() as Composition[];
+  }
+
+  async getCompositionById(compositionId: string): Promise<Composition | null> {
+    const result = await this.sql.exec(CompositionQueries.GET_BY_ID, compositionId);
+    return (result.toArray()[0] as Composition) ?? null;
+  }
+
+  async createComposition(data: {
+    id: string;
+    name: string;
+    description?: string | null;
+    status?: CompositionStatus;
+    outputAssetId?: string | null;
+    outputVariantId?: string | null;
+    metadata?: Record<string, unknown>;
+    sortIndex?: number;
+    createdBy: string;
+  }): Promise<Composition> {
+    const now = Date.now();
+    await this.sql.exec(
+      CompositionQueries.INSERT,
+      data.id,
+      data.name,
+      data.description ?? null,
+      data.status ?? 'draft',
+      data.outputAssetId ?? null,
+      data.outputVariantId ?? null,
+      JSON.stringify(data.metadata ?? {}),
+      data.sortIndex ?? 0,
+      data.createdBy,
+      now,
+      now
+    );
+    return (await this.getCompositionById(data.id))!;
+  }
+
+  async updateComposition(
+    compositionId: string,
+    changes: {
+      name?: string;
+      description?: string | null;
+      status?: CompositionStatus;
+      outputAssetId?: string | null;
+      outputVariantId?: string | null;
+      metadata?: Record<string, unknown>;
+      sortIndex?: number;
+    }
+  ): Promise<Composition | null> {
+    const existing = await this.getCompositionById(compositionId);
+    if (!existing) return null;
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    if (changes.name !== undefined) {
+      updates.push('name = ?');
+      values.push(changes.name);
+    }
+    if (changes.description !== undefined) {
+      updates.push('description = ?');
+      values.push(changes.description);
+    }
+    if (changes.status !== undefined) {
+      updates.push('status = ?');
+      values.push(changes.status);
+    }
+    if (changes.outputAssetId !== undefined) {
+      updates.push('output_asset_id = ?');
+      values.push(changes.outputAssetId);
+    }
+    if (changes.outputVariantId !== undefined) {
+      updates.push('output_variant_id = ?');
+      values.push(changes.outputVariantId);
+    }
+    if (changes.metadata !== undefined) {
+      updates.push('metadata = ?');
+      values.push(JSON.stringify(changes.metadata));
+    }
+    if (changes.sortIndex !== undefined) {
+      updates.push('sort_index = ?');
+      values.push(changes.sortIndex);
+    }
+    if (updates.length === 0) return existing;
+
+    updates.push('updated_at = ?');
+    values.push(Date.now());
+    await this.sql.exec(
+      `UPDATE compositions SET ${updates.join(', ')} WHERE id = ?`,
+      ...values,
+      compositionId
+    );
+    return this.getCompositionById(compositionId);
+  }
+
+  async deleteComposition(compositionId: string): Promise<boolean> {
+    const existing = await this.getCompositionById(compositionId);
+    if (!existing) return false;
+
+    await this.sql.exec(CompositionQueries.DELETE, compositionId);
+    return true;
+  }
+
+  async listCompositionItems(compositionId: string): Promise<CompositionItem[]> {
+    const result = await this.sql.exec(CompositionItemQueries.GET_BY_COMPOSITION, compositionId);
+    return result.toArray() as CompositionItem[];
+  }
+
+  async getCompositionItemById(itemId: string): Promise<CompositionItem | null> {
+    const result = await this.sql.exec(CompositionItemQueries.GET_BY_ID, itemId);
+    return (result.toArray()[0] as CompositionItem) ?? null;
+  }
+
+  async createCompositionItem(data: {
+    id: string;
+    compositionId: string;
+    role: CompositionItemRole;
+    variantId: string;
+    assetId?: string | null;
+    metadata?: Record<string, unknown>;
+    sortIndex?: number;
+    createdBy: string;
+  }): Promise<CompositionItem> {
+    const now = Date.now();
+    await this.sql.exec(
+      CompositionItemQueries.INSERT,
+      data.id,
+      data.compositionId,
+      data.role,
+      data.assetId ?? null,
+      data.variantId,
+      JSON.stringify(data.metadata ?? {}),
+      data.sortIndex ?? 0,
+      data.createdBy,
+      now,
+      now
+    );
+    return (await this.getCompositionItemById(data.id))!;
+  }
+
+  async updateCompositionItem(
+    itemId: string,
+    changes: {
+      role?: CompositionItemRole;
+      variantId?: string;
+      assetId?: string | null;
+      metadata?: Record<string, unknown>;
+      sortIndex?: number;
+    }
+  ): Promise<CompositionItem | null> {
+    const existing = await this.getCompositionItemById(itemId);
+    if (!existing) return null;
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    if (changes.role !== undefined) {
+      updates.push('role = ?');
+      values.push(changes.role);
+    }
+    if (changes.variantId !== undefined) {
+      updates.push('variant_id = ?');
+      values.push(changes.variantId);
+    }
+    if (changes.assetId !== undefined) {
+      updates.push('asset_id = ?');
+      values.push(changes.assetId);
+    }
+    if (changes.metadata !== undefined) {
+      updates.push('metadata = ?');
+      values.push(JSON.stringify(changes.metadata));
+    }
+    if (changes.sortIndex !== undefined) {
+      updates.push('sort_index = ?');
+      values.push(changes.sortIndex);
+    }
+    if (updates.length === 0) return existing;
+
+    updates.push('updated_at = ?');
+    values.push(Date.now());
+    await this.sql.exec(
+      `UPDATE composition_items SET ${updates.join(', ')} WHERE id = ?`,
+      ...values,
+      itemId
+    );
+    return this.getCompositionItemById(itemId);
+  }
+
+  async reorderCompositionItems(compositionId: string, itemIds: string[]): Promise<CompositionItem[]> {
+    const now = Date.now();
+    for (const [index, itemId] of itemIds.entries()) {
+      await this.sql.exec(
+        'UPDATE composition_items SET sort_index = ?, updated_at = ? WHERE id = ? AND composition_id = ?',
+        index,
+        now,
+        itemId,
+        compositionId
+      );
+    }
+    return this.listCompositionItems(compositionId);
+  }
+
+  async deleteCompositionItem(itemId: string): Promise<boolean> {
+    const existing = await this.getCompositionItemById(itemId);
+    if (!existing) return false;
+
+    await this.sql.exec(CompositionItemQueries.DELETE, itemId);
     return true;
   }
 
