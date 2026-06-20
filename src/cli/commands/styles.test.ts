@@ -20,6 +20,8 @@ const config: StoredConfig = {
 const collection = {
   id: 'collection-1',
   name: 'Painterly refs',
+  kind: 'style_refs',
+  color: '#7c3aed',
   description: null,
   sort_index: 0,
   created_by: 'user-1',
