@@ -261,6 +261,25 @@ describe('Space organization repository', () => {
     await createAssetWithVariant('asset-1', 'variant-1');
     await createAssetWithVariant('asset-2', 'variant-2');
     await createAssetWithVariant('asset-3', 'variant-3');
+    await repo.createAsset({
+      id: 'asset-video',
+      name: 'asset-video',
+      type: 'animation',
+      mediaKind: 'video',
+      tags: [],
+      createdBy: 'user-1',
+    });
+    await repo.createPlaceholderVariant({
+      id: 'variant-video',
+      assetId: 'asset-video',
+      mediaKind: 'video',
+      recipe: '{}',
+      createdBy: 'user-1',
+    });
+    await repo.completeVariant('variant-video', null, null, {
+      mediaKey: 'media/variant-video.mp4',
+      mimeType: 'video/mp4',
+    });
     await repo.createCollection({ id: 'style-collection', name: 'Style refs', createdBy: 'user-1' });
     await repo.createCollectionItem({
       id: 'item-direct',
@@ -290,6 +309,15 @@ describe('Space organization repository', () => {
       sortIndex: 3,
       createdBy: 'user-1',
     });
+    await repo.createCollectionItem({
+      id: 'item-video',
+      collectionId: 'style-collection',
+      subjectType: 'variant',
+      variantId: 'variant-video',
+      role: 'style_ref',
+      sortIndex: 4,
+      createdBy: 'user-1',
+    });
     await repo.createStylePreset({
       id: 'preset-1',
       name: 'House style',
@@ -302,7 +330,7 @@ describe('Space organization repository', () => {
     assert.equal(resolved?.stylePresetId, 'preset-1');
     assert.equal(resolved?.styleCollectionId, 'style-collection');
     assert.equal(resolved?.stylePrompt, 'Muted storybook colors');
-    assert.deepEqual(resolved?.styleReferenceVariantIds, ['variant-2', 'variant-1']);
+    assert.deepEqual(resolved?.styleReferenceVariantIds, ['variant-2', 'variant-1', 'variant-video']);
     assert.deepEqual(resolved?.styleReferenceImageKeys, [
       'images/variant-2.png',
       'images/variant-1.png',

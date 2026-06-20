@@ -1200,7 +1200,7 @@ export class SpaceRepository {
       seenVariantIds.add(row.variant_id);
       styleReferenceVariantIds.push(row.variant_id);
 
-      const imageKey = row.image_key ?? row.media_key;
+      const imageKey = row.image_key;
       if (imageKey && !seenImageKeys.has(imageKey)) {
         seenImageKeys.add(imageKey);
         styleReferenceImageKeys.push(imageKey);
