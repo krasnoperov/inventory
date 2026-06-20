@@ -5,8 +5,9 @@
 # service bindings from app/generation workers, and is the only worker that
 # should receive versioned BYOK_KEK_* Secrets Store bindings.
 #
-# This config is scaffolded for human review. Do not deploy it until the target
-# Secrets Store IDs and caller service bindings are confirmed.
+# Secrets Store IDs are supplied by the protected broker deployment environment
+# and materialized into a temporary config by
+# scripts/prove-byok-deployment-boundary.mjs. Do not commit account store IDs.
 
 account_id = "2d61278ad8b69df60cde602758926e14"
 name = "makefx-key-broker-stage"
@@ -29,8 +30,7 @@ NODE_ENV = "stage"
 ENVIRONMENT = "stage"
 BYOK_ACTIVE_KEK_VERSION = "1"
 
-# Secrets Store bindings to enable after the account store and secret names are
-# reviewed:
+# Secrets Store bindings materialized for stage broker deploys:
 #
 # [[secrets_store_secrets]]
 # binding = "BYOK_KEK_V1"
@@ -57,7 +57,7 @@ NODE_ENV = "production"
 ENVIRONMENT = "production"
 BYOK_ACTIVE_KEK_VERSION = "1"
 
-# Production Secrets Store binding to enable after review:
+# Secrets Store bindings materialized for production broker deploys:
 #
 # [[env.production.secrets_store_secrets]]
 # binding = "BYOK_KEK_V1"
