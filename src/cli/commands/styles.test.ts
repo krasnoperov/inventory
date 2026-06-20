@@ -152,6 +152,7 @@ test('styles collections create posts collection and style_ref items from assets
 
 test('styles collections update replaces existing style references by default', async () => {
   const calls: Array<{ method: string; path: string }> = [];
+  const normalItem = { ...collectionItem, id: 'item-normal', role: 'character' };
   const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = new URL(String(input));
     const method = init?.method || 'GET';
@@ -161,7 +162,7 @@ test('styles collections update replaces existing style references by default', 
       return Response.json({ success: true, assets: [] });
     }
     if (url.pathname === '/api/spaces/space-1/collections/collection-1/items' && method === 'GET') {
-      return Response.json({ success: true, items: [collectionItem] });
+      return Response.json({ success: true, items: [collectionItem, normalItem] });
     }
     if (url.pathname === '/api/spaces/space-1/collections/collection-1/items/item-1' && method === 'DELETE') {
       return Response.json({ success: true });
@@ -192,6 +193,7 @@ test('styles collections update replaces existing style references by default', 
   }, depsFor(fetchImpl as typeof fetch));
 
   assert.equal(result.type, 'collection');
+  assert.ok(!calls.some((call) => call.method === 'DELETE' && call.path.endsWith('/item-normal')));
   assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`), [
     'GET /api/spaces/space-1/assets',
     'GET /api/spaces/space-1/collections/collection-1/items',

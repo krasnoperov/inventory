@@ -468,7 +468,9 @@ async function upsertStyleReferenceItems(
 
   if (replaceExisting) {
     const existing = await listCollectionItems(ctx, deps, collectionId);
-    await Promise.all(existing.map((item) => deleteCollectionItem(ctx, deps, collectionId, item.id)));
+    await Promise.all(existing
+      .filter((item) => item.role === 'style_ref')
+      .map((item) => deleteCollectionItem(ctx, deps, collectionId, item.id)));
   }
 
   const created: CollectionItem[] = [];
