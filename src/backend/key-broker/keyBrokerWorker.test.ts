@@ -6,7 +6,6 @@ import { createLocalKeyBrokerServiceBinding } from './testHarness';
 import {
   decryptProviderApiKeyV2,
   decryptProviderApiKeyWithVersionedKek,
-  encryptLegacyProviderApiKey,
 } from '../services/providerKeyVault';
 
 function encryptionKey(): string {
@@ -385,62 +384,6 @@ describe('key broker service binding contract', () => {
     assert.equal(db.rows.has('7:google_ai'), false);
   });
 
-  test('resolves legacy provider keys by upgrading them through the broker read path', async () => {
-    const db = new FakeD1();
-    const kek = encryptionKey();
-    const legacy = await encryptLegacyProviderApiKey('legacy-broker-key', kek, 7, 'google_ai');
-    db.rows.set('7:google_ai', {
-      user_id: 7,
-      provider: 'google_ai',
-      encrypted_api_key: legacy,
-      key_hint: 'legacy-hint',
-      updated_at: '2026-01-01T00:00:00.000Z',
-    });
-    db.platformUsage.push({
-      user_id: 7,
-      usage_type: 'workflow',
-      space_id: 'space-1',
-      workflow_id: 'variant-1',
-      variant_id: 'variant-1',
-      request_id: 'request-1',
-    });
-    const tenant = { type: 'user' as const, userId: 7 };
-    const broker = keyBrokerClient(
-      createLocalKeyBrokerServiceBinding({
-        DB: db as never,
-        BYOK_ACTIVE_KEK_VERSION: '1',
-        BYOK_KEK_V1: kek,
-      })
-    );
-
-    const resolved = await broker.resolveProviderKey({
-      tenant,
-      provider: 'google_ai',
-      purpose: 'generation',
-      generation: {
-        jobId: 'variant-1',
-        requestId: 'request-1',
-        spaceId: 'space-1',
-      },
-    });
-
-    assert.deepEqual(resolved, {
-      tenant,
-      provider: 'google_ai',
-      apiKey: 'legacy-broker-key',
-      keySource: 'byok',
-    });
-    const upgraded = db.rows.get('7:google_ai');
-    assert.ok(upgraded);
-    assert.match(upgraded.encrypted_api_key, /^enc:v2:1:1:/);
-    assert.notEqual(upgraded.encrypted_api_key, legacy);
-    assert.equal(upgraded.key_hint, '****-key');
-    assert.equal(
-      await decryptProviderApiKeyV2(db as never, upgraded.encrypted_api_key, kek, 7, 'google_ai'),
-      'legacy-broker-key',
-    );
-  });
-
   test('denies cross-tenant and job-substituted generation key resolution before unwrapping key material', async () => {
     const db = new FakeD1();
     const secret = new FakeSecretsStoreSecret(encryptionKey());
@@ -718,7 +661,7 @@ describe('key broker service binding contract', () => {
     assert.match(db.rows.get('7:google_ai')?.encrypted_api_key ?? '', /^enc:v2:1:1:/);
   });
 
-  test('rotates only the target tenant DEK and provider ciphertexts with mixed legacy rows', async () => {
+  test('rotates only the target tenant DEK and provider ciphertexts', async () => {
     const db = new FakeD1();
     const broker = keyBrokerClient(
       createLocalKeyBrokerServiceBinding({
@@ -731,13 +674,7 @@ describe('key broker service binding contract', () => {
     const targetTenant = { type: 'user' as const, userId: 7 };
 
     await broker.storeProviderKey({ tenant: targetTenant, provider: 'google_ai', apiKey: 'target-google-secret' });
-    db.rows.set('7:anthropic', {
-      user_id: 7,
-      provider: 'anthropic',
-      encrypted_api_key: await encryptLegacyProviderApiKey('sk-ant-target-secret', encryptionKey(), 7, 'anthropic'),
-      key_hint: 'legacy-hint',
-      updated_at: '2026-01-01T00:00:00.000Z',
-    });
+    await broker.storeProviderKey({ tenant: targetTenant, provider: 'anthropic', apiKey: 'sk-ant-target-secret' });
     await broker.storeProviderKey({
       tenant: { type: 'user', userId: 8 },
       provider: 'google_ai',

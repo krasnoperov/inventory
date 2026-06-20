@@ -1,7 +1,6 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { Env } from '../../core/types';
 
-const ENC_V1_PREFIX = 'enc:v1:';
 const ENC_V2_PREFIX = 'enc:v2:';
 const CURRENT_KEK_VERSION = 1;
 const CURRENT_DEK_VERSION = 1;
@@ -113,17 +112,6 @@ function base64ToUint8(b64: string): Uint8Array {
   return bytes;
 }
 
-async function importEncryptionKey(secret: string): Promise<CryptoKey> {
-  const keyBytes = base64ToUint8(secret);
-  if (keyBytes.length !== 32) {
-    throw new ProviderKeyEncryptionError('ENCRYPTION_KEY must be exactly 32 bytes, base64-encoded');
-  }
-  return crypto.subtle.importKey('raw', keyBytes.buffer as ArrayBuffer, { name: 'AES-GCM' }, false, [
-    'encrypt',
-    'decrypt',
-  ]);
-}
-
 async function importKeyEncryptionKey(secret: string): Promise<CryptoKey> {
   const keyBytes = base64ToUint8(secret);
   if (keyBytes.length !== 32) {
@@ -154,10 +142,6 @@ async function requireKekForVersion(
 
 function activeKekVersionForEnv(env: ProviderKeyEncryptionEnv): number {
   return isVersionedKekProvider(env) ? env.activeKekVersion : CURRENT_KEK_VERSION;
-}
-
-function aadForV1(userId: number, provider: ProviderKeyProvider): Uint8Array {
-  return new TextEncoder().encode(`user_provider_key:${userId}:${provider}`);
 }
 
 function aadForV2(
@@ -300,49 +284,6 @@ function parseVersion(value: string, label: string): number {
   return Number.parseInt(value, 10);
 }
 
-export async function encryptLegacyProviderApiKey(
-  plaintext: string,
-  encryptionKey: string | undefined,
-  userId: number,
-  provider: ProviderKeyProvider,
-): Promise<string> {
-  if (!encryptionKey) throw new ProviderKeyEncryptionError();
-  const key = await importEncryptionKey(encryptionKey);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(plaintext);
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv, additionalData: aadForV1(userId, provider).buffer as ArrayBuffer },
-    key,
-    encoded,
-  );
-  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
-  combined.set(iv, 0);
-  combined.set(new Uint8Array(ciphertext), iv.length);
-  return `${ENC_V1_PREFIX}${uint8ToBase64(combined)}`;
-}
-
-export async function decryptLegacyProviderApiKey(
-  encrypted: string,
-  encryptionKey: string | undefined,
-  userId: number,
-  provider: ProviderKeyProvider,
-): Promise<string> {
-  if (!encryptionKey) throw new ProviderKeyEncryptionError();
-  if (!encrypted.startsWith(ENC_V1_PREFIX)) {
-    throw new ProviderKeyEncryptionError('Stored provider key is not encrypted');
-  }
-  const key = await importEncryptionKey(encryptionKey);
-  const combined = base64ToUint8(encrypted.slice(ENC_V1_PREFIX.length));
-  const iv = combined.slice(0, 12);
-  const ciphertext = combined.slice(12);
-  const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv, additionalData: aadForV1(userId, provider).buffer as ArrayBuffer },
-    key,
-    ciphertext,
-  );
-  return new TextDecoder().decode(decrypted);
-}
-
 export async function encryptProviderApiKeyV2(
   db: D1Database,
   plaintext: string,
@@ -470,37 +411,7 @@ export async function decryptProviderApiKeyWithDek(
   return new TextDecoder().decode(decrypted);
 }
 
-export async function decryptStoredProviderApiKey(
-  db: D1Database,
-  encrypted: string,
-  encryptionKey: string | undefined,
-  userId: number,
-  provider: ProviderKeyProvider,
-): Promise<string> {
-  if (encrypted.startsWith(ENC_V2_PREFIX)) {
-    return decryptProviderApiKeyV2(db, encrypted, encryptionKey, userId, provider);
-  }
-  return decryptLegacyProviderApiKey(encrypted, encryptionKey, userId, provider);
-}
-
-async function upgradeLegacyProviderApiKey(
-  db: D1Database,
-  legacyEncrypted: string,
-  plaintext: string,
-  env: ProviderKeyEncryptionEnv,
-  userId: number,
-  provider: ProviderKeyProvider,
-): Promise<void> {
-  const encrypted = await encryptProviderApiKeyWithVersionedKek(db, plaintext, env, userId, provider);
-  const now = new Date().toISOString();
-  await db.prepare(`
-    UPDATE user_provider_keys
-    SET encrypted_api_key = ?, key_hint = ?, updated_at = ?
-    WHERE user_id = ? AND provider = ? AND encrypted_api_key = ?
-  `).bind(encrypted, maskProviderKey(plaintext), now, userId, provider, legacyEncrypted).run();
-}
-
-export async function resolveAndMigrateStoredProviderApiKey(
+export async function resolveStoredProviderApiKey(
   db: D1Database | undefined,
   userId: number,
   provider: ProviderKeyProvider,
@@ -513,28 +424,7 @@ export async function resolveAndMigrateStoredProviderApiKey(
     WHERE user_id = ? AND provider = ?
   `).bind(userId, provider).first<{ encrypted_api_key: string }>();
   if (!row) return undefined;
-  if (row.encrypted_api_key.startsWith(ENC_V2_PREFIX)) {
-    return decryptProviderApiKeyWithVersionedKek(db, row.encrypted_api_key, env, userId, provider);
-  }
-  const legacyKek = isVersionedKekProvider(env)
-    ? await requireKekForVersion(env, CURRENT_KEK_VERSION)
-    : env.ENCRYPTION_KEY;
-
-  const plaintext = await decryptLegacyProviderApiKey(
-    row.encrypted_api_key,
-    legacyKek,
-    userId,
-    provider,
-  );
-  await upgradeLegacyProviderApiKey(
-    db,
-    row.encrypted_api_key,
-    plaintext,
-    env,
-    userId,
-    provider,
-  );
-  return plaintext;
+  return decryptProviderApiKeyWithVersionedKek(db, row.encrypted_api_key, env, userId, provider);
 }
 
 function platformConfigured(env: Env, provider: ProviderKeyProvider): boolean {
@@ -618,13 +508,4 @@ export async function hasStoredProviderApiKey(
     WHERE user_id = ? AND provider = ?
   `).bind(userId, provider).first<{ present: number }>();
   return row?.present === 1;
-}
-
-export async function resolveStoredProviderApiKey(
-  db: D1Database | undefined,
-  userId: number,
-  provider: ProviderKeyProvider,
-  env: ProviderKeyEncryptionEnv,
-): Promise<string | undefined> {
-  return resolveAndMigrateStoredProviderApiKey(db, userId, provider, env);
 }
