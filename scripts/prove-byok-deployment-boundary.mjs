@@ -175,6 +175,15 @@ function requireNormalDeployExcludesBroker() {
 
 function requireBrokerDeployUsesSeparateToken() {
   const workflow = readProjectFile('.github/workflows/deploy-key-broker.yml');
+  if (workflow.includes('github.event.inputs.ref')) {
+    fail('Broker deploy workflow must not accept or checkout dispatcher-provided refs');
+  }
+  if (!workflow.includes("if: github.ref == 'refs/heads/main'")) {
+    fail('Broker deploy workflow must run only from the main branch');
+  }
+  if (!workflow.includes('ref: refs/heads/main')) {
+    fail('Broker deploy workflow must checkout reviewed main branch code');
+  }
   if (!workflow.includes('CLOUDFLARE_KEY_BROKER_API_TOKEN')) {
     fail('Broker deploy workflow must use CLOUDFLARE_KEY_BROKER_API_TOKEN');
   }
@@ -282,7 +291,7 @@ function proveBoundary() {
   console.log('- app/generation configs bind KEY_BROKER to the broker worker');
   console.log('- broker config is route-less, workers_dev=false, and contains KEK Secrets Store templates');
   console.log('- normal deploy workflow excludes broker deployment and broker credentials');
-  console.log('- broker deploy workflow uses the separate broker token and environment secret store ID');
+  console.log('- broker deploy workflow uses separate broker credentials and reviewed main branch code');
 }
 
 const args = process.argv.slice(2);

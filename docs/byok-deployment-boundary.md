@@ -23,7 +23,8 @@ The proof command verifies:
 - The normal deploy workflow does not deploy `wrangler.key-broker.toml` and
   does not receive broker-only credentials.
 - The broker deploy workflow uses `CLOUDFLARE_KEY_BROKER_API_TOKEN` and the
-  protected-environment `BYOK_SECRET_STORE_ID`.
+  protected-environment `BYOK_SECRET_STORE_ID`, runs only from `main`, and
+  checks out reviewed `main` code.
 
 `pnpm run lint` also runs this proof so regular CI rejects a PR that gives an
 app, generation, billing, or local Worker a BYOK KEK binding.
@@ -38,7 +39,8 @@ Normal app/generation deploys stay in `.github/workflows/deploy.yml` and use
 - `wrangler.polar.toml`
 
 Broker deploys use `.github/workflows/deploy-key-broker.yml`, which is manual
-only and must be attached to protected GitHub environments:
+only, runs from reviewed `main` code, and must be attached to protected GitHub
+environments:
 
 - `key-broker-stage`
 - `key-broker-production`

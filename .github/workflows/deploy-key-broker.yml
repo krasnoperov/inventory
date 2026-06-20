@@ -3,7 +3,7 @@ name: Deploy BYOK Key Broker
 run-name: >-
   Deploy BYOK key broker ${{
     github.event.inputs.environment
-  }} @ ${{ github.event.inputs.ref || 'main' }}
+  }} @ main
 
 on:
   workflow_dispatch:
@@ -15,10 +15,6 @@ on:
         options:
           - stage
           - production
-      ref:
-        description: Optional branch, tag, or commit SHA to deploy
-        required: false
-        type: string
 
 permissions:
   actions: read
@@ -34,6 +30,7 @@ env:
 jobs:
   deploy:
     name: Deploy broker
+    if: github.ref == 'refs/heads/main'
     runs-on:
       - self-hosted
       - self-hosted-host
@@ -43,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref || 'refs/heads/main' }}
+          ref: refs/heads/main
 
       - uses: pnpm/action-setup@v4
         with:
