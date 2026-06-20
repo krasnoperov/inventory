@@ -530,6 +530,7 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       id: string;
       asset_id: string;
       media_kind?: MediaKind;
+      status?: string;
       image_key: string | null;
       thumb_key: string | null;
       media_key?: string | null;
@@ -612,64 +613,17 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
     spaceId,
     spaceName: 'Space', // Could fetch from space table if needed
     assets: [],
-    lineage: (state.lineage || []).map(l => ({
-      id: l.id,
-      parentVariantId: l.parent_variant_id,
-      childVariantId: l.child_variant_id,
-      relationType: l.relation_type as ExportLineage['relationType'],
-      severed: Boolean(l.severed),
-    })),
-    collections: (state.collections || []).map(collection => ({
-      id: collection.id,
-      name: collection.name,
-      description: collection.description,
-      sortIndex: collection.sort_index,
-    })),
-    collectionItems: (state.collectionItems || []).map(item => ({
-      id: item.id,
-      collectionId: item.collection_id,
-      subjectType: item.subject_type,
-      assetId: item.asset_id,
-      variantId: item.variant_id,
-      role: item.role,
-      pinnedVariantId: item.pinned_variant_id,
-      sortIndex: item.sort_index,
-    })),
-    relations: (state.relations || []).map(relation => ({
-      id: relation.id,
-      subjectType: relation.subject_type,
-      subjectAssetId: relation.subject_asset_id,
-      subjectVariantId: relation.subject_variant_id,
-      objectType: relation.object_type,
-      objectAssetId: relation.object_asset_id,
-      objectVariantId: relation.object_variant_id,
-      relationType: relation.relation_type,
-      label: relation.label ?? null,
-      context: relation.context,
-      metadata: parseJsonForManifest(relation.metadata),
-      sortIndex: relation.sort_index,
-    })),
-    compositions: (state.compositions || []).map(composition => ({
-      id: composition.id,
-      name: composition.name,
-      description: composition.description,
-      status: composition.status,
-      outputAssetId: composition.output_asset_id,
-      outputVariantId: composition.output_variant_id,
-      metadata: parseJsonForManifest(composition.metadata),
-      sortIndex: composition.sort_index,
-    })),
-    compositionItems: (state.compositionItems || []).map(item => ({
-      id: item.id,
-      compositionId: item.composition_id,
-      role: item.role,
-      label: item.label ?? null,
-      assetId: item.asset_id,
-      variantId: item.variant_id,
-      metadata: parseJsonForManifest(item.metadata),
-      sortIndex: item.sort_index,
-    })),
+    lineage: [],
+    collections: [],
+    collectionItems: [],
+    relations: [],
+    compositions: [],
+    compositionItems: [],
   };
+
+  const exportedAssetIds = new Set<string>();
+  const exportedVariantIds = new Set<string>();
+  const exportedVariantAssetIds = new Map<string, string>();
 
   // Process each asset
   for (const asset of state.assets) {
@@ -680,13 +634,16 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       type: asset.type,
       mediaKind: asset.media_kind ?? DEFAULT_MEDIA_KIND,
       tags: JSON.parse(asset.tags || '[]'),
-      activeVariantId: asset.active_variant_id,
+      activeVariantId: null,
       createdAt: asset.created_at,
       variants: [],
     };
 
     // Process each variant
     for (const variant of assetVariants) {
+      if (variant.status && variant.status !== 'completed') {
+        continue;
+      }
       const mediaKind = variant.media_kind ?? asset.media_kind ?? DEFAULT_MEDIA_KIND;
       const canonicalMediaKey = variant.media_key ?? variant.image_key ?? null;
       if (!canonicalMediaKey) {
@@ -749,8 +706,109 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       });
     }
 
+    if (exportAsset.variants.length === 0) {
+      continue;
+    }
+
+    exportAsset.activeVariantId = asset.active_variant_id && exportAsset.variants.some((variant) => variant.id === asset.active_variant_id)
+      ? asset.active_variant_id
+      : null;
     manifest.assets.push(exportAsset);
+    exportedAssetIds.add(asset.id);
+    for (const variant of exportAsset.variants) {
+      exportedVariantIds.add(variant.id);
+      exportedVariantAssetIds.set(variant.id, asset.id);
+    }
   }
+
+  const subjectExported = (
+    subjectType: ExportSubjectType,
+    assetId: string | null,
+    variantId: string | null
+  ) => subjectType === 'asset'
+    ? Boolean(assetId && exportedAssetIds.has(assetId))
+    : Boolean(variantId && exportedVariantIds.has(variantId));
+
+  manifest.lineage = (state.lineage || [])
+    .filter(l => exportedVariantIds.has(l.parent_variant_id) && exportedVariantIds.has(l.child_variant_id))
+    .map(l => ({
+      id: l.id,
+      parentVariantId: l.parent_variant_id,
+      childVariantId: l.child_variant_id,
+      relationType: l.relation_type as ExportLineage['relationType'],
+      severed: Boolean(l.severed),
+    }));
+  manifest.collections = (state.collections || []).map(collection => ({
+    id: collection.id,
+    name: collection.name,
+    description: collection.description,
+    sortIndex: collection.sort_index,
+  }));
+  manifest.collectionItems = (state.collectionItems || [])
+    .filter(item => subjectExported(item.subject_type, item.asset_id, item.variant_id))
+    .map(item => ({
+      id: item.id,
+      collectionId: item.collection_id,
+      subjectType: item.subject_type,
+      assetId: item.asset_id,
+      variantId: item.variant_id,
+      role: item.role,
+      pinnedVariantId: item.pinned_variant_id && exportedVariantIds.has(item.pinned_variant_id)
+        ? item.pinned_variant_id
+        : null,
+      sortIndex: item.sort_index,
+    }));
+  manifest.relations = (state.relations || [])
+    .filter(relation =>
+      subjectExported(relation.subject_type, relation.subject_asset_id, relation.subject_variant_id) &&
+      subjectExported(relation.object_type, relation.object_asset_id, relation.object_variant_id)
+    )
+    .map(relation => ({
+      id: relation.id,
+      subjectType: relation.subject_type,
+      subjectAssetId: relation.subject_asset_id,
+      subjectVariantId: relation.subject_variant_id,
+      objectType: relation.object_type,
+      objectAssetId: relation.object_asset_id,
+      objectVariantId: relation.object_variant_id,
+      relationType: relation.relation_type,
+      label: relation.label ?? null,
+      context: relation.context,
+      metadata: parseJsonForManifest(relation.metadata),
+      sortIndex: relation.sort_index,
+    }));
+  manifest.compositions = (state.compositions || []).map(composition => {
+    const outputVariantId = composition.output_variant_id && exportedVariantIds.has(composition.output_variant_id)
+      ? composition.output_variant_id
+      : null;
+    const outputAssetId = outputVariantId
+      ? exportedVariantAssetIds.get(outputVariantId) ?? null
+      : composition.output_asset_id && exportedAssetIds.has(composition.output_asset_id)
+        ? composition.output_asset_id
+        : null;
+    return {
+      id: composition.id,
+      name: composition.name,
+      description: composition.description,
+      status: composition.status,
+      outputAssetId,
+      outputVariantId,
+      metadata: parseJsonForManifest(composition.metadata),
+      sortIndex: composition.sort_index,
+    };
+  });
+  manifest.compositionItems = (state.compositionItems || [])
+    .filter(item => exportedVariantIds.has(item.variant_id))
+    .map(item => ({
+      id: item.id,
+      compositionId: item.composition_id,
+      role: item.role,
+      label: item.label ?? null,
+      assetId: exportedVariantAssetIds.get(item.variant_id) ?? null,
+      variantId: item.variant_id,
+      metadata: parseJsonForManifest(item.metadata),
+      sortIndex: item.sort_index,
+    }));
 
   // Add manifest to ZIP
   zipFiles['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));

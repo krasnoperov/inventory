@@ -427,6 +427,169 @@ describe('exportRoutes', () => {
     assert.match(await res.text(), /missing media object for variant variant-missing/);
   });
 
+  it('skips in-progress placeholder variants while exporting completed content', async () => {
+    const { app } = buildApp({
+      state: {
+        assets: [
+          {
+            id: 'asset-1',
+            name: 'Hero',
+            type: 'character',
+            media_kind: 'image',
+            tags: '[]',
+            active_variant_id: 'variant-pending',
+            created_at: 1,
+          },
+          {
+            id: 'asset-pending-only',
+            name: 'Sketch',
+            type: 'prop',
+            media_kind: 'image',
+            tags: '[]',
+            active_variant_id: 'variant-only-pending',
+            created_at: 4,
+          },
+        ],
+        variants: [
+          {
+            id: 'variant-complete',
+            asset_id: 'asset-1',
+            media_kind: 'image',
+            status: 'completed',
+            image_key: 'images/space-1/variant-complete.png',
+            thumb_key: null,
+            media_key: 'images/space-1/variant-complete.png',
+            media_mime_type: 'image/png',
+            media_size_bytes: 10,
+            media_width: 100,
+            media_height: 100,
+            media_duration_ms: null,
+            recipe: '{"operation":"generate"}',
+            created_at: 2,
+          },
+          {
+            id: 'variant-pending',
+            asset_id: 'asset-1',
+            media_kind: 'image',
+            status: 'pending',
+            image_key: null,
+            thumb_key: null,
+            media_key: null,
+            media_mime_type: null,
+            media_size_bytes: null,
+            media_width: null,
+            media_height: null,
+            media_duration_ms: null,
+            recipe: '{"operation":"refine"}',
+            created_at: 3,
+          },
+          {
+            id: 'variant-only-pending',
+            asset_id: 'asset-pending-only',
+            media_kind: 'image',
+            status: 'uploading',
+            image_key: null,
+            thumb_key: null,
+            media_key: null,
+            media_mime_type: null,
+            media_size_bytes: null,
+            media_width: null,
+            media_height: null,
+            media_duration_ms: null,
+            recipe: '{"operation":"upload"}',
+            created_at: 5,
+          },
+        ],
+        lineage: [{
+          id: 'lineage-pending',
+          parent_variant_id: 'variant-complete',
+          child_variant_id: 'variant-pending',
+          relation_type: 'refined',
+          severed: 0,
+        }],
+        collections: [{ id: 'collection-1', name: 'Opening Kit', description: null, sort_index: 0 }],
+        collectionItems: [
+          {
+            id: 'collection-item-pending',
+            collection_id: 'collection-1',
+            subject_type: 'variant',
+            asset_id: null,
+            variant_id: 'variant-pending',
+            role: 'hero',
+            pinned_variant_id: null,
+            sort_index: 0,
+          },
+          {
+            id: 'collection-item-asset',
+            collection_id: 'collection-1',
+            subject_type: 'asset',
+            asset_id: 'asset-1',
+            variant_id: null,
+            role: 'asset',
+            pinned_variant_id: 'variant-pending',
+            sort_index: 1,
+          },
+        ],
+        relations: [{
+          id: 'relation-pending',
+          subject_type: 'asset',
+          subject_asset_id: 'asset-1',
+          subject_variant_id: null,
+          object_type: 'variant',
+          object_asset_id: null,
+          object_variant_id: 'variant-pending',
+          relation_type: 'reference_for',
+          label: null,
+          context: null,
+          metadata: '{}',
+          sort_index: 0,
+        }],
+        compositions: [{
+          id: 'composition-1',
+          name: 'Final Mix',
+          description: null,
+          status: 'draft',
+          output_asset_id: 'asset-1',
+          output_variant_id: 'variant-pending',
+          metadata: '{}',
+          sort_index: 0,
+        }],
+        compositionItems: [{
+          id: 'composition-item-pending',
+          composition_id: 'composition-1',
+          role: 'output',
+          label: null,
+          asset_id: 'asset-1',
+          variant_id: 'variant-pending',
+          metadata: '{}',
+          sort_index: 0,
+        }],
+      },
+      objects: {
+        'images/space-1/variant-complete.png': makeObject('images/space-1/variant-complete.png', 'complete-image', 'image/png'),
+      },
+    });
+
+    const res = await app.fetch(new Request('https://app.example/api/spaces/space-1/export', {
+      headers: { Authorization: 'Bearer test-token' },
+    }));
+
+    assert.equal(res.status, 200);
+    const unzipped = unzipSync(new Uint8Array(await res.arrayBuffer()));
+    const manifest = JSON.parse(strFromU8(unzipped['manifest.json'])) as any;
+    assert.deepEqual(manifest.assets.map((asset: { id: string }) => asset.id), ['asset-1']);
+    assert.deepEqual(manifest.assets[0].variants.map((variant: { id: string }) => variant.id), ['variant-complete']);
+    assert.equal(manifest.assets[0].activeVariantId, null);
+    assert.deepEqual(manifest.lineage, []);
+    assert.deepEqual(manifest.collectionItems.map((item: { id: string }) => item.id), ['collection-item-asset']);
+    assert.equal(manifest.collectionItems[0].pinnedVariantId, null);
+    assert.deepEqual(manifest.relations, []);
+    assert.equal(manifest.compositions[0].outputAssetId, 'asset-1');
+    assert.equal(manifest.compositions[0].outputVariantId, null);
+    assert.deepEqual(manifest.compositionItems, []);
+    assert.equal(strFromU8(unzipped[manifest.assets[0].variants[0].mediaFile]), 'complete-image');
+  });
+
   it('exports organization records and full variant provenance', async () => {
     const longPrompt = `A production prompt ${'with exact wording '.repeat(20)}model suffix`;
     const { app } = buildApp({
