@@ -1544,6 +1544,11 @@ export class SpaceRepository {
           sortIndex: index,
           createdBy: style.created_by,
         });
+      } else if (existingItem.sort_index !== index || existingItem.pinned_variant_id !== ids.variantId) {
+        await this.updateCollectionItem(ids.itemId, {
+          pinnedVariantId: ids.variantId,
+          sortIndex: index,
+        });
       }
 
       assetIds.push(ids.assetId);

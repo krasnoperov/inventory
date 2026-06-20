@@ -748,6 +748,42 @@ describe('Space organization repository', () => {
     assert.equal(getRefCount('styles/space-1/new.png'), 2);
   });
 
+  test('backfill refreshes migrated collection item order after legacy style image reorder', async () => {
+    await repo.createStyle({
+      id: 'legacy-style',
+      description: 'Ordered watercolor props',
+      imageKeys: [
+        'styles/space-1/first.png',
+        'styles/space-1/second.png',
+      ],
+      createdBy: 'user-1',
+    });
+    const first = await repo.backfillLegacySpaceStyle();
+
+    await repo.updateStyle('legacy-style', {
+      imageKeys: [
+        'styles/space-1/second.png',
+        'styles/space-1/first.png',
+      ],
+    });
+    const second = await repo.backfillLegacySpaceStyle();
+    const collectionItems = await repo.listCollectionItems(second.collectionId!);
+    const resolved = await resolveStyleReferences(repo, { useLegacyFallback: true });
+
+    assert.equal(second.collectionId, first.collectionId);
+    assert.deepEqual(collectionItems.map((item) => [item.pinned_variant_id, item.sort_index]), [
+      [second.variantIds[0], 0],
+      [second.variantIds[1], 1],
+    ]);
+    assert.deepEqual(resolved.styleReferenceVariantIds, second.variantIds);
+    assert.deepEqual(resolved.styleKeys, [
+      'styles/space-1/second.png',
+      'styles/space-1/first.png',
+    ]);
+    assert.equal(getRefCount('styles/space-1/first.png'), 2);
+    assert.equal(getRefCount('styles/space-1/second.png'), 2);
+  });
+
   test('backfill disables and removes migrated defaults as legacy style state is cleared', async () => {
     await repo.createStyle({
       id: 'legacy-style',
