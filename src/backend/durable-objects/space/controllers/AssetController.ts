@@ -408,16 +408,12 @@ export class AssetController extends BaseController {
 
     const now = Date.now();
 
-    // Auto-set parentAssetId from source variant's asset if not explicitly provided
-    // This ensures forked assets show their relationship on the Space page
-    const effectiveParentAssetId = data.parentAssetId ?? sourceVariant.asset_id;
-
     // Create new asset
     const asset = await this.createAsset({
       name: data.name,
       type: data.type,
       mediaKind: data.mediaKind ?? sourceMediaKind,
-      parentAssetId: effectiveParentAssetId,
+      parentAssetId: data.parentAssetId,
       createdBy: data.createdBy,
     });
 

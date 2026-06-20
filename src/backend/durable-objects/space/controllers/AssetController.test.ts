@@ -80,7 +80,13 @@ function createMockRepo(): SpaceRepository {
     getVariantById: mock.fn(async () => null),
     getLineageForVariants: mock.fn(async () => []),
     createAsset: mock.fn(async (input) =>
-      createMockAsset({ id: input.id, name: input.name, type: input.type, media_kind: input.mediaKind ?? 'image' })
+      createMockAsset({
+        id: input.id,
+        name: input.name,
+        type: input.type,
+        media_kind: input.mediaKind ?? 'image',
+        parent_asset_id: input.parentAssetId ?? null,
+      })
     ),
     updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
     deleteAsset: mock.fn(async () => {}),
@@ -636,6 +642,10 @@ describe('AssetController', () => {
       const forkBroadcast = broadcasts.find((b) => b.type === 'asset:forked');
       assert.ok(forkBroadcast);
       assert.strictEqual((forkBroadcast as { asset: Asset }).asset.name, 'Forked Asset');
+      assert.strictEqual((forkBroadcast as { asset: Asset }).asset.parent_asset_id, null);
+
+      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
+      assert.strictEqual(createCall.parentAssetId, undefined);
 
       const refCalls = asMock(ctx.sql.exec).mock.calls.filter((c) =>
         String(c.arguments[0]).includes('INSERT INTO image_refs')
@@ -674,6 +684,8 @@ describe('AssetController', () => {
 
       // Verify fork broadcast
       assert.ok(broadcasts.some((b) => b.type === 'asset:forked'));
+      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
+      assert.strictEqual(createCall.parentAssetId, undefined);
     });
 
     test('throws when source asset not found', async () => {
@@ -798,6 +810,36 @@ describe('AssetController', () => {
       const lineageCall = asMock(ctx.repo.createLineage).mock.calls[0].arguments[0];
       assert.strictEqual(lineageCall.parentVariantId, 'source-var');
       assert.strictEqual(lineageCall.relationType, 'forked');
+    });
+
+    test('preserves explicit parentAssetId when forking for compatibility', async () => {
+      const sourceVariant = createMockVariant({
+        id: 'source-var',
+        asset_id: 'source-asset',
+      });
+
+      const { ctx, broadcasts } = createMockContext({
+        getVariantById: mock.fn(async () => sourceVariant),
+        updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
+      });
+      const controller = new AssetController(ctx);
+
+      await controller.handleFork(
+        {} as WebSocket,
+        createEditorMeta(),
+        undefined,
+        'source-var',
+        'Forked',
+        'character',
+        'explicit-parent'
+      );
+
+      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
+      assert.strictEqual(createCall.parentAssetId, 'explicit-parent');
+
+      const forkBroadcast = broadcasts.find((b) => b.type === 'asset:forked');
+      assert.ok(forkBroadcast);
+      assert.strictEqual((forkBroadcast as { asset: Asset }).asset.parent_asset_id, 'explicit-parent');
     });
 
     test('uses matching explicit media kind for forked asset and copied variant', async () => {

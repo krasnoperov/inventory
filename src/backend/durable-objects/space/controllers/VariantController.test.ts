@@ -83,7 +83,13 @@ function createMockRepo(): SpaceRepository {
       createMockVariant({ id, starred })
     ),
     createAsset: mock.fn(async (input) =>
-      createMockAsset({ id: input.id, name: input.name, type: input.type, media_kind: input.mediaKind ?? 'image' })
+      createMockAsset({
+        id: input.id,
+        name: input.name,
+        type: input.type,
+        media_kind: input.mediaKind ?? 'image',
+        parent_asset_id: input.parentAssetId ?? null,
+      })
     ),
     createLineage: mock.fn(async (input) =>
       createMockLineage({
@@ -723,7 +729,11 @@ describe('VariantController', () => {
 
       assert.ok(result.asset); // New asset should be returned
       assert.strictEqual(result.asset?.name, 'New Upload Asset');
+      assert.strictEqual(result.asset?.parent_asset_id, null);
       assert.strictEqual(result.variant.status, 'uploading');
+
+      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
+      assert.strictEqual(createCall.parentAssetId, null);
 
       // Verify both asset:created and variant:created broadcasts
       assert.ok(broadcasts.some((b) => b.type === 'asset:created'));

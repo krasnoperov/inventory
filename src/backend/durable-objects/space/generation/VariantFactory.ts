@@ -228,17 +228,6 @@ export class VariantFactory {
     const variantId = crypto.randomUUID();
     const assetId = crypto.randomUUID();
 
-    // Auto-set parentAssetId from first reference if not explicitly provided
-    let effectiveParentAssetId = input.parentAssetId;
-    if (!effectiveParentAssetId && input.referenceAssetIds?.length) {
-      effectiveParentAssetId = input.referenceAssetIds[0];
-    } else if (!effectiveParentAssetId && input.referenceVariantIds?.length) {
-      const firstVariant = await this.repo.getVariantById(input.referenceVariantIds[0]);
-      if (firstVariant) {
-        effectiveParentAssetId = firstVariant.asset_id;
-      }
-    }
-
     // Resolve references
     const resolved = await this.resolveAllReferences(
       input.referenceAssetIds,
@@ -304,7 +293,7 @@ export class VariantFactory {
       type: input.assetType,
       mediaKind: input.mediaKind,
       tags: [],
-      parentAssetId: effectiveParentAssetId,
+      parentAssetId: input.parentAssetId,
       createdBy: meta.userId,
     });
     this.broadcast({ type: 'asset:created', asset });
@@ -680,17 +669,6 @@ export class VariantFactory {
     recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
     this.validateImageModelReferenceLimit(recipe, effectiveSourceImageKeys);
 
-    // Auto-set parentAssetId from first reference
-    let effectiveParentAssetId = input.parentAssetId;
-    if (!effectiveParentAssetId && input.referenceAssetIds?.length) {
-      effectiveParentAssetId = input.referenceAssetIds[0];
-    } else if (!effectiveParentAssetId && input.referenceVariantIds?.length) {
-      const firstVariant = await this.repo.getVariantById(input.referenceVariantIds[0]);
-      if (firstVariant) {
-        effectiveParentAssetId = firstVariant.asset_id;
-      }
-    }
-
     const recipeJson = JSON.stringify(recipe);
 
     if (input.mode === 'explore') {
@@ -702,7 +680,7 @@ export class VariantFactory {
         type: input.assetType,
         mediaKind: input.mediaKind,
         tags: [],
-        parentAssetId: effectiveParentAssetId,
+        parentAssetId: input.parentAssetId,
         createdBy: meta.userId,
       });
       this.broadcast({ type: 'asset:created', asset });
@@ -754,7 +732,7 @@ export class VariantFactory {
           type: input.assetType,
           mediaKind: input.mediaKind,
           tags: [],
-          parentAssetId: effectiveParentAssetId,
+          parentAssetId: input.parentAssetId,
           createdBy: meta.userId,
         });
         this.broadcast({ type: 'asset:created', asset });
