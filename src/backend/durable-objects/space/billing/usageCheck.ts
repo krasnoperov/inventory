@@ -28,9 +28,16 @@ export interface PreCheckResult {
   rateLimitUsed: number;
   rateLimitMax: number;
   rateLimitRemaining: number;
-  denyReason?: 'quota_exceeded' | 'rate_limited' | 'paid_generation_required';
+  denyReason?: GenerationLimitDenyReason;
   denyMessage?: string;
 }
+
+export type GenerationLimitDenyReason =
+  | 'quota_exceeded'
+  | 'platform_limit_exceeded'
+  | 'rate_limited'
+  | 'paid_generation_required'
+  | 'provider_key_required';
 
 export interface RateLimitConfig {
   windowSeconds: number;
@@ -54,6 +61,62 @@ const QUOTA_EVENT_NAMES: Record<string, string> = {
   elevenlabs: 'elevenlabs_audio',
   veo: 'gemini_videos',
 };
+
+type GenerationBillingService = keyof typeof QUOTA_EVENT_NAMES;
+
+type GenerationGuardrailMode = 'managed' | 'byok';
+
+type GuardrailUsageScope = 'user' | 'space';
+
+export interface PlatformGuardrailUsage {
+  usageType: 'storage' | 'workflow' | 'delivery';
+  quantity: number;
+  scope?: GuardrailUsageScope;
+}
+
+export interface GenerationGuardrailCheckInput {
+  userId: number;
+  spaceId: string;
+  mode: GenerationGuardrailMode;
+  service: GenerationBillingService;
+  requestedRateLimitQuantity?: number;
+  requestedProviderCostMicroUsd?: number;
+  requestedPlatformUsage?: PlatformGuardrailUsage[];
+  mediaKind?: 'image' | 'audio' | 'video' | null;
+  adminUserIds?: string;
+  now?: Date;
+}
+
+export interface GenerationGuardrailCheckResult {
+  allowed: boolean;
+  denyReason?: GenerationLimitDenyReason;
+  denyMessage?: string;
+  limitKey?: string;
+  used?: number;
+  limit?: number;
+  requested?: number;
+}
+
+const MANAGED_PROVIDER_SPEND_LIMIT_KEY = 'managed_provider_spend_micro_usd';
+const MANAGED_PROVIDER_DAILY_SPEND_LIMIT_KEY = 'managed_provider_spend_daily_micro_usd';
+const PLATFORM_LIMIT_KEYS = {
+  user: {
+    storage: 'platform_storage_bytes',
+    workflow: 'platform_workflow_runs',
+    delivery: 'platform_delivery_bytes',
+  },
+  space: {
+    storage: 'space_platform_storage_bytes',
+    workflow: 'space_platform_workflow_runs',
+    delivery: 'space_platform_delivery_bytes',
+  },
+} as const;
+const VIDEO_WORKFLOW_LIMIT_KEYS = {
+  userPeriod: 'video_workflow_runs',
+  userDaily: 'video_workflow_runs_daily',
+  spacePeriod: 'space_video_workflow_runs',
+  spaceDaily: 'space_video_workflow_runs_daily',
+} as const;
 
 export const VIDEO_WITH_AUDIO_QUOTA_UNITS = 2;
 
@@ -96,6 +159,296 @@ function getUsagePeriodBounds(now: Date, periodStart?: string | null, periodEnd?
     start: isUsableIsoDate(periodStart) ? periodStart : calendarStart,
     end: isUsableIsoDate(periodEnd) ? periodEnd : null,
   };
+}
+
+function getDayBounds(now: Date): { start: string; end: string } {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+function parseQuotaLimits(value: string | null): Record<string, unknown> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function getPlanLimit(
+  limits: Record<string, unknown>,
+  key: string,
+  internal: boolean
+): { key: string; value: number } | null {
+  const internalKey = `internal_${key}`;
+  const raw = internal && Object.prototype.hasOwnProperty.call(limits, internalKey)
+    ? limits[internalKey]
+    : internal
+      ? undefined
+      : limits[key];
+  if (raw === null || raw === undefined) return null;
+  const value = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(value) || value < 0) return null;
+  return { key: internal && Object.prototype.hasOwnProperty.call(limits, internalKey) ? internalKey : key, value };
+}
+
+async function sumProviderSpend(
+  db: D1Database,
+  userId: number,
+  from: string,
+  to: string | null
+): Promise<number> {
+  const sql = to
+    ? `
+      SELECT COALESCE(SUM(COALESCE(amount_micro_usd, 0)), 0) AS total
+      FROM provider_usage_ledger
+      WHERE user_id = ? AND created_at >= ? AND created_at < ?
+    `
+    : `
+      SELECT COALESCE(SUM(COALESCE(amount_micro_usd, 0)), 0) AS total
+      FROM provider_usage_ledger
+      WHERE user_id = ? AND created_at >= ?
+    `;
+  const bindings = to ? [userId, from, to] : [userId, from];
+  const row = await db.prepare(sql).bind(...bindings).first<{ total: number }>();
+  return Number(row?.total) || 0;
+}
+
+async function sumPlatformUsage(
+  db: D1Database,
+  input: {
+    userId: number;
+    spaceId: string;
+    scope: GuardrailUsageScope;
+    usageType: 'storage' | 'workflow' | 'delivery';
+    from: string;
+    to: string | null;
+    mediaKind?: 'image' | 'audio' | 'video' | null;
+  }
+): Promise<number> {
+  const subjectWhere = input.scope === 'space' ? 'space_id = ?' : 'user_id = ?';
+  const subjectValue = input.scope === 'space' ? input.spaceId : input.userId;
+  const mediaWhere = input.mediaKind ? ' AND media_kind = ?' : '';
+  const toWhere = input.to ? ' AND created_at < ?' : '';
+  const bindings: unknown[] = [
+    subjectValue,
+    input.usageType,
+    input.from,
+  ];
+  if (input.to) bindings.push(input.to);
+  if (input.mediaKind) bindings.push(input.mediaKind);
+
+  const row = await db.prepare(`
+    SELECT COALESCE(SUM(quantity), 0) AS total
+    FROM platform_usage_events
+    WHERE ${subjectWhere}
+      AND usage_type = ?
+      AND created_at >= ?
+      ${toWhere}
+      ${mediaWhere}
+  `).bind(...bindings).first<{ total: number }>();
+  return Number(row?.total) || 0;
+}
+
+function denyGuardrail(input: {
+  denyReason: GenerationLimitDenyReason;
+  denyMessage: string;
+  limitKey: string;
+  used: number;
+  requested: number;
+  limit: number;
+}): GenerationGuardrailCheckResult {
+  return {
+    allowed: false,
+    denyReason: input.denyReason,
+    denyMessage: input.denyMessage,
+    limitKey: input.limitKey,
+    used: input.used,
+    requested: input.requested,
+    limit: input.limit,
+  };
+}
+
+async function checkPlatformLimit(
+  db: D1Database,
+  input: GenerationGuardrailCheckInput,
+  limitKey: string,
+  requested: number,
+  period: { start: string; end: string | null },
+  limits: Record<string, unknown>,
+  internal: boolean,
+  scope: GuardrailUsageScope,
+  usageType: 'storage' | 'workflow' | 'delivery',
+  mediaKind?: 'image' | 'audio' | 'video' | null,
+): Promise<GenerationGuardrailCheckResult | null> {
+  const limit = getPlanLimit(limits, limitKey, internal);
+  if (!limit || requested <= 0) return null;
+
+  const used = await sumPlatformUsage(db, {
+    userId: input.userId,
+    spaceId: input.spaceId,
+    scope,
+    usageType,
+    from: period.start,
+    to: period.end,
+    mediaKind,
+  });
+  if (used + requested <= limit.value) return null;
+
+  return denyGuardrail({
+    denyReason: 'platform_limit_exceeded',
+    denyMessage: `Platform ${usageType} limit exceeded.`,
+    limitKey: limit.key,
+    used,
+    requested,
+    limit: limit.value,
+  });
+}
+
+export async function checkGenerationGuardrails(
+  db: D1Database,
+  input: GenerationGuardrailCheckInput
+): Promise<GenerationGuardrailCheckResult> {
+  const now = input.now ?? new Date();
+  const user = await db.prepare(`
+    SELECT
+      paid_generation_entitlement,
+      quota_limits,
+      polar_current_period_start,
+      polar_current_period_end,
+      rate_limit_count,
+      rate_limit_window_start
+    FROM users WHERE id = ?
+  `).bind(input.userId).first<{
+    paid_generation_entitlement: string | null;
+    quota_limits: string | null;
+    polar_current_period_start: string | null;
+    polar_current_period_end: string | null;
+    rate_limit_count: number | null;
+    rate_limit_window_start: string | null;
+  }>();
+
+  if (!user) {
+    return denyGuardrail({
+      denyReason: 'quota_exceeded',
+      denyMessage: 'User not found',
+      limitKey: 'user',
+      used: 0,
+      requested: 1,
+      limit: 0,
+    });
+  }
+
+  const entitlement = resolveEntitlement(user.paid_generation_entitlement, input.userId, input.adminUserIds);
+  const internal = isNonBillablePaidGenerationEntitlement(entitlement);
+  const limits = parseQuotaLimits(user.quota_limits);
+  const period = getUsagePeriodBounds(now, user.polar_current_period_start, user.polar_current_period_end);
+  const requestedProviderCost = Math.max(0, Math.trunc(input.requestedProviderCostMicroUsd ?? 0));
+  const requestedRate = Math.max(0, Math.trunc(input.requestedRateLimitQuantity ?? 0));
+
+  if (requestedRate > 0) {
+    const rateLimitConfig = DEFAULT_RATE_LIMITS[input.service];
+    const windowStart = new Date(now.getTime() - rateLimitConfig.windowSeconds * 1000).toISOString();
+    const windowExpired = !user.rate_limit_window_start || user.rate_limit_window_start < windowStart;
+    const rateLimitUsed = windowExpired ? 0 : (user.rate_limit_count || 0);
+    if (rateLimitUsed + requestedRate > rateLimitConfig.maxRequests) {
+      return denyGuardrail({
+        denyReason: 'rate_limited',
+        denyMessage: `Too many requests. Please wait ${rateLimitConfig.windowSeconds} seconds.`,
+        limitKey: `${input.service}_rate_limit`,
+        used: rateLimitUsed,
+        requested: requestedRate,
+        limit: rateLimitConfig.maxRequests,
+      });
+    }
+  }
+
+  if (input.mode === 'managed' && requestedProviderCost > 0) {
+    const periodLimit = getPlanLimit(limits, MANAGED_PROVIDER_SPEND_LIMIT_KEY, internal);
+    if (periodLimit) {
+      const used = await sumProviderSpend(db, input.userId, period.start, period.end);
+      if (used + requestedProviderCost > periodLimit.value) {
+        return denyGuardrail({
+          denyReason: 'quota_exceeded',
+          denyMessage: 'Managed provider spend cap exceeded.',
+          limitKey: periodLimit.key,
+          used,
+          requested: requestedProviderCost,
+          limit: periodLimit.value,
+        });
+      }
+    }
+
+    const dailyLimit = getPlanLimit(limits, MANAGED_PROVIDER_DAILY_SPEND_LIMIT_KEY, internal);
+    if (dailyLimit) {
+      const day = getDayBounds(now);
+      const used = await sumProviderSpend(db, input.userId, day.start, day.end);
+      if (used + requestedProviderCost > dailyLimit.value) {
+        return denyGuardrail({
+          denyReason: 'quota_exceeded',
+          denyMessage: 'Daily managed provider spend cap exceeded.',
+          limitKey: dailyLimit.key,
+          used,
+          requested: requestedProviderCost,
+          limit: dailyLimit.value,
+        });
+      }
+    }
+  }
+
+  for (const usage of input.requestedPlatformUsage ?? []) {
+    const requested = Math.max(0, Math.trunc(usage.quantity));
+    const scopes: GuardrailUsageScope[] = usage.scope ? [usage.scope] : ['user', 'space'];
+    for (const scope of scopes) {
+      const result = await checkPlatformLimit(
+        db,
+        input,
+        PLATFORM_LIMIT_KEYS[scope][usage.usageType],
+        requested,
+        period,
+        limits,
+        internal,
+        scope,
+        usage.usageType,
+      );
+      if (result) return result;
+    }
+  }
+
+  if (input.mediaKind === 'video') {
+    const videoRunRequest = (input.requestedPlatformUsage ?? [])
+      .filter((usage) => usage.usageType === 'workflow')
+      .reduce((sum, usage) => sum + Math.max(0, Math.trunc(usage.quantity)), 0);
+    if (videoRunRequest > 0) {
+      const userPeriod = await checkPlatformLimit(
+        db, input, VIDEO_WORKFLOW_LIMIT_KEYS.userPeriod, videoRunRequest, period, limits, internal, 'user', 'workflow', 'video'
+      );
+      if (userPeriod) return userPeriod;
+
+      const spacePeriod = await checkPlatformLimit(
+        db, input, VIDEO_WORKFLOW_LIMIT_KEYS.spacePeriod, videoRunRequest, period, limits, internal, 'space', 'workflow', 'video'
+      );
+      if (spacePeriod) return spacePeriod;
+
+      const day = getDayBounds(now);
+      const dailyPeriod = { start: day.start, end: day.end };
+      const userDaily = await checkPlatformLimit(
+        db, input, VIDEO_WORKFLOW_LIMIT_KEYS.userDaily, videoRunRequest, dailyPeriod, limits, internal, 'user', 'workflow', 'video'
+      );
+      if (userDaily) return userDaily;
+
+      const spaceDaily = await checkPlatformLimit(
+        db, input, VIDEO_WORKFLOW_LIMIT_KEYS.spaceDaily, videoRunRequest, dailyPeriod, limits, internal, 'space', 'workflow', 'video'
+      );
+      if (spaceDaily) return spaceDaily;
+    }
+  }
+
+  return { allowed: true };
 }
 
 /**

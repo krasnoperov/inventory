@@ -82,6 +82,8 @@ function createQuotaCheckDb(options: {
   rateLimitCount?: number;
   paidGenerationEntitlement?: 'none' | 'paid' | 'internal';
   hasProviderKey?: boolean;
+  platformUsed?: number;
+  providerSpendMicroUsd?: number;
   bindings?: unknown[][];
 }) {
   return {
@@ -93,10 +95,19 @@ function createQuotaCheckDb(options: {
             if (sql.includes('SELECT 1 AS present')) {
               return options.hasProviderKey ? { present: 1 } : null;
             }
+            if (sql.includes('FROM platform_usage_events')) {
+              return { total: options.platformUsed ?? 0 };
+            }
+            if (sql.includes('FROM provider_usage_ledger')) {
+              return { total: options.providerSpendMicroUsd ?? 0 };
+            }
             if (sql.includes('FROM users')) {
               return {
                 paid_generation_entitlement: options.paidGenerationEntitlement ?? 'paid',
                 quota_limits: options.quotaLimitsJson ?? JSON.stringify({ elevenlabs_audio: options.quotaLimit }),
+                polar_current_period_start: null,
+                polar_current_period_end: null,
+                polar_paid_access_expires_at: null,
                 rate_limit_count: options.rateLimitCount ?? 0,
                 rate_limit_window_start: null,
               };
@@ -268,6 +279,44 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(asMock(ctx.send).mock.calls.length, 0);
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 1);
       assert.strictEqual(workflowCreate.mock.calls.length, 1);
+    });
+
+    test('blocks BYOK generation when platform workflow fair-use limit is exhausted', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 0,
+        quotaLimitsJson: JSON.stringify({ platform_workflow_runs: 1 }),
+        paidGenerationEntitlement: 'none',
+        hasProviderKey: true,
+        platformUsed: 1,
+      }) as any;
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-byok-platform-limit',
+          name: 'BYOK image',
+          assetType: 'item',
+          mediaKind: 'image',
+          prompt: 'pixel art potion',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'generate:error',
+        requestId: 'request-byok-platform-limit',
+        error: 'Platform workflow limit exceeded.',
+        code: 'PLATFORM_LIMIT_EXCEEDED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
     });
 
     test('does not use Google BYOK to bypass custom image provider billing', async () => {
