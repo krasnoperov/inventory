@@ -17,6 +17,16 @@ import type {
 } from '../hooks/useSpaceWebSocket';
 import { HeaderNav } from '../components/HeaderNav';
 import { WorkspaceChrome } from '../components/WorkspaceChrome';
+import {
+  CanvasToolbar,
+  CanvasToolbarBadge,
+  CanvasToolbarButton,
+  CanvasToolbarDivider,
+  CanvasToolbarGroup,
+  CanvasToolbarLive,
+  CanvasToolbarStat,
+  CanvasToolbarTitle,
+} from '../components/CanvasToolbar';
 import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { AssetCanvas, layoutAlgorithms, type LayoutAlgorithm } from '../components/AssetCanvas';
@@ -426,64 +436,70 @@ export default function SpacePage() {
           />
         )}
 
-        {/* Compact floating toolbar - top left */}
-        <div className={styles.toolbar}>
-          <h1 className={styles.spaceTitle}>{space.name}</h1>
-          <span className={`${styles.roleBadge} ${styles[space.role]}`}>
+        <CanvasToolbar ariaLabel="Space controls">
+          <CanvasToolbarTitle>
+            <h1 className={styles.spaceTitle}>{space.name}</h1>
+          </CanvasToolbarTitle>
+          <CanvasToolbarBadge tone={space.role}>
             {space.role}
-          </span>
-          <div className={styles.divider} />
-          <div className={styles.statGroup}>
-            <span className={styles.stat}>
+          </CanvasToolbarBadge>
+          <CanvasToolbarDivider />
+          <CanvasToolbarGroup>
+            <CanvasToolbarStat
+              title="Space members"
+              icon={(
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                 <path d="M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
+              )}
+            >
               {members.length}
-            </span>
-            <span className={styles.stat}>
+            </CanvasToolbarStat>
+            <CanvasToolbarStat
+              title="Assets"
+              icon={(
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
                 <polyline points="21 15 16 10 5 21" />
               </svg>
+              )}
+            >
               {assets.length}
-            </span>
-            {wsStatus === 'connected' && (
-              <span className={styles.liveIndicator}>Live</span>
-            )}
-          </div>
-          <div className={styles.divider} />
+            </CanvasToolbarStat>
+            {wsStatus === 'connected' && <CanvasToolbarLive />}
+          </CanvasToolbarGroup>
+          <CanvasToolbarDivider />
           {/* Layout switcher (only for the React Flow view) */}
           {viewMode === 'flow' && (
-            <div className={styles.layoutSwitcher}>
+            <CanvasToolbarGroup className={styles.layoutSwitcher}>
               {layoutAlgorithms.map((algo) => (
-                <button
+                <CanvasToolbarButton
                   key={algo.id}
-                  className={`${styles.layoutButton} ${layoutAlgorithm === algo.id ? styles.active : ''}`}
+                  active={layoutAlgorithm === algo.id}
                   onClick={() => setLayoutAlgorithm(algo.id)}
                   title={`${algo.name}: ${algo.description}`}
                 >
                   {algo.icon}
-                </button>
+                </CanvasToolbarButton>
               ))}
-            </div>
+            </CanvasToolbarGroup>
           )}
           {/* View-mode toggle: flat graph vs. hyperbolic disk (prototype) */}
-          <div className={styles.layoutSwitcher}>
-            <button
-              className={`${styles.layoutButton} ${viewMode === 'hyperbolic' ? styles.active : ''}`}
+          <CanvasToolbarGroup className={styles.layoutSwitcher}>
+            <CanvasToolbarButton
+              active={viewMode === 'hyperbolic'}
               onClick={() => setViewMode((m) => (m === 'hyperbolic' ? 'flow' : 'hyperbolic'))}
               title="Toggle hyperbolic (Poincaré-disk) view"
             >
               ◉
-            </button>
-          </div>
-          <div className={styles.divider} />
-          <button
-            className={styles.toolButton}
+            </CanvasToolbarButton>
+          </CanvasToolbarGroup>
+          <CanvasToolbarDivider />
+          <CanvasToolbarButton
             onClick={() => navigate(`/spaces/${spaceId}/production`)}
             title="Open Production view"
           >
@@ -493,10 +509,9 @@ export default function SpacePage() {
               <path d="M4 18h10" />
               <circle cx="17" cy="18" r="3" />
             </svg>
-          </button>
-          <div className={styles.divider} />
-          <button
-            className={styles.toolButton}
+          </CanvasToolbarButton>
+          <CanvasToolbarDivider />
+          <CanvasToolbarButton
             onClick={handleExport}
             disabled={isExporting || assets.length === 0}
             title={assets.length === 0 ? 'No assets to export' : 'Export all assets as ZIP'}
@@ -506,11 +521,10 @@ export default function SpacePage() {
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-          </button>
+          </CanvasToolbarButton>
           {canEdit && (
             <>
-              <button
-                className={styles.toolButton}
+              <CanvasToolbarButton
                 onClick={() => importInputRef.current?.click()}
                 disabled={isImporting}
                 title="Import from ZIP"
@@ -520,7 +534,7 @@ export default function SpacePage() {
                   <polyline points="17 8 12 3 7 8" />
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
-              </button>
+              </CanvasToolbarButton>
               <input
                 ref={importInputRef}
                 type="file"
@@ -531,9 +545,8 @@ export default function SpacePage() {
                   if (file) handleImport(file);
                 }}
               />
-              <div className={styles.divider} />
-              <button
-                className={styles.toolButton}
+              <CanvasToolbarDivider />
+              <CanvasToolbarButton
                 onClick={() => setShowTileSetPanel(true)}
                 title="Create Tile Set"
               >
@@ -543,9 +556,9 @@ export default function SpacePage() {
                   <rect x="3" y="13" width="8" height="8" rx="1" />
                   <rect x="13" y="13" width="8" height="8" rx="1" />
                 </svg>
-              </button>
-              <button
-                className={`${styles.toolButton} ${currentStyle?.enabled ? styles.styleActive : ''}`}
+              </CanvasToolbarButton>
+              <CanvasToolbarButton
+                className={currentStyle?.enabled ? styles.styleActive : undefined}
                 onClick={() => setShowStylePanel(v => !v)}
                 title={currentStyle?.enabled ? `Style: ${currentStyle.description}` : 'Configure space style'}
               >
@@ -555,10 +568,10 @@ export default function SpacePage() {
                   <circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none" />
                   <circle cx="16" cy="10" r="1.5" fill="currentColor" stroke="none" />
                 </svg>
-              </button>
+              </CanvasToolbarButton>
             </>
           )}
-        </div>
+        </CanvasToolbar>
 
         {/* Jobs overlay - compact toast-style at bottom left */}
         {jobs.size > 0 && (

@@ -12,6 +12,18 @@ import { useAssetDetailStore, useSelectedVariantId } from '../stores/assetDetail
 import { HeaderNav } from '../components/HeaderNav';
 import { WorkspaceChrome } from '../components/WorkspaceChrome';
 import {
+  CanvasToolbar,
+  CanvasToolbarBadge,
+  CanvasToolbarButton,
+  CanvasToolbarDivider,
+  CanvasToolbarGroup,
+  CanvasToolbarLink,
+  CanvasToolbarLive,
+  CanvasToolbarStat,
+  CanvasToolbarTitle,
+} from '../components/CanvasToolbar';
+import { UsageIndicator } from '../components/UsageIndicator';
+import {
   useSpaceWebSocket,
   PREDEFINED_ASSET_TYPES,
   type Asset,
@@ -551,6 +563,7 @@ export default function AssetDetailPage() {
         <WorkspaceChrome
           leftSlot={<Link to="/dashboard" className={styles.brand}>Make Effects</Link>}
           rightSlot={headerRightSlot}
+          statusSlot={<UsageIndicator />}
         />
         <div className={styles.loadingPage}>
           <div className={styles.loading}>Loading asset...</div>
@@ -565,6 +578,7 @@ export default function AssetDetailPage() {
         <WorkspaceChrome
           leftSlot={<Link to="/dashboard" className={styles.brand}>Make Effects</Link>}
           rightSlot={headerRightSlot}
+          statusSlot={<UsageIndicator />}
         />
         <div className={styles.errorPage}>
           <div className={styles.error}>
@@ -582,6 +596,7 @@ export default function AssetDetailPage() {
       <WorkspaceChrome
         leftSlot={<Link to="/dashboard" className={styles.brand}>Make Effects</Link>}
         rightSlot={headerRightSlot}
+        statusSlot={<UsageIndicator />}
       />
 
       {/* Full-screen canvas container */}
@@ -629,43 +644,34 @@ export default function AssetDetailPage() {
 
         {/* Asset info overlay - top left */}
         <div className={styles.assetOverlay}>
-          {/* Breadcrumb */}
-          <nav className={styles.breadcrumb}>
-            <Link to="/dashboard">Dashboard</Link>
-            <span>/</span>
-            <Link to={`/spaces/${spaceId}`}>Space</Link>
-            {ancestorPath.map((ancestor) => (
-              <React.Fragment key={ancestor.id}>
-                <span>/</span>
-                <Link to={`/spaces/${spaceId}/assets/${ancestor.id}`}>{ancestor.name}</Link>
-              </React.Fragment>
-            ))}
-          </nav>
-
-          {/* Asset header */}
-          <div className={styles.assetHeader}>
-            {editingName ? (
-              <input
-                type="text"
-                className={styles.titleInput}
-                value={editNameValue}
-                onChange={(e) => setEditNameValue(e.target.value)}
-                onKeyDown={handleNameKeyDown}
-                onBlur={handleSaveName}
-                autoFocus
-              />
-            ) : (
-              <h1
-                className={styles.title}
-                onClick={handleStartEditName}
-                title="Click to rename"
-              >
-                {asset.name}
-              </h1>
-            )}
-          </div>
-
-          <div className={styles.assetMeta}>
+          <CanvasToolbar ariaLabel="Asset detail controls" className={styles.detailToolbar}>
+            <CanvasToolbarLink to={`/spaces/${spaceId}`} title="Back to space">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 12H5" />
+                <path d="M12 19l-7-7 7-7" />
+              </svg>
+            </CanvasToolbarLink>
+            <CanvasToolbarTitle className={styles.assetTitleSlot}>
+              {editingName ? (
+                <input
+                  type="text"
+                  className={styles.titleInput}
+                  value={editNameValue}
+                  onChange={(e) => setEditNameValue(e.target.value)}
+                  onKeyDown={handleNameKeyDown}
+                  onBlur={handleSaveName}
+                  autoFocus
+                />
+              ) : (
+                <h1
+                  className={styles.title}
+                  onClick={handleStartEditName}
+                  title="Click to rename"
+                >
+                  {asset.name}
+                </h1>
+              )}
+            </CanvasToolbarTitle>
             <select
               className={styles.typeSelect}
               value={asset.type}
@@ -678,16 +684,65 @@ export default function AssetDetailPage() {
                 </option>
               ))}
             </select>
-            <span className={styles.metaBadge}>
+            <CanvasToolbarBadge>
               {formatMediaKind(asset.media_kind)}
-            </span>
-            <span className={styles.metaBadge}>
-              {variants.length} variant{variants.length !== 1 ? 's' : ''}
-            </span>
-            {wsStatus === 'connected' && (
-              <span className={styles.liveIndicator}>Live</span>
+            </CanvasToolbarBadge>
+            <CanvasToolbarDivider />
+            <CanvasToolbarGroup>
+              <CanvasToolbarStat
+                title="Variants"
+                icon={(
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <path d="M7 7h10" />
+                    <path d="M7 12h10" />
+                    <path d="M7 17h6" />
+                  </svg>
+                )}
+              >
+                {variants.length} variant{variants.length !== 1 ? 's' : ''}
+              </CanvasToolbarStat>
+              {wsStatus === 'connected' && <CanvasToolbarLive />}
+            </CanvasToolbarGroup>
+            <CanvasToolbarDivider />
+            {rotationEnabled && selectedVariant?.status === 'completed' && selectedVariant?.image_key && (
+              <CanvasToolbarButton
+                onClick={() => setShowRotationPanel(true)}
+                title="Generate rotation views from selected variant"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                  <path d="M21 3v6h-6" />
+                </svg>
+              </CanvasToolbarButton>
             )}
-          </div>
+            <CanvasToolbarButton
+              onClick={handleDeleteAsset}
+              disabled={actionInProgress}
+              danger
+              title="Delete asset"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M19 6l-1 14H6L5 6" />
+                <path d="M10 11v5" />
+                <path d="M14 11v5" />
+              </svg>
+            </CanvasToolbarButton>
+          </CanvasToolbar>
+
+          {ancestorPath.length > 0 && (
+            <nav className={styles.breadcrumb} aria-label="Asset ancestors">
+              <Link to={`/spaces/${spaceId}`}>Space</Link>
+              {ancestorPath.map((ancestor) => (
+                <React.Fragment key={ancestor.id}>
+                  <span>/</span>
+                  <Link to={`/spaces/${spaceId}/assets/${ancestor.id}`}>{ancestor.name}</Link>
+                </React.Fragment>
+              ))}
+            </nav>
+          )}
 
           {/* Child assets (forks/derivatives) */}
           {childAssets.length > 0 && (
@@ -706,25 +761,6 @@ export default function AssetDetailPage() {
             </div>
           )}
 
-          <div className={styles.assetActions}>
-            {rotationEnabled && selectedVariant?.status === 'completed' && selectedVariant?.image_key && (
-              <button
-                className={styles.actionButton}
-                onClick={() => setShowRotationPanel(true)}
-                title="Generate rotation views from selected variant"
-              >
-                Rotation Set
-              </button>
-            )}
-            <button
-              className={styles.deleteAssetButton}
-              onClick={handleDeleteAsset}
-              disabled={actionInProgress}
-              title="Delete Asset"
-            >
-              Delete Asset
-            </button>
-          </div>
         </div>
 
         {/* Jobs overlay - bottom left */}
