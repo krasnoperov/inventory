@@ -4,18 +4,67 @@ import { Hono } from 'hono';
 import { AuthService } from '../features/auth/auth-service';
 import type { AppContext } from './types';
 import { voicesRoutes } from './voices';
-import { encryptLegacyProviderApiKey } from '../services/providerKeyVault';
+import { decryptProviderApiKeyV2, encryptLegacyProviderApiKey } from '../services/providerKeyVault';
 
 function encryptionKey(): string {
   return Buffer.from(new Uint8Array(32).fill(9)).toString('base64');
 }
 
 function providerKeyDb(encryptedKey: string) {
+  const row = {
+    encrypted_api_key: encryptedKey,
+    key_hint: 'legacy-hint',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  };
+  const envelopes = new Map<string, { wrapped_dek: string; dek_version: number; kek_version: number }>();
   return {
-    prepare: () => ({
-      bind: () => ({
-        first: async () => ({ encrypted_api_key: encryptedKey }),
-      }),
+    row,
+    prepare: (sql: string) => ({
+      bindings: [] as unknown[],
+      bind(...bindings: unknown[]) {
+        this.bindings = bindings;
+        return this;
+      },
+      async first<T>() {
+        if (sql.includes('FROM key_envelopes')) {
+          const [scopeId] = this.bindings;
+          return (envelopes.get(String(scopeId)) ?? null) as T | null;
+        }
+        return ({ encrypted_api_key: row.encrypted_api_key } as T);
+      },
+      async run() {
+        if (sql.includes('INSERT OR IGNORE INTO key_envelopes')) {
+          const [scopeId, wrappedDek, dekVersion, kekVersion] = this.bindings as [
+            string,
+            string,
+            number,
+            number,
+          ];
+          if (!envelopes.has(scopeId)) {
+            envelopes.set(scopeId, {
+              wrapped_dek: wrappedDek,
+              dek_version: dekVersion,
+              kek_version: kekVersion,
+            });
+          }
+        }
+        if (sql.includes('UPDATE user_provider_keys')) {
+          const [encrypted, hint, updatedAt, _userId, _provider, previousEncrypted] = this.bindings as [
+            string,
+            string,
+            string,
+            number,
+            string,
+            string,
+          ];
+          if (row.encrypted_api_key === previousEncrypted) {
+            row.encrypted_api_key = encrypted;
+            row.key_hint = hint;
+            row.updated_at = updatedAt;
+          }
+        }
+        return { success: true };
+      },
     }),
   };
 }
@@ -88,6 +137,7 @@ describe('voicesRoutes', () => {
   test('uses a stored ElevenLabs BYOK key for voice listing', async () => {
     const secret = encryptionKey();
     const encrypted = await encryptLegacyProviderApiKey('user-elevenlabs-key', secret, 7, 'elevenlabs');
+    const db = providerKeyDb(encrypted);
     let observedKey: string | null = null;
     mock.method(globalThis, 'fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
       observedKey = new Headers(init?.headers).get('xi-api-key');
@@ -102,12 +152,17 @@ describe('voicesRoutes', () => {
         INVENTORY_AUDIO_PROVIDER: 'elevenlabs',
         ELEVENLABS_API_KEY: 'platform-key',
         ENCRYPTION_KEY: secret,
-        DB: providerKeyDb(encrypted) as never,
+        DB: db as never,
       })
     );
 
     assert.equal(response.status, 200);
     assert.equal(observedKey, 'user-elevenlabs-key');
+    assert.match(db.row.encrypted_api_key, /^enc:v2:1:1:/);
+    assert.equal(
+      await decryptProviderApiKeyV2(db as never, db.row.encrypted_api_key, secret, 7, 'elevenlabs'),
+      'user-elevenlabs-key',
+    );
   });
 
   test('treats ElevenLabs as the provider in production without an explicit override', async () => {

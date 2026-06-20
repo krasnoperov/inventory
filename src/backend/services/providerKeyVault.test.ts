@@ -107,6 +107,28 @@ class FakeD1 {
           assert.ok(createdAt);
           return { success: true };
         }
+        if (sql.includes('UPDATE user_provider_keys')) {
+          const [encrypted, hint, updatedAt, userId, provider, previousEncrypted] = this.bindings as [
+            string,
+            string,
+            string,
+            number,
+            string,
+            string,
+          ];
+          const key = `${userId}:${provider}`;
+          const previous = rows.get(key);
+          if (previous?.encrypted_api_key === previousEncrypted) {
+            rows.set(key, {
+              ...previous,
+              encrypted_api_key: encrypted,
+              key_hint: hint,
+              updated_at: updatedAt,
+            });
+            return { success: true, meta: { changes: 1 } };
+          }
+          return { success: true, meta: { changes: 0 } };
+        }
         if (sql.includes('INSERT INTO user_provider_keys')) {
           const [userId, provider, encrypted, hint, createdAt, updatedAt] = this.bindings as [
             number,
@@ -299,5 +321,134 @@ describe('providerKeyVault', () => {
 
     await deleteProviderApiKey(db as never, 7, 'google_ai');
     assert.equal(await resolveStoredProviderApiKey(db as never, 7, 'google_ai', env), undefined);
+  });
+
+  test('resolves legacy enc:v1 rows by migrating them to enc:v2', async () => {
+    const db = new FakeD1();
+    const secret = encryptionKey();
+    const legacy = await encryptLegacyProviderApiKey('legacy-secret-1234', secret, 7, 'google_ai');
+    db.rows.set('7:google_ai', {
+      user_id: 7,
+      provider: 'google_ai',
+      encrypted_api_key: legacy,
+      key_hint: 'legacy-hint',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+
+    const resolved = await resolveStoredProviderApiKey(
+      db as never,
+      7,
+      'google_ai',
+      { ENCRYPTION_KEY: secret },
+    );
+
+    assert.equal(resolved, 'legacy-secret-1234');
+    const upgraded = db.rows.get('7:google_ai');
+    assert.ok(upgraded);
+    assert.match(upgraded.encrypted_api_key, /^enc:v2:1:1:/);
+    assert.notEqual(upgraded.encrypted_api_key, legacy);
+    assert.equal(upgraded.key_hint, '****1234');
+    assert.equal(
+      await decryptProviderApiKeyV2(db as never, upgraded.encrypted_api_key, secret, 7, 'google_ai'),
+      'legacy-secret-1234',
+    );
+  });
+
+  test('legacy migration is idempotent after the row is upgraded', async () => {
+    const db = new FakeD1();
+    const secret = encryptionKey();
+    const legacy = await encryptLegacyProviderApiKey('legacy-secret-5678', secret, 7, 'google_ai');
+    db.rows.set('7:google_ai', {
+      user_id: 7,
+      provider: 'google_ai',
+      encrypted_api_key: legacy,
+      key_hint: 'legacy-hint',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: secret }),
+      'legacy-secret-5678',
+    );
+    const upgradedOnce = db.rows.get('7:google_ai')?.encrypted_api_key;
+    assert.match(upgradedOnce ?? '', /^enc:v2:1:1:/);
+
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: secret }),
+      'legacy-secret-5678',
+    );
+    assert.equal(db.rows.get('7:google_ai')?.encrypted_api_key, upgradedOnce);
+  });
+
+  test('legacy migration failure from wrong AAD leaves the original row unchanged', async () => {
+    const db = new FakeD1();
+    const secret = encryptionKey();
+    const legacy = await encryptLegacyProviderApiKey('legacy-secret', secret, 7, 'google_ai');
+    db.rows.set('8:google_ai', {
+      user_id: 8,
+      provider: 'google_ai',
+      encrypted_api_key: legacy,
+      key_hint: 'legacy-hint',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+
+    await assert.rejects(
+      resolveStoredProviderApiKey(db as never, 8, 'google_ai', { ENCRYPTION_KEY: secret }),
+      /operation-specific reason|decrypt/i,
+    );
+    assert.equal(db.rows.get('8:google_ai')?.encrypted_api_key, legacy);
+    assert.equal(db.envelopes.size, 0);
+  });
+
+  test('legacy migration failure from missing KEK leaves the original row unchanged', async () => {
+    const db = new FakeD1();
+    const secret = encryptionKey();
+    const legacy = await encryptLegacyProviderApiKey('legacy-secret', secret, 7, 'google_ai');
+    db.rows.set('7:google_ai', {
+      user_id: 7,
+      provider: 'google_ai',
+      encrypted_api_key: legacy,
+      key_hint: 'legacy-hint',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+
+    await assert.rejects(
+      resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: undefined }),
+      ProviderKeyEncryptionError,
+    );
+    assert.equal(db.rows.get('7:google_ai')?.encrypted_api_key, legacy);
+    assert.equal(db.envelopes.size, 0);
+  });
+
+  test('mixed legacy and envelope rows resolve without remigrating enc:v2 rows', async () => {
+    const db = new FakeD1();
+    const secret = encryptionKey();
+    const legacy = await encryptLegacyProviderApiKey('legacy-google-secret', secret, 7, 'google_ai');
+    const current = await encryptProviderApiKeyV2(db as never, 'current-anthropic-secret', secret, 7, 'anthropic');
+    db.rows.set('7:google_ai', {
+      user_id: 7,
+      provider: 'google_ai',
+      encrypted_api_key: legacy,
+      key_hint: 'legacy-hint',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+    db.rows.set('7:anthropic', {
+      user_id: 7,
+      provider: 'anthropic',
+      encrypted_api_key: current,
+      key_hint: '****cret',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: secret }),
+      'legacy-google-secret',
+    );
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 7, 'anthropic', { ENCRYPTION_KEY: secret }),
+      'current-anthropic-secret',
+    );
+    assert.match(db.rows.get('7:google_ai')?.encrypted_api_key ?? '', /^enc:v2:1:1:/);
+    assert.equal(db.rows.get('7:anthropic')?.encrypted_api_key, current);
   });
 });
