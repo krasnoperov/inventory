@@ -205,6 +205,28 @@ describe('Space organization repository', () => {
     assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-2');
     assert.equal((await repo.getStylePresetById('preset-1'))?.is_default, 0);
 
+    await assert.rejects(
+      repo.createStylePreset({
+        id: 'preset-invalid',
+        name: 'Invalid',
+        collectionId: 'deleted-collection',
+        isDefault: true,
+        createdBy: 'user-1',
+      }),
+      /FOREIGN KEY/
+    );
+    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-2');
+
+    await assert.rejects(
+      repo.updateStylePreset('preset-1', {
+        collectionId: 'deleted-collection',
+        isDefault: true,
+      }),
+      /FOREIGN KEY/
+    );
+    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-2');
+    assert.equal((await repo.getStylePresetById('preset-1'))?.is_default, 0);
+
     const updated = await repo.updateStylePreset('preset-1', {
       name: 'Painted House',
       stylePrompt: 'Painterly fantasy UI concept art',

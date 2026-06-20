@@ -1023,9 +1023,6 @@ export class SpaceRepository {
     createdBy: string;
   }): Promise<StylePreset> {
     const now = Date.now();
-    if (data.isDefault) {
-      await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1', now);
-    }
 
     await this.sql.exec(
       `INSERT INTO style_presets
@@ -1036,11 +1033,15 @@ export class SpaceRepository {
       data.stylePrompt ?? '',
       data.collectionId ?? null,
       data.enabled !== false ? 1 : 0,
-      data.isDefault ? 1 : 0,
+      0,
       data.createdBy,
       now,
       now
     );
+
+    if (data.isDefault) {
+      return (await this.promoteStylePresetToDefault(data.id, now))!;
+    }
 
     return (await this.getStylePresetById(data.id))!;
   }
@@ -1059,9 +1060,7 @@ export class SpaceRepository {
     if (!existing) return null;
 
     const now = Date.now();
-    if (changes.isDefault === true && existing.is_default !== 1) {
-      await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1', now);
-    }
+    const shouldPromoteToDefault = changes.isDefault === true && existing.is_default !== 1;
 
     const updates: string[] = [];
     const values: unknown[] = [];
@@ -1081,11 +1080,15 @@ export class SpaceRepository {
       updates.push('enabled = ?');
       values.push(changes.enabled ? 1 : 0);
     }
-    if (changes.isDefault !== undefined) {
+    if (changes.isDefault !== undefined && !shouldPromoteToDefault) {
       updates.push('is_default = ?');
       values.push(changes.isDefault ? 1 : 0);
     }
-    if (updates.length === 0) return existing;
+    if (updates.length === 0) {
+      return shouldPromoteToDefault
+        ? this.promoteStylePresetToDefault(presetId, now)
+        : existing;
+    }
 
     updates.push('updated_at = ?');
     values.push(now);
@@ -1094,6 +1097,9 @@ export class SpaceRepository {
       ...values,
       presetId
     );
+    if (shouldPromoteToDefault) {
+      return this.promoteStylePresetToDefault(presetId, now);
+    }
     return this.getStylePresetById(presetId);
   }
 
@@ -1107,8 +1113,37 @@ export class SpaceRepository {
     const existing = await this.getStylePresetById(presetId);
     if (!existing) return null;
 
+    if (existing.is_default === 1) return existing;
+    return this.promoteStylePresetToDefault(presetId, now);
+  }
+
+  private async promoteStylePresetToDefault(
+    presetId: string,
+    now = Date.now()
+  ): Promise<StylePreset | null> {
+    const previousDefault = await this.getDefaultStylePreset();
+
     await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1', now);
-    await this.sql.exec('UPDATE style_presets SET is_default = 1, updated_at = ? WHERE id = ?', now, presetId);
+    try {
+      await this.sql.exec('UPDATE style_presets SET is_default = 1, updated_at = ? WHERE id = ?', now, presetId);
+    } catch (error) {
+      if (previousDefault) {
+        try {
+          await this.sql.exec(
+            'UPDATE style_presets SET is_default = 1, updated_at = ? WHERE id = ?',
+            Date.now(),
+            previousDefault.id
+          );
+        } catch (restoreError) {
+          log.error('Failed to restore previous default style preset', {
+            previousDefaultId: previousDefault.id,
+            requestedDefaultId: presetId,
+            error: restoreError instanceof Error ? restoreError.message : String(restoreError),
+          });
+        }
+      }
+      throw error;
+    }
     return this.getStylePresetById(presetId);
   }
 
