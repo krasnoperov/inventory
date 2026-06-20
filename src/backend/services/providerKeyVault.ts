@@ -365,6 +365,57 @@ export async function decryptStoredProviderApiKey(
   return decryptLegacyProviderApiKey(encrypted, encryptionKey, userId, provider);
 }
 
+async function upgradeLegacyProviderApiKey(
+  db: D1Database,
+  legacyEncrypted: string,
+  plaintext: string,
+  encryptionKey: string | undefined,
+  userId: number,
+  provider: ProviderKeyProvider,
+): Promise<void> {
+  const encrypted = await encryptProviderApiKeyV2(db, plaintext, encryptionKey, userId, provider);
+  const now = new Date().toISOString();
+  await db.prepare(`
+    UPDATE user_provider_keys
+    SET encrypted_api_key = ?, key_hint = ?, updated_at = ?
+    WHERE user_id = ? AND provider = ? AND encrypted_api_key = ?
+  `).bind(encrypted, maskProviderKey(plaintext), now, userId, provider, legacyEncrypted).run();
+}
+
+export async function resolveAndMigrateStoredProviderApiKey(
+  db: D1Database | undefined,
+  userId: number,
+  provider: ProviderKeyProvider,
+  env: Pick<Env, 'ENCRYPTION_KEY'>,
+): Promise<string | undefined> {
+  if (!db) return undefined;
+  const row = await db.prepare(`
+    SELECT encrypted_api_key
+    FROM user_provider_keys
+    WHERE user_id = ? AND provider = ?
+  `).bind(userId, provider).first<{ encrypted_api_key: string }>();
+  if (!row) return undefined;
+  if (row.encrypted_api_key.startsWith(ENC_V2_PREFIX)) {
+    return decryptProviderApiKeyV2(db, row.encrypted_api_key, env.ENCRYPTION_KEY, userId, provider);
+  }
+
+  const plaintext = await decryptLegacyProviderApiKey(
+    row.encrypted_api_key,
+    env.ENCRYPTION_KEY,
+    userId,
+    provider,
+  );
+  await upgradeLegacyProviderApiKey(
+    db,
+    row.encrypted_api_key,
+    plaintext,
+    env.ENCRYPTION_KEY,
+    userId,
+    provider,
+  );
+  return plaintext;
+}
+
 function platformConfigured(env: Env, provider: ProviderKeyProvider): boolean {
   return PROVIDER_KEY_DEFINITIONS[provider].envKeys.some((key) => {
     const value = env[key];
@@ -454,12 +505,5 @@ export async function resolveStoredProviderApiKey(
   provider: ProviderKeyProvider,
   env: Pick<Env, 'ENCRYPTION_KEY'>,
 ): Promise<string | undefined> {
-  if (!db) return undefined;
-  const row = await db.prepare(`
-    SELECT encrypted_api_key
-    FROM user_provider_keys
-    WHERE user_id = ? AND provider = ?
-  `).bind(userId, provider).first<{ encrypted_api_key: string }>();
-  if (!row) return undefined;
-  return decryptStoredProviderApiKey(db, row.encrypted_api_key, env.ENCRYPTION_KEY, userId, provider);
+  return resolveAndMigrateStoredProviderApiKey(db, userId, provider, env);
 }
