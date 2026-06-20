@@ -479,14 +479,12 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       const mediaKind = variant.media_kind ?? asset.media_kind ?? DEFAULT_MEDIA_KIND;
       const canonicalMediaKey = variant.media_key ?? variant.image_key ?? null;
       if (!canonicalMediaKey) {
-        console.warn(`Media not found for variant: ${variant.id}`);
-        continue;
+        return c.json({ error: `Cannot export space: missing media key for variant ${variant.id}` }, 409);
       }
 
       const mediaObject = await env.IMAGES.get(canonicalMediaKey);
       if (!mediaObject) {
-        console.warn(`Media not found: ${canonicalMediaKey}`);
-        continue;
+        return c.json({ error: `Cannot export space: missing media object for variant ${variant.id}` }, 409);
       }
 
       // Generate filenames

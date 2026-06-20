@@ -215,6 +215,116 @@ describe('exportRoutes', () => {
     assert.equal(strFromU8(unzipped[variant.mediaFile]), 'video-data');
   });
 
+  it('rejects export when a referenced variant media object is missing', async () => {
+    const { app } = buildApp({
+      state: {
+        assets: [{
+          id: 'asset-1',
+          name: 'Hero',
+          type: 'character',
+          media_kind: 'image',
+          tags: '[]',
+          active_variant_id: 'variant-missing',
+          created_at: 1,
+        }],
+        variants: [
+          {
+            id: 'variant-present',
+            asset_id: 'asset-1',
+            media_kind: 'image',
+            image_key: 'images/space-1/variant-present.png',
+            thumb_key: null,
+            media_key: 'images/space-1/variant-present.png',
+            media_mime_type: 'image/png',
+            media_size_bytes: 10,
+            media_width: 100,
+            media_height: 100,
+            media_duration_ms: null,
+            recipe: '{"operation":"generate"}',
+            created_at: 2,
+          },
+          {
+            id: 'variant-missing',
+            asset_id: 'asset-1',
+            media_kind: 'image',
+            image_key: 'images/space-1/variant-missing.png',
+            thumb_key: null,
+            media_key: 'images/space-1/variant-missing.png',
+            media_mime_type: 'image/png',
+            media_size_bytes: 10,
+            media_width: 100,
+            media_height: 100,
+            media_duration_ms: null,
+            recipe: '{"operation":"refine"}',
+            created_at: 3,
+          },
+        ],
+        lineage: [{
+          id: 'lineage-1',
+          parent_variant_id: 'variant-present',
+          child_variant_id: 'variant-missing',
+          relation_type: 'refined',
+          severed: 0,
+        }],
+        collections: [{ id: 'collection-1', name: 'Opening Kit', description: null, sort_index: 0 }],
+        collectionItems: [{
+          id: 'collection-item-1',
+          collection_id: 'collection-1',
+          subject_type: 'variant',
+          asset_id: null,
+          variant_id: 'variant-missing',
+          role: 'hero',
+          pinned_variant_id: 'variant-missing',
+          sort_index: 0,
+        }],
+        relations: [{
+          id: 'relation-1',
+          subject_type: 'asset',
+          subject_asset_id: 'asset-1',
+          subject_variant_id: null,
+          object_type: 'variant',
+          object_asset_id: null,
+          object_variant_id: 'variant-missing',
+          relation_type: 'reference_for',
+          label: null,
+          context: null,
+          metadata: '{}',
+          sort_index: 0,
+        }],
+        compositions: [{
+          id: 'composition-1',
+          name: 'Final Mix',
+          description: null,
+          status: 'final',
+          output_asset_id: 'asset-1',
+          output_variant_id: 'variant-missing',
+          metadata: '{}',
+          sort_index: 0,
+        }],
+        compositionItems: [{
+          id: 'composition-item-1',
+          composition_id: 'composition-1',
+          role: 'output',
+          label: null,
+          asset_id: 'asset-1',
+          variant_id: 'variant-missing',
+          metadata: '{}',
+          sort_index: 0,
+        }],
+      },
+      objects: {
+        'images/space-1/variant-present.png': makeObject('images/space-1/variant-present.png', 'present-image', 'image/png'),
+      },
+    });
+
+    const res = await app.fetch(new Request('https://app.example/api/spaces/space-1/export', {
+      headers: { Authorization: 'Bearer test-token' },
+    }));
+
+    assert.equal(res.status, 409);
+    assert.match(await res.text(), /missing media object for variant variant-missing/);
+  });
+
   it('exports organization records and full variant provenance', async () => {
     const longPrompt = `A production prompt ${'with exact wording '.repeat(20)}model suffix`;
     const { app } = buildApp({
