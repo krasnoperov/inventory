@@ -621,7 +621,7 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   // ==========================================================================
 
   app.post('/internal/backfill-parent-hierarchy', async (c) => {
-    const data = await c.req.json().catch(() => ({}));
+    const data = parseOptionalJsonObject(await c.req.text(), 'backfill options');
     const result = await controllers.organization.httpBackfillParentHierarchy(data);
     return c.json({ success: true, result });
   });
@@ -861,4 +861,13 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
   });
 
   return app;
+}
+
+function parseOptionalJsonObject(rawBody: string, label: string): unknown {
+  if (rawBody.trim() === '') return {};
+  try {
+    return JSON.parse(rawBody) as unknown;
+  } catch {
+    throw new ValidationError(`${label} must be valid JSON`);
+  }
 }
