@@ -1,5 +1,6 @@
 import { injectable, inject } from 'inversify';
 import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import type {
   CustomerChargeLedgerEntry,
   CustomerChargeUnit,
@@ -27,6 +28,23 @@ export interface CustomerChargeLedgerCreateData {
   customerAmountMicroUsd?: number | null;
   metadata?: CustomerChargeLedgerMetadata | null;
   createdAt?: string;
+}
+
+export interface CustomerChargeReconciliation {
+  usageEvents: number;
+  chargeRows: number;
+  missingChargeRows: number;
+  orphanChargeRows: number;
+  billableUsageQuantity: number;
+  billableChargeQuantity: number;
+  billableQuantityDelta: number;
+  meters: Array<{
+    name: string;
+    usageQuantity: number;
+    chargeQuantity: number;
+    delta: number;
+    matched: boolean;
+  }>;
 }
 
 @injectable()
@@ -92,5 +110,86 @@ export class CustomerChargeLedgerDAO {
       .orderBy('created_at', 'desc')
       .limit(limit)
       .execute();
+  }
+
+  async getReconciliationForPeriod(
+    userId: number,
+    startIso: string,
+    endIso: string
+  ): Promise<CustomerChargeReconciliation> {
+    const usageTotals = await this.db
+      .selectFrom('usage_events')
+      .select('event_name')
+      .select((eb) => eb.fn.sum<number>('quantity').as('quantity'))
+      .where('user_id', '=', userId)
+      .where('polar_billable', '=', 1)
+      .where('created_at', '>=', startIso)
+      .where('created_at', '<', endIso)
+      .groupBy('event_name')
+      .execute();
+
+    const chargeTotals = await this.db
+      .selectFrom('customer_charge_ledger')
+      .select('meter_event_name')
+      .select((eb) => eb.fn.sum<number>('quantity').as('quantity'))
+      .where('user_id', '=', userId)
+      .where('polar_billable', '=', 1)
+      .where('created_at', '>=', startIso)
+      .where('created_at', '<', endIso)
+      .groupBy('meter_event_name')
+      .execute();
+
+    const counts = await this.db
+      .selectFrom('usage_events as e')
+      .leftJoin('customer_charge_ledger as c', 'c.usage_event_id', 'e.id')
+      .select([
+        sql<number>`count(e.id)`.as('usage_events'),
+        sql<number>`count(c.id)`.as('charge_rows'),
+        sql<number>`count(case when c.id is null then 1 end)`.as('missing_charge_rows'),
+      ])
+      .where('e.user_id', '=', userId)
+      .where('e.created_at', '>=', startIso)
+      .where('e.created_at', '<', endIso)
+      .executeTakeFirst();
+
+    const orphanCharges = await this.db
+      .selectFrom('customer_charge_ledger as c')
+      .leftJoin('usage_events as e', 'e.id', 'c.usage_event_id')
+      .select(sql<number>`count(c.id)`.as('orphan_charge_rows'))
+      .where('c.user_id', '=', userId)
+      .where('c.created_at', '>=', startIso)
+      .where('c.created_at', '<', endIso)
+      .where('c.usage_event_id', 'is not', null)
+      .where('e.id', 'is', null)
+      .executeTakeFirst();
+
+    const usageByMeter = new Map(usageTotals.map((row) => [row.event_name, Number(row.quantity) || 0]));
+    const chargeByMeter = new Map(chargeTotals.map((row) => [row.meter_event_name, Number(row.quantity) || 0]));
+    const meterNames = [...new Set([...usageByMeter.keys(), ...chargeByMeter.keys()])].sort();
+    const meters = meterNames.map((name) => {
+      const usageQuantity = usageByMeter.get(name) ?? 0;
+      const chargeQuantity = chargeByMeter.get(name) ?? 0;
+      const delta = usageQuantity - chargeQuantity;
+      return {
+        name,
+        usageQuantity,
+        chargeQuantity,
+        delta,
+        matched: delta === 0,
+      };
+    });
+    const billableUsageQuantity = meters.reduce((sum, meter) => sum + meter.usageQuantity, 0);
+    const billableChargeQuantity = meters.reduce((sum, meter) => sum + meter.chargeQuantity, 0);
+
+    return {
+      usageEvents: Number(counts?.usage_events) || 0,
+      chargeRows: Number(counts?.charge_rows) || 0,
+      missingChargeRows: Number(counts?.missing_charge_rows) || 0,
+      orphanChargeRows: Number(orphanCharges?.orphan_charge_rows) || 0,
+      billableUsageQuantity,
+      billableChargeQuantity,
+      billableQuantityDelta: billableUsageQuantity - billableChargeQuantity,
+      meters,
+    };
   }
 }

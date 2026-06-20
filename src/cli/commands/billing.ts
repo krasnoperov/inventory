@@ -385,10 +385,44 @@ async function handleBillingReconcile(env: string, parsed: ParsedArgs) {
 
   try {
     const data = await callBillingApi(env, `/api/billing/reconcile?user_id=${encodeURIComponent(userId)}`) as {
-      status: 'ok' | 'mismatch';
+      status: 'ok' | 'warning' | 'mismatch';
       period: { start: string; end: string };
       meters: Array<{ name: string; local: number; polar: number; delta: number; matched: boolean }>;
       mismatches: Array<{ name: string; local: number; polar: number; delta: number }>;
+      customerCharges?: {
+        usageEvents: number;
+        chargeRows: number;
+        missingChargeRows: number;
+        orphanChargeRows: number;
+        billableUsageQuantity: number;
+        billableChargeQuantity: number;
+        billableQuantityDelta: number;
+      };
+      providerCost?: {
+        totals: {
+          amountMicroUsd: number;
+          amountUsd: number;
+          quantity: number;
+          entries: number;
+          unpricedEntries: number;
+        };
+        linkedUsageEvents: number;
+        linkedCustomerCharges: number;
+        missingUsageEventLinks: number;
+        missingCustomerChargeLinks: number;
+      };
+      platformUsage?: {
+        totals: {
+          storageBytes: number;
+          workflowRuns: number;
+          deliveryBytes: number;
+        };
+      };
+      alerts?: Array<{
+        severity: 'warning' | 'critical';
+        code: string;
+        message: string;
+      }>;
     };
 
     console.log('=== Billing Reconciliation ===\n');
@@ -400,8 +434,32 @@ async function handleBillingReconcile(env: string, parsed: ParsedArgs) {
       console.log(`  ${marker} ${meter.name.padEnd(22)} local=${meter.local} polar=${meter.polar} delta=${meter.delta}`);
     }
 
-    if (data.mismatches.length > 0) {
-      console.log('\nMismatched meters need sync/retry investigation before billing is considered reconciled.');
+    if (data.customerCharges) {
+      console.log('\nCustomer charge ledger:');
+      console.log(`  usageEvents=${data.customerCharges.usageEvents} chargeRows=${data.customerCharges.chargeRows} missing=${data.customerCharges.missingChargeRows} orphan=${data.customerCharges.orphanChargeRows}`);
+      console.log(`  billableUsage=${data.customerCharges.billableUsageQuantity} billableCharges=${data.customerCharges.billableChargeQuantity} delta=${data.customerCharges.billableQuantityDelta}`);
+    }
+
+    if (data.providerCost) {
+      console.log('\nProvider cost ledger:');
+      console.log(`  amount=$${data.providerCost.totals.amountUsd.toFixed(6)} entries=${data.providerCost.totals.entries} unpriced=${data.providerCost.totals.unpricedEntries}`);
+      console.log(`  linkedUsage=${data.providerCost.linkedUsageEvents} linkedCharges=${data.providerCost.linkedCustomerCharges} missingUsage=${data.providerCost.missingUsageEventLinks} missingCharges=${data.providerCost.missingCustomerChargeLinks}`);
+    }
+
+    if (data.platformUsage) {
+      console.log('\nPlatform usage:');
+      console.log(`  storageBytes=${data.platformUsage.totals.storageBytes} workflowRuns=${data.platformUsage.totals.workflowRuns} deliveryBytes=${data.platformUsage.totals.deliveryBytes}`);
+    }
+
+    if (data.alerts && data.alerts.length > 0) {
+      console.log('\nAlerts:');
+      for (const alert of data.alerts) {
+        console.log(`  ${alert.severity.toUpperCase().padEnd(8)} ${alert.code}: ${alert.message}`);
+      }
+    }
+
+    if (data.status === 'mismatch') {
+      console.log('\nMismatched billing ledgers need sync/retry or attribution investigation before billing is considered reconciled.');
       process.exitCode = 1;
     }
   } catch (error) {

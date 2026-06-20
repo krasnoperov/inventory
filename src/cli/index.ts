@@ -274,7 +274,7 @@ Billing (Polar.sh):
   billing status               Show sync status (pending, failed, synced events)
   billing check                Run operational checks for workers, meters, and sync health
   billing reconcile --user-id <id>
-                               Compare local billable usage with Polar usage
+                               Reconcile Polar, charge, provider, and platform usage
   billing retry-failed         Retry all failed events
 
 Spaces:
@@ -380,7 +380,7 @@ Usage:
 Subcommands:
   status           Show sync status (pending, failed, synced events)
   check            Run operational checks for workers, Polar meters, and sync health
-  reconcile        Compare local billable usage with Polar usage for one user
+  reconcile        Reconcile Polar, charge, provider, and platform usage for one user
   retry-failed     Reset failed events for retry (next cron will sync them)
 
 Options:

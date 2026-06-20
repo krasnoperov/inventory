@@ -345,4 +345,87 @@ describe('ProviderUsageLedgerDAO', () => {
     await ledgerDAO.create(data);
     await assert.rejects(() => ledgerDAO.create(data), /UNIQUE constraint failed/);
   });
+
+  test('reconciles provider cost and linked customer charge rows with exclusive period end', async () => {
+    const linkedUsageEventId = await usageEventDAO.create({
+      userId,
+      eventName: 'gemini_images',
+      quantity: 1,
+    });
+    await ledgerDAO.create({
+      attributionKey: 'variant:reconcile-linked:gemini_images',
+      usageEventId: linkedUsageEventId,
+      userId,
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      meterEventName: 'gemini_images',
+      usageUnit: 'image',
+      quantity: 1,
+      amountMicroUsd: 240000,
+      pricingSource: 'gemini',
+      createdAt: '2026-06-10T00:00:00.000Z',
+    });
+
+    const missingChargeUsageEventId = await usageEventDAO.create({
+      userId,
+      eventName: 'gemini_output_tokens',
+      quantity: 100,
+    });
+    await ledgerDAO.create({
+      attributionKey: 'variant:reconcile-unpriced:gemini_output_tokens',
+      usageEventId: missingChargeUsageEventId,
+      userId,
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      meterEventName: 'gemini_output_tokens',
+      usageUnit: 'token',
+      quantity: 100,
+      amountMicroUsd: null,
+      createdAt: '2026-06-11T00:00:00.000Z',
+    });
+    await db
+      .deleteFrom('customer_charge_ledger')
+      .where('usage_event_id', '=', missingChargeUsageEventId)
+      .execute();
+
+    await ledgerDAO.create({
+      attributionKey: 'variant:next-period:gemini_images',
+      userId,
+      provider: 'gemini',
+      providerModel: 'gemini-3-pro-image-preview',
+      meterEventName: 'gemini_images',
+      usageUnit: 'image',
+      quantity: 1,
+      amountMicroUsd: 240000,
+      pricingSource: 'gemini',
+      createdAt: '2026-07-01T00:00:00.000Z',
+    });
+
+    const reconciliation = await ledgerDAO.getCostReconciliation({
+      userId,
+      from: '2026-06-01T00:00:00.000Z',
+      to: '2026-07-01T00:00:00.000Z',
+    });
+
+    assert.deepEqual(reconciliation.totals, {
+      amountMicroUsd: 240000,
+      amountUsd: 0.24,
+      quantity: 101,
+      entries: 2,
+      unpricedEntries: 1,
+    });
+    assert.equal(reconciliation.linkedUsageEvents, 2);
+    assert.equal(reconciliation.linkedCustomerCharges, 1);
+    assert.equal(reconciliation.missingUsageEventLinks, 0);
+    assert.equal(reconciliation.missingCustomerChargeLinks, 1);
+    assert.deepEqual(reconciliation.byMeterEventName.map((row) => ({
+      meterEventName: row.meterEventName,
+      quantity: row.quantity,
+      entries: row.entries,
+      unpricedEntries: row.unpricedEntries,
+    })), [
+      { meterEventName: 'gemini_images', quantity: 1, entries: 1, unpricedEntries: 0 },
+      { meterEventName: 'gemini_output_tokens', quantity: 100, entries: 1, unpricedEntries: 1 },
+    ]);
+  });
 });

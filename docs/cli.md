@@ -589,7 +589,8 @@ See [cli-generation.md](./cli-generation.md) for the full command reference.
 ## Billing
 
 View billing sync status, run Polar operational checks, and reconcile one
-customer billing period against Polar meter usage.
+customer billing period against Polar meter usage plus local charge, provider
+cost, and platform usage ledgers.
 
 ```bash
 makefx billing status

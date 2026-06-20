@@ -63,6 +63,27 @@ export interface PlatformUsageSummary {
   byMediaKind: PlatformUsageMediaKindSummary[];
 }
 
+export interface AccountPlatformUsageSummary {
+  userId: number;
+  period: {
+    from: string | null;
+    to: string | null;
+  };
+  totals: {
+    storageBytes: number;
+    workflowRuns: number;
+    deliveryBytes: number;
+  };
+  byType: PlatformUsageTypeSummary[];
+  bySpace: Array<{
+    spaceId: string;
+    storageBytes: number;
+    workflowRuns: number;
+    deliveryBytes: number;
+    events: number;
+  }>;
+}
+
 @injectable()
 export class PlatformUsageEventDAO {
   constructor(@inject(TYPES.Database) private db: Kysely<Database>) {}
@@ -199,6 +220,80 @@ export class PlatformUsageEventDAO {
       },
       byType,
       byMediaKind,
+    };
+  }
+
+  async getAccountSummary(
+    userId: number,
+    options: PlatformUsageSummaryOptions = {}
+  ): Promise<AccountPlatformUsageSummary> {
+    let byTypeQuery = this.db
+      .selectFrom('platform_usage_events')
+      .select(['usage_type', 'unit'])
+      .select((eb) => [
+        eb.fn.sum<number>('quantity').as('quantity'),
+        sql<number>`count(*)`.as('events'),
+      ])
+      .where('user_id', '=', userId);
+
+    let bySpaceQuery = this.db
+      .selectFrom('platform_usage_events')
+      .select('space_id')
+      .select((eb) => [
+        eb.fn.sum<number>(
+          eb.case().when('usage_type', '=', 'storage').then(eb.ref('quantity')).else(0).end()
+        ).as('storage_bytes'),
+        eb.fn.sum<number>(
+          eb.case().when('usage_type', '=', 'workflow').then(eb.ref('quantity')).else(0).end()
+        ).as('workflow_runs'),
+        eb.fn.sum<number>(
+          eb.case().when('usage_type', '=', 'delivery').then(eb.ref('quantity')).else(0).end()
+        ).as('delivery_bytes'),
+        sql<number>`count(*)`.as('events'),
+      ])
+      .where('user_id', '=', userId);
+
+    if (options.from) {
+      byTypeQuery = byTypeQuery.where('created_at', '>=', options.from);
+      bySpaceQuery = bySpaceQuery.where('created_at', '>=', options.from);
+    }
+    if (options.to) {
+      byTypeQuery = byTypeQuery.where('created_at', '<', options.to);
+      bySpaceQuery = bySpaceQuery.where('created_at', '<', options.to);
+    }
+
+    const [byTypeRows, bySpaceRows] = await Promise.all([
+      byTypeQuery.groupBy(['usage_type', 'unit']).orderBy('usage_type', 'asc').execute(),
+      bySpaceQuery.groupBy('space_id').orderBy('space_id', 'asc').execute(),
+    ]);
+
+    const byType: PlatformUsageTypeSummary[] = byTypeRows.map((row) => ({
+      usageType: row.usage_type,
+      unit: row.unit,
+      quantity: Number(row.quantity) || 0,
+      events: Number(row.events) || 0,
+    }));
+    const bySpace = bySpaceRows.map((row) => ({
+      spaceId: row.space_id,
+      storageBytes: Number(row.storage_bytes) || 0,
+      workflowRuns: Number(row.workflow_runs) || 0,
+      deliveryBytes: Number(row.delivery_bytes) || 0,
+      events: Number(row.events) || 0,
+    }));
+
+    return {
+      userId,
+      period: {
+        from: options.from ?? null,
+        to: options.to ?? null,
+      },
+      totals: {
+        storageBytes: byType.find((row) => row.usageType === 'storage')?.quantity ?? 0,
+        workflowRuns: byType.find((row) => row.usageType === 'workflow')?.quantity ?? 0,
+        deliveryBytes: byType.find((row) => row.usageType === 'delivery')?.quantity ?? 0,
+      },
+      byType,
+      bySpace,
     };
   }
 }

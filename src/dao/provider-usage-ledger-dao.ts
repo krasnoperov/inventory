@@ -102,6 +102,22 @@ export interface ProviderSpendSummary {
   byAsset: ProviderSpendAssetSummary[];
 }
 
+export interface ProviderCostReconciliation {
+  totals: ProviderSpendAggregate;
+  linkedUsageEvents: number;
+  linkedCustomerCharges: number;
+  missingUsageEventLinks: number;
+  missingCustomerChargeLinks: number;
+  byMeterEventName: Array<{
+    meterEventName: string | null;
+    quantity: number;
+    amountMicroUsd: number;
+    amountUsd: number;
+    entries: number;
+    unpricedEntries: number;
+  }>;
+}
+
 interface SpendAggregateRow {
   amount_micro_usd: number | string | bigint | null;
   quantity: number | string | null;
@@ -299,6 +315,71 @@ export class ProviderUsageLedgerDAO {
     };
   }
 
+  async getCostReconciliation(options: ProviderSpendSummaryOptions = {}): Promise<ProviderCostReconciliation> {
+    const bounds = normalizeSpendBounds(options);
+    const totalsQuery = this.applyReconciliationFilters(
+      this.db
+        .selectFrom('provider_usage_ledger')
+        .select(() => this.spendAggregateSelections()),
+      bounds
+    );
+    let meterQuery = this.applyReconciliationFilters(
+      this.db
+        .selectFrom('provider_usage_ledger')
+        .select('meter_event_name')
+        .select(() => this.spendAggregateSelections()),
+      bounds
+    );
+    meterQuery = meterQuery.groupBy('meter_event_name').orderBy('meter_event_name', 'asc');
+
+    let linkQuery = this.db
+      .selectFrom('provider_usage_ledger')
+      .leftJoin('usage_events as e', 'e.id', 'provider_usage_ledger.usage_event_id')
+      .leftJoin('customer_charge_ledger as c', 'c.provider_usage_ledger_id', 'provider_usage_ledger.id')
+      .select([
+        sql<number>`count(distinct case when provider_usage_ledger.usage_event_id is not null and e.id is not null then provider_usage_ledger.id end)`.as('linked_usage_events'),
+        sql<number>`count(distinct case when c.id is not null then provider_usage_ledger.id end)`.as('linked_customer_charges'),
+        sql<number>`count(distinct case when provider_usage_ledger.usage_event_id is not null and e.id is null then provider_usage_ledger.id end)`.as('missing_usage_event_links'),
+        sql<number>`count(distinct case when provider_usage_ledger.usage_event_id is not null and c.id is null then provider_usage_ledger.id end)`.as('missing_customer_charge_links'),
+      ]);
+    if (bounds.from) {
+      linkQuery = linkQuery.where('provider_usage_ledger.created_at', '>=', bounds.from);
+    }
+    if (bounds.to) {
+      linkQuery = linkQuery.where('provider_usage_ledger.created_at', '<', bounds.to);
+    }
+    if (bounds.userId) {
+      linkQuery = linkQuery.where('provider_usage_ledger.user_id', '=', bounds.userId);
+    }
+    if (bounds.spaceId) {
+      linkQuery = linkQuery.where('provider_usage_ledger.space_id', '=', bounds.spaceId);
+    }
+    if (bounds.provider) {
+      linkQuery = linkQuery.where('provider_usage_ledger.provider', '=', bounds.provider);
+    }
+    if (bounds.mediaKind) {
+      linkQuery = linkQuery.where('provider_usage_ledger.media_kind', '=', bounds.mediaKind);
+    }
+
+    const [totalsRow, meterRows, linkRow] = await Promise.all([
+      totalsQuery.executeTakeFirst(),
+      meterQuery.execute(),
+      linkQuery.executeTakeFirst(),
+    ]);
+
+    return {
+      totals: this.toSpendAggregate(totalsRow),
+      linkedUsageEvents: Number(linkRow?.linked_usage_events) || 0,
+      linkedCustomerCharges: Number(linkRow?.linked_customer_charges) || 0,
+      missingUsageEventLinks: Number(linkRow?.missing_usage_event_links) || 0,
+      missingCustomerChargeLinks: Number(linkRow?.missing_customer_charge_links) || 0,
+      byMeterEventName: meterRows.map((row) => ({
+        meterEventName: row.meter_event_name,
+        ...this.toSpendAggregate(row),
+      })),
+    };
+  }
+
   private spendAggregateSelections() {
     return [
       sql<number>`sum(coalesce(amount_micro_usd, 0))`.as('amount_micro_usd'),
@@ -318,6 +399,32 @@ export class ProviderUsageLedgerDAO {
     }
     if (options.to) {
       filtered = filtered.where('created_at', '<=', options.to);
+    }
+    if (options.userId) {
+      filtered = filtered.where('user_id', '=', options.userId);
+    }
+    if (options.spaceId) {
+      filtered = filtered.where('space_id', '=', options.spaceId);
+    }
+    if (options.provider) {
+      filtered = filtered.where('provider', '=', options.provider);
+    }
+    if (options.mediaKind) {
+      filtered = filtered.where('media_kind', '=', options.mediaKind);
+    }
+    return filtered;
+  }
+
+  private applyReconciliationFilters<O>(
+    query: SelectQueryBuilder<Database, 'provider_usage_ledger', O>,
+    options: ProviderSpendSummaryOptions
+  ): SelectQueryBuilder<Database, 'provider_usage_ledger', O> {
+    let filtered = query;
+    if (options.from) {
+      filtered = filtered.where('created_at', '>=', options.from);
+    }
+    if (options.to) {
+      filtered = filtered.where('created_at', '<', options.to);
     }
     if (options.userId) {
       filtered = filtered.where('user_id', '=', options.userId);
