@@ -45,7 +45,12 @@ import { loggers } from '../../../../shared/logger';
 import type { MusicGenerationProvider } from '../../../../shared/websocket-types';
 import { resolveAudioProvider } from '../../../services/audioProviderSelection';
 import { hasStoredProviderApiKey, type ProviderKeyProvider } from '../../../services/providerKeyVault';
-import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
+import {
+  DEFAULT_IMAGE_MODEL_ID,
+  isImageModelId,
+  isImageModelSelection,
+  resolveImageModelSelection,
+} from '../../../../shared/imageGenerationOptions';
 import {
   DEFAULT_VIDEO_GENERATION_MODEL,
   VIDEO_GENERATION_AUDIO_ALWAYS_ON,
@@ -335,6 +340,13 @@ function getVideoModelForEstimate(model?: string, videoTier?: string): string {
   return normalizedTier ? getVideoGenerationModelForTier(normalizedTier) : DEFAULT_VIDEO_GENERATION_MODEL;
 }
 
+function getImageModelForEstimate(model?: string): string {
+  if (!model) return DEFAULT_IMAGE_MODEL_ID;
+  if (isImageModelSelection(model)) return resolveImageModelSelection(model);
+  if (isImageModelId(model)) return model;
+  return model;
+}
+
 function estimateProviderPricing(
   env: ControllerContext['env'],
   input: {
@@ -355,7 +367,7 @@ function estimateProviderPricing(
   const metadata: Record<string, unknown> = { operation: input.operation };
 
   if (input.service === 'nanobanana') {
-    metadata.model = input.model || DEFAULT_IMAGE_MODEL_ID;
+    metadata.model = getImageModelForEstimate(input.model);
     metadata.imageSize = input.imageSize;
   } else if (input.service === 'veo') {
     metadata.model = getVideoModelForEstimate(input.model, input.videoTier);
