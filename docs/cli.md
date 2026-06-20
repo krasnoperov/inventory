@@ -354,9 +354,11 @@ Press Ctrl+C to exit
 ## Upload
 
 Import one image, audio, or video file to create a new asset or add a variant to
-an existing asset. Use `makefx upload <manifest.json>` for JSON manifest
-batches, same-batch lineage, collections, manual relations, compositions, or
-style presets.
+an existing asset. Upload can also attach imported provenance, immutable lineage
+from existing variants, collection placement, and manual relations in the same
+file-oriented command. Use `makefx upload <manifest.json>` for JSON manifest
+batches, same-batch lineage, compositions, style presets, or name-based
+organization metadata.
 
 ### Create New Asset
 
@@ -393,6 +395,15 @@ makefx upload <manifest.json> [--space <id>] [--dry-run] [--json]
 | `--source-variant <id>` | No | Existing Space variant to record as import lineage source |
 | `--relation-type <type>` | No | Lineage type: `derived`, `refined`, or `forked` (default: `derived`) |
 | `--active-variant-behavior <behavior>` | No | `if-missing`, `set-active`, or `keep` |
+| `--collection <ids>` | No | Comma-separated collection IDs for the uploaded asset or variant |
+| `--collection-role <role>` | No | Collection item role (default: `member`) |
+| `--collection-subject <type>` | No | `asset` or `variant` (default: `asset`) |
+| `--collection-pinned-variant <id\|uploaded\|none>` | No | Pin asset collection placement to the uploaded variant by default |
+| `--manual-relation <spec>` | No | Comma-separated `<type>:asset:<id>` or `<type>:variant:<id>` relation targets |
+| `--manual-relation-subject <type>` | No | Uploaded relation subject: `asset` or `variant` (default: `variant`) |
+| `--manual-relation-label <text>` | No | Manual relation label |
+| `--manual-relation-context <json\|text>` | No | Manual relation context |
+| `--manual-relation-metadata <json>` | No | Manual relation metadata object |
 | `--dry-run` | No | Validate a JSON manifest without uploading media bytes |
 | `--json` | No | Print machine-readable manifest import or dry-run output |
 | `--env <env>` | No | `production`, `stage`, or `local` (default: `production`) |
@@ -432,9 +443,34 @@ makefx upload paintover.png --space abc123 --asset def456 \
 # Upload against local dev server
 makefx upload hero.png --space abc123 --name "Hero" --local
 
+# Place the uploaded asset in a collection and pin the uploaded variant
+makefx upload hero.png --space abc123 --name "Hero" \
+  --collection collection_cast \
+  --collection-role character
+
+# Place the exact uploaded variant in a collection
+makefx upload hero-pose.png --space abc123 --asset asset_hero \
+  --collection collection_poses \
+  --collection-subject variant
+
+# Create a manual relation from the uploaded variant to an existing asset
+makefx upload thumbnail.png --space abc123 --asset asset_thumb \
+  --manual-relation thumbnail_for:asset:asset_target
+
+# Add relation metadata
+makefx upload prop.png --space abc123 --name "Market Prop" \
+  --manual-relation appears_in:variant:variant_scene \
+  --manual-relation-context '{"scene":"market"}'
+
 # Validate a manifest before upload
 makefx upload import-manifest.json --space abc123 --dry-run --json
 ```
+
+Manual relation types include `appears_in`, `background_for`,
+`thumbnail_for`, `map_for`, `style_reference_for`, and `reference_for`.
+Collection and manual relation targets are existing Space IDs and are checked
+before the media upload starts. Use `--source-variant` only for immutable import
+lineage; use `--manual-relation` for editable organization links.
 
 ---
 
