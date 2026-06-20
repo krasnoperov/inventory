@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { keyBrokerClient } from './client';
 import { KEY_BROKER_METHODS, isKeyBrokerMethod } from './contract';
 import { createLocalKeyBrokerServiceBinding } from './testHarness';
+import { decryptProviderApiKeyV2, encryptLegacyProviderApiKey } from '../services/providerKeyVault';
 
 function encryptionKey(): string {
   return Buffer.from(new Uint8Array(32).fill(11)).toString('base64');
@@ -114,6 +115,29 @@ class FakeD1 {
           }
           assert.ok(createdAt);
           return { success: true };
+        }
+
+        if (sql.includes('UPDATE user_provider_keys')) {
+          const [encrypted, hint, updatedAt, userId, provider, previousEncrypted] = this.bindings as [
+            string,
+            string,
+            string,
+            number,
+            string,
+            string,
+          ];
+          const key = `${userId}:${provider}`;
+          const previous = rows.get(key);
+          if (previous?.encrypted_api_key === previousEncrypted) {
+            rows.set(key, {
+              ...previous,
+              encrypted_api_key: encrypted,
+              key_hint: hint,
+              updated_at: updatedAt,
+            });
+            return { success: true, meta: { changes: 1 } };
+          }
+          return { success: true, meta: { changes: 0 } };
         }
 
         if (sql.includes('INSERT INTO user_provider_keys')) {
@@ -235,6 +259,62 @@ describe('key broker service binding contract', () => {
     assert.equal(deleted.provider, 'google_ai');
     assert.match(deleted.deletedAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.equal(db.rows.has('7:google_ai'), false);
+  });
+
+  test('resolves legacy provider keys by upgrading them through the broker read path', async () => {
+    const db = new FakeD1();
+    const kek = encryptionKey();
+    const legacy = await encryptLegacyProviderApiKey('legacy-broker-key', kek, 7, 'google_ai');
+    db.rows.set('7:google_ai', {
+      user_id: 7,
+      provider: 'google_ai',
+      encrypted_api_key: legacy,
+      key_hint: 'legacy-hint',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+    db.platformUsage.push({
+      user_id: 7,
+      usage_type: 'workflow',
+      space_id: 'space-1',
+      workflow_id: 'variant-1',
+      variant_id: 'variant-1',
+      request_id: 'request-1',
+    });
+    const tenant = { type: 'user' as const, userId: 7 };
+    const broker = keyBrokerClient(
+      createLocalKeyBrokerServiceBinding({
+        DB: db as never,
+        BYOK_ACTIVE_KEK_VERSION: '1',
+        BYOK_KEK_V1: kek,
+      })
+    );
+
+    const resolved = await broker.resolveProviderKey({
+      tenant,
+      provider: 'google_ai',
+      purpose: 'generation',
+      generation: {
+        jobId: 'variant-1',
+        requestId: 'request-1',
+        spaceId: 'space-1',
+      },
+    });
+
+    assert.deepEqual(resolved, {
+      tenant,
+      provider: 'google_ai',
+      apiKey: 'legacy-broker-key',
+      keySource: 'byok',
+    });
+    const upgraded = db.rows.get('7:google_ai');
+    assert.ok(upgraded);
+    assert.match(upgraded.encrypted_api_key, /^enc:v2:1:1:/);
+    assert.notEqual(upgraded.encrypted_api_key, legacy);
+    assert.equal(upgraded.key_hint, '****-key');
+    assert.equal(
+      await decryptProviderApiKeyV2(db as never, upgraded.encrypted_api_key, kek, 7, 'google_ai'),
+      'legacy-broker-key',
+    );
   });
 
   test('denies cross-tenant and job-substituted generation key resolution before unwrapping key material', async () => {
