@@ -2,10 +2,21 @@ import { authMiddleware } from '../middleware/auth-middleware';
 import { UserDAO } from '../../dao/user-dao';
 import { createOpenApiRouter, toApiUser, toUserProfile } from './openapi';
 import {
+  deleteProviderKeyRoute,
   getUserProfileRoute,
+  listProviderKeysRoute,
   patchUserProfileRoute,
+  putProviderKeyRoute,
   putUserSettingsRoute,
 } from '../../shared/api/routes';
+import {
+  deleteProviderApiKey,
+  isProviderKeyProvider,
+  listProviderKeySummaries,
+  ProviderKeyEncryptionError,
+  upsertProviderApiKey,
+  validateProviderApiKey,
+} from '../services/providerKeyVault';
 
 const userRoutes = createOpenApiRouter();
 
@@ -78,6 +89,55 @@ userRoutes.openapi(patchUserProfileRoute, async (c) => {
     success: true as const,
     user: toUserProfile(updatedUser!),
   }, 200);
+});
+
+userRoutes.openapi(listProviderKeysRoute, async (c) => {
+  const userId = c.get('userId')!;
+  const providers = await listProviderKeySummaries(c.env.DB, userId, c.env);
+  return c.json({ success: true as const, providers }, 200);
+});
+
+userRoutes.openapi(putProviderKeyRoute, async (c) => {
+  const userId = c.get('userId')!;
+  const { provider } = c.req.valid('param');
+  const { apiKey } = c.req.valid('json');
+
+  if (!isProviderKeyProvider(provider)) {
+    return c.json({ error: 'Unknown provider' }, 400);
+  }
+
+  const validationError = validateProviderApiKey(provider, apiKey);
+  if (validationError) {
+    return c.json({ error: validationError }, 400);
+  }
+
+  try {
+    await upsertProviderApiKey(c.env.DB, userId, provider, apiKey, c.env);
+  } catch (err) {
+    if (err instanceof ProviderKeyEncryptionError) {
+      return c.json({ error: err.message }, 503);
+    }
+    throw err;
+  }
+
+  const providers = await listProviderKeySummaries(c.env.DB, userId, c.env);
+  const summary = providers.find((item) => item.provider === provider)!;
+  return c.json({ success: true as const, provider: summary }, 200);
+});
+
+userRoutes.openapi(deleteProviderKeyRoute, async (c) => {
+  const userId = c.get('userId')!;
+  const { provider } = c.req.valid('param');
+
+  if (!isProviderKeyProvider(provider)) {
+    return c.json({ error: 'Unknown provider' }, 400);
+  }
+
+  await deleteProviderApiKey(c.env.DB, userId, provider);
+
+  const providers = await listProviderKeySummaries(c.env.DB, userId, c.env);
+  const summary = providers.find((item) => item.provider === provider)!;
+  return c.json({ success: true as const, provider: summary }, 200);
 });
 
 export { userRoutes };

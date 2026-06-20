@@ -32,10 +32,12 @@ export interface AssetDetailsResponse {
 export const sessionQueryKey = ['start-session'] as const;
 export const spacesQueryKey = ['spaces'] as const;
 export const userProfileQueryKey = ['user-profile'] as const;
+export const providerKeysQueryKey = ['provider-keys'] as const;
 
 export function clearUserScopedQueries(queryClient: QueryClient) {
   queryClient.removeQueries({ queryKey: spacesQueryKey });
   queryClient.removeQueries({ queryKey: userProfileQueryKey });
+  queryClient.removeQueries({ queryKey: providerKeysQueryKey });
 }
 
 export function getCachedSession(
@@ -197,5 +199,13 @@ export function userProfileQueryOptions(baseUrl?: string, headers?: HeadersInit,
     queryKey: userProfileQueryKey,
     queryFn: (): Promise<UserProfile> =>
       apiFetch('GET /api/user/profile', { baseUrl, headers, fetch: fetchImpl }),
+  });
+}
+
+export function providerKeysQueryOptions(baseUrl?: string, headers?: HeadersInit, fetchImpl?: FetchLike) {
+  return queryOptions({
+    queryKey: providerKeysQueryKey,
+    queryFn: () =>
+      apiFetch('GET /api/user/provider-keys', { baseUrl, headers, fetch: fetchImpl }).then((data) => data.providers),
   });
 }

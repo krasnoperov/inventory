@@ -362,13 +362,13 @@ export class SpaceDO extends DurableObject<Env> {
 
       // Vision
       case 'describe:request':
-        return this.visionCtrl.handleDescribe(ws, msg as DescribeRequestMessage);
+        return this.visionCtrl.handleDescribe(ws, meta.userId, msg as DescribeRequestMessage);
       case 'compare:request':
-        return this.visionCtrl.handleCompare(ws, msg as CompareRequestMessage);
+        return this.visionCtrl.handleCompare(ws, meta.userId, msg as CompareRequestMessage);
 
       // Auto-describe (lazy description caching for ForgeTray)
       case 'auto-describe:request':
-        return this.visionCtrl.handleAutoDescribe(ws, msg as AutoDescribeRequestMessage);
+        return this.visionCtrl.handleAutoDescribe(ws, meta.userId, msg as AutoDescribeRequestMessage);
 
       // Chat (persistent space chat with ForgeTray context)
       case 'chat:history':

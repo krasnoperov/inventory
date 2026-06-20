@@ -46,6 +46,7 @@ export function isVideoGenerationResult(
  */
 export type GeneratedMediaProviderMetadata = {
   provider: string;
+  keySource?: 'platform' | 'byok';
   model: string;
   operation: string;
   sourceImageCount: number;
@@ -83,6 +84,7 @@ export type UploadGeneratedMediaContext = {
   operation: string;
   refCount: number;
   modelProvider?: string;
+  keySource?: 'platform' | 'byok';
   requestId: string;
   jobId: string;
 };
@@ -97,7 +99,7 @@ export async function uploadGeneratedMedia(
   generationResult: GenerationResult | VideoGenerationResult,
   ctx: UploadGeneratedMediaContext
 ): Promise<MediaUploadResult> {
-  const { spaceId, variantId, operation, refCount, modelProvider, requestId, jobId } = ctx;
+  const { spaceId, variantId, operation, refCount, modelProvider, keySource, requestId, jobId } = ctx;
 
   if (!env.IMAGES) {
     throw new Error('IMAGES R2 bucket not configured');
@@ -129,6 +131,7 @@ export async function uploadGeneratedMedia(
         mediaDurationMs: generationResult.durationSeconds * 1000,
         providerMetadata: {
           provider: env.INVENTORY_IMAGE_PROVIDER === 'fake' ? 'fake' : 'google-veo',
+          keySource,
           model: generationResult.model,
           operation,
           aspectRatio: generationResult.aspectRatio,
@@ -221,6 +224,7 @@ export async function uploadGeneratedMedia(
       mediaDurationMs: null,
       providerMetadata: {
         provider,
+        keySource,
         model: generationResult.model,
         operation,
         api: imageApi,

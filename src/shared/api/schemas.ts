@@ -93,6 +93,50 @@ export const UserSettingsResponseSchema = z
   })
   .openapi('UserSettingsResponse');
 
+export const ProviderKeyProviderSchema = z
+  .enum(['google_ai', 'anthropic', 'elevenlabs', 'lyria'])
+  .openapi('ProviderKeyProvider');
+
+export const ProviderKeyParamsSchema = z.object({
+  provider: ProviderKeyProviderSchema.openapi({
+    param: {
+      name: 'provider',
+      in: 'path',
+    },
+  }),
+});
+
+export const ProviderKeySummarySchema = z
+  .object({
+    provider: ProviderKeyProviderSchema,
+    label: z.string(),
+    configured: z.boolean(),
+    keyHint: z.string().nullable(),
+    updatedAt: z.string().nullable(),
+    platformConfigured: z.boolean(),
+  })
+  .openapi('ProviderKeySummary');
+
+export const ListProviderKeysResponseSchema = z
+  .object({
+    success: z.literal(true),
+    providers: z.array(ProviderKeySummarySchema),
+  })
+  .openapi('ListProviderKeysResponse');
+
+export const UpsertProviderKeyRequestSchema = z
+  .object({
+    apiKey: z.string(),
+  })
+  .openapi('UpsertProviderKeyRequest');
+
+export const ProviderKeyResponseSchema = z
+  .object({
+    success: z.literal(true),
+    provider: ProviderKeySummarySchema,
+  })
+  .openapi('ProviderKeyResponse');
+
 export const SpaceRoleSchema = z.enum(['owner', 'editor', 'viewer']);
 
 export const SpaceSchema = z
@@ -523,6 +567,11 @@ export type UpdateUserProfileRequest = z.infer<typeof UpdateUserProfileRequestSc
 export type UpdateUserSettingsRequest = z.infer<typeof UpdateUserSettingsRequestSchema>;
 export type UserProfileUpdateResponse = z.infer<typeof UserProfileUpdateResponseSchema>;
 export type UserSettingsResponse = z.infer<typeof UserSettingsResponseSchema>;
+export type ProviderKeyProvider = z.infer<typeof ProviderKeyProviderSchema>;
+export type ProviderKeySummary = z.infer<typeof ProviderKeySummarySchema>;
+export type ListProviderKeysResponse = z.infer<typeof ListProviderKeysResponseSchema>;
+export type UpsertProviderKeyRequest = z.infer<typeof UpsertProviderKeyRequestSchema>;
+export type ProviderKeyResponse = z.infer<typeof ProviderKeyResponseSchema>;
 export type Space = z.infer<typeof SpaceSchema>;
 export type CreateSpaceRequest = z.infer<typeof CreateSpaceRequestSchema>;
 export type CreateSpaceResponse = z.infer<typeof CreateSpaceResponseSchema>;

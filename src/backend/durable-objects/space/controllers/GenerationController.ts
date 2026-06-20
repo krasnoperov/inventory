@@ -39,6 +39,7 @@ import type { VariantMediaMetadata } from '../repository/SpaceRepository';
 import { loggers } from '../../../../shared/logger';
 import type { MusicGenerationProvider } from '../../../../shared/websocket-types';
 import { resolveAudioProvider } from '../../../services/audioProviderSelection';
+import { hasStoredProviderApiKey, type ProviderKeyProvider } from '../../../services/providerKeyVault';
 import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
 import { VIDEO_GENERATION_AUDIO_ALWAYS_ON } from '../../../../shared/videoGenerationOptions';
 import { trackVariantStorageUsage } from '../../../platform/platformUsage';
@@ -80,6 +81,26 @@ function getGenerationBillingService(
   return 'nanobanana';
 }
 
+function getByokProviderForBillingService(service: GenerationBillingService): ProviderKeyProvider {
+  switch (service) {
+    case 'elevenlabs':
+      return 'elevenlabs';
+    case 'lyria':
+      return 'lyria';
+    case 'nanobanana':
+    case 'veo':
+      return 'google_ai';
+  }
+}
+
+async function hasByokForBillingService(
+  env: ControllerContext['env'],
+  userId: number,
+  service: GenerationBillingService
+): Promise<boolean> {
+  return hasStoredProviderApiKey(env.DB, userId, getByokProviderForBillingService(service));
+}
+
 function countPromptCharacters(prompt: string | undefined): number {
   if (!prompt) return 0;
   return Array.from(prompt).length;
@@ -112,6 +133,10 @@ function parseObjectMetadata(value: Record<string, unknown> | string | null | un
     }
   }
   return value;
+}
+
+function isByokProviderMetadata(value: Record<string, unknown> | string | null | undefined): boolean {
+  return parseObjectMetadata(value)?.keySource === 'byok';
 }
 
 function toPositiveNumber(value: unknown): number | undefined {
@@ -246,17 +271,22 @@ export class GenerationController extends BaseController {
         msg.assetType,
         getVideoGenerateAudio(msg.mediaKind, msg.generateAudio)
       );
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
-      if (!check.allowed) {
-        this.send(ws, {
-          type: 'generate:error',
-          requestId: msg.requestId,
-          error: check.denyMessage || 'Request denied',
-          code: getGenerationLimitErrorCode(check.denyReason),
-        });
-        return;
+      const userId = parseInt(meta.userId);
+      if (await hasByokForBillingService(this.env, userId, billingService)) {
+        await incrementRateLimit(this.env.DB, userId);
+      } else {
+        const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
+        if (!check.allowed) {
+          this.send(ws, {
+            type: 'generate:error',
+            requestId: msg.requestId,
+            error: check.denyMessage || 'Request denied',
+            code: getGenerationLimitErrorCode(check.denyReason),
+          });
+          return;
+        }
+        await incrementRateLimit(this.env.DB, userId);
       }
-      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
     }
 
     // Use factory to create asset + variant + lineage
@@ -339,17 +369,22 @@ export class GenerationController extends BaseController {
         billingAssetType,
         getVideoGenerateAudio(billingMediaKind, msg.generateAudio)
       );
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
-      if (!check.allowed) {
-        this.send(ws, {
-          type: 'refine:error',
-          requestId: msg.requestId,
-          error: check.denyMessage || 'Request denied',
-          code: getGenerationLimitErrorCode(check.denyReason),
-        });
-        return;
+      const userId = parseInt(meta.userId);
+      if (await hasByokForBillingService(this.env, userId, billingService)) {
+        await incrementRateLimit(this.env.DB, userId);
+      } else {
+        const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
+        if (!check.allowed) {
+          this.send(ws, {
+            type: 'refine:error',
+            requestId: msg.requestId,
+            error: check.denyMessage || 'Request denied',
+            code: getGenerationLimitErrorCode(check.denyReason),
+          });
+          return;
+        }
+        await incrementRateLimit(this.env.DB, userId);
       }
-      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
     }
 
     // Use factory to create refine variant + lineage
@@ -429,25 +464,30 @@ export class GenerationController extends BaseController {
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind, msg.assetType, msg.musicProvider);
       const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, msg.count, msg.assetType);
-      const check = await preCheck(
-        this.env.DB,
-        parseInt(meta.userId),
-        billingService,
-        undefined,
-        quotaQuantity,
-        msg.count,
-        this.env.ADMIN_USER_IDS
-      );
-      if (!check.allowed) {
-        this.send(ws, {
-          type: 'batch:error',
-          requestId: msg.requestId,
-          error: check.denyMessage || 'Request denied',
-          code: getGenerationLimitErrorCode(check.denyReason),
-        });
-        return;
+      const userId = parseInt(meta.userId);
+      if (await hasByokForBillingService(this.env, userId, billingService)) {
+        await incrementRateLimit(this.env.DB, userId, msg.count);
+      } else {
+        const check = await preCheck(
+          this.env.DB,
+          userId,
+          billingService,
+          undefined,
+          quotaQuantity,
+          msg.count,
+          this.env.ADMIN_USER_IDS
+        );
+        if (!check.allowed) {
+          this.send(ws, {
+            type: 'batch:error',
+            requestId: msg.requestId,
+            error: check.denyMessage || 'Request denied',
+            code: getGenerationLimitErrorCode(check.denyReason),
+          });
+          return;
+        }
+        await incrementRateLimit(this.env.DB, userId, msg.count);
       }
-      await incrementRateLimit(this.env.DB, parseInt(meta.userId), msg.count);
     }
 
     // Use factory to create batch variants
@@ -542,16 +582,21 @@ export class GenerationController extends BaseController {
         recipe.assetType,
         getVideoGenerateAudio(retryMediaKind, getRecipeGenerateAudio(recipe))
       );
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
-      if (!check.allowed) {
-        this.sendError(
-          ws,
-          getGenerationLimitErrorCode(check.denyReason),
-          check.denyMessage || 'Request denied'
-        );
-        return;
+      const userId = parseInt(meta.userId);
+      if (await hasByokForBillingService(this.env, userId, billingService)) {
+        await incrementRateLimit(this.env.DB, userId);
+      } else {
+        const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
+        if (!check.allowed) {
+          this.sendError(
+            ws,
+            getGenerationLimitErrorCode(check.denyReason),
+            check.denyMessage || 'Request denied'
+          );
+          return;
+        }
+        await incrementRateLimit(this.env.DB, userId);
       }
-      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
     }
 
     // Reset variant for retry
@@ -722,9 +767,11 @@ export class GenerationController extends BaseController {
     }
 
     // Track usage for successful generation
+    const byokGeneration = isByokProviderMetadata(data.providerMetadata) || isByokProviderMetadata(variant.provider_metadata);
     if (
       this.env.DB &&
       variant.created_by &&
+      !byokGeneration &&
       (variant.media_kind === 'image' || variant.media_kind === 'video')
     ) {
       try {
@@ -782,6 +829,7 @@ export class GenerationController extends BaseController {
     if (
       this.env.DB &&
       variant.created_by &&
+      !byokGeneration &&
       variant.media_kind === 'audio' &&
       data.audioProvider === 'elevenlabs'
     ) {
@@ -820,6 +868,7 @@ export class GenerationController extends BaseController {
     if (
       this.env.DB &&
       variant.created_by &&
+      !byokGeneration &&
       variant.media_kind === 'audio' &&
       data.audioProvider === 'lyria'
     ) {

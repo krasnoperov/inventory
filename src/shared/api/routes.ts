@@ -12,8 +12,11 @@ import {
   GoogleAuthRequestSchema,
   ListSpaceAssetsResponseSchema,
   ListProductionRecordsResponseSchema,
+  ListProviderKeysResponseSchema,
   ListSpacesResponseSchema,
   PlaceProductionRecordRequestSchema,
+  ProviderKeyParamsSchema,
+  ProviderKeyResponseSchema,
   ProductionIdParamsSchema,
   ProductionChildParamsSchema,
   ListProductionsResponseSchema,
@@ -32,6 +35,7 @@ import {
   UpsertProductionShotRequestSchema,
   UpdateUserProfileRequestSchema,
   UpdateUserSettingsRequestSchema,
+  UpsertProviderKeyRequestSchema,
   UploadMediaRequestSchema,
   UploadMediaResponseSchema,
   UploadStyleImageRequestSchema,
@@ -183,6 +187,57 @@ export const patchUserProfileRoute = createRoute({
     },
     400: errorResponse,
     404: errorResponse,
+  },
+});
+
+export const listProviderKeysRoute = createRoute({
+  method: 'get',
+  path: '/api/user/provider-keys',
+  responses: {
+    200: {
+      ...json(ListProviderKeysResponseSchema),
+      description: 'Current user provider key configuration',
+    },
+    401: errorResponse,
+  },
+});
+
+export const putProviderKeyRoute = createRoute({
+  method: 'put',
+  path: '/api/user/provider-keys/{provider}',
+  request: {
+    params: ProviderKeyParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertProviderKeyRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(ProviderKeyResponseSchema),
+      description: 'Stored encrypted provider key',
+    },
+    400: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteProviderKeyRoute = createRoute({
+  method: 'delete',
+  path: '/api/user/provider-keys/{provider}',
+  request: {
+    params: ProviderKeyParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(ProviderKeyResponseSchema),
+      description: 'Removed provider key',
+    },
+    400: errorResponse,
   },
 });
 
