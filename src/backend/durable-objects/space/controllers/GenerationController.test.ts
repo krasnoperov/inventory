@@ -270,6 +270,45 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(workflowCreate.mock.calls.length, 1);
     });
 
+    test('does not use Google BYOK to bypass custom image provider billing', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({
+        quotaLimit: 0,
+        quotaLimitsJson: JSON.stringify({ gemini_images: 0 }),
+        paidGenerationEntitlement: 'none',
+        hasProviderKey: true,
+      }) as any;
+      ctx.env.CUSTOM_MODEL_ENDPOINT = 'https://custom.example.test/generate';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-custom-byok',
+          name: 'Custom image',
+          assetType: 'item',
+          mediaKind: 'image',
+          prompt: 'custom model image',
+          modelProvider: 'custom',
+        } as any
+      );
+
+      assert.strictEqual(asMock(ctx.send).mock.calls.length, 1);
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'generate:error',
+        requestId: 'request-custom-byok',
+        error: 'Paid generation is not enabled for this account. Please upgrade your plan.',
+        code: 'PAID_GENERATION_REQUIRED',
+      });
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
     test('blocks ElevenLabs music generation when remaining quota can cover prompt but not provider cost', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();

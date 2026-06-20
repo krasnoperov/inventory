@@ -48,6 +48,11 @@ const log = loggers.generationController;
 
 type GenerationBillingService = 'nanobanana' | 'lyria' | 'elevenlabs' | 'veo';
 type GenerationLimitDenyReason = 'quota_exceeded' | 'rate_limited' | 'paid_generation_required';
+type ImageModelProvider = 'gemini' | 'custom';
+
+interface ByokBillingContext {
+  modelProvider?: ImageModelProvider;
+}
 
 type AudioUsage = {
   inputTokens: number;
@@ -93,11 +98,27 @@ function getByokProviderForBillingService(service: GenerationBillingService): Pr
   }
 }
 
+function normalizeImageModelProvider(value: unknown): ImageModelProvider | undefined {
+  return value === 'gemini' || value === 'custom' ? value : undefined;
+}
+
+function isCustomImageProviderRequest(
+  env: ControllerContext['env'],
+  service: GenerationBillingService,
+  context: ByokBillingContext
+): boolean {
+  return service === 'nanobanana' && context.modelProvider === 'custom' && Boolean(env.CUSTOM_MODEL_ENDPOINT);
+}
+
 async function hasByokForBillingService(
   env: ControllerContext['env'],
   userId: number,
-  service: GenerationBillingService
+  service: GenerationBillingService,
+  context: ByokBillingContext = {}
 ): Promise<boolean> {
+  if (isCustomImageProviderRequest(env, service, context)) {
+    return false;
+  }
   return hasStoredProviderApiKey(env.DB, userId, getByokProviderForBillingService(service));
 }
 
@@ -261,6 +282,8 @@ export class GenerationController extends BaseController {
       throw new ValidationError('Generation workflow not configured');
     }
 
+    const modelProvider = normalizeImageModelProvider(msg.modelProvider);
+
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind, msg.assetType, msg.musicProvider);
@@ -272,7 +295,7 @@ export class GenerationController extends BaseController {
         getVideoGenerateAudio(msg.mediaKind, msg.generateAudio)
       );
       const userId = parseInt(meta.userId);
-      if (await hasByokForBillingService(this.env, userId, billingService)) {
+      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider })) {
         await incrementRateLimit(this.env.DB, userId);
       } else {
         const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
@@ -310,6 +333,7 @@ export class GenerationController extends BaseController {
         videoResolution: msg.videoResolution,
         videoDurationSeconds: msg.videoDurationSeconds,
         videoTier: msg.videoTier,
+        modelProvider,
       },
       meta
     );
@@ -349,6 +373,8 @@ export class GenerationController extends BaseController {
       throw new ValidationError('Generation workflow not configured');
     }
 
+    const modelProvider = normalizeImageModelProvider(msg.modelProvider);
+
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
       let billingMediaKind = msg.mediaKind;
@@ -370,7 +396,7 @@ export class GenerationController extends BaseController {
         getVideoGenerateAudio(billingMediaKind, msg.generateAudio)
       );
       const userId = parseInt(meta.userId);
-      if (await hasByokForBillingService(this.env, userId, billingService)) {
+      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider })) {
         await incrementRateLimit(this.env.DB, userId);
       } else {
         const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
@@ -407,6 +433,7 @@ export class GenerationController extends BaseController {
         videoResolution: msg.videoResolution,
         videoDurationSeconds: msg.videoDurationSeconds,
         videoTier: msg.videoTier,
+        modelProvider,
       },
       meta
     );
@@ -460,12 +487,14 @@ export class GenerationController extends BaseController {
       return;
     }
 
+    const modelProvider = normalizeImageModelProvider(msg.modelProvider);
+
     // Check quota for the entire batch
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind, msg.assetType, msg.musicProvider);
       const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, msg.count, msg.assetType);
       const userId = parseInt(meta.userId);
-      if (await hasByokForBillingService(this.env, userId, billingService)) {
+      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider })) {
         await incrementRateLimit(this.env.DB, userId, msg.count);
       } else {
         const check = await preCheck(
@@ -509,6 +538,7 @@ export class GenerationController extends BaseController {
         musicProvider: msg.musicProvider,
         count: msg.count,
         mode: msg.mode,
+        modelProvider,
       },
       meta
     );
@@ -583,7 +613,7 @@ export class GenerationController extends BaseController {
         getVideoGenerateAudio(retryMediaKind, getRecipeGenerateAudio(recipe))
       );
       const userId = parseInt(meta.userId);
-      if (await hasByokForBillingService(this.env, userId, billingService)) {
+      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider: recipe.modelProvider })) {
         await incrementRateLimit(this.env.DB, userId);
       } else {
         const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
