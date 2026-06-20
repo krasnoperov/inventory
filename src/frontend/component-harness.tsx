@@ -1,6 +1,7 @@
 import { StrictMode, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
+import { AssetCanvas } from './components/AssetCanvas';
 import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
 import { ForgeTray } from './components/ForgeTray';
 import { Pagination } from './components/Pagination';
@@ -19,6 +20,7 @@ declare global {
 
 const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeader: AppHeader as ComponentType<Record<string, unknown>>,
+  AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   CompositionDetail: CompositionDetail as unknown as ComponentType<Record<string, unknown>>,
   CompositionUsageList: CompositionUsageList as unknown as ComponentType<Record<string, unknown>>,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,

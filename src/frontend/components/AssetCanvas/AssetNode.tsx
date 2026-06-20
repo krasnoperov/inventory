@@ -49,8 +49,6 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
         variant={variant}
         size="fill"
         spaceId={spaceId}
-        showAudioControls
-        showVideoControls
         className={`${styles.mediaPreview} nodrag nopan`}
       />
     );
@@ -95,7 +93,7 @@ function AssetNodeComponent({ data, selected }: NodeProps<AssetNodeType>) {
       </div>
 
       {/* Name label */}
-      <div className={styles.label}>
+      <div className={styles.label} onClick={handleClick}>
         <span className={styles.name}>{asset.name}</span>
         <span className={styles.type}>
           {asset.type} / {formatMediaKind(asset.media_kind)}
