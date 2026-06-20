@@ -1,4 +1,6 @@
 import type {
+  DeleteProviderKeyRequest,
+  DeleteProviderKeyResponse,
   KeyBrokerService,
   ResolveProviderKeyRequest,
   ResolveProviderKeyResponse,
@@ -16,6 +18,9 @@ export function keyBrokerClient(binding: KeyBrokerServiceBinding): KeyBrokerServ
   return {
     storeProviderKey(request: StoreProviderKeyRequest): Promise<StoreProviderKeyResponse> {
       return binding.storeProviderKey(request);
+    },
+    deleteProviderKey(request: DeleteProviderKeyRequest): Promise<DeleteProviderKeyResponse> {
+      return binding.deleteProviderKey(request);
     },
     resolveProviderKey(request: ResolveProviderKeyRequest): Promise<ResolveProviderKeyResponse> {
       return binding.resolveProviderKey(request);

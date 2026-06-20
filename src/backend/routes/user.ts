@@ -10,15 +10,37 @@ import {
   putUserSettingsRoute,
 } from '../../shared/api/routes';
 import {
-  deleteProviderApiKey,
   isProviderKeyProvider,
   listProviderKeySummaries,
   ProviderKeyEncryptionError,
-  upsertProviderApiKey,
-  validateProviderApiKey,
 } from '../services/providerKeyVault';
+import { keyBrokerClient } from '../key-broker/client';
+import { createKeyBrokerService } from '../key-broker/service';
+import type { KeyBrokerService } from '../key-broker/contract';
+import type { AppContext } from './types';
 
 const userRoutes = createOpenApiRouter();
+
+function isProviderKeyEncryptionError(err: unknown): err is ProviderKeyEncryptionError {
+  return err instanceof ProviderKeyEncryptionError ||
+    (err instanceof Error && err.name === 'ProviderKeyEncryptionError');
+}
+
+function providerKeyBrokerForEnv(env: AppContext['Bindings']): KeyBrokerService | null {
+  if (env.KEY_BROKER) {
+    return keyBrokerClient(env.KEY_BROKER);
+  }
+
+  if (env.ENVIRONMENT === 'local') {
+    return createKeyBrokerService({
+      DB: env.DB,
+      BYOK_ACTIVE_KEK_VERSION: '1',
+      BYOK_KEK_V1: env.ENCRYPTION_KEY,
+    });
+  }
+
+  return null;
+}
 
 // All user routes require authentication
 userRoutes.use('/api/user/*', authMiddleware);
@@ -106,15 +128,24 @@ userRoutes.openapi(putProviderKeyRoute, async (c) => {
     return c.json({ error: 'Unknown provider' }, 400);
   }
 
-  const validationError = validateProviderApiKey(provider, apiKey);
-  if (validationError) {
-    return c.json({ error: validationError }, 400);
+  const trimmed = apiKey.trim();
+  if (!trimmed) {
+    return c.json({ error: 'API key is required' }, 400);
+  }
+
+  const broker = providerKeyBrokerForEnv(c.env);
+  if (!broker) {
+    return c.json({ error: 'Provider key broker is not configured' }, 503);
   }
 
   try {
-    await upsertProviderApiKey(c.env.DB, userId, provider, apiKey, c.env);
+    await broker.storeProviderKey({
+      tenant: { type: 'user', userId },
+      provider,
+      apiKey: trimmed,
+    });
   } catch (err) {
-    if (err instanceof ProviderKeyEncryptionError) {
+    if (isProviderKeyEncryptionError(err)) {
       return c.json({ error: err.message }, 503);
     }
     throw err;
@@ -133,7 +164,22 @@ userRoutes.openapi(deleteProviderKeyRoute, async (c) => {
     return c.json({ error: 'Unknown provider' }, 400);
   }
 
-  await deleteProviderApiKey(c.env.DB, userId, provider);
+  const broker = providerKeyBrokerForEnv(c.env);
+  if (!broker) {
+    return c.json({ error: 'Provider key broker is not configured' }, 503);
+  }
+
+  try {
+    await broker.deleteProviderKey({
+      tenant: { type: 'user', userId },
+      provider,
+    });
+  } catch (err) {
+    if (isProviderKeyEncryptionError(err)) {
+      return c.json({ error: err.message }, 503);
+    }
+    throw err;
+  }
 
   const providers = await listProviderKeySummaries(c.env.DB, userId, c.env);
   const summary = providers.find((item) => item.provider === provider)!;

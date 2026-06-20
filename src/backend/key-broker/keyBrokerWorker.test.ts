@@ -110,6 +110,12 @@ class FakeD1 {
           return { success: true };
         }
 
+        if (sql.includes('DELETE FROM user_provider_keys')) {
+          const [userId, provider] = this.bindings;
+          rows.delete(`${userId}:${provider}`);
+          return { success: true };
+        }
+
         return { success: true };
       },
     };
@@ -120,6 +126,7 @@ describe('key broker service binding contract', () => {
   test('exposes only scoped custody methods', () => {
     assert.deepEqual([...KEY_BROKER_METHODS], [
       'storeProviderKey',
+      'deleteProviderKey',
       'resolveProviderKey',
       'rotateTenantDek',
       'rewrapAllDeks',
@@ -179,6 +186,15 @@ describe('key broker service binding contract', () => {
       keySource: 'byok',
     });
     assert.equal(secret.getCalls, 2);
+
+    const deleted = await broker.deleteProviderKey({
+      tenant,
+      provider: 'google_ai',
+    });
+
+    assert.equal(deleted.provider, 'google_ai');
+    assert.match(deleted.deletedAt, /^\d{4}-\d{2}-\d{2}T/);
+    assert.equal(db.rows.has('7:google_ai'), false);
   });
 
   test('does not return DEK material from rotation scaffold methods', async () => {

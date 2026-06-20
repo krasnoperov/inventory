@@ -266,6 +266,7 @@ export const deleteProviderKeyRoute = createRoute({
       description: 'Removed provider key',
     },
     400: errorResponse,
+    503: errorResponse,
   },
 });
 
