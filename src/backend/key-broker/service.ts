@@ -1,12 +1,19 @@
 import type { ProviderKeyProvider } from '../services/providerKeyVault';
 import {
   ProviderKeyEncryptionError,
+  createWrappedProviderKeyDek,
   deleteProviderApiKey,
+  decryptProviderApiKeyWithDek,
+  encryptProviderApiKeyWithDek,
   hasStoredProviderApiKey,
   isProviderKeyProvider,
   maskProviderKey,
+  parseProviderApiKeyV2Envelope,
   resolveStoredProviderApiKey,
   upsertProviderApiKey,
+  unwrapProviderKeyDek,
+  wrapProviderKeyDek,
+  type VersionedKekProvider,
 } from '../services/providerKeyVault';
 import type {
   DeleteProviderKeyRequest,
@@ -29,6 +36,8 @@ export interface KeyBrokerWorkerEnv {
   DB: D1Database;
   BYOK_ACTIVE_KEK_VERSION?: string;
   BYOK_KEK_V1?: SecretValueBinding;
+  BYOK_KEK_V2?: SecretValueBinding;
+  [binding: `BYOK_KEK_V${number}`]: SecretValueBinding;
 }
 
 function assertUserTenant(tenant: KeyBrokerTenantScope): number {
@@ -96,20 +105,51 @@ async function readSecretValue(binding: SecretValueBinding): Promise<string | un
   return undefined;
 }
 
-async function getActiveKek(env: KeyBrokerWorkerEnv): Promise<string> {
-  const version = getActiveKekVersion(env);
-  if (version !== 1) {
-    throw new ProviderKeyEncryptionError('Active BYOK KEK version is not supported by this broker contract');
+async function getKekByVersion(env: KeyBrokerWorkerEnv, version: number): Promise<string> {
+  if (!Number.isSafeInteger(version) || version <= 0) {
+    throw new ProviderKeyEncryptionError('BYOK KEK version must be a positive integer');
   }
-  const value = await readSecretValue(env.BYOK_KEK_V1);
+  const bindingName = `BYOK_KEK_V${version}` as const;
+  const value = await readSecretValue(env[bindingName]);
   if (!value) {
     throw new ProviderKeyEncryptionError(`BYOK_KEK_V${version} Secrets Store binding is required`);
   }
   return value;
 }
 
-function encryptionEnv(kek: string): { ENCRYPTION_KEY: string } {
-  return { ENCRYPTION_KEY: kek };
+function encryptionEnv(env: KeyBrokerWorkerEnv): VersionedKekProvider {
+  return {
+    activeKekVersion: getActiveKekVersion(env),
+    getKekByVersion: (version) => readSecretValue(env[`BYOK_KEK_V${version}` as const]),
+  };
+}
+
+type EnvelopeRow = {
+  scope_id: string;
+  wrapped_dek: string;
+  dek_version: number;
+  kek_version: number;
+};
+
+type TenantProviderKeyRow = {
+  provider: string;
+  encrypted_api_key: string;
+};
+
+function assertRotationVersion(version: number, label: string): number {
+  if (!Number.isSafeInteger(version) || version <= 0) {
+    throw new ProviderKeyEncryptionError(`Key broker ${label} KEK version is invalid`);
+  }
+  return version;
+}
+
+function scopeIdForUser(userId: number): string {
+  return `user:${userId}`;
+}
+
+function resultChanges(result: unknown): number {
+  const meta = (result as { meta?: { changes?: number } }).meta;
+  return typeof meta?.changes === 'number' ? meta.changes : 0;
 }
 
 export async function storeProviderKey(
@@ -118,10 +158,9 @@ export async function storeProviderKey(
 ): Promise<StoreProviderKeyResponse> {
   const userId = assertUserTenant(request.tenant);
   const provider = assertProvider(request.provider);
-  const kek = await getActiveKek(env);
   const trimmed = request.apiKey.trim();
 
-  await upsertProviderApiKey(env.DB, userId, provider, trimmed, encryptionEnv(kek));
+  await upsertProviderApiKey(env.DB, userId, provider, trimmed, encryptionEnv(env));
 
   return {
     tenant: request.tenant,
@@ -163,12 +202,11 @@ export async function resolveProviderKey(
       keySource: 'missing',
     };
   }
-  const kek = await getActiveKek(env);
   const apiKey = await resolveStoredProviderApiKey(
     env.DB,
     userId,
     provider,
-    encryptionEnv(kek),
+    encryptionEnv(env),
   );
 
   return {
@@ -180,21 +218,182 @@ export async function resolveProviderKey(
 }
 
 export async function rotateTenantDek(
-  _env: KeyBrokerWorkerEnv,
+  env: KeyBrokerWorkerEnv,
   request: RotateTenantDekRequest,
 ): Promise<RotateTenantDekResponse> {
-  assertUserTenant(request.tenant);
+  const userId = assertUserTenant(request.tenant);
+  const scopeId = scopeIdForUser(userId);
+  const envelope = await env.DB.prepare(`
+    SELECT scope_id, wrapped_dek, dek_version, kek_version
+    FROM key_envelopes
+    WHERE scope_id = ?
+  `).bind(scopeId).first<EnvelopeRow>();
+
+  if (!envelope) {
+    return {
+      tenant: request.tenant,
+      status: 'noop',
+      rotatedProviders: 0,
+      dekVersion: null,
+      kekVersion: null,
+    };
+  }
+
+  const providerRows = await env.DB.prepare(`
+    SELECT provider, encrypted_api_key
+    FROM user_provider_keys
+    WHERE user_id = ?
+    ORDER BY provider
+  `).bind(userId).all<TenantProviderKeyRow>();
+  const rows = providerRows.results ?? [];
+
+  if (rows.length === 0) {
+    return {
+      tenant: request.tenant,
+      status: 'noop',
+      rotatedProviders: 0,
+      dekVersion: envelope.dek_version,
+      kekVersion: envelope.kek_version,
+    };
+  }
+
+  for (const row of rows) {
+    const provider = assertProvider(row.provider as ProviderKeyProvider);
+    const parsed = parseProviderApiKeyV2Envelope(row.encrypted_api_key);
+    if (parsed.dekVersion !== envelope.dek_version) {
+      throw new ProviderKeyEncryptionError(`Provider key ${provider} DEK version does not match tenant envelope`);
+    }
+  }
+
+  const activeKekVersion = getActiveKekVersion(env);
+  const newDekVersion = envelope.dek_version + 1;
+  const oldDek = await unwrapProviderKeyDek(
+    envelope.wrapped_dek,
+    await getKekByVersion(env, envelope.kek_version),
+  );
+  const { dek: newDek, wrappedDek: newWrappedDek } = await createWrappedProviderKeyDek(
+    await getKekByVersion(env, activeKekVersion),
+  );
+  const now = new Date().toISOString();
+  const statements: D1PreparedStatement[] = [];
+
+  for (const row of rows) {
+    const provider = assertProvider(row.provider as ProviderKeyProvider);
+    const plaintext = await decryptProviderApiKeyWithDek(
+      row.encrypted_api_key,
+      oldDek,
+      userId,
+      provider,
+    );
+    const encrypted = await encryptProviderApiKeyWithDek(
+      plaintext,
+      newDek,
+      userId,
+      provider,
+      activeKekVersion,
+      newDekVersion,
+    );
+    statements.push(env.DB.prepare(`
+      UPDATE user_provider_keys
+      SET encrypted_api_key = ?, updated_at = ?
+      WHERE user_id = ? AND provider = ? AND encrypted_api_key = ?
+    `).bind(encrypted, now, userId, provider, row.encrypted_api_key));
+  }
+
+  statements.push(env.DB.prepare(`
+    UPDATE key_envelopes
+    SET wrapped_dek = ?, dek_version = ?, kek_version = ?, updated_at = ?
+    WHERE scope_id = ? AND wrapped_dek = ? AND dek_version = ? AND kek_version = ?
+  `).bind(
+    newWrappedDek,
+    newDekVersion,
+    activeKekVersion,
+    now,
+    scopeId,
+    envelope.wrapped_dek,
+    envelope.dek_version,
+    envelope.kek_version,
+  ));
+
+  const results = await env.DB.batch(statements);
+  const expectedChanges = statements.length;
+  const actualChanges = results.reduce((sum, result) => sum + resultChanges(result), 0);
+  if (actualChanges !== expectedChanges) {
+    throw new ProviderKeyEncryptionError('Tenant DEK rotation was interrupted by a concurrent update; retry the operation');
+  }
+
   return {
     tenant: request.tenant,
-    status: 'not_implemented',
+    status: 'rotated',
+    rotatedProviders: rows.length,
+    dekVersion: newDekVersion,
+    kekVersion: activeKekVersion,
   };
 }
 
 export async function rewrapAllDeks(
-  _env: KeyBrokerWorkerEnv,
-  _request: RewrapAllDeksRequest,
+  env: KeyBrokerWorkerEnv,
+  request: RewrapAllDeksRequest,
 ): Promise<RewrapAllDeksResponse> {
-  return { status: 'not_implemented' };
+  const fromKekVersion = assertRotationVersion(request.fromKekVersion, 'source');
+  const toKekVersion = assertRotationVersion(request.toKekVersion, 'target');
+  if (fromKekVersion === toKekVersion) {
+    throw new ProviderKeyEncryptionError('Key broker source and target KEK versions must differ');
+  }
+
+  const rowsResult = await env.DB.prepare(`
+    SELECT scope_id, wrapped_dek, dek_version, kek_version
+    FROM key_envelopes
+    WHERE kek_version IN (?, ?)
+    ORDER BY scope_id
+  `).bind(fromKekVersion, toKekVersion).all<EnvelopeRow>();
+  const rows = rowsResult.results ?? [];
+  const fromKek = await getKekByVersion(env, fromKekVersion);
+  const toKek = await getKekByVersion(env, toKekVersion);
+
+  let rewrapped = 0;
+  let alreadyRewrapped = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    if (row.kek_version === toKekVersion) {
+      alreadyRewrapped += 1;
+      continue;
+    }
+    if (row.kek_version !== fromKekVersion) {
+      skipped += 1;
+      continue;
+    }
+    if (request.dryRun) {
+      rewrapped += 1;
+      continue;
+    }
+
+    const dek = await unwrapProviderKeyDek(row.wrapped_dek, fromKek);
+    const wrappedDek = await wrapProviderKeyDek(dek, toKek);
+    const now = new Date().toISOString();
+    const result = await env.DB.prepare(`
+      UPDATE key_envelopes
+      SET wrapped_dek = ?, kek_version = ?, updated_at = ?
+      WHERE scope_id = ? AND wrapped_dek = ? AND kek_version = ?
+    `).bind(wrappedDek, toKekVersion, now, row.scope_id, row.wrapped_dek, fromKekVersion).run();
+
+    if (resultChanges(result) === 1) {
+      rewrapped += 1;
+    } else {
+      skipped += 1;
+    }
+  }
+
+  return {
+    status: request.dryRun ? 'dry_run' : 'completed',
+    fromKekVersion,
+    toKekVersion,
+    scanned: rows.length,
+    rewrapped,
+    alreadyRewrapped,
+    skipped,
+  };
 }
 
 export function createKeyBrokerService(env: KeyBrokerWorkerEnv): KeyBrokerService {

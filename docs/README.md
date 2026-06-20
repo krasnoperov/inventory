@@ -24,6 +24,8 @@ and consistency across images, video, and audio.
 | [model-and-parameter-selection.md](./model-and-parameter-selection.md) | Which model and parameters to pick for images, video, and audio |
 | [design.md](./design.md) | Visual design system and patterns |
 | [billing.md](./billing.md) | Polar metering, Paid Generation, and provider-cost accounting |
+| [byok-key-broker.md](./byok-key-broker.md) | Broker custody boundary for BYOK provider keys |
+| [byok-rotation-runbook.md](./byok-rotation-runbook.md) | DEK/KEK rotation staging, production, rollback, and verification |
 | [cli.md](./cli.md) | Command-line interface usage |
 | [cli-generation.md](./cli-generation.md) | CLI-driven Forge generation, asset inspection, and downloads |
 | [cli-media-production-cookbook.md](./cli-media-production-cookbook.md) | End-to-end CLI cookbook for image, audio, video, and podcast production |
