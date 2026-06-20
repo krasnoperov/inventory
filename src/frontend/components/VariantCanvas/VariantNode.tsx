@@ -2,7 +2,7 @@ import { memo, useCallback, useState, useEffect } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { type Asset, type Variant, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantForgeTrayReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
-import { formatUtcMonthDay } from '../../lib/dates';
+import { formatUtcDateTime } from '../../lib/dates';
 import { Thumbnail } from '../Thumbnail';
 import { ImageLightbox } from '../ImageLightbox';
 import styles from './VariantNode.module.css';
@@ -437,7 +437,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
           {/* Metadata - one lean line: when · kind · dimensions · size */}
           <div className={styles.detailsMeta}>
-            <span className={styles.detailsDate}>{formatUtcMonthDay(variant.created_at)}</span>
+            <span className={styles.detailsDate}>{formatUtcDateTime(variant.created_at)}</span>
             <span className={styles.detailsChip}>{formatMediaKind(variant.media_kind)}</span>
             {dimensionsLabel && <span className={styles.detailsChip}>{dimensionsLabel}</span>}
             {sizeLabel && <span className={styles.detailsChip}>{sizeLabel}</span>}

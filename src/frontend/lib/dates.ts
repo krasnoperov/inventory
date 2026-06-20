@@ -16,9 +16,11 @@ const UTC_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   timeZone: 'UTC',
 });
 
-const UTC_MONTH_DAY_FORMATTER = new Intl.DateTimeFormat('en-US', {
+const UTC_DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
   timeZone: 'UTC',
 });
 
@@ -33,8 +35,8 @@ export function formatUtcDate(value: DateInput): string {
   return date ? UTC_DATE_FORMATTER.format(date) : '';
 }
 
-/** e.g. "Jun 20". Returns '' for an unparseable value. */
-export function formatUtcMonthDay(value: DateInput): string {
+/** e.g. "Jun 20, 03:45 PM". Returns '' for an unparseable value. */
+export function formatUtcDateTime(value: DateInput): string {
   const date = parseDate(value);
-  return date ? UTC_MONTH_DAY_FORMATTER.format(date) : '';
+  return date ? UTC_DATE_TIME_FORMATTER.format(date) : '';
 }
