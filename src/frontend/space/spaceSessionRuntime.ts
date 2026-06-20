@@ -102,6 +102,8 @@ function getStoreActions() {
     setRotationViews: store.setRotationViews,
     setTileSets: store.setTileSets,
     setTilePositions: store.setTilePositions,
+    setStylePresets: store.setStylePresets,
+    setStyleReferenceCollections: store.setStyleReferenceCollections,
   };
 }
 
@@ -246,6 +248,8 @@ function startSnapshotPersistence(spaceId: string): void {
       rotationViews: state.rotationViews,
       tileSets: state.tileSets,
       tilePositions: state.tilePositions,
+      stylePresets: state.stylePresets,
+      styleReferenceCollections: state.styleReferenceCollections,
       syncMode: syncModeRef.current,
     });
   });

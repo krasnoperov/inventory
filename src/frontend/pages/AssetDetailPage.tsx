@@ -45,6 +45,7 @@ import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { TileGrid } from '../components/TileGrid/TileGrid';
 import { RelationEditorDialog, RelationsPanel } from '../components/RelationsPanel';
 import { CompositionDetail, CompositionUsageList } from '../components/CompositionDetail';
+import { StyleReferenceUsagePanel } from '../components/StyleReferenceUsagePanel';
 import {
   applyCompositionShortcut,
   applyRelationShortcut,
@@ -166,6 +167,7 @@ export default function AssetDetailPage() {
     variants: wsVariants,
     collections,
     collectionItems,
+    stylePresets,
     compositions,
     compositionItems,
     lineage: wsLineage,
@@ -201,6 +203,9 @@ export default function AssetDetailPage() {
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,
+    createStylePreset,
+    updateStylePreset,
+    deleteStylePreset,
     sendBatchRequest,
     sendGenerationEstimateRequest,
     rotationSets,
@@ -359,6 +364,13 @@ export default function AssetDetailPage() {
     }
   }, [collections, variantCollectionId]);
 
+  useEffect(() => {
+    const collection = collections.find((candidate) => candidate.id === variantCollectionId);
+    if (collection?.kind === 'style_refs') {
+      setVariantCollectionRole('style_ref');
+    }
+  }, [collections, variantCollectionId]);
+
   // Set page title
   useDocumentTitle(asset?.name);
 
@@ -414,6 +426,46 @@ export default function AssetDetailPage() {
 
     return wsAssets.filter(a => allChildIds.has(a.id));
   }, [assetId, variants, wsLineage, wsVariants, wsAssets, getChildren]);
+
+  const styleUsage = useMemo(() => {
+    if (!assetId) {
+      return { collections: [], presets: [], outputs: [] as Asset[] };
+    }
+    const assetVariantIds = new Set(variants.map((variant) => variant.id));
+    const usedCollectionIds = new Set(
+      collectionItems
+        .filter((item) => (
+          item.role === 'style_ref' &&
+          (
+            item.asset_id === assetId ||
+            (item.variant_id ? assetVariantIds.has(item.variant_id) : false) ||
+            (item.pinned_variant_id ? assetVariantIds.has(item.pinned_variant_id) : false)
+          )
+        ))
+        .map((item) => item.collection_id)
+    );
+    const usedCollections = collections.filter((collection) => usedCollectionIds.has(collection.id));
+    const usedPresets = stylePresets.filter((preset) => (
+      Boolean(preset.collection_id && usedCollectionIds.has(preset.collection_id)) ||
+      preset.style_reference_variant_ids.some((variantId) => assetVariantIds.has(variantId))
+    ));
+    const outputAssetIds = new Set<string>();
+    for (const relation of wsRelations) {
+      if (relation.relation_type !== 'style_reference_for') continue;
+      const subjectMatches =
+        relation.subject_asset_id === assetId ||
+        (relation.subject_variant_id ? assetVariantIds.has(relation.subject_variant_id) : false);
+      if (!subjectMatches) continue;
+      if (relation.object_asset_id) {
+        outputAssetIds.add(relation.object_asset_id);
+      } else if (relation.object_variant_id) {
+        const outputVariant = wsVariants.find((variant) => variant.id === relation.object_variant_id);
+        if (outputVariant) outputAssetIds.add(outputVariant.asset_id);
+      }
+    }
+    const outputs = wsAssets.filter((candidate) => outputAssetIds.has(candidate.id));
+    return { collections: usedCollections, presets: usedPresets, outputs };
+  }, [assetId, collectionItems, collections, stylePresets, variants, wsAssets, wsRelations, wsVariants]);
 
   useEffect(() => {
     if (!user) {
@@ -601,10 +653,12 @@ export default function AssetDetailPage() {
       collectionId: variantCollectionId,
       subjectType: 'variant',
       variantId: variant.id,
-      role: variantCollectionRole.trim() || 'custom',
+      role: collections.find((collection) => collection.id === variantCollectionId)?.kind === 'style_refs'
+        ? 'style_ref'
+        : variantCollectionRole.trim() || 'custom',
       sortIndex,
     });
-  }, [addCollectionItem, canEdit, collectionItems, variantCollectionId, variantCollectionRole]);
+  }, [addCollectionItem, canEdit, collectionItems, collections, variantCollectionId, variantCollectionRole]);
 
   const handleAddSelectedVariantToCollection = useCallback(() => {
     if (!selectedVariant) return;
@@ -963,6 +1017,13 @@ export default function AssetDetailPage() {
             </div>
           )}
 
+          <StyleReferenceUsagePanel
+            spaceId={spaceId || ''}
+            collections={styleUsage.collections}
+            presets={styleUsage.presets}
+            outputs={styleUsage.outputs}
+          />
+
           {relationSubjects.length > 0 && (
             <RelationsPanel
               assets={relationAssets}
@@ -1114,6 +1175,12 @@ export default function AssetDetailPage() {
         sendStyleSet={sendStyleSet}
         sendStyleDelete={sendStyleDelete}
         sendStyleToggle={sendStyleToggle}
+        createStylePreset={createStylePreset}
+        updateStylePreset={updateStylePreset}
+        deleteStylePreset={deleteStylePreset}
+        stylePresets={stylePresets}
+        collections={collections}
+        collectionItems={collectionItems}
         forgeError={forgeError}
         forgeErrorCode={forgeErrorCode}
         generationEstimate={generationEstimate}

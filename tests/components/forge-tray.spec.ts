@@ -104,6 +104,50 @@ const composition = {
   updated_at: baseTime,
 };
 
+const styleCollection = {
+  id: 'collection-style',
+  name: 'Russafa refs',
+  kind: 'style_refs',
+  color: '#d14c6d',
+  description: null,
+  sort_index: 0,
+  item_count: 1,
+  created_by: 'user-1',
+  created_at: baseTime,
+  updated_at: baseTime,
+};
+
+const styleCollectionItem = {
+  id: 'style-item-1',
+  collection_id: styleCollection.id,
+  subject_type: 'asset',
+  asset_id: imageReferenceAssets[0].id,
+  variant_id: null,
+  role: 'style_ref',
+  pinned_variant_id: imageReferenceVariants[0].id,
+  sort_index: 0,
+  created_by: 'user-1',
+  created_at: baseTime,
+  updated_at: baseTime,
+};
+
+const russafaPreset = {
+  id: 'preset-russafa',
+  name: 'Russafa watercolor',
+  description: 'Warm market washes',
+  style_prompt: 'loose watercolor adventure game art',
+  collection_id: styleCollection.id,
+  enabled: true,
+  is_default: true,
+  created_by: 'user-1',
+  created_at: baseTime,
+  updated_at: baseTime,
+  collection_name: styleCollection.name,
+  reference_count: 3,
+  style_reference_variant_ids: ['style-v1', 'style-v2', 'style-v3'],
+  style_reference_image_keys: ['images/style-v1.png', 'images/style-v2.png', 'images/style-v3.png'],
+};
+
 async function disableAnimations(page: import('@playwright/test').Page) {
   await page.addStyleTag({
     content: '*, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition-duration: 0s !important; }',
@@ -453,17 +497,151 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
 
   await page.getByLabel('Prompt').fill('A cozy campfire at dusk');
 
-  await page.getByTitle('Configure style').click();
-  await expect(page.getByText('Space Style')).toBeVisible();
+  await page.getByRole('button', { name: 'Style' }).click();
+  await expect(page.getByText('Style Library')).toBeVisible();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
-  await expect(page.getByText('Space Style')).toHaveCount(0);
+  await expect(page.getByText('Style Library')).toHaveCount(0);
 
   await page.getByTitle('Chat with Claude about your prompt').click();
   await expect(page.getByText('Chat with Claude')).toBeVisible();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-chat-sheet', { fullPage: true });
+});
+
+test('style library creates a preset from a style collection', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: imageReferenceAssets,
+    allVariants: imageReferenceVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    spaceId: 'space-1',
+    createStylePreset: '__record__:style-create',
+    collections: [styleCollection],
+    collectionItems: [styleCollectionItem],
+  });
+
+  await page.getByLabel('Style', { exact: true }).click();
+  await page.getByLabel('Preset name').fill('Painterly market');
+  await page.getByLabel('Style prompt').fill('sun-washed watercolor with ink outlines');
+  await page.getByLabel('Style description').fill('For the market scene');
+  await page.getByRole('checkbox').first().check();
+  await page.getByRole('button', { name: 'Create preset' }).click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.find((call) => call.eventName === 'style-create')?.args[0]).toMatchObject({
+    name: 'Painterly market',
+    stylePrompt: 'sun-washed watercolor with ink outlines',
+    description: 'For the market scene',
+    collectionId: styleCollection.id,
+    enabled: true,
+    isDefault: true,
+  });
+});
+
+test('style library sets a preset as default', async ({ page }) => {
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    spaceId: 'space-1',
+    updateStylePreset: '__record__:style-update',
+    stylePresets: [{ ...russafaPreset, is_default: false }],
+    collections: [styleCollection],
+  });
+
+  await page.getByLabel('Style', { exact: true }).click();
+  await page.getByRole('button', { name: 'Set default' }).click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.find((call) => call.eventName === 'style-update')?.args).toEqual([
+    russafaPreset.id,
+    { isDefault: true, enabled: true },
+  ]);
+});
+
+test('forge tray submits a named style preset for generation', async ({ page }) => {
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    stylePresets: [russafaPreset],
+  });
+
+  await page.getByLabel('Prompt').fill('A tiled city fountain');
+  await page.getByLabel('Style selector').selectOption(`preset:${russafaPreset.id}`);
+  await expect(page.getByText('Style: Russafa watercolor · 3 refs')).toBeVisible();
+  await page.getByRole('button', { name: /Generate/ }).click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.find((call) => call.eventName === 'forge-submit')?.args[0]).toMatchObject({
+    stylePresetId: russafaPreset.id,
+    disableStyle: undefined,
+  });
+});
+
+test('forge tray submits no-style override for one request', async ({ page }) => {
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    stylePresets: [russafaPreset],
+  });
+
+  await page.getByLabel('Prompt').fill('A clean icon sheet');
+  await page.getByLabel('Style selector').selectOption('none');
+  await expect(page.getByText('Style: No style')).toBeVisible();
+  await page.getByRole('button', { name: /Generate/ }).click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.find((call) => call.eventName === 'forge-submit')?.args[0]).toMatchObject({
+    disableStyle: true,
+    stylePresetId: undefined,
+  });
+});
+
+test('forge tray submits custom selected style refs', async ({ page }) => {
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: imageReferenceAssets,
+    allVariants: imageReferenceVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    spaceId: 'space-1',
+    collections: [styleCollection],
+    collectionItems: [styleCollectionItem],
+  });
+
+  await page.getByLabel('Prompt').fill('A hand-painted doorway');
+  await page.getByLabel('Style selector').selectOption('custom');
+  await page.getByLabel('Image Ref One').check();
+  await page.getByRole('button', { name: /Close/i }).click();
+  await expect(page.getByText('Style: Custom selected refs · 1 ref')).toBeVisible();
+  await page.getByRole('button', { name: /Generate/ }).click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.find((call) => call.eventName === 'forge-submit')?.args[0]).toMatchObject({
+    styleVariantIds: [imageReferenceVariants[0].id],
+  });
+});
+
+test('style reference usage panel displays reverse usage', async ({ page }) => {
+  await mountComponent(page, 'StyleReferenceUsagePanel', {
+    spaceId: 'space-1',
+    collections: [styleCollection],
+    presets: [russafaPreset],
+    outputs: [matrixAssets[0]],
+  });
+
+  await expect(page.getByText('Style reference usage')).toBeVisible();
+  await expect(page.getByText('Russafa refs')).toBeVisible();
+  await expect(page.getByText('Russafa watercolor')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Hero Image' })).toHaveAttribute('href', '/spaces/space-1/assets/asset-image');
 });
 
 test('forge tray with references renders the reference strip', async ({ page }) => {

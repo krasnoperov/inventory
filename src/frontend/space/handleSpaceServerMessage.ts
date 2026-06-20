@@ -23,6 +23,8 @@ export interface SpaceMessageContext {
   setRotationViews: SpaceSessionState['setRotationViews'];
   setTileSets: SpaceSessionState['setTileSets'];
   setTilePositions: SpaceSessionState['setTilePositions'];
+  setStylePresets?: SpaceSessionState['setStylePresets'];
+  setStyleReferenceCollections?: SpaceSessionState['setStyleReferenceCollections'];
   setError: SpaceSessionState['setError'];
 }
 
@@ -51,6 +53,8 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     setRotationViews,
     setTileSets,
     setTilePositions,
+    setStylePresets,
+    setStyleReferenceCollections,
     setError,
   } = context;
   const {
@@ -115,6 +119,8 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setRotationViews(message.rotationViews || []);
                 setTileSets(message.tileSets || []);
                 setTilePositions(message.tilePositions || []);
+                setStylePresets?.(message.stylePresets || []);
+                setStyleReferenceCollections?.(message.styleReferenceCollections || []);
                 // Handle style included in sync:state
                 if (message.style !== undefined) {
                   onStyleStateRef.current?.(message.style ?? null);
@@ -144,6 +150,8 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setRotationViews(message.rotationViews || []);
                 setTileSets(message.tileSets || []);
                 setTilePositions(message.tilePositions || []);
+                setStylePresets?.(message.stylePresets || []);
+                setStyleReferenceCollections?.(message.styleReferenceCollections || []);
                 if (message.style !== undefined) {
                   onStyleStateRef.current?.(message.style ?? null);
                 }
@@ -684,6 +692,26 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
 
               case 'style:deleted':
                 onStyleDeletedRef.current?.();
+                break;
+
+              case 'style_preset:created':
+                setStylePresets?.((prev) => (
+                  prev.some((preset) => preset.id === message.preset.id)
+                    ? prev.map((preset) => preset.id === message.preset.id ? message.preset : preset)
+                    : [...prev, message.preset]
+                ));
+                break;
+
+              case 'style_preset:updated':
+                setStylePresets?.((prev) => (
+                  prev.some((preset) => preset.id === message.preset.id)
+                    ? prev.map((preset) => preset.id === message.preset.id ? message.preset : preset)
+                    : [...prev, message.preset]
+                ));
+                break;
+
+              case 'style_preset:deleted':
+                setStylePresets?.((prev) => prev.filter((preset) => preset.id !== message.presetId));
                 break;
 
               // Batch messages

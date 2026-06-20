@@ -35,7 +35,7 @@ interface SpaceBoardProps {
   onAssetClick: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onCreateRelation?: (subject: SpaceSubject) => void;
-  createCollection: (params: { name: string; kind?: CollectionKind; color?: string | null; sortIndex?: number }) => void;
+  createCollection: (params: { id?: string; name: string; kind?: CollectionKind; color?: string | null; sortIndex?: number }) => void;
   updateCollection: (collectionId: string, changes: { name?: string; kind?: CollectionKind; color?: string | null; sortIndex?: number }) => void;
   deleteCollection: (collectionId: string) => void;
   addCollectionItem: (params: CollectionItemCreateParams) => void;
@@ -115,13 +115,51 @@ export function SpaceBoard({
     updateCollection(target.id, { sortIndex: collection.sort_index });
   };
 
-  const addAssetToCollection = (collectionId: string, assetId: string, role = 'custom') => {
+  const getCollectionRole = (collectionId: string, fallback = 'custom') => {
+    const collection = collections.find((candidate) => candidate.id === collectionId);
+    return collection?.kind === 'style_refs' ? 'style_ref' : fallback;
+  };
+
+  const addAssetToCollection = (collectionId: string, assetId: string, role = getCollectionRole(collectionId)) => {
     const items = getCollectionItems(collectionId, collectionItems);
     addCollectionItem({
       collectionId,
       subjectType: 'asset',
       assetId,
       role,
+      sortIndex: items.length,
+    });
+  };
+
+  const markAssetAsStyleReference = (assetId: string) => {
+    let collection = orderedCollections.find((candidate) => candidate.kind === 'style_refs');
+    let collectionId = collection?.id;
+    if (!collectionId) {
+      collectionId = crypto.randomUUID();
+      createCollection({
+        id: collectionId,
+        name: 'Style References',
+        kind: 'style_refs',
+        color: COLLECTION_KIND_COLORS.style_refs,
+        sortIndex: orderedCollections.length,
+      });
+      collection = {
+        id: collectionId,
+        name: 'Style References',
+        kind: 'style_refs',
+        color: COLLECTION_KIND_COLORS.style_refs,
+        description: null,
+        sort_index: orderedCollections.length,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      };
+    }
+    const items = collection ? getCollectionItems(collection.id, collectionItems) : [];
+    addCollectionItem({
+      collectionId,
+      subjectType: 'asset',
+      assetId,
+      role: 'style_ref',
       sortIndex: items.length,
     });
   };
@@ -208,8 +246,11 @@ export function SpaceBoard({
                     ))}
                   </select>
                 </label>
-                <button onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, item?.role ?? 'custom')}>
+                <button onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}>
                   Add asset
+                </button>
+                <button onClick={() => markAssetAsStyleReference(asset.id)}>
+                  Mark style ref
                 </button>
               </div>
             </details>
@@ -296,7 +337,7 @@ export function SpaceBoard({
                 <option key={asset.id} value={asset.id}>{asset.name}</option>
               ))}
             </select>
-            <button onClick={() => selectedAssetId && addAssetToCollection(collection.id, selectedAssetId)}>
+            <button onClick={() => selectedAssetId && addAssetToCollection(collection.id, selectedAssetId, getCollectionRole(collection.id))}>
               Add
             </button>
           </div>

@@ -10,6 +10,8 @@ import type {
   UserPresence,
   Variant,
   SpaceCollection,
+  StylePresetRaw,
+  StyleReferenceCollectionRaw,
 } from './protocol';
 
 export interface SpaceStateSnapshot {
@@ -24,6 +26,8 @@ export interface SpaceStateSnapshot {
   rotationViews: RotationView[];
   tileSets: TileSet[];
   tilePositions: TilePosition[];
+  stylePresets?: StylePresetRaw[];
+  styleReferenceCollections?: StyleReferenceCollectionRaw[];
   syncMode: 'full' | 'overview';
   updatedAt: number;
 }
@@ -43,6 +47,8 @@ function cloneSpaceStateSnapshot(snapshot: SpaceStateSnapshot): SpaceStateSnapsh
     rotationViews: [...snapshot.rotationViews],
     tileSets: [...snapshot.tileSets],
     tilePositions: [...snapshot.tilePositions],
+    stylePresets: [...(snapshot.stylePresets ?? [])],
+    styleReferenceCollections: [...(snapshot.styleReferenceCollections ?? [])],
     syncMode: snapshot.syncMode,
     updatedAt: snapshot.updatedAt,
   };
@@ -95,6 +101,8 @@ export function persistSpaceStateSnapshot(args: {
   rotationViews: RotationView[];
   tileSets: TileSet[];
   tilePositions: TilePosition[];
+  stylePresets: StylePresetRaw[];
+  styleReferenceCollections: StyleReferenceCollectionRaw[];
   syncMode: 'full' | 'overview' | null;
 }): void {
   const existing = spaceStateSnapshots.get(args.spaceId);
@@ -110,6 +118,8 @@ export function persistSpaceStateSnapshot(args: {
     rotationViews: [...args.rotationViews],
     tileSets: [...args.tileSets],
     tilePositions: [...args.tilePositions],
+    stylePresets: [...args.stylePresets],
+    styleReferenceCollections: [...args.styleReferenceCollections],
     syncMode: args.syncMode ?? existing?.syncMode ?? 'overview',
     updatedAt: Date.now(),
   });

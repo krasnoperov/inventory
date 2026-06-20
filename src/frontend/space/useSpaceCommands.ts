@@ -25,6 +25,8 @@ import type {
   SpaceRelationContext,
   SpaceRelationType,
   SpaceSubject,
+  StylePresetCreateParams,
+  StylePresetUpdateParams,
   TileSetRequestParams,
   UseSpaceWebSocketReturn,
 } from './protocol';
@@ -94,6 +96,9 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'sendStyleSet'
   | 'sendStyleDelete'
   | 'sendStyleToggle'
+  | 'createStylePreset'
+  | 'updateStylePreset'
+  | 'deleteStylePreset'
   | 'sendBatchRequest'
   | 'sendGenerationEstimateRequest'
   | 'sendRotationRequest'
@@ -348,6 +353,8 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       imageSize: params.imageSize,
       parentAssetId: params.parentAssetId,
       disableStyle: params.disableStyle,
+      stylePresetId: params.stylePresetId,
+      styleVariantIds: params.styleVariantIds,
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
       musicProvider: params.musicProvider,
@@ -375,6 +382,8 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       aspectRatio: params.aspectRatio,
       imageSize: params.imageSize,
       disableStyle: params.disableStyle,
+      stylePresetId: params.stylePresetId,
+      styleVariantIds: params.styleVariantIds,
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
       musicProvider: params.musicProvider,
@@ -487,6 +496,27 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
     sendMessage({ type: 'style:toggle', enabled });
   }, [sendMessage]);
 
+  const createStylePreset = useCallback((params: StylePresetCreateParams) => {
+    sendMessage({
+      type: 'style_preset:create',
+      id: params.id,
+      name: params.name,
+      description: params.description,
+      stylePrompt: params.stylePrompt,
+      collectionId: params.collectionId,
+      enabled: params.enabled,
+      isDefault: params.isDefault,
+    });
+  }, [sendMessage]);
+
+  const updateStylePreset = useCallback((presetId: string, changes: StylePresetUpdateParams) => {
+    sendMessage({ type: 'style_preset:update', presetId, changes });
+  }, [sendMessage]);
+
+  const deleteStylePreset = useCallback((presetId: string) => {
+    sendMessage({ type: 'style_preset:delete', presetId });
+  }, [sendMessage]);
+
   // Batch request
   const sendBatchRequest = useCallback((params: BatchRequestParams): string => {
     const requestId = crypto.randomUUID();
@@ -506,6 +536,8 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       imageSize: params.imageSize,
       parentAssetId: params.parentAssetId,
       disableStyle: params.disableStyle,
+      stylePresetId: params.stylePresetId,
+      styleVariantIds: params.styleVariantIds,
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
       musicProvider: params.musicProvider,
@@ -546,6 +578,8 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       subjectDescription: params.subjectDescription,
       aspectRatio: params.aspectRatio,
       disableStyle: params.disableStyle,
+      stylePresetId: params.stylePresetId,
+      styleVariantIds: params.styleVariantIds,
       generationMode: params.generationMode,
     });
   }, [sendMessage]);
@@ -567,6 +601,8 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       seedVariantId: params.seedVariantId,
       aspectRatio: params.aspectRatio,
       disableStyle: params.disableStyle,
+      stylePresetId: params.stylePresetId,
+      styleVariantIds: params.styleVariantIds,
       generationMode: params.generationMode,
     });
   }, [sendMessage]);
@@ -689,6 +725,9 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,
+    createStylePreset,
+    updateStylePreset,
+    deleteStylePreset,
     sendBatchRequest,
     sendGenerationEstimateRequest,
     sendRotationRequest,

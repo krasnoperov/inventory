@@ -12,6 +12,8 @@ import {
   EMPTY_RELATIONS,
   EMPTY_ROTATION_SETS,
   EMPTY_ROTATION_VIEWS,
+  EMPTY_STYLE_PRESETS,
+  EMPTY_STYLE_REFERENCE_COLLECTIONS,
   EMPTY_TILE_POSITIONS,
   EMPTY_TILE_SETS,
   EMPTY_VARIANTS,
@@ -107,6 +109,8 @@ export function useSpaceWebSocket({
   const rawRotationViews = useSpaceSessionStore((state) => state.rotationViews);
   const rawTileSets = useSpaceSessionStore((state) => state.tileSets);
   const rawTilePositions = useSpaceSessionStore((state) => state.tilePositions);
+  const rawStylePresets = useSpaceSessionStore((state) => state.stylePresets);
+  const rawStyleReferenceCollections = useSpaceSessionStore((state) => state.styleReferenceCollections);
   const setJobs = useSpaceSessionStore((state) => state.setJobs);
 
   const ownsState = stateSpaceId === spaceId;
@@ -127,6 +131,8 @@ export function useSpaceWebSocket({
   const rotationViews = ownsState ? rawRotationViews : EMPTY_ROTATION_VIEWS;
   const tileSets = ownsState ? rawTileSets : EMPTY_TILE_SETS;
   const tilePositions = ownsState ? rawTilePositions : EMPTY_TILE_POSITIONS;
+  const stylePresets = ownsState ? rawStylePresets : EMPTY_STYLE_PRESETS;
+  const styleReferenceCollections = ownsState ? rawStyleReferenceCollections : EMPTY_STYLE_REFERENCE_COLLECTIONS;
 
   const syncModeRef = getSpaceSessionSyncModeRef();
   const commands = useSpaceCommands({ spaceId, assets, setJobs, syncModeRef });
@@ -186,6 +192,9 @@ export function useSpaceWebSocket({
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,
+    createStylePreset,
+    updateStylePreset,
+    deleteStylePreset,
     sendBatchRequest,
     sendGenerationEstimateRequest,
     sendRotationRequest,
@@ -270,6 +279,8 @@ export function useSpaceWebSocket({
     compositionItems,
     jobs,
     presence,
+    stylePresets,
+    styleReferenceCollections,
     sendMessage,
     createAsset,
     updateAsset,
@@ -331,6 +342,9 @@ export function useSpaceWebSocket({
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,
+    createStylePreset,
+    updateStylePreset,
+    deleteStylePreset,
     // Batch methods
     sendBatchRequest,
     sendGenerationEstimateRequest,
