@@ -6,6 +6,7 @@ import { createLocalKeyBrokerServiceBinding } from './testHarness';
 import {
   decryptProviderApiKeyV2,
   decryptProviderApiKeyWithVersionedKek,
+  encryptProviderApiKeyV2,
 } from '../services/providerKeyVault';
 
 function encryptionKey(): string {
@@ -256,6 +257,30 @@ class FakeD1 {
         }
 
         if (sql.includes('INSERT INTO user_provider_keys')) {
+          if (sql.includes('SELECT ?, ?, NULL')) {
+            const checkUserId = this.bindings[4] as number;
+            const snapshotBindings = this.bindings.slice(5, -2) as string[];
+            const expectedCount = this.bindings[this.bindings.length - 1] as number;
+            const expectedRows: { provider: string; encrypted_api_key: string }[] = [];
+            for (let index = 0; index < snapshotBindings.length; index += 2) {
+              expectedRows.push({
+                provider: snapshotBindings[index],
+                encrypted_api_key: snapshotBindings[index + 1],
+              });
+            }
+            const currentRows = [...rows.values()].filter((row) => row.user_id === checkUserId);
+            const changed = currentRows.length !== expectedCount || currentRows.some((row) => (
+              !expectedRows.some((expected) => (
+                expected.provider === row.provider &&
+                expected.encrypted_api_key === row.encrypted_api_key
+              ))
+            ));
+            if (changed) {
+              throw new Error('NOT NULL constraint failed: user_provider_keys.encrypted_api_key');
+            }
+            return { success: true, meta: { changes: 0 } };
+          }
+
           const [userId, provider, encrypted, hint, createdAt, updatedAt] = this.bindings as [
             number,
             string,
@@ -731,6 +756,61 @@ describe('key broker service binding contract', () => {
         'anthropic',
       ),
       'sk-ant-target-secret',
+    );
+  });
+
+  test('tenant rotation aborts before envelope advance when a provider row changes after snapshot', async () => {
+    const db = new FakeD1();
+    const broker = keyBrokerClient(
+      createLocalKeyBrokerServiceBinding({
+        DB: db as never,
+        BYOK_ACTIVE_KEK_VERSION: '2',
+        BYOK_KEK_V1: encryptionKey(),
+        BYOK_KEK_V2: rotatedEncryptionKey(),
+      })
+    );
+    const tenant = { type: 'user' as const, userId: 7 };
+
+    await broker.storeProviderKey({ tenant, provider: 'google_ai', apiKey: 'original-google-secret' });
+    const beforeEnvelopeRow = db.envelopes.get('user:7');
+    assert.ok(beforeEnvelopeRow);
+    const beforeEnvelope = { ...beforeEnvelopeRow };
+    const concurrentEncrypted = await encryptProviderApiKeyV2(
+      db as never,
+      'concurrent-google-secret',
+      rotatedEncryptionKey(),
+      7,
+      'google_ai',
+    );
+    const originalBatch = db.batch.bind(db);
+    db.batch = async (statements) => {
+      const row = db.rows.get('7:google_ai');
+      assert.ok(row);
+      db.rows.set('7:google_ai', {
+        ...row,
+        encrypted_api_key: concurrentEncrypted,
+      });
+      return originalBatch(statements);
+    };
+
+    await assert.rejects(
+      broker.rotateTenantDek({ tenant, reason: 'concurrent-settings-update' }),
+      /concurrent update/,
+    );
+    assert.deepEqual(db.envelopes.get('user:7'), beforeEnvelope);
+    assert.equal(db.rows.get('7:google_ai')?.encrypted_api_key, concurrentEncrypted);
+    assert.equal(
+      await decryptProviderApiKeyWithVersionedKek(
+        db as never,
+        concurrentEncrypted,
+        {
+          activeKekVersion: 2,
+          getKekByVersion: async (version) => version === 1 ? encryptionKey() : rotatedEncryptionKey(),
+        },
+        7,
+        'google_ai',
+      ),
+      'concurrent-google-secret',
     );
   });
 

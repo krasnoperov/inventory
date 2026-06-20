@@ -152,6 +152,52 @@ function resultChanges(result: unknown): number {
   return typeof meta?.changes === 'number' ? meta.changes : 0;
 }
 
+function buildProviderKeySnapshotGuard(
+  env: KeyBrokerWorkerEnv,
+  userId: number,
+  rows: readonly TenantProviderKeyRow[],
+  now: string,
+): D1PreparedStatement {
+  const predicates = rows.map(() => '(provider = ? AND encrypted_api_key = ?)').join(' OR ');
+  const snapshotBindings = rows.flatMap((row) => [
+    assertProvider(row.provider as ProviderKeyProvider),
+    row.encrypted_api_key,
+  ]);
+
+  return env.DB.prepare(`
+    INSERT INTO user_provider_keys (user_id, provider, encrypted_api_key, key_hint, created_at, updated_at)
+    SELECT ?, ?, NULL, '', ?, ?
+    WHERE EXISTS (
+      SELECT 1
+      FROM user_provider_keys
+      WHERE user_id = ?
+        AND NOT (${predicates})
+    )
+    OR (
+      SELECT COUNT(*)
+      FROM user_provider_keys
+      WHERE user_id = ?
+    ) <> ?
+  `).bind(
+    userId,
+    assertProvider(rows[0]?.provider as ProviderKeyProvider),
+    now,
+    now,
+    userId,
+    ...snapshotBindings,
+    userId,
+    rows.length,
+  );
+}
+
+function isProviderSnapshotGuardFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes('NOT NULL constraint failed') &&
+    message.includes('user_provider_keys.encrypted_api_key')
+  );
+}
+
 export async function storeProviderKey(
   env: KeyBrokerWorkerEnv,
   request: StoreProviderKeyRequest,
@@ -275,7 +321,9 @@ export async function rotateTenantDek(
     await getKekByVersion(env, activeKekVersion),
   );
   const now = new Date().toISOString();
-  const statements: D1PreparedStatement[] = [];
+  const statements: D1PreparedStatement[] = [
+    buildProviderKeySnapshotGuard(env, userId, rows, now),
+  ];
 
   for (const row of rows) {
     const provider = assertProvider(row.provider as ProviderKeyProvider);
@@ -315,8 +363,17 @@ export async function rotateTenantDek(
     envelope.kek_version,
   ));
 
-  const results = await env.DB.batch(statements);
-  const expectedChanges = statements.length;
+  const results = await (async () => {
+    try {
+      return await env.DB.batch(statements);
+    } catch (error) {
+      if (isProviderSnapshotGuardFailure(error)) {
+        throw new ProviderKeyEncryptionError('Tenant DEK rotation was interrupted by a concurrent update; retry the operation');
+      }
+      throw error;
+    }
+  })();
+  const expectedChanges = rows.length + 1;
   const actualChanges = results.reduce((sum, result) => sum + resultChanges(result), 0);
   if (actualChanges !== expectedChanges) {
     throw new ProviderKeyEncryptionError('Tenant DEK rotation was interrupted by a concurrent update; retry the operation');
