@@ -122,6 +122,8 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'PAID_GENERATION_REQUIRED'
   | 'QUOTA_EXCEEDED'
+  | 'PLATFORM_LIMIT_EXCEEDED'
+  | 'PROVIDER_KEY_REQUIRED'
   // Resource errors
   | 'NOT_FOUND'
   | 'ASSET_NOT_FOUND'

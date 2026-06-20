@@ -10,6 +10,7 @@ import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
 import { uploadMediaRoute, uploadStyleImageRoute } from '../../shared/api/routes';
 import { UploadMediaResponseSchema, type UploadMediaResponse } from '../../shared/api/schemas';
+import { checkGenerationGuardrails } from '../durable-objects/space/billing/usageCheck';
 import {
   createThumbnail,
   getBaseUrl,
@@ -139,6 +140,21 @@ function getUploadRequestError(
 
 function uploadRequestErrorResponse(c: Context<AppContext>, error: UploadRequestError): Response {
   return c.json({ error: error.message }, error.status);
+}
+
+function parseNumericUserId(userId: string): number | null {
+  const parsed = Number.parseInt(userId, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function estimateUploadedStorageBytes(
+  file: File,
+  sidecars: AudioSidecarUpload[],
+  isImageUpload: boolean
+): number {
+  const sidecarBytes = sidecars.reduce((sum, sidecar) => sum + sidecar.file.size, 0);
+  const thumbnailEstimate = isImageUpload ? file.size : 0;
+  return file.size + sidecarBytes + thumbnailEstimate;
 }
 
 async function readRequestBodyWithLimit(
@@ -408,6 +424,31 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
     const validation = validateSidecarFile(sidecar.kind, sidecar.file);
     if (!validation.ok) {
       return c.json({ error: validation.error }, 400);
+    }
+  }
+
+  const numericUserId = parseNumericUserId(userId);
+  if (numericUserId !== null && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const storageCheck = await checkGenerationGuardrails(env.DB, {
+        userId: numericUserId,
+        spaceId,
+        mode: 'byok',
+        service: mediaKind === 'video' ? 'veo' : mediaKind === 'audio' ? 'elevenlabs' : 'nanobanana',
+        requestedPlatformUsage: [{
+          usageType: 'storage',
+          quantity: estimateUploadedStorageBytes(file, audioSidecars, isImageUpload),
+        }],
+        mediaKind,
+        adminUserIds: env.ADMIN_USER_IDS,
+      });
+      if (!storageCheck.allowed) {
+        return c.json({
+          error: storageCheck.denyMessage || 'Platform storage limit exceeded.',
+        }, 413);
+      }
+    } catch (error) {
+      console.warn('Failed to check upload storage guardrail:', error);
     }
   }
 

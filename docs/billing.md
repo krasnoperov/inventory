@@ -95,6 +95,33 @@ ends. Local quota checks use `users.polar_current_period_start` and
 month only before Polar period data has been cached.
 Local dev-auth users are marked `internal`.
 
+## Generation Guardrail Limits
+
+Plan guardrails are read from `users.quota_limits` alongside Polar meter
+credits. Existing meter keys such as `gemini_images`, `gemini_videos`,
+`gemini_audio`, and `elevenlabs_audio` continue to enforce customer-visible
+managed generation quota.
+
+Additional optional guardrail keys are local platform controls:
+
+| Key | Unit | Scope |
+|-----|------|-------|
+| `managed_provider_spend_micro_usd` | micro-USD | Account billing period provider spend for managed generation. |
+| `managed_provider_spend_daily_micro_usd` | micro-USD | Account UTC-day provider spend for managed generation. |
+| `platform_storage_bytes` | byte | Account billing period platform storage. |
+| `platform_workflow_runs` | run | Account billing period workflow starts. |
+| `platform_delivery_bytes` | byte | Account billing period authenticated media delivery. |
+| `space_platform_storage_bytes` | byte | Space billing period platform storage. |
+| `space_platform_workflow_runs` | run | Space billing period workflow starts. |
+| `space_platform_delivery_bytes` | byte | Space billing period authenticated media delivery. |
+| `video_workflow_runs` | run | Account billing period video workflow starts. |
+| `video_workflow_runs_daily` | run | Account UTC-day video workflow starts. |
+| `space_video_workflow_runs` | run | Space billing period video workflow starts. |
+| `space_video_workflow_runs_daily` | run | Space UTC-day video workflow starts. |
+
+Internal/admin users bypass these guardrails unless an explicit `internal_`
+prefixed key is present, for example `internal_platform_workflow_runs`.
+
 ---
 
 ## API Endpoints

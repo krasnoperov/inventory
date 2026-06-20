@@ -11,6 +11,7 @@ import {
   getVariantWordTimingsRoute,
 } from '../../shared/api/routes';
 import { trackPlatformUsage } from '../platform/platformUsage';
+import { checkGenerationGuardrails } from '../durable-objects/space/billing/usageCheck';
 
 const imageRoutes = createOpenApiRouter();
 
@@ -128,6 +129,45 @@ function isLegacyImageKey(key: string): boolean {
   return key.startsWith('images/') || key.startsWith('styles/') || key.startsWith('thumbs/');
 }
 
+function getPlatformGuardrailService(mediaKind?: 'image' | 'audio' | 'video' | null): 'nanobanana' | 'elevenlabs' | 'veo' {
+  if (mediaKind === 'video') return 'veo';
+  if (mediaKind === 'audio') return 'elevenlabs';
+  return 'nanobanana';
+}
+
+async function checkDeliveryGuardrail(
+  c: Context<AppContext>,
+  options: Parameters<typeof serveR2Object>[1],
+  bytesDelivered: number
+): Promise<Response | null> {
+  if (!options.platformUsage || bytesDelivered <= 0) return null;
+  const userId = options.platformUsage.userId;
+  if (typeof userId !== 'number' || !Number.isFinite(userId)) return null;
+  if (!c.env.DB || typeof c.env.DB.prepare !== 'function') return null;
+
+  let check: Awaited<ReturnType<typeof checkGenerationGuardrails>>;
+  try {
+    check = await checkGenerationGuardrails(c.env.DB, {
+      userId,
+      spaceId: options.platformUsage.spaceId,
+      mode: 'byok',
+      service: getPlatformGuardrailService(options.platformUsage.mediaKind),
+      requestedPlatformUsage: [{ usageType: 'delivery', quantity: bytesDelivered }],
+      mediaKind: options.platformUsage.mediaKind ?? null,
+      adminUserIds: c.env.ADMIN_USER_IDS,
+    });
+  } catch (error) {
+    console.warn('Failed to check delivery guardrail:', error);
+    return null;
+  }
+  if (check.allowed) return null;
+
+  return c.json({
+    error: check.denyMessage || 'Platform delivery limit exceeded.',
+    code: check.denyReason === 'platform_limit_exceeded' ? 'PLATFORM_LIMIT_EXCEEDED' : 'QUOTA_EXCEEDED',
+  }, check.denyReason === 'platform_limit_exceeded' ? 402 : 429);
+}
+
 async function serveR2Object(
   c: Context<AppContext>,
   options: {
@@ -183,6 +223,8 @@ async function serveR2Object(
     if (contentRange) headers.set('Content-Range', contentRange);
     const contentLength = getRangeContentLength(object.range, object.size);
     if (contentLength !== null) headers.set('Content-Length', String(contentLength));
+    const denied = await checkDeliveryGuardrail(c, options, contentLength ?? 0);
+    if (denied) return denied;
     await recordDeliveryUsage(c, options, contentLength ?? 0, 206, contentRange);
     return new Response(object.body, { status: 206, headers });
   }
@@ -190,6 +232,8 @@ async function serveR2Object(
   headers.set('Content-Length', String(object.size));
   if (options.supportsRange) headers.set('Accept-Ranges', 'bytes');
 
+  const denied = await checkDeliveryGuardrail(c, options, object.size);
+  if (denied) return denied;
   await recordDeliveryUsage(c, options, object.size, 200);
   return new Response(object.body, { headers });
 }

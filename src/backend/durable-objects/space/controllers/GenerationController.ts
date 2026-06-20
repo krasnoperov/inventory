@@ -23,12 +23,14 @@ import type {
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import {
   preCheck,
+  checkGenerationGuardrails,
   incrementRateLimit,
   trackImageGeneration,
   trackElevenLabsAudioGeneration,
   trackGeminiAudioGeneration,
   trackVideoGeneration,
   getVideoQuotaUnits,
+  type GenerationLimitDenyReason,
   type ProviderUsageAttribution,
 } from '../billing/usageCheck';
 import {
@@ -44,11 +46,11 @@ import { hasStoredProviderApiKey, type ProviderKeyProvider } from '../../../serv
 import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
 import { VIDEO_GENERATION_AUDIO_ALWAYS_ON } from '../../../../shared/videoGenerationOptions';
 import { trackVariantStorageUsage } from '../../../platform/platformUsage';
+import { priceProviderUsageEvent } from '../../../billing/providerPricing';
 
 const log = loggers.generationController;
 
 type GenerationBillingService = 'nanobanana' | 'lyria' | 'elevenlabs' | 'veo';
-type GenerationLimitDenyReason = 'quota_exceeded' | 'rate_limited' | 'paid_generation_required';
 type ImageModelProvider = 'gemini' | 'custom';
 
 interface ByokBillingContext {
@@ -68,6 +70,11 @@ type VideoBillingDimensions = {
 };
 
 const ELEVENLABS_GENERATED_AUDIO_COST_BUFFER = 50;
+const DEFAULT_VIDEO_MODEL_ID = 'veo-3.1-generate-preview';
+const DEFAULT_LYRIA_MODEL_ID = 'lyria-3-clip-preview';
+const DEFAULT_ELEVENLABS_SPEECH_MODEL_ID = 'eleven_v3';
+const DEFAULT_ELEVENLABS_MUSIC_MODEL_ID = 'music_v1';
+const DEFAULT_ELEVENLABS_SFX_MODEL_ID = 'eleven_text_to_sound_v2';
 
 function getGenerationBillingService(
   env: ControllerContext['env'],
@@ -85,6 +92,19 @@ function getGenerationBillingService(
     return 'elevenlabs';
   }
   return 'nanobanana';
+}
+
+function getQuotaEventNameForBillingService(service: GenerationBillingService): string {
+  switch (service) {
+    case 'elevenlabs':
+      return 'elevenlabs_audio';
+    case 'lyria':
+      return 'gemini_audio';
+    case 'veo':
+      return 'gemini_videos';
+    case 'nanobanana':
+      return 'gemini_images';
+  }
 }
 
 function getByokProviderForBillingService(service: GenerationBillingService): ProviderKeyProvider {
@@ -280,10 +300,145 @@ function getVideoGenerateAudio(mediaKind?: string | null, requestedGenerateAudio
     : requestedGenerateAudio;
 }
 
-function getGenerationLimitErrorCode(denyReason: GenerationLimitDenyReason | undefined): 'RATE_LIMITED' | 'PAID_GENERATION_REQUIRED' | 'QUOTA_EXCEEDED' {
+function getGenerationLimitErrorCode(
+  denyReason: GenerationLimitDenyReason | undefined
+): 'RATE_LIMITED' | 'PAID_GENERATION_REQUIRED' | 'PLATFORM_LIMIT_EXCEEDED' | 'PROVIDER_KEY_REQUIRED' | 'QUOTA_EXCEEDED' {
   if (denyReason === 'rate_limited') return 'RATE_LIMITED';
   if (denyReason === 'paid_generation_required') return 'PAID_GENERATION_REQUIRED';
+  if (denyReason === 'platform_limit_exceeded') return 'PLATFORM_LIMIT_EXCEEDED';
+  if (denyReason === 'provider_key_required') return 'PROVIDER_KEY_REQUIRED';
   return 'QUOTA_EXCEEDED';
+}
+
+function getElevenLabsModelForEstimate(
+  env: ControllerContext['env'],
+  assetType?: string
+): string {
+  if (assetType === 'music') {
+    return env.ELEVENLABS_MUSIC_MODEL_ID || DEFAULT_ELEVENLABS_MUSIC_MODEL_ID;
+  }
+  if (assetType === 'sfx') {
+    return env.ELEVENLABS_SOUND_EFFECT_MODEL_ID || DEFAULT_ELEVENLABS_SFX_MODEL_ID;
+  }
+  return env.ELEVENLABS_MODEL_ID || DEFAULT_ELEVENLABS_SPEECH_MODEL_ID;
+}
+
+function estimateProviderCostMicroUsd(
+  env: ControllerContext['env'],
+  input: {
+    service: GenerationBillingService;
+    quantity: number;
+    model?: string;
+    operation?: string;
+    imageSize?: string;
+    assetType?: string;
+    videoResolution?: string;
+    videoDurationSeconds?: number;
+    generateAudio?: boolean;
+  }
+): number {
+  const eventName = getQuotaEventNameForBillingService(input.service);
+  const requestedQuantity = Math.max(1, Math.floor(input.quantity));
+  const metadata: Record<string, unknown> = { operation: input.operation };
+
+  if (input.service === 'nanobanana') {
+    metadata.model = input.model || DEFAULT_IMAGE_MODEL_ID;
+    metadata.imageSize = input.imageSize;
+  } else if (input.service === 'veo') {
+    metadata.model = input.model || DEFAULT_VIDEO_MODEL_ID;
+    metadata.resolution = input.videoResolution;
+    metadata.duration_seconds = input.videoDurationSeconds;
+    metadata.generate_audio = input.generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON;
+    metadata.video_count = 1;
+  } else if (input.service === 'lyria') {
+    metadata.provider = 'lyria';
+    metadata.model = input.model || env.LYRIA_MODEL_ID || DEFAULT_LYRIA_MODEL_ID;
+    metadata.asset_type = input.assetType;
+  } else {
+    metadata.provider = 'elevenlabs';
+    metadata.model = input.model || getElevenLabsModelForEstimate(env, input.assetType);
+    metadata.asset_type = input.assetType;
+  }
+
+  const price = priceProviderUsageEvent({
+    eventName,
+    quantity: requestedQuantity,
+    metadata,
+  });
+  return price.amountMicroUsd;
+}
+
+async function preflightGenerationAdmission(input: {
+  env: ControllerContext['env'];
+  spaceId: string;
+  userId: number;
+  billingService: GenerationBillingService;
+  byokContext: ByokBillingContext;
+  quotaQuantity: number;
+  rateLimitQuantity: number;
+  mediaKind?: 'image' | 'audio' | 'video' | null;
+  assetType?: string;
+  model?: string;
+  operation?: string;
+  imageSize?: string;
+  videoResolution?: string;
+  videoDurationSeconds?: number;
+  generateAudio?: boolean;
+}): Promise<{ allowed: true } | { allowed: false; denyReason?: GenerationLimitDenyReason; denyMessage?: string }> {
+  const byok = await hasByokForBillingService(input.env, input.userId, input.billingService, input.byokContext);
+
+  if (!byok) {
+    const check = await preCheck(
+      input.env.DB,
+      input.userId,
+      input.billingService,
+      undefined,
+      input.quotaQuantity,
+      input.rateLimitQuantity,
+      input.env.ADMIN_USER_IDS
+    );
+    if (!check.allowed) {
+      return {
+        allowed: false,
+        denyReason: check.denyReason,
+        denyMessage: check.denyMessage,
+      };
+    }
+  }
+
+  const guardrail = await checkGenerationGuardrails(input.env.DB, {
+    userId: input.userId,
+    spaceId: input.spaceId,
+    mode: byok ? 'byok' : 'managed',
+    service: input.billingService,
+    requestedRateLimitQuantity: byok ? input.rateLimitQuantity : 0,
+    requestedProviderCostMicroUsd: byok
+      ? 0
+      : estimateProviderCostMicroUsd(input.env, {
+        service: input.billingService,
+        quantity: input.quotaQuantity,
+        model: input.model,
+        operation: input.operation,
+        imageSize: input.imageSize,
+        assetType: input.assetType,
+        videoResolution: input.videoResolution,
+        videoDurationSeconds: input.videoDurationSeconds,
+        generateAudio: input.generateAudio,
+      }),
+    requestedPlatformUsage: [{ usageType: 'workflow', quantity: input.rateLimitQuantity }],
+    mediaKind: input.mediaKind ?? null,
+    adminUserIds: input.env.ADMIN_USER_IDS,
+  });
+  if (!guardrail.allowed) {
+    return {
+      allowed: false,
+      denyReason: guardrail.denyReason,
+      denyMessage: guardrail.denyMessage,
+    };
+  }
+
+  await incrementRateLimit(input.env.DB, input.userId, input.rateLimitQuantity);
+  return { allowed: true };
 }
 
 export class GenerationController extends BaseController {
@@ -334,20 +489,31 @@ export class GenerationController extends BaseController {
         getVideoGenerateAudio(msg.mediaKind, msg.generateAudio)
       );
       const userId = parseInt(meta.userId);
-      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider })) {
-        await incrementRateLimit(this.env.DB, userId);
-      } else {
-        const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
-        if (!check.allowed) {
-          this.send(ws, {
-            type: 'generate:error',
-            requestId: msg.requestId,
-            error: check.denyMessage || 'Request denied',
-            code: getGenerationLimitErrorCode(check.denyReason),
-          });
-          return;
-        }
-        await incrementRateLimit(this.env.DB, userId);
+      const check = await preflightGenerationAdmission({
+        env: this.env,
+        spaceId: this.spaceId,
+        userId,
+        billingService,
+        byokContext: { modelProvider },
+        quotaQuantity,
+        rateLimitQuantity: 1,
+        mediaKind: msg.mediaKind,
+        assetType: msg.assetType,
+        model: msg.model,
+        operation: 'generate',
+        imageSize: msg.imageSize,
+        videoResolution: msg.videoResolution,
+        videoDurationSeconds: msg.videoDurationSeconds,
+        generateAudio: getVideoGenerateAudio(msg.mediaKind, msg.generateAudio),
+      });
+      if (!check.allowed) {
+        this.send(ws, {
+          type: 'generate:error',
+          requestId: msg.requestId,
+          error: check.denyMessage || 'Request denied',
+          code: getGenerationLimitErrorCode(check.denyReason),
+        });
+        return;
       }
     }
 
@@ -435,20 +601,31 @@ export class GenerationController extends BaseController {
         getVideoGenerateAudio(billingMediaKind, msg.generateAudio)
       );
       const userId = parseInt(meta.userId);
-      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider })) {
-        await incrementRateLimit(this.env.DB, userId);
-      } else {
-        const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
-        if (!check.allowed) {
-          this.send(ws, {
-            type: 'refine:error',
-            requestId: msg.requestId,
-            error: check.denyMessage || 'Request denied',
-            code: getGenerationLimitErrorCode(check.denyReason),
-          });
-          return;
-        }
-        await incrementRateLimit(this.env.DB, userId);
+      const check = await preflightGenerationAdmission({
+        env: this.env,
+        spaceId: this.spaceId,
+        userId,
+        billingService,
+        byokContext: { modelProvider },
+        quotaQuantity,
+        rateLimitQuantity: 1,
+        mediaKind: billingMediaKind,
+        assetType: billingAssetType,
+        model: msg.model,
+        operation: 'refine',
+        imageSize: msg.imageSize,
+        videoResolution: msg.videoResolution,
+        videoDurationSeconds: msg.videoDurationSeconds,
+        generateAudio: getVideoGenerateAudio(billingMediaKind, msg.generateAudio),
+      });
+      if (!check.allowed) {
+        this.send(ws, {
+          type: 'refine:error',
+          requestId: msg.requestId,
+          error: check.denyMessage || 'Request denied',
+          code: getGenerationLimitErrorCode(check.denyReason),
+        });
+        return;
       }
     }
 
@@ -533,28 +710,28 @@ export class GenerationController extends BaseController {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind, msg.assetType, msg.musicProvider);
       const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, msg.count, msg.assetType);
       const userId = parseInt(meta.userId);
-      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider })) {
-        await incrementRateLimit(this.env.DB, userId, msg.count);
-      } else {
-        const check = await preCheck(
-          this.env.DB,
-          userId,
-          billingService,
-          undefined,
-          quotaQuantity,
-          msg.count,
-          this.env.ADMIN_USER_IDS
-        );
-        if (!check.allowed) {
-          this.send(ws, {
-            type: 'batch:error',
-            requestId: msg.requestId,
-            error: check.denyMessage || 'Request denied',
-            code: getGenerationLimitErrorCode(check.denyReason),
-          });
-          return;
-        }
-        await incrementRateLimit(this.env.DB, userId, msg.count);
+      const check = await preflightGenerationAdmission({
+        env: this.env,
+        spaceId: this.spaceId,
+        userId,
+        billingService,
+        byokContext: { modelProvider },
+        quotaQuantity,
+        rateLimitQuantity: msg.count,
+        mediaKind: msg.mediaKind,
+        assetType: msg.assetType,
+        model: msg.model,
+        operation: 'generate',
+        imageSize: msg.imageSize,
+      });
+      if (!check.allowed) {
+        this.send(ws, {
+          type: 'batch:error',
+          requestId: msg.requestId,
+          error: check.denyMessage || 'Request denied',
+          code: getGenerationLimitErrorCode(check.denyReason),
+        });
+        return;
       }
     }
 
@@ -652,19 +829,30 @@ export class GenerationController extends BaseController {
         getVideoGenerateAudio(retryMediaKind, getRecipeGenerateAudio(recipe))
       );
       const userId = parseInt(meta.userId);
-      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider: recipe.modelProvider })) {
-        await incrementRateLimit(this.env.DB, userId);
-      } else {
-        const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
-        if (!check.allowed) {
-          this.sendError(
-            ws,
-            getGenerationLimitErrorCode(check.denyReason),
-            check.denyMessage || 'Request denied'
-          );
-          return;
-        }
-        await incrementRateLimit(this.env.DB, userId);
+      const check = await preflightGenerationAdmission({
+        env: this.env,
+        spaceId: this.spaceId,
+        userId,
+        billingService,
+        byokContext: { modelProvider: recipe.modelProvider },
+        quotaQuantity,
+        rateLimitQuantity: 1,
+        mediaKind: retryMediaKind,
+        assetType: recipe.assetType,
+        model: recipe.model,
+        operation: recipe.operation,
+        imageSize: recipe.imageSize,
+        videoResolution: recipe.videoResolution,
+        videoDurationSeconds: recipe.videoDurationSeconds,
+        generateAudio: getVideoGenerateAudio(retryMediaKind, getRecipeGenerateAudio(recipe)),
+      });
+      if (!check.allowed) {
+        this.sendError(
+          ws,
+          getGenerationLimitErrorCode(check.denyReason),
+          check.denyMessage || 'Request denied'
+        );
+        return;
       }
     }
 

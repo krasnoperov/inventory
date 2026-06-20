@@ -1,7 +1,13 @@
 // @ts-nocheck - D1 mock shape is intentionally minimal
 import { describe, test, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { preCheck, trackGeminiAudioGeneration, trackImageGeneration, trackVideoGeneration } from './usageCheck';
+import {
+  checkGenerationGuardrails,
+  preCheck,
+  trackGeminiAudioGeneration,
+  trackImageGeneration,
+  trackVideoGeneration,
+} from './usageCheck';
 
 function createPreCheckDb(options: {
   quotaLimit: number;
@@ -429,5 +435,221 @@ describe('SpaceDO usage preCheck', () => {
       output_tokens: 0,
       total_tokens: 12,
     });
+  });
+});
+
+describe('SpaceDO generation guardrails', () => {
+  test('blocks managed generation when provider spend cap would be exceeded', async () => {
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn(() => ({
+          first: mock.fn(async () => {
+            if (sql.includes('FROM users')) {
+              return {
+                paid_generation_entitlement: 'paid',
+                quota_limits: JSON.stringify({ managed_provider_spend_micro_usd: 1_000_000 }),
+                polar_current_period_start: '2026-06-01T00:00:00.000Z',
+                polar_current_period_end: '2026-07-01T00:00:00.000Z',
+                rate_limit_count: 0,
+                rate_limit_window_start: null,
+              };
+            }
+            return { total: 900_000 };
+          }),
+        })),
+      })),
+    };
+
+    const result = await checkGenerationGuardrails(db as any, {
+      userId: 42,
+      spaceId: 'space-1',
+      mode: 'managed',
+      service: 'veo',
+      requestedProviderCostMicroUsd: 200_000,
+      mediaKind: 'video',
+    });
+
+    assert.strictEqual(result.allowed, false);
+    assert.strictEqual(result.denyReason, 'quota_exceeded');
+    assert.strictEqual(result.limitKey, 'managed_provider_spend_micro_usd');
+  });
+
+  test('blocks BYOK generation when platform workflow fair-use limit is exhausted', async () => {
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn(() => ({
+          first: mock.fn(async () => {
+            if (sql.includes('FROM users')) {
+              return {
+                paid_generation_entitlement: 'none',
+                quota_limits: JSON.stringify({ platform_workflow_runs: 1 }),
+                polar_current_period_start: null,
+                polar_current_period_end: null,
+                rate_limit_count: 0,
+                rate_limit_window_start: null,
+              };
+            }
+            return { total: 1 };
+          }),
+        })),
+      })),
+    };
+
+    const result = await checkGenerationGuardrails(db as any, {
+      userId: 42,
+      spaceId: 'space-1',
+      mode: 'byok',
+      service: 'nanobanana',
+      requestedPlatformUsage: [{ usageType: 'workflow', quantity: 1 }],
+      mediaKind: 'image',
+    });
+
+    assert.strictEqual(result.allowed, false);
+    assert.strictEqual(result.denyReason, 'platform_limit_exceeded');
+    assert.strictEqual(result.limitKey, 'platform_workflow_runs');
+  });
+
+  test('enforces explicit internal budgets while otherwise treating internal users as exempt', async () => {
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn(() => ({
+          first: mock.fn(async () => {
+            if (sql.includes('FROM users')) {
+              return {
+                paid_generation_entitlement: 'internal',
+                quota_limits: JSON.stringify({
+                  platform_workflow_runs: 1,
+                  internal_platform_workflow_runs: 2,
+                }),
+                polar_current_period_start: null,
+                polar_current_period_end: null,
+                rate_limit_count: 0,
+                rate_limit_window_start: null,
+              };
+            }
+            return { total: 2 };
+          }),
+        })),
+      })),
+    };
+
+    const result = await checkGenerationGuardrails(db as any, {
+      userId: 42,
+      spaceId: 'space-1',
+      mode: 'managed',
+      service: 'nanobanana',
+      requestedPlatformUsage: [{ usageType: 'workflow', quantity: 1 }],
+      mediaKind: 'image',
+    });
+
+    assert.strictEqual(result.allowed, false);
+    assert.strictEqual(result.denyReason, 'platform_limit_exceeded');
+    assert.strictEqual(result.limitKey, 'internal_platform_workflow_runs');
+  });
+
+  test('blocks uploads when a per-space storage budget would be exceeded', async () => {
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn(() => ({
+          first: mock.fn(async () => {
+            if (sql.includes('FROM users')) {
+              return {
+                paid_generation_entitlement: 'paid',
+                quota_limits: JSON.stringify({ space_platform_storage_bytes: 100 }),
+                polar_current_period_start: null,
+                polar_current_period_end: null,
+                rate_limit_count: 0,
+                rate_limit_window_start: null,
+              };
+            }
+            return { total: 90 };
+          }),
+        })),
+      })),
+    };
+
+    const result = await checkGenerationGuardrails(db as any, {
+      userId: 42,
+      spaceId: 'space-1',
+      mode: 'byok',
+      service: 'nanobanana',
+      requestedPlatformUsage: [{ usageType: 'storage', quantity: 20 }],
+      mediaKind: 'image',
+    });
+
+    assert.strictEqual(result.allowed, false);
+    assert.strictEqual(result.denyReason, 'platform_limit_exceeded');
+    assert.strictEqual(result.limitKey, 'space_platform_storage_bytes');
+  });
+
+  test('blocks downloads when account delivery budget would be exceeded', async () => {
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn(() => ({
+          first: mock.fn(async () => {
+            if (sql.includes('FROM users')) {
+              return {
+                paid_generation_entitlement: 'paid',
+                quota_limits: JSON.stringify({ platform_delivery_bytes: 100 }),
+                polar_current_period_start: null,
+                polar_current_period_end: null,
+                rate_limit_count: 0,
+                rate_limit_window_start: null,
+              };
+            }
+            return { total: 99 };
+          }),
+        })),
+      })),
+    };
+
+    const result = await checkGenerationGuardrails(db as any, {
+      userId: 42,
+      spaceId: 'space-1',
+      mode: 'byok',
+      service: 'veo',
+      requestedPlatformUsage: [{ usageType: 'delivery', quantity: 2 }],
+      mediaKind: 'video',
+    });
+
+    assert.strictEqual(result.allowed, false);
+    assert.strictEqual(result.denyReason, 'platform_limit_exceeded');
+    assert.strictEqual(result.limitKey, 'platform_delivery_bytes');
+  });
+
+  test('blocks video-heavy usage with a daily video workflow cap', async () => {
+    const db = {
+      prepare: mock.fn((sql: string) => ({
+        bind: mock.fn(() => ({
+          first: mock.fn(async () => {
+            if (sql.includes('FROM users')) {
+              return {
+                paid_generation_entitlement: 'paid',
+                quota_limits: JSON.stringify({ video_workflow_runs_daily: 1 }),
+                polar_current_period_start: null,
+                polar_current_period_end: null,
+                rate_limit_count: 0,
+                rate_limit_window_start: null,
+              };
+            }
+            return { total: sql.includes('media_kind = ?') ? 1 : 0 };
+          }),
+        })),
+      })),
+    };
+
+    const result = await checkGenerationGuardrails(db as any, {
+      userId: 42,
+      spaceId: 'space-1',
+      mode: 'managed',
+      service: 'veo',
+      requestedPlatformUsage: [{ usageType: 'workflow', quantity: 1 }],
+      mediaKind: 'video',
+      now: new Date('2026-06-20T12:00:00.000Z'),
+    });
+
+    assert.strictEqual(result.allowed, false);
+    assert.strictEqual(result.denyReason, 'platform_limit_exceeded');
+    assert.strictEqual(result.limitKey, 'video_workflow_runs_daily');
   });
 });

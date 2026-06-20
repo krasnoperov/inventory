@@ -142,6 +142,8 @@ export interface RateLimitStatus {
  * UI Recommendations:
  * - paid_generation_required: Show upgrade CTA, link to checkout
  * - quota_exceeded: Show upgrade CTA, link to checkout
+ * - platform_limit_exceeded: Show plan limit message, link to usage/billing
+ * - provider_key_required: Prompt the user to add a provider API key
  * - rate_limited: Show countdown timer based on resetsAt, disable action button
  */
 export interface LimitErrorResponse {
@@ -150,7 +152,12 @@ export interface LimitErrorResponse {
   /** Human-readable message */
   message: string;
   /** Denial reason for programmatic handling */
-  denyReason: 'paid_generation_required' | 'quota_exceeded' | 'rate_limited';
+  denyReason:
+    | 'paid_generation_required'
+    | 'quota_exceeded'
+    | 'platform_limit_exceeded'
+    | 'provider_key_required'
+    | 'rate_limited';
   /** Current quota status */
   quota: QuotaStatus;
   /** Current rate limit status */
@@ -167,6 +174,8 @@ export function isLimitErrorResponse(response: unknown): response is LimitErrorR
     'denyReason' in response &&
     ((response as LimitErrorResponse).denyReason === 'paid_generation_required' ||
       (response as LimitErrorResponse).denyReason === 'quota_exceeded' ||
+      (response as LimitErrorResponse).denyReason === 'platform_limit_exceeded' ||
+      (response as LimitErrorResponse).denyReason === 'provider_key_required' ||
       (response as LimitErrorResponse).denyReason === 'rate_limited')
   );
 }
