@@ -323,7 +323,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
         type: 'generate:error',
         requestId: 'request-paid-required',
-        error: 'Paid generation is not enabled for this account. Please upgrade your plan.',
+        error: 'Paid Generation is not enabled for this account. Start Paid Generation in Profile or use a matching BYOK provider key.',
         code: 'PAID_GENERATION_REQUIRED',
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
@@ -431,7 +431,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
         type: 'generate:error',
         requestId: 'request-custom-byok',
-        error: 'Paid generation is not enabled for this account. Please upgrade your plan.',
+        error: 'Paid Generation is not enabled for this account. Start Paid Generation in Profile or use a matching BYOK provider key.',
         code: 'PAID_GENERATION_REQUIRED',
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
@@ -464,7 +464,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
         type: 'generate:error',
         requestId: 'request-1',
-        error: 'Monthly quota exceeded for elevenlabs. Please upgrade your plan.',
+        error: 'Current-period quota exceeded for elevenlabs. Review billing in Profile.',
         code: 'QUOTA_EXCEEDED',
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
@@ -500,7 +500,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
         type: 'generate:error',
         requestId: 'request-video-audio-quota',
-        error: 'Monthly quota exceeded for veo. Please upgrade your plan.',
+        error: 'Current-period quota exceeded for veo. Review billing in Profile.',
         code: 'QUOTA_EXCEEDED',
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
@@ -596,7 +596,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
         type: 'generate:error',
         requestId: 'request-2',
-        error: 'Monthly quota exceeded for elevenlabs. Please upgrade your plan.',
+        error: 'Current-period quota exceeded for elevenlabs. Review billing in Profile.',
         code: 'QUOTA_EXCEEDED',
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
@@ -723,7 +723,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
         type: 'refine:error',
         requestId: 'request-1',
-        error: 'Monthly quota exceeded for elevenlabs. Please upgrade your plan.',
+        error: 'Current-period quota exceeded for elevenlabs. Review billing in Profile.',
         code: 'QUOTA_EXCEEDED',
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
@@ -814,7 +814,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(ctx.send.mock.calls[0].arguments[1], {
         type: 'refine:error',
         requestId: 'request-1',
-        error: 'Monthly quota exceeded for veo. Please upgrade your plan.',
+        error: 'Current-period quota exceeded for veo. Review billing in Profile.',
         code: 'QUOTA_EXCEEDED',
       });
       assert.ok(bindArgs.some((args) => args[1] === 'gemini_videos'));
@@ -1884,7 +1884,7 @@ describe('GenerationController pipeline hooks', () => {
       assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
         type: 'batch:error',
         requestId: 'request-1',
-        error: 'Monthly quota exceeded for elevenlabs. Please upgrade your plan.',
+        error: 'Current-period quota exceeded for elevenlabs. Review billing in Profile.',
         code: 'QUOTA_EXCEEDED',
       });
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);

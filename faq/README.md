@@ -18,7 +18,7 @@ The assistant learns from your successful prompts to provide better suggestions 
 ## Billing & Limits
 
 ### [Billing FAQ](./BILLING.md)
-Understand how usage-based billing works. View your usage, manage subscriptions, and learn about upgrading your plan.
+Understand Paid Generation, BYOK provider keys, usage meters, and subscription management.
 
 ### [Usage Limits & Errors](./error-handling.md)
 What happens when you reach your quota or rate limits. How to handle "quota exceeded" or "too many requests" messages.
@@ -30,7 +30,7 @@ What happens when you reach your quota or rate limits. How to handle "quota exce
 | [Image Generation](./image-generation-guide.md) | Generate, derive, refine images |
 | [Trust Zones](./trust-zones.md) | Control AI action permissions |
 | [Memory & Personalization](./memory-personalization.md) | Assistant learning preferences |
-| [Billing FAQ](./BILLING.md) | Usage limits, subscriptions, upgrades |
+| [Billing FAQ](./BILLING.md) | Paid Generation, BYOK, usage meters, subscriptions |
 | [Usage Limits & Errors](./error-handling.md) | Quota and rate limit handling |
 
 ## Getting Help

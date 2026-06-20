@@ -20,7 +20,7 @@ These operations run automatically without asking for permission:
 - **Clear tray** - Emptying the Forge Tray
 - **Set prompt** - Setting the generation prompt
 
-These are safe because they don't consume credits and don't create permanent changes.
+These are safe because they don't call generation providers and don't create permanent changes.
 
 ### Generating Operations (Require Approval)
 
@@ -31,7 +31,7 @@ These operations require your explicit approval before running:
 - **Refine asset** - Adding a new variant to an existing asset
 - **Create plan** - Creating a multi-step workflow
 
-These require approval because they consume AI credits and create permanent assets.
+These require approval because they can consume provider or metered usage and create permanent assets.
 
 ## The Approval Panel
 

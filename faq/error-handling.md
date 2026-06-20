@@ -6,19 +6,19 @@ This guide explains what happens when you reach your usage limits while using th
 
 ## Monthly Quota
 
-Each plan includes a monthly allowance for AI features. When you've used your entire quota, you'll see:
+Paid Generation can include current-period meter credits for AI features. When you've used the available quota for a feature, you'll see:
 
-> "Monthly quota exceeded. Please upgrade your plan."
+> "Current-period quota exceeded. Review billing in Profile."
 
 **What you'll see in the chat:**
 - Your current usage (e.g., "You've used 50,000 of your 50,000 monthly tokens")
-- An **Upgrade Plan** button
+- A link to your Profile when billing action is available
 
 **What to do:**
-1. Click **Upgrade Plan** to view subscription options in the billing portal
-2. Or wait until the start of your next billing cycle when your quota resets
+1. Open **Profile** to review your plan, meter usage, and billing actions
+2. Or wait until the start of your next billing period when finite meter credits reset
 
-Your quota resets automatically at the beginning of each billing period. Check your Profile page to see your renewal date.
+Your quota resets automatically at the beginning of each billing period when the active plan has finite meter credits. Check your Profile page to see your renewal or access-end date.
 
 ---
 
@@ -56,7 +56,7 @@ If you see "Session expired", refresh the page and sign in again.
 ## Tips to Avoid Limits
 
 1. **Work thoughtfully** - Review each generation before requesting another
-2. **Use refinements** - Refining an existing image often uses fewer resources than generating from scratch
+2. **Use the right mode** - Smaller batches, shorter clips, and draft models can reduce provider cost and quota usage
 3. **Plan your workflow** - The assistant can help you plan multi-step operations efficiently
 
 ---

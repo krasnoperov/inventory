@@ -690,7 +690,10 @@ describe('UsageService', () => {
       assert.strictEqual(result.allowed, false);
       assert.strictEqual(result.remaining, null);
       assert.strictEqual(result.limit, null);
-      assert.match(result.message || '', /Paid generation is not enabled/);
+      assert.strictEqual(
+        result.message,
+        'Paid Generation is not enabled for this account. Start Paid Generation in Profile or use a matching BYOK provider key.'
+      );
     });
 
     test('returns allowed=true when PolarService is null for paid users', async () => {
@@ -752,7 +755,7 @@ describe('UsageService', () => {
       const result = await usageService.checkQuota(testUserId, 'nanobanana');
 
       assert.strictEqual(result.allowed, false);
-      assert.strictEqual(result.message, 'Paid generation is not enabled for this account. Please upgrade your plan.');
+      assert.strictEqual(result.message, 'Paid Generation is not enabled for this account. Start Paid Generation in Profile or use a matching BYOK provider key.');
     });
 
     test('checks quotas against the cached Polar billing period', async () => {
