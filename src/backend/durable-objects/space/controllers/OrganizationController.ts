@@ -212,11 +212,51 @@ export class OrganizationController extends BaseController {
 
   async httpBackfillParentHierarchy(input: unknown = {}) {
     const data = normalizeBackfillInput(input);
-    return this.repo.backfillParentHierarchyToOrganization({
+    const [beforeCollections, beforeItems, beforeRelations] = await Promise.all([
+      this.repo.listCollections(),
+      this.repo.listAllCollectionItems(),
+      this.repo.listRelations(),
+    ]);
+    const result = await this.repo.backfillParentHierarchyToOrganization({
       createManualRelations: normalizeOptionalBoolean(data.createManualRelations),
       createStarterCollectionsForAllNullParents: normalizeOptionalBoolean(data.createStarterCollectionsForAllNullParents),
       createdBy: normalizeOptionalString(data.createdBy) ?? undefined,
     });
+
+    if (
+      result.collectionsCreated === 0 &&
+      result.collectionItemsCreated === 0 &&
+      result.relationsCreated === 0
+    ) {
+      return result;
+    }
+
+    const beforeCollectionIds = new Set(beforeCollections.map((collection) => collection.id));
+    const beforeItemIds = new Set(beforeItems.map((item) => item.id));
+    const beforeRelationIds = new Set(beforeRelations.map((relation) => relation.id));
+    const [afterCollections, afterItems, afterRelations] = await Promise.all([
+      this.repo.listCollections(),
+      this.repo.listAllCollectionItems(),
+      this.repo.listRelations(),
+    ]);
+
+    for (const collection of afterCollections) {
+      if (!beforeCollectionIds.has(collection.id)) {
+        this.broadcast({ type: 'collection:created', collection });
+      }
+    }
+    for (const item of afterItems) {
+      if (!beforeItemIds.has(item.id)) {
+        this.broadcast({ type: 'collection_item:created', item });
+      }
+    }
+    for (const relation of afterRelations) {
+      if (!beforeRelationIds.has(relation.id)) {
+        this.broadcast({ type: 'relation:created', relation });
+      }
+    }
+
+    return result;
   }
 
   async httpListCompositions(): Promise<Composition[]> {
