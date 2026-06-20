@@ -7,6 +7,7 @@ import {
   decryptProviderApiKeyV2,
   decryptProviderApiKeyWithVersionedKek,
   encryptProviderApiKeyV2,
+  encryptProviderApiKeyWithVersionedKek,
 } from '../services/providerKeyVault';
 
 function encryptionKey(): string {
@@ -775,10 +776,13 @@ describe('key broker service binding contract', () => {
     const beforeEnvelopeRow = db.envelopes.get('user:7');
     assert.ok(beforeEnvelopeRow);
     const beforeEnvelope = { ...beforeEnvelopeRow };
-    const concurrentEncrypted = await encryptProviderApiKeyV2(
+    const concurrentEncrypted = await encryptProviderApiKeyWithVersionedKek(
       db as never,
       'concurrent-google-secret',
-      rotatedEncryptionKey(),
+      {
+        activeKekVersion: 2,
+        getKekByVersion: async (version) => version === 1 ? encryptionKey() : rotatedEncryptionKey(),
+      },
       7,
       'google_ai',
     );

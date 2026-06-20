@@ -42,7 +42,9 @@ export interface VersionedKekProvider {
   getKekByVersion(version: number): Promise<string | undefined>;
 }
 
-type ProviderKeyEncryptionEnv = Pick<Env, 'ENCRYPTION_KEY'> | VersionedKekProvider;
+type ProviderKeyEncryptionEnv = (Pick<Env, 'ENCRYPTION_KEY' | 'BYOK_ACTIVE_KEK_VERSION'> & {
+  [binding: `BYOK_KEK_V${number}`]: string | SecretsStoreSecret | undefined;
+}) | VersionedKekProvider;
 
 export class ProviderKeyEncryptionError extends Error {
   constructor(message = 'ENCRYPTION_KEY is required for provider key storage') {
@@ -127,21 +129,40 @@ function isVersionedKekProvider(env: ProviderKeyEncryptionEnv): env is Versioned
   return typeof (env as VersionedKekProvider).getKekByVersion === 'function';
 }
 
+async function readSecretValue(binding: string | SecretsStoreSecret | undefined): Promise<string | undefined> {
+  if (typeof binding === 'string') return binding;
+  if (binding && typeof binding.get === 'function') return binding.get();
+  return undefined;
+}
+
 async function requireKekForVersion(
   env: ProviderKeyEncryptionEnv,
   version: number,
 ): Promise<string> {
   const value = isVersionedKekProvider(env)
     ? await env.getKekByVersion(version)
-    : env.ENCRYPTION_KEY;
+    : (
+      await readSecretValue(env[`BYOK_KEK_V${version}` as const]) ??
+      (version === CURRENT_KEK_VERSION ? env.ENCRYPTION_KEY : undefined)
+    );
   if (!value) {
     throw new ProviderKeyEncryptionError(`BYOK_KEK_V${version} Secrets Store binding is required`);
   }
   return value;
 }
 
+function parseActiveKekVersion(rawVersion: string | undefined): number {
+  if (rawVersion === undefined) return CURRENT_KEK_VERSION;
+  if (!/^[1-9]\d*$/.test(rawVersion)) {
+    throw new ProviderKeyEncryptionError('BYOK_ACTIVE_KEK_VERSION must be a positive integer');
+  }
+  return Number.parseInt(rawVersion, 10);
+}
+
 function activeKekVersionForEnv(env: ProviderKeyEncryptionEnv): number {
-  return isVersionedKekProvider(env) ? env.activeKekVersion : CURRENT_KEK_VERSION;
+  return isVersionedKekProvider(env)
+    ? env.activeKekVersion
+    : parseActiveKekVersion(env.BYOK_ACTIVE_KEK_VERSION);
 }
 
 function aadForV2(

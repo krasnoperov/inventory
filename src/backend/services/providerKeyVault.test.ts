@@ -321,31 +321,71 @@ describe('providerKeyVault', () => {
     assert.equal(db.envelopes.size, 0);
   });
 
-  test('direct single-key callers can read current rows after KEK rewrap', async () => {
+  test('direct env callers resolve mixed KEK envelope versions during rewrap rollout', async () => {
     const db = new FakeD1();
     const oldKek = encryptionKey();
     const newKek = rotatedEncryptionKey();
-    const encrypted = await encryptProviderApiKeyV2(db as never, 'current-google-secret', oldKek, 7, 'google_ai');
-    const envelope = db.envelopes.get('user:7');
-    assert.ok(envelope);
-    const dek = await unwrapProviderKeyDek(envelope.wrapped_dek, oldKek);
-    db.envelopes.set('user:7', {
-      ...envelope,
-      wrapped_dek: await wrapProviderKeyDek(dek, newKek),
-      kek_version: 2,
-    });
+
+    const v1Encrypted = await encryptProviderApiKeyV2(db as never, 'v1-google-secret', oldKek, 7, 'google_ai');
     db.rows.set('7:google_ai', {
       user_id: 7,
       provider: 'google_ai',
-      encrypted_api_key: encrypted,
+      encrypted_api_key: v1Encrypted,
       key_hint: '****cret',
       updated_at: '2026-01-01T00:00:00.000Z',
     });
 
+    const rewrappedEncrypted = await encryptProviderApiKeyV2(db as never, 'v2-google-secret', oldKek, 8, 'google_ai');
+    const rewrappedEnvelope = db.envelopes.get('user:8');
+    assert.ok(rewrappedEnvelope);
+    const rewrappedDek = await unwrapProviderKeyDek(rewrappedEnvelope.wrapped_dek, oldKek);
+    db.envelopes.set('user:8', {
+      ...rewrappedEnvelope,
+      wrapped_dek: await wrapProviderKeyDek(rewrappedDek, newKek),
+      kek_version: 2,
+    });
+    db.rows.set('8:google_ai', {
+      user_id: 8,
+      provider: 'google_ai',
+      encrypted_api_key: rewrappedEncrypted,
+      key_hint: '****cret',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+
+    const env = {
+      BYOK_ACTIVE_KEK_VERSION: '2',
+      BYOK_KEK_V1: oldKek,
+      BYOK_KEK_V2: newKek,
+    };
+
     assert.equal(
-      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: newKek }),
-      'current-google-secret',
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', env),
+      'v1-google-secret',
     );
-    assert.equal(db.rows.get('7:google_ai')?.encrypted_api_key, encrypted);
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 8, 'google_ai', env),
+      'v2-google-secret',
+    );
+    await assert.rejects(
+      resolveStoredProviderApiKey(db as never, 8, 'google_ai', { ENCRYPTION_KEY: newKek }),
+      ProviderKeyEncryptionError,
+    );
+  });
+
+  test('direct env writes use the active explicit KEK binding', async () => {
+    const db = new FakeD1();
+    const env = {
+      BYOK_ACTIVE_KEK_VERSION: '2',
+      BYOK_KEK_V2: rotatedEncryptionKey(),
+    };
+
+    await upsertProviderApiKey(db as never, 7, 'google_ai', 'user-google-secret', env);
+
+    assert.equal(db.envelopes.get('user:7')?.kek_version, 2);
+    assert.match(db.rows.get('7:google_ai')?.encrypted_api_key ?? '', /^enc:v2:2:1:/);
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', env),
+      'user-google-secret',
+    );
   });
 });
