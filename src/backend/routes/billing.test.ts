@@ -462,6 +462,27 @@ describe('billingRoutes', () => {
           byModel: [],
           byMediaKind: [],
           byMeterEventName: [],
+          bySpace: [
+            {
+              spaceId: 'space-1',
+              amountMicroUsd: 250000,
+              amountUsd: 0.25,
+              quantity: 2,
+              entries: 2,
+              unpricedEntries: 1,
+            },
+          ],
+          byAsset: [
+            {
+              spaceId: 'space-1',
+              assetId: 'asset-1',
+              amountMicroUsd: 250000,
+              amountUsd: 0.25,
+              quantity: 2,
+              entries: 2,
+              unpricedEntries: 1,
+            },
+          ],
         };
       },
     });
@@ -509,6 +530,27 @@ describe('billingRoutes', () => {
       byModel: [],
       byMediaKind: [],
       byMeterEventName: [],
+      bySpace: [
+        {
+          spaceId: 'space-1',
+          amountMicroUsd: 250000,
+          amountUsd: 0.25,
+          quantity: 2,
+          entries: 2,
+          unpricedEntries: 1,
+        },
+      ],
+      byAsset: [
+        {
+          spaceId: 'space-1',
+          assetId: 'asset-1',
+          amountMicroUsd: 250000,
+          amountUsd: 0.25,
+          quantity: 2,
+          entries: 2,
+          unpricedEntries: 1,
+        },
+      ],
     });
   });
 

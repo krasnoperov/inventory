@@ -183,6 +183,7 @@ export type {
   ListSpaceAssetsResponse,
   ListSpacesResponse,
   ListProviderKeysResponse,
+  ProviderSpendSummaryResponse,
   ProviderKeyProvider,
   ProviderKeyResponse,
   ProviderKeySummary,

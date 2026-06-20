@@ -172,9 +172,10 @@ makefx spend --user-id 42 --provider gemini --media-kind image
 ```
 
 The CLI calls `GET /api/billing/spend/summary`, which is admin-only and returns
-totals plus provider, model, media-kind, and meter-event breakdowns. Unpriced
-ledger rows are counted separately so missing provider price attribution remains
-visible during spend audits.
+totals plus provider, model, media-kind, meter-event, space, and asset
+breakdowns. Admin users can also inspect the same summary on the website at
+`/admin/spend`. Unpriced ledger rows are counted separately so missing provider
+price attribution remains visible during spend audits.
 
 ## Customer Charge Ledger
 

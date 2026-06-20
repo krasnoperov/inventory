@@ -15,6 +15,8 @@ import {
   ListSpacesResponseSchema,
   PlaceProductionRecordRequestSchema,
   PlatformUsageSummaryResponseSchema,
+  ProviderSpendSummaryQuerySchema,
+  ProviderSpendSummaryResponseSchema,
   ProviderKeyParamsSchema,
   ProviderKeyResponseSchema,
   ProductionChildParamsSchema,
@@ -127,6 +129,12 @@ export const apiEndpoints = {
     paramsSchema: SpaceIdParamsSchema,
     querySchema: UsageSummaryQuerySchema,
     responseSchema: PlatformUsageSummaryResponseSchema,
+  },
+  'GET /api/billing/spend/summary': {
+    method: 'GET',
+    path: '/api/billing/spend/summary',
+    querySchema: ProviderSpendSummaryQuerySchema,
+    responseSchema: ProviderSpendSummaryResponseSchema,
   },
   'GET /api/spaces/:id/productions': {
     method: 'GET',

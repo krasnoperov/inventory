@@ -119,6 +119,7 @@ describe('ProviderUsageLedgerDAO', () => {
       attributionKey: 'variant:variant-4:gemini_images',
       userId,
       spaceId: 'space-1',
+      assetId: 'asset-1',
       variantId: 'variant-4',
       provider: 'gemini',
       providerModel: 'gemini-3-pro-image-preview',
@@ -135,6 +136,7 @@ describe('ProviderUsageLedgerDAO', () => {
       attributionKey: 'variant:variant-5:gemini_output_tokens',
       userId,
       spaceId: 'space-1',
+      assetId: 'asset-2',
       variantId: 'variant-5',
       provider: 'gemini',
       providerModel: 'gemini-3-pro-image-preview',
@@ -150,6 +152,7 @@ describe('ProviderUsageLedgerDAO', () => {
       attributionKey: 'variant:variant-6:elevenlabs_audio',
       userId,
       spaceId: 'space-2',
+      assetId: 'asset-3',
       variantId: 'variant-6',
       provider: 'elevenlabs',
       providerModel: 'eleven_multilingual_v2',
@@ -210,6 +213,36 @@ describe('ProviderUsageLedgerDAO', () => {
     assert.deepEqual(summary.byMeterEventName.map((row) => row.meterEventName).sort(), [
       'gemini_images',
       'gemini_output_tokens',
+    ]);
+    assert.deepEqual(summary.bySpace, [
+      {
+        spaceId: 'space-1',
+        amountMicroUsd: 240000,
+        amountUsd: 0.24,
+        quantity: 101,
+        entries: 2,
+        unpricedEntries: 1,
+      },
+    ]);
+    assert.deepEqual(summary.byAsset, [
+      {
+        spaceId: 'space-1',
+        assetId: 'asset-1',
+        amountMicroUsd: 240000,
+        amountUsd: 0.24,
+        quantity: 1,
+        entries: 1,
+        unpricedEntries: 0,
+      },
+      {
+        spaceId: 'space-1',
+        assetId: 'asset-2',
+        amountMicroUsd: 0,
+        amountUsd: 0,
+        quantity: 100,
+        entries: 1,
+        unpricedEntries: 1,
+      },
     ]);
   });
 

@@ -20,6 +20,7 @@ import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as SpacesIdRouteImport } from './routes/spaces/$id'
 import { Route as OauthApproveRouteImport } from './routes/oauth/approve'
 import { Route as DocsSlugRouteImport } from './routes/docs/$slug'
+import { Route as AdminSpendRouteImport } from './routes/admin/spend'
 import { Route as SpacesIdIndexRouteImport } from './routes/spaces/$id/index'
 import { Route as SpacesIdProductionRouteImport } from './routes/spaces/$id/production'
 import { Route as SpacesIdAssetsAssetIdRouteImport } from './routes/spaces/$id/assets/$assetId'
@@ -79,6 +80,11 @@ const DocsSlugRoute = DocsSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => DocsRoute,
 } as any)
+const AdminSpendRoute = AdminSpendRouteImport.update({
+  id: '/admin/spend',
+  path: '/admin/spend',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SpacesIdIndexRoute = SpacesIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/docs': typeof DocsRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/admin/spend': typeof AdminSpendRoute
   '/docs/$slug': typeof DocsSlugRoute
   '/oauth/approve': typeof OauthApproveRoute
   '/spaces/$id': typeof SpacesIdRouteWithChildren
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/admin/spend': typeof AdminSpendRoute
   '/docs/$slug': typeof DocsSlugRoute
   '/oauth/approve': typeof OauthApproveRoute
   '/docs': typeof DocsIndexRoute
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/docs': typeof DocsRouteWithChildren
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/admin/spend': typeof AdminSpendRoute
   '/docs/$slug': typeof DocsSlugRoute
   '/oauth/approve': typeof OauthApproveRoute
   '/spaces/$id': typeof SpacesIdRouteWithChildren
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/login'
     | '/profile'
+    | '/admin/spend'
     | '/docs/$slug'
     | '/oauth/approve'
     | '/spaces/$id'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/profile'
+    | '/admin/spend'
     | '/docs/$slug'
     | '/oauth/approve'
     | '/docs'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/login'
     | '/profile'
+    | '/admin/spend'
     | '/docs/$slug'
     | '/oauth/approve'
     | '/spaces/$id'
@@ -198,6 +210,7 @@ export interface RootRouteChildren {
   DocsRoute: typeof DocsRouteWithChildren
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
+  AdminSpendRoute: typeof AdminSpendRoute
   OauthApproveRoute: typeof OauthApproveRoute
   SpacesIdRoute: typeof SpacesIdRouteWithChildren
   SpacesIndexRoute: typeof SpacesIndexRoute
@@ -282,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsSlugRouteImport
       parentRoute: typeof DocsRoute
     }
+    '/admin/spend': {
+      id: '/admin/spend'
+      path: '/admin/spend'
+      fullPath: '/admin/spend'
+      preLoaderRoute: typeof AdminSpendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/spaces/$id/': {
       id: '/spaces/$id/'
       path: '/'
@@ -341,6 +361,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocsRoute: DocsRouteWithChildren,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
+  AdminSpendRoute: AdminSpendRoute,
   OauthApproveRoute: OauthApproveRoute,
   SpacesIdRoute: SpacesIdRouteWithChildren,
   SpacesIndexRoute: SpacesIndexRoute,
