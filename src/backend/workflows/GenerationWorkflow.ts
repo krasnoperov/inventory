@@ -150,7 +150,9 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     log.info('Starting workflow', { requestId, jobId, spaceId, assetName, operation, mediaKind, refCount });
 
     // Step 1: Update variant status to processing via DO
-    await step.do('update-variant-processing', async () => {
+    await step.do('update-variant-processing', {
+      retries: { limit: 3, delay: '2 seconds', backoff: 'exponential' },
+    }, async () => {
       await this.updateVariantStatus(spaceId, jobId, 'processing');
       await this.trackWorkflowStart({
         spaceId,
@@ -893,11 +895,16 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       const doId = this.env.SPACES_DO.idFromName(spaceId);
       const doStub = this.env.SPACES_DO.get(doId);
 
-      await doStub.fetch(new Request('http://do/internal/variant/status', {
+      const response = await doStub.fetch(new Request('http://do/internal/variant/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ variantId, status }),
       }));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`DO variant status update failed (${response.status}): ${errorText}`);
+      }
 
       timer(true);
     } catch (error) {
@@ -956,6 +963,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
         jobId: input.jobId,
         error: error instanceof Error ? error.message : String(error),
       });
+      throw error;
     }
   }
 }
