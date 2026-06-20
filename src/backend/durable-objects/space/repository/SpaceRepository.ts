@@ -37,6 +37,8 @@ import type {
   SpaceCollection,
   CollectionItem,
   StylePreset,
+  StylePresetPreview,
+  StyleReferenceCollectionPreview,
   SpaceRelation,
   SpaceRelationType,
   Composition,
@@ -119,6 +121,8 @@ export interface SpaceState {
   relations: SpaceRelation[];
   compositions: Composition[];
   compositionItems: CompositionItem[];
+  stylePresets: StylePresetPreview[];
+  styleReferenceCollections: StyleReferenceCollectionPreview[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
   tileSets: TileSet[];
@@ -132,6 +136,8 @@ export interface SpaceOverviewState {
   variants: Variant[];
   collections: SpaceCollectionOverview[];
   compositions: CompositionOverview[];
+  stylePresets: StylePresetPreview[];
+  styleReferenceCollections: StyleReferenceCollectionPreview[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
   tileSets: TileSet[];
@@ -1129,6 +1135,7 @@ export class SpaceRepository {
   async createStylePreset(data: {
     id: string;
     name: string;
+    description?: string | null;
     stylePrompt?: string;
     collectionId?: string | null;
     enabled?: boolean;
@@ -1139,10 +1146,11 @@ export class SpaceRepository {
 
     await this.sql.exec(
       `INSERT INTO style_presets
-       (id, name, style_prompt, collection_id, enabled, is_default, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, description, style_prompt, collection_id, enabled, is_default, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       data.id,
       data.name,
+      data.description ?? null,
       data.stylePrompt ?? '',
       data.collectionId ?? null,
       data.enabled !== false ? 1 : 0,
@@ -1163,6 +1171,7 @@ export class SpaceRepository {
     presetId: string,
     changes: {
       name?: string;
+      description?: string | null;
       stylePrompt?: string;
       collectionId?: string | null;
       enabled?: boolean;
@@ -1180,6 +1189,10 @@ export class SpaceRepository {
     if (changes.name !== undefined) {
       updates.push('name = ?');
       values.push(changes.name);
+    }
+    if (changes.description !== undefined) {
+      updates.push('description = ?');
+      values.push(changes.description);
     }
     if (changes.stylePrompt !== undefined) {
       updates.push('style_prompt = ?');
@@ -1268,6 +1281,63 @@ export class SpaceRepository {
     return true;
   }
 
+  async listStyleReferenceCollections(): Promise<StyleReferenceCollectionPreview[]> {
+    const result = await this.sql.exec(`
+      SELECT
+        c.*,
+        COUNT(DISTINCT CASE
+          WHEN ci.subject_type = 'variant' AND ci.variant_id IS NOT NULL THEN ci.variant_id
+          WHEN ci.subject_type = 'asset' AND ci.pinned_variant_id IS NOT NULL THEN ci.pinned_variant_id
+          ELSE NULL
+        END) as reference_count,
+        COUNT(DISTINCT sp.id) as preset_count
+      FROM space_collections c
+      LEFT JOIN collection_items ci ON ci.collection_id = c.id
+      LEFT JOIN style_presets sp ON sp.collection_id = c.id
+      GROUP BY c.id
+      HAVING SUM(CASE WHEN ci.id IS NOT NULL AND ci.role != 'style_ref' THEN 1 ELSE 0 END) = 0
+      ORDER BY c.sort_index ASC, c.created_at ASC
+    `);
+    return result.toArray() as StyleReferenceCollectionPreview[];
+  }
+
+  async getStylePresetPreview(presetId: string): Promise<StylePresetPreview | null> {
+    const resolved = await this.resolveStylePresetReferences(presetId);
+    if (!resolved) return null;
+
+    const collection = resolved.styleCollectionId
+      ? await this.getCollectionById(resolved.styleCollectionId)
+      : null;
+
+    return {
+      ...resolved.preset,
+      collection_name: collection?.name ?? null,
+      reference_count: resolved.styleReferenceVariantIds.length,
+      style_reference_variant_ids: resolved.styleReferenceVariantIds,
+      style_reference_image_keys: resolved.styleReferenceImageKeys,
+    };
+  }
+
+  async listStylePresetPreviews(): Promise<StylePresetPreview[]> {
+    const presets = await this.listStylePresets();
+    const previews = await Promise.all(
+      presets.map((preset) => this.getStylePresetPreview(preset.id))
+    );
+    return previews.filter((preset): preset is StylePresetPreview => preset !== null);
+  }
+
+  async listStylePresetPreviewsByCollection(collectionId: string): Promise<StylePresetPreview[]> {
+    const result = await this.sql.exec(
+      'SELECT * FROM style_presets WHERE collection_id = ? ORDER BY is_default DESC, created_at ASC',
+      collectionId
+    );
+    const presets = result.toArray() as StylePreset[];
+    const previews = await Promise.all(
+      presets.map((preset) => this.getStylePresetPreview(preset.id))
+    );
+    return previews.filter((preset): preset is StylePresetPreview => preset !== null);
+  }
+
   async resolveStylePresetReferences(presetId: string): Promise<ResolvedStylePreset | null> {
     const preset = await this.getStylePresetById(presetId);
     if (!preset) return null;
@@ -1294,6 +1364,7 @@ export class SpaceRepository {
          ELSE ci.pinned_variant_id
        END
        WHERE ci.collection_id = ?
+         AND ci.role = 'style_ref'
        ORDER BY ci.sort_index ASC, ci.created_at ASC`,
       preset.collection_id
     );
@@ -2240,6 +2311,8 @@ export class SpaceRepository {
       relations,
       compositions,
       compositionItems,
+      stylePresets,
+      styleReferenceCollections,
       rotationSets,
       rotationViews,
       tileSets,
@@ -2254,6 +2327,8 @@ export class SpaceRepository {
       this.listRelations(),
       this.listCompositions(),
       this.listAllCompositionItems(),
+      this.listStylePresetPreviews(),
+      this.listStyleReferenceCollections(),
       this.getAllRotationSets(),
       this.getAllRotationViews(),
       this.getAllTileSets(),
@@ -2269,6 +2344,8 @@ export class SpaceRepository {
       relations,
       compositions,
       compositionItems,
+      stylePresets,
+      styleReferenceCollections,
       rotationSets,
       rotationViews,
       tileSets,
@@ -2283,6 +2360,8 @@ export class SpaceRepository {
       overviewVariants,
       collections,
       compositions,
+      stylePresets,
+      styleReferenceCollections,
       rotationSets,
       rotationViews,
       tileSets,
@@ -2293,6 +2372,8 @@ export class SpaceRepository {
       this.getOverviewVariants(),
       this.listCollectionOverviews(),
       this.listCompositionOverviews(),
+      this.listStylePresetPreviews(),
+      this.listStyleReferenceCollections(),
       this.getAllRotationSets(),
       this.getAllRotationViews(),
       this.getAllTileSets(),
@@ -2309,7 +2390,7 @@ export class SpaceRepository {
     ].filter((variantId) => !variantIds.has(variantId));
     const referencedVariants = await this.getVariantsByIds(referencedVariantIds);
     const variants = [...overviewVariants, ...referencedVariants.filter((variant) => !variantIds.has(variant.id))];
-    return { assets, variants, collections, compositions, rotationSets, rotationViews, tileSets, tilePositions, style };
+    return { assets, variants, collections, compositions, stylePresets, styleReferenceCollections, rotationSets, rotationViews, tileSets, tilePositions, style };
   }
 
   // ==========================================================================

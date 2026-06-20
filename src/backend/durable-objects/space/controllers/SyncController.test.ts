@@ -26,6 +26,8 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
       relations: [],
       compositions: [],
       compositionItems: [],
+      stylePresets: [],
+      styleReferenceCollections: [],
       rotationSets: [],
       rotationViews: [],
       tileSets: [],
@@ -37,6 +39,8 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
       variants: [],
       collections: [],
       compositions: [],
+      stylePresets: [],
+      styleReferenceCollections: [],
       rotationSets: [],
       rotationViews: [],
       tileSets: [],
@@ -74,6 +78,18 @@ describe('SyncController', () => {
         variants: [{ id: 'variant-1', asset_id: 'asset-1' }],
         collections: [{ id: 'collection-1', name: 'Scene Kit', item_count: 2 }],
         compositions: [{ id: 'composition-1', name: 'Opening', item_count: 1 }],
+        stylePresets: [{
+          id: 'preset-1',
+          name: 'Painterly',
+          collection_name: 'Style refs',
+          reference_count: 2,
+        }],
+        styleReferenceCollections: [{
+          id: 'collection-2',
+          name: 'Style refs',
+          reference_count: 2,
+          preset_count: 1,
+        }],
         rotationSets: [],
         rotationViews: [],
         tileSets: [],
@@ -92,6 +108,18 @@ describe('SyncController', () => {
     assert.deepStrictEqual(sent[0].presence, presence);
     assert.deepStrictEqual(sent[0].collections, [{ id: 'collection-1', name: 'Scene Kit', item_count: 2 }]);
     assert.deepStrictEqual(sent[0].compositions, [{ id: 'composition-1', name: 'Opening', item_count: 1 }]);
+    assert.deepStrictEqual(sent[0].stylePresets, [{
+      id: 'preset-1',
+      name: 'Painterly',
+      collection_name: 'Style refs',
+      reference_count: 2,
+    }]);
+    assert.deepStrictEqual(sent[0].styleReferenceCollections, [{
+      id: 'collection-2',
+      name: 'Style refs',
+      reference_count: 2,
+      preset_count: 1,
+    }]);
     assert.ok(!('lineage' in sent[0]));
     assert.ok(!('collectionItems' in sent[0]));
     assert.ok(!('compositionItems' in sent[0]));
@@ -109,6 +137,8 @@ describe('SyncController', () => {
         relations: [{ id: 'relation-1', relation_type: 'appears_in' }],
         compositions: [{ id: 'composition-1', name: 'Opening' }],
         compositionItems: [{ id: 'composition-item-1', composition_id: 'composition-1' }],
+        stylePresets: [{ id: 'preset-1', name: 'Painterly', reference_count: 1 }],
+        styleReferenceCollections: [{ id: 'collection-2', name: 'Style refs', reference_count: 1 }],
         rotationSets: [],
         rotationViews: [],
         tileSets: [],
@@ -127,5 +157,47 @@ describe('SyncController', () => {
     assert.deepStrictEqual(sent[0].relations, [{ id: 'relation-1', relation_type: 'appears_in' }]);
     assert.deepStrictEqual(sent[0].compositions, [{ id: 'composition-1', name: 'Opening' }]);
     assert.deepStrictEqual(sent[0].compositionItems, [{ id: 'composition-item-1', composition_id: 'composition-1' }]);
+    assert.deepStrictEqual(sent[0].stylePresets, [{ id: 'preset-1', name: 'Painterly', reference_count: 1 }]);
+    assert.deepStrictEqual(sent[0].styleReferenceCollections, [{ id: 'collection-2', name: 'Style refs', reference_count: 1 }]);
+  });
+
+  test('sync payload remains backward-compatible when clients ignore style preset fields', async () => {
+    const { ctx, sent } = createContext({
+      getFullState: mock.fn(async () => ({
+        assets: [],
+        variants: [],
+        lineage: [],
+        collections: [],
+        collectionItems: [],
+        relations: [],
+        compositions: [],
+        compositionItems: [],
+        stylePresets: [{ id: 'preset-1', name: 'Painterly', reference_count: 1 }],
+        styleReferenceCollections: [{ id: 'collection-1', name: 'Style refs', reference_count: 1 }],
+        rotationSets: [],
+        rotationViews: [],
+        tileSets: [],
+        tilePositions: [],
+        style: null,
+      })),
+    });
+    const controller = new SyncController(ctx, createPresence([]));
+
+    await controller.handleSyncRequest({} as WebSocket);
+    const legacyShape = {
+      assets: sent[0].assets,
+      variants: sent[0].variants,
+      lineage: sent[0].lineage,
+      presence: sent[0].presence,
+      style: sent[0].style,
+    };
+
+    assert.deepStrictEqual(legacyShape, {
+      assets: [],
+      variants: [],
+      lineage: [],
+      presence: [],
+      style: null,
+    });
   });
 });

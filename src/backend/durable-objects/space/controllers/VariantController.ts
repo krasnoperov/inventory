@@ -48,7 +48,7 @@ export class VariantController extends BaseController {
     await this.deleteVariant(variantId, parsePlatformUsageUserId(meta.userId));
     const organizationAfter = await this.getOrganizationSnapshot();
     this.broadcast({ type: 'variant:deleted', variantId });
-    this.broadcastOrganizationCascadeChanges(organizationBefore, organizationAfter);
+    await this.broadcastOrganizationCascadeChanges(organizationBefore, organizationAfter);
   }
 
   /**

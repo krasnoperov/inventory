@@ -543,6 +543,35 @@ export interface SpaceStyleRaw {
   updated_at: number;
 }
 
+export interface StyleReferenceCollectionRaw {
+  id: string;
+  name: string;
+  description: string | null;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+  reference_count: number;
+  preset_count: number;
+}
+
+export interface StylePresetRaw {
+  id: string;
+  name: string;
+  description: string | null;
+  style_prompt: string;
+  collection_id: string | null;
+  enabled: number | boolean;
+  is_default: number | boolean;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+  collection_name: string | null;
+  reference_count: number;
+  style_reference_variant_ids: string[];
+  style_reference_image_keys: string[];
+}
+
 // Batch started event
 export interface BatchStartedResult {
   requestId: string;
@@ -752,8 +781,8 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 export type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -805,6 +834,9 @@ export type ServerMessage =
   | { type: 'style:state'; style: SpaceStyleRaw | null }
   | { type: 'style:updated'; style: SpaceStyleRaw }
   | { type: 'style:deleted' }
+  | { type: 'style_preset:created'; preset: StylePresetRaw }
+  | { type: 'style_preset:updated'; preset: StylePresetRaw }
+  | { type: 'style_preset:deleted'; presetId: string }
   // Batch messages
   | { type: 'batch:started'; requestId: string; batchId: string; jobIds: string[]; assetIds: string[]; count: number; mode: BatchMode }
   | { type: 'batch:progress'; batchId: string; completedCount: number; failedCount: number; totalCount: number; variant: Variant }

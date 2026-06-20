@@ -105,6 +105,17 @@ export class ValidationError extends Error {
   }
 }
 
+/**
+ * Conflict error - thrown when a request violates a current-state invariant.
+ */
+export class ConflictError extends Error {
+  override readonly name = 'ConflictError' as const;
+
+  constructor(message: string = 'Conflict') {
+    super(message);
+  }
+}
+
 // ============================================================================
 // Base Controller
 // ============================================================================
@@ -162,17 +173,20 @@ export abstract class BaseController {
     return { collectionItems, relations, compositions, compositionItems };
   }
 
-  protected broadcastOrganizationCascadeChanges(
+  protected async broadcastOrganizationCascadeChanges(
     before: OrganizationSnapshot,
     after: OrganizationSnapshot
-  ): void {
+  ): Promise<void> {
+    const affectedCollectionIds = new Set<string>();
     const collectionItemsAfter = new Map(after.collectionItems.map((item) => [item.id, item]));
     for (const item of before.collectionItems) {
       const current = collectionItemsAfter.get(item.id);
       if (!current) {
         this.broadcast({ type: 'collection_item:deleted', collectionId: item.collection_id, itemId: item.id });
+        affectedCollectionIds.add(item.collection_id);
       } else if (JSON.stringify(current) !== JSON.stringify(item)) {
         this.broadcast({ type: 'collection_item:updated', item: current });
+        affectedCollectionIds.add(current.collection_id);
       }
     }
 
@@ -198,6 +212,17 @@ export abstract class BaseController {
         this.broadcast({ type: 'composition_item:deleted', compositionId: item.composition_id, itemId: item.id });
       } else if (JSON.stringify(current) !== JSON.stringify(item)) {
         this.broadcast({ type: 'composition_item:updated', item: current });
+      }
+    }
+
+    await this.broadcastStylePresetPreviewsForCollections(affectedCollectionIds);
+  }
+
+  protected async broadcastStylePresetPreviewsForCollections(collectionIds: Iterable<string>): Promise<void> {
+    for (const collectionId of collectionIds) {
+      const presets = await this.repo.listStylePresetPreviewsByCollection(collectionId);
+      for (const preset of presets) {
+        this.broadcast({ type: 'style_preset:updated', preset });
       }
     }
   }

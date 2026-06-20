@@ -23,6 +23,7 @@ import {
   PermissionError,
   NotFoundError,
   ValidationError,
+  ConflictError,
   PresenceController,
   SyncController,
   LineageController,
@@ -31,6 +32,7 @@ import {
   GenerationController,
   VisionController,
   StyleController,
+  StylePresetController,
   RotationController,
   TileController,
   ProductionController,
@@ -59,6 +61,7 @@ export class SpaceDO extends DurableObject<Env> {
   private generationCtrl!: GenerationController;
   private visionCtrl!: VisionController;
   private styleCtrl!: StyleController;
+  private stylePresetCtrl!: StylePresetController;
   private approvalCtrl!: ApprovalController;
   private sessionCtrl!: SessionController;
   private chatCtrl!: ChatController;
@@ -133,6 +136,7 @@ export class SpaceDO extends DurableObject<Env> {
       this.generationCtrl = new GenerationController(ctx);
       this.visionCtrl = new VisionController(ctx);
       this.styleCtrl = new StyleController(ctx);
+      this.stylePresetCtrl = new StylePresetController(ctx);
       this.approvalCtrl = new ApprovalController(ctx);
       this.sessionCtrl = new SessionController(ctx);
       this.chatCtrl = new ChatController(ctx);
@@ -154,6 +158,7 @@ export class SpaceDO extends DurableObject<Env> {
         approval: this.approvalCtrl,
         session: this.sessionCtrl,
         organization: this.organizationCtrl,
+        stylePreset: this.stylePresetCtrl,
         production: this.productionCtrl,
       });
 
@@ -217,6 +222,8 @@ export class SpaceDO extends DurableObject<Env> {
         this.sendError(ws, 'NOT_FOUND', error.message);
       } else if (error instanceof ValidationError) {
         this.sendError(ws, 'VALIDATION_ERROR', error.message);
+      } else if (error instanceof ConflictError) {
+        this.sendError(ws, 'INVALID_STATE', error.message);
       } else {
         loggers.spaceDO.error('Error handling WebSocket message', {
           spaceId: this.spaceId ?? undefined,
@@ -373,6 +380,12 @@ export class SpaceDO extends DurableObject<Env> {
         return this.styleCtrl.handleDeleteStyle(ws, meta);
       case 'style:toggle':
         return this.styleCtrl.handleToggleStyle(ws, meta, (msg as { type: 'style:toggle'; enabled: boolean }).enabled);
+      case 'style_preset:create':
+        return this.stylePresetCtrl.handleCreateStylePreset(ws, meta, msg);
+      case 'style_preset:update':
+        return this.stylePresetCtrl.handleUpdateStylePreset(ws, meta, msg.presetId, msg.changes);
+      case 'style_preset:delete':
+        return this.stylePresetCtrl.handleDeleteStylePreset(ws, meta, msg.presetId);
 
       // Workflow triggers
       case 'generation:estimate':

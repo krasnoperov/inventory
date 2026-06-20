@@ -349,12 +349,14 @@ describe('Space organization repository', () => {
     const first = await repo.createStylePreset({
       id: 'preset-1',
       name: 'Painterly',
+      description: 'Loose concept style',
       stylePrompt: 'Loose painterly brushwork',
       collectionId: 'collection-1',
       isDefault: true,
       createdBy: 'user-1',
     });
     assert.equal(first.is_default, 1);
+    assert.equal(first.description, 'Loose concept style');
     assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-1');
 
     await repo.createStylePreset({
@@ -392,12 +394,14 @@ describe('Space organization repository', () => {
 
     const updated = await repo.updateStylePreset('preset-1', {
       name: 'Painted House',
+      description: null,
       stylePrompt: 'Painterly fantasy UI concept art',
       collectionId: null,
       enabled: false,
       isDefault: true,
     });
     assert.equal(updated?.name, 'Painted House');
+    assert.equal(updated?.description, null);
     assert.equal(updated?.style_prompt, 'Painterly fantasy UI concept art');
     assert.equal(updated?.collection_id, null);
     assert.equal(updated?.enabled, 0);
@@ -418,6 +422,51 @@ describe('Space organization repository', () => {
       (await repo.listCollections()).map((collection) => collection.id).sort(),
       ['collection-1', 'collection-2']
     );
+  });
+
+  test('lists resolved style preset and style reference collection previews', async () => {
+    await createAssetWithVariant('asset-1', 'variant-1');
+    await createAssetWithVariant('asset-2', 'variant-2');
+    await repo.createCollection({ id: 'style-collection', name: 'Style refs', createdBy: 'user-1' });
+    await repo.createCollection({ id: 'general-collection', name: 'General refs', createdBy: 'user-1' });
+    await repo.createCollectionItem({
+      id: 'style-item',
+      collectionId: 'style-collection',
+      subjectType: 'variant',
+      variantId: 'variant-1',
+      role: 'style_ref',
+      createdBy: 'user-1',
+    });
+    await repo.createCollectionItem({
+      id: 'general-item',
+      collectionId: 'general-collection',
+      subjectType: 'variant',
+      variantId: 'variant-2',
+      role: 'character',
+      createdBy: 'user-1',
+    });
+    await repo.createStylePreset({
+      id: 'preset-1',
+      name: 'House style',
+      description: 'A resolved preset',
+      stylePrompt: 'Muted storybook colors',
+      collectionId: 'style-collection',
+      isDefault: true,
+      createdBy: 'user-1',
+    });
+
+    const presets = await repo.listStylePresetPreviews();
+    assert.equal(presets.length, 1);
+    assert.equal(presets[0].description, 'A resolved preset');
+    assert.equal(presets[0].collection_name, 'Style refs');
+    assert.equal(presets[0].reference_count, 1);
+    assert.deepEqual(presets[0].style_reference_variant_ids, ['variant-1']);
+    assert.deepEqual(presets[0].style_reference_image_keys, ['images/variant-1.png']);
+
+    const collections = await repo.listStyleReferenceCollections();
+    assert.deepEqual(collections.map((collection) => collection.id), ['style-collection']);
+    assert.equal(collections[0].reference_count, 1);
+    assert.equal(collections[0].preset_count, 1);
   });
 
   test('resolves style preset collection items to exact variants and image keys', async () => {
@@ -486,6 +535,15 @@ describe('Space organization repository', () => {
       name: 'House style',
       stylePrompt: 'Muted storybook colors',
       collectionId: 'style-collection',
+      createdBy: 'user-1',
+    });
+    await repo.createCollectionItem({
+      id: 'item-character-later',
+      collectionId: 'style-collection',
+      subjectType: 'variant',
+      variantId: 'variant-3',
+      role: 'character',
+      sortIndex: 0,
       createdBy: 'user-1',
     });
 
