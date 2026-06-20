@@ -97,6 +97,8 @@ describe('PolarService', () => {
       const result = await service.getPaidGenerationProductInfo();
       assert.deepStrictEqual(result, {
         configured: false,
+        planKey: 'paid_generation',
+        productIdEnvVar: 'POLAR_PAID_GENERATION_PRODUCT_ID',
         productId: null,
         exists: false,
         name: null,
@@ -216,6 +218,57 @@ describe('PolarService', () => {
   });
 
   describe('paid generation product inspection', () => {
+    test('creates checkout with the catalog product and plan metadata', async () => {
+      const service = createPolarService({
+        POLAR_ACCESS_TOKEN: 'polar_at_test_token',
+        POLAR_PAID_GENERATION_PRODUCT_ID: 'prod_paid_generation',
+      });
+      (service as unknown as {
+        client: {
+          checkouts: {
+            create: (input: unknown) => Promise<{ url: string }>;
+          };
+        };
+      }).client = {
+        checkouts: {
+          create: async (input: unknown) => {
+            assert.deepStrictEqual(input, {
+              products: ['prod_paid_generation'],
+              externalCustomerId: '123',
+              customerEmail: 'test@example.com',
+              customerName: 'Test User',
+              returnUrl: 'https://makefx.example/profile',
+              successUrl: 'https://makefx.example/profile?billing=checkout_success',
+              metadata: {
+                source: 'inventory-app',
+                purpose: 'paid_generation',
+                plan_key: 'paid_generation',
+                user_id: 123,
+              },
+              customerMetadata: {
+                inventory_user_id: 123,
+              },
+            });
+            return { url: 'https://checkout.polar.sh/session' };
+          },
+        },
+      };
+
+      const result = await service.getPaidGenerationCheckoutUrl(
+        {
+          userId: 123,
+          email: 'test@example.com',
+          name: 'Test User',
+        },
+        {
+          returnUrl: 'https://makefx.example/profile',
+          successUrl: 'https://makefx.example/profile?billing=checkout_success',
+        }
+      );
+
+      assert.equal(result, 'https://checkout.polar.sh/session');
+    });
+
     test('returns active metered price meters and meter-credit benefits', async () => {
       const service = createPolarService({
         POLAR_ACCESS_TOKEN: 'polar_at_test_token',
@@ -269,6 +322,8 @@ describe('PolarService', () => {
 
       assert.deepStrictEqual(result, {
         configured: true,
+        planKey: 'paid_generation',
+        productIdEnvVar: 'POLAR_PAID_GENERATION_PRODUCT_ID',
         productId: 'prod_paid_generation',
         exists: true,
         name: 'Paid Generation',
