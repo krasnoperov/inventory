@@ -168,6 +168,10 @@ export interface InternalApiControllers {
       renderMetadataMimeType?: string | null;
       renderMetadataSizeBytes?: number | null;
       providerMetadata?: Record<string, unknown> | string | null;
+      requestId?: string | null;
+      audioProvider?: string | null;
+      audioModel?: string | null;
+      audioUsage?: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
     }): Promise<{ success: boolean; variant: Variant }>;
     httpFailVariant(data: {
       variantId: string;
@@ -489,6 +493,11 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       renderMetadataKey?: string | null;
       renderMetadataMimeType?: string | null;
       renderMetadataSizeBytes?: number | null;
+      providerMetadata?: Record<string, unknown> | string | null;
+      requestId?: string | null;
+      audioProvider?: string | null;
+      audioModel?: string | null;
+      audioUsage?: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
     };
     const result = await controllers.generation.httpCompleteVariant(data);
     return c.json(result);

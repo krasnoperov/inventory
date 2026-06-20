@@ -276,7 +276,10 @@ function priceGeminiVideos(
 
   const resolution = normalizeVideoResolution(getString(metadata, 'resolution'));
   const rates = catalog.geminiVideoRatesUsd[model];
-  const unitPriceUsd = rates.videoWithAudioUsdPerSecond[resolution];
+  const generateAudio = getBoolean(metadata, 'generate_audio') ?? getBoolean(metadata, 'generateAudio') ?? true;
+  const unitPriceUsd = generateAudio
+    ? rates.videoWithAudioUsdPerSecond[resolution]
+    : rates.videoUsdPerSecond[resolution];
   if (unitPriceUsd === undefined) {
     return miss(event, catalog, 'gemini', model, 'video_second', 'unsupported_rate');
   }
@@ -474,6 +477,17 @@ function getPositiveNumber(metadata: Record<string, unknown>, key: string): numb
   if (typeof value === 'string') {
     const parsed = Number(value);
     if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
+function getBoolean(metadata: Record<string, unknown>, key: string): boolean | null {
+  const value = metadata[key];
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
   }
   return null;
 }

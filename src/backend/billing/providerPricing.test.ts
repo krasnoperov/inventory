@@ -135,10 +135,10 @@ describe('provider pricing', () => {
     assert.equal(defaultedStandard.amountUsd, 3.2);
   });
 
-  test('prices Gemini video output as audio-bearing even with stale silent metadata', () => {
-    const staleSilent = priceProviderUsageEvent({
+  test('prices Gemini video output with and without generated audio separately', () => {
+    const silent = priceProviderUsageEvent({
       eventName: 'gemini_videos',
-      quantity: 2,
+      quantity: 1,
       metadata: {
         model: 'veo-3.1-generate-preview',
         resolution: '720p',
@@ -159,8 +159,8 @@ describe('provider pricing', () => {
       },
     });
 
-    assert.equal(staleSilent.amountUsd, 3.2);
-    assert.equal(staleSilent.quantity, 8);
+    assert.equal(silent.amountUsd, 1.6);
+    assert.equal(silent.quantity, 8);
     assert.equal(withAudio.amountUsd, 3.2);
     assert.equal(withAudio.quantity, 8);
   });
