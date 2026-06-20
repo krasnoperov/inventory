@@ -90,8 +90,8 @@ flags still override the project defaults.
 
 The CLI defaults to production when no initialized project or `--env` flag is
 present. Use `--env stage` for staging and `--local` for a local dev server.
-Pass `--json` to `init` or `spaces create` when another agent or script needs
-stable machine-readable output.
+Pass `--json` to `init`, `spaces`, or `spaces create` when another agent or
+script needs stable machine-readable output.
 
 ---
 
@@ -103,8 +103,11 @@ Manage your spaces (workspaces for organizing assets).
 
 ```bash
 makefx spaces                    # Simple list
+makefx spaces --json             # Simple list as JSON
 makefx spaces --details          # With asset counts
+makefx spaces --details --json   # With asset counts as JSON
 makefx spaces --id <space_id>    # Details for specific space
+makefx spaces --id <space_id> --json  # Details for specific space as JSON
 ```
 
 ### Create Space

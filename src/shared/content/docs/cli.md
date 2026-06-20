@@ -25,7 +25,10 @@ Use `--env stage` for staging or `--local` for local development.
 
 ```sh
 makefx spaces
+makefx spaces --json
 makefx spaces --details
+makefx spaces --details --json
+makefx spaces --id YOUR_SPACE_ID --json
 makefx spaces create "My Game Assets" --init
 makefx init --space YOUR_SPACE_ID
 ```
