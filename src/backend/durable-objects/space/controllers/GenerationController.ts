@@ -643,7 +643,7 @@ export class GenerationController extends BaseController {
 
     const retryMediaKind = variant.media_kind ?? asset.media_kind;
     const billingService = getGenerationBillingService(this.env, retryMediaKind, recipe.assetType, recipe.musicProvider);
-    if (this.env.DB && (billingService === 'elevenlabs' || billingService === 'lyria' || billingService === 'veo')) {
+    if (this.env.DB) {
       const quotaQuantity = getQuotaCheckQuantity(
         billingService,
         recipe.prompt,
