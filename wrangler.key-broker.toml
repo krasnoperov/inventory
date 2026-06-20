@@ -31,8 +31,8 @@ BYOK_ACTIVE_KEK_VERSION = "1"
 
 [[secrets_store_secrets]]
 binding = "BYOK_KEK_V1"
-store_id = "TODO_STAGE_BYOK_SECRET_STORE_ID"
-secret_name = "BYOK_KEK_V1"
+store_id = "d5c07c7e415b4830bacde18ac9e740e9"
+secret_name = "MAKEFX_STAGE_BYOK_KEK_V1"
 
 # Add BYOK_KEK_V2 only while staging or running a KEK rotation.
 
@@ -53,7 +53,7 @@ BYOK_ACTIVE_KEK_VERSION = "1"
 
 [[env.production.secrets_store_secrets]]
 binding = "BYOK_KEK_V1"
-store_id = "TODO_PRODUCTION_BYOK_SECRET_STORE_ID"
-secret_name = "BYOK_KEK_V1"
+store_id = "d5c07c7e415b4830bacde18ac9e740e9"
+secret_name = "MAKEFX_PRODUCTION_BYOK_KEK_V1"
 
 # Add BYOK_KEK_V2 only while staging or running a KEK rotation.
