@@ -122,19 +122,13 @@ Immutable generation history for audit trail and reproducibility.
 
 ### How They Interact
 
-Fork/Spawn creates BOTH relationships:
-
-```
-Source Asset                    New Asset (forked)
-┌──────────────┐               ┌──────────────┐
-│   Asset A    │──(parent)────▶│   Asset B    │  Asset Hierarchy
-│  ┌────────┐  │               │  ┌────────┐  │
-│  │ Var v1 │──┼──(forked)────▶│  │ Var v2 │  │  Variant Lineage
-│  └────────┘  │               │  └────────┘  │
-└──────────────┘               └──────────────┘
-```
+Generation, derive, batch, fork, and upload flows record provenance through
+variant lineage. They do not infer asset hierarchy from references or source
+variants. Asset hierarchy is organizational state set explicitly by clients or
+by user reparenting.
 
 - Changing asset hierarchy does NOT affect variant lineage
+- Creating lineage does NOT change asset hierarchy
 - Deleting an asset orphans children but cascades variant deletion
 
 ---
@@ -186,7 +180,7 @@ CLI generation commands, docs, and tests should use the same matrix.
 ### Destination
 
 - **Current** — Add variant to first slot's asset
-- **New** — Create new asset (inherits parent from first reference)
+- **New** — Create new asset without inferring hierarchy from references
 
 ---
 

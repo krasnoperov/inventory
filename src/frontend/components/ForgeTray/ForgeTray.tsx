@@ -675,11 +675,8 @@ export function ForgeTray({
 
     setIsSubmitting(true);
     try {
-      // When creating new asset from existing slots, set parent and inherit type
+      // When creating a new asset from existing slots, inherit type only.
       const sourceAsset = slots.length > 0 ? slots[0].asset : null;
-      const parentAssetId = effectiveDestinationType === 'new_asset' && sourceAsset
-        ? sourceAsset.id
-        : undefined;
       const assetType = getAssetTypeForForgeMode(mediaMode, sourceAsset?.type);
 
       // For fork operation, prompt should be undefined (copy without modification)
@@ -694,7 +691,6 @@ export function ForgeTray({
           assetId: effectiveDestinationType === 'existing_asset' && targetAsset ? targetAsset.id : undefined,
           assetName: effectiveDestinationType === 'new_asset' ? effectiveAssetName : undefined,
           assetType: effectiveDestinationType === 'new_asset' ? assetType : undefined,
-          parentAssetId,
         },
         operation,
         batchCount: effectiveBatchCount > 1 ? effectiveBatchCount : undefined,
