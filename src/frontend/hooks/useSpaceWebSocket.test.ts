@@ -11,6 +11,7 @@ import {
   isVariantReady,
   isVariantVideoReady,
   saveSpaceStateSnapshotForTests,
+  shouldPersistSpaceStateSnapshotForTests,
   type Asset,
   type Variant,
 } from './useSpaceWebSocket';
@@ -102,6 +103,12 @@ describe('space state snapshot cache', () => {
     clearSpaceStateSnapshotCacheForTests();
 
     assert.equal(getSpaceStateSnapshotForTests('new-space'), null);
+  });
+
+  test('does not persist stale state under a new space id during navigation', () => {
+    assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-1', true), false);
+    assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-2', false), false);
+    assert.equal(shouldPersistSpaceStateSnapshotForTests('space-2', 'space-2', true), true);
   });
 });
 

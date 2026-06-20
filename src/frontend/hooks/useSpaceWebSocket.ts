@@ -276,8 +276,24 @@ function getCachedSpaceStateSnapshot(spaceId: string): SpaceStateSnapshot | null
   return snapshot ? cloneSpaceStateSnapshot(snapshot) : null;
 }
 
+function shouldPersistSpaceStateSnapshot(
+  spaceId: string,
+  stateSpaceId: string,
+  hasSynced: boolean
+): boolean {
+  return Boolean(spaceId && hasSynced && stateSpaceId === spaceId);
+}
+
 export function getSpaceStateSnapshotForTests(spaceId: string): SpaceStateSnapshot | null {
   return getCachedSpaceStateSnapshot(spaceId);
+}
+
+export function shouldPersistSpaceStateSnapshotForTests(
+  spaceId: string,
+  stateSpaceId: string,
+  hasSynced: boolean
+): boolean {
+  return shouldPersistSpaceStateSnapshot(spaceId, stateSpaceId, hasSynced);
 }
 
 export function clearSpaceStateSnapshotCacheForTests(): void {
@@ -989,6 +1005,7 @@ export function useSpaceWebSocket({
   const initialSnapshot = getCachedSpaceStateSnapshot(spaceId);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
+  const [stateSpaceId, setStateSpaceId] = useState(spaceId);
   const [hasSynced, setHasSynced] = useState(Boolean(initialSnapshot));
   const [assets, setAssets] = useState<Asset[]>(initialSnapshot?.assets ?? []);
   const [variants, setVariants] = useState<Variant[]>(initialSnapshot?.variants ?? []);
@@ -1011,6 +1028,7 @@ export function useSpaceWebSocket({
     const cached = getCachedSpaceStateSnapshot(spaceId);
     syncModeRef.current = cached?.syncMode ?? null;
     variantIdsRef.current = new Set(cached?.variants.map((variant) => variant.id) ?? []);
+    setStateSpaceId(spaceId);
     setHasSynced(Boolean(cached));
     setAssets(cached?.assets ?? []);
     setVariants(cached?.variants ?? []);
@@ -1023,7 +1041,7 @@ export function useSpaceWebSocket({
   }, [spaceId]);
 
   useEffect(() => {
-    if (!spaceId || !hasSynced) return;
+    if (!shouldPersistSpaceStateSnapshot(spaceId, stateSpaceId, hasSynced)) return;
 
     const existing = spaceStateSnapshots.get(spaceId);
     spaceStateSnapshots.set(spaceId, {
@@ -1040,6 +1058,7 @@ export function useSpaceWebSocket({
     });
   }, [
     spaceId,
+    stateSpaceId,
     hasSynced,
     assets,
     variants,
