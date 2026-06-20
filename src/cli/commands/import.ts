@@ -13,7 +13,7 @@ import {
   MAX_FILE_SIZE_BYTES,
   MAX_FILE_SIZE_MB,
   resolveMediaType,
-} from './upload';
+} from '../lib/media-upload';
 import type { ErrorResponse, MediaKind, UploadMediaResponse } from '../../api/types';
 
 type LineageRelationType = 'derived' | 'refined' | 'forked';
@@ -374,7 +374,7 @@ interface ImportResultRecord {
   lineageIds: string[];
 }
 
-type ImportResult =
+export type ImportResult =
   | {
       dryRun: true;
       records: Array<{ key: string; file: string; target: string; lineageInputs: number }>;
@@ -416,23 +416,13 @@ const defaultDeps: ImportDeps = {
   print: console.log,
 };
 
-export async function handleImport(parsed: ParsedArgs): Promise<void> {
-  try {
-    await executeImport(parsed);
-  } catch (error) {
-    console.error(error instanceof Error ? `Error: ${error.message}` : 'Error: Import failed');
-    printUsage();
-    process.exitCode = 1;
-  }
-}
-
 export async function executeImport(
   parsed: ParsedArgs,
   deps: ImportDeps = defaultDeps
 ): Promise<ImportResult> {
   const manifestPath = parsed.positionals[0] || parsed.options.manifest;
   if (!manifestPath || manifestPath === 'true') {
-    throw new Error('Manifest path is required: makefx import <manifest.json>');
+    throw new Error('Manifest path is required: makefx upload <manifest.json>');
   }
 
   const ctx = await buildContext(parsed, deps);
@@ -1650,25 +1640,4 @@ function printResult(result: ImportResult, parsed: ParsedArgs, deps: Pick<Import
   if (organizationCount > 0) {
     deps.print(`  Organization records: ${organizationCount}`);
   }
-}
-
-function printUsage(): void {
-  console.log(`
-Usage:
-  makefx import <manifest.json> [--space <id>]
-  makefx import <manifest.json> --dry-run [--json]
-
-Manifest:
-  Top-level array, or { "records": [...] }. Each record sets file plus either
-  assetId for an existing asset or name for a new asset. Records can include
-  prompt, model, provider, providerMetadata, and generationProvenance for
-  immutable import provenance. Lineage entries use sourceVariantId or sourceFile
-  with relationType derived, refined, or forked; lineage is not editable
-  organization state. Optional collections, collectionItems, relations,
-  compositions, compositionItems, styleCollections, and stylePresets sections
-  organize imported records after upload. Style references are normal assets in
-  collections and presets point to those collections. Missing
-  collections/compositions are only created when their manifest entry sets
-  create: true.
-`);
 }

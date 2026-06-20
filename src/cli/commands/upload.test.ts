@@ -91,6 +91,7 @@ test('upload sends video files with explicit media kind and MIME type', async ()
       options: { space: 'space-1', name: 'Combat Clip', type: 'video' },
     }, depsFor(capturedBodies, output));
 
+    assert.ok('variant' in result);
     assert.equal(result.variant.id, 'variant-1');
     const formData = capturedBodies[0];
     assert.ok(formData instanceof FormData);

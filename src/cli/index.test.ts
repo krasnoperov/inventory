@@ -70,6 +70,8 @@ test('help command displays available commands', async () => {
   assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
   assert.ok(result.stdout.includes('login'), 'Help output should include login command');
   assert.ok(result.stdout.includes('logout'), 'Help output should include logout command');
+  assert.ok(result.stdout.includes('upload <manifest.json>'), 'Help output should include upload manifest entrypoint');
+  assert.ok(!result.stdout.includes('makefx import'), 'Help output should not advertise removed import command');
   assert.ok(!result.stdout.includes('rotation --variant'), 'Help output should hide disabled rotation command');
 });
 
@@ -322,6 +324,26 @@ test('local help exits without toggling TLS warnings', async () => {
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
     assert.ok(result.stdout.includes('makefx upload <file>'));
+    assert.ok(result.stdout.includes('makefx upload <manifest.json>'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('removed import command exits before loading config', async () => {
+  const cwd = await createCliCwd();
+  try {
+    const { authConfigPath, configHome, projectConfigPath } = await writeSideEffectTraps(cwd);
+
+    const result = await runCli(['import', 'manifest.json', '--space', 'space-side-effect'], cwd, {
+      XDG_CONFIG_HOME: configHome,
+      HOME: cwd,
+    });
+
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /Unknown command: import/);
+    assert.equal(await readFile(projectConfigPath, 'utf8'), '{');
+    assert.equal(await readFile(authConfigPath, 'utf8'), '{');
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }

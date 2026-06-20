@@ -122,7 +122,7 @@ makefx generate "A neutral prop sheet" --no-style --name "Props" --type prop -o 
 
 When `--style-preset` is used, the CLI prints the resolved preset ID, collection,
 and reference count before creating the job. Import manifest assignment to
-collections or presets is handled by the separate import-manifest workflow.
+collections or presets is handled by the upload manifest workflow.
 `--no-style` disables preset injection for that request without changing the
 Space default.
 
@@ -337,11 +337,11 @@ makefx upload renders/hero-final.png \
   --relation-type derived
 ```
 
-Use `makefx import` when the import needs a JSON manifest for multiple files,
-same-batch lineage, collections, manual relations, compositions, style
-collections, or style presets. Import records can include prompt, model,
-provider, provider metadata, generation provenance, and lineage links to related
-source images at import time:
+Use `makefx upload <manifest.json>` when the import needs a JSON manifest for
+multiple files, same-batch lineage, collections, manual relations,
+compositions, style collections, or style presets. Import records can include
+prompt, model, provider, provider metadata, generation provenance, and lineage
+links to related source images at import time:
 
 ```json
 {
@@ -379,8 +379,8 @@ source images at import time:
 ```
 
 ```bash
-makefx import import-manifest.json --dry-run --json
-makefx import import-manifest.json
+makefx upload import-manifest.json --dry-run --json
+makefx upload import-manifest.json
 ```
 
 Lineage created during import is immutable provenance. It is not the Space

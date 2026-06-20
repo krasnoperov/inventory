@@ -19,37 +19,15 @@ import {
   resolveCommandSpace,
 } from '../lib/command-context';
 import type { ErrorResponse, UploadMediaResponse } from '../../api/types';
-import type { MediaKind } from '../../shared/websocket-types';
-
-export const MAX_FILE_SIZE_MB = 10;
-export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-
-export interface MediaType {
-  mediaKind: MediaKind;
-  mimeType: string;
-}
+import { executeImport, type ImportResult } from './import';
+import {
+  MAX_FILE_SIZE_BYTES,
+  MAX_FILE_SIZE_MB,
+  resolveMediaType,
+} from '../lib/media-upload';
 
 type LineageRelationType = 'derived' | 'refined' | 'forked';
 type ActiveVariantBehavior = 'if-missing' | 'set-active' | 'keep';
-
-const EXT_TO_MEDIA_TYPE: Record<string, MediaType> = {
-  '.aac': { mediaKind: 'audio', mimeType: 'audio/aac' },
-  '.flac': { mediaKind: 'audio', mimeType: 'audio/flac' },
-  '.gif': { mediaKind: 'image', mimeType: 'image/gif' },
-  '.jpg': { mediaKind: 'image', mimeType: 'image/jpeg' },
-  '.jpeg': { mediaKind: 'image', mimeType: 'image/jpeg' },
-  '.m4a': { mediaKind: 'audio', mimeType: 'audio/mp4' },
-  '.m4v': { mediaKind: 'video', mimeType: 'video/x-m4v' },
-  '.mov': { mediaKind: 'video', mimeType: 'video/quicktime' },
-  '.mp3': { mediaKind: 'audio', mimeType: 'audio/mpeg' },
-  '.mp4': { mediaKind: 'video', mimeType: 'video/mp4' },
-  '.ogg': { mediaKind: 'audio', mimeType: 'audio/ogg' },
-  '.png': { mediaKind: 'image', mimeType: 'image/png' },
-  '.wav': { mediaKind: 'audio', mimeType: 'audio/wav' },
-  '.webm': { mediaKind: 'video', mimeType: 'video/webm' },
-  '.webp': { mediaKind: 'image', mimeType: 'image/webp' },
-};
-const ALLOWED_EXTENSIONS = Object.keys(EXT_TO_MEDIA_TYPE).sort();
 
 interface UploadResult {
   asset?: UploadMediaResponse['asset'];
@@ -83,7 +61,7 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
     await executeUpload(parsed);
   } catch (error) {
     console.error(error instanceof Error ? `Error: ${error.message}` : 'Error: Upload failed');
-    if (error instanceof UploadUsageError) {
+    if (error instanceof UploadUsageError || isManifestPath(parsed.positionals[0])) {
       printUsage();
     }
     process.exitCode = 1;
@@ -93,7 +71,16 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
 export async function executeUpload(
   parsed: ParsedArgs,
   deps: UploadDeps = defaultDeps
-): Promise<UploadResult> {
+): Promise<UploadResult | ImportResult> {
+  const filePath = parsed.positionals[0];
+  if (!filePath) {
+    throw new UploadUsageError('File path is required');
+  }
+
+  if (isManifestPath(filePath)) {
+    return executeImport(parsed, deps);
+  }
+
   const projectConfig = await deps.loadProjectConfig();
   const env = resolveCommandEnvironment(parsed, projectConfig);
   const spaceId = resolveCommandSpace(parsed, projectConfig);
@@ -109,12 +96,6 @@ export async function executeUpload(
   const sourceVariantId = parsed.options['source-variant'] ?? parsed.options.sourceVariantId ?? parsed.options.parentVariantId;
   const rawRelationType = parsed.options['relation-type'] ?? parsed.options.relationType;
   const rawActiveVariantBehavior = parsed.options['active-variant-behavior'] ?? parsed.options.activeVariantBehavior;
-  const filePath = parsed.positionals[0];
-
-  // Validate required args
-  if (!filePath) {
-    throw new UploadUsageError('File path is required');
-  }
 
   if (!spaceId) {
     throw new UploadUsageError('--space is required, or run: makefx init --space <id>');
@@ -268,30 +249,8 @@ export async function executeUpload(
   }
 }
 
-export function resolveMediaType(ext: string, requestedMediaKind?: string): MediaType {
-  const mediaType = EXT_TO_MEDIA_TYPE[ext];
-  if (!mediaType) {
-    throw new Error(`Invalid file type "${ext}". Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`);
-  }
-
-  if (
-    requestedMediaKind !== undefined &&
-    requestedMediaKind !== 'image' &&
-    requestedMediaKind !== 'audio' &&
-    requestedMediaKind !== 'video'
-  ) {
-    throw new Error('Invalid --media-kind. Expected image, audio, or video');
-  }
-
-  if (ext === '.webm' && requestedMediaKind === 'audio') {
-    return { mediaKind: 'audio', mimeType: 'audio/webm' };
-  }
-
-  if (requestedMediaKind && requestedMediaKind !== mediaType.mediaKind) {
-    throw new Error(`--media-kind ${requestedMediaKind} does not match ${ext} (${mediaType.mediaKind})`);
-  }
-
-  return mediaType;
+function isManifestPath(filePath: string | undefined): boolean {
+  return path.extname(filePath ?? '').toLowerCase() === '.json';
 }
 
 function parseJsonObjectOption(value: string | undefined, optionName: string): Record<string, unknown> | undefined {
@@ -326,6 +285,7 @@ function printUsage(): void {
 Usage:
   makefx upload <file> --asset <id> [--space <id>]     Import media to existing asset
   makefx upload <file> --name <name> [--space <id>]    Import media as a new asset
+  makefx upload <manifest.json> [--space <id>]         Import a JSON manifest
 
 Options:
   --space <id>      Target space ID; defaults from initialized project
@@ -341,6 +301,8 @@ Options:
   --source-variant <id>          Existing source variant for import lineage
   --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
   --active-variant-behavior <b>  if-missing, set-active, or keep
+  --dry-run         Validate a manifest without uploading media bytes
+  --json            Print machine-readable manifest import or dry-run output
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
 
@@ -351,5 +313,6 @@ Examples:
   makefx upload theme.mp3 --space abc123 --name "Theme Music" --type audio
   makefx upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
   makefx upload variant.jpg --space abc123 --asset def456
+  makefx upload import-manifest.json --space abc123 --dry-run --json
 `);
 }

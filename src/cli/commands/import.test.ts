@@ -4,6 +4,7 @@ import { mkdtemp, rm, stat, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { executeImport } from './import';
+import { executeUpload } from './upload';
 import type { StoredConfig } from '../lib/types';
 
 function storedConfig(): StoredConfig {
@@ -248,6 +249,35 @@ test('import dry-run validates targets and source variants without uploading', a
     assert.equal(calls.filter((call) => call.method === 'POST').length, 0);
     assert.match(output.join('\n'), /"dryRun": true/);
     assert.match(output.join('\n'), /"lineageInputs": 1/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload accepts JSON manifests as the import entrypoint', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'makefx-upload-manifest-'));
+  const calls: FetchCall[] = [];
+  const output: string[] = [];
+  try {
+    await writeFile(path.join(dir, 'base.png'), new Uint8Array([1, 2, 3]));
+    const manifestPath = path.join(dir, 'manifest.json');
+    await writeFile(manifestPath, JSON.stringify({
+      records: [{
+        key: 'base',
+        file: 'base.png',
+        assetId: 'asset-existing',
+      }],
+    }));
+
+    const result = await executeUpload({
+      positionals: [manifestPath],
+      options: { space: 'space-1', 'dry-run': 'true', json: 'true' },
+    }, makeDeps(calls, output));
+
+    assert.ok('dryRun' in result);
+    assert.equal(result.dryRun, true);
+    assert.equal(calls.filter((call) => call.method === 'POST').length, 0);
+    assert.match(output.join('\n'), /"dryRun": true/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
