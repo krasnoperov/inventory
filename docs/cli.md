@@ -61,7 +61,7 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `variants` | Delete, retry, star/unstar, and rate variants |
 | `usage` | Show platform storage and workflow consumption for a space |
 | `spend` | Show admin provider cost summaries |
-| `rotation` | Generate and monitor rotation views from a completed image variant |
+| `rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
 | `tileset` | Generate and monitor consistent tile sets |
 | `listen` | Connect to WebSocket and stream all events |
 | `upload` | Upload image, audio, or video files to create assets or add variants |
@@ -222,7 +222,10 @@ the web app. By default the CLI starts the pipeline, streams progress, and waits
 for a terminal `completed`, `failed`, or `cancelled` event. Pass `--detach` to
 return after the Space confirms the pipeline has started.
 
-Generate rotation views from a completed image variant:
+Rotation generation is currently experimental and hidden by default. Set
+`MAKEFX_ROTATION_ENABLED=true` before exposing it end to end.
+
+When the flags are enabled, generate rotation views from a completed image variant:
 
 ```bash
 makefx rotation --variant VARIANT_ID --config 8-directional

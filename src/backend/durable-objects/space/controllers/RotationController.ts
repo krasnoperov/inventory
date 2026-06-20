@@ -27,6 +27,7 @@ import {
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
+import { isFeatureFlagEnabled } from '../../../../shared/featureFlags';
 
 const log = loggers.rotationController;
 
@@ -53,6 +54,10 @@ export class RotationController extends BaseController {
       generationMode?: 'sequential' | 'single-shot';
     }
   ): Promise<void> {
+    if (!isFeatureFlagEnabled(this.env.MAKEFX_ROTATION_ENABLED)) {
+      throw new ValidationError('Rotation features are disabled');
+    }
+
     this.requireEditor(meta);
 
     // Route to single-shot mode if requested

@@ -8,6 +8,10 @@ Sequential generation pipelines that produce multi-view character sheets and sea
 
 Both pipelines follow the same pattern: create a parent asset, seed it with an initial variant, then generate remaining views/tiles one at a time. Each step feeds completed images back as references for the next, building visual consistency across the set.
 
+Rotation generation is experimental and hidden by default. The web creation UI,
+CLI command surface, and backend WebSocket request handler are all gated by
+`MAKEFX_ROTATION_ENABLED`.
+
 The pipelines are driven by a completion hook in `GenerationController` — when a variant finishes, the hook checks if it belongs to a rotation set or tile set and calls `advanceRotation()` or `advanceTileSet()` to trigger the next step.
 
 ```

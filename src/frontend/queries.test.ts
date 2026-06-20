@@ -30,7 +30,7 @@ describe('sessionQueryOptions', () => {
   test('uses injected session data only outside the browser', async () => {
     restoreWindow();
     const initialSession: StartSession = {
-      config: { googleClientId: 'google-client', environment: 'test' },
+      config: { googleClientId: 'google-client', environment: 'test', features: { rotation: false } },
       user: null,
     };
     globalThis.fetch = async () => {
@@ -46,11 +46,11 @@ describe('sessionQueryOptions', () => {
   test('refetches session in the browser instead of replaying injected null user', async () => {
     Object.defineProperty(globalThis, 'window', { value: {}, configurable: true });
     const initialSession: StartSession = {
-      config: { googleClientId: 'google-client', environment: 'test' },
+      config: { googleClientId: 'google-client', environment: 'test', features: { rotation: false } },
       user: null,
     };
     const fetchedSession: StartSession = {
-      config: { googleClientId: 'google-client', environment: 'test' },
+      config: { googleClientId: 'google-client', environment: 'test', features: { rotation: true } },
       user: {
         id: 2,
         email: 'user@example.com',
@@ -79,7 +79,7 @@ describe('clearUserScopedQueries', () => {
   test('removes spaces and profile data without dropping session config', () => {
     const queryClient = new QueryClient();
     const session: StartSession = {
-      config: { googleClientId: 'google-client', environment: 'test' },
+      config: { googleClientId: 'google-client', environment: 'test', features: { rotation: false } },
       user: {
         id: 1,
         email: 'a@example.com',

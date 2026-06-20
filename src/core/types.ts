@@ -79,6 +79,7 @@ export interface Env {
 
   // Environment
   ENVIRONMENT?: 'local' | 'development' | 'stage' | 'staging' | 'production';
+  MAKEFX_ROTATION_ENABLED?: string;
   INVENTORY_DEV_AUTH_TOKEN?: string;
   INVENTORY_DEV_USER_ID?: string;
   ENCRYPTION_KEY?: string;
