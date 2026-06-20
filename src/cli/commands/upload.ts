@@ -19,7 +19,6 @@ import {
   resolveCommandSpace,
 } from '../lib/command-context';
 import type { ErrorResponse, UploadMediaResponse } from '../../api/types';
-import { executeImport, type ImportResult } from './import';
 import {
   MAX_FILE_SIZE_BYTES,
   MAX_FILE_SIZE_MB,
@@ -44,6 +43,7 @@ type SpaceRelationType =
 interface UploadResult {
   asset?: UploadMediaResponse['asset'];
   variant: UploadMediaResponse['variant'];
+  lineage?: UploadMediaResponse['lineage'];
   organization?: {
     collectionItemIds: string[];
     relationIds: string[];
@@ -57,7 +57,8 @@ interface UploadContext {
 }
 
 interface CollectionPlacementOption {
-  collectionId: string;
+  collectionId?: string;
+  collectionName?: string;
   role: string;
   subjectType: SpaceSubjectType;
   pinnedVariantId?: string | null;
@@ -90,6 +91,7 @@ interface VariantSummary {
 
 interface SpaceCollectionSummary {
   id: string;
+  name?: string | null;
 }
 
 interface UploadDeps {
@@ -119,7 +121,7 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
     await executeUpload(parsed);
   } catch (error) {
     console.error(error instanceof Error ? `Error: ${error.message}` : 'Error: Upload failed');
-    if (error instanceof UploadUsageError || isManifestPath(parsed.positionals[0])) {
+    if (error instanceof UploadUsageError) {
       printUsage();
     }
     process.exitCode = 1;
@@ -129,14 +131,10 @@ export async function handleUpload(parsed: ParsedArgs): Promise<void> {
 export async function executeUpload(
   parsed: ParsedArgs,
   deps: UploadDeps = defaultDeps
-): Promise<UploadResult | ImportResult> {
+): Promise<UploadResult> {
   const filePath = parsed.positionals[0];
   if (!filePath) {
     throw new UploadUsageError('File path is required');
-  }
-
-  if (isManifestPath(filePath)) {
-    return executeImport(parsed, deps);
   }
 
   const projectConfig = await deps.loadProjectConfig();
@@ -155,6 +153,7 @@ export async function executeUpload(
   const rawRelationType = parsed.options['relation-type'] ?? parsed.options.relationType;
   const rawActiveVariantBehavior = parsed.options['active-variant-behavior'] ?? parsed.options.activeVariantBehavior;
   const rawCollectionIds = parsed.options.collection ?? parsed.options.collections;
+  const rawCollectionNames = parsed.options['collection-name'] ?? parsed.options.collectionName;
   const rawCollectionRole = parsed.options['collection-role'] ?? parsed.options.collectionRole;
   const rawCollectionSubject = parsed.options['collection-subject'] ?? parsed.options.collectionSubject;
   const rawCollectionPinnedVariant = parsed.options['collection-pinned-variant'] ?? parsed.options.collectionPinnedVariant;
@@ -163,6 +162,11 @@ export async function executeUpload(
   const rawManualRelationLabel = parsed.options['manual-relation-label'] ?? parsed.options.manualRelationLabel;
   const rawManualRelationContext = parsed.options['manual-relation-context'] ?? parsed.options.manualRelationContext;
   const rawManualRelationMetadata = parsed.options['manual-relation-metadata'] ?? parsed.options.manualRelationMetadata;
+  const jsonOutput = parsed.options.json === 'true';
+
+  if (parsed.options['dry-run'] === 'true' || parsed.options.dryRun === 'true') {
+    throw new UploadUsageError('--dry-run is not supported for direct file upload');
+  }
 
   if (!spaceId) {
     throw new UploadUsageError('--space is required, or run: makefx init --space <id>');
@@ -182,6 +186,7 @@ export async function executeUpload(
   const activeVariantBehavior = normalizeActiveVariantBehavior(rawActiveVariantBehavior);
   const collectionPlacements = parseCollectionPlacements({
     collectionIds: rawCollectionIds,
+    collectionNames: rawCollectionNames,
     role: rawCollectionRole,
     subjectType: rawCollectionSubject,
     pinnedVariant: rawCollectionPinnedVariant,
@@ -263,15 +268,17 @@ export async function executeUpload(
       formData.append('lineage', JSON.stringify([{ parentVariantId: sourceVariantId, relationType }]));
     }
 
-    deps.print(`\nImporting "${fileName}" to space ${spaceId}...`);
-    deps.print(`  Media kind: ${mediaType.mediaKind}`);
-    if (assetId) {
-      deps.print(`  Target asset: ${assetId}`);
-    } else {
-      deps.print(`  Creating asset: "${assetName}" (${assetType})`);
-    }
-    if (sourceVariantId) {
-      deps.print(`  Source variant: ${sourceVariantId} (${relationType})`);
+    if (!jsonOutput) {
+      deps.print(`\nImporting "${fileName}" to space ${spaceId}...`);
+      deps.print(`  Media kind: ${mediaType.mediaKind}`);
+      if (assetId) {
+        deps.print(`  Target asset: ${assetId}`);
+      } else {
+        deps.print(`  Creating asset: "${assetName}" (${assetType})`);
+      }
+      if (sourceVariantId) {
+        deps.print(`  Source variant: ${sourceVariantId} (${relationType})`);
+      }
     }
 
     // Upload
@@ -304,6 +311,18 @@ export async function executeUpload(
       throw new Error(
         `Import created asset ${upload.variant.asset_id} and variant ${upload.variant.id}, but organization failed: ${message}`
       );
+    }
+
+    const result: UploadResult = {
+      asset: upload.asset,
+      variant: upload.variant,
+      lineage: upload.lineage,
+      organization,
+    };
+
+    if (jsonOutput) {
+      deps.print(JSON.stringify(result, null, 2));
+      return result;
     }
 
     deps.print('\nImport successful!\n');
@@ -351,7 +370,7 @@ export async function executeUpload(
     deps.print('\nTo inspect:');
     deps.print(`  makefx assets show ${upload.variant.asset_id} --space ${spaceId}`);
 
-    return { asset: upload.asset, variant: upload.variant, organization };
+    return result;
 
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -359,10 +378,6 @@ export async function executeUpload(
     }
     throw error;
   }
-}
-
-function isManifestPath(filePath: string | undefined): boolean {
-  return path.extname(filePath ?? '').toLowerCase() === '.json';
 }
 
 function parseJsonObjectOption(value: string | undefined, optionName: string): Record<string, unknown> | undefined {
@@ -435,23 +450,34 @@ function parseCsvOption(value: string | undefined, optionName: string): string[]
 
 function parseCollectionPlacements(input: {
   collectionIds?: string;
+  collectionNames?: string;
   role?: string;
   subjectType?: string;
   pinnedVariant?: string;
 }): CollectionPlacementOption[] {
   const collectionIds = parseCsvOption(input.collectionIds, '--collection');
-  if (collectionIds.length === 0) return [];
+  const collectionNames = parseCsvOption(input.collectionNames, '--collection-name');
+  if (collectionIds.length === 0 && collectionNames.length === 0) return [];
   const subjectType = normalizeSpaceSubjectType(input.subjectType, '--collection-subject', 'asset');
   if (subjectType === 'variant' && input.pinnedVariant && input.pinnedVariant !== 'true') {
     throw new UploadUsageError('--collection-pinned-variant can only be used when --collection-subject is asset');
   }
   const pinnedVariantId = normalizeCollectionPinnedVariant(input.pinnedVariant);
-  return collectionIds.map((collectionId) => ({
-    collectionId,
+  const placement = {
     role: input.role && input.role !== 'true' ? input.role : 'member',
     subjectType,
     pinnedVariantId,
-  }));
+  };
+  return [
+    ...collectionIds.map((collectionId) => ({
+      ...placement,
+      collectionId,
+    })),
+    ...collectionNames.map((collectionName) => ({
+      ...placement,
+      collectionName,
+    })),
+  ];
 }
 
 function normalizeCollectionPinnedVariant(value: string | undefined): string | null | undefined {
@@ -518,11 +544,21 @@ async function preflightUploadOrganization(
   ]);
 
   if (collections) {
-    const collectionIds = new Set((collections.collections ?? []).map((collection) => collection.id));
+    const collectionList = collections.collections ?? [];
+    const collectionIds = new Set(collectionList.map((collection) => collection.id));
     for (const placement of options.collectionPlacements) {
-      if (!collectionIds.has(placement.collectionId)) {
+      if (placement.collectionId && !collectionIds.has(placement.collectionId)) {
         throw new Error(`Collection not found: ${placement.collectionId}`);
       }
+      if (!placement.collectionName) continue;
+      const matches = collectionList.filter((collection) => collection.name === placement.collectionName);
+      if (matches.length === 0) {
+        throw new Error(`Collection not found by exact name: ${placement.collectionName}`);
+      }
+      if (matches.length > 1) {
+        throw new Error(`Collection name is ambiguous: ${placement.collectionName}; use --collection <id>`);
+      }
+      placement.collectionId = matches[0].id;
     }
   }
 
@@ -599,6 +635,9 @@ async function applyUploadOrganization(
   };
 
   for (const placement of options.collectionPlacements) {
+    if (!placement.collectionId) {
+      throw new Error(`Collection name was not resolved: ${placement.collectionName ?? ''}`);
+    }
     const body = placement.subjectType === 'asset'
       ? {
         subjectType: 'asset',
@@ -686,7 +725,6 @@ function printUsage(): void {
 Usage:
   makefx upload <file> --asset <id> [--space <id>]     Import media to existing asset
   makefx upload <file> --name <name> [--space <id>]    Import media as a new asset
-  makefx upload <manifest.json> [--space <id>]         Import a JSON manifest
 
 Options:
   --space <id>      Target space ID; defaults from initialized project
@@ -703,6 +741,7 @@ Options:
   --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
   --active-variant-behavior <b>  if-missing, set-active, or keep
   --collection <ids>             Comma-separated collection IDs for the uploaded asset or variant
+  --collection-name <names>      Comma-separated exact collection names for lookup
   --collection-role <role>       Collection item role (default: member)
   --collection-subject <type>    Collection subject: asset or variant (default: asset)
   --collection-pinned-variant <id|uploaded|none>
@@ -715,8 +754,7 @@ Options:
                                  Optional manual relation context
   --manual-relation-metadata <json>
                                  Optional manual relation metadata object
-  --dry-run         Validate a manifest without uploading media bytes
-  --json            Print machine-readable manifest import or dry-run output
+  --json            Print machine-readable upload output with Space IDs
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
 
@@ -725,10 +763,11 @@ Examples:
   makefx upload hero.png --space abc123 --name "Hero" --prompt "external render" --provider blender
   makefx upload paintover.png --space abc123 --asset def456 --source-variant var123 --relation-type refined
   makefx upload hero.png --space abc123 --name "Hero" --collection collection_cast --collection-role character
+  makefx upload hero.png --space abc123 --name "Hero" --collection-name "Cast" --collection-role character
   makefx upload thumbnail.png --space abc123 --asset asset_thumb --manual-relation thumbnail_for:asset:asset_target
   makefx upload theme.mp3 --space abc123 --name "Theme Music" --type audio
   makefx upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
   makefx upload variant.jpg --space abc123 --asset def456
-  makefx upload import-manifest.json --space abc123 --dry-run --json
+  makefx upload hero.png --space abc123 --name "Hero" --json
 `);
 }

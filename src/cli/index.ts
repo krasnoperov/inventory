@@ -308,8 +308,8 @@ Upload:
   upload <file> --asset <id> [--space <id>]   Upload image, audio, or video to existing asset
   upload <file> --name <name> [--space <id>]  Import one media file as a new asset
   upload <file> --collection <id>             Place uploaded media in a collection
+  upload <file> --collection-name <name>      Place uploaded media in an exact-name collection
   upload <file> --manual-relation <spec>      Create a manual relation from uploaded media
-  upload <manifest.json> [--space <id>]       Import media with provenance, lineage, and organization metadata
 
 Forge:
   generate "prompt" --name <name> --type <type> -o <file>
@@ -352,9 +352,8 @@ Examples:
   makefx video generate "A looping idle animation" --name "Idle Animation" --type animation --duration 6 --resolution 1080p --tier fast -o idle.mp4
   makefx productions export --production-id s01e01-a2
   makefx upload hero.png --name "Hero" --collection collection_cast
+  makefx upload hero.png --name "Hero" --collection-name "Cast" --json
   makefx upload thumbnail.png --asset asset_thumb --manual-relation thumbnail_for:asset:asset_target
-  makefx upload import-manifest.json --dry-run --json
-  makefx upload external-renders.json --space space_123
   makefx assets
   makefx usage --from 2026-06-01
   makefx spend --from 2026-06-01 --provider gemini
@@ -439,7 +438,6 @@ function printUploadHelp(): void {
 Usage:
   makefx upload <file> --asset <id> [--space <id>]     Import media to existing asset
   makefx upload <file> --name <name> [--space <id>]    Import media as a new asset
-  makefx upload <manifest.json> [--space <id>]         Import a JSON manifest
 
 Options:
   --space <id>      Target space ID; defaults from initialized project
@@ -456,6 +454,7 @@ Options:
   --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
   --active-variant-behavior <b>  if-missing, set-active, or keep
   --collection <ids>             Comma-separated collection IDs for the uploaded asset or variant
+  --collection-name <names>      Comma-separated exact collection names for lookup
   --collection-role <role>       Collection item role (default: member)
   --collection-subject <type>    Collection subject: asset or variant (default: asset)
   --collection-pinned-variant <id|uploaded|none>
@@ -468,8 +467,7 @@ Options:
                                  Optional manual relation context
   --manual-relation-metadata <json>
                                  Optional manual relation metadata object
-  --dry-run         Validate a manifest without uploading media bytes
-  --json            Print machine-readable manifest import or dry-run output
+  --json            Print machine-readable upload output with Space IDs
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
 `);
