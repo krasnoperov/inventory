@@ -134,6 +134,17 @@ describe('resolveGenerationProviderApiKey', () => {
     assert.equal(calls.length, 0);
   });
 
+  test('does not fall back to platform credentials for user runtime identities without a broker', async () => {
+    const env = {
+      ENVIRONMENT: 'stage',
+    } as unknown as Env;
+
+    await assert.rejects(
+      resolveGenerationProviderApiKey(env, generationContext, 'google_ai', 'platform-google-key'),
+      /KEY_BROKER binding is required/i
+    );
+  });
+
   test('does not fall back to platform credentials when the broker denies the generation', async () => {
     const env = {
       KEY_BROKER: brokerStub({ reject: new Error('Key broker generation authorization denied') }),

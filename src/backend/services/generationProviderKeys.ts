@@ -59,6 +59,10 @@ export async function resolveGenerationProviderApiKey(
   const numericUserId = parseRuntimeUserId(context.userId);
   const broker = numericUserId ? providerKeyBrokerForEnv(env) : null;
 
+  if (numericUserId && !broker) {
+    throw new Error('KEY_BROKER binding is required for user-scoped provider key resolution');
+  }
+
   if (numericUserId && broker) {
     const resolved = await broker.resolveProviderKey({
       tenant: { type: 'user', userId: numericUserId },
