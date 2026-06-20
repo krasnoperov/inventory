@@ -951,6 +951,70 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(statements[0].bindings[2], 'gemini_images');
     });
 
+    test('records custom image completions as zero-cost custom provider spend', async () => {
+      const { db, statements } = createMockD1();
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          id: 'variant-custom-image',
+          media_kind: 'image',
+        })),
+        completeVariant: mock.fn(async (id, imageKey, thumbKey, mediaMetadata = {}) =>
+          createMockVariant({
+            id,
+            image_key: imageKey,
+            thumb_key: thumbKey,
+            media_key: mediaMetadata.mediaKey ?? imageKey,
+            workflow_id: 'workflow-custom-image',
+            provider_metadata: mediaMetadata.providerMetadata === undefined
+              ? null
+              : JSON.stringify(mediaMetadata.providerMetadata),
+            status: 'completed',
+            created_by: '123',
+            recipe: JSON.stringify({
+              mediaKind: 'image',
+              model: 'gemini-3-pro-image-preview',
+              operation: 'generate',
+            }),
+          })
+        ),
+      });
+      ctx.env = { DB: db } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.httpCompleteVariant({
+        variantId: 'variant-custom-image',
+        requestId: 'request-custom-image',
+        imageKey: 'images/space-1/variant-custom-image.png',
+        thumbKey: 'thumbs/space-1/variant-custom-image.webp',
+        providerMetadata: {
+          provider: 'custom',
+          model: 'custom-image-v1',
+          operation: 'generate',
+        },
+      });
+
+      assert.strictEqual(statements.length, 2);
+      const usageInsert = statements.find((statement) => statement.sql.includes('INSERT INTO usage_events'))!;
+      const ledgerInsert = statements.find((statement) => statement.sql.includes('INSERT OR IGNORE INTO provider_usage_ledger'))!;
+      assert.strictEqual(usageInsert.bindings[2], 'gemini_images');
+      assert.strictEqual(ledgerInsert.bindings[1], 'workflow:workflow-custom-image:meter:gemini_images');
+      assert.strictEqual(ledgerInsert.bindings[2], usageInsert.bindings[0]);
+      assert.strictEqual(ledgerInsert.bindings[8], 'request-custom-image');
+      assert.strictEqual(ledgerInsert.bindings[9], 'custom');
+      assert.strictEqual(ledgerInsert.bindings[10], 'custom-image-v1');
+      assert.strictEqual(ledgerInsert.bindings[12], 'image');
+      assert.strictEqual(ledgerInsert.bindings[13], 'gemini_images');
+      assert.strictEqual(ledgerInsert.bindings[14], 'image');
+      assert.strictEqual(ledgerInsert.bindings[15], 1);
+      assert.strictEqual(ledgerInsert.bindings[16], null);
+      assert.strictEqual(ledgerInsert.bindings[17], 0);
+      const ledgerMetadata = JSON.parse(String(ledgerInsert.bindings[22]));
+      assert.strictEqual(ledgerMetadata.provider, 'custom');
+      assert.strictEqual(ledgerMetadata.provider_model, 'custom-image-v1');
+      assert.strictEqual(ledgerMetadata.pricing_status, 'miss');
+      assert.strictEqual(ledgerMetadata.pricing_reason, 'unsupported_provider');
+    });
+
     test('completes media-only video variants without image keys and tracks video usage', async () => {
       const run = mock.fn(async () => ({}));
       const bind = mock.fn(() => ({ run }));

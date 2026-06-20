@@ -71,6 +71,8 @@ export interface ProviderUsageAttribution {
   variantId?: string | null;
   workflowId?: string | null;
   requestId?: string | null;
+  provider?: string | null;
+  providerModel?: string | null;
   providerRequestId?: string | null;
   providerResponseId?: string | null;
   providerUsageId?: string | null;
@@ -317,21 +319,30 @@ async function trackProviderUsageLedger(
 ): Promise<void> {
   if (!attribution) return;
 
-  const price = priceProviderUsageEvent({
-    eventName: usage.eventName,
-    quantity: usage.quantity,
-    metadata: usage.metadata,
-  });
-  const provider = price.provider ?? inferProviderFromEventName(usage.eventName);
-  const providerModel = price.model ?? getMetadataString(usage.metadata, 'model') ?? 'unknown';
-  const usageUnit = price.unit ?? usage.eventName;
+  const customProvider = attribution.provider === 'custom';
+  const price = customProvider
+    ? null
+    : priceProviderUsageEvent({
+      eventName: usage.eventName,
+      quantity: usage.quantity,
+      metadata: usage.metadata,
+    });
+  const provider = customProvider
+    ? 'custom'
+    : price?.provider ?? inferProviderFromEventName(usage.eventName);
+  const providerModel = customProvider
+    ? attribution.providerModel ?? getMetadataString(usage.metadata, 'model') ?? 'unknown'
+    : price?.model ?? getMetadataString(usage.metadata, 'model') ?? 'unknown';
+  const usageUnit = price?.unit ?? inferUsageUnitFromEventName(usage.eventName);
   const attributionKey = buildProviderUsageAttributionKey(usage, attribution);
   const metadata = {
     ...usage.metadata,
-    catalog_version: price.catalogVersion,
-    pricing_status: 'reason' in price ? 'miss' : 'priced',
-    pricing_reason: 'reason' in price ? price.reason : undefined,
-    rate_table: 'rateTable' in price ? price.rateTable : undefined,
+    provider: attribution.provider ?? undefined,
+    provider_model: attribution.providerModel ?? undefined,
+    catalog_version: price?.catalogVersion,
+    pricing_status: !price || 'reason' in price ? 'miss' : 'priced',
+    pricing_reason: !price ? 'unsupported_provider' : ('reason' in price ? price.reason : undefined),
+    rate_table: price && 'rateTable' in price ? price.rateTable : undefined,
   };
 
   await db.prepare(`
@@ -379,10 +390,10 @@ async function trackProviderUsageLedger(
     attribution.mediaKind ?? null,
     usage.eventName,
     usageUnit,
-    price.quantity,
-    'unitPriceUsd' in price ? price.unitPriceUsd : null,
-    price.amountMicroUsd,
-    'pricingSource' in price ? price.pricingSource : null,
+    price?.quantity ?? usage.quantity,
+    price && 'unitPriceUsd' in price ? price.unitPriceUsd : null,
+    price?.amountMicroUsd ?? 0,
+    price && 'pricingSource' in price ? price.pricingSource : null,
     attribution.providerRequestId ?? null,
     attribution.providerResponseId ?? null,
     attribution.providerUsageId ?? null,
@@ -408,6 +419,14 @@ function inferProviderFromEventName(eventName: string): string {
   if (eventName.startsWith('elevenlabs_')) return 'elevenlabs';
   if (eventName.startsWith('claude_')) return 'claude';
   return 'gemini';
+}
+
+function inferUsageUnitFromEventName(eventName: string): string {
+  if (eventName === 'gemini_images') return 'image';
+  if (eventName === 'gemini_videos') return 'video';
+  if (eventName === 'gemini_audio' || eventName === 'elevenlabs_audio') return 'generation';
+  if (eventName.endsWith('_tokens')) return 'token';
+  return eventName;
 }
 
 function getMetadataString(metadata: Record<string, unknown> | undefined, key: string): string | null {

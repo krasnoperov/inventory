@@ -197,6 +197,8 @@ function getProviderUsageAttribution(
     workflowId: variant.workflow_id,
     requestId: data.requestId ?? null,
     mediaKind: variant.media_kind,
+    provider: getMetadataString(providerMetadata, 'provider'),
+    providerModel: getMetadataString(providerMetadata, 'model'),
     providerRequestId: getMetadataString(providerMetadata, 'providerRequestId', 'provider_request_id'),
     providerResponseId: getMetadataString(providerMetadata, 'providerResponseId', 'provider_response_id'),
     providerUsageId: getMetadataString(providerMetadata, 'providerUsageId', 'provider_usage_id'),
