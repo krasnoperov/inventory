@@ -85,6 +85,9 @@ class FakeD1 {
 
         const [userId, provider] = this.bindings;
         const row = rows.get(`${userId}:${provider}`);
+        if (sql.includes('SELECT 1 AS present')) {
+          return (row ? { present: 1 } : null) as T | null;
+        }
         if (sql.includes('SELECT encrypted_api_key')) {
           return (row ? { encrypted_api_key: row.encrypted_api_key } : null) as T | null;
         }
@@ -305,7 +308,6 @@ describe('key broker service binding contract', () => {
     const broker = keyBrokerClient(
       createLocalKeyBrokerServiceBinding({
         DB: db as never,
-        BYOK_KEK_V1: encryptionKey(),
       })
     );
     const tenant = { type: 'user' as const, userId: 7 };
@@ -337,6 +339,44 @@ describe('key broker service binding contract', () => {
     });
     assert.equal('dek' in resolved, false);
     assert.equal('wrappedDek' in resolved, false);
+  });
+
+  test('requires KEK material for an authorized generation with a stored BYOK key', async () => {
+    const db = new FakeD1();
+    const broker = keyBrokerClient(
+      createLocalKeyBrokerServiceBinding({
+        DB: db as never,
+      })
+    );
+    db.rows.set('7:google_ai', {
+      user_id: 7,
+      provider: 'google_ai',
+      encrypted_api_key: 'enc:v2:1:1:not-decrypted-in-this-test',
+      key_hint: '****',
+      updated_at: new Date().toISOString(),
+    });
+    db.platformUsage.push({
+      user_id: 7,
+      usage_type: 'workflow',
+      space_id: 'space-1',
+      workflow_id: 'variant-1',
+      variant_id: 'variant-1',
+      request_id: 'request-1',
+    });
+
+    await assert.rejects(
+      broker.resolveProviderKey({
+        tenant: { type: 'user', userId: 7 },
+        provider: 'google_ai',
+        purpose: 'generation',
+        generation: {
+          jobId: 'variant-1',
+          requestId: 'request-1',
+          spaceId: 'space-1',
+        },
+      }),
+      /Secrets Store binding is required/i
+    );
   });
 
   test('does not return DEK material from rotation scaffold methods', async () => {

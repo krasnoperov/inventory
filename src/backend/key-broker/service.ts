@@ -2,6 +2,7 @@ import type { ProviderKeyProvider } from '../services/providerKeyVault';
 import {
   ProviderKeyEncryptionError,
   deleteProviderApiKey,
+  hasStoredProviderApiKey,
   isProviderKeyProvider,
   maskProviderKey,
   resolveStoredProviderApiKey,
@@ -153,6 +154,15 @@ export async function resolveProviderKey(
   const userId = assertUserTenant(request.tenant);
   const provider = assertProvider(request.provider);
   await assertGenerationAuthorized(env, userId, request);
+  const hasStoredKey = await hasStoredProviderApiKey(env.DB, userId, provider);
+  if (!hasStoredKey) {
+    return {
+      tenant: request.tenant,
+      provider,
+      apiKey: null,
+      keySource: 'missing',
+    };
+  }
   const kek = await getActiveKek(env);
   const apiKey = await resolveStoredProviderApiKey(
     env.DB,
