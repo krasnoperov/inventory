@@ -43,6 +43,10 @@ binding = "GENERATION_WORKFLOW"
 name = "makefx-generation-workflow-stage"
 class_name = "GenerationWorkflow"
 
+[[services]]
+binding = "KEY_BROKER"
+service = "makefx-key-broker-stage"
+
 # Durable Objects - Space state (needed by workflows to broadcast results)
 [[durable_objects.bindings]]
 name = "SPACES_DO"
@@ -89,6 +93,10 @@ INVENTORY_AUDIO_PROVIDER = "elevenlabs"
 binding = "GENERATION_WORKFLOW"
 name = "makefx-generation-workflow-production"
 class_name = "GenerationWorkflow"
+
+[[env.production.services]]
+binding = "KEY_BROKER"
+service = "makefx-key-broker-production"
 
 # Durable Objects - Production (needed by workflows)
 [[env.production.durable_objects.bindings]]

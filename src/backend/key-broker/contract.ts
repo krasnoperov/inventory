@@ -42,6 +42,12 @@ export interface DeleteProviderKeyResponse {
 export interface ResolveProviderKeyRequest {
   tenant: KeyBrokerTenantScope;
   provider: ProviderKeyProvider;
+  purpose: 'generation';
+  generation: {
+    jobId: string;
+    requestId: string;
+    spaceId: string;
+  };
 }
 
 export interface ResolveProviderKeyResponse {
