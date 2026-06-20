@@ -885,12 +885,40 @@
   align-items: center;
   gap: 0.375rem;
   height: 1.75rem;
+  max-width: 100%;
   padding: 0 0.625rem;
   border-radius: 8px;
   background: var(--ctl-accent-bg);
   color: var(--color-primary);
   font-size: 0.75rem;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.styleSelect {
+  min-width: 9rem;
+  max-width: 12rem;
+  height: 1.875rem;
+  padding: 0 1.625rem 0 0.625rem;
+  border: 1px solid var(--ctl-line);
+  border-radius: 8px;
+  background: var(--ctl-surface);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.styleSelect:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.styleSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .optChipMuted {

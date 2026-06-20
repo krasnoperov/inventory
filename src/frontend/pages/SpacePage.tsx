@@ -126,6 +126,7 @@ export default function SpacePage() {
     lineage,
     collections,
     collectionItems,
+    stylePresets,
     compositions,
     compositionItems,
     jobs,
@@ -156,6 +157,9 @@ export default function SpacePage() {
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,
+    createStylePreset,
+    updateStylePreset,
+    deleteStylePreset,
     sendBatchRequest,
     sendGenerationEstimateRequest,
     tileSets,
@@ -701,6 +705,12 @@ export default function SpacePage() {
           sendStyleSet={sendStyleSet}
           sendStyleDelete={sendStyleDelete}
           sendStyleToggle={sendStyleToggle}
+          createStylePreset={createStylePreset}
+          updateStylePreset={updateStylePreset}
+          deleteStylePreset={deleteStylePreset}
+          stylePresets={stylePresets}
+          collections={collections}
+          collectionItems={collectionItems}
           forgeError={forgeError}
           forgeErrorCode={forgeErrorCode}
           generationEstimate={generationEstimate}
@@ -765,6 +775,11 @@ export default function SpacePage() {
             sendStyleSet={sendStyleSet}
             sendStyleDelete={sendStyleDelete}
             sendStyleToggle={sendStyleToggle}
+            createStylePreset={createStylePreset}
+            updateStylePreset={updateStylePreset}
+            deleteStylePreset={deleteStylePreset}
+            stylePresets={stylePresets}
+            styleReferenceCollections={collections.filter((collection) => collection.kind === 'style_refs')}
           />
         </div>
       )}

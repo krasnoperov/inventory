@@ -18,6 +18,7 @@ import {
   getCollectionItems,
   getDisplayVariant,
   getItemAsset,
+  getPinnedVariantIdForAssetCollection,
   getUnfiledAssets,
   moveId,
   sortCollections,
@@ -35,7 +36,7 @@ interface SpaceBoardProps {
   onAssetClick: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onCreateRelation?: (subject: SpaceSubject) => void;
-  createCollection: (params: { name: string; kind?: CollectionKind; color?: string | null; sortIndex?: number }) => void;
+  createCollection: (params: { id?: string; name: string; kind?: CollectionKind; color?: string | null; sortIndex?: number }) => void;
   updateCollection: (collectionId: string, changes: { name?: string; kind?: CollectionKind; color?: string | null; sortIndex?: number }) => void;
   deleteCollection: (collectionId: string) => void;
   addCollectionItem: (params: CollectionItemCreateParams) => void;
@@ -115,13 +116,56 @@ export function SpaceBoard({
     updateCollection(target.id, { sortIndex: collection.sort_index });
   };
 
-  const addAssetToCollection = (collectionId: string, assetId: string, role = 'custom') => {
+  const getCollectionRole = (collectionId: string, fallback = 'custom') => {
+    const collection = collections.find((candidate) => candidate.id === collectionId);
+    return collection?.kind === 'style_refs' ? 'style_ref' : fallback;
+  };
+
+  const addAssetToCollection = (collectionId: string, assetId: string, role = getCollectionRole(collectionId)) => {
+    const collection = collections.find((candidate) => candidate.id === collectionId);
+    const asset = assets.find((candidate) => candidate.id === assetId);
     const items = getCollectionItems(collectionId, collectionItems);
     addCollectionItem({
       collectionId,
       subjectType: 'asset',
       assetId,
       role,
+      pinnedVariantId: getPinnedVariantIdForAssetCollection(collection, asset),
+      sortIndex: items.length,
+    });
+  };
+
+  const markAssetAsStyleReference = (assetId: string) => {
+    let collection = orderedCollections.find((candidate) => candidate.kind === 'style_refs');
+    let collectionId = collection?.id;
+    if (!collectionId) {
+      collectionId = crypto.randomUUID();
+      createCollection({
+        id: collectionId,
+        name: 'Style References',
+        kind: 'style_refs',
+        color: COLLECTION_KIND_COLORS.style_refs,
+        sortIndex: orderedCollections.length,
+      });
+      collection = {
+        id: collectionId,
+        name: 'Style References',
+        kind: 'style_refs',
+        color: COLLECTION_KIND_COLORS.style_refs,
+        description: null,
+        sort_index: orderedCollections.length,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      };
+    }
+    const items = collection ? getCollectionItems(collection.id, collectionItems) : [];
+    const asset = assets.find((candidate) => candidate.id === assetId);
+    addCollectionItem({
+      collectionId,
+      subjectType: 'asset',
+      assetId,
+      role: 'style_ref',
+      pinnedVariantId: getPinnedVariantIdForAssetCollection(collection, asset),
       sortIndex: items.length,
     });
   };
@@ -129,6 +173,11 @@ export function SpaceBoard({
   const renderAssetCard = (asset: Asset, item: CollectionItem | null, collectionId?: string) => {
     const displayVariant = getDisplayVariant(item, asset, variants);
     const assetVariants = variants.filter((variant) => variant.asset_id === asset.id);
+    const itemCollection = item ? collections.find((collection) => collection.id === item.collection_id) : null;
+    const itemPinnedVariantId =
+      item?.subject_type === 'asset'
+        ? (item.pinned_variant_id ?? getPinnedVariantIdForAssetCollection(itemCollection, asset) ?? '')
+        : '';
     const cardKey = `${collectionId ?? 'unfiled'}:${item?.id ?? asset.id}`;
     const targetCollectionId = cardTargets[cardKey] ?? orderedCollections[0]?.id ?? '';
 
@@ -163,11 +212,15 @@ export function SpaceBoard({
               {item.subject_type === 'asset' && assetVariants.length > 0 && (
                 <select
                   className={styles.compactSelect}
-                  value={item.pinned_variant_id ?? ''}
+                  value={itemPinnedVariantId}
                   aria-label={`Pinned variant for ${asset.name}`}
-                  onChange={(event) => updateCollectionItem(item.collection_id, item.id, { pinnedVariantId: event.target.value || null })}
+                  onChange={(event) => {
+                    const pinnedVariantId =
+                      event.target.value || getPinnedVariantIdForAssetCollection(itemCollection, asset);
+                    updateCollectionItem(item.collection_id, item.id, { pinnedVariantId });
+                  }}
                 >
-                  <option value="">Active variant</option>
+                  {itemCollection?.kind !== 'style_refs' && <option value="">Active variant</option>}
                   {assetVariants.map((variant, index) => (
                     <option key={variant.id} value={variant.id}>
                       Variant {index + 1}{variant.starred ? ' star' : ''}
@@ -208,8 +261,11 @@ export function SpaceBoard({
                     ))}
                   </select>
                 </label>
-                <button onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, item?.role ?? 'custom')}>
+                <button onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}>
                   Add asset
+                </button>
+                <button onClick={() => markAssetAsStyleReference(asset.id)}>
+                  Mark style ref
                 </button>
               </div>
             </details>
@@ -296,7 +352,7 @@ export function SpaceBoard({
                 <option key={asset.id} value={asset.id}>{asset.name}</option>
               ))}
             </select>
-            <button onClick={() => selectedAssetId && addAssetToCollection(collection.id, selectedAssetId)}>
+            <button onClick={() => selectedAssetId && addAssetToCollection(collection.id, selectedAssetId, getCollectionRole(collection.id))}>
               Add
             </button>
           </div>

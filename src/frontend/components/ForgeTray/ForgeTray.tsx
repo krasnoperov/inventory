@@ -3,6 +3,7 @@ import { useForgeTrayStore } from '../../stores/forgeTrayStore';
 import type { ForgeOperation } from '../../stores/forgeTrayStore';
 import {
   type Asset,
+  type CollectionItem,
   type Composition,
   type CompositionItem,
   type CompositionOverview,
@@ -12,6 +13,10 @@ import {
   type ForgeChatProgressResult,
   type GenerationEstimateRequestParams,
   type GenerationEstimateResult,
+  type SpaceCollection,
+  type StylePresetCreateParams,
+  type StylePresetRaw,
+  type StylePresetUpdateParams,
 } from '../../hooks/useSpaceWebSocket';
 import {
   buildCompositionShortcutOptions,
@@ -98,6 +103,10 @@ export interface ForgeSubmitParams {
   imageSize?: ImageSize;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
+  /** Named style preset for this request */
+  stylePresetId?: string;
+  /** Exact style variants selected for this request */
+  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID (speech mode) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (dialogue mode) */
@@ -156,6 +165,12 @@ export interface ForgeTrayProps {
   sendStyleSet?: (data: { name?: string; description?: string; imageKeys?: string[]; enabled?: boolean }) => void;
   sendStyleDelete?: () => void;
   sendStyleToggle?: (enabled: boolean) => void;
+  createStylePreset?: (params: StylePresetCreateParams) => void;
+  updateStylePreset?: (presetId: string, changes: StylePresetUpdateParams) => void;
+  deleteStylePreset?: (presetId: string) => void;
+  stylePresets?: StylePresetRaw[];
+  collections?: SpaceCollection[];
+  collectionItems?: CollectionItem[];
   /** Batch send function */
   sendBatchRequest?: (params: import('../../hooks/useSpaceWebSocket').BatchRequestParams) => string;
   /** Forge error (generate/refine/batch failure) */
@@ -223,6 +238,12 @@ const VIDEO_TIER_LABELS: Record<VideoGenerationTier, string> = {
   fast: 'Fast',
   lite: 'Lite',
 };
+
+type StyleSelection =
+  | { mode: 'default' }
+  | { mode: 'preset'; presetId: string }
+  | { mode: 'none' }
+  | { mode: 'custom'; variantIds: string[] };
 
 const ESTIMATE_METER_LABELS: Record<string, string> = {
   gemini_images: 'Gemini image',
@@ -327,6 +348,41 @@ function getVeoReferenceModeLabel(imageSlotCount: number, styleApplies: boolean,
   return 'Reference images';
 }
 
+function isEnabledPreset(preset: StylePresetRaw): boolean {
+  return preset.enabled === true || preset.enabled === 1;
+}
+
+function isDefaultPreset(preset: StylePresetRaw): boolean {
+  return preset.is_default === true || preset.is_default === 1;
+}
+
+function formatRefCount(count: number): string {
+  return `${count} ref${count === 1 ? '' : 's'}`;
+}
+
+function getCollectionStyleVariantIds(
+  collectionId: string,
+  collectionItems: CollectionItem[],
+  allAssets: Asset[],
+  allVariants: Variant[],
+): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const item of collectionItems) {
+    if (item.collection_id !== collectionId || item.role !== 'style_ref') continue;
+    let variantId = item.variant_id ?? item.pinned_variant_id ?? null;
+    if (!variantId && item.asset_id) {
+      const asset = allAssets.find((candidate) => candidate.id === item.asset_id);
+      variantId = asset?.active_variant_id ?? null;
+    }
+    const variant = variantId ? allVariants.find((candidate) => candidate.id === variantId) : null;
+    if (!variant || variant.status !== 'completed' || !variant.image_key || seen.has(variant.id)) continue;
+    seen.add(variant.id);
+    ids.push(variant.id);
+  }
+  return ids;
+}
+
 export function ForgeTray({
   allAssets,
   allVariants,
@@ -348,12 +404,18 @@ export function ForgeTray({
   sendStyleSet,
   sendStyleDelete,
   sendStyleToggle,
+  createStylePreset,
+  updateStylePreset,
+  deleteStylePreset,
+  stylePresets = [],
   forgeError,
   forgeErrorCode,
   generationEstimate,
   sendGenerationEstimateRequest,
   compositions = [],
   compositionItems = [],
+  collections = [],
+  collectionItems = [],
 }: ForgeTrayProps) {
   const { slots, prompt, setPrompt, clearSlots, removeSlot, setMaxSlots } = useForgeTrayStore();
   const style = useStyleStore((s) => s.style);
@@ -365,7 +427,7 @@ export function ForgeTray({
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const [showChat, setShowChat] = useState(false);
   const [showStylePanel, setShowStylePanel] = useState(false);
-  const [noStyle, setNoStyle] = useState(false);
+  const [styleSelection, setStyleSelection] = useState<StyleSelection>({ mode: 'default' });
   const [batchCount, setBatchCount] = useState(1);
   const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
   const [activeEstimate, setActiveEstimate] = useState<GenerationEstimateResult | null>(null);
@@ -475,7 +537,38 @@ export function ForgeTray({
   const operation = getForgeOperationForState(slots.length, hasPrompt, effectiveDestinationType);
 
   // Dynamic reference budget mirrors provider limits and reserves active style images.
-  const styleImageCount = mediaModeConfig.supportsStyle && style?.enabled ? style.imageKeys.length : 0;
+  const enabledStylePresets = useMemo(
+    () => stylePresets.filter(isEnabledPreset),
+    [stylePresets],
+  );
+  const defaultStylePreset = useMemo(
+    () => enabledStylePresets.find(isDefaultPreset) ?? null,
+    [enabledStylePresets],
+  );
+  const styleVariantIds = useMemo(
+    () => (styleSelection.mode === 'custom' ? styleSelection.variantIds : []),
+    [styleSelection],
+  );
+  const selectedStylePreset = styleSelection.mode === 'preset'
+    ? enabledStylePresets.find((preset) => preset.id === styleSelection.presetId) ?? null
+    : styleSelection.mode === 'default'
+      ? defaultStylePreset
+      : null;
+  const styleOverride = styleSelection.mode === 'none';
+  const selectedStyleCount = styleSelection.mode === 'custom'
+    ? styleVariantIds.length
+    : selectedStylePreset?.reference_count ?? (
+      styleSelection.mode === 'default' && !selectedStylePreset && style?.enabled ? style.imageKeys.length : 0
+    );
+  const styleImageCount = mediaModeConfig.supportsStyle && !styleOverride ? selectedStyleCount : 0;
+  const styleChipLabel = (() => {
+    if (!mediaModeConfig.supportsStyle) return '';
+    if (styleSelection.mode === 'none') return 'Style: No style';
+    if (styleSelection.mode === 'custom') return `Style: Custom selected refs · ${formatRefCount(styleVariantIds.length)}`;
+    if (selectedStylePreset) return `Style: ${selectedStylePreset.name} · ${formatRefCount(selectedStylePreset.reference_count)}`;
+    if (style?.enabled) return `Style: ${style.name || 'Legacy space style'} · ${formatRefCount(style.imageKeys.length)}`;
+    return 'Style: Default style';
+  })();
   const referenceSlotLimit = currentMediaGroup === 'image'
     ? getImageModelMaxReferenceImages(imageModel)
     : currentMediaGroup === 'video'
@@ -501,7 +594,7 @@ export function ForgeTray({
       ? `Video supports ${referenceSlotLimit} references${styleSuffix}. Remove references or reduce style images.`
       : null;
   const effectiveBatchCount = mediaModeConfig.supportsBatch ? batchCount : 1;
-  const videoStyleApplies = mediaMode === 'video' && !noStyle && !!style?.enabled && styleImageCount > 0;
+  const videoStyleApplies = mediaMode === 'video' && !styleOverride && styleImageCount > 0;
   const veoImageSlotIds = useMemo(
     () => slots.filter(isVeoImageInput).map((slot) => slot.id),
     [slots]
@@ -515,8 +608,34 @@ export function ForgeTray({
     () => buildRelationShortcutOptions(allAssets),
     [allAssets],
   );
+  const styleReferenceCollections = useMemo(
+    () => collections.filter((collection) => collection.kind === 'style_refs'),
+    [collections],
+  );
+  const customStyleOptions = useMemo(() => {
+    const options: Array<{ variantId: string; label: string; collectionName: string }> = [];
+    const seen = new Set<string>();
+    for (const collection of styleReferenceCollections) {
+      for (const variantId of getCollectionStyleVariantIds(collection.id, collectionItems, allAssets, allVariants)) {
+        if (seen.has(variantId)) continue;
+        const variant = allVariants.find((candidate) => candidate.id === variantId);
+        const asset = variant ? allAssets.find((candidate) => candidate.id === variant.asset_id) : null;
+        if (!variant || !asset) continue;
+        seen.add(variantId);
+        options.push({
+          variantId,
+          label: asset.name,
+          collectionName: collection.name,
+        });
+      }
+    }
+    return options;
+  }, [allAssets, allVariants, collectionItems, styleReferenceCollections]);
   const selectedCompositionShortcutKey = compositionShortcutKey(compositionShortcut);
   const selectedRelationShortcutKey = relationShortcutKey(relationShortcut);
+  const selectedStyleControlValue = styleSelection.mode === 'preset'
+    ? `preset:${styleSelection.presetId}`
+    : styleSelection.mode;
 
   // Auto-generated asset name: "<Group> <next index>" (e.g. "Image 3").
   const assetCountForKind = useMemo(
@@ -560,6 +679,15 @@ export function ForgeTray({
     setMaxSlots(effectiveMaxSlots);
   }, [effectiveMaxSlots, setMaxSlots]);
 
+  useEffect(() => {
+    if (
+      styleSelection.mode === 'preset' &&
+      !enabledStylePresets.some((preset) => preset.id === styleSelection.presetId)
+    ) {
+      setStyleSelection({ mode: 'default' });
+    }
+  }, [enabledStylePresets, styleSelection]);
+
   const handleSelectGroup = useCallback((group: MediaGroup) => {
     if (group === 'image') {
       setMediaMode('image');
@@ -573,6 +701,32 @@ export function ForgeTray({
   const handleSelectAudioMode = useCallback((mode: ForgeMediaMode) => {
     setMediaMode(mode);
     setLastAudioMode(mode);
+  }, []);
+
+  const handleStyleSelectionChange = useCallback((value: string) => {
+    if (value === 'default') {
+      setStyleSelection({ mode: 'default' });
+    } else if (value === 'none') {
+      setStyleSelection({ mode: 'none' });
+    } else if (value === 'custom') {
+      setStyleSelection((current) => ({
+        mode: 'custom',
+        variantIds: current.mode === 'custom' ? current.variantIds : [],
+      }));
+      setShowStylePanel(true);
+    } else if (value.startsWith('preset:')) {
+      setStyleSelection({ mode: 'preset', presetId: value.slice('preset:'.length) });
+    }
+  }, []);
+
+  const handleToggleCustomStyleVariant = useCallback((variantId: string) => {
+    setStyleSelection((current) => {
+      const currentIds = current.mode === 'custom' ? current.variantIds : [];
+      const nextIds = currentIds.includes(variantId)
+        ? currentIds.filter((id) => id !== variantId)
+        : [...currentIds, variantId];
+      return { mode: 'custom', variantIds: nextIds };
+    });
   }, []);
 
   const handleNameChange = useCallback((value: string) => {
@@ -744,7 +898,13 @@ export function ForgeTray({
         model: selectedMediaKind === 'image' ? imageModel : undefined,
         aspectRatio: selectedMediaKind === 'image' ? aspectRatio : undefined,
         imageSize: selectedMediaKind === 'image' ? imageSize : undefined,
-        disableStyle: isAudioMode || noStyle || undefined,
+        disableStyle:
+          isAudioMode ||
+          styleSelection.mode === 'none' ||
+          (styleSelection.mode === 'custom' && styleVariantIds.length === 0) ||
+          undefined,
+        stylePresetId: !isAudioMode && styleSelection.mode === 'preset' ? styleSelection.presetId : undefined,
+        styleVariantIds: !isAudioMode && styleSelection.mode === 'custom' && styleVariantIds.length > 0 ? styleVariantIds : undefined,
         voiceId: mediaMode === 'speech' ? voiceId : undefined,
         videoResolution: mediaMode === 'video' ? videoResolution : undefined,
         videoDurationSeconds: mediaMode === 'video' ? videoDurationSeconds : undefined,
@@ -767,7 +927,7 @@ export function ForgeTray({
       setNewAssetName('');
       setNameEdited(false);
       setDestinationType('existing_asset');
-      setNoStyle(false);
+      setStyleSelection({ mode: 'default' });
       setBatchCount(1);
       setVoiceId(undefined);
       setDialogueVoiceIds([]);
@@ -783,7 +943,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, noStyle, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier, compositionShortcut]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, styleSelection, styleVariantIds, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier, compositionShortcut]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -885,7 +1045,7 @@ export function ForgeTray({
   // Show destination toggle on AssetDetailPage (has currentAsset) so user can choose existing vs new
   const showDestinationToggle = !!currentAsset;
   const showNameInput = effectiveDestinationType === 'new_asset';
-  const showStyleControls = !!sendStyleSet && mediaModeConfig.supportsStyle;
+  const showStyleControls = mediaModeConfig.supportsStyle;
   const showBatchControls = effectiveDestinationType === 'new_asset' && mediaModeConfig.supportsBatch;
   // Empty-state reference add lives in the control bar; once slots exist the
   // thumbnail strip carries its own "+".
@@ -937,7 +1097,7 @@ export function ForgeTray({
     currentMediaGroup === 'audio' ||
     currentMediaGroup === 'video' ||
     showBatchControls ||
-    !!(style?.enabled && mediaModeConfig.supportsStyle);
+    showStyleControls;
 
   // Build tray class with drag-over state
   const trayClasses = [styles.tray];
@@ -1052,14 +1212,6 @@ export function ForgeTray({
                       <option key={ratio} value={ratio}>{ratio}</option>
                     ))}
                   </select>
-                  {style?.enabled && mediaModeConfig.supportsStyle && (
-                    <span className={styles.styleChip} title="Space style is active">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" width="12" height="12">
-                        <path d="M12 3 21 12 12 21 3 12Z" />
-                      </svg>
-                      Style
-                    </span>
-                  )}
                   {showBatchControls && (
                     <div className={styles.miniSeg} role="group" aria-label="Batch count">
                       {[1, 2, 4, 8].map((n) => (
@@ -1205,6 +1357,31 @@ export function ForgeTray({
                       ))}
                     </div>
                   )}
+                </>
+              )}
+
+              {showStyleControls && (
+                <>
+                  <select
+                    className={styles.styleSelect}
+                    value={selectedStyleControlValue}
+                    onChange={(event) => handleStyleSelectionChange(event.target.value)}
+                    disabled={isSubmitting}
+                    aria-label="Style selector"
+                    title="Style selector"
+                  >
+                    <option value="default">Default style</option>
+                    {enabledStylePresets.map((preset) => (
+                      <option key={preset.id} value={`preset:${preset.id}`}>
+                        {preset.name}
+                      </option>
+                    ))}
+                    <option value="none">No style</option>
+                    <option value="custom">Custom selected refs</option>
+                  </select>
+                  <span className={styles.styleChip} title={styleChipLabel}>
+                    {styleChipLabel}
+                  </span>
                 </>
               )}
             </div>
@@ -1389,16 +1566,16 @@ export function ForgeTray({
               {showStyleControls && (
                 <button
                   type="button"
-                  className={`${styles.ctlIcon} ${style?.enabled ? styles.active : ''} ${showStylePanel ? styles.open : ''}`}
+                  className={`${styles.ctlIcon} ${styleSelection.mode !== 'none' && styleImageCount > 0 ? styles.active : ''} ${showStylePanel ? styles.open : ''}`}
                   onClick={() => setShowStylePanel((prev) => !prev)}
                   disabled={isSubmitting}
-                  title={style?.enabled ? `Style active (${style.imageKeys.length} images)` : 'Configure style'}
+                  title={styleChipLabel || 'Configure style'}
                   aria-label="Style"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" width="16" height="16">
                     <path d="M12 3 21 12 12 21 3 12Z" />
                   </svg>
-                  {style?.enabled && <span className={styles.iconButtonCount}>{style.imageKeys.length}</span>}
+                  {styleImageCount > 0 && <span className={styles.iconButtonCount}>{styleImageCount}</span>}
                 </button>
               )}
 
@@ -1500,10 +1677,18 @@ export function ForgeTray({
       </div>
 
       {/* StylePanel - full sheet overlay */}
-      {showStylePanel && mediaModeConfig.supportsStyle && spaceId && sendStyleSet && sendStyleDelete && sendStyleToggle && (
+      {showStylePanel && mediaModeConfig.supportsStyle && spaceId && (
         <StylePanel
           spaceId={spaceId}
           onClose={() => setShowStylePanel(false)}
+          stylePresets={stylePresets}
+          styleReferenceCollections={styleReferenceCollections}
+          customStyleOptions={customStyleOptions}
+          customStyleVariantIds={styleVariantIds}
+          onToggleCustomStyleVariant={handleToggleCustomStyleVariant}
+          createStylePreset={createStylePreset}
+          updateStylePreset={updateStylePreset}
+          deleteStylePreset={deleteStylePreset}
           sendStyleSet={sendStyleSet}
           sendStyleDelete={sendStyleDelete}
           sendStyleToggle={sendStyleToggle}

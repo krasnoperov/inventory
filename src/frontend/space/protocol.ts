@@ -346,6 +346,8 @@ export interface RotationRequestParams {
   subjectDescription?: string;
   aspectRatio?: string;
   disableStyle?: boolean;
+  stylePresetId?: string;
+  styleVariantIds?: string[];
 }
 
 export interface TileSetRequestParams {
@@ -356,6 +358,8 @@ export interface TileSetRequestParams {
   seedVariantId?: string;
   aspectRatio?: string;
   disableStyle?: boolean;
+  stylePresetId?: string;
+  styleVariantIds?: string[];
   generationMode?: 'sequential' | 'single-shot';
 }
 
@@ -521,6 +525,10 @@ export interface GenerateRequestParams {
   imageSize?: string;
   /** Disable style anchoring */
   disableStyle?: boolean;
+  /** Named asset-backed style preset to apply */
+  stylePresetId?: string;
+  /** Exact style reference variants for this request */
+  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
@@ -555,6 +563,10 @@ export interface RefineRequestParams {
   imageSize?: string;
   /** Disable style anchoring */
   disableStyle?: boolean;
+  /** Named asset-backed style preset to apply */
+  stylePresetId?: string;
+  /** Exact style reference variants for this request */
+  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
@@ -587,6 +599,8 @@ export interface BatchRequestParams {
   aspectRatio?: string;
   imageSize?: string;
   disableStyle?: boolean;
+  stylePresetId?: string;
+  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
@@ -658,6 +672,25 @@ export interface StylePresetRaw {
   reference_count: number;
   style_reference_variant_ids: string[];
   style_reference_image_keys: string[];
+}
+
+export interface StylePresetCreateParams {
+  id?: string;
+  name: string;
+  description?: string | null;
+  stylePrompt?: string;
+  collectionId?: string | null;
+  enabled?: boolean;
+  isDefault?: boolean;
+}
+
+export interface StylePresetUpdateParams {
+  name?: string;
+  description?: string | null;
+  stylePrompt?: string;
+  collectionId?: string | null;
+  enabled?: boolean;
+  isDefault?: boolean;
 }
 
 // Batch started event
@@ -1080,6 +1113,8 @@ export interface UseSpaceWebSocketReturn {
   compositionItems: CompositionItem[];
   jobs: Map<string, JobStatus>;
   presence: UserPresence[];
+  stylePresets: StylePresetRaw[];
+  styleReferenceCollections: StyleReferenceCollectionRaw[];
   sendMessage: (msg: object) => void;
   createAsset: (name: string, type: string) => void;
   updateAsset: (assetId: string, changes: AssetChanges) => void;
@@ -1147,6 +1182,9 @@ export interface UseSpaceWebSocketReturn {
   sendStyleSet: (data: { name?: string; description?: string; imageKeys?: string[]; enabled?: boolean }) => void;
   sendStyleDelete: () => void;
   sendStyleToggle: (enabled: boolean) => void;
+  createStylePreset: (params: StylePresetCreateParams) => void;
+  updateStylePreset: (presetId: string, changes: StylePresetUpdateParams) => void;
+  deleteStylePreset: (presetId: string) => void;
   // Batch methods
   sendBatchRequest: (params: BatchRequestParams) => string;
   sendGenerationEstimateRequest: (params: GenerationEstimateRequestParams) => string;
