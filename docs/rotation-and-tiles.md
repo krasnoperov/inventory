@@ -215,7 +215,7 @@ extended in all four cardinal directions.
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | `string` | Unique identifier |
-| `asset_id` | `string` | Parent asset created for this set |
+| `asset_id` | `string` | Asset created for this set |
 | `source_variant_id` | `string` | Original variant used as seed |
 | `config` | `string` | JSON: `{ type, subjectDescription?, aspectRatio?, disableStyle? }` |
 | `status` | `RotationSetStatus` | `pending \| generating \| completed \| failed \| cancelled` |
@@ -242,7 +242,7 @@ extended in all four cardinal directions.
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | `string` | Unique identifier |
-| `asset_id` | `string` | Parent asset created for this set |
+| `asset_id` | `string` | Asset created for this set |
 | `tile_type` | `TileType` | `terrain \| building \| decoration \| custom` |
 | `grid_width` | `number` | Grid columns (2-5) |
 | `grid_height` | `number` | Grid rows (2-5) |

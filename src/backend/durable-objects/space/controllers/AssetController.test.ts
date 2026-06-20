@@ -85,7 +85,7 @@ function createMockRepo(): SpaceRepository {
         name: input.name,
         type: input.type,
         media_kind: input.mediaKind ?? 'image',
-        parent_asset_id: input.parentAssetId ?? null,
+        parent_asset_id: null,
       })
     ),
     updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
@@ -457,22 +457,6 @@ describe('AssetController', () => {
       assert.strictEqual((createBroadcast as { asset: Asset }).asset.name, 'New Character');
     });
 
-    test('creates asset with parent', async () => {
-      const { ctx, broadcasts } = createMockContext();
-      const controller = new AssetController(ctx);
-
-      await controller.handleCreate(
-        {} as WebSocket,
-        createEditorMeta(),
-        'Child Asset',
-        'prop',
-        'parent-asset-id'
-      );
-
-      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
-      assert.strictEqual(createCall.parentAssetId, 'parent-asset-id');
-    });
-
     test('requires editor permission', async () => {
       const { ctx } = createMockContext();
       const controller = new AssetController(ctx);
@@ -507,7 +491,6 @@ describe('AssetController', () => {
         createEditorMeta(),
         'Video Asset',
         'scene',
-        undefined,
         'video'
       );
 
@@ -574,32 +557,21 @@ describe('AssetController', () => {
       assert.strictEqual(updateCall.type, 'environment');
     });
 
-    test('updates parent asset id', async () => {
-      const { ctx } = createMockContext({
-        updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
-      });
+    test('rejects parent hierarchy updates', async () => {
+      const { ctx } = createMockContext();
       const controller = new AssetController(ctx);
 
-      await controller.handleUpdate({} as WebSocket, createEditorMeta(), 'asset-1', {
-        parentAssetId: 'new-parent',
-      });
+      await assert.rejects(
+        controller.handleUpdate(
+          {} as WebSocket,
+          createEditorMeta(),
+          'asset-1',
+          { parentAssetId: 'new-parent' } as { name?: string; tags?: string[]; type?: string }
+        ),
+        /Parent hierarchy edits are no longer supported/
+      );
 
-      const updateCall = asMock(ctx.repo.updateAsset).mock.calls[0].arguments[1];
-      assert.strictEqual(updateCall.parent_asset_id, 'new-parent');
-    });
-
-    test('allows setting parent to null (move to root)', async () => {
-      const { ctx } = createMockContext({
-        updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
-      });
-      const controller = new AssetController(ctx);
-
-      await controller.handleUpdate({} as WebSocket, createEditorMeta(), 'asset-1', {
-        parentAssetId: null,
-      });
-
-      const updateCall = asMock(ctx.repo.updateAsset).mock.calls[0].arguments[1];
-      assert.strictEqual(updateCall.parent_asset_id, null);
+      assert.strictEqual(asMock(ctx.repo.updateAsset).mock.calls.length, 0);
     });
 
     test('throws when asset not found', async () => {
@@ -613,28 +585,6 @@ describe('AssetController', () => {
           name: 'Test',
         }),
         /not found/i
-      );
-    });
-
-    test('rejects circular parent reference', async () => {
-      // Asset trying to set itself as parent
-      const { ctx } = createMockContext(
-        {},
-        {
-          exec: mock.fn((query: string, id: string) => {
-            // Simulate: asset-1 -> asset-2 -> asset-1 would be a cycle
-            if (id === 'asset-2') return { toArray: () => [{ parent_asset_id: 'asset-1' }] };
-            return { toArray: () => [] };
-          }),
-        }
-      );
-      const controller = new AssetController(ctx);
-
-      await assert.rejects(
-        controller.handleUpdate({} as WebSocket, createEditorMeta(), 'asset-1', {
-          parentAssetId: 'asset-2',
-        }),
-        /circular/i
       );
     });
 
@@ -742,7 +692,7 @@ describe('AssetController', () => {
       assert.strictEqual((forkBroadcast as { asset: Asset }).asset.parent_asset_id, null);
 
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
-      assert.strictEqual(createCall.parentAssetId, undefined);
+      assert.strictEqual('parentAssetId' in createCall, false);
 
       const refCalls = asMock(ctx.sql.exec).mock.calls.filter((c) =>
         String(c.arguments[0]).includes('INSERT INTO image_refs')
@@ -782,7 +732,7 @@ describe('AssetController', () => {
       // Verify fork broadcast
       assert.ok(broadcasts.some((b) => b.type === 'asset:forked'));
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
-      assert.strictEqual(createCall.parentAssetId, undefined);
+      assert.strictEqual('parentAssetId' in createCall, false);
     });
 
     test('throws when source asset not found', async () => {
@@ -909,36 +859,6 @@ describe('AssetController', () => {
       assert.strictEqual(lineageCall.relationType, 'forked');
     });
 
-    test('preserves explicit parentAssetId when forking for compatibility', async () => {
-      const sourceVariant = createMockVariant({
-        id: 'source-var',
-        asset_id: 'source-asset',
-      });
-
-      const { ctx, broadcasts } = createMockContext({
-        getVariantById: mock.fn(async () => sourceVariant),
-        updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
-      });
-      const controller = new AssetController(ctx);
-
-      await controller.handleFork(
-        {} as WebSocket,
-        createEditorMeta(),
-        undefined,
-        'source-var',
-        'Forked',
-        'character',
-        'explicit-parent'
-      );
-
-      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
-      assert.strictEqual(createCall.parentAssetId, 'explicit-parent');
-
-      const forkBroadcast = broadcasts.find((b) => b.type === 'asset:forked');
-      assert.ok(forkBroadcast);
-      assert.strictEqual((forkBroadcast as { asset: Asset }).asset.parent_asset_id, 'explicit-parent');
-    });
-
     test('uses matching explicit media kind for forked asset and copied variant', async () => {
       const sourceVariant = createMockVariant({
         id: 'source-var',
@@ -959,7 +879,6 @@ describe('AssetController', () => {
         'source-var',
         'Forked',
         'character',
-        undefined,
         'audio'
       );
 
@@ -992,7 +911,6 @@ describe('AssetController', () => {
           'source-var',
           'Forked',
           'character',
-          undefined,
           'video'
         ),
         /Cannot fork audio variant into video asset/
@@ -1035,21 +953,6 @@ describe('AssetController', () => {
 
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
       assert.strictEqual(createCall.id, 'custom-id');
-    });
-
-    test('creates asset with parent', async () => {
-      const { ctx } = createMockContext();
-      const controller = new AssetController(ctx);
-
-      await controller.httpCreate({
-        name: 'Child',
-        type: 'prop',
-        parentAssetId: 'parent-id',
-        createdBy: 'user-1',
-      });
-
-      const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
-      assert.strictEqual(createCall.parentAssetId, 'parent-id');
     });
 
     test('propagates media kind through HTTP create', async () => {
@@ -1169,60 +1072,6 @@ describe('AssetController', () => {
       const result = await controller.httpGetAncestors('root');
 
       assert.strictEqual(result.length, 0);
-    });
-  });
-
-  describe('httpReparent', () => {
-    test('reparents asset and broadcasts', async () => {
-      const { ctx, broadcasts } = createMockContext({
-        updateAsset: mock.fn(async (id, changes) =>
-          createMockAsset({ id, parent_asset_id: changes.parent_asset_id })
-        ),
-      });
-      const controller = new AssetController(ctx);
-
-      const result = await controller.httpReparent('child', 'new-parent');
-
-      assert.strictEqual(result.parent_asset_id, 'new-parent');
-      assert.ok(broadcasts.some((b) => b.type === 'asset:updated'));
-    });
-
-    test('moves asset to root with null parent', async () => {
-      const { ctx } = createMockContext({
-        updateAsset: mock.fn(async (id, changes) =>
-          createMockAsset({ id, parent_asset_id: changes.parent_asset_id })
-        ),
-      });
-      const controller = new AssetController(ctx);
-
-      const result = await controller.httpReparent('child', null);
-
-      assert.strictEqual(result.parent_asset_id, null);
-    });
-
-    test('throws on circular reference', async () => {
-      const { ctx } = createMockContext(
-        {},
-        {
-          exec: mock.fn((query: string, id: string) => {
-            // new-parent's parent is child, creating a cycle
-            if (id === 'new-parent') return { toArray: () => [{ parent_asset_id: 'child' }] };
-            return { toArray: () => [] };
-          }),
-        }
-      );
-      const controller = new AssetController(ctx);
-
-      await assert.rejects(controller.httpReparent('child', 'new-parent'), /circular/i);
-    });
-
-    test('throws when asset not found', async () => {
-      const { ctx } = createMockContext({
-        updateAsset: mock.fn(async () => null),
-      });
-      const controller = new AssetController(ctx);
-
-      await assert.rejects(controller.httpReparent('nonexistent', 'parent'), /not found/i);
     });
   });
 

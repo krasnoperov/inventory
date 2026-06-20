@@ -148,7 +148,7 @@ function buildApp(options: {
                   type: String(body.assetType ?? 'character'),
                   media_kind: mediaKind,
                   tags: '[]',
-                  parent_asset_id: typeof body.parentAssetId === 'string' ? body.parentAssetId : null,
+                  parent_asset_id: null,
                   active_variant_id: null,
                   created_by: '7',
                   created_at: 1_780_000_000_000,

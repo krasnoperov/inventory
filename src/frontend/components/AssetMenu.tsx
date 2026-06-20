@@ -7,9 +7,7 @@ export interface AssetMenuProps {
   asset: Asset;
   position: { x: number; y: number };
   onClose: () => void;
-  onAddChild?: () => void;
   onRename?: () => void;
-  onMove?: () => void;
   onCreateRelation?: () => void;
   onDelete?: () => void;
 }
@@ -18,9 +16,7 @@ export function AssetMenu({
   asset,
   position,
   onClose,
-  onAddChild,
   onRename,
-  onMove,
   onCreateRelation,
   onDelete,
 }: AssetMenuProps) {
@@ -94,22 +90,6 @@ export function AssetMenu({
       </div>
 
       <div className={styles.section}>
-        {onAddChild && (
-          <button
-            className={styles.action}
-            onClick={() => handleAction(onAddChild)}
-          >
-            <span className={styles.actionIcon}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </span>
-            <span className={styles.actionLabel}>Add Child Asset</span>
-          </button>
-        )}
-      </div>
-
-      <div className={styles.section}>
         {onRename && (
           <button
             className={styles.action}
@@ -122,25 +102,6 @@ export function AssetMenu({
               </svg>
             </span>
             <span className={styles.actionLabel}>Rename</span>
-          </button>
-        )}
-
-        {onMove && (
-          <button
-            className={styles.action}
-            onClick={() => handleAction(onMove)}
-          >
-            <span className={styles.actionIcon}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <path d="M5 9l-3 3 3 3" />
-                <path d="M9 5l3-3 3 3" />
-                <path d="M15 19l3 3 3-3" />
-                <path d="M19 9l3 3-3 3" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <line x1="12" y1="2" x2="12" y2="22" />
-              </svg>
-            </span>
-            <span className={styles.actionLabel}>Move to...</span>
           </button>
         )}
 

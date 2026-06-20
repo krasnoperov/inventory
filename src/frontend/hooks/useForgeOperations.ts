@@ -35,7 +35,6 @@ export interface UseForgeOperationsReturn {
     type: string;
     mediaKind?: MediaKind;
     prompt: string;
-    parentAssetId?: string;
   }) => string;
 
   /** Fork: Copy asset to new asset without AI generation */
@@ -44,7 +43,6 @@ export interface UseForgeOperationsReturn {
     name: string;
     type: string;
     mediaKind?: MediaKind;
-    parentAssetId?: string;
   }) => void;
 
   /** Derive: Create new asset using one or more references as inspiration */
@@ -54,7 +52,6 @@ export interface UseForgeOperationsReturn {
     mediaKind?: MediaKind;
     prompt: string;
     referenceAssetIds: string[];
-    parentAssetId?: string;
   }) => string;
 
   /** Refine: Add variant to existing asset */
@@ -113,7 +110,6 @@ export function useForgeOperations({
         name: destination.assetName || 'Forked Asset',
         assetType: destination.assetType || 'character',
         mediaKind,
-        parentAssetId: destination.parentAssetId || undefined,
       });
       return ''; // forkAsset is synchronous, no requestId
     }
@@ -132,7 +128,6 @@ export function useForgeOperations({
         model,
         aspectRatio,
         imageSize,
-        parentAssetId: destination.parentAssetId || undefined,
         disableStyle,
         voiceId,
         dialogueVoiceIds,
@@ -176,7 +171,6 @@ export function useForgeOperations({
         model,
         aspectRatio,
         imageSize,
-        parentAssetId: destination.parentAssetId || undefined,
         disableStyle,
         voiceId,
         dialogueVoiceIds,
@@ -196,7 +190,6 @@ export function useForgeOperations({
     type: string;
     prompt: string;
     mediaKind?: MediaKind;
-    parentAssetId?: string;
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
@@ -205,7 +198,6 @@ export function useForgeOperations({
         type: 'new_asset',
         assetName: params.name,
         assetType: params.type,
-        parentAssetId: params.parentAssetId || null,
       },
       operation: 'generate',
     });
@@ -220,7 +212,6 @@ export function useForgeOperations({
     name: string;
     type: string;
     mediaKind?: MediaKind;
-    parentAssetId?: string;
   }): void => {
     if (!forkAsset) {
       console.error('[useForgeOperations] forkAsset not provided');
@@ -231,7 +222,6 @@ export function useForgeOperations({
       name: params.name,
       assetType: params.type,
       mediaKind: params.mediaKind,
-      parentAssetId: params.parentAssetId,
     });
   }, [forkAsset]);
 
@@ -244,7 +234,6 @@ export function useForgeOperations({
     mediaKind?: MediaKind;
     prompt: string;
     referenceAssetIds: string[];
-    parentAssetId?: string;
   }): string => {
     return handleForgeSubmit({
       prompt: params.prompt,
@@ -254,7 +243,6 @@ export function useForgeOperations({
         type: 'new_asset',
         assetName: params.name,
         assetType: params.type,
-        parentAssetId: params.parentAssetId || null,
       },
       operation: 'derive',
     });

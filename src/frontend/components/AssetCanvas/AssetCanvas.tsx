@@ -10,8 +10,6 @@ import {
   useReactFlow,
   useStore,
   type Edge,
-  type Connection,
-  MarkerType,
   BackgroundVariant,
 } from '@xyflow/react';
 import { type Asset, type SpaceSubject, type Variant, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
@@ -48,8 +46,6 @@ export interface AssetCanvasProps {
   onAssetClick?: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onCreateRelation?: (subject: SpaceSubject) => void;
-  /** Called when user drags an edge to reparent an asset. Set childAssetId's parent to newParentAssetId (or null to unparent) */
-  onReparent?: (childAssetId: string, newParentAssetId: string | null) => void;
   /** Layout direction: TB (top-bottom), LR (left-right), BT, RL. Default: LR */
   layoutDirection?: LayoutDirection;
   /** Layout algorithm to use */
@@ -72,7 +68,6 @@ function AssetCanvasInner({
   onAssetClick,
   onAddToTray,
   onCreateRelation,
-  onReparent,
   layoutDirection = 'LR',
   layoutAlgorithm = 'dagre',
   dimensionsReady,
@@ -136,22 +131,7 @@ function AssetCanvasInner({
       };
     });
 
-    const edges: Edge[] = assets
-      .filter(asset => asset.parent_asset_id)
-      .map(asset => ({
-        id: `${asset.parent_asset_id}-${asset.id}`,
-        source: asset.parent_asset_id!,
-        target: asset.id,
-        type: 'smoothstep',
-        animated: isAssetGenerating(asset.id),
-        style: { stroke: 'var(--color-border)', strokeWidth: 2 },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: 'var(--color-text-muted)',
-          width: 16,
-          height: 16,
-        },
-      }));
+    const edges: Edge[] = [];
 
     // Apply layout algorithm
     const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayout(nodes, edges, {
@@ -165,7 +145,7 @@ function AssetCanvasInner({
   }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, onAddToTray, onCreateRelation, imageDimensions, layoutDirection, layoutAlgorithm, spaceId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<AssetNodeType>(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, setEdges] = useEdgesState(initialEdges);
 
   // Update nodes when layout changes
   useEffect(() => {
@@ -186,32 +166,6 @@ function AssetCanvasInner({
       });
     }
   }, [dimensionsReady, nodes.length, fitView]);
-
-  // Handle new connections (reparenting via drag)
-  // User drags from parent's bottom handle (source) to child's top handle (target)
-  const handleConnect = useCallback((connection: Connection) => {
-    if (!onReparent || !connection.source || !connection.target) return;
-
-    // When connecting: source is the new parent, target is the child being reparented
-    const newParentId = connection.source;
-    const childId = connection.target;
-
-    // Don't allow self-connection
-    if (newParentId === childId) return;
-
-    // Call onReparent to update via WebSocket
-    onReparent(childId, newParentId);
-  }, [onReparent]);
-
-  // Handle edge deletion (unparent asset)
-  const handleEdgesDelete = useCallback((deletedEdges: Edge[]) => {
-    if (!onReparent) return;
-
-    for (const edge of deletedEdges) {
-      // When deleting an edge, unparent the target (child) asset
-      onReparent(edge.target, null);
-    }
-  }, [onReparent]);
 
   if (assets.length === 0 && isInitialSyncPending) {
     return (
@@ -241,14 +195,11 @@ function AssetCanvasInner({
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onReparent ? handleConnect : undefined}
-        onEdgesDelete={onReparent ? handleEdgesDelete : undefined}
         nodeTypes={nodeTypes}
         minZoom={0.3}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
-        deleteKeyCode="Delete"
+        deleteKeyCode={null}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
         <Controls className={styles.controls} position="bottom-left" />
@@ -277,7 +228,6 @@ export function AssetCanvas({
   onAssetClick,
   onAddToTray,
   onCreateRelation,
-  onReparent,
   layoutDirection = 'LR',
   layoutAlgorithm = 'dagre',
 }: AssetCanvasProps) {
@@ -364,7 +314,6 @@ export function AssetCanvas({
         onAssetClick={onAssetClick}
         onAddToTray={onAddToTray}
         onCreateRelation={onCreateRelation}
-        onReparent={onReparent}
         layoutDirection={layoutDirection}
         layoutAlgorithm={layoutAlgorithm}
         dimensionsReady={dimensionsReady}

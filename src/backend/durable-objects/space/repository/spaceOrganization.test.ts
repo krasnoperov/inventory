@@ -31,12 +31,13 @@ class BetterSqlStorage implements SqlStorage {
 
 describe('Space organization repository', () => {
   let db: Database.Database;
+  let sql: BetterSqlStorage;
   let repo: SpaceRepository;
 
   beforeEach(async () => {
     db = new Database(':memory:');
     db.pragma('foreign_keys = ON');
-    const sql = new BetterSqlStorage(db);
+    sql = new BetterSqlStorage(db);
     await new SchemaManager(sql).initialize();
     repo = new SpaceRepository(sql);
   });
@@ -55,9 +56,15 @@ describe('Space organization repository', () => {
       name: options.name ?? assetId,
       type: options.type ?? 'character',
       tags: [],
-      parentAssetId: options.parentAssetId,
       createdBy: 'user-1',
     });
+    if (options.parentAssetId !== undefined) {
+      await sql.exec(
+        'UPDATE assets SET parent_asset_id = ? WHERE id = ?',
+        options.parentAssetId,
+        assetId
+      );
+    }
     await repo.createVariant({
       id: variantId,
       assetId,

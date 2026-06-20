@@ -129,7 +129,7 @@ export function useSpaceWebSocket({
   const tilePositions = ownsState ? rawTilePositions : EMPTY_TILE_POSITIONS;
 
   const syncModeRef = getSpaceSessionSyncModeRef();
-  const commands = useSpaceCommands({ spaceId, assets, setJobs, syncModeRef });
+  const commands = useSpaceCommands({ spaceId, setJobs, syncModeRef });
   const {
     sendMessage,
     createAsset,
@@ -170,9 +170,6 @@ export function useSpaceWebSocket({
     sendDescribeRequest,
     sendCompareRequest,
     sendAutoDescribeRequest,
-    getChildren,
-    getAncestors,
-    getRootAssets,
     approveApproval,
     rejectApproval,
     listApprovals,
@@ -309,9 +306,6 @@ export function useSpaceWebSocket({
     sendDescribeRequest,
     sendCompareRequest,
     sendAutoDescribeRequest,
-    getChildren,
-    getAncestors,
-    getRootAssets,
     // Approval methods
     approveApproval,
     rejectApproval,

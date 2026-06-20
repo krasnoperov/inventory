@@ -6,7 +6,7 @@
  */
 
 import type { Asset, Variant, Lineage, MediaKind, WebSocketMeta } from '../types';
-import { wouldCreateCycle, getAncestorChain } from '../asset/hierarchy';
+import { getAncestorChain } from '../asset/hierarchy';
 import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { loggers } from '../../../../shared/logger';
@@ -35,7 +35,6 @@ export class AssetController extends BaseController {
     meta: WebSocketMeta,
     name: string,
     assetType: string,
-    parentAssetId?: string,
     mediaKind?: MediaKind
   ): Promise<void> {
     this.requireEditor(meta);
@@ -44,7 +43,6 @@ export class AssetController extends BaseController {
       name,
       type: assetType,
       mediaKind,
-      parentAssetId,
       createdBy: meta.userId,
     });
 
@@ -58,24 +56,18 @@ export class AssetController extends BaseController {
     ws: WebSocket,
     meta: WebSocketMeta,
     assetId: string,
-    changes: { name?: string; tags?: string[]; type?: string; parentAssetId?: string | null }
+    changes: { name?: string; tags?: string[]; type?: string }
   ): Promise<void> {
     this.requireEditor(meta);
 
-    // If changing parent, validate no cycle would be created
-    if (changes.parentAssetId !== undefined) {
-      const wouldCycle = await this.checkWouldCreateCycle(assetId, changes.parentAssetId);
-      if (wouldCycle) {
-        throw new ValidationError('Cannot set parent: would create circular hierarchy');
-      }
+    if ('parentAssetId' in changes) {
+      throw new ValidationError('Parent hierarchy edits are no longer supported; use collections or relations');
     }
 
-    // Map parentAssetId to parent_asset_id for database
-    const dbChanges: { name?: string; tags?: string[]; type?: string; parent_asset_id?: string | null } = {
+    const dbChanges: { name?: string; tags?: string[]; type?: string } = {
       name: changes.name,
       tags: changes.tags,
       type: changes.type,
-      parent_asset_id: changes.parentAssetId,
     };
 
     const asset = await this.repo.updateAsset(assetId, dbChanges);
@@ -92,7 +84,7 @@ export class AssetController extends BaseController {
   async handleDelete(ws: WebSocket, meta: WebSocketMeta, assetId: string): Promise<void> {
     this.requireOwner(meta);
 
-    // Get child assets before deletion - they will be reparented to root
+    // Preserve read compatibility for old hierarchy data while deleting.
     const childAssets = await this.repo.getAssetsByParent(assetId);
     const variants = await this.repo.getVariantsByAsset(assetId);
     const variantByImageKey = new Map<string, Variant>();
@@ -133,7 +125,7 @@ export class AssetController extends BaseController {
     this.broadcast({ type: 'asset:deleted', assetId });
     await this.broadcastOrganizationCascadeChanges(organizationBefore, organizationAfter);
 
-    // Broadcast updates for reparented children (now at root level)
+    // Broadcast compatibility field updates for historical child rows.
     for (const child of childAssets) {
       const updatedChild = await this.repo.getAssetById(child.id);
       if (updatedChild) {
@@ -174,7 +166,6 @@ export class AssetController extends BaseController {
     sourceVariantId: string | undefined,
     name: string,
     assetType: string,
-    parentAssetId?: string,
     mediaKind?: MediaKind
   ): Promise<void> {
     this.requireEditor(meta);
@@ -201,7 +192,6 @@ export class AssetController extends BaseController {
       name,
       type: assetType,
       mediaKind,
-      parentAssetId,
       createdBy: meta.userId,
     });
 
@@ -229,7 +219,6 @@ export class AssetController extends BaseController {
     name: string;
     type: string;
     mediaKind?: MediaKind;
-    parentAssetId?: string;
     createdBy: string;
   }): Promise<Asset> {
     const asset = await this.createAsset(data);
@@ -291,27 +280,6 @@ export class AssetController extends BaseController {
   }
 
   /**
-   * Handle PATCH /internal/asset/:assetId/parent HTTP request
-   */
-  async httpReparent(assetId: string, parentAssetId: string | null): Promise<Asset> {
-    // Check for circular reference
-    if (parentAssetId) {
-      const wouldCycle = await this.checkWouldCreateCycle(assetId, parentAssetId);
-      if (wouldCycle) {
-        throw new ValidationError('Cannot create circular reference');
-      }
-    }
-
-    const asset = await this.repo.updateAsset(assetId, { parent_asset_id: parentAssetId });
-    if (!asset) {
-      throw new NotFoundError('Asset not found');
-    }
-
-    this.broadcast({ type: 'asset:updated', asset });
-    return asset;
-  }
-
-  /**
    * Handle POST /internal/fork HTTP request
    */
   async httpFork(data: {
@@ -319,7 +287,6 @@ export class AssetController extends BaseController {
     name: string;
     type: string;
     mediaKind?: MediaKind;
-    parentAssetId?: string;
     createdBy: string;
   }): Promise<{ asset: Asset; variant: Variant; lineage: Lineage }> {
     const result = await this.forkAsset(data);
@@ -362,7 +329,6 @@ export class AssetController extends BaseController {
     name: string;
     type: string;
     mediaKind?: MediaKind;
-    parentAssetId?: string;
     createdBy: string;
   }): Promise<Asset> {
     return this.repo.createAsset({
@@ -371,19 +337,7 @@ export class AssetController extends BaseController {
       type: data.type,
       mediaKind: data.mediaKind,
       tags: [],
-      parentAssetId: data.parentAssetId,
       createdBy: data.createdBy,
-    });
-  }
-
-  /**
-   * Check if setting newParentId as parent would create a cycle
-   */
-  private async checkWouldCreateCycle(assetId: string, newParentId: string | null): Promise<boolean> {
-    return wouldCreateCycle(assetId, newParentId, async (id) => {
-      const result = await this.sql.exec('SELECT parent_asset_id FROM assets WHERE id = ?', id);
-      const row = result.toArray()[0] as { parent_asset_id: string | null } | undefined;
-      return row?.parent_asset_id ?? null;
     });
   }
 
@@ -396,7 +350,6 @@ export class AssetController extends BaseController {
     name: string;
     type: string;
     mediaKind?: MediaKind;
-    parentAssetId?: string;
     createdBy: string;
   }): Promise<{ asset: Asset; variant: Variant; lineage: Lineage } | null> {
     // Get source variant
@@ -416,7 +369,6 @@ export class AssetController extends BaseController {
       name: data.name,
       type: data.type,
       mediaKind: data.mediaKind ?? sourceMediaKind,
-      parentAssetId: data.parentAssetId,
       createdBy: data.createdBy,
     });
 

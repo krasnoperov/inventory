@@ -377,7 +377,6 @@ makefx upload <file> --asset <id> [--space <id>]
 | `--name <name>` | * | New asset name (creates asset + variant) |
 | `--type <type>` | No | Asset type for new assets (default: `character`) |
 | `--media-kind <kind>` | No | Optional explicit kind: `image`, `audio`, or `video` |
-| `--parent <id>` | No | Parent asset ID for new assets |
 | `--env <env>` | No | `production`, `stage`, or `local` (default: `production`) |
 | `--local` | No | Shortcut for `--env local` |
 
@@ -392,8 +391,8 @@ makefx upload <file> --asset <id> [--space <id>]
 # Create a new character asset from an image
 makefx upload hero.png --space abc123 --name "Hero Character"
 
-# Create with specific type and parent
-makefx upload sword.png --space abc123 --name "Sword" --type item --parent abc789
+# Create with specific type
+makefx upload sword.png --space abc123 --name "Sword" --type item
 
 # Add a variant to an existing asset
 makefx upload variant.jpg --space abc123 --asset def456

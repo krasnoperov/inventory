@@ -99,17 +99,6 @@ export function AssetPickerModal({
     return new Set(slots.map(s => s.asset.id));
   }, [slots]);
 
-  // Build parent path for an asset (hierarchy breadcrumb)
-  const getParentPath = useCallback((asset: Asset): Asset[] => {
-    const path: Asset[] = [];
-    let current = allAssets.find(a => a.id === asset.parent_asset_id);
-    while (current) {
-      path.unshift(current);
-      current = allAssets.find(a => a.id === current?.parent_asset_id);
-    }
-    return path;
-  }, [allAssets]);
-
   // Toggle asset in tray
   const handleAssetClick = useCallback((asset: Asset) => {
     const primaryVariant = getPrimaryVariant(asset);
@@ -178,7 +167,6 @@ export function AssetPickerModal({
               <div className={styles.assetGrid}>
                 {slots.map((slot) => {
                   const primaryVariant = getPrimaryVariant(slot.asset);
-                  const parentPath = getParentPath(slot.asset);
                   return (
                     <button
                       key={slot.id}
@@ -200,11 +188,6 @@ export function AssetPickerModal({
                         </span>
                       </div>
                       <div className={styles.assetInfo}>
-                        {parentPath.length > 0 && (
-                          <span className={styles.parentPath}>
-                            {parentPath.map(p => p.name).join(' / ')}
-                          </span>
-                        )}
                         <span className={styles.assetName}>{slot.asset.name}</span>
                         <span className={styles.assetType}>{slot.asset.type}</span>
                       </div>
@@ -225,7 +208,6 @@ export function AssetPickerModal({
                 {assets.map((asset) => {
                   const primaryVariant = getPrimaryVariant(asset);
                   const isInTray = assetsInTray.has(asset.id);
-                  const parentPath = getParentPath(asset);
                   const isReady = primaryVariant ? isVariantForgeTrayReady(primaryVariant) : false;
                   const isCompatible = primaryVariant
                     ? canUseSlotMediaKindForForgeMode(mediaMode, primaryVariant.media_kind)
@@ -264,11 +246,6 @@ export function AssetPickerModal({
                         )}
                       </div>
                       <div className={styles.assetInfo}>
-                        {parentPath.length > 0 && (
-                          <span className={styles.parentPath}>
-                            {parentPath.map(p => p.name).join(' / ')}
-                          </span>
-                        )}
                         <span className={styles.assetName}>{asset.name}</span>
                         <span className={styles.assetType}>{asset.type} / {asset.media_kind}</span>
                         {disabledReason && <span className={styles.disabledReason}>{disabledReason}</span>}

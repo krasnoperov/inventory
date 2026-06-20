@@ -17,7 +17,6 @@ export interface ForgeTarget {
   assetId?: string;
   assetName?: string;
   assetType?: string;
-  parentAssetId?: string;
 }
 
 interface ForgeTrayState {

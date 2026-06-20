@@ -88,7 +88,7 @@ function createMockRepo(): SpaceRepository {
         name: input.name,
         type: input.type,
         media_kind: input.mediaKind ?? 'image',
-        parent_asset_id: input.parentAssetId ?? null,
+        parent_asset_id: null,
       })
     ),
     createLineage: mock.fn(async (input) =>
@@ -868,29 +868,28 @@ describe('VariantController', () => {
       assert.strictEqual(result.variant.status, 'uploading');
 
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
-      assert.strictEqual(createCall.parentAssetId, null);
+      assert.strictEqual('parentAssetId' in createCall, false);
 
       // Verify both asset:created and variant:created broadcasts
       assert.ok(broadcasts.some((b) => b.type === 'asset:created'));
       assert.ok(broadcasts.some((b) => b.type === 'variant:created'));
     });
 
-    test('creates new asset with parent', async () => {
+    test('ignores legacy parent field when creating upload asset', async () => {
       const { ctx } = createMockContext();
       const controller = new VariantController(ctx);
 
-      const result = await controller.httpCreateUploadPlaceholder({
+      await controller.httpCreateUploadPlaceholder({
         variantId: 'upload-var',
         assetName: 'Child Asset',
         assetType: 'prop',
-        parentAssetId: 'parent-asset',
         recipe: '{}',
         createdBy: 'user-1',
-      });
+        parentAssetId: 'parent-asset',
+      } as Parameters<typeof controller.httpCreateUploadPlaceholder>[0] & { parentAssetId: string });
 
-      // Verify createAsset was called with parentAssetId
       const createCall = asMock(ctx.repo.createAsset).mock.calls[0].arguments[0];
-      assert.strictEqual(createCall.parentAssetId, 'parent-asset');
+      assert.strictEqual('parentAssetId' in createCall, false);
     });
 
     test('throws when asset not found', async () => {

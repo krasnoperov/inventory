@@ -116,11 +116,9 @@ export function HyperbolicCanvas({
       data: { asset, variant: variantForAsset(asset), spaceId },
     }));
 
-    const parentEdges = assets
-      .filter((a) => a.parent_asset_id)
-      .map((a) => ({ id: `${a.parent_asset_id}-${a.id}`, source: a.parent_asset_id!, target: a.id }));
+    const graphEdges: Array<{ id: string; source: string; target: string }> = [];
 
-    const { nodes: laidOut } = applyLayout(nodes, parentEdges, {
+    const { nodes: laidOut } = applyLayout(nodes, graphEdges, {
       algorithm: 'dagre',
       direction: 'TB',
       nodeDimensions: new Map(),
@@ -128,7 +126,7 @@ export function HyperbolicCanvas({
     });
 
     const positions = laidOut.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y }));
-    return { diskPositions: layoutToDisk(positions), edges: parentEdges };
+    return { diskPositions: layoutToDisk(positions), edges: graphEdges };
   }, [assets, variantForAsset, spaceId]);
 
   // Track viewport size and compute the disk geometry.

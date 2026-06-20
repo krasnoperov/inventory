@@ -84,7 +84,6 @@ export interface ForgeSubmitParams {
     assetId?: string;
     assetName?: string;
     assetType?: string;
-    parentAssetId?: string | null;
   };
   operation: ForgeOperation;
   /** Number of batch variants to generate (2-8) */

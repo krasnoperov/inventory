@@ -195,7 +195,6 @@ test('assets list and show support JSON output', async () => {
     type: 'scene',
     media_kind: 'video',
     activeVariantId: 'variant-1',
-    parentAssetId: null,
     createdAt: asset.created_at,
     updatedAt: asset.updated_at,
   });

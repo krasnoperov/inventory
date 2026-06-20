@@ -53,11 +53,11 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 
 | Message | Fields | Description |
 |---------|--------|-------------|
-| `asset:create` | `name`, `assetType`, `mediaKind?`, `parentAssetId?` | Create new asset |
-| `asset:update` | `assetId`, `changes: { name?, tags?, type?, parentAssetId? }` | Update asset |
+| `asset:create` | `name`, `assetType`, `mediaKind?` | Create new asset |
+| `asset:update` | `assetId`, `changes: { name?, tags?, type? }` | Update asset |
 | `asset:delete` | `assetId` | Delete asset |
 | `asset:setActive` | `assetId`, `variantId` | Set active variant |
-| `asset:fork` | `sourceVariantId`, `name`, `assetType`, `mediaKind?`, `parentAssetId?` | Fork asset from variant |
+| `asset:fork` | `sourceVariantId`, `name`, `assetType`, `mediaKind?` | Fork asset from variant |
 
 ### Variants
 
@@ -106,9 +106,9 @@ lineage. Mutations require editor access; viewers can receive sync snapshots.
 | `chat:send` | `message`, `mode: 'advisor'\|'actor'`, `forgeContext?`, `viewingContext?` | Send chat message (persistent chat) |
 | `chat:history` | `since?` | Request chat history |
 | `chat:new_session` | - | Start new chat session |
-| `generate:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt?`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?`, `stylePresetId?`, `styleVariantIds?` | Generate new asset (triggers GenerationWorkflow) |
+| `generate:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt?`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `disableStyle?`, `stylePresetId?`, `styleVariantIds?` | Generate new asset (triggers GenerationWorkflow) |
 | `refine:request` | `requestId`, `assetId`, `mediaKind?`, `prompt`, `sourceVariantId?`, `sourceVariantIds?`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `disableStyle?`, `stylePresetId?`, `styleVariantIds?` | Refine existing asset |
-| `batch:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt`, `count`, `mode: 'explore'\|'set'`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `parentAssetId?`, `disableStyle?`, `stylePresetId?`, `styleVariantIds?` | Batch generate (see [style-and-batch.md](./style-and-batch.md)) |
+| `batch:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt`, `count`, `mode: 'explore'\|'set'`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `disableStyle?`, `stylePresetId?`, `styleVariantIds?` | Batch generate (see [style-and-batch.md](./style-and-batch.md)) |
 | `describe:request` | `requestId`, `variantId`, `assetName`, `focus?`, `question?` | Describe image with Claude Vision |
 | `compare:request` | `requestId`, `variantIds`, `aspects?` | Compare images with Claude Vision |
 | `auto-describe:request` | `variantId` | Auto-describe variant (cached, for Forge Tray context) |

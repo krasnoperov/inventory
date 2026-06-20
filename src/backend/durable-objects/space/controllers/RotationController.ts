@@ -93,7 +93,8 @@ export class RotationController extends BaseController {
       throw new ValidationError(`Invalid rotation config: ${msg.config}`);
     }
 
-    // Create child asset for the rotation set
+    // Create an asset for the rotation set. Organization belongs in collections/relations,
+    // not the legacy parent hierarchy.
     const rotationAssetId = crypto.randomUUID();
     const rotationAsset = await this.repo.createAsset({
       id: rotationAssetId,
@@ -101,7 +102,6 @@ export class RotationController extends BaseController {
       type: sourceAsset.type,
       mediaKind: sourceMediaKind,
       tags: [],
-      parentAssetId: sourceAsset.id,
       createdBy: meta.userId,
     });
     this.broadcast({ type: 'asset:created', asset: rotationAsset });
@@ -445,7 +445,7 @@ export class RotationController extends BaseController {
     const canvasW = layout.cols * cellSize;
     const canvasH = layout.rows * cellSize;
 
-    // Create child asset
+    // Create an asset for the rotation set without writing legacy parent hierarchy.
     const rotationAssetId = crypto.randomUUID();
     const rotationAsset = await this.repo.createAsset({
       id: rotationAssetId,
@@ -453,7 +453,6 @@ export class RotationController extends BaseController {
       type: sourceAsset.type,
       mediaKind: sourceMediaKind,
       tags: [],
-      parentAssetId: sourceAsset.id,
       createdBy: meta.userId,
     });
     this.broadcast({ type: 'asset:created', asset: rotationAsset });

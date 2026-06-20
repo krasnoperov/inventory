@@ -108,7 +108,6 @@ interface ForgeClient {
     model?: string;
     aspectRatio?: string;
     imageSize?: string;
-    parentAssetId?: string;
     disableStyle?: boolean;
     stylePresetId?: string;
     mediaKind?: MediaKind;
@@ -147,7 +146,6 @@ interface ForgeClient {
     model?: string;
     aspectRatio?: string;
     imageSize?: string;
-    parentAssetId?: string;
     disableStyle?: boolean;
     stylePresetId?: string;
     mediaKind?: MediaKind;
@@ -562,7 +560,6 @@ async function executeGenerate(
     prompt,
     ...imageOptions,
     aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
-    parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
     ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
     mediaKind,
@@ -775,7 +772,6 @@ async function executeDerive(
     referenceVariantIds,
     ...imageOptions,
     aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
-    parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
     ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
     mediaKind,
@@ -1066,7 +1062,6 @@ async function executeBatch(
     referenceVariantIds,
     ...imageOptions,
     aspectRatio: imageOptions.aspectRatio,
-    parentAssetId: parsed.options.parent,
     disableStyle: parsed.options['no-style'] === 'true',
     ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
     mediaKind,

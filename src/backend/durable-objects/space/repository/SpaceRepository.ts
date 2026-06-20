@@ -440,7 +440,6 @@ export class SpaceRepository {
     type: string;
     mediaKind?: MediaKind;
     tags: string[];
-    parentAssetId?: string | null;
     createdBy: string;
   }): Promise<Asset> {
     const now = Date.now();
@@ -451,7 +450,7 @@ export class SpaceRepository {
       asset.type,
       asset.mediaKind ?? DEFAULT_MEDIA_KIND,
       JSON.stringify(asset.tags),
-      asset.parentAssetId ?? null,
+      null,
       null, // active_variant_id
       asset.createdBy,
       now,
@@ -495,8 +494,7 @@ export class SpaceRepository {
       }
     }
 
-    // Reparent child assets to root (set parent_asset_id to NULL)
-    // This prevents orphaned children with invalid parent references
+    // Keep historical parent rows readable after deletes by clearing dangling references.
     await this.sql.exec(
       'UPDATE assets SET parent_asset_id = NULL, updated_at = ? WHERE parent_asset_id = ?',
       Date.now(),

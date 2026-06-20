@@ -97,7 +97,6 @@ export async function executeUpload(
   const assetId = parsed.options.asset;
   const assetName = parsed.options.name;
   const assetType = parsed.options.type || 'character';
-  const parentAssetId = parsed.options.parent;
   const requestedMediaKind = parsed.options['media-kind'] || parsed.options.mediaKind;
   const filePath = parsed.positionals[0];
 
@@ -163,9 +162,6 @@ export async function executeUpload(
     } else {
       formData.append('assetName', assetName!);
       formData.append('assetType', assetType);
-      if (parentAssetId) {
-        formData.append('parentAssetId', parentAssetId);
-      }
     }
 
     deps.print(`\nUploading "${fileName}" to space ${spaceId}...`);
@@ -277,7 +273,6 @@ Options:
   --name <name>     New asset name (creates asset + variant)
   --type <type>     Asset type for new assets (default: character)
   --media-kind <k>  Optional explicit kind: image, audio, or video
-  --parent <id>     Parent asset ID for new assets
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
 
@@ -286,6 +281,5 @@ Examples:
   makefx upload theme.mp3 --space abc123 --name "Theme Music" --type audio
   makefx upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
   makefx upload variant.jpg --space abc123 --asset def456
-  makefx upload sword.png --space abc123 --name "Sword" --type item --parent abc789
 `);
 }

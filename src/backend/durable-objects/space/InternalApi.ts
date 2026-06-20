@@ -55,19 +55,16 @@ export interface InternalApiControllers {
       name: string;
       type: string;
       mediaKind?: MediaKind;
-      parentAssetId?: string;
       createdBy: string;
     }): Promise<unknown>;
     httpGetDetails(assetId: string): Promise<unknown>;
     httpGetChildren(assetId: string): Promise<unknown>;
     httpGetAncestors(assetId: string): Promise<unknown>;
-    httpReparent(assetId: string, parentAssetId: string | null): Promise<unknown>;
     httpFork(data: {
       sourceVariantId: string;
       name: string;
       type: string;
       mediaKind?: MediaKind;
-      parentAssetId?: string;
       createdBy: string;
     }): Promise<unknown>;
     httpSetActive(assetId: string, variantId: string): Promise<unknown>;
@@ -111,7 +108,6 @@ export interface InternalApiControllers {
       assetName?: string;
       assetType?: string;
       mediaKind?: MediaKind;
-      parentAssetId?: string | null;
       recipe: string;
       createdBy: string;
     }): Promise<{ variant: Variant; asset?: unknown; assetId: string }>;
@@ -383,13 +379,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     return c.json({ success: true, ancestors });
   });
 
-  app.patch('/internal/asset/:assetId/parent', async (c) => {
-    const assetId = c.req.param('assetId');
-    const data = (await c.req.json()) as { parentAssetId: string | null };
-    const asset = await controllers.asset.httpReparent(assetId, data.parentAssetId);
-    return c.json({ success: true, asset });
-  });
-
   app.post('/internal/fork', async (c) => {
     const data = await c.req.json();
     const result = await controllers.asset.httpFork(data);
@@ -433,7 +422,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       assetName?: string;
       assetType?: string;
       mediaKind?: MediaKind;
-      parentAssetId?: string | null;
       recipe: string;
       createdBy: string;
     };

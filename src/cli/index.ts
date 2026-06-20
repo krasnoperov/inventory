@@ -445,7 +445,6 @@ Options:
   --name <name>     New asset name (creates asset + variant)
   --type <type>     Asset type for new assets (default: character)
   --media-kind <k>  Optional explicit kind: image, audio, or video
-  --parent <id>     Parent asset ID for new assets
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
 `);

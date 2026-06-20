@@ -172,7 +172,6 @@ export class VariantController extends BaseController {
     assetName?: string;
     assetType?: string;
     mediaKind?: MediaKind;
-    parentAssetId?: string | null;
     recipe: string;
     createdBy: string;
   }): Promise<{ variant: Variant; asset?: Asset; assetId: string }> {
@@ -197,7 +196,6 @@ export class VariantController extends BaseController {
         type: data.assetType || 'character',
         mediaKind: data.mediaKind,
         tags: [],
-        parentAssetId: data.parentAssetId || null,
         createdBy: data.createdBy,
       });
       createdNewAsset = true;
