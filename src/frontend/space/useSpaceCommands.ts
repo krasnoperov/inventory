@@ -10,6 +10,10 @@ import type {
   CollectionItemCreateParams,
   CollectionItemUpdateParams,
   CollectionUpdateParams,
+  CompositionCreateParams,
+  CompositionItemCreateParams,
+  CompositionItemUpdateParams,
+  CompositionUpdateParams,
   CompareRequestParams,
   DescribeRequestParams,
   ForkParams,
@@ -55,6 +59,13 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'updateCollectionItem'
   | 'reorderCollectionItems'
   | 'deleteCollectionItem'
+  | 'createComposition'
+  | 'updateComposition'
+  | 'deleteComposition'
+  | 'createCompositionItem'
+  | 'updateCompositionItem'
+  | 'reorderCompositionItems'
+  | 'deleteCompositionItem'
   | 'requestSync'
   | 'requestOverviewSync'
   | 'trackJob'
@@ -227,6 +238,61 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
 
   const deleteCollectionItem = useCallback((collectionId: string, itemId: string) => {
     sendMessage({ type: 'collection_item:delete', collectionId, itemId });
+  }, [sendMessage]);
+
+  const createComposition = useCallback((params: CompositionCreateParams): string => {
+    const compositionId = params.id ?? crypto.randomUUID();
+    sendMessage({
+      type: 'composition:create',
+      id: compositionId,
+      name: params.name,
+      description: params.description,
+      status: params.status,
+      outputAssetId: params.outputAssetId,
+      outputVariantId: params.outputVariantId,
+      metadata: params.metadata,
+      sortIndex: params.sortIndex,
+    });
+    return compositionId;
+  }, [sendMessage]);
+
+  const updateComposition = useCallback((compositionId: string, changes: CompositionUpdateParams) => {
+    sendMessage({ type: 'composition:update', compositionId, changes });
+  }, [sendMessage]);
+
+  const deleteComposition = useCallback((compositionId: string) => {
+    sendMessage({ type: 'composition:delete', compositionId });
+  }, [sendMessage]);
+
+  const createCompositionItem = useCallback((compositionId: string, params: CompositionItemCreateParams): string => {
+    const itemId = params.id ?? crypto.randomUUID();
+    sendMessage({
+      type: 'composition_item:create',
+      compositionId,
+      id: itemId,
+      role: params.role,
+      assetId: params.assetId,
+      variantId: params.variantId,
+      metadata: params.metadata,
+      sortIndex: params.sortIndex,
+    });
+    return itemId;
+  }, [sendMessage]);
+
+  const updateCompositionItem = useCallback((
+    compositionId: string,
+    itemId: string,
+    changes: CompositionItemUpdateParams,
+  ) => {
+    sendMessage({ type: 'composition_item:update', compositionId, itemId, changes });
+  }, [sendMessage]);
+
+  const reorderCompositionItems = useCallback((compositionId: string, itemIds: string[]) => {
+    sendMessage({ type: 'composition_items:reorder', compositionId, itemIds });
+  }, [sendMessage]);
+
+  const deleteCompositionItem = useCallback((compositionId: string, itemId: string) => {
+    sendMessage({ type: 'composition_item:delete', compositionId, itemId });
   }, [sendMessage]);
 
   const requestSync = useCallback(() => {
@@ -593,6 +659,13 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
     updateCollectionItem,
     reorderCollectionItems,
     deleteCollectionItem,
+    createComposition,
+    updateComposition,
+    deleteComposition,
+    createCompositionItem,
+    updateCompositionItem,
+    reorderCompositionItems,
+    deleteCompositionItem,
     requestSync,
     requestOverviewSync,
     updatePresence,

@@ -94,6 +94,8 @@ function getStoreActions() {
     setRelations: store.setRelations,
     setCollections: store.setCollections,
     setCollectionItems: store.setCollectionItems,
+    setCompositions: store.setCompositions,
+    setCompositionItems: store.setCompositionItems,
     setJobs: store.setJobs,
     setPresence: store.setPresence,
     setRotationSets: store.setRotationSets,

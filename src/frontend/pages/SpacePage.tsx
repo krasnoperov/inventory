@@ -39,6 +39,7 @@ import { useImageUpload } from '../hooks/useImageUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import { StylePanel } from '../components/ForgeTray/StylePanel';
 import { RelationEditorDialog } from '../components/RelationsPanel';
+import { CompositionDetail } from '../components/CompositionDetail';
 import { spacePageQueryOptions } from '../queries';
 import styles from './SpacePage.module.css';
 
@@ -114,9 +115,13 @@ export default function SpacePage() {
     hasSynced,
     assets,
     variants,
+    lineage,
     collections,
     collectionItems,
+    compositions,
+    compositionItems,
     jobs,
+    requestSync,
     requestOverviewSync,
     clearJob,
     sendGenerateRequest,
@@ -133,6 +138,13 @@ export default function SpacePage() {
     updateCollectionItem,
     reorderCollectionItems,
     deleteCollectionItem,
+    createComposition,
+    updateComposition,
+    deleteComposition,
+    createCompositionItem,
+    updateCompositionItem,
+    reorderCompositionItems,
+    deleteCompositionItem,
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,
@@ -233,6 +245,10 @@ export default function SpacePage() {
   // Tile Set panel state
   const [showTileSetPanel, setShowTileSetPanel] = useState(false);
 
+  // Composition detail panel state
+  const [showCompositionPanel, setShowCompositionPanel] = useState(false);
+  const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
+
   // Style panel state
   const [showStylePanel, setShowStylePanel] = useState(false);
   const currentStyle = useStyleStore((s) => s.style);
@@ -291,6 +307,20 @@ export default function SpacePage() {
     createRelation(params);
     setRelationSubject(null);
   }, [createRelation]);
+
+  const handleOpenCompositions = useCallback(() => {
+    requestSync();
+    setSelectedCompositionId((current) => current ?? compositions[0]?.id ?? null);
+    setShowCompositionPanel(true);
+  }, [compositions, requestSync]);
+
+  const handleCreateComposition = useCallback(() => {
+    const id = createComposition({
+      name: `Composition ${compositions.length + 1}`,
+    });
+    setSelectedCompositionId(id);
+    setShowCompositionPanel(true);
+  }, [compositions.length, createComposition]);
 
   // Export space as ZIP
   const handleExport = useCallback(async () => {
@@ -490,6 +520,18 @@ export default function SpacePage() {
               <circle cx="17" cy="18" r="3" />
             </svg>
           </CanvasToolbarButton>
+          <CanvasToolbarButton
+            onClick={handleOpenCompositions}
+            title="Open compositions"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="4" y="4" width="7" height="7" rx="1" />
+              <rect x="13" y="4" width="7" height="7" rx="1" />
+              <rect x="8.5" y="13" width="7" height="7" rx="1" />
+              <path d="M11 7.5h2" />
+              <path d="M12 11v2" />
+            </svg>
+          </CanvasToolbarButton>
           <CanvasToolbarDivider />
           <CanvasToolbarButton
             onClick={handleExport}
@@ -630,6 +672,36 @@ export default function SpacePage() {
           }}
           onClose={() => setShowTileSetPanel(false)}
         />
+      )}
+
+      {showCompositionPanel && (
+        <div className={styles.compositionPanelContainer}>
+          <CompositionDetail
+            spaceId={spaceId}
+            compositions={compositions}
+            compositionItems={compositionItems}
+            assets={assets}
+            variants={variants}
+            lineage={lineage}
+            collections={collections}
+            collectionItems={collectionItems}
+            selectedCompositionId={selectedCompositionId}
+            canEdit={canEdit}
+            onSelectComposition={setSelectedCompositionId}
+            onCreateComposition={canEdit ? handleCreateComposition : undefined}
+            onUpdateComposition={updateComposition}
+            onDeleteComposition={(compositionId) => {
+              deleteComposition(compositionId);
+              setSelectedCompositionId((current) => current === compositionId ? null : current);
+            }}
+            onCreateItem={createCompositionItem}
+            onUpdateItem={updateCompositionItem}
+            onDeleteItem={deleteCompositionItem}
+            onReorderItems={reorderCompositionItems}
+            onOpenAsset={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
+            onClose={() => setShowCompositionPanel(false)}
+          />
+        </div>
       )}
 
       {/* Style Panel - floating panel from toolbar */}

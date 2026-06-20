@@ -230,6 +230,59 @@ export interface CollectionItem {
   updated_at: number;
 }
 
+export type CompositionItemRole =
+  | 'output'
+  | 'background'
+  | 'character'
+  | 'prop'
+  | 'style_ref'
+  | 'overlay'
+  | 'map'
+  | 'thumbnail'
+  | 'custom';
+
+export type CompositionStatus = 'draft' | 'final';
+
+export interface Composition {
+  id: string;
+  name: string;
+  description: string | null;
+  status: CompositionStatus;
+  output_asset_id: string | null;
+  output_variant_id: string | null;
+  metadata: string;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface CompositionOverview {
+  id: string;
+  name: string;
+  description: string | null;
+  status: CompositionStatus;
+  output_asset_id: string | null;
+  output_variant_id: string | null;
+  sort_index: number;
+  item_count: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface CompositionItem {
+  id: string;
+  composition_id: string;
+  role: CompositionItemRole;
+  asset_id: string | null;
+  variant_id: string;
+  metadata: string;
+  sort_index: number;
+  created_by: string;
+  created_at: number;
+  updated_at: number;
+}
+
 // Rotation & Tile Set types
 
 export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
@@ -693,6 +746,44 @@ export interface CollectionItemUpdateParams {
   sortIndex?: number;
 }
 
+export interface CompositionCreateParams {
+  id?: string;
+  name: string;
+  description?: string | null;
+  status?: CompositionStatus;
+  outputAssetId?: string | null;
+  outputVariantId?: string | null;
+  metadata?: Record<string, unknown>;
+  sortIndex?: number;
+}
+
+export interface CompositionUpdateParams {
+  name?: string;
+  description?: string | null;
+  status?: CompositionStatus;
+  outputAssetId?: string | null;
+  outputVariantId?: string | null;
+  metadata?: Record<string, unknown>;
+  sortIndex?: number;
+}
+
+export interface CompositionItemCreateParams {
+  id?: string;
+  role: CompositionItemRole;
+  assetId?: string | null;
+  variantId: string;
+  metadata?: Record<string, unknown>;
+  sortIndex?: number;
+}
+
+export interface CompositionItemUpdateParams {
+  role?: CompositionItemRole;
+  assetId?: string | null;
+  variantId?: string;
+  metadata?: Record<string, unknown>;
+  sortIndex?: number;
+}
+
 // Deferred action from agentic loop (tray operations)
 export interface DeferredAction {
   tool: string;
@@ -852,8 +943,8 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 export type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: Composition[]; compositionItems?: CompositionItem[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: CompositionOverview[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; style?: SpaceStyleRaw | null; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -873,6 +964,13 @@ export type ServerMessage =
   | { type: 'collection_item:updated'; item: CollectionItem }
   | { type: 'collection_items:reordered'; collectionId: string; items: CollectionItem[] }
   | { type: 'collection_item:deleted'; collectionId: string; itemId: string }
+  | { type: 'composition:created'; composition: Composition }
+  | { type: 'composition:updated'; composition: Composition }
+  | { type: 'composition:deleted'; compositionId: string }
+  | { type: 'composition_item:created'; item: CompositionItem }
+  | { type: 'composition_item:updated'; item: CompositionItem }
+  | { type: 'composition_items:reordered'; compositionId: string; items: CompositionItem[] }
+  | { type: 'composition_item:deleted'; compositionId: string; itemId: string }
   | { type: 'job:progress'; jobId: string; status: string }
   | { type: 'job:completed'; jobId: string; variant: Variant }
   | { type: 'job:failed'; jobId: string; error: string }
@@ -982,6 +1080,8 @@ export interface UseSpaceWebSocketReturn {
   relations: SpaceRelation[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
+  compositions: Array<Composition | CompositionOverview>;
+  compositionItems: CompositionItem[];
   jobs: Map<string, JobStatus>;
   presence: UserPresence[];
   sendMessage: (msg: object) => void;
@@ -1012,6 +1112,13 @@ export interface UseSpaceWebSocketReturn {
   updateCollectionItem: (collectionId: string, itemId: string, changes: CollectionItemUpdateParams) => void;
   reorderCollectionItems: (collectionId: string, itemIds: string[]) => void;
   deleteCollectionItem: (collectionId: string, itemId: string) => void;
+  createComposition: (params: CompositionCreateParams) => string;
+  updateComposition: (compositionId: string, changes: CompositionUpdateParams) => void;
+  deleteComposition: (compositionId: string) => void;
+  createCompositionItem: (compositionId: string, params: CompositionItemCreateParams) => string;
+  updateCompositionItem: (compositionId: string, itemId: string, changes: CompositionItemUpdateParams) => void;
+  reorderCompositionItems: (compositionId: string, itemIds: string[]) => void;
+  deleteCompositionItem: (compositionId: string, itemId: string) => void;
   requestSync: () => void;
   requestOverviewSync: () => void;
   trackJob: (jobId: string, context?: JobContext) => void;

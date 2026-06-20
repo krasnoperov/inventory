@@ -15,6 +15,8 @@ export interface SpaceMessageContext {
   setRelations: SpaceSessionState['setRelations'];
   setCollections: SpaceSessionState['setCollections'];
   setCollectionItems: SpaceSessionState['setCollectionItems'];
+  setCompositions: SpaceSessionState['setCompositions'];
+  setCompositionItems: SpaceSessionState['setCompositionItems'];
   setJobs: SpaceSessionState['setJobs'];
   setPresence: SpaceSessionState['setPresence'];
   setRotationSets: SpaceSessionState['setRotationSets'];
@@ -41,6 +43,8 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     setRelations,
     setCollections,
     setCollectionItems,
+    setCompositions,
+    setCompositionItems,
     setJobs,
     setPresence,
     setRotationSets,
@@ -104,6 +108,8 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setRelations(message.relations || []);
                 setCollections(message.collections || []);
                 setCollectionItems(message.collectionItems || []);
+                setCompositions(message.compositions || []);
+                setCompositionItems(message.compositionItems || []);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
@@ -129,7 +135,10 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setLineage([]);
                 setRelations(message.relations || []);
                 setCollections(message.collections || []);
-                setCollectionItems(message.collectionItems || []);
+                if (message.collectionItems !== undefined) {
+                  setCollectionItems(message.collectionItems);
+                }
+                setCompositions(message.compositions || []);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
@@ -295,6 +304,57 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
 
               case 'collection_item:deleted':
                 setCollectionItems((prev) => prev.filter((item) => item.id !== message.itemId));
+                break;
+
+              case 'composition:created':
+                setCompositions((prev) => (
+                  prev.some((composition) => composition.id === message.composition.id)
+                    ? prev
+                    : [...prev, message.composition].sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at)
+                ));
+                break;
+
+              case 'composition:updated':
+                setCompositions((prev) =>
+                  prev
+                    .map((composition) => composition.id === message.composition.id ? message.composition : composition)
+                    .sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at)
+                );
+                break;
+
+              case 'composition:deleted':
+                setCompositions((prev) => prev.filter((composition) => composition.id !== message.compositionId));
+                setCompositionItems((prev) => prev.filter((item) => item.composition_id !== message.compositionId));
+                break;
+
+              case 'composition_item:created':
+                setCompositionItems((prev) => (
+                  prev.some((item) => item.id === message.item.id)
+                    ? prev
+                    : [...prev, message.item].sort((a, b) => a.composition_id.localeCompare(b.composition_id) || a.sort_index - b.sort_index || a.created_at - b.created_at)
+                ));
+                break;
+
+              case 'composition_item:updated':
+                setCompositionItems((prev) =>
+                  prev
+                    .map((item) => item.id === message.item.id ? message.item : item)
+                    .sort((a, b) => a.composition_id.localeCompare(b.composition_id) || a.sort_index - b.sort_index || a.created_at - b.created_at)
+                );
+                break;
+
+              case 'composition_items:reordered':
+                setCompositionItems((prev) => {
+                  const reorderedIds = new Set(message.items.map((item) => item.id));
+                  return [
+                    ...prev.filter((item) => item.composition_id !== message.compositionId || !reorderedIds.has(item.id)),
+                    ...message.items,
+                  ].sort((a, b) => a.composition_id.localeCompare(b.composition_id) || a.sort_index - b.sort_index || a.created_at - b.created_at);
+                });
+                break;
+
+              case 'composition_item:deleted':
+                setCompositionItems((prev) => prev.filter((item) => item.id !== message.itemId));
                 break;
 
               case 'job:progress':

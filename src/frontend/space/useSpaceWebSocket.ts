@@ -4,6 +4,8 @@ import {
   EMPTY_ASSETS,
   EMPTY_COLLECTION_ITEMS,
   EMPTY_COLLECTIONS,
+  EMPTY_COMPOSITION_ITEMS,
+  EMPTY_COMPOSITIONS,
   EMPTY_JOBS,
   EMPTY_LINEAGE,
   EMPTY_PRESENCE,
@@ -97,6 +99,8 @@ export function useSpaceWebSocket({
   const rawRelations = useSpaceSessionStore((state) => state.relations);
   const rawCollections = useSpaceSessionStore((state) => state.collections);
   const rawCollectionItems = useSpaceSessionStore((state) => state.collectionItems);
+  const rawCompositions = useSpaceSessionStore((state) => state.compositions);
+  const rawCompositionItems = useSpaceSessionStore((state) => state.compositionItems);
   const rawJobs = useSpaceSessionStore((state) => state.jobs);
   const rawPresence = useSpaceSessionStore((state) => state.presence);
   const rawRotationSets = useSpaceSessionStore((state) => state.rotationSets);
@@ -115,6 +119,8 @@ export function useSpaceWebSocket({
   const relations = ownsState ? rawRelations : EMPTY_RELATIONS;
   const collections = ownsState ? rawCollections : EMPTY_COLLECTIONS;
   const collectionItems = ownsState ? rawCollectionItems : EMPTY_COLLECTION_ITEMS;
+  const compositions = ownsState ? rawCompositions : EMPTY_COMPOSITIONS;
+  const compositionItems = ownsState ? rawCompositionItems : EMPTY_COMPOSITION_ITEMS;
   const jobs = ownsState ? rawJobs : EMPTY_JOBS;
   const presence = ownsState ? rawPresence : EMPTY_PRESENCE;
   const rotationSets = ownsState ? rawRotationSets : EMPTY_ROTATION_SETS;
@@ -145,6 +151,13 @@ export function useSpaceWebSocket({
     updateCollectionItem,
     reorderCollectionItems,
     deleteCollectionItem,
+    createComposition,
+    updateComposition,
+    deleteComposition,
+    createCompositionItem,
+    updateCompositionItem,
+    reorderCompositionItems,
+    deleteCompositionItem,
     requestSync,
     requestOverviewSync,
     trackJob,
@@ -253,6 +266,8 @@ export function useSpaceWebSocket({
     relations,
     collections,
     collectionItems,
+    compositions,
+    compositionItems,
     jobs,
     presence,
     sendMessage,
@@ -275,6 +290,13 @@ export function useSpaceWebSocket({
     updateCollectionItem,
     reorderCollectionItems,
     deleteCollectionItem,
+    createComposition,
+    updateComposition,
+    deleteComposition,
+    createCompositionItem,
+    updateCompositionItem,
+    reorderCompositionItems,
+    deleteCompositionItem,
     requestSync,
     requestOverviewSync,
     trackJob,
