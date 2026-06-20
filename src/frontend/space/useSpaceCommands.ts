@@ -14,6 +14,9 @@ import type {
   JobContext,
   RefineRequestParams,
   RotationRequestParams,
+  SpaceRelationContext,
+  SpaceRelationType,
+  SpaceSubject,
   TileSetRequestParams,
   UseSpaceWebSocketReturn,
 } from './protocol';
@@ -38,6 +41,9 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'starVariant'
   | 'retryVariant'
   | 'severLineage'
+  | 'createRelation'
+  | 'updateRelation'
+  | 'deleteRelation'
   | 'requestSync'
   | 'requestOverviewSync'
   | 'trackJob'
@@ -138,6 +144,32 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
   // Sever lineage link (cut historical connection)
   const severLineage = useCallback((lineageId: string) => {
     sendMessage({ type: 'lineage:sever', lineageId });
+  }, [sendMessage]);
+
+  const createRelation = useCallback((params: {
+    subject: SpaceSubject;
+    object: SpaceSubject;
+    relationType: SpaceRelationType;
+    context?: SpaceRelationContext | string | null;
+  }) => {
+    sendMessage({
+      type: 'relation:create',
+      subject: params.subject,
+      object: params.object,
+      relationType: params.relationType,
+      context: params.context ?? null,
+    });
+  }, [sendMessage]);
+
+  const updateRelation = useCallback((relationId: string, changes: {
+    relationType?: SpaceRelationType;
+    context?: SpaceRelationContext | string | null;
+  }) => {
+    sendMessage({ type: 'relation:update', relationId, changes });
+  }, [sendMessage]);
+
+  const deleteRelation = useCallback((relationId: string) => {
+    sendMessage({ type: 'relation:delete', relationId });
   }, [sendMessage]);
 
   const requestSync = useCallback(() => {
@@ -494,6 +526,9 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
     starVariant,
     retryVariant,
     severLineage,
+    createRelation,
+    updateRelation,
+    deleteRelation,
     requestSync,
     requestOverviewSync,
     updatePresence,

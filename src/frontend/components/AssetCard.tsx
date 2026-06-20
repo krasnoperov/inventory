@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { type Asset, type Variant, isVariantForgeTrayReady } from '../hooks/useSpaceWebSocket';
+import { type Asset, type SpaceSubject, type Variant, isVariantForgeTrayReady } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
 import { Thumbnail } from './Thumbnail';
@@ -21,6 +21,7 @@ export interface AssetCardProps {
   onAddChildAsset?: (asset: Asset) => void;
   onRenameAsset?: (asset: Asset) => void;
   onMoveAsset?: (asset: Asset) => void;
+  onCreateRelation?: (subject: SpaceSubject) => void;
   onDeleteAsset?: (asset: Asset) => void;
 }
 
@@ -39,6 +40,7 @@ export function AssetCard(props: AssetCardProps) {
     onAddChildAsset,
     onRenameAsset,
     onMoveAsset,
+    onCreateRelation,
     onDeleteAsset,
   } = props;
   const [showAssetMenu, setShowAssetMenu] = useState(false);
@@ -290,6 +292,7 @@ export function AssetCard(props: AssetCardProps) {
           onAddChild={onAddChildAsset ? () => onAddChildAsset(asset) : undefined}
           onRename={onRenameAsset ? () => onRenameAsset(asset) : undefined}
           onMove={onMoveAsset ? () => onMoveAsset(asset) : undefined}
+          onCreateRelation={onCreateRelation ? () => onCreateRelation({ subjectType: 'asset', assetId: asset.id }) : undefined}
           onDelete={onDeleteAsset ? () => onDeleteAsset(asset) : undefined}
         />
       )}

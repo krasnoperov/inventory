@@ -5,6 +5,7 @@ import {
   EMPTY_JOBS,
   EMPTY_LINEAGE,
   EMPTY_PRESENCE,
+  EMPTY_RELATIONS,
   EMPTY_ROTATION_SETS,
   EMPTY_ROTATION_VIEWS,
   EMPTY_TILE_POSITIONS,
@@ -91,6 +92,7 @@ export function useSpaceWebSocket({
   const rawAssets = useSpaceSessionStore((state) => state.assets);
   const rawVariants = useSpaceSessionStore((state) => state.variants);
   const rawLineage = useSpaceSessionStore((state) => state.lineage);
+  const rawRelations = useSpaceSessionStore((state) => state.relations);
   const rawJobs = useSpaceSessionStore((state) => state.jobs);
   const rawPresence = useSpaceSessionStore((state) => state.presence);
   const rawRotationSets = useSpaceSessionStore((state) => state.rotationSets);
@@ -106,6 +108,7 @@ export function useSpaceWebSocket({
   const assets = ownsState ? rawAssets : EMPTY_ASSETS;
   const variants = ownsState ? rawVariants : EMPTY_VARIANTS;
   const lineage = ownsState ? rawLineage : EMPTY_LINEAGE;
+  const relations = ownsState ? rawRelations : EMPTY_RELATIONS;
   const jobs = ownsState ? rawJobs : EMPTY_JOBS;
   const presence = ownsState ? rawPresence : EMPTY_PRESENCE;
   const rotationSets = ownsState ? rawRotationSets : EMPTY_ROTATION_SETS;
@@ -126,6 +129,9 @@ export function useSpaceWebSocket({
     starVariant,
     retryVariant,
     severLineage,
+    createRelation,
+    updateRelation,
+    deleteRelation,
     requestSync,
     requestOverviewSync,
     trackJob,
@@ -231,6 +237,7 @@ export function useSpaceWebSocket({
     assets,
     variants,
     lineage,
+    relations,
     jobs,
     presence,
     sendMessage,
@@ -243,6 +250,9 @@ export function useSpaceWebSocket({
     starVariant,
     retryVariant,
     severLineage,
+    createRelation,
+    updateRelation,
+    deleteRelation,
     requestSync,
     requestOverviewSync,
     trackJob,

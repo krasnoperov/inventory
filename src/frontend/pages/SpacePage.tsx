@@ -12,6 +12,9 @@ import type {
   Asset,
   Variant,
   ChatForgeContext,
+  SpaceRelationContext,
+  SpaceRelationType,
+  SpaceSubject,
   SpaceStyleRaw,
   GenerationEstimateResult,
 } from '../hooks/useSpaceWebSocket';
@@ -36,6 +39,7 @@ import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import { StylePanel } from '../components/ForgeTray/StylePanel';
+import { RelationEditorDialog } from '../components/RelationsPanel';
 import { spacePageQueryOptions } from '../queries';
 import styles from './SpacePage.module.css';
 
@@ -56,6 +60,7 @@ export default function SpacePage() {
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
+  const [relationSubject, setRelationSubject] = useState<SpaceSubject | null>(null);
 
   // Set page title
   useDocumentTitle(space?.name);
@@ -120,6 +125,7 @@ export default function SpacePage() {
     clearChatSession,
     forkAsset,
     updateAsset,
+    createRelation,
     sendStyleSet,
     sendStyleDelete,
     sendStyleToggle,
@@ -280,6 +286,16 @@ export default function SpacePage() {
     updateAsset(childAssetId, { parentAssetId: newParentAssetId });
   }, [updateAsset]);
 
+  const handleCreateRelation = useCallback((params: {
+    subject: SpaceSubject;
+    object: SpaceSubject;
+    relationType: SpaceRelationType;
+    context: SpaceRelationContext | null;
+  }) => {
+    createRelation(params);
+    setRelationSubject(null);
+  }, [createRelation]);
+
   // Export space as ZIP
   const handleExport = useCallback(async () => {
     if (isExporting) return;
@@ -431,6 +447,7 @@ export default function SpacePage() {
               navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
             }}
             onAddToTray={canEdit ? handleAddToTray : undefined}
+            onCreateRelation={canEdit ? setRelationSubject : undefined}
             onReparent={canEdit ? handleReparent : undefined}
             layoutAlgorithm={layoutAlgorithm}
           />
@@ -649,6 +666,17 @@ export default function SpacePage() {
             sendTileSetCancel(tileSetId);
           }}
           onClose={() => setShowTileSetPanel(false)}
+        />
+      )}
+
+      {relationSubject && (
+        <RelationEditorDialog
+          mode="create"
+          assets={assets}
+          variants={variants}
+          sourceSubject={relationSubject}
+          onCancel={() => setRelationSubject(null)}
+          onCreate={handleCreateRelation}
         />
       )}
 

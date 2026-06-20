@@ -12,6 +12,7 @@ export interface SpaceMessageContext {
   setAssets: SpaceSessionState['setAssets'];
   setVariants: SpaceSessionState['setVariants'];
   setLineage: SpaceSessionState['setLineage'];
+  setRelations: SpaceSessionState['setRelations'];
   setJobs: SpaceSessionState['setJobs'];
   setPresence: SpaceSessionState['setPresence'];
   setRotationSets: SpaceSessionState['setRotationSets'];
@@ -35,6 +36,7 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     setAssets,
     setVariants,
     setLineage,
+    setRelations,
     setJobs,
     setPresence,
     setRotationSets,
@@ -95,6 +97,7 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setAssets(message.assets);
                 setVariants(message.variants);
                 setLineage(message.lineage || []);
+                setRelations(message.relations || []);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
@@ -118,6 +121,7 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setAssets(message.assets);
                 setVariants(message.variants);
                 setLineage([]);
+                setRelations([]);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
@@ -213,6 +217,25 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                     l.id === message.lineageId ? { ...l, severed: true } : l
                   )
                 );
+                break;
+
+              case 'relation:created':
+                setRelations((prev) => {
+                  if (prev.some((relation) => relation.id === message.relation.id)) return prev;
+                  return [...prev, message.relation];
+                });
+                break;
+
+              case 'relation:updated':
+                setRelations((prev) =>
+                  prev.map((relation) =>
+                    relation.id === message.relation.id ? message.relation : relation
+                  )
+                );
+                break;
+
+              case 'relation:deleted':
+                setRelations((prev) => prev.filter((relation) => relation.id !== message.relationId));
                 break;
 
               case 'job:progress':
