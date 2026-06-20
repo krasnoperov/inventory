@@ -18,7 +18,7 @@ import {
   type Asset,
   type Variant,
 } from './useSpaceWebSocket';
-import { handleSpaceServerMessage } from '../space/handleSpaceServerMessage';
+import { handleSpaceServerMessage, type SpaceMessageContext } from '../space/handleSpaceServerMessage';
 import { useSpaceSessionStore } from '../space/spaceStore';
 
 function asset(overrides: Partial<Asset> = {}): Asset {
@@ -159,7 +159,7 @@ describe('space state snapshot cache', () => {
 });
 
 describe('space message handling', () => {
-  function messageContext(store: ReturnType<typeof useSpaceSessionStore.getState>) {
+  function messageContext(store: ReturnType<typeof useSpaceSessionStore.getState>): SpaceMessageContext {
     return {
       syncModeRef: { current: null },
       variantIdsRef: { current: new Set<string>() },
