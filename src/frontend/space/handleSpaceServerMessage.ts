@@ -135,9 +135,7 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setLineage([]);
                 setRelations([]);
                 setCollections(message.collections || []);
-                setCollectionItems([]);
                 setCompositions(message.compositions || []);
-                setCompositionItems([]);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);

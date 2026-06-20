@@ -321,6 +321,86 @@ describe('space message handling', () => {
     assert.deepEqual(next.compositionItems.map((item) => item.id), ['item-2']);
     assert.equal(next.compositionItems[0]?.sort_index, 0);
   });
+
+  test('preserves composition detail items across overview refreshes', () => {
+    const store = useSpaceSessionStore.getState();
+    store.hydrateFromSnapshot('space-1', null);
+    const context = messageContext(store);
+    const collection = {
+      id: 'collection-1',
+      name: 'Cast',
+      description: null,
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: 1,
+      updated_at: 1,
+    };
+    const collectionItem = {
+      id: 'collection-item-1',
+      collection_id: 'collection-1',
+      subject_type: 'asset' as const,
+      asset_id: 'asset-1',
+      variant_id: null,
+      role: 'member',
+      pinned_variant_id: 'variant-1',
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: 1,
+      updated_at: 1,
+    };
+    const composition = {
+      id: 'composition-1',
+      name: 'Scene composition',
+      description: null,
+      status: 'draft' as const,
+      output_asset_id: 'asset-1',
+      output_variant_id: 'variant-1',
+      metadata: '{}',
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: 1,
+      updated_at: 1,
+    };
+    const compositionItem = {
+      id: 'composition-item-1',
+      composition_id: 'composition-1',
+      role: 'character' as const,
+      asset_id: 'asset-1',
+      variant_id: 'variant-1',
+      metadata: '{}',
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: 1,
+      updated_at: 1,
+    };
+
+    handleSpaceServerMessage({
+      type: 'sync:state',
+      assets: [asset()],
+      variants: [variant()],
+      lineage: [],
+      relations: [],
+      collections: [collection],
+      collectionItems: [collectionItem],
+      compositions: [composition],
+      compositionItems: [compositionItem],
+    }, context);
+
+    context.syncModeRef.current = 'overview';
+    handleSpaceServerMessage({
+      type: 'sync:overview',
+      assets: [asset()],
+      variants: [variant()],
+      collections: [{ ...collection, name: 'Updated Cast', updated_at: 2 }],
+      compositions: [{ ...composition, name: 'Overview scene composition', item_count: 1, updated_at: 2 }],
+    }, context);
+
+    const next = useSpaceSessionStore.getState();
+    assert.equal(next.collections[0]?.name, 'Updated Cast');
+    assert.equal(next.compositions[0]?.name, 'Overview scene composition');
+    assert.deepEqual(next.collectionItems.map((item) => item.id), ['collection-item-1']);
+    assert.deepEqual(next.compositionItems.map((item) => item.id), ['composition-item-1']);
+  });
 });
 
 describe('variant media helpers', () => {
