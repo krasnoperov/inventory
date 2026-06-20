@@ -53,7 +53,7 @@ import {
   type RelationShortcut,
 } from '../productionShortcuts';
 import { applyCreatedOutputCollectionPlacements } from '../collectionPlacements';
-import { CollectionPlacementPicker, getDefaultCollectionRole } from '../components/CollectionPlacementPicker';
+import { CollectionPlacementPicker } from '../components/CollectionPlacementPicker';
 import type { CollectionPlacementInput } from '../../shared/websocket-types';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
@@ -108,6 +108,7 @@ export default function AssetDetailPage() {
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
   const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
   const pendingCompositionShortcutsRef = React.useRef(new Map<string, CompositionShortcut>());
+  const collectionPanelRef = React.useRef<HTMLElement | null>(null);
   const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
   // Variant selection state (persisted in store)
@@ -368,6 +369,10 @@ export default function AssetDetailPage() {
     return collectionItems.filter((item) => item.subject_type === 'variant' && item.variant_id === selectedVariant.id);
   }, [collectionItems, selectedVariant]);
 
+  useEffect(() => {
+    setVariantPlacementDrafts([]);
+  }, [selectedVariantId]);
+
   // Set page title
   useDocumentTitle(asset?.name);
 
@@ -604,6 +609,7 @@ export default function AssetDetailPage() {
 
   const handleVariantClick = useCallback((variant: Variant) => {
     setSelectedVariantId(assetId!, variant.id);
+    setVariantPlacementDrafts([]);
   }, [assetId, setSelectedVariantId]);
 
   // Handle add to forge tray
@@ -616,17 +622,11 @@ export default function AssetDetailPage() {
   }, [addSlot, asset]);
 
   const handleAddVariantToCollection = useCallback((variant: Variant) => {
-    const collection = collections[0];
-    if (!canEdit || !collection) return;
-    const sortIndex = collectionItems.filter((item) => item.collection_id === collection.id).length;
-    addCollectionItem({
-      collectionId: collection.id,
-      subjectType: 'variant',
-      variantId: variant.id,
-      role: getDefaultCollectionRole(collection),
-      sortIndex,
-    });
-  }, [addCollectionItem, canEdit, collectionItems, collections]);
+    if (!assetId || !canEdit) return;
+    setSelectedVariantId(assetId, variant.id);
+    setVariantPlacementDrafts([]);
+    collectionPanelRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [assetId, canEdit, setSelectedVariantId]);
 
   const handleApplyAssetPlacements = useCallback(() => {
     if (!asset || assetPlacementDrafts.length === 0) return;
@@ -983,7 +983,7 @@ export default function AssetDetailPage() {
           )}
 
           {canEdit && collections.length > 0 && (
-            <section className={styles.collectionPanel} aria-label="Collection membership">
+            <section ref={collectionPanelRef} className={styles.collectionPanel} aria-label="Collection membership">
               <div className={styles.collectionPanelHeader}>
                 <span>Asset collections</span>
                 {assetCollectionMemberships.length > 0 && <span>{assetCollectionMemberships.length}</span>}
