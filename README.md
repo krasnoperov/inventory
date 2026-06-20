@@ -5,16 +5,22 @@ Make Effects is an AI media production workspace at
 track, and hand off production assets across images, audio, and video.
 
 The hosted app is the source of truth for spaces, assets, variants, prompts,
-recipes, lineage, collaboration state, and stored media. The `makefx` CLI lets
-local agents, scripts, and developers drive that same production graph from the
-command line: start generation jobs, watch progress, download outputs, inspect
-results, curate variants, and export production handoff data.
+recipes, collections, relations, compositions, immutable lineage, collaboration
+state, and stored media. The `makefx` CLI lets local agents, scripts, and
+developers drive that same production graph from the command line: start
+generation jobs, watch progress, download outputs, inspect results, curate
+variants, and export production handoff data.
 
 ## What You Can Build With It
 
 - Generate images, audio, and video through website-backed jobs.
 - Track every result as an asset variant with prompt, provider metadata, and
   lineage.
+- Organize Space assets with collections and manual relations instead of parent
+  hierarchy.
+- Bind exact variants into compositions for final mixes and production handoff.
+- Manage style presets that point to normal style reference assets grouped in
+  collections.
 - Refine an existing variant or derive new assets from references.
 - Upload local media into a collaborative space so generated and hand-made
   assets live together.

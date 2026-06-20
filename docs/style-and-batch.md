@@ -1,16 +1,23 @@
-# Style Anchoring & Batch Generation
+# Style Presets & Batch Generation
 
-Space-level visual identity and multi-variant generation.
+Space-level visual identity through normal assets, collections, presets, and
+multi-variant generation.
 
 ---
 
-## Style Anchoring
+## Style Presets
 
 Each space can have named **style presets** backed by normal Space inventory.
 A preset contains a style prompt and points at a `style_refs` collection whose
 items resolve to completed image variants. The default enabled preset is
 automatically injected into generation requests unless a request selects another
 preset, selects ad hoc style variants, or disables style.
+
+Style references are normal assets and variants. For example, a Space can have a
+`Painterly refs` collection containing `Village Splash Art v2`, `Hero Sheet v5`,
+and `Potion Icons v1`; the `Painterly` preset points to that collection and adds
+the prompt "Painterly adventure game with crisp ink." Generation recipes record
+the exact preset, collection, and reference variants used.
 
 ### Data Model
 
@@ -22,18 +29,17 @@ Style is modeled with normal Space tables:
 - `style_presets` name a style prompt, collection, enabled flag, and default flag.
 - `space_relations` records generated usage with `relation_type = 'style_reference_for'`.
 
-The legacy `space_styles` table is migration-only compatibility. On Durable
-Object startup, `backfillLegacySpaceStyle()` converts an existing row into
-style reference assets, a `style_refs` collection, and a style preset. New
-requests do not read `space_styles` for style injection.
+Style reference media stays in the Space as ordinary assets and variants grouped
+by collections and selected through presets. The product model has no separate
+style-only media store.
 
 ### How Injection Works
 
 When `VariantFactory` creates a variant (generate, derive, refine, or batch), it handles style injection:
 
-1. Resolve `stylePresetId` when provided, otherwise the default asset-backed style preset
+1. Resolve `stylePresetId` when provided, otherwise the default enabled style preset
 2. If ad hoc `styleVariantIds` are provided, resolve those completed image variants as style inputs
-3. If no asset-backed style applies or `disableStyle = true` → skip style image inputs
+3. If no style preset applies or `disableStyle = true` → skip style image inputs
 4. **Prompt**: Prepend `[Style: <stylePrompt>]\n\n` to the user's prompt when a style prompt exists
 5. **Images**: Prepend style image keys before user reference images in `sourceImageKeys`
 6. Record exact style preset, collection, style prompt, style reference variant IDs, and image keys in the recipe
@@ -85,8 +91,8 @@ Users can opt out of style for a specific generation by setting `disableStyle: t
 
 ## CLI Style Libraries
 
-The CLI manages the asset-backed style model through the same authenticated REST
-routes used by the web UI:
+The CLI manages style references, style collections, and style presets through
+the same authenticated REST routes used by the web UI:
 
 ```bash
 makefx styles references
@@ -103,8 +109,8 @@ resolve `--style-preset <id-or-name>` to a preset ID before sending the
 WebSocket generation request, and `--style-preset` is mutually exclusive with
 `--no-style`.
 
-The CLI does not call the legacy `space_styles` singleton or upload raw hidden
-style images.
+Style references remain visible in the Space inventory. The CLI does not create
+separate private style media outside the normal asset graph.
 
 ---
 
@@ -187,14 +193,13 @@ interface GenerationRecipe {
   mediaKind?: 'image' | 'audio' | 'video';
   aspectRatio?: string;
   sourceImageKeys?: string[];  // Style images + user references (combined)
-  parentVariantIds?: string[]; // For retry support
+  parentVariantIds?: string[]; // Source variants used for retry compatibility
   operation: 'generate' | 'derive' | 'refine';
-  styleId?: string;            // Legacy singleton style that was active at generation time
-  stylePresetId?: string;      // Asset-backed style preset selected at generation time
+  stylePresetId?: string;      // Style preset selected at generation time
   styleCollectionId?: string;  // Collection backing the selected style preset
   styleReferenceVariantIds?: string[]; // Exact style variants used as provider inputs
   styleReferenceImageKeys?: string[];  // Exact style image keys sent to the provider
-  stylePrompt?: string;        // Style prompt from the selected asset-backed preset
+  stylePrompt?: string;        // Style prompt from the selected preset
   styleOverride?: boolean;     // True if style was explicitly disabled
   model?: string;              // Gemini model name
   imageSize?: string;          // Output resolution (1K, 2K, 4K)

@@ -311,7 +311,7 @@ Listen:
 Upload:
   upload <file> --asset <id> [--space <id>]   Upload image, audio, or video to existing asset
   upload <file> --name <name> [--space <id>]  Upload media and create new asset
-  import <manifest.json> [--space <id>]       Import media manifest with provenance and lineage
+  import <manifest.json> [--space <id>]       Import media with provenance, lineage, and organization metadata
 
 Forge:
   generate "prompt" --name <name> --type <type> -o <file>
@@ -354,6 +354,7 @@ Examples:
   makefx video generate "A looping idle animation" --name "Idle Animation" --type animation --duration 6 --resolution 1080p --tier fast -o idle.mp4
   makefx productions export --production-id s01e01-a2
   makefx import import-manifest.json --dry-run --json
+  makefx import external-renders.json --space space_123
   makefx assets
   makefx usage --from 2026-06-01
   makefx spend --from 2026-06-01 --provider gemini
@@ -458,10 +459,21 @@ Usage:
 
 Options:
   --space <id>      Target space ID; defaults from initialized project
-  --dry-run         Validate manifest, files, targets, membership, and lineage references
+  --dry-run         Validate manifest, files, targets, membership, lineage, and organization references
   --json            Print machine-readable import or dry-run output
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
+
+Manifest:
+  Records import files with prompt, model, provider, providerMetadata, and
+  generationProvenance. Lineage entries record immutable source provenance using
+  sourceFile or sourceVariantId; use collections, relations, and compositions
+  for editable organization metadata. Style references are normal assets grouped
+  into collections and selected through style presets.
+
+Examples:
+  makefx import external-renders.json --dry-run --json
+  makefx import external-renders.json --space space_123
 `);
 }
 
@@ -476,7 +488,7 @@ ${imageCapabilityHelp()}
 
 Style:
   --style-preset <id-or-name>  Use an enabled style preset for this generation
-  --no-style                   Disable the space style anchor
+  --no-style                   Disable style preset injection for this generation
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -495,7 +507,7 @@ ${imageCapabilityHelp()}
 
 Style:
   --style-preset <id-or-name>  Use an enabled style preset for this refinement
-  --no-style                   Disable the space style anchor
+  --no-style                   Disable style preset injection for this refinement
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -513,7 +525,7 @@ ${imageCapabilityHelp()}
 
 Style:
   --style-preset <id-or-name>  Use an enabled style preset for this batch
-  --no-style                   Disable the space style anchor
+  --no-style                   Disable style preset injection for this batch
 `);
     return;
   }
@@ -527,7 +539,7 @@ ${imageCapabilityHelp()}
 
 Style:
   --style-preset <id-or-name>  Use an enabled style preset for this derivation
-  --no-style                   Disable the space style anchor
+  --no-style                   Disable style preset injection for this derivation
 
 Production metadata:
   --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
@@ -759,6 +771,10 @@ Generation:
   makefx generate "prompt" --style-preset <id-or-name> --name <name> --type <type> -o <file>
   makefx generate "prompt" --no-style --name <name> --type <type> -o <file>
 
+Model:
+  Style references are normal Space assets or exact variants grouped into style
+  collections. Style presets point to those collections plus a style prompt.
+
 Options:
   --space <id>      Target space ID; defaults from the initialized project
   --refs <ids>      Comma-separated asset IDs or variant IDs to use as style references
@@ -788,7 +804,7 @@ Options:
   --subject <text>   Optional subject description for consistency prompts
   --aspect <ratio>   Optional generation aspect ratio
   --mode <mode>      sequential or single-shot (default: sequential)
-  --no-style         Disable the space style anchor
+  --no-style         Disable style preset injection for this pipeline
   --detach           Return after the pipeline starts instead of waiting for completion
   --timeout <sec>    Override the pipeline wait timeout
   --json             Print machine-readable output
@@ -811,7 +827,7 @@ Options:
   --seed-variant <id> Optional completed image variant to place at the center (sequential mode only)
   --aspect <ratio>    Optional generation aspect ratio
   --mode <mode>       sequential or single-shot (default: sequential)
-  --no-style          Disable the space style anchor
+  --no-style          Disable style preset injection for this pipeline
   --detach            Return after the pipeline starts instead of waiting for completion
   --timeout <sec>     Override the pipeline wait timeout
   --json              Print machine-readable output

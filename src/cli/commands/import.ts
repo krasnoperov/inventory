@@ -1660,11 +1660,15 @@ Usage:
 
 Manifest:
   Top-level array, or { "records": [...] }. Each record sets file plus either
-  assetId for an existing asset or name for a new asset. Lineage entries use
-  sourceVariantId or sourceFile with relationType derived, refined, or forked.
-  Optional collections, collectionItems, relations, compositions,
-  compositionItems, styleCollections, and stylePresets sections can organize
-  imported records after upload. Missing collections/compositions are only
-  created when their manifest entry sets create: true.
+  assetId for an existing asset or name for a new asset. Records can include
+  prompt, model, provider, providerMetadata, and generationProvenance for
+  immutable import provenance. Lineage entries use sourceVariantId or sourceFile
+  with relationType derived, refined, or forked; lineage is not editable
+  organization state. Optional collections, collectionItems, relations,
+  compositions, compositionItems, styleCollections, and stylePresets sections
+  organize imported records after upload. Style references are normal assets in
+  collections and presets point to those collections. Missing
+  collections/compositions are only created when their manifest entry sets
+  create: true.
 `);
 }

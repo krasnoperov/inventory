@@ -1,6 +1,9 @@
 # Domain Model
 
-Graphical asset management for game development. Users build collections of **Assets** and iterate through AI-powered generation and refinement.
+Graphical asset management for game development. Users build Spaces of
+**Assets**, organize them with collections and manual relations, bind exact
+variants into compositions, and iterate through AI-powered generation,
+refinement, import, and handoff.
 
 ---
 
@@ -22,7 +25,6 @@ A named catalog entry representing a conceptual thing (character, item, scene, s
 - **Type** describes what it represents: `character`, `item`, `scene`, `sprite-sheet`, `style-sheet`, `reference`, `tile-set`, `animation` (unconstrained string — additional types can be added freely)
 - **Media kind** describes the stored output medium: `image`, `audio`, or `video`
 - **Collections and relations** organize assets without changing generation lineage
-- **Legacy parent compatibility** via `parent_asset_id` remains readable for migrated Spaces but is not a user-facing organization model
 - **Active variant** — one variant represents the asset in catalog view
 - Users select Assets (not variants) when composing
 
@@ -34,6 +36,53 @@ A media version belonging to an Asset. Variants are internal — visible only in
 - Each variant has the same **Media kind** as its asset
 - **Starred** variants mark important iterations
 - **Recipe** stores generation parameters for reproducibility
+
+### Collection
+
+A mutable Space organization container for assets or exact variants.
+
+- Collections are the primary organization model. Parent hierarchy is not.
+- A Space can have product collections such as `Cast`, `Backgrounds`,
+  `Props`, `Episode 01`, and `Style references`.
+- Collection items can point at an asset, which follows that asset's active
+  variant for catalog purposes, or at a specific pinned variant when exact
+  media matters.
+- Collection membership does not create or modify generation lineage.
+
+### Manual Relation
+
+A user-authored link between two assets or variants.
+
+- Relations describe meaning: `appears_in`, `background_for`,
+  `thumbnail_for`, `map_for`, `style_reference_for`, or `reference_for`.
+- Example: `Hero` `appears_in` `Tavern Interior`, or `Potion Icon v3`
+  `thumbnail_for` `Potion`.
+- Relations are mutable Space organization. They do not prove how a variant was
+  generated or imported.
+
+### Composition
+
+A named final mix that binds exact variants into production roles.
+
+- Composition items use roles such as `output`, `background`, `character`,
+  `prop`, `style_ref`, `overlay`, `map`, `thumbnail`, or `custom`.
+- Example: an `Opening Shot` composition can bind the exact `Hero v7` variant,
+  `Market Background v3` variant, and `Opening Shot Final v2` output variant.
+- Compositions are for final assembly and handoff. They are separate from
+  lineage, which records provenance.
+
+### Style References And Presets
+
+Style references are normal image assets in the Space.
+
+- Users group style reference assets or exact variants into collections, usually
+  with a `style_ref` role.
+- A style preset names a style prompt and points to a style reference
+  collection.
+- Generation can use a named preset such as `Painterly` or `Low-poly UI`, and
+  the recipe records the exact preset, collection, and reference variants used.
+- Style reference media remains visible as ordinary assets and variants; the
+  product model has no separate style-only media store.
 
 ### Media Kind Contract
 
@@ -61,26 +110,32 @@ Contract invariants:
 
 ### Lineage
 
-Tracks how variants relate to each other.
+Immutable provenance that records how variants were generated, refined, forked,
+or imported.
 
 - `derived` — Created from reference(s) as inspiration
 - `refined` — Refinement of existing asset
 - `forked` — Fork/copy to new asset
+- Import records can also include prompt, model, provider, provider metadata,
+  generation provenance, and related source images at import time.
+- Users do not manually rearrange lineage to organize a Space. Use collections,
+  manual relations, and compositions for organization.
 
 ---
 
-## Two Relationship Systems
+## Organization And Provenance
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    COLLECTIONS / RELATIONS                        │
+│          COLLECTIONS / RELATIONS / COMPOSITIONS                   │
 │                 (Organizational, Mutable)                        │
 │                                                                 │
-│    Cast                         Scenes                           │
-│    ├── Hero                     ├── Tavern                       │
-│    └── Merchant                 └── Forest                       │
+│    Cast                         Opening Shot                     │
+│    ├── Hero                     ├── Hero v7 as character         │
+│    └── Merchant                 ├── Market v3 as background      │
+│                                 └── Final v2 as output           │
 │                                                                 │
-│  Users organize assets without mutating lineage or legacy parent │
+│  Users organize assets and exact variants without mutating lineage│
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -102,13 +157,23 @@ Tracks how variants relate to each other.
 
 ### Collections And Relations
 
-Organizational structure for grouping related assets into logical trees.
+Organizational structure for grouping related assets and exact variants.
 
 | Property | Value |
 |----------|-------|
 | Mutable | Yes - users can rearrange |
 | Cycle prevention | Yes - backend validates |
 | Cascade delete | Collection and relation rows are removed or nulled with their targets |
+
+### Compositions
+
+Production structure for binding exact variants into a final mix.
+
+| Property | Value |
+|----------|-------|
+| Mutable | Yes - users can update roles and selected variants |
+| Exact variants | Yes - composition items identify the media used in the mix |
+| Output | Optional output asset/variant can point at the final rendered or generated result |
 
 ### Variant Lineage
 
@@ -124,11 +189,12 @@ Immutable generation history for audit trail and reproducibility.
 
 Generation, derive, batch, fork, and upload flows record provenance through
 variant lineage. They do not infer asset hierarchy from references or source
-variants. Historical asset hierarchy is legacy compatibility data; user
-organization is represented by collections, relations, and compositions.
+variants. User organization is represented by collections, relations, and
+compositions.
 
 - Changing collections or relations does NOT affect variant lineage
 - Creating lineage does NOT change collection membership
+- Editing a composition does NOT rewrite import or generation provenance
 - Deleting an asset removes its organization rows and cascades variant deletion
 
 ---

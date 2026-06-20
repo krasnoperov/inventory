@@ -15,8 +15,13 @@ A collaborative web application for creating, refining, and combining AI-generat
 | **Space** | Collaborative container for assets. One Durable Object per space. |
 | **Asset** | A visual entity (character, item, scene) with mutable metadata (name, tags, active variant). |
 | **Variant** | An immutable generated image. Assets have multiple variants; one is "active". |
-| **Recipe** | Generation instructions stored with each variant: prompt, model, source images. |
-| **Lineage** | The ancestry of an asset, computed from recipes (what was used to create it). |
+| **Collection** | Mutable Space organization for assets and exact variants, such as "Cast", "Backgrounds", or "Style references". Collections are the organization model; parent hierarchy is not. |
+| **Manual relation** | User-authored links between assets or variants, such as "Hero appears in Tavern" or "Thumbnail represents Potion". Relations organize meaning without changing generation history. |
+| **Composition** | A named final mix that binds exact variants into roles, such as "Opening Shot" with the hero variant, market background variant, and final output variant. |
+| **Style reference asset** | A normal Space asset whose completed image variant is useful as visual style input. Style references are grouped in collections. |
+| **Style preset** | A named style prompt that points to a style reference collection. Generation can select a preset by name or ID. |
+| **Recipe** | Generation instructions stored with each variant: prompt, model, provider, source images, and selected style preset. |
+| **Lineage** | Immutable provenance for generated or imported variants. It records how a variant was created and is not manually editable organization state. |
 
 ---
 
@@ -27,7 +32,7 @@ A collaborative web application for creating, refining, and combining AI-generat
 - View assets in an inventory grid
 - See all variants and select which is active
 - Delete assets and variants
-- Tag and organize assets
+- Tag and organize assets with collections, relations, and compositions
 
 ### Refinement
 - Refine any variant (not just active) with modification instructions
@@ -37,7 +42,8 @@ A collaborative web application for creating, refining, and combining AI-generat
 ### Forging (Composition)
 - Select multiple assets to derive a new asset
 - Specify combination instructions with structured labels
-- View lineage (what assets were used to create this)
+- Bind exact variants into final compositions for production handoff
+- View lineage and import provenance for the generated or imported variants
 
 ### Collaboration
 - Share space with other users (owner/editor/viewer roles)

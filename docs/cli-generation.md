@@ -98,9 +98,9 @@ makefx derive \
   -o keyframes/lucia-market-001.png
 ```
 
-Reusable style libraries are managed with `styles`. A style reference collection
-is built from existing Space assets or variants, and a named preset points to a
-collection plus a style prompt:
+Reusable style libraries are managed with `styles`. Style references are normal
+Space assets or exact variants grouped in collections, and a named preset points
+to a collection plus a style prompt:
 
 ```bash
 makefx styles collections create "Painterly refs" --refs asset_123,variant_456
@@ -123,6 +123,8 @@ makefx generate "A neutral prop sheet" --no-style --name "Props" --type prop -o 
 When `--style-preset` is used, the CLI prints the resolved preset ID, collection,
 and reference count before creating the job. Import manifest assignment to
 collections or presets is handled by the separate import-manifest workflow.
+`--no-style` disables preset injection for that request without changing the
+Space default.
 
 Batch generate multiple images and write a debug run manifest:
 
@@ -301,7 +303,7 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--model <pro\|flash>` | top-level image commands | Optional image model selection; defaults to Pro |
 | `--size <1K\|2K\|4K>` | top-level image commands | Optional image output size; Flash supports only `1K` |
 | `--aspect <ratio>` | top-level image commands, video commands | Optional generation aspect ratio; video supports `16:9` or `9:16` |
-| `--no-style` | all generation and consistency pipeline commands | Disable active space style for this request |
+| `--no-style` | all generation and consistency pipeline commands | Disable style preset injection for this request |
 | `--detach` | `rotation`, `tileset` | Return after the pipeline starts instead of waiting for completion |
 | `--grid <size>` | `tileset` | Square tile grid size or `WIDTHxHEIGHT`, each dimension 2-5 |
 | `--seed-variant <id>` | `tileset` | Optional completed image variant to place at the center of the tile set; sequential mode only |
@@ -316,6 +318,105 @@ endpoint rather than by dereferencing raw R2 keys.
 Direct use of `gemini-images` or other generators remains intentionally
 untracked by Inventory unless the resulting files are uploaded or used as local
 references through these commands.
+
+## Import Provenance And Organization
+
+Use `makefx import` when media was generated outside Make Effects and should
+enter the Space with durable provenance. Import records can include prompt,
+model, provider, provider metadata, generation provenance, and lineage links to
+related source images at import time:
+
+```json
+{
+  "records": [
+    {
+      "key": "armor-ref",
+      "file": "refs/leather-armor.png",
+      "name": "Leather Armor Reference",
+      "assetType": "reference",
+      "prompt": "reference photo selected by art director",
+      "model": "manual",
+      "provider": "external",
+      "generationProvenance": { "source": "licensed art pack" }
+    },
+    {
+      "key": "hero-final",
+      "file": "renders/hero-final.png",
+      "name": "Hero Final",
+      "assetType": "character",
+      "prompt": "full-body hero sheet, leather armor, neutral pose",
+      "model": "stable-diffusion-xl",
+      "provider": "comfyui",
+      "providerMetadata": { "seed": 42, "sampler": "dpmpp-2m" },
+      "generationProvenance": {
+        "workflow": "character-sheet-v4",
+        "sourceImages": ["armor-ref", "variant_face_sketch"]
+      },
+      "lineage": [
+        { "sourceFile": "armor-ref", "relationType": "derived" },
+        { "sourceVariantId": "variant_face_sketch", "relationType": "derived" }
+      ]
+    }
+  ]
+}
+```
+
+```bash
+makefx import import-manifest.json --dry-run --json
+makefx import import-manifest.json
+```
+
+Lineage created during import is immutable provenance. It is not the Space
+organization model and should not be edited to arrange assets. Add organization
+metadata in the same manifest with collections, manual relations, compositions,
+style collections, and style presets:
+
+```json
+{
+  "collections": [
+    { "name": "Cast", "create": true },
+    { "name": "Painterly refs", "create": true }
+  ],
+  "records": [
+    {
+      "key": "style-ref",
+      "file": "refs/painterly.png",
+      "name": "Painterly Reference",
+      "assetType": "reference",
+      "styleCollections": ["Painterly refs"]
+    },
+    {
+      "key": "hero-final",
+      "file": "renders/hero-final.png",
+      "name": "Hero Final",
+      "collections": [
+        { "collection": "Cast", "role": "character", "subjectType": "asset" }
+      ],
+      "relations": [
+        {
+          "object": { "assetId": "asset_opening_scene", "subjectType": "asset" },
+          "relationType": "appears_in"
+        }
+      ],
+      "compositionItems": [
+        { "composition": "Opening Shot", "role": "character", "label": "Hero" }
+      ]
+    }
+  ],
+  "compositions": [
+    { "name": "Opening Shot", "create": true, "output": { "recordKey": "hero-final" } }
+  ],
+  "stylePresets": [
+    {
+      "name": "Painterly",
+      "create": true,
+      "collection": "Painterly refs",
+      "stylePrompt": "Painterly adventure game",
+      "default": true
+    }
+  ]
+}
+```
 
 Audio generation currently supports only `generate` and `batch` for the
 `speech`, `dialogue`, `music`, and `sfx` modes. It does not accept `--refs`,

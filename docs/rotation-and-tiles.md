@@ -1,12 +1,17 @@
 # Rotation Views & Tile Sets
 
-Sequential generation pipelines that produce multi-view character sheets and seamless tile maps from a single source image.
+Sequential generation pipelines that produce multi-view character sheets and
+seamless tile maps from a single source image.
 
 ---
 
 ## Overview
 
-Both pipelines follow the same pattern: create a parent asset, seed it with an initial variant, then generate remaining views/tiles one at a time. Each step feeds completed images back as references for the next, building visual consistency across the set.
+Both pipelines follow the same pattern: create a dedicated output asset, seed it
+with an initial variant, then generate remaining views or tiles one at a time.
+Each step feeds completed images back as references for the next, building
+visual consistency across the set. These source references create immutable
+lineage for provenance; they do not create a user-facing parent hierarchy.
 
 Rotation generation is experimental and hidden by default. The web creation UI,
 CLI command surface, and backend WebSocket request handler are all gated by
@@ -52,7 +57,7 @@ The first direction is always the seed — it uses the source variant's existing
 ### Pipeline Flow
 
 1. **Validate** — Source variant must be `completed` with an `image_key`
-2. **Create child asset** — Named `"{sourceName} -- Rotation"` with `parent = sourceAsset.id`
+2. **Create output asset** — Named `"{sourceName} -- Rotation"` with type `rotation-set`
 3. **Fork source variant** — Direct SQL copy of image/thumb keys, media metadata, and recipe; increment R2 refs
 4. **Create forked lineage** — `relation_type: 'forked'`
 5. **Set as active** — Forked variant becomes the new asset's active variant
@@ -145,7 +150,7 @@ Center `(1,1)` first, then cardinal neighbors, then corners.
 
 1. **Validate** — Grid dimensions 2-5, valid tile type
 2. **Compute spiral order** — BFS from center
-3. **Create parent asset** — Named `"{prompt (40 chars)} -- Tile Set"` with `type: 'tile-set'`
+3. **Create output asset** — Named `"{prompt (40 chars)} -- Tile Set"` with `type: 'tile-set'`
 4. **Create tile_set record** — Config JSON: `{ prompt, aspectRatio, disableStyle, spiralOrder }`
 5. **Broadcast `tileset:started`**
 6. **Seed tile:**

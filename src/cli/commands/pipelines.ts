@@ -384,7 +384,7 @@ Options:
   --subject <text>   Optional subject description for consistency prompts
   --aspect <ratio>   Optional generation aspect ratio
   --mode <mode>      sequential or single-shot (default: sequential)
-  --no-style         Disable the space style anchor
+  --no-style         Disable style preset injection for this pipeline
   --detach           Return after the pipeline starts instead of waiting for completion
   --timeout <sec>    Override the pipeline wait timeout
   --json             Print machine-readable output
@@ -407,7 +407,7 @@ Options:
   --seed-variant <id> Optional completed image variant to place at the center (sequential mode only)
   --aspect <ratio>    Optional generation aspect ratio
   --mode <mode>       sequential or single-shot (default: sequential)
-  --no-style          Disable the space style anchor
+  --no-style          Disable style preset injection for this pipeline
   --detach            Return after the pipeline starts instead of waiting for completion
   --timeout <sec>     Override the pipeline wait timeout
   --json              Print machine-readable output
