@@ -164,4 +164,85 @@ describe('PlatformUsageEventDAO', () => {
       },
     ]);
   });
+
+  test('summarizes account platform usage across spaces', async () => {
+    await db.insertInto('spaces').values({
+      id: 'space-2',
+      name: 'Second Usage Space',
+      owner_id: String(userId),
+      created_at: Date.now(),
+    }).execute();
+    await dao.create({
+      idempotencyKey: 'storage:account:space-1',
+      spaceId: 'space-1',
+      userId,
+      usageType: 'storage',
+      quantity: 2048,
+      unit: 'byte',
+      mediaKind: 'image',
+      createdAt: '2026-06-01T12:00:00.000Z',
+    });
+    await dao.create({
+      idempotencyKey: 'storage:account:space-1:delete',
+      spaceId: 'space-1',
+      userId,
+      usageType: 'storage',
+      quantity: -512,
+      unit: 'byte',
+      mediaKind: 'image',
+      createdAt: '2026-06-02T12:00:00.000Z',
+    });
+    await dao.create({
+      idempotencyKey: 'workflow:account:space-2',
+      spaceId: 'space-2',
+      userId,
+      usageType: 'workflow',
+      quantity: 2,
+      unit: 'run',
+      mediaKind: 'video',
+      createdAt: '2026-06-03T12:00:00.000Z',
+    });
+    await dao.create({
+      idempotencyKey: 'delivery:account:space-2',
+      spaceId: 'space-2',
+      userId,
+      usageType: 'delivery',
+      quantity: 256,
+      unit: 'byte',
+      mediaKind: 'video',
+      createdAt: '2026-06-04T12:00:00.000Z',
+    });
+
+    const summary = await dao.getAccountSummary(userId, {
+      from: '2026-06-01T00:00:00.000Z',
+      to: '2026-07-01T00:00:00.000Z',
+    });
+
+    assert.deepEqual(summary.totals, {
+      storageBytes: 1536,
+      workflowRuns: 2,
+      deliveryBytes: 256,
+    });
+    assert.deepEqual(summary.byType, [
+      { usageType: 'delivery', unit: 'byte', quantity: 256, events: 1 },
+      { usageType: 'storage', unit: 'byte', quantity: 1536, events: 2 },
+      { usageType: 'workflow', unit: 'run', quantity: 2, events: 1 },
+    ]);
+    assert.deepEqual(summary.bySpace, [
+      {
+        spaceId: 'space-1',
+        storageBytes: 1536,
+        workflowRuns: 0,
+        deliveryBytes: 0,
+        events: 2,
+      },
+      {
+        spaceId: 'space-2',
+        storageBytes: 0,
+        workflowRuns: 2,
+        deliveryBytes: 256,
+        events: 2,
+      },
+    ]);
+  });
 });

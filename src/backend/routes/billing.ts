@@ -6,6 +6,8 @@ import { UsageService } from '../services/usageService';
 import { PolarService } from '../services/polarService';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { ProviderUsageLedgerDAO } from '../../dao/provider-usage-ledger-dao';
+import { CustomerChargeLedgerDAO } from '../../dao/customer-charge-ledger-dao';
+import { PlatformUsageEventDAO } from '../../dao/platform-usage-event-dao';
 import { UserDAO } from '../../dao/user-dao';
 import {
   isNonBillablePaidGenerationEntitlement,
@@ -19,6 +21,15 @@ const BILLING_SYNC_PENDING_WARN_SECONDS = 15 * 60;
 
 type OperationalStatus = 'ok' | 'warning' | 'critical';
 type CustomerBillingPlanStatus = 'inactive' | 'active' | 'internal';
+type BillingAlertSeverity = 'warning' | 'critical';
+
+interface BillingAlert {
+  severity: BillingAlertSeverity;
+  code: string;
+  message: string;
+  metric?: string;
+  value?: number | string;
+}
 
 // Apply auth middleware to all routes except internal ones
 billingRoutes.use('/api/billing/*', authMiddleware);
@@ -34,6 +45,12 @@ function combineStatus(statuses: OperationalStatus[]): OperationalStatus {
   if (statuses.includes('critical')) return 'critical';
   if (statuses.includes('warning')) return 'warning';
   return 'ok';
+}
+
+function statusFromAlerts(alerts: BillingAlert[], fallback: 'ok' | 'mismatch' = 'ok'): 'ok' | 'warning' | 'mismatch' {
+  if (alerts.some((alert) => alert.severity === 'critical')) return 'mismatch';
+  if (alerts.some((alert) => alert.severity === 'warning')) return 'warning';
+  return fallback;
 }
 
 function meterFilterMatchesEventName(filter: unknown, eventName: string): boolean {
@@ -535,6 +552,9 @@ billingRoutes.get('/api/billing/reconcile', adminMiddleware, async (c) => {
   const container = c.get('container');
   const userDAO = container.get(UserDAO);
   const usageEventDAO = container.get(UsageEventDAO);
+  const customerChargeLedgerDAO = container.get(CustomerChargeLedgerDAO);
+  const providerUsageLedgerDAO = container.get(ProviderUsageLedgerDAO);
+  const platformUsageEventDAO = container.get(PlatformUsageEventDAO);
   const polarService = container.get(PolarService);
 
   if (!polarService.isConfigured()) {
@@ -563,6 +583,18 @@ billingRoutes.get('/api/billing/reconcile', adminMiddleware, async (c) => {
     periodStart,
     periodEnd
   );
+  const [customerCharges, providerCost, platformUsage] = await Promise.all([
+    customerChargeLedgerDAO.getReconciliationForPeriod(targetUserId, periodStart, periodEnd),
+    providerUsageLedgerDAO.getCostReconciliation({
+      userId: targetUserId,
+      from: periodStart,
+      to: periodEnd,
+    }),
+    platformUsageEventDAO.getAccountSummary(targetUserId, {
+      from: periodStart,
+      to: periodEnd,
+    }),
+  ]);
 
   const meters = EXPECTED_POLAR_METERS.map((meterName) => {
     const local = localTotals[meterName] ?? 0;
@@ -577,16 +609,93 @@ billingRoutes.get('/api/billing/reconcile', adminMiddleware, async (c) => {
     };
   });
   const mismatches = meters.filter((meter) => !meter.matched);
+  const alerts: BillingAlert[] = [];
+  for (const meter of mismatches) {
+    alerts.push({
+      severity: 'critical',
+      code: 'polar_meter_delta',
+      message: `${meter.name} local billable usage differs from Polar by ${meter.delta}.`,
+      metric: meter.name,
+      value: meter.delta,
+    });
+  }
+  if (customerCharges.missingChargeRows > 0) {
+    alerts.push({
+      severity: 'critical',
+      code: 'missing_customer_charge_rows',
+      message: 'Usage events are missing matching customer charge ledger rows.',
+      metric: 'customerCharges.missingChargeRows',
+      value: customerCharges.missingChargeRows,
+    });
+  }
+  if (customerCharges.orphanChargeRows > 0) {
+    alerts.push({
+      severity: 'critical',
+      code: 'orphan_customer_charge_rows',
+      message: 'Customer charge ledger rows reference deleted or missing usage events.',
+      metric: 'customerCharges.orphanChargeRows',
+      value: customerCharges.orphanChargeRows,
+    });
+  }
+  if (customerCharges.billableQuantityDelta !== 0) {
+    alerts.push({
+      severity: 'critical',
+      code: 'customer_charge_quantity_delta',
+      message: 'Billable usage quantity does not match customer charge ledger quantity.',
+      metric: 'customerCharges.billableQuantityDelta',
+      value: customerCharges.billableQuantityDelta,
+    });
+  }
+  if (providerCost.totals.unpricedEntries > 0) {
+    alerts.push({
+      severity: 'warning',
+      code: 'unpriced_provider_usage',
+      message: 'Provider usage ledger contains entries without resolved provider pricing.',
+      metric: 'providerCost.totals.unpricedEntries',
+      value: providerCost.totals.unpricedEntries,
+    });
+  }
+  if (providerCost.missingUsageEventLinks > 0) {
+    alerts.push({
+      severity: 'critical',
+      code: 'provider_usage_missing_usage_event',
+      message: 'Provider usage rows reference deleted or missing usage events.',
+      metric: 'providerCost.missingUsageEventLinks',
+      value: providerCost.missingUsageEventLinks,
+    });
+  }
+  if (providerCost.missingCustomerChargeLinks > 0) {
+    alerts.push({
+      severity: 'critical',
+      code: 'provider_usage_missing_customer_charge',
+      message: 'Provider usage rows linked to usage events are missing customer charge links.',
+      metric: 'providerCost.missingCustomerChargeLinks',
+      value: providerCost.missingCustomerChargeLinks,
+    });
+  }
+  if (platformUsage.totals.storageBytes < 0) {
+    alerts.push({
+      severity: 'warning',
+      code: 'negative_platform_storage',
+      message: 'Platform storage usage is negative for the billing period, which usually indicates missing creation events.',
+      metric: 'platformUsage.totals.storageBytes',
+      value: platformUsage.totals.storageBytes,
+    });
+  }
 
   return c.json({
     userId: targetUserId,
-    status: mismatches.length > 0 ? 'mismatch' : 'ok',
+    status: statusFromAlerts(alerts),
     period: {
       start: periodStart,
       end: periodEnd,
     },
     meters,
     mismatches,
+    customerCharges,
+    providerCost,
+    platformUsage,
+    alerts,
   });
 });
 

@@ -7,6 +7,8 @@ import { PolarService } from '../services/polarService';
 import { UsageService } from '../services/usageService';
 import { UsageEventDAO } from '../../dao/usage-event-dao';
 import { ProviderUsageLedgerDAO } from '../../dao/provider-usage-ledger-dao';
+import { CustomerChargeLedgerDAO } from '../../dao/customer-charge-ledger-dao';
+import { PlatformUsageEventDAO } from '../../dao/platform-usage-event-dao';
 import type { AppContext } from './types';
 import { billingRoutes } from './billing';
 
@@ -888,6 +890,73 @@ describe('billingRoutes', () => {
         };
       },
     });
+    deps.set(CustomerChargeLedgerDAO, {
+      getReconciliationForPeriod: async (userId: number, start: string, end: string) => {
+        assert.equal(userId, 99);
+        assert.equal(start, '2026-06-10T00:00:00.000Z');
+        assert.equal(end, '2026-07-10T00:00:00.000Z');
+        return {
+          usageEvents: 2,
+          chargeRows: 2,
+          missingChargeRows: 0,
+          orphanChargeRows: 0,
+          billableUsageQuantity: 17,
+          billableChargeQuantity: 17,
+          billableQuantityDelta: 0,
+          meters: [
+            { name: 'claude_input_tokens', usageQuantity: 12, chargeQuantity: 12, delta: 0, matched: true },
+            { name: 'gemini_images', usageQuantity: 5, chargeQuantity: 5, delta: 0, matched: true },
+          ],
+        };
+      },
+    });
+    deps.set(ProviderUsageLedgerDAO, {
+      getCostReconciliation: async (options: unknown) => {
+        assert.deepEqual(options, {
+          userId: 99,
+          from: '2026-06-10T00:00:00.000Z',
+          to: '2026-07-10T00:00:00.000Z',
+        });
+        return {
+          totals: {
+            amountMicroUsd: 240000,
+            amountUsd: 0.24,
+            quantity: 5,
+            entries: 5,
+            unpricedEntries: 0,
+          },
+          linkedUsageEvents: 5,
+          linkedCustomerCharges: 5,
+          missingUsageEventLinks: 0,
+          missingCustomerChargeLinks: 0,
+          byMeterEventName: [],
+        };
+      },
+    });
+    deps.set(PlatformUsageEventDAO, {
+      getAccountSummary: async (userId: number, options: unknown) => {
+        assert.equal(userId, 99);
+        assert.deepEqual(options, {
+          from: '2026-06-10T00:00:00.000Z',
+          to: '2026-07-10T00:00:00.000Z',
+        });
+        return {
+          userId,
+          period: {
+            from: '2026-06-10T00:00:00.000Z',
+            to: '2026-07-10T00:00:00.000Z',
+          },
+          totals: {
+            storageBytes: 4096,
+            workflowRuns: 2,
+            deliveryBytes: 1024,
+          },
+          eventsWithoutSpace: 0,
+          byType: [],
+          bySpace: [],
+        };
+      },
+    });
     deps.set(PolarService, {
       isConfigured: () => true,
       getCustomerUsage: async (userId: number) => {
@@ -918,10 +987,112 @@ describe('billingRoutes', () => {
     const body = await response.json() as {
       status: string;
       mismatches: Array<{ name: string; local: number; polar: number; delta: number }>;
+      providerCost: { totals: { amountMicroUsd: number } };
+      platformUsage: { totals: { storageBytes: number } };
+      alerts: Array<{ code: string; severity: string }>;
     };
     assert.equal(body.status, 'mismatch');
     assert.deepEqual(body.mismatches, [
       { name: 'gemini_images', local: 5, polar: 4, delta: 1, matched: false },
+    ]);
+    assert.equal(body.providerCost.totals.amountMicroUsd, 240000);
+    assert.equal(body.platformUsage.totals.storageBytes, 4096);
+    assert.deepEqual(body.alerts.map((alert) => alert.code), ['polar_meter_delta']);
+  });
+
+  test('reconcile alerts on customer, provider, and platform ledger anomalies', async () => {
+    const deps = new Map<unknown, unknown>();
+    deps.set(AuthService, {
+      verifyJWT: async () => ({ userId: 42 }),
+    });
+    deps.set(UserDAO, {
+      findById: async () => ({
+        id: 99,
+        polar_current_period_start: null,
+        polar_current_period_end: null,
+      }),
+    });
+    deps.set(UsageEventDAO, {
+      getBillableUsageTotalsForPeriod: async () => ({
+        gemini_images: 1,
+      }),
+    });
+    deps.set(CustomerChargeLedgerDAO, {
+      getReconciliationForPeriod: async () => ({
+        usageEvents: 1,
+        chargeRows: 0,
+        missingChargeRows: 1,
+        orphanChargeRows: 0,
+        billableUsageQuantity: 1,
+        billableChargeQuantity: 0,
+        billableQuantityDelta: 1,
+        meters: [
+          { name: 'gemini_images', usageQuantity: 1, chargeQuantity: 0, delta: 1, matched: false },
+        ],
+      }),
+    });
+    deps.set(ProviderUsageLedgerDAO, {
+      getCostReconciliation: async () => ({
+        totals: {
+          amountMicroUsd: 0,
+          amountUsd: 0,
+          quantity: 1,
+          entries: 1,
+          unpricedEntries: 1,
+        },
+        linkedUsageEvents: 1,
+        linkedCustomerCharges: 0,
+        missingUsageEventLinks: 0,
+        missingCustomerChargeLinks: 1,
+        byMeterEventName: [],
+      }),
+    });
+    deps.set(PlatformUsageEventDAO, {
+      getAccountSummary: async () => ({
+        userId: 99,
+        period: {
+          from: '2026-06-01T00:00:00.000Z',
+          to: '2026-07-01T00:00:00.000Z',
+        },
+        totals: {
+          storageBytes: -512,
+          workflowRuns: 0,
+          deliveryBytes: 0,
+        },
+        eventsWithoutSpace: 0,
+        byType: [],
+        bySpace: [],
+      }),
+    });
+    deps.set(PolarService, {
+      isConfigured: () => true,
+      getCustomerUsage: async () => ({
+        period: {
+          start: new Date('2026-06-01T00:00:00.000Z'),
+          end: new Date('2026-07-01T00:00:00.000Z'),
+        },
+        meters: {
+          gemini_images: { used: 1, limit: 10 },
+        },
+      }),
+    });
+
+    const response = await routeApp(deps, { ADMIN_USER_IDS: '42' }).request('/api/billing/reconcile?user_id=99', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      status: string;
+      alerts: Array<{ code: string; severity: string }>;
+    };
+    assert.equal(body.status, 'mismatch');
+    assert.deepEqual(body.alerts.map((alert) => [alert.code, alert.severity]), [
+      ['missing_customer_charge_rows', 'critical'],
+      ['customer_charge_quantity_delta', 'critical'],
+      ['unpriced_provider_usage', 'warning'],
+      ['provider_usage_missing_customer_charge', 'critical'],
+      ['negative_platform_storage', 'warning'],
     ]);
   });
 

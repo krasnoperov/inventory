@@ -276,16 +276,26 @@ The command verifies:
 - internal users have zero billable usage events and their local usage remains non-billable
 
 Reconcile a specific customer's local billable usage against Polar's current
-meter totals:
+meter totals and local accounting ledgers:
 
 ```bash
 makefx billing reconcile --user-id 42 --env stage
 ```
 
 The reconciliation uses cached Polar billing period bounds when available and
-compares each canonical meter's local total with Polar's reported total. Any
-nonzero delta must be explained by pending sync, failed sync, or Polar meter
-configuration before the billing period is considered reconciled.
+compares each canonical meter's local total with Polar's reported total. It also
+reports customer charge ledger alignment, provider cost totals and pricing
+coverage, and account-level platform storage/workflow/delivery usage for the
+same period.
+
+Reconciliation alerts are returned as structured `warning` or `critical`
+records and printed by the CLI. Critical alerts include local-vs-Polar meter
+deltas, missing customer charge rows, customer charge quantity deltas, and
+broken provider-to-usage/customer-charge links. Warning alerts include unpriced
+provider usage and negative net platform storage. Any nonzero delta or critical
+ledger alert must be explained by pending sync, failed sync, missing provider
+attribution, or Polar meter configuration before the billing period is
+considered reconciled.
 
 ### Stage Verification
 

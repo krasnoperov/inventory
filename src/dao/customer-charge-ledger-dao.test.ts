@@ -72,4 +72,44 @@ describe('CustomerChargeLedgerDAO', () => {
     assert.equal(charge.charge_unit, 'token');
     assert.equal(charge.polar_billable, 0);
   });
+
+  test('reconciles billable usage against customer charge rows', async () => {
+    await usageEventDAO.create({
+      userId,
+      eventName: 'gemini_images',
+      quantity: 2,
+    });
+    const missingChargeUsageEventId = await usageEventDAO.create({
+      userId,
+      eventName: 'gemini_videos',
+      quantity: 1,
+    });
+    await usageEventDAO.create({
+      userId,
+      eventName: 'gemini_images',
+      quantity: 1,
+      polarBillable: false,
+    });
+    await db
+      .deleteFrom('customer_charge_ledger')
+      .where('usage_event_id', '=', missingChargeUsageEventId)
+      .execute();
+
+    const reconciliation = await chargeLedgerDAO.getReconciliationForPeriod(
+      userId,
+      '2026-01-01T00:00:00.000Z',
+      '2100-01-01T00:00:00.000Z'
+    );
+
+    assert.equal(reconciliation.usageEvents, 3);
+    assert.equal(reconciliation.chargeRows, 2);
+    assert.equal(reconciliation.missingChargeRows, 1);
+    assert.equal(reconciliation.billableUsageQuantity, 3);
+    assert.equal(reconciliation.billableChargeQuantity, 2);
+    assert.equal(reconciliation.billableQuantityDelta, 1);
+    assert.deepEqual(reconciliation.meters, [
+      { name: 'gemini_images', usageQuantity: 2, chargeQuantity: 2, delta: 0, matched: true },
+      { name: 'gemini_videos', usageQuantity: 1, chargeQuantity: 0, delta: 1, matched: false },
+    ]);
+  });
 });
