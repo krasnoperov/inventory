@@ -1117,6 +1117,7 @@ function validateManifestPlan(
   const collectionsByName = new Map(state.collections.map((collection) => [collection.name, collection]));
   const compositionsByName = new Map(state.compositions.map((composition) => [composition.name, composition]));
   const stylePresetsByName = new Map(state.stylePresets.map((preset) => [preset.name, preset]));
+  const stylePresetsById = new Map(state.stylePresets.map((preset) => [preset.id, preset]));
 
   const collections = dedupeCollections([
     ...manifest.collections,
@@ -1178,11 +1179,19 @@ function validateManifestPlan(
   }
 
   for (const preset of manifest.stylePresets) {
-    if (preset.action === 'create' && stylePresetsByName.has(preset.name)) {
+    const existingPresetById = preset.id ? stylePresetsById.get(preset.id) : undefined;
+    const existingPresetByName = stylePresetsByName.get(preset.name);
+    const existingPreset = preset.id
+      ? existingPresetById
+      : existingPresetByName;
+    const createConflict = preset.id
+      ? existingPresetById ?? existingPresetByName
+      : existingPresetByName;
+    if (preset.action === 'create' && createConflict) {
       throw new Error(`Style preset already exists: ${preset.name}`);
     }
-    if (preset.action === 'update' && !preset.id && !stylePresetsByName.has(preset.name)) {
-      throw new Error(`Style preset not found for update: ${preset.name}`);
+    if (preset.action === 'update' && !existingPreset) {
+      throw new Error(`Style preset not found for update: ${preset.id ?? preset.name}`);
     }
     if (preset.collectionName) {
       const willCreate = collections.some((collection) => collection.name === preset.collectionName && collection.create);
@@ -1440,6 +1449,7 @@ async function applyOrganizationPlan(
 
   const presets = await fetchJson<{ presets: StylePreset[] }>(ctx, deps, `/api/spaces/${ctx.spaceId}/style-presets`);
   const presetsByName = new Map((presets.presets ?? []).map((preset) => [preset.name, preset]));
+  const presetsById = new Map((presets.presets ?? []).map((preset) => [preset.id, preset]));
   for (const preset of plan.stylePresets) {
     const collectionId = preset.collectionId === null
       ? null
@@ -1457,7 +1467,7 @@ async function applyOrganizationPlan(
       isDefault: preset.isDefault,
     };
     const existing = preset.id
-      ? { id: preset.id, name: preset.name }
+      ? presetsById.get(preset.id)
       : presetsByName.get(preset.name);
     if (preset.action === 'update' || (preset.action === 'upsert' && existing)) {
       const updated = await patchJson<{ preset: StylePreset }>(
@@ -1468,10 +1478,12 @@ async function applyOrganizationPlan(
       );
       stylePresetIds.push(updated.preset.id);
       presetsByName.set(updated.preset.name, updated.preset);
+      presetsById.set(updated.preset.id, updated.preset);
     } else {
       const created = await postJson<{ preset: StylePreset }>(ctx, deps, `/api/spaces/${ctx.spaceId}/style-presets`, request);
       stylePresetIds.push(created.preset.id);
       presetsByName.set(created.preset.name, created.preset);
+      presetsById.set(created.preset.id, created.preset);
     }
   }
 

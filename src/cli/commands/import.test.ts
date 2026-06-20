@@ -197,10 +197,10 @@ function makeDeps(calls: FetchCall[], output: string[]) {
       }
 
       if (method === 'POST' && parsed.pathname === '/api/spaces/space-1/style-presets') {
-        const body = JSON.parse(String(init?.body)) as { name: string };
+        const body = JSON.parse(String(init?.body)) as { id?: string; name: string };
         return Response.json({
           success: true,
-          preset: { id: `preset-${body.name.toLowerCase().replace(/\s+/g, '-')}`, name: body.name, description: null, style_prompt: '', collection_id: 'collection-style', enabled: true, is_default: false, created_by: 'user-1', created_at: 1, updated_at: 1, collection_name: 'Painterly refs', reference_count: 1, style_reference_variant_ids: [], style_reference_image_keys: [] },
+          preset: { id: body.id ?? `preset-${body.name.toLowerCase().replace(/\s+/g, '-')}`, name: body.name, description: null, style_prompt: '', collection_id: 'collection-style', enabled: true, is_default: false, created_by: 'user-1', created_at: 1, updated_at: 1, collection_name: 'Painterly refs', reference_count: 1, style_reference_variant_ids: [], style_reference_image_keys: [] },
         });
       }
 
@@ -514,6 +514,76 @@ test('import creates style references and style presets from named style collect
       .map((call) => JSON.parse(String(call.body)))[0];
     assert.equal(presetBody.collectionId, 'collection-style');
     assert.equal(presetBody.isDefault, true);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('import upserts a missing id-based style preset by creating it', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'makefx-import-'));
+  const calls: FetchCall[] = [];
+  const output: string[] = [];
+  try {
+    await writeFile(path.join(dir, 'style.png'), new Uint8Array([1]));
+    const manifestPath = path.join(dir, 'manifest.json');
+    await writeFile(manifestPath, JSON.stringify({
+      records: [{
+        key: 'style',
+        file: 'style.png',
+        name: 'Style Ref',
+      }],
+      stylePresets: [{
+        id: 'preset-new',
+        name: 'New Style',
+        upsert: true,
+        collection: 'Painterly refs',
+      }],
+    }));
+
+    const result = await executeImport({
+      positionals: [manifestPath],
+      options: { space: 'space-1', json: 'true' },
+    }, makeDeps(calls, output));
+
+    assert.equal(result.dryRun, false);
+    assert.deepEqual(result.stylePresetIds, ['preset-new']);
+    const presetMutations = calls.filter((call) => call.url.endsWith('/style-presets') && call.method !== 'GET');
+    assert.deepEqual(presetMutations.map((call) => call.method), ['POST']);
+    assert.equal(calls.some((call) => call.method === 'PATCH' && call.url.includes('/style-presets/preset-new')), false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('import rejects missing id-based style preset updates before uploading', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'makefx-import-'));
+  const calls: FetchCall[] = [];
+  const output: string[] = [];
+  try {
+    await writeFile(path.join(dir, 'style.png'), new Uint8Array([1]));
+    const manifestPath = path.join(dir, 'manifest.json');
+    await writeFile(manifestPath, JSON.stringify({
+      records: [{
+        key: 'style',
+        file: 'style.png',
+        name: 'Style Ref',
+      }],
+      stylePresets: [{
+        id: 'preset-missing',
+        name: 'Missing Style',
+        update: true,
+        collection: 'Painterly refs',
+      }],
+    }));
+
+    await assert.rejects(
+      () => executeImport({
+        positionals: [manifestPath],
+        options: { space: 'space-1', 'dry-run': 'true' },
+      }, makeDeps(calls, output)),
+      /Style preset not found for update: preset-missing/
+    );
+    assert.equal(calls.filter((call) => call.method === 'POST').length, 0);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
