@@ -1,6 +1,7 @@
 import { StrictMode, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
+import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
 import { ForgeTray } from './components/ForgeTray';
 import { Pagination } from './components/Pagination';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
@@ -18,6 +19,8 @@ declare global {
 
 const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeader: AppHeader as ComponentType<Record<string, unknown>>,
+  CompositionDetail: CompositionDetail as unknown as ComponentType<Record<string, unknown>>,
+  CompositionUsageList: CompositionUsageList as unknown as ComponentType<Record<string, unknown>>,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
@@ -32,7 +35,11 @@ function revive(value: unknown): unknown {
   if (typeof value === 'string' && value.startsWith('__record__:')) {
     const eventName = value.slice('__record__:'.length);
     return (...args: unknown[]) => {
-      window.__componentHarnessCalls = [...(window.__componentHarnessCalls ?? []), eventName];
+      const calls = [...(window.__componentHarnessCalls ?? []), eventName];
+      if (args.length > 0) {
+        calls.push(`${eventName}:${JSON.stringify(args)}`);
+      }
+      window.__componentHarnessCalls = calls;
       window.__componentHarnessCallDetails = [...(window.__componentHarnessCallDetails ?? []), { eventName, args }];
     };
   }

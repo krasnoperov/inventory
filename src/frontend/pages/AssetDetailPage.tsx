@@ -43,8 +43,9 @@ import { useImageUpload } from '../hooks/useImageUpload';
 import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { TileGrid } from '../components/TileGrid/TileGrid';
 import { RelationEditorDialog, RelationsPanel } from '../components/RelationsPanel';
+import { CompositionDetail, CompositionUsageList } from '../components/CompositionDetail';
 import { formatMediaKind } from '../mediaKind';
-import { assetDetailsQueryOptions, sessionQueryOptions } from '../queries';
+import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
 import styles from './AssetDetailPage.module.css';
 
@@ -70,6 +71,10 @@ export default function AssetDetailPage() {
     ...assetDetailsQueryOptions(spaceId || '', assetId || ''),
     enabled: Boolean(user && spaceId && assetId),
   });
+  const spaceDataQuery = useQuery({
+    ...spacePageQueryOptions(spaceId || ''),
+    enabled: Boolean(user && spaceId),
+  });
   const sessionQuery = useQuery(sessionQueryOptions());
 
   const queryAsset = assetDetailsQuery.data?.asset ?? null;
@@ -79,6 +84,8 @@ export default function AssetDetailPage() {
     [assetDetailsQuery.data?.lineage],
   );
   const error = assetDetailsQuery.error instanceof Error ? assetDetailsQuery.error.message : null;
+  const space = spaceDataQuery.data?.space ?? null;
+  const canEdit = space?.role === 'owner' || space?.role === 'editor';
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [forgeError, setForgeError] = useState<string | null>(null);
@@ -93,6 +100,10 @@ export default function AssetDetailPage() {
 
   // Rotation panel state
   const [showRotationPanel, setShowRotationPanel] = useState(false);
+
+  // Composition detail panel state
+  const [showCompositionPanel, setShowCompositionPanel] = useState(false);
+  const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
 
   // Inline editing state
   const [editingName, setEditingName] = useState(false);
@@ -147,6 +158,10 @@ export default function AssetDetailPage() {
     variants: wsVariants,
     lineage: wsLineage,
     relations: wsRelations,
+    collections,
+    collectionItems,
+    compositions,
+    compositionItems,
     jobs,
     setActiveVariant,
     deleteVariant,
@@ -157,6 +172,7 @@ export default function AssetDetailPage() {
     updateRelation,
     deleteRelation,
     clearJob,
+    requestSync,
     status: wsStatus,
     sendGenerateRequest,
     sendRefineRequest,
@@ -164,6 +180,13 @@ export default function AssetDetailPage() {
     requestChatHistory,
     clearChatSession,
     forkAsset,
+    createComposition,
+    updateComposition,
+    deleteComposition,
+    createCompositionItem,
+    updateCompositionItem,
+    reorderCompositionItems,
+    deleteCompositionItem,
     getChildren,
     updateSession,
     sendStyleSet,
@@ -569,6 +592,23 @@ export default function AssetDetailPage() {
     prefillFromVariant(parentVariantIds, prompt, wsAssets, wsVariants);
   }, [lineage, prefillFromVariant, wsAssets, wsVariants]);
 
+  const handleCreateCompositionFromVariant = useCallback(() => {
+    if (!canEdit || !asset || !selectedVariant) return;
+    const id = createComposition({
+      name: `${asset.name} composition`,
+      outputAssetId: asset.id,
+      outputVariantId: selectedVariant.id,
+    });
+    setSelectedCompositionId(id);
+    setShowCompositionPanel(true);
+  }, [asset, canEdit, createComposition, selectedVariant]);
+
+  const handleOpenComposition = useCallback((compositionId: string) => {
+    requestSync();
+    setSelectedCompositionId(compositionId);
+    setShowCompositionPanel(true);
+  }, [requestSync]);
+
   // Use shared forge operations hook
   const { handleForgeSubmit } = useForgeOperations({
     sendGenerateRequest,
@@ -776,6 +816,21 @@ export default function AssetDetailPage() {
                 <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
               </svg>
             </CanvasToolbarButton>
+            {canEdit && (
+              <CanvasToolbarButton
+                onClick={handleCreateCompositionFromVariant}
+                disabled={!selectedVariant}
+                title="Create composition from selected variant"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="4" y="4" width="7" height="7" rx="1" />
+                  <rect x="13" y="4" width="7" height="7" rx="1" />
+                  <rect x="8.5" y="13" width="7" height="7" rx="1" />
+                  <path d="M11 7.5h2" />
+                  <path d="M12 11v2" />
+                </svg>
+              </CanvasToolbarButton>
+            )}
             <CanvasToolbarButton
               onClick={handleDeleteAsset}
               disabled={actionInProgress}
@@ -831,6 +886,17 @@ export default function AssetDetailPage() {
               onCreate={handleOpenCreateRelation}
               onEdit={handleOpenEditRelation}
               onDelete={deleteRelation}
+            />
+          )}
+
+          {assetId && (
+            <CompositionUsageList
+              targetAssetId={assetId}
+              assets={wsAssets}
+              variants={wsVariants}
+              compositions={compositions}
+              compositionItems={compositionItems}
+              onOpenComposition={handleOpenComposition}
             />
           )}
 
@@ -922,6 +988,39 @@ export default function AssetDetailPage() {
           onCreate={handleCreateRelation}
           onUpdate={handleUpdateRelation}
         />
+      )}
+
+      {showCompositionPanel && (
+        <div className={styles.compositionPanelContainer}>
+          <CompositionDetail
+            spaceId={spaceId}
+            compositions={compositions}
+            compositionItems={compositionItems}
+            assets={wsAssets}
+            variants={wsVariants}
+            lineage={wsLineage}
+            collections={collections}
+            collectionItems={collectionItems}
+            selectedCompositionId={selectedCompositionId}
+            canEdit={canEdit}
+            onSelectComposition={setSelectedCompositionId}
+            onCreateComposition={canEdit ? () => {
+              const id = createComposition({ name: `Composition ${compositions.length + 1}` });
+              setSelectedCompositionId(id);
+            } : undefined}
+            onUpdateComposition={updateComposition}
+            onDeleteComposition={(compositionId) => {
+              deleteComposition(compositionId);
+              setSelectedCompositionId((current) => current === compositionId ? null : current);
+            }}
+            onCreateItem={createCompositionItem}
+            onUpdateItem={updateCompositionItem}
+            onDeleteItem={deleteCompositionItem}
+            onReorderItems={reorderCompositionItems}
+            onOpenAsset={(nextAssetId) => navigate(`/spaces/${spaceId}/assets/${nextAssetId}`)}
+            onClose={() => setShowCompositionPanel(false)}
+          />
+        </div>
       )}
 
       {/* Forge Tray - persistent bottom bar for generation */}

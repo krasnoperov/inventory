@@ -236,6 +236,13 @@
   max-width: 320px;
 }
 
+.compositionPanelContainer {
+  position: absolute;
+  top: 3.5rem;
+  right: 0.75rem;
+  z-index: 30;
+}
+
 /* Jobs overlay - bottom left */
 .jobsOverlay {
   position: absolute;
