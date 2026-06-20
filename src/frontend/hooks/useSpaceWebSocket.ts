@@ -462,6 +462,14 @@ function shouldApplyOverviewSync(currentSyncMode: 'full' | 'overview' | null): b
   return currentSyncMode !== 'full';
 }
 
+function getInitialSyncModeForSpace(
+  requestedSpaceId: string,
+  sessionSpaceId: string | null,
+  sessionSyncMode: 'full' | 'overview' | null
+): 'full' | 'overview' | null {
+  return sessionSpaceId === requestedSpaceId ? sessionSyncMode : null;
+}
+
 export function getSharedSpaceSocketSessionForTests(): Pick<
   SharedSpaceSocketSession,
   'spaceId' | 'syncMode' | 'reconnectAttempts'
@@ -487,6 +495,14 @@ export function shouldReuseSharedSpaceSocketForTests(
 
 export function shouldApplyOverviewSyncForTests(currentSyncMode: 'full' | 'overview' | null): boolean {
   return shouldApplyOverviewSync(currentSyncMode);
+}
+
+export function getInitialSyncModeForSpaceForTests(
+  requestedSpaceId: string,
+  sessionSpaceId: string | null,
+  sessionSyncMode: 'full' | 'overview' | null
+): 'full' | 'overview' | null {
+  return getInitialSyncModeForSpace(requestedSpaceId, sessionSpaceId, sessionSyncMode);
 }
 
 export interface ChatMessage {
@@ -1234,15 +1250,18 @@ export function useSpaceWebSocket({
   const tileSets = ownsState ? rawTileSets : EMPTY_TILE_SETS;
   const tilePositions = ownsState ? rawTilePositions : EMPTY_TILE_POSITIONS;
 
-  const cachedSnapshot = getCachedSpaceStateSnapshot(spaceId);
   const syncModeRef = useRef<'full' | 'overview' | null>(
-    sharedSpaceSocketSession.spaceId === spaceId ? sharedSpaceSocketSession.syncMode : cachedSnapshot?.syncMode ?? null
+    getInitialSyncModeForSpace(spaceId, sharedSpaceSocketSession.spaceId, sharedSpaceSocketSession.syncMode)
   );
   const variantIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const cached = getCachedSpaceStateSnapshot(spaceId);
-    syncModeRef.current = cached?.syncMode ?? null;
+    syncModeRef.current = getInitialSyncModeForSpace(
+      spaceId,
+      sharedSpaceSocketSession.spaceId,
+      sharedSpaceSocketSession.syncMode
+    );
     variantIdsRef.current = new Set(cached?.variants.map((variant) => variant.id) ?? []);
     hydrateFromSnapshot(spaceId, cached);
   }, [spaceId, hydrateFromSnapshot]);

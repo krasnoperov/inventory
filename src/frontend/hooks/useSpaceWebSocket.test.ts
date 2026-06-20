@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
   clearSpaceStateSnapshotCacheForTests,
+  getInitialSyncModeForSpaceForTests,
   getSpaceStateSnapshotForTests,
   getVariantMediaUrl,
   getVariantThumbnailUrl,
@@ -126,6 +127,28 @@ describe('space state snapshot cache', () => {
     assert.equal(shouldApplyOverviewSyncForTests(null), true);
     assert.equal(shouldApplyOverviewSyncForTests('overview'), true);
     assert.equal(shouldApplyOverviewSyncForTests('full'), false);
+  });
+
+  test('does not seed fresh connection sync mode from cached snapshots', () => {
+    clearSpaceStateSnapshotCacheForTests();
+
+    saveSpaceStateSnapshotForTests('space-1', {
+      assets: [asset()],
+      variants: [variant()],
+      lineage: [],
+      presence: [],
+      rotationSets: [],
+      rotationViews: [],
+      tileSets: [],
+      tilePositions: [],
+      syncMode: 'full',
+      updatedAt: 1,
+    });
+
+    assert.equal(getSpaceStateSnapshotForTests('space-1')?.syncMode, 'full');
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', null, null), null);
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-1', 'full'), 'full');
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-2', 'full'), null);
   });
 });
 
