@@ -71,6 +71,124 @@
   transform: translateY(-1px);
 }
 
+.providerSection {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.3;
+  color: var(--color-text);
+}
+
+.providerList {
+  display: grid;
+  gap: 1rem;
+}
+
+.providerRow {
+  display: grid;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.providerInfo {
+  min-width: 0;
+}
+
+.providerTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.providerName {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.providerDescription {
+  margin: 0.25rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.providerStatus {
+  flex: 0 0 auto;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.25rem 0.45rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+}
+
+.providerStatus[data-state='configured'] {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.providerStatus[data-state='missing'] {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.providerControls {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.providerActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.secondaryButton {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--color-surface-elevated);
+  transform: translateY(-1px);
+}
+
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Responsive styles */
 @media (max-width: 768px) {
   .main {
@@ -83,5 +201,20 @@
 
   .navLink {
     font-size: 0.9rem;
+  }
+
+  .providerTitleRow,
+  .providerActions {
+    grid-template-columns: 1fr;
+  }
+
+  .providerTitleRow {
+    display: grid;
+    align-items: start;
+  }
+
+  .providerStatus {
+    max-width: 100%;
+    justify-self: start;
   }
 }

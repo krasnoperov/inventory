@@ -55,6 +55,7 @@ import {
 } from '../services/elevenLabsAudioProvider';
 import { LyriaApiError, LyriaMusicProvider } from '../services/lyriaMusicProvider';
 import { resolveAudioProvider } from '../services/audioProviderSelection';
+import { resolveStoredProviderApiKey, type ProviderKeyProvider } from '../services/providerKeyVault';
 import { arrayBufferToBase64 } from '../utils/image-utils';
 import {
   uploadGeneratedMedia,
@@ -79,6 +80,24 @@ import { parsePlatformUsageUserId, trackPlatformUsage } from '../platform/platfo
 
 const log = loggers.generationWorkflow;
 const FAKE_VIDEO_MP4_BASE64 = 'ZmFrZSB2aWRlbw==';
+
+type ProviderKeySource = 'platform' | 'byok';
+
+async function resolveProviderApiKey(
+  env: Env,
+  userId: string,
+  provider: ProviderKeyProvider,
+  platformKey?: string
+): Promise<{ apiKey?: string; keySource?: ProviderKeySource }> {
+  const numericUserId = Number.parseInt(userId, 10);
+  if (Number.isSafeInteger(numericUserId)) {
+    const stored = await resolveStoredProviderApiKey(env.DB, numericUserId, provider, env);
+    if (stored) {
+      return { apiKey: stored, keySource: 'byok' };
+    }
+  }
+  return platformKey ? { apiKey: platformKey, keySource: 'platform' } : {};
+}
 
 function getAudioProviderId(providerName: string): string {
   return providerName.split(':', 1)[0] || providerName;
@@ -254,6 +273,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           });
 
           try {
+            const googleKey = await resolveProviderApiKey(this.env, userId, 'google_ai', this.env.GOOGLE_AI_API_KEY);
+            if (!useFakeProvider && !googleKey.apiKey) {
+              throw new Error('GOOGLE_AI_API_KEY not configured');
+            }
             const result = useFakeProvider
               ? {
                   videoData: FAKE_VIDEO_MP4_BASE64,
@@ -265,7 +288,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   referenceMode: referenceModeToUse,
                   generateAudio: generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON,
                 }
-              : await new GoogleVeoService(this.env.GOOGLE_AI_API_KEY ?? '').generate({
+              : await new GoogleVeoService(googleKey.apiKey ?? '').generate({
                   prompt,
                   model: modelToUse,
                   aspectRatio: aspectRatioToUse,
@@ -279,7 +302,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             timer(true, { resultSize: result.videoData.length });
             // Upload in-step; never return raw video bytes (1 MiB step-output cap).
             return await uploadGeneratedMedia(this.env, result, {
-              spaceId, variantId, operation, refCount, modelProvider, requestId, jobId,
+              spaceId, variantId, operation, refCount, modelProvider, keySource: googleKey.keySource, requestId, jobId,
             });
           } catch (error) {
             timer(false, { error: error instanceof Error ? error.message : String(error) });
@@ -289,6 +312,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
 
         // Select image generation provider
         let provider: ImageGenerationProvider;
+        let modelProviderKeySource: ProviderKeySource | undefined;
         const useFakeProvider = this.env.INVENTORY_IMAGE_PROVIDER === 'fake';
 
         if (useFakeProvider) {
@@ -299,10 +323,12 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
             this.env.CUSTOM_MODEL_API_KEY
           );
         } else {
-          if (!this.env.GOOGLE_AI_API_KEY) {
+          const googleKey = await resolveProviderApiKey(this.env, userId, 'google_ai', this.env.GOOGLE_AI_API_KEY);
+          if (!googleKey.apiKey) {
             throw new Error('GOOGLE_AI_API_KEY not configured');
           }
-          provider = new NanoBananaService(this.env.GOOGLE_AI_API_KEY);
+          provider = new NanoBananaService(googleKey.apiKey);
+          modelProviderKeySource = googleKey.keySource;
         }
         const modelToUse = (model as ImageModelId | undefined) || DEFAULT_IMAGE_MODEL_ID;
         const aspectRatioToUse = (aspectRatio as '1:1' | '16:9' | '9:16' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '21:9') || '1:1';
@@ -356,7 +382,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           timer(true, { resultSize: result.imageData?.length || 0, geminiApi });
           // Upload in-step; never return raw image bytes (1 MiB step-output cap).
           return await uploadGeneratedMedia(this.env, result, {
-            spaceId, variantId, operation, refCount, modelProvider, requestId, jobId,
+            spaceId, variantId, operation, refCount, modelProvider, keySource: modelProviderKeySource, requestId, jobId,
           });
         } catch (error) {
           timer(false, { error: error instanceof Error ? error.message : String(error) });
@@ -486,6 +512,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       requestId,
       jobId,
       spaceId,
+      userId,
       prompt,
       assetName,
       assetType,
@@ -531,7 +558,11 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           throw new Error('IMAGES R2 bucket not configured');
         }
 
-        const { provider, providerName } = this.createAudioProvider(assetType, { voiceId, dialogueVoiceIds, musicProvider });
+        const { provider, providerName, keySource } = await this.createAudioProvider(
+          userId,
+          assetType,
+          { voiceId, dialogueVoiceIds, musicProvider }
+        );
         const timer = log.startTimer('Audio generation', {
           requestId, jobId, spaceId, operation, provider: providerName, assetType, model,
         });
@@ -565,6 +596,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               model: result.model,
               operation,
               usage: result.usage ?? null,
+              keySource,
             },
             ...sidecars,
           };
@@ -675,40 +707,48 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     };
   }
 
-  private createAudioProvider(
+  private async createAudioProvider(
+    userId: string,
     assetType: string,
     voiceOverrides: { voiceId?: string; dialogueVoiceIds?: string[]; musicProvider?: 'elevenlabs' | 'lyria' } = {}
-  ): { provider: AudioGenerationProvider; providerName: string } {
+  ): Promise<{ provider: AudioGenerationProvider; providerName: string; keySource?: ProviderKeySource }> {
     const provider = resolveAudioProvider(this.env);
     if (assetType === 'music' && voiceOverrides.musicProvider === 'lyria') {
-      return this.createLyriaMusicProvider();
+      return this.createLyriaMusicProvider(userId);
     }
     if (assetType === 'music' && voiceOverrides.musicProvider === 'elevenlabs') {
-      return this.createElevenLabsMusicProvider();
+      return this.createElevenLabsMusicProvider(userId);
     }
     if (provider === 'fake') {
       return { provider: new FakeAudioProvider(), providerName: 'fake' };
     }
     if (provider === 'elevenlabs') {
-      if (!this.env.ELEVENLABS_API_KEY) {
+      const elevenLabsKey = await resolveProviderApiKey(
+        this.env,
+        userId,
+        'elevenlabs',
+        this.env.ELEVENLABS_API_KEY
+      );
+      if (!elevenLabsKey.apiKey) {
         throw new NonRetryableError('ELEVENLABS_API_KEY not configured');
       }
       if (assetType === 'music') {
-        return this.createElevenLabsMusicProvider();
+        return this.createElevenLabsMusicProvider(userId);
       }
       if (assetType === 'sfx') {
         return {
           provider: new ElevenLabsSoundEffectProvider({
-            apiKey: this.env.ELEVENLABS_API_KEY,
+            apiKey: elevenLabsKey.apiKey,
             modelId: this.env.ELEVENLABS_SOUND_EFFECT_MODEL_ID,
             outputFormat: this.env.ELEVENLABS_SOUND_EFFECT_OUTPUT_FORMAT,
           }),
           providerName: 'elevenlabs:sfx',
+          keySource: elevenLabsKey.keySource,
         };
       }
       return {
         provider: new ElevenLabsAudioProvider({
-          apiKey: this.env.ELEVENLABS_API_KEY,
+          apiKey: elevenLabsKey.apiKey,
           // Voices are chosen per generation in the UI/CLI — there is no env default.
           voiceId: voiceOverrides.voiceId,
           dialogueVoiceIds: voiceOverrides.dialogueVoiceIds,
@@ -716,39 +756,61 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           outputFormat: this.env.ELEVENLABS_AUDIO_OUTPUT_FORMAT,
         }),
         providerName: 'elevenlabs:speech',
+        keySource: elevenLabsKey.keySource,
       };
     }
     throw new NonRetryableError(`Unsupported audio provider: ${provider}`);
   }
 
-  private createElevenLabsMusicProvider(): { provider: AudioGenerationProvider; providerName: string } {
-    if (!this.env.ELEVENLABS_API_KEY) {
+  private async createElevenLabsMusicProvider(userId: string): Promise<{
+    provider: AudioGenerationProvider;
+    providerName: string;
+    keySource?: ProviderKeySource;
+  }> {
+    const elevenLabsKey = await resolveProviderApiKey(
+      this.env,
+      userId,
+      'elevenlabs',
+      this.env.ELEVENLABS_API_KEY
+    );
+    if (!elevenLabsKey.apiKey) {
       throw new NonRetryableError('ELEVENLABS_API_KEY not configured');
     }
     return {
       provider: new ElevenLabsMusicProvider({
-        apiKey: this.env.ELEVENLABS_API_KEY,
+        apiKey: elevenLabsKey.apiKey,
         modelId: this.env.ELEVENLABS_MUSIC_MODEL_ID,
         outputFormat: this.env.ELEVENLABS_MUSIC_OUTPUT_FORMAT,
       }),
       providerName: 'elevenlabs:music',
+      keySource: elevenLabsKey.keySource,
     };
   }
 
-  private createLyriaMusicProvider(): { provider: AudioGenerationProvider; providerName: string } {
+  private async createLyriaMusicProvider(userId: string): Promise<{
+    provider: AudioGenerationProvider;
+    providerName: string;
+    keySource?: ProviderKeySource;
+  }> {
     if (!this.env.LYRIA_PROJECT_ID) {
       throw new NonRetryableError('LYRIA_PROJECT_ID not configured');
     }
+    const storedLyriaKey = await resolveProviderApiKey(this.env, userId, 'lyria', undefined);
+    const usingByokApiKey = Boolean(storedLyriaKey.apiKey);
+    const keySource = usingByokApiKey
+      ? storedLyriaKey.keySource
+      : (this.env.LYRIA_API_KEY || this.env.LYRIA_ACCESS_TOKEN ? 'platform' : undefined);
     return {
       provider: new LyriaMusicProvider({
         projectId: this.env.LYRIA_PROJECT_ID,
         location: this.env.LYRIA_LOCATION,
         modelId: this.env.LYRIA_MODEL_ID,
-        accessToken: this.env.LYRIA_ACCESS_TOKEN,
-        apiKey: this.env.LYRIA_API_KEY,
+        accessToken: usingByokApiKey ? undefined : this.env.LYRIA_ACCESS_TOKEN,
+        apiKey: storedLyriaKey.apiKey ?? this.env.LYRIA_API_KEY,
         baseUrl: this.env.LYRIA_BASE_URL,
       }),
       providerName: 'lyria:music',
+      keySource,
     };
   }
 

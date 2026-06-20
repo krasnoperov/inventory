@@ -7,6 +7,7 @@ import { AuthService } from '../features/auth/auth-service';
 import { UserDAO } from '../../dao/user-dao';
 import { SpaceDAO } from '../../dao/space-dao';
 import { MemberDAO } from '../../dao/member-dao';
+import { PlatformUsageEventDAO } from '../../dao/platform-usage-event-dao';
 import { authRoutes } from './auth';
 import { userRoutes } from './user';
 import { spaceRoutes } from './space';
@@ -333,6 +334,32 @@ describe('API contracts', () => {
       addMember: async () => ({ space_id: 'space-new', user_id: String(user.id), role: 'owner', joined_at: Date.now() }),
       getMember: async () => ({ space_id: space.id, user_id: String(user.id), role: 'owner', joined_at: Date.now() }),
     };
+    const usageSummaryCalls: unknown[] = [];
+    const fakePlatformUsageEventDAO = {
+      getSpaceSummary: async (...args: unknown[]) => {
+        usageSummaryCalls.push(args);
+        return {
+          spaceId: space.id,
+          period: {
+            from: '2026-06-01T00:00:00.000Z',
+            to: '2026-06-30T23:59:59.999Z',
+          },
+          totals: {
+            storageBytes: 1536,
+            workflowRuns: 2,
+            deliveryBytes: 256,
+          },
+          byType: [
+            { usageType: 'storage', unit: 'byte', quantity: 1536, events: 2 },
+            { usageType: 'workflow', unit: 'run', quantity: 2, events: 2 },
+            { usageType: 'delivery', unit: 'byte', quantity: 256, events: 1 },
+          ],
+          byMediaKind: [
+            { mediaKind: 'video', storageBytes: 1536, workflowRuns: 2, deliveryBytes: 256, events: 5 },
+          ],
+        };
+      },
+    };
     const fakeAuthService = {
       verifyJWT: async () => ({ userId: user.id }),
     };
@@ -340,6 +367,7 @@ describe('API contracts', () => {
       [AuthService, fakeAuthService],
       [SpaceDAO, fakeSpaceDAO],
       [MemberDAO, fakeMemberDAO],
+      [PlatformUsageEventDAO, fakePlatformUsageEventDAO],
     ]));
     const fetch = bindFetch(app);
     const authHeaders = { Authorization: 'Bearer test-token' };
@@ -374,6 +402,31 @@ describe('API contracts', () => {
       params: { id: space.id },
     });
     assert.equal(assets.assets[0].id, asset.id);
+
+    const usage = await apiFetch('GET /api/spaces/:id/usage/summary', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+      query: { from: '2026-06-01', to: '2026-06-30' },
+    });
+    assert.equal(usage.totals.storageBytes, 1536);
+    assert.equal(usage.totals.workflowRuns, 2);
+    assert.deepEqual(usageSummaryCalls, [[
+      space.id,
+      {
+        from: '2026-06-01T00:00:00.000Z',
+        to: '2026-06-30T23:59:59.999Z',
+      },
+    ]]);
+
+    const invalidUsageDate = await fetch(`${baseUrl}/api/spaces/${space.id}/usage/summary?to=2026-02-31`, {
+      headers: authHeaders,
+    });
+    assert.equal(invalidUsageDate.status, 400);
+    assert.deepEqual(await invalidUsageDate.json(), {
+      error: 'to must be a valid date or ISO timestamp',
+    });
 
     const deleted = await apiFetch('DELETE /api/spaces/:id', {
       fetch,

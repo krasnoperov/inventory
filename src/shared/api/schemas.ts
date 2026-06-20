@@ -93,6 +93,50 @@ export const UserSettingsResponseSchema = z
   })
   .openapi('UserSettingsResponse');
 
+export const ProviderKeyProviderSchema = z
+  .enum(['google_ai', 'anthropic', 'elevenlabs', 'lyria'])
+  .openapi('ProviderKeyProvider');
+
+export const ProviderKeyParamsSchema = z.object({
+  provider: ProviderKeyProviderSchema.openapi({
+    param: {
+      name: 'provider',
+      in: 'path',
+    },
+  }),
+});
+
+export const ProviderKeySummarySchema = z
+  .object({
+    provider: ProviderKeyProviderSchema,
+    label: z.string(),
+    configured: z.boolean(),
+    keyHint: z.string().nullable(),
+    updatedAt: z.string().nullable(),
+    platformConfigured: z.boolean(),
+  })
+  .openapi('ProviderKeySummary');
+
+export const ListProviderKeysResponseSchema = z
+  .object({
+    success: z.literal(true),
+    providers: z.array(ProviderKeySummarySchema),
+  })
+  .openapi('ListProviderKeysResponse');
+
+export const UpsertProviderKeyRequestSchema = z
+  .object({
+    apiKey: z.string(),
+  })
+  .openapi('UpsertProviderKeyRequest');
+
+export const ProviderKeyResponseSchema = z
+  .object({
+    success: z.literal(true),
+    provider: ProviderKeySummarySchema,
+  })
+  .openapi('ProviderKeyResponse');
+
 export const SpaceRoleSchema = z.enum(['owner', 'editor', 'viewer']);
 
 export const SpaceSchema = z
@@ -170,6 +214,8 @@ export const GetSpaceResponseSchema = z
 
 export const MediaKindSchema = z.enum(['image', 'audio', 'video']);
 export const VariantStatusSchema = z.enum(['pending', 'processing', 'uploading', 'completed', 'failed']);
+export const PlatformUsageTypeSchema = z.enum(['storage', 'workflow', 'delivery']);
+export const PlatformUsageUnitSchema = z.enum(['byte', 'run']);
 export const BooleanFromSqliteSchema = z
   .union([z.boolean(), z.literal(0), z.literal(1)])
   .transform((value) => value === true || value === 1)
@@ -235,6 +281,48 @@ export const ListSpaceAssetsResponseSchema = z
     assets: z.array(AssetSchema),
   })
   .openapi('ListSpaceAssetsResponse');
+
+export const UsageSummaryQuerySchema = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+export const PlatformUsageTypeSummarySchema = z
+  .object({
+    usageType: PlatformUsageTypeSchema,
+    unit: PlatformUsageUnitSchema,
+    quantity: z.number().int(),
+    events: z.number().int().nonnegative(),
+  })
+  .openapi('PlatformUsageTypeSummary');
+
+export const PlatformUsageMediaKindSummarySchema = z
+  .object({
+    mediaKind: MediaKindSchema.nullable(),
+    storageBytes: z.number().int(),
+    workflowRuns: z.number().int(),
+    deliveryBytes: z.number().int(),
+    events: z.number().int().nonnegative(),
+  })
+  .openapi('PlatformUsageMediaKindSummary');
+
+export const PlatformUsageSummaryResponseSchema = z
+  .object({
+    success: z.literal(true),
+    spaceId: z.string(),
+    period: z.object({
+      from: z.string().nullable(),
+      to: z.string().nullable(),
+    }),
+    totals: z.object({
+      storageBytes: z.number().int(),
+      workflowRuns: z.number().int(),
+      deliveryBytes: z.number().int(),
+    }),
+    byType: z.array(PlatformUsageTypeSummarySchema),
+    byMediaKind: z.array(PlatformUsageMediaKindSummarySchema),
+  })
+  .openapi('PlatformUsageSummaryResponse');
 
 export const ProductionRecordSchema = z
   .object({
@@ -523,12 +611,20 @@ export type UpdateUserProfileRequest = z.infer<typeof UpdateUserProfileRequestSc
 export type UpdateUserSettingsRequest = z.infer<typeof UpdateUserSettingsRequestSchema>;
 export type UserProfileUpdateResponse = z.infer<typeof UserProfileUpdateResponseSchema>;
 export type UserSettingsResponse = z.infer<typeof UserSettingsResponseSchema>;
+export type ProviderKeyProvider = z.infer<typeof ProviderKeyProviderSchema>;
+export type ProviderKeySummary = z.infer<typeof ProviderKeySummarySchema>;
+export type ListProviderKeysResponse = z.infer<typeof ListProviderKeysResponseSchema>;
+export type UpsertProviderKeyRequest = z.infer<typeof UpsertProviderKeyRequestSchema>;
+export type ProviderKeyResponse = z.infer<typeof ProviderKeyResponseSchema>;
 export type Space = z.infer<typeof SpaceSchema>;
 export type CreateSpaceRequest = z.infer<typeof CreateSpaceRequestSchema>;
 export type CreateSpaceResponse = z.infer<typeof CreateSpaceResponseSchema>;
 export type ListSpacesResponse = z.infer<typeof ListSpacesResponseSchema>;
 export type GetSpaceResponse = z.infer<typeof GetSpaceResponseSchema>;
 export type ListSpaceAssetsResponse = z.infer<typeof ListSpaceAssetsResponseSchema>;
+export type PlatformUsageTypeSummary = z.infer<typeof PlatformUsageTypeSummarySchema>;
+export type PlatformUsageMediaKindSummary = z.infer<typeof PlatformUsageMediaKindSummarySchema>;
+export type PlatformUsageSummaryResponse = z.infer<typeof PlatformUsageSummaryResponseSchema>;
 export type DeleteSpaceResponse = z.infer<typeof DeleteSpaceResponseSchema>;
 export type ProductionRecord = z.infer<typeof ProductionRecordSchema>;
 export type PlaceProductionRecordRequest = z.infer<typeof PlaceProductionRecordRequestSchema>;

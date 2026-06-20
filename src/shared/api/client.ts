@@ -10,9 +10,13 @@ import {
   GoogleAuthRequestSchema,
   ListSpaceAssetsResponseSchema,
   ListProductionRecordsResponseSchema,
+  ListProviderKeysResponseSchema,
   ListProductionsResponseSchema,
   ListSpacesResponseSchema,
   PlaceProductionRecordRequestSchema,
+  PlatformUsageSummaryResponseSchema,
+  ProviderKeyParamsSchema,
+  ProviderKeyResponseSchema,
   ProductionChildParamsSchema,
   ProductionCueResponseSchema,
   ProductionDetailResponseSchema,
@@ -24,12 +28,14 @@ import {
   ProductionShotResponseSchema,
   SpaceIdParamsSchema,
   SuccessResponseSchema,
+  UsageSummaryQuerySchema,
   UpsertProductionCueRequestSchema,
   UpsertProductionPlacementRequestSchema,
   UpsertProductionRequestSchema,
   UpsertProductionShotRequestSchema,
   UpdateUserProfileRequestSchema,
   UpdateUserSettingsRequestSchema,
+  UpsertProviderKeyRequestSchema,
   UploadMediaRequestSchema,
   UploadMediaResponseSchema,
   UploadStyleImageRequestSchema,
@@ -74,6 +80,24 @@ export const apiEndpoints = {
     jsonSchema: UpdateUserProfileRequestSchema,
     responseSchema: UserProfileUpdateResponseSchema,
   },
+  'GET /api/user/provider-keys': {
+    method: 'GET',
+    path: '/api/user/provider-keys',
+    responseSchema: ListProviderKeysResponseSchema,
+  },
+  'PUT /api/user/provider-keys/:provider': {
+    method: 'PUT',
+    path: '/api/user/provider-keys/:provider',
+    paramsSchema: ProviderKeyParamsSchema,
+    jsonSchema: UpsertProviderKeyRequestSchema,
+    responseSchema: ProviderKeyResponseSchema,
+  },
+  'DELETE /api/user/provider-keys/:provider': {
+    method: 'DELETE',
+    path: '/api/user/provider-keys/:provider',
+    paramsSchema: ProviderKeyParamsSchema,
+    responseSchema: ProviderKeyResponseSchema,
+  },
   'POST /api/spaces': {
     method: 'POST',
     path: '/api/spaces',
@@ -96,6 +120,13 @@ export const apiEndpoints = {
     path: '/api/spaces/:id/assets',
     paramsSchema: SpaceIdParamsSchema,
     responseSchema: ListSpaceAssetsResponseSchema,
+  },
+  'GET /api/spaces/:id/usage/summary': {
+    method: 'GET',
+    path: '/api/spaces/:id/usage/summary',
+    paramsSchema: SpaceIdParamsSchema,
+    querySchema: UsageSummaryQuerySchema,
+    responseSchema: PlatformUsageSummaryResponseSchema,
   },
   'GET /api/spaces/:id/productions': {
     method: 'GET',
@@ -226,6 +257,10 @@ type JsonOf<K extends ApiEndpointKey> =
   Endpoint<K> extends { jsonSchema: infer S extends z.ZodType }
     ? z.input<S>
     : never;
+type QueryOf<K extends ApiEndpointKey> =
+  Endpoint<K> extends { querySchema: infer S extends z.ZodType }
+    ? z.input<S>
+    : never;
 type FormOf<K extends ApiEndpointKey> =
   Endpoint<K> extends { formSchema: infer S extends z.ZodType }
     ? z.input<S>
@@ -237,7 +272,7 @@ type ResponseOf<K extends ApiEndpointKey> =
     ? z.output<S>
     : never;
 type NeedsOptions<K extends ApiEndpointKey> =
-  Endpoint<K> extends { paramsSchema: z.ZodType } | { jsonSchema: z.ZodType } | { formSchema: z.ZodType }
+  Endpoint<K> extends { paramsSchema: z.ZodType } | { querySchema: z.ZodType } | { jsonSchema: z.ZodType } | { formSchema: z.ZodType }
     ? true
     : false;
 
@@ -248,6 +283,7 @@ export type ApiFetchOptions<K extends ApiEndpointKey> =
     baseUrl?: string;
     fetch?: FetchLike;
   } & (ParamsOf<K> extends never ? { params?: never } : { params: ParamsOf<K> })
+    & (QueryOf<K> extends never ? { query?: never } : { query?: QueryOf<K> })
     & (JsonOf<K> extends never ? { json?: never } : { json: JsonOf<K> })
     & (FormOf<K> extends never ? { form?: never } : { form: FormOf<K> });
 
@@ -282,6 +318,21 @@ function resolveUrl(path: string, baseUrl: string | undefined): string {
     return new URL(path, baseUrl).toString();
   }
   return path;
+}
+
+function appendQuery(path: string, query: Record<string, unknown> | undefined): string {
+  if (!query) {
+    return path;
+  }
+
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null) continue;
+    params.set(key, String(value));
+  }
+  const search = params.toString();
+  if (!search) return path;
+  return `${path}${path.includes('?') ? '&' : '?'}${search}`;
 }
 
 function buildFormData(form: Record<string, unknown>): FormData {
@@ -344,11 +395,15 @@ export async function apiFetch<K extends ApiEndpointKey>(
     'jsonSchema' in endpoint
       ? endpoint.jsonSchema.parse(options.json)
       : undefined;
+  const query =
+    'querySchema' in endpoint
+      ? endpoint.querySchema.parse(options.query ?? {})
+      : undefined;
   const form =
     'formSchema' in endpoint
       ? endpoint.formSchema.parse(options.form)
       : undefined;
-  const path = buildPath(endpoint.path, params as Record<string, unknown> | undefined);
+  const path = appendQuery(buildPath(endpoint.path, params as Record<string, unknown> | undefined), query as Record<string, unknown> | undefined);
   const headers = new Headers(options.headers);
   const init: RequestInit = {
     ...options,
@@ -360,6 +415,7 @@ export async function apiFetch<K extends ApiEndpointKey>(
   delete (init as { baseUrl?: string }).baseUrl;
   delete (init as { fetch?: FetchLike }).fetch;
   delete (init as { params?: unknown }).params;
+  delete (init as { query?: unknown }).query;
   delete (init as { json?: unknown }).json;
   delete (init as { form?: unknown }).form;
 

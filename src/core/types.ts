@@ -81,6 +81,7 @@ export interface Env {
   ENVIRONMENT?: 'local' | 'development' | 'stage' | 'staging' | 'production';
   INVENTORY_DEV_AUTH_TOKEN?: string;
   INVENTORY_DEV_USER_ID?: string;
+  ENCRYPTION_KEY?: string;
 
   // R2 Storage for generated images (required for Make Effects)
   IMAGES: R2Bucket;

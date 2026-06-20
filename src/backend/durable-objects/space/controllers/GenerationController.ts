@@ -40,6 +40,7 @@ import type { VariantMediaMetadata } from '../repository/SpaceRepository';
 import { loggers } from '../../../../shared/logger';
 import type { MusicGenerationProvider } from '../../../../shared/websocket-types';
 import { resolveAudioProvider } from '../../../services/audioProviderSelection';
+import { hasStoredProviderApiKey, type ProviderKeyProvider } from '../../../services/providerKeyVault';
 import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
 import { VIDEO_GENERATION_AUDIO_ALWAYS_ON } from '../../../../shared/videoGenerationOptions';
 import { trackVariantStorageUsage } from '../../../platform/platformUsage';
@@ -48,6 +49,11 @@ const log = loggers.generationController;
 
 type GenerationBillingService = 'nanobanana' | 'lyria' | 'elevenlabs' | 'veo';
 type GenerationLimitDenyReason = 'quota_exceeded' | 'rate_limited' | 'paid_generation_required';
+type ImageModelProvider = 'gemini' | 'custom';
+
+interface ByokBillingContext {
+  modelProvider?: ImageModelProvider;
+}
 
 type AudioUsage = {
   inputTokens: number;
@@ -79,6 +85,42 @@ function getGenerationBillingService(
     return 'elevenlabs';
   }
   return 'nanobanana';
+}
+
+function getByokProviderForBillingService(service: GenerationBillingService): ProviderKeyProvider {
+  switch (service) {
+    case 'elevenlabs':
+      return 'elevenlabs';
+    case 'lyria':
+      return 'lyria';
+    case 'nanobanana':
+    case 'veo':
+      return 'google_ai';
+  }
+}
+
+function normalizeImageModelProvider(value: unknown): ImageModelProvider | undefined {
+  return value === 'gemini' || value === 'custom' ? value : undefined;
+}
+
+function isCustomImageProviderRequest(
+  env: ControllerContext['env'],
+  service: GenerationBillingService,
+  context: ByokBillingContext
+): boolean {
+  return service === 'nanobanana' && context.modelProvider === 'custom' && Boolean(env.CUSTOM_MODEL_ENDPOINT);
+}
+
+async function hasByokForBillingService(
+  env: ControllerContext['env'],
+  userId: number,
+  service: GenerationBillingService,
+  context: ByokBillingContext = {}
+): Promise<boolean> {
+  if (isCustomImageProviderRequest(env, service, context)) {
+    return false;
+  }
+  return hasStoredProviderApiKey(env.DB, userId, getByokProviderForBillingService(service));
 }
 
 function countPromptCharacters(prompt: string | undefined): number {
@@ -113,6 +155,10 @@ function parseObjectMetadata(value: Record<string, unknown> | string | null | un
     }
   }
   return value;
+}
+
+function isByokProviderMetadata(value: Record<string, unknown> | string | null | undefined): boolean {
+  return parseObjectMetadata(value)?.keySource === 'byok';
 }
 
 function toPositiveNumber(value: unknown): number | undefined {
@@ -275,6 +321,8 @@ export class GenerationController extends BaseController {
       throw new ValidationError('Generation workflow not configured');
     }
 
+    const modelProvider = normalizeImageModelProvider(msg.modelProvider);
+
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind, msg.assetType, msg.musicProvider);
@@ -285,17 +333,22 @@ export class GenerationController extends BaseController {
         msg.assetType,
         getVideoGenerateAudio(msg.mediaKind, msg.generateAudio)
       );
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
-      if (!check.allowed) {
-        this.send(ws, {
-          type: 'generate:error',
-          requestId: msg.requestId,
-          error: check.denyMessage || 'Request denied',
-          code: getGenerationLimitErrorCode(check.denyReason),
-        });
-        return;
+      const userId = parseInt(meta.userId);
+      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider })) {
+        await incrementRateLimit(this.env.DB, userId);
+      } else {
+        const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
+        if (!check.allowed) {
+          this.send(ws, {
+            type: 'generate:error',
+            requestId: msg.requestId,
+            error: check.denyMessage || 'Request denied',
+            code: getGenerationLimitErrorCode(check.denyReason),
+          });
+          return;
+        }
+        await incrementRateLimit(this.env.DB, userId);
       }
-      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
     }
 
     // Use factory to create asset + variant + lineage
@@ -319,6 +372,7 @@ export class GenerationController extends BaseController {
         videoResolution: msg.videoResolution,
         videoDurationSeconds: msg.videoDurationSeconds,
         videoTier: msg.videoTier,
+        modelProvider,
       },
       meta
     );
@@ -358,6 +412,8 @@ export class GenerationController extends BaseController {
       throw new ValidationError('Generation workflow not configured');
     }
 
+    const modelProvider = normalizeImageModelProvider(msg.modelProvider);
+
     // Check quota and rate limits before triggering workflow
     if (this.env.DB) {
       let billingMediaKind = msg.mediaKind;
@@ -378,17 +434,22 @@ export class GenerationController extends BaseController {
         billingAssetType,
         getVideoGenerateAudio(billingMediaKind, msg.generateAudio)
       );
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
-      if (!check.allowed) {
-        this.send(ws, {
-          type: 'refine:error',
-          requestId: msg.requestId,
-          error: check.denyMessage || 'Request denied',
-          code: getGenerationLimitErrorCode(check.denyReason),
-        });
-        return;
+      const userId = parseInt(meta.userId);
+      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider })) {
+        await incrementRateLimit(this.env.DB, userId);
+      } else {
+        const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
+        if (!check.allowed) {
+          this.send(ws, {
+            type: 'refine:error',
+            requestId: msg.requestId,
+            error: check.denyMessage || 'Request denied',
+            code: getGenerationLimitErrorCode(check.denyReason),
+          });
+          return;
+        }
+        await incrementRateLimit(this.env.DB, userId);
       }
-      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
     }
 
     // Use factory to create refine variant + lineage
@@ -411,6 +472,7 @@ export class GenerationController extends BaseController {
         videoResolution: msg.videoResolution,
         videoDurationSeconds: msg.videoDurationSeconds,
         videoTier: msg.videoTier,
+        modelProvider,
       },
       meta
     );
@@ -464,29 +526,36 @@ export class GenerationController extends BaseController {
       return;
     }
 
+    const modelProvider = normalizeImageModelProvider(msg.modelProvider);
+
     // Check quota for the entire batch
     if (this.env.DB) {
       const billingService = getGenerationBillingService(this.env, msg.mediaKind, msg.assetType, msg.musicProvider);
       const quotaQuantity = getQuotaCheckQuantity(billingService, msg.prompt, msg.count, msg.assetType);
-      const check = await preCheck(
-        this.env.DB,
-        parseInt(meta.userId),
-        billingService,
-        undefined,
-        quotaQuantity,
-        msg.count,
-        this.env.ADMIN_USER_IDS
-      );
-      if (!check.allowed) {
-        this.send(ws, {
-          type: 'batch:error',
-          requestId: msg.requestId,
-          error: check.denyMessage || 'Request denied',
-          code: getGenerationLimitErrorCode(check.denyReason),
-        });
-        return;
+      const userId = parseInt(meta.userId);
+      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider })) {
+        await incrementRateLimit(this.env.DB, userId, msg.count);
+      } else {
+        const check = await preCheck(
+          this.env.DB,
+          userId,
+          billingService,
+          undefined,
+          quotaQuantity,
+          msg.count,
+          this.env.ADMIN_USER_IDS
+        );
+        if (!check.allowed) {
+          this.send(ws, {
+            type: 'batch:error',
+            requestId: msg.requestId,
+            error: check.denyMessage || 'Request denied',
+            code: getGenerationLimitErrorCode(check.denyReason),
+          });
+          return;
+        }
+        await incrementRateLimit(this.env.DB, userId, msg.count);
       }
-      await incrementRateLimit(this.env.DB, parseInt(meta.userId), msg.count);
     }
 
     // Use factory to create batch variants
@@ -508,6 +577,7 @@ export class GenerationController extends BaseController {
         musicProvider: msg.musicProvider,
         count: msg.count,
         mode: msg.mode,
+        modelProvider,
       },
       meta
     );
@@ -581,16 +651,21 @@ export class GenerationController extends BaseController {
         recipe.assetType,
         getVideoGenerateAudio(retryMediaKind, getRecipeGenerateAudio(recipe))
       );
-      const check = await preCheck(this.env.DB, parseInt(meta.userId), billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
-      if (!check.allowed) {
-        this.sendError(
-          ws,
-          getGenerationLimitErrorCode(check.denyReason),
-          check.denyMessage || 'Request denied'
-        );
-        return;
+      const userId = parseInt(meta.userId);
+      if (await hasByokForBillingService(this.env, userId, billingService, { modelProvider: recipe.modelProvider })) {
+        await incrementRateLimit(this.env.DB, userId);
+      } else {
+        const check = await preCheck(this.env.DB, userId, billingService, undefined, quotaQuantity, 1, this.env.ADMIN_USER_IDS);
+        if (!check.allowed) {
+          this.sendError(
+            ws,
+            getGenerationLimitErrorCode(check.denyReason),
+            check.denyMessage || 'Request denied'
+          );
+          return;
+        }
+        await incrementRateLimit(this.env.DB, userId);
       }
-      await incrementRateLimit(this.env.DB, parseInt(meta.userId));
     }
 
     // Reset variant for retry
@@ -763,9 +838,11 @@ export class GenerationController extends BaseController {
     const providerUsageAttribution = getProviderUsageAttribution(this.spaceId, variant, data);
 
     // Track usage for successful generation
+    const byokGeneration = isByokProviderMetadata(data.providerMetadata) || isByokProviderMetadata(variant.provider_metadata);
     if (
       this.env.DB &&
       variant.created_by &&
+      !byokGeneration &&
       (variant.media_kind === 'image' || variant.media_kind === 'video')
     ) {
       try {
@@ -825,6 +902,7 @@ export class GenerationController extends BaseController {
     if (
       this.env.DB &&
       variant.created_by &&
+      !byokGeneration &&
       variant.media_kind === 'audio' &&
       data.audioProvider === 'elevenlabs'
     ) {
@@ -864,6 +942,7 @@ export class GenerationController extends BaseController {
     if (
       this.env.DB &&
       variant.created_by &&
+      !byokGeneration &&
       variant.media_kind === 'audio' &&
       data.audioProvider === 'lyria'
     ) {

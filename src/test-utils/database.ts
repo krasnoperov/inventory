@@ -152,6 +152,18 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
   `.execute(db);
 
   await sql`
+    CREATE TABLE user_provider_keys (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL CHECK (provider IN ('google_ai', 'anthropic', 'elevenlabs', 'lyria')),
+      encrypted_api_key TEXT NOT NULL,
+      key_hint TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, provider)
+    )
+  `.execute(db);
+
+  await sql`
     CREATE INDEX idx_customer_charge_user_created
       ON customer_charge_ledger(user_id, created_at)
   `.execute(db);
@@ -175,6 +187,7 @@ export async function cleanupTestDatabase(db: Kysely<DatabaseSchema>) {
   await db.deleteFrom('platform_usage_events').execute();
   await db.deleteFrom('customer_charge_ledger').execute();
   await db.deleteFrom('provider_usage_ledger').execute();
+  await db.deleteFrom('user_provider_keys').execute();
   await db.deleteFrom('usage_events').execute();
   await db.deleteFrom('spaces').execute();
   await db.deleteFrom('users').execute();

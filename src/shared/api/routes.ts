@@ -12,8 +12,12 @@ import {
   GoogleAuthRequestSchema,
   ListSpaceAssetsResponseSchema,
   ListProductionRecordsResponseSchema,
+  ListProviderKeysResponseSchema,
   ListSpacesResponseSchema,
   PlaceProductionRecordRequestSchema,
+  PlatformUsageSummaryResponseSchema,
+  ProviderKeyParamsSchema,
+  ProviderKeyResponseSchema,
   ProductionIdParamsSchema,
   ProductionChildParamsSchema,
   ListProductionsResponseSchema,
@@ -26,12 +30,14 @@ import {
   ProductionShotResponseSchema,
   SpaceIdParamsSchema,
   SuccessResponseSchema,
+  UsageSummaryQuerySchema,
   UpsertProductionCueRequestSchema,
   UpsertProductionPlacementRequestSchema,
   UpsertProductionRequestSchema,
   UpsertProductionShotRequestSchema,
   UpdateUserProfileRequestSchema,
   UpdateUserSettingsRequestSchema,
+  UpsertProviderKeyRequestSchema,
   UploadMediaRequestSchema,
   UploadMediaResponseSchema,
   UploadStyleImageRequestSchema,
@@ -186,6 +192,57 @@ export const patchUserProfileRoute = createRoute({
   },
 });
 
+export const listProviderKeysRoute = createRoute({
+  method: 'get',
+  path: '/api/user/provider-keys',
+  responses: {
+    200: {
+      ...json(ListProviderKeysResponseSchema),
+      description: 'Current user provider key configuration',
+    },
+    401: errorResponse,
+  },
+});
+
+export const putProviderKeyRoute = createRoute({
+  method: 'put',
+  path: '/api/user/provider-keys/{provider}',
+  request: {
+    params: ProviderKeyParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertProviderKeyRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(ProviderKeyResponseSchema),
+      description: 'Stored encrypted provider key',
+    },
+    400: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteProviderKeyRoute = createRoute({
+  method: 'delete',
+  path: '/api/user/provider-keys/{provider}',
+  request: {
+    params: ProviderKeyParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(ProviderKeyResponseSchema),
+      description: 'Removed provider key',
+    },
+    400: errorResponse,
+  },
+});
+
 export const postSpaceRoute = createRoute({
   method: 'post',
   path: '/api/spaces',
@@ -249,6 +306,23 @@ export const listSpaceAssetsRoute = createRoute({
     403: errorResponse,
     500: errorResponse,
     503: errorResponse,
+  },
+});
+
+export const getSpaceUsageSummaryRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/usage/summary',
+  request: {
+    params: SpaceIdParamsSchema,
+    query: UsageSummaryQuerySchema,
+  },
+  responses: {
+    200: {
+      ...json(PlatformUsageSummaryResponseSchema),
+      description: 'Platform storage, workflow, and delivery usage summary for a space',
+    },
+    400: errorResponse,
+    403: errorResponse,
   },
 });
 

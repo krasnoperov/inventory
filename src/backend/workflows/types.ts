@@ -193,6 +193,8 @@ export interface GenerateRequestMessage {
   aspectRatio?: string;
   /** Image output size (`1K`, `2K`, `4K`) */
   imageSize?: string;
+  /** Image provider selection (`gemini` or `custom`) */
+  modelProvider?: 'gemini' | 'custom';
   parentAssetId?: string;
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
@@ -230,6 +232,8 @@ export interface RefineRequestMessage {
   aspectRatio?: string;
   /** Image output size (`1K`, `2K`, `4K`) */
   imageSize?: string;
+  /** Image provider selection (`gemini` or `custom`) */
+  modelProvider?: 'gemini' | 'custom';
   /** Disable style anchoring for this generation */
   disableStyle?: boolean;
   /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
@@ -276,6 +280,8 @@ export interface BatchRequestMessage {
   aspectRatio?: string;
   /** Image output size (`1K`, `2K`, `4K`) */
   imageSize?: string;
+  /** Image provider selection (`gemini` or `custom`) */
+  modelProvider?: 'gemini' | 'custom';
   parentAssetId?: string;
   /** Disable style anchoring for this batch */
   disableStyle?: boolean;
