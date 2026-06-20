@@ -137,6 +137,18 @@ export class SchemaManager {
         )
       );
 
+      CREATE TABLE IF NOT EXISTS style_presets (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        style_prompt TEXT NOT NULL DEFAULT '',
+        collection_id TEXT REFERENCES space_collections(id) ON DELETE SET NULL,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)),
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS space_relations (
         id TEXT PRIMARY KEY,
         subject_type TEXT NOT NULL CHECK (subject_type IN ('asset', 'variant')),
@@ -356,6 +368,9 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_collection_items_asset ON collection_items(asset_id);
       CREATE INDEX IF NOT EXISTS idx_collection_items_variant ON collection_items(variant_id);
       CREATE INDEX IF NOT EXISTS idx_collection_items_pinned_variant ON collection_items(pinned_variant_id);
+      CREATE INDEX IF NOT EXISTS idx_style_presets_collection ON style_presets(collection_id);
+      CREATE INDEX IF NOT EXISTS idx_style_presets_enabled ON style_presets(enabled, created_at);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_style_presets_default ON style_presets(is_default) WHERE is_default = 1;
       CREATE INDEX IF NOT EXISTS idx_space_relations_subject_asset ON space_relations(subject_asset_id, relation_type);
       CREATE INDEX IF NOT EXISTS idx_space_relations_subject_variant ON space_relations(subject_variant_id, relation_type);
       CREATE INDEX IF NOT EXISTS idx_space_relations_object_asset ON space_relations(object_asset_id, relation_type);
@@ -404,6 +419,9 @@ export class SchemaManager {
 
     // Migration: Add space_styles table for style anchoring
     await this.addSpaceStyles();
+
+    // Migration: Add asset-backed style presets over space collections
+    await this.addStylePresets();
 
     // Migration: Add batch_id column to variants for batch generation
     await this.addBatchIdToVariants();
@@ -672,6 +690,30 @@ export class SchemaManager {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
+    `);
+  }
+
+  /**
+   * Add style presets backed by normal collections and asset/variant items.
+   * Legacy space_styles rows remain readable during compatibility windows.
+   */
+  private async addStylePresets(): Promise<void> {
+    await this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS style_presets (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        style_prompt TEXT NOT NULL DEFAULT '',
+        collection_id TEXT REFERENCES space_collections(id) ON DELETE SET NULL,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)),
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_style_presets_collection ON style_presets(collection_id);
+      CREATE INDEX IF NOT EXISTS idx_style_presets_enabled ON style_presets(enabled, created_at);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_style_presets_default ON style_presets(is_default) WHERE is_default = 1;
     `);
   }
 

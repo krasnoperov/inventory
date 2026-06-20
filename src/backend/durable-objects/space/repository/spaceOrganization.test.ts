@@ -62,10 +62,10 @@ describe('Space organization repository', () => {
     });
   }
 
-  test('creates collection, relation, and composition tables with lookup indexes', () => {
+  test('creates organization and style preset tables with lookup indexes', () => {
     const tableNames = db
-      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'table' AND name IN (?, ?, ?, ?, ?) ORDER BY name`)
-      .all('collection_items', 'composition_items', 'compositions', 'space_collections', 'space_relations')
+      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'table' AND name IN (?, ?, ?, ?, ?, ?) ORDER BY name`)
+      .all('collection_items', 'composition_items', 'compositions', 'space_collections', 'space_relations', 'style_presets')
       .map((row) => (row as { name: string }).name);
 
     assert.deepEqual(tableNames, [
@@ -74,15 +74,17 @@ describe('Space organization repository', () => {
       'compositions',
       'space_collections',
       'space_relations',
+      'style_presets',
     ]);
 
     const indexNames = db
-      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'index' AND name IN (?, ?, ?, ?) ORDER BY name`)
+      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'index' AND name IN (?, ?, ?, ?, ?) ORDER BY name`)
       .all(
         'idx_collection_items_collection',
         'idx_space_relations_subject_variant',
         'idx_composition_items_variant',
-        'idx_compositions_output_variant'
+        'idx_compositions_output_variant',
+        'idx_style_presets_default'
       )
       .map((row) => (row as { name: string }).name);
 
@@ -91,6 +93,7 @@ describe('Space organization repository', () => {
       'idx_composition_items_variant',
       'idx_compositions_output_variant',
       'idx_space_relations_subject_variant',
+      'idx_style_presets_default',
     ]);
   });
 
@@ -156,6 +159,206 @@ describe('Space organization repository', () => {
     assert.equal(await repo.deleteCollectionItem('item-1'), true);
     assert.equal(await repo.deleteCollection('collection-1'), true);
     assert.deepEqual(await repo.listCollections(), []);
+  });
+
+  test('supports style preset CRUD and optional default selection', async () => {
+    await repo.createCollection({
+      id: 'collection-1',
+      name: 'Painterly References',
+      createdBy: 'user-1',
+    });
+    await repo.createCollection({
+      id: 'collection-2',
+      name: 'Pixel References',
+      createdBy: 'user-1',
+    });
+    await createAssetWithVariant('style-asset', 'style-variant');
+    await repo.createCollectionItem({
+      id: 'style-item',
+      collectionId: 'collection-1',
+      subjectType: 'asset',
+      assetId: 'style-asset',
+      pinnedVariantId: 'style-variant',
+      role: 'style_ref',
+      createdBy: 'user-1',
+    });
+
+    const first = await repo.createStylePreset({
+      id: 'preset-1',
+      name: 'Painterly',
+      stylePrompt: 'Loose painterly brushwork',
+      collectionId: 'collection-1',
+      isDefault: true,
+      createdBy: 'user-1',
+    });
+    assert.equal(first.is_default, 1);
+    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-1');
+
+    await repo.createStylePreset({
+      id: 'preset-2',
+      name: 'Pixel',
+      stylePrompt: 'Crisp limited-palette pixel art',
+      collectionId: 'collection-2',
+      isDefault: true,
+      createdBy: 'user-1',
+    });
+    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-2');
+    assert.equal((await repo.getStylePresetById('preset-1'))?.is_default, 0);
+
+    await assert.rejects(
+      repo.createStylePreset({
+        id: 'preset-invalid',
+        name: 'Invalid',
+        collectionId: 'deleted-collection',
+        isDefault: true,
+        createdBy: 'user-1',
+      }),
+      /FOREIGN KEY/
+    );
+    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-2');
+
+    await assert.rejects(
+      repo.updateStylePreset('preset-1', {
+        collectionId: 'deleted-collection',
+        isDefault: true,
+      }),
+      /FOREIGN KEY/
+    );
+    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-2');
+    assert.equal((await repo.getStylePresetById('preset-1'))?.is_default, 0);
+
+    const updated = await repo.updateStylePreset('preset-1', {
+      name: 'Painted House',
+      stylePrompt: 'Painterly fantasy UI concept art',
+      collectionId: null,
+      enabled: false,
+      isDefault: true,
+    });
+    assert.equal(updated?.name, 'Painted House');
+    assert.equal(updated?.style_prompt, 'Painterly fantasy UI concept art');
+    assert.equal(updated?.collection_id, null);
+    assert.equal(updated?.enabled, 0);
+    assert.equal(updated?.is_default, 1);
+    assert.equal((await repo.getStylePresetById('preset-2'))?.is_default, 0);
+
+    assert.equal(await repo.setDefaultStylePreset(null), null);
+    assert.equal(await repo.getDefaultStylePreset(), null);
+
+    assert.equal(await repo.deleteStylePreset('preset-1'), true);
+    assert.equal((await repo.getAssetById('style-asset'))?.id, 'style-asset');
+    assert.equal((await repo.getVariantById('style-variant'))?.id, 'style-variant');
+    assert.deepEqual(
+      (await repo.listCollectionItems('collection-1')).map((item) => item.id),
+      ['style-item']
+    );
+    assert.deepEqual(
+      (await repo.listCollections()).map((collection) => collection.id).sort(),
+      ['collection-1', 'collection-2']
+    );
+  });
+
+  test('resolves style preset collection items to exact variants and image keys', async () => {
+    await createAssetWithVariant('asset-1', 'variant-1');
+    await createAssetWithVariant('asset-2', 'variant-2');
+    await createAssetWithVariant('asset-3', 'variant-3');
+    await repo.createAsset({
+      id: 'asset-video',
+      name: 'asset-video',
+      type: 'animation',
+      mediaKind: 'video',
+      tags: [],
+      createdBy: 'user-1',
+    });
+    await repo.createPlaceholderVariant({
+      id: 'variant-video',
+      assetId: 'asset-video',
+      mediaKind: 'video',
+      recipe: '{}',
+      createdBy: 'user-1',
+    });
+    await repo.completeVariant('variant-video', null, null, {
+      mediaKey: 'media/variant-video.mp4',
+      mimeType: 'video/mp4',
+    });
+    await repo.createCollection({ id: 'style-collection', name: 'Style refs', createdBy: 'user-1' });
+    await repo.createCollectionItem({
+      id: 'item-direct',
+      collectionId: 'style-collection',
+      subjectType: 'variant',
+      variantId: 'variant-2',
+      role: 'style_ref',
+      sortIndex: 1,
+      createdBy: 'user-1',
+    });
+    await repo.createCollectionItem({
+      id: 'item-pinned',
+      collectionId: 'style-collection',
+      subjectType: 'asset',
+      assetId: 'asset-1',
+      pinnedVariantId: 'variant-1',
+      role: 'style_ref',
+      sortIndex: 2,
+      createdBy: 'user-1',
+    });
+    await repo.createCollectionItem({
+      id: 'item-unpinned',
+      collectionId: 'style-collection',
+      subjectType: 'asset',
+      assetId: 'asset-3',
+      role: 'style_ref',
+      sortIndex: 3,
+      createdBy: 'user-1',
+    });
+    await repo.createCollectionItem({
+      id: 'item-video',
+      collectionId: 'style-collection',
+      subjectType: 'variant',
+      variantId: 'variant-video',
+      role: 'style_ref',
+      sortIndex: 4,
+      createdBy: 'user-1',
+    });
+    await repo.createStylePreset({
+      id: 'preset-1',
+      name: 'House style',
+      stylePrompt: 'Muted storybook colors',
+      collectionId: 'style-collection',
+      createdBy: 'user-1',
+    });
+
+    const resolved = await repo.resolveStylePresetReferences('preset-1');
+    assert.equal(resolved?.stylePresetId, 'preset-1');
+    assert.equal(resolved?.styleCollectionId, 'style-collection');
+    assert.equal(resolved?.stylePrompt, 'Muted storybook colors');
+    assert.deepEqual(resolved?.styleReferenceVariantIds, ['variant-2', 'variant-1', 'variant-video']);
+    assert.deepEqual(resolved?.styleReferenceImageKeys, [
+      'images/variant-2.png',
+      'images/variant-1.png',
+    ]);
+  });
+
+  test('keeps legacy singleton style reads separate from style presets', async () => {
+    await repo.createCollection({ id: 'collection-1', name: 'Style refs', createdBy: 'user-1' });
+    await repo.createStyle({
+      id: 'legacy-style',
+      name: 'Legacy Style',
+      description: 'Legacy space style row',
+      imageKeys: ['styles/space-1/legacy.png'],
+      createdBy: 'user-1',
+    });
+    await repo.createStylePreset({
+      id: 'preset-1',
+      name: 'Asset-backed Style',
+      stylePrompt: 'Normal asset-backed style prompt',
+      collectionId: 'collection-1',
+      isDefault: true,
+      createdBy: 'user-1',
+    });
+
+    const legacy = await repo.getActiveStyle();
+    assert.equal(legacy?.id, 'legacy-style');
+    assert.equal(legacy?.description, 'Legacy space style row');
+    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-1');
   });
 
   test('supports relation CRUD and lookup in both directions without lineage rows', async () => {
@@ -324,6 +527,12 @@ describe('Space organization repository', () => {
       variantId: 'variant-2',
       createdBy: 'user-1',
     });
+    await repo.createStylePreset({
+      id: 'preset-1',
+      name: 'References',
+      collectionId: 'collection-1',
+      createdBy: 'user-1',
+    });
 
     assert.equal(await repo.deleteVariant('variant-2'), true);
     assert.deepEqual(
@@ -338,5 +547,9 @@ describe('Space organization repository', () => {
     const composition = await repo.getCompositionById('composition-1');
     assert.equal(composition?.output_asset_id, null);
     assert.equal(composition?.output_variant_id, null);
+
+    assert.equal((await repo.getStylePresetById('preset-1'))?.collection_id, 'collection-1');
+    assert.equal(await repo.deleteCollection('collection-1'), true);
+    assert.equal((await repo.getStylePresetById('preset-1'))?.collection_id, null);
   });
 });
