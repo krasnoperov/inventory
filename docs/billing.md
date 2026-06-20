@@ -164,6 +164,18 @@ Provider price resolution lives in `src/backend/billing/providerPricing.ts`.
 normalized usage unit, unit price, USD amount, and integer micro-USD amount for
 ledger writes and usage-cost estimates.
 
+Admin provider spend summaries are available through:
+
+```bash
+makefx spend --from 2026-06-01 --to 2026-06-30
+makefx spend --user-id 42 --provider gemini --media-kind image
+```
+
+The CLI calls `GET /api/billing/spend/summary`, which is admin-only and returns
+totals plus provider, model, media-kind, and meter-event breakdowns. Unpriced
+ledger rows are counted separately so missing provider price attribution remains
+visible during spend audits.
+
 ## Customer Charge Ledger
 
 Every local `usage_events` row also writes one `customer_charge_ledger` row.

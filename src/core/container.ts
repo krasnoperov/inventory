@@ -10,6 +10,7 @@ import { UserDAO } from '../dao/user-dao';
 import { SpaceDAO } from '../dao/space-dao';
 import { MemberDAO } from '../dao/member-dao';
 import { UsageEventDAO } from '../dao/usage-event-dao';
+import { ProviderUsageLedgerDAO } from '../dao/provider-usage-ledger-dao';
 import { CustomerChargeLedgerDAO } from '../dao/customer-charge-ledger-dao';
 import { PlatformUsageEventDAO } from '../dao/platform-usage-event-dao';
 import { MemoryDAO } from '../dao/memory-dao';
@@ -52,6 +53,9 @@ export function createContainer(env: Env): Container {
 
   container.bind(UsageEventDAO).toSelf().inSingletonScope();
   container.bind(TYPES.UsageEventDAO).toService(UsageEventDAO);
+
+  container.bind(ProviderUsageLedgerDAO).toSelf().inSingletonScope();
+  container.bind(TYPES.ProviderUsageLedgerDAO).toService(ProviderUsageLedgerDAO);
 
   container.bind(CustomerChargeLedgerDAO).toSelf().inSingletonScope();
   container.bind(TYPES.CustomerChargeLedgerDAO).toService(CustomerChargeLedgerDAO);
