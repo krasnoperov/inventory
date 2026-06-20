@@ -269,8 +269,9 @@ Billing (Polar.sh):
 
 Spaces:
   spaces                       List all spaces
-  spaces --details             List spaces with asset summaries
-  spaces --id <id>             Show details for a specific space
+  spaces --json                List all spaces as JSON
+  spaces --details [--json]    List spaces with asset summaries
+  spaces --id <id> [--json]    Show details for a specific space
   spaces create <name>         Create a new space
 
 Listen:
@@ -380,8 +381,9 @@ function printSpacesHelp(): void {
   console.log(`
 Usage:
   makefx spaces
-  makefx spaces --details
-  makefx spaces --id <space_id>
+  makefx spaces --json
+  makefx spaces --details [--json]
+  makefx spaces --id <space_id> [--json]
   makefx spaces create <name>
   makefx spaces create --name "My Space" [--init] [--json]
 `);
