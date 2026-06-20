@@ -64,12 +64,8 @@ function assertNonEmptyString(value: unknown, label: string): string {
 async function assertGenerationAuthorized(
   env: KeyBrokerWorkerEnv,
   userId: number,
-  request: ResolveProviderKeyRequest,
+  request: Extract<ResolveProviderKeyRequest, { purpose: 'generation' }>,
 ): Promise<void> {
-  if (request.purpose !== 'generation') {
-    throw new ProviderKeyEncryptionError('Key broker resolve purpose is invalid');
-  }
-
   const jobId = assertNonEmptyString(request.generation?.jobId, 'generation job');
   const requestId = assertNonEmptyString(request.generation?.requestId, 'generation request');
   const spaceId = assertNonEmptyString(request.generation?.spaceId, 'generation space');
@@ -165,6 +161,7 @@ function buildProviderKeySnapshotGuard(
   ]);
 
   return env.DB.prepare(`
+    /* provider_snapshot_guard */
     INSERT INTO user_provider_keys (user_id, provider, encrypted_api_key, key_hint, created_at, updated_at)
     SELECT ?, ?, NULL, '', ?, ?
     WHERE EXISTS (
@@ -190,7 +187,38 @@ function buildProviderKeySnapshotGuard(
   );
 }
 
-function isProviderSnapshotGuardFailure(error: unknown): boolean {
+function buildEnvelopeSnapshotGuard(
+  env: KeyBrokerWorkerEnv,
+  userId: number,
+  provider: ProviderKeyProvider,
+  envelope: EnvelopeRow,
+  now: string,
+): D1PreparedStatement {
+  return env.DB.prepare(`
+    /* envelope_snapshot_guard */
+    INSERT INTO user_provider_keys (user_id, provider, encrypted_api_key, key_hint, created_at, updated_at)
+    SELECT ?, ?, NULL, '', ?, ?
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM key_envelopes
+      WHERE scope_id = ?
+        AND wrapped_dek = ?
+        AND dek_version = ?
+        AND kek_version = ?
+    )
+  `).bind(
+    userId,
+    provider,
+    now,
+    now,
+    envelope.scope_id,
+    envelope.wrapped_dek,
+    envelope.dek_version,
+    envelope.kek_version,
+  );
+}
+
+function isSnapshotGuardFailure(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return (
     message.includes('NOT NULL constraint failed') &&
@@ -238,7 +266,11 @@ export async function resolveProviderKey(
 ): Promise<ResolveProviderKeyResponse> {
   const userId = assertUserTenant(request.tenant);
   const provider = assertProvider(request.provider);
-  await assertGenerationAuthorized(env, userId, request);
+  if (request.purpose === 'generation') {
+    await assertGenerationAuthorized(env, userId, request);
+  } else if (request.purpose !== 'runtime') {
+    throw new ProviderKeyEncryptionError('Key broker resolve purpose is invalid');
+  }
   const hasStoredKey = await hasStoredProviderApiKey(env.DB, userId, provider);
   if (!hasStoredKey) {
     return {
@@ -322,6 +354,7 @@ export async function rotateTenantDek(
   );
   const now = new Date().toISOString();
   const statements: D1PreparedStatement[] = [
+    buildEnvelopeSnapshotGuard(env, userId, assertProvider(rows[0]?.provider as ProviderKeyProvider), envelope, now),
     buildProviderKeySnapshotGuard(env, userId, rows, now),
   ];
 
@@ -367,7 +400,7 @@ export async function rotateTenantDek(
     try {
       return await env.DB.batch(statements);
     } catch (error) {
-      if (isProviderSnapshotGuardFailure(error)) {
+      if (isSnapshotGuardFailure(error)) {
         throw new ProviderKeyEncryptionError('Tenant DEK rotation was interrupted by a concurrent update; retry the operation');
       }
       throw error;

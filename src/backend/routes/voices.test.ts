@@ -171,6 +171,44 @@ describe('voicesRoutes', () => {
     );
   });
 
+  test('uses the key broker for stored BYOK keys when app KEK bindings are absent', async () => {
+    let brokerCall: unknown = null;
+    let observedKey: string | null = null;
+    mock.method(globalThis, 'fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+      observedKey = new Headers(init?.headers).get('xi-api-key');
+      return new Response(JSON.stringify({ voices: [{ voice_id: 'v1', name: 'Rachel' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    const response = await authedRequest(
+      routeApp({
+        INVENTORY_AUDIO_PROVIDER: 'elevenlabs',
+        ELEVENLABS_API_KEY: 'platform-key',
+        KEY_BROKER: {
+          async resolveProviderKey(request: unknown) {
+            brokerCall = request;
+            return {
+              tenant: { type: 'user', userId: 7 },
+              provider: 'elevenlabs',
+              apiKey: 'broker-elevenlabs-key',
+              keySource: 'byok',
+            };
+          },
+        } as never,
+      })
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(observedKey, 'broker-elevenlabs-key');
+    assert.deepEqual(brokerCall, {
+      tenant: { type: 'user', userId: 7 },
+      provider: 'elevenlabs',
+      purpose: 'runtime',
+    });
+  });
+
   test('treats ElevenLabs as the provider in production without an explicit override', async () => {
     mock.method(globalThis, 'fetch', async () =>
       new Response(JSON.stringify({ voices: [{ voice_id: 'v1', name: 'Rachel' }] }), {

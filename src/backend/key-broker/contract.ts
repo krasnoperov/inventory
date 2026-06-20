@@ -39,16 +39,19 @@ export interface DeleteProviderKeyResponse {
   deletedAt: string;
 }
 
-export interface ResolveProviderKeyRequest {
+export type ResolveProviderKeyRequest = {
   tenant: KeyBrokerTenantScope;
   provider: ProviderKeyProvider;
+} & ({
   purpose: 'generation';
   generation: {
     jobId: string;
     requestId: string;
     spaceId: string;
   };
-}
+} | {
+  purpose: 'runtime';
+});
 
 export interface ResolveProviderKeyResponse {
   tenant: KeyBrokerTenantScope;
