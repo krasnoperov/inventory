@@ -90,8 +90,6 @@ export function AssetCard(props: AssetCardProps) {
               variant={primaryVariant}
               size="fill"
               spaceId={spaceId}
-              showAudioControls
-              showVideoControls
               className={styles.thumbnailPreview}
             />
             {/* Hover overlay with actions */}

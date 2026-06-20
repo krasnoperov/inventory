@@ -189,8 +189,6 @@ export function SpaceBoard({
             variant={displayVariant}
             size="fill"
             spaceId={spaceId}
-            showAudioControls
-            showVideoControls
             className={styles.thumbnail}
           />
         </button>
