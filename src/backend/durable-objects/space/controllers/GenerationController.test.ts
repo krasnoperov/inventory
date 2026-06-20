@@ -361,6 +361,151 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(workflowCreate.mock.calls.length, 1);
     });
 
+    test('creates collection placements for generated assets with pinned variants', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      let createdAssetId = '';
+      const repo = createMockRepo();
+      repo.createAsset = mock.fn(async (input) => {
+        createdAssetId = input.id;
+        return {
+          id: input.id,
+          name: input.name,
+          type: input.type,
+          media_kind: input.mediaKind ?? 'image',
+          active_variant_id: null,
+          parent_asset_id: null,
+        } as any;
+      }) as any;
+      repo.getCollectionById = mock.fn(async (id) => ({
+        id,
+        name: 'Cast',
+        kind: 'cast',
+        color: null,
+        description: null,
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      })) as any;
+      repo.listCollectionItems = mock.fn(async () => []) as any;
+      repo.getVariantById = mock.fn(async (id) => createMockVariant({ id, asset_id: createdAssetId })) as any;
+      repo.createCollectionItem = mock.fn(async (input) => ({
+        id: input.id,
+        collection_id: input.collectionId,
+        subject_type: input.subjectType,
+        asset_id: input.assetId ?? null,
+        variant_id: input.variantId ?? null,
+        role: input.role ?? 'custom',
+        pinned_variant_id: input.pinnedVariantId ?? null,
+        sort_index: input.sortIndex ?? 0,
+        created_by: input.createdBy,
+        created_at: 1,
+        updated_at: 1,
+      })) as any;
+      repo.listStylePresetPreviewsByCollection = mock.fn(async () => []) as any;
+      const { ctx, broadcasts } = createMockContext(repo);
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-collection',
+          name: 'Amina',
+          assetType: 'character',
+          mediaKind: 'image',
+          prompt: 'hero portrait',
+          collectionPlacements: [{
+            collectionId: 'cast',
+            role: 'lead',
+            subjectType: 'asset',
+            pinToCreatedVariant: true,
+          }],
+        } as any
+      );
+
+      const placement = asMock(repo.createCollectionItem as any).mock.calls[0].arguments[0];
+      const createdVariantId = asMock(repo.createPlaceholderVariant).mock.calls[0].arguments[0].id;
+      assert.equal(placement.collectionId, 'cast');
+      assert.equal(placement.subjectType, 'asset');
+      assert.equal(placement.assetId, createdAssetId);
+      assert.equal(placement.pinnedVariantId, createdVariantId);
+      assert.equal(placement.role, 'lead');
+      assert.ok(broadcasts.some((message) => message.type === 'collection_item:created'));
+    });
+
+    test('rejects missing collection placement before creating generated asset placeholder', async () => {
+      const repo = createMockRepo();
+      repo.getCollectionById = mock.fn(async () => null) as any;
+      const { ctx } = createMockContext(repo);
+      ctx.env.GENERATION_WORKFLOW = { create: mock.fn(async () => ({ id: 'workflow-1' })) } as any;
+      const controller = new GenerationController(ctx);
+
+      await assert.rejects(
+        () => controller.handleGenerateRequest(
+          {} as WebSocket,
+          { userId: '42', role: 'editor' } as any,
+          {
+            type: 'generate:request',
+            requestId: 'request-bad-collection',
+            name: 'Amina',
+            assetType: 'character',
+            mediaKind: 'image',
+            prompt: 'hero portrait',
+            collectionPlacements: [{ collectionId: 'missing' }],
+          } as any
+        ),
+        /Collection not found/
+      );
+
+      assert.equal(asMock(repo.createAsset).mock.calls.length, 0);
+      assert.equal(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+    });
+
+    test('rejects explicit pinned placement before creating generated asset placeholder', async () => {
+      const repo = createMockRepo();
+      repo.getCollectionById = mock.fn(async (id) => ({
+        id,
+        name: 'Cast',
+        kind: 'cast',
+        color: null,
+        description: null,
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      })) as any;
+      const { ctx } = createMockContext(repo);
+      ctx.env.GENERATION_WORKFLOW = { create: mock.fn(async () => ({ id: 'workflow-1' })) } as any;
+      const controller = new GenerationController(ctx);
+
+      await assert.rejects(
+        () => controller.handleGenerateRequest(
+          {} as WebSocket,
+          { userId: '42', role: 'editor' } as any,
+          {
+            type: 'generate:request',
+            requestId: 'request-bad-pin',
+            name: 'Amina',
+            assetType: 'character',
+            mediaKind: 'image',
+            prompt: 'hero portrait',
+            collectionPlacements: [{
+              collectionId: 'cast',
+              subjectType: 'asset',
+              pinnedVariantId: 'variant-existing',
+            }],
+          } as any
+        ),
+        /pinnedVariantId cannot be set before the asset exists/
+      );
+
+      assert.equal(asMock(repo.createAsset).mock.calls.length, 0);
+      assert.equal(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+    });
+
     test('blocks BYOK generation when platform workflow fair-use limit is exhausted', async () => {
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();

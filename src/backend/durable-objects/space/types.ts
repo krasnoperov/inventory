@@ -20,7 +20,7 @@ import type {
   BatchRequestMessage,
   BatchMode,
 } from '../../workflows/types';
-import type { ClaudeUsage, DeferredAction, ErrorCode, MediaKind, SimplePlan } from '../../../shared/websocket-types';
+import type { ClaudeUsage, CollectionPlacementInput, DeferredAction, ErrorCode, MediaKind, SimplePlan } from '../../../shared/websocket-types';
 
 // Re-export plan types from shared module (single source of truth)
 export type { MediaKind, PlanStatus, PlanStepStatus } from '../../../shared/websocket-types';
@@ -628,7 +628,7 @@ export type ClientMessage =
   | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[]; type?: string; parentAssetId?: string | null } }
   | { type: 'asset:delete'; assetId: string }
   | { type: 'asset:setActive'; assetId: string; variantId: string }
-  | { type: 'asset:fork'; sourceAssetId?: string; sourceVariantId?: string; name: string; assetType: string; mediaKind?: MediaKind; parentAssetId?: string }
+  | { type: 'asset:fork'; sourceAssetId?: string; sourceVariantId?: string; name: string; assetType: string; mediaKind?: MediaKind; parentAssetId?: string; collectionPlacements?: CollectionPlacementInput[] }
   // Manual organization operations
   | { type: 'collection:create'; id?: string; name: string; kind?: CollectionKind; color?: string | null; description?: string | null; sortIndex?: number }
   | { type: 'collection:update'; collectionId: string; changes: { name?: string; kind?: CollectionKind; color?: string | null; description?: string | null; sortIndex?: number } }

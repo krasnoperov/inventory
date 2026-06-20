@@ -155,6 +155,7 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       assetType: params.assetType,
       mediaKind: params.mediaKind,
       parentAssetId: params.parentAssetId,
+      collectionPlacements: params.collectionPlacements,
     });
   }, [sendMessage]);
 
@@ -362,6 +363,7 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       videoResolution: params.videoResolution,
       videoDurationSeconds: params.videoDurationSeconds,
       videoTier: params.videoTier,
+      collectionPlacements: params.collectionPlacements,
     });
     return requestId;
   }, [sendMessage]);
@@ -391,6 +393,7 @@ export function useSpaceCommands({ spaceId, assets, setJobs, syncModeRef }: Spac
       videoResolution: params.videoResolution,
       videoDurationSeconds: params.videoDurationSeconds,
       videoTier: params.videoTier,
+      collectionPlacements: params.collectionPlacements,
     });
     return requestId;
   }, [sendMessage]);

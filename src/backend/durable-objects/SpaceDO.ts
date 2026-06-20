@@ -294,7 +294,8 @@ export class SpaceDO extends DurableObject<Env> {
           msg.name,
           msg.assetType,
           msg.parentAssetId,
-          msg.mediaKind
+          msg.mediaKind,
+          msg.collectionPlacements
         );
 
       // Manual organization

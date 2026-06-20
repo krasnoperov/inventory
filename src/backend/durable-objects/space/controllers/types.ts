@@ -15,7 +15,7 @@ import type {
   SpaceRelation,
   WebSocketMeta,
 } from '../types';
-import type { ErrorCode } from '../../../../shared/websocket-types';
+import type { CollectionPlacementInput, ErrorCode } from '../../../../shared/websocket-types';
 
 // ============================================================================
 // Function Types
@@ -66,6 +66,14 @@ interface OrganizationSnapshot {
   relations: SpaceRelation[];
   compositions: Composition[];
   compositionItems: CompositionItem[];
+}
+
+interface NormalizedCollectionPlacement {
+  collectionId: string;
+  subjectType: 'asset' | 'variant';
+  role: string;
+  pinnedVariantId: string | null;
+  pinToCreatedVariant: boolean;
 }
 
 // ============================================================================
@@ -226,4 +234,105 @@ export abstract class BaseController {
       }
     }
   }
+
+  protected async normalizeCollectionPlacements(
+    placements: CollectionPlacementInput[] | undefined,
+    defaultSubjectType: 'asset' | 'variant',
+    options: {
+      allowExplicitPinnedVariant?: boolean;
+      explicitPinnedVariantAssetId?: string;
+    } = {}
+  ): Promise<NormalizedCollectionPlacement[]> {
+    if (!placements || placements.length === 0) return [];
+    if (!Array.isArray(placements)) {
+      throw new ValidationError('collectionPlacements must be an array');
+    }
+    const allowExplicitPinnedVariant = options.allowExplicitPinnedVariant ?? true;
+
+    const normalized: NormalizedCollectionPlacement[] = [];
+    for (const [index, placement] of placements.entries()) {
+      if (!placement || typeof placement !== 'object') {
+        throw new ValidationError(`collectionPlacements[${index}] must be an object`);
+      }
+      const collectionId = normalizeRequiredPlacementString(placement.collectionId, `collectionPlacements[${index}].collectionId`);
+      const collection = await this.repo.getCollectionById(collectionId);
+      if (!collection) {
+        throw new NotFoundError('Collection not found');
+      }
+      const subjectType = placement.subjectType ?? defaultSubjectType;
+      if (subjectType !== 'asset' && subjectType !== 'variant') {
+        throw new ValidationError(`collectionPlacements[${index}].subjectType must be asset or variant`);
+      }
+      const pinnedVariantId = normalizeOptionalPlacementString(placement.pinnedVariantId);
+      if (pinnedVariantId && subjectType === 'asset') {
+        if (!allowExplicitPinnedVariant) {
+          throw new ValidationError(`collectionPlacements[${index}].pinnedVariantId cannot be set before the asset exists`);
+        }
+        const pinnedVariant = await this.repo.getVariantById(pinnedVariantId);
+        if (!pinnedVariant) {
+          throw new NotFoundError('Pinned variant not found');
+        }
+        if (options.explicitPinnedVariantAssetId && pinnedVariant.asset_id !== options.explicitPinnedVariantAssetId) {
+          throw new ValidationError('pinnedVariantId must reference a variant on the asset subject');
+        }
+      }
+      normalized.push({
+        collectionId,
+        subjectType,
+        role: normalizeOptionalPlacementString(placement.role) ?? 'custom',
+        pinnedVariantId: subjectType === 'asset' ? pinnedVariantId : null,
+        pinToCreatedVariant: placement.pinToCreatedVariant === true,
+      });
+    }
+
+    return normalized;
+  }
+
+  protected async createCollectionPlacementsForOutput(
+    placements: NormalizedCollectionPlacement[],
+    output: { assetId: string; variantId: string },
+    createdBy: string
+  ): Promise<void> {
+    const affectedCollectionIds = new Set<string>();
+    for (const placement of placements) {
+      const pinnedVariantId = placement.subjectType === 'asset'
+        ? placement.pinToCreatedVariant ? output.variantId : placement.pinnedVariantId
+        : null;
+      if (pinnedVariantId) {
+        const pinnedVariant = await this.repo.getVariantById(pinnedVariantId);
+        if (!pinnedVariant || pinnedVariant.asset_id !== output.assetId) {
+          throw new ValidationError('pinnedVariantId must reference a variant on the asset subject');
+        }
+      }
+      const existingItems = await this.repo.listCollectionItems(placement.collectionId);
+      const item = await this.repo.createCollectionItem({
+        id: crypto.randomUUID(),
+        collectionId: placement.collectionId,
+        subjectType: placement.subjectType,
+        assetId: placement.subjectType === 'asset' ? output.assetId : undefined,
+        variantId: placement.subjectType === 'variant' ? output.variantId : undefined,
+        role: placement.role,
+        pinnedVariantId,
+        sortIndex: existingItems.length,
+        createdBy,
+      });
+      affectedCollectionIds.add(item.collection_id);
+      this.broadcast({ type: 'collection_item:created', item });
+    }
+    await this.broadcastStylePresetPreviewsForCollections(affectedCollectionIds);
+  }
+}
+
+function normalizeRequiredPlacementString(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new ValidationError(`${field} is required`);
+  }
+  return value.trim();
+}
+
+function normalizeOptionalPlacementString(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }

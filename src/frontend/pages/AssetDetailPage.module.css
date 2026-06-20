@@ -264,6 +264,76 @@
   cursor: pointer;
 }
 
+.collectionPanel {
+  display: grid;
+  gap: 0.55rem;
+  max-width: min(760px, 100%);
+  padding: 0.6rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.08);
+}
+
+.collectionPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: 650;
+}
+
+.collectionMembershipRow {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) minmax(7rem, 0.8fr) minmax(8rem, 0.9fr) auto;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.collectionMembershipRow span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collectionMembershipRow input,
+.collectionMembershipRow select,
+.collectionMembershipRow button,
+.collectionApplyButton {
+  min-height: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-small-sm);
+}
+
+.collectionMembershipRow input,
+.collectionMembershipRow select {
+  min-width: 0;
+  padding: 0.25rem 0.45rem;
+}
+
+.collectionMembershipRow button {
+  padding: 0.25rem 0.6rem;
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  cursor: pointer;
+}
+
+.collectionApplyButton {
+  justify-self: start;
+  padding: 0.25rem 0.7rem;
+  cursor: pointer;
+}
+
 /* Tile Grid overlay - top right */
 .tileGridOverlay {
   position: absolute;
@@ -541,5 +611,9 @@
 
   .jobsOverlay {
     max-width: calc(100% - 1rem);
+  }
+
+  .collectionMembershipRow {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,0 +1,85 @@
+.picker {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.label {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: 650;
+}
+
+.collectionList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.collectionToggle {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--chip-border);
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-size: var(--font-size-small-sm);
+  cursor: pointer;
+}
+
+.collectionToggle input {
+  margin: 0;
+}
+
+.placementRows {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.placementRow {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) repeat(4, minmax(7rem, max-content));
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.collectionName {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select,
+.input {
+  min-width: 0;
+  min-height: 32px;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-small-sm);
+}
+
+.pinToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .placementRow {
+    grid-template-columns: 1fr;
+  }
+}
