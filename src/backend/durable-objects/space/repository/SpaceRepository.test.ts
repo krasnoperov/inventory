@@ -1,4 +1,4 @@
-import { describe, test, beforeEach } from 'node:test';
+import { describe, test, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { SpaceRepository, type SqlStorage, type SqlStorageResult } from './SpaceRepository';
 
@@ -110,6 +110,36 @@ describe('SpaceRepository', () => {
       const insertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO assets'));
       assert(insertQuery !== undefined);
       assert.strictEqual(insertQuery.bindings[3], 'video');
+    });
+
+    test('deleteAsset returns deleted image refs with object sizes', async () => {
+      mockSql.setMockResult('WHERE asset_id = ?', [
+        {
+          id: 'variant-1',
+          asset_id: 'asset-1',
+          media_key: 'images/variant.png',
+          image_key: 'images/variant.png',
+          thumb_key: 'thumbs/variant.webp',
+          recipe: '{}',
+        },
+      ]);
+      mockSql.setMockResult('UPDATE image_refs', [{ ref_count: 0 }]);
+      const images = {
+        head: mock.fn(async (key: string) => ({
+          size: key === 'images/variant.png' ? 2048 : 256,
+        })),
+        delete: mock.fn(async () => undefined),
+      };
+      const repoWithImages = new SpaceRepository(mockSql, images as unknown as R2Bucket);
+
+      const deletedImageRefs = await repoWithImages.deleteAsset('asset-1');
+
+      assert.deepStrictEqual(deletedImageRefs, [
+        { imageKey: 'images/variant.png', sizeBytes: 2048 },
+        { imageKey: 'thumbs/variant.webp', sizeBytes: 256 },
+      ]);
+      assert.strictEqual(images.head.mock.calls.length, 2);
+      assert.strictEqual(images.delete.mock.calls.length, 2);
     });
 
     test('updateAsset returns null for non-existent asset', async () => {
