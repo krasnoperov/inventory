@@ -7,6 +7,7 @@ import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../shared/websocket-types
 import {
   CompositionItemRoleSchema,
   CompositionStatusSchema,
+  MediaKindSchema,
   SpaceRelationTypeSchema,
   SpaceSubjectTypeSchema,
 } from '../../shared/api/schemas';
@@ -268,6 +269,10 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
 }
 
 function validateManifestVocabulary(manifest: ExportManifest): string | null {
+  const hasMediaKind = (value: unknown, label: string) =>
+    value === undefined || value === null || MediaKindSchema.safeParse(value).success
+      ? null
+      : `${label} mediaKind must be image, audio, or video`;
   const hasSubjectType = (value: unknown, label: string) =>
     SpaceSubjectTypeSchema.safeParse(value).success ? null : `${label} subjectType must be asset or variant`;
   const hasLineageRelationType = (value: unknown, label: string) =>
@@ -281,6 +286,19 @@ function validateManifestVocabulary(manifest: ExportManifest): string | null {
   const hasCompositionRole = (value: unknown, label: string) =>
     CompositionItemRoleSchema.safeParse(value).success ? null : `${label} role is invalid`;
 
+  for (const asset of manifest.assets) {
+    const assetMediaKindError = hasMediaKind(asset.mediaKind, `Asset ${asset.id}`);
+    if (assetMediaKindError) return assetMediaKindError;
+    const assetMediaKind = asset.mediaKind ?? DEFAULT_MEDIA_KIND;
+    for (const variant of asset.variants) {
+      const variantMediaKindError = hasMediaKind(variant.mediaKind, `Variant ${variant.id}`);
+      if (variantMediaKindError) return variantMediaKindError;
+      const variantMediaKind = variant.mediaKind ?? assetMediaKind;
+      if (variantMediaKind !== assetMediaKind) {
+        return `Variant ${variant.id} mediaKind must match asset ${asset.id} mediaKind: ${assetMediaKind}`;
+      }
+    }
+  }
   for (const lineage of manifest.lineage ?? []) {
     const error = hasLineageRelationType(lineage.relationType, 'Lineage');
     if (error) return error;
@@ -788,9 +806,11 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
         }),
       }));
 
-      if (applyResponse.ok) {
-        importedVariants.push(newVariantId);
+      if (!applyResponse.ok) {
+        const error = await applyResponse.json().catch(() => ({})) as { error?: string };
+        return c.json({ error: error.error || 'Failed to import variant' }, applyResponse.status as 400 | 500);
       }
+      importedVariants.push(newVariantId);
     }
 
     // Set active variant if it was specified

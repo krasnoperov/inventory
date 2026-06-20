@@ -723,12 +723,27 @@ describe('exportRoutes', () => {
     assert.equal(puts.length, 0);
   });
 
-  it('rejects invalid organization vocabulary before mutating the target space', async () => {
+  it('rejects invalid import vocabulary before mutating the target space', async () => {
     const cases: Array<{
       name: string;
       mutate: (manifest: Record<string, any>) => void;
       expected: RegExp;
     }> = [
+      {
+        name: 'asset media kind',
+        mutate: (manifest) => { manifest.assets[0].mediaKind = 'movie'; },
+        expected: /Asset asset-source mediaKind must be image, audio, or video/,
+      },
+      {
+        name: 'variant media kind',
+        mutate: (manifest) => { manifest.assets[0].variants[0].mediaKind = 'movie'; },
+        expected: /Variant variant-source mediaKind must be image, audio, or video/,
+      },
+      {
+        name: 'variant media kind mismatch',
+        mutate: (manifest) => { manifest.assets[0].variants[0].mediaKind = 'video'; },
+        expected: /Variant variant-source mediaKind must match asset asset-source mediaKind: image/,
+      },
       {
         name: 'lineage relation type',
         mutate: (manifest) => { manifest.lineage[0].relationType = 'bogus'; },
