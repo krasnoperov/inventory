@@ -3,6 +3,7 @@ import {
   ProviderKeyEncryptionError,
   createWrappedProviderKeyDek,
   deleteProviderApiKey,
+  decryptLegacyProviderApiKey,
   decryptProviderApiKeyWithDek,
   encryptProviderApiKeyWithDek,
   hasStoredProviderApiKey,
@@ -259,9 +260,11 @@ export async function rotateTenantDek(
 
   for (const row of rows) {
     const provider = assertProvider(row.provider as ProviderKeyProvider);
-    const parsed = parseProviderApiKeyV2Envelope(row.encrypted_api_key);
-    if (parsed.dekVersion !== envelope.dek_version) {
-      throw new ProviderKeyEncryptionError(`Provider key ${provider} DEK version does not match tenant envelope`);
+    if (row.encrypted_api_key.startsWith('enc:v2:')) {
+      const parsed = parseProviderApiKeyV2Envelope(row.encrypted_api_key);
+      if (parsed.dekVersion !== envelope.dek_version) {
+        throw new ProviderKeyEncryptionError(`Provider key ${provider} DEK version does not match tenant envelope`);
+      }
     }
   }
 
@@ -276,15 +279,23 @@ export async function rotateTenantDek(
   );
   const now = new Date().toISOString();
   const statements: D1PreparedStatement[] = [];
+  let legacyKek: string | null = null;
 
   for (const row of rows) {
     const provider = assertProvider(row.provider as ProviderKeyProvider);
-    const plaintext = await decryptProviderApiKeyWithDek(
-      row.encrypted_api_key,
-      oldDek,
-      userId,
-      provider,
-    );
+    const plaintext = row.encrypted_api_key.startsWith('enc:v2:')
+      ? await decryptProviderApiKeyWithDek(
+        row.encrypted_api_key,
+        oldDek,
+        userId,
+        provider,
+      )
+      : await decryptLegacyProviderApiKey(
+        row.encrypted_api_key,
+        legacyKek ??= await getKekByVersion(env, 1),
+        userId,
+        provider,
+      );
     const encrypted = await encryptProviderApiKeyWithDek(
       plaintext,
       newDek,

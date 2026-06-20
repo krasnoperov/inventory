@@ -489,11 +489,11 @@ async function upgradeLegacyProviderApiKey(
   db: D1Database,
   legacyEncrypted: string,
   plaintext: string,
-  encryptionKey: string | undefined,
+  env: ProviderKeyEncryptionEnv,
   userId: number,
   provider: ProviderKeyProvider,
 ): Promise<void> {
-  const encrypted = await encryptProviderApiKeyV2(db, plaintext, encryptionKey, userId, provider);
+  const encrypted = await encryptProviderApiKeyWithVersionedKek(db, plaintext, env, userId, provider);
   const now = new Date().toISOString();
   await db.prepare(`
     UPDATE user_provider_keys
@@ -532,7 +532,7 @@ export async function resolveAndMigrateStoredProviderApiKey(
     db,
     row.encrypted_api_key,
     plaintext,
-    legacyKek,
+    env,
     userId,
     provider,
   );

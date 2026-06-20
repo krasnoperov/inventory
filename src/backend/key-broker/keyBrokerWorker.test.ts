@@ -718,7 +718,7 @@ describe('key broker service binding contract', () => {
     assert.match(db.rows.get('7:google_ai')?.encrypted_api_key ?? '', /^enc:v2:1:1:/);
   });
 
-  test('rotates only the target tenant DEK and provider ciphertexts', async () => {
+  test('rotates only the target tenant DEK and provider ciphertexts with mixed legacy rows', async () => {
     const db = new FakeD1();
     const broker = keyBrokerClient(
       createLocalKeyBrokerServiceBinding({
@@ -731,7 +731,13 @@ describe('key broker service binding contract', () => {
     const targetTenant = { type: 'user' as const, userId: 7 };
 
     await broker.storeProviderKey({ tenant: targetTenant, provider: 'google_ai', apiKey: 'target-google-secret' });
-    await broker.storeProviderKey({ tenant: targetTenant, provider: 'anthropic', apiKey: 'sk-ant-target-secret' });
+    db.rows.set('7:anthropic', {
+      user_id: 7,
+      provider: 'anthropic',
+      encrypted_api_key: await encryptLegacyProviderApiKey('sk-ant-target-secret', encryptionKey(), 7, 'anthropic'),
+      key_hint: 'legacy-hint',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
     await broker.storeProviderKey({
       tenant: { type: 'user', userId: 8 },
       provider: 'google_ai',

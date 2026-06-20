@@ -4,19 +4,26 @@ import {
   deleteProviderApiKey,
   decryptLegacyProviderApiKey,
   decryptProviderApiKeyV2,
+  decryptProviderApiKeyWithVersionedKek,
   decryptStoredProviderApiKey,
   encryptLegacyProviderApiKey,
   encryptProviderApiKeyV2,
   listProviderKeySummaries,
   ProviderKeyEncryptionError,
   resolveStoredProviderApiKey,
+  unwrapProviderKeyDek,
   upsertProviderApiKey,
   validateProviderApiKey,
+  wrapProviderKeyDek,
 } from './providerKeyVault';
 import type { Env } from '../../core/types';
 
 function encryptionKey(): string {
   return Buffer.from(new Uint8Array(32).fill(7)).toString('base64');
+}
+
+function rotatedEncryptionKey(): string {
+  return Buffer.from(new Uint8Array(32).fill(8)).toString('base64');
 }
 
 type Row = {
@@ -450,5 +457,53 @@ describe('providerKeyVault', () => {
     );
     assert.match(db.rows.get('7:google_ai')?.encrypted_api_key ?? '', /^enc:v2:1:1:/);
     assert.equal(db.rows.get('7:anthropic')?.encrypted_api_key, current);
+  });
+
+  test('legacy migration after KEK rewrap encrypts with the rewrapped tenant envelope', async () => {
+    const db = new FakeD1();
+    const oldKek = encryptionKey();
+    const newKek = rotatedEncryptionKey();
+    const current = await encryptProviderApiKeyV2(db as never, 'current-anthropic-secret', oldKek, 7, 'anthropic');
+    const envelope = db.envelopes.get('user:7');
+    assert.ok(envelope);
+    const dek = await unwrapProviderKeyDek(envelope.wrapped_dek, oldKek);
+    db.envelopes.set('user:7', {
+      ...envelope,
+      wrapped_dek: await wrapProviderKeyDek(dek, newKek),
+      kek_version: 2,
+    });
+    const legacy = await encryptLegacyProviderApiKey('legacy-google-secret', oldKek, 7, 'google_ai');
+    db.rows.set('7:google_ai', {
+      user_id: 7,
+      provider: 'google_ai',
+      encrypted_api_key: legacy,
+      key_hint: 'legacy-hint',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+    db.rows.set('7:anthropic', {
+      user_id: 7,
+      provider: 'anthropic',
+      encrypted_api_key: current,
+      key_hint: '****cret',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+    const env = {
+      activeKekVersion: 2,
+      getKekByVersion: async (version: number) => version === 1 ? oldKek : newKek,
+    };
+
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', env),
+      'legacy-google-secret',
+    );
+
+    const upgraded = db.rows.get('7:google_ai');
+    assert.ok(upgraded);
+    assert.match(upgraded.encrypted_api_key, /^enc:v2:2:1:/);
+    assert.equal(db.rows.get('7:anthropic')?.encrypted_api_key, current);
+    assert.equal(
+      await decryptProviderApiKeyWithVersionedKek(db as never, upgraded.encrypted_api_key, env, 7, 'google_ai'),
+      'legacy-google-secret',
+    );
   });
 });
