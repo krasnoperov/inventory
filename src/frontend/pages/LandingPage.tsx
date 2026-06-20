@@ -384,6 +384,9 @@ function LoggedOutLanding() {
               Make Effects
             </div>
             <div className={styles.footerLinks}>
+              <Link to="/pricing" className={styles.footerLink}>
+                pricing
+              </Link>
               <Link to="/docs/quickstart" className={styles.footerLink}>
                 docs
               </Link>
@@ -500,6 +503,7 @@ export default function LandingPage() {
             <HeaderNav userName={user.name} userEmail={user.email} />
           ) : (
             <nav className={styles.nav} aria-label="Public navigation">
+              <Link to="/pricing" className={styles.navLink}>Pricing</Link>
               <Link to="/docs/quickstart" className={styles.navLink}>Docs</Link>
               <button
                 type="button"
