@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -28,6 +29,11 @@ import { Route as SpacesIdAssetsAssetIdRouteImport } from './routes/spaces/$id/a
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRouteWithChildren
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/admin/spend': typeof AdminSpendRoute
   '/docs/$slug': typeof DocsSlugRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/$': typeof SplatRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/admin/spend': typeof AdminSpendRoute
   '/docs/$slug': typeof DocsSlugRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRouteWithChildren
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/admin/spend': typeof AdminSpendRoute
   '/docs/$slug': typeof DocsSlugRoute
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/docs'
     | '/login'
+    | '/pricing'
     | '/profile'
     | '/admin/spend'
     | '/docs/$slug'
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/dashboard'
     | '/login'
+    | '/pricing'
     | '/profile'
     | '/admin/spend'
     | '/docs/$slug'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/docs'
     | '/login'
+    | '/pricing'
     | '/profile'
     | '/admin/spend'
     | '/docs/$slug'
@@ -209,6 +221,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DocsRoute: typeof DocsRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PricingRoute: typeof PricingRoute
   ProfileRoute: typeof ProfileRoute
   AdminSpendRoute: typeof AdminSpendRoute
   OauthApproveRoute: typeof OauthApproveRoute
@@ -223,6 +236,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -360,6 +380,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DocsRoute: DocsRouteWithChildren,
   LoginRoute: LoginRoute,
+  PricingRoute: PricingRoute,
   ProfileRoute: ProfileRoute,
   AdminSpendRoute: AdminSpendRoute,
   OauthApproveRoute: OauthApproveRoute,
