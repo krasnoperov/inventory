@@ -2,8 +2,11 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   deleteProviderApiKey,
-  decryptProviderApiKey,
-  encryptProviderApiKey,
+  decryptLegacyProviderApiKey,
+  decryptProviderApiKeyV2,
+  decryptStoredProviderApiKey,
+  encryptLegacyProviderApiKey,
+  encryptProviderApiKeyV2,
   listProviderKeySummaries,
   ProviderKeyEncryptionError,
   resolveStoredProviderApiKey,
@@ -24,11 +27,21 @@ type Row = {
   updated_at: string;
 };
 
+type KeyEnvelopeRow = {
+  scope_id: string;
+  wrapped_dek: string;
+  dek_version: number;
+  kek_version: number;
+  updated_at: string;
+};
+
 class FakeD1 {
   rows = new Map<string, Row>();
+  envelopes = new Map<string, KeyEnvelopeRow>();
 
   prepare(sql: string) {
     const { rows } = this;
+    const { envelopes } = this;
     return {
       bindings: [] as unknown[],
       bind(...bindings: unknown[]) {
@@ -51,6 +64,17 @@ class FakeD1 {
         return { results: [] as T[] };
       },
       async first<T>() {
+        if (sql.includes('FROM key_envelopes')) {
+          const [scopeId] = this.bindings;
+          const row = envelopes.get(String(scopeId));
+          return (row
+            ? {
+              wrapped_dek: row.wrapped_dek,
+              dek_version: row.dek_version,
+              kek_version: row.kek_version,
+            }
+            : null) as T | null;
+        }
         const [userId, provider] = this.bindings;
         const row = rows.get(`${userId}:${provider}`);
         if (sql.includes('SELECT 1 AS present')) {
@@ -62,6 +86,27 @@ class FakeD1 {
         return null;
       },
       async run() {
+        if (sql.includes('INSERT OR IGNORE INTO key_envelopes')) {
+          const [scopeId, wrappedDek, dekVersion, kekVersion, createdAt, updatedAt] = this.bindings as [
+            string,
+            string,
+            number,
+            number,
+            string,
+            string,
+          ];
+          if (!envelopes.has(scopeId)) {
+            envelopes.set(scopeId, {
+              scope_id: scopeId,
+              wrapped_dek: wrappedDek,
+              dek_version: dekVersion,
+              kek_version: kekVersion,
+              updated_at: updatedAt,
+            });
+          }
+          assert.ok(createdAt);
+          return { success: true };
+        }
         if (sql.includes('INSERT INTO user_provider_keys')) {
           const [userId, provider, encrypted, hint, createdAt, updatedAt] = this.bindings as [
             number,
@@ -95,22 +140,116 @@ class FakeD1 {
 }
 
 describe('providerKeyVault', () => {
-  test('encrypts and decrypts provider keys with user/provider binding', async () => {
+  test('legacy v1 helper decrypts existing provider keys with user/provider binding', async () => {
     const secret = encryptionKey();
-    const encrypted = await encryptProviderApiKey('sk-ant-test-secret', secret, 7, 'anthropic');
+    const encrypted = await encryptLegacyProviderApiKey('sk-ant-test-secret', secret, 7, 'anthropic');
 
     assert.notEqual(encrypted, 'sk-ant-test-secret');
     assert.match(encrypted, /^enc:v1:/);
-    assert.equal(await decryptProviderApiKey(encrypted, secret, 7, 'anthropic'), 'sk-ant-test-secret');
+    assert.equal(await decryptLegacyProviderApiKey(encrypted, secret, 7, 'anthropic'), 'sk-ant-test-secret');
     await assert.rejects(
-      decryptProviderApiKey(encrypted, secret, 8, 'anthropic'),
+      decryptLegacyProviderApiKey(encrypted, secret, 8, 'anthropic'),
       /operation-specific reason|decrypt/i
+    );
+  });
+
+  test('enc:v2 roundtrips with a per-user wrapped DEK', async () => {
+    const db = new FakeD1();
+    const secret = encryptionKey();
+    const encrypted = await encryptProviderApiKeyV2(
+      db as never,
+      'user-google-secret',
+      secret,
+      7,
+      'google_ai'
+    );
+
+    assert.match(encrypted, /^enc:v2:1:1:/);
+    assert.equal(db.envelopes.size, 1);
+    const envelope = db.envelopes.get('user:7');
+    assert.ok(envelope);
+    assert.notEqual(envelope.wrapped_dek, 'user-google-secret');
+    assert.equal(
+      await decryptProviderApiKeyV2(db as never, encrypted, secret, 7, 'google_ai'),
+      'user-google-secret'
+    );
+  });
+
+  test('enc:v2 AAD rejects wrong user, provider, and purpose', async () => {
+    const db = new FakeD1();
+    const secret = encryptionKey();
+    const encrypted = await encryptProviderApiKeyV2(
+      db as never,
+      'user-google-secret',
+      secret,
+      7,
+      'google_ai'
+    );
+
+    const sourceEnvelope = db.envelopes.get('user:7');
+    assert.ok(sourceEnvelope);
+    db.envelopes.set('user:8', { ...sourceEnvelope, scope_id: 'user:8' });
+    await assert.rejects(
+      decryptProviderApiKeyV2(db as never, encrypted, secret, 8, 'google_ai'),
+      /operation-specific reason|decrypt/i
+    );
+    await assert.rejects(
+      decryptProviderApiKeyV2(db as never, encrypted, secret, 7, 'anthropic'),
+      /operation-specific reason|decrypt/i
+    );
+    await assert.rejects(
+      decryptProviderApiKeyV2(db as never, encrypted, secret, 7, 'google_ai', 'different_purpose'),
+      /operation-specific reason|decrypt/i
+    );
+  });
+
+  test('enc:v2 fails closed with missing or wrong KEK material', async () => {
+    const db = new FakeD1();
+    const secret = encryptionKey();
+    const encrypted = await encryptProviderApiKeyV2(
+      db as never,
+      'user-google-secret',
+      secret,
+      7,
+      'google_ai'
+    );
+
+    await assert.rejects(
+      decryptProviderApiKeyV2(db as never, encrypted, undefined, 7, 'google_ai'),
+      ProviderKeyEncryptionError
+    );
+    await assert.rejects(
+      decryptProviderApiKeyV2(
+        db as never,
+        encrypted,
+        Buffer.from(new Uint8Array(32).fill(8)).toString('base64'),
+        7,
+        'google_ai'
+      ),
+      /operation-specific reason|decrypt|unwrap/i
+    );
+
+    db.envelopes.clear();
+    await assert.rejects(
+      decryptProviderApiKeyV2(db as never, encrypted, secret, 7, 'google_ai'),
+      ProviderKeyEncryptionError
+    );
+  });
+
+  test('stored-key dispatcher keeps enc:v1 decryptable for future migration', async () => {
+    const db = new FakeD1();
+    const secret = encryptionKey();
+    const encrypted = await encryptLegacyProviderApiKey('legacy-secret', secret, 7, 'google_ai');
+
+    assert.equal(
+      await decryptStoredProviderApiKey(db as never, encrypted, secret, 7, 'google_ai'),
+      'legacy-secret'
     );
   });
 
   test('refuses provider key writes without an encryption key', async () => {
     await assert.rejects(
-      encryptProviderApiKey('secret', undefined, 7, 'google_ai'),
+      encryptProviderApiKeyV2(new FakeD1() as never, 'secret', undefined, 7, 'google_ai'),
       ProviderKeyEncryptionError
     );
   });
@@ -135,6 +274,8 @@ describe('providerKeyVault', () => {
     const stored = db.rows.get('7:google_ai');
     assert.ok(stored);
     assert.notEqual(stored.encrypted_api_key, 'user-google-secret');
+    assert.match(stored.encrypted_api_key, /^enc:v2:1:1:/);
+    assert.equal(db.envelopes.size, 1);
 
     const summaries = await listProviderKeySummaries(db as never, 7, env);
     const google = summaries.find((item) => item.provider === 'google_ai');
@@ -146,7 +287,7 @@ describe('providerKeyVault', () => {
       },
       {
         configured: true,
-        keyHint: 'user...cret',
+        keyHint: '****cret',
         platformConfigured: true,
       }
     );
