@@ -5,7 +5,7 @@ Effects — building characters, style references, and scenes, then combining th
 while keeping everything visually and tonally consistent.
 
 These playbooks are the *why* and *how-to-prompt* companion to the technical
-docs. Where a feature is described mechanically elsewhere (style anchoring,
+docs. Where a feature is described mechanically elsewhere (style presets,
 rotation sets, tile sets, the CLI), these pages explain how to use it well.
 
 ## Who These Are For

@@ -138,9 +138,9 @@ snapshots.
 
 | Message | Fields | Description |
 |---------|--------|-------------|
-| `style_preset:create` | `id?`, `name`, `description?`, `stylePrompt?`, `collectionId?`, `enabled?`, `isDefault?` | Create an asset-backed style preset |
-| `style_preset:update` | `presetId`, `changes` | Update an asset-backed style preset |
-| `style_preset:delete` | `presetId` | Delete an asset-backed style preset |
+| `style_preset:create` | `id?`, `name`, `description?`, `stylePrompt?`, `collectionId?`, `enabled?`, `isDefault?` | Create a style preset pointing to a style reference collection |
+| `style_preset:update` | `presetId`, `changes` | Update a style preset |
+| `style_preset:delete` | `presetId` | Delete a style preset |
 
 ### Session
 

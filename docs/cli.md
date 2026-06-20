@@ -185,7 +185,7 @@ unpriced entry counts, and breakdowns by provider, model, media kind, and meter.
 
 ## Style Libraries
 
-Manage asset-backed style references for the initialized project space:
+Manage Space style references for the initialized project space:
 
 ```bash
 makefx styles references
@@ -202,8 +202,9 @@ makefx styles presets delete preset_123
 
 Style reference collections are normal Space collections whose items use the
 `style_ref` role. Passing asset IDs pins each asset's active variant; passing
-variant IDs references those variants directly. The CLI uses the authenticated
-Space REST APIs and does not upload raw hidden style images.
+variant IDs references those variants directly. Style references stay visible as
+ordinary Space assets and variants; presets only select collections plus a style
+prompt.
 
 Generation can select an enabled style preset by ID or exact name:
 
@@ -279,7 +280,7 @@ Rotation options:
 | `--subject <text>` | Optional subject description for consistency prompts |
 | `--aspect <ratio>` | Optional generation aspect ratio |
 | `--mode <mode>` | `sequential` or `single-shot` (default: `sequential`) |
-| `--no-style` | Disable the space style anchor |
+| `--no-style` | Disable style preset injection for this request |
 | `--detach` | Return after `rotation:started` |
 | `--timeout <sec>` | Override the wait timeout |
 | `--json` | Print machine-readable output |
@@ -303,7 +304,7 @@ Tile-set options:
 | `--seed-variant <id>` | Optional completed image variant to place at the center; sequential mode only |
 | `--aspect <ratio>` | Optional generation aspect ratio |
 | `--mode <mode>` | `sequential` or `single-shot` (default: `sequential`) |
-| `--no-style` | Disable the space style anchor |
+| `--no-style` | Disable style preset injection for this request |
 | `--detach` | Return after `tileset:started` |
 | `--timeout <sec>` | Override the wait timeout |
 | `--json` | Print machine-readable output |
@@ -410,7 +411,8 @@ makefx upload hero.png --space abc123 --name "Hero" --local
 ## Manifest Import
 
 Import a JSON manifest of externally generated files with prompt, model,
-provider metadata, generation provenance, and variant lineage.
+provider metadata, generation provenance, related source images, and immutable
+variant lineage.
 
 ```bash
 makefx import import-manifest.json --space abc123 --dry-run
@@ -422,10 +424,14 @@ resolved relative to the manifest file. Each record sets `file`, either `assetId
 for an existing asset or `name` for a new asset, optional `assetType`/`type`,
 `mediaKind`, `activeVariantBehavior` (`if-missing`, `set-active`, or `keep`),
 `prompt`, `model`, `provider`, `providerMetadata`, and arbitrary
-`generationProvenance` fields.
+`generationProvenance` fields. Those fields become provenance on the imported
+variant; they are not editable organization metadata.
 
-Lineage is import-only. Each `lineage` entry must use relation type `derived`,
-`refined`, or `forked`, and set exactly one parent source:
+Lineage is import-only provenance. Each `lineage` entry must use relation type
+`derived`, `refined`, or `forked`, and set exactly one source: `sourceFile` for
+another record in the same manifest, or `sourceVariantId` for an existing Space
+variant. Use manual `relations`, `collections`, and `compositions` for
+organization instead of editing lineage.
 
 ```json
 {
@@ -435,17 +441,26 @@ Lineage is import-only. Each `lineage` entry must use relation type `derived`,
       "file": "renders/base.png",
       "name": "Base Render",
       "assetType": "character",
-      "prompt": "external prompt",
-      "model": "external-model-id",
-      "provider": "external-provider",
-      "providerMetadata": { "seed": 42 },
-      "generationProvenance": { "tool": "local-renderer" }
+      "prompt": "full-body hero sheet, leather armor, neutral pose",
+      "model": "stable-diffusion-xl",
+      "provider": "comfyui",
+      "providerMetadata": { "seed": 42, "sampler": "dpmpp-2m" },
+      "generationProvenance": {
+        "tool": "comfyui",
+        "workflow": "character-sheet-v4",
+        "sourceImages": ["refs/leather-armor.png", "refs/face-sketch.png"]
+      }
     },
     {
       "key": "refined",
       "file": "renders/refined.png",
       "assetId": "asset_existing",
       "activeVariantBehavior": "set-active",
+      "prompt": "same hero, cleaner silhouette, stronger inventory icon read",
+      "model": "gemini-3-pro-image-preview",
+      "provider": "gemini",
+      "providerMetadata": { "requestId": "external-job-7781" },
+      "generationProvenance": { "importedFrom": "external paintover batch" },
       "lineage": [
         { "sourceFile": "base", "relationType": "refined" },
         { "sourceVariantId": "variant_existing", "relationType": "derived" }
@@ -459,9 +474,12 @@ Lineage is import-only. Each `lineage` entry must use relation type `derived`,
 external source variant IDs, same-batch source keys, duplicate local keys, media
 kinds, and lineage relation types without uploading media bytes.
 
-Manifests can also organize imported records after upload. Collection and
+Manifests can also import organization metadata after upload. Collection and
 composition references use existing names unless a top-level entry explicitly
 sets `create: true`. Same-batch references use the imported record `key`.
+Collections organize assets or pinned variants, manual relations describe
+user-authored links, and compositions bind exact variants into final mixes.
+None of those organization sections rewrites lineage.
 
 ```json
 {
@@ -485,6 +503,14 @@ sets `create: true`. Same-batch references use the imported record `key`.
       "key": "final",
       "file": "renders/final.png",
       "name": "Final Keyframe",
+      "prompt": "hero entering the market, painterly adventure game style",
+      "model": "external-compositor-1",
+      "provider": "local-render-farm",
+      "providerMetadata": { "jobId": "render-90210" },
+      "generationProvenance": {
+        "sourceImages": ["style-ref", "asset_thumbnail_target"],
+        "operator": "outsourced-art-pass"
+      },
       "collections": [
         { "collection": "Backgrounds", "role": "background", "subjectType": "asset" }
       ],
@@ -518,6 +544,11 @@ types include `appears_in`, `background_for`, `thumbnail_for`, `map_for`,
 `style_reference_for`, and `reference_for`. JSON output reports created asset
 IDs, variant IDs, lineage IDs, collection item IDs, relation IDs, composition
 item IDs, and style preset IDs after import.
+
+Style reference imports use the same model as the rest of the Space: import the
+reference images as normal assets, add them to style collections, then create or
+update style presets that point to those collections. There is no separate
+style-only upload path.
 
 ---
 

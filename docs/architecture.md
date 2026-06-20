@@ -50,7 +50,7 @@
 ### Variant Schema
 
 Variants track generation and upload status via placeholder lifecycle.
-`media_kind` is the stored medium discriminator shared with the parent asset;
+`media_kind` is the stored medium discriminator shared by an asset and its variants;
 allowed values are `image`, `audio`, and `video`, with `image` as the default
 for legacy and omitted values. Website generation can produce images through
 Gemini image models, audio through the configured audio provider, and videos
@@ -121,8 +121,9 @@ serves `poster_key` when that artifact exists.
 
 ### Relationships
 
-- **Legacy Parent Compatibility**: `parent_asset_id` may exist on older assets and is used only for migration/debug compatibility. User organization is modeled with collections, relations, and compositions.
-- **Variant Lineage**: `lineage` table tracks generation history. Immutable for audit.
+- **Space Organization**: Collections, manual relations, and compositions organize assets and exact variants. Parent hierarchy is not the organization model.
+- **Style Presets**: Style references are normal Space assets or variants grouped into collections. Presets point to those collections plus a style prompt.
+- **Variant Lineage**: `lineage` table tracks generation and import provenance. Immutable for audit, not manually editable organization state.
   - `derived`: Created from references as inspiration (derive operation)
   - `refined`: Refinement of existing asset (refine operation)
   - `forked`: Variant forked to new asset (fork operation)
