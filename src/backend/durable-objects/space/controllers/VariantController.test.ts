@@ -103,6 +103,7 @@ function createMockRepo(): SpaceRepository {
     listRelations: mock.fn(async () => []),
     listCompositions: mock.fn(async () => []),
     listAllCompositionItems: mock.fn(async () => []),
+    listStylePresetPreviewsByCollection: mock.fn(async () => []),
   } as unknown as SpaceRepository;
 }
 
@@ -258,6 +259,15 @@ describe('VariantController', () => {
         listRelations: mock.fn(async () => deleted ? [] : [relation]),
         listCompositions: mock.fn(async () => deleted ? [compositionAfter] : [compositionBefore]),
         listAllCompositionItems: mock.fn(async () => deleted ? [] : [compositionItem]),
+        listStylePresetPreviewsByCollection: mock.fn(async () => [{
+          id: 'preset-1',
+          name: 'Painterly',
+          collection_id: 'collection-1',
+          collection_name: 'Style refs',
+          reference_count: 1,
+          style_reference_variant_ids: ['variant-2'],
+          style_reference_image_keys: ['images/variant-2.png'],
+        }]),
       }, {
         exec: mock.fn((query: string) => {
           if (query.startsWith('DELETE FROM variants')) {
@@ -275,6 +285,7 @@ describe('VariantController', () => {
       assert.ok(broadcasts.some((b) => b.type === 'relation:deleted' && b.relationId === 'relation-1'));
       assert.ok(broadcasts.some((b) => b.type === 'composition:updated' && b.composition.output_variant_id === null));
       assert.ok(broadcasts.some((b) => b.type === 'composition_item:deleted' && b.itemId === 'composition-item-1'));
+      assert.ok(broadcasts.some((b) => b.type === 'style_preset:updated' && b.preset.style_reference_variant_ids.includes('variant-2')));
     });
 
     test('reassigns active variant when deleting active variant', async () => {

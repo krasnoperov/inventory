@@ -94,6 +94,7 @@ function createMockRepo(): SpaceRepository {
     listRelations: mock.fn(async () => []),
     listCompositions: mock.fn(async () => []),
     listAllCompositionItems: mock.fn(async () => []),
+    listStylePresetPreviewsByCollection: mock.fn(async () => []),
     createLineage: mock.fn(async (input) =>
       createMockLineage({
         id: input.id,
@@ -255,6 +256,15 @@ describe('AssetController', () => {
         listRelations: mock.fn(async () => deleted ? [] : [relation]),
         listCompositions: mock.fn(async () => deleted ? [compositionAfter] : [compositionBefore]),
         listAllCompositionItems: mock.fn(async () => deleted ? [] : [compositionItem]),
+        listStylePresetPreviewsByCollection: mock.fn(async () => [{
+          id: 'preset-1',
+          name: 'Painterly',
+          collection_id: 'collection-1',
+          collection_name: 'Style refs',
+          reference_count: 0,
+          style_reference_variant_ids: [],
+          style_reference_image_keys: [],
+        }]),
       });
       const controller = new AssetController(ctx);
 
@@ -264,6 +274,7 @@ describe('AssetController', () => {
       assert.ok(broadcasts.some((b) => b.type === 'relation:deleted' && b.relationId === 'relation-1'));
       assert.ok(broadcasts.some((b) => b.type === 'composition:updated' && b.composition.output_asset_id === null));
       assert.ok(broadcasts.some((b) => b.type === 'composition_item:deleted' && b.itemId === 'composition-item-1'));
+      assert.ok(broadcasts.some((b) => b.type === 'style_preset:updated' && b.preset.reference_count === 0));
     });
 
     test('tracks deleted storage usage for asset deletions', async () => {

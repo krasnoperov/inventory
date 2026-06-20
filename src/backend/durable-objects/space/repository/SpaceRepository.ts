@@ -1326,6 +1326,18 @@ export class SpaceRepository {
     return previews.filter((preset): preset is StylePresetPreview => preset !== null);
   }
 
+  async listStylePresetPreviewsByCollection(collectionId: string): Promise<StylePresetPreview[]> {
+    const result = await this.sql.exec(
+      'SELECT * FROM style_presets WHERE collection_id = ? ORDER BY is_default DESC, created_at ASC',
+      collectionId
+    );
+    const presets = result.toArray() as StylePreset[];
+    const previews = await Promise.all(
+      presets.map((preset) => this.getStylePresetPreview(preset.id))
+    );
+    return previews.filter((preset): preset is StylePresetPreview => preset !== null);
+  }
+
   async resolveStylePresetReferences(presetId: string): Promise<ResolvedStylePreset | null> {
     const preset = await this.getStylePresetById(presetId);
     if (!preset) return null;

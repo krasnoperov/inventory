@@ -25,6 +25,38 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
     getCollectionById: mock.fn(async (id: string) => id === 'collection-1'
       ? { id: 'collection-1', name: 'Scene Kit' }
       : null),
+    updateCollection: mock.fn(async (id: string, changes: Record<string, unknown>) => id === 'collection-1'
+      ? { id, name: changes.name ?? 'Scene Kit', description: changes.description ?? null, sort_index: changes.sortIndex ?? 0 }
+      : null),
+    deleteCollection: mock.fn(async (id: string) => id === 'collection-1'),
+    listCollectionItems: mock.fn(async () => [{
+      id: 'item-1',
+      collection_id: 'collection-1',
+      subject_type: 'variant',
+      asset_id: null,
+      variant_id: 'variant-1',
+      role: 'style_ref',
+      pinned_variant_id: null,
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: 1,
+      updated_at: 1,
+    }]),
+    getCollectionItemById: mock.fn(async (id: string) => id === 'item-1'
+      ? {
+        id,
+        collection_id: 'collection-1',
+        subject_type: 'variant',
+        asset_id: null,
+        variant_id: 'variant-1',
+        role: 'style_ref',
+        pinned_variant_id: null,
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      }
+      : null),
     getCompositionById: mock.fn(async (id: string) => id === 'composition-1'
       ? { id: 'composition-1', name: 'Opening' }
       : null),
@@ -44,6 +76,35 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
       created_at: 1,
       updated_at: 1,
     })),
+    updateCollectionItem: mock.fn(async (id: string, changes: Record<string, unknown>) => ({
+      id,
+      collection_id: 'collection-1',
+      subject_type: 'variant',
+      asset_id: null,
+      variant_id: 'variant-1',
+      role: changes.role ?? 'style_ref',
+      pinned_variant_id: changes.pinnedVariantId ?? null,
+      sort_index: changes.sortIndex ?? 0,
+      created_by: 'user-1',
+      created_at: 1,
+      updated_at: 2,
+    })),
+    reorderCollectionItems: mock.fn(async () => [{
+      id: 'item-1',
+      collection_id: 'collection-1',
+      subject_type: 'variant',
+      asset_id: null,
+      variant_id: 'variant-1',
+      role: 'style_ref',
+      pinned_variant_id: null,
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: 1,
+      updated_at: 2,
+    }]),
+    deleteCollectionItem: mock.fn(async (id: string) => id === 'item-1'),
+    listStylePresetPreviewsByCollection: mock.fn(async () => []),
+    getStylePresetPreview: mock.fn(async () => null),
     createRelation: mock.fn(async (data: Record<string, unknown>) => ({
       id: data.id,
       subject_type: data.subject.subjectType,
@@ -120,6 +181,112 @@ describe('OrganizationController', () => {
     assert.equal(broadcasts[0].type, 'collection_item:created');
     assert.equal(broadcasts[0].item.collection_id, 'collection-1');
     assert.equal(broadcasts[0].item.asset_id, 'asset-1');
+  });
+
+  test('collection item creation rebroadcasts affected style preset preview', async () => {
+    const stylePreset = {
+      id: 'preset-1',
+      name: 'Painterly',
+      collection_id: 'collection-1',
+      collection_name: 'Scene Kit',
+      reference_count: 2,
+      style_reference_variant_ids: ['variant-1', 'variant-2'],
+      style_reference_image_keys: ['images/variant-1.png', 'images/variant-2.png'],
+    };
+    const { ctx, broadcasts } = createContext({
+      listStylePresetPreviewsByCollection: mock.fn(async () => [stylePreset]),
+    });
+    const controller = new OrganizationController(ctx);
+
+    await controller.handleCreateCollectionItem({} as WebSocket, {
+      userId: 'user-1',
+      role: 'editor',
+      name: 'Editor',
+      clientSessionId: 'client-1',
+    }, 'collection-1', {
+      subjectType: 'variant',
+      variantId: 'variant-1',
+      role: 'style_ref',
+    });
+
+    assert.deepEqual(
+      broadcasts.map((message) => message.type),
+      ['collection_item:created', 'style_preset:updated']
+    );
+    assert.equal(broadcasts[1].preset.reference_count, 2);
+    assert.deepEqual(broadcasts[1].preset.style_reference_variant_ids, ['variant-1', 'variant-2']);
+  });
+
+  test('collection item updates, reorders, and deletes rebroadcast affected style preset previews', async () => {
+    const stylePreset = {
+      id: 'preset-1',
+      name: 'Painterly',
+      collection_id: 'collection-1',
+      collection_name: 'Scene Kit',
+      reference_count: 1,
+      style_reference_variant_ids: ['variant-1'],
+      style_reference_image_keys: ['images/variant-1.png'],
+    };
+    const { ctx, broadcasts } = createContext({
+      listStylePresetPreviewsByCollection: mock.fn(async () => [stylePreset]),
+    });
+    const controller = new OrganizationController(ctx);
+
+    await controller.httpUpdateCollectionItem('collection-1', 'item-1', { sortIndex: 3 });
+    await controller.httpReorderCollectionItems('collection-1', ['item-1']);
+    await controller.httpDeleteCollectionItem('collection-1', 'item-1');
+
+    assert.deepEqual(
+      broadcasts.map((message) => message.type),
+      [
+        'collection_item:updated',
+        'style_preset:updated',
+        'collection_items:reordered',
+        'style_preset:updated',
+        'collection_item:deleted',
+        'style_preset:updated',
+      ]
+    );
+  });
+
+  test('collection rename and delete rebroadcast affected style preset previews', async () => {
+    const beforeDeletePreset = {
+      id: 'preset-1',
+      name: 'Painterly',
+      collection_id: 'collection-1',
+      collection_name: 'Scene Kit',
+      reference_count: 1,
+      style_reference_variant_ids: ['variant-1'],
+      style_reference_image_keys: ['images/variant-1.png'],
+    };
+    const afterDeletePreset = {
+      ...beforeDeletePreset,
+      collection_id: null,
+      collection_name: null,
+      reference_count: 0,
+      style_reference_variant_ids: [],
+      style_reference_image_keys: [],
+    };
+    const { ctx, broadcasts } = createContext({
+      listStylePresetPreviewsByCollection: mock.fn(async () => [beforeDeletePreset]),
+      getStylePresetPreview: mock.fn(async () => afterDeletePreset),
+    });
+    const controller = new OrganizationController(ctx);
+
+    await controller.httpUpdateCollection('collection-1', { name: 'Updated refs' });
+    await controller.httpDeleteCollection('collection-1');
+
+    assert.deepEqual(
+      broadcasts.map((message) => message.type),
+      [
+        'collection:updated',
+        'style_preset:updated',
+        'collection:deleted',
+        'style_preset:updated',
+      ]
+    );
+    assert.equal(broadcasts.at(-1)?.preset.collection_name, null);
+    assert.equal(broadcasts.at(-1)?.preset.reference_count, 0);
   });
 
   test('viewers cannot mutate organization records over WebSocket', async () => {

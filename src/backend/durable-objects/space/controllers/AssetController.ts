@@ -131,7 +131,7 @@ export class AssetController extends BaseController {
       }
     }
     this.broadcast({ type: 'asset:deleted', assetId });
-    this.broadcastOrganizationCascadeChanges(organizationBefore, organizationAfter);
+    await this.broadcastOrganizationCascadeChanges(organizationBefore, organizationAfter);
 
     // Broadcast updates for reparented children (now at root level)
     for (const child of childAssets) {
