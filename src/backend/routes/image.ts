@@ -10,6 +10,7 @@ import {
   getVariantTranscriptRoute,
   getVariantWordTimingsRoute,
 } from '../../shared/api/routes';
+import { trackPlatformUsage } from '../platform/platformUsage';
 
 const imageRoutes = createOpenApiRouter();
 
@@ -19,6 +20,7 @@ type VariantMediaArtifact = 'media' | 'poster' | 'transcript' | 'wordTimings' | 
 interface VariantMediaRecord {
   id: string;
   status: string;
+  media_kind?: 'image' | 'audio' | 'video' | null;
   image_key?: string | null;
   media_key?: string | null;
   media_mime_type?: string | null;
@@ -134,6 +136,13 @@ async function serveR2Object(
     supportsRange: boolean;
     fallbackContentType?: string | null;
     cacheControl?: string;
+    platformUsage?: {
+      spaceId: string;
+      userId?: number | null;
+      variantId: string;
+      artifact: VariantMediaArtifact;
+      mediaKind?: 'image' | 'audio' | 'video' | null;
+    };
   }
 ): Promise<Response> {
   const env = c.env;
@@ -174,13 +183,45 @@ async function serveR2Object(
     if (contentRange) headers.set('Content-Range', contentRange);
     const contentLength = getRangeContentLength(object.range, object.size);
     if (contentLength !== null) headers.set('Content-Length', String(contentLength));
+    await recordDeliveryUsage(c, options, contentLength ?? 0, 206, contentRange);
     return new Response(object.body, { status: 206, headers });
   }
 
   headers.set('Content-Length', String(object.size));
   if (options.supportsRange) headers.set('Accept-Ranges', 'bytes');
 
+  await recordDeliveryUsage(c, options, object.size, 200);
   return new Response(object.body, { headers });
+}
+
+async function recordDeliveryUsage(
+  c: Context<AppContext>,
+  options: Parameters<typeof serveR2Object>[1],
+  bytesDelivered: number,
+  status: 200 | 206,
+  contentRange?: string | null
+): Promise<void> {
+  if (!options.platformUsage || bytesDelivered <= 0) return;
+
+  try {
+    await trackPlatformUsage(c.env.DB, {
+      spaceId: options.platformUsage.spaceId,
+      userId: options.platformUsage.userId ?? null,
+      usageType: 'delivery',
+      quantity: bytesDelivered,
+      unit: 'byte',
+      variantId: options.platformUsage.variantId,
+      artifactKey: options.key,
+      mediaKind: options.platformUsage.mediaKind ?? null,
+      metadata: {
+        artifact: options.platformUsage.artifact,
+        status,
+        contentRange: contentRange ?? undefined,
+      },
+    });
+  } catch (error) {
+    console.warn('Failed to track delivery usage:', error);
+  }
 }
 
 async function getVariantFromSpace(
@@ -261,6 +302,13 @@ async function serveVariantArtifact(c: Context<AppContext>, artifact: VariantMed
       supportsRange: artifact === 'media',
       fallbackContentType: getArtifactFallbackContentType(variantOrResponse, artifact),
       cacheControl: 'private, max-age=31536000, immutable',
+      platformUsage: {
+        spaceId,
+        userId: c.get('userId') ?? null,
+        variantId,
+        artifact,
+        mediaKind: variantOrResponse.media_kind ?? null,
+      },
     });
   } catch (error) {
     console.error('Error serving media:', error);

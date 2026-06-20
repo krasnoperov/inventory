@@ -16,6 +16,11 @@ import { BaseController, type ControllerContext, NotFoundError, ValidationError 
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import { serializeGenerationProvenance } from '../repository/SpaceRepository';
+import {
+  parsePlatformUsageUserId,
+  trackDeletedStorageUsage,
+  trackVariantStorageUsage,
+} from '../../../platform/platformUsage';
 
 const log = loggers.variantController;
 
@@ -34,7 +39,7 @@ export class VariantController extends BaseController {
   async handleDelete(ws: WebSocket, meta: WebSocketMeta, variantId: string): Promise<void> {
     this.requireOwner(meta);
 
-    await this.deleteVariant(variantId);
+    await this.deleteVariant(variantId, parsePlatformUsageUserId(meta.userId));
     this.broadcast({ type: 'variant:deleted', variantId });
   }
 
@@ -355,6 +360,8 @@ export class VariantController extends BaseController {
       await this.sql.exec(INCREMENT_REF_SQL, key);
     }
 
+    await this.trackStoredVariant(variant, 'uploaded');
+
     // Set as active variant if asset has none
     const asset = await this.repo.getAssetById(variant.asset_id);
     if (asset && !asset.active_variant_id) {
@@ -556,6 +563,8 @@ export class VariantController extends BaseController {
       await this.sql.exec(INCREMENT_REF_SQL, key);
     }
 
+    await this.trackStoredVariant(variant, 'applied');
+
     // Create lineage records if parent variants specified
     if (data.parentVariantIds && data.parentVariantIds.length > 0) {
       const relationType = data.relationType || 'refined';
@@ -603,7 +612,7 @@ export class VariantController extends BaseController {
    * Images with 0 refs are deleted from R2.
    * If the variant is the active variant, reassign to another variant or NULL.
    */
-  private async deleteVariant(variantId: string): Promise<void> {
+  private async deleteVariant(variantId: string, deletedByUserId: number | null): Promise<void> {
     const variant = await this.repo.getVariantById(variantId);
     if (!variant) return;
 
@@ -628,7 +637,27 @@ export class VariantController extends BaseController {
     // Decrement refs for all images
     const imageKeys = getVariantImageKeys(variant);
     for (const key of imageKeys) {
-      await this.decrementRef(key);
+      const deletion = await this.decrementRef(key);
+      if (deletion.deleted && deletion.sizeBytes > 0) {
+        try {
+          await trackDeletedStorageUsage(this.env.DB, {
+            spaceId: this.spaceId,
+            userId: deletedByUserId,
+            assetId: variant.asset_id,
+            variantId: variant.id,
+            mediaKind: variant.media_kind,
+            artifactKey: key,
+            sizeBytes: deletion.sizeBytes,
+          });
+        } catch (error) {
+          log.warn('Failed to track deleted storage usage', {
+            spaceId: this.spaceId,
+            variantId,
+            imageKey: key,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
     }
 
     // Delete variant
@@ -638,14 +667,28 @@ export class VariantController extends BaseController {
   /**
    * Decrement image ref and delete from R2 if ref count reaches 0
    */
-  private async decrementRef(imageKey: string): Promise<void> {
+  private async decrementRef(imageKey: string): Promise<{ deleted: boolean; sizeBytes: number }> {
     const result = await this.sql.exec(DECREMENT_REF_SQL, imageKey);
     const row = result.toArray()[0] as { ref_count: number } | undefined;
 
     if (row && row.ref_count <= 0) {
+      let sizeBytes = 0;
+      try {
+        const object = await this.env.IMAGES.head(imageKey);
+        sizeBytes = object?.size ?? 0;
+      } catch (error) {
+        log.warn('Failed to read R2 object size before delete', {
+          imageKey,
+          spaceId: this.spaceId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
       // Delete from R2
+      let deleteSucceeded = false;
       try {
         await this.env.IMAGES.delete(imageKey);
+        deleteSucceeded = true;
       } catch (error) {
         log.error('Failed to delete image from R2', {
           imageKey,
@@ -656,6 +699,29 @@ export class VariantController extends BaseController {
 
       // Delete ref record
       await this.sql.exec(DELETE_REF_SQL, imageKey);
+      return { deleted: deleteSucceeded, sizeBytes };
+    }
+
+    return { deleted: false, sizeBytes: 0 };
+  }
+
+  private async trackStoredVariant(
+    variant: Variant,
+    reason: 'uploaded' | 'applied'
+  ): Promise<void> {
+    try {
+      await trackVariantStorageUsage(this.env.DB, this.env.IMAGES, {
+        spaceId: this.spaceId,
+        variant,
+        reason,
+      });
+    } catch (error) {
+      log.warn('Failed to track stored variant usage', {
+        spaceId: this.spaceId,
+        variantId: variant.id,
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

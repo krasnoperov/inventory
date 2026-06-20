@@ -75,6 +75,7 @@ import {
   normalizeVideoGenerationAspectRatio,
   normalizeVideoGenerationTier,
 } from '../../shared/videoGenerationOptions';
+import { parsePlatformUsageUserId, trackPlatformUsage } from '../platform/platformUsage';
 
 const log = loggers.generationWorkflow;
 const FAKE_VIDEO_MP4_BASE64 = 'ZmFrZSB2aWRlbw==';
@@ -115,6 +116,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       requestId,
       jobId,
       spaceId,
+      userId,
       prompt,
       assetName,
       model,
@@ -139,6 +141,14 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
     // Step 1: Update variant status to processing via DO
     await step.do('update-variant-processing', async () => {
       await this.updateVariantStatus(spaceId, jobId, 'processing');
+      await this.trackWorkflowStart({
+        spaceId,
+        userId,
+        jobId,
+        requestId,
+        operation,
+        mediaKind,
+      });
     });
 
     if (mediaKind === 'audio') {
@@ -841,6 +851,39 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       }));
     } catch (fetchError) {
       log.error('Failed to mark variant as failed', { spaceId, variantId, error: fetchError instanceof Error ? fetchError.message : String(fetchError) });
+    }
+  }
+
+  private async trackWorkflowStart(input: {
+    spaceId: string;
+    userId: string;
+    jobId: string;
+    requestId: string;
+    operation: string;
+    mediaKind: string;
+  }): Promise<void> {
+    try {
+      await trackPlatformUsage(this.env.DB, {
+        idempotencyKey: `workflow:${input.spaceId}:${input.jobId}:start`,
+        spaceId: input.spaceId,
+        userId: parsePlatformUsageUserId(input.userId),
+        usageType: 'workflow',
+        quantity: 1,
+        unit: 'run',
+        variantId: input.jobId,
+        workflowId: input.jobId,
+        requestId: input.requestId,
+        operation: input.operation,
+        mediaKind: input.mediaKind === 'image' || input.mediaKind === 'audio' || input.mediaKind === 'video'
+          ? input.mediaKind
+          : null,
+      });
+    } catch (error) {
+      log.warn('Failed to track workflow usage', {
+        spaceId: input.spaceId,
+        jobId: input.jobId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 }

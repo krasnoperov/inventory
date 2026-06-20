@@ -67,6 +67,14 @@ function createMockD1() {
   };
 }
 
+function usageEventStatements(statements: Array<{ sql: string; bindings: unknown[] }>) {
+  return statements.filter((statement) => /INSERT INTO usage_events\b/.test(statement.sql));
+}
+
+function platformUsageStatements(statements: Array<{ sql: string; bindings: unknown[] }>) {
+  return statements.filter((statement) => /INSERT INTO platform_usage_events\b/.test(statement.sql));
+}
+
 function createQuotaCheckDb(options: {
   quotaLimit: number;
   quotaLimitsJson?: string;
@@ -879,11 +887,13 @@ describe('GenerationController pipeline hooks', () => {
         thumbKey: 'thumbs/space-1/variant-image.webp',
       });
 
-      assert.strictEqual(statements.length, 1);
-      assert.strictEqual(statements[0].bindings[1], 123);
-      assert.strictEqual(statements[0].bindings[2], 'gemini_images');
-      assert.strictEqual(statements[0].bindings[3], 1);
-      assert.deepStrictEqual(JSON.parse(statements[0].bindings[4]), {
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      assert.strictEqual(usageStatements[0].bindings[1], 123);
+      assert.strictEqual(usageStatements[0].bindings[2], 'gemini_images');
+      assert.strictEqual(usageStatements[0].bindings[3], 1);
+      assert.deepStrictEqual(JSON.parse(usageStatements[0].bindings[4]), {
         model: 'gemini-3-pro-image-preview',
         operation: 'generate',
         imageSize: '4K',
@@ -960,7 +970,9 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(result.variant.media_key, 'media/space-1/variant-video.mp4');
       assert.strictEqual(result.variant.media_mime_type, 'video/mp4');
       assert.strictEqual(result.variant.media_duration_ms, 8000);
-      assert.strictEqual(prepare.mock.calls.length, 2);
+      const preparedSql = prepare.mock.calls.map((call) => String(call.arguments[0]));
+      assert.strictEqual(preparedSql.filter((sql) => /INSERT INTO usage_events\b/.test(sql)).length, 1);
+      assert.strictEqual(preparedSql.filter((sql) => /INSERT INTO platform_usage_events\b/.test(sql)).length, 1);
       assert.strictEqual(bind.mock.calls[0].arguments[1], 123);
       assert.strictEqual(bind.mock.calls[0].arguments[2], 'gemini_videos');
       assert.strictEqual(bind.mock.calls[0].arguments[3], 2);
@@ -972,7 +984,7 @@ describe('GenerationController pipeline hooks', () => {
         generate_audio: true,
         video_count: 1,
       });
-      assert.strictEqual(run.mock.calls.length, 1);
+      assert.strictEqual(run.mock.calls.length, 2);
 
       const completeCall = asMock(ctx.repo.completeVariant).mock.calls[0];
       assert.deepStrictEqual(completeCall.arguments[3], {
@@ -1097,12 +1109,14 @@ describe('GenerationController pipeline hooks', () => {
         },
       });
 
-      assert.strictEqual(statements.length, 1);
-      assert.match(statements[0].sql, /INSERT INTO usage_events/);
-      assert.strictEqual(statements[0].bindings[1], 42);
-      assert.strictEqual(statements[0].bindings[2], 'elevenlabs_audio');
-      assert.strictEqual(statements[0].bindings[3], 37);
-      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      assert.match(usageStatements[0].sql, /INSERT INTO usage_events/);
+      assert.strictEqual(usageStatements[0].bindings[1], 42);
+      assert.strictEqual(usageStatements[0].bindings[2], 'elevenlabs_audio');
+      assert.strictEqual(usageStatements[0].bindings[3], 37);
+      const metadata = JSON.parse(String(usageStatements[0].bindings[4]));
       assert.strictEqual(metadata.provider, 'elevenlabs');
       assert.strictEqual(metadata.model, 'music_v1');
       assert.strictEqual(metadata.operation, 'generate');
@@ -1145,10 +1159,12 @@ describe('GenerationController pipeline hooks', () => {
         audioUsage: null,
       });
 
-      assert.strictEqual(statements.length, 1);
-      assert.strictEqual(statements[0].bindings[2], 'elevenlabs_audio');
-      assert.strictEqual(statements[0].bindings[3], expectedQuantity);
-      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      assert.strictEqual(usageStatements[0].bindings[2], 'elevenlabs_audio');
+      assert.strictEqual(usageStatements[0].bindings[3], expectedQuantity);
+      const metadata = JSON.parse(String(usageStatements[0].bindings[4]));
       assert.strictEqual(metadata.model, 'eleven_v3');
       assert.strictEqual(metadata.asset_type, 'dialogue');
       assert.strictEqual(metadata.input_tokens, expectedQuantity);
@@ -1195,12 +1211,14 @@ describe('GenerationController pipeline hooks', () => {
         },
       });
 
-      assert.strictEqual(statements.length, 1);
-      assert.match(statements[0].sql, /INSERT INTO usage_events/);
-      assert.strictEqual(statements[0].bindings[1], 42);
-      assert.strictEqual(statements[0].bindings[2], 'gemini_audio');
-      assert.strictEqual(statements[0].bindings[3], 1);
-      const metadata = JSON.parse(String(statements[0].bindings[4]));
+      const usageStatements = usageEventStatements(statements);
+      assert.strictEqual(usageStatements.length, 1);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
+      assert.match(usageStatements[0].sql, /INSERT INTO usage_events/);
+      assert.strictEqual(usageStatements[0].bindings[1], 42);
+      assert.strictEqual(usageStatements[0].bindings[2], 'gemini_audio');
+      assert.strictEqual(usageStatements[0].bindings[3], 1);
+      const metadata = JSON.parse(String(usageStatements[0].bindings[4]));
       assert.strictEqual(metadata.provider, 'lyria');
       assert.strictEqual(metadata.model, 'lyria-3-clip-preview');
       assert.strictEqual(metadata.operation, 'generate');
@@ -1228,7 +1246,8 @@ describe('GenerationController pipeline hooks', () => {
         audioProvider: 'fake',
       });
 
-      assert.strictEqual(statements.length, 0);
+      assert.strictEqual(usageEventStatements(statements).length, 0);
+      assert.strictEqual(platformUsageStatements(statements).length, 1);
     });
 
     test('hook errors do not fail completion', async () => {

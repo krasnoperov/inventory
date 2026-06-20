@@ -86,6 +86,41 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
   `.execute(db);
 
   await sql`
+    CREATE TABLE spaces (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      owner_id TEXT NOT NULL REFERENCES users(id),
+      created_at INTEGER NOT NULL
+    )
+  `.execute(db);
+
+  await sql`
+    CREATE TABLE platform_usage_events (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      idempotency_key TEXT NOT NULL UNIQUE,
+      space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      usage_type TEXT NOT NULL CHECK (usage_type IN ('storage', 'workflow', 'delivery')),
+      quantity INTEGER NOT NULL,
+      unit TEXT NOT NULL CHECK (unit IN ('byte', 'run')),
+      asset_id TEXT,
+      variant_id TEXT,
+      workflow_id TEXT,
+      request_id TEXT,
+      artifact_key TEXT,
+      operation TEXT,
+      media_kind TEXT CHECK (media_kind IS NULL OR media_kind IN ('image', 'audio', 'video')),
+      metadata TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX idx_platform_usage_space_type_created
+      ON platform_usage_events(space_id, usage_type, created_at)
+  `.execute(db);
+
+  await sql`
     CREATE INDEX idx_provider_usage_user_created
       ON provider_usage_ledger(user_id, created_at)
   `.execute(db);
@@ -112,8 +147,10 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
 }
 
 export async function cleanupTestDatabase(db: Kysely<DatabaseSchema>) {
+  await db.deleteFrom('platform_usage_events').execute();
   await db.deleteFrom('provider_usage_ledger').execute();
   await db.deleteFrom('usage_events').execute();
+  await db.deleteFrom('spaces').execute();
   await db.deleteFrom('users').execute();
   // --- FUTURE: Add cleanup for your domain tables here ---
   // Example:
