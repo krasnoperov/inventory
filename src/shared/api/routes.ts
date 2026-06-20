@@ -4,15 +4,28 @@ import {
   AuthSessionResponseSchema,
   AuthSessionStateResponseSchema,
   BinaryResponseSchema,
+  CollectionIdParamsSchema,
+  CollectionItemParamsSchema,
+  CollectionItemResponseSchema,
+  CollectionResponseSchema,
+  CompositionIdParamsSchema,
+  CompositionItemParamsSchema,
+  CompositionItemResponseSchema,
+  CompositionResponseSchema,
   CreateSpaceRequestSchema,
   CreateSpaceResponseSchema,
   DeleteSpaceResponseSchema,
   ErrorResponseSchema,
   GetSpaceResponseSchema,
   GoogleAuthRequestSchema,
+  ListCollectionItemsResponseSchema,
+  ListCollectionsResponseSchema,
+  ListCompositionItemsResponseSchema,
+  ListCompositionsResponseSchema,
   ListSpaceAssetsResponseSchema,
   ListProductionRecordsResponseSchema,
   ListProviderKeysResponseSchema,
+  ListRelationsResponseSchema,
   ListSpacesResponseSchema,
   PlaceProductionRecordRequestSchema,
   PlatformUsageSummaryResponseSchema,
@@ -28,13 +41,26 @@ import {
   ProductionRecordResponseSchema,
   ProductionResponseSchema,
   ProductionShotResponseSchema,
+  RelationParamsSchema,
+  RelationResponseSchema,
+  ReorderItemsRequestSchema,
   SpaceIdParamsSchema,
   SuccessResponseSchema,
   UsageSummaryQuerySchema,
+  UpdateCollectionItemRequestSchema,
+  UpdateCollectionRequestSchema,
+  UpdateCompositionItemRequestSchema,
+  UpdateCompositionRequestSchema,
+  UpdateRelationRequestSchema,
+  UpsertCollectionItemRequestSchema,
+  UpsertCollectionRequestSchema,
+  UpsertCompositionItemRequestSchema,
+  UpsertCompositionRequestSchema,
   UpsertProductionCueRequestSchema,
   UpsertProductionPlacementRequestSchema,
   UpsertProductionRequestSchema,
   UpsertProductionShotRequestSchema,
+  UpsertRelationRequestSchema,
   UpdateUserProfileRequestSchema,
   UpdateUserSettingsRequestSchema,
   UpsertProviderKeyRequestSchema,
@@ -304,6 +330,506 @@ export const listSpaceAssetsRoute = createRoute({
       description: 'Assets in a space',
     },
     403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const listCollectionsRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/collections',
+  request: {
+    params: SpaceIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(ListCollectionsResponseSchema),
+      description: 'Collections in a space',
+    },
+    403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const createCollectionRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/collections',
+  request: {
+    params: SpaceIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertCollectionRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(CollectionResponseSchema),
+      description: 'Created collection',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const updateCollectionRoute = createRoute({
+  method: 'patch',
+  path: '/api/spaces/{id}/collections/{collectionId}',
+  request: {
+    params: CollectionIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpdateCollectionRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(CollectionResponseSchema),
+      description: 'Updated collection',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteCollectionRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/collections/{collectionId}',
+  request: {
+    params: CollectionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SuccessResponseSchema),
+      description: 'Deleted collection',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const listCollectionItemsRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/collections/{collectionId}/items',
+  request: {
+    params: CollectionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(ListCollectionItemsResponseSchema),
+      description: 'Collection items in a space collection',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const createCollectionItemRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/collections/{collectionId}/items',
+  request: {
+    params: CollectionIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertCollectionItemRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(CollectionItemResponseSchema),
+      description: 'Created collection item',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const updateCollectionItemRoute = createRoute({
+  method: 'patch',
+  path: '/api/spaces/{id}/collections/{collectionId}/items/{itemId}',
+  request: {
+    params: CollectionItemParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpdateCollectionItemRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(CollectionItemResponseSchema),
+      description: 'Updated collection item',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const reorderCollectionItemsRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/collections/{collectionId}/items/reorder',
+  request: {
+    params: CollectionIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: ReorderItemsRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(ListCollectionItemsResponseSchema),
+      description: 'Reordered collection items',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteCollectionItemRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/collections/{collectionId}/items/{itemId}',
+  request: {
+    params: CollectionItemParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SuccessResponseSchema),
+      description: 'Deleted collection item',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const listRelationsRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/relations',
+  request: {
+    params: SpaceIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(ListRelationsResponseSchema),
+      description: 'Manual relations in a space',
+    },
+    403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const createRelationRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/relations',
+  request: {
+    params: SpaceIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertRelationRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(RelationResponseSchema),
+      description: 'Created manual relation',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const updateRelationRoute = createRoute({
+  method: 'patch',
+  path: '/api/spaces/{id}/relations/{relationId}',
+  request: {
+    params: RelationParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpdateRelationRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(RelationResponseSchema),
+      description: 'Updated manual relation',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteRelationRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/relations/{relationId}',
+  request: {
+    params: RelationParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SuccessResponseSchema),
+      description: 'Deleted manual relation',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const listCompositionsRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/compositions',
+  request: {
+    params: SpaceIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(ListCompositionsResponseSchema),
+      description: 'Compositions in a space',
+    },
+    403: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const createCompositionRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/compositions',
+  request: {
+    params: SpaceIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertCompositionRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(CompositionResponseSchema),
+      description: 'Created composition',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const updateCompositionRoute = createRoute({
+  method: 'patch',
+  path: '/api/spaces/{id}/compositions/{compositionId}',
+  request: {
+    params: CompositionIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpdateCompositionRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(CompositionResponseSchema),
+      description: 'Updated composition',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteCompositionRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/compositions/{compositionId}',
+  request: {
+    params: CompositionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SuccessResponseSchema),
+      description: 'Deleted composition',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const listCompositionItemsRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/compositions/{compositionId}/items',
+  request: {
+    params: CompositionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(ListCompositionItemsResponseSchema),
+      description: 'Composition items',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const createCompositionItemRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/compositions/{compositionId}/items',
+  request: {
+    params: CompositionIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpsertCompositionItemRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(CompositionItemResponseSchema),
+      description: 'Created composition item',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const updateCompositionItemRoute = createRoute({
+  method: 'patch',
+  path: '/api/spaces/{id}/compositions/{compositionId}/items/{itemId}',
+  request: {
+    params: CompositionItemParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: UpdateCompositionItemRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(CompositionItemResponseSchema),
+      description: 'Updated composition item',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const reorderCompositionItemsRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/compositions/{compositionId}/items/reorder',
+  request: {
+    params: CompositionIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: ReorderItemsRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(ListCompositionItemsResponseSchema),
+      description: 'Reordered composition items',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteCompositionItemRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/compositions/{compositionId}/items/{itemId}',
+  request: {
+    params: CompositionItemParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SuccessResponseSchema),
+      description: 'Deleted composition item',
+    },
+    403: errorResponse,
+    404: errorResponse,
     500: errorResponse,
     503: errorResponse,
   },

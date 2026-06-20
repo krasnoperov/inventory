@@ -74,6 +74,31 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 |---------|--------|-------------|
 | `lineage:sever` | `lineageId` | Sever lineage relationship |
 
+### Organization
+
+Manual organization records are separate from asset hierarchy and variant
+lineage. Mutations require editor access; viewers can receive sync snapshots.
+
+| Message | Fields | Description |
+|---------|--------|-------------|
+| `collection:create` | `id?`, `name`, `description?`, `sortIndex?` | Create a collection |
+| `collection:update` | `collectionId`, `changes: { name?, description?, sortIndex? }` | Update a collection |
+| `collection:delete` | `collectionId` | Delete a collection |
+| `collection_item:create` | `collectionId`, `id?`, `subjectType`, `assetId?`, `variantId?`, `role?`, `pinnedVariantId?`, `sortIndex?` | Add an asset or variant to a collection |
+| `collection_item:update` | `collectionId`, `itemId`, `changes: { role?, pinnedVariantId?, sortIndex? }` | Update a collection item |
+| `collection_items:reorder` | `collectionId`, `itemIds[]` | Reorder collection items |
+| `collection_item:delete` | `collectionId`, `itemId` | Delete a collection item |
+| `relation:create` | `id?`, `subject`, `object`, `relationType`, `context?`, `sortIndex?` | Create a manual relation |
+| `relation:update` | `relationId`, `changes: { relationType?, context?, sortIndex? }` | Update a manual relation |
+| `relation:delete` | `relationId` | Delete a manual relation |
+| `composition:create` | `id?`, `name`, `description?`, `status?`, `outputAssetId?`, `outputVariantId?`, `metadata?`, `sortIndex?` | Create a composition |
+| `composition:update` | `compositionId`, `changes` | Update a composition |
+| `composition:delete` | `compositionId` | Delete a composition |
+| `composition_item:create` | `compositionId`, `id?`, `role`, `assetId?`, `variantId`, `metadata?`, `sortIndex?` | Add a composition item |
+| `composition_item:update` | `compositionId`, `itemId`, `changes` | Update a composition item |
+| `composition_items:reorder` | `compositionId`, `itemIds[]` | Reorder composition items |
+| `composition_item:delete` | `compositionId`, `itemId` | Delete a composition item |
+
 ### Chat & AI
 
 | Message | Fields | Description |
@@ -192,8 +217,8 @@ present, is served through
 
 | Message | Fields | Description |
 |---------|--------|-------------|
-| `sync:state` | `assets[]`, `variants[]`, `lineage[]`, `presence[]` | Full state snapshot |
-| `sync:overview` | `assets[]`, `variants[]`, `presence[]` | Lightweight overview snapshot with active-or-newest variants only |
+| `sync:state` | `assets[]`, `variants[]`, `lineage[]`, `collections[]`, `collectionItems[]`, `relations[]`, `compositions[]`, `compositionItems[]`, `presence[]` | Full state snapshot |
+| `sync:overview` | `assets[]`, `variants[]`, `collections[]`, `compositions[]`, `presence[]` | Lightweight overview snapshot with active-or-newest variants and collection/composition metadata only |
 
 ### Asset Mutations
 
@@ -218,6 +243,28 @@ present, is served through
 |---------|--------|-------------|
 | `lineage:created` | `lineage` | Lineage created |
 | `lineage:severed` | `lineageId` | Lineage severed |
+
+### Organization Mutations
+
+| Message | Fields | Description |
+|---------|--------|-------------|
+| `collection:created` | `collection` | Collection created |
+| `collection:updated` | `collection` | Collection updated |
+| `collection:deleted` | `collectionId` | Collection deleted |
+| `collection_item:created` | `item` | Collection item created |
+| `collection_item:updated` | `item` | Collection item updated |
+| `collection_items:reordered` | `collectionId`, `items[]` | Collection items reordered |
+| `collection_item:deleted` | `collectionId`, `itemId` | Collection item deleted |
+| `relation:created` | `relation` | Manual relation created |
+| `relation:updated` | `relation` | Manual relation updated |
+| `relation:deleted` | `relationId` | Manual relation deleted |
+| `composition:created` | `composition` | Composition created |
+| `composition:updated` | `composition` | Composition updated |
+| `composition:deleted` | `compositionId` | Composition deleted |
+| `composition_item:created` | `item` | Composition item created |
+| `composition_item:updated` | `item` | Composition item updated |
+| `composition_items:reordered` | `compositionId`, `items[]` | Composition items reordered |
+| `composition_item:deleted` | `compositionId`, `itemId` | Composition item deleted |
 
 ### Job Status
 

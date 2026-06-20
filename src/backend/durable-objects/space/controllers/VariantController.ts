@@ -44,8 +44,11 @@ export class VariantController extends BaseController {
   async handleDelete(ws: WebSocket, meta: WebSocketMeta, variantId: string): Promise<void> {
     this.requireOwner(meta);
 
+    const organizationBefore = await this.getOrganizationSnapshot();
     await this.deleteVariant(variantId, parsePlatformUsageUserId(meta.userId));
+    const organizationAfter = await this.getOrganizationSnapshot();
     this.broadcast({ type: 'variant:deleted', variantId });
+    this.broadcastOrganizationCascadeChanges(organizationBefore, organizationAfter);
   }
 
   /**

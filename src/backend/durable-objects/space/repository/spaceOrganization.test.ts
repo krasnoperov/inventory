@@ -485,6 +485,37 @@ describe('Space organization repository', () => {
     assert.deepEqual(await repo.listCompositions(), []);
   });
 
+  test('overview state includes composition output variants outside the display variant set', async () => {
+    await createAssetWithVariant('output', 'output-v1');
+    await repo.createVariant({
+      id: 'output-v2',
+      assetId: 'output',
+      imageKey: 'images/output-v2.png',
+      thumbKey: 'images/output-v2_thumb.webp',
+      recipe: '{}',
+      createdBy: 'user-1',
+    });
+    await repo.updateAsset('output', { active_variant_id: 'output-v2' });
+    await repo.createComposition({
+      id: 'composition-1',
+      name: 'Older approved output',
+      outputAssetId: 'output',
+      outputVariantId: 'output-v1',
+      createdBy: 'user-1',
+    });
+
+    const overview = await repo.getOverviewState();
+
+    assert.deepEqual(
+      overview.compositions.map((composition) => composition.output_variant_id),
+      ['output-v1']
+    );
+    assert.deepEqual(
+      overview.variants.map((variant) => variant.id).sort(),
+      ['output-v1', 'output-v2']
+    );
+  });
+
   test('applies explicit foreign-key behavior when assets and variants are deleted', async () => {
     await createAssetWithVariant('asset-1', 'variant-1');
     await createAssetWithVariant('asset-2', 'variant-2');

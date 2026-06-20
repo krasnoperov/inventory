@@ -99,6 +99,10 @@ function createMockRepo(): SpaceRepository {
         relation_type: input.relationType,
       })
     ),
+    listAllCollectionItems: mock.fn(async () => []),
+    listRelations: mock.fn(async () => []),
+    listCompositions: mock.fn(async () => []),
+    listAllCompositionItems: mock.fn(async () => []),
   } as unknown as SpaceRepository;
 }
 
@@ -173,6 +177,104 @@ describe('VariantController', () => {
 
       // Verify variant:deleted broadcast
       assert.ok(broadcasts.some((b) => b.type === 'variant:deleted' && b.variantId === 'var-1'));
+    });
+
+    test('broadcasts organization rows removed or nulled by variant delete cascades', async () => {
+      let deleted = false;
+      const variant = createMockVariant({ id: 'variant-1', asset_id: 'asset-1' });
+      const asset = createMockAsset({ id: 'asset-1', active_variant_id: 'other-var' });
+      const pinnedBefore = {
+        id: 'collection-item-pinned',
+        collection_id: 'collection-1',
+        subject_type: 'asset',
+        asset_id: 'asset-1',
+        variant_id: null,
+        role: 'character',
+        pinned_variant_id: 'variant-1',
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      };
+      const pinnedAfter = { ...pinnedBefore, pinned_variant_id: null, updated_at: 2 };
+      const variantItem = {
+        id: 'collection-item-variant',
+        collection_id: 'collection-1',
+        subject_type: 'variant',
+        asset_id: null,
+        variant_id: 'variant-1',
+        role: 'reference',
+        pinned_variant_id: null,
+        sort_index: 1,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      };
+      const relation = {
+        id: 'relation-1',
+        subject_type: 'variant',
+        subject_asset_id: null,
+        subject_variant_id: 'variant-1',
+        object_type: 'asset',
+        object_asset_id: 'asset-1',
+        object_variant_id: null,
+        relation_type: 'reference_for',
+        context: null,
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      };
+      const compositionBefore = {
+        id: 'composition-1',
+        name: 'Opening',
+        description: null,
+        status: 'draft',
+        output_asset_id: 'asset-1',
+        output_variant_id: 'variant-1',
+        metadata: '{}',
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      };
+      const compositionAfter = { ...compositionBefore, output_variant_id: null, updated_at: 2 };
+      const compositionItem = {
+        id: 'composition-item-1',
+        composition_id: 'composition-1',
+        role: 'output',
+        asset_id: 'asset-1',
+        variant_id: 'variant-1',
+        metadata: '{}',
+        sort_index: 0,
+        created_by: 'user-1',
+        created_at: 1,
+        updated_at: 1,
+      };
+      const { ctx, broadcasts } = createMockContext({
+        getVariantById: mock.fn(async () => variant),
+        getAssetById: mock.fn(async () => asset),
+        listAllCollectionItems: mock.fn(async () => deleted ? [pinnedAfter] : [pinnedBefore, variantItem]),
+        listRelations: mock.fn(async () => deleted ? [] : [relation]),
+        listCompositions: mock.fn(async () => deleted ? [compositionAfter] : [compositionBefore]),
+        listAllCompositionItems: mock.fn(async () => deleted ? [] : [compositionItem]),
+      }, {
+        exec: mock.fn((query: string) => {
+          if (query.startsWith('DELETE FROM variants')) {
+            deleted = true;
+          }
+          return { toArray: () => [{ ref_count: 1 }] };
+        }),
+      });
+      const controller = new VariantController(ctx);
+
+      await controller.handleDelete({} as WebSocket, createOwnerMeta(), 'variant-1');
+
+      assert.ok(broadcasts.some((b) => b.type === 'collection_item:updated' && b.item.pinned_variant_id === null));
+      assert.ok(broadcasts.some((b) => b.type === 'collection_item:deleted' && b.itemId === 'collection-item-variant'));
+      assert.ok(broadcasts.some((b) => b.type === 'relation:deleted' && b.relationId === 'relation-1'));
+      assert.ok(broadcasts.some((b) => b.type === 'composition:updated' && b.composition.output_variant_id === null));
+      assert.ok(broadcasts.some((b) => b.type === 'composition_item:deleted' && b.itemId === 'composition-item-1'));
     });
 
     test('reassigns active variant when deleting active variant', async () => {

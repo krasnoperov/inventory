@@ -43,6 +43,8 @@ import type {
   CompositionStatus,
   CompositionItem,
   CompositionItemRole,
+  SpaceCollectionOverview,
+  CompositionOverview,
 } from '../types';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import type { SimplePlan } from '../../../../shared/websocket-types';
@@ -112,6 +114,11 @@ export interface SpaceState {
   assets: Asset[];
   variants: Variant[];
   lineage: Lineage[];
+  collections: SpaceCollection[];
+  collectionItems: CollectionItem[];
+  relations: SpaceRelation[];
+  compositions: Composition[];
+  compositionItems: CompositionItem[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
   tileSets: TileSet[];
@@ -123,6 +130,8 @@ export interface SpaceState {
 export interface SpaceOverviewState {
   assets: Asset[];
   variants: Variant[];
+  collections: SpaceCollectionOverview[];
+  compositions: CompositionOverview[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
   tileSets: TileSet[];
@@ -827,6 +836,24 @@ export class SpaceRepository {
     return result.toArray() as SpaceCollection[];
   }
 
+  async listCollectionOverviews(): Promise<SpaceCollectionOverview[]> {
+    const result = await this.sql.exec(`
+      SELECT
+        c.id,
+        c.name,
+        c.description,
+        c.sort_index,
+        COUNT(i.id) as item_count,
+        c.created_at,
+        c.updated_at
+      FROM space_collections c
+      LEFT JOIN collection_items i ON i.collection_id = c.id
+      GROUP BY c.id
+      ORDER BY c.sort_index ASC, c.created_at ASC
+    `);
+    return result.toArray() as SpaceCollectionOverview[];
+  }
+
   async getCollectionById(collectionId: string): Promise<SpaceCollection | null> {
     const result = await this.sql.exec(SpaceCollectionQueries.GET_BY_ID, collectionId);
     return (result.toArray()[0] as SpaceCollection) ?? null;
@@ -900,6 +927,11 @@ export class SpaceRepository {
 
   async listCollectionItems(collectionId: string): Promise<CollectionItem[]> {
     const result = await this.sql.exec(CollectionItemQueries.GET_BY_COLLECTION, collectionId);
+    return result.toArray() as CollectionItem[];
+  }
+
+  async listAllCollectionItems(): Promise<CollectionItem[]> {
+    const result = await this.sql.exec(CollectionItemQueries.GET_ALL);
     return result.toArray() as CollectionItem[];
   }
 
@@ -1337,6 +1369,27 @@ export class SpaceRepository {
     return result.toArray() as Composition[];
   }
 
+  async listCompositionOverviews(): Promise<CompositionOverview[]> {
+    const result = await this.sql.exec(`
+      SELECT
+        c.id,
+        c.name,
+        c.description,
+        c.status,
+        c.output_asset_id,
+        c.output_variant_id,
+        c.sort_index,
+        COUNT(i.id) as item_count,
+        c.created_at,
+        c.updated_at
+      FROM compositions c
+      LEFT JOIN composition_items i ON i.composition_id = c.id
+      GROUP BY c.id
+      ORDER BY c.sort_index ASC, c.created_at ASC
+    `);
+    return result.toArray() as CompositionOverview[];
+  }
+
   async getCompositionById(compositionId: string): Promise<Composition | null> {
     const result = await this.sql.exec(CompositionQueries.GET_BY_ID, compositionId);
     return (result.toArray()[0] as Composition) ?? null;
@@ -1438,6 +1491,11 @@ export class SpaceRepository {
 
   async listCompositionItems(compositionId: string): Promise<CompositionItem[]> {
     const result = await this.sql.exec(CompositionItemQueries.GET_BY_COMPOSITION, compositionId);
+    return result.toArray() as CompositionItem[];
+  }
+
+  async listAllCompositionItems(): Promise<CompositionItem[]> {
+    const result = await this.sql.exec(CompositionItemQueries.GET_ALL);
     return result.toArray() as CompositionItem[];
   }
 
@@ -1936,23 +1994,68 @@ export class SpaceRepository {
   // ==========================================================================
 
   async getFullState(): Promise<SpaceState> {
-    const [assets, variants, lineage, rotationSets, rotationViews, tileSets, tilePositions, style] = await Promise.all([
+    const [
+      assets,
+      variants,
+      lineage,
+      collections,
+      collectionItems,
+      relations,
+      compositions,
+      compositionItems,
+      rotationSets,
+      rotationViews,
+      tileSets,
+      tilePositions,
+      style,
+    ] = await Promise.all([
       this.getAllAssets(),
       this.getAllVariants(),
       this.getAllLineage(),
+      this.listCollections(),
+      this.listAllCollectionItems(),
+      this.listRelations(),
+      this.listCompositions(),
+      this.listAllCompositionItems(),
       this.getAllRotationSets(),
       this.getAllRotationViews(),
       this.getAllTileSets(),
       this.getAllTilePositions(),
       this.getActiveStyle(),
     ]);
-    return { assets, variants, lineage, rotationSets, rotationViews, tileSets, tilePositions, style };
+    return {
+      assets,
+      variants,
+      lineage,
+      collections,
+      collectionItems,
+      relations,
+      compositions,
+      compositionItems,
+      rotationSets,
+      rotationViews,
+      tileSets,
+      tilePositions,
+      style,
+    };
   }
 
   async getOverviewState(): Promise<SpaceOverviewState> {
-    const [assets, overviewVariants, rotationSets, rotationViews, tileSets, tilePositions, style] = await Promise.all([
+    const [
+      assets,
+      overviewVariants,
+      collections,
+      compositions,
+      rotationSets,
+      rotationViews,
+      tileSets,
+      tilePositions,
+      style,
+    ] = await Promise.all([
       this.getAllAssets(),
       this.getOverviewVariants(),
+      this.listCollectionOverviews(),
+      this.listCompositionOverviews(),
       this.getAllRotationSets(),
       this.getAllRotationViews(),
       this.getAllTileSets(),
@@ -1965,10 +2068,11 @@ export class SpaceRepository {
       ...rotationViews.map((view) => view.variant_id),
       ...tileSets.flatMap((set) => set.seed_variant_id ? [set.seed_variant_id] : []),
       ...tilePositions.map((position) => position.variant_id),
+      ...compositions.flatMap((composition) => composition.output_variant_id ? [composition.output_variant_id] : []),
     ].filter((variantId) => !variantIds.has(variantId));
     const referencedVariants = await this.getVariantsByIds(referencedVariantIds);
     const variants = [...overviewVariants, ...referencedVariants.filter((variant) => !variantIds.has(variant.id))];
-    return { assets, variants, rotationSets, rotationViews, tileSets, tilePositions, style };
+    return { assets, variants, collections, compositions, rotationSets, rotationViews, tileSets, tilePositions, style };
   }
 
   // ==========================================================================

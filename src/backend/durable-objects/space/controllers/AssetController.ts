@@ -104,7 +104,9 @@ export class AssetController extends BaseController {
       }
     }
 
+    const organizationBefore = await this.getOrganizationSnapshot();
     const deletedImageRefs = await this.repo.deleteAsset(assetId);
+    const organizationAfter = await this.getOrganizationSnapshot();
     if (Array.isArray(deletedImageRefs)) {
       for (const deletedImageRef of deletedImageRefs) {
         const variant = variantByImageKey.get(deletedImageRef.imageKey);
@@ -129,6 +131,7 @@ export class AssetController extends BaseController {
       }
     }
     this.broadcast({ type: 'asset:deleted', assetId });
+    this.broadcastOrganizationCascadeChanges(organizationBefore, organizationAfter);
 
     // Broadcast updates for reparented children (now at root level)
     for (const child of childAssets) {

@@ -148,6 +148,73 @@ const productionPlacement = {
   updated_at: 1_780_000_000_303,
 };
 
+const collection = {
+  id: 'collection-1',
+  name: 'Scene Kit',
+  description: null,
+  sort_index: 0,
+  created_by: String(user.id),
+  created_at: 1_780_000_000_400,
+  updated_at: 1_780_000_000_400,
+};
+
+const collectionItem = {
+  id: 'collection-item-1',
+  collection_id: collection.id,
+  subject_type: 'asset' as const,
+  asset_id: asset.id,
+  variant_id: null,
+  role: 'character',
+  pinned_variant_id: variant.id,
+  sort_index: 0,
+  created_by: String(user.id),
+  created_at: 1_780_000_000_401,
+  updated_at: 1_780_000_000_401,
+};
+
+const relation = {
+  id: 'relation-1',
+  subject_type: 'asset' as const,
+  subject_asset_id: asset.id,
+  subject_variant_id: null,
+  object_type: 'variant' as const,
+  object_asset_id: null,
+  object_variant_id: variant.id,
+  relation_type: 'appears_in' as const,
+  context: null,
+  sort_index: 0,
+  created_by: String(user.id),
+  created_at: 1_780_000_000_402,
+  updated_at: 1_780_000_000_402,
+};
+
+const composition = {
+  id: 'composition-1',
+  name: 'Opening Shot',
+  description: null,
+  status: 'draft' as const,
+  output_asset_id: asset.id,
+  output_variant_id: variant.id,
+  metadata: '{}',
+  sort_index: 0,
+  created_by: String(user.id),
+  created_at: 1_780_000_000_403,
+  updated_at: 1_780_000_000_403,
+};
+
+const compositionItem = {
+  id: 'composition-item-1',
+  composition_id: composition.id,
+  role: 'output' as const,
+  asset_id: asset.id,
+  variant_id: variant.id,
+  metadata: '{}',
+  sort_index: 0,
+  created_by: String(user.id),
+  created_at: 1_780_000_000_404,
+  updated_at: 1_780_000_000_404,
+};
+
 type FetchLike = NonNullable<ApiFetchOptions<ApiEndpointKey>['fetch']>;
 
 function bindFetch(app: OpenAPIHono<AppContext>): FetchLike {
@@ -701,6 +768,297 @@ describe('API contracts', () => {
       'DELETE /internal/productions/s01e01-a2/shots/shot-row-1',
       'DELETE /internal/productions/s01e01-a2',
     ]);
+  });
+
+  it('round-trips organization routes through the shared client contract', async () => {
+    const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async (request: Request) => {
+          const path = new URL(request.url).pathname;
+          const method = request.method;
+          const body = method !== 'GET' && method !== 'DELETE'
+            ? await request.json<Record<string, unknown>>()
+            : undefined;
+          calls.push({ path, method, body });
+
+          if (path === '/internal/collections' && method === 'GET') {
+            return Response.json({ success: true, collections: [collection] });
+          }
+          if (path === '/internal/collections' && method === 'POST') {
+            assert.equal(body?.createdBy, String(user.id));
+            return Response.json({ success: true, collection });
+          }
+          if (path === '/internal/collections/collection-1' && method === 'PATCH') {
+            assert.equal(body?.name, 'Opening Kit');
+            return Response.json({ success: true, collection: { ...collection, name: 'Opening Kit' } });
+          }
+          if (path === '/internal/collections/collection-1/items' && method === 'GET') {
+            return Response.json({ success: true, items: [collectionItem] });
+          }
+          if (path === '/internal/collections/collection-1/items' && method === 'POST') {
+            assert.equal(body?.createdBy, String(user.id));
+            assert.equal(body?.subjectType, 'asset');
+            return Response.json({ success: true, item: collectionItem });
+          }
+          if (path === '/internal/collections/collection-1/items/collection-item-1' && method === 'PATCH') {
+            assert.equal(body?.role, 'hero');
+            return Response.json({ success: true, item: { ...collectionItem, role: 'hero' } });
+          }
+          if (path === '/internal/collections/collection-1/items/reorder' && method === 'POST') {
+            assert.deepEqual(body?.itemIds, ['collection-item-1']);
+            return Response.json({ success: true, items: [collectionItem] });
+          }
+          if (path === '/internal/relations' && method === 'GET') {
+            return Response.json({ success: true, relations: [relation] });
+          }
+          if (path === '/internal/relations' && method === 'POST') {
+            assert.equal(body?.createdBy, String(user.id));
+            return Response.json({ success: true, relation });
+          }
+          if (path === '/internal/relations/relation-1' && method === 'PATCH') {
+            assert.equal(body?.relationType, 'reference_for');
+            return Response.json({ success: true, relation: { ...relation, relation_type: 'reference_for' } });
+          }
+          if (path === '/internal/compositions' && method === 'GET') {
+            return Response.json({ success: true, compositions: [composition] });
+          }
+          if (path === '/internal/compositions' && method === 'POST') {
+            assert.equal(body?.createdBy, String(user.id));
+            return Response.json({ success: true, composition });
+          }
+          if (path === '/internal/compositions/composition-1' && method === 'PATCH') {
+            assert.equal(body?.status, 'final');
+            return Response.json({ success: true, composition: { ...composition, status: 'final' } });
+          }
+          if (path === '/internal/compositions/composition-1/items' && method === 'GET') {
+            return Response.json({ success: true, items: [compositionItem] });
+          }
+          if (path === '/internal/compositions/composition-1/items' && method === 'POST') {
+            assert.equal(body?.role, 'output');
+            return Response.json({ success: true, item: compositionItem });
+          }
+          if (path === '/internal/compositions/composition-1/items/composition-item-1' && method === 'PATCH') {
+            assert.equal(body?.role, 'thumbnail');
+            return Response.json({ success: true, item: { ...compositionItem, role: 'thumbnail' } });
+          }
+          if (path === '/internal/compositions/composition-1/items/reorder' && method === 'POST') {
+            assert.deepEqual(body?.itemIds, ['composition-item-1']);
+            return Response.json({ success: true, items: [compositionItem] });
+          }
+          if (
+            (path === '/internal/collections/collection-1/items/collection-item-1' && method === 'DELETE')
+            || (path === '/internal/collections/collection-1' && method === 'DELETE')
+            || (path === '/internal/relations/relation-1' && method === 'DELETE')
+            || (path === '/internal/compositions/composition-1/items/composition-item-1' && method === 'DELETE')
+            || (path === '/internal/compositions/composition-1' && method === 'DELETE')
+          ) {
+            return Response.json({ success: true });
+          }
+
+          return Response.json({ error: 'Unexpected route' }, { status: 404 });
+        },
+      }),
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    let memberRole = 'editor';
+    const fakeMemberDAO = {
+      getMember: async () => ({
+        space_id: space.id,
+        user_id: String(user.id),
+        role: memberRole,
+        joined_at: Date.now(),
+      }),
+    };
+    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [MemberDAO, fakeMemberDAO],
+    ]), {
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
+    const fetch = bindFetch(app);
+    const authHeaders = { Authorization: 'Bearer test-token' };
+
+    const listedCollections = await apiFetch('GET /api/spaces/:id/collections', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    assert.equal(listedCollections.collections[0].name, collection.name);
+
+    memberRole = 'viewer';
+    const viewerRelations = await apiFetch('GET /api/spaces/:id/relations', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    assert.equal(viewerRelations.relations[0].id, relation.id);
+
+    await assert.rejects(
+      () => apiFetch('POST /api/spaces/:id/collections', {
+        fetch,
+        baseUrl,
+        headers: authHeaders,
+        params: { id: space.id },
+        json: { name: collection.name },
+      }),
+      { status: 403 }
+    );
+
+    memberRole = 'editor';
+    await apiFetch('POST /api/spaces/:id/collections', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+      json: { id: collection.id, name: collection.name },
+    });
+    await apiFetch('PATCH /api/spaces/:id/collections/:collectionId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, collectionId: collection.id },
+      json: { name: 'Opening Kit' },
+    });
+    await apiFetch('GET /api/spaces/:id/collections/:collectionId/items', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, collectionId: collection.id },
+    });
+    await apiFetch('POST /api/spaces/:id/collections/:collectionId/items', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, collectionId: collection.id },
+      json: {
+        subjectType: 'asset',
+        assetId: asset.id,
+        role: 'character',
+        pinnedVariantId: variant.id,
+      },
+    });
+    await apiFetch('PATCH /api/spaces/:id/collections/:collectionId/items/:itemId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, collectionId: collection.id, itemId: collectionItem.id },
+      json: { role: 'hero' },
+    });
+    await apiFetch('POST /api/spaces/:id/collections/:collectionId/items/reorder', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, collectionId: collection.id },
+      json: { itemIds: [collectionItem.id] },
+    });
+
+    await apiFetch('GET /api/spaces/:id/compositions', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    await apiFetch('POST /api/spaces/:id/compositions', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+      json: { id: composition.id, name: composition.name, outputVariantId: variant.id },
+    });
+    await apiFetch('PATCH /api/spaces/:id/compositions/:compositionId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, compositionId: composition.id },
+      json: { status: 'final' },
+    });
+    await apiFetch('GET /api/spaces/:id/compositions/:compositionId/items', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, compositionId: composition.id },
+    });
+    await apiFetch('POST /api/spaces/:id/compositions/:compositionId/items', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, compositionId: composition.id },
+      json: { role: 'output', variantId: variant.id },
+    });
+    await apiFetch('PATCH /api/spaces/:id/compositions/:compositionId/items/:itemId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, compositionId: composition.id, itemId: compositionItem.id },
+      json: { role: 'thumbnail' },
+    });
+    await apiFetch('POST /api/spaces/:id/compositions/:compositionId/items/reorder', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, compositionId: composition.id },
+      json: { itemIds: [compositionItem.id] },
+    });
+
+    await apiFetch('POST /api/spaces/:id/relations', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+      json: {
+        subject: { subjectType: 'asset', assetId: asset.id },
+        object: { subjectType: 'variant', variantId: variant.id },
+        relationType: 'appears_in',
+      },
+    });
+    await apiFetch('PATCH /api/spaces/:id/relations/:relationId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, relationId: relation.id },
+      json: { relationType: 'reference_for' },
+    });
+
+    await apiFetch('DELETE /api/spaces/:id/collections/:collectionId/items/:itemId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, collectionId: collection.id, itemId: collectionItem.id },
+    });
+    await apiFetch('DELETE /api/spaces/:id/collections/:collectionId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, collectionId: collection.id },
+    });
+    await apiFetch('DELETE /api/spaces/:id/relations/:relationId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, relationId: relation.id },
+    });
+    await apiFetch('DELETE /api/spaces/:id/compositions/:compositionId/items/:itemId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, compositionId: composition.id, itemId: compositionItem.id },
+    });
+    await apiFetch('DELETE /api/spaces/:id/compositions/:compositionId', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, compositionId: composition.id },
+    });
+
+    assert(calls.some((call) => call.path === '/internal/collections' && call.method === 'GET'));
+    assert(calls.some((call) => call.path === '/internal/compositions/composition-1/items/reorder'));
+    assert(calls.some((call) => call.path === '/internal/relations/relation-1' && call.method === 'DELETE'));
   });
 
   it('round-trips media upload through the shared multipart contract', async () => {
