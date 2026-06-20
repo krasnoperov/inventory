@@ -41,6 +41,7 @@ import type { MusicGenerationProvider } from '../../../../shared/websocket-types
 import { resolveAudioProvider } from '../../../services/audioProviderSelection';
 import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
 import { VIDEO_GENERATION_AUDIO_ALWAYS_ON } from '../../../../shared/videoGenerationOptions';
+import { trackVariantStorageUsage } from '../../../platform/platformUsage';
 
 const log = loggers.generationController;
 
@@ -851,6 +852,20 @@ export class GenerationController extends BaseController {
           error: err instanceof Error ? err.message : String(err),
         });
       }
+    }
+
+    try {
+      await trackVariantStorageUsage(this.env.DB, this.env.IMAGES, {
+        spaceId: this.spaceId,
+        variant,
+        reason: 'generated',
+      });
+    } catch (err) {
+      log.warn('Failed to track generated storage usage', {
+        spaceId: this.spaceId,
+        variantId: data.variantId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // Broadcast the variant update

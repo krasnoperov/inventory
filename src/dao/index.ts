@@ -8,3 +8,4 @@ export { SpaceDAO } from './space-dao';
 export { MemberDAO } from './member-dao';
 export { MemoryDAO } from './memory-dao';
 export { ProviderUsageLedgerDAO } from './provider-usage-ledger-dao';
+export { PlatformUsageEventDAO } from './platform-usage-event-dao';

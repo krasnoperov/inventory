@@ -10,6 +10,7 @@ import { UserDAO } from '../dao/user-dao';
 import { SpaceDAO } from '../dao/space-dao';
 import { MemberDAO } from '../dao/member-dao';
 import { UsageEventDAO } from '../dao/usage-event-dao';
+import { PlatformUsageEventDAO } from '../dao/platform-usage-event-dao';
 import { MemoryDAO } from '../dao/memory-dao';
 
 // Import Auth Services
@@ -50,6 +51,9 @@ export function createContainer(env: Env): Container {
 
   container.bind(UsageEventDAO).toSelf().inSingletonScope();
   container.bind(TYPES.UsageEventDAO).toService(UsageEventDAO);
+
+  container.bind(PlatformUsageEventDAO).toSelf().inSingletonScope();
+  container.bind(TYPES.PlatformUsageEventDAO).toService(PlatformUsageEventDAO);
 
   container.bind(MemoryDAO).toSelf().inSingletonScope();
   container.bind(TYPES.MemoryDAO).toService(MemoryDAO);
