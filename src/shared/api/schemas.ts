@@ -383,6 +383,88 @@ export const ProviderSpendSummaryResponseSchema = z
   })
   .openapi('ProviderSpendSummaryResponse');
 
+export const BillingEntitlementSchema = z
+  .enum(['none', 'paid', 'internal'])
+  .openapi('BillingEntitlement');
+
+export const BillingPlanStatusSchema = z
+  .enum(['inactive', 'active', 'internal'])
+  .openapi('BillingPlanStatus');
+
+export const BillingPlanStatusResponseSchema = z
+  .object({
+    key: z.literal('paid_generation'),
+    displayName: z.string(),
+    status: BillingPlanStatusSchema,
+    checkoutAvailable: z.boolean(),
+    portalAvailable: z.boolean(),
+  })
+  .openapi('BillingPlanStatusResponse');
+
+export const BillingMeterStatusSchema = z
+  .object({
+    name: z.string(),
+    consumed: z.number(),
+    credited: z.number(),
+    remaining: z.number(),
+    percentUsed: z.number(),
+    hasLimit: z.boolean(),
+    status: z.enum(['ok', 'warning', 'critical', 'exceeded']),
+  })
+  .openapi('BillingMeterStatus');
+
+export const BillingStatusResponseSchema = z
+  .object({
+    configured: z.boolean(),
+    available: z.boolean(),
+    hasSubscription: z.boolean(),
+    entitlement: BillingEntitlementSchema,
+    plan: BillingPlanStatusResponseSchema,
+    meters: z.array(BillingMeterStatusSchema),
+    subscription: z.object({
+      status: z.string(),
+      periodStart: z.string().nullable().optional(),
+      renewsAt: z.string().nullable(),
+    }).nullable(),
+    portalUrl: z.string().nullable(),
+    error: z.string().optional(),
+  })
+  .openapi('BillingStatusResponse');
+
+export const BillingUsageMeterSchema = z
+  .object({
+    used: z.number(),
+    limit: z.number().nullable(),
+    remaining: z.number().nullable(),
+    costUsd: z.number().optional(),
+  })
+  .openapi('BillingUsageMeter');
+
+export const BillingUsageResponseSchema = z
+  .object({
+    period: z.object({
+      start: z.string(),
+      end: z.string(),
+    }),
+    usage: z.record(z.string(), BillingUsageMeterSchema),
+    estimatedCost: z.object({
+      amount: z.number(),
+      currency: z.string(),
+    }).optional(),
+  })
+  .openapi('BillingUsageResponse');
+
+export const BillingUrlResponseSchema = z
+  .object({
+    url: z.string(),
+  })
+  .openapi('BillingUrlResponse');
+
+export const BillingUrlQuerySchema = z.object({
+  return_url: z.string().optional(),
+  success_url: z.string().optional(),
+});
+
 export const ProductionRecordSchema = z
   .object({
     id: z.string(),
@@ -685,6 +767,13 @@ export type PlatformUsageTypeSummary = z.infer<typeof PlatformUsageTypeSummarySc
 export type PlatformUsageMediaKindSummary = z.infer<typeof PlatformUsageMediaKindSummarySchema>;
 export type PlatformUsageSummaryResponse = z.infer<typeof PlatformUsageSummaryResponseSchema>;
 export type ProviderSpendSummaryResponse = z.infer<typeof ProviderSpendSummaryResponseSchema>;
+export type BillingMeterStatus = z.infer<typeof BillingMeterStatusSchema>;
+export type BillingPlanStatus = z.infer<typeof BillingPlanStatusSchema>;
+export type BillingPlanStatusResponse = z.infer<typeof BillingPlanStatusResponseSchema>;
+export type BillingStatusResponse = z.infer<typeof BillingStatusResponseSchema>;
+export type BillingUrlResponse = z.infer<typeof BillingUrlResponseSchema>;
+export type BillingUsageMeter = z.infer<typeof BillingUsageMeterSchema>;
+export type BillingUsageResponse = z.infer<typeof BillingUsageResponseSchema>;
 export type DeleteSpaceResponse = z.infer<typeof DeleteSpaceResponseSchema>;
 export type ProductionRecord = z.infer<typeof ProductionRecordSchema>;
 export type PlaceProductionRecordRequest = z.infer<typeof PlaceProductionRecordRequestSchema>;

@@ -18,6 +18,7 @@ const billingRoutes = new Hono<AppContext>();
 const BILLING_SYNC_PENDING_WARN_SECONDS = 15 * 60;
 
 type OperationalStatus = 'ok' | 'warning' | 'critical';
+type CustomerBillingPlanStatus = 'inactive' | 'active' | 'internal';
 
 // Apply auth middleware to all routes except internal ones
 billingRoutes.use('/api/billing/*', authMiddleware);
@@ -97,6 +98,30 @@ function parseOptionalMediaKind(value: string | undefined): 'image' | 'audio' | 
     status: 400,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+function buildPaidGenerationPlanStatus(options: {
+  entitlement: ReturnType<typeof resolveEntitlement>;
+  configured: boolean;
+  available: boolean;
+  hasSubscription: boolean;
+  portalUrl: string | null;
+}) {
+  const status: CustomerBillingPlanStatus = options.entitlement === 'internal'
+    ? 'internal'
+    : options.hasSubscription || options.entitlement === PAID_GENERATION_PLAN.paidGenerationEntitlement
+      ? 'active'
+      : 'inactive';
+
+  return {
+    key: PAID_GENERATION_PLAN.key,
+    displayName: PAID_GENERATION_PLAN.displayName,
+    status,
+    checkoutAvailable: options.configured &&
+      options.available &&
+      status === 'inactive',
+    portalAvailable: Boolean(options.hasSubscription && options.portalUrl),
+  };
 }
 
 /**
@@ -204,8 +229,16 @@ billingRoutes.get('/api/billing/status', async (c) => {
   if (isNonBillablePaidGenerationEntitlement(entitlement)) {
     return c.json({
       configured: true,
+      available: true,
       hasSubscription: false,
       entitlement,
+      plan: buildPaidGenerationPlanStatus({
+        entitlement,
+        configured: true,
+        available: true,
+        hasSubscription: false,
+        portalUrl: null,
+      }),
       meters: [],
       subscription: null,
       portalUrl: null,
@@ -252,6 +285,13 @@ billingRoutes.get('/api/billing/status', async (c) => {
     available: status.available,
     hasSubscription: status.hasSubscription,
     entitlement: refreshedEntitlement,
+    plan: buildPaidGenerationPlanStatus({
+      entitlement: refreshedEntitlement,
+      configured: status.configured,
+      available: status.available,
+      hasSubscription: status.hasSubscription,
+      portalUrl: status.portalUrl,
+    }),
     error: status.error,
     meters: status.meters.map((m) => ({
       name: m.meterSlug,

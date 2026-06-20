@@ -173,8 +173,24 @@ describe('billingRoutes', () => {
     });
 
     assert.equal(response.status, 200);
-    const body = await response.json() as { entitlement: string };
+    const body = await response.json() as {
+      entitlement: string;
+      plan: {
+        key: string;
+        displayName: string;
+        status: string;
+        checkoutAvailable: boolean;
+        portalAvailable: boolean;
+      };
+    };
     assert.equal(body.entitlement, 'none');
+    assert.deepEqual(body.plan, {
+      key: 'paid_generation',
+      displayName: 'Paid Generation',
+      status: 'inactive',
+      checkoutAvailable: true,
+      portalAvailable: false,
+    });
     assert.equal(updateCompleted, true);
     assert.deepEqual(updates, [
       [
@@ -222,10 +238,17 @@ describe('billingRoutes', () => {
     });
 
     assert.equal(response.status, 200);
-    const body = await response.json() as { entitlement: string; available: boolean; error: string };
+    const body = await response.json() as {
+      entitlement: string;
+      available: boolean;
+      error: string;
+      plan: { status: string; checkoutAvailable: boolean };
+    };
     assert.equal(body.entitlement, 'paid');
     assert.equal(body.available, false);
     assert.equal(body.error, 'Polar timeout');
+    assert.equal(body.plan.status, 'active');
+    assert.equal(body.plan.checkoutAvailable, false);
     assert.deepEqual(updates, []);
   });
 
@@ -276,6 +299,22 @@ describe('billingRoutes', () => {
     });
 
     assert.equal(response.status, 200);
+    const body = await response.json() as {
+      plan: {
+        key: string;
+        displayName: string;
+        status: string;
+        checkoutAvailable: boolean;
+        portalAvailable: boolean;
+      };
+    };
+    assert.deepEqual(body.plan, {
+      key: 'paid_generation',
+      displayName: 'Paid Generation',
+      status: 'active',
+      checkoutAvailable: false,
+      portalAvailable: false,
+    });
     assert.equal(updates.length, 1);
     const update = (updates[0] as unknown[])[1] as {
       paid_generation_entitlement: string;
