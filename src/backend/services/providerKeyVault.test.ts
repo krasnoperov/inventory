@@ -2,21 +2,25 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   deleteProviderApiKey,
-  decryptLegacyProviderApiKey,
   decryptProviderApiKeyV2,
-  decryptStoredProviderApiKey,
   encryptLegacyProviderApiKey,
   encryptProviderApiKeyV2,
   listProviderKeySummaries,
   ProviderKeyEncryptionError,
   resolveStoredProviderApiKey,
+  unwrapProviderKeyDek,
   upsertProviderApiKey,
   validateProviderApiKey,
+  wrapProviderKeyDek,
 } from './providerKeyVault';
 import type { Env } from '../../core/types';
 
 function encryptionKey(): string {
   return Buffer.from(new Uint8Array(32).fill(7)).toString('base64');
+}
+
+function rotatedEncryptionKey(): string {
+  return Buffer.from(new Uint8Array(32).fill(8)).toString('base64');
 }
 
 type Row = {
@@ -162,19 +166,6 @@ class FakeD1 {
 }
 
 describe('providerKeyVault', () => {
-  test('legacy v1 helper decrypts existing provider keys with user/provider binding', async () => {
-    const secret = encryptionKey();
-    const encrypted = await encryptLegacyProviderApiKey('sk-ant-test-secret', secret, 7, 'anthropic');
-
-    assert.notEqual(encrypted, 'sk-ant-test-secret');
-    assert.match(encrypted, /^enc:v1:/);
-    assert.equal(await decryptLegacyProviderApiKey(encrypted, secret, 7, 'anthropic'), 'sk-ant-test-secret');
-    await assert.rejects(
-      decryptLegacyProviderApiKey(encrypted, secret, 8, 'anthropic'),
-      /operation-specific reason|decrypt/i
-    );
-  });
-
   test('enc:v2 roundtrips with a per-user wrapped DEK', async () => {
     const db = new FakeD1();
     const secret = encryptionKey();
@@ -258,17 +249,6 @@ describe('providerKeyVault', () => {
     );
   });
 
-  test('stored-key dispatcher keeps enc:v1 decryptable for future migration', async () => {
-    const db = new FakeD1();
-    const secret = encryptionKey();
-    const encrypted = await encryptLegacyProviderApiKey('legacy-secret', secret, 7, 'google_ai');
-
-    assert.equal(
-      await decryptStoredProviderApiKey(db as never, encrypted, secret, 7, 'google_ai'),
-      'legacy-secret'
-    );
-  });
-
   test('refuses provider key writes without an encryption key', async () => {
     await assert.rejects(
       encryptProviderApiKeyV2(new FakeD1() as never, 'secret', undefined, 7, 'google_ai'),
@@ -323,132 +303,124 @@ describe('providerKeyVault', () => {
     assert.equal(await resolveStoredProviderApiKey(db as never, 7, 'google_ai', env), undefined);
   });
 
-  test('resolves legacy enc:v1 rows by migrating them to enc:v2', async () => {
+  test('non-current provider rows fail closed', async () => {
     const db = new FakeD1();
     const secret = encryptionKey();
-    const legacy = await encryptLegacyProviderApiKey('legacy-secret-1234', secret, 7, 'google_ai');
     db.rows.set('7:google_ai', {
       user_id: 7,
       provider: 'google_ai',
-      encrypted_api_key: legacy,
-      key_hint: 'legacy-hint',
-      updated_at: '2026-01-01T00:00:00.000Z',
-    });
-
-    const resolved = await resolveStoredProviderApiKey(
-      db as never,
-      7,
-      'google_ai',
-      { ENCRYPTION_KEY: secret },
-    );
-
-    assert.equal(resolved, 'legacy-secret-1234');
-    const upgraded = db.rows.get('7:google_ai');
-    assert.ok(upgraded);
-    assert.match(upgraded.encrypted_api_key, /^enc:v2:1:1:/);
-    assert.notEqual(upgraded.encrypted_api_key, legacy);
-    assert.equal(upgraded.key_hint, '****1234');
-    assert.equal(
-      await decryptProviderApiKeyV2(db as never, upgraded.encrypted_api_key, secret, 7, 'google_ai'),
-      'legacy-secret-1234',
-    );
-  });
-
-  test('legacy migration is idempotent after the row is upgraded', async () => {
-    const db = new FakeD1();
-    const secret = encryptionKey();
-    const legacy = await encryptLegacyProviderApiKey('legacy-secret-5678', secret, 7, 'google_ai');
-    db.rows.set('7:google_ai', {
-      user_id: 7,
-      provider: 'google_ai',
-      encrypted_api_key: legacy,
-      key_hint: 'legacy-hint',
-      updated_at: '2026-01-01T00:00:00.000Z',
-    });
-
-    assert.equal(
-      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: secret }),
-      'legacy-secret-5678',
-    );
-    const upgradedOnce = db.rows.get('7:google_ai')?.encrypted_api_key;
-    assert.match(upgradedOnce ?? '', /^enc:v2:1:1:/);
-
-    assert.equal(
-      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: secret }),
-      'legacy-secret-5678',
-    );
-    assert.equal(db.rows.get('7:google_ai')?.encrypted_api_key, upgradedOnce);
-  });
-
-  test('legacy migration failure from wrong AAD leaves the original row unchanged', async () => {
-    const db = new FakeD1();
-    const secret = encryptionKey();
-    const legacy = await encryptLegacyProviderApiKey('legacy-secret', secret, 7, 'google_ai');
-    db.rows.set('8:google_ai', {
-      user_id: 8,
-      provider: 'google_ai',
-      encrypted_api_key: legacy,
-      key_hint: 'legacy-hint',
+      encrypted_api_key: 'not-current-format',
+      key_hint: 'invalid',
       updated_at: '2026-01-01T00:00:00.000Z',
     });
 
     await assert.rejects(
-      resolveStoredProviderApiKey(db as never, 8, 'google_ai', { ENCRYPTION_KEY: secret }),
-      /operation-specific reason|decrypt/i,
-    );
-    assert.equal(db.rows.get('8:google_ai')?.encrypted_api_key, legacy);
-    assert.equal(db.envelopes.size, 0);
-  });
-
-  test('legacy migration failure from missing KEK leaves the original row unchanged', async () => {
-    const db = new FakeD1();
-    const secret = encryptionKey();
-    const legacy = await encryptLegacyProviderApiKey('legacy-secret', secret, 7, 'google_ai');
-    db.rows.set('7:google_ai', {
-      user_id: 7,
-      provider: 'google_ai',
-      encrypted_api_key: legacy,
-      key_hint: 'legacy-hint',
-      updated_at: '2026-01-01T00:00:00.000Z',
-    });
-
-    await assert.rejects(
-      resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: undefined }),
+      resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: secret }),
       ProviderKeyEncryptionError,
     );
-    assert.equal(db.rows.get('7:google_ai')?.encrypted_api_key, legacy);
+    assert.equal(db.rows.get('7:google_ai')?.encrypted_api_key, 'not-current-format');
     assert.equal(db.envelopes.size, 0);
   });
 
-  test('mixed legacy and envelope rows resolve without remigrating enc:v2 rows', async () => {
+  test('resolves and migrates legacy provider rows with explicit versioned KEKs', async () => {
     const db = new FakeD1();
-    const secret = encryptionKey();
-    const legacy = await encryptLegacyProviderApiKey('legacy-google-secret', secret, 7, 'google_ai');
-    const current = await encryptProviderApiKeyV2(db as never, 'current-anthropic-secret', secret, 7, 'anthropic');
+    const oldKek = encryptionKey();
+    const newKek = rotatedEncryptionKey();
+    const legacyEncrypted = await encryptLegacyProviderApiKey(
+      'legacy-google-secret',
+      oldKek,
+      7,
+      'google_ai',
+    );
     db.rows.set('7:google_ai', {
       user_id: 7,
       provider: 'google_ai',
-      encrypted_api_key: legacy,
-      key_hint: 'legacy-hint',
+      encrypted_api_key: legacyEncrypted,
+      key_hint: 'legacy',
       updated_at: '2026-01-01T00:00:00.000Z',
     });
-    db.rows.set('7:anthropic', {
+
+    const env = {
+      BYOK_ACTIVE_KEK_VERSION: '2',
+      BYOK_KEK_V1: oldKek,
+      BYOK_KEK_V2: newKek,
+    };
+
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', env),
+      'legacy-google-secret',
+    );
+    assert.match(db.rows.get('7:google_ai')?.encrypted_api_key ?? '', /^enc:v2:2:1:/);
+    assert.notEqual(db.rows.get('7:google_ai')?.encrypted_api_key, legacyEncrypted);
+    assert.equal(db.rows.get('7:google_ai')?.key_hint, '****cret');
+    assert.equal(db.envelopes.get('user:7')?.kek_version, 2);
+  });
+
+  test('direct env callers resolve mixed KEK envelope versions during rewrap rollout', async () => {
+    const db = new FakeD1();
+    const oldKek = encryptionKey();
+    const newKek = rotatedEncryptionKey();
+
+    const v1Encrypted = await encryptProviderApiKeyV2(db as never, 'v1-google-secret', oldKek, 7, 'google_ai');
+    db.rows.set('7:google_ai', {
       user_id: 7,
-      provider: 'anthropic',
-      encrypted_api_key: current,
+      provider: 'google_ai',
+      encrypted_api_key: v1Encrypted,
       key_hint: '****cret',
       updated_at: '2026-01-01T00:00:00.000Z',
     });
 
+    const rewrappedEncrypted = await encryptProviderApiKeyV2(db as never, 'v2-google-secret', oldKek, 8, 'google_ai');
+    const rewrappedEnvelope = db.envelopes.get('user:8');
+    assert.ok(rewrappedEnvelope);
+    const rewrappedDek = await unwrapProviderKeyDek(rewrappedEnvelope.wrapped_dek, oldKek);
+    db.envelopes.set('user:8', {
+      ...rewrappedEnvelope,
+      wrapped_dek: await wrapProviderKeyDek(rewrappedDek, newKek),
+      kek_version: 2,
+    });
+    db.rows.set('8:google_ai', {
+      user_id: 8,
+      provider: 'google_ai',
+      encrypted_api_key: rewrappedEncrypted,
+      key_hint: '****cret',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+
+    const env = {
+      BYOK_ACTIVE_KEK_VERSION: '2',
+      BYOK_KEK_V1: oldKek,
+      BYOK_KEK_V2: newKek,
+    };
+
     assert.equal(
-      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', { ENCRYPTION_KEY: secret }),
-      'legacy-google-secret',
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', env),
+      'v1-google-secret',
     );
     assert.equal(
-      await resolveStoredProviderApiKey(db as never, 7, 'anthropic', { ENCRYPTION_KEY: secret }),
-      'current-anthropic-secret',
+      await resolveStoredProviderApiKey(db as never, 8, 'google_ai', env),
+      'v2-google-secret',
     );
-    assert.match(db.rows.get('7:google_ai')?.encrypted_api_key ?? '', /^enc:v2:1:1:/);
-    assert.equal(db.rows.get('7:anthropic')?.encrypted_api_key, current);
+    await assert.rejects(
+      resolveStoredProviderApiKey(db as never, 8, 'google_ai', { ENCRYPTION_KEY: newKek }),
+      ProviderKeyEncryptionError,
+    );
+  });
+
+  test('direct env writes use the active explicit KEK binding', async () => {
+    const db = new FakeD1();
+    const env = {
+      BYOK_ACTIVE_KEK_VERSION: '2',
+      BYOK_KEK_V2: rotatedEncryptionKey(),
+    };
+
+    await upsertProviderApiKey(db as never, 7, 'google_ai', 'user-google-secret', env);
+
+    assert.equal(db.envelopes.get('user:7')?.kek_version, 2);
+    assert.match(db.rows.get('7:google_ai')?.encrypted_api_key ?? '', /^enc:v2:2:1:/);
+    assert.equal(
+      await resolveStoredProviderApiKey(db as never, 7, 'google_ai', env),
+      'user-google-secret',
+    );
   });
 });

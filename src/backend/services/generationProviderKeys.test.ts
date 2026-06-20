@@ -42,10 +42,24 @@ function brokerStub(options: {
       };
     },
     async rotateTenantDek(request: RotateTenantDekRequest) {
-      return { tenant: request.tenant, status: 'not_implemented' };
+      return {
+        tenant: request.tenant,
+        status: 'noop',
+        rotatedProviders: 0,
+        dekVersion: null,
+        kekVersion: null,
+      };
     },
     async rewrapAllDeks(_request: RewrapAllDeksRequest) {
-      return { status: 'not_implemented' };
+      return {
+        status: 'dry_run',
+        fromKekVersion: 1,
+        toKekVersion: 2,
+        scanned: 0,
+        rewrapped: 0,
+        alreadyRewrapped: 0,
+        skipped: 0,
+      };
     },
   };
 }

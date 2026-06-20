@@ -21,14 +21,14 @@ import {
 import { BaseController, type ControllerContext } from './types';
 import type { Variant } from '../types';
 import { loggers } from '../../../../shared/logger';
-import { resolveStoredProviderApiKey } from '../../../services/providerKeyVault';
+import { resolveRuntimeProviderApiKey } from '../../../services/runtimeProviderKeys';
 
 const log = loggers.visionController;
 
 async function resolveAnthropicApiKey(env: ControllerContext['env'], userId: string): Promise<string | undefined> {
   const numericUserId = Number.parseInt(userId, 10);
   if (Number.isSafeInteger(numericUserId)) {
-    const stored = await resolveStoredProviderApiKey(env.DB, numericUserId, 'anthropic', env);
+    const stored = await resolveRuntimeProviderApiKey(env, numericUserId, 'anthropic');
     if (stored) return stored;
   }
   return env.ANTHROPIC_API_KEY;

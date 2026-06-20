@@ -22,6 +22,9 @@ It deliberately does not expose generic `decrypt`, arbitrary `encrypt`, or
 `unwrapDek` methods. It also does not call provider APIs, validate provider keys,
 proxy provider requests, or return DEK material.
 
+DEK/KEK rotation operations and operator verification steps are documented in
+[`byok-rotation-runbook.md`](./byok-rotation-runbook.md).
+
 ## Deployment Review Notes
 
 `wrangler.key-broker.toml` is isolated from the current app and generation
@@ -41,6 +44,11 @@ Cloudflare's Wrangler syntax for Secrets Store bindings is:
 binding = "BYOK_KEK_V1"
 store_id = "<secret-store-id>"
 secret_name = "BYOK_KEK_V1"
+
+[[secrets_store_secrets]]
+binding = "BYOK_KEK_V2"
+store_id = "<secret-store-id>"
+secret_name = "BYOK_KEK_V2"
 ```
 
 Cloudflare's service binding syntax for a caller Worker is:

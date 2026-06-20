@@ -36,6 +36,11 @@ BYOK_ACTIVE_KEK_VERSION = "1"
 # binding = "BYOK_KEK_V1"
 # store_id = "<secret-store-id>"
 # secret_name = "BYOK_KEK_V1"
+#
+# [[secrets_store_secrets]]
+# binding = "BYOK_KEK_V2"
+# store_id = "<secret-store-id>"
+# secret_name = "BYOK_KEK_V2"
 
 [env.production]
 name = "makefx-key-broker-production"
@@ -58,3 +63,8 @@ BYOK_ACTIVE_KEK_VERSION = "1"
 # binding = "BYOK_KEK_V1"
 # store_id = "<production-secret-store-id>"
 # secret_name = "BYOK_KEK_V1"
+#
+# [[env.production.secrets_store_secrets]]
+# binding = "BYOK_KEK_V2"
+# store_id = "<production-secret-store-id>"
+# secret_name = "BYOK_KEK_V2"
