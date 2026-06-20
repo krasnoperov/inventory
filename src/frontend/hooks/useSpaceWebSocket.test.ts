@@ -146,9 +146,11 @@ describe('space state snapshot cache', () => {
     });
 
     assert.equal(getSpaceStateSnapshotForTests('space-1')?.syncMode, 'full');
-    assert.equal(getInitialSyncModeForSpaceForTests('space-1', null, null), null);
-    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-1', 'full'), 'full');
-    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-2', 'full'), null);
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', null, null, null), null);
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-1', 'full', 1), 'full');
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-1', 'overview', 0), 'overview');
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-2', 'full', 1), null);
+    assert.equal(getInitialSyncModeForSpaceForTests('space-1', 'space-1', 'full', 3), null);
   });
 });
 

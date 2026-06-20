@@ -465,9 +465,12 @@ function shouldApplyOverviewSync(currentSyncMode: 'full' | 'overview' | null): b
 function getInitialSyncModeForSpace(
   requestedSpaceId: string,
   sessionSpaceId: string | null,
-  sessionSyncMode: 'full' | 'overview' | null
+  sessionSyncMode: 'full' | 'overview' | null,
+  readyState: number | null
 ): 'full' | 'overview' | null {
-  return sessionSpaceId === requestedSpaceId ? sessionSyncMode : null;
+  return shouldReuseSharedSpaceSocket(sessionSpaceId, requestedSpaceId, readyState)
+    ? sessionSyncMode
+    : null;
 }
 
 export function getSharedSpaceSocketSessionForTests(): Pick<
@@ -500,9 +503,10 @@ export function shouldApplyOverviewSyncForTests(currentSyncMode: 'full' | 'overv
 export function getInitialSyncModeForSpaceForTests(
   requestedSpaceId: string,
   sessionSpaceId: string | null,
-  sessionSyncMode: 'full' | 'overview' | null
+  sessionSyncMode: 'full' | 'overview' | null,
+  readyState: number | null
 ): 'full' | 'overview' | null {
-  return getInitialSyncModeForSpace(requestedSpaceId, sessionSpaceId, sessionSyncMode);
+  return getInitialSyncModeForSpace(requestedSpaceId, sessionSpaceId, sessionSyncMode, readyState);
 }
 
 export interface ChatMessage {
@@ -1251,7 +1255,12 @@ export function useSpaceWebSocket({
   const tilePositions = ownsState ? rawTilePositions : EMPTY_TILE_POSITIONS;
 
   const syncModeRef = useRef<'full' | 'overview' | null>(
-    getInitialSyncModeForSpace(spaceId, sharedSpaceSocketSession.spaceId, sharedSpaceSocketSession.syncMode)
+    getInitialSyncModeForSpace(
+      spaceId,
+      sharedSpaceSocketSession.spaceId,
+      sharedSpaceSocketSession.syncMode,
+      sharedSpaceSocketSession.ws?.readyState ?? null
+    )
   );
   const variantIdsRef = useRef<Set<string>>(new Set());
 
@@ -1260,7 +1269,8 @@ export function useSpaceWebSocket({
     syncModeRef.current = getInitialSyncModeForSpace(
       spaceId,
       sharedSpaceSocketSession.spaceId,
-      sharedSpaceSocketSession.syncMode
+      sharedSpaceSocketSession.syncMode,
+      sharedSpaceSocketSession.ws?.readyState ?? null
     );
     variantIdsRef.current = new Set(cached?.variants.map((variant) => variant.id) ?? []);
     hydrateFromSnapshot(spaceId, cached);
@@ -2633,9 +2643,11 @@ export function useSpaceWebSocket({
       setStatus('connecting');
 
       try {
+        syncModeRef.current = null;
         const ws = new WebSocket(url);
         sharedSpaceSocketSession.spaceId = spaceId;
         sharedSpaceSocketSession.ws = ws;
+        sharedSpaceSocketSession.syncMode = null;
         sharedSpaceSocketSession.intentionalClose = false;
         attachHandlers(ws);
       } catch (err) {
