@@ -255,6 +255,30 @@
   gap: 0.5rem;
 }
 
+.quickRelations {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.quickRelationButton {
+  min-width: 0;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quickRelationButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
 .targetOptions {
   max-height: 230px;
   overflow: auto;

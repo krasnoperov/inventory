@@ -109,6 +109,35 @@ test('relation dialog creates a manual relation with searchable variant target',
   });
 });
 
+test('edit-menu relation shortcut creates a common relation without filling the full form', async ({ page }) => {
+  await mockMedia(page);
+  await mountComponent(page, 'RelationEditorDialog', {
+    mode: 'create',
+    assets,
+    variants,
+    sourceSubject: { subjectType: 'variant', variantId: 'map-variant' },
+    onCancel: '__noop__',
+    onCreate: '__record__:create-relation',
+    onUpdate: '__record__:update-relation',
+  });
+
+  await page.getByPlaceholder('Search assets and variants').fill('hero');
+  await page.getByRole('button', { name: 'Hero Character character /' }).click();
+  await page.getByRole('button', { name: 'Mark as thumbnail for Hero Character' }).click();
+
+  const details = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(details).toHaveLength(1);
+  expect(details[0]).toMatchObject({
+    eventName: 'create-relation',
+    args: [{
+      subject: { subjectType: 'variant', variantId: 'map-variant' },
+      object: { subjectType: 'asset', assetId: 'hero' },
+      relationType: 'thumbnail_for',
+      context: null,
+    }],
+  });
+});
+
 test('relation dialog edits type label context and notes without changing endpoints', async ({ page }) => {
   await mockMedia(page);
   await mountComponent(page, 'RelationEditorDialog', {
