@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { apiFetch } from '../../../api/client';
 import { useBillingStatus, formatBillingPlanStatus, formatMeterName, formatNumber, type MeterStatus } from '../../hooks/useBillingStatus';
 import { calculateGeminiSpend, formatBillingPeriod, formatUsd, useBillingUsage } from '../../hooks/useBillingUsage';
+import { formatUtcDate } from '../../lib/dates';
 import styles from './BillingSection.module.css';
 
 interface UsageBarProps {
@@ -180,15 +181,8 @@ export function BillingSection() {
     );
   }
 
-  const formatRenewalDate = (dateStr: string | null) => {
-    if (!dateStr) return null;
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatRenewalDate = (dateStr: string | null) =>
+    dateStr ? formatUtcDate(dateStr) : null;
   const planDisplay = formatBillingPlanStatus(billing);
   const planStatusLabel = billing.plan.status === 'active'
     ? 'Active'

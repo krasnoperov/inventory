@@ -10,6 +10,7 @@ import { ErrorMessage } from '../components/forms';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
 import { spacesQueryOptions } from '../queries';
+import { formatUtcDate } from '../lib/dates';
 import styles from './LandingPage.module.css';
 
 type ColorScheme = 'dark' | 'light';
@@ -468,20 +469,6 @@ export default function LandingPage() {
     }
   };
 
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    // Pin the timezone so the SSR render (Cloudflare Worker, UTC) and the
-    // client render (user's local timezone) format to the same calendar day.
-    // Without this, a `created_at` near midnight produces a text hydration
-    // mismatch (React #418) on the logged-in dashboard.
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'UTC',
-    });
-  };
-
   const getRoleBadgeClass = (role: string | undefined) => {
     switch (role?.toLowerCase()) {
       case 'owner':
@@ -581,7 +568,7 @@ export default function LandingPage() {
                       </div>
                       <div className={styles.spaceCardFooter}>
                         <span className={styles.spaceDate}>
-                          Created {formatDate(space.created_at)}
+                          Created {formatUtcDate(space.created_at)}
                         </span>
                       </div>
                     </Link>
