@@ -15,22 +15,27 @@ export interface ProviderUsagePricingEvent {
 
 export interface ProviderUsagePrice {
   amountUsd: number;
+  amountMicroUsd: number;
   currency: 'USD';
   provider: ProviderPricingProvider;
   model: string;
   unit: ProviderPricingUnit;
   quantity: number;
   unitPriceUsd: number;
+  catalogVersion: string;
+  pricingSource: string;
   rateTable: string;
 }
 
 export interface ProviderPricingMiss {
   amountUsd: 0;
+  amountMicroUsd: 0;
   currency: 'USD';
   provider: ProviderPricingProvider | null;
   model: string | null;
   unit: ProviderPricingUnit | null;
   quantity: number;
+  catalogVersion: string;
   reason: 'unsupported_event' | 'unsupported_model' | 'invalid_metadata' | 'unsupported_rate';
 }
 
@@ -56,11 +61,25 @@ interface ElevenLabsRate {
   usageUnitPriceUsd?: number;
 }
 
+export interface ProviderPriceCatalog {
+  version: string;
+  currency: 'USD';
+  sources: Record<ProviderPricingProvider, string>;
+  claudeTokenRatesUsdPerMillion: Record<string, TokenRatesPerMillion>;
+  geminiImageRatesUsd: Record<string, GeminiImageRate>;
+  geminiVideoRatesUsd: Record<string, GeminiVideoRate>;
+  geminiAudioRatesUsd: Record<string, { generationUsd: number }>;
+  elevenLabsRatesUsd: Record<string, ElevenLabsRate>;
+  geminiModelAliases: Record<string, string>;
+}
+
 const TOKENS_PER_MILLION = 1_000_000;
 const CHARACTERS_PER_THOUSAND = 1_000;
 const SECONDS_PER_MINUTE = 60;
 const DEFAULT_VIDEO_DURATION_SECONDS = 8;
 const DEFAULT_VIDEO_RESOLUTION = '720p';
+const MICRO_USD_PER_USD = 1_000_000;
+export const PROVIDER_PRICE_CATALOG_VERSION = '2026-06-20';
 
 export const PROVIDER_PRICING_SOURCES = {
   claude: 'https://platform.claude.com/docs/en/about-claude/pricing',
@@ -134,75 +153,100 @@ const GEMINI_MODEL_ALIASES: Record<string, string> = {
   'gemini-3-pro-image-preview': 'gemini-3-pro-image',
 };
 
-export function priceProviderUsageEvent(event: ProviderUsagePricingEvent): ProviderPricingResult {
+export const ACTIVE_PROVIDER_PRICE_CATALOG: ProviderPriceCatalog = {
+  version: PROVIDER_PRICE_CATALOG_VERSION,
+  currency: 'USD',
+  sources: PROVIDER_PRICING_SOURCES,
+  claudeTokenRatesUsdPerMillion: CLAUDE_TOKEN_RATES_USD_PER_MILLION,
+  geminiImageRatesUsd: GEMINI_IMAGE_RATES_USD,
+  geminiVideoRatesUsd: GEMINI_VIDEO_RATES_USD,
+  geminiAudioRatesUsd: GEMINI_AUDIO_RATES_USD,
+  elevenLabsRatesUsd: ELEVENLABS_RATES_USD,
+  geminiModelAliases: GEMINI_MODEL_ALIASES,
+};
+
+export function priceProviderUsageEvent(
+  event: ProviderUsagePricingEvent,
+  catalog: ProviderPriceCatalog = ACTIVE_PROVIDER_PRICE_CATALOG
+): ProviderPricingResult {
+  return resolveProviderUsagePrice(event, catalog);
+}
+
+export function resolveProviderUsagePrice(
+  event: ProviderUsagePricingEvent,
+  catalog: ProviderPriceCatalog = ACTIVE_PROVIDER_PRICE_CATALOG
+): ProviderPricingResult {
   const metadata = parseMetadata(event.metadata);
   if (!metadata) {
-    return miss(event, null, null, null, 'invalid_metadata');
+    return miss(event, catalog, null, null, null, 'invalid_metadata');
   }
 
   switch (event.eventName) {
     case 'claude_input_tokens':
-      return priceClaudeTokens(event, metadata, 'input');
+      return priceClaudeTokens(event, metadata, 'input', catalog);
     case 'claude_output_tokens':
-      return priceClaudeTokens(event, metadata, 'output');
+      return priceClaudeTokens(event, metadata, 'output', catalog);
     case 'gemini_input_tokens':
-      return priceGeminiTokens(event, metadata, 'input');
+      return priceGeminiTokens(event, metadata, 'input', catalog);
     case 'gemini_output_tokens':
-      return priceGeminiTokens(event, metadata, 'output');
+      return priceGeminiTokens(event, metadata, 'output', catalog);
     case 'gemini_images':
-      return priceGeminiImages(event, metadata);
+      return priceGeminiImages(event, metadata, catalog);
     case 'gemini_videos':
-      return priceGeminiVideos(event, metadata);
+      return priceGeminiVideos(event, metadata, catalog);
     case 'gemini_audio':
-      return priceGeminiAudio(event, metadata);
+      return priceGeminiAudio(event, metadata, catalog);
     case 'elevenlabs_audio':
-      return priceElevenLabsAudio(event, metadata);
+      return priceElevenLabsAudio(event, metadata, catalog);
     default:
-      return miss(event, null, null, null, 'unsupported_event');
+      return miss(event, catalog, null, null, null, 'unsupported_event');
   }
 }
 
 function priceClaudeTokens(
   event: ProviderUsagePricingEvent,
   metadata: Record<string, unknown>,
-  tokenType: 'input' | 'output'
+  tokenType: 'input' | 'output',
+  catalog: ProviderPriceCatalog
 ): ProviderPricingResult {
-  const model = normalizeClaudeModel(getString(metadata, 'model') ?? '');
-  if (!model) return miss(event, 'claude', null, 'token', 'unsupported_model');
+  const model = normalizeClaudeModel(getString(metadata, 'model') ?? '', catalog);
+  if (!model) return miss(event, catalog, 'claude', null, 'token', 'unsupported_model');
 
-  const rate = CLAUDE_TOKEN_RATES_USD_PER_MILLION[model];
-  if (!rate) return miss(event, 'claude', model, 'token', 'unsupported_model');
+  const rate = catalog.claudeTokenRatesUsdPerMillion[model];
+  if (!rate) return miss(event, catalog, 'claude', model, 'token', 'unsupported_model');
 
   const unitPriceUsd =
     (tokenType === 'input' ? rate.inputUsdPerMillion : rate.outputUsdPerMillion) / TOKENS_PER_MILLION;
-  return priced(event, 'claude', model, 'token', normalizedQuantity(event.quantity), unitPriceUsd, 'claude');
+  return priced(event, catalog, 'claude', model, 'token', normalizedQuantity(event.quantity), unitPriceUsd, 'claude');
 }
 
 function priceGeminiTokens(
   event: ProviderUsagePricingEvent,
   metadata: Record<string, unknown>,
-  tokenType: 'input' | 'output'
+  tokenType: 'input' | 'output',
+  catalog: ProviderPriceCatalog
 ): ProviderPricingResult {
-  const model = normalizeGeminiImageModel(getString(metadata, 'model') ?? '');
-  if (!model) return miss(event, 'gemini', null, 'token', 'unsupported_model');
+  const model = normalizeGeminiImageModel(getString(metadata, 'model') ?? '', catalog);
+  if (!model) return miss(event, catalog, 'gemini', null, 'token', 'unsupported_model');
 
-  const rate = GEMINI_IMAGE_RATES_USD[model];
-  if (!rate) return miss(event, 'gemini', model, 'token', 'unsupported_model');
+  const rate = catalog.geminiImageRatesUsd[model];
+  if (!rate) return miss(event, catalog, 'gemini', model, 'token', 'unsupported_model');
 
   const unitPriceUsd =
     (tokenType === 'input' ? rate.inputUsdPerMillion : rate.outputUsdPerMillion) / TOKENS_PER_MILLION;
-  return priced(event, 'gemini', model, 'token', normalizedQuantity(event.quantity), unitPriceUsd, 'gemini');
+  return priced(event, catalog, 'gemini', model, 'token', normalizedQuantity(event.quantity), unitPriceUsd, 'gemini');
 }
 
 function priceGeminiImages(
   event: ProviderUsagePricingEvent,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  catalog: ProviderPriceCatalog
 ): ProviderPricingResult {
-  const model = normalizeGeminiImageModel(getString(metadata, 'model') ?? '');
-  if (!model) return miss(event, 'gemini', null, 'image', 'unsupported_model');
+  const model = normalizeGeminiImageModel(getString(metadata, 'model') ?? '', catalog);
+  if (!model) return miss(event, catalog, 'gemini', null, 'image', 'unsupported_model');
 
-  const rate = GEMINI_IMAGE_RATES_USD[model];
-  if (!rate) return miss(event, 'gemini', model, 'image', 'unsupported_model');
+  const rate = catalog.geminiImageRatesUsd[model];
+  if (!rate) return miss(event, catalog, 'gemini', model, 'image', 'unsupported_model');
 
   const imageSize = normalizeImageSize(
     getString(metadata, 'imageSize') ??
@@ -214,26 +258,27 @@ function priceGeminiImages(
     : (imageSize ? rate.imageUsd[imageSize] : undefined) ?? highestImageRate(rate.imageUsd);
 
   if (unitPriceUsd === undefined) {
-    return miss(event, 'gemini', model, 'image', 'unsupported_rate');
+    return miss(event, catalog, 'gemini', model, 'image', 'unsupported_rate');
   }
 
-  return priced(event, 'gemini', model, 'image', normalizedQuantity(event.quantity), unitPriceUsd, 'gemini');
+  return priced(event, catalog, 'gemini', model, 'image', normalizedQuantity(event.quantity), unitPriceUsd, 'gemini');
 }
 
 function priceGeminiVideos(
   event: ProviderUsagePricingEvent,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  catalog: ProviderPriceCatalog
 ): ProviderPricingResult {
   const model = getString(metadata, 'model') ?? '';
-  if (!isGeminiVideoModel(model)) {
-    return miss(event, 'gemini', model || null, 'video_second', 'unsupported_model');
+  if (!isGeminiVideoModel(model, catalog)) {
+    return miss(event, catalog, 'gemini', model || null, 'video_second', 'unsupported_model');
   }
 
   const resolution = normalizeVideoResolution(getString(metadata, 'resolution'));
-  const rates = GEMINI_VIDEO_RATES_USD[model];
+  const rates = catalog.geminiVideoRatesUsd[model];
   const unitPriceUsd = rates.videoWithAudioUsdPerSecond[resolution];
   if (unitPriceUsd === undefined) {
-    return miss(event, 'gemini', model, 'video_second', 'unsupported_rate');
+    return miss(event, catalog, 'gemini', model, 'video_second', 'unsupported_rate');
   }
 
   const durationSeconds =
@@ -247,29 +292,31 @@ function priceGeminiVideos(
     getPositiveNumber(metadata, 'videoCount') ??
     normalizedQuantity(event.quantity);
   const videoSeconds = videoCount * durationSeconds;
-  return priced(event, 'gemini', model, 'video_second', videoSeconds, unitPriceUsd, 'gemini');
+  return priced(event, catalog, 'gemini', model, 'video_second', videoSeconds, unitPriceUsd, 'gemini');
 }
 
 function priceGeminiAudio(
   event: ProviderUsagePricingEvent,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  catalog: ProviderPriceCatalog
 ): ProviderPricingResult {
-  const model = normalizeLyriaModel(getString(metadata, 'model') ?? '');
-  if (!model) return miss(event, 'gemini', null, 'generation', 'unsupported_model');
+  const model = normalizeLyriaModel(getString(metadata, 'model') ?? '', catalog);
+  if (!model) return miss(event, catalog, 'gemini', null, 'generation', 'unsupported_model');
 
-  const rate = GEMINI_AUDIO_RATES_USD[model];
-  if (!rate) return miss(event, 'gemini', model, 'generation', 'unsupported_model');
+  const rate = catalog.geminiAudioRatesUsd[model];
+  if (!rate) return miss(event, catalog, 'gemini', model, 'generation', 'unsupported_model');
 
-  return priced(event, 'gemini', model, 'generation', normalizedQuantity(event.quantity), rate.generationUsd, 'gemini');
+  return priced(event, catalog, 'gemini', model, 'generation', normalizedQuantity(event.quantity), rate.generationUsd, 'gemini');
 }
 
 function priceElevenLabsAudio(
   event: ProviderUsagePricingEvent,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  catalog: ProviderPriceCatalog
 ): ProviderPricingResult {
   const model = getString(metadata, 'model') ?? '';
-  const rate = ELEVENLABS_RATES_USD[model];
-  if (!rate) return miss(event, 'elevenlabs', model || null, null, 'unsupported_model');
+  const rate = catalog.elevenLabsRatesUsd[model];
+  if (!rate) return miss(event, catalog, 'elevenlabs', model || null, null, 'unsupported_model');
 
   let quantity = normalizedQuantity(event.quantity);
   if (rate.unit === 'generation') {
@@ -286,9 +333,9 @@ function priceElevenLabsAudio(
         getPositiveNumber(metadata, 'input_tokens') ??
         quantity;
       if (rate.usageUnitPriceUsd !== undefined && usageUnits > 0) {
-        return priced(event, 'elevenlabs', model, 'character', usageUnits, rate.usageUnitPriceUsd, 'elevenlabs');
+        return priced(event, catalog, 'elevenlabs', model, 'character', usageUnits, rate.usageUnitPriceUsd, 'elevenlabs');
       }
-      return miss(event, 'elevenlabs', model, 'minute', 'unsupported_rate');
+      return miss(event, catalog, 'elevenlabs', model, 'minute', 'unsupported_rate');
     }
     quantity = durationMinutes;
   } else {
@@ -298,32 +345,39 @@ function priceElevenLabsAudio(
       quantity;
   }
 
-  return priced(event, 'elevenlabs', model, rate.unit, quantity, rate.unitPriceUsd, 'elevenlabs');
+  return priced(event, catalog, 'elevenlabs', model, rate.unit, quantity, rate.unitPriceUsd, 'elevenlabs');
 }
 
 function priced(
   event: ProviderUsagePricingEvent,
+  catalog: ProviderPriceCatalog,
   provider: ProviderPricingProvider,
   model: string,
   unit: ProviderPricingUnit,
   quantity: number,
   unitPriceUsd: number,
-  rateTable: keyof typeof PROVIDER_PRICING_SOURCES
+  rateTable: ProviderPricingProvider
 ): ProviderUsagePrice {
+  const amountUsd = quantity * unitPriceUsd;
+  const pricingSource = catalog.sources[rateTable];
   return {
-    amountUsd: quantity * unitPriceUsd,
-    currency: 'USD',
+    amountUsd,
+    amountMicroUsd: amountUsdToMicroUsd(amountUsd),
+    currency: catalog.currency,
     provider,
     model,
     unit,
     quantity,
     unitPriceUsd,
-    rateTable: PROVIDER_PRICING_SOURCES[rateTable],
+    catalogVersion: catalog.version,
+    pricingSource,
+    rateTable: pricingSource,
   };
 }
 
 function miss(
   event: ProviderUsagePricingEvent,
+  catalog: ProviderPriceCatalog,
   provider: ProviderPricingProvider | null,
   model: string | null,
   unit: ProviderPricingUnit | null,
@@ -331,11 +385,13 @@ function miss(
 ): ProviderPricingMiss {
   return {
     amountUsd: 0,
-    currency: 'USD',
+    amountMicroUsd: 0,
+    currency: catalog.currency,
     provider,
     model,
     unit,
     quantity: normalizedQuantity(event.quantity),
+    catalogVersion: catalog.version,
     reason,
   };
 }
@@ -353,8 +409,8 @@ function parseMetadata(metadata: ProviderUsagePricingEvent['metadata']): Record<
   }
 }
 
-function normalizeClaudeModel(model: string): string | null {
-  if (model in CLAUDE_TOKEN_RATES_USD_PER_MILLION) {
+function normalizeClaudeModel(model: string, catalog: ProviderPriceCatalog): string | null {
+  if (model in catalog.claudeTokenRatesUsdPerMillion) {
     return model;
   }
 
@@ -376,17 +432,17 @@ function normalizeClaudeModel(model: string): string | null {
   return null;
 }
 
-function normalizeGeminiImageModel(model: string): string | null {
-  if (model in GEMINI_IMAGE_RATES_USD) return model;
-  return GEMINI_MODEL_ALIASES[model] ?? null;
+function normalizeGeminiImageModel(model: string, catalog: ProviderPriceCatalog): string | null {
+  if (model in catalog.geminiImageRatesUsd) return model;
+  return catalog.geminiModelAliases[model] ?? null;
 }
 
-function isGeminiVideoModel(model: string): boolean {
-  return model in GEMINI_VIDEO_RATES_USD;
+function isGeminiVideoModel(model: string, catalog: ProviderPriceCatalog): boolean {
+  return model in catalog.geminiVideoRatesUsd;
 }
 
-function normalizeLyriaModel(model: string): string | null {
-  if (model in GEMINI_AUDIO_RATES_USD) return model;
+function normalizeLyriaModel(model: string, catalog: ProviderPriceCatalog): string | null {
+  if (model in catalog.geminiAudioRatesUsd) return model;
   const match = model.match(/(?:^|\/)(lyria-3-(?:clip|pro)-preview)$/);
   return match?.[1] ?? null;
 }
@@ -429,6 +485,12 @@ function normalizedQuantity(quantity: number): number {
 function highestImageRate(rates: Partial<Record<'0.5K' | '1K' | '2K' | '4K', number>>): number | undefined {
   const values = Object.values(rates).filter((rate): rate is number => typeof rate === 'number');
   return values.length > 0 ? Math.max(...values) : undefined;
+}
+
+export function amountUsdToMicroUsd(amountUsd: number): number {
+  return Number.isFinite(amountUsd) && amountUsd > 0
+    ? Math.round(amountUsd * MICRO_USD_PER_USD)
+    : 0;
 }
 
 function secondsFromMs(milliseconds?: number | null): number | null {

@@ -1,14 +1,54 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  ACTIVE_PROVIDER_PRICE_CATALOG,
   ELEVENLABS_RATES_USD,
   GEMINI_AUDIO_RATES_USD,
   GEMINI_IMAGE_RATES_USD,
   GEMINI_VIDEO_RATES_USD,
+  PROVIDER_PRICE_CATALOG_VERSION,
   priceProviderUsageEvent,
+  resolveProviderUsagePrice,
 } from './providerPricing';
 
 describe('provider pricing', () => {
+  test('returns active catalog version, source, and micro-USD amount', () => {
+    const result = resolveProviderUsagePrice({
+      eventName: 'gemini_images',
+      quantity: 2,
+      metadata: { model: 'gemini-3-pro-image-preview', imageSize: '4K' },
+    });
+
+    if ('reason' in result) assert.fail(result.reason);
+    assert.equal(result.amountUsd, 0.48);
+    assert.equal(result.amountMicroUsd, 480000);
+    assert.equal(result.catalogVersion, PROVIDER_PRICE_CATALOG_VERSION);
+    assert.equal(result.pricingSource, ACTIVE_PROVIDER_PRICE_CATALOG.sources.gemini);
+  });
+
+  test('resolves against an explicit catalog snapshot', () => {
+    const result = resolveProviderUsagePrice({
+      eventName: 'gemini_images',
+      quantity: 1,
+      metadata: { model: 'gemini-3-pro-image-preview', imageSize: '4K' },
+    }, {
+      ...ACTIVE_PROVIDER_PRICE_CATALOG,
+      version: 'test-catalog-2026-07-01',
+      geminiImageRatesUsd: {
+        ...ACTIVE_PROVIDER_PRICE_CATALOG.geminiImageRatesUsd,
+        'gemini-3-pro-image': {
+          ...ACTIVE_PROVIDER_PRICE_CATALOG.geminiImageRatesUsd['gemini-3-pro-image'],
+          imageUsd: { '4K': 0.5 },
+        },
+      },
+    });
+
+    if ('reason' in result) assert.fail(result.reason);
+    assert.equal(result.amountUsd, 0.5);
+    assert.equal(result.amountMicroUsd, 500000);
+    assert.equal(result.catalogVersion, 'test-catalog-2026-07-01');
+  });
+
   test('prices Claude input and output token events by normalized model family', () => {
     const input = priceProviderUsageEvent({
       eventName: 'claude_input_tokens',
@@ -238,5 +278,7 @@ describe('provider pricing', () => {
     assert.ok('reason' in malformed);
     assert.equal(malformed.reason, 'invalid_metadata');
     assert.equal(malformed.amountUsd, 0);
+    assert.equal(malformed.amountMicroUsd, 0);
+    assert.equal(malformed.catalogVersion, PROVIDER_PRICE_CATALOG_VERSION);
   });
 });
