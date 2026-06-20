@@ -22,6 +22,7 @@ interface ExportManifest {
   lineage: ExportLineage[];
   collections?: ExportCollection[];
   collectionItems?: ExportCollectionItem[];
+  stylePresets?: ExportStylePreset[];
   relations?: ExportRelation[];
   compositions?: ExportComposition[];
   compositionItems?: ExportCompositionItem[];
@@ -83,6 +84,16 @@ interface ExportCollectionItem {
   role: string;
   pinnedVariantId: string | null;
   sortIndex: number;
+}
+
+interface ExportStylePreset {
+  id: string;
+  name: string;
+  description: string | null;
+  stylePrompt: string;
+  collectionId: string | null;
+  enabled: boolean;
+  isDefault: boolean;
 }
 
 interface ExportRelation {
@@ -172,6 +183,75 @@ function requireMappedId(map: Map<string, string>, id: string | null | undefined
   return mapped;
 }
 
+function mapStringArrayIds(value: unknown, map: Map<string, string>): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map((id) => typeof id === 'string' ? map.get(id) ?? id : id);
+}
+
+function remapImportJsonValue(
+  value: unknown,
+  maps: {
+    assetIdMap: Map<string, string>;
+    variantIdMap: Map<string, string>;
+    collectionIdMap: Map<string, string>;
+    stylePresetIdMap: Map<string, string>;
+    imageKeyMap: Map<string, string>;
+  }
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => remapImportJsonValue(item, maps));
+  }
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (key === 'stylePresetId' && typeof raw === 'string') {
+      result[key] = maps.stylePresetIdMap.get(raw) ?? raw;
+    } else if ((key === 'styleCollectionId' || key === 'collectionId') && typeof raw === 'string') {
+      result[key] = maps.collectionIdMap.get(raw) ?? raw;
+    } else if ((key === 'sourceVariantId' || key === 'variantId') && typeof raw === 'string') {
+      result[key] = maps.variantIdMap.get(raw) ?? raw;
+    } else if (key === 'assetId' && typeof raw === 'string') {
+      result[key] = maps.assetIdMap.get(raw) ?? raw;
+    } else if (
+      key === 'parentVariantIds' ||
+      key === 'sourceVariantIds' ||
+      key === 'styleReferenceVariantIds'
+    ) {
+      result[key] = mapStringArrayIds(raw, maps.variantIdMap);
+    } else if (
+      key === 'sourceImageKeys' ||
+      key === 'styleImageKeys' ||
+      key === 'styleReferenceImageKeys'
+    ) {
+      result[key] = mapStringArrayIds(raw, maps.imageKeyMap);
+    } else if ((key === 'styleImageKey' || key === 'imageKey' || key === 'mediaKey') && typeof raw === 'string') {
+      result[key] = maps.imageKeyMap.get(raw) ?? raw;
+    } else {
+      result[key] = remapImportJsonValue(raw, maps);
+    }
+  }
+  return result;
+}
+
+function remapImportJsonishValue(
+  value: unknown,
+  maps: Parameters<typeof remapImportJsonValue>[1]
+): unknown {
+  if (typeof value !== 'string') {
+    return remapImportJsonValue(value, maps);
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    const remapped = remapImportJsonValue(parsed, maps);
+    return JSON.stringify(remapped) === JSON.stringify(parsed) ? value : remapped;
+  } catch {
+    return value;
+  }
+}
+
 function subjectInput(
   subjectType: ExportSubjectType,
   assetId: string | null | undefined,
@@ -192,6 +272,23 @@ function optionalArray<T>(value: T[] | undefined): T[] {
 
 function getVariantImportMediaFile(variant: ExportVariant): string | null {
   return variant.mediaFile ?? variant.imageFile ?? null;
+}
+
+function getVariantImportMediaKeys(spaceId: string, variantId: string, variant: ExportVariant, mediaKind: MediaKind): {
+  mediaKey: string;
+  imageKey: string | null;
+  thumbKey: string | null;
+} {
+  const mediaFile = getVariantImportMediaFile(variant);
+  const mediaExt = getMediaImportExtension(mediaFile, mediaKind);
+  const mediaKey = mediaKind === 'image'
+    ? `images/${spaceId}/${variantId}.${mediaExt}`
+    : `media/${spaceId}/${variantId}.${mediaExt}`;
+  return {
+    mediaKey,
+    imageKey: mediaKind === 'image' ? mediaKey : null,
+    thumbKey: mediaKind === 'image' ? `images/${spaceId}/${variantId}_thumb.png` : null,
+  };
 }
 
 function requiredStringField(value: unknown, label: string): string | null {
@@ -277,6 +374,16 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
       return `Collection item ${item.id} pinnedVariantId must reference a variant on the asset subject`;
     }
   }
+  for (const preset of optionalArray(manifest.stylePresets)) {
+    if (!preset.collectionId) continue;
+    if (!collectionIds.has(preset.collectionId)) return `Style preset ${preset.id} references unknown collection: ${preset.collectionId}`;
+    const nonStyleItem = optionalArray(manifest.collectionItems).find(
+      (item) => item.collectionId === preset.collectionId && item.role !== 'style_ref'
+    );
+    if (nonStyleItem) {
+      return `Style preset ${preset.id} collectionId must reference a style_ref-only collection`;
+    }
+  }
   for (const relation of optionalArray(manifest.relations)) {
     const subjectError = hasSubject(
       relation.subjectType,
@@ -324,6 +431,7 @@ function validateManifestOrganizationFields(manifest: ExportManifest): string | 
   const rawManifest = manifest as {
     collections?: unknown;
     collectionItems?: unknown;
+    stylePresets?: unknown;
     relations?: unknown;
     compositions?: unknown;
     compositionItems?: unknown;
@@ -331,6 +439,7 @@ function validateManifestOrganizationFields(manifest: ExportManifest): string | 
   const optionalSections: Array<[unknown, string]> = [
     [rawManifest.collections, 'collections'],
     [rawManifest.collectionItems, 'collectionItems'],
+    [rawManifest.stylePresets, 'stylePresets'],
     [rawManifest.relations, 'relations'],
     [rawManifest.compositions, 'compositions'],
     [rawManifest.compositionItems, 'compositionItems'],
@@ -360,6 +469,21 @@ function validateManifestOrganizationFields(manifest: ExportManifest): string | 
     if (roleError) return roleError;
     const sortIndexError = integerField(item.sortIndex, `Collection item ${item.id} sortIndex`);
     if (sortIndexError) return sortIndexError;
+  }
+
+  for (const preset of optionalArray(manifest.stylePresets)) {
+    const idError = requiredStringField(preset.id, 'Style preset id');
+    if (idError) return idError;
+    const nameError = requiredStringField(preset.name, `Style preset ${preset.id} name`);
+    if (nameError) return nameError;
+    const descriptionError = optionalNullableStringField(preset.description, `Style preset ${preset.id} description`);
+    if (descriptionError) return descriptionError;
+    if (typeof preset.stylePrompt !== 'string') return `Style preset ${preset.id} stylePrompt must be a string`;
+    const collectionIdError = optionalNullableStringField(preset.collectionId, `Style preset ${preset.id} collectionId`);
+    if (collectionIdError) return collectionIdError;
+    if (typeof preset.enabled !== 'boolean') return `Style preset ${preset.id} enabled must be a boolean`;
+    if (typeof preset.isDefault !== 'boolean') return `Style preset ${preset.id} isDefault must be a boolean`;
+    if (preset.isDefault && !preset.enabled) return `Style preset ${preset.id} cannot be default while disabled`;
   }
 
   for (const relation of optionalArray(manifest.relations)) {
@@ -567,6 +691,15 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       pinned_variant_id: string | null;
       sort_index: number;
     }>;
+    stylePresets?: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      style_prompt: string;
+      collection_id: string | null;
+      enabled: boolean | number;
+      is_default: boolean | number;
+    }>;
     relations?: Array<{
       id: string;
       subject_type: ExportSubjectType;
@@ -616,6 +749,7 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
     lineage: [],
     collections: [],
     collectionItems: [],
+    stylePresets: [],
     relations: [],
     compositions: [],
     compositionItems: [],
@@ -758,6 +892,15 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
         : null,
       sortIndex: item.sort_index,
     }));
+  manifest.stylePresets = (state.stylePresets || []).map(preset => ({
+    id: preset.id,
+    name: preset.name,
+    description: preset.description,
+    stylePrompt: preset.style_prompt,
+    collectionId: preset.collection_id,
+    enabled: Boolean(preset.enabled),
+    isDefault: Boolean(preset.is_default),
+  }));
   manifest.relations = (state.relations || [])
     .filter(relation =>
       subjectExported(relation.subject_type, relation.subject_asset_id, relation.subject_variant_id) &&
@@ -902,6 +1045,9 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
   const assetIdMap = new Map<string, string>();
   const collectionIdMap = new Map<string, string>();
   const collectionItemIdMap = new Map<string, string>();
+  const stylePresetIdMap = new Map<string, string>();
+  const imageKeyMap = new Map<string, string>();
+  const variantMediaKeys = new Map<string, { mediaKey: string; imageKey: string | null; thumbKey: string | null }>();
   const relationIdMap = new Map<string, string>();
   const compositionIdMap = new Map<string, string>();
   const compositionItemIdMap = new Map<string, string>();
@@ -910,15 +1056,35 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
   const importedVariants: string[] = [];
   const importedCollections: string[] = [];
   const importedCollectionItems: string[] = [];
+  const importedStylePresets: string[] = [];
   const importedRelations: string[] = [];
   const importedCompositions: string[] = [];
   const importedCompositionItems: string[] = [];
 
+  for (const asset of manifest.assets) {
+    assetIdMap.set(asset.id, crypto.randomUUID());
+    for (const variant of asset.variants) {
+      const newVariantId = crypto.randomUUID();
+      const mediaKind = variant.mediaKind ?? asset.mediaKind ?? DEFAULT_MEDIA_KIND;
+      const keys = getVariantImportMediaKeys(spaceId, newVariantId, variant, mediaKind);
+      variantIdMap.set(variant.id, newVariantId);
+      variantMediaKeys.set(variant.id, keys);
+      if (variant.mediaKey) imageKeyMap.set(variant.mediaKey, keys.mediaKey);
+      const mediaFile = getVariantImportMediaFile(variant);
+      if (mediaFile) imageKeyMap.set(mediaFile, keys.mediaKey);
+    }
+  }
+  for (const collection of optionalArray(manifest.collections)) {
+    collectionIdMap.set(collection.id, crypto.randomUUID());
+  }
+  for (const preset of optionalArray(manifest.stylePresets)) {
+    stylePresetIdMap.set(preset.id, crypto.randomUUID());
+  }
+
   // Import each asset
   for (const asset of manifest.assets) {
     // Create new asset
-    const newAssetId = crypto.randomUUID();
-    assetIdMap.set(asset.id, newAssetId);
+    const newAssetId = assetIdMap.get(asset.id)!;
 
     const createAssetResponse = await doStub.fetch(new Request('http://do/internal/create-asset', {
       method: 'POST',
@@ -947,16 +1113,11 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
 
       const imageData = variant.imageFile ? unzipped[variant.imageFile] : undefined;
       const thumbData = variant.thumbFile ? unzipped[variant.thumbFile] : undefined;
-      const newVariantId = crypto.randomUUID();
-      variantIdMap.set(variant.id, newVariantId);
+      const newVariantId = variantIdMap.get(variant.id)!;
+      const keys = variantMediaKeys.get(variant.id)!;
 
       // Upload media to R2
-      const mediaExt = getMediaImportExtension(mediaFile, mediaKind);
-      const mediaKey = mediaKind === 'image'
-        ? `images/${spaceId}/${newVariantId}.${mediaExt}`
-        : `media/${spaceId}/${newVariantId}.${mediaExt}`;
-      const imageKey = mediaKind === 'image' ? mediaKey : null;
-      const thumbKey = mediaKind === 'image' ? `images/${spaceId}/${newVariantId}_thumb.png` : null;
+      const { mediaKey, imageKey, thumbKey } = keys;
       const mediaMimeType = variant.mediaMimeType ?? (mediaKind === 'video' ? 'video/mp4' : mediaKind === 'audio' ? 'audio/mpeg' : 'image/png');
 
       await env.IMAGES.put(mediaKey, mediaData, {
@@ -991,8 +1152,20 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
           mediaWidth: variant.mediaWidth,
           mediaHeight: variant.mediaHeight,
           mediaDurationMs: variant.mediaDurationMs,
-          recipe: JSON.stringify(variant.recipe ?? { type: 'import' }),
-          generationProvenance: variant.generation_provenance,
+          recipe: JSON.stringify(remapImportJsonValue(variant.recipe ?? { type: 'import' }, {
+            assetIdMap,
+            variantIdMap,
+            collectionIdMap,
+            stylePresetIdMap,
+            imageKeyMap,
+          })),
+          generationProvenance: remapImportJsonValue(variant.generation_provenance, {
+            assetIdMap,
+            variantIdMap,
+            collectionIdMap,
+            stylePresetIdMap,
+            imageKeyMap,
+          }),
           providerMetadata: variant.provider_metadata,
           createdBy: userId,
         }),
@@ -1049,8 +1222,7 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
   }
 
   for (const collection of optionalArray(manifest.collections)) {
-    const newCollectionId = crypto.randomUUID();
-    collectionIdMap.set(collection.id, newCollectionId);
+    const newCollectionId = collectionIdMap.get(collection.id)!;
     const response = await doStub.fetch(new Request('http://do/internal/collections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1086,6 +1258,26 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
     importedCollectionItems.push(newItemId);
   }
 
+  for (const preset of optionalArray(manifest.stylePresets)) {
+    const newPresetId = stylePresetIdMap.get(preset.id)!;
+    const response = await doStub.fetch(new Request('http://do/internal/style-presets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: newPresetId,
+        name: preset.name,
+        description: preset.description,
+        stylePrompt: preset.stylePrompt,
+        collectionId: requireMappedId(collectionIdMap, preset.collectionId, `Style preset ${preset.id} collectionId`),
+        enabled: preset.enabled,
+        isDefault: preset.isDefault,
+        createdBy: userId,
+      }),
+    }));
+    if (!response.ok) return c.json({ error: 'Failed to import style preset' }, response.status as 400 | 500);
+    importedStylePresets.push(newPresetId);
+  }
+
   for (const relation of optionalArray(manifest.relations)) {
     const newRelationId = crypto.randomUUID();
     relationIdMap.set(relation.id, newRelationId);
@@ -1112,8 +1304,20 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
         ),
         relationType: relation.relationType,
         label: relation.label ?? null,
-        context: relation.context,
-        metadata: parseMetadataObject(relation.metadata, `Relation ${relation.id} metadata`),
+        context: remapImportJsonishValue(relation.context, {
+          assetIdMap,
+          variantIdMap,
+          collectionIdMap,
+          stylePresetIdMap,
+          imageKeyMap,
+        }),
+        metadata: remapImportJsonValue(parseMetadataObject(relation.metadata, `Relation ${relation.id} metadata`), {
+          assetIdMap,
+          variantIdMap,
+          collectionIdMap,
+          stylePresetIdMap,
+          imageKeyMap,
+        }),
         sortIndex: relation.sortIndex,
         createdBy: userId,
       }),
@@ -1174,6 +1378,7 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
       lineage: lineageImported,
       collections: importedCollections.length,
       collectionItems: importedCollectionItems.length,
+      stylePresets: importedStylePresets.length,
       relations: importedRelations.length,
       compositions: importedCompositions.length,
       compositionItems: importedCompositionItems.length,

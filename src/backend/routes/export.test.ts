@@ -124,6 +124,9 @@ function buildApp(options: {
             if (/^\/internal\/collections\/[^/]+\/items$/.test(path) && request.method === 'POST') {
               return Response.json({ success: true, item: body });
             }
+            if (path === '/internal/style-presets' && request.method === 'POST') {
+              return Response.json({ success: true, preset: body });
+            }
             if (path === '/internal/relations' && request.method === 'POST') {
               return Response.json({ success: true, relation: body });
             }
@@ -731,6 +734,273 @@ describe('exportRoutes', () => {
     assert.deepEqual(manifest.compositionItems[0].metadata, { layer: 'final' });
   });
 
+  it('round-trips asset-backed style presets and exact style provenance', async () => {
+    const styleRecipe = {
+      operation: 'generate',
+      prompt: '[Style: Painterly adventure game] A market stall',
+      stylePresetId: 'preset-style',
+      styleCollectionId: 'collection-style',
+      styleReferenceVariantIds: ['variant-style-a', 'variant-style-b'],
+      styleReferenceImageKeys: ['images/source/style-a.png', 'images/source/style-b.png'],
+      styleImageKeys: ['images/source/style-a.png', 'images/source/style-b.png'],
+      sourceImageKeys: ['images/source/style-a.png', 'images/source/style-b.png'],
+    };
+    const { app: exportApp } = buildApp({
+      state: {
+        assets: [
+          {
+            id: 'asset-style',
+            name: 'Style Sheet',
+            type: 'style-sheet',
+            media_kind: 'image',
+            tags: '["style"]',
+            active_variant_id: 'variant-style-b',
+            created_at: 1,
+          },
+          {
+            id: 'asset-output',
+            name: 'Market Stall',
+            type: 'prop',
+            media_kind: 'image',
+            tags: '[]',
+            active_variant_id: 'variant-output',
+            created_at: 4,
+          },
+        ],
+        variants: [
+          {
+            id: 'variant-style-a',
+            asset_id: 'asset-style',
+            media_kind: 'image',
+            status: 'completed',
+            image_key: 'images/source/style-a.png',
+            thumb_key: null,
+            media_key: 'images/source/style-a.png',
+            media_mime_type: 'image/png',
+            media_size_bytes: 7,
+            media_width: 64,
+            media_height: 64,
+            media_duration_ms: null,
+            recipe: '{"operation":"upload"}',
+            created_at: 2,
+          },
+          {
+            id: 'variant-style-b',
+            asset_id: 'asset-style',
+            media_kind: 'image',
+            status: 'completed',
+            image_key: 'images/source/style-b.png',
+            thumb_key: null,
+            media_key: 'images/source/style-b.png',
+            media_mime_type: 'image/png',
+            media_size_bytes: 7,
+            media_width: 64,
+            media_height: 64,
+            media_duration_ms: null,
+            recipe: '{"operation":"upload"}',
+            created_at: 3,
+          },
+          {
+            id: 'variant-output',
+            asset_id: 'asset-output',
+            media_kind: 'image',
+            status: 'completed',
+            image_key: 'images/source/output.png',
+            thumb_key: null,
+            media_key: 'images/source/output.png',
+            media_mime_type: 'image/png',
+            media_size_bytes: 7,
+            media_width: 256,
+            media_height: 256,
+            media_duration_ms: null,
+            generation_provenance: JSON.stringify({
+              ...styleRecipe,
+              model: 'gemini-3-pro-image-preview',
+            }),
+            provider_metadata: null,
+            recipe: JSON.stringify(styleRecipe),
+            created_at: 5,
+          },
+        ],
+        lineage: [],
+        collections: [{ id: 'collection-style', name: 'House Style', description: 'Reusable style refs', sort_index: 0 }],
+        collectionItems: [
+          {
+            id: 'item-style-a',
+            collection_id: 'collection-style',
+            subject_type: 'variant',
+            asset_id: null,
+            variant_id: 'variant-style-a',
+            role: 'style_ref',
+            pinned_variant_id: null,
+            sort_index: 0,
+          },
+          {
+            id: 'item-style-b',
+            collection_id: 'collection-style',
+            subject_type: 'variant',
+            asset_id: null,
+            variant_id: 'variant-style-b',
+            role: 'style_ref',
+            pinned_variant_id: null,
+            sort_index: 1,
+          },
+        ],
+        relations: [
+          {
+            id: 'relation-style-a',
+            subject_type: 'variant',
+            subject_asset_id: null,
+            subject_variant_id: 'variant-style-a',
+            object_type: 'variant',
+            object_asset_id: null,
+            object_variant_id: 'variant-output',
+            relation_type: 'style_reference_for',
+            label: null,
+            context: JSON.stringify({
+              role: 'style_reference',
+              stylePresetId: 'preset-style',
+              styleCollectionId: 'collection-style',
+              styleImageKey: 'images/source/style-a.png',
+            }),
+            metadata: JSON.stringify({ styleReferenceVariantIds: ['variant-style-a', 'variant-style-b'] }),
+            sort_index: 0,
+          },
+          {
+            id: 'relation-style-b',
+            subject_type: 'variant',
+            subject_asset_id: null,
+            subject_variant_id: 'variant-style-b',
+            object_type: 'variant',
+            object_asset_id: null,
+            object_variant_id: 'variant-output',
+            relation_type: 'style_reference_for',
+            label: null,
+            context: JSON.stringify({
+              role: 'style_reference',
+              stylePresetId: 'preset-style',
+              styleCollectionId: 'collection-style',
+              styleImageKey: 'images/source/style-b.png',
+            }),
+            metadata: '{}',
+            sort_index: 1,
+          },
+        ],
+        stylePresets: [{
+          id: 'preset-style',
+          name: 'Painterly House Style',
+          description: 'Production paint style',
+          style_prompt: 'Painterly adventure game',
+          collection_id: 'collection-style',
+          enabled: 1,
+          is_default: 1,
+        }],
+        compositions: [],
+        compositionItems: [],
+      },
+      objects: {
+        'images/source/style-a.png': makeObject('images/source/style-a.png', 'style-a', 'image/png'),
+        'images/source/style-b.png': makeObject('images/source/style-b.png', 'style-b', 'image/png'),
+        'images/source/output.png': makeObject('images/source/output.png', 'output', 'image/png'),
+      },
+    });
+
+    const exportRes = await exportApp.fetch(new Request('https://app.example/api/spaces/source-space/export', {
+      headers: { Authorization: 'Bearer test-token' },
+    }));
+
+    assert.equal(exportRes.status, 200);
+    const zipBytes = new Uint8Array(await exportRes.arrayBuffer());
+    const unzipped = unzipSync(zipBytes);
+    const manifest = JSON.parse(strFromU8(unzipped['manifest.json'])) as any;
+    assert.deepEqual(manifest.stylePresets, [{
+      id: 'preset-style',
+      name: 'Painterly House Style',
+      description: 'Production paint style',
+      stylePrompt: 'Painterly adventure game',
+      collectionId: 'collection-style',
+      enabled: true,
+      isDefault: true,
+    }]);
+    assert.deepEqual(
+      manifest.collectionItems.map((item: { variantId: string; role: string }) => [item.variantId, item.role]),
+      [['variant-style-a', 'style_ref'], ['variant-style-b', 'style_ref']]
+    );
+    const exportedOutput = manifest.assets
+      .find((asset: { id: string }) => asset.id === 'asset-output')
+      .variants[0];
+    assert.deepEqual(exportedOutput.recipe.styleReferenceVariantIds, ['variant-style-a', 'variant-style-b']);
+    assert.deepEqual(exportedOutput.generation_provenance.styleReferenceImageKeys, [
+      'images/source/style-a.png',
+      'images/source/style-b.png',
+    ]);
+
+    const formData = new FormData();
+    formData.set('file', new File([zipBytes], 'export.zip', { type: 'application/zip' }));
+    const { app: importApp, doCalls } = buildApp();
+
+    const importRes = await importApp.fetch(new Request('https://app.example/api/spaces/target-space/import', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-token' },
+      body: formData,
+    }));
+
+    assert.equal(importRes.status, 200);
+    const body = await importRes.json() as { imported: Record<string, number> };
+    assert.deepEqual(body.imported, {
+      assets: 2,
+      variants: 3,
+      lineage: 0,
+      collections: 1,
+      collectionItems: 2,
+      stylePresets: 1,
+      relations: 2,
+      compositions: 0,
+      compositionItems: 0,
+    });
+
+    const applyCalls = doCalls.filter((call) => call.path === '/internal/apply-variant');
+    const importedStyleAId = String(applyCalls[0].body!.variantId);
+    const importedStyleBId = String(applyCalls[1].body!.variantId);
+    const importedStyleAKey = String(applyCalls[0].body!.mediaKey);
+    const importedStyleBKey = String(applyCalls[1].body!.mediaKey);
+    const importedOutput = applyCalls[2].body!;
+    const importedRecipe = JSON.parse(String(importedOutput.recipe)) as Record<string, unknown>;
+    const importedProvenance = importedOutput.generationProvenance as Record<string, unknown>;
+    const collectionCall = doCalls.find((call) => call.path === '/internal/collections')!;
+    const presetCall = doCalls.find((call) => call.path === '/internal/style-presets')!;
+
+    assert.notEqual(presetCall.body!.id, 'preset-style');
+    assert.notEqual(collectionCall.body!.id, 'collection-style');
+    assert.equal(presetCall.body!.collectionId, collectionCall.body!.id);
+    assert.equal(importedRecipe.stylePresetId, presetCall.body!.id);
+    assert.equal(importedRecipe.styleCollectionId, collectionCall.body!.id);
+    assert.deepEqual(importedRecipe.styleReferenceVariantIds, [importedStyleAId, importedStyleBId]);
+    assert.deepEqual(importedRecipe.styleReferenceImageKeys, [importedStyleAKey, importedStyleBKey]);
+    assert.deepEqual(importedRecipe.styleImageKeys, [importedStyleAKey, importedStyleBKey]);
+    assert.deepEqual(importedRecipe.sourceImageKeys, [importedStyleAKey, importedStyleBKey]);
+    assert.equal(importedProvenance.stylePresetId, presetCall.body!.id);
+    assert.deepEqual(importedProvenance.styleReferenceVariantIds, [importedStyleAId, importedStyleBId]);
+    assert.deepEqual(importedProvenance.styleReferenceImageKeys, [importedStyleAKey, importedStyleBKey]);
+
+    const relationCalls = doCalls.filter((call) => call.path === '/internal/relations');
+    const importedStyleRelation = relationCalls[0].body as {
+      subject: { variantId: string };
+      context: unknown;
+      metadata: unknown;
+    };
+    assert.equal(importedStyleRelation.subject.variantId, importedStyleAId);
+    assert.deepEqual(importedStyleRelation.context, {
+      role: 'style_reference',
+      stylePresetId: presetCall.body!.id,
+      styleCollectionId: collectionCall.body!.id,
+      styleImageKey: importedStyleAKey,
+    });
+    assert.deepEqual(importedStyleRelation.metadata, {
+      styleReferenceVariantIds: [importedStyleAId, importedStyleBId],
+    });
+  });
+
   it('imports media-only video variants without requiring legacy image files', async () => {
     const manifest = {
       version: '1.0',
@@ -1166,6 +1436,7 @@ describe('exportRoutes', () => {
       lineage: 1,
       collections: 1,
       collectionItems: 1,
+      stylePresets: 0,
       relations: 1,
       compositions: 1,
       compositionItems: 1,
