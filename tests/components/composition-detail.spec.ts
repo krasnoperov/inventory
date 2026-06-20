@@ -217,16 +217,21 @@ test('composition reverse lookup includes exact variant and asset matches', asyn
     compositions: [
       composition,
       { ...composition, id: 'composition-2', name: 'Pinned variant scene', output_asset_id: null, output_variant_id: null },
+      { ...composition, id: 'composition-3', name: 'Output variant scene', output_asset_id: 'scene', output_variant_id: 'anna-v2' },
+      { ...composition, id: 'composition-4', name: 'Other cast scene', output_asset_id: 'pilar', output_variant_id: 'pilar-v1' },
     ],
     compositionItems: [
       { id: 'item-1', composition_id: 'composition-1', role: 'character', asset_id: 'anna', variant_id: 'anna-v1', metadata: '{}', sort_index: 0, created_by: 'user-1', created_at: baseTime, updated_at: baseTime },
       { id: 'item-2', composition_id: 'composition-2', role: 'thumbnail', asset_id: null, variant_id: 'anna-v2', metadata: '{}', sort_index: 0, created_by: 'user-1', created_at: baseTime, updated_at: baseTime },
+      { id: 'item-3', composition_id: 'composition-4', role: 'character', asset_id: 'pilar', variant_id: 'pilar-v1', metadata: '{}', sort_index: 0, created_by: 'user-1', created_at: baseTime, updated_at: baseTime },
     ],
     onOpenComposition: '__record__:open-composition',
   });
 
   await expect(page.getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Pinned variant scene/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Output variant scene/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Other cast scene/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: /Pinned variant scene/ }).click();
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining('open-composition:["composition-2"]'));

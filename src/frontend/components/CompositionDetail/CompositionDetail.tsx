@@ -524,7 +524,9 @@ export function CompositionUsageList({
   const usages = compositions
     .map((composition) => {
       const exactItems = compositionItems.filter((item) => (
-        item.asset_id === targetAssetId || variantIds.has(item.variant_id)
+        item.composition_id === composition.id && (
+          item.asset_id === targetAssetId || variantIds.has(item.variant_id)
+        )
       ));
       const outputMatches = (
         composition.output_asset_id === targetAssetId ||
