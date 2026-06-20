@@ -103,7 +103,11 @@ interface FetchCall {
   body?: BodyInit | null;
 }
 
-function depsForOrganization(calls: FetchCall[], output: string[], options: { missingCollection?: boolean } = {}) {
+function depsForOrganization(
+  calls: FetchCall[],
+  output: string[],
+  options: { duplicateCollectionName?: boolean; missingCollection?: boolean } = {}
+) {
   return {
     loadConfig: async () => storedConfig(),
     loadProjectConfig: async () => null,
@@ -120,7 +124,12 @@ function depsForOrganization(calls: FetchCall[], output: string[], options: { mi
           success: true,
           collections: options.missingCollection
             ? []
-            : [{ id: 'collection-cast', name: 'Cast', kind: 'cast', color: null, description: null, sort_index: 0, created_by: 'user-1', created_at: 1, updated_at: 1 }],
+            : [
+              { id: 'collection-cast', name: 'Cast', kind: 'cast', color: null, description: null, sort_index: 0, created_by: 'user-1', created_at: 1, updated_at: 1 },
+              ...(options.duplicateCollectionName
+                ? [{ id: 'collection-cast-2', name: 'Cast', kind: 'cast', color: null, description: null, sort_index: 1, created_by: 'user-1', created_at: 2, updated_at: 2 }]
+                : []),
+            ],
         });
       }
 
@@ -362,6 +371,71 @@ test('upload creates collection placement and manual relation without a manifest
   }
 });
 
+test('upload resolves exact collection names before direct media upload', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'hero.png');
+  const calls: FetchCall[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    const result = await executeUpload({
+      positionals: [filePath],
+      options: {
+        space: 'space-1',
+        name: 'Hero',
+        type: 'character',
+        'collection-name': 'Cast',
+        'collection-role': 'character',
+      },
+    }, depsForOrganization(calls, output));
+
+    assert.deepEqual(result.organization, {
+      collectionItemIds: ['collection-item-1'],
+      relationIds: [],
+    });
+    const collectionCall = calls.find((call) => call.url.endsWith('/collections/collection-cast/items'));
+    assert.ok(collectionCall);
+    assert.equal(calls.some((call) => call.url.includes('/collections/Cast/items')), false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload prints direct upload IDs as JSON for script chaining', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'hero.png');
+  const calls: FetchCall[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    const result = await executeUpload({
+      positionals: [filePath],
+      options: {
+        space: 'space-1',
+        name: 'Hero',
+        type: 'character',
+        collection: 'collection-cast',
+        'manual-relation': 'thumbnail_for:asset:asset-target',
+        json: 'true',
+      },
+    }, depsForOrganization(calls, output));
+
+    assert.equal(output.length, 1);
+    const parsed = JSON.parse(output[0]);
+    assert.equal(parsed.asset.id, 'asset-1');
+    assert.equal(parsed.variant.id, 'variant-1');
+    assert.deepEqual(parsed.organization, {
+      collectionItemIds: ['collection-item-1'],
+      relationIds: ['relation-1'],
+    });
+    assert.deepEqual(parsed, JSON.parse(JSON.stringify(result)));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('upload rejects missing direct collection targets before media upload', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
   const filePath = path.join(dir, 'hero.png');
@@ -380,6 +454,56 @@ test('upload rejects missing direct collection targets before media upload', asy
         },
       }, depsForOrganization(calls, output, { missingCollection: true })),
       /Collection not found: missing-collection/
+    );
+    assert.equal(calls.some((call) => call.method === 'POST' && call.url.endsWith('/upload')), false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload rejects missing exact collection names before media upload', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'hero.png');
+  const calls: FetchCall[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await assert.rejects(
+      () => executeUpload({
+        positionals: [filePath],
+        options: {
+          space: 'space-1',
+          name: 'Hero',
+          'collection-name': 'Missing',
+        },
+      }, depsForOrganization(calls, output)),
+      /Collection not found by exact name: Missing/
+    );
+    assert.equal(calls.some((call) => call.method === 'POST' && call.url.endsWith('/upload')), false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload rejects ambiguous exact collection names before media upload', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'hero.png');
+  const calls: FetchCall[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await assert.rejects(
+      () => executeUpload({
+        positionals: [filePath],
+        options: {
+          space: 'space-1',
+          name: 'Hero',
+          'collection-name': 'Cast',
+        },
+      }, depsForOrganization(calls, output, { duplicateCollectionName: true })),
+      /Collection name is ambiguous: Cast; use --collection <id>/
     );
     assert.equal(calls.some((call) => call.method === 'POST' && call.url.endsWith('/upload')), false);
   } finally {
@@ -459,7 +583,7 @@ test('upload supports audio WebM when requested explicitly', async () => {
   }
 });
 
-test('upload rejects malformed import JSON before sending a request', async () => {
+test('upload rejects malformed provenance JSON before sending a request', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
   const filePath = path.join(dir, 'hero.png');
   const capturedBodies: BodyInit[] = [];
@@ -473,6 +597,48 @@ test('upload rejects malformed import JSON before sending a request', async () =
         options: { space: 'space-1', name: 'Hero', 'provider-metadata': '[]' },
       }, depsFor(capturedBodies, output)),
       /--provider-metadata must be a JSON object/
+    );
+    assert.equal(capturedBodies.length, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload treats JSON files as unsupported direct media instead of manifests', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'import.json');
+  const capturedBodies: BodyInit[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, '{"records":[]}', 'utf8');
+    await assert.rejects(
+      () => executeUpload({
+        positionals: [filePath],
+        options: { space: 'space-1', name: 'Import' },
+      }, depsFor(capturedBodies, output)),
+      /Invalid file type "\.json"/
+    );
+    assert.equal(capturedBodies.length, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload rejects dry-run because direct upload is the only import workflow', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'hero.png');
+  const capturedBodies: BodyInit[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await assert.rejects(
+      () => executeUpload({
+        positionals: [filePath],
+        options: { space: 'space-1', name: 'Hero', 'dry-run': 'true' },
+      }, depsFor(capturedBodies, output)),
+      /--dry-run is not supported for direct file upload/
     );
     assert.equal(capturedBodies.length, 0);
   } finally {
