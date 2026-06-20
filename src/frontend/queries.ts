@@ -1,7 +1,7 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import { ApiFetchError, apiFetch, type FetchLike } from '../api/client';
 import { loadSession } from './config';
-import type { Space, UserProfile } from '../api/types';
+import type { ProviderSpendSummaryResponse, Space, UserProfile } from '../api/types';
 import type { Asset, Lineage, Variant } from './hooks/useSpaceWebSocket';
 import type { ProductionRecord } from './productionHandoff';
 import type { StartSession } from './app-context';
@@ -33,6 +33,15 @@ export const sessionQueryKey = ['start-session'] as const;
 export const spacesQueryKey = ['spaces'] as const;
 export const userProfileQueryKey = ['user-profile'] as const;
 export const providerKeysQueryKey = ['provider-keys'] as const;
+
+export interface AdminSpendFilters {
+  from?: string;
+  to?: string;
+  userId?: string;
+  spaceId?: string;
+  provider?: string;
+  mediaKind?: 'image' | 'audio' | 'video';
+}
 
 export function clearUserScopedQueries(queryClient: QueryClient) {
   queryClient.removeQueries({ queryKey: spacesQueryKey });
@@ -207,5 +216,31 @@ export function providerKeysQueryOptions(baseUrl?: string, headers?: HeadersInit
     queryKey: providerKeysQueryKey,
     queryFn: () =>
       apiFetch('GET /api/user/provider-keys', { baseUrl, headers, fetch: fetchImpl }).then((data) => data.providers),
+  });
+}
+
+export function adminSpendQueryOptions(
+  filters: AdminSpendFilters,
+  baseUrl?: string,
+  headers?: HeadersInit,
+  fetchImpl?: FetchLike,
+) {
+  return queryOptions({
+    queryKey: ['admin', 'spend', filters],
+    queryFn: (): Promise<ProviderSpendSummaryResponse> =>
+      apiFetch('GET /api/billing/spend/summary', {
+        baseUrl,
+        headers,
+        fetch: fetchImpl,
+        query: {
+          from: filters.from,
+          to: filters.to,
+          user_id: filters.userId,
+          space_id: filters.spaceId,
+          provider: filters.provider,
+          media_kind: filters.mediaKind,
+        },
+      }),
+    retry: false,
   });
 }

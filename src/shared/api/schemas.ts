@@ -324,6 +324,65 @@ export const PlatformUsageSummaryResponseSchema = z
   })
   .openapi('PlatformUsageSummaryResponse');
 
+export const ProviderSpendSummaryQuerySchema = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+  user_id: z.string().optional(),
+  userId: z.string().optional(),
+  space_id: z.string().optional(),
+  spaceId: z.string().optional(),
+  provider: z.string().optional(),
+  media_kind: MediaKindSchema.optional(),
+  mediaKind: MediaKindSchema.optional(),
+});
+
+export const ProviderSpendAggregateSchema = z
+  .object({
+    amountMicroUsd: z.number().int(),
+    amountUsd: z.number(),
+    quantity: z.number(),
+    entries: z.number().int().nonnegative(),
+    unpricedEntries: z.number().int().nonnegative(),
+  })
+  .openapi('ProviderSpendAggregate');
+
+export const ProviderSpendSummaryResponseSchema = z
+  .object({
+    success: z.literal(true),
+    period: z.object({
+      from: z.string().nullable(),
+      to: z.string().nullable(),
+    }),
+    filters: z.object({
+      userId: z.number().int().nullable(),
+      spaceId: z.string().nullable(),
+      provider: z.string().nullable(),
+      mediaKind: MediaKindSchema.nullable(),
+    }),
+    totals: ProviderSpendAggregateSchema,
+    byProvider: z.array(ProviderSpendAggregateSchema.extend({
+      provider: z.string(),
+    })),
+    byModel: z.array(ProviderSpendAggregateSchema.extend({
+      provider: z.string(),
+      providerModel: z.string(),
+    })),
+    byMediaKind: z.array(ProviderSpendAggregateSchema.extend({
+      mediaKind: MediaKindSchema.nullable(),
+    })),
+    byMeterEventName: z.array(ProviderSpendAggregateSchema.extend({
+      meterEventName: z.string().nullable(),
+    })),
+    bySpace: z.array(ProviderSpendAggregateSchema.extend({
+      spaceId: z.string().nullable(),
+    })),
+    byAsset: z.array(ProviderSpendAggregateSchema.extend({
+      spaceId: z.string().nullable(),
+      assetId: z.string().nullable(),
+    })),
+  })
+  .openapi('ProviderSpendSummaryResponse');
+
 export const ProductionRecordSchema = z
   .object({
     id: z.string(),
@@ -625,6 +684,7 @@ export type ListSpaceAssetsResponse = z.infer<typeof ListSpaceAssetsResponseSche
 export type PlatformUsageTypeSummary = z.infer<typeof PlatformUsageTypeSummarySchema>;
 export type PlatformUsageMediaKindSummary = z.infer<typeof PlatformUsageMediaKindSummarySchema>;
 export type PlatformUsageSummaryResponse = z.infer<typeof PlatformUsageSummaryResponseSchema>;
+export type ProviderSpendSummaryResponse = z.infer<typeof ProviderSpendSummaryResponseSchema>;
 export type DeleteSpaceResponse = z.infer<typeof DeleteSpaceResponseSchema>;
 export type ProductionRecord = z.infer<typeof ProductionRecordSchema>;
 export type PlaceProductionRecordRequest = z.infer<typeof PlaceProductionRecordRequestSchema>;

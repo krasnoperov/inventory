@@ -73,6 +73,15 @@ export interface ProviderSpendMeterSummary extends ProviderSpendAggregate {
   meterEventName: string | null;
 }
 
+export interface ProviderSpendSpaceSummary extends ProviderSpendAggregate {
+  spaceId: string | null;
+}
+
+export interface ProviderSpendAssetSummary extends ProviderSpendAggregate {
+  spaceId: string | null;
+  assetId: string | null;
+}
+
 export interface ProviderSpendSummary {
   period: {
     from: string | null;
@@ -89,6 +98,8 @@ export interface ProviderSpendSummary {
   byModel: ProviderSpendModelSummary[];
   byMediaKind: ProviderSpendMediaKindSummary[];
   byMeterEventName: ProviderSpendMeterSummary[];
+  bySpace: ProviderSpendSpaceSummary[];
+  byAsset: ProviderSpendAssetSummary[];
 }
 
 interface SpendAggregateRow {
@@ -206,10 +217,28 @@ export class ProviderUsageLedgerDAO {
       bounds
     );
 
+    let bySpaceQuery = this.applySpendFilters(
+      this.db
+        .selectFrom('provider_usage_ledger')
+        .select('space_id')
+        .select(() => this.spendAggregateSelections()),
+      bounds
+    );
+
+    let byAssetQuery = this.applySpendFilters(
+      this.db
+        .selectFrom('provider_usage_ledger')
+        .select(['space_id', 'asset_id'])
+        .select(() => this.spendAggregateSelections()),
+      bounds
+    );
+
     byProviderQuery = byProviderQuery.groupBy('provider').orderBy('provider', 'asc');
     byModelQuery = byModelQuery.groupBy(['provider', 'provider_model']).orderBy('provider', 'asc').orderBy('provider_model', 'asc');
     byMediaKindQuery = byMediaKindQuery.groupBy('media_kind').orderBy('media_kind', 'asc');
     byMeterEventNameQuery = byMeterEventNameQuery.groupBy('meter_event_name').orderBy('meter_event_name', 'asc');
+    bySpaceQuery = bySpaceQuery.groupBy('space_id').orderBy('amount_micro_usd', 'desc').orderBy('space_id', 'asc');
+    byAssetQuery = byAssetQuery.groupBy(['space_id', 'asset_id']).orderBy('amount_micro_usd', 'desc').orderBy('asset_id', 'asc');
 
     const [
       totalsRow,
@@ -217,12 +246,16 @@ export class ProviderUsageLedgerDAO {
       byModelRows,
       byMediaKindRows,
       byMeterEventNameRows,
+      bySpaceRows,
+      byAssetRows,
     ] = await Promise.all([
       totalsQuery.executeTakeFirst(),
       byProviderQuery.execute(),
       byModelQuery.execute(),
       byMediaKindQuery.execute(),
       byMeterEventNameQuery.execute(),
+      bySpaceQuery.execute(),
+      byAssetQuery.execute(),
     ]);
 
     return {
@@ -252,6 +285,15 @@ export class ProviderUsageLedgerDAO {
       })),
       byMeterEventName: byMeterEventNameRows.map((row) => ({
         meterEventName: row.meter_event_name,
+        ...this.toSpendAggregate(row),
+      })),
+      bySpace: bySpaceRows.map((row) => ({
+        spaceId: row.space_id,
+        ...this.toSpendAggregate(row),
+      })),
+      byAsset: byAssetRows.map((row) => ({
+        spaceId: row.space_id,
+        assetId: row.asset_id,
         ...this.toSpendAggregate(row),
       })),
     };
