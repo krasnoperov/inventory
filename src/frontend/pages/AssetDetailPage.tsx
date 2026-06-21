@@ -102,6 +102,7 @@ export default function AssetDetailPage() {
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
   const [assetPlacementDrafts, setAssetPlacementDrafts] = useState<CollectionPlacementInput[]>([]);
   const [variantPlacementDrafts, setVariantPlacementDrafts] = useState<CollectionPlacementInput[]>([]);
+  const [showInspector, setShowInspector] = useState(false);
   const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
   const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
@@ -584,7 +585,10 @@ export default function AssetDetailPage() {
     if (!assetId || !canEdit) return;
     setSelectedVariantId(assetId, variant.id);
     setVariantPlacementDrafts([]);
-    collectionPanelRef.current?.scrollIntoView({ block: 'nearest' });
+    setShowInspector(true);
+    requestAnimationFrame(() => {
+      collectionPanelRef.current?.scrollIntoView({ block: 'nearest' });
+    });
   }, [assetId, canEdit, setSelectedVariantId]);
 
   const handleApplyAssetPlacements = useCallback(() => {
@@ -941,119 +945,133 @@ export default function AssetDetailPage() {
             </div>
           )}
 
-          {canEdit && collections.length > 0 && (
-            <section ref={collectionPanelRef} className={styles.collectionPanel} aria-label="Collection membership">
-              <div className={styles.collectionPanelHeader}>
-                <span>Asset collections</span>
-                {assetCollectionMemberships.length > 0 && <span>{assetCollectionMemberships.length}</span>}
-              </div>
-              {assetCollectionMemberships.map((item) => {
-                const collection = collections.find((entry) => entry.id === item.collection_id);
-                return (
-                  <div key={item.id} className={styles.collectionMembershipRow}>
-                    <span>{collection?.name ?? 'Collection'}</span>
-                    <input
-                      value={item.role}
-                      aria-label={`Role in ${collection?.name ?? 'collection'}`}
-                      onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+          <div className={styles.inspectorDock}>
+            <button
+              className={styles.inspectorToggle}
+              onClick={() => setShowInspector((open) => !open)}
+              aria-expanded={showInspector}
+            >
+              Details
+              <span>{assetCollectionMemberships.length + selectedVariantCollectionMemberships.length}</span>
+            </button>
+            {showInspector && (
+              <div className={styles.inspectorPanel}>
+                {canEdit && collections.length > 0 && (
+                  <section ref={collectionPanelRef} className={styles.collectionPanel} aria-label="Collection membership">
+                    <div className={styles.collectionPanelHeader}>
+                      <span>Asset collections</span>
+                      {assetCollectionMemberships.length > 0 && <span>{assetCollectionMemberships.length}</span>}
+                    </div>
+                    {assetCollectionMemberships.map((item) => {
+                      const collection = collections.find((entry) => entry.id === item.collection_id);
+                      return (
+                        <div key={item.id} className={styles.collectionMembershipRow}>
+                          <span>{collection?.name ?? 'Collection'}</span>
+                          <input
+                            value={item.role}
+                            aria-label={`Role in ${collection?.name ?? 'collection'}`}
+                            onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                          />
+                          <select
+                            value={item.pinned_variant_id ?? ''}
+                            aria-label={`Pinned variant in ${collection?.name ?? 'collection'}`}
+                            onChange={(event) => updateCollectionItem(item.collection_id, item.id, { pinnedVariantId: event.target.value || null })}
+                          >
+                            <option value="">Active variant</option>
+                            {variants.map((variant, index) => (
+                              <option key={variant.id} value={variant.id}>
+                                Variant {index + 1}{variant.starred ? ' star' : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <button onClick={() => deleteCollectionItem(item.collection_id, item.id)}>Remove</button>
+                        </div>
+                      );
+                    })}
+                    <CollectionPlacementPicker
+                      collections={collections}
+                      value={assetPlacementDrafts}
+                      onChange={setAssetPlacementDrafts}
+                      label="Add asset to collections"
+                      defaultSubjectType="asset"
+                      showPinToCreatedVariant={Boolean(selectedVariant)}
                     />
-                    <select
-                      value={item.pinned_variant_id ?? ''}
-                      aria-label={`Pinned variant in ${collection?.name ?? 'collection'}`}
-                      onChange={(event) => updateCollectionItem(item.collection_id, item.id, { pinnedVariantId: event.target.value || null })}
-                    >
-                      <option value="">Active variant</option>
-                      {variants.map((variant, index) => (
-                        <option key={variant.id} value={variant.id}>
-                          Variant {index + 1}{variant.starred ? ' star' : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <button onClick={() => deleteCollectionItem(item.collection_id, item.id)}>Remove</button>
-                  </div>
-                );
-              })}
-              <CollectionPlacementPicker
-                collections={collections}
-                value={assetPlacementDrafts}
-                onChange={setAssetPlacementDrafts}
-                label="Add asset to collections"
-                defaultSubjectType="asset"
-                showPinToCreatedVariant={Boolean(selectedVariant)}
-              />
-              {assetPlacementDrafts.length > 0 && (
-                <button className={styles.collectionApplyButton} onClick={handleApplyAssetPlacements}>
-                  Add asset placement
-                </button>
-              )}
+                    {assetPlacementDrafts.length > 0 && (
+                      <button className={styles.collectionApplyButton} onClick={handleApplyAssetPlacements}>
+                        Add asset placement
+                      </button>
+                    )}
 
-              {selectedVariant && (
-                <>
-                  <div className={styles.collectionPanelHeader}>
-                    <span>Selected variant collections</span>
-                    {selectedVariantCollectionMemberships.length > 0 && <span>{selectedVariantCollectionMemberships.length}</span>}
-                  </div>
-                  {selectedVariantCollectionMemberships.map((item) => {
-                    const collection = collections.find((entry) => entry.id === item.collection_id);
-                    return (
-                      <div key={item.id} className={styles.collectionMembershipRow}>
-                        <span>{collection?.name ?? 'Collection'}</span>
-                        <input
-                          value={item.role}
-                          aria-label={`Variant role in ${collection?.name ?? 'collection'}`}
-                          onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                    {selectedVariant && (
+                      <>
+                        <div className={styles.collectionPanelHeader}>
+                          <span>Selected variant collections</span>
+                          {selectedVariantCollectionMemberships.length > 0 && <span>{selectedVariantCollectionMemberships.length}</span>}
+                        </div>
+                        {selectedVariantCollectionMemberships.map((item) => {
+                          const collection = collections.find((entry) => entry.id === item.collection_id);
+                          return (
+                            <div key={item.id} className={styles.collectionMembershipRow}>
+                              <span>{collection?.name ?? 'Collection'}</span>
+                              <input
+                                value={item.role}
+                                aria-label={`Variant role in ${collection?.name ?? 'collection'}`}
+                                onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                              />
+                              <button onClick={() => deleteCollectionItem(item.collection_id, item.id)}>Remove</button>
+                            </div>
+                          );
+                        })}
+                        <CollectionPlacementPicker
+                          collections={collections}
+                          value={variantPlacementDrafts}
+                          onChange={setVariantPlacementDrafts}
+                          label="Add selected variant to collections"
+                          defaultSubjectType="variant"
                         />
-                        <button onClick={() => deleteCollectionItem(item.collection_id, item.id)}>Remove</button>
-                      </div>
-                    );
-                  })}
-                  <CollectionPlacementPicker
-                    collections={collections}
-                    value={variantPlacementDrafts}
-                    onChange={setVariantPlacementDrafts}
-                    label="Add selected variant to collections"
-                    defaultSubjectType="variant"
+                        {variantPlacementDrafts.length > 0 && (
+                          <button className={styles.collectionApplyButton} onClick={handleApplyVariantPlacements}>
+                            Add variant placement
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </section>
+                )}
+
+                <StyleReferenceUsagePanel
+                  spaceId={spaceId || ''}
+                  collections={styleUsage.collections}
+                  presets={styleUsage.presets}
+                  outputs={styleUsage.outputs}
+                />
+
+                {relationSubjects.length > 0 && (
+                  <RelationsPanel
+                    assets={relationAssets}
+                    variants={relationVariants}
+                    relations={wsRelations}
+                    subjects={relationSubjects}
+                    primarySubject={{ subjectType: 'asset', assetId }}
+                    onCreate={handleOpenCreateRelation}
+                    onEdit={handleOpenEditRelation}
+                    onDelete={deleteRelation}
                   />
-                  {variantPlacementDrafts.length > 0 && (
-                    <button className={styles.collectionApplyButton} onClick={handleApplyVariantPlacements}>
-                      Add variant placement
-                    </button>
-                  )}
-                </>
-              )}
-            </section>
-          )}
+                )}
 
-          <StyleReferenceUsagePanel
-            spaceId={spaceId || ''}
-            collections={styleUsage.collections}
-            presets={styleUsage.presets}
-            outputs={styleUsage.outputs}
-          />
-
-          {relationSubjects.length > 0 && (
-            <RelationsPanel
-              assets={relationAssets}
-              variants={relationVariants}
-              relations={wsRelations}
-              subjects={relationSubjects}
-              primarySubject={{ subjectType: 'asset', assetId }}
-              onCreate={handleOpenCreateRelation}
-              onEdit={handleOpenEditRelation}
-              onDelete={deleteRelation}
-            />
-          )}
-
-          {assetId && (
-            <CompositionUsageList
-              targetAssetId={assetId}
-              assets={wsAssets}
-              variants={wsVariants}
-              compositions={compositions}
-              compositionItems={compositionItems}
-              onOpenComposition={handleOpenComposition}
-            />
-          )}
+                {assetId && (
+                  <CompositionUsageList
+                    targetAssetId={assetId}
+                    assets={wsAssets}
+                    variants={wsVariants}
+                    compositions={compositions}
+                    compositionItems={compositionItems}
+                    onOpenComposition={handleOpenComposition}
+                  />
+                )}
+              </div>
+            )}
+          </div>
 
         </div>
 

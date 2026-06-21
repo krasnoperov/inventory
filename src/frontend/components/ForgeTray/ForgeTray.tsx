@@ -1430,16 +1430,22 @@ export function ForgeTray({
 
           {showCollectionPlacements && (
             <div className={styles.shortcutRow}>
-              <CollectionPlacementPicker
-                collections={collections}
-                value={collectionPlacements}
-                onChange={setCollectionPlacements}
-                label="Collection placement"
-                defaultSubjectType={effectiveDestinationType === 'new_asset' ? 'asset' : 'variant'}
-                allowSubjectChoice={effectiveDestinationType === 'new_asset'}
-                showPinToCreatedVariant={effectiveDestinationType === 'new_asset'}
-                disabled={isSubmitting || isUploading}
-              />
+              <details className={styles.placementDetails}>
+                <summary>
+                  Collection placement
+                  {collectionPlacements.length > 0 && <span>{collectionPlacements.length}</span>}
+                </summary>
+                <CollectionPlacementPicker
+                  collections={collections}
+                  value={collectionPlacements}
+                  onChange={setCollectionPlacements}
+                  label="Collection placement"
+                  defaultSubjectType={effectiveDestinationType === 'new_asset' ? 'asset' : 'variant'}
+                  allowSubjectChoice={effectiveDestinationType === 'new_asset'}
+                  showPinToCreatedVariant={effectiveDestinationType === 'new_asset'}
+                  disabled={isSubmitting || isUploading}
+                />
+              </details>
             </div>
           )}
 

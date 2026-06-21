@@ -3,41 +3,34 @@
 
 .node {
   position: relative;
-  background: var(--color-surface);
-  /* Counter-scale border to stay visually constant */
-  border: calc(2px / var(--rf-zoom, 1)) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 6px;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 0;
+  transition: filter 0.15s ease, transform 0.15s ease;
   cursor: pointer;
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.08);
   /* Allow label to overflow outside node bounds */
   overflow: visible;
 }
 
 .node:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 4px 20px oklch(55% 0.18 276 / 0.25);
+  filter: drop-shadow(0 4px 20px oklch(55% 0.18 276 / 0.25));
 }
 
 .node.selected {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px oklch(55% 0.18 276 / 0.3);
+  filter: drop-shadow(0 0 18px oklch(55% 0.18 276 / 0.3));
 }
 
 .node.highlighted {
-  border-color: var(--color-primary);
-  background: oklch(55% 0.18 276 / 0.05);
+  filter: drop-shadow(0 0 18px oklch(55% 0.18 276 / 0.05));
 }
 
 .node.active {
-  border-color: var(--color-success);
-  border-width: calc(3px / var(--rf-zoom, 1));
-  box-shadow: 0 4px 20px oklch(70% 0.2 145 / 0.3);
+  filter: drop-shadow(0 4px 20px oklch(70% 0.2 145 / 0.3));
 }
 
 .node.starred {
-  border-color: var(--color-star-border);
+  filter: drop-shadow(0 0 16px var(--color-star-border));
 }
 
 /* Handles (connection points) - counter-scaled to stay clickable */
@@ -61,9 +54,9 @@
   position: relative;
   width: 140px;
   height: 140px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  background: var(--color-bg);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -109,8 +102,8 @@
 /* Indicators - counter-scaled to stay readable */
 .activeIndicator {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 4px;
+  right: 4px;
   font-size: 0.5625rem;
   background: var(--color-success);
   color: white;
@@ -138,8 +131,8 @@
 /* Hover actions - counter-scaled to stay clickable */
 .actions {
   position: absolute;
-  bottom: 6px;
-  right: 6px;
+  bottom: 4px;
+  right: 4px;
   display: flex;
   gap: 4px;
   opacity: 0;
@@ -156,15 +149,16 @@
   width: 24px;
   height: 24px;
   border-radius: var(--radius-sm);
-  border: none;
-  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  background: var(--surface-glass-strong);
   color: var(--color-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
-  box-shadow: 0 2px 6px oklch(0% 0 0 / 0.15);
+  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.18);
+  backdrop-filter: blur(12px);
 }
 
 .actionButton:hover {
@@ -184,7 +178,7 @@
   justify-content: center;
   gap: 4px;
   padding: 4px 8px;
-  background: var(--color-surface);
+  background: var(--surface-glass);
   border: calc(1px / var(--rf-zoom, 1)) solid var(--color-border);
   border-radius: var(--radius-sm);
   white-space: nowrap;
@@ -206,8 +200,7 @@
 /* Ghost node - cross-asset parent variant */
 .node.ghost {
   opacity: 0.6;
-  border-style: dashed;
-  border-color: var(--color-text-muted);
+  filter: saturate(0.6);
 }
 
 .node.ghost:hover {

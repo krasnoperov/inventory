@@ -6,7 +6,9 @@ import { CompositionDetail, CompositionUsageList } from './components/Compositio
 import { ForgeTray } from './components/ForgeTray';
 import { Pagination } from './components/Pagination';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
+import { SpaceBoard } from './components/SpaceBoard';
 import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
+import { VariantCanvas } from './components/VariantCanvas';
 import './styles/theme.css';
 import './styles/global.css';
 
@@ -27,7 +29,9 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
   RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,
+  SpaceBoard: SpaceBoard as unknown as ComponentType<Record<string, unknown>>,
   StyleReferenceUsagePanel: StyleReferenceUsagePanel as unknown as ComponentType<Record<string, unknown>>,
+  VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
 };
 
 function revive(value: unknown): unknown {

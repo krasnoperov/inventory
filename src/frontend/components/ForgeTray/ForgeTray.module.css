@@ -965,6 +965,57 @@
   cursor: not-allowed;
 }
 
+.placementDetails {
+  min-width: 0;
+  width: 100%;
+}
+
+.placementDetails summary {
+  min-height: 1.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.625rem;
+  border: 1px solid var(--ctl-line);
+  border-radius: 8px;
+  background: var(--ctl-surface);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.placementDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.placementDetails summary::before {
+  content: "+";
+  color: var(--color-text-muted);
+  font-family: var(--mono);
+}
+
+.placementDetails[open] summary::before {
+  content: "-";
+}
+
+.placementDetails summary span {
+  min-width: 1.2rem;
+  min-height: 1.2rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--button-primary-text);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.placementDetails[open] {
+  display: grid;
+  gap: 0.5rem;
+}
+
 /* Mini segmented (batch count, destination, video count) */
 .miniSeg {
   display: inline-flex;
