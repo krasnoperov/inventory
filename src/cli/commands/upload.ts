@@ -1,9 +1,9 @@
 /**
- * Upload Command - Import one media file to create variants
+ * Upload Command - Upload one media file to create variants
  *
  * Usage:
- *   makefx upload <file> --space <id> --asset <id>     Import to existing asset
- *   makefx upload <file> --space <id> --name <name>    Import as new asset
+ *   makefx upload <file> --space <id> --asset <id>     Upload to existing asset
+ *   makefx upload <file> --space <id> --name <name>    Upload as new asset
  *   makefx upload <file> --space <id> --name <name> --type <type>
  */
 
@@ -249,7 +249,6 @@ export async function executeUpload(
     const formData = new FormData();
     const blob = new Blob([fileBuffer], { type: mediaType.mimeType });
     formData.append('file', blob, fileName);
-    formData.append('operation', 'import');
     formData.append('mediaKind', mediaType.mediaKind);
     formData.append('activeVariantBehavior', activeVariantBehavior);
 
@@ -269,7 +268,7 @@ export async function executeUpload(
     }
 
     if (!jsonOutput) {
-      deps.print(`\nImporting "${fileName}" to space ${spaceId}...`);
+      deps.print(`\nUploading "${fileName}" to space ${spaceId}...`);
       deps.print(`  Media kind: ${mediaType.mediaKind}`);
       if (assetId) {
         deps.print(`  Target asset: ${assetId}`);
@@ -293,7 +292,7 @@ export async function executeUpload(
     const data = await response.json() as UploadMediaResponse | ErrorResponse;
 
     if (!response.ok) {
-      throw new Error(`Import failed: ${'error' in data ? data.error : response.statusText}`);
+      throw new Error(`Upload failed: ${'error' in data ? data.error : response.statusText}`);
     }
 
     const upload = data as UploadMediaResponse;
@@ -309,7 +308,7 @@ export async function executeUpload(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(
-        `Import created asset ${upload.variant.asset_id} and variant ${upload.variant.id}, but organization failed: ${message}`
+        `Upload created asset ${upload.variant.asset_id} and variant ${upload.variant.id}, but organization failed: ${message}`
       );
     }
 
@@ -325,7 +324,7 @@ export async function executeUpload(
       return result;
     }
 
-    deps.print('\nImport successful!\n');
+    deps.print('\nUpload successful!\n');
 
     if (upload.asset) {
       deps.print('New Asset:');
@@ -723,21 +722,21 @@ function stripUndefined(value: Record<string, unknown>): Record<string, unknown>
 function printUsage(): void {
   console.log(`
 Usage:
-  makefx upload <file> --asset <id> [--space <id>]     Import media to existing asset
-  makefx upload <file> --name <name> [--space <id>]    Import media as a new asset
+  makefx upload <file> --asset <id> [--space <id>]     Upload media to existing asset
+  makefx upload <file> --name <name> [--space <id>]    Upload media as a new asset
 
 Options:
   --space <id>      Target space ID; defaults from initialized project
-  --asset <id>      Target asset ID (import as new variant)
+  --asset <id>      Target asset ID (upload as new variant)
   --name <name>     New asset name (creates asset + variant)
   --type <type>     Asset type for new assets (default: character)
   --media-kind <k>  Optional explicit kind: image, audio, or video
-  --prompt <text>   Imported prompt provenance
-  --model <model>   Imported model provenance
-  --provider <name> Imported provider provenance
+  --prompt <text>   Prompt provenance for uploaded media
+  --model <model>   Model provenance for uploaded media
+  --provider <name> Provider provenance for uploaded media
   --provider-metadata <json>     Provider metadata JSON object
   --generation-provenance <json> Extra provenance JSON object
-  --source-variant <id>          Existing source variant for import lineage
+  --source-variant <id>          Existing source variant for upload lineage
   --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
   --active-variant-behavior <b>  if-missing, set-active, or keep
   --collection <ids>             Comma-separated collection IDs for the uploaded asset or variant

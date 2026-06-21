@@ -361,13 +361,12 @@ describe('uploadRoutes', () => {
     assert.strictEqual(complete.body.mediaKey, puts[0].key);
   });
 
-  it('stores import provenance, provider metadata, active behavior, and lineage', async () => {
+  it('stores upload provenance, provider metadata, active behavior, and lineage', async () => {
     const { app, doCalls } = buildApp();
     const formData = new FormData();
     formData.append('file', new File([new Uint8Array([1, 2, 3])], 'hero.png', { type: 'image/png' }));
     formData.append('assetName', 'Hero');
     formData.append('assetType', 'character');
-    formData.append('operation', 'import');
     formData.append('prompt', 'hero prompt');
     formData.append('model', 'external-model-1');
     formData.append('provider', 'external-provider');
@@ -388,12 +387,13 @@ describe('uploadRoutes', () => {
     const placeholder = doCalls.find((call) => call.path === '/internal/upload-placeholder');
     assert.ok(placeholder);
     const recipe = JSON.parse(String(placeholder.body.recipe)) as Record<string, unknown>;
-    assert.strictEqual(recipe.operation, 'import');
+    assert.strictEqual(recipe.operation, 'upload');
     assert.strictEqual(recipe.prompt, 'hero prompt');
     assert.strictEqual(recipe.model, 'external-model-1');
     assert.strictEqual(recipe.modelProvider, 'external-provider');
     assert.strictEqual(recipe.workflow, 'local-tool');
     assert.deepStrictEqual(recipe.parentVariantIds, ['variant-source']);
+    assert.strictEqual('importedAt' in recipe, false);
 
     const complete = doCalls.find((call) => call.path === '/internal/complete-upload');
     assert.ok(complete);
@@ -406,32 +406,43 @@ describe('uploadRoutes', () => {
     assert.strictEqual(doCalls.some((call) => call.path === '/internal/add-lineage'), false);
   });
 
-  it('rejects lineage on non-import uploads before creating placeholders', async () => {
-    const { app, puts, doCalls } = buildApp();
+  it('preserves legacy import provenance while accepting upload lineage', async () => {
+    const { app, doCalls } = buildApp();
     const formData = new FormData();
     formData.append('file', new File([new Uint8Array([1, 2, 3])], 'hero.png', { type: 'image/png' }));
     formData.append('assetName', 'Hero');
+    formData.append('operation', 'import');
     formData.append('lineage', JSON.stringify([
       { parentVariantId: 'variant-source', relationType: 'derived' },
     ]));
 
     const res = await app.fetch(uploadRequest('space-1', formData));
-    const body = await res.json() as { error: string };
+    const body = await res.json() as { success: boolean; lineage: Array<{ id: string }> };
 
-    assert.strictEqual(res.status, 400);
-    assert.match(body.error, /operation=import/);
-    assert.strictEqual(puts.length, 0);
-    assert.strictEqual(doCalls.length, 0);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(body.success, true);
+    assert.deepStrictEqual(body.lineage.map((lineage) => lineage.id), ['lineage-1']);
+
+    const placeholder = doCalls.find((call) => call.path === '/internal/upload-placeholder');
+    assert.ok(placeholder);
+    const recipe = JSON.parse(String(placeholder.body.recipe)) as Record<string, unknown>;
+    assert.strictEqual(recipe.operation, 'import');
+    assert.strictEqual(typeof recipe.importedAt, 'string');
+
+    const complete = doCalls.find((call) => call.path === '/internal/complete-upload');
+    assert.ok(complete);
+    assert.deepStrictEqual(complete.body.lineage, [
+      { parentVariantId: 'variant-source', relationType: 'derived' },
+    ]);
   });
 
-  it('fails and cleans uploaded bytes when import lineage parent is missing at completion', async () => {
+  it('fails and cleans uploaded bytes when upload lineage parent is missing at completion', async () => {
     const { app, puts, deletes, doCalls } = buildApp({
       completeUploadErrorForParent: 'deleted-source',
     });
     const formData = new FormData();
     formData.append('file', new File([new Uint8Array([1, 2, 3])], 'hero.png', { type: 'image/png' }));
     formData.append('assetName', 'Hero');
-    formData.append('operation', 'import');
     formData.append('lineage', JSON.stringify([
       { parentVariantId: 'deleted-source', relationType: 'derived' },
     ]));

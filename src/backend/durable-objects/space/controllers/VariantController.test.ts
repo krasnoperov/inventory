@@ -1086,7 +1086,7 @@ describe('VariantController', () => {
       assert.ok(broadcasts.some((b) => b.type === 'asset:updated'));
     });
 
-    test('creates import lineage during upload completion', async () => {
+    test('creates upload lineage during upload completion', async () => {
       const uploadingVariant = createMockVariant({
         id: 'upload-var',
         status: 'uploading',
@@ -1129,7 +1129,7 @@ describe('VariantController', () => {
       assert.ok(broadcasts.some((b) => b.type === 'lineage:created'));
     });
 
-    test('rejects missing import lineage parent before completing upload', async () => {
+    test('rejects missing upload lineage parent before completing upload', async () => {
       const uploadingVariant = createMockVariant({
         id: 'upload-var',
         status: 'uploading',

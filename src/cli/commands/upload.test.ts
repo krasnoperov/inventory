@@ -80,7 +80,7 @@ function depsFor(capturedBodies: BodyInit[], output: string[]) {
           status: 'completed',
           error_message: null,
           recipe: JSON.stringify({
-            operation: 'import',
+            operation: 'upload',
             originalFilename: 'clip.mp4',
             uploadedAt: '2026-06-16T00:00:00.000Z',
           }),
@@ -255,7 +255,7 @@ test('upload sends video files with explicit media kind and MIME type', async ()
     assert.equal(result.variant.id, 'variant-1');
     const formData = capturedBodies[0];
     assert.ok(formData instanceof FormData);
-    assert.equal(formData.get('operation'), 'import');
+    assert.equal(formData.has('operation'), false);
     assert.equal(formData.get('assetName'), 'Combat Clip');
     assert.equal(formData.get('assetType'), 'video');
     assert.equal(formData.get('mediaKind'), 'video');
@@ -272,7 +272,7 @@ test('upload sends video files with explicit media kind and MIME type', async ()
   }
 });
 
-test('upload sends single-file import provenance and lineage metadata', async () => {
+test('upload sends single-file provenance and lineage metadata', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
   const filePath = path.join(dir, 'paintover.png');
   const capturedBodies: BodyInit[] = [];
@@ -298,7 +298,7 @@ test('upload sends single-file import provenance and lineage metadata', async ()
 
     const formData = capturedBodies[0];
     assert.ok(formData instanceof FormData);
-    assert.equal(formData.get('operation'), 'import');
+    assert.equal(formData.has('operation'), false);
     assert.equal(formData.get('assetId'), 'asset-1');
     assert.equal(formData.get('prompt'), 'clean silhouette paintover');
     assert.equal(formData.get('model'), 'external-model');
@@ -309,7 +309,7 @@ test('upload sends single-file import provenance and lineage metadata', async ()
     assert.deepEqual(JSON.parse(String(formData.get('lineage'))), [
       { parentVariantId: 'variant-source', relationType: 'refined' },
     ]);
-    assert.match(output.join('\n'), /Importing/);
+    assert.match(output.join('\n'), /Uploading/);
     assert.match(output.join('\n'), /Source variant: variant-source \(refined\)/);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -606,7 +606,7 @@ test('upload rejects malformed provenance JSON before sending a request', async 
 
 test('upload treats JSON files as unsupported direct media instead of manifests', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
-  const filePath = path.join(dir, 'import.json');
+  const filePath = path.join(dir, 'upload.json');
   const capturedBodies: BodyInit[] = [];
   const output: string[] = [];
 
@@ -615,7 +615,7 @@ test('upload treats JSON files as unsupported direct media instead of manifests'
     await assert.rejects(
       () => executeUpload({
         positionals: [filePath],
-        options: { space: 'space-1', name: 'Import' },
+        options: { space: 'space-1', name: 'Upload' },
       }, depsFor(capturedBodies, output)),
       /Invalid file type "\.json"/
     );
@@ -625,7 +625,7 @@ test('upload treats JSON files as unsupported direct media instead of manifests'
   }
 });
 
-test('upload rejects dry-run because direct upload is the only import workflow', async () => {
+test('upload rejects dry-run because direct upload is the only workflow', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
   const filePath = path.join(dir, 'hero.png');
   const capturedBodies: BodyInit[] = [];
