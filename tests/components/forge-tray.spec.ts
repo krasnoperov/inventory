@@ -349,6 +349,8 @@ test('forge tray keeps one fork setup slot when style consumes Flash reference b
   });
   await disableAnimations(page);
 
+  // Engage the tray so the per-mode options reveal before adjusting them.
+  await page.getByLabel('Prompt').click();
   await page.getByRole('button', { name: 'Flash' }).click();
   await expect(page.getByTitle('Add reference')).toBeVisible();
 
@@ -376,6 +378,8 @@ test('forge tray counts style-only references against the selected model budget'
   });
   await disableAnimations(page);
 
+  // Engage the tray so the per-mode options reveal before adjusting them.
+  await page.getByLabel('Prompt').click();
   await page.getByRole('button', { name: 'Flash' }).click();
   await page.getByLabel('Prompt').fill('Create a finished asset in the active style');
 
