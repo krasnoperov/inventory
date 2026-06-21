@@ -498,6 +498,7 @@ export default function SpacePage() {
             variants={variants}
             collections={collections}
             collectionItems={collectionItems}
+            lineage={lineage}
             isInitialSyncPending={!hasSynced}
             onAssetClick={handleAssetOpen}
           />
