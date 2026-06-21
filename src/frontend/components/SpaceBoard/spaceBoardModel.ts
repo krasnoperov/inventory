@@ -1,5 +1,22 @@
 import type { Asset, CollectionItem, SpaceCollection, Variant } from '../../space/protocol';
 
+// Justified-rows packing: each card's width is proportional to its true aspect
+// ratio so a row shares one height and fills the available width without
+// cropping. Extreme panoramas/strips are clamped so a single asset can't blow
+// out a row. Missing dimensions fall back to a square. Shared by the scrolling
+// wall (SpaceBoard) and the canvas frames (SpaceCanvas).
+export const MIN_CARD_ASPECT = 0.6;
+export const MAX_CARD_ASPECT = 2.1;
+
+export function aspectRatioForVariant(variant: Variant | null | undefined): number {
+  const width = variant?.media_width ?? null;
+  const height = variant?.media_height ?? null;
+  if (width && height && width > 0 && height > 0) {
+    return Math.min(MAX_CARD_ASPECT, Math.max(MIN_CARD_ASPECT, width / height));
+  }
+  return 1;
+}
+
 export const COLLECTION_KINDS = [
   'cast',
   'backgrounds',

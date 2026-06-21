@@ -12,6 +12,7 @@ import type {
 } from '../../space/protocol';
 import { isVariantForgeTrayReady } from '../../space/protocol';
 import {
+  aspectRatioForVariant,
   COLLECTION_KIND_COLORS,
   COLLECTION_KIND_LABELS,
   COLLECTION_KINDS,
@@ -54,22 +55,6 @@ const DEFAULT_STARTERS: Array<{ name: string; kind: CollectionKind }> = [
   { name: 'Deliverables', kind: 'deliverables' },
   { name: 'Style References', kind: 'style_refs' },
 ];
-
-// Justified-rows packing: each card's width is proportional to its true aspect
-// ratio so a row shares one height and fills the available width without
-// cropping. Extreme panoramas/strips are clamped so a single asset can't blow
-// out a row. Missing dimensions fall back to a square.
-const MIN_ASPECT = 0.6;
-const MAX_ASPECT = 2.1;
-
-function aspectRatioForVariant(variant: Variant | null | undefined): number {
-  const width = variant?.media_width ?? null;
-  const height = variant?.media_height ?? null;
-  if (width && height && width > 0 && height > 0) {
-    return Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, width / height));
-  }
-  return 1;
-}
 
 // Invisible flex children that absorb the free space on the final row so a
 // sparse last row keeps its natural height instead of stretching to fill.
