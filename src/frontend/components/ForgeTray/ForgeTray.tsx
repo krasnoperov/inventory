@@ -1138,13 +1138,14 @@ export function ForgeTray({
           {/* Asset-detail header — existing asset context + destination toggle */}
           {showDestinationToggle && (
             <>
-              {/* The destination toggle sits above the collapsible options. Keep
-                  its focus from expanding the tray so the buttons don't shift
-                  out from under a click (the tray grows upward). */}
+              {/* The destination toggle sits above the collapsible options. Stop
+                  its focus from expanding the tray so the buttons don't shift out
+                  from under a click (the tray grows upward). Blur must still
+                  bubble, otherwise focus leaving the header for outside the tray
+                  would never reach the tray handler and it would stay expanded. */}
               <div
                 className={styles.assetHeader}
                 onFocusCapture={(e) => e.stopPropagation()}
-                onBlurCapture={(e) => e.stopPropagation()}
               >
                 <div className={styles.assetHeaderInfo}>
                   <span className={styles.assetThumb} aria-hidden="true" />
@@ -1196,7 +1197,10 @@ export function ForgeTray({
           />
 
           {/* Per-mode options + shortcuts — collapsed to a compact bar until the tray is engaged */}
-          <div className={`${styles.optionsReveal} ${isTrayExpanded ? styles.optionsRevealOpen : ''}`}>
+          <div
+            className={`${styles.optionsReveal} ${isTrayExpanded ? styles.optionsRevealOpen : ''}`}
+            data-testid="forge-options-reveal"
+          >
             <div className={styles.optionsRevealInner}>
           {showOptionsRow && (
             <div className={styles.optionsRow}>

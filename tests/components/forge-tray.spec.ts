@@ -684,6 +684,35 @@ test('forge tray on asset detail shows Current/New header', async ({ page }) => 
   await expect(page.getByLabel('Asset name')).toBeVisible();
 });
 
+test('forge tray collapses after touching the destination toggle then leaving', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: matrixAssets,
+    allVariants: matrixVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    currentAsset: matrixAssets[0],
+  });
+  await disableAnimations(page);
+
+  const reveal = page.getByTestId('forge-options-reveal');
+  const revealHeight = async () => (await reveal.boundingBox())?.height ?? 0;
+
+  // Per-mode options are collapsed while the tray rests.
+  await expect.poll(revealHeight).toBeLessThan(2);
+
+  // Engaging the prompt reveals them.
+  await page.getByLabel('Prompt').click();
+  await expect.poll(revealHeight).toBeGreaterThan(20);
+
+  // Focusing the destination toggle and then clicking outside must collapse the
+  // tray again — the header's blur has to reach the tray handler.
+  await page.getByRole('button', { name: 'New' }).click();
+  await page.mouse.click(10, 10);
+  await expect.poll(revealHeight).toBeLessThan(2);
+});
+
 test('forge tray dark theme polish', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.setViewportSize({ width: 980, height: 760 });
