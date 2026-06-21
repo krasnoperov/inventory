@@ -422,6 +422,10 @@ export function ForgeTray({
   const [uploadAssetName, setUploadAssetName] = useState('');
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const [showChat, setShowChat] = useState(false);
+  // Tray rests as a compact prompt + control bar; the per-mode options reveal
+  // once the user engages the tray (focus, a draft prompt, references, or an
+  // open panel).
+  const [trayFocused, setTrayFocused] = useState(false);
   const [showStylePanel, setShowStylePanel] = useState(false);
   const [styleSelection, setStyleSelection] = useState<StyleSelection>({ mode: 'default' });
   const [batchCount, setBatchCount] = useState(1);
@@ -1101,10 +1105,19 @@ export function ForgeTray({
     showBatchControls ||
     showStyleControls;
 
+  const isTrayExpanded =
+    trayFocused ||
+    prompt.trim().length > 0 ||
+    slots.length > 0 ||
+    showStylePanel ||
+    showChat ||
+    showModePopover;
+
   // Build tray class with drag-over state
   const trayClasses = [styles.tray];
   if (onBrandBackground) trayClasses.push(styles.onBrandBackground);
   if (isDragOver) trayClasses.push(styles.dragOver);
+  if (isTrayExpanded) trayClasses.push(styles.expanded);
   const trayClass = trayClasses.join(' ');
 
   return (
@@ -1114,12 +1127,26 @@ export function ForgeTray({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onFocus={() => setTrayFocused(true)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setTrayFocused(false);
+          }
+        }}
       >
         <div className={styles.inputArea}>
           {/* Asset-detail header — existing asset context + destination toggle */}
           {showDestinationToggle && (
             <>
-              <div className={styles.assetHeader}>
+              {/* The destination toggle sits above the collapsible options. Stop
+                  its focus from expanding the tray so the buttons don't shift out
+                  from under a click (the tray grows upward). Blur must still
+                  bubble, otherwise focus leaving the header for outside the tray
+                  would never reach the tray handler and it would stay expanded. */}
+              <div
+                className={styles.assetHeader}
+                onFocusCapture={(e) => e.stopPropagation()}
+              >
                 <div className={styles.assetHeaderInfo}>
                   <span className={styles.assetThumb} aria-hidden="true" />
                   <span className={styles.assetHeaderName} title={currentAsset?.name ?? undefined}>
@@ -1169,7 +1196,12 @@ export function ForgeTray({
             aria-label="Prompt"
           />
 
-          {/* Per-mode options */}
+          {/* Per-mode options + shortcuts — collapsed to a compact bar until the tray is engaged */}
+          <div
+            className={`${styles.optionsReveal} ${isTrayExpanded ? styles.optionsRevealOpen : ''}`}
+            data-testid="forge-options-reveal"
+          >
+            <div className={styles.optionsRevealInner}>
           {showOptionsRow && (
             <div className={styles.optionsRow}>
               {currentMediaGroup === 'image' && (
@@ -1448,6 +1480,8 @@ export function ForgeTray({
               </details>
             </div>
           )}
+            </div>
+          </div>
 
           {/* References — only when present; the empty-state add lives in the control bar */}
           {slots.length > 0 && (

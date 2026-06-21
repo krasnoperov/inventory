@@ -202,14 +202,35 @@
 }
 
 .collection {
+  position: relative;
+  isolation: isolate;
   --collection-color: var(--color-text-muted);
   min-width: 0;
-  padding: 0.15rem 0 1.1rem;
-  border-top: 1px solid var(--collection-color);
+  padding: 0.9rem 1.1rem 1.15rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-glass);
+}
+
+/* Soft collection-colored wash so each group reads as one unit without a
+   heavy filled container painting over the cards. */
+.collection::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, var(--collection-color) 0%, transparent 60%);
+  opacity: 0.09;
+  pointer-events: none;
 }
 
 .unfiled {
   --collection-color: var(--color-text-muted);
+}
+
+.unfiled::before {
+  opacity: 0.04;
 }
 
 .collectionHeader {
@@ -295,29 +316,41 @@
   display: none;
 }
 
+/* Justified rows: cards flex-grow in proportion to their aspect ratio, so a
+   row shares one height and fills the full width with each asset at its true
+   proportions (no square crop). --row-h is the target row height. */
 .cardGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: 1rem;
-  align-items: start;
+  --row-h: 152px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 .assetCard {
   position: relative;
   min-width: 0;
-  display: grid;
-  gap: 0.45rem;
-  justify-items: center;
+  flex: var(--card-aspect, 1) 1 calc(var(--card-aspect, 1) * var(--row-h));
+}
+
+/* Zero-height fillers swallow the trailing free space so the last row keeps
+   its natural height instead of stretching. */
+.cardFiller {
+  flex: 999999 1 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
 }
 
 .thumbnailButton {
+  display: block;
   width: 100%;
-  max-width: 156px;
-  aspect-ratio: 1;
+  aspect-ratio: var(--card-aspect, 1);
   padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
-  background: transparent;
+  overflow: hidden;
+  background: var(--surface-glass);
   cursor: pointer;
   transition: filter 0.15s ease, transform 0.15s ease;
 }
@@ -332,12 +365,34 @@
   height: 100%;
 }
 
-.cardBody {
-  min-width: 0;
-  width: 100%;
+/* Caption is painted on top of the locked image box (absolute), so revealing
+   it never reflows the packed grid. */
+.caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: grid;
   gap: 0.15rem;
-  justify-items: center;
+  padding: 1.5rem 0.5rem 0.45rem;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: linear-gradient(
+    to top,
+    oklch(0% 0 0 / 0.82) 0%,
+    oklch(0% 0 0 / 0.52) 42%,
+    oklch(0% 0 0 / 0) 100%
+  );
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+
+.assetCard:hover .caption,
+.assetCard:focus-within .caption {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
 }
 
 .assetName {
@@ -345,39 +400,36 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--color-text);
+  color: oklch(100% 0 0);
   font: inherit;
   font-size: var(--font-size-small-sm);
   font-weight: 600;
-  text-align: center;
+  text-align: left;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 3px oklch(0% 0 0 / 0.6);
   cursor: pointer;
 }
 
 .assetName:hover {
-  color: var(--color-primary);
+  text-decoration: underline;
 }
 
 .assetMeta {
-  display: none;
-  gap: 0.25rem;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.assetCard:hover .assetMeta,
-.assetCard:focus-within .assetMeta {
   display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
 }
 
 .assetMeta span {
   min-width: 0;
-  padding: 0.08rem 0.35rem;
-  background: var(--surface-glass);
-  border: 1px solid var(--color-border);
+  padding: 0.05rem 0.32rem;
+  background: oklch(100% 0 0 / 0.16);
+  border: 0;
   border-radius: var(--radius-xs);
+  color: oklch(100% 0 0 / 0.92);
+  font-size: var(--font-size-micro);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -385,7 +437,7 @@
 .cardMenu {
   position: absolute;
   top: 0.35rem;
-  right: calc(50% - min(78px, 50%));
+  right: 0.35rem;
   opacity: 0;
   transition: opacity 0.15s ease;
 }
@@ -394,6 +446,19 @@
 .assetCard:focus-within .cardMenu,
 .cardMenu[open] {
   opacity: 1;
+}
+
+/* Dark chip so the actions trigger stays legible over any thumbnail. */
+.cardMenu summary {
+  width: 26px;
+  min-height: 26px;
+  border-radius: var(--radius-sm);
+  background: oklch(0% 0 0 / 0.5);
+  backdrop-filter: blur(6px);
+}
+
+.cardMenu summary::before {
+  color: oklch(100% 0 0 / 0.92);
 }
 
 .cardMenuPanel {
@@ -436,8 +501,12 @@
     align-items: stretch;
   }
 
+  .collection {
+    padding: 0.75rem 0.8rem 0.95rem;
+  }
+
   .cardGrid {
-    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-    gap: 0.85rem;
+    --row-h: 116px;
+    gap: 0.45rem;
   }
 }

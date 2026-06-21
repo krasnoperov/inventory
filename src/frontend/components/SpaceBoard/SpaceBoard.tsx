@@ -55,6 +55,31 @@ const DEFAULT_STARTERS: Array<{ name: string; kind: CollectionKind }> = [
   { name: 'Style References', kind: 'style_refs' },
 ];
 
+// Justified-rows packing: each card's width is proportional to its true aspect
+// ratio so a row shares one height and fills the available width without
+// cropping. Extreme panoramas/strips are clamped so a single asset can't blow
+// out a row. Missing dimensions fall back to a square.
+const MIN_ASPECT = 0.6;
+const MAX_ASPECT = 2.1;
+
+function aspectRatioForVariant(variant: Variant | null | undefined): number {
+  const width = variant?.media_width ?? null;
+  const height = variant?.media_height ?? null;
+  if (width && height && width > 0 && height > 0) {
+    return Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, width / height));
+  }
+  return 1;
+}
+
+// Invisible flex children that absorb the free space on the final row so a
+// sparse last row keeps its natural height instead of stretching to fill.
+const ROW_FILLERS = Array.from({ length: 8 });
+function renderRowFillers() {
+  return ROW_FILLERS.map((_, index) => (
+    <span key={`filler-${index}`} className={styles.cardFiller} aria-hidden="true" />
+  ));
+}
+
 export function SpaceBoard({
   spaceId,
   assets,
@@ -187,10 +212,15 @@ export function SpaceBoard({
         : '';
     const cardKey = `${collectionId ?? 'unfiled'}:${item?.id ?? asset.id}`;
     const targetCollectionId = cardTargets[cardKey] ?? orderedCollections[0]?.id ?? '';
+    const aspectRatio = aspectRatioForVariant(displayVariant);
 
     return (
-      <article key={cardKey} className={styles.assetCard}>
-        <button className={styles.thumbnailButton} onClick={() => onAssetClick(asset)}>
+      <article
+        key={cardKey}
+        className={styles.assetCard}
+        style={{ '--card-aspect': aspectRatio } as CSSProperties}
+      >
+        <button className={styles.thumbnailButton} onClick={() => onAssetClick(asset)} title={asset.name}>
           <Thumbnail
             variant={displayVariant}
             size="fill"
@@ -198,7 +228,7 @@ export function SpaceBoard({
             className={styles.thumbnail}
           />
         </button>
-        <div className={styles.cardBody}>
+        <div className={styles.caption}>
           <button className={styles.assetName} onClick={() => onAssetClick(asset)}>
             {asset.name}
           </button>
@@ -410,6 +440,7 @@ export function SpaceBoard({
             return renderAssetCard(asset, item, collection.id, itemIndex, ids);
           })}
           {items.length === 0 && <div className={styles.emptyCollection}>No items</div>}
+          {items.length > 0 && renderRowFillers()}
         </div>
       </section>
     );
@@ -472,6 +503,7 @@ export function SpaceBoard({
             </header>
             <div className={styles.cardGrid}>
               {unfiledAssets.map((asset) => renderAssetCard(asset, null))}
+              {renderRowFillers()}
             </div>
           </section>
         )}

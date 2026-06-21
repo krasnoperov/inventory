@@ -876,6 +876,24 @@
   flex-wrap: wrap;
 }
 
+/* Collapsible reveal for the per-mode options. grid-template-rows 0fr -> 1fr
+   animates the height cheaply so the tray rests at prompt + control bar and
+   grows only when engaged. */
+.optionsReveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.optionsRevealOpen {
+  grid-template-rows: 1fr;
+}
+
+.optionsRevealInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .optSpacer {
   flex: 1 1 auto;
 }
