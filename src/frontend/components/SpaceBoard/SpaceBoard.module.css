@@ -3,16 +3,18 @@
   inset: 0;
   overflow: auto;
   padding: 4.75rem 1rem 7.5rem;
-  background: var(--color-bg);
+  background:
+    radial-gradient(circle at 1px 1px, oklch(100% 0 0 / 0.08) 1px, transparent 0) 0 0 / 32px 32px,
+    var(--color-bg);
 }
 
 .boardHeader {
+  max-width: 1880px;
+  margin: 0 auto 1.2rem;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  margin: 0 auto 1rem;
-  max-width: 1800px;
 }
 
 .boardHeader h2,
@@ -28,6 +30,7 @@
 
 .boardHeader p,
 .starterPanel p,
+.collectionTitleGroup p,
 .collectionTitleGroup span,
 .assetMeta {
   margin: 0;
@@ -36,27 +39,101 @@
 }
 
 .createControls,
-.addRow,
-.collectionActions,
-.itemEditors,
-.cardActions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.collectionMenu,
+.cardMenu {
+  position: relative;
 }
 
-.createControls input[type='text'],
-.createControls input:not([type]),
-.createControls select,
-.createControls button,
-.addRow select,
-.addRow button,
-.collectionNameInput,
-.compactSelect,
-.roleInput,
-.cardMenuPanel select,
-.cardMenuPanel button {
+.createControls summary,
+.collectionMenu summary,
+.cardMenu summary {
+  list-style: none;
   min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-glass);
+  color: var(--color-text);
+  font-size: var(--font-size-small-sm);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+}
+
+.createControls summary {
+  padding: 0.35rem 0.75rem;
+}
+
+.collectionMenu summary,
+.cardMenu summary {
+  width: 32px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: transparent;
+}
+
+.collectionMenu summary::before,
+.cardMenu summary::before {
+  content: "...";
+  color: var(--color-text-muted);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.collectionMenu {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.collection:hover .collectionMenu,
+.collection:focus-within .collectionMenu,
+.collectionMenu[open] {
+  opacity: 1;
+}
+
+.createControls summary::-webkit-details-marker,
+.collectionMenu summary::-webkit-details-marker,
+.cardMenu summary::-webkit-details-marker {
+  display: none;
+}
+
+.createPanel,
+.collectionMenuPanel,
+.cardMenuPanel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 8;
+  width: min(360px, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevated);
+}
+
+.createPanel {
+  grid-template-columns: minmax(0, 1fr) minmax(8rem, auto) auto auto;
+  align-items: center;
+}
+
+.createPanel input:not([type='color']),
+.createPanel select,
+.createPanel button,
+.collectionMenuPanel input:not([type='color']),
+.collectionMenuPanel select,
+.collectionMenuPanel button,
+.cardMenuPanel input,
+.cardMenuPanel select,
+.cardMenuPanel button,
+.addRow select,
+.addRow button {
+  min-height: 32px;
+  min-width: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
@@ -65,24 +142,25 @@
   font-size: var(--font-size-small-sm);
 }
 
-.createControls input:not([type]),
-.createControls select,
-.addRow select,
-.collectionNameInput,
-.roleInput,
-.compactSelect,
-.cardMenuPanel select {
+.createPanel input:not([type='color']),
+.createPanel select,
+.collectionMenuPanel input:not([type='color']),
+.collectionMenuPanel select,
+.cardMenuPanel input,
+.cardMenuPanel select,
+.addRow select {
   padding: 0.35rem 0.55rem;
 }
 
-.createControls button,
-.addRow button,
-.cardMenuPanel button {
+.createPanel button,
+.collectionMenuPanel button,
+.cardMenuPanel button,
+.addRow button {
   padding: 0.35rem 0.7rem;
   cursor: pointer;
 }
 
-.createControls input[type='color'],
+.createPanel input[type='color'],
 .colorInput {
   width: 32px;
   height: 32px;
@@ -93,23 +171,22 @@
 }
 
 .starterPanel {
-  max-width: 1800px;
+  max-width: 1880px;
   margin: 0 auto 1rem;
   padding: 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  background: var(--color-surface);
+  background: var(--surface-glass);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  backdrop-filter: blur(12px);
 }
 
-.starterPanel button,
-.iconButton,
-.dangerButton,
-.removeButton,
-.itemOrder button {
+.starterPanel button {
+  min-height: 34px;
+  padding: 0.4rem 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--button-ghost-bg);
@@ -117,27 +194,18 @@
   cursor: pointer;
 }
 
-.starterPanel button {
-  min-height: 34px;
-  padding: 0.4rem 0.75rem;
-}
-
 .collectionsRail {
-  max-width: 1800px;
+  max-width: 1880px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-  gap: 1rem;
-  align-items: start;
+  gap: 2rem;
 }
 
 .collection {
+  --collection-color: var(--color-text-muted);
   min-width: 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-top: 3px solid var(--collection-color);
-  border-radius: var(--radius-md);
-  overflow: visible;
+  padding: 0.15rem 0 1.1rem;
+  border-top: 1px solid var(--collection-color);
 }
 
 .unfiled {
@@ -146,108 +214,117 @@
 
 .collectionHeader {
   display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.8rem;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.colorSwatch {
-  width: 12px;
-  height: 28px;
-  border-radius: var(--radius-xs);
-  background: var(--collection-color);
-  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0 0.9rem;
 }
 
 .collectionTitleGroup {
   min-width: 0;
-  flex: 1;
+  display: grid;
+  gap: 0.2rem;
 }
 
-.collectionTitleGroup h2,
-.collectionNameInput {
-  font-size: var(--font-size-body-sm);
+.collectionTitleGroup h2 {
+  font-size: var(--font-size-body);
   font-weight: 650;
+}
+
+.collectionEyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.colorDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--collection-color);
+  box-shadow: 0 0 16px var(--collection-color);
 }
 
 .collectionNameInput {
   width: 100%;
 }
 
-.collectionActions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.iconButton,
-.dangerButton,
-.removeButton,
-.itemOrder button {
-  min-height: 28px;
-  padding: 0.25rem 0.45rem;
+.collectionMenuPanel label,
+.cardMenuPanel label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--color-text-muted);
   font-size: var(--font-size-micro);
 }
 
-.iconButton:disabled,
-.itemOrder button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.colorField {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
 }
 
-.dangerButton,
-.removeButton {
-  color: var(--color-danger);
-  background: var(--color-danger-bg);
-}
-
-.addRow {
-  padding: 0.75rem 0.8rem;
-  border-bottom: 1px solid var(--color-border);
+.addRow,
+.menuButtonRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .addRow select {
   flex: 1;
-  min-width: 0;
+}
+
+.menuButtonRow {
+  flex-wrap: wrap;
+}
+
+.menuButtonRow button {
+  flex: 1;
+}
+
+.removeMenuButton {
+  color: var(--color-danger) !important;
+  background: var(--color-danger-bg) !important;
+}
+
+.previewStrip {
+  display: none;
 }
 
 .cardGrid {
   display: grid;
-  gap: 0.7rem;
-  padding: 0.8rem;
-}
-
-.itemShell {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.45rem;
-  align-items: stretch;
-}
-
-.itemOrder {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 1rem;
+  align-items: start;
 }
 
 .assetCard {
+  position: relative;
   min-width: 0;
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) auto;
-  gap: 0.65rem;
-  padding: 0.55rem;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  gap: 0.45rem;
+  justify-items: center;
 }
 
 .thumbnailButton {
-  width: 76px;
+  width: 100%;
+  max-width: 156px;
   aspect-ratio: 1;
   padding: 0;
   border: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
   cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.thumbnailButton:hover {
+  filter: drop-shadow(0 10px 24px oklch(0% 0 0 / 0.32));
+  transform: translateY(-1px);
 }
 
 .thumbnail {
@@ -257,9 +334,10 @@
 
 .cardBody {
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  width: 100%;
+  display: grid;
+  gap: 0.15rem;
+  justify-items: center;
 }
 
 .assetName {
@@ -269,86 +347,62 @@
   background: transparent;
   color: var(--color-text);
   font: inherit;
-  font-weight: 650;
-  text-align: left;
+  font-size: var(--font-size-small-sm);
+  font-weight: 600;
+  text-align: center;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor: pointer;
 }
 
+.assetName:hover {
+  color: var(--color-primary);
+}
+
 .assetMeta {
-  display: flex;
-  gap: 0.35rem;
+  display: none;
+  gap: 0.25rem;
+  justify-content: center;
   flex-wrap: wrap;
+}
+
+.assetCard:hover .assetMeta,
+.assetCard:focus-within .assetMeta {
+  display: flex;
 }
 
 .assetMeta span {
   min-width: 0;
   padding: 0.08rem 0.35rem;
-  background: var(--chip-bg);
-  border: 1px solid var(--chip-border);
+  background: var(--surface-glass);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-xs);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.itemEditors {
-  align-items: stretch;
-  flex-direction: column;
+.cardMenu {
+  position: absolute;
+  top: 0.35rem;
+  right: calc(50% - min(78px, 50%));
+  opacity: 0;
+  transition: opacity 0.15s ease;
 }
 
-.roleInput,
-.compactSelect {
-  width: 100%;
-  min-width: 0;
-}
-
-.cardActions {
-  align-self: start;
-  position: relative;
-  flex-direction: column;
-}
-
-.cardMenu summary {
-  list-style: none;
-  min-width: 28px;
-  min-height: 28px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.cardMenu summary::-webkit-details-marker {
-  display: none;
+.assetCard:hover .cardMenu,
+.assetCard:focus-within .cardMenu,
+.cardMenu[open] {
+  opacity: 1;
 }
 
 .cardMenuPanel {
-  position: absolute;
-  right: 0;
-  top: 32px;
-  z-index: 4;
-  width: 190px;
-  padding: 0.6rem;
-  display: grid;
-  gap: 0.5rem;
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-elevated);
-}
-
-.cardMenuPanel label {
-  display: grid;
-  gap: 0.25rem;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-micro);
+  top: calc(100% + 0.35rem);
+  width: min(260px, calc(100vw - 2rem));
 }
 
 .emptyCollection {
-  min-height: 72px;
+  min-height: 96px;
   display: grid;
   place-items: center;
   color: var(--color-text-muted);
@@ -359,7 +413,7 @@
 
 @media (max-width: 760px) {
   .board {
-    padding: 4.5rem 0.65rem 8.5rem;
+    padding: 4.5rem 0.75rem 8.5rem;
   }
 
   .boardHeader,
@@ -369,25 +423,21 @@
   }
 
   .createControls {
-    flex-wrap: wrap;
+    justify-self: start;
   }
 
-  .collectionsRail {
+  .createPanel {
+    left: 0;
+    right: auto;
     grid-template-columns: 1fr;
   }
 
-  .collectionHeader,
-  .collectionActions {
+  .collectionHeader {
     align-items: stretch;
-    flex-direction: column;
   }
 
-  .assetCard {
-    grid-template-columns: 64px minmax(0, 1fr);
-  }
-
-  .cardActions {
-    grid-column: 1 / -1;
-    flex-direction: row;
+  .cardGrid {
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 0.85rem;
   }
 }
