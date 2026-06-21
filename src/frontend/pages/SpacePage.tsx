@@ -31,6 +31,7 @@ import {
 import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { SpaceBoard } from '../components/SpaceBoard';
+import { SpaceCanvas } from '../components/SpaceCanvas';
 import { ForgeTray } from '../components/ForgeTray';
 import type { ForgeSubmitParams } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
@@ -227,6 +228,9 @@ export default function SpacePage() {
   const [isImporting, setIsImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
+  // Board (scrolling wall) vs canvas (floating collection frames) view
+  const [viewMode, setViewMode] = useState<'wall' | 'canvas'>('wall');
+
   // Tile Set panel state
   const [showTileSetPanel, setShowTileSetPanel] = useState(false);
 
@@ -323,6 +327,10 @@ export default function SpacePage() {
   const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
     addSlot(variant, asset);
   }, [addSlot]);
+
+  const handleAssetOpen = useCallback((clickedAsset: Asset) => {
+    navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
+  }, [navigate, spaceId]);
 
   // Handle persistent chat message - wraps sendPersistentChatMessage to manage loading state
   const handleSendChatMessage = useCallback((content: string, forgeContext?: ChatForgeContext) => {
@@ -483,27 +491,37 @@ export default function SpacePage() {
 
       {/* Full-screen canvas container */}
       <div className={styles.canvasContainer}>
-        <SpaceBoard
-          spaceId={spaceId || ''}
-          assets={assets}
-          variants={variants}
-          collections={collections}
-          collectionItems={collectionItems}
-          canEdit={canEdit}
-          isInitialSyncPending={!hasSynced}
-          onAssetClick={(clickedAsset) => {
-            navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
-          }}
-          onAddToTray={canEdit ? handleAddToTray : undefined}
-          onCreateRelation={canEdit ? setRelationSubject : undefined}
-          createCollection={createCollection}
-          updateCollection={updateCollection}
-          deleteCollection={deleteCollection}
-          addCollectionItem={addCollectionItem}
-          updateCollectionItem={updateCollectionItem}
-          reorderCollectionItems={reorderCollectionItems}
-          deleteCollectionItem={deleteCollectionItem}
-        />
+        {viewMode === 'canvas' ? (
+          <SpaceCanvas
+            spaceId={spaceId || ''}
+            assets={assets}
+            variants={variants}
+            collections={collections}
+            collectionItems={collectionItems}
+            isInitialSyncPending={!hasSynced}
+            onAssetClick={handleAssetOpen}
+          />
+        ) : (
+          <SpaceBoard
+            spaceId={spaceId || ''}
+            assets={assets}
+            variants={variants}
+            collections={collections}
+            collectionItems={collectionItems}
+            canEdit={canEdit}
+            isInitialSyncPending={!hasSynced}
+            onAssetClick={handleAssetOpen}
+            onAddToTray={canEdit ? handleAddToTray : undefined}
+            onCreateRelation={canEdit ? setRelationSubject : undefined}
+            createCollection={createCollection}
+            updateCollection={updateCollection}
+            deleteCollection={deleteCollection}
+            addCollectionItem={addCollectionItem}
+            updateCollectionItem={updateCollectionItem}
+            reorderCollectionItems={reorderCollectionItems}
+            deleteCollectionItem={deleteCollectionItem}
+          />
+        )}
 
         <CanvasToolbar ariaLabel="Space controls">
           <CanvasToolbarTitle>
@@ -541,6 +559,28 @@ export default function SpacePage() {
             </CanvasToolbarStat>
             {wsStatus === 'connected' && <CanvasToolbarLive />}
           </CanvasToolbarGroup>
+          <CanvasToolbarDivider />
+          <CanvasToolbarButton
+            active={viewMode === 'canvas'}
+            onClick={() => setViewMode((mode) => (mode === 'canvas' ? 'wall' : 'canvas'))}
+            title={viewMode === 'canvas' ? 'Switch to board view' : 'Switch to canvas view'}
+          >
+            {viewMode === 'canvas' ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="8" height="6" rx="1.5" />
+                <rect x="14" y="4" width="7" height="9" rx="1.5" />
+                <rect x="3" y="13" width="8" height="7" rx="1.5" />
+                <rect x="14" y="16" width="7" height="4" rx="1.5" />
+              </svg>
+            )}
+          </CanvasToolbarButton>
           <CanvasToolbarDivider />
           <CanvasToolbarButton
             onClick={() => navigate(`/spaces/${spaceId}/production`)}

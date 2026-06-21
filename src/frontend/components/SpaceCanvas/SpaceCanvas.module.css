@@ -1,0 +1,136 @@
+.canvas {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 1px 1px, oklch(100% 0 0 / 0.08) 1px, transparent 0) 0 0 / 32px 32px,
+    var(--color-bg);
+}
+
+/* Reveal the canvas only after the first fit so frames don't visibly jump. */
+.canvas.loading {
+  opacity: 0;
+}
+
+.canvas.ready {
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.canvas :global(.react-flow__attribution) {
+  display: none;
+}
+
+/* A collection rendered as a draggable frame on the canvas. */
+.frame {
+  position: relative;
+  isolation: isolate;
+  width: 460px;
+  display: flex;
+  flex-direction: column;
+  --collection-color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-elevated);
+  overflow: hidden;
+}
+
+.frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, var(--collection-color) 0%, transparent 55%);
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+/* Header doubles as the drag handle for the frame. */
+.frameHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem 0.7rem;
+  cursor: grab;
+}
+
+.frameHeader:active {
+  cursor: grabbing;
+}
+
+.frameEyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.colorDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--collection-color);
+  box-shadow: 0 0 16px var(--collection-color);
+}
+
+.frameTitle {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.frameCount {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small-sm);
+  white-space: nowrap;
+}
+
+.frameBody {
+  padding: 0 0.85rem 0.95rem;
+}
+
+.frameEmpty {
+  min-height: 72px;
+  display: grid;
+  place-items: center;
+  margin: 0 0.85rem 0.95rem;
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-small-sm);
+}
+
+.controls {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.minimap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.3rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.emptyIcon {
+  font-size: 2rem;
+}
