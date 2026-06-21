@@ -80,12 +80,19 @@ function estimateFrameHeight(count: number): number {
   return HEADER_H + rows * (ROW_H + 9) + 16;
 }
 
+const NO_DRAGGED: ReadonlySet<string> = new Set();
+
 // Masonry: drop each frame into the currently shortest column. Uses the real
 // measured height when available (after React Flow measures the DOM), falling
-// back to the estimate for the very first paint.
-function packMasonry(nodes: FrameNode[]): FrameNode[] {
+// back to the estimate for the very first paint. Frames the user has dragged
+// keep their position and are left out of the column flow — only the
+// auto-arranged frames are packed, so live data changes can never push an
+// auto-frame on top of another. Nodes whose position is unchanged are returned
+// by identity so callers can cheaply detect a no-op.
+function packMasonry(nodes: FrameNode[], draggedIds: ReadonlySet<string> = NO_DRAGGED): FrameNode[] {
   const columnHeights = new Array(COLUMNS).fill(0);
   return nodes.map((node) => {
+    if (draggedIds.has(node.id)) return node;
     let col = 0;
     for (let i = 1; i < COLUMNS; i++) {
       if (columnHeights[i] < columnHeights[col]) col = i;
@@ -93,6 +100,7 @@ function packMasonry(nodes: FrameNode[]): FrameNode[] {
     const height = node.measured?.height ?? estimateFrameHeight((node.data as FrameData).count);
     const position = { x: col * (FRAME_WIDTH + FRAME_GAP), y: columnHeights[col] };
     columnHeights[col] += height + FRAME_GAP;
+    if (node.position.x === position.x && node.position.y === position.y) return node;
     return { ...node, position };
   });
 }
@@ -261,34 +269,48 @@ function SpaceCanvasInner({
   }, [assets, variants, collections, collectionItems, spaceId, onAssetClick]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<FrameNode>(initialNodes);
+  const draggedIdsRef = useRef<Set<string>>(new Set());
 
-  // Sync live data into the nodes while preserving any positions the user has
-  // dragged. Only frames that didn't exist before take their computed masonry
-  // slot; existing frames keep where they were placed.
+  // Sync live data into the existing nodes, keeping each frame's current
+  // position and measured size. New frames arrive with their seeded slot.
   useEffect(() => {
     setNodes((current) => {
-      const positionById = new Map(current.map((node) => [node.id, node.position]));
-      return initialNodes.map((node) => {
-        const existing = positionById.get(node.id);
-        return existing ? { ...node, position: existing } : node;
+      const byId = new Map(current.map((node) => [node.id, node]));
+      return initialNodes.map((incoming) => {
+        const existing = byId.get(incoming.id);
+        return existing ? { ...existing, data: incoming.data } : incoming;
       });
     });
   }, [initialNodes, setNodes]);
 
-  // Once React Flow has measured the frames, re-pack the masonry with their real
-  // heights (the estimate can't know exact wall heights) and fit the view. Runs
-  // once per mount; later data edits keep the user's arranged positions.
-  const nodesInitialized = useNodesInitialized();
-  const didLayoutRef = useRef(false);
+  // Re-pack the masonry whenever the set of frames or any measured height
+  // changes — so growing a frame (e.g. live-synced new cards) re-flows the
+  // auto-arranged frames instead of letting them overlap. Frames the user has
+  // dragged are skipped (see packMasonry). The key omits positions, so the
+  // re-pack's own position writes don't retrigger it.
+  const layoutKey = useMemo(
+    () => nodes.map((node) => `${node.id}:${Math.round(node.measured?.height ?? 0)}`).join('|'),
+    [nodes],
+  );
   useEffect(() => {
-    if (!nodesInitialized || didLayoutRef.current || nodes.length === 0) return;
-    didLayoutRef.current = true;
-    setNodes((current) => packMasonry(current));
+    if (!layoutKey) return;
+    setNodes((current) => {
+      const packed = packMasonry(current, draggedIdsRef.current);
+      return packed.some((node, index) => node !== current[index]) ? packed : current;
+    });
+  }, [layoutKey, setNodes]);
+
+  // Fit the view once the frames have first been measured.
+  const nodesInitialized = useNodesInitialized();
+  const didFitRef = useRef(false);
+  useEffect(() => {
+    if (!nodesInitialized || didFitRef.current || nodes.length === 0) return;
+    didFitRef.current = true;
     requestAnimationFrame(() => {
       fitView({ padding: 0.15, maxZoom: 1 });
       requestAnimationFrame(() => setIsReady(true));
     });
-  }, [nodesInitialized, nodes.length, setNodes, fitView]);
+  }, [nodesInitialized, nodes.length, fitView]);
 
   if (assets.length === 0) {
     return (
@@ -305,6 +327,7 @@ function SpaceCanvasInner({
         nodes={nodes}
         edges={EMPTY_EDGES}
         onNodesChange={onNodesChange}
+        onNodeDragStop={(_event, node) => draggedIdsRef.current.add(node.id)}
         nodeTypes={nodeTypes}
         minZoom={0.15}
         maxZoom={1.5}

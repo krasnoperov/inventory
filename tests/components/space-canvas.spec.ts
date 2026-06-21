@@ -46,6 +46,68 @@ const collectionItems = [
   item('i3', 'c1', 'a3', 0),
 ];
 
+function noOverlap(boxes: Array<{ x: number; y: number; w: number; h: number }>) {
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i], b = boxes[j];
+      // Allow a 1px touch tolerance for sub-pixel rounding.
+      if (a.x < b.x + b.w - 1 && a.x + a.w - 1 > b.x && a.y < b.y + b.h - 1 && a.y + a.h - 1 > b.y) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+async function frameBoxes(page: import('@playwright/test').Page) {
+  return page.locator('.react-flow__node').evaluateAll((nodes) =>
+    nodes.map((n) => n.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y, w: r.width, h: r.height })),
+  );
+}
+
+test('re-packs so a live-grown frame never overlaps the one below it', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  // Four collections force two frames into the same masonry column, so a
+  // growing upper frame would overlap the lower one without a re-pack.
+  const cols = [
+    collection('c0', 'Alpha', 'custom', '#caa45a', 0),
+    collection('c1', 'Beta', 'cast', '#5a8fca', 1),
+    collection('c2', 'Gamma', 'scenes', '#7bca5a', 2),
+    collection('c3', 'Delta', 'maps', '#ca5a8f', 3),
+  ];
+  const baseAssets = ['b0', 'b1', 'b2', 'b3'].map((id, i) => asset(id, `Base ${i}`));
+  const baseVariants = baseAssets.map((a) => variant(a.id, 512, 512));
+  const baseItems = baseAssets.map((a, i) => item(`bi${i}`, `c${i}`, a.id, 0));
+
+  const setProps = (extra: { assets: ReturnType<typeof asset>[]; variants: ReturnType<typeof variant>[]; items: ReturnType<typeof item>[] }) =>
+    page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+      spaceId: 'space-1',
+      assets: [...baseAssets, ...extra.assets],
+      variants: [...baseVariants, ...extra.variants],
+      collections: cols,
+      collectionItems: [...baseItems, ...extra.items],
+      isInitialSyncPending: false,
+      onAssetClick: '__noop__',
+    });
+
+  await page.goto('/component-harness.html?component=SpaceCanvas', { waitUntil: 'domcontentloaded' });
+  await setProps({ assets: [], variants: [], items: [] });
+  await page.waitForSelector('.react-flow__node');
+  await expect.poll(async () => noOverlap(await frameBoxes(page))).toBe(true);
+
+  // Grow the first frame (c0) with many cards via a live prop update.
+  const grow = Array.from({ length: 9 }, (_, i) => `g${i}`);
+  await setProps({
+    assets: grow.map((id, i) => asset(id, `Grow ${i}`)),
+    variants: grow.map((id) => variant(id, 512, 512)),
+    items: grow.map((id, i) => item(`gi${i}`, 'c0', id, i + 1)),
+  });
+
+  // After the frame grows and re-measures, the masonry must re-flow so nothing overlaps.
+  await expect.poll(async () => noOverlap(await frameBoxes(page)), { timeout: 4000 }).toBe(true);
+});
+
 test('space canvas renders collection frames without overlap', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await mountComponent(page, 'SpaceCanvas', {
@@ -64,16 +126,6 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
   await expect(page.getByRole('button', { name: 'Hero' }).first()).toBeVisible();
 
   // Frames are laid out without overlapping each other.
-  const frames = page.locator('.react-flow__node');
-  await expect(frames).toHaveCount(3);
-  const boxes = await frames.evaluateAll((nodes) =>
-    nodes.map((n) => n.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y, w: r.width, h: r.height })),
-  );
-  for (let i = 0; i < boxes.length; i++) {
-    for (let j = i + 1; j < boxes.length; j++) {
-      const a = boxes[i], b = boxes[j];
-      const overlap = a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-      expect(overlap, `frames ${i} and ${j} overlap`).toBe(false);
-    }
-  }
+  await expect(page.locator('.react-flow__node')).toHaveCount(3);
+  expect(noOverlap(await frameBoxes(page))).toBe(true);
 });
