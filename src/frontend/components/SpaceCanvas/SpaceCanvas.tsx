@@ -322,28 +322,47 @@ function SpaceCanvasInner({
     });
   }, [nodesInitialized, nodes.length, fitView]);
 
-  // Card centres in flow coordinates, for drawing lineage edges between them.
-  // Recomputed only when the layout changes — flow coordinates are independent
-  // of pan/zoom, so the edge layer just rides the viewport transform.
-  const [centers, setCenters] = useState<Map<string, { x: number; y: number }>>(new Map());
-  const measureCenters = useCallback(() => {
+  // Each card's centre as a flow-space offset from its frame's origin. This is
+  // stable while a frame is dragged (only the frame's position moves), so the
+  // edge endpoints are derived live from the frame positions below and follow
+  // drags without re-measuring the DOM. Re-measured only when the layout
+  // changes (frames re-pack, cards added/removed).
+  const [cardOffsets, setCardOffsets] = useState<Map<string, { frameId: string; dx: number; dy: number }>>(new Map());
+  const measureCardOffsets = useCallback(() => {
     const root = wrapperRef.current;
     if (!root) return;
-    const next = new Map<string, { x: number; y: number }>();
+    const next = new Map<string, { frameId: string; dx: number; dy: number }>();
     root.querySelectorAll<HTMLElement>('[data-asset-id]').forEach((el) => {
       const id = el.dataset.assetId;
-      if (!id) return;
-      const rect = el.getBoundingClientRect();
-      next.set(id, screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }));
+      const frameEl = el.closest<HTMLElement>('.react-flow__node');
+      const frameId = frameEl?.getAttribute('data-id');
+      if (!id || !frameEl || !frameId) return;
+      const card = el.getBoundingClientRect();
+      const frame = frameEl.getBoundingClientRect();
+      // Subtracting two flow-space points cancels the viewport transform.
+      const cardFlow = screenToFlowPosition({ x: card.left + card.width / 2, y: card.top + card.height / 2 });
+      const frameFlow = screenToFlowPosition({ x: frame.left, y: frame.top });
+      next.set(id, { frameId, dx: cardFlow.x - frameFlow.x, dy: cardFlow.y - frameFlow.y });
     });
-    setCenters(next);
+    setCardOffsets(next);
   }, [screenToFlowPosition]);
 
   useEffect(() => {
     if (!nodesInitialized) return;
-    const frame = requestAnimationFrame(measureCenters);
+    const frame = requestAnimationFrame(measureCardOffsets);
     return () => cancelAnimationFrame(frame);
-  }, [nodesInitialized, layoutKey, edges, measureCenters]);
+  }, [nodesInitialized, layoutKey, edges, measureCardOffsets]);
+
+  // Resolve each asset to its live flow-space centre: frame position + offset.
+  const cardCenter = useMemo(() => {
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+    return (assetId: string): { x: number; y: number } | null => {
+      const offset = cardOffsets.get(assetId);
+      const node = offset && nodeById.get(offset.frameId);
+      if (!offset || !node) return null;
+      return { x: node.position.x + offset.dx, y: node.position.y + offset.dy };
+    };
+  }, [nodes, cardOffsets]);
 
   if (assets.length === 0) {
     return (
@@ -372,8 +391,8 @@ function SpaceCanvasInner({
         <ViewportPortal>
           <svg className={styles.edgeLayer} style={{ overflow: 'visible' }} width="1" height="1" data-testid="lineage-edges">
             {edges.map((edge) => {
-              const a = centers.get(edge.source);
-              const b = centers.get(edge.target);
+              const a = cardCenter(edge.source);
+              const b = cardCenter(edge.target);
               if (!a || !b) return null;
               const midX = (a.x + b.x) / 2;
               return (
