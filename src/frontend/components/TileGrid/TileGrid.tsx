@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { TileSet, TilePosition, Variant } from '../../hooks/useSpaceWebSocket';
+import { getR2ImageUrl } from '../../media-cdn';
 import styles from './TileGrid.module.css';
 
 interface TileGridProps {
@@ -104,7 +105,7 @@ export function TileGrid({
               variant?.status === 'pending' || variant?.status === 'processing';
             const isFailed = variant?.status === 'failed';
             const imageUrl = variant?.image_key
-              ? `/api/images/${variant.image_key}`
+              ? getR2ImageUrl(variant.image_key)
               : undefined;
             const isSelected = variant?.id === selectedVariantId;
             const qualityRating = (variant as Variant & { quality_rating?: string })?.quality_rating;

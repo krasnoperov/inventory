@@ -29,6 +29,7 @@ export const SessionConfigSchema = z
   .object({
     googleClientId: z.string(),
     environment: z.string(),
+    mediaCdnBaseUrl: z.string().nullable().optional(),
     features: z.object({
       rotation: z.boolean(),
     }),

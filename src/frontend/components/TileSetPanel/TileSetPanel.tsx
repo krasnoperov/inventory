@@ -6,6 +6,7 @@ import type {
   Variant,
   TileSetRequestParams,
 } from '../../hooks/useSpaceWebSocket';
+import { getR2ImageUrl } from '../../media-cdn';
 import styles from './TileSetPanel.module.css';
 
 const TILE_TYPES: { value: TileType; label: string; icon: string }[] = [
@@ -139,7 +140,7 @@ export function TileSetPanel({
                     const isGenerating =
                       variant?.status === 'pending' || variant?.status === 'processing';
                     const cellThumb = variant?.image_key
-                      ? `/api/images/${variant.thumb_key || variant.image_key}`
+                      ? getR2ImageUrl(variant.thumb_key || variant.image_key)
                       : undefined;
 
                     return (

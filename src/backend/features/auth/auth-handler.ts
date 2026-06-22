@@ -414,6 +414,7 @@ export class AuthHandler {
       config: {
         googleClientId: c.env.GOOGLE_CLIENT_ID || '',
         environment: c.env.ENVIRONMENT || 'development',
+        mediaCdnBaseUrl: c.env.MAKEFX_MEDIA_CDN_BASE_URL || null,
         features: {
           rotation: isFeatureFlagEnabled(c.env.MAKEFX_ROTATION_ENABLED),
         },

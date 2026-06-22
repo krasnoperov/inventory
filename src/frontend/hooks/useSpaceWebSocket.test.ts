@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { afterEach, describe, test } from 'node:test';
+import { configureMediaCdnBaseUrl, getR2ImageUrl } from '../media-cdn';
 import {
   clearSpaceStateSnapshotCacheForTests,
   getInitialSyncModeForSpaceForTests,
@@ -432,7 +433,12 @@ describe('space message handling', () => {
 });
 
 describe('variant media helpers', () => {
+  afterEach(() => {
+    configureMediaCdnBaseUrl(null);
+  });
+
   test('keeps image variants thumbnail-backed and image-ready', () => {
+    configureMediaCdnBaseUrl(null);
     const imageVariant = variant();
 
     assert.equal(isVariantReady(imageVariant), true);
@@ -442,6 +448,22 @@ describe('variant media helpers', () => {
     assert.equal(isVariantVideoReady(imageVariant), false);
     assert.equal(getVariantThumbnailUrl(imageVariant), '/api/images/images/space/variant_thumb.webp');
     assert.equal(getVariantMediaUrl(imageVariant, 'space-1'), '/api/spaces/space-1/variants/variant-1/media');
+  });
+
+  test('routes legacy image keys through the configured media CDN', () => {
+    configureMediaCdnBaseUrl('https://cdn.makefx.app/');
+    const imageVariant = variant();
+
+    assert.equal(getR2ImageUrl('images/space/variant.png'), 'https://cdn.makefx.app/images/space/variant.png');
+    assert.equal(getR2ImageUrl('thumbs/space/variant thumb.webp'), 'https://cdn.makefx.app/thumbs/space/variant%20thumb.webp');
+    assert.equal(getVariantThumbnailUrl(imageVariant), 'https://cdn.makefx.app/images/space/variant_thumb.webp');
+    assert.equal(getVariantMediaUrl(imageVariant, 'space-1'), '/api/spaces/space-1/variants/variant-1/media');
+  });
+
+  test('keeps non-legacy media keys on the worker fallback', () => {
+    configureMediaCdnBaseUrl('https://cdn.makefx.app');
+
+    assert.equal(getR2ImageUrl('media/space/video.mp4'), '/api/images/media/space/video.mp4');
   });
 
   test('treats completed media-only variants as ready without image-only readiness', () => {

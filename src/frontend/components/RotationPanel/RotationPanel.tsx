@@ -7,6 +7,7 @@ import type {
   RotationView,
   RotationRequestParams,
 } from '../../hooks/useSpaceWebSocket';
+import { getR2ImageUrl } from '../../media-cdn';
 import styles from './RotationPanel.module.css';
 
 const CONFIGS: { value: RotationConfig; label: string; icon: string; count: number }[] = [
@@ -110,7 +111,7 @@ export function RotationPanel({
   }, [onSubmit, sourceVariant.id, config, subjectDescription, disableStyle, generationMode]);
 
   const thumbUrl = sourceVariant.image_key
-    ? `/api/images/${sourceVariant.thumb_key || sourceVariant.image_key}`
+    ? getR2ImageUrl(sourceVariant.thumb_key || sourceVariant.image_key)
     : undefined;
 
   // Progress view for active rotation
@@ -145,7 +146,7 @@ export function RotationPanel({
                   const isCompleted = variant?.status === 'completed';
                   const isGenerating = variant?.status === 'pending' || variant?.status === 'processing';
                   const viewThumb = variant?.image_key
-                    ? `/api/images/${variant.thumb_key || variant.image_key}`
+                    ? getR2ImageUrl(variant.thumb_key || variant.image_key)
                     : undefined;
 
                   return (
@@ -248,7 +249,7 @@ export function RotationPanel({
               {views.map((view) => {
                 const variant = variants.find((v) => v.id === view.variant_id);
                 const viewThumb = variant?.image_key
-                  ? `/api/images/${variant.thumb_key || variant.image_key}`
+                  ? getR2ImageUrl(variant.thumb_key || variant.image_key)
                   : undefined;
                 const rating = variant?.quality_rating;
 

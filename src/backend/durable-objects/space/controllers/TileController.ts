@@ -32,6 +32,7 @@ import {
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import { DEFAULT_IMAGE_MODEL_ID } from '../../../../shared/imageGenerationOptions';
+import { immutableMediaHttpMetadata } from '../../../media/r2-metadata';
 
 const log = loggers.tileController;
 
@@ -909,7 +910,7 @@ export class TileController extends BaseController {
           cellHeight = dimensions?.height ?? null;
 
           await this.env.IMAGES!.put(cellImageKey, buffer, {
-            httpMetadata: { contentType: mimeType },
+            httpMetadata: immutableMediaHttpMetadata(cellImageKey, mimeType),
           });
         }
 

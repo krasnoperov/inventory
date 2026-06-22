@@ -44,7 +44,7 @@
 | Assets, Variants, Lineage | DO SQLite | Per-space. Authoritative. Real-time via WebSocket. |
 | Users, Spaces, Members | D1 | Global. Auth and access control. |
 | Chat Messages | DO SQLite | Per-space conversation history. |
-| Media artifacts | R2 | Image uploads and generated images use the legacy `images/{spaceId}/{variantId}.{ext}` path and image thumbnails use `images/{spaceId}/{variantId}_thumb.webp`. Audio/video uploads use `media/{spaceId}/{variantId}.{ext}`. Canonical artifacts are served through `/api/spaces/{spaceId}/variants/{variantId}/media` after auth and membership checks. |
+| Media artifacts | R2 | Image uploads and generated images use the legacy `images/{spaceId}/{variantId}.{ext}` path and image thumbnails use `images/{spaceId}/{variantId}_thumb.webp`. Audio/video uploads use `media/{spaceId}/{variantId}.{ext}`. Legacy immutable image/thumb/style keys can be served through a configured R2 custom-domain CDN (`MAKEFX_MEDIA_CDN_BASE_URL`) with `/api/images/*` as fallback. Canonical artifacts are served through `/api/spaces/{spaceId}/variants/{variantId}/media` after auth and membership checks. |
 | Usage Events | D1 | Billing tracking for Polar.sh. |
 
 ### Variant Schema
@@ -98,7 +98,9 @@ than dereferencing raw R2 keys. The media endpoint resolves `media_key` with
 `image_key` as a legacy fallback, uses private immutable caching, and supports
 range requests for canonical media. The legacy `/api/images/*` route only
 serves `images/`, `styles/`, and `thumbs/` keys. The sibling `/poster` endpoint
-serves `poster_key` when that artifact exists.
+serves `poster_key` when that artifact exists. See
+[`media-cdn.md`](./media-cdn.md) for the optional R2 custom-domain CDN used by
+browser image previews.
 
 ---
 

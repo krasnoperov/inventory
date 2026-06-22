@@ -11,6 +11,7 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { setNavigationBridge } from '../navigation/navigator';
 import { sessionQueryOptions } from '../queries';
 import type { StartRouterContext, StartServerContext, StartSession } from '../app-context';
+import { configureMediaCdnBaseUrl } from '../media-cdn';
 import '../styles/theme.css';
 import '../styles/global.css';
 
@@ -105,6 +106,8 @@ function NavigationBridge() {
 }
 
 function StartProviders({ children, session }: { children: ReactNode; session: StartSession }) {
+  configureMediaCdnBaseUrl(session.config.mediaCdnBaseUrl);
+
   const clientId = session.config.googleClientId;
   const initialUser = session.user;
 

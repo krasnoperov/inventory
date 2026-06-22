@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
+import { getR2ImageUrl } from '../media-cdn';
 import styles from './LineageTree.module.css';
 
 // Helper to get thumbnail URL with fallback to image_key
 function getThumbnailUrl(variant: { thumb_key?: string; image_key: string }): string {
-  return `/api/images/${variant.thumb_key || variant.image_key}`;
+  return getR2ImageUrl(variant.thumb_key || variant.image_key);
 }
 
 // Using a minimal variant type that works with the parent component

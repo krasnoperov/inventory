@@ -25,6 +25,7 @@ async function resolveStartSession(c: Context<AppContext>): Promise<AuthSessionR
     config: {
       googleClientId: c.env.GOOGLE_CLIENT_ID || '',
       environment: c.env.ENVIRONMENT || 'development',
+      mediaCdnBaseUrl: c.env.MAKEFX_MEDIA_CDN_BASE_URL || null,
       features: {
         rotation: isFeatureFlagEnabled(c.env.MAKEFX_ROTATION_ENABLED),
       },
@@ -85,6 +86,7 @@ export async function renderStartApp(
         config: {
           googleClientId: session.config.googleClientId || '',
           environment: session.config.environment,
+          mediaCdnBaseUrl: session.config.mediaCdnBaseUrl ?? null,
           features: session.config.features,
         },
         user: session.user ?? null,
