@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createContext, useCallback, useContext, useMemo, useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -23,6 +23,7 @@ import type {
   Variant,
 } from '../../space/protocol';
 import { buildLineageAssetEdges } from './canvasEdges';
+import { isCompactZoom } from './canvasLod';
 import {
   aspectRatioForVariant,
   COLLECTION_KIND_COLORS,
@@ -112,7 +113,12 @@ function packMasonry(nodes: FrameNode[], draggedIds: ReadonlySet<string> = NO_DR
 // Invisible flex children that keep a sparse last row at its natural height.
 const ROW_FILLERS = Array.from({ length: 8 });
 
+// True when the canvas is zoomed out far enough to greek the cards. Provided by
+// the canvas so every frame flips representation together at the threshold.
+const CompactContext = createContext(false);
+
 function FrameNodeView({ data }: NodeProps<FrameNode>) {
+  const compact = useContext(CompactContext);
   return (
     <div className={styles.frame} style={{ '--collection-color': data.color } as CSSProperties}>
       <header className={styles.frameHeader}>
@@ -140,21 +146,27 @@ function FrameNodeView({ data }: NodeProps<FrameNode>) {
                   onClick={() => data.onAssetClick(card.asset)}
                   title={card.asset.name}
                 >
-                  <Thumbnail
-                    variant={card.variant}
-                    size="fill"
-                    spaceId={data.spaceId}
-                    className={boardStyles.thumbnail}
-                  />
+                  {compact ? (
+                    <span className={styles.greek} data-testid="greek-card" aria-hidden="true" />
+                  ) : (
+                    <Thumbnail
+                      variant={card.variant}
+                      size="fill"
+                      spaceId={data.spaceId}
+                      className={boardStyles.thumbnail}
+                    />
+                  )}
                 </button>
-                <div className={boardStyles.caption}>
-                  <button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)}>
-                    {card.asset.name}
-                  </button>
-                  <div className={boardStyles.assetMeta}>
-                    <span>{card.asset.type}</span>
+                {!compact && (
+                  <div className={boardStyles.caption}>
+                    <button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)}>
+                      {card.asset.name}
+                    </button>
+                    <div className={boardStyles.assetMeta}>
+                      <span>{card.asset.type}</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </article>
             ))}
             {ROW_FILLERS.map((_, index) => (
@@ -213,6 +225,7 @@ function SpaceCanvasInner({
 
   // Mirror zoom into a CSS var so card captions/labels can counter-scale later.
   const zoom = useStore((state) => state.transform[2]);
+  const compact = isCompactZoom(zoom);
   useEffect(() => {
     const container = document.querySelector(`.${styles.canvas}`);
     if (container) {
@@ -384,6 +397,7 @@ function SpaceCanvasInner({
 
   return (
     <div ref={wrapperRef} className={`${styles.canvas} ${isReady ? styles.ready : styles.loading}`}>
+      <CompactContext.Provider value={compact}>
       <ReactFlow
         nodes={nodes}
         edges={EMPTY_EDGES}
@@ -425,6 +439,7 @@ function SpaceCanvasInner({
           maskColor="rgba(0, 0, 0, 0.5)"
         />
       </ReactFlow>
+      </CompactContext.Provider>
     </div>
   );
 }
