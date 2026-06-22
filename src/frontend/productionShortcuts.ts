@@ -1,9 +1,7 @@
 import type {
   Asset,
-  Composition,
   CompositionItem,
   CompositionItemRole,
-  CompositionOverview,
   SpaceRelationContext,
   SpaceRelationType,
   SpaceSubject,
@@ -18,12 +16,6 @@ export type CompositionShortcut =
 export type RelationShortcut =
   | { kind: 'none' }
   | { kind: 'relation'; relationType: SpaceRelationType; object: SpaceSubject };
-
-export interface CompositionShortcutOption {
-  key: string;
-  label: string;
-  shortcut: CompositionShortcut;
-}
 
 export interface RelationShortcutOption {
   key: string;
@@ -49,12 +41,6 @@ export const COMMON_RELATION_SHORTCUT_TYPES: Array<{ type: SpaceRelationType; ph
   { type: 'style_reference_for', phrase: 'Use as style reference for' },
 ];
 
-export function compositionShortcutKey(shortcut: CompositionShortcut): string {
-  if (shortcut.kind === 'none') return 'none';
-  if (shortcut.kind === 'output') return `output:${shortcut.compositionId}`;
-  return `slot:${shortcut.compositionId}:${shortcut.role}:${shortcut.itemId ?? 'new'}`;
-}
-
 export function relationShortcutKey(shortcut: RelationShortcut): string {
   if (shortcut.kind === 'none') return 'none';
   const target = shortcut.object.subjectType === 'asset'
@@ -63,45 +49,49 @@ export function relationShortcutKey(shortcut: RelationShortcut): string {
   return `relation:${shortcut.relationType}:${target}`;
 }
 
-export function buildCompositionShortcutOptions(
-  compositions: Array<Composition | CompositionOverview>,
+/** Role a finished variant can take when placed into a composition. */
+export type CompositionPlacementRole = 'output' | CompositionItemRole;
+
+export interface CompositionPlacementRoleOption {
+  role: CompositionPlacementRole;
+  label: string;
+}
+
+/**
+ * Roles offered when placing a finished variant into a composition, in the
+ * order shown in the post-generation placement menu. `output` is the
+ * composition's main result; the rest mirror SLOT_OPTIONS so the menu stays in
+ * sync with what compositions actually support.
+ */
+export const COMPOSITION_PLACEMENT_ROLES: CompositionPlacementRoleOption[] = [
+  { role: 'output', label: 'Output' },
+  ...SLOT_OPTIONS.map((config) => ({
+    role: config.role as CompositionPlacementRole,
+    label: config.noun.charAt(0).toUpperCase() + config.noun.slice(1),
+  })),
+];
+
+/**
+ * Resolve the CompositionShortcut for placing a variant into a composition as a
+ * given role. Single-slot roles (background, map) replace the existing item
+ * when one is present; everything else appends a new item. This is the
+ * post-generation counterpart to the old pre-generation dropdown — the decision
+ * is made over a finished variant, not predicted before it exists.
+ */
+export function resolveCompositionPlacementShortcut(
+  compositionId: string,
+  role: CompositionPlacementRole,
   compositionItems: CompositionItem[],
-): CompositionShortcutOption[] {
-  const options: CompositionShortcutOption[] = [
-    { key: 'none', label: 'No composition shortcut', shortcut: { kind: 'none' } },
-  ];
-
-  for (const composition of compositions) {
-    const outputLabel = composition.output_variant_id
-      ? `Replace output in ${composition.name}`
-      : `Set as output in ${composition.name}`;
-    const outputShortcut: CompositionShortcut = { kind: 'output', compositionId: composition.id };
-    options.push({
-      key: compositionShortcutKey(outputShortcut),
-      label: outputLabel,
-      shortcut: outputShortcut,
-    });
-
-    const items = compositionItems.filter((item) => item.composition_id === composition.id);
-    for (const config of SLOT_OPTIONS) {
-      const existing = SINGLE_SLOT_ROLES.has(config.role)
-        ? items.find((item) => item.role === config.role)
-        : null;
-      const shortcut: CompositionShortcut = existing
-        ? { kind: 'slot', compositionId: composition.id, role: config.role, itemId: existing.id }
-        : { kind: 'slot', compositionId: composition.id, role: config.role };
-      const label = existing
-        ? `Replace ${config.noun} in ${composition.name}`
-        : `${config.phrase} in ${composition.name}`;
-      options.push({
-        key: compositionShortcutKey(shortcut),
-        label,
-        shortcut,
-      });
-    }
+): CompositionShortcut {
+  if (role === 'output') {
+    return { kind: 'output', compositionId };
   }
-
-  return options;
+  const existing = SINGLE_SLOT_ROLES.has(role)
+    ? compositionItems.find((item) => item.composition_id === compositionId && item.role === role)
+    : null;
+  return existing
+    ? { kind: 'slot', compositionId, role, itemId: existing.id }
+    : { kind: 'slot', compositionId, role };
 }
 
 function getAssetLabel(asset: Asset): string {

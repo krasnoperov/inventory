@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
 import { AssetCanvas } from './components/AssetCanvas';
 import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
+import { CompositionPlacementControl } from './components/CompositionPlacementControl';
 import { ForgeTray } from './components/ForgeTray';
 import { Pagination } from './components/Pagination';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
@@ -26,6 +27,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   CompositionDetail: CompositionDetail as unknown as ComponentType<Record<string, unknown>>,
   CompositionUsageList: CompositionUsageList as unknown as ComponentType<Record<string, unknown>>,
+  CompositionPlacementControl: CompositionPlacementControl as unknown as ComponentType<Record<string, unknown>>,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,

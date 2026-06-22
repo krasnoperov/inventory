@@ -3,8 +3,9 @@ import { describe, test } from 'node:test';
 import {
   applyCompositionShortcut,
   applyRelationShortcut,
-  buildCompositionShortcutOptions,
   buildRelationShortcutOptions,
+  COMPOSITION_PLACEMENT_ROLES,
+  resolveCompositionPlacementShortcut,
 } from './productionShortcuts';
 import type { Asset, Composition, CompositionItem, Variant } from './hooks/useSpaceWebSocket';
 
@@ -167,15 +168,41 @@ describe('production shortcuts', () => {
     }]]);
   });
 
-  test('shortcut labels use product language for composition slots and relations', () => {
-    const compositionOptions = buildCompositionShortcutOptions(
-      [{ ...composition, output_variant_id: 'old-output' }],
-      [backgroundItem],
-    ).map((option) => option.label);
-    const relationOptions = buildRelationShortcutOptions([scene]).map((option) => option.label);
+  test('placement roles offer output plus every composition slot in product language', () => {
+    const labels = COMPOSITION_PLACEMENT_ROLES.map((option) => option.label);
+    assert.equal(COMPOSITION_PLACEMENT_ROLES[0].role, 'output');
+    assert.deepEqual(labels, [
+      'Output',
+      'Background',
+      'Character',
+      'Prop',
+      'Style reference',
+      'Overlay',
+      'Map',
+      'Thumbnail',
+    ]);
+  });
 
-    assert.ok(compositionOptions.includes('Replace output in Scene X composition'));
-    assert.ok(compositionOptions.includes('Replace background in Scene X composition'));
+  test('placement resolver replaces an existing single-slot item but appends multi-slot roles', () => {
+    // background is single-slot: reuse the existing item so we replace, not duplicate.
+    assert.deepEqual(
+      resolveCompositionPlacementShortcut('composition-1', 'background', [backgroundItem]),
+      { kind: 'slot', compositionId: 'composition-1', role: 'background', itemId: 'background-item' },
+    );
+    // character is multi-slot: always append a fresh item.
+    assert.deepEqual(
+      resolveCompositionPlacementShortcut('composition-1', 'character', [backgroundItem]),
+      { kind: 'slot', compositionId: 'composition-1', role: 'character' },
+    );
+    // output targets the composition's main result rather than a slot.
+    assert.deepEqual(
+      resolveCompositionPlacementShortcut('composition-1', 'output', [backgroundItem]),
+      { kind: 'output', compositionId: 'composition-1' },
+    );
+  });
+
+  test('relation shortcut labels use product language', () => {
+    const relationOptions = buildRelationShortcutOptions([scene]).map((option) => option.label);
     assert.ok(relationOptions.includes('Mark as thumbnail for Scene X'));
     assert.ok(relationOptions.includes('Use as background in Scene X'));
   });
