@@ -298,8 +298,17 @@ function SpaceCanvasInner({
   // auto-arranged frames instead of letting them overlap. Frames the user has
   // dragged are skipped (see packMasonry). The key omits positions, so the
   // re-pack's own position writes don't retrigger it.
+  // Includes each frame's card order, not just its height: a same-height
+  // reorder (e.g. live collection-item reordering) moves cards within the
+  // frame, and the edge offsets must be re-measured for that too.
   const layoutKey = useMemo(
-    () => nodes.map((node) => `${node.id}:${Math.round(node.measured?.height ?? 0)}`).join('|'),
+    () =>
+      nodes
+        .map((node) => {
+          const cardKeys = node.data.cards.map((card) => card.key).join(',');
+          return `${node.id}:${Math.round(node.measured?.height ?? 0)}:${cardKeys}`;
+        })
+        .join('|'),
     [nodes],
   );
   useEffect(() => {
