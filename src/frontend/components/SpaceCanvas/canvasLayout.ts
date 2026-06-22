@@ -20,9 +20,8 @@ export function estimateFrameHeight(count: number): number {
 
 // Pick a column count so the packed masonry roughly matches the viewport's
 // aspect ratio. This fills the screen instead of stacking frames into a tall
-// narrow strip with empty margins on either side — and because the content is
-// then about as wide as it is tall, the default fit zoom stays high enough to
-// show real thumbnails rather than greeked blocks.
+// narrow strip with empty margins on either side, and keeps the default fit
+// zoom high enough for thumbnails to stay readable.
 export function columnCountForLayout(
   totalContentHeight: number,
   viewportAspect: number,

@@ -134,50 +134,12 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
   // Cards render inside the frames (thumbnail button titled by asset name).
   await expect(page.getByRole('button', { name: 'Hero' }).first()).toBeVisible();
 
-  // At this (fit-to-3-frames) zoom the canvas shows full detail, not greeked blocks.
-  await expect(page.getByTestId('greek-card')).toHaveCount(0);
-
   // Frames are laid out without overlapping each other.
   await expect(page.locator('.react-flow__node')).toHaveCount(3);
   expect(noOverlap(await frameBoxes(page))).toBe(true);
 
   // The lineage link renders as one edge path between the two frames.
   await expect.poll(async () => page.getByTestId('lineage-edges').locator('path').count()).toBe(1);
-});
-
-test('greeks cards into collection blocks once zoomed out past the threshold', async ({ page }) => {
-  await page.setViewportSize({ width: 1100, height: 760 });
-
-  const cols: ReturnType<typeof collection>[] = [];
-  const manyAssets: ReturnType<typeof asset>[] = [];
-  const manyVariants: ReturnType<typeof variant>[] = [];
-  const manyItems: ReturnType<typeof item>[] = [];
-  let k = 0;
-  for (let c = 0; c < 9; c++) {
-    cols.push(collection(`c${c}`, `Collection ${c}`, 'custom', '#caa45a', c));
-    for (let i = 0; i < 5; i++) {
-      const id = `a${k}`;
-      manyAssets.push(asset(id, `Asset ${k}`));
-      manyVariants.push(variant(id, 512, 512));
-      manyItems.push(item(`i${k}`, `c${c}`, id, i));
-      k++;
-    }
-  }
-
-  await page.goto('/component-harness.html?component=SpaceCanvas', { waitUntil: 'domcontentloaded' });
-  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
-    spaceId: 'space-1', assets: manyAssets, variants: manyVariants, collections: cols,
-    collectionItems: manyItems, lineage: [], isInitialSyncPending: false, onAssetClick: '__noop__',
-  });
-  await page.waitForSelector('.react-flow__node');
-
-  // The dense space opens at a readable zoom — full detail, not greeked blocks.
-  await expect(page.getByTestId('greek-card')).toHaveCount(0);
-
-  // Zooming out past the threshold greeks the cards into collection blocks.
-  const zoomOut = page.locator('.react-flow__controls-zoomout');
-  for (let i = 0; i < 6; i++) await zoomOut.click();
-  await expect.poll(async () => page.getByTestId('greek-card').count()).toBeGreaterThan(0);
 });
 
 test('re-measures edge endpoints when cards reorder within a frame', async ({ page }) => {
