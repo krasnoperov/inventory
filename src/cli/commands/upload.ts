@@ -149,7 +149,12 @@ export async function executeUpload(
   const provider = parsed.options.provider;
   const rawProviderMetadata = parsed.options['provider-metadata'] ?? parsed.options.providerMetadata ?? parsed.options.provider_metadata;
   const rawGenerationProvenance = parsed.options['generation-provenance'] ?? parsed.options.generationProvenance ?? parsed.options.generation_provenance;
-  const sourceVariantId = parsed.options['source-variant'] ?? parsed.options.sourceVariantId ?? parsed.options.parentVariantId;
+  const rawSourceVariantIds = parsed.options['source-variants']
+    ?? parsed.options.sourceVariants
+    ?? parsed.options.sourceVariantIds
+    ?? parsed.options['source-variant']
+    ?? parsed.options.sourceVariantId
+    ?? parsed.options.parentVariantId;
   const rawRelationType = parsed.options['relation-type'] ?? parsed.options.relationType;
   const rawActiveVariantBehavior = parsed.options['active-variant-behavior'] ?? parsed.options.activeVariantBehavior;
   const rawCollectionIds = parsed.options.collection ?? parsed.options.collections;
@@ -176,14 +181,15 @@ export async function executeUpload(
     throw new UploadUsageError('Either --asset or --name is required');
   }
 
-  if (!sourceVariantId && (parsed.options['relation-type'] || parsed.options.relationType)) {
-    throw new UploadUsageError('--relation-type requires --source-variant');
-  }
-
   const providerMetadata = parseJsonObjectOption(rawProviderMetadata, '--provider-metadata');
   const generationProvenance = parseJsonObjectOption(rawGenerationProvenance, '--generation-provenance');
+  const sourceVariantIds = parseCsvOption(rawSourceVariantIds, '--source-variant');
   const relationType = normalizeRelationType(rawRelationType);
   const activeVariantBehavior = normalizeActiveVariantBehavior(rawActiveVariantBehavior);
+
+  if (sourceVariantIds.length === 0 && (parsed.options['relation-type'] || parsed.options.relationType)) {
+    throw new UploadUsageError('--relation-type requires --source-variant or --source-variants');
+  }
   const collectionPlacements = parseCollectionPlacements({
     collectionIds: rawCollectionIds,
     collectionNames: rawCollectionNames,
@@ -236,7 +242,7 @@ export async function executeUpload(
 
     await preflightUploadOrganization(ctx, deps, {
       assetId,
-      sourceVariantId,
+      sourceVariantIds,
       collectionPlacements,
       manualRelations,
     });
@@ -263,8 +269,10 @@ export async function executeUpload(
     if (provider) formData.append('provider', provider);
     if (providerMetadata) formData.append('providerMetadata', JSON.stringify(providerMetadata));
     if (generationProvenance) formData.append('generationProvenance', JSON.stringify(generationProvenance));
-    if (sourceVariantId) {
-      formData.append('lineage', JSON.stringify([{ parentVariantId: sourceVariantId, relationType }]));
+    if (sourceVariantIds.length > 0) {
+      formData.append('lineage', JSON.stringify(
+        sourceVariantIds.map((parentVariantId) => ({ parentVariantId, relationType }))
+      ));
     }
 
     if (!jsonOutput) {
@@ -275,8 +283,10 @@ export async function executeUpload(
       } else {
         deps.print(`  Creating asset: "${assetName}" (${assetType})`);
       }
-      if (sourceVariantId) {
-        deps.print(`  Source variant: ${sourceVariantId} (${relationType})`);
+      if (sourceVariantIds.length === 1) {
+        deps.print(`  Source variant: ${sourceVariantIds[0]} (${relationType})`);
+      } else if (sourceVariantIds.length > 1) {
+        deps.print(`  Source variants: ${sourceVariantIds.join(', ')} (${relationType})`);
       }
     }
 
@@ -526,14 +536,14 @@ async function preflightUploadOrganization(
   deps: Pick<UploadDeps, 'fetch'>,
   options: {
     assetId?: string;
-    sourceVariantId?: string;
+    sourceVariantIds: string[];
     collectionPlacements: CollectionPlacementOption[];
     manualRelations: ManualRelationOption[];
   }
 ): Promise<void> {
   const needsCollections = options.collectionPlacements.length > 0;
   const needsAssetState =
-    Boolean(options.sourceVariantId) ||
+    options.sourceVariantIds.length > 0 ||
     options.manualRelations.length > 0 ||
     options.collectionPlacements.some((placement) => placement.pinnedVariantId);
 
@@ -563,8 +573,10 @@ async function preflightUploadOrganization(
 
   if (!state) return;
 
-  if (options.sourceVariantId && !state.variantsById.has(options.sourceVariantId)) {
-    throw new Error(`Source variant not found in space: ${options.sourceVariantId}`);
+  for (const sourceVariantId of options.sourceVariantIds) {
+    if (!state.variantsById.has(sourceVariantId)) {
+      throw new Error(`Source variant not found in space: ${sourceVariantId}`);
+    }
   }
 
   for (const placement of options.collectionPlacements) {
@@ -736,7 +748,8 @@ Options:
   --provider <name> Provider provenance for uploaded media
   --provider-metadata <json>     Provider metadata JSON object
   --generation-provenance <json> Extra provenance JSON object
-  --source-variant <id>          Existing source variant for upload lineage
+  --source-variant <ids>         Comma-separated source variants for upload lineage
+  --source-variants <ids>        Alias for --source-variant
   --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
   --active-variant-behavior <b>  if-missing, set-active, or keep
   --collection <ids>             Comma-separated collection IDs for the uploaded asset or variant
@@ -761,6 +774,7 @@ Examples:
   makefx upload hero.png --space abc123 --name "Hero Character"
   makefx upload hero.png --space abc123 --name "Hero" --prompt "external render" --provider blender
   makefx upload paintover.png --space abc123 --asset def456 --source-variant var123 --relation-type refined
+  makefx upload scene.png --space abc123 --name "Cocina" --source-variants anna,roman,bg
   makefx upload hero.png --space abc123 --name "Hero" --collection collection_cast --collection-role character
   makefx upload hero.png --space abc123 --name "Hero" --collection-name "Cast" --collection-role character
   makefx upload thumbnail.png --space abc123 --asset asset_thumb --manual-relation thumbnail_for:asset:asset_target
