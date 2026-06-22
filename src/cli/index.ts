@@ -450,7 +450,8 @@ Options:
   --provider <name> Provider provenance for uploaded media
   --provider-metadata <json>     Provider metadata JSON object
   --generation-provenance <json> Extra provenance JSON object
-  --source-variant <id>          Existing source variant for upload lineage
+  --source-variant <ids>         Comma-separated source variants for upload lineage
+  --source-variants <ids>        Alias for --source-variant
   --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
   --active-variant-behavior <b>  if-missing, set-active, or keep
   --collection <ids>             Comma-separated collection IDs for the uploaded asset or variant

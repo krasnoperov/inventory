@@ -338,6 +338,16 @@ makefx upload renders/hero-final.png \
   --relation-type derived
 ```
 
+Ready-made composites can record several source parents with a comma-separated
+list:
+
+```bash
+makefx upload renders/cocina-scene.png \
+  --name "Cocina" \
+  --type scene \
+  --source-variants variant_anna,variant_roman,variant_kitchen_bg
+```
+
 The same direct upload can place the uploaded asset or exact variant into
 existing collections and create editable manual relations by ID:
 
@@ -351,8 +361,8 @@ makefx upload renders/hero-final.png \
 
 Collection and manual relation targets are validated before media bytes are
 uploaded, so a mistyped organization ID does not create a duplicate asset on
-retry. Immutable upload lineage still uses `--source-variant`; editable
-organization links use `--manual-relation`.
+retry. Immutable upload lineage uses `--source-variant` or `--source-variants`;
+editable organization links use `--manual-relation`.
 
 For multi-step uploads, chain commands through IDs returned by `--json`. Local
 filenames are not durable identifiers after upload:

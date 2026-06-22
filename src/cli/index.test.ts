@@ -325,6 +325,7 @@ test('local help exits without toggling TLS warnings', async () => {
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
     assert.ok(result.stdout.includes('makefx upload <file>'));
+    assert.ok(result.stdout.includes('--source-variants <ids>'));
     assert.ok(result.stdout.includes('--json            Print machine-readable upload output with Space IDs'));
     assert.ok(!result.stdout.includes('makefx upload <manifest.json>'));
   } finally {

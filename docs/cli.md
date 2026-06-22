@@ -386,7 +386,8 @@ makefx upload <file> --asset <id> [--space <id>]
 | `--provider <name>` | No | Provider provenance for uploaded media |
 | `--provider-metadata <json>` | No | Provider metadata JSON object |
 | `--generation-provenance <json>` | No | Extra provenance JSON object |
-| `--source-variant <id>` | No | Existing Space variant to record as upload lineage source |
+| `--source-variant <ids>` | No | Existing Space variant IDs to record as upload lineage sources; accepts one ID or comma-separated IDs |
+| `--source-variants <ids>` | No | Alias for `--source-variant` |
 | `--relation-type <type>` | No | Lineage type: `derived`, `refined`, or `forked` (default: `derived`) |
 | `--active-variant-behavior <behavior>` | No | `if-missing`, `set-active`, or `keep` |
 | `--collection <ids>` | No | Comma-separated collection IDs for the uploaded asset or variant |
@@ -434,6 +435,10 @@ makefx upload paintover.png --space abc123 --asset def456 \
   --relation-type refined \
   --active-variant-behavior set-active
 
+# Upload a ready scene render with multiple source parents
+makefx upload cocina.png --space abc123 --name "Cocina" --type scene \
+  --source-variants anna_variant,roman_variant,bg_variant
+
 # Upload against local dev server
 makefx upload hero.png --space abc123 --name "Hero" --local
 
@@ -476,7 +481,7 @@ Manual relation types include `appears_in`, `background_for`,
 Collection and manual relation targets are existing Space IDs and are checked
 before the media upload starts. Use `--collection-name` only when an exact
 collection name is intentional; if more than one collection has that name, use
-`--collection <id>`. Use `--source-variant` only for immutable upload lineage;
+`--collection <id>`. Use `--source-variant` or `--source-variants` only for immutable upload lineage;
 use `--manual-relation` for editable organization links.
 
 ---

@@ -36,6 +36,9 @@ function depsFor(capturedBodies: BodyInit[], output: string[]) {
         return Response.json({
           assets: [
             { id: 'asset-source', name: 'Source', type: 'reference', media_kind: 'image', active_variant_id: 'variant-source' },
+            { id: 'asset-anna', name: 'Anna', type: 'character', media_kind: 'image', active_variant_id: 'variant-anna' },
+            { id: 'asset-roman', name: 'Roman', type: 'character', media_kind: 'image', active_variant_id: 'variant-roman' },
+            { id: 'asset-bg', name: 'Cocina Background', type: 'scene', media_kind: 'image', active_variant_id: 'variant-bg' },
           ],
         });
       }
@@ -44,6 +47,30 @@ function depsFor(capturedBodies: BodyInit[], output: string[]) {
         return Response.json({
           asset: { id: 'asset-source', name: 'Source', media_kind: 'image' },
           variants: [{ id: 'variant-source', asset_id: 'asset-source', media_kind: 'image' }],
+          lineage: [],
+        });
+      }
+
+      if (method === 'GET' && requestUrl === 'https://inventory.example.test/api/spaces/space-1/assets/asset-anna') {
+        return Response.json({
+          asset: { id: 'asset-anna', name: 'Anna', media_kind: 'image' },
+          variants: [{ id: 'variant-anna', asset_id: 'asset-anna', media_kind: 'image' }],
+          lineage: [],
+        });
+      }
+
+      if (method === 'GET' && requestUrl === 'https://inventory.example.test/api/spaces/space-1/assets/asset-roman') {
+        return Response.json({
+          asset: { id: 'asset-roman', name: 'Roman', media_kind: 'image' },
+          variants: [{ id: 'variant-roman', asset_id: 'asset-roman', media_kind: 'image' }],
+          lineage: [],
+        });
+      }
+
+      if (method === 'GET' && requestUrl === 'https://inventory.example.test/api/spaces/space-1/assets/asset-bg') {
+        return Response.json({
+          asset: { id: 'asset-bg', name: 'Cocina Background', media_kind: 'image' },
+          variants: [{ id: 'variant-bg', asset_id: 'asset-bg', media_kind: 'image' }],
           lineage: [],
         });
       }
@@ -311,6 +338,37 @@ test('upload sends single-file provenance and lineage metadata', async () => {
     ]);
     assert.match(output.join('\n'), /Uploading/);
     assert.match(output.join('\n'), /Source variant: variant-source \(refined\)/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload accepts multiple source variants for imported scene lineage', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'cocina.png');
+  const capturedBodies: BodyInit[] = [];
+  const output: string[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await executeUpload({
+      positionals: [filePath],
+      options: {
+        space: 'space-1',
+        name: 'Cocina',
+        type: 'scene',
+        'source-variants': 'variant-anna, variant-roman, variant-bg',
+      },
+    }, depsFor(capturedBodies, output));
+
+    const formData = capturedBodies[0];
+    assert.ok(formData instanceof FormData);
+    assert.deepEqual(JSON.parse(String(formData.get('lineage'))), [
+      { parentVariantId: 'variant-anna', relationType: 'derived' },
+      { parentVariantId: 'variant-roman', relationType: 'derived' },
+      { parentVariantId: 'variant-bg', relationType: 'derived' },
+    ]);
+    assert.match(output.join('\n'), /Source variants: variant-anna, variant-roman, variant-bg \(derived\)/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
