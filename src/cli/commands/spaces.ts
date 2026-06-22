@@ -6,6 +6,7 @@
  *   makefx spaces --details          Show asset counts per space
  *   makefx spaces --id <space_id>    Show details for a specific space
  *   makefx spaces create <name>      Create a new space
+ *   makefx spaces delete <space_id>  Archive a space for support recovery
  */
 
 import process from 'node:process';
@@ -47,6 +48,7 @@ interface SpaceSummary {
 
 type SpacesResult =
   | { type: 'create'; space: Space; project?: { configPath: string; environment: string; spaceId: string } }
+  | { type: 'delete'; spaceId: string; message: string }
   | { type: 'list'; spaces: Space[] }
   | { type: 'details'; spaces: SpaceSummary[] }
   | { type: 'show'; space: Space; assets: Asset[] };
@@ -133,6 +135,20 @@ export async function executeSpaces(
     return { type: 'create', space, project };
   }
 
+  if (subcommand === 'delete' || subcommand === 'archive') {
+    const targetSpaceId = parsed.positionals[1] || parsed.options.id;
+    if (!targetSpaceId) {
+      throw new Error('Space ID is required. Usage: makefx spaces delete <space_id>');
+    }
+    const deleted = await deleteSpace(ctx, deps, targetSpaceId);
+    if (jsonOutput) {
+      deps.print(JSON.stringify(deleted, null, 2));
+    } else {
+      printDeletedSpace(targetSpaceId, deleted.message, deps.print);
+    }
+    return { type: 'delete', spaceId: targetSpaceId, message: deleted.message };
+  }
+
   if (spaceId) {
     const details = await getSpaceDetails(ctx, deps, spaceId);
     if (jsonOutput) {
@@ -181,6 +197,27 @@ async function createSpace(ctx: SpacesContext, deps: Pick<SpacesDeps, 'fetch'>, 
   return data.space;
 }
 
+async function deleteSpace(
+  ctx: SpacesContext,
+  deps: Pick<SpacesDeps, 'fetch'>,
+  spaceId: string
+): Promise<{ success: true; message: string }> {
+  const response = await deps.fetch(`${ctx.baseUrl}/api/spaces/${encodeURIComponent(spaceId)}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${ctx.accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to delete space: ${response.status} - ${error}`);
+  }
+
+  return await response.json() as { success: true; message: string };
+}
+
 function printCreatedSpace(
   space: Space,
   env: string,
@@ -200,6 +237,11 @@ function printCreatedSpace(
   print(`  makefx init --space ${space.id}${envFlag}`);
   print(`\nTo listen for events:`);
   print(`  makefx listen --space ${space.id}${envFlag}`);
+}
+
+function printDeletedSpace(spaceId: string, message: string, print: (message: string) => void): void {
+  print(`Space archived: ${spaceId}`);
+  print(message);
 }
 
 async function fetchSpaces(ctx: SpacesContext, deps: Pick<SpacesDeps, 'fetch'>): Promise<Space[]> {

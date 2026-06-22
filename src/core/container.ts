@@ -25,6 +25,7 @@ import { NanoBananaService } from '../backend/services/nanoBananaService';
 import { PolarService } from '../backend/services/polarService';
 import { UsageService } from '../backend/services/usageService';
 import { MemoryService } from '../backend/services/memoryService';
+import { SpaceRetentionService } from '../backend/services/spaceRetentionService';
 
 /**
  * Create and configure the dependency injection container
@@ -84,6 +85,7 @@ export function createContainer(env: Env): Container {
 
   // UsageService always bound (works with or without Polar)
   container.bind(UsageService).toSelf().inSingletonScope();
+  container.bind(SpaceRetentionService).toSelf().inSingletonScope();
 
   // Memory & Personalization
   container.bind(MemoryService).toSelf().inSingletonScope();

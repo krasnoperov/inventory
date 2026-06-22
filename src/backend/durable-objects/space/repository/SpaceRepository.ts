@@ -105,6 +105,11 @@ export interface DeletedImageRef {
   sizeBytes: number;
 }
 
+export interface SpacePurgeResult {
+  r2ObjectsDeleted: number;
+  sqlTablesCleared: number;
+}
+
 /** R2 bucket interface for image storage */
 export interface ImageStorage {
   head?(key: string): Promise<{ size: number } | null>;
@@ -398,6 +403,73 @@ export class SpaceRepository {
   // ==========================================================================
   // Asset Operations
   // ==========================================================================
+
+  async purgeAllData(): Promise<SpacePurgeResult> {
+    if (!this.images) {
+      throw new Error('Image storage not available');
+    }
+
+    const r2Keys = new Set<string>();
+    const variants = this.sql.exec(`
+      SELECT image_key, thumb_key, media_key, transcript_key, word_timings_key, render_metadata_key
+      FROM variants
+    `).toArray() as Array<Record<string, string | null>>;
+    for (const variant of variants) {
+      for (const key of Object.values(variant)) {
+        if (typeof key === 'string' && key.trim()) {
+          r2Keys.add(key);
+        }
+      }
+    }
+
+    const imageRefs = this.sql.exec('SELECT image_key FROM image_refs').toArray() as Array<{ image_key: string | null }>;
+    for (const row of imageRefs) {
+      if (row.image_key) {
+        r2Keys.add(row.image_key);
+      }
+    }
+
+    let r2ObjectsDeleted = 0;
+    const r2DeleteFailures: Array<{ key: string; error: string }> = [];
+    for (const key of r2Keys) {
+      try {
+        await this.images.delete(key);
+        r2ObjectsDeleted++;
+      } catch (error) {
+        r2DeleteFailures.push({
+          key,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    if (r2DeleteFailures.length > 0) {
+      log.warn('Space retention cleanup left SQL metadata intact after R2 delete failures', {
+        failedCount: r2DeleteFailures.length,
+        failedKeys: r2DeleteFailures.map((failure) => failure.key),
+      });
+      throw new Error(`Failed to purge ${r2DeleteFailures.length} R2 object(s)`);
+    }
+
+    const tables = this.sql.exec(`
+      SELECT name
+      FROM sqlite_master
+      WHERE type = 'table'
+        AND name NOT LIKE 'sqlite_%'
+    `).toArray() as Array<{ name: string }>;
+    this.sql.exec('PRAGMA foreign_keys = OFF');
+    try {
+      for (const table of tables) {
+        this.sql.exec(`DELETE FROM "${table.name.replaceAll('"', '""')}"`);
+      }
+    } finally {
+      this.sql.exec('PRAGMA foreign_keys = ON');
+    }
+
+    return {
+      r2ObjectsDeleted,
+      sqlTablesCleared: tables.length,
+    };
+  }
 
   async getAllAssets(): Promise<Asset[]> {
     const result = await this.sql.exec(AssetQueries.GET_ALL);

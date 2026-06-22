@@ -1343,16 +1343,35 @@ spaceRoutes.openapi(deleteSpaceRoute, async (c) => {
   if (!member || member.role !== 'owner') {
     return c.json({ error: 'Only the space owner can delete the space' }, 403);
   }
+  if (!c.env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
 
-  // Delete space (cascade will delete members)
+  const archiveResponse = await spaceDoFetch(c.env, spaceId, '/internal/archive', {
+    method: 'POST',
+    headers: { 'X-Space-Id': spaceId },
+  });
+  if (!archiveResponse?.ok) {
+    const message = archiveResponse
+      ? await readSpaceDoError(archiveResponse, 'Failed to close active space sessions')
+      : 'Asset storage not available';
+    return c.json({ error: message }, archiveResponse?.status === 404 ? 404 : 500);
+  }
+
+  // Soft-delete the space. Membership rows are retained so support can restore
+  // accidental deletes with the original shared-space context intact.
   const deleted = await spaceDAO.deleteSpace(spaceId);
   if (!deleted) {
+    await spaceDoFetch(c.env, spaceId, '/internal/unarchive', {
+      method: 'POST',
+      headers: { 'X-Space-Id': spaceId },
+    });
     return c.json({ error: 'Failed to delete space' }, 500);
   }
 
   return c.json({
     success: true as const,
-    message: 'Space deleted successfully',
+    message: 'Space archived successfully. Support can restore it during the retention window.',
   }, 200);
 });
 

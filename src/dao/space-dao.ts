@@ -26,6 +26,17 @@ export class SpaceDAO {
       .selectFrom('spaces')
       .selectAll()
       .where('id', '=', id)
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst();
+
+    return space ?? null;
+  }
+
+  async getSpaceByIdIncludingDeleted(id: string): Promise<Space | null> {
+    const space = await this.db
+      .selectFrom('spaces')
+      .selectAll()
+      .where('id', '=', id)
       .executeTakeFirst();
 
     return space ?? null;
@@ -36,6 +47,7 @@ export class SpaceDAO {
       .selectFrom('spaces')
       .selectAll()
       .where('owner_id', '=', ownerId)
+      .where('deleted_at', 'is', null)
       .execute();
   }
 
@@ -46,6 +58,8 @@ export class SpaceDAO {
       .selectAll('spaces')
       .select('space_members.role')
       .where('space_members.user_id', '=', userId)
+      .where('spaces.deleted_at', 'is', null)
+      .where('space_members.deleted_at', 'is', null)
       .execute();
   }
 
@@ -54,6 +68,7 @@ export class SpaceDAO {
       .updateTable('spaces')
       .set(changes)
       .where('id', '=', id)
+      .where('deleted_at', 'is', null)
       .returningAll()
       .executeTakeFirst();
 
@@ -61,9 +76,32 @@ export class SpaceDAO {
   }
 
   async deleteSpace(id: string): Promise<boolean> {
+    const now = new Date().toISOString();
+    const result = await this.db
+      .updateTable('spaces')
+      .set({ deleted_at: now })
+      .where('id', '=', id)
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst();
+
+    return result.numUpdatedRows > 0n;
+  }
+
+  async getDeletedSpacesOlderThan(cutoffIso: string): Promise<Space[]> {
+    return await this.db
+      .selectFrom('spaces')
+      .selectAll()
+      .where('deleted_at', 'is not', null)
+      .where('deleted_at', '<', cutoffIso)
+      .orderBy('deleted_at', 'asc')
+      .execute();
+  }
+
+  async purgeDeletedSpace(id: string): Promise<boolean> {
     const result = await this.db
       .deleteFrom('spaces')
       .where('id', '=', id)
+      .where('deleted_at', 'is not', null)
       .executeTakeFirst();
 
     return result.numDeletedRows > 0n;

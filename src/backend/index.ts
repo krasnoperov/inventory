@@ -2,6 +2,7 @@ import type { Env } from '../core/types';
 import { createContainer } from '../core/container';
 import { registerRoutes } from './routes';
 import { UsageService } from './services/usageService';
+import { SpaceRetentionService } from './services/spaceRetentionService';
 import { createOpenApiRouter } from './routes/openapi';
 import { contentNegotiation } from './middleware/content-negotiation';
 
@@ -50,7 +51,15 @@ async function handleScheduled(
 ): Promise<void> {
   const container = createContainer(env);
 
-  // Only run if Polar is configured
+  try {
+    const retention = await container.get(SpaceRetentionService).sweepExpiredDeletedSpaces();
+    if (retention.spacesScanned > 0 || retention.errors.length > 0) {
+      console.log('[Scheduled] Space deletion retention sweep complete', retention);
+    }
+  } catch (error) {
+    console.error('[Scheduled] Space deletion retention sweep failed:', error);
+  }
+
   if (!env.POLAR_ACCESS_TOKEN) {
     console.log('[Scheduled] Polar not configured, skipping usage sync');
     return;

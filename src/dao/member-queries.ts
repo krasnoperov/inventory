@@ -19,7 +19,15 @@ export async function getMemberRole(
   userId: string | number
 ): Promise<MemberRole | null> {
   const result = await db
-    .prepare('SELECT role FROM space_members WHERE space_id = ? AND user_id = ?')
+    .prepare(`
+      SELECT space_members.role
+      FROM space_members
+      INNER JOIN spaces ON spaces.id = space_members.space_id
+      WHERE space_members.space_id = ?
+        AND space_members.user_id = ?
+        AND spaces.deleted_at IS NULL
+        AND space_members.deleted_at IS NULL
+    `)
     .bind(spaceId, String(userId))
     .first<{ role: MemberRole }>();
 
