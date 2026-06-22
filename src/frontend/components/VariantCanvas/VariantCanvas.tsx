@@ -21,15 +21,18 @@ import '@xyflow/react/dist/style.css';
 import styles from './VariantCanvas.module.css';
 
 // Fixed thumbnail height, width varies freely by aspect ratio (no clamp:
-// the card must show the image as-is — no crop, no letterbox bars).
-const THUMB_HEIGHT = 140;
+// the card must show the image as-is — no crop, no letterbox bars). The
+// variants are the content here, so keep them large and legible.
+const THUMB_HEIGHT = 180;
 const NODE_PADDING = 20;
 
 // Active variant is larger
 const ACTIVE_SCALE = 1.5;
 
-// Default node dimensions (labels are positioned outside node bounds via CSS)
-const DEFAULT_NODE_WIDTH = 160;
+// Default node dimensions before an image has loaded (e.g. pending/failed
+// variants). Derived from THUMB_HEIGHT so the placeholder is square and the
+// inline thumbnail width can't drift from the CSS thumbnail height.
+const DEFAULT_NODE_WIDTH = THUMB_HEIGHT + NODE_PADDING;
 const DEFAULT_NODE_HEIGHT = THUMB_HEIGHT + NODE_PADDING;
 
 // Custom node types
@@ -555,7 +558,9 @@ function VariantCanvasInner({
     if (dimensionsReady && nodes.length > 0) {
       // Small delay to ensure nodes are rendered, then show canvas
       requestAnimationFrame(() => {
-        fitView({ padding: 0.3 });
+        // Fill the canvas with the lineage; cap zoom so a single-variant asset
+        // doesn't blow up to fill the screen.
+        fitView({ padding: 0.12, maxZoom: 1 });
         // Mark as ready after fitView to prevent blink
         requestAnimationFrame(() => {
           setIsReady(true);
