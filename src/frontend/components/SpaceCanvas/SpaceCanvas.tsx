@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -6,6 +6,7 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  ViewportPortal,
   useNodesInitialized,
   useNodesState,
   useReactFlow,
@@ -17,9 +18,11 @@ import { Thumbnail } from '../Thumbnail';
 import type {
   Asset,
   CollectionItem,
+  Lineage,
   SpaceCollection,
   Variant,
 } from '../../space/protocol';
+import { buildLineageAssetEdges } from './canvasEdges';
 import {
   aspectRatioForVariant,
   COLLECTION_KIND_COLORS,
@@ -41,6 +44,7 @@ interface SpaceCanvasProps {
   variants: Variant[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
+  lineage: Lineage[];
   isInitialSyncPending?: boolean;
   onAssetClick: (asset: Asset) => void;
 }
@@ -128,6 +132,7 @@ function FrameNodeView({ data }: NodeProps<FrameNode>) {
               <article
                 key={card.key}
                 className={boardStyles.assetCard}
+                data-asset-id={card.asset.id}
                 style={{ '--card-aspect': card.aspect } as CSSProperties}
               >
                 <button
@@ -195,11 +200,16 @@ function SpaceCanvasInner({
   variants,
   collections,
   collectionItems,
+  lineage,
   isInitialSyncPending,
   onAssetClick,
 }: SpaceCanvasProps) {
-  const { fitView } = useReactFlow();
+  const { fitView, screenToFlowPosition } = useReactFlow();
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [isReady, setIsReady] = useState(false);
+
+  // Lineage drawn between asset cards across frames — the "inventory graph".
+  const edges = useMemo(() => buildLineageAssetEdges(lineage, variants), [lineage, variants]);
 
   // Mirror zoom into a CSS var so card captions/labels can counter-scale later.
   const zoom = useStore((state) => state.transform[2]);
@@ -288,8 +298,17 @@ function SpaceCanvasInner({
   // auto-arranged frames instead of letting them overlap. Frames the user has
   // dragged are skipped (see packMasonry). The key omits positions, so the
   // re-pack's own position writes don't retrigger it.
+  // Includes each frame's card order, not just its height: a same-height
+  // reorder (e.g. live collection-item reordering) moves cards within the
+  // frame, and the edge offsets must be re-measured for that too.
   const layoutKey = useMemo(
-    () => nodes.map((node) => `${node.id}:${Math.round(node.measured?.height ?? 0)}`).join('|'),
+    () =>
+      nodes
+        .map((node) => {
+          const cardKeys = node.data.cards.map((card) => card.key).join(',');
+          return `${node.id}:${Math.round(node.measured?.height ?? 0)}:${cardKeys}`;
+        })
+        .join('|'),
     [nodes],
   );
   useEffect(() => {
@@ -312,6 +331,48 @@ function SpaceCanvasInner({
     });
   }, [nodesInitialized, nodes.length, fitView]);
 
+  // Each card's centre as a flow-space offset from its frame's origin. This is
+  // stable while a frame is dragged (only the frame's position moves), so the
+  // edge endpoints are derived live from the frame positions below and follow
+  // drags without re-measuring the DOM. Re-measured only when the layout
+  // changes (frames re-pack, cards added/removed).
+  const [cardOffsets, setCardOffsets] = useState<Map<string, { frameId: string; dx: number; dy: number }>>(new Map());
+  const measureCardOffsets = useCallback(() => {
+    const root = wrapperRef.current;
+    if (!root) return;
+    const next = new Map<string, { frameId: string; dx: number; dy: number }>();
+    root.querySelectorAll<HTMLElement>('[data-asset-id]').forEach((el) => {
+      const id = el.dataset.assetId;
+      const frameEl = el.closest<HTMLElement>('.react-flow__node');
+      const frameId = frameEl?.getAttribute('data-id');
+      if (!id || !frameEl || !frameId) return;
+      const card = el.getBoundingClientRect();
+      const frame = frameEl.getBoundingClientRect();
+      // Subtracting two flow-space points cancels the viewport transform.
+      const cardFlow = screenToFlowPosition({ x: card.left + card.width / 2, y: card.top + card.height / 2 });
+      const frameFlow = screenToFlowPosition({ x: frame.left, y: frame.top });
+      next.set(id, { frameId, dx: cardFlow.x - frameFlow.x, dy: cardFlow.y - frameFlow.y });
+    });
+    setCardOffsets(next);
+  }, [screenToFlowPosition]);
+
+  useEffect(() => {
+    if (!nodesInitialized) return;
+    const frame = requestAnimationFrame(measureCardOffsets);
+    return () => cancelAnimationFrame(frame);
+  }, [nodesInitialized, layoutKey, edges, measureCardOffsets]);
+
+  // Resolve each asset to its live flow-space centre: frame position + offset.
+  const cardCenter = useMemo(() => {
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+    return (assetId: string): { x: number; y: number } | null => {
+      const offset = cardOffsets.get(assetId);
+      const node = offset && nodeById.get(offset.frameId);
+      if (!offset || !node) return null;
+      return { x: node.position.x + offset.dx, y: node.position.y + offset.dy };
+    };
+  }, [nodes, cardOffsets]);
+
   if (assets.length === 0) {
     return (
       <div className={styles.empty}>
@@ -322,7 +383,7 @@ function SpaceCanvasInner({
   }
 
   return (
-    <div className={`${styles.canvas} ${isReady ? styles.ready : styles.loading}`}>
+    <div ref={wrapperRef} className={`${styles.canvas} ${isReady ? styles.ready : styles.loading}`}>
       <ReactFlow
         nodes={nodes}
         edges={EMPTY_EDGES}
@@ -334,6 +395,25 @@ function SpaceCanvasInner({
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={null}
       >
+        {/* Lineage edges live inside the viewport so they pan/zoom with the
+            frames; flow coordinates put them behind the frame nodes. */}
+        <ViewportPortal>
+          <svg className={styles.edgeLayer} style={{ overflow: 'visible' }} width="1" height="1" data-testid="lineage-edges">
+            {edges.map((edge) => {
+              const a = cardCenter(edge.source);
+              const b = cardCenter(edge.target);
+              if (!a || !b) return null;
+              const midX = (a.x + b.x) / 2;
+              return (
+                <path
+                  key={edge.id}
+                  className={`${styles.edge} ${styles[edge.relationType]}`}
+                  d={`M ${a.x} ${a.y} C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x} ${b.y}`}
+                />
+              );
+            })}
+          </svg>
+        </ViewportPortal>
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
         <Controls className={styles.controls} position="bottom-left" showInteractive={false} />
         <MiniMap

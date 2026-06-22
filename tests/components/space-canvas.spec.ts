@@ -21,6 +21,12 @@ function variant(assetId: string, w: number, h: number) {
 function collection(id: string, name: string, kind: string, color: string, sort: number) {
   return { id, name, kind, color, description: null, sort_index: sort, created_at: t, updated_at: t };
 }
+function lineage(id: string, parentAssetId: string, childAssetId: string) {
+  return {
+    id, parent_variant_id: `${parentAssetId}-v`, child_variant_id: `${childAssetId}-v`,
+    relation_type: 'derived', severed: false, created_at: t,
+  };
+}
 function item(id: string, collectionId: string, assetId: string, sort: number) {
   return {
     id, collection_id: collectionId, subject_type: 'asset', asset_id: assetId, variant_id: null,
@@ -87,6 +93,7 @@ test('re-packs so a live-grown frame never overlaps the one below it', async ({ 
       variants: [...baseVariants, ...extra.variants],
       collections: cols,
       collectionItems: [...baseItems, ...extra.items],
+      lineage: [],
       isInitialSyncPending: false,
       onAssetClick: '__noop__',
     });
@@ -113,6 +120,8 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
   await mountComponent(page, 'SpaceCanvas', {
     spaceId: 'space-1',
     assets, variants, collections, collectionItems,
+    // a0 (Backgrounds) derives a3 (Cast): one cross-frame lineage edge.
+    lineage: [lineage('l0', 'a0', 'a3')],
     isInitialSyncPending: false,
     onAssetClick: '__noop__',
   });
@@ -128,4 +137,41 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
   // Frames are laid out without overlapping each other.
   await expect(page.locator('.react-flow__node')).toHaveCount(3);
   expect(noOverlap(await frameBoxes(page))).toBe(true);
+
+  // The lineage link renders as one edge path between the two frames.
+  await expect.poll(async () => page.getByTestId('lineage-edges').locator('path').count()).toBe(1);
+});
+
+test('re-measures edge endpoints when cards reorder within a frame', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  const cols = [
+    collection('c0', 'Source', 'custom', '#caa45a', 0),
+    collection('c1', 'Target', 'cast', '#5a8fca', 1),
+  ];
+  const sourceAssets = ['a0', 'a1', 'a2', 'a3'].map((id, i) => asset(id, `A ${i}`));
+  const allAssets = [...sourceAssets, asset('b0', 'B')];
+  const allVariants = allAssets.map((a) => variant(a.id, 512, 512));
+  // a3 (last in Source) derives b0 (in Target).
+  const link = [lineage('l0', 'a3', 'b0')];
+
+  const itemsFor = (order: string[]) => [
+    ...order.map((id, i) => item(`i-${id}`, 'c0', id, i)),
+    item('i-b0', 'c1', 'b0', 0),
+  ];
+  const setProps = (order: string[]) =>
+    page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+      spaceId: 'space-1', assets: allAssets, variants: allVariants, collections: cols,
+      collectionItems: itemsFor(order), lineage: link, isInitialSyncPending: false, onAssetClick: '__noop__',
+    });
+
+  await page.goto('/component-harness.html?component=SpaceCanvas', { waitUntil: 'domcontentloaded' });
+  await setProps(['a0', 'a1', 'a2', 'a3']);
+  const edge = page.getByTestId('lineage-edges').locator('path');
+  await expect.poll(async () => (await edge.getAttribute('d')) ?? '').not.toBe('');
+  const before = await edge.getAttribute('d');
+
+  // Move a3 to the front — same frame height, but a3's centre moves to a new row.
+  await setProps(['a3', 'a0', 'a1', 'a2']);
+  await expect.poll(async () => (await edge.getAttribute('d')) ?? '', { timeout: 4000 }).not.toBe(before ?? '');
 });
