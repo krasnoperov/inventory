@@ -7,6 +7,7 @@ import {
   Controls,
   MiniMap,
   ViewportPortal,
+  getNodesBounds,
   useNodesInitialized,
   useNodesState,
   useReactFlow,
@@ -23,7 +24,8 @@ import type {
   Variant,
 } from '../../space/protocol';
 import { buildLineageAssetEdges } from './canvasEdges';
-import { isCompactZoom } from './canvasLod';
+import { isCompactZoom, COMPACT_ZOOM } from './canvasLod';
+import { FRAME_WIDTH, FRAME_GAP, columnCountForLayout, estimateFrameHeight } from './canvasLayout';
 import {
   aspectRatioForVariant,
   COLLECTION_KIND_COLORS,
@@ -71,20 +73,6 @@ interface FrameData extends Record<string, unknown> {
 
 type FrameNode = Node<FrameData, 'frame'>;
 
-const FRAME_WIDTH = 460;
-const FRAME_GAP = 36;
-const COLUMNS = 3;
-// Rough per-frame height estimate to balance the initial masonry columns;
-// React Flow re-measures the real DOM afterwards for the minimap.
-const HEADER_H = 64;
-const ROW_H = 150;
-const CARDS_PER_ROW = 3.2;
-
-function estimateFrameHeight(count: number): number {
-  const rows = Math.max(1, Math.ceil(count / CARDS_PER_ROW));
-  return HEADER_H + rows * (ROW_H + 9) + 16;
-}
-
 const NO_DRAGGED: ReadonlySet<string> = new Set();
 
 // Masonry: drop each frame into the currently shortest column. Uses the real
@@ -94,12 +82,12 @@ const NO_DRAGGED: ReadonlySet<string> = new Set();
 // auto-arranged frames are packed, so live data changes can never push an
 // auto-frame on top of another. Nodes whose position is unchanged are returned
 // by identity so callers can cheaply detect a no-op.
-function packMasonry(nodes: FrameNode[], draggedIds: ReadonlySet<string> = NO_DRAGGED): FrameNode[] {
-  const columnHeights = new Array(COLUMNS).fill(0);
+function packMasonry(nodes: FrameNode[], columns: number, draggedIds: ReadonlySet<string> = NO_DRAGGED): FrameNode[] {
+  const columnHeights = new Array(Math.max(1, columns)).fill(0);
   return nodes.map((node) => {
     if (draggedIds.has(node.id)) return node;
     let col = 0;
-    for (let i = 1; i < COLUMNS; i++) {
+    for (let i = 1; i < columnHeights.length; i++) {
       if (columnHeights[i] < columnHeights[col]) col = i;
     }
     const height = node.measured?.height ?? estimateFrameHeight((node.data as FrameData).count);
@@ -216,9 +204,27 @@ function SpaceCanvasInner({
   isInitialSyncPending,
   onAssetClick,
 }: SpaceCanvasProps) {
-  const { fitView, screenToFlowPosition } = useReactFlow();
+  const { fitView, setViewport, screenToFlowPosition } = useReactFlow();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isReady, setIsReady] = useState(false);
+
+  // Viewport aspect drives the column count so frames fill the screen rather
+  // than stacking into a tall, narrow strip with empty margins on the sides.
+  const [viewportAspect, setViewportAspect] = useState(() =>
+    typeof window !== 'undefined' && window.innerHeight > 0 ? window.innerWidth / window.innerHeight : 1.6,
+  );
+  useEffect(() => {
+    const update = () => {
+      const el = wrapperRef.current;
+      const w = el?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 0);
+      const h = el?.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 0);
+      if (w > 0 && h > 0) setViewportAspect(w / h);
+    };
+    update();
+    if (typeof window === 'undefined') return;
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   // Lineage drawn between asset cards across frames — the "inventory graph".
   const edges = useMemo(() => buildLineageAssetEdges(lineage, variants), [lineage, variants]);
@@ -288,8 +294,10 @@ function SpaceCanvasInner({
         onAssetClick,
       },
     }));
-    return packMasonry(seeded);
-  }, [assets, variants, collections, collectionItems, spaceId, onAssetClick]);
+    const totalHeight = seeded.reduce((sum, node) => sum + estimateFrameHeight((node.data as FrameData).count) + FRAME_GAP, 0);
+    const columns = columnCountForLayout(totalHeight, viewportAspect, seeded.length);
+    return packMasonry(seeded, columns);
+  }, [assets, variants, collections, collectionItems, spaceId, onAssetClick, viewportAspect]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<FrameNode>(initialNodes);
   const draggedIdsRef = useRef<Set<string>>(new Set());
@@ -327,22 +335,51 @@ function SpaceCanvasInner({
   useEffect(() => {
     if (!layoutKey) return;
     setNodes((current) => {
-      const packed = packMasonry(current, draggedIdsRef.current);
+      const totalHeight = current.reduce(
+        (sum, node) => sum + (node.measured?.height ?? estimateFrameHeight((node.data as FrameData).count)) + FRAME_GAP,
+        0,
+      );
+      const columns = columnCountForLayout(totalHeight, viewportAspect, current.length);
+      const packed = packMasonry(current, columns, draggedIdsRef.current);
       return packed.some((node, index) => node !== current[index]) ? packed : current;
     });
-  }, [layoutKey, setNodes]);
+  }, [layoutKey, viewportAspect, setNodes]);
 
-  // Fit the view once the frames have first been measured.
+  // Set the opening view once the frames have first been measured. If the whole
+  // space fits at a readable zoom, fit it. Otherwise — a dense space — don't
+  // cram everything into an unreadable greeked strip: open at a readable zoom
+  // anchored at the top, and let the rest sit off-screen (the minimap is the
+  // "there's more down here" indicator).
   const nodesInitialized = useNodesInitialized();
   const didFitRef = useRef(false);
   useEffect(() => {
     if (!nodesInitialized || didFitRef.current || nodes.length === 0) return;
     didFitRef.current = true;
     requestAnimationFrame(() => {
-      fitView({ padding: 0.15, maxZoom: 1 });
+      const el = wrapperRef.current;
+      const bounds = getNodesBounds(nodes);
+      const vw = el?.clientWidth ?? 0;
+      const vh = el?.clientHeight ?? 0;
+      const margin = 32;
+      const fitZoom =
+        vw > 0 && vh > 0 && bounds.width > 0 && bounds.height > 0
+          ? Math.min((vw - margin * 2) / bounds.width, (vh - margin * 2) / bounds.height, 1)
+          : 1;
+
+      // READABLE_ZOOM stays above the greek threshold so the opening view shows
+      // real thumbnails, never greeked blocks.
+      const READABLE_ZOOM = Math.max(COMPACT_ZOOM + 0.1, 0.6);
+      if (fitZoom >= READABLE_ZOOM) {
+        fitView({ padding: 0.06, maxZoom: 1 });
+      } else {
+        const zoom = READABLE_ZOOM;
+        const x = vw / 2 - (bounds.x + bounds.width / 2) * zoom;
+        const y = margin - bounds.y * zoom;
+        setViewport({ x, y, zoom });
+      }
       requestAnimationFrame(() => setIsReady(true));
     });
-  }, [nodesInitialized, nodes.length, fitView]);
+  }, [nodesInitialized, nodes.length, fitView, setViewport]);
 
   // Each card's centre as a flow-space offset from its frame's origin. This is
   // stable while a frame is dragged (only the frame's position moves), so the

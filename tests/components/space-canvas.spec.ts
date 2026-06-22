@@ -145,10 +145,9 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
   await expect.poll(async () => page.getByTestId('lineage-edges').locator('path').count()).toBe(1);
 });
 
-test('greeks cards into collection blocks when zoomed out', async ({ page }) => {
+test('greeks cards into collection blocks once zoomed out past the threshold', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 760 });
 
-  // Enough frames that fit-view zooms below the LOD threshold on load.
   const cols: ReturnType<typeof collection>[] = [];
   const manyAssets: ReturnType<typeof asset>[] = [];
   const manyVariants: ReturnType<typeof variant>[] = [];
@@ -172,7 +171,12 @@ test('greeks cards into collection blocks when zoomed out', async ({ page }) => 
   });
   await page.waitForSelector('.react-flow__node');
 
-  // Zoomed out → cards are greeked blocks, not thumbnails.
+  // The dense space opens at a readable zoom — full detail, not greeked blocks.
+  await expect(page.getByTestId('greek-card')).toHaveCount(0);
+
+  // Zooming out past the threshold greeks the cards into collection blocks.
+  const zoomOut = page.locator('.react-flow__controls-zoomout');
+  for (let i = 0; i < 6; i++) await zoomOut.click();
   await expect.poll(async () => page.getByTestId('greek-card').count()).toBeGreaterThan(0);
 });
 
