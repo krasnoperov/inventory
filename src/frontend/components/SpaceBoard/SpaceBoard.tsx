@@ -14,7 +14,7 @@ import type {
   SpaceCollection,
   Variant,
 } from '../../space/protocol';
-import { isVariantForgeTrayReady } from '../../space/protocol';
+import { isVariantForgeTrayReady, isVariantReady } from '../../space/protocol';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import {
   aspectRatioForVariant,
@@ -268,7 +268,7 @@ export function SpaceBoard({
                   </button>
                 </>
               )}
-              {canEdit && onPlaceInComposition && displayVariant && compositions.length > 0 && (
+              {canEdit && onPlaceInComposition && displayVariant && isVariantReady(displayVariant) && compositions.length > 0 && (
                 <CompositionPlacementControl
                   compositions={compositions}
                   compositionItems={compositionItems}

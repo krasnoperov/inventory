@@ -51,7 +51,6 @@
 .placeButton:hover {
   color: var(--color-primary);
   border-color: var(--color-primary);
-  background: oklch(55% 0.18 276 / 0.08);
 }
 
 .placed {
