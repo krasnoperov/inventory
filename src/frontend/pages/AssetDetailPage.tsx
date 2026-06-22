@@ -338,29 +338,6 @@ export default function AssetDetailPage() {
 
   // Child assets derived from variant lineage. Historical parent_asset_id values
   // stay readable in asset payloads but are no longer used as organization UI.
-  const childAssets = useMemo(() => {
-    if (!assetId) return [];
-
-    // Get variant IDs for this asset
-    const thisAssetVariantIds = new Set(variants.map(v => v.id));
-
-    // Find child variant IDs from lineage (where parent is one of this asset's variants)
-    const childVariantIds = new Set(
-      wsLineage
-        .filter(l => thisAssetVariantIds.has(l.parent_variant_id))
-        .map(l => l.child_variant_id)
-    );
-
-    // Find assets that own those child variants (excluding this asset)
-    const lineageChildAssetIds = new Set(
-      wsVariants
-        .filter(v => childVariantIds.has(v.id) && v.asset_id !== assetId)
-        .map(v => v.asset_id)
-    );
-
-    return wsAssets.filter(a => lineageChildAssetIds.has(a.id));
-  }, [assetId, variants, wsLineage, wsVariants, wsAssets]);
-
   const styleUsage = useMemo(() => {
     if (!assetId) {
       return { collections: [], presets: [], outputs: [] as Asset[] };
@@ -928,22 +905,8 @@ export default function AssetDetailPage() {
             </CanvasToolbarButton>
           </CanvasToolbar>
 
-          {/* Child assets (forks/derivatives) */}
-          {childAssets.length > 0 && (
-            <div className={styles.childAssets}>
-              <span className={styles.childLabel}>Derivatives:</span>
-              {childAssets.map((child) => (
-                <Link
-                  key={child.id}
-                  to={`/spaces/${spaceId}/assets/${child.id}`}
-                  className={styles.childLink}
-                  title={child.name}
-                >
-                  {child.name}
-                </Link>
-              ))}
-            </div>
-          )}
+          {/* Derivatives aren't listed here — the canvas already shows them as
+              clickable lineage nodes. */}
 
           <div className={styles.inspectorDock}>
             <button
