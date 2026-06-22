@@ -35,7 +35,6 @@ import {
   type GenerationEstimateResult,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
-import type { ForgeSubmitParams } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -106,7 +105,6 @@ export default function AssetDetailPage() {
   const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
   const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
-  const pendingCompositionShortcutsRef = React.useRef(new Map<string, CompositionShortcut>());
   const collectionPanelRef = React.useRef<HTMLElement | null>(null);
   const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
@@ -217,19 +215,6 @@ export default function AssetDetailPage() {
       if (completedJob.assetId && completedJob.assetId !== assetId) {
         navigate(`/spaces/${spaceId}/assets/${completedJob.assetId}`);
       }
-    },
-    onGenerateResult: (data) => {
-      if (!data.success || !data.variant) {
-        pendingCompositionShortcutsRef.current.delete(data.requestId);
-        return;
-      }
-      const shortcut = pendingCompositionShortcutsRef.current.get(data.requestId);
-      pendingCompositionShortcutsRef.current.delete(data.requestId);
-      applyCompositionShortcut(shortcut, data.variant, compositionItems, {
-        updateComposition,
-        createCompositionItem,
-        updateCompositionItem,
-      });
     },
     onChatHistory: (messages) => {
       setChatMessages(messages);
@@ -647,14 +632,15 @@ export default function AssetDetailPage() {
     sendBatchRequest,
   });
 
-  const handleForgeSubmitWithShortcuts = useCallback((params: ForgeSubmitParams): string => {
-    const requestId = handleForgeSubmit(params);
-    const shortcut = params.shortcut?.composition;
-    if (requestId && shortcut && shortcut.kind !== 'none') {
-      pendingCompositionShortcutsRef.current.set(requestId, shortcut);
-    }
-    return requestId;
-  }, [handleForgeSubmit]);
+  // Post-generation composition placement: apply a chosen role to a finished
+  // variant, replacing the old pre-generation shortcut dropdown.
+  const handlePlaceInComposition = useCallback((variant: Variant, shortcut: CompositionShortcut) => {
+    applyCompositionShortcut(shortcut, variant, compositionItems, {
+      updateComposition,
+      createCompositionItem,
+      updateCompositionItem,
+    });
+  }, [compositionItems, updateComposition, createCompositionItem, updateCompositionItem]);
 
   // Image upload hook
   const { upload: uploadImage, isUploading } = useImageUpload({
@@ -662,7 +648,6 @@ export default function AssetDetailPage() {
   });
 
   const handleUpload = useCallback(async (file: File, assetId: string, shortcut?: {
-    composition?: CompositionShortcut;
     relation?: RelationShortcut;
     collectionPlacements?: CollectionPlacementInput[];
   }) => {
@@ -675,13 +660,8 @@ export default function AssetDetailPage() {
       addCollectionItem,
       'variant'
     );
-    applyCompositionShortcut(shortcut?.composition, variant, compositionItems, {
-      updateComposition,
-      createCompositionItem,
-      updateCompositionItem,
-    });
     applyRelationShortcut(shortcut?.relation, variant, createRelation);
-  }, [addCollectionItem, collectionItems, compositionItems, createCompositionItem, createRelation, updateComposition, updateCompositionItem, uploadImage]);
+  }, [addCollectionItem, collectionItems, createRelation, uploadImage]);
 
   const handleExportTrainingData = useCallback((pipeline: 'tiles' | 'rotations' | 'all') => {
     if (!spaceId) return;
@@ -766,6 +746,9 @@ export default function AssetDetailPage() {
           onDeleteVariant={handleDeleteVariant}
           onCreateRelation={handleOpenCreateRelation}
           onAddVariantToCollection={canEdit && collections.length > 0 ? handleAddVariantToCollection : undefined}
+          compositions={compositions}
+          compositionItems={compositionItems}
+          onPlaceInComposition={canEdit ? handlePlaceInComposition : undefined}
         />
 
         {/* Tile Grid overlay for tile-set assets */}
@@ -1146,7 +1129,7 @@ export default function AssetDetailPage() {
       <ForgeTray
         allAssets={wsAssets}
         allVariants={wsVariants}
-        onSubmit={handleForgeSubmitWithShortcuts}
+        onSubmit={handleForgeSubmit}
         onBrandBackground={false}
         currentAsset={asset}
         onUpload={handleUpload}
@@ -1170,8 +1153,6 @@ export default function AssetDetailPage() {
         forgeErrorCode={forgeErrorCode}
         generationEstimate={generationEstimate}
         sendGenerationEstimateRequest={sendGenerationEstimateRequest}
-        compositions={compositions}
-        compositionItems={compositionItems}
       />
 
       {/* Rotation Panel modal */}

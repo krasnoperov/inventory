@@ -1,16 +1,21 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Thumbnail } from '../Thumbnail';
+import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import type {
   Asset,
   CollectionItem,
   CollectionItemCreateParams,
   CollectionItemUpdateParams,
   CollectionKind,
+  Composition,
+  CompositionItem,
+  CompositionOverview,
   SpaceSubject,
   SpaceCollection,
   Variant,
 } from '../../space/protocol';
 import { isVariantForgeTrayReady } from '../../space/protocol';
+import type { CompositionShortcut } from '../../productionShortcuts';
 import {
   aspectRatioForVariant,
   COLLECTION_KIND_COLORS,
@@ -37,6 +42,11 @@ interface SpaceBoardProps {
   onAssetClick: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onCreateRelation?: (subject: SpaceSubject) => void;
+  /** Compositions available as post-generation placement targets */
+  compositions?: Array<Composition | CompositionOverview>;
+  compositionItems?: CompositionItem[];
+  /** Place a finished variant into a composition as a chosen role */
+  onPlaceInComposition?: (variant: Variant, shortcut: CompositionShortcut) => void;
   createCollection: (params: { id?: string; name: string; kind?: CollectionKind; color?: string | null; sortIndex?: number }) => void;
   updateCollection: (collectionId: string, changes: { name?: string; kind?: CollectionKind; color?: string | null; sortIndex?: number }) => void;
   deleteCollection: (collectionId: string) => void;
@@ -76,6 +86,9 @@ export function SpaceBoard({
   onAssetClick,
   onAddToTray,
   onCreateRelation,
+  compositions = [],
+  compositionItems = [],
+  onPlaceInComposition,
   createCollection,
   updateCollection,
   deleteCollection,
@@ -222,7 +235,7 @@ export function SpaceBoard({
             {item?.role && item.role !== asset.type && <span>{item.role}</span>}
           </div>
         </div>
-        {(canEdit || onAddToTray || onCreateRelation) && (
+        {(canEdit || onAddToTray || onCreateRelation || onPlaceInComposition) && (
           <details className={styles.cardMenu}>
             <summary title={`Actions for ${asset.name}`}>Actions</summary>
             <div className={styles.cardMenuPanel}>
@@ -254,6 +267,14 @@ export function SpaceBoard({
                     Mark style ref
                   </button>
                 </>
+              )}
+              {canEdit && onPlaceInComposition && displayVariant && compositions.length > 0 && (
+                <CompositionPlacementControl
+                  compositions={compositions}
+                  compositionItems={compositionItems}
+                  variant={displayVariant}
+                  onPlace={onPlaceInComposition}
+                />
               )}
               {item && canEdit && (
                 <>

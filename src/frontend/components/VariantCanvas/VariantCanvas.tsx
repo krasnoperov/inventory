@@ -14,7 +14,8 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import dagre from 'dagre';
-import { type Asset, type Variant, type Lineage, type SpaceSubject, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, type Lineage, type SpaceSubject, type Composition, type CompositionItem, type CompositionOverview, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
+import type { CompositionShortcut } from '../../productionShortcuts';
 import { VariantNode, type VariantNodeType } from './VariantNode';
 
 import '@xyflow/react/dist/style.css';
@@ -71,6 +72,11 @@ export interface VariantCanvasProps {
   onCreateRelation?: (subject: SpaceSubject) => void;
   /** Handler for adding an exact variant to the current collection target */
   onAddVariantToCollection?: (variant: Variant) => void;
+  /** Compositions available as post-generation placement targets */
+  compositions?: Array<Composition | CompositionOverview>;
+  compositionItems?: CompositionItem[];
+  /** Place a finished variant into a composition as a chosen role */
+  onPlaceInComposition?: (variant: Variant, shortcut: CompositionShortcut) => void;
 }
 
 /** Calculate node bounding width from image dimensions (height fixed, width follows aspect ratio) */
@@ -236,6 +242,9 @@ function VariantCanvasInner({
   onDeleteVariant,
   onCreateRelation,
   onAddVariantToCollection,
+  compositions,
+  compositionItems,
+  onPlaceInComposition,
   dimensionsReady,
   imageDimensions,
 }: VariantCanvasProps & {
@@ -340,6 +349,9 @@ function VariantCanvasInner({
           onDeleteVariant,
           onCreateRelation,
           onAddVariantToCollection,
+          compositions,
+          compositionItems,
+          onPlaceInComposition,
           variantCount: variants.length,
           spaceId,
           // Exact thumbnail width so the card matches the image aspect ratio
@@ -531,7 +543,7 @@ function VariantCanvasInner({
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, onStarVariant, onDeleteVariant, onCreateRelation, onAddVariantToCollection, spaceId]);
+  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, onStarVariant, onDeleteVariant, onCreateRelation, onAddVariantToCollection, compositions, compositionItems, onPlaceInComposition, spaceId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -632,6 +644,9 @@ export function VariantCanvas({
   onDeleteVariant,
   onCreateRelation,
   onAddVariantToCollection,
+  compositions,
+  compositionItems,
+  onPlaceInComposition,
 }: VariantCanvasProps) {
   // Track loaded image dimensions
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
@@ -725,6 +740,9 @@ export function VariantCanvas({
         onDeleteVariant={onDeleteVariant}
         onCreateRelation={onCreateRelation}
         onAddVariantToCollection={onAddVariantToCollection}
+        compositions={compositions}
+        compositionItems={compositionItems}
+        onPlaceInComposition={onPlaceInComposition}
         dimensionsReady={dimensionsReady}
         imageDimensions={imageDimensions}
       />

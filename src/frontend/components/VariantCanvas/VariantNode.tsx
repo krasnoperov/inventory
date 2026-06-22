@@ -1,10 +1,12 @@
 import { memo, useCallback, useState, useEffect } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type SpaceSubject, type Variant, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantForgeTrayReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type SpaceSubject, type Variant, type Composition, type CompositionItem, type CompositionOverview, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantForgeTrayReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../../mediaKind';
 import { formatUtcDateTime } from '../../lib/dates';
 import { Thumbnail } from '../Thumbnail';
 import { ImageLightbox } from '../ImageLightbox';
+import { CompositionPlacementControl } from '../CompositionPlacementControl';
+import type { CompositionShortcut } from '../../productionShortcuts';
 import styles from './VariantNode.module.css';
 
 /** Layout direction for handle positioning */
@@ -45,6 +47,11 @@ export interface VariantNodeData extends Record<string, unknown> {
   onCreateRelation?: (subject: SpaceSubject) => void;
   /** Handler for selecting this exact variant for collection placement */
   onAddVariantToCollection?: (variant: Variant) => void;
+  /** Compositions available as post-generation placement targets */
+  compositions?: Array<Composition | CompositionOverview>;
+  compositionItems?: CompositionItem[];
+  /** Place this finished variant into a composition as a chosen role */
+  onPlaceInComposition?: (variant: Variant, shortcut: CompositionShortcut) => void;
   /** Total number of variants (to disable delete when only 1) */
   variantCount?: number;
   /** Space ID for authenticated media downloads */
@@ -78,6 +85,9 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     onDeleteVariant,
     onCreateRelation,
     onAddVariantToCollection,
+    compositions,
+    compositionItems,
+    onPlaceInComposition,
     variantCount = 0,
     spaceId,
     thumbWidth,
@@ -485,6 +495,18 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
             {dimensionsLabel && <span className={styles.detailsChip}>{dimensionsLabel}</span>}
             {sizeLabel && <span className={styles.detailsChip}>{sizeLabel}</span>}
           </div>
+
+          {/* Place this finished variant into a composition (post-generation) */}
+          {onPlaceInComposition && compositions && compositions.length > 0 && isVariantReady(variant) && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <CompositionPlacementControl
+                compositions={compositions}
+                compositionItems={compositionItems ?? []}
+                variant={variant}
+                onPlace={onPlaceInComposition}
+              />
+            </div>
+          )}
 
           {/* Prompt */}
           {recipe?.prompt && (
