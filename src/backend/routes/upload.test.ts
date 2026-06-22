@@ -9,6 +9,7 @@ import { MemberDAO } from '../../dao/member-dao';
 interface PutCall {
   key: string;
   body: Uint8Array;
+  cacheControl?: string;
   contentType?: string;
 }
 
@@ -78,7 +79,10 @@ function buildApp(options: {
       const contentType = putOptions?.httpMetadata instanceof Headers
         ? putOptions.httpMetadata.get('content-type') ?? undefined
         : putOptions?.httpMetadata?.contentType;
-      puts.push({ key, body, contentType });
+      const cacheControl = putOptions?.httpMetadata instanceof Headers
+        ? putOptions.httpMetadata.get('cache-control') ?? undefined
+        : putOptions?.httpMetadata?.cacheControl;
+      puts.push({ key, body, cacheControl, contentType });
       stored.set(key, { body, contentType });
       return null;
     },
@@ -316,6 +320,7 @@ describe('uploadRoutes', () => {
     assert.strictEqual(puts.length, 1);
     assert.match(puts[0].key, /^media\/space-1\/.+\.mp4$/);
     assert.strictEqual(puts[0].contentType, 'video/mp4');
+    assert.strictEqual(puts[0].cacheControl, undefined);
 
     const placeholder = doCalls.find((call) => call.path === '/internal/upload-placeholder');
     assert.ok(placeholder);
@@ -362,7 +367,7 @@ describe('uploadRoutes', () => {
   });
 
   it('stores upload provenance, provider metadata, active behavior, and lineage', async () => {
-    const { app, doCalls } = buildApp();
+    const { app, doCalls, puts } = buildApp();
     const formData = new FormData();
     formData.append('file', new File([new Uint8Array([1, 2, 3])], 'hero.png', { type: 'image/png' }));
     formData.append('assetName', 'Hero');
@@ -383,6 +388,10 @@ describe('uploadRoutes', () => {
     assert.strictEqual(res.status, 200);
     assert.strictEqual(body.success, true);
     assert.deepStrictEqual(body.lineage.map((lineage) => lineage.id), ['lineage-1']);
+    assert.match(puts[0].key, /^images\/space-1\/.+\.png$/);
+    assert.strictEqual(puts[0].cacheControl, 'public, max-age=31536000, immutable');
+    assert.match(puts[1].key, /^images\/space-1\/.+_thumb\.webp$/);
+    assert.strictEqual(puts[1].cacheControl, 'public, max-age=31536000, immutable');
 
     const placeholder = doCalls.find((call) => call.path === '/internal/upload-placeholder');
     assert.ok(placeholder);

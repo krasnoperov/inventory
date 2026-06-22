@@ -11,6 +11,7 @@ import {
   SpaceRelationTypeSchema,
   SpaceSubjectTypeSchema,
 } from '../../shared/api/schemas';
+import { immutableMediaHttpMetadata } from '../media/r2-metadata';
 
 // Type definitions for export format
 interface ExportManifest {
@@ -1121,17 +1122,17 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
       const mediaMimeType = variant.mediaMimeType ?? (mediaKind === 'video' ? 'video/mp4' : mediaKind === 'audio' ? 'audio/mpeg' : 'image/png');
 
       await env.IMAGES.put(mediaKey, mediaData, {
-        httpMetadata: { contentType: mediaMimeType },
+        httpMetadata: immutableMediaHttpMetadata(mediaKey, mediaMimeType),
       });
 
       if (thumbKey && thumbData) {
         await env.IMAGES.put(thumbKey, thumbData, {
-          httpMetadata: { contentType: 'image/png' },
+          httpMetadata: immutableMediaHttpMetadata(thumbKey, 'image/png'),
         });
       } else if (thumbKey) {
         // Use main image as thumb if no thumb
         await env.IMAGES.put(thumbKey, imageData ?? mediaData, {
-          httpMetadata: { contentType: 'image/png' },
+          httpMetadata: immutableMediaHttpMetadata(thumbKey, 'image/png'),
         });
       }
 

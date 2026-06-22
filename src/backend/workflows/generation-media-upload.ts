@@ -24,6 +24,7 @@ import {
 } from '../utils/image-utils';
 import { loggers } from '../../shared/logger';
 import { getVideoGenerationTierForModel } from '../../shared/videoGenerationOptions';
+import { immutableMediaHttpMetadata } from '../media/r2-metadata';
 
 const log = loggers.generationWorkflow;
 
@@ -158,7 +159,7 @@ export async function uploadGeneratedMedia(
 
     // Upload full image
     await env.IMAGES.put(imgKey, imageBuffer, {
-      httpMetadata: { contentType: actualMimeType },
+      httpMetadata: immutableMediaHttpMetadata(imgKey, actualMimeType),
     });
 
     log.debug('Uploaded full image', { requestId, jobId, imageKey: imgKey });
@@ -182,7 +183,7 @@ export async function uploadGeneratedMedia(
       );
 
       await env.IMAGES.put(thmbKey, thumbBuffer, {
-        httpMetadata: { contentType: thumbMimeType },
+        httpMetadata: immutableMediaHttpMetadata(thmbKey, thumbMimeType),
       });
       thumbSize = thumbBuffer.byteLength;
 
@@ -191,7 +192,7 @@ export async function uploadGeneratedMedia(
       // Fallback: use original as thumbnail
       log.warn('Thumbnail creation failed, using original', { requestId, jobId, error: thumbError instanceof Error ? thumbError.message : String(thumbError) });
       await env.IMAGES.put(thmbKey, imageBuffer, {
-        httpMetadata: { contentType: actualMimeType },
+        httpMetadata: immutableMediaHttpMetadata(thmbKey, actualMimeType),
       });
       thumbSize = imageBuffer.byteLength;
     }

@@ -17,6 +17,7 @@ import {
   getImageDimensions,
   type ImageMimeType,
 } from '../utils/image-utils';
+import { immutableMediaHttpMetadata } from '../media/r2-metadata';
 import type { MediaKind } from '../../shared/websocket-types';
 
 // Configuration
@@ -604,7 +605,7 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
 
     // Upload primary media to R2
     await env.IMAGES.put(mediaKey, mediaBuffer, {
-      httpMetadata: { contentType: mimeType },
+      httpMetadata: immutableMediaHttpMetadata(mediaKey, mimeType),
     });
 
     for (const sidecar of audioSidecars) {
@@ -634,13 +635,13 @@ uploadRoutes.openapi(uploadMediaRoute, async (c) => {
         );
 
         await env.IMAGES.put(thumbKey, thumbBuffer, {
-          httpMetadata: { contentType: thumbMimeType },
+          httpMetadata: immutableMediaHttpMetadata(thumbKey, thumbMimeType),
         });
       } catch (thumbError) {
         // Fallback: use original image as thumbnail
         console.warn('Thumbnail creation failed, using original:', thumbError);
         await env.IMAGES.put(thumbKey, mediaBuffer, {
-          httpMetadata: { contentType: mimeType },
+          httpMetadata: immutableMediaHttpMetadata(thumbKey, mimeType),
         });
       }
     }

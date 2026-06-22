@@ -13,6 +13,7 @@ import type {
   VideoGenerationResolution,
   VideoGenerationTier,
 } from '../../shared/videoGenerationOptions';
+import { getR2ImageUrl } from '../media-cdn';
 
 // Asset and Variant types based on DO SQLite schema
 export interface Asset {
@@ -73,7 +74,7 @@ export interface Variant {
 export function getVariantThumbnailUrl(variant: Variant): string | undefined {
   if (!variant.image_key) return undefined;
   const key = variant.thumb_key || variant.image_key;
-  return `/api/images/${key}`;
+  return getR2ImageUrl(key);
 }
 
 /**
@@ -85,7 +86,7 @@ export function getVariantMediaUrl(variant: Variant, spaceId?: string): string |
   if (spaceId) {
     return `/api/spaces/${spaceId}/variants/${variant.id}/media`;
   }
-  return `/api/images/${variant.media_key || variant.image_key}`;
+  return getR2ImageUrl(variant.media_key || variant.image_key || '');
 }
 
 /**

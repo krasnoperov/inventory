@@ -13,15 +13,19 @@ import { uploadGeneratedMedia, type MediaUploadResult } from './generation-media
 
 const STEP_OUTPUT_CAP_BYTES = 1024 * 1024; // 1 MiB
 
-type StoredObject = { bytes: Uint8Array; contentType?: string };
+type StoredObject = { bytes: Uint8Array; cacheControl?: string; contentType?: string };
 
 function createMockImages() {
   const store = new Map<string, StoredObject>();
   const bucket = {
     store,
-    async put(key: string, value: Uint8Array | ArrayBuffer, opts?: { httpMetadata?: { contentType?: string } }) {
+    async put(key: string, value: Uint8Array | ArrayBuffer, opts?: { httpMetadata?: { cacheControl?: string; contentType?: string } }) {
       const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
-      store.set(key, { bytes, contentType: opts?.httpMetadata?.contentType });
+      store.set(key, {
+        bytes,
+        cacheControl: opts?.httpMetadata?.cacheControl,
+        contentType: opts?.httpMetadata?.contentType,
+      });
       return {};
     },
     async get(key: string) {
@@ -121,8 +125,11 @@ describe('uploadGeneratedMedia — no binary blob crosses a step boundary', () =
 
     const stored = images.store.get('images/space_1/var_2.png');
     assert.ok(stored, 'image bytes must be written to R2');
+    assert.equal(stored.cacheControl, 'public, max-age=31536000, immutable');
     assert.ok(stored.bytes.byteLength > STEP_OUTPUT_CAP_BYTES, 'sanity: payload exceeds the 1 MiB cap');
-    assert.ok(images.store.has('images/space_1/var_2_thumb.webp'), 'thumbnail must be written to R2');
+    const thumb = images.store.get('images/space_1/var_2_thumb.webp');
+    assert.ok(thumb, 'thumbnail must be written to R2');
+    assert.equal(thumb.cacheControl, 'public, max-age=31536000, immutable');
 
     assert.ok(
       stepOutputBytes(result) < 2_000,

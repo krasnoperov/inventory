@@ -9,6 +9,7 @@ export interface StartSession {
   config: {
     googleClientId: string;
     environment?: string;
+    mediaCdnBaseUrl?: string | null;
     features: {
       rotation: boolean;
     };
