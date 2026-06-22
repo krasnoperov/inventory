@@ -774,7 +774,7 @@ Examples:
   makefx upload hero.png --space abc123 --name "Hero Character"
   makefx upload hero.png --space abc123 --name "Hero" --prompt "external render" --provider blender
   makefx upload paintover.png --space abc123 --asset def456 --source-variant var123 --relation-type refined
-  makefx upload scene.png --space abc123 --name "Cocina" --source-variants anna,roman,bg
+  makefx upload scene.png --space abc123 --name "Cocina" --type scene --source-variants anna,roman,bg
   makefx upload hero.png --space abc123 --name "Hero" --collection collection_cast --collection-role character
   makefx upload hero.png --space abc123 --name "Hero" --collection-name "Cast" --collection-role character
   makefx upload thumbnail.png --space abc123 --asset asset_thumb --manual-relation thumbnail_for:asset:asset_target
