@@ -47,13 +47,14 @@
 }
 
 /* Thumbnail container - fixed height; width is set inline to match the image
-   aspect ratio exactly (no crop, no letterbox bars). Every node — including
-   cross-asset ghost nodes — receives an exact inline width; this 140px is only
-   a fallback before image dimensions have loaded. */
+   aspect ratio exactly (no crop, no letterbox bars). The height MUST match
+   THUMB_HEIGHT in VariantCanvas.tsx, which derives the inline width from it —
+   if they drift, variants render at the wrong aspect and crop. The width here
+   is only a fallback before image dimensions have loaded. */
 .thumbnail {
   position: relative;
-  width: 140px;
-  height: 140px;
+  width: 180px;
+  height: 180px;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: transparent;
