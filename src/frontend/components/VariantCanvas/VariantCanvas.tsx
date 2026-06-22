@@ -29,8 +29,10 @@ const NODE_PADDING = 20;
 // Active variant is larger
 const ACTIVE_SCALE = 1.5;
 
-// Default node dimensions (labels are positioned outside node bounds via CSS)
-const DEFAULT_NODE_WIDTH = 160;
+// Default node dimensions before an image has loaded (e.g. pending/failed
+// variants). Derived from THUMB_HEIGHT so the placeholder is square and the
+// inline thumbnail width can't drift from the CSS thumbnail height.
+const DEFAULT_NODE_WIDTH = THUMB_HEIGHT + NODE_PADDING;
 const DEFAULT_NODE_HEIGHT = THUMB_HEIGHT + NODE_PADDING;
 
 // Custom node types
