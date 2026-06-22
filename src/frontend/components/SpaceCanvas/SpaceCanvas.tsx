@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -24,7 +24,6 @@ import type {
   Variant,
 } from '../../space/protocol';
 import { buildLineageAssetEdges } from './canvasEdges';
-import { isCompactZoom, COMPACT_ZOOM } from './canvasLod';
 import { FRAME_WIDTH, FRAME_GAP, columnCountForLayout, estimateFrameHeight } from './canvasLayout';
 import {
   aspectRatioForVariant,
@@ -101,12 +100,7 @@ function packMasonry(nodes: FrameNode[], columns: number, draggedIds: ReadonlySe
 // Invisible flex children that keep a sparse last row at its natural height.
 const ROW_FILLERS = Array.from({ length: 8 });
 
-// True when the canvas is zoomed out far enough to greek the cards. Provided by
-// the canvas so every frame flips representation together at the threshold.
-const CompactContext = createContext(false);
-
 function FrameNodeView({ data }: NodeProps<FrameNode>) {
-  const compact = useContext(CompactContext);
   return (
     <div className={styles.frame} style={{ '--collection-color': data.color } as CSSProperties}>
       <header className={styles.frameHeader}>
@@ -134,27 +128,21 @@ function FrameNodeView({ data }: NodeProps<FrameNode>) {
                   onClick={() => data.onAssetClick(card.asset)}
                   title={card.asset.name}
                 >
-                  {compact ? (
-                    <span className={styles.greek} data-testid="greek-card" aria-hidden="true" />
-                  ) : (
-                    <Thumbnail
-                      variant={card.variant}
-                      size="fill"
-                      spaceId={data.spaceId}
-                      className={boardStyles.thumbnail}
-                    />
-                  )}
+                  <Thumbnail
+                    variant={card.variant}
+                    size="fill"
+                    spaceId={data.spaceId}
+                    className={boardStyles.thumbnail}
+                  />
                 </button>
-                {!compact && (
-                  <div className={boardStyles.caption}>
-                    <button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)}>
-                      {card.asset.name}
-                    </button>
-                    <div className={boardStyles.assetMeta}>
-                      <span>{card.asset.type}</span>
-                    </div>
+                <div className={boardStyles.caption}>
+                  <button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)}>
+                    {card.asset.name}
+                  </button>
+                  <div className={boardStyles.assetMeta}>
+                    <span>{card.asset.type}</span>
                   </div>
-                )}
+                </div>
               </article>
             ))}
             {ROW_FILLERS.map((_, index) => (
@@ -231,7 +219,6 @@ function SpaceCanvasInner({
 
   // Mirror zoom into a CSS var so card captions/labels can counter-scale later.
   const zoom = useStore((state) => state.transform[2]);
-  const compact = isCompactZoom(zoom);
   useEffect(() => {
     const container = document.querySelector(`.${styles.canvas}`);
     if (container) {
@@ -347,9 +334,9 @@ function SpaceCanvasInner({
 
   // Set the opening view once the frames have first been measured. If the whole
   // space fits at a readable zoom, fit it. Otherwise — a dense space — don't
-  // cram everything into an unreadable greeked strip: open at a readable zoom
-  // anchored at the top, and let the rest sit off-screen (the minimap is the
-  // "there's more down here" indicator).
+  // shrink everything into an unreadable sliver: open at a readable zoom anchored
+  // at the top, and let the rest sit off-screen (the minimap is the "there's more
+  // down here" indicator).
   const nodesInitialized = useNodesInitialized();
   const didFitRef = useRef(false);
   useEffect(() => {
@@ -366,9 +353,9 @@ function SpaceCanvasInner({
           ? Math.min((vw - margin * 2) / bounds.width, (vh - margin * 2) / bounds.height, 1)
           : 1;
 
-      // READABLE_ZOOM stays above the greek threshold so the opening view shows
-      // real thumbnails, never greeked blocks.
-      const READABLE_ZOOM = Math.max(COMPACT_ZOOM + 0.1, 0.6);
+      // Open dense spaces at a comfortable zoom (rest goes off-screen) rather
+      // than shrinking everything to fit into an unreadable sliver.
+      const READABLE_ZOOM = 0.6;
       if (fitZoom >= READABLE_ZOOM) {
         fitView({ padding: 0.06, maxZoom: 1 });
       } else {
@@ -434,7 +421,6 @@ function SpaceCanvasInner({
 
   return (
     <div ref={wrapperRef} className={`${styles.canvas} ${isReady ? styles.ready : styles.loading}`}>
-      <CompactContext.Provider value={compact}>
       <ReactFlow
         nodes={nodes}
         edges={EMPTY_EDGES}
@@ -476,7 +462,6 @@ function SpaceCanvasInner({
           maskColor="rgba(0, 0, 0, 0.5)"
         />
       </ReactFlow>
-      </CompactContext.Provider>
     </div>
   );
 }
