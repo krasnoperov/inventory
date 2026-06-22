@@ -109,6 +109,17 @@
   font-size: var(--font-size-small-sm);
 }
 
+/* Greeked card: a collection-tinted block shown instead of a thumbnail when
+   the canvas is zoomed out, so a frame reads as a coloured cluster and we skip
+   rendering hundreds of images. Inherits --collection-color from the frame. */
+.greek {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--collection-color);
+  opacity: 0.55;
+}
+
 /* Lineage edge layer — sits behind the frame nodes in the viewport. */
 .edgeLayer {
   position: absolute;
