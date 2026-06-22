@@ -140,6 +140,12 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
 
   // The lineage link renders as one edge path between the two frames.
   await expect.poll(async () => page.getByTestId('lineage-edges').locator('path').count()).toBe(1);
+
+  // Zooming out keeps the real thumbnails — cards are never swapped for blocks.
+  const zoomOut = page.locator('.react-flow__controls-zoomout');
+  for (let i = 0; i < 6; i++) await zoomOut.click();
+  await expect(page.locator('[data-asset-id="a0"] svg').first()).toBeVisible();
+  await expect(page.getByTestId('greek-card')).toHaveCount(0);
 });
 
 test('re-measures edge endpoints when cards reorder within a frame', async ({ page }) => {
