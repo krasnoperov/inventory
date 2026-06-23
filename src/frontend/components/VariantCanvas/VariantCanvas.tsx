@@ -254,6 +254,25 @@ function VariantCanvasInner({
   const { fitView } = useReactFlow();
   const [isReady, setIsReady] = useState(false);
 
+  // Allow zooming each image past its native 1:1 resolution. A non-active node
+  // renders its image at THUMB_HEIGHT tall, so the canvas zoom needed to reach
+  // native pixels is media_height / THUMB_HEIGHT. We take the largest such ratio
+  // across all variants (the most demanding image), add headroom so the user can
+  // push a bit beyond 1:1 to inspect detail, and clamp to a sane range. The old
+  // fixed cap of 2 was well below native for typical generations (~3–4×).
+  const maxZoom = useMemo(() => {
+    let nativeZoom = 0;
+    for (const variant of variants) {
+      const height = variant.media_height;
+      if (height && height > 0) {
+        nativeZoom = Math.max(nativeZoom, height / THUMB_HEIGHT);
+      }
+    }
+    // 1.5× headroom past native; floor of 2 preserves prior behaviour for
+    // dimensionless variants, ceiling of 8 keeps the canvas from feeling broken.
+    return Math.min(8, Math.max(2, nativeZoom * 1.5));
+  }, [variants]);
+
   // Update CSS custom property when zoom changes (via DOM, not React state)
   // This avoids re-rendering nodes while still enabling CSS counter-scaling
   const zoom = useStore((state) => state.transform[2]);
@@ -604,7 +623,7 @@ function VariantCanvasInner({
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         minZoom={0.3}
-        maxZoom={2}
+        maxZoom={maxZoom}
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
