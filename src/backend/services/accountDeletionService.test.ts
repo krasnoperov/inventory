@@ -230,6 +230,7 @@ describe('AccountDeletionService', () => {
 
     assert.equal(result.deleted, true);
     assert.equal(result.ownedSpacesPurged, 1);
+    assert.equal(result.spacePurgeFailures, 0);
     assert.equal(result.sharedMembershipsDeleted, 1);
     assert.equal(result.r2ObjectsDeleted, 2);
     assert.deepEqual(polarCalls, ['polar-customer-1']);
@@ -253,9 +254,11 @@ describe('AccountDeletionService', () => {
     const tombstone = await db.selectFrom('account_deletion_tombstones').selectAll().where('user_id', '=', 1).executeTakeFirstOrThrow();
     assert.equal(tombstone.source, 'self_service');
     assert.equal(tombstone.owned_spaces_purged, 1);
+    assert.deepEqual(JSON.parse(tombstone.owned_space_ids), ['owned-space']);
     assert.match(tombstone.r2_key ?? '', /^account-deletion-tombstones\/user-1\/acctdel_1_/);
     assert.equal(r2Puts.length, 1);
     assert.equal(JSON.parse(r2Puts[0].body).user_id, 1);
+    assert.deepEqual(JSON.parse(r2Puts[0].body).owned_space_ids, ['owned-space']);
     assert.equal(JSON.stringify(JSON.parse(r2Puts[0].body)).includes('delete@example.com'), false);
   });
 
@@ -286,7 +289,7 @@ describe('AccountDeletionService', () => {
     assert.equal((await db.selectFrom('account_deletion_tombstones').selectAll().execute()).length, 0);
   });
 
-  test('records a durable tombstone before destructive downstream purges fail', async () => {
+  test('hard-deletes the account after durable tombstone when downstream purges fail', async () => {
     await db.insertInto('users').values(createUser(1, 'delete@example.com', 'polar-customer-1')).execute();
     await db.insertInto('spaces').values({
       id: 'owned-space',
@@ -304,18 +307,21 @@ describe('AccountDeletionService', () => {
       SPACES_DO: fakeSpacesDo([], new Response('purge failed', { status: 500 })),
     } as unknown as Env, fakePolar(polarCalls));
 
-    await assert.rejects(
-      () => service.deleteAccount(1),
-      (error) => error instanceof AccountDeletionError && error.code === 'account_deletion_space_purge_failed'
-    );
+    const result = await service.deleteAccount(1);
 
+    assert.equal(result.deleted, true);
+    assert.equal(result.ownedSpacesPurged, 1);
+    assert.equal(result.spacePurgeFailures, 1);
+    assert.equal(result.r2ObjectsDeleted, 0);
     assert.deepEqual(polarCalls, ['polar-customer-1']);
-    assert.equal((await db.selectFrom('users').selectAll().where('id', '=', 1).execute()).length, 1);
+    assert.equal((await db.selectFrom('users').selectAll().where('id', '=', 1).execute()).length, 0);
+    assert.equal((await db.selectFrom('spaces').selectAll().where('id', '=', 'owned-space').execute()).length, 0);
     const tombstone = await db.selectFrom('account_deletion_tombstones')
       .selectAll()
       .where('user_id', '=', 1)
       .executeTakeFirstOrThrow();
     assert.equal(tombstone.source, 'self_service');
+    assert.deepEqual(JSON.parse(tombstone.owned_space_ids), ['owned-space']);
     assert.match(tombstone.r2_key ?? '', /^account-deletion-tombstones\/user-1\/acctdel_1_/);
     assert.equal(r2Puts.length, 1);
   });
@@ -343,6 +349,7 @@ describe('AccountDeletionService', () => {
       user_id: 1,
       source: 'self_service',
       owned_spaces_purged: 1,
+      owned_space_ids: ['restored-owned-space'],
       deleted_at: '2026-06-23T00:00:00.000Z',
       created_at: '2026-06-23T00:00:00.000Z',
     };

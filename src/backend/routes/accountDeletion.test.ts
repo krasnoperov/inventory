@@ -41,6 +41,7 @@ function routeApp(options: {
             deleteAccount: options.deleteAccount ?? (async () => ({
               deleted: true,
               ownedSpacesPurged: 0,
+              spacePurgeFailures: 0,
               sharedMembershipsDeleted: 0,
               r2ObjectsDeleted: 0,
               d1RowsChanged: 1,
@@ -69,7 +70,7 @@ describe('DELETE /api/user/account', () => {
     const appResponse = await bindFetch(routeApp({
       deleteAccount: async () => {
         called = true;
-        return { deleted: true, ownedSpacesPurged: 0, sharedMembershipsDeleted: 0, r2ObjectsDeleted: 0, d1RowsChanged: 1 };
+        return { deleted: true, ownedSpacesPurged: 0, spacePurgeFailures: 0, sharedMembershipsDeleted: 0, r2ObjectsDeleted: 0, d1RowsChanged: 1 };
       },
     }))(`${baseUrl}/api/user/account`, {
       method: 'DELETE',
@@ -89,7 +90,7 @@ describe('DELETE /api/user/account', () => {
     const response = await bindFetch(routeApp({
       deleteAccount: async () => {
         called = true;
-        return { deleted: true, ownedSpacesPurged: 0, sharedMembershipsDeleted: 0, r2ObjectsDeleted: 0, d1RowsChanged: 1 };
+        return { deleted: true, ownedSpacesPurged: 0, spacePurgeFailures: 0, sharedMembershipsDeleted: 0, r2ObjectsDeleted: 0, d1RowsChanged: 1 };
       },
     }))(`${baseUrl}/api/user/account`, {
       method: 'DELETE',
@@ -110,7 +111,7 @@ describe('DELETE /api/user/account', () => {
     const response = await bindFetch(routeApp({
       deleteAccount: async () => {
         called = true;
-        return { deleted: true, ownedSpacesPurged: 0, sharedMembershipsDeleted: 0, r2ObjectsDeleted: 0, d1RowsChanged: 1 };
+        return { deleted: true, ownedSpacesPurged: 0, spacePurgeFailures: 0, sharedMembershipsDeleted: 0, r2ObjectsDeleted: 0, d1RowsChanged: 1 };
       },
     }))(`${baseUrl}/api/user/account`, {
       method: 'DELETE',
@@ -133,6 +134,7 @@ describe('DELETE /api/user/account', () => {
             return {
               deleted: true,
               ownedSpacesPurged: 2,
+              spacePurgeFailures: 0,
               sharedMembershipsDeleted: 1,
               r2ObjectsDeleted: 4,
               d1RowsChanged: 9,

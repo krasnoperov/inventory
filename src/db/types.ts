@@ -165,6 +165,7 @@ export interface AccountDeletionTombstonesTable {
   user_id: number;
   source: 'self_service' | 'restore_reapply';
   owned_spaces_purged: number;
+  owned_space_ids: string;
   r2_key: string | null;
   deleted_at: string;
   created_at: string;

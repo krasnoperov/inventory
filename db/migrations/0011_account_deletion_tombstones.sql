@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS account_deletion_tombstones (
   source TEXT NOT NULL DEFAULT 'self_service'
     CHECK (source IN ('self_service', 'restore_reapply')),
   owned_spaces_purged INTEGER NOT NULL DEFAULT 0,
+  owned_space_ids TEXT NOT NULL DEFAULT '[]',
   r2_key TEXT,
   deleted_at TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))

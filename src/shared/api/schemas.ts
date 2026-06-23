@@ -153,6 +153,7 @@ export const DeleteAccountResponseSchema = z
     success: z.literal(true),
     deleted: z.boolean(),
     ownedSpacesPurged: z.number().int(),
+    spacePurgeFailures: z.number().int(),
     sharedMembershipsDeleted: z.number().int(),
     r2ObjectsDeleted: z.number().int(),
     d1RowsChanged: z.number().int(),

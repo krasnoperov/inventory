@@ -11,6 +11,7 @@ const BATCH_SIZE = 50;
 export interface AccountDeletionResult {
   deleted: boolean;
   ownedSpacesPurged: number;
+  spacePurgeFailures: number;
   sharedMembershipsDeleted: number;
   r2ObjectsDeleted: number;
   d1RowsChanged: number;
@@ -33,6 +34,7 @@ interface AccountDeletionTombstonePayload {
   user_id: number;
   source: 'self_service' | 'restore_reapply';
   owned_spaces_purged: number;
+  owned_space_ids: string[];
   deleted_at: string;
   created_at: string;
 }
@@ -76,6 +78,8 @@ function isTombstonePayload(value: unknown): value is AccountDeletionTombstonePa
     && typeof record.user_id === 'number'
     && (record.source === 'self_service' || record.source === 'restore_reapply')
     && typeof record.owned_spaces_purged === 'number'
+    && Array.isArray(record.owned_space_ids)
+    && record.owned_space_ids.every((item) => typeof item === 'string')
     && typeof record.deleted_at === 'string'
     && typeof record.created_at === 'string';
 }
@@ -99,6 +103,7 @@ export class AccountDeletionService {
       return {
         deleted: false,
         ownedSpacesPurged: 0,
+        spacePurgeFailures: 0,
         sharedMembershipsDeleted: 0,
         r2ObjectsDeleted: 0,
         d1RowsChanged: 0,
@@ -125,6 +130,7 @@ export class AccountDeletionService {
       user_id: userId,
       source,
       owned_spaces_purged: ownedSpaceIds.length,
+      owned_space_ids: ownedSpaceIds,
       deleted_at: now,
       created_at: now,
     };
@@ -134,6 +140,7 @@ export class AccountDeletionService {
       user_id: tombstone.user_id,
       source: tombstone.source,
       owned_spaces_purged: tombstone.owned_spaces_purged,
+      owned_space_ids: JSON.stringify(tombstone.owned_space_ids),
       r2_key: null,
       deleted_at: tombstone.deleted_at,
       created_at: tombstone.created_at,
@@ -148,10 +155,7 @@ export class AccountDeletionService {
 
     await this.deleteBillingCustomer(user.polar_customer_id);
 
-    let r2ObjectsDeleted = 0;
-    for (const spaceId of ownedSpaceIds) {
-      r2ObjectsDeleted += await this.purgeSpaceDo(spaceId);
-    }
+    const purgeResult = await this.purgeSpaceDos(ownedSpaceIds);
 
     for (const batch of chunks(ownedSpaceIds)) {
       d1RowsChanged += changed(await this.db.deleteFrom('space_members').where('space_id', 'in', batch).executeTakeFirst());
@@ -184,8 +188,9 @@ export class AccountDeletionService {
     return {
       deleted: true,
       ownedSpacesPurged: ownedSpaceIds.length,
+      spacePurgeFailures: purgeResult.failures,
       sharedMembershipsDeleted,
-      r2ObjectsDeleted,
+      r2ObjectsDeleted: purgeResult.r2ObjectsDeleted,
       d1RowsChanged,
     };
   }
@@ -202,6 +207,7 @@ export class AccountDeletionService {
         if (result.deleted) {
           usersDeleted += 1;
         } else {
+          await this.purgeSpaceDos(tombstone.owned_space_ids);
           alreadyDeleted += 1;
         }
       } catch (error) {
@@ -252,16 +258,18 @@ export class AccountDeletionService {
     const tombstones = new Map<string, AccountDeletionTombstonePayload>();
     const rows = await this.db
       .selectFrom('account_deletion_tombstones')
-      .select(['id', 'user_id', 'source', 'owned_spaces_purged', 'deleted_at', 'created_at'])
+      .select(['id', 'user_id', 'source', 'owned_spaces_purged', 'owned_space_ids', 'deleted_at', 'created_at'])
       .execute();
 
     for (const row of rows) {
+      const ownedSpaceIds = JSON.parse(row.owned_space_ids) as unknown;
       tombstones.set(row.id, {
         schema: 'inventory.account_deletion_tombstone.v1',
         id: row.id,
         user_id: row.user_id,
         source: row.source,
         owned_spaces_purged: row.owned_spaces_purged,
+        owned_space_ids: Array.isArray(ownedSpaceIds) ? ownedSpaceIds.filter((item): item is string => typeof item === 'string') : [],
         deleted_at: row.deleted_at,
         created_at: row.created_at,
       });
@@ -272,6 +280,19 @@ export class AccountDeletionService {
     }
 
     return tombstones;
+  }
+
+  private async purgeSpaceDos(spaceIds: string[]): Promise<{ r2ObjectsDeleted: number; failures: number }> {
+    let r2ObjectsDeleted = 0;
+    let failures = 0;
+    for (const spaceId of spaceIds) {
+      try {
+        r2ObjectsDeleted += await this.purgeSpaceDo(spaceId);
+      } catch {
+        failures += 1;
+      }
+    }
+    return { r2ObjectsDeleted, failures };
   }
 
   private async loadR2DeletionTombstones(): Promise<AccountDeletionTombstonePayload[]> {

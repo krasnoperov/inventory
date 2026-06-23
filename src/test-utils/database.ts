@@ -192,6 +192,7 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
       user_id INTEGER NOT NULL,
       source TEXT NOT NULL DEFAULT 'self_service',
       owned_spaces_purged INTEGER NOT NULL DEFAULT 0,
+      owned_space_ids TEXT NOT NULL DEFAULT '[]',
       r2_key TEXT,
       deleted_at TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
