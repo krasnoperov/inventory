@@ -77,6 +77,12 @@
   border-top: 1px solid var(--color-border);
 }
 
+.dangerSection {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
 .sectionHeader {
   display: flex;
   align-items: center;
@@ -186,6 +192,54 @@
 
 .secondaryButton:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dangerPanel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg);
+}
+
+.confirmationCheck {
+  display: grid;
+  grid-template-columns: 1.125rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.confirmationCheck input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0.1rem 0 0;
+  accent-color: var(--color-danger);
+}
+
+.dangerButton {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-danger);
+  color: var(--button-primary-text);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.dangerButton:hover:not(:disabled) {
+  background: var(--color-error);
+  transform: translateY(-1px);
+}
+
+.dangerButton:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
 }
 

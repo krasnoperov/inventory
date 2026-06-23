@@ -1,0 +1,297 @@
+import { injectable, inject } from 'inversify';
+import type { Kysely } from 'kysely';
+import type { Database } from '../../db/types';
+import { TYPES } from '../../core/di-types';
+import type { Env } from '../../core/types';
+import { PolarService } from './polarService';
+
+const TOMBSTONE_PREFIX = 'account-deletion-tombstones/';
+const BATCH_SIZE = 50;
+
+export interface AccountDeletionResult {
+  deleted: boolean;
+  ownedSpacesPurged: number;
+  sharedMembershipsDeleted: number;
+  r2ObjectsDeleted: number;
+  d1RowsChanged: number;
+}
+
+export interface AccountDeletionReapplyResult {
+  tombstonesSeen: number;
+  usersDeleted: number;
+  alreadyDeleted: number;
+  failures: Array<{
+    tombstoneId: string;
+    userId: number;
+    error: string;
+  }>;
+}
+
+interface AccountDeletionTombstonePayload {
+  schema: 'inventory.account_deletion_tombstone.v1';
+  id: string;
+  user_id: number;
+  source: 'self_service' | 'restore_reapply';
+  owned_spaces_purged: number;
+  deleted_at: string;
+  created_at: string;
+}
+
+export class AccountDeletionError extends Error {
+  constructor(
+    message: string,
+    readonly status = 500,
+    readonly code = 'account_deletion_failed',
+  ) {
+    super(message);
+    this.name = 'AccountDeletionError';
+  }
+}
+
+function chunks<T>(items: T[]): T[][] {
+  const batches: T[][] = [];
+  for (let index = 0; index < items.length; index += BATCH_SIZE) {
+    batches.push(items.slice(index, index + BATCH_SIZE));
+  }
+  return batches;
+}
+
+function changed(result: { numDeletedRows?: bigint; numUpdatedRows?: bigint; numInsertedOrUpdatedRows?: bigint }): number {
+  return Number(result.numDeletedRows ?? result.numUpdatedRows ?? result.numInsertedOrUpdatedRows ?? 0n);
+}
+
+function tombstoneId(userId: number): string {
+  return `acctdel_${userId}_${crypto.randomUUID()}`;
+}
+
+function tombstoneR2Key(tombstone: AccountDeletionTombstonePayload): string {
+  return `${TOMBSTONE_PREFIX}user-${tombstone.user_id}/${tombstone.id}.json`;
+}
+
+function isTombstonePayload(value: unknown): value is AccountDeletionTombstonePayload {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return record.schema === 'inventory.account_deletion_tombstone.v1'
+    && typeof record.id === 'string'
+    && typeof record.user_id === 'number'
+    && (record.source === 'self_service' || record.source === 'restore_reapply')
+    && typeof record.owned_spaces_purged === 'number'
+    && typeof record.deleted_at === 'string'
+    && typeof record.created_at === 'string';
+}
+
+@injectable()
+export class AccountDeletionService {
+  constructor(
+    @inject(TYPES.Database) private db: Kysely<Database>,
+    @inject(TYPES.Env) private env: Env,
+    @inject(PolarService) private polarService: PolarService,
+  ) {}
+
+  async deleteAccount(userId: number, options: { source?: 'self_service' | 'restore_reapply' } = {}): Promise<AccountDeletionResult> {
+    const user = await this.db
+      .selectFrom('users')
+      .select(['id', 'email', 'polar_customer_id'])
+      .where('id', '=', userId)
+      .executeTakeFirst();
+
+    if (!user) {
+      return {
+        deleted: false,
+        ownedSpacesPurged: 0,
+        sharedMembershipsDeleted: 0,
+        r2ObjectsDeleted: 0,
+        d1RowsChanged: 0,
+      };
+    }
+
+    const ownedSpaceIds = (await this.db
+      .selectFrom('spaces')
+      .select('id')
+      .where('owner_id', '=', String(userId))
+      .execute()).map((row) => row.id);
+
+    if (ownedSpaceIds.length > 0 && !this.env.SPACES_DO) {
+      throw new AccountDeletionError('Account deletion cannot purge owned spaces because SpaceDO is not configured', 503, 'account_deletion_space_purge_not_configured');
+    }
+
+    const source = options.source ?? 'self_service';
+    if (source === 'self_service') {
+      await this.deleteBillingCustomer(user.polar_customer_id);
+    }
+
+    const now = new Date().toISOString();
+    const tombstone: AccountDeletionTombstonePayload = {
+      schema: 'inventory.account_deletion_tombstone.v1',
+      id: tombstoneId(userId),
+      user_id: userId,
+      source,
+      owned_spaces_purged: ownedSpaceIds.length,
+      deleted_at: now,
+      created_at: now,
+    };
+    const r2Key = await this.writeTombstone(tombstone);
+
+    let r2ObjectsDeleted = 0;
+    for (const spaceId of ownedSpaceIds) {
+      r2ObjectsDeleted += await this.purgeSpaceDo(spaceId);
+    }
+
+    let d1RowsChanged = 0;
+    d1RowsChanged += changed(await this.db.insertInto('account_deletion_tombstones').values({
+      id: tombstone.id,
+      user_id: tombstone.user_id,
+      source: tombstone.source,
+      owned_spaces_purged: tombstone.owned_spaces_purged,
+      r2_key: r2Key,
+      deleted_at: tombstone.deleted_at,
+      created_at: tombstone.created_at,
+    }).executeTakeFirst());
+
+    for (const batch of chunks(ownedSpaceIds)) {
+      d1RowsChanged += changed(await this.db.deleteFrom('space_members').where('space_id', 'in', batch).executeTakeFirst());
+      d1RowsChanged += changed(await this.db.deleteFrom('platform_usage_events').where('space_id', 'in', batch).executeTakeFirst());
+      d1RowsChanged += changed(await this.db.deleteFrom('spaces').where('id', 'in', batch).executeTakeFirst());
+    }
+
+    const sharedMembershipsDeleted = changed(await this.db
+      .deleteFrom('space_members')
+      .where('user_id', '=', String(userId))
+      .executeTakeFirst());
+    d1RowsChanged += sharedMembershipsDeleted;
+
+    d1RowsChanged += changed(await this.db
+      .updateTable('platform_usage_events')
+      .set({ user_id: null })
+      .where('user_id', '=', userId)
+      .executeTakeFirst());
+
+    d1RowsChanged += changed(await this.db.deleteFrom('customer_charge_ledger').where('user_id', '=', userId).executeTakeFirst());
+    d1RowsChanged += changed(await this.db.deleteFrom('provider_usage_ledger').where('user_id', '=', userId).executeTakeFirst());
+    d1RowsChanged += changed(await this.db.deleteFrom('usage_events').where('user_id', '=', userId).executeTakeFirst());
+    d1RowsChanged += changed(await this.db.deleteFrom('user_provider_keys').where('user_id', '=', userId).executeTakeFirst());
+    d1RowsChanged += changed(await this.db.deleteFrom('key_envelopes').where('scope_id', '=', `user:${userId}`).executeTakeFirst());
+    d1RowsChanged += changed(await this.db.deleteFrom('user_preferences').where('user_id', '=', userId).executeTakeFirst());
+    d1RowsChanged += changed(await this.db.deleteFrom('user_feedback').where('user_id', '=', userId).executeTakeFirst());
+    d1RowsChanged += changed(await this.db.deleteFrom('user_patterns').where('user_id', '=', userId).executeTakeFirst());
+    d1RowsChanged += changed(await this.db.deleteFrom('users').where('id', '=', userId).executeTakeFirst());
+
+    return {
+      deleted: true,
+      ownedSpacesPurged: ownedSpaceIds.length,
+      sharedMembershipsDeleted,
+      r2ObjectsDeleted,
+      d1RowsChanged,
+    };
+  }
+
+  async reapplyDeletionTombstones(): Promise<AccountDeletionReapplyResult> {
+    const tombstones = await this.loadDeletionTombstones();
+    let usersDeleted = 0;
+    let alreadyDeleted = 0;
+    const failures: AccountDeletionReapplyResult['failures'] = [];
+
+    for (const tombstone of tombstones.values()) {
+      try {
+        const result = await this.deleteAccount(tombstone.user_id, { source: 'restore_reapply' });
+        if (result.deleted) {
+          usersDeleted += 1;
+        } else {
+          alreadyDeleted += 1;
+        }
+      } catch (error) {
+        failures.push({
+          tombstoneId: tombstone.id,
+          userId: tombstone.user_id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return {
+      tombstonesSeen: tombstones.size,
+      usersDeleted,
+      alreadyDeleted,
+      failures,
+    };
+  }
+
+  private async deleteBillingCustomer(polarCustomerId: string | null): Promise<void> {
+    if (!polarCustomerId) return;
+    const deleted = await this.polarService.deleteCustomer(polarCustomerId);
+    if (!deleted && (this.env.ENVIRONMENT === 'stage' || this.env.ENVIRONMENT === 'staging' || this.env.ENVIRONMENT === 'production')) {
+      throw new AccountDeletionError('Account deletion cannot run because billing cancellation is not configured', 503, 'account_deletion_billing_not_configured');
+    }
+  }
+
+  private async writeTombstone(tombstone: AccountDeletionTombstonePayload): Promise<string> {
+    const key = tombstoneR2Key(tombstone);
+    await this.env.IMAGES.put(key, JSON.stringify(tombstone), {
+      httpMetadata: { contentType: 'application/json' },
+    });
+    return key;
+  }
+
+  private async loadDeletionTombstones(): Promise<Map<string, AccountDeletionTombstonePayload>> {
+    const tombstones = new Map<string, AccountDeletionTombstonePayload>();
+    const rows = await this.db
+      .selectFrom('account_deletion_tombstones')
+      .select(['id', 'user_id', 'source', 'owned_spaces_purged', 'deleted_at', 'created_at'])
+      .execute();
+
+    for (const row of rows) {
+      tombstones.set(row.id, {
+        schema: 'inventory.account_deletion_tombstone.v1',
+        id: row.id,
+        user_id: row.user_id,
+        source: row.source,
+        owned_spaces_purged: row.owned_spaces_purged,
+        deleted_at: row.deleted_at,
+        created_at: row.created_at,
+      });
+    }
+
+    for (const tombstone of await this.loadR2DeletionTombstones()) {
+      tombstones.set(tombstone.id, tombstone);
+    }
+
+    return tombstones;
+  }
+
+  private async loadR2DeletionTombstones(): Promise<AccountDeletionTombstonePayload[]> {
+    const tombstones: AccountDeletionTombstonePayload[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const page = await this.env.IMAGES.list({ prefix: TOMBSTONE_PREFIX, cursor });
+      for (const object of page.objects) {
+        const body = await this.env.IMAGES.get(object.key);
+        if (!body) continue;
+        const value = await body.json().catch(() => null);
+        if (isTombstonePayload(value)) {
+          tombstones.push(value);
+        }
+      }
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+
+    return tombstones;
+  }
+
+  private async purgeSpaceDo(spaceId: string): Promise<number> {
+    if (!this.env.SPACES_DO) {
+      throw new AccountDeletionError('SpaceDO is not configured', 503, 'account_deletion_space_purge_not_configured');
+    }
+    const id = this.env.SPACES_DO.idFromName(spaceId);
+    const response = await this.env.SPACES_DO.get(id).fetch(new Request('http://do/internal/purge', {
+      method: 'DELETE',
+      headers: { 'X-Space-Id': spaceId },
+    }));
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new AccountDeletionError(`Space purge failed for ${spaceId}${body ? `: ${body}` : ''}`, 502, 'account_deletion_space_purge_failed');
+    }
+    const json = await response.json() as { r2ObjectsDeleted?: number };
+    return json.r2ObjectsDeleted ?? 0;
+  }
+}

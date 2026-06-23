@@ -273,6 +273,17 @@ export class PolarService {
   }
 
   /**
+   * Delete a Polar customer before irreversible local account deletion.
+   * Returns false when Polar is not configured so callers can decide whether
+   * that is acceptable for the current environment.
+   */
+  async deleteCustomer(customerId: string): Promise<boolean> {
+    if (!this.client) return false;
+    await this.client.customers.delete({ id: customerId });
+    return true;
+  }
+
+  /**
    * Ingest multiple events at once (batch)
    * Uses externalId for deduplication on retry
    *

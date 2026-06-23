@@ -38,6 +38,8 @@ import {
   ProviderSpendSummaryResponseSchema,
   ProviderKeyParamsSchema,
   ProviderKeyResponseSchema,
+  DeleteAccountRequestSchema,
+  DeleteAccountResponseSchema,
   ProductionChildParamsSchema,
   ProductionCueResponseSchema,
   ProductionDetailResponseSchema,
@@ -133,6 +135,12 @@ export const apiEndpoints = {
     path: '/api/user/provider-keys/:provider',
     paramsSchema: ProviderKeyParamsSchema,
     responseSchema: ProviderKeyResponseSchema,
+  },
+  'DELETE /api/user/account': {
+    method: 'DELETE',
+    path: '/api/user/account',
+    jsonSchema: DeleteAccountRequestSchema,
+    responseSchema: DeleteAccountResponseSchema,
   },
   'POST /api/spaces': {
     method: 'POST',

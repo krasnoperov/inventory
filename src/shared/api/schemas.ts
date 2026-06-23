@@ -141,6 +141,24 @@ export const ProviderKeyResponseSchema = z
   })
   .openapi('ProviderKeyResponse');
 
+export const DeleteAccountRequestSchema = z
+  .object({
+    email: z.string().email(),
+    confirmation: z.string(),
+  })
+  .openapi('DeleteAccountRequest');
+
+export const DeleteAccountResponseSchema = z
+  .object({
+    success: z.literal(true),
+    deleted: z.boolean(),
+    ownedSpacesPurged: z.number().int(),
+    sharedMembershipsDeleted: z.number().int(),
+    r2ObjectsDeleted: z.number().int(),
+    d1RowsChanged: z.number().int(),
+  })
+  .openapi('DeleteAccountResponse');
+
 export const SpaceRoleSchema = z.enum(['owner', 'editor', 'viewer']);
 
 export const SpaceSchema = z
