@@ -27,7 +27,11 @@ function createUser(id: number, email: string, polarCustomerId: string | null = 
   };
 }
 
-function fakeImages(puts: Array<{ key: string; body: string }>, initialObjects: Record<string, string> = {}): R2Bucket {
+function fakeImages(
+  puts: Array<{ key: string; body: string }>,
+  initialObjects: Record<string, string> = {},
+  deletes: string[] = [],
+): R2Bucket {
   const objects = new Map<string, string>(Object.entries(initialObjects));
   return {
     put: async (key: string, value: string) => {
@@ -50,6 +54,10 @@ function fakeImages(puts: Array<{ key: string; body: string }>, initialObjects: 
       truncated: false,
       delimitedPrefixes: [],
     }),
+    delete: async (key: string) => {
+      deletes.push(key);
+      objects.delete(key);
+    },
   } as unknown as R2Bucket;
 }
 
@@ -71,13 +79,16 @@ function fakeSpacesDo(
   } as unknown as DurableObjectNamespace;
 }
 
-function fakePolar(calls: string[], deleted = true): PolarService {
+function fakePolar(calls: string[], deleted: boolean | Error = true): PolarService {
   return {
     deleteCustomer: async (customerId: string) => {
       calls.push(customerId);
+      if (deleted instanceof Error) {
+        throw deleted;
+      }
       return deleted;
     },
-    hasCustomerDeletionConfigured: () => deleted,
+    hasCustomerDeletionConfigured: () => deleted !== false,
   } as unknown as PolarService;
 }
 
@@ -380,6 +391,36 @@ describe('AccountDeletionService', () => {
       failures: [],
     });
     assert.equal((await db.selectFrom('users').selectAll().where('id', '=', 1).execute()).length, 1);
+  });
+
+  test('discards durable tombstones when billing deletion fails', async () => {
+    await db.insertInto('users').values(createUser(1, 'delete@example.com', 'polar-customer-1')).execute();
+    const r2Puts: Array<{ key: string; body: string }> = [];
+    const r2Deletes: string[] = [];
+    const polarCalls: string[] = [];
+    const service = new AccountDeletionService(db, {
+      ENVIRONMENT: 'production',
+      IMAGES: fakeImages(r2Puts, {}, r2Deletes),
+    } as unknown as Env, fakePolar(polarCalls, new Error('polar unavailable')));
+
+    await assert.rejects(
+      () => service.deleteAccount(1),
+      /polar unavailable/
+    );
+
+    assert.deepEqual(polarCalls, ['polar-customer-1']);
+    assert.equal(r2Puts.length, 1);
+    assert.deepEqual(r2Deletes, [r2Puts[0].key]);
+    assert.equal((await db.selectFrom('users').selectAll().where('id', '=', 1).execute()).length, 1);
+    assert.equal((await db.selectFrom('account_deletion_tombstones').selectAll().execute()).length, 0);
+
+    const reapply = await service.reapplyDeletionTombstones();
+    assert.deepEqual(reapply, {
+      tombstonesSeen: 0,
+      usersDeleted: 0,
+      alreadyDeleted: 0,
+      failures: [],
+    });
   });
 
   test('reapplies R2 deletion tombstones after a database restore', async () => {

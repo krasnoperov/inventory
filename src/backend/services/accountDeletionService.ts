@@ -153,9 +153,14 @@ export class AccountDeletionService {
       .where('id', '=', tombstone.id)
       .executeTakeFirst());
 
-    d1RowsChanged += await this.archiveOwnedSpaces(ownedSpaceIds, now);
-    await this.deleteBillingCustomer(user.polar_customer_id);
+    try {
+      await this.deleteBillingCustomer(user.polar_customer_id);
+    } catch (error) {
+      await this.discardTombstone(tombstone.id, r2Key);
+      throw error;
+    }
 
+    d1RowsChanged += await this.archiveOwnedSpaces(ownedSpaceIds, now);
     const purgeResult = await this.purgeSpaceDos(ownedSpaceIds);
 
     for (const batch of chunks(ownedSpaceIds)) {
@@ -270,6 +275,15 @@ export class AccountDeletionService {
       httpMetadata: { contentType: 'application/json' },
     });
     return key;
+  }
+
+  private async discardTombstone(tombstoneId: string, r2Key: string): Promise<void> {
+    await Promise.allSettled([
+      this.env.IMAGES.delete(r2Key),
+      this.db.deleteFrom('account_deletion_tombstones')
+        .where('id', '=', tombstoneId)
+        .executeTakeFirst(),
+    ]);
   }
 
   private async loadDeletionTombstones(): Promise<Map<string, AccountDeletionTombstonePayload>> {
