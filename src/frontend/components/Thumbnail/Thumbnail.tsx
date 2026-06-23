@@ -12,12 +12,11 @@ import { memo, useCallback } from 'react';
 import {
   type Variant,
   isVariantReady,
-  isVariantImageReady,
   isVariantAudioReady,
   isVariantVideoReady,
   isVariantLoading,
   isVariantFailed,
-  getVariantThumbnailUrl,
+  getVariantDisplayImageUrl,
   getVariantMediaUrl,
 } from '../../hooks/useSpaceWebSocket';
 import styles from './Thumbnail.module.css';
@@ -130,15 +129,12 @@ function ThumbnailComponent({
   }
 
   // Completed state
-  const url = getVariantThumbnailUrl(variant);
   const mediaUrl = getVariantMediaUrl(variant, spaceId);
   const showPlayableAudio = isVariantAudioReady(variant) && showAudioControls && mediaUrl;
   const showPlayableVideo = isVariantVideoReady(variant) && showVideoControls && mediaUrl;
-  // Prefer the full-resolution media for images when asked, so zooming reveals
-  // native pixels instead of upscaling the 512px thumbnail; fall back to the
-  // thumb URL when full-res isn't available.
-  const imageSrc =
-    fullResolution && isVariantImageReady(variant) && mediaUrl ? mediaUrl : url;
+  // Full-res media for images when asked (so zooming reveals native pixels
+  // instead of upscaling the 512px thumbnail), otherwise the thumbnail.
+  const imageSrc = getVariantDisplayImageUrl(variant, { fullResolution, spaceId });
 
   return (
     <div className={baseClasses} onClick={onClick}>

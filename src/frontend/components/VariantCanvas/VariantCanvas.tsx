@@ -17,6 +17,7 @@ import dagre from 'dagre';
 import { type Asset, type Variant, type Lineage, type SpaceSubject, type Composition, type CompositionItem, type CompositionOverview, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import { VariantNode, type VariantNodeType } from './VariantNode';
+import { computeNativeMaxZoom } from './canvasZoom';
 
 import '@xyflow/react/dist/style.css';
 import styles from './VariantCanvas.module.css';
@@ -254,24 +255,10 @@ function VariantCanvasInner({
   const { fitView } = useReactFlow();
   const [isReady, setIsReady] = useState(false);
 
-  // Allow zooming each image past its native 1:1 resolution. A non-active node
-  // renders its image at THUMB_HEIGHT tall, so the canvas zoom needed to reach
-  // native pixels is media_height / THUMB_HEIGHT. We take the largest such ratio
-  // across all variants (the most demanding image), add headroom so the user can
-  // push a bit beyond 1:1 to inspect detail, and clamp to a sane range. The old
-  // fixed cap of 2 was well below native for typical generations (~3–4×).
-  const maxZoom = useMemo(() => {
-    let nativeZoom = 0;
-    for (const variant of variants) {
-      const height = variant.media_height;
-      if (height && height > 0) {
-        nativeZoom = Math.max(nativeZoom, height / THUMB_HEIGHT);
-      }
-    }
-    // 1.5× headroom past native; floor of 2 preserves prior behaviour for
-    // dimensionless variants, ceiling of 8 keeps the canvas from feeling broken.
-    return Math.min(8, Math.max(2, nativeZoom * 1.5));
-  }, [variants]);
+  // Allow zooming each image past its native 1:1 resolution (paired with the
+  // full-resolution media the nodes now render). The old fixed cap of 2 was well
+  // below native for typical generations (~3–4×). See computeNativeMaxZoom.
+  const maxZoom = useMemo(() => computeNativeMaxZoom(variants, THUMB_HEIGHT), [variants]);
 
   // Update CSS custom property when zoom changes (via DOM, not React state)
   // This avoids re-rendering nodes while still enabling CSS counter-scaling
