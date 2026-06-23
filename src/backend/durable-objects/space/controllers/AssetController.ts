@@ -400,6 +400,7 @@ export class AssetController extends BaseController {
       batch_id: null, // Forked variants are not part of a batch
       quality_rating: null,
       rated_at: null,
+      deleted_at: null,
     };
 
     await this.sql.exec(

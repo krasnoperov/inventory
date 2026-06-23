@@ -33,7 +33,8 @@ export class SchemaManager {
         active_variant_id TEXT,
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
 
       -- Variants table (placeholder variants with status lifecycle)
@@ -68,7 +69,8 @@ export class SchemaManager {
         starred INTEGER NOT NULL DEFAULT 0,
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER
+        updated_at INTEGER,
+        deleted_at INTEGER
       );
 
       -- Image reference counting for cleanup
@@ -119,7 +121,8 @@ export class SchemaManager {
         sort_index INTEGER NOT NULL DEFAULT 0,
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
 
       CREATE TABLE IF NOT EXISTS collection_items (
@@ -134,6 +137,7 @@ export class SchemaManager {
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
         CHECK (
           (subject_type = 'asset' AND asset_id IS NOT NULL AND variant_id IS NULL) OR
           (subject_type = 'variant' AND variant_id IS NOT NULL AND asset_id IS NULL)
@@ -150,7 +154,8 @@ export class SchemaManager {
         is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)),
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
 
       CREATE TABLE IF NOT EXISTS space_relations (
@@ -180,6 +185,7 @@ export class SchemaManager {
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
         CHECK (
           (subject_type = 'asset' AND subject_asset_id IS NOT NULL AND subject_variant_id IS NULL) OR
           (subject_type = 'variant' AND subject_variant_id IS NOT NULL AND subject_asset_id IS NULL)
@@ -201,7 +207,8 @@ export class SchemaManager {
         sort_index INTEGER NOT NULL DEFAULT 0,
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
 
       CREATE TABLE IF NOT EXISTS composition_items (
@@ -225,7 +232,8 @@ export class SchemaManager {
         sort_index INTEGER NOT NULL DEFAULT 0,
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
 
       -- Simple plans (markdown-based, per-session)
@@ -301,7 +309,8 @@ export class SchemaManager {
         metadata TEXT NOT NULL DEFAULT '{}',
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
 
       CREATE TABLE IF NOT EXISTS productions (
@@ -311,7 +320,8 @@ export class SchemaManager {
         metadata TEXT NOT NULL DEFAULT '{}',
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
 
       CREATE TABLE IF NOT EXISTS production_shots (
@@ -324,7 +334,8 @@ export class SchemaManager {
         metadata TEXT NOT NULL DEFAULT '{}',
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
 
       CREATE TABLE IF NOT EXISTS production_cues (
@@ -338,7 +349,8 @@ export class SchemaManager {
         metadata TEXT NOT NULL DEFAULT '{}',
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
 
       CREATE TABLE IF NOT EXISTS production_placements (
@@ -356,7 +368,8 @@ export class SchemaManager {
         metadata TEXT NOT NULL DEFAULT '{}',
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
       );
 
       -- Indexes
@@ -377,7 +390,7 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_collection_items_pinned_variant ON collection_items(pinned_variant_id);
       CREATE INDEX IF NOT EXISTS idx_style_presets_collection ON style_presets(collection_id);
       CREATE INDEX IF NOT EXISTS idx_style_presets_enabled ON style_presets(enabled, created_at);
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_style_presets_default ON style_presets(is_default) WHERE is_default = 1;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_style_presets_default ON style_presets(is_default) WHERE is_default = 1 AND deleted_at IS NULL;
       CREATE INDEX IF NOT EXISTS idx_space_relations_subject_asset ON space_relations(subject_asset_id, relation_type);
       CREATE INDEX IF NOT EXISTS idx_space_relations_subject_variant ON space_relations(subject_variant_id, relation_type);
       CREATE INDEX IF NOT EXISTS idx_space_relations_object_asset ON space_relations(object_asset_id, relation_type);
@@ -468,6 +481,9 @@ export class SchemaManager {
 
     // Migration: Add board metadata to existing collections
     await this.addCollectionBoardMetadata();
+
+    // Migration: Add soft-delete markers to user-authored SpaceDO entities
+    await this.addSoftDeleteColumns();
 
     // Migration: Simplify relation_type to 3 values: derived, refined, forked
     // SQLite doesn't support ALTER CONSTRAINT, so we recreate the table
@@ -722,6 +738,48 @@ export class SchemaManager {
     }
     if (!hasColumn('color')) {
       await this.sql.exec(`ALTER TABLE space_collections ADD COLUMN color TEXT;`);
+    }
+  }
+
+  private async addSoftDeleteColumns(): Promise<void> {
+    const tables = [
+      'assets',
+      'variants',
+      'space_collections',
+      'collection_items',
+      'style_presets',
+      'space_relations',
+      'compositions',
+      'composition_items',
+      'rotation_sets',
+      'rotation_views',
+      'tile_sets',
+      'tile_positions',
+      'production_records',
+      'productions',
+      'production_shots',
+      'production_cues',
+      'production_placements',
+    ];
+
+    for (const table of tables) {
+      await this.addColumnIfMissing(table, 'deleted_at', 'INTEGER');
+      await this.sql.exec(`CREATE INDEX IF NOT EXISTS idx_${table}_deleted_at ON ${table}(deleted_at)`);
+    }
+
+    await this.sql.exec(`
+      DROP INDEX IF EXISTS idx_style_presets_default;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_style_presets_default
+        ON style_presets(is_default)
+        WHERE is_default = 1 AND deleted_at IS NULL;
+    `);
+  }
+
+  private async addColumnIfMissing(table: string, column: string, definition: string): Promise<void> {
+    const result = await this.sql.exec(`PRAGMA table_info(${table})`);
+    const columns = result.toArray() as Array<{ name: string }>;
+    if (!columns.some(col => col.name === column)) {
+      await this.sql.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
     }
   }
 

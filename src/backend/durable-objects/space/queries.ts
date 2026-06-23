@@ -15,26 +15,27 @@ import type { AssetChanges } from './types';
 
 export const AssetQueries = {
   /** Get all assets ordered by updated_at */
-  GET_ALL: 'SELECT * FROM assets ORDER BY updated_at DESC',
+  GET_ALL: 'SELECT * FROM assets WHERE deleted_at IS NULL ORDER BY updated_at DESC',
 
   /** Get asset by ID */
-  GET_BY_ID: 'SELECT * FROM assets WHERE id = ?',
+  GET_BY_ID: 'SELECT * FROM assets WHERE id = ? AND deleted_at IS NULL',
 
   /** Get assets by parent ID */
-  GET_BY_PARENT: 'SELECT * FROM assets WHERE parent_asset_id = ? ORDER BY updated_at DESC',
+  GET_BY_PARENT: 'SELECT * FROM assets WHERE parent_asset_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC',
 
   /** Insert new asset */
   INSERT: `INSERT INTO assets (id, name, type, media_kind, tags, parent_asset_id, active_variant_id, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
   /** Delete asset by ID */
-  DELETE: 'DELETE FROM assets WHERE id = ?',
+  DELETE: 'UPDATE assets SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
 
   /** Get assets with variant count (for bot context) */
   GET_WITH_VARIANT_COUNT: `
     SELECT a.id, a.name, a.type, COUNT(v.id) as variant_count
     FROM assets a
-    LEFT JOIN variants v ON a.id = v.asset_id
+    LEFT JOIN variants v ON a.id = v.asset_id AND v.deleted_at IS NULL
+    WHERE a.deleted_at IS NULL
     GROUP BY a.id`,
 } as const;
 
@@ -44,7 +45,7 @@ export const AssetQueries = {
 
 export const VariantQueries = {
   /** Get all variants */
-  GET_ALL: 'SELECT * FROM variants',
+  GET_ALL: 'SELECT * FROM variants WHERE deleted_at IS NULL',
 
   /** Get one overview variant per asset: the active variant, or the newest variant when no active variant is set */
   GET_OVERVIEW: `
@@ -59,25 +60,26 @@ export const VariantQueries = {
             v.created_at DESC
         ) as overview_rank
       FROM variants v
-      JOIN assets a ON a.id = v.asset_id
+      JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+      WHERE v.deleted_at IS NULL
     )
     WHERE overview_rank = 1`,
 
   /** Get variant by ID */
-  GET_BY_ID: 'SELECT * FROM variants WHERE id = ?',
+  GET_BY_ID: 'SELECT * FROM variants WHERE id = ? AND deleted_at IS NULL',
 
   /** Get variant by workflow ID (for idempotency check) */
-  GET_BY_WORKFLOW_ID: 'SELECT * FROM variants WHERE workflow_id = ?',
+  GET_BY_WORKFLOW_ID: 'SELECT * FROM variants WHERE workflow_id = ? AND deleted_at IS NULL',
 
   /** Get variants for an asset */
-  GET_BY_ASSET: 'SELECT * FROM variants WHERE asset_id = ? ORDER BY created_at DESC',
+  GET_BY_ASSET: 'SELECT * FROM variants WHERE asset_id = ? AND deleted_at IS NULL ORDER BY created_at DESC',
 
   /** Get variant with asset name (for vision service) */
   GET_WITH_ASSET_NAME: `
     SELECT v.image_key, a.name as asset_name
     FROM variants v
     JOIN assets a ON v.asset_id = a.id
-    WHERE v.id = ?`,
+    WHERE v.id = ? AND v.deleted_at IS NULL AND a.deleted_at IS NULL`,
 
   /** Insert new placeholder variant (pending status) */
   INSERT_PLACEHOLDER: `INSERT INTO variants (id, asset_id, media_kind, status, recipe, generation_provenance, created_by, created_at, updated_at, plan_step_id)
@@ -88,25 +90,25 @@ export const VariantQueries = {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
   /** Update variant to completed status with images */
-  COMPLETE: `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, media_key = ?, media_mime_type = ?, media_size_bytes = ?, media_width = ?, media_height = ?, media_duration_ms = ?, transcript_key = ?, transcript_mime_type = ?, transcript_size_bytes = ?, word_timings_key = ?, word_timings_mime_type = ?, word_timings_size_bytes = ?, render_metadata_key = ?, render_metadata_mime_type = ?, render_metadata_size_bytes = ?, provider_metadata = ?, updated_at = ? WHERE id = ?`,
+  COMPLETE: `UPDATE variants SET status = 'completed', image_key = ?, thumb_key = ?, media_key = ?, media_mime_type = ?, media_size_bytes = ?, media_width = ?, media_height = ?, media_duration_ms = ?, transcript_key = ?, transcript_mime_type = ?, transcript_size_bytes = ?, word_timings_key = ?, word_timings_mime_type = ?, word_timings_size_bytes = ?, render_metadata_key = ?, render_metadata_mime_type = ?, render_metadata_size_bytes = ?, provider_metadata = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 
   /** Update variant to failed status with error */
-  FAIL: `UPDATE variants SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
+  FAIL: `UPDATE variants SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 
   /** Reset variant for retry */
-  RESET_FOR_RETRY: `UPDATE variants SET status = 'pending', error_message = NULL, workflow_id = NULL, updated_at = ? WHERE id = ?`,
+  RESET_FOR_RETRY: `UPDATE variants SET status = 'pending', error_message = NULL, workflow_id = NULL, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 
   /** Update variant workflow_id and status */
-  UPDATE_WORKFLOW: `UPDATE variants SET workflow_id = ?, status = ?, updated_at = ? WHERE id = ?`,
+  UPDATE_WORKFLOW: `UPDATE variants SET workflow_id = ?, status = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 
   /** Update variant status only */
-  UPDATE_STATUS: `UPDATE variants SET status = ?, updated_at = ? WHERE id = ?`,
+  UPDATE_STATUS: `UPDATE variants SET status = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 
   /** Update variant starred status */
-  UPDATE_STARRED: 'UPDATE variants SET starred = ? WHERE id = ?',
+  UPDATE_STARRED: 'UPDATE variants SET starred = ? WHERE id = ? AND deleted_at IS NULL',
 
   /** Delete variant by ID */
-  DELETE: 'DELETE FROM variants WHERE id = ?',
+  DELETE: 'UPDATE variants SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
 } as const;
 
 // ============================================================================
@@ -115,28 +117,44 @@ export const VariantQueries = {
 
 export const LineageQueries = {
   /** Get all lineage records */
-  GET_ALL: 'SELECT * FROM lineage',
+  GET_ALL: `
+    SELECT l.*
+    FROM lineage l
+    JOIN variants parent ON parent.id = l.parent_variant_id AND parent.deleted_at IS NULL
+    JOIN variants child ON child.id = l.child_variant_id AND child.deleted_at IS NULL`,
 
   /** Get lineage by ID */
-  GET_BY_ID: 'SELECT * FROM lineage WHERE id = ?',
+  GET_BY_ID: `
+    SELECT l.*
+    FROM lineage l
+    JOIN variants parent ON parent.id = l.parent_variant_id AND parent.deleted_at IS NULL
+    JOIN variants child ON child.id = l.child_variant_id AND child.deleted_at IS NULL
+    WHERE l.id = ?`,
 
   /** Get lineage for a variant (both parent and child) */
-  GET_FOR_VARIANT: 'SELECT * FROM lineage WHERE parent_variant_id = ? OR child_variant_id = ?',
+  GET_FOR_VARIANT: `
+    SELECT l.*
+    FROM lineage l
+    JOIN variants parent ON parent.id = l.parent_variant_id AND parent.deleted_at IS NULL
+    JOIN variants child ON child.id = l.child_variant_id AND child.deleted_at IS NULL
+    WHERE (l.parent_variant_id = ? OR l.child_variant_id = ?)`,
 
   /** Get parent lineage with details */
   GET_PARENTS_WITH_DETAILS: `
     SELECT l.*, v.asset_id, v.image_key, v.thumb_key, a.name as asset_name
     FROM lineage l
-    JOIN variants v ON l.parent_variant_id = v.id
-    JOIN assets a ON v.asset_id = a.id
+    JOIN variants v ON l.parent_variant_id = v.id AND v.deleted_at IS NULL
+    JOIN assets a ON v.asset_id = a.id AND a.deleted_at IS NULL
+    JOIN variants child ON child.id = l.child_variant_id AND child.deleted_at IS NULL
     WHERE l.child_variant_id = ?`,
 
   /** Get child lineage with details */
   GET_CHILDREN_WITH_DETAILS: `
     SELECT l.*, v.asset_id, v.image_key, v.thumb_key, a.name as asset_name
     FROM lineage l
-    JOIN variants v ON l.child_variant_id = v.id
-    JOIN assets a ON v.asset_id = a.id
+    JOIN variants v ON l.child_variant_id = v.id AND v.deleted_at IS NULL
+    JOIN assets a ON v.asset_id = a.id AND a.deleted_at IS NULL
+    JOIN variants parent ON parent.id = l.parent_variant_id AND parent.deleted_at IS NULL
     WHERE l.parent_variant_id = ?`,
 
   /** Insert new lineage */
@@ -152,50 +170,50 @@ export const LineageQueries = {
 // ============================================================================
 
 export const SpaceCollectionQueries = {
-  GET_ALL: 'SELECT * FROM space_collections ORDER BY sort_index ASC, created_at ASC',
-  GET_BY_ID: 'SELECT * FROM space_collections WHERE id = ?',
+  GET_ALL: 'SELECT * FROM space_collections WHERE deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC',
+  GET_BY_ID: 'SELECT * FROM space_collections WHERE id = ? AND deleted_at IS NULL',
   INSERT: `INSERT INTO space_collections
            (id, name, kind, color, description, sort_index, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  DELETE: 'DELETE FROM space_collections WHERE id = ?',
+  DELETE: 'UPDATE space_collections SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
 } as const;
 
 export const CollectionItemQueries = {
-  GET_ALL: 'SELECT * FROM collection_items ORDER BY collection_id ASC, sort_index ASC, created_at ASC',
-  GET_BY_ID: 'SELECT * FROM collection_items WHERE id = ?',
-  GET_BY_COLLECTION: 'SELECT * FROM collection_items WHERE collection_id = ? ORDER BY sort_index ASC, created_at ASC',
+  GET_ALL: 'SELECT * FROM collection_items WHERE deleted_at IS NULL ORDER BY collection_id ASC, sort_index ASC, created_at ASC',
+  GET_BY_ID: 'SELECT * FROM collection_items WHERE id = ? AND deleted_at IS NULL',
+  GET_BY_COLLECTION: 'SELECT * FROM collection_items WHERE collection_id = ? AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC',
   INSERT: `INSERT INTO collection_items
            (id, collection_id, subject_type, asset_id, variant_id, role, pinned_variant_id, sort_index, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  DELETE: 'DELETE FROM collection_items WHERE id = ?',
+  DELETE: 'UPDATE collection_items SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
 } as const;
 
 export const SpaceRelationQueries = {
-  GET_ALL: 'SELECT * FROM space_relations ORDER BY sort_index ASC, created_at ASC',
-  GET_BY_ID: 'SELECT * FROM space_relations WHERE id = ?',
+  GET_ALL: 'SELECT * FROM space_relations WHERE deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC',
+  GET_BY_ID: 'SELECT * FROM space_relations WHERE id = ? AND deleted_at IS NULL',
   INSERT: `INSERT INTO space_relations
            (id, subject_type, subject_asset_id, subject_variant_id, object_type, object_asset_id, object_variant_id, relation_type, label, context, metadata, sort_index, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  DELETE: 'DELETE FROM space_relations WHERE id = ?',
+  DELETE: 'UPDATE space_relations SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
 } as const;
 
 export const CompositionQueries = {
-  GET_ALL: 'SELECT * FROM compositions ORDER BY sort_index ASC, created_at ASC',
-  GET_BY_ID: 'SELECT * FROM compositions WHERE id = ?',
+  GET_ALL: 'SELECT * FROM compositions WHERE deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC',
+  GET_BY_ID: 'SELECT * FROM compositions WHERE id = ? AND deleted_at IS NULL',
   INSERT: `INSERT INTO compositions
            (id, name, description, status, output_asset_id, output_variant_id, metadata, sort_index, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  DELETE: 'DELETE FROM compositions WHERE id = ?',
+  DELETE: 'UPDATE compositions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
 } as const;
 
 export const CompositionItemQueries = {
-  GET_ALL: 'SELECT * FROM composition_items ORDER BY composition_id ASC, sort_index ASC, created_at ASC',
-  GET_BY_ID: 'SELECT * FROM composition_items WHERE id = ?',
-  GET_BY_COMPOSITION: 'SELECT * FROM composition_items WHERE composition_id = ? ORDER BY sort_index ASC, created_at ASC',
+  GET_ALL: 'SELECT * FROM composition_items WHERE deleted_at IS NULL ORDER BY composition_id ASC, sort_index ASC, created_at ASC',
+  GET_BY_ID: 'SELECT * FROM composition_items WHERE id = ? AND deleted_at IS NULL',
+  GET_BY_COMPOSITION: 'SELECT * FROM composition_items WHERE composition_id = ? AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC',
   INSERT: `INSERT INTO composition_items
            (id, composition_id, role, label, asset_id, variant_id, metadata, sort_index, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  DELETE: 'DELETE FROM composition_items WHERE id = ?',
+  DELETE: 'UPDATE composition_items SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
 } as const;
 
 // ============================================================================
@@ -482,14 +500,25 @@ export const UserSessionQueries = {
 // ============================================================================
 
 export const RotationSetQueries = {
-  GET_ALL: 'SELECT * FROM rotation_sets ORDER BY created_at DESC',
-  GET_BY_ID: 'SELECT * FROM rotation_sets WHERE id = ?',
+  GET_ALL: `
+    SELECT rs.*
+    FROM rotation_sets rs
+    JOIN assets a ON a.id = rs.asset_id AND a.deleted_at IS NULL
+    JOIN variants v ON v.id = rs.source_variant_id AND v.deleted_at IS NULL
+    WHERE rs.deleted_at IS NULL
+    ORDER BY rs.created_at DESC`,
+  GET_BY_ID: `
+    SELECT rs.*
+    FROM rotation_sets rs
+    JOIN assets a ON a.id = rs.asset_id AND a.deleted_at IS NULL
+    JOIN variants v ON v.id = rs.source_variant_id AND v.deleted_at IS NULL
+    WHERE rs.id = ? AND rs.deleted_at IS NULL`,
   INSERT: `INSERT INTO rotation_sets (id, asset_id, source_variant_id, config, status, current_step, total_steps, error_message, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  UPDATE_STATUS: 'UPDATE rotation_sets SET status = ?, updated_at = ? WHERE id = ?',
-  UPDATE_STEP: 'UPDATE rotation_sets SET current_step = ?, updated_at = ? WHERE id = ?',
-  FAIL: `UPDATE rotation_sets SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
-  CANCEL: `UPDATE rotation_sets SET status = 'cancelled', updated_at = ? WHERE id = ?`,
+  UPDATE_STATUS: 'UPDATE rotation_sets SET status = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  UPDATE_STEP: 'UPDATE rotation_sets SET current_step = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  FAIL: `UPDATE rotation_sets SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+  CANCEL: `UPDATE rotation_sets SET status = 'cancelled', updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 } as const;
 
 // ============================================================================
@@ -497,14 +526,36 @@ export const RotationSetQueries = {
 // ============================================================================
 
 export const RotationViewQueries = {
-  GET_BY_SET: 'SELECT * FROM rotation_views WHERE rotation_set_id = ? ORDER BY step_index ASC',
-  GET_ALL: 'SELECT * FROM rotation_views ORDER BY created_at DESC',
-  GET_BY_VARIANT: 'SELECT * FROM rotation_views WHERE variant_id = ?',
+  GET_BY_SET: `
+    SELECT rv.*
+    FROM rotation_views rv
+    JOIN rotation_sets rs ON rs.id = rv.rotation_set_id AND rs.deleted_at IS NULL
+    JOIN variants v ON v.id = rv.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE rv.rotation_set_id = ? AND rv.deleted_at IS NULL
+    ORDER BY rv.step_index ASC`,
+  GET_ALL: `
+    SELECT rv.*
+    FROM rotation_views rv
+    JOIN rotation_sets rs ON rs.id = rv.rotation_set_id AND rs.deleted_at IS NULL
+    JOIN variants v ON v.id = rv.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE rv.deleted_at IS NULL
+    ORDER BY rv.created_at DESC`,
+  GET_BY_VARIANT: `
+    SELECT rv.*
+    FROM rotation_views rv
+    JOIN rotation_sets rs ON rs.id = rv.rotation_set_id AND rs.deleted_at IS NULL
+    JOIN variants v ON v.id = rv.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE rv.variant_id = ? AND rv.deleted_at IS NULL`,
   GET_COMPLETED_WITH_IMAGES: `
     SELECT rv.*, v.image_key, v.thumb_key, v.status as variant_status
     FROM rotation_views rv
-    JOIN variants v ON rv.variant_id = v.id
-    WHERE rv.rotation_set_id = ? AND v.status = 'completed'
+    JOIN rotation_sets rs ON rs.id = rv.rotation_set_id AND rs.deleted_at IS NULL
+    JOIN variants v ON rv.variant_id = v.id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE rv.rotation_set_id = ? AND rv.deleted_at IS NULL AND v.status = 'completed'
     ORDER BY rv.step_index ASC`,
   INSERT: `INSERT INTO rotation_views (id, rotation_set_id, variant_id, direction, step_index, created_at)
            VALUES (?, ?, ?, ?, ?, ?)`,
@@ -515,14 +566,27 @@ export const RotationViewQueries = {
 // ============================================================================
 
 export const TileSetQueries = {
-  GET_ALL: 'SELECT * FROM tile_sets ORDER BY created_at DESC',
-  GET_BY_ID: 'SELECT * FROM tile_sets WHERE id = ?',
+  GET_ALL: `
+    SELECT ts.*
+    FROM tile_sets ts
+    JOIN assets a ON a.id = ts.asset_id AND a.deleted_at IS NULL
+    LEFT JOIN variants seed ON seed.id = ts.seed_variant_id
+    WHERE ts.deleted_at IS NULL
+      AND (ts.seed_variant_id IS NULL OR (seed.id IS NOT NULL AND seed.deleted_at IS NULL))
+    ORDER BY ts.created_at DESC`,
+  GET_BY_ID: `
+    SELECT ts.*
+    FROM tile_sets ts
+    JOIN assets a ON a.id = ts.asset_id AND a.deleted_at IS NULL
+    LEFT JOIN variants seed ON seed.id = ts.seed_variant_id
+    WHERE ts.id = ? AND ts.deleted_at IS NULL
+      AND (ts.seed_variant_id IS NULL OR (seed.id IS NOT NULL AND seed.deleted_at IS NULL))`,
   INSERT: `INSERT INTO tile_sets (id, asset_id, tile_type, grid_width, grid_height, status, seed_variant_id, config, current_step, total_steps, error_message, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  UPDATE_STATUS: 'UPDATE tile_sets SET status = ?, updated_at = ? WHERE id = ?',
-  UPDATE_STEP: 'UPDATE tile_sets SET current_step = ?, updated_at = ? WHERE id = ?',
-  FAIL: `UPDATE tile_sets SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
-  CANCEL: `UPDATE tile_sets SET status = 'cancelled', updated_at = ? WHERE id = ?`,
+  UPDATE_STATUS: 'UPDATE tile_sets SET status = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  UPDATE_STEP: 'UPDATE tile_sets SET current_step = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  FAIL: `UPDATE tile_sets SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+  CANCEL: `UPDATE tile_sets SET status = 'cancelled', updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 } as const;
 
 // ============================================================================
@@ -530,9 +594,29 @@ export const TileSetQueries = {
 // ============================================================================
 
 export const TilePositionQueries = {
-  GET_BY_SET: 'SELECT * FROM tile_positions WHERE tile_set_id = ? ORDER BY grid_y, grid_x',
-  GET_ALL: 'SELECT * FROM tile_positions ORDER BY created_at DESC',
-  GET_BY_VARIANT: 'SELECT * FROM tile_positions WHERE variant_id = ?',
+  GET_BY_SET: `
+    SELECT tp.*
+    FROM tile_positions tp
+    JOIN tile_sets ts ON ts.id = tp.tile_set_id AND ts.deleted_at IS NULL
+    JOIN variants v ON v.id = tp.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE tp.tile_set_id = ? AND tp.deleted_at IS NULL
+    ORDER BY tp.grid_y, tp.grid_x`,
+  GET_ALL: `
+    SELECT tp.*
+    FROM tile_positions tp
+    JOIN tile_sets ts ON ts.id = tp.tile_set_id AND ts.deleted_at IS NULL
+    JOIN variants v ON v.id = tp.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE tp.deleted_at IS NULL
+    ORDER BY tp.created_at DESC`,
+  GET_BY_VARIANT: `
+    SELECT tp.*
+    FROM tile_positions tp
+    JOIN tile_sets ts ON ts.id = tp.tile_set_id AND ts.deleted_at IS NULL
+    JOIN variants v ON v.id = tp.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE tp.variant_id = ? AND tp.deleted_at IS NULL`,
   GET_ADJACENT: `
     SELECT tp.*, v.image_key, v.thumb_key,
       CASE
@@ -542,8 +626,10 @@ export const TilePositionQueries = {
         WHEN tp.grid_x = ? - 1 AND tp.grid_y = ? THEN 'W'
       END as direction
     FROM tile_positions tp
-    JOIN variants v ON tp.variant_id = v.id
-    WHERE tp.tile_set_id = ? AND v.status = 'completed'
+    JOIN tile_sets ts ON ts.id = tp.tile_set_id AND ts.deleted_at IS NULL
+    JOIN variants v ON tp.variant_id = v.id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE tp.tile_set_id = ? AND tp.deleted_at IS NULL AND v.status = 'completed'
       AND ((tp.grid_x = ? AND tp.grid_y = ? - 1)
         OR (tp.grid_x = ? + 1 AND tp.grid_y = ?)
         OR (tp.grid_x = ? AND tp.grid_y = ? + 1)
@@ -557,8 +643,8 @@ export const TilePositionQueries = {
 // ============================================================================
 
 export const ProductionRecordQueries = {
-  GET_BY_ID: 'SELECT * FROM production_records WHERE id = ?',
-  GET_BY_PRODUCTION: 'SELECT * FROM production_records WHERE production_id = ? ORDER BY timeline_start_ms ASC, shot_id ASC, created_at ASC',
+  GET_BY_ID: 'SELECT * FROM production_records WHERE id = ? AND deleted_at IS NULL',
+  GET_BY_PRODUCTION: 'SELECT * FROM production_records WHERE production_id = ? AND deleted_at IS NULL ORDER BY timeline_start_ms ASC, shot_id ASC, created_at ASC',
   UPSERT: `INSERT INTO production_records
            (id, production_id, variant_id, asset_id, media_kind, shot_id, scene_label, timeline_start_ms, duration_ms, motion_prompt, source_refs, source_variant_ids, metadata, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -575,27 +661,29 @@ export const ProductionRecordQueries = {
              source_refs = excluded.source_refs,
              source_variant_ids = excluded.source_variant_ids,
              metadata = excluded.metadata,
-             updated_at = excluded.updated_at`,
-  DELETE: 'DELETE FROM production_records WHERE id = ?',
-  DELETE_BY_PRODUCTION: 'DELETE FROM production_records WHERE production_id = ?',
+             updated_at = excluded.updated_at,
+             deleted_at = NULL`,
+  DELETE: 'UPDATE production_records SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  DELETE_BY_PRODUCTION: 'UPDATE production_records SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
 } as const;
 
 export const ProductionQueries = {
-  GET_ALL: 'SELECT * FROM productions ORDER BY updated_at DESC',
-  GET_BY_ID: 'SELECT * FROM productions WHERE id = ?',
+  GET_ALL: 'SELECT * FROM productions WHERE deleted_at IS NULL ORDER BY updated_at DESC',
+  GET_BY_ID: 'SELECT * FROM productions WHERE id = ? AND deleted_at IS NULL',
   UPSERT: `INSERT INTO productions (id, name, description, metadata, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
              name = excluded.name,
              description = excluded.description,
              metadata = excluded.metadata,
-             updated_at = excluded.updated_at`,
-  DELETE: 'DELETE FROM productions WHERE id = ?',
+             updated_at = excluded.updated_at,
+             deleted_at = NULL`,
+  DELETE: 'UPDATE productions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
 } as const;
 
 export const ProductionShotQueries = {
-  GET_BY_ID: 'SELECT * FROM production_shots WHERE id = ?',
-  GET_BY_PRODUCTION: 'SELECT * FROM production_shots WHERE production_id = ? ORDER BY timeline_start_ms ASC, shot_id ASC, created_at ASC',
+  GET_BY_ID: 'SELECT * FROM production_shots WHERE id = ? AND deleted_at IS NULL',
+  GET_BY_PRODUCTION: 'SELECT * FROM production_shots WHERE production_id = ? AND deleted_at IS NULL ORDER BY timeline_start_ms ASC, shot_id ASC, created_at ASC',
   UPSERT: `INSERT INTO production_shots (id, production_id, shot_id, label, timeline_start_ms, duration_ms, metadata, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
@@ -605,14 +693,15 @@ export const ProductionShotQueries = {
              timeline_start_ms = excluded.timeline_start_ms,
              duration_ms = excluded.duration_ms,
              metadata = excluded.metadata,
-             updated_at = excluded.updated_at`,
-  DELETE: 'DELETE FROM production_shots WHERE id = ?',
-  DELETE_BY_PRODUCTION: 'DELETE FROM production_shots WHERE production_id = ?',
+             updated_at = excluded.updated_at,
+             deleted_at = NULL`,
+  DELETE: 'UPDATE production_shots SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  DELETE_BY_PRODUCTION: 'UPDATE production_shots SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
 } as const;
 
 export const ProductionCueQueries = {
-  GET_BY_ID: 'SELECT * FROM production_cues WHERE id = ?',
-  GET_BY_PRODUCTION: 'SELECT * FROM production_cues WHERE production_id = ? ORDER BY timeline_start_ms ASC, cue_type ASC, created_at ASC',
+  GET_BY_ID: 'SELECT * FROM production_cues WHERE id = ? AND deleted_at IS NULL',
+  GET_BY_PRODUCTION: 'SELECT * FROM production_cues WHERE production_id = ? AND deleted_at IS NULL ORDER BY timeline_start_ms ASC, cue_type ASC, created_at ASC',
   UPSERT: `INSERT INTO production_cues (id, production_id, cue_type, label, timeline_start_ms, duration_ms, metadata, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
@@ -622,15 +711,16 @@ export const ProductionCueQueries = {
              timeline_start_ms = excluded.timeline_start_ms,
              duration_ms = excluded.duration_ms,
              metadata = excluded.metadata,
-             updated_at = excluded.updated_at`,
-  DELETE: 'DELETE FROM production_cues WHERE id = ?',
-  DELETE_BY_PRODUCTION: 'DELETE FROM production_cues WHERE production_id = ?',
+             updated_at = excluded.updated_at,
+             deleted_at = NULL`,
+  DELETE: 'UPDATE production_cues SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  DELETE_BY_PRODUCTION: 'UPDATE production_cues SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
 } as const;
 
 export const ProductionPlacementQueries = {
-  GET_BY_ID: 'SELECT * FROM production_placements WHERE id = ?',
-  GET_BY_PRODUCTION: 'SELECT * FROM production_placements WHERE production_id = ? ORDER BY created_at ASC',
-  GET_BY_TARGET: 'SELECT * FROM production_placements WHERE target_kind = ? AND target_id = ? ORDER BY created_at ASC',
+  GET_BY_ID: 'SELECT * FROM production_placements WHERE id = ? AND deleted_at IS NULL',
+  GET_BY_PRODUCTION: 'SELECT * FROM production_placements WHERE production_id = ? AND deleted_at IS NULL ORDER BY created_at ASC',
+  GET_BY_TARGET: 'SELECT * FROM production_placements WHERE target_kind = ? AND target_id = ? AND deleted_at IS NULL ORDER BY created_at ASC',
   UPSERT: `INSERT INTO production_placements
            (id, production_id, target_kind, target_id, variant_id, asset_id, media_kind, role, source_refs, source_variant_ids, metadata, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -645,10 +735,11 @@ export const ProductionPlacementQueries = {
              source_refs = excluded.source_refs,
              source_variant_ids = excluded.source_variant_ids,
              metadata = excluded.metadata,
-             updated_at = excluded.updated_at`,
-  DELETE: 'DELETE FROM production_placements WHERE id = ?',
-  DELETE_BY_PRODUCTION: 'DELETE FROM production_placements WHERE production_id = ?',
-  DELETE_BY_TARGET: 'DELETE FROM production_placements WHERE target_kind = ? AND target_id = ?',
+             updated_at = excluded.updated_at,
+             deleted_at = NULL`,
+  DELETE: 'UPDATE production_placements SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  DELETE_BY_PRODUCTION: 'UPDATE production_placements SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
+  DELETE_BY_TARGET: 'UPDATE production_placements SET deleted_at = ?, updated_at = ? WHERE target_kind = ? AND target_id = ? AND deleted_at IS NULL',
 } as const;
 
 // ============================================================================

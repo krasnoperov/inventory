@@ -1246,7 +1246,7 @@ describe('Space organization repository', () => {
     );
   });
 
-  test('applies explicit foreign-key behavior when assets and variants are deleted', async () => {
+  test('hides dependent active rows when assets, variants, and collections are soft-deleted', async () => {
     await createAssetWithVariant('asset-1', 'variant-1');
     await createAssetWithVariant('asset-2', 'variant-2');
 
@@ -1311,6 +1311,7 @@ describe('Space organization repository', () => {
 
     assert.equal((await repo.getStylePresetById('preset-1'))?.collection_id, 'collection-1');
     assert.equal(await repo.deleteCollection('collection-1'), true);
-    assert.equal((await repo.getStylePresetById('preset-1'))?.collection_id, null);
+    assert.equal((await repo.getStylePresetById('preset-1'))?.collection_id, 'collection-1');
+    assert.equal(await repo.getCollectionById('collection-1'), null);
   });
 });

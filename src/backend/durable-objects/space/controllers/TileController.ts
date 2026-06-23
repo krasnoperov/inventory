@@ -305,15 +305,14 @@ export class TileController extends BaseController {
     if (!pos) throw new NotFoundError('Tile position not found');
     if (pos.status !== 'failed') throw new ValidationError('Can only retry failed tiles');
 
-    // Delete the old failed position entry so a new one can be created
-    await this.sql.exec(`DELETE FROM tile_positions WHERE id = ?`, pos.id);
+    const previousVariantId = pos.variant_id;
 
-    // Also delete the failed variant
-    await this.sql.exec(`DELETE FROM variants WHERE id = ?`, pos.variant_id);
-    this.broadcast({ type: 'variant:deleted', variantId: pos.variant_id });
+    // Reuse the existing grid cell so retry stays on the soft-delete path.
+    const newVariantId = await this.generateTileAtPosition(msg.tileSetId, msg.gridX, msg.gridY, meta.userId, pos.id);
+    if (!newVariantId) return;
 
-    // Generate a new tile at this position
-    await this.generateTileAtPosition(msg.tileSetId, msg.gridX, msg.gridY, meta.userId);
+    await this.repo.deleteVariant(previousVariantId);
+    this.broadcast({ type: 'variant:deleted', variantId: previousVariantId });
 
     log.info('Retrying failed tile', {
       tileSetId: msg.tileSetId,
@@ -329,10 +328,11 @@ export class TileController extends BaseController {
     tileSetId: string,
     gridX: number,
     gridY: number,
-    userId: string
-  ): Promise<void> {
+    userId: string,
+    existingPositionId?: string
+  ): Promise<string | null> {
     const set = await this.repo.getTileSetById(tileSetId);
-    if (!set) return;
+    if (!set) return null;
 
     const config = JSON.parse(set.config) as {
       prompt: string;
@@ -394,14 +394,23 @@ export class TileController extends BaseController {
     this.broadcast({ type: 'variant:created', variant });
     await this.createStyleReferenceRelations(style, variantId, userId);
 
-    // Register tile position
-    await this.repo.createTilePosition({
-      id: crypto.randomUUID(),
-      tileSetId,
-      variantId,
-      gridX,
-      gridY,
-    });
+    if (existingPositionId) {
+      await this.sql.exec(
+        `UPDATE tile_positions
+         SET variant_id = ?, status = 'pending'
+         WHERE id = ? AND deleted_at IS NULL`,
+        variantId,
+        existingPositionId
+      );
+    } else {
+      await this.repo.createTilePosition({
+        id: crypto.randomUUID(),
+        tileSetId,
+        variantId,
+        gridX,
+        gridY,
+      });
+    }
 
     // Trigger GenerationWorkflow
     if (this.env.GENERATION_WORKFLOW) {
@@ -437,7 +446,7 @@ export class TileController extends BaseController {
         log.error('Failed to create tile workflow', { tileSetId, variantId, gridX, gridY, error: String(err) });
         await this.repo.failTileSet(tileSetId, `Workflow creation failed: ${String(err)}`);
         this.broadcast({ type: 'tileset:failed', tileSetId, error: String(err), failedStep: (await this.repo.getTilePositionsBySet(tileSetId)).length });
-        return;
+        return variantId;
       }
     }
 
@@ -459,6 +468,7 @@ export class TileController extends BaseController {
       variantId,
       adjacentCount: adjacents.length,
     });
+    return variantId;
   }
 
   /**
@@ -787,7 +797,7 @@ export class TileController extends BaseController {
 
     // Update tile position to point to new variant
     await this.sql.exec(
-      `UPDATE tile_positions SET variant_id = ? WHERE id = ?`,
+      `UPDATE tile_positions SET variant_id = ? WHERE id = ? AND deleted_at IS NULL`,
       variantId,
       pos.id
     );

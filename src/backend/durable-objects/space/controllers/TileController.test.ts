@@ -94,7 +94,9 @@ function createMockTilePosition(overrides: Partial<TilePosition> = {}): TilePosi
     variant_id: 'variant-1',
     grid_x: 1,
     grid_y: 1,
+    status: 'pending',
     created_at: Date.now(),
+    deleted_at: null,
     ...overrides,
   };
 }
@@ -130,11 +132,13 @@ function createMockRepo(): SpaceRepository {
     getTileSetById: mock.fn(async () => null),
     createTilePosition: mock.fn(async () => createMockTilePosition()),
     getTilePositionsBySet: mock.fn(async () => []),
+    getTilePositionAt: mock.fn(async () => null),
     getAdjacentTiles: mock.fn(async () => []),
     updateTileSetStatus: mock.fn(async () => createMockTileSet()),
     updateTileSetStep: mock.fn(async () => createMockTileSet()),
     failTileSet: mock.fn(async () => createMockTileSet()),
     cancelTileSet: mock.fn(async () => createMockTileSet()),
+    deleteVariant: mock.fn(async () => true),
     getActiveStyle: mock.fn(async () => null),
   } as unknown as SpaceRepository;
 }
@@ -485,7 +489,13 @@ describe('TileController', () => {
 
     test('marks completed when all positions filled', async () => {
       const positions = Array.from({ length: 9 }, (_, i) =>
-        createMockTilePosition({ id: `pos-${i}`, grid_x: i % 3, grid_y: Math.floor(i / 3), variant_id: `v-${i}` })
+        createMockTilePosition({
+          id: `pos-${i}`,
+          grid_x: i % 3,
+          grid_y: Math.floor(i / 3),
+          variant_id: `v-${i}`,
+          status: 'completed',
+        })
       );
 
       const { ctx, broadcasts } = createMockContext({
@@ -551,6 +561,48 @@ describe('TileController', () => {
 
       await controller.advanceTileSet('nonexistent');
       assert.strictEqual(broadcasts.length, 0);
+    });
+  });
+
+  // ==========================================================================
+  // handleRetryTile
+  // ==========================================================================
+
+  describe('handleRetryTile', () => {
+    test('reuses failed tile position and soft-deletes old variant on retry', async () => {
+      const failedPosition = createMockTilePosition({
+        id: 'failed-pos',
+        variant_id: 'failed-variant',
+        grid_x: 1,
+        grid_y: 2,
+        status: 'failed',
+      });
+      const { ctx, broadcasts } = createMockContext({
+        getTileSetById: mock.fn(async () => createMockTileSet()),
+        getTilePositionAt: mock.fn(async () => failedPosition),
+      });
+      const controller = new TileController(ctx);
+
+      await controller.handleRetryTile({} as WebSocket, createEditorMeta(), {
+        type: 'tileset:retry_tile',
+        tileSetId: 'tileset-1',
+        gridX: 1,
+        gridY: 2,
+      });
+
+      const sqlCalls = asMock(ctx.sql.exec).mock.calls.map((call) => ({
+        query: call.arguments[0] as string,
+        bindings: call.arguments.slice(1),
+      }));
+      assert.ok(!sqlCalls.some((call) => call.query.includes('DELETE FROM')));
+      const positionUpdate = sqlCalls.find((call) => call.query.includes('UPDATE tile_positions'));
+      assert(positionUpdate !== undefined);
+      assert(positionUpdate.query.includes("status = 'pending'"));
+      assert.strictEqual(positionUpdate.bindings[1], 'failed-pos');
+      assert.strictEqual(asMock(ctx.repo.createTilePosition).mock.calls.length, 0);
+      assert.strictEqual(asMock(ctx.repo.deleteVariant).mock.calls.length, 1);
+      assert.strictEqual(asMock(ctx.repo.deleteVariant).mock.calls[0].arguments[0], 'failed-variant');
+      assert.ok(broadcasts.some((message) => message.type === 'variant:deleted' && message.variantId === 'failed-variant'));
     });
   });
 

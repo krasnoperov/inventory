@@ -2,14 +2,12 @@
  * Variant Controller
  *
  * Handles variant operations including deletion, starring, and applying new variants.
- * Manages image reference counting to ensure proper R2 cleanup.
+ * Manages image reference counting for newly created variants.
  */
 
 import type { Asset, Lineage, MediaKind, Variant, WebSocketMeta } from '../types';
 import {
   INCREMENT_REF_SQL,
-  DECREMENT_REF_SQL,
-  DELETE_REF_SQL,
   getVariantImageKeys,
 } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
@@ -17,8 +15,6 @@ import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import { serializeGenerationProvenance } from '../repository/SpaceRepository';
 import {
-  parsePlatformUsageUserId,
-  trackDeletedStorageUsage,
   trackVariantStorageUsage,
 } from '../../../platform/platformUsage';
 
@@ -45,7 +41,7 @@ export class VariantController extends BaseController {
     this.requireOwner(meta);
 
     const organizationBefore = await this.getOrganizationSnapshot();
-    await this.deleteVariant(variantId, parsePlatformUsageUserId(meta.userId));
+    await this.deleteVariant(variantId);
     const organizationAfter = await this.getOrganizationSnapshot();
     this.broadcast({ type: 'variant:deleted', variantId });
     await this.broadcastOrganizationCascadeChanges(organizationBefore, organizationAfter);
@@ -240,6 +236,7 @@ export class VariantController extends BaseController {
       batch_id: null,
       quality_rating: null,
       rated_at: null,
+      deleted_at: null,
     };
 
     // Insert placeholder variant
@@ -570,6 +567,7 @@ export class VariantController extends BaseController {
       batch_id: null,
       quality_rating: null,
       rated_at: null,
+      deleted_at: null,
     };
 
     // Insert variant
@@ -632,7 +630,7 @@ export class VariantController extends BaseController {
 
     // If this is the first variant for the asset, set it as active
     const assetResult = await this.sql.exec(
-      'SELECT active_variant_id FROM assets WHERE id = ?',
+      'SELECT active_variant_id FROM assets WHERE id = ? AND deleted_at IS NULL',
       variant.asset_id
     );
     const assetRow = assetResult.toArray()[0] as { active_variant_id: string | null } | undefined;
@@ -659,11 +657,10 @@ export class VariantController extends BaseController {
   }
 
   /**
-   * Delete a variant and decrement image refs.
-   * Images with 0 refs are deleted from R2.
+   * Soft-delete a variant.
    * If the variant is the active variant, reassign to another variant or NULL.
    */
-  private async deleteVariant(variantId: string, deletedByUserId: number | null): Promise<void> {
+  private async deleteVariant(variantId: string): Promise<void> {
     const variant = await this.repo.getVariantById(variantId);
     if (!variant) return;
 
@@ -685,75 +682,7 @@ export class VariantController extends BaseController {
       }
     }
 
-    // Decrement refs for all images
-    const imageKeys = getVariantImageKeys(variant);
-    for (const key of imageKeys) {
-      const deletion = await this.decrementRef(key);
-      if (deletion.deleted && deletion.sizeBytes > 0) {
-        try {
-          await trackDeletedStorageUsage(this.env.DB, {
-            spaceId: this.spaceId,
-            userId: deletedByUserId,
-            assetId: variant.asset_id,
-            variantId: variant.id,
-            mediaKind: variant.media_kind,
-            artifactKey: key,
-            sizeBytes: deletion.sizeBytes,
-          });
-        } catch (error) {
-          log.warn('Failed to track deleted storage usage', {
-            spaceId: this.spaceId,
-            variantId,
-            imageKey: key,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-    }
-
-    // Delete variant
-    await this.sql.exec('DELETE FROM variants WHERE id = ?', variantId);
-  }
-
-  /**
-   * Decrement image ref and delete from R2 if ref count reaches 0
-   */
-  private async decrementRef(imageKey: string): Promise<{ deleted: boolean; sizeBytes: number }> {
-    const result = await this.sql.exec(DECREMENT_REF_SQL, imageKey);
-    const row = result.toArray()[0] as { ref_count: number } | undefined;
-
-    if (row && row.ref_count <= 0) {
-      let sizeBytes = 0;
-      try {
-        const object = await this.env.IMAGES.head(imageKey);
-        sizeBytes = object?.size ?? 0;
-      } catch (error) {
-        log.warn('Failed to read R2 object size before delete', {
-          imageKey,
-          spaceId: this.spaceId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-
-      // Delete from R2
-      let deleteSucceeded = false;
-      try {
-        await this.env.IMAGES.delete(imageKey);
-        deleteSucceeded = true;
-      } catch (error) {
-        log.error('Failed to delete image from R2', {
-          imageKey,
-          spaceId: this.spaceId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-
-      // Delete ref record
-      await this.sql.exec(DELETE_REF_SQL, imageKey);
-      return { deleted: deleteSucceeded, sizeBytes };
-    }
-
-    return { deleted: false, sizeBytes: 0 };
+    await this.repo.deleteVariant(variantId);
   }
 
   private async trackStoredVariant(

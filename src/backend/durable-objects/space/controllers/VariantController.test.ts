@@ -78,6 +78,7 @@ function createMockRepo(): SpaceRepository {
     getVariantById: mock.fn(async () => null),
     getVariantByWorkflowId: mock.fn(async () => null),
     getVariantsByAsset: mock.fn(async () => []),
+    deleteVariant: mock.fn(async () => true),
     updateAsset: mock.fn(async (id, changes) => createMockAsset({ id, ...changes })),
     updateVariantStarred: mock.fn(async (id, starred) =>
       createMockVariant({ id, starred })
@@ -255,6 +256,10 @@ describe('VariantController', () => {
       const { ctx, broadcasts } = createMockContext({
         getVariantById: mock.fn(async () => variant),
         getAssetById: mock.fn(async () => asset),
+        deleteVariant: mock.fn(async () => {
+          deleted = true;
+          return true;
+        }),
         listAllCollectionItems: mock.fn(async () => deleted ? [pinnedAfter] : [pinnedBefore, variantItem]),
         listRelations: mock.fn(async () => deleted ? [] : [relation]),
         listCompositions: mock.fn(async () => deleted ? [compositionAfter] : [compositionBefore]),
@@ -268,13 +273,6 @@ describe('VariantController', () => {
           style_reference_variant_ids: ['variant-2'],
           style_reference_image_keys: ['images/variant-2.png'],
         }]),
-      }, {
-        exec: mock.fn((query: string) => {
-          if (query.startsWith('DELETE FROM variants')) {
-            deleted = true;
-          }
-          return { toArray: () => [{ ref_count: 1 }] };
-        }),
       });
       const controller = new VariantController(ctx);
 
@@ -449,7 +447,7 @@ describe('VariantController', () => {
       );
     });
 
-    test('decrements image refs when deleting variant', async () => {
+    test('soft-deletes variant without decrementing image refs', async () => {
       const variant = createMockVariant({
         id: 'var-1',
         image_key: 'images/test.png',
@@ -470,11 +468,12 @@ describe('VariantController', () => {
 
       await controller.handleDelete({} as WebSocket, createOwnerMeta(), 'var-1');
 
-      // Should call SQL exec for decrementing refs (at least once per image key)
       const decrementCalls = sqlExec.mock.calls.filter((c) =>
         String(c.arguments[0]).includes('UPDATE image_refs')
       );
-      assert.ok(decrementCalls.length >= 1);
+      assert.equal(decrementCalls.length, 0);
+      assert.equal(asMock(ctx.repo.deleteVariant).mock.calls.length, 1);
+      assert.equal(asMock(ctx.repo.deleteVariant).mock.calls[0].arguments[0], 'var-1');
     });
   });
 
