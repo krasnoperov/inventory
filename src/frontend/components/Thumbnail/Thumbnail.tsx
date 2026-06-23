@@ -12,6 +12,7 @@ import { memo, useCallback } from 'react';
 import {
   type Variant,
   isVariantReady,
+  isVariantImageReady,
   isVariantAudioReady,
   isVariantVideoReady,
   isVariantLoading,
@@ -42,6 +43,13 @@ export interface ThumbnailProps {
   showAudioControls?: boolean;
   /** Show video controls when a video variant has playable media */
   showVideoControls?: boolean;
+  /**
+   * Render image variants from the full-resolution media instead of the
+   * downscaled thumb_key (a 512px cover-cropped preview). Needed where the
+   * image can be zoomed past the thumbnail's pixels and must stay sharp at
+   * native resolution (e.g. the variant canvas). Requires `spaceId`.
+   */
+  fullResolution?: boolean;
   /** Additional CSS class */
   className?: string;
 }
@@ -63,6 +71,7 @@ function ThumbnailComponent({
   spaceId,
   showAudioControls = false,
   showVideoControls = false,
+  fullResolution = false,
   className,
 }: ThumbnailProps) {
   const handleRetryClick = useCallback(
@@ -125,6 +134,11 @@ function ThumbnailComponent({
   const mediaUrl = getVariantMediaUrl(variant, spaceId);
   const showPlayableAudio = isVariantAudioReady(variant) && showAudioControls && mediaUrl;
   const showPlayableVideo = isVariantVideoReady(variant) && showVideoControls && mediaUrl;
+  // Prefer the full-resolution media for images when asked, so zooming reveals
+  // native pixels instead of upscaling the 512px thumbnail; fall back to the
+  // thumb URL when full-res isn't available.
+  const imageSrc =
+    fullResolution && isVariantImageReady(variant) && mediaUrl ? mediaUrl : url;
 
   return (
     <div className={baseClasses} onClick={onClick}>
@@ -137,8 +151,8 @@ function ThumbnailComponent({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         />
-      ) : url ? (
-        <img src={url} alt="" className={styles.image} draggable={false} />
+      ) : imageSrc ? (
+        <img src={imageSrc} alt="" className={styles.image} draggable={false} />
       ) : isVariantAudioReady(variant) ? (
         <div className={styles.audioPreview}>
           <svg
