@@ -811,6 +811,56 @@ export class SpaceRepository {
       assetId,
       assetId
     );
+    await this.sql.exec(
+      `UPDATE rotation_views
+       SET deleted_at = ?
+       WHERE deleted_at IS NULL
+         AND (
+           rotation_set_id IN (SELECT id FROM rotation_sets WHERE asset_id = ?)
+           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+         )`,
+      now,
+      assetId,
+      assetId
+    );
+    await this.sql.exec(
+      `UPDATE rotation_sets
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL
+         AND (
+           asset_id = ?
+           OR source_variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+         )`,
+      now,
+      now,
+      assetId,
+      assetId
+    );
+    await this.sql.exec(
+      `UPDATE tile_positions
+       SET deleted_at = ?
+       WHERE deleted_at IS NULL
+         AND (
+           tile_set_id IN (SELECT id FROM tile_sets WHERE asset_id = ?)
+           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+         )`,
+      now,
+      assetId,
+      assetId
+    );
+    await this.sql.exec(
+      `UPDATE tile_sets
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL
+         AND (
+           asset_id = ?
+           OR seed_variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+         )`,
+      now,
+      now,
+      assetId,
+      assetId
+    );
   }
 
   private async softDeleteRowsReferencingVariant(variantId: string, now: number): Promise<void> {
@@ -859,6 +909,36 @@ export class SpaceRepository {
       `UPDATE production_placements
        SET deleted_at = ?, updated_at = ?
        WHERE deleted_at IS NULL AND variant_id = ?`,
+      now,
+      now,
+      variantId
+    );
+    await this.sql.exec(
+      `UPDATE rotation_views
+       SET deleted_at = ?
+       WHERE deleted_at IS NULL AND variant_id = ?`,
+      now,
+      variantId
+    );
+    await this.sql.exec(
+      `UPDATE rotation_sets
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL AND source_variant_id = ?`,
+      now,
+      now,
+      variantId
+    );
+    await this.sql.exec(
+      `UPDATE tile_positions
+       SET deleted_at = ?
+       WHERE deleted_at IS NULL AND variant_id = ?`,
+      now,
+      variantId
+    );
+    await this.sql.exec(
+      `UPDATE tile_sets
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL AND seed_variant_id = ?`,
       now,
       now,
       variantId
@@ -3282,7 +3362,12 @@ export class SpaceRepository {
 
   async getRotationSetByAssetId(assetId: string): Promise<RotationSet | null> {
     const result = await this.sql.exec(
-      'SELECT * FROM rotation_sets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 1',
+      `SELECT rs.*
+       FROM rotation_sets rs
+       JOIN assets a ON a.id = rs.asset_id AND a.deleted_at IS NULL
+       JOIN variants v ON v.id = rs.source_variant_id AND v.deleted_at IS NULL
+       WHERE rs.asset_id = ? AND rs.deleted_at IS NULL
+       ORDER BY rs.created_at DESC LIMIT 1`,
       assetId
     );
     return (result.toArray()[0] as RotationSet) ?? null;
@@ -3386,6 +3471,7 @@ export class SpaceRepository {
       direction: data.direction,
       step_index: data.stepIndex,
       created_at: now,
+      deleted_at: null,
     };
   }
 
@@ -3409,7 +3495,13 @@ export class SpaceRepository {
 
   async getTileSetByAssetId(assetId: string): Promise<TileSet | null> {
     const result = await this.sql.exec(
-      'SELECT * FROM tile_sets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 1',
+      `SELECT ts.*
+       FROM tile_sets ts
+       JOIN assets a ON a.id = ts.asset_id AND a.deleted_at IS NULL
+       LEFT JOIN variants seed ON seed.id = ts.seed_variant_id
+       WHERE ts.asset_id = ? AND ts.deleted_at IS NULL
+         AND (ts.seed_variant_id IS NULL OR (seed.id IS NOT NULL AND seed.deleted_at IS NULL))
+       ORDER BY ts.created_at DESC LIMIT 1`,
       assetId
     );
     return (result.toArray()[0] as TileSet) ?? null;
@@ -3526,12 +3618,13 @@ export class SpaceRepository {
       grid_y: data.gridY,
       status: 'pending',
       created_at: now,
+      deleted_at: null,
     };
   }
 
   async updateTilePositionStatus(positionId: string, status: string): Promise<void> {
     await this.sql.exec(
-      `UPDATE tile_positions SET status = ? WHERE id = ?`,
+      `UPDATE tile_positions SET status = ? WHERE id = ? AND deleted_at IS NULL`,
       status,
       positionId
     );
@@ -3539,7 +3632,12 @@ export class SpaceRepository {
 
   async getTilePositionAt(tileSetId: string, gridX: number, gridY: number): Promise<TilePosition | null> {
     const result = await this.sql.exec(
-      `SELECT * FROM tile_positions WHERE tile_set_id = ? AND grid_x = ? AND grid_y = ?`,
+      `SELECT tp.*
+       FROM tile_positions tp
+       JOIN tile_sets ts ON ts.id = tp.tile_set_id AND ts.deleted_at IS NULL
+       JOIN variants v ON v.id = tp.variant_id AND v.deleted_at IS NULL
+       JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+       WHERE tp.tile_set_id = ? AND tp.grid_x = ? AND tp.grid_y = ? AND tp.deleted_at IS NULL`,
       tileSetId,
       gridX,
       gridY

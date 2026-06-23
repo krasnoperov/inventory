@@ -173,6 +173,7 @@ export interface RotationSet {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export interface RotationView {
@@ -182,6 +183,7 @@ export interface RotationView {
   direction: string;
   step_index: number;
   created_at: number;
+  deleted_at: number | null;
 }
 
 export type TileType = 'terrain' | 'building' | 'decoration' | 'custom';
@@ -202,6 +204,7 @@ export interface TileSet {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export type TilePositionStatus = 'pending' | 'generating' | 'completed' | 'failed';
@@ -214,6 +217,7 @@ export interface TilePosition {
   grid_y: number;
   status: TilePositionStatus;
   created_at: number;
+  deleted_at: number | null;
 }
 
 /**

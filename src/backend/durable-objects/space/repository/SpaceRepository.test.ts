@@ -134,6 +134,10 @@ describe('SpaceRepository', () => {
         .map((q) => q.query);
       assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE variants SET deleted_at = ?')));
       assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE assets SET deleted_at = ?')));
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE rotation_views')));
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE rotation_sets')));
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE tile_positions')));
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE tile_sets')));
     });
 
     test('updateAsset returns null for non-existent asset', async () => {
@@ -234,6 +238,24 @@ describe('SpaceRepository', () => {
     test('deleteVariant returns false for non-existent', async () => {
       const result = await repo.deleteVariant('nonexistent');
       assert.strictEqual(result, false);
+    });
+
+    test('deleteVariant soft-deletes generated rotation and tile rows', async () => {
+      mockSql.setMockResult('SELECT * FROM variants WHERE id = ?', [
+        { id: 'variant-1', asset_id: 'asset-1', image_key: 'images/variant.png' },
+      ]);
+
+      const result = await repo.deleteVariant('variant-1');
+
+      assert.strictEqual(result, true);
+      const softDeleteQueries = mockSql.queries
+        .filter((q) => q.query.includes('SET deleted_at = ?'))
+        .map((q) => q.query);
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE rotation_views')));
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE rotation_sets')));
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE tile_positions')));
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE tile_sets')));
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE variants SET deleted_at = ?')));
     });
 
     test('createVariant inserts default media kind', async () => {
@@ -827,16 +849,16 @@ describe('SpaceRepository', () => {
 
     test('getOverviewState includes variants referenced by tile and rotation rows', async () => {
       mockSql.setMockResult('ROW_NUMBER() OVER', [{ id: 'active-v1', asset_id: 'a1', overview_rank: 1 }]);
-      mockSql.setMockResult('SELECT * FROM rotation_sets', [
+      mockSql.setMockResult('FROM rotation_sets rs', [
         { id: 'rs1', source_variant_id: 'rotation-source-v1' },
       ]);
-      mockSql.setMockResult('SELECT * FROM rotation_views', [
+      mockSql.setMockResult('FROM rotation_views rv', [
         { id: 'rv1', variant_id: 'rotation-view-v1' },
       ]);
-      mockSql.setMockResult('SELECT * FROM tile_sets', [
+      mockSql.setMockResult('FROM tile_sets ts', [
         { id: 'ts1', seed_variant_id: 'tile-seed-v1' },
       ]);
-      mockSql.setMockResult('SELECT * FROM tile_positions', [
+      mockSql.setMockResult('FROM tile_positions tp', [
         { id: 'tp1', variant_id: 'tile-position-v1' },
       ]);
       mockSql.setMockResult('WHERE id IN', [
@@ -860,6 +882,19 @@ describe('SpaceRepository', () => {
         'tile-seed-v1',
         'tile-position-v1',
       ]);
+    });
+
+    test('generated state reads filter soft-deleted rotation and tile rows', async () => {
+      await repo.getAllRotationSets();
+      await repo.getAllRotationViews();
+      await repo.getAllTileSets();
+      await repo.getAllTilePositions();
+
+      const generatedStateQueries = mockSql.queries.map((q) => q.query);
+      assert.ok(generatedStateQueries.some((query) => query.includes('FROM rotation_sets rs') && query.includes('rs.deleted_at IS NULL')));
+      assert.ok(generatedStateQueries.some((query) => query.includes('FROM rotation_views rv') && query.includes('rv.deleted_at IS NULL')));
+      assert.ok(generatedStateQueries.some((query) => query.includes('FROM tile_sets ts') && query.includes('ts.deleted_at IS NULL')));
+      assert.ok(generatedStateQueries.some((query) => query.includes('FROM tile_positions tp') && query.includes('tp.deleted_at IS NULL')));
     });
   });
 });

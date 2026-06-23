@@ -500,14 +500,25 @@ export const UserSessionQueries = {
 // ============================================================================
 
 export const RotationSetQueries = {
-  GET_ALL: 'SELECT * FROM rotation_sets ORDER BY created_at DESC',
-  GET_BY_ID: 'SELECT * FROM rotation_sets WHERE id = ?',
+  GET_ALL: `
+    SELECT rs.*
+    FROM rotation_sets rs
+    JOIN assets a ON a.id = rs.asset_id AND a.deleted_at IS NULL
+    JOIN variants v ON v.id = rs.source_variant_id AND v.deleted_at IS NULL
+    WHERE rs.deleted_at IS NULL
+    ORDER BY rs.created_at DESC`,
+  GET_BY_ID: `
+    SELECT rs.*
+    FROM rotation_sets rs
+    JOIN assets a ON a.id = rs.asset_id AND a.deleted_at IS NULL
+    JOIN variants v ON v.id = rs.source_variant_id AND v.deleted_at IS NULL
+    WHERE rs.id = ? AND rs.deleted_at IS NULL`,
   INSERT: `INSERT INTO rotation_sets (id, asset_id, source_variant_id, config, status, current_step, total_steps, error_message, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  UPDATE_STATUS: 'UPDATE rotation_sets SET status = ?, updated_at = ? WHERE id = ?',
-  UPDATE_STEP: 'UPDATE rotation_sets SET current_step = ?, updated_at = ? WHERE id = ?',
-  FAIL: `UPDATE rotation_sets SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
-  CANCEL: `UPDATE rotation_sets SET status = 'cancelled', updated_at = ? WHERE id = ?`,
+  UPDATE_STATUS: 'UPDATE rotation_sets SET status = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  UPDATE_STEP: 'UPDATE rotation_sets SET current_step = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  FAIL: `UPDATE rotation_sets SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+  CANCEL: `UPDATE rotation_sets SET status = 'cancelled', updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 } as const;
 
 // ============================================================================
@@ -515,14 +526,36 @@ export const RotationSetQueries = {
 // ============================================================================
 
 export const RotationViewQueries = {
-  GET_BY_SET: 'SELECT * FROM rotation_views WHERE rotation_set_id = ? ORDER BY step_index ASC',
-  GET_ALL: 'SELECT * FROM rotation_views ORDER BY created_at DESC',
-  GET_BY_VARIANT: 'SELECT * FROM rotation_views WHERE variant_id = ?',
+  GET_BY_SET: `
+    SELECT rv.*
+    FROM rotation_views rv
+    JOIN rotation_sets rs ON rs.id = rv.rotation_set_id AND rs.deleted_at IS NULL
+    JOIN variants v ON v.id = rv.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE rv.rotation_set_id = ? AND rv.deleted_at IS NULL
+    ORDER BY rv.step_index ASC`,
+  GET_ALL: `
+    SELECT rv.*
+    FROM rotation_views rv
+    JOIN rotation_sets rs ON rs.id = rv.rotation_set_id AND rs.deleted_at IS NULL
+    JOIN variants v ON v.id = rv.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE rv.deleted_at IS NULL
+    ORDER BY rv.created_at DESC`,
+  GET_BY_VARIANT: `
+    SELECT rv.*
+    FROM rotation_views rv
+    JOIN rotation_sets rs ON rs.id = rv.rotation_set_id AND rs.deleted_at IS NULL
+    JOIN variants v ON v.id = rv.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE rv.variant_id = ? AND rv.deleted_at IS NULL`,
   GET_COMPLETED_WITH_IMAGES: `
     SELECT rv.*, v.image_key, v.thumb_key, v.status as variant_status
     FROM rotation_views rv
-    JOIN variants v ON rv.variant_id = v.id
-    WHERE rv.rotation_set_id = ? AND v.status = 'completed'
+    JOIN rotation_sets rs ON rs.id = rv.rotation_set_id AND rs.deleted_at IS NULL
+    JOIN variants v ON rv.variant_id = v.id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE rv.rotation_set_id = ? AND rv.deleted_at IS NULL AND v.status = 'completed'
     ORDER BY rv.step_index ASC`,
   INSERT: `INSERT INTO rotation_views (id, rotation_set_id, variant_id, direction, step_index, created_at)
            VALUES (?, ?, ?, ?, ?, ?)`,
@@ -533,14 +566,27 @@ export const RotationViewQueries = {
 // ============================================================================
 
 export const TileSetQueries = {
-  GET_ALL: 'SELECT * FROM tile_sets ORDER BY created_at DESC',
-  GET_BY_ID: 'SELECT * FROM tile_sets WHERE id = ?',
+  GET_ALL: `
+    SELECT ts.*
+    FROM tile_sets ts
+    JOIN assets a ON a.id = ts.asset_id AND a.deleted_at IS NULL
+    LEFT JOIN variants seed ON seed.id = ts.seed_variant_id
+    WHERE ts.deleted_at IS NULL
+      AND (ts.seed_variant_id IS NULL OR (seed.id IS NOT NULL AND seed.deleted_at IS NULL))
+    ORDER BY ts.created_at DESC`,
+  GET_BY_ID: `
+    SELECT ts.*
+    FROM tile_sets ts
+    JOIN assets a ON a.id = ts.asset_id AND a.deleted_at IS NULL
+    LEFT JOIN variants seed ON seed.id = ts.seed_variant_id
+    WHERE ts.id = ? AND ts.deleted_at IS NULL
+      AND (ts.seed_variant_id IS NULL OR (seed.id IS NOT NULL AND seed.deleted_at IS NULL))`,
   INSERT: `INSERT INTO tile_sets (id, asset_id, tile_type, grid_width, grid_height, status, seed_variant_id, config, current_step, total_steps, error_message, created_by, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  UPDATE_STATUS: 'UPDATE tile_sets SET status = ?, updated_at = ? WHERE id = ?',
-  UPDATE_STEP: 'UPDATE tile_sets SET current_step = ?, updated_at = ? WHERE id = ?',
-  FAIL: `UPDATE tile_sets SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?`,
-  CANCEL: `UPDATE tile_sets SET status = 'cancelled', updated_at = ? WHERE id = ?`,
+  UPDATE_STATUS: 'UPDATE tile_sets SET status = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  UPDATE_STEP: 'UPDATE tile_sets SET current_step = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+  FAIL: `UPDATE tile_sets SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+  CANCEL: `UPDATE tile_sets SET status = 'cancelled', updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 } as const;
 
 // ============================================================================
@@ -548,9 +594,29 @@ export const TileSetQueries = {
 // ============================================================================
 
 export const TilePositionQueries = {
-  GET_BY_SET: 'SELECT * FROM tile_positions WHERE tile_set_id = ? ORDER BY grid_y, grid_x',
-  GET_ALL: 'SELECT * FROM tile_positions ORDER BY created_at DESC',
-  GET_BY_VARIANT: 'SELECT * FROM tile_positions WHERE variant_id = ?',
+  GET_BY_SET: `
+    SELECT tp.*
+    FROM tile_positions tp
+    JOIN tile_sets ts ON ts.id = tp.tile_set_id AND ts.deleted_at IS NULL
+    JOIN variants v ON v.id = tp.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE tp.tile_set_id = ? AND tp.deleted_at IS NULL
+    ORDER BY tp.grid_y, tp.grid_x`,
+  GET_ALL: `
+    SELECT tp.*
+    FROM tile_positions tp
+    JOIN tile_sets ts ON ts.id = tp.tile_set_id AND ts.deleted_at IS NULL
+    JOIN variants v ON v.id = tp.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE tp.deleted_at IS NULL
+    ORDER BY tp.created_at DESC`,
+  GET_BY_VARIANT: `
+    SELECT tp.*
+    FROM tile_positions tp
+    JOIN tile_sets ts ON ts.id = tp.tile_set_id AND ts.deleted_at IS NULL
+    JOIN variants v ON v.id = tp.variant_id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE tp.variant_id = ? AND tp.deleted_at IS NULL`,
   GET_ADJACENT: `
     SELECT tp.*, v.image_key, v.thumb_key,
       CASE
@@ -560,8 +626,10 @@ export const TilePositionQueries = {
         WHEN tp.grid_x = ? - 1 AND tp.grid_y = ? THEN 'W'
       END as direction
     FROM tile_positions tp
-    JOIN variants v ON tp.variant_id = v.id
-    WHERE tp.tile_set_id = ? AND v.status = 'completed'
+    JOIN tile_sets ts ON ts.id = tp.tile_set_id AND ts.deleted_at IS NULL
+    JOIN variants v ON tp.variant_id = v.id AND v.deleted_at IS NULL
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE tp.tile_set_id = ? AND tp.deleted_at IS NULL AND v.status = 'completed'
       AND ((tp.grid_x = ? AND tp.grid_y = ? - 1)
         OR (tp.grid_x = ? + 1 AND tp.grid_y = ?)
         OR (tp.grid_x = ? AND tp.grid_y = ? + 1)

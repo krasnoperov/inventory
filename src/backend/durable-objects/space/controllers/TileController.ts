@@ -787,7 +787,7 @@ export class TileController extends BaseController {
 
     // Update tile position to point to new variant
     await this.sql.exec(
-      `UPDATE tile_positions SET variant_id = ? WHERE id = ?`,
+      `UPDATE tile_positions SET variant_id = ? WHERE id = ? AND deleted_at IS NULL`,
       variantId,
       pos.id
     );
