@@ -17,6 +17,7 @@ import dagre from 'dagre';
 import { type Asset, type Variant, type Lineage, type SpaceSubject, type Composition, type CompositionItem, type CompositionOverview, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import { VariantNode, type VariantNodeType } from './VariantNode';
+import { computeNativeMaxZoom } from './canvasZoom';
 
 import '@xyflow/react/dist/style.css';
 import styles from './VariantCanvas.module.css';
@@ -253,6 +254,11 @@ function VariantCanvasInner({
 }) {
   const { fitView } = useReactFlow();
   const [isReady, setIsReady] = useState(false);
+
+  // Allow zooming each image past its native 1:1 resolution (paired with the
+  // full-resolution media the nodes now render). The old fixed cap of 2 was well
+  // below native for typical generations (~3–4×). See computeNativeMaxZoom.
+  const maxZoom = useMemo(() => computeNativeMaxZoom(variants, THUMB_HEIGHT), [variants]);
 
   // Update CSS custom property when zoom changes (via DOM, not React state)
   // This avoids re-rendering nodes while still enabling CSS counter-scaling
@@ -604,7 +610,7 @@ function VariantCanvasInner({
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         minZoom={0.3}
-        maxZoom={2}
+        maxZoom={maxZoom}
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />

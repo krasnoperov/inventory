@@ -16,7 +16,7 @@ import {
   isVariantVideoReady,
   isVariantLoading,
   isVariantFailed,
-  getVariantThumbnailUrl,
+  getVariantDisplayImageUrl,
   getVariantMediaUrl,
 } from '../../hooks/useSpaceWebSocket';
 import styles from './Thumbnail.module.css';
@@ -42,6 +42,13 @@ export interface ThumbnailProps {
   showAudioControls?: boolean;
   /** Show video controls when a video variant has playable media */
   showVideoControls?: boolean;
+  /**
+   * Render image variants from the full-resolution media instead of the
+   * downscaled thumb_key (a 512px cover-cropped preview). Needed where the
+   * image can be zoomed past the thumbnail's pixels and must stay sharp at
+   * native resolution (e.g. the variant canvas). Requires `spaceId`.
+   */
+  fullResolution?: boolean;
   /** Additional CSS class */
   className?: string;
 }
@@ -63,6 +70,7 @@ function ThumbnailComponent({
   spaceId,
   showAudioControls = false,
   showVideoControls = false,
+  fullResolution = false,
   className,
 }: ThumbnailProps) {
   const handleRetryClick = useCallback(
@@ -121,10 +129,12 @@ function ThumbnailComponent({
   }
 
   // Completed state
-  const url = getVariantThumbnailUrl(variant);
   const mediaUrl = getVariantMediaUrl(variant, spaceId);
   const showPlayableAudio = isVariantAudioReady(variant) && showAudioControls && mediaUrl;
   const showPlayableVideo = isVariantVideoReady(variant) && showVideoControls && mediaUrl;
+  // Full-res media for images when asked (so zooming reveals native pixels
+  // instead of upscaling the 512px thumbnail), otherwise the thumbnail.
+  const imageSrc = getVariantDisplayImageUrl(variant, { fullResolution, spaceId });
 
   return (
     <div className={baseClasses} onClick={onClick}>
@@ -137,8 +147,8 @@ function ThumbnailComponent({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         />
-      ) : url ? (
-        <img src={url} alt="" className={styles.image} draggable={false} />
+      ) : imageSrc ? (
+        <img src={imageSrc} alt="" className={styles.image} draggable={false} />
       ) : isVariantAudioReady(variant) ? (
         <div className={styles.audioPreview}>
           <svg

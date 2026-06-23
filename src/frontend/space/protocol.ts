@@ -90,6 +90,26 @@ export function getVariantMediaUrl(variant: Variant, spaceId?: string): string |
 }
 
 /**
+ * Pick the image URL to render for a variant.
+ *
+ * With `fullResolution`, image-ready variants prefer the authenticated
+ * full-size media so the image stays sharp when zoomed past the thumbnail's
+ * 512px pixels; it falls back to the thumbnail when full-res isn't available
+ * (no media URL) or the variant isn't an image. Without `fullResolution` it
+ * always returns the lightweight thumbnail.
+ */
+export function getVariantDisplayImageUrl(
+  variant: Variant,
+  options?: { fullResolution?: boolean; spaceId?: string },
+): string | undefined {
+  if (options?.fullResolution && isVariantImageReady(variant)) {
+    const mediaUrl = getVariantMediaUrl(variant, options.spaceId);
+    if (mediaUrl) return mediaUrl;
+  }
+  return getVariantThumbnailUrl(variant);
+}
+
+/**
  * Check if a variant is ready to display.
  */
 export function isVariantReady(variant: Variant): boolean {

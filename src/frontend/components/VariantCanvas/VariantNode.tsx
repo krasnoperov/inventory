@@ -261,6 +261,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         spaceId={spaceId}
         showAudioControls
         showVideoControls
+        fullResolution
         onRetry={onRetry ? () => onRetry(variant.id) : undefined}
         className={`${styles.mediaPreview} nodrag nopan`}
       />
