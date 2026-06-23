@@ -153,6 +153,7 @@ export class AccountDeletionService {
       .where('id', '=', tombstone.id)
       .executeTakeFirst());
 
+    d1RowsChanged += await this.archiveOwnedSpaces(ownedSpaceIds, now);
     await this.deleteBillingCustomer(user.polar_customer_id);
 
     const purgeResult = await this.purgeSpaceDos(ownedSpaceIds);
@@ -246,6 +247,23 @@ export class AccountDeletionService {
     return this.env.ENVIRONMENT === 'stage' || this.env.ENVIRONMENT === 'staging' || this.env.ENVIRONMENT === 'production';
   }
 
+  private async archiveOwnedSpaces(spaceIds: string[], deletedAt: string): Promise<number> {
+    let d1RowsChanged = 0;
+    for (const batch of chunks(spaceIds)) {
+      d1RowsChanged += changed(await this.db
+        .updateTable('spaces')
+        .set({ deleted_at: deletedAt })
+        .where('id', 'in', batch)
+        .executeTakeFirst());
+      d1RowsChanged += changed(await this.db
+        .updateTable('space_members')
+        .set({ deleted_at: deletedAt })
+        .where('space_id', 'in', batch)
+        .executeTakeFirst());
+    }
+    return d1RowsChanged;
+  }
+
   private async writeTombstone(tombstone: AccountDeletionTombstonePayload): Promise<string> {
     const key = tombstoneR2Key(tombstone);
     await this.env.IMAGES.put(key, JSON.stringify(tombstone), {
@@ -259,6 +277,7 @@ export class AccountDeletionService {
     const rows = await this.db
       .selectFrom('account_deletion_tombstones')
       .select(['id', 'user_id', 'source', 'owned_spaces_purged', 'owned_space_ids', 'deleted_at', 'created_at'])
+      .where('r2_key', 'is not', null)
       .execute();
 
     for (const row of rows) {
