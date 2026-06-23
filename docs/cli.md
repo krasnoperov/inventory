@@ -110,6 +110,8 @@ makefx spaces                    # Simple list
 makefx spaces --details          # With asset counts
 makefx spaces --id <space_id>    # Details for specific space
 makefx spaces delete <space_id>  # Archive for support recovery
+makefx spaces inspect-deleted <space_id>  # Admin support inspection
+makefx spaces restore <space_id> # Admin support restore
 ```
 
 ### Create Space
@@ -126,6 +128,13 @@ makefx spaces delete <space_id>
 ```
 
 Space deletion is recoverable during the retention window; it archives the space instead of immediately purging its data.
+
+Admins can inspect or restore archived spaces during that retention window:
+
+```bash
+makefx spaces inspect-deleted <space_id>
+makefx spaces restore <space_id>
+```
 
 ---
 

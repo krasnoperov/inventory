@@ -51,6 +51,16 @@ export interface SpaceMembersTable {
   deleted_at: Generated<string | null>;
 }
 
+export interface SpaceRestoreAuditLogsTable {
+  id: string;
+  space_id: string;
+  restored_by_user_id: number;
+  restored_at: string;
+  previous_deleted_at: string;
+  memberships_visible: number;
+  status: 'attempted' | 'restored';
+}
+
 // ============================================================================
 // BILLING - Usage Tracking
 // ============================================================================
@@ -175,6 +185,7 @@ export interface Database {
   users: UsersTable;
   spaces: SpacesTable;
   space_members: SpaceMembersTable;
+  space_restore_audit_logs: SpaceRestoreAuditLogsTable;
   usage_events: UsageEventsTable;
   provider_usage_ledger: ProviderUsageLedgerTable;
   customer_charge_ledger: CustomerChargeLedgerTable;

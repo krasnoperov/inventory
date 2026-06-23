@@ -127,6 +127,19 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
   `.execute(db);
 
   await sql`
+    CREATE TABLE space_restore_audit_logs (
+      id TEXT PRIMARY KEY,
+      space_id TEXT NOT NULL,
+      restored_by_user_id INTEGER NOT NULL,
+      restored_at TEXT NOT NULL,
+      previous_deleted_at TEXT NOT NULL,
+      memberships_visible INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'attempted'
+        CHECK (status IN ('attempted', 'restored'))
+    )
+  `.execute(db);
+
+  await sql`
     CREATE TABLE platform_usage_events (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       idempotency_key TEXT NOT NULL UNIQUE,

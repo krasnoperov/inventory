@@ -19,6 +19,27 @@ const asset = {
   active_variant_id: 'variant-1',
 };
 
+const supportSpace = {
+  id: space.id,
+  name: space.name,
+  owner_id: space.owner_id,
+  created_at: space.created_at,
+  deleted_at: '2026-06-22T00:00:00.000Z',
+};
+
+const supportMembership = {
+  space_id: 'space-1',
+  user_id: 'user-1',
+  role: 'owner',
+  joined_at: 1,
+  deleted_at: null,
+  user: {
+    id: 'user-1',
+    email: 'owner@example.test',
+    name: 'Owner',
+  },
+};
+
 function storedConfig(): StoredConfig {
   return {
     environment: 'stage',
@@ -57,6 +78,23 @@ function depsFor(output: string[], options: { assetsStatus?: number } = {}) {
         return jsonResponse({
           success: true,
           message: 'Space archived successfully. Support can restore it during the retention window.',
+        });
+      }
+      if (pathname === '/api/support/spaces/space-1/restore' && init?.method === 'POST') {
+        return jsonResponse({
+          success: true,
+          space: { ...supportSpace, deleted_at: null },
+          membershipsVisible: 1,
+          previousDeletedAt: supportSpace.deleted_at,
+          auditLogId: 'audit-1',
+          message: 'Space restored successfully.',
+        });
+      }
+      if (pathname === '/api/support/spaces/space-1') {
+        return jsonResponse({
+          success: true,
+          space: supportSpace,
+          memberships: [supportMembership],
         });
       }
       if (pathname === '/api/spaces/space-1') {
@@ -167,6 +205,58 @@ test('spaces delete supports JSON output', async () => {
     success: true,
     message: 'Space archived successfully. Support can restore it during the retention window.',
   });
+});
+
+test('spaces inspect-deleted reads the support surface', async () => {
+  const output: string[] = [];
+  const { deps, requests } = depsFor(output);
+
+  const result = await executeSpaces({ positionals: ['inspect-deleted', 'space-1'], options: {} }, deps);
+
+  assert.equal(result.type, 'inspect-deleted');
+  assert.equal(result.details.space.deleted_at, supportSpace.deleted_at);
+  assert.deepEqual(requests.map(request => ({
+    path: new URL(request.url).pathname,
+    method: request.method,
+    authorization: request.authorization,
+  })), [{
+    path: '/api/support/spaces/space-1',
+    method: 'GET',
+    authorization: 'Bearer token-1',
+  }]);
+  assert.equal(output.join('\n'), [
+    'Space: Russafa Market (space-1)',
+    'Deleted at: 2026-06-22T00:00:00.000Z',
+    'Visible memberships: 1',
+    'Total memberships: 1',
+  ].join('\n'));
+});
+
+test('spaces restore posts to the support restore surface', async () => {
+  const output: string[] = [];
+  const { deps, requests } = depsFor(output);
+
+  const result = await executeSpaces({ positionals: ['restore', 'space-1'], options: { json: 'true' } }, deps);
+
+  assert.equal(result.type, 'restore');
+  assert.equal(result.restored.auditLogId, 'audit-1');
+  assert.deepEqual(JSON.parse(output.join('\n')), {
+    success: true,
+    space: { ...supportSpace, deleted_at: null },
+    membershipsVisible: 1,
+    previousDeletedAt: supportSpace.deleted_at,
+    auditLogId: 'audit-1',
+    message: 'Space restored successfully.',
+  });
+  assert.deepEqual(requests.map(request => ({
+    path: new URL(request.url).pathname,
+    method: request.method,
+    authorization: request.authorization,
+  })), [{
+    path: '/api/support/spaces/space-1/restore',
+    method: 'POST',
+    authorization: 'Bearer token-1',
+  }]);
 });
 
 test('spaces details rejects when an asset summary read fails', async () => {

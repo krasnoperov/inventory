@@ -300,6 +300,9 @@ Spaces:
   spaces --id <id> [--json]    Show details for a specific space
   spaces create <name>         Create a new space
   spaces delete <id> [--json]  Archive a space for support recovery
+  spaces inspect-deleted <id> [--json]
+                               Inspect an archived space as an admin
+  spaces restore <id> [--json] Restore an archived space as an admin
 
 Listen:
   listen --space <id>          Connect to space WebSocket and stream all events
@@ -424,6 +427,8 @@ Usage:
   makefx spaces create <name>
   makefx spaces create --name "My Space" [--init] [--json]
   makefx spaces delete <space_id> [--json]
+  makefx spaces inspect-deleted <space_id> [--json]
+  makefx spaces restore <space_id> [--json]
 `);
 }
 

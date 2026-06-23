@@ -1,4 +1,5 @@
 import { authMiddleware } from '../middleware/auth-middleware';
+import { adminMiddleware } from '../middleware/admin-middleware';
 import { SpaceDAO } from '../../dao/space-dao';
 import { MemberDAO } from '../../dao/member-dao';
 import { PlatformUsageEventDAO } from '../../dao/platform-usage-event-dao';
@@ -24,6 +25,7 @@ import {
   deleteProductionRoute,
   deleteProductionShotRoute,
   getSpaceRoute,
+  getSupportSpaceRoute,
   getProductionRoute,
   getSpaceUsageSummaryRoute,
   listCollectionItemsRoute,
@@ -45,6 +47,7 @@ import {
   upsertProductionShotRoute,
   reorderCollectionItemsRoute,
   reorderCompositionItemsRoute,
+  restoreSupportSpaceRoute,
   updateCollectionItemRoute,
   updateCollectionRoute,
   updateCompositionItemRoute,
@@ -83,6 +86,8 @@ const spaceRoutes = createOpenApiRouter();
 
 // All space routes require authentication
 spaceRoutes.use('/api/spaces/*', authMiddleware);
+spaceRoutes.use('/api/support/spaces/*', authMiddleware);
+spaceRoutes.use('/api/support/spaces/*', adminMiddleware);
 
 function normalizeUsageBound(value: string | undefined, name: 'from' | 'to'): string | null | { error: string } {
   if (!value) return null;
@@ -206,6 +211,121 @@ spaceRoutes.openapi(getSpaceRoute, async (c) => {
   return c.json({
     success: true as const,
     space: toApiSpace(space, member.role),
+  }, 200);
+});
+
+// GET /api/support/spaces/:id - Support read path including soft-deleted rows
+spaceRoutes.openapi(getSupportSpaceRoute, async (c) => {
+  const container = c.get('container');
+  const spaceDAO = container.get(SpaceDAO);
+  const { id: spaceId } = c.req.valid('param');
+
+  const space = await spaceDAO.getSpaceByIdIncludingDeleted(spaceId);
+  if (!space) {
+    return c.json({ error: 'Space not found or already purged' }, 404);
+  }
+
+  const memberships = await spaceDAO.getSpaceMembersIncludingDeleted(spaceId);
+  return c.json({
+    success: true as const,
+    space: {
+      id: space.id,
+      name: space.name,
+      owner_id: space.owner_id,
+      created_at: space.created_at,
+      deleted_at: space.deleted_at,
+    },
+    memberships,
+  }, 200);
+});
+
+// POST /api/support/spaces/:id/restore - Restore a soft-deleted space
+spaceRoutes.openapi(restoreSupportSpaceRoute, async (c) => {
+  const userId = Number(c.get('userId')!);
+  const container = c.get('container');
+  const spaceDAO = container.get(SpaceDAO);
+  const { id: spaceId } = c.req.valid('param');
+
+  const space = await spaceDAO.getSpaceByIdIncludingDeleted(spaceId);
+  if (!space) {
+    return c.json({ error: 'Space not found or already purged' }, 404);
+  }
+  if (!space.deleted_at) {
+    return c.json({ error: 'Space is not deleted' }, 409);
+  }
+  if (!c.env.SPACES_DO) {
+    return c.json({ error: 'Asset storage not available' }, 503);
+  }
+
+  const unarchiveResponse = await spaceDoFetch(c.env, spaceId, '/internal/unarchive', {
+    method: 'POST',
+    headers: { 'X-Space-Id': spaceId },
+  });
+  if (!unarchiveResponse?.ok) {
+    const message = unarchiveResponse
+      ? await readSpaceDoError(unarchiveResponse, 'Failed to restore active space sessions')
+      : 'Asset storage not available';
+    return c.json({ error: message }, unarchiveResponse?.status === 404 ? 404 : 500);
+  }
+
+  let restored;
+  try {
+    restored = await spaceDAO.restoreDeletedSpace(spaceId, userId);
+  } catch (error) {
+    await spaceDoFetch(c.env, spaceId, '/internal/archive', {
+      method: 'POST',
+      headers: { 'X-Space-Id': spaceId },
+    });
+    return c.json({
+      error: error instanceof Error ? error.message : 'Failed to restore space',
+    }, 500);
+  }
+  if (!restored) {
+    const current = await spaceDAO.getSpaceByIdIncludingDeleted(spaceId);
+    if (current && !current.deleted_at) {
+      const memberships = await spaceDAO.getSpaceMembersIncludingDeleted(spaceId);
+      return c.json({
+        success: true as const,
+        space: {
+          id: current.id,
+          name: current.name,
+          owner_id: current.owner_id,
+          created_at: current.created_at,
+          deleted_at: current.deleted_at,
+        },
+        membershipsVisible: memberships.filter(member => member.deleted_at === null).length,
+        previousDeletedAt: space.deleted_at,
+        auditLogId: null,
+        message: 'Space was already restored.',
+      }, 200);
+    }
+
+    await spaceDoFetch(c.env, spaceId, '/internal/archive', {
+      method: 'POST',
+      headers: { 'X-Space-Id': spaceId },
+    });
+    return c.json({ error: current ? 'Space is not deleted' : 'Space not found or already purged' }, current ? 409 : 404);
+  }
+
+  console.log('[Support] Restored soft-deleted space', {
+    spaceId,
+    restoredByUserId: userId,
+    auditLogId: restored.auditLogId,
+  });
+
+  return c.json({
+    success: true as const,
+    space: {
+      id: restored.space.id,
+      name: restored.space.name,
+      owner_id: restored.space.owner_id,
+      created_at: restored.space.created_at,
+      deleted_at: restored.space.deleted_at,
+    },
+    membershipsVisible: restored.membershipsVisible,
+    previousDeletedAt: restored.previousDeletedAt,
+    auditLogId: restored.auditLogId,
+    message: 'Space restored successfully.',
   }, 200);
 });
 

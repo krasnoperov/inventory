@@ -7,6 +7,8 @@
  *   makefx spaces --id <space_id>    Show details for a specific space
  *   makefx spaces create <name>      Create a new space
  *   makefx spaces delete <space_id>  Archive a space for support recovery
+ *   makefx spaces inspect-deleted <space_id>  Inspect a soft-deleted space
+ *   makefx spaces restore <space_id> Restore a soft-deleted space
  */
 
 import process from 'node:process';
@@ -23,8 +25,9 @@ interface Space {
   id: string;
   name: string;
   owner_id: string;
-  role: string;
+  role?: string;
   created_at: string;
+  deleted_at?: string | null;
 }
 
 interface Asset {
@@ -46,9 +49,39 @@ interface SpaceSummary {
   assetSummary: string;
 }
 
+interface SupportSpaceMember {
+  space_id: string;
+  user_id: string;
+  role: string;
+  joined_at: number;
+  deleted_at: string | null;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+  };
+}
+
+interface SupportSpaceDetails {
+  success: true;
+  space: Space;
+  memberships: SupportSpaceMember[];
+}
+
+interface RestoreSpaceResult {
+  success: true;
+  space: Space;
+  membershipsVisible: number;
+  previousDeletedAt: string;
+  auditLogId: string | null;
+  message: string;
+}
+
 type SpacesResult =
   | { type: 'create'; space: Space; project?: { configPath: string; environment: string; spaceId: string } }
   | { type: 'delete'; spaceId: string; message: string }
+  | { type: 'inspect-deleted'; details: SupportSpaceDetails }
+  | { type: 'restore'; restored: RestoreSpaceResult }
   | { type: 'list'; spaces: Space[] }
   | { type: 'details'; spaces: SpaceSummary[] }
   | { type: 'show'; space: Space; assets: Asset[] };
@@ -149,6 +182,34 @@ export async function executeSpaces(
     return { type: 'delete', spaceId: targetSpaceId, message: deleted.message };
   }
 
+  if (subcommand === 'inspect-deleted') {
+    const targetSpaceId = parsed.positionals[1] || parsed.options.id;
+    if (!targetSpaceId) {
+      throw new Error('Space ID is required. Usage: makefx spaces inspect-deleted <space_id>');
+    }
+    const details = await inspectDeletedSpace(ctx, deps, targetSpaceId);
+    if (jsonOutput) {
+      deps.print(JSON.stringify(details, null, 2));
+    } else {
+      printSupportSpaceDetails(details, deps.print);
+    }
+    return { type: 'inspect-deleted', details };
+  }
+
+  if (subcommand === 'restore') {
+    const targetSpaceId = parsed.positionals[1] || parsed.options.id;
+    if (!targetSpaceId) {
+      throw new Error('Space ID is required. Usage: makefx spaces restore <space_id>');
+    }
+    const restored = await restoreSpace(ctx, deps, targetSpaceId);
+    if (jsonOutput) {
+      deps.print(JSON.stringify(restored, null, 2));
+    } else {
+      printRestoredSpace(restored, deps.print);
+    }
+    return { type: 'restore', restored };
+  }
+
   if (spaceId) {
     const details = await getSpaceDetails(ctx, deps, spaceId);
     if (jsonOutput) {
@@ -218,6 +279,48 @@ async function deleteSpace(
   return await response.json() as { success: true; message: string };
 }
 
+async function inspectDeletedSpace(
+  ctx: SpacesContext,
+  deps: Pick<SpacesDeps, 'fetch'>,
+  spaceId: string
+): Promise<SupportSpaceDetails> {
+  const response = await deps.fetch(`${ctx.baseUrl}/api/support/spaces/${encodeURIComponent(spaceId)}`, {
+    headers: {
+      'Authorization': `Bearer ${ctx.accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to inspect deleted space: ${response.status} - ${error}`);
+  }
+
+  const data = await response.json() as SupportSpaceDetails;
+  return data;
+}
+
+async function restoreSpace(
+  ctx: SpacesContext,
+  deps: Pick<SpacesDeps, 'fetch'>,
+  spaceId: string
+): Promise<RestoreSpaceResult> {
+  const response = await deps.fetch(`${ctx.baseUrl}/api/support/spaces/${encodeURIComponent(spaceId)}/restore`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${ctx.accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to restore space: ${response.status} - ${error}`);
+  }
+
+  return await response.json() as RestoreSpaceResult;
+}
+
 function printCreatedSpace(
   space: Space,
   env: string,
@@ -242,6 +345,22 @@ function printCreatedSpace(
 function printDeletedSpace(spaceId: string, message: string, print: (message: string) => void): void {
   print(`Space archived: ${spaceId}`);
   print(message);
+}
+
+function printSupportSpaceDetails(details: SupportSpaceDetails, print: (message: string) => void): void {
+  print(`Space: ${details.space.name} (${details.space.id})`);
+  print(`Deleted at: ${details.space.deleted_at ?? 'not deleted'}`);
+  print(`Visible memberships: ${details.memberships.filter(member => member.deleted_at === null).length}`);
+  print(`Total memberships: ${details.memberships.length}`);
+}
+
+function printRestoredSpace(restored: RestoreSpaceResult, print: (message: string) => void): void {
+  print(`Space restored: ${restored.space.id}`);
+  print(restored.message);
+  print(`Visible memberships: ${restored.membershipsVisible}`);
+  if (restored.auditLogId) {
+    print(`Audit log: ${restored.auditLogId}`);
+  }
 }
 
 async function fetchSpaces(ctx: SpacesContext, deps: Pick<SpacesDeps, 'fetch'>): Promise<Space[]> {
