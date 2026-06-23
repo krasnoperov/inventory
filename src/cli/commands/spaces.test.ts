@@ -35,7 +35,7 @@ function storedConfig(): StoredConfig {
 }
 
 function depsFor(output: string[], options: { assetsStatus?: number } = {}) {
-  const requests: Array<{ url: string; authorization: string | null }> = [];
+  const requests: Array<{ url: string; method: string; authorization: string | null }> = [];
   const deps = {
     loadConfig: async () => storedConfig(),
     resolveBaseUrl: () => 'https://inventory.example.test',
@@ -44,6 +44,7 @@ function depsFor(output: string[], options: { assetsStatus?: number } = {}) {
       const requestUrl = String(url);
       requests.push({
         url: requestUrl,
+        method: init?.method || 'GET',
         authorization: init?.headers instanceof Headers
           ? init.headers.get('authorization')
           : (init?.headers as Record<string, string> | undefined)?.Authorization || null,
@@ -51,6 +52,12 @@ function depsFor(output: string[], options: { assetsStatus?: number } = {}) {
       const pathname = new URL(requestUrl).pathname;
       if (pathname === '/api/spaces') {
         return jsonResponse({ success: true, spaces: [space] });
+      }
+      if (pathname === '/api/spaces/space-1' && init?.method === 'DELETE') {
+        return jsonResponse({
+          success: true,
+          message: 'Space archived successfully. Support can restore it during the retention window.',
+        });
       }
       if (pathname === '/api/spaces/space-1') {
         return jsonResponse({ success: true, space });
@@ -86,6 +93,7 @@ test('spaces list supports JSON output for scripts', async () => {
   assert.equal(output.join('\n').includes('Found 1 space'), false);
   assert.deepEqual(requests, [{
     url: 'https://inventory.example.test/api/spaces',
+    method: 'GET',
     authorization: 'Bearer token-1',
   }]);
 });
@@ -120,6 +128,45 @@ test('spaces show supports JSON output with assets', async () => {
     '/api/spaces/space-1',
     '/api/spaces/space-1/assets',
   ]);
+});
+
+test('spaces delete archives a space through the API', async () => {
+  const output: string[] = [];
+  const { deps, requests } = depsFor(output);
+
+  const result = await executeSpaces({ positionals: ['delete', 'space-1'], options: {} }, deps);
+
+  assert.deepEqual(result, {
+    type: 'delete',
+    spaceId: 'space-1',
+    message: 'Space archived successfully. Support can restore it during the retention window.',
+  });
+  assert.deepEqual(requests.map(request => ({
+    path: new URL(request.url).pathname,
+    method: request.method,
+    authorization: request.authorization,
+  })), [{
+    path: '/api/spaces/space-1',
+    method: 'DELETE',
+    authorization: 'Bearer token-1',
+  }]);
+  assert.equal(output.join('\n'), [
+    'Space archived: space-1',
+    'Space archived successfully. Support can restore it during the retention window.',
+  ].join('\n'));
+});
+
+test('spaces delete supports JSON output', async () => {
+  const output: string[] = [];
+  const { deps } = depsFor(output);
+
+  const result = await executeSpaces({ positionals: ['delete'], options: { id: 'space-1', json: 'true' } }, deps);
+
+  assert.equal(result.type, 'delete');
+  assert.deepEqual(JSON.parse(output.join('\n')), {
+    success: true,
+    message: 'Space archived successfully. Support can restore it during the retention window.',
+  });
 });
 
 test('spaces details rejects when an asset summary read fails', async () => {

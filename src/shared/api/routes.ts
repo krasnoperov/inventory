@@ -1256,6 +1256,7 @@ export const deleteSpaceRoute = createRoute({
     403: errorResponse,
     404: errorResponse,
     500: errorResponse,
+    503: errorResponse,
   },
 });
 

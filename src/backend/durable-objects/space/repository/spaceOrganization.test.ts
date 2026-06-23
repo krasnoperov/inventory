@@ -112,6 +112,92 @@ describe('Space organization repository', () => {
     );
   });
 
+  test('purgeAllData clears SQL rows and deletes referenced R2 objects', async () => {
+    const deletedKeys: string[] = [];
+    const imageStorage: ImageStorage = {
+      delete: async (key) => {
+        deletedKeys.push(key);
+      },
+    };
+    const repoWithImages = new SpaceRepository(sql, imageStorage);
+
+    await repoWithImages.createAsset({
+      id: 'asset-1',
+      name: 'Scene',
+      type: 'scene',
+      tags: [],
+      createdBy: 'user-1',
+    });
+    await repoWithImages.createVariant({
+      id: 'variant-1',
+      assetId: 'asset-1',
+      imageKey: 'images/variant-1.png',
+      thumbKey: 'images/variant-1.webp',
+      mediaMetadata: {
+        mediaKey: 'videos/variant-1.mp4',
+        transcriptKey: 'transcripts/variant-1.json',
+        wordTimingsKey: 'timings/variant-1.json',
+        renderMetadataKey: 'metadata/variant-1.json',
+      },
+      recipe: '{}',
+      createdBy: 'user-1',
+    });
+    await repoWithImages.createCollection({
+      id: 'collection-1',
+      name: 'Scenes',
+      kind: 'scenes',
+      createdBy: 'user-1',
+    });
+
+    const result = await repoWithImages.purgeAllData();
+
+    assert.equal(result.r2ObjectsDeleted, 6);
+    assert.deepEqual(deletedKeys.sort(), [
+      'images/variant-1.png',
+      'images/variant-1.webp',
+      'metadata/variant-1.json',
+      'timings/variant-1.json',
+      'transcripts/variant-1.json',
+      'videos/variant-1.mp4',
+    ]);
+    assert.deepEqual(await repoWithImages.getAllAssets(), []);
+    assert.deepEqual(await repoWithImages.listCollections(), []);
+  });
+
+  test('purgeAllData keeps SQL metadata when an R2 delete fails', async () => {
+    const imageStorage: ImageStorage = {
+      delete: async (key) => {
+        if (key === 'images/variant-1.webp') {
+          throw new Error('r2 unavailable');
+        }
+      },
+    };
+    const repoWithImages = new SpaceRepository(sql, imageStorage);
+
+    await repoWithImages.createAsset({
+      id: 'asset-1',
+      name: 'Scene',
+      type: 'scene',
+      tags: [],
+      createdBy: 'user-1',
+    });
+    await repoWithImages.createVariant({
+      id: 'variant-1',
+      assetId: 'asset-1',
+      imageKey: 'images/variant-1.png',
+      thumbKey: 'images/variant-1.webp',
+      recipe: '{}',
+      createdBy: 'user-1',
+    });
+
+    await assert.rejects(
+      repoWithImages.purgeAllData(),
+      /Failed to purge 1 R2 object/
+    );
+    assert.equal((await repoWithImages.getAllAssets()).length, 1);
+    assert.equal((await repoWithImages.getAllVariants()).length, 1);
+  });
+
   test('backfills multi-level parent trees as one collection per parent cluster', async () => {
     await createAssetWithVariant('root', 'root-v1', { name: 'Castle Crew' });
     await createAssetWithVariant('middle', 'middle-v1', { name: 'Knight Squad', parentAssetId: 'root' });

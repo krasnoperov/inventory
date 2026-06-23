@@ -40,6 +40,7 @@ export interface SpacesTable {
   name: string;
   owner_id: string;
   created_at: number;
+  deleted_at: Generated<string | null>;
 }
 
 export interface SpaceMembersTable {
@@ -47,6 +48,7 @@ export interface SpaceMembersTable {
   user_id: string;
   role: 'owner' | 'editor' | 'viewer';
   joined_at: number;
+  deleted_at: Generated<string | null>;
 }
 
 // ============================================================================

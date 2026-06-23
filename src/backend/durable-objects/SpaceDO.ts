@@ -45,8 +45,12 @@ import { ChatController } from './space/controllers/ChatController';
 // SpaceDO - Durable Object for Space State & WebSocket Hub
 // ============================================================================
 
+const SPACE_ID_STORAGE_KEY = '_spaceId';
+const ARCHIVED_STORAGE_KEY = '_archived';
+
 export class SpaceDO extends DurableObject<Env> {
   private spaceId: string | null = null;
+  private archived = false;
   private initialized = false;
   private repo!: SpaceRepository;
   private internalApi!: Hono;
@@ -82,6 +86,11 @@ export class SpaceDO extends DurableObject<Env> {
     return match ? match[1] : null;
   }
 
+  private extractInternalSpaceId(request: Request): string | null {
+    const value = request.headers.get('X-Space-Id')?.trim();
+    return value || null;
+  }
+
   /**
    * Initialize SQLite schema and controllers on first access
    */
@@ -105,6 +114,7 @@ export class SpaceDO extends DurableObject<Env> {
         if (this.spaceId) {
           await this.storeSpaceId(this.spaceId);
         }
+        this.archived = await this.recoverArchived();
 
         // Ensure spaceId is set before proceeding
         if (!this.spaceId) {
@@ -180,8 +190,10 @@ export class SpaceDO extends DurableObject<Env> {
     const url = new URL(request.url);
     const isInternalRequest = url.hostname === 'do' || url.pathname.startsWith('/internal');
 
-    if (!this.spaceId && !isInternalRequest) {
-      this.spaceId = this.extractSpaceId(request);
+    if (!this.spaceId) {
+      this.spaceId = isInternalRequest
+        ? this.extractInternalSpaceId(request)
+        : this.extractSpaceId(request);
     }
 
     await this.ensureInitialized();
@@ -199,6 +211,11 @@ export class SpaceDO extends DurableObject<Env> {
    * Handle incoming WebSocket messages
    */
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    if (this.archived) {
+      ws.close(1008, 'Space archived');
+      return;
+    }
+
     if (typeof message !== 'string') {
       this.sendError(ws, 'INVALID_MESSAGE', 'Expected JSON string');
       return;
@@ -433,6 +450,48 @@ export class SpaceDO extends DurableObject<Env> {
   // ============================================================================
 
   private async routeHttpRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname === '/internal/archive' && request.method === 'POST') {
+      await this.storeArchived(true);
+      this.archived = true;
+      const closed = this.closeActiveWebSockets(1008, 'Space archived');
+      return Response.json({
+        success: true,
+        closed,
+      });
+    }
+
+    if (url.pathname === '/internal/unarchive' && request.method === 'POST') {
+      await this.storeArchived(false);
+      this.archived = false;
+      return Response.json({
+        success: true,
+      });
+    }
+
+    if (url.pathname === '/internal/purge' && request.method === 'DELETE') {
+      try {
+        const purged = await this.repo.purgeAllData();
+        await this.storeArchived(false);
+        this.initialized = false;
+        this.archived = false;
+        return Response.json({
+          success: true,
+          ...purged,
+        });
+      } catch (error) {
+        return Response.json({
+          error: error instanceof Error ? error.message : String(error),
+        }, { status: 500 });
+      }
+    }
+
+    if (this.archived) {
+      return Response.json({
+        error: 'Space archived',
+      }, { status: 410 });
+    }
+
     return this.internalApi.fetch(request);
   }
 
@@ -443,6 +502,9 @@ export class SpaceDO extends DurableObject<Env> {
   private async handleWebSocketUpgrade(request: Request): Promise<Response> {
     if (!this.spaceId) {
       return new Response('Invalid space', { status: 400 });
+    }
+    if (this.archived) {
+      return new Response('Space archived', { status: 410 });
     }
 
     // Authenticate the WebSocket upgrade request
@@ -479,6 +541,14 @@ export class SpaceDO extends DurableObject<Env> {
     return JSON.parse(metaStr) as WebSocketMeta;
   }
 
+  private closeActiveWebSockets(code: number, reason: string): number {
+    const sockets = this.ctx.getWebSockets();
+    for (const ws of sockets) {
+      ws.close(code, reason);
+    }
+    return sockets.length;
+  }
+
   private send(ws: WebSocket, message: ServerMessage): void {
     try {
       ws.send(JSON.stringify(message));
@@ -508,11 +578,11 @@ export class SpaceDO extends DurableObject<Env> {
   // ============================================================================
 
   private async storeSpaceId(spaceId: string): Promise<void> {
-    await this.ctx.storage.put('_spaceId', spaceId);
+    await this.ctx.storage.put(SPACE_ID_STORAGE_KEY, spaceId);
   }
 
   private async recoverSpaceId(): Promise<string | null> {
-    const stored = await this.ctx.storage.get<string>('_spaceId');
+    const stored = await this.ctx.storage.get<string>(SPACE_ID_STORAGE_KEY);
     if (stored) {
       return stored;
     }
@@ -524,6 +594,14 @@ export class SpaceDO extends DurableObject<Env> {
       doId: this.ctx.id.toString(),
     });
     return null;
+  }
+
+  private async storeArchived(archived: boolean): Promise<void> {
+    await this.ctx.storage.put(ARCHIVED_STORAGE_KEY, archived);
+  }
+
+  private async recoverArchived(): Promise<boolean> {
+    return await this.ctx.storage.get<boolean>(ARCHIVED_STORAGE_KEY) === true;
   }
 
 }

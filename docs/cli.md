@@ -109,6 +109,7 @@ Manage your spaces (workspaces for organizing assets).
 makefx spaces                    # Simple list
 makefx spaces --details          # With asset counts
 makefx spaces --id <space_id>    # Details for specific space
+makefx spaces delete <space_id>  # Archive for support recovery
 ```
 
 ### Create Space
@@ -117,6 +118,14 @@ makefx spaces --id <space_id>    # Details for specific space
 makefx spaces create "My Space Name"
 makefx spaces create --name "My Space Name"
 ```
+
+### Delete Space
+
+```bash
+makefx spaces delete <space_id>
+```
+
+Space deletion is recoverable during the retention window; it archives the space instead of immediately purging its data.
 
 ---
 

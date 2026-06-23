@@ -410,6 +410,7 @@ describe('API contracts', () => {
 
   it('round-trips space routes through the shared client contract', async () => {
     const createdSpaces = [space];
+    const operationCalls: string[] = [];
     const fakeSpaceDAO = {
       createSpace: async (data: typeof space) => {
         createdSpaces.unshift(data);
@@ -421,6 +422,7 @@ describe('API contracts', () => {
       })),
       getSpaceById: async (id: string) => createdSpaces.find((item) => item.id === id) ?? null,
       deleteSpace: async (id: string) => {
+        operationCalls.push(`dao:delete:${id}`);
         const index = createdSpaces.findIndex((item) => item.id === id);
         if (index === -1) {
           return false;
@@ -462,12 +464,33 @@ describe('API contracts', () => {
     const fakeAuthService = {
       verifyJWT: async () => ({ userId: user.id }),
     };
+    const spaceDoCalls: Array<{ path: string; method: string; spaceId: string | null }> = [];
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async (request: Request) => {
+          const url = new URL(request.url);
+          spaceDoCalls.push({
+            path: url.pathname,
+            method: request.method,
+            spaceId: request.headers.get('X-Space-Id'),
+          });
+          operationCalls.push(`do:${url.pathname}`);
+          if (url.pathname === '/internal/archive') {
+            return Response.json({ success: true, closed: 2 });
+          }
+          return Response.json({ assets: [asset] });
+        },
+      }),
+    };
     const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
       [AuthService, fakeAuthService],
       [SpaceDAO, fakeSpaceDAO],
       [MemberDAO, fakeMemberDAO],
       [PlatformUsageEventDAO, fakePlatformUsageEventDAO],
-    ]));
+    ]), {
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
     const fetch = bindFetch(app);
     const authHeaders = { Authorization: 'Bearer test-token' };
 
@@ -533,7 +556,55 @@ describe('API contracts', () => {
       headers: authHeaders,
       params: { id: space.id },
     });
-    assert.equal(deleted.message, 'Space deleted successfully');
+    assert.equal(deleted.message, 'Space archived successfully. Support can restore it during the retention window.');
+    assert.deepEqual(spaceDoCalls, [
+      { path: '/internal/state', method: 'GET', spaceId: null },
+      { path: '/internal/archive', method: 'POST', spaceId: space.id },
+    ]);
+    assert.deepEqual(operationCalls, [
+      'do:/internal/state',
+      'do:/internal/archive',
+      `dao:delete:${space.id}`,
+    ]);
+  });
+
+  it('does not soft-delete the D1 space row when SpaceDO archive fails', async () => {
+    let deleteCalls = 0;
+    const fakeSpaceDAO = {
+      getSpaceById: async (id: string) => id === space.id ? space : null,
+      deleteSpace: async () => {
+        deleteCalls += 1;
+        return true;
+      },
+    };
+    const fakeMemberDAO = {
+      getMember: async () => ({ space_id: space.id, user_id: String(user.id), role: 'owner', joined_at: Date.now() }),
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async () => Response.json({ error: 'archive unavailable' }, { status: 503 }),
+      }),
+    };
+    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [SpaceDAO, fakeSpaceDAO],
+      [MemberDAO, fakeMemberDAO],
+    ]), {
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
+
+    const response = await bindFetch(app)(`${baseUrl}/api/spaces/${space.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), { error: 'archive unavailable' });
+    assert.equal(deleteCalls, 0);
   });
 
   it('round-trips production placement routes through the shared client contract', async () => {

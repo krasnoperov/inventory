@@ -110,7 +110,19 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       owner_id TEXT NOT NULL REFERENCES users(id),
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      deleted_at TEXT
+    )
+  `.execute(db);
+
+  await sql`
+    CREATE TABLE space_members (
+      space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      role TEXT NOT NULL CHECK (role IN ('owner', 'editor', 'viewer')),
+      joined_at INTEGER NOT NULL,
+      deleted_at TEXT,
+      PRIMARY KEY (space_id, user_id)
     )
   `.execute(db);
 
@@ -201,6 +213,7 @@ export async function cleanupTestDatabase(db: Kysely<DatabaseSchema>) {
   await db.deleteFrom('user_provider_keys').execute();
   await db.deleteFrom('key_envelopes').execute();
   await db.deleteFrom('usage_events').execute();
+  await db.deleteFrom('space_members').execute();
   await db.deleteFrom('spaces').execute();
   await db.deleteFrom('users').execute();
   // --- FUTURE: Add cleanup for your domain tables here ---
