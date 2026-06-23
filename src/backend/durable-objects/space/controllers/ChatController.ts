@@ -203,8 +203,8 @@ export class ChatController extends BaseController {
           const result = await this.sql.exec(
             `SELECT v.description, v.image_key, a.name as asset_name
              FROM variants v
-             JOIN assets a ON v.asset_id = a.id
-             WHERE v.id = ?`,
+             JOIN assets a ON v.asset_id = a.id AND a.deleted_at IS NULL
+             WHERE v.id = ? AND v.deleted_at IS NULL`,
             variantId
           );
           const row = result.toArray()[0] as { description: string | null; image_key: string | null; asset_name: string } | undefined;
@@ -445,8 +445,8 @@ export class ChatController extends BaseController {
       const result = await this.sql.exec(
         `SELECT v.description, a.name as asset_name
          FROM variants v
-         JOIN assets a ON v.asset_id = a.id
-         WHERE v.id = ?`,
+         JOIN assets a ON v.asset_id = a.id AND a.deleted_at IS NULL
+         WHERE v.id = ? AND v.deleted_at IS NULL`,
         variantId
       );
       const row = result.toArray()[0] as { description: string | null; asset_name: string } | undefined;
@@ -475,8 +475,8 @@ export class ChatController extends BaseController {
       const result = await this.sql.exec(
         `SELECT v.image_key, a.name as asset_name
          FROM variants v
-         JOIN assets a ON v.asset_id = a.id
-         WHERE v.id = ? AND v.image_key IS NOT NULL`,
+         JOIN assets a ON v.asset_id = a.id AND a.deleted_at IS NULL
+         WHERE v.id = ? AND v.deleted_at IS NULL AND v.image_key IS NOT NULL`,
         variantId
       );
       const row = result.toArray()[0] as { image_key: string; asset_name: string } | undefined;

@@ -484,7 +484,7 @@ export class SpaceRepository {
   async getAssetsByParent(parentId: string | null): Promise<Asset[]> {
     if (parentId === null) {
       const result = await this.sql.exec(
-        'SELECT * FROM assets WHERE parent_asset_id IS NULL ORDER BY updated_at DESC'
+        'SELECT * FROM assets WHERE parent_asset_id IS NULL AND deleted_at IS NULL ORDER BY updated_at DESC'
       );
       return result.toArray() as Asset[];
     }
@@ -548,20 +548,8 @@ export class SpaceRepository {
   }
 
   async deleteAsset(id: string): Promise<DeletedImageRef[]> {
-    // Get all variants to decrement refs
-    const variants = await this.getVariantsByAsset(id);
-    const deletedImageRefs: DeletedImageRef[] = [];
-
-    // Decrement refs for all images
-    for (const variant of variants) {
-      const imageKeys = getVariantImageKeys(variant);
-      for (const key of imageKeys) {
-        const deletion = await this.decrementImageRef(key);
-        if (deletion.deleted && deletion.sizeBytes > 0) {
-          deletedImageRefs.push({ imageKey: key, sizeBytes: deletion.sizeBytes });
-        }
-      }
-    }
+    const existing = await this.getAssetById(id);
+    if (!existing) return [];
 
     // Keep historical parent rows readable after deletes by clearing dangling references.
     await this.sql.exec(
@@ -570,9 +558,16 @@ export class SpaceRepository {
       id
     );
 
-    // Delete asset (cascades to variants via FK)
-    await this.sql.exec(AssetQueries.DELETE, id);
-    return deletedImageRefs;
+    const now = Date.now();
+    await this.softDeleteRowsReferencingAsset(id, now);
+    await this.sql.exec(
+      'UPDATE variants SET deleted_at = ?, updated_at = ? WHERE asset_id = ? AND deleted_at IS NULL',
+      now,
+      now,
+      id
+    );
+    await this.sql.exec(AssetQueries.DELETE, now, now, id);
+    return [];
   }
 
   async setActiveVariant(assetId: string, variantId: string): Promise<Asset | null> {
@@ -602,7 +597,7 @@ export class SpaceRepository {
     const uniqueIds = Array.from(new Set(ids));
     const { placeholders } = buildInClause(uniqueIds);
     const result = await this.sql.exec(
-      `SELECT * FROM variants WHERE id IN (${placeholders})`,
+      `SELECT * FROM variants WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
       ...uniqueIds
     );
     return result.toArray() as Variant[];
@@ -624,7 +619,7 @@ export class SpaceRepository {
   }
 
   async getVariantImageKey(variantId: string): Promise<string | null> {
-    const result = await this.sql.exec('SELECT image_key FROM variants WHERE id = ?', variantId);
+    const result = await this.sql.exec('SELECT image_key FROM variants WHERE id = ? AND deleted_at IS NULL', variantId);
     const row = result.toArray()[0] as { image_key: string } | undefined;
     return row?.image_key ?? null;
   }
@@ -719,16 +714,155 @@ export class SpaceRepository {
     const variant = await this.getVariantById(variantId);
     if (!variant) return false;
 
-    // Only decrement refs for completed variants (pending/failed have no images)
-    if (variant.status === 'completed') {
-      const imageKeys = getVariantImageKeys(variant);
-      for (const key of imageKeys) {
-        await this.decrementImageRef(key);
-      }
-    }
-
-    await this.sql.exec(VariantQueries.DELETE, variantId);
+    const now = Date.now();
+    await this.softDeleteRowsReferencingVariant(variantId, now);
+    await this.sql.exec(VariantQueries.DELETE, now, now, variantId);
     return true;
+  }
+
+  private async softDeleteRowsReferencingAsset(assetId: string, now: number): Promise<void> {
+    await this.sql.exec(
+      `UPDATE collection_items
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL
+         AND (
+           asset_id = ?
+           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+           OR pinned_variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+         )`,
+      now,
+      now,
+      assetId,
+      assetId,
+      assetId
+    );
+    await this.sql.exec(
+      `UPDATE space_relations
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL
+         AND (
+           subject_asset_id = ?
+           OR object_asset_id = ?
+           OR subject_variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+           OR object_variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+         )`,
+      now,
+      now,
+      assetId,
+      assetId,
+      assetId,
+      assetId
+    );
+    await this.sql.exec(
+      `UPDATE compositions
+       SET output_asset_id = CASE WHEN output_asset_id = ? THEN NULL ELSE output_asset_id END,
+           output_variant_id = CASE
+             WHEN output_variant_id IN (SELECT id FROM variants WHERE asset_id = ?) THEN NULL
+             ELSE output_variant_id
+           END,
+           updated_at = ?
+       WHERE deleted_at IS NULL
+         AND (
+           output_asset_id = ?
+           OR output_variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+         )`,
+      assetId,
+      assetId,
+      now,
+      assetId,
+      assetId
+    );
+    await this.sql.exec(
+      `UPDATE composition_items
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL
+         AND (
+           asset_id = ?
+           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+         )`,
+      now,
+      now,
+      assetId,
+      assetId
+    );
+    await this.sql.exec(
+      `UPDATE production_records
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL
+         AND (
+           asset_id = ?
+           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+         )`,
+      now,
+      now,
+      assetId,
+      assetId
+    );
+    await this.sql.exec(
+      `UPDATE production_placements
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL
+         AND (
+           asset_id = ?
+           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
+         )`,
+      now,
+      now,
+      assetId,
+      assetId
+    );
+  }
+
+  private async softDeleteRowsReferencingVariant(variantId: string, now: number): Promise<void> {
+    await this.sql.exec(
+      `UPDATE collection_items
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL AND (variant_id = ? OR pinned_variant_id = ?)`,
+      now,
+      now,
+      variantId,
+      variantId
+    );
+    await this.sql.exec(
+      `UPDATE space_relations
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL AND (subject_variant_id = ? OR object_variant_id = ?)`,
+      now,
+      now,
+      variantId,
+      variantId
+    );
+    await this.sql.exec(
+      `UPDATE compositions
+       SET output_variant_id = NULL, updated_at = ?
+       WHERE deleted_at IS NULL AND output_variant_id = ?`,
+      now,
+      variantId
+    );
+    await this.sql.exec(
+      `UPDATE composition_items
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL AND variant_id = ?`,
+      now,
+      now,
+      variantId
+    );
+    await this.sql.exec(
+      `UPDATE production_records
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL AND variant_id = ?`,
+      now,
+      now,
+      variantId
+    );
+    await this.sql.exec(
+      `UPDATE production_placements
+       SET deleted_at = ?, updated_at = ?
+       WHERE deleted_at IS NULL AND variant_id = ?`,
+      now,
+      now,
+      variantId
+    );
   }
 
   // ==========================================================================
@@ -921,13 +1055,13 @@ export class SpaceRepository {
   async getApprovedVariants(assetId?: string): Promise<Variant[]> {
     if (assetId) {
       const result = await this.sql.exec(
-        `SELECT * FROM variants WHERE quality_rating = 'approved' AND asset_id = ? ORDER BY rated_at DESC`,
+      `SELECT * FROM variants WHERE quality_rating = 'approved' AND asset_id = ? AND deleted_at IS NULL ORDER BY rated_at DESC`,
         assetId
       );
       return result.toArray() as Variant[];
     }
     const result = await this.sql.exec(
-      `SELECT * FROM variants WHERE quality_rating = 'approved' ORDER BY rated_at DESC`
+      `SELECT * FROM variants WHERE quality_rating = 'approved' AND deleted_at IS NULL ORDER BY rated_at DESC`
     );
     return result.toArray() as Variant[];
   }
@@ -955,7 +1089,11 @@ export class SpaceRepository {
     if (variantIds.length === 0) return [];
     const { placeholders } = buildInClause(variantIds);
     const result = await this.sql.exec(
-      `SELECT * FROM lineage WHERE parent_variant_id IN (${placeholders}) OR child_variant_id IN (${placeholders})`,
+      `SELECT l.*
+       FROM lineage l
+       JOIN variants parent ON parent.id = l.parent_variant_id AND parent.deleted_at IS NULL
+       JOIN variants child ON child.id = l.child_variant_id AND child.deleted_at IS NULL
+       WHERE (l.parent_variant_id IN (${placeholders}) OR l.child_variant_id IN (${placeholders}))`,
       ...variantIds,
       ...variantIds
     );
@@ -1049,7 +1187,8 @@ export class SpaceRepository {
         c.created_at,
         c.updated_at
       FROM space_collections c
-      LEFT JOIN collection_items i ON i.collection_id = c.id
+      LEFT JOIN collection_items i ON i.collection_id = c.id AND i.deleted_at IS NULL
+      WHERE c.deleted_at IS NULL
       GROUP BY c.id
       ORDER BY c.sort_index ASC, c.created_at ASC
     `);
@@ -1137,7 +1276,14 @@ export class SpaceRepository {
     const existing = await this.getCollectionById(collectionId);
     if (!existing) return false;
 
-    await this.sql.exec(SpaceCollectionQueries.DELETE, collectionId);
+    const now = Date.now();
+    await this.sql.exec(
+      'UPDATE collection_items SET deleted_at = ?, updated_at = ? WHERE collection_id = ? AND deleted_at IS NULL',
+      now,
+      now,
+      collectionId
+    );
+    await this.sql.exec(SpaceCollectionQueries.DELETE, now, now, collectionId);
     return true;
   }
 
@@ -1238,25 +1384,26 @@ export class SpaceRepository {
     const existing = await this.getCollectionItemById(itemId);
     if (!existing) return false;
 
-    await this.sql.exec(CollectionItemQueries.DELETE, itemId);
+    const now = Date.now();
+    await this.sql.exec(CollectionItemQueries.DELETE, now, now, itemId);
     return true;
   }
 
   async listStylePresets(): Promise<StylePreset[]> {
     const result = await this.sql.exec(
-      'SELECT * FROM style_presets ORDER BY is_default DESC, created_at ASC'
+      'SELECT * FROM style_presets WHERE deleted_at IS NULL ORDER BY is_default DESC, created_at ASC'
     );
     return result.toArray() as StylePreset[];
   }
 
   async getStylePresetById(presetId: string): Promise<StylePreset | null> {
-    const result = await this.sql.exec('SELECT * FROM style_presets WHERE id = ?', presetId);
+    const result = await this.sql.exec('SELECT * FROM style_presets WHERE id = ? AND deleted_at IS NULL', presetId);
     return (result.toArray()[0] as StylePreset) ?? null;
   }
 
   async getDefaultStylePreset(): Promise<StylePreset | null> {
     const result = await this.sql.exec(
-      'SELECT * FROM style_presets WHERE is_default = 1 LIMIT 1'
+      'SELECT * FROM style_presets WHERE is_default = 1 AND deleted_at IS NULL LIMIT 1'
     );
     return (result.toArray()[0] as StylePreset) ?? null;
   }
@@ -1361,7 +1508,7 @@ export class SpaceRepository {
   async setDefaultStylePreset(presetId: string | null): Promise<StylePreset | null> {
     const now = Date.now();
     if (presetId === null) {
-      await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1', now);
+      await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1 AND deleted_at IS NULL', now);
       return null;
     }
 
@@ -1378,14 +1525,14 @@ export class SpaceRepository {
   ): Promise<StylePreset | null> {
     const previousDefault = await this.getDefaultStylePreset();
 
-    await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1', now);
+    await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1 AND deleted_at IS NULL', now);
     try {
-      await this.sql.exec('UPDATE style_presets SET is_default = 1, updated_at = ? WHERE id = ?', now, presetId);
+      await this.sql.exec('UPDATE style_presets SET is_default = 1, updated_at = ? WHERE id = ? AND deleted_at IS NULL', now, presetId);
     } catch (error) {
       if (previousDefault) {
         try {
           await this.sql.exec(
-            'UPDATE style_presets SET is_default = 1, updated_at = ? WHERE id = ?',
+            'UPDATE style_presets SET is_default = 1, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
             Date.now(),
             previousDefault.id
           );
@@ -1406,7 +1553,13 @@ export class SpaceRepository {
     const existing = await this.getStylePresetById(presetId);
     if (!existing) return false;
 
-    await this.sql.exec('DELETE FROM style_presets WHERE id = ?', presetId);
+    const now = Date.now();
+    await this.sql.exec(
+      'UPDATE style_presets SET deleted_at = ?, updated_at = ?, is_default = 0 WHERE id = ? AND deleted_at IS NULL',
+      now,
+      now,
+      presetId
+    );
     return true;
   }
 
@@ -1421,8 +1574,9 @@ export class SpaceRepository {
         END) as reference_count,
         COUNT(DISTINCT sp.id) as preset_count
       FROM space_collections c
-      LEFT JOIN collection_items ci ON ci.collection_id = c.id
-      LEFT JOIN style_presets sp ON sp.collection_id = c.id
+      LEFT JOIN collection_items ci ON ci.collection_id = c.id AND ci.deleted_at IS NULL
+      LEFT JOIN style_presets sp ON sp.collection_id = c.id AND sp.deleted_at IS NULL
+      WHERE c.deleted_at IS NULL
       GROUP BY c.id
       HAVING SUM(CASE WHEN ci.id IS NOT NULL AND ci.role != 'style_ref' THEN 1 ELSE 0 END) = 0
       ORDER BY c.sort_index ASC, c.created_at ASC
@@ -1457,7 +1611,7 @@ export class SpaceRepository {
 
   async listStylePresetPreviewsByCollection(collectionId: string): Promise<StylePresetPreview[]> {
     const result = await this.sql.exec(
-      'SELECT * FROM style_presets WHERE collection_id = ? ORDER BY is_default DESC, created_at ASC',
+      'SELECT * FROM style_presets WHERE collection_id = ? AND deleted_at IS NULL ORDER BY is_default DESC, created_at ASC',
       collectionId
     );
     const presets = result.toArray() as StylePreset[];
@@ -1494,6 +1648,8 @@ export class SpaceRepository {
        END
        WHERE ci.collection_id = ?
          AND ci.role = 'style_ref'
+         AND ci.deleted_at IS NULL
+         AND v.deleted_at IS NULL
        ORDER BY ci.sort_index ASC, ci.created_at ASC`,
       preset.collection_id
     );
@@ -1764,7 +1920,7 @@ export class SpaceRepository {
   async listRelationsForSubject(subjectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
     const column = subjectType === 'asset' ? 'subject_asset_id' : 'subject_variant_id';
     const result = await this.sql.exec(
-      `SELECT * FROM space_relations WHERE ${column} = ? ORDER BY sort_index ASC, created_at ASC`,
+      `SELECT * FROM space_relations WHERE ${column} = ? AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC`,
       id
     );
     return result.toArray() as SpaceRelation[];
@@ -1773,7 +1929,7 @@ export class SpaceRepository {
   async listRelationsForObject(objectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
     const column = objectType === 'asset' ? 'object_asset_id' : 'object_variant_id';
     const result = await this.sql.exec(
-      `SELECT * FROM space_relations WHERE ${column} = ? ORDER BY sort_index ASC, created_at ASC`,
+      `SELECT * FROM space_relations WHERE ${column} = ? AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC`,
       id
     );
     return result.toArray() as SpaceRelation[];
@@ -1783,7 +1939,7 @@ export class SpaceRepository {
     const subjectColumn = subjectType === 'asset' ? 'subject_asset_id' : 'subject_variant_id';
     const objectColumn = subjectType === 'asset' ? 'object_asset_id' : 'object_variant_id';
     const result = await this.sql.exec(
-      `SELECT * FROM space_relations WHERE ${subjectColumn} = ? OR ${objectColumn} = ? ORDER BY sort_index ASC, created_at ASC`,
+      `SELECT * FROM space_relations WHERE (${subjectColumn} = ? OR ${objectColumn} = ?) AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC`,
       id,
       id
     );
@@ -1876,7 +2032,8 @@ export class SpaceRepository {
     const existing = await this.getRelationById(relationId);
     if (!existing) return false;
 
-    await this.sql.exec(SpaceRelationQueries.DELETE, relationId);
+    const now = Date.now();
+    await this.sql.exec(SpaceRelationQueries.DELETE, now, now, relationId);
     return true;
   }
 
@@ -2055,7 +2212,8 @@ export class SpaceRepository {
         c.created_at,
         c.updated_at
       FROM compositions c
-      LEFT JOIN composition_items i ON i.composition_id = c.id
+      LEFT JOIN composition_items i ON i.composition_id = c.id AND i.deleted_at IS NULL
+      WHERE c.deleted_at IS NULL
       GROUP BY c.id
       ORDER BY c.sort_index ASC, c.created_at ASC
     `);
@@ -2157,7 +2315,14 @@ export class SpaceRepository {
     const existing = await this.getCompositionById(compositionId);
     if (!existing) return false;
 
-    await this.sql.exec(CompositionQueries.DELETE, compositionId);
+    const now = Date.now();
+    await this.sql.exec(
+      'UPDATE composition_items SET deleted_at = ?, updated_at = ? WHERE composition_id = ? AND deleted_at IS NULL',
+      now,
+      now,
+      compositionId
+    );
+    await this.sql.exec(CompositionQueries.DELETE, now, now, compositionId);
     return true;
   }
 
@@ -2275,7 +2440,8 @@ export class SpaceRepository {
     const existing = await this.getCompositionItemById(itemId);
     if (!existing) return false;
 
-    await this.sql.exec(CompositionItemQueries.DELETE, itemId);
+    const now = Date.now();
+    await this.sql.exec(CompositionItemQueries.DELETE, now, now, itemId);
     return true;
   }
 
@@ -2455,8 +2621,9 @@ export class SpaceRepository {
     const existing = await this.getProductionRecordById(recordId);
     if (!existing) return false;
 
-    await this.sql.exec(ProductionPlacementQueries.DELETE, recordId);
-    await this.sql.exec(ProductionRecordQueries.DELETE, recordId);
+    const now = Date.now();
+    await this.sql.exec(ProductionPlacementQueries.DELETE, now, now, recordId);
+    await this.sql.exec(ProductionRecordQueries.DELETE, now, now, recordId);
     return true;
   }
 
@@ -2504,11 +2671,12 @@ export class SpaceRepository {
     const existing = await this.getProductionById(productionId);
     if (!existing) return false;
 
-    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_PRODUCTION, productionId);
-    await this.sql.exec(ProductionRecordQueries.DELETE_BY_PRODUCTION, productionId);
-    await this.sql.exec(ProductionShotQueries.DELETE_BY_PRODUCTION, productionId);
-    await this.sql.exec(ProductionCueQueries.DELETE_BY_PRODUCTION, productionId);
-    await this.sql.exec(ProductionQueries.DELETE, productionId);
+    const now = Date.now();
+    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_PRODUCTION, now, now, productionId);
+    await this.sql.exec(ProductionRecordQueries.DELETE_BY_PRODUCTION, now, now, productionId);
+    await this.sql.exec(ProductionShotQueries.DELETE_BY_PRODUCTION, now, now, productionId);
+    await this.sql.exec(ProductionCueQueries.DELETE_BY_PRODUCTION, now, now, productionId);
+    await this.sql.exec(ProductionQueries.DELETE, now, now, productionId);
     return true;
   }
 
@@ -2554,8 +2722,9 @@ export class SpaceRepository {
     const existing = await this.getProductionShotById(shotId);
     if (!existing) return false;
 
-    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_TARGET, 'shot', shotId);
-    await this.sql.exec(ProductionShotQueries.DELETE, shotId);
+    const now = Date.now();
+    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_TARGET, now, now, 'shot', shotId);
+    await this.sql.exec(ProductionShotQueries.DELETE, now, now, shotId);
     return true;
   }
 
@@ -2601,8 +2770,9 @@ export class SpaceRepository {
     const existing = await this.getProductionCueById(cueId);
     if (!existing) return false;
 
-    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_TARGET, 'cue', cueId);
-    await this.sql.exec(ProductionCueQueries.DELETE, cueId);
+    const now = Date.now();
+    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_TARGET, now, now, 'cue', cueId);
+    await this.sql.exec(ProductionCueQueries.DELETE, now, now, cueId);
     return true;
   }
 
@@ -2664,7 +2834,8 @@ export class SpaceRepository {
     const existing = await this.getProductionPlacementById(placementId);
     if (!existing) return false;
 
-    await this.sql.exec(ProductionPlacementQueries.DELETE, placementId);
+    const now = Date.now();
+    await this.sql.exec(ProductionPlacementQueries.DELETE, now, now, placementId);
     return true;
   }
 
@@ -3070,7 +3241,7 @@ export class SpaceRepository {
     pendingCount: number;
   }> {
     const result = await this.sql.exec(
-      `SELECT status, COUNT(*) as count FROM variants WHERE batch_id = ? GROUP BY status`,
+      `SELECT status, COUNT(*) as count FROM variants WHERE batch_id = ? AND deleted_at IS NULL GROUP BY status`,
       batchId
     );
     const rows = result.toArray() as Array<{ status: string; count: number }>;

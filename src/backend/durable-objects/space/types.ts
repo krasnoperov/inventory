@@ -62,6 +62,7 @@ export interface Asset {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 /**
@@ -107,6 +108,7 @@ export interface Variant {
   batch_id: string | null; // Batch generation group ID
   quality_rating: 'approved' | 'rejected' | null; // Curation rating for training data
   rated_at: number | null; // Timestamp of rating
+  deleted_at: number | null;
 }
 
 /**
@@ -234,6 +236,7 @@ export interface ProductionRecord {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export interface Production {
@@ -244,6 +247,7 @@ export interface Production {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export interface ProductionShot {
@@ -257,6 +261,7 @@ export interface ProductionShot {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export type ProductionCueType = 'music' | 'sfx' | 'dialogue' | 'ambience' | 'custom';
@@ -272,6 +277,7 @@ export interface ProductionCue {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export type ProductionPlacementTargetKind = 'shot' | 'cue';
@@ -291,6 +297,7 @@ export interface ProductionPlacement {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export type SpaceSubjectType = 'asset' | 'variant';
@@ -340,6 +347,7 @@ export interface SpaceCollection {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export interface CollectionItem {
@@ -354,6 +362,7 @@ export interface CollectionItem {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export interface StylePreset {
@@ -367,6 +376,7 @@ export interface StylePreset {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export interface StyleReferenceCollectionPreview extends SpaceCollection {
@@ -397,6 +407,7 @@ export interface SpaceRelation {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export interface Composition {
@@ -411,6 +422,7 @@ export interface Composition {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export interface CompositionItem {
@@ -425,6 +437,7 @@ export interface CompositionItem {
   created_by: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export interface SpaceCollectionOverview {

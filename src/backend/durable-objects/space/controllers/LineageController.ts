@@ -54,7 +54,11 @@ export class LineageController extends BaseController {
     const deps: GraphDependencies = {
       getLineageForVariant: async (variantId) => {
         const result = await this.sql.exec(
-          `SELECT * FROM lineage WHERE parent_variant_id = ? OR child_variant_id = ?`,
+          `SELECT l.*
+           FROM lineage l
+           JOIN variants parent ON parent.id = l.parent_variant_id AND parent.deleted_at IS NULL
+           JOIN variants child ON child.id = l.child_variant_id AND child.deleted_at IS NULL
+           WHERE (l.parent_variant_id = ? OR l.child_variant_id = ?)`,
           variantId,
           variantId
         );
@@ -74,8 +78,8 @@ export class LineageController extends BaseController {
           `SELECT v.id, v.asset_id, v.thumb_key, v.image_key, v.created_at,
                   a.name as asset_name, a.type as asset_type
            FROM variants v
-           JOIN assets a ON v.asset_id = a.id
-           WHERE v.id IN (${placeholders})`,
+           JOIN assets a ON v.asset_id = a.id AND a.deleted_at IS NULL
+           WHERE v.id IN (${placeholders}) AND v.deleted_at IS NULL`,
           ...variantIds
         );
         return result.toArray() as Array<{

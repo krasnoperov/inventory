@@ -44,7 +44,7 @@ describe('SpaceRepository', () => {
 
   describe('Asset Operations', () => {
     test('getAllAssets executes correct query', async () => {
-      mockSql.setMockResult('SELECT * FROM assets ORDER BY updated_at', [
+      mockSql.setMockResult('SELECT * FROM assets WHERE deleted_at IS NULL', [
         { id: 'a1', name: 'Asset 1', type: 'character' },
       ]);
 
@@ -112,18 +112,10 @@ describe('SpaceRepository', () => {
       assert.strictEqual(insertQuery.bindings[3], 'video');
     });
 
-    test('deleteAsset returns deleted image refs with object sizes', async () => {
-      mockSql.setMockResult('WHERE asset_id = ?', [
-        {
-          id: 'variant-1',
-          asset_id: 'asset-1',
-          media_key: 'images/variant.png',
-          image_key: 'images/variant.png',
-          thumb_key: 'thumbs/variant.webp',
-          recipe: '{}',
-        },
+    test('deleteAsset soft-deletes asset and variants without deleting media refs', async () => {
+      mockSql.setMockResult('SELECT * FROM assets WHERE id = ?', [
+        { id: 'asset-1', name: 'Asset 1', type: 'character' },
       ]);
-      mockSql.setMockResult('UPDATE image_refs', [{ ref_count: 0 }]);
       const images = {
         head: mock.fn(async (key: string) => ({
           size: key === 'images/variant.png' ? 2048 : 256,
@@ -134,12 +126,14 @@ describe('SpaceRepository', () => {
 
       const deletedImageRefs = await repoWithImages.deleteAsset('asset-1');
 
-      assert.deepStrictEqual(deletedImageRefs, [
-        { imageKey: 'images/variant.png', sizeBytes: 2048 },
-        { imageKey: 'thumbs/variant.webp', sizeBytes: 256 },
-      ]);
-      assert.strictEqual(images.head.mock.calls.length, 2);
-      assert.strictEqual(images.delete.mock.calls.length, 2);
+      assert.deepStrictEqual(deletedImageRefs, []);
+      assert.strictEqual(images.head.mock.calls.length, 0);
+      assert.strictEqual(images.delete.mock.calls.length, 0);
+      const softDeleteQueries = mockSql.queries
+        .filter((q) => q.query.includes('SET deleted_at = ?'))
+        .map((q) => q.query);
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE variants SET deleted_at = ?')));
+      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE assets SET deleted_at = ?')));
     });
 
     test('updateAsset returns null for non-existent asset', async () => {
@@ -469,6 +463,7 @@ describe('SpaceRepository', () => {
       const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_records'));
       assert(upsertQuery !== undefined);
       assert(upsertQuery.query.includes('ON CONFLICT(id) DO UPDATE'));
+      assert(upsertQuery.query.includes('deleted_at = NULL'));
       assert.equal(upsertQuery.bindings[1], 'episode-01');
       assert.equal(upsertQuery.bindings[2], 'variant-1');
       assert.equal(upsertQuery.bindings[4], 'video');
@@ -497,7 +492,7 @@ describe('SpaceRepository', () => {
       assert.equal(deleted, false);
     });
 
-    test('deleteProductionRecord removes the normalized sibling placement', async () => {
+    test('deleteProductionRecord soft-deletes the normalized sibling placement', async () => {
       mockSql.setMockResult('SELECT * FROM production_records WHERE id = ?', [
         { id: 'record-1', production_id: 'episode-01' },
       ]);
@@ -506,12 +501,14 @@ describe('SpaceRepository', () => {
 
       assert.equal(deleted, true);
       const deleteQueries = mockSql.queries
-        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .filter((q) => q.query.startsWith('UPDATE production') && q.query.includes('deleted_at'))
         .map((q) => ({ query: q.query, bindings: q.bindings }));
-      assert.deepEqual(deleteQueries, [
-        { query: 'DELETE FROM production_placements WHERE id = ?', bindings: ['record-1'] },
-        { query: 'DELETE FROM production_records WHERE id = ?', bindings: ['record-1'] },
+      assert.deepEqual(deleteQueries.map((q) => q.query), [
+        'UPDATE production_placements SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+        'UPDATE production_records SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
       ]);
+      assert.equal(deleteQueries[0].bindings[2], 'record-1');
+      assert.equal(deleteQueries[1].bindings[2], 'record-1');
     });
   });
 
@@ -532,6 +529,7 @@ describe('SpaceRepository', () => {
       const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO productions'));
       assert(upsertQuery !== undefined);
       assert(upsertQuery.query.includes('ON CONFLICT(id) DO UPDATE'));
+      assert(upsertQuery.query.includes('deleted_at = NULL'));
       assert.equal(upsertQuery.bindings[0], 'episode-01');
       assert.equal(upsertQuery.bindings[1], 'Episode 01');
       assert.equal(upsertQuery.bindings[3], '{"format":"short"}');
@@ -556,6 +554,7 @@ describe('SpaceRepository', () => {
 
       const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_shots'));
       assert(upsertQuery !== undefined);
+      assert(upsertQuery.query.includes('deleted_at = NULL'));
       assert.equal(upsertQuery.bindings[1], 'episode-01');
       assert.equal(upsertQuery.bindings[2], 's01e01-001');
       assert.equal(upsertQuery.bindings[4], 1000);
@@ -580,6 +579,7 @@ describe('SpaceRepository', () => {
 
       const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_cues'));
       assert(upsertQuery !== undefined);
+      assert(upsertQuery.query.includes('deleted_at = NULL'));
       assert.equal(upsertQuery.bindings[1], 'episode-01');
       assert.equal(upsertQuery.bindings[2], 'music');
       assert.equal(upsertQuery.bindings[6], '{"mood":"bright"}');
@@ -607,6 +607,7 @@ describe('SpaceRepository', () => {
 
       const upsertQuery = mockSql.queries.find((q) => q.query.includes('INSERT INTO production_placements'));
       assert(upsertQuery !== undefined);
+      assert(upsertQuery.query.includes('deleted_at = NULL'));
       assert.equal(upsertQuery.bindings[1], 'episode-01');
       assert.equal(upsertQuery.bindings[2], 'shot');
       assert.equal(upsertQuery.bindings[4], 'variant-1');
@@ -615,7 +616,7 @@ describe('SpaceRepository', () => {
       assert.equal(upsertQuery.bindings[10], '{"take":2}');
     });
 
-    test('deleteProduction removes normalized and compatibility children before parent', async () => {
+    test('deleteProduction soft-deletes normalized and compatibility children before parent', async () => {
       mockSql.setMockResult('SELECT * FROM productions WHERE id = ?', [
         { id: 'episode-01', name: 'Episode 01' },
       ]);
@@ -624,18 +625,18 @@ describe('SpaceRepository', () => {
 
       assert.equal(deleted, true);
       const deleteQueries = mockSql.queries
-        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .filter((q) => q.query.startsWith('UPDATE production') && q.query.includes('deleted_at'))
         .map((q) => q.query);
       assert.deepEqual(deleteQueries, [
-        'DELETE FROM production_placements WHERE production_id = ?',
-        'DELETE FROM production_records WHERE production_id = ?',
-        'DELETE FROM production_shots WHERE production_id = ?',
-        'DELETE FROM production_cues WHERE production_id = ?',
-        'DELETE FROM productions WHERE id = ?',
+        'UPDATE production_placements SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
+        'UPDATE production_records SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
+        'UPDATE production_shots SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
+        'UPDATE production_cues SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
+        'UPDATE productions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
       ]);
     });
 
-    test('deleteProductionShot removes placements targeting that shot', async () => {
+    test('deleteProductionShot soft-deletes placements targeting that shot', async () => {
       mockSql.setMockResult('SELECT * FROM production_shots WHERE id = ?', [
         { id: 'shot-1', production_id: 'episode-01', label: 'Opening' },
       ]);
@@ -644,15 +645,17 @@ describe('SpaceRepository', () => {
 
       assert.equal(deleted, true);
       const deleteQueries = mockSql.queries
-        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .filter((q) => q.query.startsWith('UPDATE production') && q.query.includes('deleted_at'))
         .map((q) => ({ query: q.query, bindings: q.bindings }));
-      assert.deepEqual(deleteQueries, [
-        { query: 'DELETE FROM production_placements WHERE target_kind = ? AND target_id = ?', bindings: ['shot', 'shot-1'] },
-        { query: 'DELETE FROM production_shots WHERE id = ?', bindings: ['shot-1'] },
+      assert.deepEqual(deleteQueries.map((q) => q.query), [
+        'UPDATE production_placements SET deleted_at = ?, updated_at = ? WHERE target_kind = ? AND target_id = ? AND deleted_at IS NULL',
+        'UPDATE production_shots SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
       ]);
+      assert.deepEqual(deleteQueries[0].bindings.slice(2), ['shot', 'shot-1']);
+      assert.equal(deleteQueries[1].bindings[2], 'shot-1');
     });
 
-    test('deleteProductionCue removes placements targeting that cue', async () => {
+    test('deleteProductionCue soft-deletes placements targeting that cue', async () => {
       mockSql.setMockResult('SELECT * FROM production_cues WHERE id = ?', [
         { id: 'cue-1', production_id: 'episode-01', cue_type: 'music' },
       ]);
@@ -661,18 +664,20 @@ describe('SpaceRepository', () => {
 
       assert.equal(deleted, true);
       const deleteQueries = mockSql.queries
-        .filter((q) => q.query.startsWith('DELETE FROM production'))
+        .filter((q) => q.query.startsWith('UPDATE production') && q.query.includes('deleted_at'))
         .map((q) => ({ query: q.query, bindings: q.bindings }));
-      assert.deepEqual(deleteQueries, [
-        { query: 'DELETE FROM production_placements WHERE target_kind = ? AND target_id = ?', bindings: ['cue', 'cue-1'] },
-        { query: 'DELETE FROM production_cues WHERE id = ?', bindings: ['cue-1'] },
+      assert.deepEqual(deleteQueries.map((q) => q.query), [
+        'UPDATE production_placements SET deleted_at = ?, updated_at = ? WHERE target_kind = ? AND target_id = ? AND deleted_at IS NULL',
+        'UPDATE production_cues SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
       ]);
+      assert.deepEqual(deleteQueries[0].bindings.slice(2), ['cue', 'cue-1']);
+      assert.equal(deleteQueries[1].bindings[2], 'cue-1');
     });
   });
 
   describe('Lineage Operations', () => {
     test('getAllLineage executes correct query', async () => {
-      mockSql.setMockResult('SELECT * FROM lineage', [
+      mockSql.setMockResult('FROM lineage l', [
         { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2' },
       ]);
 
@@ -696,6 +701,22 @@ describe('SpaceRepository', () => {
       assert.deepStrictEqual(result, []);
     });
 
+    test('getLineageForVariants filters edges attached to soft-deleted variants', async () => {
+      mockSql.setMockResult('FROM lineage l', [
+        { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2' },
+      ]);
+
+      const result = await repo.getLineageForVariants(['v1', 'v2']);
+
+      assert.equal(result.length, 1);
+      const query = mockSql.getLastQuery();
+      assert(query !== undefined);
+      assert(query.query.includes('JOIN variants parent'));
+      assert(query.query.includes('parent.deleted_at IS NULL'));
+      assert(query.query.includes('JOIN variants child'));
+      assert(query.query.includes('child.deleted_at IS NULL'));
+    });
+
     test('getParentLineageWithDetails converts severed boolean', async () => {
       mockSql.setMockResult('child_variant_id = ?', [
         { id: 'l1', severed: 1, parent_variant_id: 'v1', child_variant_id: 'v2', asset_id: 'a1', image_key: 'i1', thumb_key: 't1', asset_name: 'A1' },
@@ -714,7 +735,10 @@ describe('SpaceRepository', () => {
     });
 
     test('createLineage inserts with correct values', async () => {
-      mockSql.setMockResult('WHERE id = ?', [
+      mockSql.setMockResult('SELECT * FROM variants WHERE id = ?', [
+        { id: 'v1' },
+      ]);
+      mockSql.setMockResult('WHERE l.id = ?', [
         { id: 'l1', parent_variant_id: 'v1', child_variant_id: 'v2', relation_type: 'refined' },
       ]);
 

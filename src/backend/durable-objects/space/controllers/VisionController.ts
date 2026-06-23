@@ -267,7 +267,7 @@ export class VisionController extends BaseController {
 
     // Check if description already cached
     const existingResult = await this.sql.exec(
-      'SELECT description FROM variants WHERE id = ?',
+      'SELECT description FROM variants WHERE id = ? AND deleted_at IS NULL',
       msg.variantId
     );
     const existing = existingResult.toArray()[0] as { description: string | null } | undefined;
@@ -320,7 +320,7 @@ export class VisionController extends BaseController {
       if (result.success) {
         // Cache the description in the database
         await this.sql.exec(
-          'UPDATE variants SET description = ?, updated_at = ? WHERE id = ?',
+          'UPDATE variants SET description = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
           result.description,
           Date.now(),
           msg.variantId
@@ -328,7 +328,7 @@ export class VisionController extends BaseController {
 
         // Broadcast variant update to all clients
         const updatedVariant = await this.sql.exec(
-          `SELECT * FROM variants WHERE id = ?`,
+          `SELECT * FROM variants WHERE id = ? AND deleted_at IS NULL`,
           msg.variantId
         );
         const variantRow = updatedVariant.toArray()[0] as Variant | undefined;
@@ -379,15 +379,15 @@ export class VisionController extends BaseController {
 
     return {
       getVariant: async (id) => {
-        const result = await this.sql.exec('SELECT image_key FROM variants WHERE id = ?', id);
+        const result = await this.sql.exec('SELECT image_key FROM variants WHERE id = ? AND deleted_at IS NULL', id);
         return result.toArray()[0] as { image_key: string } | null;
       },
       getVariantWithAsset: async (id) => {
         const result = await this.sql.exec(
           `SELECT v.image_key, a.name as asset_name
            FROM variants v
-           JOIN assets a ON v.asset_id = a.id
-           WHERE v.id = ?`,
+           JOIN assets a ON v.asset_id = a.id AND a.deleted_at IS NULL
+           WHERE v.id = ? AND v.deleted_at IS NULL`,
           id
         );
         return result.toArray()[0] as { image_key: string; asset_name: string } | null;

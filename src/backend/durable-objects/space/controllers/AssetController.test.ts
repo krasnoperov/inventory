@@ -277,7 +277,7 @@ describe('AssetController', () => {
       assert.ok(broadcasts.some((b) => b.type === 'style_preset:updated' && b.preset.reference_count === 0));
     });
 
-    test('tracks deleted storage usage for asset deletions', async () => {
+    test('does not track deleted storage usage for soft asset deletions', async () => {
       const d1 = createMockD1();
       const variant = createMockVariant({
         id: 'variant-delete',
@@ -289,9 +289,7 @@ describe('AssetController', () => {
       });
       const { ctx } = createMockContext({
         getVariantsByAsset: mock.fn(async () => [variant]),
-        deleteAsset: mock.fn(async () => [
-          { imageKey: 'images/deleted.png', sizeBytes: 2048 },
-        ]),
+        deleteAsset: mock.fn(async () => []),
       });
       ctx.env.DB = d1.db as never;
       const controller = new AssetController(ctx);
@@ -302,17 +300,7 @@ describe('AssetController', () => {
         'asset-delete'
       );
 
-      assert.strictEqual(d1.statements.length, 1);
-      const statement = d1.statements[0];
-      assert.match(statement.sql, /INSERT INTO platform_usage_events/);
-      assert.strictEqual(statement.bindings[2], 'space-1');
-      assert.strictEqual(statement.bindings[3], 42);
-      assert.strictEqual(statement.bindings[4], 'storage');
-      assert.strictEqual(statement.bindings[5], -2048);
-      assert.strictEqual(statement.bindings[7], 'asset-delete');
-      assert.strictEqual(statement.bindings[8], 'variant-delete');
-      assert.strictEqual(statement.bindings[11], 'images/deleted.png');
-      assert.strictEqual(statement.bindings[13], 'image');
+      assert.strictEqual(d1.statements.length, 0);
     });
 
     test('reparents child assets to root when parent deleted', async () => {
