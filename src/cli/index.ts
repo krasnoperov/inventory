@@ -17,6 +17,7 @@ import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
 import { handleVariants } from './commands/variants';
 import { handleStyles } from './commands/styles';
+import { handleCollections } from './commands/collections';
 import { handleProductions } from './commands/productions';
 import { handleUsage } from './commands/usage';
 import { handleSpend } from './commands/spend';
@@ -216,6 +217,10 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'style':
       printStylesHelp();
       return;
+    case 'collections':
+    case 'collection':
+      printCollectionsHelp();
+      return;
     case 'rotation':
       printRotationHelp();
       return;
@@ -275,6 +280,7 @@ Project:
   styles presets                  List style presets
   styles collections              List style reference collections
   styles references               List style reference assets
+  collections                     Manage normal Space collections
 ${rotationHelp}
   tileset "prompt" --type terrain --grid 3x3
                                  Generate a consistent tile set
@@ -357,6 +363,7 @@ Examples:
   makefx productions export --production-id s01e01-a2
   makefx upload hero.png --name "Hero" --collection collection_cast
   makefx upload hero.png --name "Hero" --collection-name "Cast" --json
+  makefx collections add collection_cast --asset asset_123 --role character
   makefx upload thumbnail.png --asset asset_thumb --manual-relation thumbnail_for:asset:asset_target
   makefx assets
   makefx usage --from 2026-06-01
@@ -790,6 +797,35 @@ Options:
 `);
 }
 
+function printCollectionsHelp(): void {
+  console.log(`
+Usage:
+  makefx collections list [--json]
+  makefx collections create <name> [--kind cast|backgrounds|scenes|thumbnails|maps|deliverables|custom] [--color <hex>] [--description <text>] [--sort-index <n>] [--json]
+  makefx collections update <collection-id> [--name <name>] [--kind cast|backgrounds|scenes|thumbnails|maps|deliverables|custom] [--color <hex|none>] [--description <text|none>] [--sort-index <n>] [--json]
+  makefx collections delete <collection-id> [--json]
+  makefx collections items <collection-id> [--json]
+  makefx collections add <collection-id> --asset <asset-id>[,<asset-id>] [--variant <variant-id>[,<variant-id>]] [--role <role>] [--pinned-variant <variant-id|none>] [--sort-index <n>] [--json]
+  makefx collections update-item <collection-id> <item-id> [--role <role>] [--pinned-variant <variant-id|none>] [--sort-index <n>] [--json]
+  makefx collections reorder <collection-id> --items <item-id,item-id> [--json]
+  makefx collections remove <collection-id> <item-id> [--json]
+
+Model:
+  Collections organize existing Space assets or exact variants. They do not
+  change generation lineage.
+
+Options:
+  --space <id>      Target space ID; defaults from the initialized project
+  --asset <ids>     Comma-separated asset IDs to add
+  --assets <ids>    Alias for --asset
+  --variant <ids>   Comma-separated variant IDs to add
+  --variants <ids>  Alias for --variant
+  --json            Print machine-readable output
+  --env <env>       Environment (production|stage|local)
+  --local           Shortcut for --env local
+`);
+}
+
 function printRotationHelp(): void {
   if (!isCliRotationEnabled()) {
     console.log(rotationDisabledMessage());
@@ -959,6 +995,10 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
     case 'styles':
     case 'style':
       await handleStyles(parsed);
+      break;
+    case 'collections':
+    case 'collection':
+      await handleCollections(parsed);
       break;
     case 'rotation':
       await handleRotation(parsed);

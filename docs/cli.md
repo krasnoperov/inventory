@@ -59,6 +59,7 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `spaces` | List, view, or create spaces |
 | `assets` | List/show/download assets; delete, rename, set-active |
 | `variants` | Delete, retry, star/unstar, and rate variants |
+| `collections` | Manage normal Space collections and group existing assets or variants |
 | `styles` | List style references, manage style reference collections, and manage style presets |
 | `usage` | Show platform storage and workflow consumption for a space |
 | `spend` | Show admin provider cost summaries |
@@ -234,6 +235,27 @@ makefx generate "A neutral prop sheet" --no-style --name "Props" --type prop -o 
 When a preset is selected, generation output prints the resolved preset ID,
 collection, and reference count before the job starts. `--style-preset` is
 mutually exclusive with `--no-style`.
+
+## Collections
+
+Collections are the normal editable way to organize existing Space assets or
+exact variants after upload:
+
+```bash
+makefx collections list
+makefx collections create "Cast" --kind cast --description "Main characters"
+makefx collections add collection_cast --asset asset_anna,asset_roman --role character
+makefx collections add collection_scene --variant variant_cocina --role final_render
+makefx collections items collection_cast
+makefx collections update-item collection_cast item_123 --role lead --pinned-variant variant_anna_v2
+makefx collections reorder collection_cast --items item_roman,item_anna
+makefx collections remove collection_cast item_123
+makefx collections delete collection_cast
+```
+
+Use `--json` on collection commands for automation. Collection membership does
+not affect immutable lineage; use upload lineage flags for provenance and
+collections for editable grouping.
 
 ### Managing Assets and Variants
 
