@@ -73,7 +73,7 @@ interface RestoreSpaceResult {
   space: Space;
   membershipsVisible: number;
   previousDeletedAt: string;
-  auditLogId: string;
+  auditLogId: string | null;
   message: string;
 }
 
@@ -358,7 +358,9 @@ function printRestoredSpace(restored: RestoreSpaceResult, print: (message: strin
   print(`Space restored: ${restored.space.id}`);
   print(restored.message);
   print(`Visible memberships: ${restored.membershipsVisible}`);
-  print(`Audit log: ${restored.auditLogId}`);
+  if (restored.auditLogId) {
+    print(`Audit log: ${restored.auditLogId}`);
+  }
 }
 
 async function fetchSpaces(ctx: SpacesContext, deps: Pick<SpacesDeps, 'fetch'>): Promise<Space[]> {

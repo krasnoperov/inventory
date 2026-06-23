@@ -274,7 +274,7 @@ export const RestoreSupportSpaceResponseSchema = z
     space: SupportSpaceSchema,
     membershipsVisible: z.number().int(),
     previousDeletedAt: z.string(),
-    auditLogId: z.string(),
+    auditLogId: z.string().nullable(),
     message: z.string(),
   })
   .openapi('RestoreSupportSpaceResponse');

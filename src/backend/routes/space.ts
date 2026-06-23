@@ -270,11 +270,30 @@ spaceRoutes.openapi(restoreSupportSpaceRoute, async (c) => {
 
   const restored = await spaceDAO.restoreDeletedSpace(spaceId, userId);
   if (!restored) {
+    const current = await spaceDAO.getSpaceByIdIncludingDeleted(spaceId);
+    if (current && !current.deleted_at) {
+      const memberships = await spaceDAO.getSpaceMembersIncludingDeleted(spaceId);
+      return c.json({
+        success: true as const,
+        space: {
+          id: current.id,
+          name: current.name,
+          owner_id: current.owner_id,
+          created_at: current.created_at,
+          deleted_at: current.deleted_at,
+        },
+        membershipsVisible: memberships.filter(member => member.deleted_at === null).length,
+        previousDeletedAt: space.deleted_at,
+        auditLogId: null,
+        message: 'Space was already restored.',
+      }, 200);
+    }
+
     await spaceDoFetch(c.env, spaceId, '/internal/archive', {
       method: 'POST',
       headers: { 'X-Space-Id': spaceId },
     });
-    return c.json({ error: 'Space is not deleted' }, 409);
+    return c.json({ error: current ? 'Space is not deleted' : 'Space not found or already purged' }, current ? 409 : 404);
   }
 
   console.log('[Support] Restored soft-deleted space', {
