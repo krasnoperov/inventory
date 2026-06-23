@@ -198,7 +198,7 @@ userRoutes.openapi(deleteProviderKeyRoute, async (c) => {
 });
 
 userRoutes.openapi(deleteAccountRoute, async (c) => {
-  if (!hasAuthCookie(c.req.header('Cookie'))) {
+  if (c.req.header('Authorization') || !hasAuthCookie(c.req.header('Cookie'))) {
     return c.json({ error: 'Account deletion requires an interactive web session' }, 401);
   }
 

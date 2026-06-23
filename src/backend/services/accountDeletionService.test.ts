@@ -53,7 +53,7 @@ function fakeImages(puts: Array<{ key: string; body: string }>, initialObjects: 
   } as unknown as R2Bucket;
 }
 
-function fakeSpacesDo(calls: string[]): DurableObjectNamespace {
+function fakeSpacesDo(calls: string[], response: Response = Response.json({ success: true, r2ObjectsDeleted: 2 })): DurableObjectNamespace {
   return {
     idFromName: (spaceId: string) => {
       calls.push(`id:${spaceId}`);
@@ -62,7 +62,7 @@ function fakeSpacesDo(calls: string[]): DurableObjectNamespace {
     get: (id: string) => ({
       fetch: async (request: Request) => {
         calls.push(`${request.method}:${id}:${new URL(request.url).pathname}:${request.headers.get('X-Space-Id')}`);
-        return Response.json({ success: true, r2ObjectsDeleted: 2 });
+        return response;
       },
     }),
   } as unknown as DurableObjectNamespace;
@@ -74,6 +74,7 @@ function fakePolar(calls: string[], deleted = true): PolarService {
       calls.push(customerId);
       return deleted;
     },
+    hasCustomerDeletionConfigured: () => deleted,
   } as unknown as PolarService;
 }
 
@@ -285,6 +286,40 @@ describe('AccountDeletionService', () => {
     assert.equal((await db.selectFrom('account_deletion_tombstones').selectAll().execute()).length, 0);
   });
 
+  test('records a durable tombstone before destructive downstream purges fail', async () => {
+    await db.insertInto('users').values(createUser(1, 'delete@example.com', 'polar-customer-1')).execute();
+    await db.insertInto('spaces').values({
+      id: 'owned-space',
+      name: 'Owned',
+      owner_id: '1',
+      created_at: 1,
+      deleted_at: null,
+    }).execute();
+
+    const r2Puts: Array<{ key: string; body: string }> = [];
+    const polarCalls: string[] = [];
+    const service = new AccountDeletionService(db, {
+      ENVIRONMENT: 'production',
+      IMAGES: fakeImages(r2Puts),
+      SPACES_DO: fakeSpacesDo([], new Response('purge failed', { status: 500 })),
+    } as unknown as Env, fakePolar(polarCalls));
+
+    await assert.rejects(
+      () => service.deleteAccount(1),
+      (error) => error instanceof AccountDeletionError && error.code === 'account_deletion_space_purge_failed'
+    );
+
+    assert.deepEqual(polarCalls, ['polar-customer-1']);
+    assert.equal((await db.selectFrom('users').selectAll().where('id', '=', 1).execute()).length, 1);
+    const tombstone = await db.selectFrom('account_deletion_tombstones')
+      .selectAll()
+      .where('user_id', '=', 1)
+      .executeTakeFirstOrThrow();
+    assert.equal(tombstone.source, 'self_service');
+    assert.match(tombstone.r2_key ?? '', /^account-deletion-tombstones\/user-1\/acctdel_1_/);
+    assert.equal(r2Puts.length, 1);
+  });
+
   test('reapplies R2 deletion tombstones after a database restore', async () => {
     await db.insertInto('users').values(createUser(1, 'restore@example.com', 'polar-customer-1')).execute();
     await db.insertInto('spaces').values({
@@ -319,7 +354,7 @@ describe('AccountDeletionService', () => {
         'account-deletion-tombstones/user-1/acctdel_1_restore.json': JSON.stringify(tombstone),
       }),
       SPACES_DO: fakeSpacesDo([]),
-    } as unknown as Env, fakePolar(polarCalls, false));
+    } as unknown as Env, fakePolar(polarCalls));
 
     const result = await service.reapplyDeletionTombstones();
 
@@ -329,7 +364,7 @@ describe('AccountDeletionService', () => {
       alreadyDeleted: 0,
       failures: [],
     });
-    assert.deepEqual(polarCalls, []);
+    assert.deepEqual(polarCalls, ['polar-customer-1']);
     assert.equal((await db.selectFrom('users').selectAll().where('id', '=', 1).execute()).length, 0);
     assert.equal((await db.selectFrom('spaces').selectAll().where('id', '=', 'restored-owned-space').execute()).length, 0);
     const reapplied = await db.selectFrom('account_deletion_tombstones')

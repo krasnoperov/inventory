@@ -84,6 +84,27 @@ describe('DELETE /api/user/account', () => {
     assert.equal(called, false);
   });
 
+  test('rejects mixed bearer and cookie auth before deleting', async () => {
+    let called = false;
+    const response = await bindFetch(routeApp({
+      deleteAccount: async () => {
+        called = true;
+        return { deleted: true, ownedSpacesPurged: 0, sharedMembershipsDeleted: 0, r2ObjectsDeleted: 0, d1RowsChanged: 1 };
+      },
+    }))(`${baseUrl}/api/user/account`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: 'Bearer test-token',
+        Cookie: 'auth_token=test-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'delete@example.com', confirmation: 'DELETE MY ACCOUNT' }),
+    });
+
+    assert.equal(response.status, 401);
+    assert.equal(called, false);
+  });
+
   test('rejects mismatched typed confirmation before deleting', async () => {
     let called = false;
     const response = await bindFetch(routeApp({

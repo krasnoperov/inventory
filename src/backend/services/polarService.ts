@@ -121,6 +121,20 @@ function isActiveMeteredUnitPrice(price: unknown): price is {
     typeof record.meter?.name === 'string';
 }
 
+function isHttpStatus(error: unknown, status: number): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const record = error as {
+    status?: unknown;
+    statusCode?: unknown;
+    response?: { status?: unknown };
+    rawResponse?: { status?: unknown };
+  };
+  return record.status === status
+    || record.statusCode === status
+    || record.response?.status === status
+    || record.rawResponse?.status === status;
+}
+
 @injectable()
 export class PolarService {
   private client: Polar | null;
@@ -279,8 +293,19 @@ export class PolarService {
    */
   async deleteCustomer(customerId: string): Promise<boolean> {
     if (!this.client) return false;
-    await this.client.customers.delete({ id: customerId });
+    try {
+      await this.client.customers.delete({ id: customerId });
+    } catch (error) {
+      if (isHttpStatus(error, 404)) {
+        return true;
+      }
+      throw error;
+    }
     return true;
+  }
+
+  hasCustomerDeletionConfigured(): boolean {
+    return Boolean(this.client);
   }
 
   /**

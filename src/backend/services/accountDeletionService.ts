@@ -116,9 +116,7 @@ export class AccountDeletionService {
     }
 
     const source = options.source ?? 'self_service';
-    if (source === 'self_service') {
-      await this.deleteBillingCustomer(user.polar_customer_id);
-    }
+    this.ensureBillingCustomerDeletionConfigured(user.polar_customer_id);
 
     const now = new Date().toISOString();
     const tombstone: AccountDeletionTombstonePayload = {
@@ -130,23 +128,30 @@ export class AccountDeletionService {
       deleted_at: now,
       created_at: now,
     };
-    const r2Key = await this.writeTombstone(tombstone);
-
-    let r2ObjectsDeleted = 0;
-    for (const spaceId of ownedSpaceIds) {
-      r2ObjectsDeleted += await this.purgeSpaceDo(spaceId);
-    }
-
     let d1RowsChanged = 0;
     d1RowsChanged += changed(await this.db.insertInto('account_deletion_tombstones').values({
       id: tombstone.id,
       user_id: tombstone.user_id,
       source: tombstone.source,
       owned_spaces_purged: tombstone.owned_spaces_purged,
-      r2_key: r2Key,
+      r2_key: null,
       deleted_at: tombstone.deleted_at,
       created_at: tombstone.created_at,
     }).executeTakeFirst());
+
+    const r2Key = await this.writeTombstone(tombstone);
+    d1RowsChanged += changed(await this.db
+      .updateTable('account_deletion_tombstones')
+      .set({ r2_key: r2Key })
+      .where('id', '=', tombstone.id)
+      .executeTakeFirst());
+
+    await this.deleteBillingCustomer(user.polar_customer_id);
+
+    let r2ObjectsDeleted = 0;
+    for (const spaceId of ownedSpaceIds) {
+      r2ObjectsDeleted += await this.purgeSpaceDo(spaceId);
+    }
 
     for (const batch of chunks(ownedSpaceIds)) {
       d1RowsChanged += changed(await this.db.deleteFrom('space_members').where('space_id', 'in', batch).executeTakeFirst());
@@ -216,12 +221,23 @@ export class AccountDeletionService {
     };
   }
 
+  private ensureBillingCustomerDeletionConfigured(polarCustomerId: string | null): void {
+    if (!polarCustomerId) return;
+    if (!this.polarService.hasCustomerDeletionConfigured() && this.requiresConfiguredBillingDeletion()) {
+      throw new AccountDeletionError('Account deletion cannot run because billing cancellation is not configured', 503, 'account_deletion_billing_not_configured');
+    }
+  }
+
   private async deleteBillingCustomer(polarCustomerId: string | null): Promise<void> {
     if (!polarCustomerId) return;
     const deleted = await this.polarService.deleteCustomer(polarCustomerId);
-    if (!deleted && (this.env.ENVIRONMENT === 'stage' || this.env.ENVIRONMENT === 'staging' || this.env.ENVIRONMENT === 'production')) {
+    if (!deleted && this.requiresConfiguredBillingDeletion()) {
       throw new AccountDeletionError('Account deletion cannot run because billing cancellation is not configured', 503, 'account_deletion_billing_not_configured');
     }
+  }
+
+  private requiresConfiguredBillingDeletion(): boolean {
+    return this.env.ENVIRONMENT === 'stage' || this.env.ENVIRONMENT === 'staging' || this.env.ENVIRONMENT === 'production';
   }
 
   private async writeTombstone(tombstone: AccountDeletionTombstonePayload): Promise<string> {
