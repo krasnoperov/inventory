@@ -85,7 +85,6 @@
 .actionButton:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
-  background: oklch(55% 0.18 276 / 0.08);
 }
 
 .actionButton.starred {
@@ -97,13 +96,11 @@
 .actionButton.setActive:hover {
   border-color: var(--color-success);
   color: var(--color-success);
-  background: oklch(70% 0.2 145 / 0.1);
 }
 
 .actionButton.delete:hover {
   border-color: var(--color-error);
   color: var(--color-error);
-  background: oklch(55% 0.25 25 / 0.1);
 }
 
 .meta {
