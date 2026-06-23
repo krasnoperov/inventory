@@ -121,6 +121,20 @@ function isActiveMeteredUnitPrice(price: unknown): price is {
     typeof record.meter?.name === 'string';
 }
 
+function isHttpStatus(error: unknown, status: number): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const record = error as {
+    status?: unknown;
+    statusCode?: unknown;
+    response?: { status?: unknown };
+    rawResponse?: { status?: unknown };
+  };
+  return record.status === status
+    || record.statusCode === status
+    || record.response?.status === status
+    || record.rawResponse?.status === status;
+}
+
 @injectable()
 export class PolarService {
   private client: Polar | null;
@@ -270,6 +284,28 @@ export class PolarService {
       // Customer not found
       return null;
     }
+  }
+
+  /**
+   * Delete a Polar customer before irreversible local account deletion.
+   * Returns false when Polar is not configured so callers can decide whether
+   * that is acceptable for the current environment.
+   */
+  async deleteCustomer(customerId: string): Promise<boolean> {
+    if (!this.client) return false;
+    try {
+      await this.client.customers.delete({ id: customerId });
+    } catch (error) {
+      if (isHttpStatus(error, 404)) {
+        return true;
+      }
+      throw error;
+    }
+    return true;
+  }
+
+  hasCustomerDeletionConfigured(): boolean {
+    return Boolean(this.client);
   }
 
   /**

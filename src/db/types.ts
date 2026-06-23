@@ -160,6 +160,17 @@ export interface KeyEnvelopesTable {
   updated_at: string;
 }
 
+export interface AccountDeletionTombstonesTable {
+  id: string;
+  user_id: number;
+  source: 'self_service' | 'restore_reapply';
+  owned_spaces_purged: number;
+  owned_space_ids: string;
+  r2_key: string | null;
+  deleted_at: string;
+  created_at: string;
+}
+
 export interface Database {
   users: UsersTable;
   spaces: SpacesTable;
@@ -170,6 +181,7 @@ export interface Database {
   platform_usage_events: PlatformUsageEventsTable;
   user_provider_keys: UserProviderKeysTable;
   key_envelopes: KeyEnvelopesTable;
+  account_deletion_tombstones: AccountDeletionTombstonesTable;
   // Phase 2: Assistant Memory
   user_patterns: UserPatternsTable;
   user_feedback: UserFeedbackTable;

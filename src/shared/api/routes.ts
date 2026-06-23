@@ -33,6 +33,8 @@ import {
   PlatformUsageSummaryResponseSchema,
   ProviderKeyParamsSchema,
   ProviderKeyResponseSchema,
+  DeleteAccountRequestSchema,
+  DeleteAccountResponseSchema,
   ProductionIdParamsSchema,
   ProductionChildParamsSchema,
   ListProductionsResponseSchema,
@@ -270,6 +272,33 @@ export const deleteProviderKeyRoute = createRoute({
       description: 'Removed provider key',
     },
     400: errorResponse,
+    503: errorResponse,
+  },
+});
+
+export const deleteAccountRoute = createRoute({
+  method: 'delete',
+  path: '/api/user/account',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: DeleteAccountRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(DeleteAccountResponseSchema),
+      description: 'Permanently deleted the authenticated user account',
+    },
+    400: errorResponse,
+    401: errorResponse,
+    404: errorResponse,
+    500: errorResponse,
+    502: errorResponse,
     503: errorResponse,
   },
 });

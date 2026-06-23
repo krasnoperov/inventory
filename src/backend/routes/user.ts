@@ -2,6 +2,7 @@ import { authMiddleware } from '../middleware/auth-middleware';
 import { UserDAO } from '../../dao/user-dao';
 import { createOpenApiRouter, toApiUser, toUserProfile } from './openapi';
 import {
+  deleteAccountRoute,
   deleteProviderKeyRoute,
   getUserProfileRoute,
   listProviderKeysRoute,
@@ -9,17 +10,20 @@ import {
   putProviderKeyRoute,
   putUserSettingsRoute,
 } from '../../shared/api/routes';
+import { clearAuthCookie } from '../auth';
 import {
   isProviderKeyProvider,
   listProviderKeySummaries,
   ProviderKeyEncryptionError,
 } from '../services/providerKeyVault';
+import { AccountDeletionError, AccountDeletionService } from '../services/accountDeletionService';
 import { keyBrokerClient } from '../key-broker/client';
 import { createKeyBrokerService } from '../key-broker/service';
 import type { KeyBrokerService } from '../key-broker/contract';
 import type { AppContext } from './types';
 
 const userRoutes = createOpenApiRouter();
+const ACCOUNT_DELETE_CONFIRMATION = 'DELETE MY ACCOUNT';
 
 function isProviderKeyEncryptionError(err: unknown): err is ProviderKeyEncryptionError {
   return err instanceof ProviderKeyEncryptionError ||
@@ -40,6 +44,13 @@ function providerKeyBrokerForEnv(env: AppContext['Bindings']): KeyBrokerService 
   }
 
   return null;
+}
+
+function hasAuthCookie(cookieHeader: string | undefined): boolean {
+  return cookieHeader
+    ?.split(';')
+    .map((part) => part.trim())
+    .some((part) => part.startsWith('auth_token=')) ?? false;
 }
 
 // All user routes require authentication
@@ -184,6 +195,38 @@ userRoutes.openapi(deleteProviderKeyRoute, async (c) => {
   const providers = await listProviderKeySummaries(c.env.DB, userId, c.env);
   const summary = providers.find((item) => item.provider === provider)!;
   return c.json({ success: true as const, provider: summary }, 200);
+});
+
+userRoutes.openapi(deleteAccountRoute, async (c) => {
+  if (c.req.header('Authorization') || !hasAuthCookie(c.req.header('Cookie'))) {
+    return c.json({ error: 'Account deletion requires an interactive web session' }, 401);
+  }
+
+  const userId = c.get('userId')!;
+  const userDAO = c.get('container').get(UserDAO);
+  const user = await userDAO.findById(userId);
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  const body = c.req.valid('json');
+  if (body.email !== user.email || body.confirmation !== ACCOUNT_DELETE_CONFIRMATION) {
+    return c.json({ error: 'Account deletion confirmation did not match' }, 400);
+  }
+
+  const accountDeletion = c.get('container').get(AccountDeletionService);
+  try {
+    const result = await accountDeletion.deleteAccount(userId);
+    const response = c.json({ success: true as const, ...result }, 200);
+    response.headers.append('Set-Cookie', clearAuthCookie());
+    return response;
+  } catch (error) {
+    if (error instanceof AccountDeletionError) {
+      const status = error.status === 503 ? 503 : error.status === 502 ? 502 : 500;
+      return c.json({ error: error.message }, status);
+    }
+    throw error;
+  }
 });
 
 export { userRoutes };

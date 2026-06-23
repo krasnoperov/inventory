@@ -22,7 +22,7 @@ const providerHelp: Record<ProviderKeyProvider, string> = {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   useDocumentTitle('Profile');
 
@@ -42,11 +42,20 @@ export default function ProfilePage() {
   const [deletingProvider, setDeletingProvider] = useState<ProviderKeyProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [providerError, setProviderError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [name, setName] = useState(profile?.name ?? '');
   const [providerDrafts, setProviderDrafts] = useState<Record<string, string>>({});
+  const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
+  const [deleteEmail, setDeleteEmail] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const canDeleteAccount =
+    Boolean(profile)
+    && deleteAcknowledged
+    && deleteEmail.trim() === profile?.email
+    && !isDeletingAccount;
 
   useEffect(() => {
     if (!user) {
@@ -136,6 +145,33 @@ export default function ProfilePage() {
       setProviderError(err instanceof Error ? err.message : 'Failed to remove provider key');
     } finally {
       setDeletingProvider(null);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!profile || !canDeleteAccount) {
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    setDeleteError(null);
+    setSuccessMessage(null);
+
+    try {
+      await apiFetch('DELETE /api/user/account', {
+        json: {
+          email: deleteEmail.trim(),
+          confirmation: 'DELETE MY ACCOUNT',
+        },
+      });
+      queryClient.clear();
+      await refreshUser();
+      navigate('/login');
+    } catch (err) {
+      console.error('Account deletion error:', err);
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete account');
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -279,6 +315,53 @@ export default function ProfilePage() {
                     </div>
                   );
                 })}
+              </div>
+            </section>
+
+            <section className={styles.dangerSection} aria-labelledby="delete-account-title">
+              <div className={styles.sectionHeader}>
+                <h2 id="delete-account-title" className={styles.sectionTitle}>Delete account</h2>
+              </div>
+
+              <ErrorMessage message={deleteError} />
+
+              <div className={styles.dangerPanel}>
+                <label className={styles.confirmationCheck}>
+                  <input
+                    type="checkbox"
+                    checked={deleteAcknowledged}
+                    onChange={(event) => setDeleteAcknowledged(event.target.checked)}
+                    disabled={isDeletingAccount}
+                  />
+                  <span>
+                    I understand this permanently deletes my account, owned Spaces, assets, provider keys, and billing records.
+                  </span>
+                </label>
+
+                <div className={formStyles.formGroup}>
+                  <label htmlFor="delete-email" className={formStyles.label}>
+                    Type your email to confirm
+                  </label>
+                  <input
+                    id="delete-email"
+                    type="email"
+                    value={deleteEmail}
+                    onChange={(event) => setDeleteEmail(event.target.value)}
+                    className={formStyles.input}
+                    placeholder={profile?.email ?? 'you@example.com'}
+                    autoComplete="off"
+                    disabled={isDeletingAccount}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className={styles.dangerButton}
+                  disabled={!canDeleteAccount}
+                  onClick={() => void handleDeleteAccount()}
+                >
+                  {isDeletingAccount ? 'Deleting...' : 'Delete account permanently'}
+                </button>
               </div>
             </section>
           </FormContainer>

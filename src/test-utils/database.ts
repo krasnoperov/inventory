@@ -187,6 +187,60 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
   `.execute(db);
 
   await sql`
+    CREATE TABLE account_deletion_tombstones (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      source TEXT NOT NULL DEFAULT 'self_service',
+      owned_spaces_purged INTEGER NOT NULL DEFAULT 0,
+      owned_space_ids TEXT NOT NULL DEFAULT '[]',
+      r2_key TEXT,
+      deleted_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `.execute(db);
+
+  await sql`
+    CREATE TABLE user_patterns (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      space_id TEXT,
+      asset_type TEXT NOT NULL,
+      prompt_text TEXT NOT NULL,
+      prompt_hash TEXT NOT NULL,
+      success_count INTEGER DEFAULT 1,
+      total_uses INTEGER DEFAULT 1,
+      style_tags TEXT,
+      last_used_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `.execute(db);
+
+  await sql`
+    CREATE TABLE user_feedback (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      variant_id TEXT NOT NULL,
+      rating TEXT NOT NULL,
+      prompt TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `.execute(db);
+
+  await sql`
+    CREATE TABLE user_preferences (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      default_art_style TEXT,
+      default_aspect_ratio TEXT,
+      auto_execute_safe BOOLEAN DEFAULT TRUE,
+      auto_approve_low_cost BOOLEAN DEFAULT FALSE,
+      inject_patterns BOOLEAN DEFAULT TRUE,
+      max_patterns_context INTEGER DEFAULT 5,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `.execute(db);
+
+  await sql`
     CREATE INDEX idx_customer_charge_user_created
       ON customer_charge_ledger(user_id, created_at)
   `.execute(db);
@@ -212,6 +266,10 @@ export async function cleanupTestDatabase(db: Kysely<DatabaseSchema>) {
   await db.deleteFrom('provider_usage_ledger').execute();
   await db.deleteFrom('user_provider_keys').execute();
   await db.deleteFrom('key_envelopes').execute();
+  await db.deleteFrom('account_deletion_tombstones').execute();
+  await db.deleteFrom('user_preferences').execute();
+  await db.deleteFrom('user_feedback').execute();
+  await db.deleteFrom('user_patterns').execute();
   await db.deleteFrom('usage_events').execute();
   await db.deleteFrom('space_members').execute();
   await db.deleteFrom('spaces').execute();

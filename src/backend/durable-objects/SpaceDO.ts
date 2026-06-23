@@ -471,12 +471,14 @@ export class SpaceDO extends DurableObject<Env> {
 
     if (url.pathname === '/internal/purge' && request.method === 'DELETE') {
       try {
+        await this.storeArchived(true);
+        this.archived = true;
+        const closed = this.closeActiveWebSockets(1008, 'Space purged');
         const purged = await this.repo.purgeAllData();
-        await this.storeArchived(false);
         this.initialized = false;
-        this.archived = false;
         return Response.json({
           success: true,
+          closed,
           ...purged,
         });
       } catch (error) {
