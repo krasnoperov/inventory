@@ -133,7 +133,9 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
       restored_by_user_id INTEGER NOT NULL,
       restored_at TEXT NOT NULL,
       previous_deleted_at TEXT NOT NULL,
-      memberships_visible INTEGER NOT NULL DEFAULT 0
+      memberships_visible INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'attempted'
+        CHECK (status IN ('attempted', 'restored'))
     )
   `.execute(db);
 

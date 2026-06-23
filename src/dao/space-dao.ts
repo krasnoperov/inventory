@@ -153,6 +153,20 @@ export class SpaceDAO {
       .where('deleted_at', 'is', null)
       .executeTakeFirst();
     const membershipsVisible = Number(visibleMembership?.count ?? 0);
+    const auditLogId = crypto.randomUUID();
+
+    await this.db
+      .insertInto('space_restore_audit_logs')
+      .values({
+        id: auditLogId,
+        space_id: id,
+        restored_by_user_id: restoredByUserId,
+        restored_at: restoredAt,
+        previous_deleted_at: existing.deleted_at,
+        memberships_visible: membershipsVisible,
+        status: 'attempted',
+      })
+      .executeTakeFirst();
 
     const space = await this.db
       .updateTable('spaces')
@@ -166,18 +180,19 @@ export class SpaceDAO {
       return null;
     }
 
-    const auditLogId = crypto.randomUUID();
-    await this.db
-      .insertInto('space_restore_audit_logs')
-      .values({
-        id: auditLogId,
-        space_id: id,
-        restored_by_user_id: restoredByUserId,
-        restored_at: restoredAt,
-        previous_deleted_at: existing.deleted_at,
-        memberships_visible: membershipsVisible,
-      })
-      .executeTakeFirst();
+    try {
+      await this.db
+        .updateTable('space_restore_audit_logs')
+        .set({ status: 'restored' })
+        .where('id', '=', auditLogId)
+        .executeTakeFirst();
+    } catch (error) {
+      console.error('Failed to mark space restore audit as restored', {
+        auditLogId,
+        spaceId: id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return {
       space,

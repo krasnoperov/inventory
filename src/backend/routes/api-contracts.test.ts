@@ -796,6 +796,52 @@ describe('API contracts', () => {
     }]);
   });
 
+  it('re-archives the SpaceDO when restore audit setup fails before D1 restore', async () => {
+    const deletedSpace = {
+      ...space,
+      deleted_at: '2026-06-22T00:00:00.000Z',
+    };
+    const fakeSpaceDAO = {
+      getSpaceByIdIncludingDeleted: async () => deletedSpace,
+      restoreDeletedSpace: async () => {
+        throw new Error('audit unavailable');
+      },
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const spaceDoCalls: Array<{ path: string; method: string }> = [];
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async (request: Request) => {
+          const url = new URL(request.url);
+          spaceDoCalls.push({ path: url.pathname, method: request.method });
+          return Response.json({ success: true });
+        },
+      }),
+    };
+    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [SpaceDAO, fakeSpaceDAO],
+    ]), {
+      ADMIN_USER_IDS: String(user.id),
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
+
+    const response = await bindFetch(app)(`${baseUrl}/api/support/spaces/${space.id}/restore`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), { error: 'audit unavailable' });
+    assert.deepEqual(spaceDoCalls, [
+      { path: '/internal/unarchive', method: 'POST' },
+      { path: '/internal/archive', method: 'POST' },
+    ]);
+  });
+
   it('round-trips production placement routes through the shared client contract', async () => {
     const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
     const fakeSpacesDO = {

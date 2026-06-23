@@ -58,6 +58,7 @@ export interface SpaceRestoreAuditLogsTable {
   restored_at: string;
   previous_deleted_at: string;
   memberships_visible: number;
+  status: 'attempted' | 'restored';
 }
 
 // ============================================================================

@@ -109,6 +109,7 @@ describe('SpaceDAO soft delete', () => {
     assert.equal(auditRows[0].restored_by_user_id, 7);
     assert.equal(auditRows[0].previous_deleted_at, deleted?.deleted_at);
     assert.equal(auditRows[0].memberships_visible, 2);
+    assert.equal(auditRows[0].status, 'restored');
   });
 
   test('restoreDeletedSpace returns null after hard purge', async () => {

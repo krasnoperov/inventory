@@ -268,7 +268,18 @@ spaceRoutes.openapi(restoreSupportSpaceRoute, async (c) => {
     return c.json({ error: message }, unarchiveResponse?.status === 404 ? 404 : 500);
   }
 
-  const restored = await spaceDAO.restoreDeletedSpace(spaceId, userId);
+  let restored;
+  try {
+    restored = await spaceDAO.restoreDeletedSpace(spaceId, userId);
+  } catch (error) {
+    await spaceDoFetch(c.env, spaceId, '/internal/archive', {
+      method: 'POST',
+      headers: { 'X-Space-Id': spaceId },
+    });
+    return c.json({
+      error: error instanceof Error ? error.message : 'Failed to restore space',
+    }, 500);
+  }
   if (!restored) {
     const current = await spaceDAO.getSpaceByIdIncludingDeleted(spaceId);
     if (current && !current.deleted_at) {
