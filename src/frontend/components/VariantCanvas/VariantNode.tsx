@@ -1,12 +1,9 @@
-import { memo, useCallback, useState, useEffect } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type SpaceSubject, type Variant, type Composition, type CompositionItem, type CompositionOverview, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantForgeTrayReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
-import { formatMediaKind } from '../../mediaKind';
-import { formatUtcDateTime } from '../../lib/dates';
+import { type Asset, type Variant, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantForgeTrayReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
+import { formatBytes } from '../../lib/format';
 import { Thumbnail } from '../Thumbnail';
 import { ImageLightbox } from '../ImageLightbox';
-import { CompositionPlacementControl } from '../CompositionPlacementControl';
-import type { CompositionShortcut } from '../../productionShortcuts';
 import styles from './VariantNode.module.css';
 
 /** Layout direction for handle positioning */
@@ -39,21 +36,10 @@ export interface VariantNodeData extends Record<string, unknown> {
   forkedFrom?: { assetId: string; assetName: string };
   /** Layout direction for handle positioning */
   layoutDirection?: LayoutDirection;
-  /** Handler for starring/unstarring a variant */
-  onStarVariant?: (variantId: string, starred: boolean) => void;
-  /** Handler for deleting a variant */
-  onDeleteVariant?: (variant: Variant) => void;
-  /** Handler for creating a manual relation from this variant */
-  onCreateRelation?: (subject: SpaceSubject) => void;
-  /** Handler for selecting this exact variant for collection placement */
-  onAddVariantToCollection?: (variant: Variant) => void;
-  /** Compositions available as post-generation placement targets */
-  compositions?: Array<Composition | CompositionOverview>;
-  compositionItems?: CompositionItem[];
-  /** Place this finished variant into a composition as a chosen role */
-  onPlaceInComposition?: (variant: Variant, shortcut: CompositionShortcut) => void;
-  /** Total number of variants (to disable delete when only 1) */
-  variantCount?: number;
+  /** Toggle the fixed details panel for this variant (single-select on the canvas). */
+  onToggleExpand?: (variantId: string) => void;
+  /** Whether the details panel is currently open for this variant. */
+  isExpanded?: boolean;
   /** Space ID for authenticated media downloads */
   spaceId?: string;
   /** Exact thumbnail width (px) so the card matches the image aspect ratio */
@@ -81,46 +67,14 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     forkedTo,
     forkedFrom,
     layoutDirection = 'LR',
-    onStarVariant,
-    onDeleteVariant,
-    onCreateRelation,
-    onAddVariantToCollection,
-    compositions,
-    compositionItems,
-    onPlaceInComposition,
-    variantCount = 0,
+    onToggleExpand,
+    isExpanded,
     spaceId,
     thumbWidth,
   } = data;
 
-  // Expanded state for showing details
-  const [isExpanded, setIsExpanded] = useState(false);
-  // Full-resolution lightbox
+  // Full-resolution lightbox (the quick-view from the thumbnail hover button).
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  // Raw metadata disclosure (collapsed by default to keep the panel lean)
-  const [showRawMeta, setShowRawMeta] = useState(false);
-  // Fallback image dimensions when the variant has none stored (e.g. uploads)
-  const [measuredDims, setMeasuredDims] = useState<{ width: number; height: number } | null>(null);
-
-  // Lazily measure real dimensions only when the panel is open and the variant
-  // has no stored media_width/height. Most generated variants store these, so
-  // this load is rare.
-  useEffect(() => {
-    if (!isExpanded) return;
-    if (variant.media_width && variant.media_height) return;
-    if (!isVariantImageReady(variant)) return;
-    const url = getVariantMediaUrl(variant, spaceId);
-    if (!url) return;
-    let cancelled = false;
-    const img = new Image();
-    img.onload = () => {
-      if (!cancelled) setMeasuredDims({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.src = url;
-    return () => {
-      cancelled = true;
-    };
-  }, [isExpanded, variant, spaceId]);
 
   // Determine handle positions based on layout direction
   const getHandlePositions = () => {
@@ -138,36 +92,11 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     if (isGhost && onGhostClick) {
       onGhostClick(asset.id);
     } else {
-      // Toggle expanded state on click
-      setIsExpanded(prev => !prev);
+      // Open the fixed details panel for this variant (single-select on canvas).
+      onToggleExpand?.(variant.id);
       onVariantClick?.(variant);
     }
-  }, [variant, isGhost, asset.id, onVariantClick, onGhostClick]);
-
-  const handleStarClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onStarVariant?.(variant.id, !variant.starred);
-  }, [variant.id, variant.starred, onStarVariant]);
-
-  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDeleteVariant?.(variant);
-  }, [variant, onDeleteVariant]);
-
-  const handleCreateRelationClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onCreateRelation?.({ subjectType: 'variant', variantId: variant.id });
-  }, [onCreateRelation, variant.id]);
-
-  const handleAddVariantToCollectionClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onAddVariantToCollection?.(variant);
-  }, [onAddVariantToCollection, variant]);
-
-  const handleCloseExpanded = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsExpanded(false);
-  }, []);
+  }, [variant, isGhost, asset.id, onVariantClick, onGhostClick, onToggleExpand]);
 
   const handleOpenLightbox = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -176,40 +105,11 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
   const handleCloseLightbox = useCallback(() => setLightboxOpen(false), []);
 
-  // Parse recipe for details
-  const parseRecipe = (recipe: string) => {
-    try {
-      return JSON.parse(recipe);
-    } catch {
-      return null;
-    }
-  };
-
-  const recipe = parseRecipe(variant.recipe);
-  const provenanceSummary = formatMetadataSummary(variant.generation_provenance, [
-    'operation',
-    'assetType',
-    'mediaKind',
-    'model',
-    'modelProvider',
-    'prompt',
-  ]);
-  const providerSummary = formatMetadataSummary(variant.provider_metadata, [
-    'provider',
-    'providerMode',
-    'model',
-    'operation',
-    'api',
-    'resolution',
-    'durationSeconds',
-  ]);
-
-  // Lean derived fields for the details panel
-  const dimWidth = variant.media_width ?? measuredDims?.width ?? null;
-  const dimHeight = variant.media_height ?? measuredDims?.height ?? null;
-  const dimensionsLabel = dimWidth && dimHeight ? `${dimWidth}×${dimHeight}` : null;
+  // Derived fields for the hover quick-view lightbox caption.
+  const dimensionsLabel = variant.media_width && variant.media_height
+    ? `${variant.media_width}×${variant.media_height}`
+    : null;
   const sizeLabel = formatBytes(variant.media_size_bytes);
-  const keyFacts = extractKeyFacts(variant, recipe);
   const canViewFullSize = isVariantImageReady(variant);
   const fullSizeUrl = canViewFullSize ? getVariantMediaUrl(variant, spaceId) : undefined;
   const lightboxCaption = [asset.name, dimensionsLabel, sizeLabel].filter(Boolean).join(' · ');
@@ -384,194 +284,6 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         </div>
       )}
 
-      {/* Expanded Details Panel */}
-      {isExpanded && isVariantReady(variant) && !isGhost && (
-        <div className={styles.detailsPanel} onClick={(e) => e.stopPropagation()}>
-          <button className={styles.closeButton} onClick={handleCloseExpanded} title="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-
-          {/* Actions Row */}
-          <div className={styles.detailsActions}>
-            {canViewFullSize && (
-              <button
-                className={styles.detailActionButton}
-                onClick={handleOpenLightbox}
-                title="View full size"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                </svg>
-              </button>
-            )}
-            <button
-              className={`${styles.detailActionButton} ${variant.starred ? styles.starred : ''}`}
-              onClick={handleStarClick}
-              title={variant.starred ? 'Unstar' : 'Star'}
-            >
-              {variant.starred ? '★' : '☆'}
-            </button>
-            <a
-              className={styles.detailActionButton}
-              href={getVariantMediaUrl(variant, spaceId)}
-              download={`${asset.name}-${variant.id.slice(0, 8)}`}
-              title="Download"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            </a>
-            {onAddToTray && isVariantForgeTrayReady(variant) && (
-              <button
-                className={styles.detailActionButton}
-                onClick={handleAddToTray}
-                title="Add to Tray"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              </button>
-            )}
-            {onCreateRelation && (
-              <button
-                className={styles.detailActionButton}
-                onClick={handleCreateRelationClick}
-                title="Create relation"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
-                  <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
-                </svg>
-              </button>
-            )}
-            {onAddVariantToCollection && (
-              <button
-                className={styles.detailActionButton}
-                onClick={handleAddVariantToCollectionClick}
-                title="Select variant for collection placement"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <path d="M4 6h16" />
-                  <path d="M4 12h10" />
-                  <path d="M4 18h7" />
-                  <path d="M18 15v6" />
-                  <path d="M15 18h6" />
-                </svg>
-              </button>
-            )}
-            {!isActive && onSetActive && (
-              <button
-                className={`${styles.detailActionButton} ${styles.setActive}`}
-                onClick={handleSetActive}
-                title="Set Active"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              </button>
-            )}
-            {onDeleteVariant && variantCount > 1 && (
-              <button
-                className={`${styles.detailActionButton} ${styles.delete}`}
-                onClick={handleDeleteClick}
-                title="Delete"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          {/* Metadata - one lean line: when · kind · dimensions · size */}
-          <div className={styles.detailsMeta}>
-            <span className={styles.detailsDate}>{formatUtcDateTime(variant.created_at)}</span>
-            <span className={styles.detailsChip}>{formatMediaKind(variant.media_kind)}</span>
-            {dimensionsLabel && <span className={styles.detailsChip}>{dimensionsLabel}</span>}
-            {sizeLabel && <span className={styles.detailsChip}>{sizeLabel}</span>}
-          </div>
-
-          {/* Place this finished variant into a composition (post-generation) */}
-          {onPlaceInComposition && compositions && compositions.length > 0 && isVariantReady(variant) && (
-            <div onClick={(e) => e.stopPropagation()}>
-              <CompositionPlacementControl
-                compositions={compositions}
-                compositionItems={compositionItems ?? []}
-                variant={variant}
-                onPlace={onPlaceInComposition}
-              />
-            </div>
-          )}
-
-          {/* Prompt */}
-          {recipe?.prompt && (
-            <div className={styles.detailsPrompt}>
-              {recipe.prompt.length > 140 ? recipe.prompt.slice(0, 140) + '…' : recipe.prompt}
-            </div>
-          )}
-
-          {/* Key facts - compact chip row (operation · type · provider · model) */}
-          {keyFacts.length > 0 && (
-            <div className={styles.detailsFacts}>
-              {keyFacts.map((fact) => (
-                <span key={fact} className={styles.detailsChip}>{fact}</span>
-              ))}
-            </div>
-          )}
-
-          {/* Raw metadata - collapsed by default so it costs ~one line */}
-          {(provenanceSummary || providerSummary) && (
-            <div className={styles.detailsRaw}>
-              <button
-                className={styles.detailsRawToggle}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowRawMeta((prev) => !prev);
-                }}
-                aria-expanded={showRawMeta}
-              >
-                <svg
-                  className={`${styles.detailsRawChevron} ${showRawMeta ? styles.detailsRawChevronOpen : ''}`}
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11"
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-                Raw metadata
-              </button>
-              {showRawMeta && (
-                <div className={styles.detailsGeneration}>
-                  {provenanceSummary && (
-                    <div className={styles.detailsGenerationRow}>
-                      <span>Provenance</span>
-                      <code>{provenanceSummary}</code>
-                    </div>
-                  )}
-                  {providerSummary && (
-                    <div className={styles.detailsGenerationRow}>
-                      <span>Provider</span>
-                      <code>{providerSummary}</code>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Description */}
-          {variant.description && (
-            <div className={styles.detailsDescription}>
-              {variant.description.length > 80 ? variant.description.slice(0, 80) + '...' : variant.description}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Output handle (for outgoing edges to child variants) - hidden for ghost nodes */}
       {showBottomHandle && (
         <Handle type="source" position={sourcePosition} className={styles.handle} />
@@ -588,72 +300,6 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       )}
     </div>
   );
-}
-
-function formatMetadataSummary(value: string | null | undefined, preferredKeys: string[]): string | null {
-  if (!value) return null;
-  const parsed = parseJsonObject(value);
-  if (!parsed) return truncateText(value, 140);
-
-  const parts: string[] = [];
-  for (const key of preferredKeys) {
-    const field = parsed[key];
-    if (field === undefined || field === null || typeof field === 'object') continue;
-    parts.push(`${key}=${String(field)}`);
-  }
-
-  return parts.length > 0 ? truncateText(parts.join(' '), 180) : truncateText(JSON.stringify(parsed), 180);
-}
-
-function parseJsonObject(value: string): Record<string, unknown> | null {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function truncateText(value: string, maxLength: number): string {
-  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
-}
-
-/** Human-readable byte size, e.g. 245 KB / 1.8 MB. */
-function formatBytes(bytes: number | null | undefined): string | null {
-  if (!bytes || bytes <= 0) return null;
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  const rounded = unit === 0 ? value : value < 10 ? Math.round(value * 10) / 10 : Math.round(value);
-  return `${rounded} ${units[unit]}`;
-}
-
-/**
- * Pull the few high-value facts (operation, asset type, provider, model) out of
- * the verbose provenance/provider metadata for the compact chip row. Falls back
- * across sources and de-dupes so chips stay lean.
- */
-function extractKeyFacts(variant: Variant, recipe: { model?: string } | null): string[] {
-  const prov = variant.generation_provenance ? parseJsonObject(variant.generation_provenance) : null;
-  const provider = variant.provider_metadata ? parseJsonObject(variant.provider_metadata) : null;
-  const facts: string[] = [];
-  const add = (value: unknown) => {
-    if (value === undefined || value === null || typeof value === 'object') return;
-    const text = String(value).trim();
-    if (text && !facts.some((f) => f.toLowerCase() === text.toLowerCase())) facts.push(text);
-  };
-  add(prov?.operation);
-  add(prov?.assetType);
-  add(provider?.provider ?? prov?.modelProvider);
-  add(recipe?.model ?? provider?.model ?? prov?.model);
-  return facts;
 }
 
 export const VariantNode = memo(VariantNodeComponent);

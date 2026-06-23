@@ -17,6 +17,7 @@ import dagre from 'dagre';
 import { type Asset, type Variant, type Lineage, type SpaceSubject, type Composition, type CompositionItem, type CompositionOverview, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import { VariantNode, type VariantNodeType } from './VariantNode';
+import { VariantDetailsPanel } from './VariantDetailsPanel';
 import { computeNativeMaxZoom } from './canvasZoom';
 
 import '@xyflow/react/dist/style.css';
@@ -254,6 +255,12 @@ function VariantCanvasInner({
 }) {
   const { fitView } = useReactFlow();
   const [isReady, setIsReady] = useState(false);
+  // Which variant's fixed details panel is open (single-select on the canvas).
+  const [expandedVariantId, setExpandedVariantId] = useState<string | null>(null);
+  const toggleExpanded = useCallback((variantId: string) => {
+    setExpandedVariantId((prev) => (prev === variantId ? null : variantId));
+  }, []);
+  const closeExpanded = useCallback(() => setExpandedVariantId(null), []);
 
   // Allow zooming each image past its native 1:1 resolution (paired with the
   // full-resolution media the nodes now render). The old fixed cap of 2 was well
@@ -351,14 +358,8 @@ function VariantCanvasInner({
           forkedTo: forkedToMap.get(variant.id),
           forkedFrom: forkedFromMap.get(variant.id),
           onGhostClick: onGhostNodeClick, // For forked-to/from navigation
-          onStarVariant,
-          onDeleteVariant,
-          onCreateRelation,
-          onAddVariantToCollection,
-          compositions,
-          compositionItems,
-          onPlaceInComposition,
-          variantCount: variants.length,
+          onToggleExpand: toggleExpanded,
+          isExpanded: variant.id === expandedVariantId,
           spaceId,
           // Exact thumbnail width so the card matches the image aspect ratio
           thumbWidth: dims ? dims.width - NODE_PADDING : undefined,
@@ -549,7 +550,7 @@ function VariantCanvasInner({
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, onStarVariant, onDeleteVariant, onCreateRelation, onAddVariantToCollection, compositions, compositionItems, onPlaceInComposition, spaceId]);
+  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, toggleExpanded, expandedVariantId, spaceId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -587,6 +588,13 @@ function VariantCanvasInner({
     }
   }, [dimensionsReady, nodes.length, fitView]);
 
+  // Close the details panel if its variant disappears (deleted, filtered out).
+  useEffect(() => {
+    if (expandedVariantId && !variants.some((v) => v.id === expandedVariantId)) {
+      setExpandedVariantId(null);
+    }
+  }, [variants, expandedVariantId]);
+
   if (variants.length === 0) {
     return (
       <div className={styles.empty}>
@@ -600,6 +608,9 @@ function VariantCanvasInner({
   }
 
   const canvasClassName = `${styles.canvas} ${isReady ? styles.ready : styles.loading}`;
+  const expandedVariant = expandedVariantId
+    ? variants.find((v) => v.id === expandedVariantId) ?? null
+    : null;
 
   return (
     <div className={canvasClassName}>
@@ -626,6 +637,29 @@ function VariantCanvasInner({
           maskColor="rgba(0, 0, 0, 0.5)"
         />
       </ReactFlow>
+
+      {expandedVariant && (
+        <VariantDetailsPanel
+          variant={expandedVariant}
+          asset={asset}
+          spaceId={spaceId}
+          isActive={expandedVariant.id === asset.active_variant_id}
+          variantCount={variants.length}
+          lineage={lineage}
+          allVariants={allVariants}
+          allAssets={allAssets}
+          onClose={closeExpanded}
+          onStarVariant={onStarVariant}
+          onDeleteVariant={onDeleteVariant}
+          onCreateRelation={onCreateRelation}
+          onAddVariantToCollection={onAddVariantToCollection}
+          onAddToTray={onAddToTray}
+          onSetActive={onSetActive}
+          compositions={compositions}
+          compositionItems={compositionItems}
+          onPlaceInComposition={onPlaceInComposition}
+        />
+      )}
     </div>
   );
 }
