@@ -17,6 +17,7 @@ import {
   DeleteSpaceResponseSchema,
   ErrorResponseSchema,
   GetSpaceResponseSchema,
+  GetSupportSpaceResponseSchema,
   GoogleAuthRequestSchema,
   ListCollectionItemsResponseSchema,
   ListCollectionsResponseSchema,
@@ -48,6 +49,7 @@ import {
   RelationParamsSchema,
   RelationResponseSchema,
   ReorderItemsRequestSchema,
+  RestoreSupportSpaceResponseSchema,
   SpaceIdParamsSchema,
   StylePresetParamsSchema,
   StylePresetResponseSchema,
@@ -349,6 +351,41 @@ export const getSpaceRoute = createRoute({
     },
     403: errorResponse,
     404: errorResponse,
+  },
+});
+
+export const getSupportSpaceRoute = createRoute({
+  method: 'get',
+  path: '/api/support/spaces/{id}',
+  request: {
+    params: SpaceIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(GetSupportSpaceResponseSchema),
+      description: 'Support metadata for a space, including soft-deleted rows',
+    },
+    403: errorResponse,
+    404: errorResponse,
+  },
+});
+
+export const restoreSupportSpaceRoute = createRoute({
+  method: 'post',
+  path: '/api/support/spaces/{id}/restore',
+  request: {
+    params: SpaceIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(RestoreSupportSpaceResponseSchema),
+      description: 'Restored soft-deleted space',
+    },
+    403: errorResponse,
+    404: errorResponse,
+    409: errorResponse,
+    500: errorResponse,
+    503: errorResponse,
   },
 });
 

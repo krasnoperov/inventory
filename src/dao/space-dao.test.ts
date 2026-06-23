@@ -85,6 +85,38 @@ describe('SpaceDAO soft delete', () => {
     assert.equal(await spaceDAO.getSpaceByIdIncludingDeleted('space-1'), null);
   });
 
+  test('restoreDeletedSpace makes the space visible again to retained members and audits it', async () => {
+    assert.equal(await spaceDAO.deleteSpace('space-1'), true);
+    assert.equal(await spaceDAO.getSpaceById('space-1'), null);
+    assert.deepEqual(await spaceDAO.getSpacesForUser('2'), []);
+
+    const deleted = await spaceDAO.getSpaceByIdIncludingDeleted('space-1');
+    assert.equal(typeof deleted?.deleted_at, 'string');
+
+    const restored = await spaceDAO.restoreDeletedSpace('space-1', 7);
+
+    assert.equal(restored?.space.id, 'space-1');
+    assert.equal(restored?.space.deleted_at, null);
+    assert.equal(restored?.previousDeletedAt, deleted?.deleted_at);
+    assert.equal(restored?.membershipsVisible, 2);
+    assert.equal((await spaceDAO.getSpaceById('space-1'))?.id, 'space-1');
+    assert.deepEqual((await spaceDAO.getSpacesForUser('2')).map(space => space.id), ['space-1']);
+    assert.equal(await memberDAO.getMemberRole('space-1', '2'), 'editor');
+
+    const auditRows = await db.selectFrom('space_restore_audit_logs').selectAll().execute();
+    assert.equal(auditRows.length, 1);
+    assert.equal(auditRows[0].space_id, 'space-1');
+    assert.equal(auditRows[0].restored_by_user_id, 7);
+    assert.equal(auditRows[0].previous_deleted_at, deleted?.deleted_at);
+    assert.equal(auditRows[0].memberships_visible, 2);
+  });
+
+  test('restoreDeletedSpace returns null after hard purge', async () => {
+    assert.equal(await spaceDAO.deleteSpace('space-1'), true);
+    assert.equal(await spaceDAO.purgeDeletedSpace('space-1'), true);
+    assert.equal(await spaceDAO.restoreDeletedSpace('space-1', 7), null);
+  });
+
   test('removeMember hides membership and addMember restores it', async () => {
     assert.equal(await memberDAO.removeMember('space-1', '2'), true);
     assert.equal(await memberDAO.getMember('space-1', '2'), null);

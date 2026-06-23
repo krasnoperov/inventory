@@ -607,6 +607,127 @@ describe('API contracts', () => {
     assert.equal(deleteCalls, 0);
   });
 
+  it('supports admin inspection and restore of a soft-deleted space without changing normal reads', async () => {
+    const deletedSpace = {
+      ...space,
+      deleted_at: '2026-06-22T00:00:00.000Z',
+    };
+    const supportMembership = {
+      space_id: space.id,
+      user_id: String(user.id),
+      role: 'owner' as const,
+      joined_at: 1,
+      deleted_at: null,
+      user: {
+        id: String(user.id),
+        email: user.email,
+        name: user.name,
+      },
+    };
+    const spaceDoCalls: Array<{ path: string; method: string; spaceId: string | null }> = [];
+    const fakeSpaceDAO = {
+      getSpacesForUser: async () => [],
+      getSpaceByIdIncludingDeleted: async (id: string) => id === space.id ? deletedSpace : null,
+      getSpaceMembersIncludingDeleted: async (id: string) => id === space.id ? [supportMembership] : [],
+      restoreDeletedSpace: async (id: string, restoredByUserId: number) => id === space.id ? {
+        space: { ...deletedSpace, deleted_at: null },
+        previousDeletedAt: deletedSpace.deleted_at,
+        membershipsVisible: 1,
+        auditLogId: `restore-${restoredByUserId}`,
+      } : null,
+    };
+    const fakeMemberDAO = {
+      getMember: async () => null,
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const fakeSpacesDO = {
+      idFromName: (id: string) => id,
+      get: () => ({
+        fetch: async (request: Request) => {
+          const url = new URL(request.url);
+          spaceDoCalls.push({
+            path: url.pathname,
+            method: request.method,
+            spaceId: request.headers.get('X-Space-Id'),
+          });
+          return Response.json({ success: true });
+        },
+      }),
+    };
+    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [SpaceDAO, fakeSpaceDAO],
+      [MemberDAO, fakeMemberDAO],
+    ]), {
+      ADMIN_USER_IDS: String(user.id),
+      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
+    });
+    const fetch = bindFetch(app);
+    const authHeaders = { Authorization: 'Bearer test-token' };
+
+    const listed = await apiFetch('GET /api/spaces', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+    });
+    assert.deepEqual(listed.spaces, []);
+
+    const normalGet = await fetch(`${baseUrl}/api/spaces/${space.id}`, {
+      headers: authHeaders,
+    });
+    assert.equal(normalGet.status, 403);
+
+    const support = await apiFetch('GET /api/support/spaces/:id', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    assert.equal(support.space.deleted_at, deletedSpace.deleted_at);
+    assert.equal(support.memberships[0].role, 'owner');
+
+    const restored = await apiFetch('POST /api/support/spaces/:id/restore', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    assert.equal(restored.space.deleted_at, null);
+    assert.equal(restored.previousDeletedAt, deletedSpace.deleted_at);
+    assert.equal(restored.membershipsVisible, 1);
+    assert.equal(restored.auditLogId, `restore-${user.id}`);
+    assert.deepEqual(spaceDoCalls, [{
+      path: '/internal/unarchive',
+      method: 'POST',
+      spaceId: space.id,
+    }]);
+  });
+
+  it('returns clear not found when support restore targets a purged space', async () => {
+    const fakeSpaceDAO = {
+      getSpaceByIdIncludingDeleted: async () => null,
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [SpaceDAO, fakeSpaceDAO],
+    ]), {
+      ADMIN_USER_IDS: String(user.id),
+    });
+
+    const response = await bindFetch(app)(`${baseUrl}/api/support/spaces/${space.id}/restore`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-token' },
+    });
+
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: 'Space not found or already purged' });
+  });
+
   it('round-trips production placement routes through the shared client contract', async () => {
     const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
     const fakeSpacesDO = {

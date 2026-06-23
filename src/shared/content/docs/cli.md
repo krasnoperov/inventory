@@ -31,6 +31,8 @@ makefx spaces --details --json
 makefx spaces --id YOUR_SPACE_ID --json
 makefx spaces create "My Game Assets" --init
 makefx spaces delete YOUR_SPACE_ID
+makefx spaces inspect-deleted YOUR_SPACE_ID
+makefx spaces restore YOUR_SPACE_ID
 makefx init --space YOUR_SPACE_ID
 ```
 

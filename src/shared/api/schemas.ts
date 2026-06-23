@@ -172,6 +172,31 @@ export const SpaceSchema = z
   })
   .openapi('Space');
 
+export const SupportSpaceMemberSchema = z
+  .object({
+    space_id: z.string(),
+    user_id: z.string(),
+    role: SpaceRoleSchema,
+    joined_at: z.number(),
+    deleted_at: z.string().nullable(),
+    user: z.object({
+      id: z.string(),
+      email: z.string(),
+      name: z.string().nullable(),
+    }),
+  })
+  .openapi('SupportSpaceMember');
+
+export const SupportSpaceSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    owner_id: z.string(),
+    created_at: z.number(),
+    deleted_at: z.string().nullable(),
+  })
+  .openapi('SupportSpace');
+
 export const SpaceIdParamsSchema = z.object({
   id: z.string().openapi({
     param: {
@@ -234,6 +259,25 @@ export const GetSpaceResponseSchema = z
     space: SpaceSchema,
   })
   .openapi('GetSpaceResponse');
+
+export const GetSupportSpaceResponseSchema = z
+  .object({
+    success: z.literal(true),
+    space: SupportSpaceSchema,
+    memberships: z.array(SupportSpaceMemberSchema),
+  })
+  .openapi('GetSupportSpaceResponse');
+
+export const RestoreSupportSpaceResponseSchema = z
+  .object({
+    success: z.literal(true),
+    space: SupportSpaceSchema,
+    membershipsVisible: z.number().int(),
+    previousDeletedAt: z.string(),
+    auditLogId: z.string(),
+    message: z.string(),
+  })
+  .openapi('RestoreSupportSpaceResponse');
 
 export const MediaKindSchema = z.enum(['image', 'audio', 'video']);
 export const VariantStatusSchema = z.enum(['pending', 'processing', 'uploading', 'completed', 'failed']);
@@ -1204,6 +1248,8 @@ export type CreateSpaceRequest = z.infer<typeof CreateSpaceRequestSchema>;
 export type CreateSpaceResponse = z.infer<typeof CreateSpaceResponseSchema>;
 export type ListSpacesResponse = z.infer<typeof ListSpacesResponseSchema>;
 export type GetSpaceResponse = z.infer<typeof GetSpaceResponseSchema>;
+export type GetSupportSpaceResponse = z.infer<typeof GetSupportSpaceResponseSchema>;
+export type RestoreSupportSpaceResponse = z.infer<typeof RestoreSupportSpaceResponseSchema>;
 export type ListSpaceAssetsResponse = z.infer<typeof ListSpaceAssetsResponseSchema>;
 export type SpaceSubjectType = z.infer<typeof SpaceSubjectTypeSchema>;
 export type CollectionKind = z.infer<typeof CollectionKindSchema>;
