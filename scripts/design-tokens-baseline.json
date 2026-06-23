@@ -177,15 +177,12 @@
     ],
     "src/frontend/components/VariantCanvas/VariantNode.module.css": [
       "oklch(55% 0.18 276/0.05)",
-      "oklch(55% 0.18 276/0.08)",
       "oklch(55% 0.18 276/0.1)",
       "oklch(55% 0.18 276/0.2)",
       "oklch(55% 0.18 276/0.25)",
       "oklch(55% 0.18 276/0.3)",
-      "oklch(55% 0.25 25/0.1)",
       "oklch(70% 0.15 145/0.15)",
       "oklch(70% 0.15 145/0.25)",
-      "oklch(70% 0.2 145/0.1)",
       "oklch(70% 0.2 145/0.3)",
       "white",
       "white"
