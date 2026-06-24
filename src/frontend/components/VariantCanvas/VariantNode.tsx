@@ -42,8 +42,10 @@ export interface VariantNodeData extends Record<string, unknown> {
   isExpanded?: boolean;
   /** Space ID for authenticated media downloads */
   spaceId?: string;
-  /** Exact thumbnail width (px) so the card matches the image aspect ratio */
+  /** Exact thumbnail width (px) so the card matches the media aspect ratio */
   thumbWidth?: number;
+  /** Exact thumbnail height (px); lets audio nodes use a landscape ratio instead of the square default */
+  thumbHeight?: number;
 }
 
 export type VariantNodeType = Node<VariantNodeData, 'variant'>;
@@ -71,6 +73,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     isExpanded,
     spaceId,
     thumbWidth,
+    thumbHeight,
   } = data;
 
   // Full-resolution lightbox (the quick-view from the thumbnail hover button).
@@ -183,7 +186,13 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       )}
 
       {/* Thumbnail */}
-      <div className={styles.thumbnail} style={thumbWidth ? { width: thumbWidth } : undefined}>
+      <div
+        className={styles.thumbnail}
+        style={{
+          ...(thumbWidth ? { width: thumbWidth } : {}),
+          ...(thumbHeight ? { height: thumbHeight } : {}),
+        }}
+      >
         {renderThumbnail()}
 
         {/* Indicators - only for completed variants */}

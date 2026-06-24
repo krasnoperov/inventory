@@ -46,11 +46,12 @@
   background: var(--color-primary) !important;
 }
 
-/* Thumbnail container - fixed height; width is set inline to match the image
-   aspect ratio exactly (no crop, no letterbox bars). The height MUST match
-   THUMB_HEIGHT in VariantCanvas.tsx, which derives the inline width from it —
-   if they drift, variants render at the wrong aspect and crop. The width here
-   is only a fallback before image dimensions have loaded. */
+/* Thumbnail container. For image/video, width is set inline to match the media
+   aspect ratio (no crop, no letterbox bars) while height stays THUMB_HEIGHT —
+   the inline width is derived from that height in VariantCanvas.tsx, so for
+   those kinds they MUST agree or variants render at the wrong aspect and crop.
+   Audio has no intrinsic aspect, so it overrides both inline (a 16:9 landscape)
+   and its `fill` content adapts. The values here are the pre-load fallback. */
 .thumbnail {
   position: relative;
   width: 180px;

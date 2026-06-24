@@ -14,7 +14,7 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import dagre from 'dagre';
-import { type Asset, type Variant, type Lineage, type SpaceSubject, type Composition, type CompositionItem, type CompositionOverview, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, type Lineage, type SpaceSubject, type Composition, type CompositionItem, type CompositionOverview, getVariantThumbnailUrl, isVariantVideoReady, isVariantAudioReady } from '../../hooks/useSpaceWebSocket';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import { VariantNode, type VariantNodeType } from './VariantNode';
 import { VariantDetailsPanel } from './VariantDetailsPanel';
@@ -37,6 +37,12 @@ const ACTIVE_SCALE = 1.5;
 // inline thumbnail width can't drift from the CSS thumbnail height.
 const DEFAULT_NODE_WIDTH = THUMB_HEIGHT + NODE_PADDING;
 const DEFAULT_NODE_HEIGHT = THUMB_HEIGHT + NODE_PADDING;
+
+// Audio has no intrinsic dimensions, so instead of falling back to the square
+// default it gets a deliberate 16:9 landscape — the waveform player reads as an
+// audio timeline rather than an empty poster.
+const AUDIO_THUMB_WIDTH = 256;
+const AUDIO_THUMB_HEIGHT = 144;
 
 // Custom node types
 const nodeTypes = {
@@ -361,8 +367,9 @@ function VariantCanvasInner({
           onToggleExpand: toggleExpanded,
           isExpanded: variant.id === expandedVariantId,
           spaceId,
-          // Exact thumbnail width so the card matches the image aspect ratio
+          // Exact thumbnail size so the card matches the media aspect ratio
           thumbWidth: dims ? dims.width - NODE_PADDING : undefined,
+          thumbHeight: dims ? dims.height - NODE_PADDING : undefined,
         },
       };
     });
@@ -411,8 +418,9 @@ function VariantCanvasInner({
             asset: parentAsset,
             isGhost: true,
             onGhostClick: onGhostNodeClick,
-            // Exact thumbnail width so the card matches the image aspect ratio
+            // Exact thumbnail size so the card matches the media aspect ratio
             thumbWidth: ghostDims ? ghostDims.width - NODE_PADDING : undefined,
+            thumbHeight: ghostDims ? ghostDims.height - NODE_PADDING : undefined,
           },
         });
       }
@@ -439,8 +447,9 @@ function VariantCanvasInner({
             isGhost: true,
             isDerivative: true, // Mark as outgoing derivative for different styling
             onGhostClick: onGhostNodeClick,
-            // Exact thumbnail width so the card matches the image aspect ratio
+            // Exact thumbnail size so the card matches the media aspect ratio
             thumbWidth: ghostDims ? ghostDims.width - NODE_PADDING : undefined,
+            thumbHeight: ghostDims ? ghostDims.height - NODE_PADDING : undefined,
           },
         });
       }
@@ -724,6 +733,14 @@ export function VariantCanvas({
           if (isVariantVideoReady(variant) && variant.media_width && variant.media_height) {
             const nodeWidth = calculateNodeWidth(variant.media_width, variant.media_height);
             newDimensions.set(variant.id, { width: nodeWidth, height: DEFAULT_NODE_HEIGHT });
+            return;
+          }
+          if (isVariantAudioReady(variant)) {
+            // 16:9 landscape so the waveform player has room to read as audio.
+            newDimensions.set(variant.id, {
+              width: AUDIO_THUMB_WIDTH + NODE_PADDING,
+              height: AUDIO_THUMB_HEIGHT + NODE_PADDING,
+            });
             return;
           }
           // Pending/failed variant - use default dimensions

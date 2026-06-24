@@ -101,8 +101,8 @@ export const Audio: Story = () => {
   });
   return (
     <div className={layout.inlineCluster}>
-      <Labeled label="canvas (fill)">
-        <div style={{ width: 180, height: 180 }}>
+      <Labeled label="canvas (fill, 16:9)">
+        <div style={{ width: 256, height: 144 }}>
           <Thumbnail variant={audio} size="fill" showAudioControls showBadges isActive />
         </div>
       </Labeled>
