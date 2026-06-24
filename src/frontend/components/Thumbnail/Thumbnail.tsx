@@ -19,6 +19,7 @@ import {
   getVariantDisplayImageUrl,
   getVariantMediaUrl,
 } from '../../hooks/useSpaceWebSocket';
+import { AudioPlayer } from '../AudioPlayer/AudioPlayer';
 import styles from './Thumbnail.module.css';
 
 export type ThumbnailSize = 'xs' | 'sm' | 'md' | 'lg' | 'fill';
@@ -163,15 +164,8 @@ function ThumbnailComponent({
             <circle cx="16" cy="16" r="3" />
           </svg>
           <span className={styles.audioLabel}>Audio</span>
-          {showPlayableAudio && (
-            <audio
-              className={styles.audioElement}
-              src={mediaUrl}
-              controls
-              preload="metadata"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            />
+          {showPlayableAudio && mediaUrl && (
+            <AudioPlayer src={mediaUrl} className={styles.audioPlayer} />
           )}
         </div>
       ) : isVariantVideoReady(variant) ? (

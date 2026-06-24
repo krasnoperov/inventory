@@ -123,9 +123,8 @@
   letter-spacing: 0;
 }
 
-.audioElement {
-  width: min(100%, 220px);
-  height: 32px;
+.audioPlayer {
+  margin-top: 0.25rem;
 }
 
 /* Video preview */
@@ -177,8 +176,8 @@
 
 .xs .audioLabel,
 .sm .audioLabel,
-.xs .audioElement,
-.sm .audioElement,
+.xs .audioPlayer,
+.sm .audioPlayer,
 .xs .videoLabel,
 .sm .videoLabel {
   display: none;
