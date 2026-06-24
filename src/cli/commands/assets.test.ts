@@ -391,3 +391,25 @@ test('assets set-active disconnects even when the mutation fails', async () => {
   );
   assert.deepEqual(mutationCalls, ['connect', 'disconnect']);
 });
+
+test('assets set-active treats a timed-out confirmation as success when the switch already landed', async () => {
+  const output: string[] = [];
+  const { deps } = depsFor(output);
+  deps.createMutationClient = async () => ({
+    connect: async () => {},
+    disconnect: () => {},
+    deleteAsset: async () => {},
+    renameAsset: async () => ({ ...asset }),
+    // Durable write lands server-side, but the broadcast ack never arrives.
+    setActiveVariant: async () => { throw new Error('Timed out waiting for server confirmation'); },
+  });
+
+  // The HTTP fixture for asset-1 already reports active_variant_id 'variant-1'.
+  const result = await executeAssets(
+    { positionals: ['set-active', 'asset-1', 'variant-1'], options: {} },
+    deps
+  );
+
+  assert.equal(result.type, 'set-active');
+  assert.match(output.join('\n'), /Set active variant of asset asset-1 to variant-1/);
+});
