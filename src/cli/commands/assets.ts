@@ -10,7 +10,7 @@ import {
 } from '../lib/command-context';
 import { downloadFile } from '../lib/image-transfer';
 import { truncate } from '../lib/utils';
-import { WebSocketClient, type AssetMutationClient, type AssetRecord } from '../lib/websocket-client';
+import { WebSocketClient, ServerConfirmationTimeoutError, type AssetMutationClient, type AssetRecord } from '../lib/websocket-client';
 import type { MediaKind } from '../../shared/websocket-types';
 
 interface Asset {
@@ -262,9 +262,12 @@ async function getAssetDetails(
 
 // The set-active confirmation is a broadcast the CLI waits for, not a direct
 // ack — a slow or dropped broadcast makes the client time out even though the
-// durable write already landed. The mutation is idempotent, so on any failure
-// we re-read the asset over HTTP: if it already points at the target variant,
-// the switch succeeded and we report success instead of a spurious error.
+// durable write already landed. The mutation is idempotent, so *only* on a
+// confirmation timeout we re-read the asset over HTTP: if it already points at
+// the target variant, the switch succeeded and we report success instead of a
+// spurious error. Explicit server rejections (PERMISSION_DENIED,
+// VALIDATION_ERROR, …) reject with their own error and are rethrown as-is —
+// otherwise a denied switch on an already-active variant would look like success.
 async function setActiveVariant(
   ctx: AssetsContext,
   deps: Pick<AssetsDeps, 'createMutationClient' | 'fetch'>,
@@ -274,6 +277,9 @@ async function setActiveVariant(
   try {
     return await withAssetClient(ctx, deps, (client) => client.setActiveVariant(assetId, variantId));
   } catch (error) {
+    if (!(error instanceof ServerConfirmationTimeoutError)) {
+      throw error;
+    }
     const { asset } = await getAssetDetails(ctx, deps, assetId);
     if (asset.active_variant_id === variantId) {
       return asset;
