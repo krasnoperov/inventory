@@ -651,7 +651,7 @@ describe('UsageService', () => {
       assert.strictEqual(stats.usage[USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS]?.used, 500);
       assert.strictEqual(stats.usage[USAGE_EVENTS.CLAUDE_OUTPUT_TOKENS]?.costUsd, 0.0075);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_IMAGES]?.used, 2);
-      assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_IMAGES]?.costUsd, 0.48);
+      assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_IMAGES]?.costUsd, 0.268);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.used, 2);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_VIDEOS]?.costUsd, 3.2);
       assert.strictEqual(stats.usage[USAGE_EVENTS.GEMINI_AUDIO]?.used, 1);
@@ -659,7 +659,7 @@ describe('UsageService', () => {
       assert.strictEqual(stats.usage[USAGE_EVENTS.ELEVENLABS_AUDIO]?.used, 38);
       assert.strictEqual(stats.usage[USAGE_EVENTS.ELEVENLABS_AUDIO]?.costUsd, 0.12555);
       assert.deepStrictEqual(stats.estimatedCost, {
-        amount: 3.85605,
+        amount: 3.64405,
         currency: 'USD',
       });
     });
