@@ -418,7 +418,7 @@ function VariantCanvasInner({
             asset: parentAsset,
             isGhost: true,
             onGhostClick: onGhostNodeClick,
-            // Exact thumbnail width so the card matches the image aspect ratio
+            // Exact thumbnail size so the card matches the media aspect ratio
             thumbWidth: ghostDims ? ghostDims.width - NODE_PADDING : undefined,
             thumbHeight: ghostDims ? ghostDims.height - NODE_PADDING : undefined,
           },
@@ -447,7 +447,7 @@ function VariantCanvasInner({
             isGhost: true,
             isDerivative: true, // Mark as outgoing derivative for different styling
             onGhostClick: onGhostNodeClick,
-            // Exact thumbnail width so the card matches the image aspect ratio
+            // Exact thumbnail size so the card matches the media aspect ratio
             thumbWidth: ghostDims ? ghostDims.width - NODE_PADDING : undefined,
             thumbHeight: ghostDims ? ghostDims.height - NODE_PADDING : undefined,
           },
