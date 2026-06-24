@@ -9,17 +9,20 @@ export default { title: 'Components / AudioPlayer' } satisfies StoryDefault;
 const SILENT_WAV =
   'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 
-const Labeled = ({ label, children }: { label: string; children: React.ReactNode }) => (
+const Frame = ({ label, seed }: { label: string; seed: string }) => (
   <div className={layout.row}>
     <span className={layout.label}>{label}</span>
-    {children}
+    <div style={{ width: 220 }}>
+      <AudioPlayer src={SILENT_WAV} seed={seed} />
+    </div>
   </div>
 );
 
+// Different seeds produce different, stable waveform silhouettes.
 export const Default: Story = () => (
   <div className={layout.inlineCluster}>
-    <Labeled label="Audio player">
-      <AudioPlayer src={SILENT_WAV} />
-    </Labeled>
+    <Frame label="Clip A" seed="clip-alpha" />
+    <Frame label="Clip B" seed="clip-bravo" />
+    <Frame label="Clip C" seed="clip-charlie" />
   </div>
 );

@@ -152,6 +152,7 @@ function ThumbnailComponent({
         <img src={imageSrc} alt="" className={styles.image} draggable={false} />
       ) : isVariantAudioReady(variant) ? (
         <div className={styles.audioPreview}>
+          {/* Compact-only glyph: shown where there's no room for the player. */}
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -165,7 +166,11 @@ function ThumbnailComponent({
           </svg>
           <span className={styles.audioLabel}>Audio</span>
           {showPlayableAudio && mediaUrl && (
-            <AudioPlayer src={mediaUrl} className={styles.audioPlayer} />
+            <AudioPlayer
+              src={mediaUrl}
+              seed={variant.media_key ?? variant.id}
+              className={styles.audioPlayer}
+            />
           )}
         </div>
       ) : isVariantVideoReady(variant) ? (

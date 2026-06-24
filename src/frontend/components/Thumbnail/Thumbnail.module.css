@@ -87,11 +87,13 @@
   max-height: 32px;
 }
 
-/* Audio preview */
+/* Audio preview: the waveform player fills the card; a quiet kind tag sits
+   top-left. The music glyph only appears in compact sizes (see size rules). */
 .audioPreview {
+  position: relative;
   width: 100%;
   height: 100%;
-  padding: 0.625rem;
+  padding: 0.875rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -106,6 +108,7 @@
 }
 
 .audioIcon {
+  display: none;
   width: 32%;
   height: 32%;
   min-width: 20px;
@@ -115,16 +118,20 @@
   color: var(--color-primary);
 }
 
+/* Kind tag — small, quiet, anchored top-left for the mixed-media canvas. */
 .audioLabel {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.875rem;
   font-size: var(--font-size-micro);
   color: var(--color-text-muted);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0;
+  letter-spacing: 0.04em;
 }
 
 .audioPlayer {
-  margin-top: 0.25rem;
+  width: 100%;
 }
 
 /* Video preview */
@@ -172,6 +179,12 @@
 .sm .videoPreview {
   gap: 0.125rem;
   padding: 0.25rem;
+}
+
+/* Compact sizes have no room for the player: show only the music glyph. */
+.xs .audioIcon,
+.sm .audioIcon {
+  display: block;
 }
 
 .xs .audioLabel,

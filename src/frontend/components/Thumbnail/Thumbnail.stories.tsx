@@ -89,3 +89,26 @@ export const Completed: Story = () => {
     </div>
   );
 };
+
+// Audio variants: the waveform player fills the card at canvas size (fill),
+// while compact tiles (sm) fall back to the music glyph.
+export const Audio: Story = () => {
+  const audio = makeVariant({
+    media_kind: 'audio',
+    status: 'completed',
+    media_key: 'voice-clip.mp3',
+    media_size_bytes: 1_280_000,
+  });
+  return (
+    <div className={layout.inlineCluster}>
+      <Labeled label="canvas (fill)">
+        <div style={{ width: 180, height: 180 }}>
+          <Thumbnail variant={audio} size="fill" showAudioControls showBadges isActive />
+        </div>
+      </Labeled>
+      <Labeled label="compact (sm)">
+        <Thumbnail variant={audio} size="sm" showAudioControls />
+      </Labeled>
+    </div>
+  );
+};
