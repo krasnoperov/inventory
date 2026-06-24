@@ -79,14 +79,16 @@ describe('provider pricing', () => {
     assert.equal(result.unit, 'image');
   });
 
-  test('prices size-missing Gemini Pro image events with the conservative highest image tier', () => {
+  test('prices size-missing Gemini Pro image events at the 1K default tier', () => {
     const result = priceProviderUsageEvent({
       eventName: 'gemini_images',
       quantity: 1,
       metadata: { model: 'gemini-3-pro-image-preview' },
     });
 
-    assert.equal(result.amountUsd, 0.24);
+    // Gemini defaults to 1K output when no size is requested, so we must not
+    // bill the 4K rate (0.24) for the common size-less case.
+    assert.equal(result.amountUsd, 0.134);
     assert.equal(result.model, 'gemini-3-pro-image');
     assert.equal(result.unit, 'image');
   });

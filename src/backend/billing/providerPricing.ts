@@ -253,9 +253,14 @@ function priceGeminiImages(
     getString(metadata, 'image_size') ??
     getString(metadata, 'resolution')
   );
+  // Gemini defaults to 1K output when no size is requested, so an unspecified
+  // size must bill at the 1K rate — not highestImageRate, which would charge
+  // the 4K rate for the common (size-less) case. highestImageRate stays only
+  // as a true fallback when the 1K rate itself is absent from the catalog.
+  const effectiveImageSize = imageSize ?? '1K';
   const unitPriceUsd = typeof rate.imageUsd === 'number'
     ? rate.imageUsd
-    : (imageSize ? rate.imageUsd[imageSize] : undefined) ?? highestImageRate(rate.imageUsd);
+    : rate.imageUsd[effectiveImageSize] ?? highestImageRate(rate.imageUsd);
 
   if (unitPriceUsd === undefined) {
     return miss(event, catalog, 'gemini', model, 'image', 'unsupported_rate');
