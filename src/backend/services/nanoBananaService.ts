@@ -246,11 +246,17 @@ export class NanoBananaService {
       responseModalities: ['IMAGE', 'TEXT'],
     };
 
+    // Gemini expects aspectRatio/imageSize nested under imageConfig; setting
+    // them at the top level of GenerateContentConfig is silently ignored.
+    const imageConfig: Record<string, unknown> = {};
     if (aspectRatio) {
-      config.aspectRatio = aspectRatio;
+      imageConfig.aspectRatio = aspectRatio;
     }
     if (imageSize) {
-      config.imageSize = imageSize;
+      imageConfig.imageSize = imageSize;
+    }
+    if (Object.keys(imageConfig).length > 0) {
+      config.imageConfig = imageConfig;
     }
 
     return config;
