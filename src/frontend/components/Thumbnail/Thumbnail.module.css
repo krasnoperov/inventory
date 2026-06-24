@@ -176,8 +176,8 @@
 
 .xs .audioLabel,
 .sm .audioLabel,
-.xs .audioElement,
-.sm .audioElement,
+.xs .audioPlayer,
+.sm .audioPlayer,
 .xs .videoLabel,
 .sm .videoLabel {
   display: none;
