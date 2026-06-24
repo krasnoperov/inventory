@@ -37,6 +37,20 @@ export function getGenerationRequestTimeoutMs(mediaKind?: MediaKind): number {
 // Re-export SimplePlan for CLI commands
 export type { SimplePlan } from '../../shared/websocket-types';
 
+/**
+ * Thrown when a mutation's confirmation broadcast does not arrive within the
+ * timeout. The server write may still have landed — callers can re-read state
+ * to confirm. Distinct from server-rejection errors (PERMISSION_DENIED,
+ * VALIDATION_ERROR, …), which reject with their own message and must not be
+ * treated as a missing confirmation.
+ */
+export class ServerConfirmationTimeoutError extends Error {
+  constructor(message = 'Timed out waiting for server confirmation') {
+    super(message);
+    this.name = 'ServerConfirmationTimeoutError';
+  }
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -1443,7 +1457,7 @@ export class WebSocketClient {
         reject,
         timeout: setTimeout(() => {
           this.removeWaiter(waiter);
-          reject(new Error('Timed out waiting for server confirmation'));
+          reject(new ServerConfirmationTimeoutError());
         }, timeoutMs),
       };
       this.mutationWaiters.push(waiter);
