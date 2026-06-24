@@ -123,9 +123,8 @@
   letter-spacing: 0;
 }
 
-.audioElement {
-  width: min(100%, 220px);
-  height: 32px;
+.audioPlayer {
+  margin-top: 0.25rem;
 }
 
 /* Video preview */
