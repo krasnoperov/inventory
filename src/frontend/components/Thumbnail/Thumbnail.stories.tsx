@@ -50,7 +50,7 @@ export const Sizes: Story = () => (
 // broken /api/images request the static preview can't serve.
 export const Badges: Story = () => (
   <div className={layout.inlineCluster}>
-    <Labeled label="Active">
+    <Labeled label="Main">
       <Thumbnail
         variant={makeVariant({ media_kind: 'audio', status: 'completed', media_key: 'audio-demo.mp3' })}
         size="md"

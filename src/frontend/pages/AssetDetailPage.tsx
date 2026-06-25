@@ -932,7 +932,7 @@ export default function AssetDetailPage() {
                             aria-label={`Pinned variant in ${collection?.name ?? 'collection'}`}
                             onChange={(event) => updateCollectionItem(item.collection_id, item.id, { pinnedVariantId: event.target.value || null })}
                           >
-                            <option value="">Active variant</option>
+                            <option value="">Main variant</option>
                             {variants.map((variant, index) => (
                               <option key={variant.id} value={variant.id}>
                                 Variant {index + 1}{variant.starred ? ' star' : ''}
