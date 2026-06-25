@@ -397,7 +397,7 @@ export function ForgeTray({
   collections = [],
   collectionItems = [],
 }: ForgeTrayProps) {
-  const { slots, prompt, setPrompt, clearSlots, removeSlot, setMaxSlots } = useForgeTrayStore();
+  const { slots, prompt, setPrompt, clearSlots, removeSlot, setMaxSlots, prefillAudio, prefillToken } = useForgeTrayStore();
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -497,6 +497,29 @@ export function ForgeTray({
       setMediaMode('video');
     }
   }, [currentAsset, mediaMode, slots]);
+
+  // Apply audio params staged by a retry (prefillFromVariant) so regeneration
+  // reuses the original voices instead of the picker's auto-seeded default.
+  // Keyed on prefillToken so it runs once per retry and never clobbers the
+  // user's own later edits. Token 0 is the initial state — nothing to apply.
+  //
+  // When prefillAudio is present (an audio retry) we *fully reset* the audio
+  // state from the recipe rather than only applying defined fields: a recipe
+  // that lacks a stored voice (e.g. older variants) must clear any stale tray
+  // selection back to the deterministic picker default, not silently inherit a
+  // leftover voice from a previous, unrelated generation.
+  const appliedPrefillTokenRef = useRef(0);
+  useEffect(() => {
+    if (prefillToken === appliedPrefillTokenRef.current) return;
+    appliedPrefillTokenRef.current = prefillToken;
+    if (!prefillAudio) return;
+    // undefined → clears the selection so VoicePicker re-seeds the first voice.
+    setVoiceId(prefillAudio.voiceId);
+    setDialogueVoiceIds(prefillAudio.dialogueVoiceIds ?? []);
+    // Music has a real default + explicit flag; absence means "fall back to default".
+    setMusicProvider(prefillAudio.musicProvider ?? 'elevenlabs');
+    setMusicProviderExplicit(prefillAudio.musicProvider !== undefined);
+  }, [prefillToken, prefillAudio]);
 
   const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
   const selectedMediaKind = getMediaKindForForgeMode(mediaMode);

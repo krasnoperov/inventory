@@ -5,7 +5,7 @@ import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useParams } from '../hooks/useParams';
-import { useForgeTrayStore } from '../stores/forgeTrayStore';
+import { useForgeTrayStore, type PrefillAudioParams } from '../stores/forgeTrayStore';
 import { useChatStore } from '../stores/chatStore';
 import { useAssetDetailStore, useSelectedVariantId } from '../stores/assetDetailStore';
 import { HeaderNav } from '../components/HeaderNav';
@@ -584,11 +584,20 @@ export default function AssetDetailPage() {
     // Parse the recipe to get the prompt and parentVariantIds (fallback)
     let prompt = '';
     let recipeParentVariantIds: string[] = [];
+    let audioParams: PrefillAudioParams | undefined;
     try {
       const recipe = JSON.parse(variant.recipe);
       prompt = recipe.prompt || '';
       // Recipe stores parentVariantIds for retry support (in case lineage is missing)
       recipeParentVariantIds = recipe.parentVariantIds || [];
+      // Carry audio params so regeneration reuses the same voices/provider.
+      if (variant.media_kind === 'audio') {
+        audioParams = {
+          voiceId: recipe.voiceId,
+          dialogueVoiceIds: recipe.dialogueVoiceIds,
+          musicProvider: recipe.musicProvider,
+        };
+      }
     } catch {
       // Ignore parse errors
     }
@@ -604,7 +613,7 @@ export default function AssetDetailPage() {
     }
 
     // Prefill the forge tray with the same state
-    prefillFromVariant(parentVariantIds, prompt, wsAssets, wsVariants);
+    prefillFromVariant(parentVariantIds, prompt, wsAssets, wsVariants, audioParams);
   }, [lineage, prefillFromVariant, wsAssets, wsVariants]);
 
   const handleCreateCompositionFromVariant = useCallback(() => {
