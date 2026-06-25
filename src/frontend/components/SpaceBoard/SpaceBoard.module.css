@@ -352,11 +352,11 @@
   overflow: hidden;
   background: var(--surface-glass);
   cursor: pointer;
-  transition: filter 0.15s ease, transform 0.15s ease;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .thumbnailButton:hover {
-  filter: drop-shadow(0 10px 24px oklch(0% 0 0 / 0.32));
+  box-shadow: var(--shadow-elevated);
   transform: translateY(-1px);
 }
 
@@ -365,8 +365,6 @@
   height: 100%;
 }
 
-/* Caption is painted on top of the locked image box (absolute), so revealing
-   it never reflows the packed grid. */
 .caption {
   position: absolute;
   left: 0;
@@ -376,12 +374,6 @@
   gap: 0.15rem;
   padding: 1.5rem 0.5rem 0.45rem;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  background: linear-gradient(
-    to top,
-    oklch(0% 0 0 / 0.82) 0%,
-    oklch(0% 0 0 / 0.52) 42%,
-    oklch(0% 0 0 / 0) 100%
-  );
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.15s ease, transform 0.15s ease;
@@ -408,7 +400,6 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 3px oklch(0% 0 0 / 0.6);
   cursor: pointer;
 }
 
@@ -425,7 +416,7 @@
 .assetMeta span {
   min-width: 0;
   padding: 0.05rem 0.32rem;
-  background: oklch(100% 0 0 / 0.16);
+  background: transparent;
   border: 0;
   border-radius: var(--radius-xs);
   color: oklch(100% 0 0 / 0.92);
@@ -448,13 +439,12 @@
   opacity: 1;
 }
 
-/* Dark chip so the actions trigger stays legible over any thumbnail. */
 .cardMenu summary {
   width: 26px;
   min-height: 26px;
   border-radius: var(--radius-sm);
-  background: oklch(0% 0 0 / 0.5);
-  backdrop-filter: blur(6px);
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .cardMenu summary::before {

@@ -60,7 +60,6 @@
 .hoverOverlay {
   position: absolute;
   inset: 0;
-  background: oklch(0% 0 0 / 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -83,7 +82,7 @@
   align-items: center;
   gap: 4px;
   padding: 8px 12px;
-  background: var(--thumb-action-bg);
+  background: transparent;
   border: var(--thumb-action-border);
   border-radius: var(--radius-md);
   color: var(--color-text);
@@ -95,7 +94,6 @@
 }
 
 .overlayButton:hover {
-  background: var(--thumb-action-bg-hover);
   transform: scale(1.05);
 }
 
