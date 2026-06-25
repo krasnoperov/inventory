@@ -299,7 +299,7 @@ export function SpaceBoard({
                           updateCollectionItem(item.collection_id, item.id, { pinnedVariantId });
                         }}
                       >
-                        {itemCollection?.kind !== 'style_refs' && <option value="">Active variant</option>}
+                        {itemCollection?.kind !== 'style_refs' && <option value="">Main variant</option>}
                         {assetVariants.map((variant, index) => (
                           <option key={variant.id} value={variant.id}>
                             Variant {index + 1}{variant.starred ? ' star' : ''}

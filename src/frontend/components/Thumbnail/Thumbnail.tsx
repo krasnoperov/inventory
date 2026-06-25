@@ -82,7 +82,12 @@ function ThumbnailComponent({
     [onRetry]
   );
 
-  const baseClasses = [styles.thumbnail, styles[size], className].filter(Boolean).join(' ');
+  const baseClasses = [
+    styles.thumbnail,
+    styles[size],
+    showBadges && isActive ? styles.active : '',
+    className,
+  ].filter(Boolean).join(' ');
 
   // Empty state - no variant provided
   if (!variant) {
@@ -206,7 +211,6 @@ function ThumbnailComponent({
       {/* Badges - only for completed variants */}
       {showBadges && isVariantReady(variant) && (
         <>
-          {isActive && <span className={styles.activeBadge}>Active</span>}
           {variant.starred && <span className={styles.starBadge}>★</span>}
         </>
       )}

@@ -196,9 +196,6 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         {renderThumbnail()}
 
         {/* Indicators - only for completed variants */}
-        {isVariantReady(variant) && isActive ? (
-          <span className={styles.activeIndicator}>Active</span>
-        ) : null}
         {isVariantReady(variant) && variant.starred ? (
           <span className={styles.starIndicator}>★</span>
         ) : null}
@@ -232,7 +229,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
               <button
                 className={styles.actionButton}
                 onClick={handleSetActive}
-                title="Set as Active"
+                title="Use as main variant"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
                   <polyline points="20 6 9 17 4 12" />

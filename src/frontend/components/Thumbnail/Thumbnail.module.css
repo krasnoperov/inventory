@@ -22,6 +22,15 @@
   border-color: var(--color-primary);
 }
 
+.thumbnail.active {
+  border-color: var(--color-success);
+  box-shadow: -3px 0 0 var(--color-success);
+}
+
+.thumbnail.active:hover {
+  border-color: var(--color-success);
+}
+
 /* Size variants using design system tokens */
 .xs {
   width: var(--thumb-size-xs);
@@ -295,20 +304,6 @@
   display: none;
 }
 
-.activeBadge {
-  position: absolute;
-  bottom: 0.25rem;
-  left: 0.25rem;
-  padding: 0.125rem 0.375rem;
-  background: transparent;
-  color: white;
-  font-size: var(--font-size-micro);
-  font-weight: 600;
-  border-radius: var(--radius-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
 .starBadge {
   position: absolute;
   top: 0.25rem;
@@ -318,12 +313,6 @@
 }
 
 /* Smaller badges for xs/sm */
-.xs .activeBadge,
-.sm .activeBadge {
-  font-size: 0.5rem;
-  padding: 0.0625rem 0.25rem;
-}
-
 .xs .starBadge,
 .sm .starBadge {
   font-size: 0.625rem;

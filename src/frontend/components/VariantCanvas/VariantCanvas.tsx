@@ -29,7 +29,7 @@ import styles from './VariantCanvas.module.css';
 const THUMB_HEIGHT = 180;
 const NODE_PADDING = 20;
 
-// Active variant is larger
+// Main variant is larger
 const ACTIVE_SCALE = 1.5;
 
 // Default node dimensions before an image has loaded (e.g. pending/failed
