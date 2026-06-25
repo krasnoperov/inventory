@@ -102,10 +102,19 @@ describe('voicesRoutes', () => {
     assert.equal(response.status, 401);
   });
 
-  test('returns available:false when ElevenLabs is not the active provider', async () => {
+  test('lists voices whenever a key is configured, regardless of audio provider override', async () => {
+    mock.method(globalThis, 'fetch', async () =>
+      new Response(JSON.stringify({ voices: [{ voice_id: 'v1', name: 'Rachel' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
     const response = await authedRequest(routeApp({ INVENTORY_AUDIO_PROVIDER: 'fake', ELEVENLABS_API_KEY: 'k' }));
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { available: false, voices: [] });
+    const body = (await response.json()) as { available: boolean; voices: unknown[] };
+    assert.equal(body.available, true);
+    assert.equal(body.voices.length, 1);
   });
 
   test('returns available:false when no API key is configured', async () => {

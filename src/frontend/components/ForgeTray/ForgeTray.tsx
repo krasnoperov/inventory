@@ -397,7 +397,7 @@ export function ForgeTray({
   collections = [],
   collectionItems = [],
 }: ForgeTrayProps) {
-  const { slots, prompt, setPrompt, clearSlots, removeSlot, setMaxSlots } = useForgeTrayStore();
+  const { slots, prompt, setPrompt, clearSlots, removeSlot, setMaxSlots, prefillAudio, prefillToken } = useForgeTrayStore();
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -497,6 +497,23 @@ export function ForgeTray({
       setMediaMode('video');
     }
   }, [currentAsset, mediaMode, slots]);
+
+  // Apply audio params staged by a retry (prefillFromVariant) so regeneration
+  // reuses the original voices instead of the picker's auto-seeded default.
+  // Keyed on prefillToken so it runs once per retry and never clobbers the
+  // user's own later edits. Token 0 is the initial state — nothing to apply.
+  const appliedPrefillTokenRef = useRef(0);
+  useEffect(() => {
+    if (prefillToken === appliedPrefillTokenRef.current) return;
+    appliedPrefillTokenRef.current = prefillToken;
+    if (!prefillAudio) return;
+    if (prefillAudio.voiceId !== undefined) setVoiceId(prefillAudio.voiceId);
+    if (prefillAudio.dialogueVoiceIds !== undefined) setDialogueVoiceIds(prefillAudio.dialogueVoiceIds);
+    if (prefillAudio.musicProvider !== undefined) {
+      setMusicProvider(prefillAudio.musicProvider);
+      setMusicProviderExplicit(true);
+    }
+  }, [prefillToken, prefillAudio]);
 
   const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
   const selectedMediaKind = getMediaKindForForgeMode(mediaMode);

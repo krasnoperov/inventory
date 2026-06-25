@@ -133,7 +133,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
   const handleRetryRecipe = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isVariantImageReady(variant) && onRetryRecipe) {
+    if (isVariantForgeTrayReady(variant) && onRetryRecipe) {
       onRetryRecipe(variant);
     }
   }, [variant, onRetryRecipe]);
@@ -239,7 +239,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
                 </svg>
               </button>
             )}
-            {onRetryRecipe && isVariantImageReady(variant) && (
+            {onRetryRecipe && isVariantForgeTrayReady(variant) && (
               <button
                 className={styles.actionButton}
                 onClick={handleRetryRecipe}

@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { isVariantForgeTrayReady, type Variant, type Asset } from '../hooks/useSpaceWebSocket';
-import type { ForgeOperation, ForgeContext } from '../../shared/websocket-types';
+import type { ForgeOperation, ForgeContext, MusicGenerationProvider } from '../../shared/websocket-types';
+
+/** Audio generation params carried through a retry so regen reuses the same voices. */
+export interface PrefillAudioParams {
+  voiceId?: string;
+  dialogueVoiceIds?: string[];
+  musicProvider?: MusicGenerationProvider;
+}
 
 export interface ForgeSlot {
   id: string;
@@ -24,6 +31,12 @@ interface ForgeTrayState {
   maxSlots: number;
   prompt: string;
 
+  // Audio params staged by the most recent prefillFromVariant, plus a token that
+  // ForgeTray watches so it applies them exactly once per retry (and can ignore
+  // its own subsequent edits). Null when the last prefill carried no audio.
+  prefillAudio: PrefillAudioParams | null;
+  prefillToken: number;
+
   // Actions
   addSlot: (variant: Variant, asset: Asset) => boolean;
   removeSlot: (slotId: string) => void;
@@ -46,7 +59,8 @@ interface ForgeTrayState {
     parentVariantIds: string[],
     prompt: string,
     allAssets: Asset[],
-    allVariants: Variant[]
+    allVariants: Variant[],
+    audioParams?: PrefillAudioParams
   ) => void;
 
   // Context export (for assistant)
@@ -65,6 +79,8 @@ export const useForgeTrayStore = create<ForgeTrayState>()((set, get) => ({
   slots: [],
   maxSlots: 14, // Gemini image input limit
   prompt: '',
+  prefillAudio: null,
+  prefillToken: 0,
 
   addSlot: (variant, asset) => {
     const state = get();
@@ -158,7 +174,7 @@ export const useForgeTrayStore = create<ForgeTrayState>()((set, get) => ({
     });
   },
 
-  prefillFromVariant: (parentVariantIds, prompt, allAssets, allVariants) => {
+  prefillFromVariant: (parentVariantIds, prompt, allAssets, allVariants, audioParams) => {
     // Restore exact variant references (for retry/recreate)
     const newSlots: ForgeSlot[] = [];
 
@@ -177,10 +193,12 @@ export const useForgeTrayStore = create<ForgeTrayState>()((set, get) => ({
       });
     }
 
-    set({
+    set((state) => ({
       slots: newSlots,
       prompt,
-    });
+      prefillAudio: audioParams ?? null,
+      prefillToken: state.prefillToken + 1,
+    }));
   },
 
   getContext: () => {
