@@ -93,6 +93,12 @@ Keep this lightweight:
 ## Hard Rules
 
 - Start non-trivial work from a Linear issue.
+- Non-negotiable media invariant: never place filters, opacity, blend modes,
+  translucent overlays, gradient washes, dimming/desaturation, badges, labels,
+  or controls over generated/uploaded media pixels. Images, video posters, and
+  thumbnails must render unaltered. Mark active/inactive, hover, focus,
+  selection, and relation states with borders, outlines, shadows, surrounding
+  backgrounds, or adjacent chrome outside the media bounds.
 - Never return binary blobs (media bytes, base64, buffers) from a Cloudflare
   Workflow step — step outputs are capped at 1 MiB. Write bytes to R2 inside the
   producing step and return only keys + metadata. See

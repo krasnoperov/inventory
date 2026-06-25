@@ -101,19 +101,17 @@
   font-weight: 500;
 }
 
-/* Indicators - counter-scaled to stay readable */
 .activeIndicator {
   position: absolute;
   top: 4px;
   right: 4px;
   font-size: 0.5625rem;
-  background: var(--color-success);
+  background: transparent;
   color: white;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   font-weight: 600;
   text-transform: uppercase;
-  box-shadow: 0 1px 3px oklch(0% 0 0 / 0.2);
   transform: scale(calc(1 / var(--rf-zoom, 1)));
   transform-origin: top right;
 }
@@ -124,8 +122,6 @@
   left: 6px;
   font-size: 0.875rem;
   color: var(--color-star);
-  text-shadow: 0 1px 3px oklch(0% 0 0 / 0.4);
-  filter: drop-shadow(0 1px 2px oklch(0% 0 0 / 0.3));
   transform: scale(calc(1 / var(--rf-zoom, 1)));
   transform-origin: top left;
 }
@@ -152,15 +148,13 @@
   height: 24px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
-  background: var(--surface-glass-strong);
+  background: transparent;
   color: var(--color-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.18);
-  backdrop-filter: blur(12px);
 }
 
 .actionButton:hover {
@@ -201,13 +195,12 @@
 
 /* Ghost node - cross-asset parent variant */
 .node.ghost {
-  opacity: 0.6;
-  filter: saturate(0.6);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .node.ghost:hover {
-  opacity: 0.9;
-  border-color: var(--color-primary);
+  outline-color: var(--color-primary);
 }
 
 .ghostLabel {

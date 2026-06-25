@@ -60,7 +60,6 @@
 .hoverOverlay {
   position: absolute;
   inset: 0;
-  background: oklch(0% 0 0 / 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
