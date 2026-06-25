@@ -444,6 +444,7 @@
   min-height: 26px;
   border-radius: var(--radius-sm);
   background: transparent;
+  backdrop-filter: none;
 }
 
 .cardMenu summary::before {

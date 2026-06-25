@@ -7,30 +7,30 @@
   border: 0;
   border-radius: var(--radius-sm);
   padding: 0;
-  transition: filter 0.15s ease, transform 0.15s ease;
+  transition: transform 0.15s ease;
   cursor: pointer;
   /* Allow label to overflow outside node bounds */
   overflow: visible;
 }
 
-.node:hover {
-  filter: drop-shadow(0 4px 20px oklch(55% 0.18 276 / 0.25));
+.node:hover .thumbnail {
+  box-shadow: 0 4px 20px oklch(55% 0.18 276 / 0.25);
 }
 
-.node.selected {
-  filter: drop-shadow(0 0 18px oklch(55% 0.18 276 / 0.3));
+.node.selected .thumbnail {
+  box-shadow: 0 0 18px oklch(55% 0.18 276 / 0.3);
 }
 
-.node.highlighted {
-  filter: drop-shadow(0 0 18px oklch(55% 0.18 276 / 0.05));
+.node.highlighted .thumbnail {
+  box-shadow: 0 0 18px oklch(55% 0.18 276 / 0.05);
 }
 
-.node.active {
-  filter: drop-shadow(0 4px 20px oklch(70% 0.2 145 / 0.3));
+.node.active .thumbnail {
+  box-shadow: 0 4px 20px oklch(70% 0.2 145 / 0.3);
 }
 
-.node.starred {
-  filter: drop-shadow(0 0 16px var(--color-star-border));
+.node.starred .thumbnail {
+  box-shadow: 0 0 16px var(--color-star-border);
 }
 
 /* Handles (connection points) - counter-scaled to stay clickable */
