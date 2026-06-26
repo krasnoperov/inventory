@@ -1,0 +1,345 @@
+.canvas {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 1px 1px, oklch(100% 0 0 / 0.08) 1px, transparent 0) 0 0 / 32px 32px,
+    var(--color-bg);
+}
+
+.canvas :global(.react-flow__attribution) {
+  display: none;
+}
+
+/* ---- Asset node ---------------------------------------------------------- */
+
+.assetNode {
+  width: 196px;
+  --accent: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-elevated);
+  overflow: hidden;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+/* Emphasis lives on the card chrome, never on the media pixels (invariant). */
+.assetNode.focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 22px var(--accent);
+}
+
+/* Dim de-emphasised nodes by muting the surrounding card + labels only.
+   The thumbnail image is deliberately left untouched. */
+.assetNode.dimmed {
+  background: color-mix(in oklab, var(--color-surface) 80%, var(--color-bg));
+  border-color: var(--color-border);
+}
+
+.assetNode.dimmed .rail {
+  opacity: 0.45;
+}
+
+.thumbWrap {
+  position: relative;
+  width: 100%;
+  height: 110px;
+  background: var(--color-bg);
+}
+
+.thumb {
+  width: 100%;
+  height: 100%;
+}
+
+.kindBadge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: var(--font-size-micro);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.45rem 0.5rem 0.5rem;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.openBtn {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.openBtn:hover {
+  text-decoration: underline;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ready { background: var(--color-success); }
+.pending { background: var(--color-warning, #c47d25); }
+.failed { background: var(--color-danger, #d14c6d); }
+.star { background: var(--color-star, #d6a93b); color: #1b1d23; }
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.typeTag {
+  --accent: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  padding: 1px 6px;
+  border: 1px solid color-mix(in oklab, var(--accent) 50%, transparent);
+  border-radius: 999px;
+}
+
+.tagPill {
+  font-size: var(--font-size-micro);
+  color: var(--color-text-muted);
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-text-muted) 18%, transparent);
+}
+
+/* ---- Composition node ---------------------------------------------------- */
+
+.compNode {
+  width: 184px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px dashed color-mix(in oklab, #2f9e73 70%, var(--color-border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, #2f9e73 12%, var(--color-surface));
+  box-shadow: var(--shadow-elevated);
+}
+
+.compNode.focused {
+  box-shadow: 0 0 0 2px #2f9e73, 0 0 22px #2f9e73;
+}
+
+.compNode.dimmed { opacity: 0.5; }
+
+.compIcon {
+  font-size: 1.1rem;
+  color: #2f9e73;
+}
+
+.compBody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.compName {
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compMeta {
+  font-size: var(--font-size-micro);
+  color: var(--color-text-muted);
+}
+
+/* ---- Group regions ------------------------------------------------------- */
+
+.regionLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.region {
+  position: absolute;
+  left: 0;
+  top: 0;
+  --accent: var(--color-text-muted);
+  border: 1px dashed color-mix(in oklab, var(--accent) 55%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--accent) 7%, transparent);
+}
+
+.regionLabel {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  color: color-mix(in oklab, var(--accent) 80%, var(--color-text));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.regionCount {
+  font-size: var(--font-size-micro);
+  color: var(--color-text-muted);
+}
+
+/* ---- Toolbar ------------------------------------------------------------- */
+
+.toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-surface) 92%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow-elevated);
+  z-index: 5;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.groupLabel {
+  font-size: var(--font-size-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-right: 0.15rem;
+}
+
+.on,
+.off {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: var(--font-size-small-sm);
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  --accent: var(--color-primary);
+}
+
+.on {
+  color: var(--color-text);
+  background: color-mix(in oklab, var(--accent) 22%, var(--color-surface));
+  border-color: var(--accent);
+}
+
+.off {
+  color: var(--color-text-muted);
+  background: transparent;
+}
+
+.off:hover {
+  color: var(--color-text);
+}
+
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.clearFocus {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: var(--font-size-small-sm);
+  cursor: pointer;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.controls {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.minimap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.3rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.emptyIcon {
+  font-size: 2rem;
+}
