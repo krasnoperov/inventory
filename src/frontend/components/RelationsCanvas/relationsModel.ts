@@ -41,16 +41,28 @@ export type RelationFamily = 'lineage' | 'relation' | 'composition';
 export type GroupingAxis = 'collection' | 'type' | 'none';
 export type LayoutMode = 'force' | 'layered';
 
-export const RELATION_FAMILY_COLORS: Record<RelationFamily, string> = {
-  lineage: '#4f7cff',
-  relation: '#d14c6d',
-  composition: '#2f9e73',
+// Edge families are tinted from app tokens, not arbitrary hex: lineage carries
+// the brand's provenance purple (matches the landing-page lineage metaphor),
+// authored relations take the warm "human note" amber, compositions the green
+// assembly/success hue. The concrete colours live in the CSS module as
+// light-dark() pairs under these var names; the component resolves them at
+// runtime for the edge strokes, markers and minimap.
+export const RELATION_FAMILY_VARS: Record<RelationFamily, string> = {
+  lineage: '--canvas-thread-lineage',
+  relation: '--canvas-thread-relation',
+  composition: '--canvas-thread-composition',
 };
 
 export const RELATION_FAMILY_LABELS: Record<RelationFamily, string> = {
   lineage: 'Lineage',
   relation: 'Relations',
   composition: 'Compositions',
+};
+
+export const RELATION_FAMILY_HINTS: Record<RelationFamily, string> = {
+  lineage: 'Forged from — derivation provenance',
+  relation: 'Authored links — appears in, prop in, …',
+  composition: 'Assembled into a deliverable',
 };
 
 // Per-asset rollup of its variants — the "information density" the wall drops.
@@ -153,12 +165,26 @@ function groupForAsset(
   return { key: 'all', label: 'All assets', color: '#6f7480' };
 }
 
-// Stable, readable hue per asset type without a hand-maintained table.
+// Asset-type spine colour. Known types echo the app's --color-type-* hues
+// (character=blue, item=purple, scene=green, composite/sheets=orange); unknown
+// types get a stable hashed OKLCH hue so the whole palette stays in one space.
+const TYPE_HUES: Record<string, number> = {
+  character: 250,
+  item: 300,
+  scene: 145,
+  composite: 55,
+  'sprite-sheet': 55,
+  'style-sheet': 300,
+  animation: 35,
+  reference: 200,
+};
+
 function colorForType(type: string): string {
+  const known = TYPE_HUES[type];
+  if (known !== undefined) return `oklch(70% 0.13 ${known})`;
   let hash = 0;
   for (let i = 0; i < type.length; i++) hash = (hash * 31 + type.charCodeAt(i)) >>> 0;
-  const hue = hash % 360;
-  return `hsl(${hue} 55% 55%)`;
+  return `oklch(70% 0.12 ${hash % 360})`;
 }
 
 export interface BuildGraphInput {

@@ -10,6 +10,7 @@ import {
   MarkerType,
   useNodesState,
   useReactFlow,
+  useStore,
   type Edge,
   type Node,
   type NodeProps,
@@ -31,8 +32,9 @@ import {
   layoutForce,
   layoutLayered,
   neighbourSet,
-  RELATION_FAMILY_COLORS,
+  RELATION_FAMILY_VARS,
   RELATION_FAMILY_LABELS,
+  RELATION_FAMILY_HINTS,
   type AssetNodeModel,
   type CompositionNodeModel,
   type GraphEdgeModel,
@@ -61,9 +63,9 @@ interface RelationsCanvasProps {
 }
 
 const ASSET_W = 196;
-const ASSET_H = 168;
+const ASSET_H = 176;
 const COMP_W = 184;
-const COMP_H = 78;
+const COMP_H = 76;
 
 const ALL_FAMILIES: RelationFamily[] = ['lineage', 'relation', 'composition'];
 const GROUPINGS: { id: GroupingAxis; label: string }[] = [
@@ -71,6 +73,8 @@ const GROUPINGS: { id: GroupingAxis; label: string }[] = [
   { id: 'type', label: 'Type' },
   { id: 'none', label: 'None' },
 ];
+
+type FamilyColors = Record<RelationFamily, string>;
 
 // ---- Node views -------------------------------------------------------------
 
@@ -83,54 +87,67 @@ interface AssetNodeData extends Record<string, unknown> {
 }
 type AssetFlowNode = Node<AssetNodeData, 'asset'>;
 
-function StatDots({ stats }: { stats: VariantStats }) {
+function Tally({ stats }: { stats: VariantStats }) {
+  // Mono "ready·pending·failed" tally — a catalog readout, not three badges.
   return (
-    <span className={styles.dots} title={`${stats.total} variants`}>
-      {stats.ready > 0 && <span className={`${styles.dot} ${styles.ready}`}>{stats.ready}</span>}
-      {stats.pending > 0 && <span className={`${styles.dot} ${styles.pending}`}>{stats.pending}</span>}
-      {stats.failed > 0 && <span className={`${styles.dot} ${styles.failed}`}>{stats.failed}</span>}
-      {stats.starred > 0 && <span className={`${styles.dot} ${styles.star}`}>★{stats.starred}</span>}
+    <span className={styles.tally} title={`${stats.total} variants — ${stats.ready} ready, ${stats.pending} in progress, ${stats.failed} failed`}>
+      <span className={styles.tReady}>{stats.ready}</span>
+      <span className={styles.tSep}>·</span>
+      <span className={styles.tPending}>{stats.pending}</span>
+      <span className={styles.tSep}>·</span>
+      <span className={styles.tFailed}>{stats.failed}</span>
     </span>
   );
 }
 
 function AssetNodeView({ data }: NodeProps<AssetFlowNode>) {
   const { model, spaceId, dimmed, focused, onOpen } = data;
-  const { asset } = model;
-  const tags = (() => {
+  const { asset, stats } = model;
+  const tags = useMemo(() => {
     try {
       const parsed = JSON.parse(asset.tags || '[]');
       return Array.isArray(parsed) ? (parsed as string[]).slice(0, 3) : [];
     } catch {
       return [];
     }
-  })();
+  }, [asset.tags]);
+
   return (
-    <div
-      className={`${styles.assetNode} ${dimmed ? styles.dimmed : ''} ${focused ? styles.focused : ''}`}
-      style={{ '--accent': model.groupColor } as CSSProperties}
+    <article
+      className={`${styles.specimen} ${dimmed ? styles.dimmed : ''} ${focused ? styles.focused : ''}`}
+      style={{ '--spine': model.groupColor } as CSSProperties}
     >
-      {/* Media stays unaltered (invariant): emphasis lives on the surrounding card. */}
-      <div className={styles.thumbWrap}>
+      {/* Media plate — pixels never altered; emphasis lives on the frame. */}
+      <div className={styles.plate}>
         <Thumbnail variant={model.variant} size="fill" spaceId={spaceId} className={styles.thumb} />
-        <span className={styles.kindBadge}>{asset.media_kind}</span>
+        <span className={styles.kindGlyph} title={asset.media_kind}>{mediaGlyph(asset.media_kind)}</span>
+        {stats.starred > 0 && <span className={styles.starFlag} title={`${stats.starred} starred`}>★{stats.starred > 1 ? stats.starred : ''}</span>}
       </div>
-      <div className={styles.rail}>
-        <div className={styles.titleRow}>
-          <button className={styles.openBtn} onClick={(e) => { e.stopPropagation(); onOpen(asset); }} title={`Open ${asset.name}`}>
-            {asset.name}
-          </button>
-          <StatDots stats={model.stats} />
+      {/* Specimen ledger — engraved beneath the plate. */}
+      <div className={styles.ledger}>
+        <button className={styles.name} onClick={(e) => { e.stopPropagation(); onOpen(asset); }} title={`Open ${asset.name}`}>
+          {asset.name}
+        </button>
+        <div className={styles.coords}>
+          <span className={styles.stamp}>{asset.type}</span>
+          <Tally stats={stats} />
         </div>
-        <div className={styles.metaRow}>
-          <span className={styles.typeTag} style={{ '--accent': model.groupColor } as CSSProperties}>{asset.type}</span>
-          {tags.map((t) => (
-            <span key={t} className={styles.tagPill}>{t}</span>
-          ))}
-        </div>
+        {tags.length > 0 && (
+          <div className={styles.tags}>
+            {tags.map((t) => (
+              <span key={t} className={styles.tag}>{t}</span>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </article>
   );
+}
+
+function mediaGlyph(kind: string): string {
+  if (kind === 'audio') return '♪';
+  if (kind === 'video') return '▶';
+  return '◧';
 }
 
 interface CompNodeData extends Record<string, unknown> {
@@ -143,12 +160,12 @@ type CompFlowNode = Node<CompNodeData, 'composition'>;
 function CompositionNodeView({ data }: NodeProps<CompFlowNode>) {
   const { model, dimmed, focused } = data;
   return (
-    <div className={`${styles.compNode} ${dimmed ? styles.dimmed : ''} ${focused ? styles.focused : ''}`}>
-      <span className={styles.compIcon} aria-hidden>▦</span>
-      <div className={styles.compBody}>
-        <span className={styles.compName}>{model.composition.name}</span>
-        <span className={styles.compMeta}>
-          {model.memberCount} item{model.memberCount === 1 ? '' : 's'} · {model.composition.status}
+    <div className={`${styles.assembler} ${dimmed ? styles.dimmed : ''} ${focused ? styles.focused : ''}`}>
+      <span className={styles.assemblerGlyph} aria-hidden>▦</span>
+      <div className={styles.assemblerBody}>
+        <span className={styles.assemblerName}>{model.composition.name}</span>
+        <span className={styles.assemblerMeta}>
+          {model.memberCount} part{model.memberCount === 1 ? '' : 's'} · {model.composition.status}
         </span>
       </div>
     </div>
@@ -156,6 +173,16 @@ function CompositionNodeView({ data }: NodeProps<CompFlowNode>) {
 }
 
 const nodeTypes = { asset: AssetNodeView, composition: CompositionNodeView };
+
+// ---- Zoom mirror (level-of-detail) -----------------------------------------
+
+function ZoomMirror({ target }: { target: React.RefObject<HTMLDivElement | null> }) {
+  const zoom = useStore((s) => s.transform[2]);
+  useEffect(() => {
+    if (target.current) target.current.style.setProperty('--rf-zoom', String(zoom));
+  }, [zoom, target]);
+  return null;
+}
 
 // ---- Canvas -----------------------------------------------------------------
 
@@ -173,11 +200,33 @@ function RelationsCanvasInner({
   onAssetClick,
 }: RelationsCanvasProps) {
   const { fitView } = useReactFlow();
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [grouping, setGrouping] = useState<GroupingAxis>('collection');
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('force');
   const [families, setFamilies] = useState<Set<RelationFamily>>(() => new Set(ALL_FAMILIES));
   const [focusId, setFocusId] = useState<string | null>(null);
   const draggedRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  // Resolve the three edge tokens (light-dark pairs) to concrete colours so they
+  // can drive SVG strokes, arrow markers and the minimap. Re-read if the OS
+  // theme flips under us.
+  const [familyColors, setFamilyColors] = useState<FamilyColors>({ lineage: '#7c6cff', relation: '#e0a23a', composition: '#3fae7a' });
+  useEffect(() => {
+    const read = () => {
+      const el = wrapperRef.current;
+      if (!el) return;
+      const cs = getComputedStyle(el);
+      setFamilyColors({
+        lineage: cs.getPropertyValue(RELATION_FAMILY_VARS.lineage).trim() || '#7c6cff',
+        relation: cs.getPropertyValue(RELATION_FAMILY_VARS.relation).trim() || '#e0a23a',
+        composition: cs.getPropertyValue(RELATION_FAMILY_VARS.composition).trim() || '#3fae7a',
+      });
+    };
+    read();
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    mq?.addEventListener?.('change', read);
+    return () => mq?.removeEventListener?.('change', read);
+  }, []);
 
   const graph = useMemo(
     () =>
@@ -195,9 +244,7 @@ function RelationsCanvasInner({
     [assets, variants, lineage, relations, collections, collectionItems, compositions, compositionItems, grouping],
   );
 
-  // Layout uses the full structure so toggling family filters never reflows.
-  // Composition hubs only join the layout when their family is structurally
-  // present (they have no meaning without their membership edges).
+  // Layout over the full structure so toggling edge filters never reflows.
   const positions = useMemo(() => {
     const layoutNodes = [
       ...graph.assetNodes.map((n) => ({ id: n.id, width: ASSET_W, height: ASSET_H, groupKey: n.groupKey })),
@@ -208,42 +255,32 @@ function RelationsCanvasInner({
     return new Map(result.map((p) => [p.id, p]));
   }, [graph, layoutMode]);
 
-  // Reset manual drags when the layout strategy or grouping changes — those are
-  // explicit "re-arrange everything" actions.
+  // Layout/grouping changes are explicit "re-arrange everything" actions.
   useEffect(() => {
     draggedRef.current.clear();
   }, [layoutMode, grouping]);
 
-  const visibleEdges = useMemo(
-    () => graph.edges.filter((e) => families.has(e.family)),
-    [graph.edges, families],
-  );
-
-  const neighbours = useMemo(
-    () => (focusId ? neighbourSet(focusId, visibleEdges) : null),
-    [focusId, visibleEdges],
-  );
+  const visibleEdges = useMemo(() => graph.edges.filter((e) => families.has(e.family)), [graph.edges, families]);
+  const neighbours = useMemo(() => (focusId ? neighbourSet(focusId, visibleEdges) : null), [focusId, visibleEdges]);
 
   const rfNodes = useMemo<Node[]>(() => {
     const assetNodes: Node[] = graph.assetNodes.map((model) => {
       const pos = draggedRef.current.get(model.id) ?? positions.get(model.id) ?? { x: 0, y: 0 };
-      const dimmed = !!neighbours && !neighbours.has(model.id);
       return {
         id: model.id,
         type: 'asset',
         position: { x: pos.x, y: pos.y },
-        data: { model, spaceId, dimmed, focused: focusId === model.id, onOpen: onAssetClick },
+        data: { model, spaceId, dimmed: !!neighbours && !neighbours.has(model.id), focused: focusId === model.id, onOpen: onAssetClick },
       } satisfies AssetFlowNode;
     });
     const compNodes: Node[] = graph.compositionNodes.map((model) => {
       const pos = draggedRef.current.get(model.id) ?? positions.get(model.id) ?? { x: 0, y: 0 };
-      const dimmed = !!neighbours && !neighbours.has(model.id);
       return {
         id: model.id,
         type: 'composition',
         position: { x: pos.x, y: pos.y },
         hidden: !families.has('composition'),
-        data: { model, dimmed, focused: focusId === model.id },
+        data: { model, dimmed: !!neighbours && !neighbours.has(model.id), focused: focusId === model.id },
       } satisfies CompFlowNode;
     });
     return [...compNodes, ...assetNodes];
@@ -255,36 +292,38 @@ function RelationsCanvasInner({
   const rfEdges = useMemo<Edge[]>(
     () =>
       visibleEdges.map((e: GraphEdgeModel) => {
-        const color = RELATION_FAMILY_COLORS[e.family];
-        const dim = !!neighbours && !(neighbours.has(e.source) && neighbours.has(e.target));
+        const color = familyColors[e.family];
+        const muted = !!neighbours && !(neighbours.has(e.source) && neighbours.has(e.target));
+        const lit = !!neighbours && !muted;
         return {
           id: e.id,
           source: e.source,
           target: e.target,
           label: focusId ? e.label : undefined,
-          animated: e.family === 'composition',
+          // Lineage and composition both flow; relations are static annotations.
+          animated: !muted && e.family !== 'relation',
           style: {
             stroke: color,
-            strokeWidth: e.family === 'relation' ? 1.5 : 2,
-            strokeDasharray: e.family === 'relation' ? '5 4' : undefined,
-            opacity: dim ? 0.12 : 0.85,
+            strokeWidth: e.family === 'lineage' ? (lit ? 2.6 : 2) : 1.5,
+            strokeDasharray: e.family === 'relation' ? '2 5' : undefined,
+            opacity: muted ? 0.1 : lit ? 0.95 : 0.7,
           },
-          labelStyle: { fontSize: 10, fill: color },
-          labelBgStyle: { fill: 'var(--color-surface, #1b1d23)', fillOpacity: 0.85 },
-          markerEnd: { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
+          labelStyle: { fontSize: 10, fontFamily: 'var(--font-mono, ui-monospace, monospace)', fill: color, letterSpacing: '0.04em' },
+          labelBgStyle: { fill: 'var(--color-surface)', fillOpacity: 0.9 },
+          labelBgPadding: [4, 2] as [number, number],
+          labelBgBorderRadius: 3,
+          markerEnd: { type: MarkerType.ArrowClosed, color, width: 13, height: 13 },
         } satisfies Edge;
       }),
-    [visibleEdges, neighbours, focusId],
+    [visibleEdges, neighbours, focusId, familyColors],
   );
 
   const onNodeDragStop = useCallback((_e: unknown, node: Node) => {
     draggedRef.current.set(node.id, { x: node.position.x, y: node.position.y });
   }, []);
-
   const onNodeClick = useCallback((_e: unknown, node: Node) => {
     setFocusId((cur) => (cur === node.id ? null : node.id));
   }, []);
-
   const toggleFamily = useCallback((family: RelationFamily) => {
     setFamilies((cur) => {
       const next = new Set(cur);
@@ -294,8 +333,7 @@ function RelationsCanvasInner({
     });
   }, []);
 
-  // Region overlays: a labelled box around each group's members. Reads live
-  // node positions so the box follows assets as they are dragged.
+  // Group "plates": a labelled territory behind each cluster's members.
   const positionByNode = useMemo(() => new Map(nodes.map((n) => [n.id, n.position])), [nodes]);
   const regions = useMemo(() => {
     if (grouping === 'none') return [];
@@ -311,16 +349,16 @@ function RelationsCanvasInner({
           maxY = Math.max(maxY, pos.y + ASSET_H);
         }
         if (!Number.isFinite(minX)) return null;
-        const pad = 26;
+        const pad = 30;
         return {
           key: group.key,
           label: group.label,
           color: group.color,
           count: group.nodeIds.length,
           x: minX - pad,
-          y: minY - pad - 22,
+          y: minY - pad - 26,
           width: maxX - minX + pad * 2,
-          height: maxY - minY + pad * 2 + 22,
+          height: maxY - minY + pad * 2 + 26,
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
@@ -330,20 +368,20 @@ function RelationsCanvasInner({
   useEffect(() => {
     if (didFit.current || nodes.length === 0) return;
     didFit.current = true;
-    requestAnimationFrame(() => fitView({ padding: 0.12, maxZoom: 1 }));
+    requestAnimationFrame(() => fitView({ padding: 0.14, maxZoom: 1 }));
   }, [nodes.length, fitView]);
 
   if (assets.length === 0) {
     return (
       <div className={styles.empty}>
-        <span className={styles.emptyIcon}>{isInitialSyncPending ? '⏳' : '🕸️'}</span>
-        <p>{isInitialSyncPending ? 'Loading relations…' : 'No assets yet'}</p>
+        <span className={styles.emptyIcon}>{isInitialSyncPending ? '◴' : '⊹'}</span>
+        <p>{isInitialSyncPending ? 'Charting relations…' : 'No assets to chart yet'}</p>
       </div>
     );
   }
 
   return (
-    <div className={styles.canvas}>
+    <div ref={wrapperRef} className={styles.canvas}>
       <ReactFlow
         nodes={nodes}
         edges={rfEdges}
@@ -358,21 +396,18 @@ function RelationsCanvasInner({
         deleteKeyCode={null}
         fitView
       >
+        <ZoomMirror target={wrapperRef} />
         <ViewportPortal>
           <div className={styles.regionLayer}>
             {regions.map((r) => (
               <div
                 key={r.key}
                 className={styles.region}
-                style={{
-                  transform: `translate(${r.x}px, ${r.y}px)`,
-                  width: r.width,
-                  height: r.height,
-                  '--accent': r.color,
-                } as CSSProperties}
+                style={{ transform: `translate(${r.x}px, ${r.y}px)`, width: r.width, height: r.height, '--plate': r.color } as CSSProperties}
               >
                 <span className={styles.regionLabel}>
-                  {r.label} <span className={styles.regionCount}>{r.count}</span>
+                  {r.label}
+                  <span className={styles.regionCount}>{r.count}</span>
                 </span>
               </div>
             ))}
@@ -385,45 +420,44 @@ function RelationsCanvasInner({
           position="bottom-right"
           pannable
           zoomable
-          nodeColor={(node) =>
-            node.type === 'composition'
-              ? RELATION_FAMILY_COLORS.composition
-              : (node.data as AssetNodeData).model?.groupColor ?? '#6f7480'
-          }
-          maskColor="rgba(0,0,0,0.5)"
+          nodeColor={(node) => (node.type === 'composition' ? familyColors.composition : (node.data as AssetNodeData).model?.groupColor ?? 'var(--color-text-muted)')}
+          maskColor="oklch(0% 0 0 / 0.55)"
         />
       </ReactFlow>
 
-      <div className={styles.toolbar}>
-        <div className={styles.group}>
-          <span className={styles.groupLabel}>Layout</span>
-          <button className={layoutMode === 'force' ? styles.on : styles.off} onClick={() => setLayoutMode('force')}>Clusters</button>
-          <button className={layoutMode === 'layered' ? styles.on : styles.off} onClick={() => setLayoutMode('layered')}>Flow</button>
+      <div className={styles.dock} role="toolbar" aria-label="Relations canvas controls">
+        <div className={styles.segment}>
+          <span className={styles.segLabel}>Layout</span>
+          <button className={layoutMode === 'force' ? styles.segOn : styles.segOff} onClick={() => setLayoutMode('force')} title="Organic clusters">Clusters</button>
+          <button className={layoutMode === 'layered' ? styles.segOn : styles.segOff} onClick={() => setLayoutMode('layered')} title="Top-down provenance flow">Flow</button>
         </div>
-        <div className={styles.group}>
-          <span className={styles.groupLabel}>Group by</span>
+        <span className={styles.dockDivider} />
+        <div className={styles.segment}>
+          <span className={styles.segLabel}>Group</span>
           {GROUPINGS.map((g) => (
-            <button key={g.id} className={grouping === g.id ? styles.on : styles.off} onClick={() => setGrouping(g.id)}>
-              {g.label}
-            </button>
+            <button key={g.id} className={grouping === g.id ? styles.segOn : styles.segOff} onClick={() => setGrouping(g.id)}>{g.label}</button>
           ))}
         </div>
-        <div className={styles.group}>
-          <span className={styles.groupLabel}>Edges</span>
+        <span className={styles.dockDivider} />
+        <div className={styles.segment}>
+          <span className={styles.segLabel}>Threads</span>
           {ALL_FAMILIES.map((f) => (
             <button
               key={f}
-              className={families.has(f) ? styles.on : styles.off}
-              style={{ '--accent': RELATION_FAMILY_COLORS[f] } as CSSProperties}
+              className={`${styles.thread} ${families.has(f) ? styles.threadOn : styles.threadOff}`}
               onClick={() => toggleFamily(f)}
+              title={RELATION_FAMILY_HINTS[f]}
             >
-              <span className={styles.swatch} style={{ background: RELATION_FAMILY_COLORS[f] }} />
+              <span className={styles.threadSwatch} style={{ background: familyColors[f] }} />
               {RELATION_FAMILY_LABELS[f]}
             </button>
           ))}
         </div>
         {focusId && (
-          <button className={styles.clearFocus} onClick={() => setFocusId(null)}>Clear focus ✕</button>
+          <>
+            <span className={styles.dockDivider} />
+            <button className={styles.clearFocus} onClick={() => setFocusId(null)}>Clear focus ✕</button>
+          </>
         )}
       </div>
     </div>
