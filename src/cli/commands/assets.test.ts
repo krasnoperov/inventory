@@ -252,6 +252,116 @@ test('assets download resolves a variant ID to its canonical media key', async (
   assert.match(output.join('\n'), /Downloaded media\/space-1\/variant-1.mp4/);
 });
 
+test('assets download records a mirror entry after successful variant download', async () => {
+  const output: string[] = [];
+  const downloads: unknown[] = [];
+  const mirrorRecords: unknown[] = [];
+  const { deps } = depsFor(output, downloads);
+
+  const result = await executeAssets({
+    positionals: ['download', 'variant-1'],
+    options: { o: 'references/variant.mp4' },
+  }, {
+    ...deps,
+    recordMirrorForFile: async (input) => {
+      mirrorRecords.push(input);
+      return {
+        version: 1,
+        baseUrl: input.baseUrl,
+        environment: input.environment,
+        spaceId: input.spaceId,
+        sha256: 'hash-1',
+        sizeBytes: 3,
+        paths: ['references/variant.mp4'],
+        assetId: input.assetId,
+        variantId: input.variantId,
+        mediaKind: input.mediaKind ?? 'image',
+        mediaKey: input.mediaKey,
+        updatedAt: '2026-06-26T00:00:00.000Z',
+      };
+    },
+  });
+
+  assert.equal(result.type, 'download');
+  assert.deepEqual(mirrorRecords, [{
+    projectRoot: '/tmp/project',
+    baseUrl: 'https://inventory.example.test',
+    environment: 'stage',
+    spaceId: 'space-1',
+    filePath: path.normalize('references/variant.mp4'),
+    assetId: 'asset-1',
+    variantId: 'variant-1',
+    mediaKind: 'video',
+    mediaKey: 'media/space-1/variant-1.mp4',
+  }]);
+});
+
+test('assets download does not record a mirror entry when download fails', async () => {
+  const output: string[] = [];
+  const mirrorRecords: unknown[] = [];
+  const { deps } = depsFor(output, []);
+
+  await assert.rejects(
+    () => executeAssets({
+      positionals: ['download', 'variant-1'],
+      options: { o: 'references/variant.mp4' },
+    }, {
+      ...deps,
+      downloadFile: async () => {
+        throw new Error('download failed');
+      },
+      recordMirrorForFile: async (input) => {
+        mirrorRecords.push(input);
+        throw new Error('unexpected mirror record');
+      },
+    }),
+    /download failed/
+  );
+
+  assert.deepEqual(mirrorRecords, []);
+});
+
+test('assets download with force records the downloaded file mirror', async () => {
+  const output: string[] = [];
+  const downloads: unknown[] = [];
+  const mirrorRecords: unknown[] = [];
+  const { deps } = depsFor(output, downloads);
+
+  await executeAssets({
+    positionals: ['download', 'variant-1'],
+    options: { o: 'references/variant.mp4', force: 'true' },
+  }, {
+    ...deps,
+    recordMirrorForFile: async (input) => {
+      mirrorRecords.push(input);
+      return {
+        version: 1,
+        baseUrl: input.baseUrl,
+        environment: input.environment,
+        spaceId: input.spaceId,
+        sha256: 'new-hash',
+        sizeBytes: 3,
+        paths: ['references/variant.mp4'],
+        assetId: input.assetId,
+        variantId: input.variantId,
+        mediaKind: input.mediaKind ?? 'image',
+        mediaKey: input.mediaKey,
+        updatedAt: '2026-06-26T00:00:00.000Z',
+      };
+    },
+  });
+
+  assert.deepEqual(downloads, [{
+    baseUrl: 'https://inventory.example.test',
+    accessToken: 'token-1',
+    requestPath: '/api/spaces/space-1/variants/variant-1/media',
+    outputPath: path.normalize('references/variant.mp4'),
+    force: true,
+  }]);
+  assert.equal(mirrorRecords.length, 1);
+  assert.equal((mirrorRecords[0] as { variantId: string }).variantId, 'variant-1');
+});
+
 test('assets download falls back to a legacy image key when no media key exists', async () => {
   const output: string[] = [];
   const downloads: unknown[] = [];

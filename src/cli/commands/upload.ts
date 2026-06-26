@@ -24,6 +24,7 @@ import {
   MAX_FILE_SIZE_MB,
   resolveMediaType,
 } from '../lib/media-upload';
+import { recordMirrorForFile } from '../lib/mirror-store';
 
 type LineageRelationType = 'derived' | 'refined' | 'forked';
 type ActiveVariantBehavior = 'if-missing' | 'set-active' | 'keep';
@@ -101,6 +102,7 @@ interface UploadDeps {
   fetch: typeof fetch;
   readFile: typeof readFile;
   stat: typeof stat;
+  recordMirrorForFile?: typeof recordMirrorForFile;
   print: (message: string) => void;
 }
 
@@ -111,6 +113,7 @@ const defaultDeps: UploadDeps = {
   fetch,
   readFile,
   stat,
+  recordMirrorForFile,
   print: console.log,
 };
 
@@ -329,6 +332,19 @@ export async function executeUpload(
       organization,
     };
 
+    await recordUploadMirror({
+      deps,
+      projectRoot: projectConfig?.projectRoot,
+      env,
+      baseUrl,
+      spaceId,
+      filePath,
+      assetId: upload.asset?.id ?? upload.variant.asset_id,
+      variantId: upload.variant.id,
+      mediaKind: upload.variant.media_kind || mediaType.mediaKind,
+      mediaKey: upload.variant.media_key || upload.variant.image_key,
+    });
+
     if (jsonOutput) {
       deps.print(JSON.stringify(result, null, 2));
       return result;
@@ -386,6 +402,36 @@ export async function executeUpload(
       throw new Error(`File not found: ${filePath}`);
     }
     throw error;
+  }
+}
+
+async function recordUploadMirror(input: {
+  deps: Pick<UploadDeps, 'recordMirrorForFile'>;
+  projectRoot?: string;
+  env: string;
+  baseUrl: string;
+  spaceId: string;
+  filePath: string;
+  assetId: string;
+  variantId: string;
+  mediaKind: UploadMediaResponse['variant']['media_kind'];
+  mediaKey?: string | null;
+}): Promise<void> {
+  if (!input.deps.recordMirrorForFile) return;
+  try {
+    await input.deps.recordMirrorForFile({
+      projectRoot: input.projectRoot,
+      baseUrl: input.baseUrl,
+      environment: input.env,
+      spaceId: input.spaceId,
+      filePath: input.filePath,
+      assetId: input.assetId,
+      variantId: input.variantId,
+      mediaKind: input.mediaKind,
+      mediaKey: input.mediaKey,
+    });
+  } catch (error) {
+    console.warn(`Warning: upload succeeded but mirror registry was not updated: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

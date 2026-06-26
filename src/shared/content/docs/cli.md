@@ -148,7 +148,7 @@ Run manifests are local debug traces. They are useful for automation logs and re
 - Prefer `--json` when available.
 - Bind the project once with `makefx init`.
 - Use variant IDs for existing website media.
-- Use local image refs only when you want Make Effects to upload them into the space first.
+- Use local image refs when you want Make Effects to mirror them into the space; unchanged mirrored files reuse their existing variant IDs.
 - Use `listen --json` for long-running orchestration.
 - Do not read or write Cloudflare storage directly from agents.
 - Treat the CLI as the shared contract between your local workflow, your agent, and the web workspace.

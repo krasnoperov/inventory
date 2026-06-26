@@ -388,6 +388,379 @@ test('resolveReferenceVariantIds uploads local files and keeps variant IDs', asy
   assert.deepEqual(uploaded, ['./local.png']);
 });
 
+test('resolveReferenceVariantIds reuses mirrored local refs without upload', async () => {
+  let uploaded = false;
+  const refs = await resolveReferenceVariantIds(
+    ['./local.png'],
+    {
+      env: 'stage',
+      baseUrl: 'https://makefx-stage.example.test',
+      accessToken: 'token',
+      spaceId: 'space-1',
+      projectRoot: '/tmp/project',
+    },
+    {
+      fileExists: async () => true,
+      resolveMirrorForFile: async () => ({
+        fingerprint: { sha256: 'hash-1', sizeBytes: 3 },
+        pathAlias: 'local.png',
+        digestEntry: {
+          version: 1,
+          baseUrl: 'https://makefx-stage.example.test',
+          environment: 'stage',
+          spaceId: 'space-1',
+          sha256: 'hash-1',
+          sizeBytes: 3,
+          paths: ['local.png'],
+          assetId: 'asset-ref',
+          variantId: 'variant-ref',
+          mediaKind: 'image',
+          mediaKey: 'images/ref.png',
+          updatedAt: '2026-06-26T00:00:00.000Z',
+        },
+      }),
+      uploadLocalReference: async () => {
+        uploaded = true;
+        throw new Error('unexpected upload');
+      },
+    },
+    [completedVariant({
+      id: 'variant-ref',
+      image_key: 'images/ref.png',
+      thumb_key: 'images/ref_thumb.webp',
+    })]
+  );
+
+  assert.deepEqual(refs, ['variant-ref']);
+  assert.equal(uploaded, false);
+});
+
+test('resolveReferenceVariantIds records a path alias when reusing by digest', async () => {
+  const recorded: unknown[] = [];
+  const refs = await resolveReferenceVariantIds(
+    ['./copy.png'],
+    {
+      env: 'stage',
+      baseUrl: 'https://makefx-stage.example.test',
+      accessToken: 'token',
+      spaceId: 'space-1',
+      projectRoot: '/tmp/project',
+    },
+    {
+      fileExists: async () => true,
+      resolveMirrorForFile: async () => ({
+        fingerprint: { sha256: 'hash-1', sizeBytes: 3 },
+        pathAlias: 'copy.png',
+        digestEntry: {
+          version: 1,
+          baseUrl: 'https://makefx-stage.example.test',
+          environment: 'stage',
+          spaceId: 'space-1',
+          sha256: 'hash-1',
+          sizeBytes: 3,
+          paths: ['original.png'],
+          assetId: 'asset-ref',
+          variantId: 'variant-ref',
+          mediaKind: 'image',
+          mediaKey: 'images/ref.png',
+          updatedAt: '2026-06-26T00:00:00.000Z',
+        },
+      }),
+      uploadLocalReference: async () => {
+        throw new Error('unexpected upload');
+      },
+      recordMirrorForFile: async (input) => {
+        recorded.push(input);
+        return {
+          version: 1,
+          baseUrl: input.baseUrl,
+          environment: input.environment,
+          spaceId: input.spaceId,
+          sha256: 'hash-1',
+          sizeBytes: 3,
+          paths: ['copy.png', 'original.png'],
+          assetId: input.assetId,
+          variantId: input.variantId,
+          mediaKind: input.mediaKind ?? 'image',
+          mediaKey: input.mediaKey,
+          updatedAt: '2026-06-26T00:00:00.000Z',
+        };
+      },
+    },
+    [completedVariant({
+      id: 'variant-ref',
+      image_key: 'images/ref.png',
+      thumb_key: 'images/ref_thumb.webp',
+    })]
+  );
+
+  assert.deepEqual(refs, ['variant-ref']);
+  assert.deepEqual(recorded, [{
+    projectRoot: '/tmp/project',
+    baseUrl: 'https://makefx-stage.example.test',
+    environment: 'stage',
+    spaceId: 'space-1',
+    filePath: './copy.png',
+    assetId: 'asset-ref',
+    variantId: 'variant-ref',
+    mediaKind: 'image',
+    mediaKey: 'images/ref.png',
+  }]);
+});
+
+test('resolveReferenceVariantIds reuses image mirrors for video local refs', async () => {
+  let uploaded = false;
+  const refs = await resolveReferenceVariantIds(
+    ['./local.png'],
+    {
+      env: 'stage',
+      baseUrl: 'https://makefx-stage.example.test',
+      accessToken: 'token',
+      spaceId: 'space-1',
+      projectRoot: '/tmp/project',
+    },
+    {
+      fileExists: async () => true,
+      resolveMirrorForFile: async (input) => {
+        assert.equal(input.mediaKind, 'image');
+        return {
+          fingerprint: { sha256: 'hash-1', sizeBytes: 3 },
+          pathAlias: 'local.png',
+          digestEntry: {
+            version: 1,
+            baseUrl: 'https://makefx-stage.example.test',
+            environment: 'stage',
+            spaceId: 'space-1',
+            sha256: 'hash-1',
+            sizeBytes: 3,
+            paths: ['local.png'],
+            assetId: 'asset-ref',
+            variantId: 'variant-ref',
+            mediaKind: 'image',
+            mediaKey: 'images/ref.png',
+            updatedAt: '2026-06-26T00:00:00.000Z',
+          },
+        };
+      },
+      uploadLocalReference: async () => {
+        uploaded = true;
+        throw new Error('unexpected upload');
+      },
+    },
+    [completedVariant({
+      id: 'variant-ref',
+      media_kind: 'image',
+      image_key: 'images/ref.png',
+      thumb_key: 'images/ref_thumb.webp',
+    })],
+    'video'
+  );
+
+  assert.deepEqual(refs, ['variant-ref']);
+  assert.equal(uploaded, false);
+});
+
+test('resolveReferenceVariantIds records a mirror after first local ref upload', async () => {
+  const recorded: unknown[] = [];
+  const refs = await resolveReferenceVariantIds(
+    ['./local.png'],
+    {
+      env: 'stage',
+      baseUrl: 'https://makefx-stage.example.test',
+      accessToken: 'token',
+      spaceId: 'space-1',
+      projectRoot: '/tmp/project',
+    },
+    {
+      fileExists: async () => true,
+      resolveMirrorForFile: async () => ({
+        fingerprint: { sha256: 'hash-1', sizeBytes: 3 },
+        pathAlias: 'local.png',
+      }),
+      uploadLocalReference: async () => ({
+        asset: { id: 'asset-ref', name: 'Reference', type: 'reference' },
+        variant: {
+          id: 'variant-uploaded',
+          asset_id: 'asset-ref',
+          media_kind: 'image',
+          image_key: 'images/ref.png',
+          thumb_key: 'images/ref_thumb.webp',
+          media_key: 'images/ref.png',
+          status: 'completed',
+          recipe: '{}',
+        },
+      }),
+      recordMirrorForFile: async (input) => {
+        recorded.push(input);
+        return {
+          version: 1,
+          baseUrl: input.baseUrl,
+          environment: input.environment,
+          spaceId: input.spaceId,
+          sha256: 'hash-1',
+          sizeBytes: 3,
+          paths: ['local.png'],
+          assetId: input.assetId,
+          variantId: input.variantId,
+          mediaKind: input.mediaKind ?? 'image',
+          mediaKey: input.mediaKey,
+          updatedAt: '2026-06-26T00:00:00.000Z',
+        };
+      },
+    }
+  );
+
+  assert.deepEqual(refs, ['variant-uploaded']);
+  assert.deepEqual(recorded, [{
+    projectRoot: '/tmp/project',
+    baseUrl: 'https://makefx-stage.example.test',
+    environment: 'stage',
+    spaceId: 'space-1',
+    filePath: './local.png',
+    assetId: 'asset-ref',
+    variantId: 'variant-uploaded',
+    mediaKind: 'image',
+    mediaKey: 'images/ref.png',
+  }]);
+});
+
+test('resolveReferenceVariantIds rejects changed mirrored local refs', async () => {
+  await assert.rejects(
+    () => resolveReferenceVariantIds(
+      ['./local.png'],
+      {
+        env: 'stage',
+        baseUrl: 'https://makefx-stage.example.test',
+        accessToken: 'token',
+        spaceId: 'space-1',
+      },
+      {
+        fileExists: async () => true,
+        resolveMirrorForFile: async () => ({
+          fingerprint: { sha256: 'new-hash', sizeBytes: 3 },
+          pathAlias: 'local.png',
+          pathEntry: {
+            version: 1,
+            baseUrl: 'https://makefx-stage.example.test',
+            environment: 'stage',
+            spaceId: 'space-1',
+            sha256: 'old-hash',
+            sizeBytes: 3,
+            paths: ['local.png'],
+            assetId: 'asset-ref',
+            variantId: 'variant-ref',
+            mediaKind: 'image',
+            mediaKey: 'images/ref.png',
+            updatedAt: '2026-06-26T00:00:00.000Z',
+          },
+        }),
+        uploadLocalReference: async () => {
+          throw new Error('unexpected upload');
+        },
+      }
+    ),
+    /Local reference changed since it was mirrored/
+  );
+});
+
+test('resolveReferenceVariantIds rejects changed paths even when new bytes match another mirror', async () => {
+  await assert.rejects(
+    () => resolveReferenceVariantIds(
+      ['./local.png'],
+      {
+        env: 'stage',
+        baseUrl: 'https://makefx-stage.example.test',
+        accessToken: 'token',
+        spaceId: 'space-1',
+      },
+      {
+        fileExists: async () => true,
+        resolveMirrorForFile: async () => ({
+          fingerprint: { sha256: 'other-hash', sizeBytes: 3 },
+          pathAlias: 'local.png',
+          pathEntry: {
+            version: 1,
+            baseUrl: 'https://makefx-stage.example.test',
+            environment: 'stage',
+            spaceId: 'space-1',
+            sha256: 'old-local-hash',
+            sizeBytes: 3,
+            paths: ['local.png'],
+            assetId: 'asset-local',
+            variantId: 'variant-local',
+            mediaKind: 'image',
+            mediaKey: 'images/local.png',
+            updatedAt: '2026-06-26T00:00:00.000Z',
+          },
+          digestEntry: {
+            version: 1,
+            baseUrl: 'https://makefx-stage.example.test',
+            environment: 'stage',
+            spaceId: 'space-1',
+            sha256: 'other-hash',
+            sizeBytes: 3,
+            paths: ['other.png'],
+            assetId: 'asset-other',
+            variantId: 'variant-other',
+            mediaKind: 'image',
+            mediaKey: 'images/other.png',
+            updatedAt: '2026-06-26T00:00:00.000Z',
+          },
+        }),
+        uploadLocalReference: async () => {
+          throw new Error('unexpected upload');
+        },
+      },
+      [completedVariant({
+        id: 'variant-other',
+        image_key: 'images/other.png',
+        thumb_key: 'images/other_thumb.webp',
+      })]
+    ),
+    /Local reference changed since it was mirrored/
+  );
+});
+
+test('resolveReferenceVariantIds rejects mirrored refs missing from space state', async () => {
+  await assert.rejects(
+    () => resolveReferenceVariantIds(
+      ['./local.png'],
+      {
+        env: 'stage',
+        baseUrl: 'https://makefx-stage.example.test',
+        accessToken: 'token',
+        spaceId: 'space-1',
+      },
+      {
+        fileExists: async () => true,
+        resolveMirrorForFile: async () => ({
+          fingerprint: { sha256: 'hash-1', sizeBytes: 3 },
+          pathAlias: 'local.png',
+          digestEntry: {
+            version: 1,
+            baseUrl: 'https://makefx-stage.example.test',
+            environment: 'stage',
+            spaceId: 'space-1',
+            sha256: 'hash-1',
+            sizeBytes: 3,
+            paths: ['local.png'],
+            assetId: 'asset-ref',
+            variantId: 'variant-ref',
+            mediaKind: 'image',
+            mediaKey: 'images/ref.png',
+            updatedAt: '2026-06-26T00:00:00.000Z',
+          },
+        }),
+        uploadLocalReference: async () => {
+          throw new Error('unexpected upload');
+        },
+      },
+      []
+    ),
+    /Reference variant not found/
+  );
+});
+
 test('resolveReferenceVariantIds errors for missing path-like refs', async () => {
   await assert.rejects(
     () => resolveReferenceVariantIds(
