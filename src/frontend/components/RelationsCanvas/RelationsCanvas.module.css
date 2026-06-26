@@ -131,7 +131,9 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--spine);
+  /* Coloured by the asset TYPE, independent of the grouping spine — so a card
+     can encode both its collection (spine) and its type (stamp) at once. */
+  color: var(--stamp);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -205,39 +207,36 @@
   position: absolute;
   inset: 0 auto auto 0;
   --plate: var(--color-text-muted);
-  /* Plate hue lives on the dashed border + label; the fill is a faint neutral
-     hatch (a dynamic per-group tint can't be tokenised, and the design system
-     bans color-mix in component CSS — the border carries the colour instead). */
+  /* Boundary only — no fill. With ~10 clusters a tinted fill turns every box
+     overlap into hatched noise; a thin coloured outline reads cleanly even when
+     two boundaries cross, and the colour still lives on the border + label. */
   border: 1px dashed var(--plate);
-  border-radius: var(--radius-lg);
-  background:
-    repeating-linear-gradient(135deg, var(--color-border) 0 1px, transparent 1px 10px);
+  border-radius: var(--radius-xl);
 }
 
 .regionLabel {
   position: absolute;
-  top: 7px;
+  top: -11px;
   left: 12px;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  /* A solid chip lifted onto the boundary so the label stays readable over
+     whatever nodes sit behind it. */
+  background: var(--color-surface);
+  border: 1px solid var(--plate);
   font-family: var(--font-mono);
-  font-size: var(--font-size-small-sm);
+  font-size: var(--font-size-micro);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--plate);
 }
 .regionCount {
-  display: inline-grid;
-  place-items: center;
-  min-width: 17px;
-  height: 16px;
-  padding: 0 4px;
-  border: 1px solid var(--plate);
-  border-radius: var(--radius-full);
   font-size: var(--font-size-micro-sm);
-  color: var(--plate);
+  color: var(--color-text-muted);
 }
 
 /* ---- Edge motion --------------------------------------------------------- */
@@ -316,7 +315,16 @@
 .threadOn { color: var(--color-text); background: var(--color-bg); border-color: var(--color-border); }
 .threadOff .threadSwatch { opacity: 0.35; }
 
+.thread:disabled { cursor: default; opacity: 0.4; }
+.thread:disabled:hover { background: transparent; color: var(--color-text-muted); border-color: transparent; }
+
 .threadSwatch { width: 9px; height: 9px; border-radius: var(--radius-full); flex: 0 0 auto; }
+.threadCount {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  color: var(--color-text-muted);
+  margin-left: 0.1rem;
+}
 
 .clearFocus {
   height: 26px;

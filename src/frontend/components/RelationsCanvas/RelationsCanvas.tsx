@@ -115,7 +115,7 @@ function AssetNodeView({ data }: NodeProps<AssetFlowNode>) {
   return (
     <article
       className={`${styles.specimen} ${dimmed ? styles.dimmed : ''} ${focused ? styles.focused : ''}`}
-      style={{ '--spine': model.groupColor } as CSSProperties}
+      style={{ '--spine': model.groupColor, '--stamp': model.typeColor } as CSSProperties}
     >
       {/* Media plate — pixels never altered; emphasis lives on the frame. */}
       <div className={styles.plate}>
@@ -333,10 +333,21 @@ function RelationsCanvasInner({
     });
   }, []);
 
-  // Group "plates": a labelled territory behind each cluster's members.
+  // How many edges each family actually contributes — real spaces often have
+  // none of some family, so the toggle should read as empty rather than active.
+  const familyCounts = useMemo(() => {
+    const counts: Record<RelationFamily, number> = { lineage: 0, relation: 0, composition: 0 };
+    for (const e of graph.edges) counts[e.family] += 1;
+    return counts;
+  }, [graph.edges]);
+
+  // Group "plates": a labelled boundary around each cluster's members. Only
+  // meaningful when the force layout has actually separated ≥2 clusters — in
+  // the layered layout dagre scatters group members across ranks, so a bounding
+  // box would span the whole graph (just noise).
   const positionByNode = useMemo(() => new Map(nodes.map((n) => [n.id, n.position])), [nodes]);
   const regions = useMemo(() => {
-    if (grouping === 'none') return [];
+    if (grouping === 'none' || layoutMode !== 'force' || graph.groups.length < 2) return [];
     return graph.groups
       .map((group: GroupModel) => {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -349,20 +360,20 @@ function RelationsCanvasInner({
           maxY = Math.max(maxY, pos.y + ASSET_H);
         }
         if (!Number.isFinite(minX)) return null;
-        const pad = 30;
+        const pad = 34;
         return {
           key: group.key,
           label: group.label,
           color: group.color,
           count: group.nodeIds.length,
           x: minX - pad,
-          y: minY - pad - 26,
+          y: minY - pad,
           width: maxX - minX + pad * 2,
-          height: maxY - minY + pad * 2 + 26,
+          height: maxY - minY + pad * 2,
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
-  }, [graph.groups, grouping, positionByNode]);
+  }, [graph.groups, grouping, layoutMode, positionByNode]);
 
   const didFit = useRef(false);
   useEffect(() => {
@@ -441,17 +452,24 @@ function RelationsCanvasInner({
         <span className={styles.dockDivider} />
         <div className={styles.segment}>
           <span className={styles.segLabel}>Threads</span>
-          {ALL_FAMILIES.map((f) => (
-            <button
-              key={f}
-              className={`${styles.thread} ${families.has(f) ? styles.threadOn : styles.threadOff}`}
-              onClick={() => toggleFamily(f)}
-              title={RELATION_FAMILY_HINTS[f]}
-            >
-              <span className={styles.threadSwatch} style={{ background: familyColors[f] }} />
-              {RELATION_FAMILY_LABELS[f]}
-            </button>
-          ))}
+          {ALL_FAMILIES.map((f) => {
+            const count = familyCounts[f];
+            const empty = count === 0;
+            return (
+              <button
+                key={f}
+                className={`${styles.thread} ${families.has(f) && !empty ? styles.threadOn : styles.threadOff}`}
+                onClick={() => !empty && toggleFamily(f)}
+                disabled={empty}
+                aria-disabled={empty}
+                title={empty ? `${RELATION_FAMILY_LABELS[f]}: none in this space` : RELATION_FAMILY_HINTS[f]}
+              >
+                <span className={styles.threadSwatch} style={{ background: familyColors[f] }} />
+                {RELATION_FAMILY_LABELS[f]}
+                <span className={styles.threadCount}>{count}</span>
+              </button>
+            );
+          })}
         </div>
         {focusId && (
           <>

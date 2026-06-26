@@ -190,6 +190,43 @@ describe('layout', () => {
     const b = positioned.find((p) => p.id === 'b')!;
     assert.notEqual(a.y, b.y);
   });
+
+  test('layered layout drops unconnected nodes into a grid below the trees', () => {
+    // Real spaces are lineage-shallow: most nodes are orphans. They must not be
+    // flattened into one giant rank beside the trees, but packed beneath them.
+    const many = [
+      { id: 'a', width: 196, height: 168 },
+      { id: 'b', width: 196, height: 168 },
+      ...Array.from({ length: 12 }, (_, i) => ({ id: `orphan-${i}`, width: 196, height: 168 })),
+    ];
+    const positioned = layoutLayered(many, [{ source: 'a', target: 'b' }]);
+    const treeBottom = Math.max(
+      positioned.find((p) => p.id === 'a')!.y,
+      positioned.find((p) => p.id === 'b')!.y,
+    );
+    const orphanYs = positioned.filter((p) => p.id.startsWith('orphan-')).map((p) => p.y);
+    // Every orphan sits below the lineage tree…
+    assert.ok(orphanYs.every((y) => y > treeBottom));
+    // …and they form multiple grid rows rather than a single wide strip.
+    assert.ok(new Set(orphanYs).size >= 2);
+  });
+
+  test('force layout spatially separates distinct groups', () => {
+    const grouped = [
+      ...Array.from({ length: 6 }, (_, i) => ({ id: `g1-${i}`, width: 196, height: 168, groupKey: 'g1' })),
+      ...Array.from({ length: 6 }, (_, i) => ({ id: `g2-${i}`, width: 196, height: 168, groupKey: 'g2' })),
+    ];
+    const positioned = layoutForce(grouped, []);
+    const centroid = (prefix: string) => {
+      const pts = positioned.filter((p) => p.id.startsWith(prefix));
+      return { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length };
+    };
+    const c1 = centroid('g1-');
+    const c2 = centroid('g2-');
+    const dist = Math.hypot(c1.x - c2.x, c1.y - c2.y);
+    // Cohesion should pull each group to its own anchor, well clear of the other.
+    assert.ok(dist > 600, `expected separated centroids, got ${dist}`);
+  });
 });
 
 describe('neighbourSet', () => {

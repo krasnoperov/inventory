@@ -82,6 +82,7 @@ export interface AssetNodeModel {
   groupKey: string;
   groupLabel: string;
   groupColor: string;
+  typeColor: string; // hue for the asset type, independent of the grouping spine
 }
 
 export interface CompositionNodeModel {
@@ -244,6 +245,7 @@ export function buildRelationsGraph(input: BuildGraphInput): RelationsGraph {
       groupKey: group.key,
       groupLabel: group.label,
       groupColor: group.color,
+      typeColor: colorForType(asset.type || 'untyped'),
     };
   });
 
@@ -374,16 +376,25 @@ function seedPoint(id: string, span: number): { x: number; y: number } {
 export function layoutForce(nodes: LayoutNode[], edges: LayoutEdge[]): Positioned[] {
   if (nodes.length === 0) return [];
 
-  const groupKeys = [...new Set(nodes.map((n) => n.groupKey).filter((k): k is string => !!k))];
+  // Count members per group so clusters get a cell sized to their content —
+  // a 20-node cluster needs far more room than a 2-node one, otherwise large
+  // clusters bleed into their neighbours and the region boxes overlap.
+  const counts = new Map<string, number>();
+  for (const n of nodes) if (n.groupKey) counts.set(n.groupKey, (counts.get(n.groupKey) ?? 0) + 1);
+  const groupKeys = [...counts.keys()];
   const cols = Math.max(1, Math.ceil(Math.sqrt(groupKeys.length)));
-  const cell = 900;
+  // Grid pitch scales with the biggest cluster's packed footprint (each node
+  // occupies ~250px once collision spacing is included), plus a gap so adjacent
+  // clusters — and their region outlines — stay clear of each other.
+  const maxCount = Math.max(1, ...counts.values());
+  const cell = Math.max(1000, Math.sqrt(maxCount) * 300);
   const anchors = new Map<string, { x: number; y: number }>();
   groupKeys.forEach((key, i) => {
     anchors.set(key, { x: (i % cols) * cell, y: Math.floor(i / cols) * cell });
   });
 
   const simNodes: SimNode[] = nodes.map((n) => {
-    const seed = seedPoint(n.id, 600);
+    const seed = seedPoint(n.id, 360);
     const anchor = n.groupKey ? anchors.get(n.groupKey) : undefined;
     return {
       id: n.id,
@@ -405,46 +416,86 @@ export function layoutForce(nodes: LayoutNode[], edges: LayoutEdge[]): Positione
       d3Force
         .forceLink<SimNode, (typeof simLinks)[number]>(simLinks)
         .id((d) => d.id)
-        .distance(200)
-        .strength(0.6),
+        .distance(190)
+        .strength(0.5),
     )
-    .force('charge', d3Force.forceManyBody<SimNode>().strength(-520).distanceMax(700))
-    .force('collision', d3Force.forceCollide<SimNode>().radius((d) => Math.max(d.width, d.height) / 2 + 26).strength(0.92))
+    .force('charge', d3Force.forceManyBody<SimNode>().strength(-480).distanceMax(650))
+    .force('collision', d3Force.forceCollide<SimNode>().radius((d) => Math.max(d.width, d.height) / 2 + 26).strength(0.95))
     .stop();
 
   if (hasGroups) {
+    // Strong group cohesion keeps clusters tight and well-separated so the
+    // region overlays don't overlap into hatched noise (seen at ~10 groups).
     sim
-      .force('gx', d3Force.forceX<SimNode>((d) => anchors.get(d.groupKey ?? '')?.x ?? 0).strength(0.12))
-      .force('gy', d3Force.forceY<SimNode>((d) => anchors.get(d.groupKey ?? '')?.y ?? 0).strength(0.12));
+      .force('gx', d3Force.forceX<SimNode>((d) => anchors.get(d.groupKey ?? '')?.x ?? 0).strength(0.5))
+      .force('gy', d3Force.forceY<SimNode>((d) => anchors.get(d.groupKey ?? '')?.y ?? 0).strength(0.5));
   } else {
     sim.force('center', d3Force.forceCenter(0, 0));
   }
 
-  for (let i = 0; i < 320; i++) sim.tick();
+  for (let i = 0; i < 360; i++) sim.tick();
 
   return simNodes.map((n) => ({ id: n.id, x: (n.x ?? 0) - n.width / 2, y: (n.y ?? 0) - n.height / 2 }));
 }
 
-/** Layered (dagre) layout — reads lineage/composition flow top-to-bottom. */
+/**
+ * Layered (dagre) layout — reads lineage/composition flow top-to-bottom.
+ * Only nodes that participate in an edge go through dagre; unconnected nodes
+ * (the majority in real spaces, where lineage is shallow) are packed into a
+ * grid beneath the trees instead of being flattened into one enormous rank.
+ */
 export function layoutLayered(
   nodes: LayoutNode[],
   edges: LayoutEdge[],
   direction: 'TB' | 'LR' = 'TB',
 ): Positioned[] {
   if (nodes.length === 0) return [];
-  const g = new dagre.graphlib.Graph();
-  g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: direction, nodesep: 48, ranksep: 90, marginx: 20, marginy: 20 });
-  const ids = new Set(nodes.map((n) => n.id));
-  nodes.forEach((n) => g.setNode(n.id, { width: n.width, height: n.height }));
-  edges.forEach((e) => {
-    if (ids.has(e.source) && ids.has(e.target)) g.setEdge(e.source, e.target);
-  });
-  dagre.layout(g);
-  return nodes.map((n) => {
-    const p = g.node(n.id);
-    return { id: n.id, x: (p?.x ?? 0) - n.width / 2, y: (p?.y ?? 0) - n.height / 2 };
-  });
+  const connected = new Set<string>();
+  for (const e of edges) {
+    connected.add(e.source);
+    connected.add(e.target);
+  }
+  const treeNodes = nodes.filter((n) => connected.has(n.id));
+  const orphans = nodes.filter((n) => !connected.has(n.id));
+
+  const positioned: Positioned[] = [];
+  let treeMaxX = 0;
+  let treeMaxY = 0;
+
+  if (treeNodes.length > 0) {
+    const g = new dagre.graphlib.Graph();
+    g.setDefaultEdgeLabel(() => ({}));
+    g.setGraph({ rankdir: direction, nodesep: 48, ranksep: 90, marginx: 20, marginy: 20 });
+    const ids = new Set(treeNodes.map((n) => n.id));
+    treeNodes.forEach((n) => g.setNode(n.id, { width: n.width, height: n.height }));
+    edges.forEach((e) => {
+      if (ids.has(e.source) && ids.has(e.target)) g.setEdge(e.source, e.target);
+    });
+    dagre.layout(g);
+    for (const n of treeNodes) {
+      const p = g.node(n.id);
+      const x = (p?.x ?? 0) - n.width / 2;
+      const y = (p?.y ?? 0) - n.height / 2;
+      positioned.push({ id: n.id, x, y });
+      treeMaxX = Math.max(treeMaxX, x + n.width);
+      treeMaxY = Math.max(treeMaxY, y + n.height);
+    }
+  }
+
+  if (orphans.length > 0) {
+    const gap = 28;
+    const cellW = orphans[0].width + gap;
+    const cellH = orphans[0].height + gap;
+    // Match the orphan grid's width to the lineage trees above it (fall back to
+    // a comfortable default when there are no trees at all).
+    const cols = Math.max(1, Math.round((treeMaxX || 1200) / cellW));
+    const startY = treeNodes.length > 0 ? treeMaxY + 90 : 0;
+    orphans.forEach((n, i) => {
+      positioned.push({ id: n.id, x: (i % cols) * cellW, y: startY + Math.floor(i / cols) * cellH });
+    });
+  }
+
+  return positioned;
 }
 
 /** Neighbours of a node across the given (already filtered) edges, 1 hop. */
