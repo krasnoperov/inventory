@@ -209,8 +209,9 @@ makefx productions export \
 
 - Keep variant IDs in scripts or shotlists; do not depend on local filenames as
   the source of truth.
-- Use local image paths in `--refs` only when you want the CLI to upload them as
-  visible reference assets first.
+- Use local image paths in `--refs` when you want the CLI to mirror them as
+  visible Space reference assets. Repeated use of unchanged mirrored files
+  reuses the existing variant; changed files stop for an intentional update.
 - Use `--force` only when replacing local downloads intentionally.
 - Export `productions` records for timed image or video scene assembly.
 - Use `makefx runs --debug` only when troubleshooting local CLI downloads

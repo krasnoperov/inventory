@@ -9,6 +9,7 @@ import {
   resolveCommandSpace,
 } from '../lib/command-context';
 import { downloadFile } from '../lib/image-transfer';
+import { recordMirrorForFile } from '../lib/mirror-store';
 import { truncate } from '../lib/utils';
 import { WebSocketClient, ServerConfirmationTimeoutError, type AssetMutationClient, type AssetRecord } from '../lib/websocket-client';
 import type { MediaKind } from '../../shared/websocket-types';
@@ -85,6 +86,7 @@ interface AssetsDeps {
   resolveBaseUrl: (env: string) => string;
   fetch: typeof fetch;
   downloadFile: typeof downloadFile;
+  recordMirrorForFile?: typeof recordMirrorForFile;
   createMutationClient: (env: string, spaceId: string) => Promise<AssetMutationClient>;
   print: (message: string) => void;
 }
@@ -95,6 +97,7 @@ interface AssetsContext {
   baseUrl: string;
   accessToken: string;
   force: boolean;
+  projectRoot?: string;
 }
 
 const defaultDeps: AssetsDeps = {
@@ -103,6 +106,7 @@ const defaultDeps: AssetsDeps = {
   resolveBaseUrl,
   fetch,
   downloadFile,
+  recordMirrorForFile,
   createMutationClient: (env, spaceId) => WebSocketClient.create(env, spaceId),
   print: console.log,
 };
@@ -176,6 +180,7 @@ export async function executeAssets(
       outputPath,
       force: ctx.force,
     });
+    await recordDownloadedMirror({ ctx, deps, outputPath, variant: resolved.variant });
     deps.print(`Downloaded ${resolved.mediaKey} to ${outputPath}`);
     return { type: 'download', mediaKey: resolved.mediaKey, outputPath, variant: resolved.variant };
   }
@@ -244,7 +249,33 @@ async function buildContext(parsed: ParsedArgs, deps: AssetsDeps): Promise<Asset
     baseUrl: deps.resolveBaseUrl(env),
     accessToken: config.token.accessToken,
     force: parsed.options.force === 'true',
+    projectRoot: projectConfig?.projectRoot,
   };
+}
+
+async function recordDownloadedMirror(input: {
+  ctx: AssetsContext;
+  deps: Pick<AssetsDeps, 'recordMirrorForFile'>;
+  outputPath: string;
+  variant?: Variant;
+}): Promise<void> {
+  const variant = input.variant;
+  if (!variant || !input.deps.recordMirrorForFile) return;
+  try {
+    await input.deps.recordMirrorForFile({
+      projectRoot: input.ctx.projectRoot,
+      baseUrl: input.ctx.baseUrl,
+      environment: input.ctx.env,
+      spaceId: input.ctx.spaceId,
+      filePath: input.outputPath,
+      assetId: variant.asset_id,
+      variantId: variant.id,
+      mediaKind: variant.media_kind || 'image',
+      mediaKey: variant.media_key || variant.image_key,
+    });
+  } catch (error) {
+    console.warn(`Warning: download succeeded but mirror registry was not updated: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 async function listAssets(ctx: AssetsContext, deps: Pick<AssetsDeps, 'fetch'>): Promise<Asset[]> {

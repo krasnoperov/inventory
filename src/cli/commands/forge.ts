@@ -27,6 +27,11 @@ import {
   type UploadedImage,
 } from '../lib/image-transfer';
 import {
+  describeMirrorMismatch,
+  recordMirrorForFile,
+  resolveMirrorForFile,
+} from '../lib/mirror-store';
+import {
   getGenerationRequestTimeoutMs,
   WebSocketClient,
   type BatchResult,
@@ -189,6 +194,8 @@ interface CommandDeps {
     filePath: string;
     assetName?: string;
   }) => Promise<UploadedImage>;
+  resolveMirrorForFile?: typeof resolveMirrorForFile;
+  recordMirrorForFile?: typeof recordMirrorForFile;
   downloadImage: (input: {
     baseUrl: string;
     accessToken?: string;
@@ -217,6 +224,8 @@ const defaultDeps: CommandDeps = {
   resolveBaseUrl,
   createClient: WebSocketClient.create,
   uploadLocalReference: uploadLocalImageAsReference,
+  resolveMirrorForFile,
+  recordMirrorForFile,
   downloadImage,
   downloadFile,
   saveRunManifest,
@@ -1254,8 +1263,8 @@ export function parseRefs(value: string): string[] {
 
 export async function resolveReferenceVariantIds(
   refs: string[],
-  ctx: Pick<CommandContext, 'baseUrl' | 'accessToken' | 'spaceId'>,
-  deps: Pick<CommandDeps, 'fileExists' | 'uploadLocalReference'>,
+  ctx: Pick<CommandContext, 'baseUrl' | 'accessToken' | 'spaceId'> & Partial<Pick<CommandContext, 'env' | 'projectRoot'>>,
+  deps: Pick<CommandDeps, 'fileExists' | 'uploadLocalReference'> & Partial<Pick<CommandDeps, 'resolveMirrorForFile' | 'recordMirrorForFile'>>,
   variants: Variant[] = [],
   mediaKind: GenerationMediaKind = CLI_GENERATION_MEDIA_KIND
 ): Promise<string[]> {
@@ -1264,12 +1273,53 @@ export async function resolveReferenceVariantIds(
   for (const ref of refs) {
     const exists = await deps.fileExists(ref);
     if (exists) {
+      const localReferenceMediaKind = mediaKind === 'video' ? CLI_GENERATION_MEDIA_KIND : mediaKind;
+      const mirror = deps.resolveMirrorForFile
+        ? await deps.resolveMirrorForFile({
+          projectRoot: ctx.projectRoot,
+          baseUrl: ctx.baseUrl,
+          environment: ctx.env,
+          spaceId: ctx.spaceId,
+          filePath: ref,
+          mediaKind: localReferenceMediaKind,
+        })
+        : undefined;
+      if (mirror?.pathEntry && (
+        mirror.pathEntry.sha256 !== mirror.fingerprint.sha256 ||
+        mirror.pathEntry.sizeBytes !== mirror.fingerprint.sizeBytes
+      )) {
+        throw new Error(describeMirrorMismatch(ref, mirror.pathEntry));
+      }
+      if (mirror?.digestEntry) {
+        validateReferenceVariant(mirror.digestEntry.variantId, variants, mediaKind);
+        await recordReusedReferenceMirror({
+          ref,
+          ctx,
+          deps,
+          entry: mirror.digestEntry,
+        });
+        variantIds.push(mirror.digestEntry.variantId);
+        continue;
+      }
+      if (mirror?.pathEntry) {
+        throw new Error(describeMirrorMismatch(ref, mirror.pathEntry));
+      }
+
       const uploaded = await deps.uploadLocalReference({
         baseUrl: ctx.baseUrl,
         accessToken: ctx.accessToken,
         spaceId: ctx.spaceId,
         filePath: ref,
       });
+      if (deps.recordMirrorForFile) {
+        await recordUploadedReferenceMirror({
+          ref,
+          ctx,
+          deps,
+          uploaded,
+          mediaKind: localReferenceMediaKind,
+        });
+      }
       variantIds.push(uploaded.variant.id);
       continue;
     }
@@ -1283,6 +1333,58 @@ export async function resolveReferenceVariantIds(
   }
 
   return variantIds;
+}
+
+async function recordReusedReferenceMirror(input: {
+  ref: string;
+  ctx: Pick<CommandContext, 'baseUrl' | 'spaceId'> & Partial<Pick<CommandContext, 'env' | 'projectRoot'>>;
+  deps: Partial<Pick<CommandDeps, 'recordMirrorForFile'>>;
+  entry: {
+    assetId: string;
+    variantId: string;
+    mediaKind: MediaKind;
+    mediaKey?: string | null;
+  };
+}): Promise<void> {
+  try {
+    await input.deps.recordMirrorForFile?.({
+      projectRoot: input.ctx.projectRoot,
+      baseUrl: input.ctx.baseUrl,
+      environment: input.ctx.env,
+      spaceId: input.ctx.spaceId,
+      filePath: input.ref,
+      assetId: input.entry.assetId,
+      variantId: input.entry.variantId,
+      mediaKind: input.entry.mediaKind,
+      mediaKey: input.entry.mediaKey,
+    });
+  } catch (error) {
+    console.warn(`Warning: reused mirrored reference but mirror registry alias was not updated: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function recordUploadedReferenceMirror(input: {
+  ref: string;
+  ctx: Pick<CommandContext, 'baseUrl' | 'spaceId'> & Partial<Pick<CommandContext, 'env' | 'projectRoot'>>;
+  deps: Partial<Pick<CommandDeps, 'recordMirrorForFile'>>;
+  uploaded: UploadedImage;
+  mediaKind: GenerationMediaKind;
+}): Promise<void> {
+  try {
+    await input.deps.recordMirrorForFile?.({
+      projectRoot: input.ctx.projectRoot,
+      baseUrl: input.ctx.baseUrl,
+      environment: input.ctx.env,
+      spaceId: input.ctx.spaceId,
+      filePath: input.ref,
+      assetId: input.uploaded.asset?.id ?? input.uploaded.variant.asset_id,
+      variantId: input.uploaded.variant.id,
+      mediaKind: input.uploaded.variant.media_kind ?? input.mediaKind,
+      mediaKey: input.uploaded.variant.media_key ?? input.uploaded.variant.image_key,
+    });
+  } catch (error) {
+    console.warn(`Warning: reference upload succeeded but mirror registry was not updated: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 function validateReferenceVariant(ref: string, variants: Variant[], mediaKind: GenerationMediaKind): void {

@@ -269,11 +269,13 @@ makefx derive \
   -o keyframes/lucia-market-001.png
 ```
 
-Local image paths are uploaded first as `reference` assets in the website space.
-The returned uploaded variant IDs are then sent as `referenceVariantIds` for the
-generation request. This keeps local references visible in the web graph. Video
-derive accepts completed image variants as provider references and completed
-video variants as media lineage parents.
+Local image paths are mirrored into the website space. The CLI records the file
+digest, Space, asset ID, and variant ID in `.inventory/mirrors.json`; matching
+content is reused on later commands after the recorded variant is validated in
+the current Space state. A same-path file with different content stops the
+command instead of silently reusing the old reference or silently uploading a
+duplicate. Video derive accepts completed image variants as provider references
+and completed video variants as media lineage parents.
 
 ## Output Files
 

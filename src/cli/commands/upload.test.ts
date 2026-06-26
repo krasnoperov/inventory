@@ -299,6 +299,83 @@ test('upload sends video files with explicit media kind and MIME type', async ()
   }
 });
 
+test('upload records a mirror entry after successful upload', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'clip.mp4');
+  const capturedBodies: BodyInit[] = [];
+  const output: string[] = [];
+  const mirrorRecords: unknown[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await executeUpload({
+      positionals: [filePath],
+      options: { space: 'space-1', name: 'Combat Clip', type: 'video' },
+    }, {
+      ...depsFor(capturedBodies, output),
+      recordMirrorForFile: async (input) => {
+        mirrorRecords.push(input);
+        return {
+          version: 1,
+          baseUrl: input.baseUrl,
+          environment: input.environment,
+          spaceId: input.spaceId,
+          sha256: 'hash-1',
+          sizeBytes: 3,
+          paths: ['clip.mp4'],
+          assetId: input.assetId,
+          variantId: input.variantId,
+          mediaKind: input.mediaKind ?? 'image',
+          mediaKey: input.mediaKey,
+          updatedAt: '2026-06-26T00:00:00.000Z',
+        };
+      },
+    });
+
+    assert.deepEqual(mirrorRecords, [{
+      projectRoot: undefined,
+      baseUrl: 'https://inventory.example.test',
+      environment: 'production',
+      spaceId: 'space-1',
+      filePath,
+      assetId: 'asset-1',
+      variantId: 'variant-1',
+      mediaKind: 'video',
+      mediaKey: 'media/space-1/variant-1.mp4',
+    }]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('upload does not record a mirror entry when upload fails', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'clip.mp4');
+  const output: string[] = [];
+  const mirrorRecords: unknown[] = [];
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await assert.rejects(
+      () => executeUpload({
+        positionals: [filePath],
+        options: { space: 'space-1', name: 'Combat Clip', type: 'video' },
+      }, {
+        ...depsFor([], output),
+        fetch: async () => Response.json({ error: 'failed' }, { status: 500 }),
+        recordMirrorForFile: async (input) => {
+          mirrorRecords.push(input);
+          throw new Error('unexpected mirror record');
+        },
+      }),
+      /Upload failed: failed/
+    );
+    assert.deepEqual(mirrorRecords, []);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('upload sends single-file provenance and lineage metadata', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
   const filePath = path.join(dir, 'paintover.png');

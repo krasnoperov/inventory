@@ -561,8 +561,12 @@ makefx batch "Three cinematic keyframes in Russafa market" \
 ```
 
 `derive --refs` accepts existing variant IDs and local image paths. Local
-images are uploaded first as `reference` assets, then their uploaded variant IDs
-are used in the derive request.
+images are mirrored into `.inventory/mirrors.json` for the current Space. If the
+same file content was already mirrored and the recorded variant still exists in
+the Space as a completed compatible variant, the CLI reuses that variant ID
+without uploading another reference asset. If the same path now contains
+different content, the CLI stops instead of silently reusing the old reference or
+silently creating a duplicate.
 
 Generation commands download completed media and write debug-only
 `.inventory/runs/<run-id>.json` at the initialized project root, with local
@@ -678,9 +682,11 @@ makefx video derive \
 ```
 
 `video derive --refs` accepts completed image variant IDs, completed video
-variant IDs, and local image paths. Local paths are uploaded first as reference
-image assets. Video batch generation is not exposed because website batch jobs
-reject `mediaKind: "video"`.
+variant IDs, and local image paths. Local image paths use the same mirror
+registry as image refs: matching mirrored content reuses the recorded variant,
+while changed files stop with guidance to upload or reference intentionally.
+Video batch generation is not exposed because website batch jobs reject
+`mediaKind: "video"`.
 
 By default, video requests ask for native synchronized Veo audio. Current Veo
 models do not support `--no-audio`; the CLI rejects it before creating a Space
