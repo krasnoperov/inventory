@@ -31,7 +31,7 @@ import {
   isCompositionNodeId,
   layoutForce,
   layoutLayered,
-  neighbourSet,
+  traceLineage,
   RELATION_FAMILY_VARS,
   RELATION_FAMILY_LABELS,
   RELATION_FAMILY_HINTS,
@@ -209,15 +209,17 @@ function RelationsCanvasInner({
   const [grouping, setGrouping] = useState<GroupingAxis>('collection');
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('force');
   const [families, setFamilies] = useState<Set<RelationFamily>>(() => new Set(ALL_FAMILIES));
-  const [focusId, setFocusId] = useState<string | null>(null);
+  // Clicking an asset traces its complete lineage (all ancestors + descendants)
+  // and isolates it; null = no trace.
+  const [traceId, setTraceId] = useState<string | null>(null);
   // Story lens: the default for this view — show the source→final trunk and
   // hide exploration noise; "Graph" drops to the raw, fully-laid-out graph.
   const [storyMode, setStoryMode] = useState(true);
   const [showAttempts, setShowAttempts] = useState(false);
   const draggedRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
-  // Story always reads top→bottom as a pipeline, so it forces the layered layout.
-  const effectiveLayout: LayoutMode = storyMode ? 'layered' : layoutMode;
+  // A trace forces the layered flow so ancestors read top→down.
+  const effectiveLayout: LayoutMode = traceId || storyMode ? 'layered' : layoutMode;
 
   // Resolve the three edge tokens (light-dark pairs) to concrete colours so they
   // can drive SVG strokes, arrow markers and the minimap. Re-read if the OS
@@ -256,23 +258,35 @@ function RelationsCanvasInner({
     [assets, variants, lineage, relations, collections, collectionItems, compositions, compositionItems, grouping],
   );
 
-  // Which asset nodes are on stage. In the story lens we hide attempts and
-  // orphans by default so only the source→final trunk shows; "Show attempts"
-  // brings them back (dimmed). The raw graph shows everything.
+  // Full lineage through the traced asset (transitive ancestors + descendants).
+  const lineageEdges = useMemo(
+    () => graph.edges.filter((e) => e.family === 'lineage').map((e) => ({ source: e.source, target: e.target })),
+    [graph.edges],
+  );
+  const traceSet = useMemo(() => (traceId ? traceLineage(traceId, lineageEdges) : null), [traceId, lineageEdges]);
+  const tracedName = useMemo(
+    () => (traceId ? graph.assetNodes.find((n) => n.id === traceId)?.asset.name ?? 'asset' : null),
+    [traceId, graph.assetNodes],
+  );
+
+  // Which asset nodes are on stage. A trace isolates one asset's lineage; else
+  // the story lens hides attempts/orphans (unless revealed); the raw graph shows
+  // everything.
   const isOffTrunk = useCallback(
     (role: string) => role === 'attempt' || role === 'orphan',
     [],
   );
   const visibleAssetIds = useMemo(() => {
+    if (traceSet) return new Set(traceSet);
     const set = new Set<string>();
     for (const n of graph.assetNodes) {
       if (!storyMode || showAttempts || !isOffTrunk(n.role)) set.add(n.id);
     }
     return set;
-  }, [graph.assetNodes, storyMode, showAttempts, isOffTrunk]);
+  }, [graph.assetNodes, storyMode, showAttempts, isOffTrunk, traceSet]);
   // Compositions are a raw-graph concept (and empty in practice) — keep them out
-  // of the story pipeline.
-  const compositionsVisible = !storyMode && families.has('composition');
+  // of the story pipeline and traces.
+  const compositionsVisible = !storyMode && !traceId && families.has('composition');
 
   // Layout runs over the *visible* set so the layered pipeline ranks the real
   // finals at the bottom (their hidden attempt-children don't push them up).
@@ -290,10 +304,10 @@ function RelationsCanvasInner({
     return new Map(result.map((p) => [p.id, p]));
   }, [graph, effectiveLayout, visibleAssetIds, compositionsVisible]);
 
-  // Layout / grouping / story changes are explicit "re-arrange everything" actions.
+  // Layout / grouping / story / trace changes are "re-arrange everything" actions.
   useEffect(() => {
     draggedRef.current.clear();
-  }, [layoutMode, grouping, storyMode, showAttempts]);
+  }, [layoutMode, grouping, storyMode, showAttempts, traceId]);
 
   const visibleEdges = useMemo(
     () =>
@@ -305,22 +319,20 @@ function RelationsCanvasInner({
       ),
     [graph.edges, families, visibleAssetIds, compositionsVisible],
   );
-  const neighbours = useMemo(() => (focusId ? neighbourSet(focusId, visibleEdges) : null), [focusId, visibleEdges]);
 
   const rfNodes = useMemo<Node[]>(() => {
     const assetNodes: Node[] = graph.assetNodes
       .filter((model) => visibleAssetIds.has(model.id))
       .map((model) => {
         const pos = draggedRef.current.get(model.id) ?? positions.get(model.id) ?? { x: 0, y: 0 };
-        // In the story lens, revealed attempts/orphans render dimmed so the
-        // trunk keeps the spotlight.
-        const storyDim = storyMode && showAttempts && isOffTrunk(model.role);
-        const focusDim = !!neighbours && !neighbours.has(model.id);
+        // Revealed attempts/orphans render dimmed so the trunk keeps the
+        // spotlight; in a trace nothing is dimmed (the view is already isolated).
+        const dimmed = !traceId && storyMode && showAttempts && isOffTrunk(model.role);
         return {
           id: model.id,
           type: 'asset',
           position: { x: pos.x, y: pos.y },
-          data: { model, spaceId, dimmed: storyDim || focusDim, focused: focusId === model.id, onOpen: onAssetClick },
+          data: { model, spaceId, dimmed, focused: traceId === model.id, onOpen: onAssetClick },
         } satisfies AssetFlowNode;
       });
     const compNodes: Node[] = compositionsVisible
@@ -330,12 +342,12 @@ function RelationsCanvasInner({
             id: model.id,
             type: 'composition',
             position: { x: pos.x, y: pos.y },
-            data: { model, dimmed: !!neighbours && !neighbours.has(model.id), focused: focusId === model.id },
+            data: { model, dimmed: false, focused: false },
           } satisfies CompFlowNode;
         })
       : [];
     return [...compNodes, ...assetNodes];
-  }, [graph, positions, neighbours, focusId, spaceId, onAssetClick, visibleAssetIds, compositionsVisible, storyMode, showAttempts, isOffTrunk]);
+  }, [graph, positions, traceId, spaceId, onAssetClick, visibleAssetIds, compositionsVisible, storyMode, showAttempts, isOffTrunk]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(rfNodes);
   useEffect(() => setNodes(rfNodes), [rfNodes, setNodes]);
@@ -344,36 +356,32 @@ function RelationsCanvasInner({
     () =>
       visibleEdges.map((e: GraphEdgeModel) => {
         const color = familyColors[e.family];
-        const muted = !!neighbours && !(neighbours.has(e.source) && neighbours.has(e.target));
-        const lit = !!neighbours && !muted;
         return {
           id: e.id,
           source: e.source,
           target: e.target,
-          label: focusId ? e.label : undefined,
           // Lineage and composition both flow; relations are static annotations.
-          animated: !muted && e.family !== 'relation',
+          animated: e.family !== 'relation',
           style: {
             stroke: color,
-            strokeWidth: e.family === 'lineage' ? (lit ? 2.6 : 2) : 1.5,
+            strokeWidth: e.family === 'lineage' ? 2.2 : 1.5,
             strokeDasharray: e.family === 'relation' ? '2 5' : undefined,
-            opacity: muted ? 0.1 : lit ? 0.95 : 0.7,
+            opacity: 0.85,
           },
-          labelStyle: { fontSize: 10, fontFamily: 'var(--font-mono, ui-monospace, monospace)', fill: color, letterSpacing: '0.04em' },
-          labelBgStyle: { fill: 'var(--color-surface)', fillOpacity: 0.9 },
-          labelBgPadding: [4, 2] as [number, number],
-          labelBgBorderRadius: 3,
           markerEnd: { type: MarkerType.ArrowClosed, color, width: 13, height: 13 },
         } satisfies Edge;
       }),
-    [visibleEdges, neighbours, focusId, familyColors],
+    [visibleEdges, familyColors],
   );
 
   const onNodeDragStop = useCallback((_e: unknown, node: Node) => {
     draggedRef.current.set(node.id, { x: node.position.x, y: node.position.y });
   }, []);
+  // Click an asset to trace its full lineage; click it again (or the pane) to
+  // exit. Composition hubs aren't lineage, so they don't trace.
   const onNodeClick = useCallback((_e: unknown, node: Node) => {
-    setFocusId((cur) => (cur === node.id ? null : node.id));
+    if (isCompositionNodeId(node.id)) return;
+    setTraceId((cur) => (cur === node.id ? null : node.id));
   }, []);
   const toggleFamily = useCallback((family: RelationFamily) => {
     setFamilies((cur) => {
@@ -398,7 +406,7 @@ function RelationsCanvasInner({
   // box would span the whole graph (just noise).
   const positionByNode = useMemo(() => new Map(nodes.map((n) => [n.id, n.position])), [nodes]);
   const regions = useMemo(() => {
-    if (storyMode || grouping === 'none' || effectiveLayout !== 'force' || graph.groups.length < 2) return [];
+    if (traceId || storyMode || grouping === 'none' || effectiveLayout !== 'force' || graph.groups.length < 2) return [];
     return graph.groups
       .map((group: GroupModel) => {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -424,7 +432,7 @@ function RelationsCanvasInner({
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
-  }, [graph.groups, grouping, effectiveLayout, storyMode, positionByNode]);
+  }, [graph.groups, grouping, effectiveLayout, storyMode, traceId, positionByNode]);
 
   const didFit = useRef(false);
   useEffect(() => {
@@ -440,7 +448,7 @@ function RelationsCanvasInner({
     if (!didMountFit.current) { didMountFit.current = true; return; }
     const t = requestAnimationFrame(() => fitView({ padding: 0.14, maxZoom: 1 }));
     return () => cancelAnimationFrame(t);
-  }, [storyMode, showAttempts, effectiveLayout, fitView]);
+  }, [storyMode, showAttempts, effectiveLayout, traceId, fitView]);
 
   if (assets.length === 0) {
     return (
@@ -459,7 +467,7 @@ function RelationsCanvasInner({
         onNodesChange={onNodesChange}
         onNodeDragStop={onNodeDragStop}
         onNodeClick={onNodeClick}
-        onPaneClick={() => setFocusId(null)}
+        onPaneClick={() => setTraceId(null)}
         nodeTypes={nodeTypes}
         minZoom={0.1}
         maxZoom={1.75}
@@ -497,6 +505,18 @@ function RelationsCanvasInner({
       </ReactFlow>
 
       <div className={styles.dock} role="toolbar" aria-label="Relations canvas controls">
+        {traceId ? (
+          <>
+            <div className={styles.segment}>
+              <span className={styles.segLabel}>Lineage of</span>
+              <span className={styles.traceName}>{tracedName}</span>
+              <span className={styles.threadCount}>{(traceSet?.size ?? 1)} asset{(traceSet?.size ?? 1) === 1 ? '' : 's'}</span>
+            </div>
+            <span className={styles.dockDivider} />
+            <button className={styles.clearFocus} onClick={() => setTraceId(null)}>Clear trace ✕</button>
+          </>
+        ) : (
+        <>
         <div className={styles.segment}>
           <button className={storyMode ? styles.segOn : styles.segOff} onClick={() => setStoryMode(true)} title="Source → final pipeline, noise hidden">Story</button>
           <button className={!storyMode ? styles.segOn : styles.segOff} onClick={() => setStoryMode(false)} title="Raw graph: every asset and layout control">Graph</button>
@@ -570,11 +590,7 @@ function RelationsCanvasInner({
             </div>
           </>
         )}
-        {focusId && (
-          <>
-            <span className={styles.dockDivider} />
-            <button className={styles.clearFocus} onClick={() => setFocusId(null)}>Clear focus ✕</button>
-          </>
+        </>
         )}
       </div>
     </div>

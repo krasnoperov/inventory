@@ -645,3 +645,29 @@ export function neighbourSet(id: string, edges: GraphEdgeModel[]): Set<string> {
   }
   return set;
 }
+
+/**
+ * The complete lineage *through* an asset: every transitive ancestor (how it
+ * was made) plus every transitive descendant (what came from it) plus the
+ * asset itself. Directed walk over the lineage edges — up the parents, down the
+ * children. Used to isolate one asset's full provenance.
+ */
+export function traceLineage(assetId: string, edges: LayoutEdge[]): Set<string> {
+  const parents = new Map<string, string[]>();
+  const children = new Map<string, string[]>();
+  for (const e of edges) {
+    (children.get(e.source) ?? children.set(e.source, []).get(e.source)!).push(e.target);
+    (parents.get(e.target) ?? parents.set(e.target, []).get(e.target)!).push(e.source);
+  }
+  const set = new Set<string>([assetId]);
+  const walk = (adj: Map<string, string[]>) => {
+    const queue = [assetId];
+    while (queue.length) {
+      const id = queue.pop()!;
+      for (const n of adj.get(id) ?? []) if (!set.has(n)) { set.add(n); queue.push(n); }
+    }
+  };
+  walk(parents);
+  walk(children);
+  return set;
+}

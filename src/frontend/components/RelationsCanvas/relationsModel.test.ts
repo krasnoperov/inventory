@@ -10,7 +10,7 @@ import type {
   SpaceRelation,
   Variant,
 } from '../../space/protocol';
-import { buildRelationsGraph, classifyRoles, isCompositionNodeId, layoutForce, layoutLayered, neighbourSet } from './relationsModel';
+import { buildRelationsGraph, classifyRoles, isCompositionNodeId, layoutForce, layoutLayered, neighbourSet, traceLineage } from './relationsModel';
 
 function asset(id: string, type = 'character', tags = '[]'): Asset {
   return {
@@ -286,6 +286,34 @@ describe('buildRelationsGraph story counts', () => {
     assert.equal(byId.get('b'), 'final');
     assert.equal(graph.storyCounts.sources, 1);
     assert.equal(graph.storyCounts.finals, 1);
+  });
+});
+
+describe('traceLineage (full lineage through an asset)', () => {
+  // a -> b -> c (main chain); b -> x (a fork off b); d -> e is unrelated.
+  const edges = [
+    { source: 'a', target: 'b' },
+    { source: 'b', target: 'c' },
+    { source: 'b', target: 'x' },
+    { source: 'd', target: 'e' },
+  ];
+
+  test('from a middle node, includes all ancestors and all descendants', () => {
+    const set = traceLineage('b', edges);
+    assert.deepEqual([...set].sort(), ['a', 'b', 'c', 'x']);
+  });
+
+  test('excludes unrelated branches', () => {
+    const set = traceLineage('b', edges);
+    assert.ok(!set.has('d') && !set.has('e'));
+  });
+
+  test('a leaf traces back to its full ancestry', () => {
+    assert.deepEqual([...traceLineage('c', edges)].sort(), ['a', 'b', 'c']);
+  });
+
+  test('an isolated asset traces to just itself', () => {
+    assert.deepEqual([...traceLineage('lonely', edges)], ['lonely']);
   });
 });
 

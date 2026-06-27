@@ -350,6 +350,16 @@
 .legendSource { background: var(--canvas-thread-lineage); }
 .legendFinal { background: var(--canvas-thread-composition); }
 .legendNum { font-family: var(--font-mono); font-size: var(--font-size-micro-sm); color: var(--color-text-muted); }
+
+.traceName {
+  max-width: 220px;
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .threadCount {
   font-family: var(--font-mono);
   font-size: var(--font-size-micro-sm);
