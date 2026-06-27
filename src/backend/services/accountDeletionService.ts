@@ -122,6 +122,8 @@ export class AccountDeletionService {
 
     const source = options.source ?? 'self_service';
     this.ensureBillingCustomerDeletionConfigured(user.polar_customer_id);
+    const userIdText = String(userId);
+    const normalizedEmail = user.email.trim().toLowerCase();
 
     const now = new Date().toISOString();
     const tombstone: AccountDeletionTombstonePayload = {
@@ -164,6 +166,8 @@ export class AccountDeletionService {
     const purgeResult = await this.purgeSpaceDos(ownedSpaceIds);
 
     for (const batch of chunks(ownedSpaceIds)) {
+      d1RowsChanged += changed(await this.db.deleteFrom('space_access_requests').where('space_id', 'in', batch).executeTakeFirst());
+      d1RowsChanged += changed(await this.db.deleteFrom('space_invitations').where('space_id', 'in', batch).executeTakeFirst());
       d1RowsChanged += changed(await this.db.deleteFrom('space_members').where('space_id', 'in', batch).executeTakeFirst());
       d1RowsChanged += changed(await this.db.deleteFrom('platform_usage_events').where('space_id', 'in', batch).executeTakeFirst());
       d1RowsChanged += changed(await this.db.deleteFrom('spaces').where('id', 'in', batch).executeTakeFirst());
@@ -174,6 +178,23 @@ export class AccountDeletionService {
       .where('user_id', '=', String(userId))
       .executeTakeFirst());
     d1RowsChanged += sharedMembershipsDeleted;
+
+    d1RowsChanged += changed(await this.db
+      .deleteFrom('space_access_requests')
+      .where((eb) => eb.or([
+        eb('requester_user_id', '=', userIdText),
+        eb('resolved_by_user_id', '=', userIdText),
+      ]))
+      .executeTakeFirst());
+
+    d1RowsChanged += changed(await this.db
+      .deleteFrom('space_invitations')
+      .where((eb) => eb.or([
+        eb('invited_by_user_id', '=', userIdText),
+        eb('accepted_by_user_id', '=', userIdText),
+        eb('normalized_email', '=', normalizedEmail),
+      ]))
+      .executeTakeFirst());
 
     d1RowsChanged += changed(await this.db
       .updateTable('platform_usage_events')
