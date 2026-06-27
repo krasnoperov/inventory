@@ -8,9 +8,11 @@ import { UserDAO } from '../../dao/user-dao';
 import { SpaceDAO } from '../../dao/space-dao';
 import { MemberDAO } from '../../dao/member-dao';
 import { PlatformUsageEventDAO } from '../../dao/platform-usage-event-dao';
+import { SpaceSharingDAO } from '../../dao/space-sharing-dao';
 import { authRoutes } from './auth';
 import { userRoutes } from './user';
 import { spaceRoutes } from './space';
+import { sharingRoutes } from './sharing';
 import { uploadRoutes } from './upload';
 import { imageRoutes } from './image';
 import { createOpenApiRouter } from './openapi';
@@ -39,6 +41,56 @@ const space = {
   name: 'Test Space',
   owner_id: String(user.id),
   created_at: 1_780_000_000_000,
+};
+
+const sharingUser = {
+  id: String(user.id),
+  email: user.email,
+  name: user.name,
+};
+
+const sharingMember = {
+  space_id: space.id,
+  user_id: String(user.id),
+  role: 'owner' as const,
+  joined_at: 1_780_000_000_001,
+  deleted_at: null,
+  user: sharingUser,
+};
+
+const accessRequest = {
+  id: 'request-1',
+  space_id: space.id,
+  requester_user_id: '8',
+  requested_role: 'editor' as const,
+  status: 'pending' as const,
+  message: 'Please add me',
+  created_at: '2026-06-27T10:00:00.000Z',
+  updated_at: '2026-06-27T10:00:00.000Z',
+  resolved_at: null,
+  resolved_by_user_id: null,
+  requester: {
+    id: '8',
+    email: 'requester@example.test',
+    name: 'Requester',
+  },
+};
+
+const invitation = {
+  id: 'invitation-1',
+  space_id: space.id,
+  email: 'invitee@example.test',
+  normalized_email: 'invitee@example.test',
+  role: 'viewer' as const,
+  status: 'pending' as const,
+  invited_by_user_id: String(user.id),
+  accepted_by_user_id: null,
+  created_at: '2026-06-27T10:05:00.000Z',
+  updated_at: '2026-06-27T10:05:00.000Z',
+  expires_at: null,
+  resolved_at: null,
+  invitedBy: sharingUser,
+  acceptedBy: null,
 };
 
 const asset = {
@@ -605,6 +657,148 @@ describe('API contracts', () => {
     assert.equal(response.status, 500);
     assert.deepEqual(await response.json(), { error: 'archive unavailable' });
     assert.equal(deleteCalls, 0);
+  });
+
+  it('round-trips space sharing routes through the shared client contract', async () => {
+    const calls: string[] = [];
+    const fakeSpaceDAO = {
+      getSpaceById: async (id: string) => id === space.id ? space : null,
+    };
+    const fakeMemberDAO = {
+      getMember: async () => null,
+      getMemberRole: async () => 'owner',
+    };
+    const fakeUserDAO = {
+      findById: async () => user,
+    };
+    const fakeSharingDAO = {
+      getPendingAccessRequestForUser: async () => accessRequest,
+      getPendingInvitationForEmail: async () => invitation,
+      createAccessRequest: async (data: { requestedRole: string; message?: string | null }) => {
+        calls.push(`request:${data.requestedRole}:${data.message}`);
+        return {
+          ...accessRequest,
+          requested_role: data.requestedRole,
+          message: data.message ?? null,
+        };
+      },
+      cancelAccessRequest: async () => ({
+        ...accessRequest,
+        status: 'canceled' as const,
+        resolved_at: '2026-06-27T10:10:00.000Z',
+      }),
+      getSharingState: async () => ({
+        members: [sharingMember],
+        pendingAccessRequests: [accessRequest],
+        pendingInvitations: [invitation],
+      }),
+      createInvitation: async (data: { email: string; role: string }) => {
+        calls.push(`invite:${data.email}:${data.role}`);
+        return {
+          ...invitation,
+          email: 'invitee@example.test',
+          normalized_email: 'invitee@example.test',
+          role: data.role,
+        };
+      },
+      getPendingAccessRequestById: async (id: string) => id === accessRequest.id ? accessRequest : null,
+      resolveAccessRequest: async (_id: string, _resolver: string, status: 'approved' | 'rejected') => ({
+        ...accessRequest,
+        status,
+        resolved_at: '2026-06-27T10:11:00.000Z',
+        resolved_by_user_id: String(user.id),
+      }),
+      getPendingInvitationById: async (id: string) => id === invitation.id ? invitation : null,
+      revokeInvitation: async () => ({
+        ...invitation,
+        status: 'revoked' as const,
+        resolved_at: '2026-06-27T10:12:00.000Z',
+      }),
+    };
+    const fakeAuthService = {
+      verifyJWT: async () => ({ userId: user.id }),
+    };
+    const app = routeApp(sharingRoutes, new Map<unknown, unknown>([
+      [AuthService, fakeAuthService],
+      [SpaceDAO, fakeSpaceDAO],
+      [MemberDAO, fakeMemberDAO],
+      [UserDAO, fakeUserDAO],
+      [SpaceSharingDAO, fakeSharingDAO],
+    ]));
+    const fetch = bindFetch(app);
+    const authHeaders = { Authorization: 'Bearer test-token' };
+
+    const access = await apiFetch('GET /api/spaces/:id/access', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    assert.equal(access.access.status, 'pending_request');
+    assert.equal(access.access.pendingRequest?.id, accessRequest.id);
+
+    const requested = await apiFetch('POST /api/spaces/:id/access-requests', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+      json: { requestedRole: 'editor', message: 'Please add me' },
+    });
+    assert.equal(requested.request.requested_role, 'editor');
+
+    const canceled = await apiFetch('DELETE /api/spaces/:id/access-requests/me', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    assert.equal(canceled.request?.status, 'canceled');
+
+    const sharing = await apiFetch('GET /api/spaces/:id/sharing', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+    });
+    assert.equal(sharing.members[0].role, 'owner');
+    assert.equal(sharing.pendingAccessRequests[0].requester.email, 'requester@example.test');
+
+    const invited = await apiFetch('POST /api/spaces/:id/invitations', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id },
+      json: { email: ' Invitee@Example.TEST ', role: 'viewer' },
+    });
+    assert.equal(invited.invitation.normalized_email, 'invitee@example.test');
+
+    const approved = await apiFetch('POST /api/spaces/:id/access-requests/:requestId/approve', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, requestId: accessRequest.id },
+    });
+    assert.equal(approved.request.status, 'approved');
+
+    const rejected = await apiFetch('POST /api/spaces/:id/access-requests/:requestId/reject', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, requestId: accessRequest.id },
+    });
+    assert.equal(rejected.request.status, 'rejected');
+
+    const revoked = await apiFetch('POST /api/spaces/:id/invitations/:invitationId/revoke', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, invitationId: invitation.id },
+    });
+    assert.equal(revoked.invitation.status, 'revoked');
+    assert.deepEqual(calls, [
+      'request:editor:Please add me',
+      'invite:Invitee@Example.TEST:viewer',
+    ]);
   });
 
   it('supports admin inspection and restore of a soft-deleted space without changing normal reads', async () => {
