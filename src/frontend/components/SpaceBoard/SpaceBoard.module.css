@@ -479,36 +479,24 @@
 }
 
 .audioMetaRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
+  display: grid;
+  gap: 0.08rem;
   min-width: 0;
 }
 
 .audioMeta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
+  display: block;
   max-width: 100%;
   min-width: 0;
-  padding: 0.18rem 0.38rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
   font-size: var(--font-size-micro-sm);
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.audioMeta span {
-  color: var(--color-text-muted);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
 }
 
 .audioPrompt {
