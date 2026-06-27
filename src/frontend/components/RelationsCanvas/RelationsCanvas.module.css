@@ -383,5 +383,16 @@
 .emptyIcon { font-size: 2rem; opacity: 0.7; }
 
 @media (max-width: 768px) {
-  .dock { left: 0.5rem; right: 0.5rem; transform: none; max-width: none; }
+  /* The Forge Tray occupies the bottom of the space page on narrow viewports
+     and would cover a bottom-docked control bar — move the dock to the top
+     (below the space toolbar) so it stays reachable. */
+  .dock {
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: auto;
+    top: 3.4rem;
+    transform: none;
+    max-width: none;
+    justify-content: flex-start;
+  }
 }

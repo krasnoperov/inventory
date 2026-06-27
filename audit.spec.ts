@@ -295,3 +295,78 @@ test.describe('@shots-spaces', () => {
     }
   });
 });
+
+// Relations Canvas (the new asset-lineage graph view). Walks into a space,
+// switches to the Relations view, and captures the Story lens (default + with
+// attempts revealed), the raw Graph mode, and a single-asset lineage trace.
+// Target a specific data-rich space with AUDIT_SPACE_ID; otherwise the first
+// space on the account is used.
+test.describe('@shots-relations', () => {
+  test.skip(() => !auditAuthRequested(), 'auth not requested (set AUDIT_AUTH=1 or AUDIT_AUTH_TOKEN)');
+
+  test('authed walk: relations story / attempts / graph / trace', async ({ page }, info) => {
+    test.slow();
+    await injectAuth(page, info);
+    const diag = instrument(page);
+
+    // Resolve the space: explicit id, else discover the first one.
+    let spaceId = process.env.AUDIT_SPACE_ID ?? '';
+    if (!spaceId) {
+      await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+      await settle(page);
+      const spaceLink = page.locator('a[href^="/spaces/"]').first();
+      if ((await spaceLink.count()) === 0) {
+        info.annotations.push({ type: 'note', description: 'no spaces on this account; relations shots skipped' });
+        return;
+      }
+      const href = (await spaceLink.getAttribute('href')) ?? '';
+      spaceId = href.split('/spaces/')[1]?.split(/[/?#]/)[0] ?? '';
+    }
+    if (!spaceId) return;
+
+    await page.goto(`/spaces/${spaceId}`, { waitUntil: 'domcontentloaded' });
+    await settle(page, 3000);
+
+    // Enter the Relations view via its toolbar button.
+    const relationsBtn = page.locator('button[title="Switch to relations view"]');
+    if ((await relationsBtn.count()) === 0) {
+      info.annotations.push({ type: 'note', description: 'relations toolbar button not found; skipping' });
+      return;
+    }
+    await relationsBtn.first().click();
+    await settle(page, 3000);
+    await test.step('story default', () => writeArtifacts(page, info, 'relations-story-default', diag));
+
+    // Reveal attempts/orphans if the pill is present.
+    const showAttempts = page.getByRole('button', { name: /show attempts/i });
+    if ((await showAttempts.count()) > 0) {
+      await showAttempts.first().click();
+      await settle(page, 2500);
+      await test.step('story attempts', () => writeArtifacts(page, info, 'relations-story-attempts', diag));
+      await page.getByRole('button', { name: /hide attempts/i }).first().click().catch(() => {});
+      await settle(page, 1500);
+    }
+
+    // Raw graph mode.
+    const graphBtn = page.getByRole('button', { name: /^graph$/i });
+    if ((await graphBtn.count()) > 0) {
+      await graphBtn.first().click();
+      await settle(page, 3000);
+      await test.step('graph mode', () => writeArtifacts(page, info, 'relations-graph', diag));
+      await page.getByRole('button', { name: /^story$/i }).first().click().catch(() => {});
+      await settle(page, 2500);
+    }
+
+    // Trace one asset's full lineage: click a node's plate (top area, above the
+    // name button) so the click reaches the node, not the open-asset action.
+    const node = page.locator('.react-flow__node').first();
+    if ((await node.count()) > 0) {
+      const box = await node.boundingBox();
+      if (box) {
+        await page.mouse.click(box.x + box.width / 2, box.y + 18);
+        await settle(page, 2500);
+        await test.step('lineage trace', () => writeArtifacts(page, info, 'relations-trace', diag));
+      }
+    }
+  });
+});

@@ -219,6 +219,14 @@ export default function SpacePage() {
   // (asset graph with typed edges) view.
   const [viewMode, setViewMode] = useState<'wall' | 'canvas' | 'relations'>('wall');
 
+  // The graph views (canvas, relations) draw lineage edges, but the default
+  // overview sync omits lineage — leaving the relations Story view empty (every
+  // asset reads as an unlinked orphan). Upgrade to a full sync the first time a
+  // graph view is opened so lineage is present; the full sync then sticks.
+  useEffect(() => {
+    if (viewMode === 'relations' || viewMode === 'canvas') requestSync();
+  }, [viewMode, requestSync]);
+
   // Tile Set panel state
   const [showTileSetPanel, setShowTileSetPanel] = useState(false);
 
