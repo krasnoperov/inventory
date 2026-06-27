@@ -315,6 +315,12 @@ export const SpaceAccessRequestResponseSchema = z
   })
   .openapi('SpaceAccessRequestResponse');
 
+export const ApproveSpaceAccessRequestRequestSchema = z
+  .object({
+    role: SpaceAccessRoleSchema.optional(),
+  })
+  .openapi('ApproveSpaceAccessRequestRequest');
+
 export const CancelSpaceAccessRequestResponseSchema = z
   .object({
     success: z.literal(true),
@@ -1383,6 +1389,7 @@ export type ListProviderKeysResponse = z.infer<typeof ListProviderKeysResponseSc
 export type UpsertProviderKeyRequest = z.infer<typeof UpsertProviderKeyRequestSchema>;
 export type ProviderKeyResponse = z.infer<typeof ProviderKeyResponseSchema>;
 export type Space = z.infer<typeof SpaceSchema>;
+export type SpaceRole = z.infer<typeof SpaceRoleSchema>;
 export type SpaceAccessRole = z.infer<typeof SpaceAccessRoleSchema>;
 export type SpaceAccessRequestStatus = z.infer<typeof SpaceAccessRequestStatusSchema>;
 export type SpaceInvitationStatus = z.infer<typeof SpaceInvitationStatusSchema>;
@@ -1396,6 +1403,7 @@ export type SpaceAccessState = z.infer<typeof SpaceAccessStateSchema>;
 export type GetSpaceAccessResponse = z.infer<typeof GetSpaceAccessResponseSchema>;
 export type CreateSpaceAccessRequestRequest = z.infer<typeof CreateSpaceAccessRequestRequestSchema>;
 export type SpaceAccessRequestResponse = z.infer<typeof SpaceAccessRequestResponseSchema>;
+export type ApproveSpaceAccessRequestRequest = z.infer<typeof ApproveSpaceAccessRequestRequestSchema>;
 export type CancelSpaceAccessRequestResponse = z.infer<typeof CancelSpaceAccessRequestResponseSchema>;
 export type SpaceSharingResponse = z.infer<typeof SpaceSharingResponseSchema>;
 export type CreateSpaceInvitationRequest = z.infer<typeof CreateSpaceInvitationRequestSchema>;

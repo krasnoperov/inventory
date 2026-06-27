@@ -2,6 +2,7 @@ import { z } from '@hono/zod-openapi';
 import {
   AuthGoogleResponseSchema,
   AuthSessionResponseSchema,
+  ApproveSpaceAccessRequestRequestSchema,
   BillingStatusResponseSchema,
   BillingUrlQuerySchema,
   BillingUrlResponseSchema,
@@ -206,6 +207,7 @@ export const apiEndpoints = {
     method: 'POST',
     path: '/api/spaces/:id/access-requests/:requestId/approve',
     paramsSchema: SpaceAccessRequestParamsSchema,
+    jsonSchema: ApproveSpaceAccessRequestRequestSchema.optional(),
     responseSchema: SpaceAccessRequestResponseSchema,
   },
   'POST /api/spaces/:id/access-requests/:requestId/reject': {
@@ -571,6 +573,12 @@ type JsonOf<K extends ApiEndpointKey> =
   Endpoint<K> extends { jsonSchema: infer S extends z.ZodType }
     ? z.input<S>
     : never;
+type JsonOption<K extends ApiEndpointKey> =
+  JsonOf<K> extends never
+    ? { json?: never }
+    : undefined extends JsonOf<K>
+    ? { json?: Exclude<JsonOf<K>, undefined> | undefined }
+    : { json: JsonOf<K> };
 type QueryOf<K extends ApiEndpointKey> =
   Endpoint<K> extends { querySchema: infer S extends z.ZodType }
     ? z.input<S>
@@ -598,7 +606,7 @@ export type ApiFetchOptions<K extends ApiEndpointKey> =
     fetch?: FetchLike;
   } & (ParamsOf<K> extends never ? { params?: never } : { params: ParamsOf<K> })
     & (QueryOf<K> extends never ? { query?: never } : { query?: QueryOf<K> })
-    & (JsonOf<K> extends never ? { json?: never } : { json: JsonOf<K> })
+    & JsonOption<K>
     & (FormOf<K> extends never ? { form?: never } : { form: FormOf<K> });
 
 export class ApiFetchError extends Error {

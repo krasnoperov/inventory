@@ -1,0 +1,315 @@
+.panel {
+  width: min(760px, calc(100vw - 1.5rem));
+  max-height: min(760px, calc(100vh - 5rem));
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-floating);
+  color: var(--color-text);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.125rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.titleBlock {
+  min-width: 0;
+}
+
+.titleBlock h2 {
+  margin: 0;
+  font-size: var(--font-size-h3);
+  line-height: 1.2;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.closeButton,
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.closeButton {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+}
+
+.closeButton:hover:not(:disabled),
+.iconButton:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.closeButton:disabled,
+.iconButton:disabled,
+.button:disabled,
+.select:disabled,
+.input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.closeButton svg,
+.iconButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.content {
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.125rem 1.125rem;
+}
+
+.notice,
+.error {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-small);
+}
+
+.notice {
+  background: var(--status-info-bg);
+  border: 1px solid var(--status-info-border);
+  color: var(--status-info-text);
+}
+
+.error {
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
+}
+
+.inviteForm {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 140px auto;
+  gap: 0.625rem;
+  align-items: end;
+  margin-bottom: 1.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.input,
+.select {
+  min-height: 36px;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-small);
+}
+
+.input {
+  padding: 0.45rem 0.625rem;
+}
+
+.select {
+  padding: 0.4rem 0.55rem;
+}
+
+.input:focus,
+.select:focus,
+.button:focus-visible,
+.closeButton:focus-visible,
+.iconButton:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.section + .section {
+  margin-top: 1rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sectionHeader h3 {
+  margin: 0;
+  font-size: var(--font-size-body-sm);
+}
+
+.count {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(150px, 0.8fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.person,
+.meta {
+  min-width: 0;
+}
+
+.primary {
+  display: block;
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.secondary {
+  display: block;
+  margin-top: 0.125rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0.125rem 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.roleBadge[data-role='owner'] {
+  border-color: var(--color-role-owner-border);
+  background: var(--color-role-owner-bg);
+  color: var(--color-role-owner);
+}
+
+.roleBadge[data-role='editor'] {
+  border-color: var(--color-role-admin-border);
+  background: var(--color-role-admin-bg);
+  color: var(--color-role-admin);
+}
+
+.roleBadge[data-role='viewer'] {
+  border-color: var(--color-role-member-border);
+  background: var(--color-role-member-bg);
+  color: var(--color-role-member);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.button {
+  min-height: 32px;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--button-ghost-bg);
+  color: var(--button-ghost-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-small-sm);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--button-ghost-bg-hover);
+  border-color: var(--button-ghost-border);
+}
+
+.button.primary {
+  background: var(--button-primary-bg);
+  border: var(--button-primary-border);
+  color: var(--button-primary-text);
+  box-shadow: var(--button-primary-shadow);
+}
+
+.button.primary:hover:not(:disabled) {
+  background: var(--button-primary-bg-hover);
+}
+
+.button.danger {
+  color: var(--color-error);
+}
+
+.button.danger:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+  border-color: var(--color-error);
+}
+
+@media (max-width: 720px) {
+  .panel {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 4rem);
+  }
+
+  .inviteForm,
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+}

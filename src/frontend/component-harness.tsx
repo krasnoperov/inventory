@@ -10,6 +10,7 @@ import { Pagination } from './components/Pagination';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
 import { SpaceBoard } from './components/SpaceBoard';
 import { SpaceCanvas } from './components/SpaceCanvas';
+import { SpaceSharingPanel } from './components/SpaceSharingPanel';
 import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
 import { VariantCanvas } from './components/VariantCanvas';
 import './styles/theme.css';
@@ -36,6 +37,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,
   SpaceBoard: SpaceBoard as unknown as ComponentType<Record<string, unknown>>,
   SpaceCanvas: SpaceCanvas as unknown as ComponentType<Record<string, unknown>>,
+  SpaceSharingPanel: SpaceSharingPanel as unknown as ComponentType<Record<string, unknown>>,
   StyleReferenceUsagePanel: StyleReferenceUsagePanel as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
 };

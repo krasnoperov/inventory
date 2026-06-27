@@ -224,9 +224,11 @@ describe('sharingRoutes', () => {
       baseUrl,
       headers: { Authorization: 'Bearer owner-token' },
       params: { id: 'space-1', requestId: created.request.id },
+      json: { role: 'viewer' },
     });
     assert.equal(approved.request.status, 'approved');
-    assert.equal((await memberDAO.getMember('space-1', requesterId))?.role, 'editor');
+    assert.equal(approved.request.requested_role, 'viewer');
+    assert.equal((await memberDAO.getMember('space-1', requesterId))?.role, 'viewer');
 
     const retry = await fetch(`${baseUrl}/api/spaces/space-1/access-requests/${created.request.id}/approve`, {
       method: 'POST',
