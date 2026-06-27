@@ -9,6 +9,7 @@ import { loggers } from '../../shared/logger';
 
 const memberRoutes = new Hono<AppContext>();
 const log = loggers.notificationEmailService;
+const sharingLog = loggers.spaceSharing;
 
 async function notifyMemberAccessAccepted(
   c: Context<AppContext>,
@@ -218,6 +219,12 @@ memberRoutes.delete('/api/spaces/:id/members/:uid', async (c) => {
   if (!removed) {
     return c.json({ error: 'Failed to remove member' }, 500);
   }
+  sharingLog.info('Space member revoked', {
+    spaceId,
+    revokedUserId: userIdToRemove,
+    revokedByUserId: userId,
+    role: memberToRemove.role,
+  });
   if (removedUser?.email) {
     await notifyMemberAccessRevoked(c, {
       spaceId,

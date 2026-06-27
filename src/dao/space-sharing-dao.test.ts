@@ -75,14 +75,16 @@ describe('SpaceSharingDAO', () => {
     assert.equal(request.requested_role, 'editor');
     assert.equal(await memberDAO.getMember('space-1', requesterId), null);
 
-    const duplicate = await sharingDAO.createAccessRequest({
+    const duplicateResult = await sharingDAO.createAccessRequestWithResult({
       spaceId: 'space-1',
       requesterUserId: requesterId,
       requestedRole: 'viewer',
       message: 'Repeated request',
     });
+    const duplicate = duplicateResult.request;
     assert.equal(duplicate.id, request.id);
     assert.equal(duplicate.requested_role, 'editor');
+    assert.equal(duplicateResult.created, false);
 
     const pending = await sharingDAO.listAccessRequests('space-1', 'pending');
     assert.equal(pending.length, 1);
@@ -128,15 +130,17 @@ describe('SpaceSharingDAO', () => {
       return existing;
     };
 
-    const request = await sharingDAO.createAccessRequest({
+    const result = await sharingDAO.createAccessRequestWithResult({
       spaceId: 'space-1',
       requesterUserId: requesterId,
       requestedRole: 'editor',
       message: 'retry submit',
     });
+    const request = result.request;
 
     assert.equal(request.id, 'request-race-winner');
     assert.equal(request.requested_role, 'viewer');
+    assert.equal(result.created, false);
     assert.equal((await sharingDAO.listAccessRequests('space-1', 'pending')).length, 1);
   });
 

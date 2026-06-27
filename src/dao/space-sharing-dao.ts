@@ -62,6 +62,11 @@ export interface CreateAccessRequestData {
   now?: string;
 }
 
+export interface CreateAccessRequestResult {
+  request: SpaceAccessRequest;
+  created: boolean;
+}
+
 export interface CreateInvitationData {
   spaceId: string;
   email: string;
@@ -93,6 +98,10 @@ export class SpaceSharingDAO {
   constructor(@inject(TYPES.Database) private db: Kysely<Database>) {}
 
   async createAccessRequest(data: CreateAccessRequestData): Promise<SpaceAccessRequest> {
+    return (await this.createAccessRequestWithResult(data)).request;
+  }
+
+  async createAccessRequestWithResult(data: CreateAccessRequestData): Promise<CreateAccessRequestResult> {
     assertAssignableRole(data.requestedRole);
     await this.assertActiveSpace(data.spaceId);
     await this.assertNoActiveMembership(data.spaceId, data.requesterUserId);
@@ -102,7 +111,7 @@ export class SpaceSharingDAO {
       data.requesterUserId
     );
     if (existing) {
-      return existing;
+      return { request: existing, created: false };
     }
 
     const now = data.now ?? nowIso();
@@ -125,7 +134,7 @@ export class SpaceSharingDAO {
       .executeTakeFirst();
 
     if (request) {
-      return request;
+      return { request, created: true };
     }
 
     const concurrentlyCreated = await this.getPendingAccessRequestForUser(
@@ -136,7 +145,7 @@ export class SpaceSharingDAO {
       throw new Error('Failed to create space access request');
     }
 
-    return concurrentlyCreated;
+    return { request: concurrentlyCreated, created: false };
   }
 
   async listAccessRequests(

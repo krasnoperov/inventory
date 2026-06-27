@@ -157,6 +157,7 @@ export const loggers = {
   geminiService: createLogger('GeminiService'),
   emailService: createLogger('EmailService'),
   notificationEmailService: createLogger('NotificationEmailService'),
+  spaceSharing: createLogger('SpaceSharing'),
 
   // Internal API
   internalApi: createLogger('InternalApi'),

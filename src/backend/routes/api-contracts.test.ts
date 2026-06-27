@@ -675,12 +675,15 @@ describe('API contracts', () => {
     const fakeSharingDAO = {
       getPendingAccessRequestForUser: async () => accessRequest,
       getPendingInvitationForEmail: async () => invitation,
-      createAccessRequest: async (data: { requestedRole: string; message?: string | null }) => {
+      createAccessRequestWithResult: async (data: { requestedRole: string; message?: string | null }) => {
         calls.push(`request:${data.requestedRole}:${data.message}`);
         return {
-          ...accessRequest,
-          requested_role: data.requestedRole,
-          message: data.message ?? null,
+          created: true,
+          request: {
+            ...accessRequest,
+            requested_role: data.requestedRole,
+            message: data.message ?? null,
+          },
         };
       },
       cancelAccessRequest: async () => ({
