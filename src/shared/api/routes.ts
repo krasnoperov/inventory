@@ -12,10 +12,14 @@ import {
   CompositionItemParamsSchema,
   CompositionItemResponseSchema,
   CompositionResponseSchema,
+  CancelSpaceAccessRequestResponseSchema,
+  CreateSpaceAccessRequestRequestSchema,
+  CreateSpaceInvitationRequestSchema,
   CreateSpaceRequestSchema,
   CreateSpaceResponseSchema,
   DeleteSpaceResponseSchema,
   ErrorResponseSchema,
+  GetSpaceAccessResponseSchema,
   GetSpaceResponseSchema,
   GetSupportSpaceResponseSchema,
   GoogleAuthRequestSchema,
@@ -50,7 +54,12 @@ import {
   RelationResponseSchema,
   ReorderItemsRequestSchema,
   RestoreSupportSpaceResponseSchema,
+  SpaceAccessRequestParamsSchema,
+  SpaceAccessRequestResponseSchema,
   SpaceIdParamsSchema,
+  SpaceInvitationParamsSchema,
+  SpaceInvitationResponseSchema,
+  SpaceSharingResponseSchema,
   StylePresetParamsSchema,
   StylePresetResponseSchema,
   SuccessResponseSchema,
@@ -348,6 +357,156 @@ export const getSpaceRoute = createRoute({
     200: {
       ...json(GetSpaceResponseSchema),
       description: 'Space metadata',
+    },
+    403: errorResponse,
+    404: errorResponse,
+  },
+});
+
+export const getSpaceAccessRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/access',
+  request: {
+    params: SpaceIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(GetSpaceAccessResponseSchema),
+      description: 'Current access state for the signed-in user',
+    },
+    401: errorResponse,
+    404: errorResponse,
+  },
+});
+
+export const createSpaceAccessRequestRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/access-requests',
+  request: {
+    params: SpaceIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateSpaceAccessRequestRequestSchema,
+        },
+      },
+      required: false,
+    },
+  },
+  responses: {
+    200: {
+      ...json(SpaceAccessRequestResponseSchema),
+      description: 'Created or returned the current pending access request',
+    },
+    400: errorResponse,
+    401: errorResponse,
+    404: errorResponse,
+    409: errorResponse,
+  },
+});
+
+export const cancelMySpaceAccessRequestRoute = createRoute({
+  method: 'delete',
+  path: '/api/spaces/{id}/access-requests/me',
+  request: {
+    params: SpaceIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(CancelSpaceAccessRequestResponseSchema),
+      description: 'Canceled the current user pending access request if one exists',
+    },
+    401: errorResponse,
+    404: errorResponse,
+  },
+});
+
+export const getSpaceSharingRoute = createRoute({
+  method: 'get',
+  path: '/api/spaces/{id}/sharing',
+  request: {
+    params: SpaceIdParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SpaceSharingResponseSchema),
+      description: 'Members, pending access requests, and pending invitations for a space',
+    },
+    403: errorResponse,
+    404: errorResponse,
+  },
+});
+
+export const createSpaceInvitationRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/invitations',
+  request: {
+    params: SpaceIdParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateSpaceInvitationRequestSchema,
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      ...json(SpaceInvitationResponseSchema),
+      description: 'Created or returned the pending invitation for an email address',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    409: errorResponse,
+  },
+});
+
+export const approveSpaceAccessRequestRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/access-requests/{requestId}/approve',
+  request: {
+    params: SpaceAccessRequestParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SpaceAccessRequestResponseSchema),
+      description: 'Approved a pending access request and granted membership',
+    },
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+    409: errorResponse,
+  },
+});
+
+export const rejectSpaceAccessRequestRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/access-requests/{requestId}/reject',
+  request: {
+    params: SpaceAccessRequestParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SpaceAccessRequestResponseSchema),
+      description: 'Rejected a pending access request without granting membership',
+    },
+    403: errorResponse,
+    404: errorResponse,
+  },
+});
+
+export const revokeSpaceInvitationRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/invitations/{invitationId}/revoke',
+  request: {
+    params: SpaceInvitationParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SpaceInvitationResponseSchema),
+      description: 'Revoked a pending invitation',
     },
     403: errorResponse,
     404: errorResponse,

@@ -161,6 +161,9 @@ export const DeleteAccountResponseSchema = z
   .openapi('DeleteAccountResponse');
 
 export const SpaceRoleSchema = z.enum(['owner', 'editor', 'viewer']);
+export const SpaceAccessRoleSchema = z.enum(['editor', 'viewer']);
+export const SpaceAccessRequestStatusSchema = z.enum(['pending', 'approved', 'rejected', 'canceled']);
+export const SpaceInvitationStatusSchema = z.enum(['pending', 'accepted', 'revoked', 'expired']);
 
 export const SpaceSchema = z
   .object({
@@ -205,6 +208,142 @@ export const SpaceIdParamsSchema = z.object({
     },
   }),
 });
+
+export const SpaceAccessRequestParamsSchema = SpaceIdParamsSchema.extend({
+  requestId: z.string().openapi({
+    param: {
+      name: 'requestId',
+      in: 'path',
+    },
+  }),
+});
+
+export const SpaceInvitationParamsSchema = SpaceIdParamsSchema.extend({
+  invitationId: z.string().openapi({
+    param: {
+      name: 'invitationId',
+      in: 'path',
+    },
+  }),
+});
+
+export const SpaceSharingUserSchema = z
+  .object({
+    id: z.string(),
+    email: z.string(),
+    name: z.string().nullable(),
+  })
+  .openapi('SpaceSharingUser');
+
+export const SpaceSharingMemberSchema = z
+  .object({
+    user_id: z.string(),
+    role: SpaceRoleSchema,
+    joined_at: z.number(),
+    user: SpaceSharingUserSchema,
+  })
+  .openapi('SpaceSharingMember');
+
+export const SpaceAccessRequestSchema = z
+  .object({
+    id: z.string(),
+    space_id: z.string(),
+    requester_user_id: z.string(),
+    requested_role: SpaceAccessRoleSchema,
+    status: SpaceAccessRequestStatusSchema,
+    message: z.string().nullable(),
+    created_at: z.string(),
+    updated_at: z.string(),
+    resolved_at: z.string().nullable(),
+    resolved_by_user_id: z.string().nullable(),
+  })
+  .openapi('SpaceAccessRequest');
+
+export const SpaceAccessRequestWithRequesterSchema = SpaceAccessRequestSchema.extend({
+  requester: SpaceSharingUserSchema,
+}).openapi('SpaceAccessRequestWithRequester');
+
+export const SpaceInvitationSchema = z
+  .object({
+    id: z.string(),
+    space_id: z.string(),
+    email: z.string(),
+    normalized_email: z.string(),
+    role: SpaceAccessRoleSchema,
+    status: SpaceInvitationStatusSchema,
+    invited_by_user_id: z.string(),
+    accepted_by_user_id: z.string().nullable(),
+    created_at: z.string(),
+    updated_at: z.string(),
+    expires_at: z.string().nullable(),
+    resolved_at: z.string().nullable(),
+  })
+  .openapi('SpaceInvitation');
+
+export const SpaceInvitationWithUsersSchema = SpaceInvitationSchema.extend({
+  invitedBy: SpaceSharingUserSchema.nullable(),
+  acceptedBy: SpaceSharingUserSchema.nullable(),
+}).openapi('SpaceInvitationWithUsers');
+
+export const SpaceAccessStateSchema = z
+  .object({
+    status: z.enum(['member', 'pending_request', 'pending_invitation', 'none']),
+    member: SpaceSharingMemberSchema.nullable(),
+    pendingRequest: SpaceAccessRequestSchema.nullable(),
+    pendingInvitation: SpaceInvitationSchema.nullable(),
+  })
+  .openapi('SpaceAccessState');
+
+export const GetSpaceAccessResponseSchema = z
+  .object({
+    success: z.literal(true),
+    access: SpaceAccessStateSchema,
+  })
+  .openapi('GetSpaceAccessResponse');
+
+export const CreateSpaceAccessRequestRequestSchema = z
+  .object({
+    requestedRole: SpaceAccessRoleSchema.default('viewer').optional(),
+    message: z.string().nullable().optional(),
+  })
+  .openapi('CreateSpaceAccessRequestRequest');
+
+export const SpaceAccessRequestResponseSchema = z
+  .object({
+    success: z.literal(true),
+    request: SpaceAccessRequestSchema,
+  })
+  .openapi('SpaceAccessRequestResponse');
+
+export const CancelSpaceAccessRequestResponseSchema = z
+  .object({
+    success: z.literal(true),
+    request: SpaceAccessRequestSchema.nullable(),
+  })
+  .openapi('CancelSpaceAccessRequestResponse');
+
+export const SpaceSharingResponseSchema = z
+  .object({
+    success: z.literal(true),
+    members: z.array(SpaceSharingMemberSchema),
+    pendingAccessRequests: z.array(SpaceAccessRequestWithRequesterSchema),
+    pendingInvitations: z.array(SpaceInvitationWithUsersSchema),
+  })
+  .openapi('SpaceSharingResponse');
+
+export const CreateSpaceInvitationRequestSchema = z
+  .object({
+    email: z.string().trim().email(),
+    role: SpaceAccessRoleSchema,
+  })
+  .openapi('CreateSpaceInvitationRequest');
+
+export const SpaceInvitationResponseSchema = z
+  .object({
+    success: z.literal(true),
+    invitation: SpaceInvitationSchema,
+  })
+  .openapi('SpaceInvitationResponse');
 
 export const ProductionIdParamsSchema = SpaceIdParamsSchema.extend({
   productionId: z.string().openapi({
@@ -1244,6 +1383,23 @@ export type ListProviderKeysResponse = z.infer<typeof ListProviderKeysResponseSc
 export type UpsertProviderKeyRequest = z.infer<typeof UpsertProviderKeyRequestSchema>;
 export type ProviderKeyResponse = z.infer<typeof ProviderKeyResponseSchema>;
 export type Space = z.infer<typeof SpaceSchema>;
+export type SpaceAccessRole = z.infer<typeof SpaceAccessRoleSchema>;
+export type SpaceAccessRequestStatus = z.infer<typeof SpaceAccessRequestStatusSchema>;
+export type SpaceInvitationStatus = z.infer<typeof SpaceInvitationStatusSchema>;
+export type SpaceSharingUser = z.infer<typeof SpaceSharingUserSchema>;
+export type SpaceSharingMember = z.infer<typeof SpaceSharingMemberSchema>;
+export type SpaceAccessRequest = z.infer<typeof SpaceAccessRequestSchema>;
+export type SpaceAccessRequestWithRequester = z.infer<typeof SpaceAccessRequestWithRequesterSchema>;
+export type SpaceInvitation = z.infer<typeof SpaceInvitationSchema>;
+export type SpaceInvitationWithUsers = z.infer<typeof SpaceInvitationWithUsersSchema>;
+export type SpaceAccessState = z.infer<typeof SpaceAccessStateSchema>;
+export type GetSpaceAccessResponse = z.infer<typeof GetSpaceAccessResponseSchema>;
+export type CreateSpaceAccessRequestRequest = z.infer<typeof CreateSpaceAccessRequestRequestSchema>;
+export type SpaceAccessRequestResponse = z.infer<typeof SpaceAccessRequestResponseSchema>;
+export type CancelSpaceAccessRequestResponse = z.infer<typeof CancelSpaceAccessRequestResponseSchema>;
+export type SpaceSharingResponse = z.infer<typeof SpaceSharingResponseSchema>;
+export type CreateSpaceInvitationRequest = z.infer<typeof CreateSpaceInvitationRequestSchema>;
+export type SpaceInvitationResponse = z.infer<typeof SpaceInvitationResponseSchema>;
 export type CreateSpaceRequest = z.infer<typeof CreateSpaceRequestSchema>;
 export type CreateSpaceResponse = z.infer<typeof CreateSpaceResponseSchema>;
 export type ListSpacesResponse = z.infer<typeof ListSpacesResponseSchema>;

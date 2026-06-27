@@ -518,7 +518,7 @@ export class SpaceSharingDAO {
     };
   }
 
-  private async getPendingAccessRequestForUser(
+  async getPendingAccessRequestForUser(
     spaceId: string,
     requesterUserId: string
   ): Promise<SpaceAccessRequest | null> {
@@ -533,7 +533,7 @@ export class SpaceSharingDAO {
     return request ?? null;
   }
 
-  private async getPendingAccessRequestById(
+  async getPendingAccessRequestById(
     requestId: string
   ): Promise<SpaceAccessRequest | null> {
     const request = await this.db
@@ -546,7 +546,7 @@ export class SpaceSharingDAO {
     return request ?? null;
   }
 
-  private async getPendingInvitationForEmail(
+  async getPendingInvitationForEmail(
     spaceId: string,
     normalizedEmail: string
   ): Promise<SpaceInvitation | null> {
@@ -561,7 +561,7 @@ export class SpaceSharingDAO {
     return invitation ?? null;
   }
 
-  private async getPendingInvitationById(
+  async getPendingInvitationById(
     invitationId: string
   ): Promise<SpaceInvitation | null> {
     const invitation = await this.db

@@ -13,6 +13,7 @@ import { authRoutes } from './auth';
 import { userRoutes } from './user';
 import { spaceRoutes } from './space';
 import { memberRoutes } from './member';
+import { sharingRoutes } from './sharing';
 import { jobRoutes } from './job';
 import { imageRoutes } from './image';
 import { memoryRoutes } from './memory';
@@ -47,6 +48,7 @@ export function registerRoutes(
   // Space management routes (Phase 1)
   app.route('/', spaceRoutes);
   app.route('/', memberRoutes);
+  app.route('/', sharingRoutes);
 
   // Generation job routes (Phase 2)
   app.route('/', jobRoutes);
