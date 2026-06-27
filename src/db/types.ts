@@ -51,6 +51,38 @@ export interface SpaceMembersTable {
   deleted_at: Generated<string | null>;
 }
 
+export type SpaceAccessRole = 'editor' | 'viewer';
+export type SpaceAccessRequestStatus = 'pending' | 'approved' | 'rejected' | 'canceled';
+export type SpaceInvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+export interface SpaceAccessRequestsTable {
+  id: Generated<string>;
+  space_id: string;
+  requester_user_id: string;
+  requested_role: SpaceAccessRole;
+  status: Generated<SpaceAccessRequestStatus>;
+  message: string | null;
+  created_at: Generated<string>;
+  updated_at: Generated<string>;
+  resolved_at: string | null;
+  resolved_by_user_id: string | null;
+}
+
+export interface SpaceInvitationsTable {
+  id: Generated<string>;
+  space_id: string;
+  email: string;
+  normalized_email: string;
+  role: SpaceAccessRole;
+  status: Generated<SpaceInvitationStatus>;
+  invited_by_user_id: string;
+  accepted_by_user_id: string | null;
+  created_at: Generated<string>;
+  updated_at: Generated<string>;
+  expires_at: string | null;
+  resolved_at: string | null;
+}
+
 export interface SpaceRestoreAuditLogsTable {
   id: string;
   space_id: string;
@@ -185,6 +217,8 @@ export interface Database {
   users: UsersTable;
   spaces: SpacesTable;
   space_members: SpaceMembersTable;
+  space_access_requests: SpaceAccessRequestsTable;
+  space_invitations: SpaceInvitationsTable;
   space_restore_audit_logs: SpaceRestoreAuditLogsTable;
   usage_events: UsageEventsTable;
   provider_usage_ledger: ProviderUsageLedgerTable;
@@ -221,6 +255,15 @@ export type SpaceUpdate = Updateable<SpacesTable>;
 export type SpaceMember = Selectable<SpaceMembersTable>;
 export type NewSpaceMember = Insertable<SpaceMembersTable>;
 export type SpaceMemberUpdate = Updateable<SpaceMembersTable>;
+
+// Space sharing lifecycle types
+export type SpaceAccessRequest = Selectable<SpaceAccessRequestsTable>;
+export type NewSpaceAccessRequest = Insertable<SpaceAccessRequestsTable>;
+export type SpaceAccessRequestUpdate = Updateable<SpaceAccessRequestsTable>;
+
+export type SpaceInvitation = Selectable<SpaceInvitationsTable>;
+export type NewSpaceInvitation = Insertable<SpaceInvitationsTable>;
+export type SpaceInvitationUpdate = Updateable<SpaceInvitationsTable>;
 
 // UsageEvent types
 export type UsageEvent = Selectable<UsageEventsTable>;

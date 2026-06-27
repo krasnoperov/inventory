@@ -9,6 +9,7 @@ import { createDb } from '../db';
 import { UserDAO } from '../dao/user-dao';
 import { SpaceDAO } from '../dao/space-dao';
 import { MemberDAO } from '../dao/member-dao';
+import { SpaceSharingDAO } from '../dao/space-sharing-dao';
 import { UsageEventDAO } from '../dao/usage-event-dao';
 import { ProviderUsageLedgerDAO } from '../dao/provider-usage-ledger-dao';
 import { CustomerChargeLedgerDAO } from '../dao/customer-charge-ledger-dao';
@@ -52,6 +53,9 @@ export function createContainer(env: Env): Container {
 
   container.bind(MemberDAO).toSelf().inSingletonScope();
   container.bind(TYPES.MemberDAO).toService(MemberDAO);
+
+  container.bind(SpaceSharingDAO).toSelf().inSingletonScope();
+  container.bind(TYPES.SpaceSharingDAO).toService(SpaceSharingDAO);
 
   container.bind(UsageEventDAO).toSelf().inSingletonScope();
   container.bind(TYPES.UsageEventDAO).toService(UsageEventDAO);

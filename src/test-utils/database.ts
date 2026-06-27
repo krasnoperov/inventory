@@ -127,6 +127,72 @@ export async function createTestDatabase(): Promise<Kysely<DatabaseSchema>> {
   `.execute(db);
 
   await sql`
+    CREATE TABLE space_access_requests (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+      requester_user_id TEXT NOT NULL REFERENCES users(id),
+      requested_role TEXT NOT NULL CHECK (requested_role IN ('editor', 'viewer')),
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'rejected', 'canceled')),
+      message TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      resolved_at TEXT,
+      resolved_by_user_id TEXT REFERENCES users(id)
+    )
+  `.execute(db);
+
+  await sql`
+    CREATE UNIQUE INDEX idx_space_access_requests_one_pending
+      ON space_access_requests(space_id, requester_user_id)
+      WHERE status = 'pending'
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX idx_space_access_requests_space_status
+      ON space_access_requests(space_id, status, created_at)
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX idx_space_access_requests_requester
+      ON space_access_requests(requester_user_id, status, created_at)
+  `.execute(db);
+
+  await sql`
+    CREATE TABLE space_invitations (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+      email TEXT NOT NULL,
+      normalized_email TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'accepted', 'revoked', 'expired')),
+      invited_by_user_id TEXT NOT NULL REFERENCES users(id),
+      accepted_by_user_id TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT,
+      resolved_at TEXT
+    )
+  `.execute(db);
+
+  await sql`
+    CREATE UNIQUE INDEX idx_space_invitations_one_pending
+      ON space_invitations(space_id, normalized_email)
+      WHERE status = 'pending'
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX idx_space_invitations_space_status
+      ON space_invitations(space_id, status, created_at)
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX idx_space_invitations_email
+      ON space_invitations(normalized_email, status, created_at)
+  `.execute(db);
+
+  await sql`
     CREATE TABLE space_restore_audit_logs (
       id TEXT PRIMARY KEY,
       space_id TEXT NOT NULL,
@@ -284,6 +350,8 @@ export async function cleanupTestDatabase(db: Kysely<DatabaseSchema>) {
   await db.deleteFrom('user_feedback').execute();
   await db.deleteFrom('user_patterns').execute();
   await db.deleteFrom('usage_events').execute();
+  await db.deleteFrom('space_invitations').execute();
+  await db.deleteFrom('space_access_requests').execute();
   await db.deleteFrom('space_members').execute();
   await db.deleteFrom('spaces').execute();
   await db.deleteFrom('users').execute();
