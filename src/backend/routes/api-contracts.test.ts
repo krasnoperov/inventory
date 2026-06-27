@@ -9,6 +9,7 @@ import { SpaceDAO } from '../../dao/space-dao';
 import { MemberDAO } from '../../dao/member-dao';
 import { PlatformUsageEventDAO } from '../../dao/platform-usage-event-dao';
 import { SpaceSharingDAO } from '../../dao/space-sharing-dao';
+import { NotificationEmailService } from '../services/notification-email-service';
 import { authRoutes } from './auth';
 import { userRoutes } from './user';
 import { spaceRoutes } from './space';
@@ -714,9 +715,21 @@ describe('API contracts', () => {
         status: 'revoked' as const,
         resolved_at: '2026-06-27T10:12:00.000Z',
       }),
+      acceptInvitation: async () => ({
+        ...invitation,
+        status: 'accepted' as const,
+        accepted_by_user_id: String(user.id),
+        resolved_at: '2026-06-27T10:13:00.000Z',
+      }),
     };
     const fakeAuthService = {
       verifyJWT: async () => ({ userId: user.id }),
+    };
+    const fakeNotificationEmailService = {
+      notifySpaceAccessRequested: async () => {},
+      notifySpaceInvitationCreated: async () => {},
+      notifySpaceAccessAccepted: async () => {},
+      notifySpaceAccessRevoked: async () => {},
     };
     const app = routeApp(sharingRoutes, new Map<unknown, unknown>([
       [AuthService, fakeAuthService],
@@ -724,6 +737,7 @@ describe('API contracts', () => {
       [MemberDAO, fakeMemberDAO],
       [UserDAO, fakeUserDAO],
       [SpaceSharingDAO, fakeSharingDAO],
+      [NotificationEmailService, fakeNotificationEmailService],
     ]));
     const fetch = bindFetch(app);
     const authHeaders = { Authorization: 'Bearer test-token' };
@@ -795,6 +809,14 @@ describe('API contracts', () => {
       params: { id: space.id, invitationId: invitation.id },
     });
     assert.equal(revoked.invitation.status, 'revoked');
+
+    const accepted = await apiFetch('POST /api/spaces/:id/invitations/:invitationId/accept', {
+      fetch,
+      baseUrl,
+      headers: authHeaders,
+      params: { id: space.id, invitationId: invitation.id },
+    });
+    assert.equal(accepted.invitation.status, 'accepted');
     assert.deepEqual(calls, [
       'request:editor:Please add me',
       'invite:Invitee@Example.TEST:viewer',

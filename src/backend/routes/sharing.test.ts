@@ -6,10 +6,13 @@ import { MemberDAO } from '../../dao/member-dao';
 import { SpaceDAO } from '../../dao/space-dao';
 import { SpaceSharingDAO } from '../../dao/space-sharing-dao';
 import { UserDAO } from '../../dao/user-dao';
+import type { Env, SendEmailMessage } from '../../core/types';
 import type { Database } from '../../db/types';
 import { cleanupTestDatabase, createTestDatabase } from '../../test-utils/database';
 import { TestUserBuilder } from '../../test-utils/test-data-builders';
 import { apiFetch, type ApiEndpointKey, type ApiFetchOptions } from '../../shared/api/client';
+import { EmailService } from '../services/email-service';
+import { NotificationEmailService } from '../services/notification-email-service';
 import { createOpenApiRouter } from './openapi';
 import { sharingRoutes } from './sharing';
 import type { AppContext } from './types';
@@ -29,6 +32,8 @@ describe('sharingRoutes', () => {
   let inviteeId: string;
   let memberDAO: MemberDAO;
   let fetch: FetchLike;
+  let sent: SendEmailMessage[];
+  let emailShouldThrow: boolean;
 
   beforeEach(async () => {
     db = await createTestDatabase();
@@ -36,6 +41,24 @@ describe('sharingRoutes', () => {
     const spaceDAO = new SpaceDAO(db);
     memberDAO = new MemberDAO(db);
     const sharingDAO = new SpaceSharingDAO(db);
+    sent = [];
+    emailShouldThrow = false;
+    const env = {
+      ENVIRONMENT: 'stage',
+      OIDC_ISSUER: baseUrl,
+      MAKEFX_EMAIL_FROM: 'notifications@makefx.app',
+      EMAIL: {
+        send: async (message: SendEmailMessage) => {
+          if (emailShouldThrow) {
+            throw new Error('email unavailable');
+          }
+          sent.push(message);
+          return {};
+        },
+      },
+    } as Env;
+    const emailService = new EmailService(env);
+    const notificationEmailService = new NotificationEmailService(emailService, env);
 
     const owner = await new TestUserBuilder()
       .withEmail('owner@example.com')
@@ -73,7 +96,7 @@ describe('sharingRoutes', () => {
     };
     const app = createOpenApiRouter();
     app.use('*', async (c, next) => {
-      c.env = {} as AppContext['Bindings'];
+      c.env = env as AppContext['Bindings'];
       c.set('container', {
         get: (token: unknown) => {
           const deps = new Map<unknown, unknown>([
@@ -82,6 +105,7 @@ describe('sharingRoutes', () => {
             [SpaceDAO, spaceDAO],
             [MemberDAO, memberDAO],
             [SpaceSharingDAO, sharingDAO],
+            [NotificationEmailService, notificationEmailService],
           ]);
           const dep = deps.get(token);
           if (!dep) throw new Error('Missing fake dependency');
@@ -118,6 +142,10 @@ describe('sharingRoutes', () => {
     });
     assert.equal(created.request.status, 'pending');
     assert.equal(created.request.requested_role, 'editor');
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to, 'owner@example.com');
+    assert.match(sent[0].text, /requester@example\.com/);
+    assert.match(sent[0].text, /Open Space: https:\/\/sharing\.test\/spaces\/space-1/);
 
     const duplicate = await apiFetch('POST /api/spaces/:id/access-requests', {
       fetch,
@@ -128,6 +156,7 @@ describe('sharingRoutes', () => {
     });
     assert.equal(duplicate.request.id, created.request.id);
     assert.equal(duplicate.request.requested_role, 'editor');
+    assert.equal(sent.length, 1);
 
     const pending = await apiFetch('GET /api/spaces/:id/access', {
       fetch,
@@ -157,6 +186,8 @@ describe('sharingRoutes', () => {
       params: { id: 'space-1' },
       json: { requestedRole: 'viewer' },
     });
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to, 'owner@example.com');
 
     currentUserId = Number(inviteeId);
     const invited = await apiFetch('GET /api/spaces/:id/access', {
@@ -177,6 +208,9 @@ describe('sharingRoutes', () => {
     });
     assert.equal(invitation.invitation.email, 'invitee@example.com');
     assert.equal(invitation.invitation.normalized_email, 'invitee@example.com');
+    assert.equal(sent.length, 2);
+    assert.equal(sent[1].to, 'invitee@example.com');
+    assert.match(sent[1].text, /invited you/);
 
     currentUserId = Number(inviteeId);
     const pendingInvitation = await apiFetch('GET /api/spaces/:id/access', {
@@ -206,6 +240,36 @@ describe('sharingRoutes', () => {
     });
     assert.equal(revoked.invitation.status, 'revoked');
     assert.equal(await memberDAO.getMember('space-1', inviteeId), null);
+    assert.equal(sent.length, 3);
+    assert.equal(sent[2].to, 'invitee@example.com');
+    assert.match(sent[2].text, /revoked/);
+  });
+
+  test('lets an invited user accept and receive an accepted notification', async () => {
+    currentUserId = Number(ownerId);
+    const invitation = await apiFetch('POST /api/spaces/:id/invitations', {
+      fetch,
+      baseUrl,
+      headers: { Authorization: 'Bearer owner-token' },
+      params: { id: 'space-1' },
+      json: { email: 'Invitee@Example.com', role: 'viewer' },
+    });
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to, 'invitee@example.com');
+
+    currentUserId = Number(inviteeId);
+    const accepted = await apiFetch('POST /api/spaces/:id/invitations/:invitationId/accept', {
+      fetch,
+      baseUrl,
+      headers: { Authorization: 'Bearer invitee-token' },
+      params: { id: 'space-1', invitationId: invitation.invitation.id },
+    });
+
+    assert.equal(accepted.invitation.status, 'accepted');
+    assert.equal((await memberDAO.getMember('space-1', inviteeId))?.role, 'viewer');
+    assert.equal(sent.length, 2);
+    assert.equal(sent[1].to, 'Invitee@Example.com');
+    assert.match(sent[1].text, /accepted/);
   });
 
   test('approves requests idempotently enough for retries and rejects without membership', async () => {
@@ -229,6 +293,10 @@ describe('sharingRoutes', () => {
     assert.equal(approved.request.status, 'approved');
     assert.equal(approved.request.requested_role, 'viewer');
     assert.equal((await memberDAO.getMember('space-1', requesterId))?.role, 'viewer');
+    assert.equal(sent.length, 2);
+    assert.equal(sent[1].to, 'requester@example.com');
+    assert.match(sent[1].text, /accepted/);
+    assert.match(sent[1].text, /Role: viewer/);
 
     const retry = await fetch(`${baseUrl}/api/spaces/space-1/access-requests/${created.request.id}/approve`, {
       method: 'POST',
@@ -263,6 +331,29 @@ describe('sharingRoutes', () => {
     });
     assert.equal(rejected.request.status, 'rejected');
     assert.equal(await memberDAO.getMember('space-1', inviteeId), null);
+    assert.equal(sent.length, 3);
+  });
+
+  test('email send failures do not corrupt access state', async () => {
+    currentUserId = Number(requesterId);
+    emailShouldThrow = true;
+
+    const created = await apiFetch('POST /api/spaces/:id/access-requests', {
+      fetch,
+      baseUrl,
+      headers: { Authorization: 'Bearer requester-token' },
+      params: { id: 'space-1' },
+      json: { requestedRole: 'viewer' },
+    });
+
+    assert.equal(created.request.status, 'pending');
+    assert.equal(sent.length, 0);
+    const pending = await db
+      .selectFrom('space_access_requests')
+      .selectAll()
+      .where('id', '=', created.request.id)
+      .executeTakeFirst();
+    assert.equal(pending?.status, 'pending');
   });
 
   test('requires owner role for owner sharing actions', async () => {

@@ -2,13 +2,15 @@ import { injectable, inject } from 'inversify';
 import { AuthService } from './auth-service';
 import { UserDAO } from "../../../dao/user-dao";
 import { PolarService } from '../../services/polarService';
+import { NotificationEmailService } from '../../services/notification-email-service';
 
 @injectable()
 export class AuthController {
   constructor(
     @inject(AuthService) private authService: AuthService,
     @inject(UserDAO) private userDAO: UserDAO,
-    @inject(PolarService) private polarService: PolarService
+    @inject(PolarService) private polarService: PolarService,
+    @inject(NotificationEmailService) private notificationEmailService: NotificationEmailService
   ) {}
 
   async authenticateWithGoogle(accessToken: string) {
@@ -64,6 +66,14 @@ export class AuthController {
             // Log but don't fail signup if Polar customer creation fails
             console.error(`Failed to create Polar customer for user ${userId}:`, polarError);
           }
+        }
+
+        if (user) {
+          await this.notificationEmailService.notifyAdminNewRegistration({
+            userId: user.id,
+            email: user.email,
+            name: user.name,
+          });
         }
       } else {
         // User exists with this Google ID
@@ -148,6 +158,13 @@ export class AuthController {
           console.error(`Failed to create Polar customer for user ${userId}:`, polarError);
         }
       }
+
+      const createdUser = await this.userDAO.findById(userId);
+      await this.notificationEmailService.notifyAdminNewRegistration({
+        userId,
+        email: createdUser?.email ?? email,
+        name: createdUser?.name ?? name ?? '',
+      });
 
       return userId;
     } else if (!user.google_id) {

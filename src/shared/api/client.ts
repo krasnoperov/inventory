@@ -222,6 +222,12 @@ export const apiEndpoints = {
     paramsSchema: SpaceInvitationParamsSchema,
     responseSchema: SpaceInvitationResponseSchema,
   },
+  'POST /api/spaces/:id/invitations/:invitationId/accept': {
+    method: 'POST',
+    path: '/api/spaces/:id/invitations/:invitationId/accept',
+    paramsSchema: SpaceInvitationParamsSchema,
+    responseSchema: SpaceInvitationResponseSchema,
+  },
   'GET /api/support/spaces/:id': {
     method: 'GET',
     path: '/api/support/spaces/:id',
