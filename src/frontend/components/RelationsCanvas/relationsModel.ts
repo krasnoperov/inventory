@@ -274,8 +274,12 @@ export function buildRelationsGraph(input: BuildGraphInput): RelationsGraph {
   const edges: GraphEdgeModel[] = [];
 
   // 1) Lineage — reuse the canvas collapse (severed + intra-asset already dropped).
+  // Guard both endpoints against assetIds: during live sync an asset:deleted
+  // event can land before its variants/lineage are pruned, leaving edges that
+  // point at assets no longer rendered — which would crash the d3-force layout.
   const lineageEdges = buildLineageAssetEdges(lineage, variants);
   for (const edge of lineageEdges) {
+    if (!assetIds.has(edge.source) || !assetIds.has(edge.target)) continue;
     edges.push({
       id: `lin:${edge.id}`,
       source: edge.source,
@@ -319,8 +323,13 @@ export function buildRelationsGraph(input: BuildGraphInput): RelationsGraph {
       memberCount: memberCounts.get(composition.id) ?? 0,
     });
   }
+  // Only emit membership edges whose composition hub node actually exists and
+  // whose asset is still rendered — a stale composition_item during live sync
+  // must not produce an edge to a missing endpoint.
+  const compositionIds = new Set(compositions.map((c) => c.id));
   const seenComp = new Set<string>();
   for (const item of compositionItems) {
+    if (!compositionIds.has(item.composition_id)) continue;
     const assetId = item.asset_id ?? (item.variant_id ? variantToAsset.get(item.variant_id) ?? null : null);
     if (!assetId || !assetIds.has(assetId)) continue;
     const compNodeId = `${COMP_PREFIX}${item.composition_id}`;

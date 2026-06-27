@@ -117,24 +117,28 @@ function AssetNodeView({ data }: NodeProps<AssetFlowNode>) {
       className={`${styles.specimen} ${dimmed ? styles.dimmed : ''} ${focused ? styles.focused : ''}`}
       style={{ '--spine': model.groupColor, '--stamp': model.typeColor } as CSSProperties}
     >
-      {/* Media plate — pixels never altered; emphasis lives on the frame. */}
+      {/* Media plate — pixels render UNALTERED: nothing is layered over the
+          thumbnail. Every label/badge lives in the ledger chrome below, per the
+          repo media invariant. */}
       <div className={styles.plate}>
         <Thumbnail variant={model.variant} size="fill" spaceId={spaceId} className={styles.thumb} />
-        <span className={styles.kindGlyph} title={asset.media_kind}>{mediaGlyph(asset.media_kind)}</span>
-        {stats.starred > 0 && <span className={styles.starFlag} title={`${stats.starred} starred`}>★{stats.starred > 1 ? stats.starred : ''}</span>}
       </div>
-      {(model.role === 'source' || model.role === 'final') && (
-        <span className={`${styles.roleTab} ${model.role === 'final' ? styles.roleFinal : styles.roleSource}`}>
-          {model.role === 'final' ? 'FINAL' : 'SOURCE'}
-        </span>
-      )}
-      {/* Specimen ledger — engraved beneath the plate. */}
+      {/* Specimen ledger — engraved beneath the plate; carries all labels. */}
       <div className={styles.ledger}>
-        <button className={styles.name} onClick={(e) => { e.stopPropagation(); onOpen(asset); }} title={`Open ${asset.name}`}>
-          {asset.name}
-        </button>
+        <div className={styles.titleRow}>
+          {(model.role === 'source' || model.role === 'final') && (
+            <span className={`${styles.roleChip} ${model.role === 'final' ? styles.roleFinal : styles.roleSource}`}>
+              {model.role === 'final' ? 'FINAL' : 'SOURCE'}
+            </span>
+          )}
+          <button className={styles.name} onClick={(e) => { e.stopPropagation(); onOpen(asset); }} title={`Open ${asset.name}`}>
+            {asset.name}
+          </button>
+          {stats.starred > 0 && <span className={styles.star} title={`${stats.starred} starred`}>★{stats.starred > 1 ? stats.starred : ''}</span>}
+        </div>
         <div className={styles.coords}>
           <span className={styles.stamp}>{asset.type}</span>
+          <span className={styles.kind} title={asset.media_kind}>{mediaGlyph(asset.media_kind)}</span>
           <Tally stats={stats} />
         </div>
         {tags.length > 0 && (
@@ -297,8 +301,12 @@ function RelationsCanvasInner({
         .map((n) => ({ id: n.id, width: ASSET_W, height: ASSET_H, groupKey: n.groupKey })),
       ...(compositionsVisible ? graph.compositionNodes.map((n) => ({ id: n.id, width: COMP_W, height: COMP_H })) : []),
     ];
+    // Lay out only edges whose BOTH endpoints are present as nodes — never trust
+    // an edge to admit a node. A dangling edge (e.g. stale lineage mid live
+    // sync) would otherwise crash d3-force / ReactFlow.
+    const layoutNodeIds = new Set(layoutNodes.map((n) => n.id));
     const layoutEdges = graph.edges
-      .filter((e) => (visibleAssetIds.has(e.source) || compositionsVisible) && (visibleAssetIds.has(e.target) || compositionsVisible))
+      .filter((e) => layoutNodeIds.has(e.source) && layoutNodeIds.has(e.target))
       .map((e) => ({ source: e.source, target: e.target }));
     const result = effectiveLayout === 'layered' ? layoutLayered(layoutNodes, layoutEdges) : layoutForce(layoutNodes, layoutEdges);
     return new Map(result.map((p) => [p.id, p]));
@@ -309,15 +317,20 @@ function RelationsCanvasInner({
     draggedRef.current.clear();
   }, [layoutMode, grouping, storyMode, showAttempts, traceId]);
 
+  // The exact id set that gets rendered as nodes; edges must connect two of
+  // these or neither d3-force nor ReactFlow has an anchor for them.
+  const renderedNodeIds = useMemo(() => {
+    const ids = new Set(visibleAssetIds);
+    if (compositionsVisible) for (const c of graph.compositionNodes) ids.add(c.id);
+    return ids;
+  }, [visibleAssetIds, compositionsVisible, graph.compositionNodes]);
+
   const visibleEdges = useMemo(
     () =>
       graph.edges.filter(
-        (e) =>
-          families.has(e.family) &&
-          (visibleAssetIds.has(e.source) || (compositionsVisible && isCompositionNodeId(e.source))) &&
-          (visibleAssetIds.has(e.target) || (compositionsVisible && isCompositionNodeId(e.target))),
+        (e) => families.has(e.family) && renderedNodeIds.has(e.source) && renderedNodeIds.has(e.target),
       ),
-    [graph.edges, families, visibleAssetIds, compositionsVisible],
+    [graph.edges, families, renderedNodeIds],
   );
 
   const rfNodes = useMemo<Node[]>(() => {

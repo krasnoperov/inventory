@@ -158,6 +158,42 @@ describe('buildRelationsGraph', () => {
     assert.ok(isCompositionNodeId(compEdges[0].source));
   });
 
+  test('drops edges to assets/compositions missing from the graph (stale live sync)', () => {
+    // A variant + lineage referencing an asset that no longer exists (deleted),
+    // and a composition_item whose composition hub is gone. Neither must emit a
+    // dangling edge — that would crash the d3-force layout.
+    const a = asset('a');
+    const variants = [
+      variant('a-v1', 'a'),
+      variant('ghost-v1', 'ghost'), // asset 'ghost' was deleted but variant lingers
+    ];
+    const lineage: Lineage[] = [
+      { id: 'l1', parent_variant_id: 'a-v1', child_variant_id: 'ghost-v1', relation_type: 'derived', severed: false, created_at: 1 },
+    ];
+    const compositionItems: CompositionItem[] = [
+      { id: 'ci1', composition_id: 'gone', asset_id: 'a', variant_id: 'a-v1', metadata: '{}', sort_index: 0, created_by: 'u', created_at: 1, updated_at: 1 },
+    ];
+    const graph = buildRelationsGraph({
+      assets: [a],
+      variants,
+      lineage,
+      relations: [],
+      grouping: 'none',
+      collections: [],
+      collectionItems: [],
+      compositions: [], // hub 'gone' does not exist
+      compositionItems,
+    });
+    const assetIds = new Set(graph.assetNodes.map((n) => n.id));
+    const compIds = new Set(graph.compositionNodes.map((n) => n.id));
+    for (const e of graph.edges) {
+      const okSource = assetIds.has(e.source) || compIds.has(e.source);
+      const okTarget = assetIds.has(e.target) || compIds.has(e.target);
+      assert.ok(okSource && okTarget, `edge ${e.id} points at a missing node`);
+    }
+    assert.equal(graph.edges.length, 0);
+  });
+
   test('grouping by type clusters assets and produces one group per type', () => {
     const assets = [asset('a', 'character'), asset('b', 'character'), asset('c', 'scene')];
     const variants = assets.map((a) => variant(`${a.id}-v1`, a.id));

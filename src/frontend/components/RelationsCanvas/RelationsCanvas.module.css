@@ -46,62 +46,9 @@
   background: var(--color-bg);
 }
 
-/* Role ribbon — names the card's place in the source→final story. A label,
-   not an overlay: it sits in the card corner, never over the media itself. */
-.roleTab {
-  position: absolute;
-  z-index: 3;
-  top: 0;
-  left: 0;
-  padding: 1px 8px 2px;
-  border-bottom-right-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-micro-sm);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--color-bg);
-}
-.roleSource { background: var(--canvas-thread-lineage); }
-.roleFinal { background: var(--canvas-thread-composition); }
-
 .thumb {
   width: 100%;
   height: 100%;
-  position: relative;
-  z-index: 1;
-}
-
-.kindGlyph {
-  position: absolute;
-  z-index: 2;
-  top: 6px;
-  right: 6px;
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-xs);
-  font-size: 11px;
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-}
-
-.starFlag {
-  position: absolute;
-  z-index: 2;
-  bottom: 6px;
-  left: 6px;
-  padding: 0 5px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  border-radius: var(--radius-xs);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--canvas-star-ink);
-  background: var(--color-star);
 }
 
 /* Ledger collapses below a zoom threshold → contact-sheet density on overview,
@@ -118,9 +65,37 @@
   transition: max-height 0.12s ease, opacity 0.12s ease;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+/* Role chip lives in the ledger (never over media). */
+.roleChip {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-bg);
+}
+.roleSource { background: var(--canvas-thread-lineage); }
+.roleFinal { background: var(--canvas-thread-composition); }
+
+.star {
+  flex: 0 0 auto;
+  font-size: var(--font-size-micro-sm);
+  font-weight: 700;
+  color: var(--color-star);
+}
+
 .name {
-  display: block;
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   text-align: left;
   background: none;
   border: none;
@@ -136,10 +111,16 @@
 .name:hover { color: var(--color-primary); }
 .name:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-xs); }
 
+.kind {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+}
+
 .coords {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.4rem;
 }
 
@@ -164,6 +145,7 @@
   display: inline-flex;
   gap: 1px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 .tReady { color: var(--color-success); }
 .tPending { color: var(--color-primary); }
