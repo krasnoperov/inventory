@@ -43,7 +43,7 @@ const DEFAULT_NODE_HEIGHT = THUMB_HEIGHT + NODE_PADDING;
 // audio timeline rather than an empty poster.
 const AUDIO_THUMB_WIDTH = 256;
 const AUDIO_THUMB_HEIGHT = 144;
-const AUDIO_DETAIL_HEIGHT = 150;
+const AUDIO_DETAIL_HEIGHT = 108;
 
 function isAudioVariant(variant: Variant): boolean {
   return variant.media_kind === 'audio';

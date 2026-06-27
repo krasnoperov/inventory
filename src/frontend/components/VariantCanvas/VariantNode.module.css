@@ -17,32 +17,57 @@
   width: 256px;
 }
 
-.node:hover .thumbnail {
+.audioCard {
+  width: 256px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.node:hover .thumbnail,
+.node:hover .audioCard {
   box-shadow: 0 4px 20px oklch(55% 0.18 276 / 0.25);
 }
 
-.node.selected .thumbnail {
+.node.selected .thumbnail,
+.node.selected .audioCard {
   box-shadow: 0 0 18px oklch(55% 0.18 276 / 0.3);
 }
 
-.node.highlighted .thumbnail {
+.node.highlighted .thumbnail,
+.node.highlighted .audioCard {
   box-shadow: 0 0 18px oklch(55% 0.18 276 / 0.05);
 }
 
-.node.active .thumbnail {
+.node.active .thumbnail,
+.node.active .audioCard {
   box-shadow:
     -3px 0 0 var(--color-success),
     0 4px 20px oklch(70% 0.2 145 / 0.3);
 }
 
-.node.starred .thumbnail {
+.node.starred .thumbnail,
+.node.starred .audioCard {
   box-shadow: 0 0 16px var(--color-star-border);
 }
 
-.node.active.starred .thumbnail {
+.node.active.starred .thumbnail,
+.node.active.starred .audioCard {
   box-shadow:
     -3px 0 0 var(--color-success),
     0 0 16px var(--color-star-border);
+}
+
+.audioCard .thumbnail,
+.node:hover .audioCard .thumbnail,
+.node.selected .audioCard .thumbnail,
+.node.highlighted .audioCard .thumbnail,
+.node.active .audioCard .thumbnail,
+.node.starred .audioCard .thumbnail,
+.node.active.starred .audioCard .thumbnail {
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* Handles (connection points) - counter-scaled to stay clickable */
@@ -82,24 +107,26 @@
 }
 
 .audioDetails {
-  width: 256px;
-  display: grid;
-  gap: 0.4rem;
-  padding: 0.55rem 0.6rem 0.65rem;
-  border: 1px solid var(--color-border);
-  border-top: 0;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.65rem 0.6rem;
+  border-top: 1px solid var(--color-border);
   background: var(--color-surface);
-  box-shadow: 0 4px 18px oklch(0% 0 0 / 0.08);
 }
 
 .audioFacts {
-  display: grid;
-  gap: 0.12rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.45rem;
+  min-width: 0;
 }
 
 .audioFacts span {
   min-width: 0;
+  max-width: 100%;
   color: var(--color-text-muted);
   font-size: var(--font-size-micro-sm);
   line-height: 1.25;
@@ -110,13 +137,14 @@
 
 .audioPrompt {
   margin: 0;
-  max-height: calc(1.35em * 4);
   color: var(--color-text);
   font-size: var(--font-size-micro);
   line-height: 1.35;
-  white-space: pre-wrap;
+  display: -webkit-box;
   overflow: hidden;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* Generating state */
