@@ -67,6 +67,7 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 | `variant:star` | `variantId`, `starred: boolean` | Star/unstar variant |
 | `variant:rate` | `variantId`, `rating: 'approved'\|'rejected'` | Rate variant quality (training data) |
 | `variant:retry` | `variantId` | Retry failed generation |
+| `variant:regenerate` | `variantId` | Create a new same-recipe audio variant from a completed variant |
 
 ### Lineage
 

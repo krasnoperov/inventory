@@ -158,6 +158,19 @@ const legacyAudioCollectionItem = {
   sort_index: 1,
 };
 
+const regeneratingAudioVariant = {
+  ...audioVariant,
+  id: 'audio-regenerating-variant',
+  workflow_id: 'workflow-audio-regenerating',
+  status: 'processing',
+  media_key: null,
+  media_mime_type: null,
+  media_size_bytes: null,
+  media_duration_ms: null,
+  created_at: baseTime + 1,
+  updated_at: baseTime + 1,
+};
+
 // Composition placement points a composition at a finished render. A pending /
 // failed variant has no usable media, so the post-generation control must not
 // offer to place it. Guard that only the ready card exposes the action.
@@ -217,4 +230,36 @@ test('audio collection cards surface playback and compact metadata', async ({ pa
   await expect(page.getByText(/Fresh apples and clean maps/)).toBeVisible();
 
   await screenshot(page, 'space-board-audio-collection', { fullPage: true });
+});
+
+test('audio cards keep completed playback while a sibling regeneration is running', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await mountComponent(page, 'SpaceBoard', {
+    spaceId: 'space-1',
+    assets: [audioAsset],
+    variants: [audioVariant, regeneratingAudioVariant],
+    collections: [deliverables],
+    collectionItems: [audioCollectionItem],
+    canEdit: true,
+    onAssetClick: '__noop__',
+    onRegenerateVariant: '__record__:regenerate',
+    createCollection: '__noop__',
+    updateCollection: '__noop__',
+    deleteCollection: '__noop__',
+    addCollectionItem: '__noop__',
+    updateCollectionItem: '__noop__',
+    reorderCollectionItems: '__noop__',
+    deleteCollectionItem: '__noop__',
+  });
+
+  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+  await expect(page.getByText('New take generating')).toBeVisible();
+  await expect(page.getByText('Generating', { exact: true })).toHaveCount(0);
+
+  await page.getByTitle('Actions for Merchant greeting').click();
+  await page.getByRole('button', { name: 'Regenerate audio' }).click();
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].eventName).toBe('regenerate');
+  expect((calls[0].args[0] as { id: string }).id).toBe('audio-variant');
 });

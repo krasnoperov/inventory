@@ -67,8 +67,12 @@ export interface VariantCanvasProps {
   onVariantClick?: (variant: Variant) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onSetActive?: (variantId: string) => void;
+  /** Retry a failed variant in place */
+  onRetry?: (variantId: string) => void;
   /** Restore ForgeTray to the state used to create this variant */
   onRetryRecipe?: (variant: Variant) => void;
+  /** Create a same-recipe sibling variant without replacing the current one */
+  onRegenerateVariant?: (variant: Variant) => void;
   /** All variants from the space (for cross-asset lineage ghost nodes) */
   allVariants?: Variant[];
   /** All assets from the space (for resolving ghost node asset info) */
@@ -246,7 +250,9 @@ function VariantCanvasInner({
   onVariantClick,
   onAddToTray,
   onSetActive,
+  onRetry,
   onRetryRecipe,
+  onRegenerateVariant,
   allVariants,
   allAssets,
   onGhostNodeClick,
@@ -366,6 +372,8 @@ function VariantCanvasInner({
           onVariantClick,
           onAddToTray,
           onSetActive,
+          onRetry,
+          onRegenerateVariant,
           onRetryRecipe,
           forkedTo: forkedToMap.get(variant.id),
           forkedFrom: forkedFromMap.get(variant.id),
@@ -567,7 +575,7 @@ function VariantCanvasInner({
     );
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, toggleExpanded, expandedVariantId, spaceId]);
+  }, [variants, lineage, asset, selectedVariantId, isVariantGenerating, onVariantClick, onAddToTray, onSetActive, onRetry, onRegenerateVariant, onRetryRecipe, imageDimensions, allVariants, allAssets, onGhostNodeClick, layoutDirection, toggleExpanded, expandedVariantId, spaceId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<VariantNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -692,7 +700,9 @@ export function VariantCanvas({
   onVariantClick,
   onAddToTray,
   onSetActive,
+  onRetry,
   onRetryRecipe,
+  onRegenerateVariant,
   allVariants,
   allAssets,
   onGhostNodeClick,
@@ -796,6 +806,8 @@ export function VariantCanvas({
         onVariantClick={onVariantClick}
         onAddToTray={onAddToTray}
         onSetActive={onSetActive}
+        onRetry={onRetry}
+        onRegenerateVariant={onRegenerateVariant}
         onRetryRecipe={onRetryRecipe}
         allVariants={allVariants}
         allAssets={allAssets}

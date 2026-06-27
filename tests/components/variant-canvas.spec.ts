@@ -41,3 +41,57 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
     await expect(page.getByText(`Sprite: ${f}_grow`)).toBeVisible();
   }
 });
+
+test('variant canvas retries failed audio variants and renders queued state', async ({ page }) => {
+  const audioAsset = {
+    ...asset('audio', 'Door knock'),
+    type: 'sfx',
+    media_kind: 'audio',
+    active_variant_id: 'audio-v',
+  };
+  const failedAudioVariant = {
+    ...variant('audio'),
+    media_kind: 'audio',
+    status: 'failed',
+    error_message: 'provider failed',
+    media_key: null,
+    media_mime_type: null,
+  };
+  const pendingAudioVariant = {
+    ...failedAudioVariant,
+    status: 'pending',
+    error_message: null,
+  };
+
+  await page.setViewportSize({ width: 900, height: 650 });
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await page.addStyleTag({ content: '[data-testid="harness-root"]{position:fixed;inset:0;}' });
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    asset: audioAsset,
+    variants: [failedAudioVariant],
+    lineage: [],
+    selectedVariantId: 'audio-v',
+    allVariants: [failedAudioVariant],
+    allAssets: [audioAsset],
+    onRetry: '__record__:retry',
+  });
+
+  await page.getByRole('button', { name: 'Retry' }).click();
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].eventName).toBe('retry');
+  expect(calls[0].args[0]).toBe('audio-v');
+
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    asset: audioAsset,
+    variants: [pendingAudioVariant],
+    lineage: [],
+    selectedVariantId: 'audio-v',
+    allVariants: [pendingAudioVariant],
+    allAssets: [audioAsset],
+    onRetry: '__record__:retry',
+  });
+  await expect(page.getByText('Queued')).toBeVisible();
+});

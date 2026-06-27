@@ -1143,6 +1143,169 @@ export class GenerationController extends BaseController {
     });
   }
 
+  /**
+   * Handle variant:regenerate WebSocket message.
+   * Creates a new sibling variant from a completed audio variant's stored recipe.
+   */
+  async handleRegenerateRequest(
+    ws: WebSocket,
+    meta: WebSocketMeta,
+    variantId: string
+  ): Promise<void> {
+    this.requireEditor(meta);
+
+    if (!this.env.GENERATION_WORKFLOW) {
+      throw new ValidationError('Generation workflow not configured');
+    }
+
+    const sourceVariant = await this.repo.getVariantById(variantId);
+    if (!sourceVariant) {
+      throw new NotFoundError('Variant not found');
+    }
+    if (sourceVariant.status !== 'completed') {
+      throw new ValidationError('Can only regenerate completed variants');
+    }
+
+    const asset = await this.repo.getAssetById(sourceVariant.asset_id);
+    if (!asset) {
+      throw new NotFoundError('Asset not found');
+    }
+
+    const mediaKind = sourceVariant.media_kind ?? asset.media_kind;
+    if (mediaKind !== 'audio') {
+      throw new ValidationError('Direct regeneration is only supported for audio variants');
+    }
+
+    let recipe: GenerationRecipe;
+    try {
+      recipe = JSON.parse(sourceVariant.recipe) as GenerationRecipe;
+    } catch {
+      throw new ValidationError('Invalid recipe format');
+    }
+    if (!recipe.prompt) {
+      throw new ValidationError('Regeneration recipe is missing a prompt');
+    }
+
+    const billingService = getGenerationBillingService(this.env, mediaKind, recipe.assetType, recipe.musicProvider);
+    if (this.env.DB) {
+      const quotaQuantity = getQuotaCheckQuantity(
+        billingService,
+        recipe.prompt,
+        1,
+        recipe.assetType,
+        getVideoGenerateAudio(mediaKind, getRecipeGenerateAudio(recipe))
+      );
+      const userId = parseInt(meta.userId);
+      const check = await preflightGenerationAdmission({
+        env: this.env,
+        spaceId: this.spaceId,
+        userId,
+        billingService,
+        byokContext: { modelProvider: recipe.modelProvider },
+        quotaQuantity,
+        rateLimitQuantity: 1,
+        mediaKind,
+        assetType: recipe.assetType,
+        model: recipe.model,
+        operation: recipe.operation,
+        imageSize: recipe.imageSize,
+        videoResolution: recipe.videoResolution,
+        videoDurationSeconds: recipe.videoDurationSeconds,
+        generateAudio: getVideoGenerateAudio(mediaKind, getRecipeGenerateAudio(recipe)),
+        videoTier: recipe.videoTier,
+      });
+      if (!check.allowed) {
+        this.sendError(
+          ws,
+          getGenerationLimitErrorCode(check.denyReason),
+          check.denyMessage || 'Request denied'
+        );
+        return;
+      }
+    }
+
+    const newVariantId = crypto.randomUUID();
+    const variant = await this.repo.createPlaceholderVariant({
+      id: newVariantId,
+      assetId: asset.id,
+      mediaKind,
+      recipe: JSON.stringify(recipe),
+      createdBy: meta.userId,
+    });
+    this.broadcast({ type: 'variant:created', variant });
+
+    for (const parentVariantId of recipe.parentVariantIds ?? []) {
+      const lineage = await this.repo.createLineage({
+        id: crypto.randomUUID(),
+        parentVariantId,
+        childVariantId: newVariantId,
+        relationType: recipe.operation === 'derive' ? 'derived' : 'refined',
+      });
+      this.broadcast({ type: 'lineage:created', lineage });
+    }
+
+    const requestId = crypto.randomUUID();
+    this.broadcast({
+      type: 'refine:started',
+      requestId,
+      jobId: newVariantId,
+      assetId: asset.id,
+      assetName: asset.name,
+    });
+
+    const workflowInput: GenerationWorkflowInput = {
+      requestId,
+      jobId: newVariantId,
+      spaceId: this.spaceId,
+      userId: meta.userId,
+      prompt: recipe.prompt,
+      assetId: asset.id,
+      assetName: asset.name,
+      assetType: recipe.assetType,
+      mediaKind,
+      model: recipe.model,
+      aspectRatio: recipe.aspectRatio,
+      imageSize: recipe.imageSize,
+      sourceImageKeys: recipe.sourceImageKeys,
+      parentVariantIds: recipe.parentVariantIds,
+      styleImageKeys: recipe.styleImageKeys,
+      stylePresetId: recipe.stylePresetId,
+      styleCollectionId: recipe.styleCollectionId,
+      styleReferenceVariantIds: recipe.styleReferenceVariantIds,
+      styleReferenceImageKeys: recipe.styleReferenceImageKeys,
+      stylePrompt: recipe.stylePrompt,
+      veoReferenceMode: recipe.veoReferenceMode,
+      videoResolution: recipe.videoResolution,
+      videoDurationSeconds: recipe.videoDurationSeconds,
+      videoTier: recipe.videoTier,
+      generateAudio: recipe.generateAudio,
+      operation: recipe.operation,
+      modelProvider: recipe.modelProvider,
+      voiceId: recipe.voiceId,
+      dialogueVoiceIds: recipe.dialogueVoiceIds?.length ? recipe.dialogueVoiceIds : undefined,
+      musicProvider: recipe.musicProvider,
+    };
+
+    const instance = await this.env.GENERATION_WORKFLOW.create({
+      id: newVariantId,
+      params: workflowInput,
+    });
+
+    const updatedVariant = await this.repo.updateVariantWorkflow(newVariantId, instance.id, 'processing');
+    if (updatedVariant) {
+      this.broadcast({ type: 'variant:updated', variant: updatedVariant });
+    }
+
+    log.info('Regenerating audio variant', {
+      spaceId: this.spaceId,
+      userId: meta.userId,
+      sourceVariantId: variantId,
+      variantId: newVariantId,
+      operation: recipe.operation,
+      workflowId: instance.id,
+    });
+  }
+
   // ==========================================================================
   // HTTP Handlers - Variant Lifecycle (GenerationWorkflow)
   // ==========================================================================
