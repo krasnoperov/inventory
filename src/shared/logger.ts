@@ -155,6 +155,8 @@ export const loggers = {
   // Services
   claudeService: createLogger('ClaudeService'),
   geminiService: createLogger('GeminiService'),
+  emailService: createLogger('EmailService'),
+  notificationEmailService: createLogger('NotificationEmailService'),
 
   // Internal API
   internalApi: createLogger('InternalApi'),

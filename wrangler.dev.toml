@@ -35,10 +35,19 @@ migrations_dir = "db/migrations"
 binding = "OAUTH_KV"
 id = "b5666003e8934366a93be6e62260f495"
 
+# Cloudflare Email Service binding. Local Miniflare provides a stub; unset
+# MAKEFX_ADMIN_NOTIFICATION_EMAILS in local dev to skip admin signup email.
+[[send_email]]
+name = "EMAIL"
+allowed_sender_addresses = ["notifications@makefx.app"]
+
 # Environment variables for local dev
 [vars]
 NODE_ENV = "development"
 ENVIRONMENT = "local"
+PUBLIC_SITE_ORIGIN = "http://localhost:3001"
+MAKEFX_EMAIL_FROM = "notifications@makefx.app"
+MAKEFX_ADMIN_NOTIFICATION_EMAILS = ""
 POLAR_ENVIRONMENT = "sandbox"
 OIDC_ISSUER = "http://localhost:3001"
 INVENTORY_AUDIO_PROVIDER = "fake"

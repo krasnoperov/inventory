@@ -40,10 +40,19 @@ migrations_dir = "db/migrations"
 binding = "OAUTH_KV"
 id = "b5666003e8934366a93be6e62260f495"
 
+# Cloudflare Email Service binding for backend-only transactional
+# notifications. The sender must be verified in Cloudflare Email Service.
+[[send_email]]
+name = "EMAIL"
+allowed_sender_addresses = ["notifications@makefx.app"]
+
 # Environment variables for stage
 [vars]
 NODE_ENV = "stage"
 ENVIRONMENT = "stage"
+PUBLIC_SITE_ORIGIN = "https://makefx-stage.krasnoperov.me"
+MAKEFX_EMAIL_FROM = "notifications@makefx.app"
+MAKEFX_ADMIN_NOTIFICATION_EMAILS = "aleksei@krasnoperov.me"
 POLAR_ENVIRONMENT = "sandbox"
 INVENTORY_AUDIO_PROVIDER = "fake"
 # Comma-separated user IDs allowed to access billing admin routes
@@ -103,6 +112,9 @@ id = "082128872dd74f8593326990706cd138"
 [env.production.vars]
 NODE_ENV = "production"
 ENVIRONMENT = "production"
+PUBLIC_SITE_ORIGIN = "https://makefx.app"
+MAKEFX_EMAIL_FROM = "notifications@makefx.app"
+MAKEFX_ADMIN_NOTIFICATION_EMAILS = "aleksei@krasnoperov.me"
 POLAR_ENVIRONMENT = "production"
 # Website-controlled audio generation provider (vars are not inherited from the
 # top-level [vars], so production must declare it explicitly).
@@ -126,6 +138,11 @@ class_name = "GenerationWorkflow"
 [[env.production.services]]
 binding = "KEY_BROKER"
 service = "makefx-key-broker-production"
+
+# See the top-level [[send_email]] note.
+[[env.production.send_email]]
+name = "EMAIL"
+allowed_sender_addresses = ["notifications@makefx.app"]
 
 # R2 Storage for generated images - Production
 [[env.production.r2_buckets]]

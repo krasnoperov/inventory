@@ -4,6 +4,8 @@ import { MemberDAO } from '../../dao/member-dao';
 import { SpaceDAO } from '../../dao/space-dao';
 import { SpaceSharingDAO, SpaceSharingError, normalizeInvitationEmail } from '../../dao/space-sharing-dao';
 import { UserDAO } from '../../dao/user-dao';
+import { NotificationEmailService } from '../services/notification-email-service';
+import { loggers } from '../../shared/logger';
 import { createOpenApiRouter } from './openapi';
 import type {
   SpaceAccessRequest,
@@ -13,6 +15,7 @@ import type {
   SpaceSharingMember,
 } from '../../shared/api/schemas';
 import {
+  acceptSpaceInvitationRoute,
   approveSpaceAccessRequestRoute,
   cancelMySpaceAccessRequestRoute,
   createSpaceAccessRequestRoute,
@@ -25,6 +28,7 @@ import {
 import type { AppContext } from './types';
 
 const sharingRoutes = createOpenApiRouter();
+const log = loggers.notificationEmailService;
 
 sharingRoutes.use('/api/spaces/*', authMiddleware);
 
@@ -154,6 +158,123 @@ async function requireOwner(c: Context<AppContext>, spaceId: string, userId: str
   return null;
 }
 
+async function notifyAccessRequestCreated(
+  c: Context<AppContext>,
+  spaceId: string,
+  request: { requester_user_id: string; requested_role: 'editor' | 'viewer' }
+): Promise<void> {
+  try {
+    const container = c.get('container');
+    const spaceDAO = container.get(SpaceDAO);
+    const userDAO = container.get(UserDAO);
+    const space = await spaceDAO.getSpaceById(spaceId);
+    if (!space) return;
+
+    const [owner, requester] = await Promise.all([
+      userDAO.findById(Number(space.owner_id)),
+      userDAO.findById(Number(request.requester_user_id)),
+    ]);
+    if (!owner?.email || !requester?.email) return;
+
+    await container.get(NotificationEmailService).notifySpaceAccessRequested({
+      spaceId,
+      spaceName: space.name,
+      recipientEmail: owner.email,
+      requesterEmail: requester.email,
+      role: request.requested_role,
+    });
+  } catch (error) {
+    log.warn('Failed to prepare access request notification', {
+      spaceId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function notifyInvitationCreated(
+  c: Context<AppContext>,
+  spaceId: string,
+  invitation: { email: string; role: 'editor' | 'viewer'; invited_by_user_id: string }
+): Promise<void> {
+  try {
+    const container = c.get('container');
+    const spaceDAO = container.get(SpaceDAO);
+    const userDAO = container.get(UserDAO);
+    const space = await spaceDAO.getSpaceById(spaceId);
+    const inviter = await userDAO.findById(Number(invitation.invited_by_user_id));
+    if (!space || !inviter?.email) return;
+
+    await container.get(NotificationEmailService).notifySpaceInvitationCreated({
+      spaceId,
+      spaceName: space.name,
+      recipientEmail: invitation.email,
+      inviterEmail: inviter.email,
+      role: invitation.role,
+    });
+  } catch (error) {
+    log.warn('Failed to prepare invitation notification', {
+      spaceId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function notifyAccessAccepted(
+  c: Context<AppContext>,
+  spaceId: string,
+  userId: string,
+  role: 'editor' | 'viewer'
+): Promise<void> {
+  try {
+    const container = c.get('container');
+    const spaceDAO = container.get(SpaceDAO);
+    const userDAO = container.get(UserDAO);
+    const [space, user] = await Promise.all([
+      spaceDAO.getSpaceById(spaceId),
+      userDAO.findById(Number(userId)),
+    ]);
+    if (!space || !user?.email) return;
+
+    await container.get(NotificationEmailService).notifySpaceAccessAccepted({
+      spaceId,
+      spaceName: space.name,
+      recipientEmail: user.email,
+      role,
+    });
+  } catch (error) {
+    log.warn('Failed to prepare access accepted notification', {
+      spaceId,
+      userId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function notifyAccessRevoked(
+  c: Context<AppContext>,
+  spaceId: string,
+  recipientEmail: string,
+  role: 'editor' | 'viewer'
+): Promise<void> {
+  try {
+    const container = c.get('container');
+    const space = await container.get(SpaceDAO).getSpaceById(spaceId);
+    if (!space) return;
+
+    await container.get(NotificationEmailService).notifySpaceAccessRevoked({
+      spaceId,
+      spaceName: space.name,
+      recipientEmail,
+      role,
+    });
+  } catch (error) {
+    log.warn('Failed to prepare access revoked notification', {
+      spaceId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 sharingRoutes.openapi(getSpaceAccessRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const { id: spaceId } = c.req.valid('param');
@@ -237,12 +358,16 @@ sharingRoutes.openapi(createSpaceAccessRequestRoute, async (c) => {
   const sharingDAO = c.get('container').get(SpaceSharingDAO);
 
   try {
+    const existing = await sharingDAO.getPendingAccessRequestForUser(spaceId, userId);
     const request = await sharingDAO.createAccessRequest({
       spaceId,
       requesterUserId: userId,
       requestedRole: body.requestedRole ?? 'viewer',
       message: body.message ?? null,
     });
+    if (!existing) {
+      await notifyAccessRequestCreated(c, spaceId, request);
+    }
 
     return c.json({
       success: true as const,
@@ -309,12 +434,19 @@ sharingRoutes.openapi(createSpaceInvitationRoute, async (c) => {
 
   const sharingDAO = c.get('container').get(SpaceSharingDAO);
   try {
+    const existing = await sharingDAO.getPendingInvitationForEmail(
+      spaceId,
+      normalizeInvitationEmail(body.email)
+    );
     const invitation = await sharingDAO.createInvitation({
       spaceId,
       email: body.email,
       role: body.role,
       invitedByUserId: userId,
     });
+    if (!existing) {
+      await notifyInvitationCreated(c, spaceId, invitation);
+    }
 
     return c.json({
       success: true as const,
@@ -353,6 +485,7 @@ sharingRoutes.openapi(approveSpaceAccessRequestRoute, async (c) => {
     if (!approved) {
       return c.json({ error: 'Access request not found' }, 404);
     }
+    await notifyAccessAccepted(c, spaceId, approved.requester_user_id, approved.requested_role);
 
     return c.json({
       success: true as const,
@@ -405,11 +538,40 @@ sharingRoutes.openapi(revokeSpaceInvitationRoute, async (c) => {
   if (!revoked) {
     return c.json({ error: 'Invitation not found' }, 404);
   }
+  await notifyAccessRevoked(c, spaceId, revoked.email, revoked.role);
 
   return c.json({
     success: true as const,
     invitation: toInvitation(revoked),
   }, 200);
+});
+
+sharingRoutes.openapi(acceptSpaceInvitationRoute, async (c) => {
+  const userId = String(c.get('userId')!);
+  const { id: spaceId, invitationId } = c.req.valid('param');
+  const sharingDAO = c.get('container').get(SpaceSharingDAO);
+  const invitation = await sharingDAO.getPendingInvitationById(invitationId);
+  if (!invitation || invitation.space_id !== spaceId) {
+    return c.json({ error: 'Invitation not found' }, 404);
+  }
+
+  try {
+    const accepted = await sharingDAO.acceptInvitation(invitationId, userId);
+    if (!accepted) {
+      return c.json({ error: 'Invitation not found' }, 404);
+    }
+    await notifyAccessAccepted(c, spaceId, userId, accepted.role);
+
+    return c.json({
+      success: true as const,
+      invitation: toInvitation(accepted),
+    }, 200);
+  } catch (error) {
+    if (error instanceof SpaceSharingError) {
+      return sharingErrorResponse(c, error);
+    }
+    throw error;
+  }
 });
 
 export { sharingRoutes };

@@ -162,6 +162,20 @@ Access at http://localhost:3001/
 | `pnpm run deploy:stage` | Deploy to stage environment |
 | `pnpm run deploy:production` | Deploy the full production bundle: app, generation, and polar workers |
 
+## Transactional Email
+
+Registration and Space sharing notifications use Cloudflare Email Service from
+the backend Worker only. Stage and production require:
+
+- `[[send_email]]` binding named `EMAIL`.
+- `MAKEFX_EMAIL_FROM` set to the verified sender allowed by the binding.
+- `MAKEFX_ADMIN_NOTIFICATION_EMAILS` set to comma-separated admin recipients
+  for new-user registration notifications.
+- `PUBLIC_SITE_ORIGIN` set so Space links in emails point at the right host.
+
+Email delivery is best-effort: send failures are logged and do not roll back
+auth or Space sharing mutations.
+
 ## Project Structure
 
 ```

@@ -6,6 +6,17 @@
 import type { GenerationWorkflowInput } from '../backend/workflows/types';
 import type { KeyBrokerServiceBinding } from '../backend/key-broker/client';
 
+export interface SendEmailMessage {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+}
+
+export interface SendEmailBinding {
+  send(message: SendEmailMessage): Promise<unknown>;
+}
+
 /** Cloudflare Workflow instance handle */
 export interface WorkflowInstance {
   id: string;
@@ -36,6 +47,9 @@ export interface Env {
   // Static assets (served via Cloudflare Workers Assets)
   ASSETS: Fetcher;
 
+  // Cloudflare Email Service binding for transactional notifications.
+  EMAIL?: SendEmailBinding;
+
   // Authentication environment variables
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
@@ -47,6 +61,7 @@ export interface Env {
   OIDC_ISSUER: string;
   OIDC_AUDIENCE: string;
   OIDC_ALLOWED_CLIENT_IDS?: string;
+  PUBLIC_SITE_ORIGIN?: string;
 
   // AI services (for NanoBananaService and future use)
   GOOGLE_AI_API_KEY?: string;
@@ -82,6 +97,8 @@ export interface Env {
   ENVIRONMENT?: 'local' | 'development' | 'stage' | 'staging' | 'production';
   MAKEFX_ROTATION_ENABLED?: string;
   MAKEFX_MEDIA_CDN_BASE_URL?: string;
+  MAKEFX_EMAIL_FROM?: string;
+  MAKEFX_ADMIN_NOTIFICATION_EMAILS?: string;
   INVENTORY_DEV_AUTH_TOKEN?: string;
   INVENTORY_DEV_USER_ID?: string;
   ENCRYPTION_KEY?: string;

@@ -1,11 +1,62 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import type { AppContext } from './types';
 import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
 import { SpaceDAO } from '../../dao/space-dao';
 import { UserDAO } from '../../dao/user-dao';
+import { NotificationEmailService } from '../services/notification-email-service';
+import { loggers } from '../../shared/logger';
 
 const memberRoutes = new Hono<AppContext>();
+const log = loggers.notificationEmailService;
+
+async function notifyMemberAccessAccepted(
+  c: Context<AppContext>,
+  args: {
+    spaceId: string;
+    spaceName: string;
+    recipientEmail: string;
+    role: 'editor' | 'viewer';
+  }
+): Promise<void> {
+  try {
+    await c.get('container').get(NotificationEmailService).notifySpaceAccessAccepted({
+      spaceId: args.spaceId,
+      spaceName: args.spaceName,
+      recipientEmail: args.recipientEmail,
+      role: args.role,
+    });
+  } catch (error) {
+    log.warn('Failed to prepare member add notification', {
+      spaceId: args.spaceId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function notifyMemberAccessRevoked(
+  c: Context<AppContext>,
+  args: {
+    spaceId: string;
+    spaceName: string;
+    recipientEmail: string;
+    role: 'editor' | 'viewer';
+  }
+): Promise<void> {
+  try {
+    await c.get('container').get(NotificationEmailService).notifySpaceAccessRevoked({
+      spaceId: args.spaceId,
+      spaceName: args.spaceName,
+      recipientEmail: args.recipientEmail,
+      role: args.role,
+    });
+  } catch (error) {
+    log.warn('Failed to prepare member remove notification', {
+      spaceId: args.spaceId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 // All member routes require authentication
 memberRoutes.use('/api/spaces/*', authMiddleware);
@@ -103,6 +154,14 @@ memberRoutes.post('/api/spaces/:id/members', async (c) => {
     role: role as 'owner' | 'editor' | 'viewer',
     joined_at: Date.now(),
   });
+  if (newMember.role !== 'owner') {
+    await notifyMemberAccessAccepted(c, {
+      spaceId,
+      spaceName: space.name,
+      recipientEmail: userToInvite.email,
+      role: newMember.role,
+    });
+  }
 
   return c.json({
     success: true,
@@ -125,6 +184,7 @@ memberRoutes.delete('/api/spaces/:id/members/:uid', async (c) => {
   const container = c.get('container');
   const memberDAO = container.get(MemberDAO);
   const spaceDAO = container.get(SpaceDAO);
+  const userDAO = container.get(UserDAO);
 
   const spaceId = c.req.param('id');
   const userIdToRemove = c.req.param('uid');
@@ -151,11 +211,20 @@ memberRoutes.delete('/api/spaces/:id/members/:uid', async (c) => {
   if (memberToRemove.role === 'owner') {
     return c.json({ error: 'Cannot remove the owner from the space' }, 400);
   }
+  const removedUser = await userDAO.findById(Number(userIdToRemove));
 
   // Remove member
   const removed = await memberDAO.removeMember(spaceId, userIdToRemove);
   if (!removed) {
     return c.json({ error: 'Failed to remove member' }, 500);
+  }
+  if (removedUser?.email) {
+    await notifyMemberAccessRevoked(c, {
+      spaceId,
+      spaceName: space.name,
+      recipientEmail: removedUser.email,
+      role: memberToRemove.role,
+    });
   }
 
   return c.json({

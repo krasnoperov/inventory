@@ -28,6 +28,8 @@ import { UsageService } from '../backend/services/usageService';
 import { MemoryService } from '../backend/services/memoryService';
 import { SpaceRetentionService } from '../backend/services/spaceRetentionService';
 import { AccountDeletionService } from '../backend/services/accountDeletionService';
+import { EmailService } from '../backend/services/email-service';
+import { NotificationEmailService } from '../backend/services/notification-email-service';
 
 /**
  * Create and configure the dependency injection container
@@ -78,6 +80,9 @@ export function createContainer(env: Env): Container {
   container.bind(AuthHandler).toSelf().inSingletonScope();
 
   // Bind Domain Services
+  container.bind(EmailService).toSelf().inSingletonScope();
+  container.bind(NotificationEmailService).toSelf().inSingletonScope();
+
   if (env.GOOGLE_AI_API_KEY) {
     container.bind(NanoBananaService).toDynamicValue(() => (
       new NanoBananaService(env.GOOGLE_AI_API_KEY!)

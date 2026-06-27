@@ -522,6 +522,23 @@ export const revokeSpaceInvitationRoute = createRoute({
   },
 });
 
+export const acceptSpaceInvitationRoute = createRoute({
+  method: 'post',
+  path: '/api/spaces/{id}/invitations/{invitationId}/accept',
+  request: {
+    params: SpaceInvitationParamsSchema,
+  },
+  responses: {
+    200: {
+      ...json(SpaceInvitationResponseSchema),
+      description: 'Accepted a pending invitation and granted membership',
+    },
+    400: errorResponse,
+    404: errorResponse,
+    409: errorResponse,
+  },
+});
+
 export const getSupportSpaceRoute = createRoute({
   method: 'get',
   path: '/api/support/spaces/{id}',
