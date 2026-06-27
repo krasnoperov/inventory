@@ -668,6 +668,7 @@ export type ClientMessage =
   | { type: 'variant:delete'; variantId: string }
   | { type: 'variant:star'; variantId: string; starred: boolean }
   | { type: 'variant:retry'; variantId: string }
+  | { type: 'variant:regenerate'; variantId: string }
   // Lineage operations
   | { type: 'lineage:sever'; lineageId: string }
   // Presence

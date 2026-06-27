@@ -15,7 +15,7 @@ import type {
   SpaceCollection,
   Variant,
 } from '../../space/protocol';
-import { isVariantAudioReady, isVariantForgeTrayReady, isVariantReady } from '../../space/protocol';
+import { isVariantAudioReady, isVariantForgeTrayReady, isVariantLoading, isVariantReady } from '../../space/protocol';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import {
   aspectRatioForVariant,
@@ -42,6 +42,7 @@ interface SpaceBoardProps {
   isInitialSyncPending?: boolean;
   onAssetClick: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
+  onRegenerateVariant?: (variant: Variant) => void;
   onCreateRelation?: (subject: SpaceSubject) => void;
   /** Compositions available as post-generation placement targets */
   compositions?: Array<Composition | CompositionOverview>;
@@ -86,6 +87,7 @@ export function SpaceBoard({
   isInitialSyncPending,
   onAssetClick,
   onAddToTray,
+  onRegenerateVariant,
   onCreateRelation,
   compositions = [],
   compositionItems = [],
@@ -204,6 +206,9 @@ export function SpaceBoard({
   ) => {
     const displayVariant = getDisplayVariant(item, asset, variants);
     const assetVariants = variants.filter((variant) => variant.asset_id === asset.id);
+    const generatingAudioVariant = assetVariants.find(
+      (variant) => variant.media_kind === 'audio' && isVariantLoading(variant)
+    );
     const itemCollection = item ? collections.find((collection) => collection.id === item.collection_id) : null;
     const itemPinnedVariantId =
       item?.subject_type === 'asset'
@@ -277,6 +282,18 @@ export function SpaceBoard({
                 {audioMetadata.prompt}
               </p>
             )}
+            {generatingAudioVariant && displayVariant?.id !== generatingAudioVariant.id && (
+              <div className={styles.audioProgressRow} aria-live="polite">
+                <span className={styles.audioProgressSpinner} aria-hidden="true" />
+                <span>
+                  {generatingAudioVariant.status === 'pending'
+                    ? 'New take queued'
+                    : generatingAudioVariant.status === 'uploading'
+                      ? 'New take uploading'
+                      : 'New take generating'}
+                </span>
+              </div>
+            )}
           </div>
         )}
         {(canEdit || onAddToTray || onCreateRelation || onPlaceInComposition) && (
@@ -285,6 +302,11 @@ export function SpaceBoard({
             <div className={styles.cardMenuPanel}>
               {onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) && (
                 <button onClick={() => onAddToTray(displayVariant, asset)}>Add to Forge Tray</button>
+              )}
+              {onRegenerateVariant && displayVariant && isVariantAudioReady(displayVariant) && (
+                <button onClick={() => onRegenerateVariant(displayVariant)}>
+                  Regenerate audio
+                </button>
               )}
               {onCreateRelation && (
                 <button onClick={() => onCreateRelation({ subjectType: 'asset', assetId: asset.id })}>

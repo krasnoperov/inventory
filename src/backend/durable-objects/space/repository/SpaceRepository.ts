@@ -592,6 +592,11 @@ export class SpaceRepository {
     });
   }
 
+  async getInProgressVariants(): Promise<Variant[]> {
+    const result = await this.sql.exec(VariantQueries.GET_IN_PROGRESS);
+    return result.toArray() as Variant[];
+  }
+
   async getVariantsByIds(ids: string[]): Promise<Variant[]> {
     if (ids.length === 0) return [];
     const uniqueIds = Array.from(new Set(ids));
@@ -2999,7 +3004,11 @@ export class SpaceRepository {
       this.getAllTileSets(),
       this.getAllTilePositions(),
     ]);
-    const variantIds = new Set(overviewVariants.map((variant) => variant.id));
+    const inProgressVariants = await this.getInProgressVariants();
+    const variantIds = new Set([
+      ...overviewVariants.map((variant) => variant.id),
+      ...inProgressVariants.map((variant) => variant.id),
+    ]);
     const referencedVariantIds = [
       ...rotationSets.map((set) => set.source_variant_id),
       ...rotationViews.map((view) => view.variant_id),
@@ -3012,7 +3021,11 @@ export class SpaceRepository {
       ]),
     ].filter((variantId): variantId is string => typeof variantId === 'string' && !variantIds.has(variantId));
     const referencedVariants = await this.getVariantsByIds(referencedVariantIds);
-    const variants = [...overviewVariants, ...referencedVariants.filter((variant) => !variantIds.has(variant.id))];
+    const variants = [
+      ...overviewVariants,
+      ...inProgressVariants.filter((variant) => !overviewVariants.some((overviewVariant) => overviewVariant.id === variant.id)),
+      ...referencedVariants.filter((variant) => !variantIds.has(variant.id)),
+    ];
     return { assets, variants, collections, collectionItems, compositions, stylePresets, styleReferenceCollections, rotationSets, rotationViews, tileSets, tilePositions };
   }
 

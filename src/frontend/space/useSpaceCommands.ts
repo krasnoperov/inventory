@@ -48,6 +48,7 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'forkAsset'
   | 'starVariant'
   | 'retryVariant'
+  | 'regenerateVariant'
   | 'severLineage'
   | 'createRelation'
   | 'updateRelation'
@@ -157,6 +158,10 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
   // Retry a failed variant generation
   const retryVariant = useCallback((variantId: string) => {
     sendMessage({ type: 'variant:retry', variantId });
+  }, [sendMessage]);
+
+  const regenerateVariant = useCallback((variantId: string) => {
+    sendMessage({ type: 'variant:regenerate', variantId });
   }, [sendMessage]);
 
   // Sever lineage link (cut historical connection)
@@ -632,6 +637,7 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
     forkAsset,
     starVariant,
     retryVariant,
+    regenerateVariant,
     severLineage,
     createRelation,
     updateRelation,

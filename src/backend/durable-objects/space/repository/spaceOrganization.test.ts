@@ -49,12 +49,13 @@ describe('Space organization repository', () => {
   async function createAssetWithVariant(
     assetId: string,
     variantId: string,
-    options: { name?: string; type?: string; parentAssetId?: string | null } = {}
+    options: { name?: string; type?: string; mediaKind?: 'image' | 'audio' | 'video'; parentAssetId?: string | null } = {}
   ) {
     await repo.createAsset({
       id: assetId,
       name: options.name ?? assetId,
       type: options.type ?? 'character',
+      mediaKind: options.mediaKind,
       tags: [],
       createdBy: 'user-1',
     });
@@ -68,6 +69,7 @@ describe('Space organization repository', () => {
     await repo.createVariant({
       id: variantId,
       assetId,
+      mediaKind: options.mediaKind,
       imageKey: `images/${variantId}.png`,
       thumbKey: `images/${variantId}_thumb.webp`,
       recipe: '{}',
@@ -1243,6 +1245,29 @@ describe('Space organization repository', () => {
     assert.deepEqual(
       overview.variants.map((variant) => variant.id).sort(),
       ['output-v1', 'output-v2']
+    );
+  });
+
+  test('overview state includes in-progress sibling variants outside the display variant set', async () => {
+    await createAssetWithVariant('audio', 'audio-completed', { type: 'sfx', mediaKind: 'audio' });
+    await repo.updateAsset('audio', { active_variant_id: 'audio-completed' });
+    await repo.createPlaceholderVariant({
+      id: 'audio-regenerating',
+      assetId: 'audio',
+      mediaKind: 'audio',
+      recipe: JSON.stringify({ prompt: 'same recipe', assetType: 'sfx', mediaKind: 'audio', operation: 'generate' }),
+      createdBy: 'user-1',
+    });
+    await repo.updateVariantWorkflow('audio-regenerating', 'workflow-audio-regenerating', 'processing');
+
+    const overview = await repo.getOverviewState();
+
+    assert.deepEqual(
+      overview.variants.map((variant) => [variant.id, variant.status]).sort(),
+      [
+        ['audio-completed', 'completed'],
+        ['audio-regenerating', 'processing'],
+      ]
     );
   });
 

@@ -1130,6 +1130,7 @@ export interface UseSpaceWebSocketReturn {
   forkAsset: (params: ForkParams) => void;
   starVariant: (variantId: string, starred: boolean) => void;
   retryVariant: (variantId: string) => void;
+  regenerateVariant: (variantId: string) => void;
   severLineage: (lineageId: string) => void;
   createRelation: (params: {
     subject: SpaceSubject;

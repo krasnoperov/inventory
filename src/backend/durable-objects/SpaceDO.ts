@@ -356,6 +356,8 @@ export class SpaceDO extends DurableObject<Env> {
         return this.variantCtrl.handleRate(ws, meta, (msg as { type: 'variant:rate'; variantId: string; rating: 'approved' | 'rejected' }).variantId, (msg as { type: 'variant:rate'; variantId: string; rating: 'approved' | 'rejected' }).rating);
       case 'variant:retry':
         return this.generationCtrl.handleRetryRequest(ws, meta, msg.variantId);
+      case 'variant:regenerate':
+        return this.generationCtrl.handleRegenerateRequest(ws, meta, msg.variantId);
 
       // Lineage
       case 'lineage:sever':

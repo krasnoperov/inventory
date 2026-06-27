@@ -65,6 +65,14 @@ export const VariantQueries = {
     )
     WHERE overview_rank = 1`,
 
+  /** Get in-progress variants that may not be the active/display variant */
+  GET_IN_PROGRESS: `
+    SELECT v.*
+    FROM variants v
+    JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
+    WHERE v.deleted_at IS NULL
+      AND v.status IN ('pending', 'processing', 'uploading')`,
+
   /** Get variant by ID */
   GET_BY_ID: 'SELECT * FROM variants WHERE id = ? AND deleted_at IS NULL',
 

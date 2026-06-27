@@ -190,6 +190,24 @@ describe('SpaceRepository', () => {
       assert(query.query.includes('v.created_at DESC'));
     });
 
+    test('getInProgressVariants selects active generation lifecycle states', async () => {
+      mockSql.setMockResult("status IN ('pending', 'processing', 'uploading')", [
+        { id: 'v-pending', asset_id: 'a1', status: 'pending' },
+        { id: 'v-processing', asset_id: 'a2', status: 'processing' },
+      ]);
+
+      const variants = await repo.getInProgressVariants();
+
+      assert.deepStrictEqual(
+        variants.map((variant) => variant.id),
+        ['v-pending', 'v-processing']
+      );
+      const query = mockSql.getLastQuery();
+      assert(query !== undefined);
+      assert(query.query.includes("v.status IN ('pending', 'processing', 'uploading')"));
+      assert(query.query.includes('a.deleted_at IS NULL'));
+    });
+
     test('getVariantById returns null when not found', async () => {
       const variant = await repo.getVariantById('nonexistent');
       assert.strictEqual(variant, null);

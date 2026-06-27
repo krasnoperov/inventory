@@ -163,6 +163,8 @@ export default function AssetDetailPage() {
     deleteVariant,
     deleteAsset,
     starVariant,
+    retryVariant,
+    regenerateVariant,
     updateAsset,
     addCollectionItem,
     updateCollectionItem,
@@ -616,6 +618,10 @@ export default function AssetDetailPage() {
     prefillFromVariant(parentVariantIds, prompt, wsAssets, wsVariants, audioParams);
   }, [lineage, prefillFromVariant, wsAssets, wsVariants]);
 
+  const handleRegenerateVariant = useCallback((variant: Variant) => {
+    regenerateVariant(variant.id);
+  }, [regenerateVariant]);
+
   const handleCreateCompositionFromVariant = useCallback(() => {
     if (!canEdit || !asset || !selectedVariant) return;
     const id = createComposition({
@@ -747,7 +753,9 @@ export default function AssetDetailPage() {
           onVariantClick={handleVariantClick}
           onAddToTray={handleAddToTray}
           onSetActive={handleSetActiveVariant}
+          onRetry={retryVariant}
           onRetryRecipe={handleRetryRecipe}
+          onRegenerateVariant={handleRegenerateVariant}
           allVariants={wsVariants}
           allAssets={wsAssets}
           onGhostNodeClick={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}

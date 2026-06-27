@@ -1125,6 +1125,124 @@ describe('GenerationController pipeline hooks', () => {
     });
   });
 
+  describe('handleRegenerateRequest', () => {
+    test('creates a sibling audio variant from the completed variant recipe', async () => {
+      const createWorkflow = mock.fn(async () => ({ id: 'workflow-regenerate-1' }));
+      const recipe = {
+        prompt: 'A dry switch click',
+        assetType: 'sfx',
+        mediaKind: 'audio',
+        model: 'eleven_text_to_sound_v2',
+        parentVariantIds: ['source-var-1'],
+        operation: 'derive',
+        voiceId: 'voice-abc',
+      };
+      const sourceVariant = createMockVariant({
+        id: 'variant-audio',
+        asset_id: 'asset-audio',
+        media_kind: 'audio',
+        status: 'completed',
+        media_key: 'media/space/variant-audio.wav',
+        recipe: JSON.stringify(recipe),
+      });
+      const placeholderVariant = createMockVariant({
+        id: 'variant-new',
+        asset_id: 'asset-audio',
+        media_kind: 'audio',
+        status: 'pending',
+        media_key: null,
+        recipe: JSON.stringify(recipe),
+      });
+      const processingVariant = createMockVariant({
+        ...placeholderVariant,
+        workflow_id: 'workflow-regenerate-1',
+        status: 'processing',
+      });
+      const { ctx, broadcasts } = createMockContext({
+        getVariantById: mock.fn(async (id) => id === 'variant-audio' ? sourceVariant : createMockVariant({ id })),
+        getAssetById: mock.fn(async () => ({
+          id: 'asset-audio',
+          name: 'Switch click',
+          type: 'sfx',
+          media_kind: 'audio',
+          active_variant_id: 'variant-audio',
+        })),
+        createPlaceholderVariant: mock.fn(async (input) => ({
+          ...placeholderVariant,
+          id: input.id,
+          recipe: input.recipe,
+        })),
+        createLineage: mock.fn(async (input) => ({
+          id: input.id,
+          parent_variant_id: input.parentVariantId,
+          child_variant_id: input.childVariantId,
+          relation_type: input.relationType,
+          severed: false,
+          created_at: Date.now(),
+        })),
+        updateVariantWorkflow: mock.fn(async () => processingVariant),
+      });
+      ctx.env = {
+        GENERATION_WORKFLOW: { create: createWorkflow },
+        ELEVENLABS_API_KEY: 'elevenlabs-test-key',
+      } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleRegenerateRequest(
+        {} as WebSocket,
+        { userId: 'user-1', role: 'editor' },
+        'variant-audio'
+      );
+
+      assert.strictEqual(asMock(ctx.repo.resetVariantForRetry).mock.calls.length, 0);
+      assert.strictEqual(asMock(ctx.repo.createPlaceholderVariant).mock.calls.length, 1);
+      const createInput = asMock(ctx.repo.createPlaceholderVariant).mock.calls[0].arguments[0];
+      assert.notStrictEqual(createInput.id, 'variant-audio');
+      assert.strictEqual(createInput.assetId, 'asset-audio');
+      assert.strictEqual(createInput.mediaKind, 'audio');
+      assert.deepStrictEqual(JSON.parse(createInput.recipe), recipe);
+      assert.strictEqual(asMock(ctx.repo.createLineage).mock.calls[0].arguments[0].relationType, 'derived');
+      assert.strictEqual(createWorkflow.mock.calls[0].arguments[0].id, createInput.id);
+      const workflowInput = createWorkflow.mock.calls[0].arguments[0].params;
+      assert.strictEqual(workflowInput.jobId, createInput.id);
+      assert.strictEqual(workflowInput.assetId, 'asset-audio');
+      assert.strictEqual(workflowInput.mediaKind, 'audio');
+      assert.strictEqual(workflowInput.prompt, recipe.prompt);
+      assert.strictEqual(workflowInput.voiceId, 'voice-abc');
+      assert.strictEqual(workflowInput.requestId, broadcasts.find((msg) => msg.type === 'refine:started')?.requestId);
+      assert.ok(broadcasts.some((msg) => msg.type === 'variant:created' && msg.variant.id === createInput.id));
+      assert.ok(broadcasts.some((msg) => msg.type === 'variant:updated' && msg.variant.status === 'processing'));
+    });
+
+    test('rejects completed image variants for direct regeneration', async () => {
+      const { ctx } = createMockContext({
+        getVariantById: mock.fn(async () => createMockVariant({
+          id: 'variant-image',
+          media_kind: 'image',
+          status: 'completed',
+          recipe: JSON.stringify({ prompt: 'icon', assetType: 'item', operation: 'generate' }),
+        })),
+        getAssetById: mock.fn(async () => ({
+          id: 'asset-image',
+          name: 'Icon',
+          type: 'item',
+          media_kind: 'image',
+          active_variant_id: 'variant-image',
+        })),
+      });
+      ctx.env = {
+        GENERATION_WORKFLOW: { create: mock.fn(async () => ({ id: 'workflow-1' })) },
+      } as any;
+      const controller = new GenerationController(ctx);
+
+      await assert.rejects(
+        () => controller.handleRegenerateRequest({} as WebSocket, { userId: 'user-1', role: 'editor' }, 'variant-image'),
+        /Direct regeneration is only supported for audio variants/
+      );
+      assert.strictEqual(asMock(ctx.repo.createPlaceholderVariant).mock.calls.length, 0);
+    });
+  });
+
   // ==========================================================================
   // httpCompleteVariant
   // ==========================================================================

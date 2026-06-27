@@ -510,6 +510,36 @@
   -webkit-box-orient: vertical;
 }
 
+.audioProgressRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  font-size: var(--font-size-micro-sm);
+  font-weight: 650;
+}
+
+.audioProgressSpinner {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 auto;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 999px;
+  animation: audioProgressSpin 0.8s linear infinite;
+}
+
+@keyframes audioProgressSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .cardMenu {
   position: absolute;
   top: 0.35rem;

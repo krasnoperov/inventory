@@ -115,6 +115,7 @@ export default function SpacePage() {
     compositions,
     compositionItems,
     jobs,
+    regenerateVariant,
     requestSync,
     requestOverviewSync,
     clearJob,
@@ -318,6 +319,10 @@ export default function SpacePage() {
     addSlot(variant, asset);
   }, [addSlot]);
 
+  const handleRegenerateVariant = useCallback((variant: Variant) => {
+    regenerateVariant(variant.id);
+  }, [regenerateVariant]);
+
   const handleAssetOpen = useCallback((clickedAsset: Asset) => {
     navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
   }, [navigate, spaceId]);
@@ -517,6 +522,7 @@ export default function SpacePage() {
             isInitialSyncPending={!hasSynced}
             onAssetClick={handleAssetOpen}
             onAddToTray={canEdit ? handleAddToTray : undefined}
+            onRegenerateVariant={canEdit ? handleRegenerateVariant : undefined}
             onCreateRelation={canEdit ? setRelationSubject : undefined}
             compositions={compositions}
             compositionItems={compositionItems}

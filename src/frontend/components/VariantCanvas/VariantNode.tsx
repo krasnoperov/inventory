@@ -21,6 +21,8 @@ export interface VariantNodeData extends Record<string, unknown> {
   onRetry?: (variantId: string) => void;
   /** Restore ForgeTray to the state used to create this variant */
   onRetryRecipe?: (variant: Variant) => void;
+  /** Create a same-recipe sibling variant without replacing the current one */
+  onRegenerateVariant?: (variant: Variant) => void;
   /** Ghost node: variant from another asset */
   isGhost?: boolean;
   /** Ghost node is a derivative (child) rather than a parent */
@@ -62,6 +64,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     onSetActive,
     onRetry,
     onRetryRecipe,
+    onRegenerateVariant,
     isGhost,
     isDerivative,
     onGhostClick,
@@ -134,10 +137,14 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
   const handleRetryRecipe = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    if (variant.media_kind === 'audio' && isVariantReady(variant) && onRegenerateVariant) {
+      onRegenerateVariant(variant);
+      return;
+    }
     if (isVariantForgeTrayReady(variant) && onRetryRecipe) {
       onRetryRecipe(variant);
     }
-  }, [variant, onRetryRecipe]);
+  }, [variant, onRegenerateVariant, onRetryRecipe]);
 
   const handleForkedToClick = useCallback((e: React.MouseEvent, assetId: string) => {
     e.stopPropagation();
@@ -244,7 +251,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
             <button
               className={styles.actionButton}
               onClick={handleRetryRecipe}
-              title="Retry with same recipe"
+              title={variant.media_kind === 'audio' && onRegenerateVariant ? 'Regenerate audio' : 'Retry with same recipe'}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
                 <path d="M1 4v6h6" />
