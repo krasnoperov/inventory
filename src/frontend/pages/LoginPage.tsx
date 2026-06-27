@@ -1,4 +1,5 @@
 import { useGoogleLogin } from '@react-oauth/google';
+import { getRouteApi } from '@tanstack/react-router';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -6,9 +7,12 @@ import { apiFetch } from '../../api/client';
 import { FormContainer, FormTitle } from '../components/forms';
 import styles from './LoginPage.module.css';
 
+const loginRoute = getRouteApi('/login');
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { redirect } = loginRoute.useSearch();
   useDocumentTitle('Sign in');
 
   const googleLogin = useGoogleLogin({
@@ -22,7 +26,7 @@ export default function LoginPage() {
         });
 
         login(data.user);
-        navigate('/');
+        navigate(redirect ?? '/');
       } catch (error) {
         console.error('Error during authentication:', error);
       }
