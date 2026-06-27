@@ -12,6 +12,10 @@
   box-shadow: 0 4px 12px oklch(0% 0 0 / 0.1);
 }
 
+.audioCard {
+  border-color: var(--color-accent);
+}
+
 /* Depth styling not used in flat view but kept for compatibility */
 .depth0,
 .depth1,
@@ -43,6 +47,10 @@
 .thumbnailPreview {
   border: none;
   border-radius: 0;
+}
+
+.audioCard .thumbnailArea {
+  aspect-ratio: 1.18;
 }
 
 /* Empty state */
@@ -182,6 +190,57 @@
   white-space: nowrap;
 }
 
+.audioDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.audioMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.audioMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 10px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audioMetaLabel {
+  color: var(--color-text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.audioPrompt {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
 /* Add to Tray Button */
 .addButton {
   display: flex;
@@ -218,6 +277,10 @@
 
   .type {
     font-size: 10px;
+  }
+
+  .audioPrompt {
+    -webkit-line-clamp: 3;
   }
 
   .overlayButton {

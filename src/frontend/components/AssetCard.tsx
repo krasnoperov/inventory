@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
-import { type Asset, type SpaceSubject, type Variant, isVariantForgeTrayReady } from '../hooks/useSpaceWebSocket';
+import { type Asset, type SpaceSubject, type Variant, isVariantAudioReady, isVariantForgeTrayReady } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
+import { getAudioCardMetadata } from './assetCardMetadata';
 import { Thumbnail } from './Thumbnail';
 import styles from './AssetCard.module.css';
 
@@ -74,10 +75,14 @@ export function AssetCard(props: AssetCardProps) {
   }, []);
 
   const depthClass = `depth${Math.min(depth, 2)}`;
+  const isAudioCard = primaryVariant ? isVariantAudioReady(primaryVariant) : false;
+  const audioMetadata = useMemo(() => getAudioCardMetadata(primaryVariant), [primaryVariant]);
+  const showHoverActions = isHovered && primaryVariant && !isAudioCard && isVariantForgeTrayReady(primaryVariant);
+  const hasAudioDetails = isAudioCard && (audioMetadata.name || audioMetadata.model || audioMetadata.voice || audioMetadata.prompt);
 
   return (
     <div
-      className={`${styles.card} ${styles[depthClass]}`}
+      className={`${styles.card} ${styles[depthClass]} ${isAudioCard ? styles.audioCard : ''}`}
       onContextMenu={handleContextMenu}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -91,9 +96,10 @@ export function AssetCard(props: AssetCardProps) {
               size="fill"
               spaceId={spaceId}
               className={styles.thumbnailPreview}
+              showAudioControls={isAudioCard}
             />
             {/* Hover overlay with actions */}
-            {isHovered && isVariantForgeTrayReady(primaryVariant) && (
+            {showHoverActions && (
               <div className={styles.hoverOverlay}>
                 <div className={styles.overlayActions}>
                   <button
@@ -144,6 +150,37 @@ export function AssetCard(props: AssetCardProps) {
           <span className={styles.type}>
             {asset.type} / {formatMediaKind(asset.media_kind)}
           </span>
+          {hasAudioDetails && (
+            <div className={styles.audioDetails}>
+              {(audioMetadata.name || audioMetadata.model || audioMetadata.voice) && (
+                <div className={styles.audioMetaRow}>
+                  {audioMetadata.name && (
+                    <span className={styles.audioMeta} title={audioMetadata.name}>
+                      <span className={styles.audioMetaLabel}>Name</span>
+                      {audioMetadata.name}
+                    </span>
+                  )}
+                  {audioMetadata.model && (
+                    <span className={styles.audioMeta} title={audioMetadata.model}>
+                      <span className={styles.audioMetaLabel}>Model</span>
+                      {audioMetadata.model}
+                    </span>
+                  )}
+                  {audioMetadata.voice && (
+                    <span className={styles.audioMeta} title={audioMetadata.voice}>
+                      <span className={styles.audioMetaLabel}>Voice</span>
+                      {audioMetadata.voice}
+                    </span>
+                  )}
+                </div>
+              )}
+              {audioMetadata.prompt && (
+                <p className={styles.audioPrompt} title={audioMetadata.prompt}>
+                  {audioMetadata.prompt}
+                </p>
+              )}
+            </div>
+          )}
         </div>
         {onAddToTray && primaryVariant && isVariantForgeTrayReady(primaryVariant) && (
           <button
@@ -153,6 +190,7 @@ export function AssetCard(props: AssetCardProps) {
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
               <path d="M12 5v14" />
+              <path d="M5 12h14" />
             </svg>
           </button>
         )}
