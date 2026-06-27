@@ -132,6 +132,128 @@ describe('AccountDeletionService', () => {
       { space_id: 'shared-space', user_id: '1', role: 'editor', joined_at: 3, deleted_at: null },
       { space_id: 'shared-space', user_id: '2', role: 'owner', joined_at: 4, deleted_at: null },
     ]).execute();
+    await db.insertInto('space_access_requests').values([
+      {
+        id: 'request-owned-space',
+        space_id: 'owned-space',
+        requester_user_id: '3',
+        requested_role: 'viewer',
+        status: 'pending',
+        message: null,
+        created_at: '2026-06-23T00:00:00.000Z',
+        updated_at: '2026-06-23T00:00:00.000Z',
+        resolved_at: null,
+        resolved_by_user_id: null,
+      },
+      {
+        id: 'request-deleting-user',
+        space_id: 'shared-space',
+        requester_user_id: '1',
+        requested_role: 'editor',
+        status: 'pending',
+        message: null,
+        created_at: '2026-06-23T00:00:00.000Z',
+        updated_at: '2026-06-23T00:00:00.000Z',
+        resolved_at: null,
+        resolved_by_user_id: null,
+      },
+      {
+        id: 'request-resolved-by-deleting-user',
+        space_id: 'shared-space',
+        requester_user_id: '3',
+        requested_role: 'viewer',
+        status: 'approved',
+        message: null,
+        created_at: '2026-06-23T00:00:00.000Z',
+        updated_at: '2026-06-23T00:00:00.000Z',
+        resolved_at: '2026-06-24T00:00:00.000Z',
+        resolved_by_user_id: '1',
+      },
+      {
+        id: 'request-unrelated',
+        space_id: 'shared-space',
+        requester_user_id: '3',
+        requested_role: 'viewer',
+        status: 'pending',
+        message: null,
+        created_at: '2026-06-25T00:00:00.000Z',
+        updated_at: '2026-06-25T00:00:00.000Z',
+        resolved_at: null,
+        resolved_by_user_id: null,
+      },
+    ]).execute();
+    await db.insertInto('space_invitations').values([
+      {
+        id: 'invite-owned-space',
+        space_id: 'owned-space',
+        email: 'owned-invite@example.com',
+        normalized_email: 'owned-invite@example.com',
+        role: 'viewer',
+        status: 'pending',
+        invited_by_user_id: '1',
+        accepted_by_user_id: null,
+        created_at: '2026-06-23T00:00:00.000Z',
+        updated_at: '2026-06-23T00:00:00.000Z',
+        expires_at: null,
+        resolved_at: null,
+      },
+      {
+        id: 'invite-accepted-by-deleting-user',
+        space_id: 'shared-space',
+        email: 'delete@example.com',
+        normalized_email: 'delete@example.com',
+        role: 'editor',
+        status: 'accepted',
+        invited_by_user_id: '2',
+        accepted_by_user_id: '1',
+        created_at: '2026-06-23T00:00:00.000Z',
+        updated_at: '2026-06-24T00:00:00.000Z',
+        expires_at: null,
+        resolved_at: '2026-06-24T00:00:00.000Z',
+      },
+      {
+        id: 'invite-sent-by-deleting-user',
+        space_id: 'shared-space',
+        email: 'sent@example.com',
+        normalized_email: 'sent@example.com',
+        role: 'viewer',
+        status: 'pending',
+        invited_by_user_id: '1',
+        accepted_by_user_id: null,
+        created_at: '2026-06-23T00:00:00.000Z',
+        updated_at: '2026-06-23T00:00:00.000Z',
+        expires_at: null,
+        resolved_at: null,
+      },
+      {
+        id: 'invite-deleting-user-email',
+        space_id: 'shared-space',
+        email: 'delete@example.com',
+        normalized_email: 'delete@example.com',
+        role: 'viewer',
+        status: 'pending',
+        invited_by_user_id: '2',
+        accepted_by_user_id: null,
+        created_at: '2026-06-25T00:00:00.000Z',
+        updated_at: '2026-06-25T00:00:00.000Z',
+        expires_at: null,
+        resolved_at: null,
+      },
+      {
+        id: 'invite-unrelated',
+        space_id: 'shared-space',
+        email: 'other@example.com',
+        normalized_email: 'other@example.com',
+        role: 'viewer',
+        status: 'pending',
+        invited_by_user_id: '2',
+        accepted_by_user_id: null,
+        created_at: '2026-06-25T00:00:00.000Z',
+        updated_at: '2026-06-25T00:00:00.000Z',
+        expires_at: null,
+        resolved_at: null,
+      },
+    ]).execute();
     await db.insertInto('usage_events').values({
       id: 'usage-1',
       user_id: 1,
@@ -270,6 +392,14 @@ describe('AccountDeletionService', () => {
     assert.equal((await db.selectFrom('spaces').selectAll().where('id', '=', 'shared-space').execute()).length, 1);
     assert.equal((await db.selectFrom('space_members').selectAll().where('space_id', '=', 'shared-space').where('user_id', '=', '1').execute()).length, 0);
     assert.equal((await db.selectFrom('space_members').selectAll().where('space_id', '=', 'shared-space').where('user_id', '=', '2').execute()).length, 1);
+    assert.deepEqual(
+      (await db.selectFrom('space_access_requests').select('id').orderBy('id').execute()).map((row) => row.id),
+      ['request-unrelated']
+    );
+    assert.deepEqual(
+      (await db.selectFrom('space_invitations').select('id').orderBy('id').execute()).map((row) => row.id),
+      ['invite-unrelated']
+    );
     assert.equal((await db.selectFrom('user_provider_keys').selectAll().where('user_id', '=', 1).execute()).length, 0);
     assert.equal((await db.selectFrom('key_envelopes').selectAll().where('scope_id', '=', 'user:1').execute()).length, 0);
     assert.equal((await db.selectFrom('usage_events').selectAll().where('user_id', '=', 1).execute()).length, 0);
