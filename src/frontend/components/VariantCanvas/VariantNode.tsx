@@ -189,6 +189,91 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
   const showTopHandle = hasIncoming || (isGhost && !isDerivative);
   const showBottomHandle = hasOutgoing || !isGhost || isDerivative; // Non-ghost and derivative ghost nodes can have edges
 
+  const thumbnail = (
+    <div
+      className={styles.thumbnail}
+      style={{
+        ...(thumbWidth ? { width: thumbWidth } : {}),
+        ...(thumbHeight ? { height: thumbHeight } : {}),
+      }}
+    >
+      {renderThumbnail()}
+
+      {/* Indicators - only for completed variants */}
+      {isVariantReady(variant) && variant.starred ? (
+        <span className={styles.starIndicator}>★</span>
+      ) : null}
+
+      {/* Hover actions - only for completed variants */}
+      {isVariantForgeTrayReady(variant) ? (
+        <div className={styles.actions}>
+          {canViewFullSize && (
+            <button
+              className={styles.actionButton}
+              onClick={handleOpenLightbox}
+              title="View full size"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+              </svg>
+            </button>
+          )}
+          {onAddToTray && isVariantForgeTrayReady(variant) && (
+            <button
+              className={styles.actionButton}
+              onClick={handleAddToTray}
+              title="Add to Forge Tray"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          )}
+          {!isActive && onSetActive && (
+            <button
+              className={styles.actionButton}
+              onClick={handleSetActive}
+              title="Use as main variant"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </button>
+          )}
+          {onRetryRecipe && isVariantForgeTrayReady(variant) && (
+            <button
+              className={styles.actionButton}
+              onClick={handleRetryRecipe}
+              title="Retry with same recipe"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                <path d="M1 4v6h6" />
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
+            </button>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const audioDetails = showAudioDetails ? (
+    <div className={styles.audioDetails}>
+      {audioFacts.length > 0 && (
+        <div className={styles.audioFacts}>
+          {audioFacts.map(([key, value]) => (
+            <span key={key} title={value}>{value}</span>
+          ))}
+        </div>
+      )}
+      {audioMetadata.prompt && (
+        <p className={styles.audioPrompt} title={audioMetadata.prompt}>
+          {audioMetadata.prompt}
+        </p>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div className={nodeClasses} onClick={handleClick}>
       {/* Input handle (for incoming edges from parent variants) - hidden when no connections */}
@@ -196,88 +281,13 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         <Handle type="target" position={targetPosition} className={styles.handle} />
       )}
 
-      {/* Thumbnail */}
-      <div
-        className={styles.thumbnail}
-        style={{
-          ...(thumbWidth ? { width: thumbWidth } : {}),
-          ...(thumbHeight ? { height: thumbHeight } : {}),
-        }}
-      >
-        {renderThumbnail()}
-
-        {/* Indicators - only for completed variants */}
-        {isVariantReady(variant) && variant.starred ? (
-          <span className={styles.starIndicator}>★</span>
-        ) : null}
-
-        {/* Hover actions - only for completed variants */}
-        {isVariantForgeTrayReady(variant) ? (
-          <div className={styles.actions}>
-            {canViewFullSize && (
-              <button
-                className={styles.actionButton}
-                onClick={handleOpenLightbox}
-                title="View full size"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                </svg>
-              </button>
-            )}
-            {onAddToTray && isVariantForgeTrayReady(variant) && (
-              <button
-                className={styles.actionButton}
-                onClick={handleAddToTray}
-                title="Add to Forge Tray"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              </button>
-            )}
-            {!isActive && onSetActive && (
-              <button
-                className={styles.actionButton}
-                onClick={handleSetActive}
-                title="Use as main variant"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              </button>
-            )}
-            {onRetryRecipe && isVariantForgeTrayReady(variant) && (
-              <button
-                className={styles.actionButton}
-                onClick={handleRetryRecipe}
-                title="Retry with same recipe"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <path d="M1 4v6h6" />
-                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                </svg>
-              </button>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      {showAudioDetails && (
-        <div className={styles.audioDetails}>
-          {audioFacts.length > 0 && (
-            <div className={styles.audioFacts}>
-              {audioFacts.map(([key, value]) => (
-                <span key={key} title={value}>{value}</span>
-              ))}
-            </div>
-          )}
-          {audioMetadata.prompt && (
-            <p className={styles.audioPrompt} title={audioMetadata.prompt}>
-              {audioMetadata.prompt}
-            </p>
-          )}
+      {showAudioDetails ? (
+        <div className={styles.audioCard}>
+          {thumbnail}
+          {audioDetails}
         </div>
+      ) : (
+        thumbnail
       )}
 
       {/* Label - only for ghost nodes (shows source/target asset name) */}
