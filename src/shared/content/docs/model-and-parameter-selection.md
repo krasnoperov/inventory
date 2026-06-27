@@ -68,7 +68,7 @@ stop image, video, or audio generation before a provider call is made.
 
 | Mode | Exact default model |
 |-|-|
-| `speech` | `eleven_multilingual_v2` |
+| `speech` | `eleven_v3` |
 | `dialogue` | `eleven_v3` |
 | ElevenLabs `music` | `music_v1` |
 | Lyria `music` | `lyria-3-clip-preview` |

@@ -53,7 +53,7 @@ describe('ElevenLabsAudioProvider', () => {
 
     assert.strictEqual(result.audioMimeType, 'audio/mpeg');
     assert.strictEqual(new TextDecoder().decode(result.audioData), 'audio-data');
-    assert.strictEqual(result.model, 'eleven_multilingual_v2');
+    assert.strictEqual(result.model, 'client-selected-model');
     assert.strictEqual(result.durationMs, 350);
     assert.strictEqual(decodeSidecar(result.transcript), 'Hello world');
 
@@ -62,7 +62,28 @@ describe('ElevenLabsAudioProvider', () => {
     assert.strictEqual((calls[0].init.headers as Record<string, string>)['xi-api-key'], 'key-1');
     assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)), {
       text: 'Hello world',
-      model_id: 'eleven_multilingual_v2',
+      model_id: 'client-selected-model',
+    });
+  });
+
+  test('defaults speech to eleven_v3 when no model is configured or requested', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetcher = mock.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return jsonResponse(audioPayload());
+    }) as unknown as typeof fetch;
+    const provider = new ElevenLabsAudioProvider({
+      apiKey: 'key-1',
+      voiceId: 'voice-1',
+      fetcher,
+    });
+
+    const result = await provider.generate({ prompt: 'Hello world' });
+
+    assert.strictEqual(result.model, 'eleven_v3');
+    assert.deepStrictEqual(JSON.parse(String(calls[0].init.body)), {
+      text: 'Hello world',
+      model_id: 'eleven_v3',
     });
   });
 
@@ -107,7 +128,7 @@ describe('ElevenLabsAudioProvider', () => {
         { text: 'Ready?', voice_id: 'voice-a' },
         { text: 'Always.', voice_id: 'voice-b' },
       ],
-      model_id: 'eleven_v3',
+      model_id: 'client-selected-model',
     });
 
     const metadata = JSON.parse(decodeSidecar(result.renderMetadata));

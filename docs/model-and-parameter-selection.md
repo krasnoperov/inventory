@@ -190,14 +190,14 @@ whatever budget remains after user references
 Backed by `src/backend/services/elevenLabsAudioProvider.ts` and, for optional
 music requests, `src/backend/services/lyriaMusicProvider.ts`. Audio uses
 explicit **modes**; each resolves a default model you can override with
-provider-specific configuration. Audio generation has no provider image
+CLI `--model` for speech/dialogue or provider-specific configuration. Audio generation has no provider image
 reference inputs today; voice IDs and dialogue speaker order are the only
 reference-like controls.
 
 | Mode | Default model | Override | CLI |
 |-|-|-|-|
-| `speech` | `eleven_multilingual_v2` (`defaultModelForKind`, `src/backend/services/elevenLabsAudioProvider.ts:426`) | `modelId` | `makefx audio speech generate` |
-| `dialogue` | `eleven_v3` (`defaultModelForKind`, `src/backend/services/elevenLabsAudioProvider.ts:426`) | `modelId` | `makefx audio dialogue generate` |
+| `speech` | `eleven_v3` (`DEFAULT_SPEECH_MODEL`, `src/backend/services/elevenLabsAudioProvider.ts`) | CLI `--model`, then `modelId` | `makefx audio speech generate` |
+| `dialogue` | `eleven_v3` (`DEFAULT_SPEECH_MODEL`, `src/backend/services/elevenLabsAudioProvider.ts`) | CLI `--model`, then `modelId` | `makefx audio dialogue generate` |
 | `music` | `music_v1` (`DEFAULT_MUSIC_MODEL`, `src/backend/services/elevenLabsAudioProvider.ts:114`) | `modelId` | `makefx audio music generate` |
 | `music` with Lyria | `lyria-3-clip-preview` (`DEFAULT_MODEL`, `src/backend/services/lyriaMusicProvider.ts:74`) | `LYRIA_MODEL_ID` | `makefx audio music generate --provider lyria` |
 | `sfx` | `eleven_text_to_sound_v2` (`DEFAULT_SOUND_EFFECT_MODEL`, `src/backend/services/elevenLabsAudioProvider.ts:115`) | `modelId` | `makefx audio sfx generate` |

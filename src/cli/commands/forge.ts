@@ -269,6 +269,10 @@ interface AudioVoiceOptions {
   dialogueVoiceIds?: string[];
 }
 
+interface AudioModelOptions {
+  model?: string;
+}
+
 interface VideoGenerationOptions {
   aspectRatio?: VideoGenerationAspectRatio;
   videoResolution?: VideoGenerationResolution;
@@ -488,6 +492,7 @@ async function prepareAudioParsedArgs(
   const effectiveMode = mode ?? getAudioModeFromType(options.type);
 
   validateAudioProviderOption(options.provider, effectiveMode);
+  validateAudioModelOption(options.model, effectiveMode);
 
   if (mode) {
     options.type = getMediaOperationEntry(mode).assetType;
@@ -543,6 +548,7 @@ async function executeGenerate(
     mediaKind,
   });
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
+  const audioModelOptions = parseAudioGenerationOptions(parsed, mediaKind);
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
   const styleSelection = await resolveStyleSelection(parsed, ctx, deps);
@@ -553,7 +559,7 @@ async function executeGenerate(
     mediaKind,
     prompt,
     count: 1,
-    model: imageOptions.model,
+    model: imageOptions.model ?? audioModelOptions.model,
     imageSize: imageOptions.imageSize,
     ...(musicProvider ? { musicProvider } : {}),
     ...videoAudioOptions,
@@ -568,6 +574,7 @@ async function executeGenerate(
     assetType,
     prompt,
     ...imageOptions,
+    ...audioModelOptions,
     aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
     disableStyle: parsed.options['no-style'] === 'true',
     ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
@@ -621,6 +628,16 @@ function validateAudioProviderOption(
   }
   if (value !== 'elevenlabs' && value !== 'lyria') {
     throw new Error('--provider must be elevenlabs or lyria');
+  }
+}
+
+function validateAudioModelOption(
+  value: string | undefined,
+  mode?: AudioForgeMediaMode
+): void {
+  if (!value) return;
+  if (mode !== 'speech' && mode !== 'dialogue') {
+    throw new Error('--model is only supported for speech and dialogue audio');
   }
 }
 
@@ -1036,6 +1053,7 @@ async function executeBatch(
   const mode = parseBatchMode(parsed.options.mode || 'explore');
   const refs = parsed.options.refs ? parseRefs(parsed.options.refs) : [];
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
+  const audioModelOptions = parseAudioGenerationOptions(parsed, mediaKind);
   if (mediaKind === 'image') {
     validateImageReferenceCount(imageOptions.model, refs.length);
   }
@@ -1053,7 +1071,7 @@ async function executeBatch(
     mediaKind,
     prompt,
     count,
-    model: imageOptions.model,
+    model: imageOptions.model ?? audioModelOptions.model,
     imageSize: imageOptions.imageSize,
     ...(musicProvider ? { musicProvider } : {}),
   });
@@ -1070,6 +1088,7 @@ async function executeBatch(
     mode,
     referenceVariantIds,
     ...imageOptions,
+    ...audioModelOptions,
     aspectRatio: imageOptions.aspectRatio,
     disableStyle: parsed.options['no-style'] === 'true',
     ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
@@ -1781,6 +1800,15 @@ function normalizeCliOption(value: string | undefined): string | undefined {
   if (value === undefined || value === 'true') return undefined;
   const trimmed = value.trim();
   return trimmed || undefined;
+}
+
+function parseAudioGenerationOptions(
+  parsed: ParsedArgs,
+  mediaKind: GenerationMediaKind
+): AudioModelOptions {
+  if (mediaKind !== 'audio') return {};
+  const model = normalizeCliOption(readOptionalOption(parsed, 'model', 'model'));
+  return model ? { model } : {};
 }
 
 function parseImageGenerationOptions(

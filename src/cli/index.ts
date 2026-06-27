@@ -581,6 +581,7 @@ Usage:
   makefx audio ${first} generate --follow <variant_id> -o <file> [--space <id>]
 ${first === 'music' ? '  makefx audio music generate "prompt" --provider lyria --name <name> -o <file> [--space <id>]\n' : ''}
 ${first === 'music' ? 'Provider selection:\n  --provider <elevenlabs|lyria>        Music provider (default: server default)\n' : ''}
+${first === 'speech' || first === 'dialogue' ? 'Model selection:\n  --model <model_id>                   ElevenLabs model (default: eleven_v3)\n' : ''}
 ${first === 'speech' || first === 'dialogue' ? 'Voice selection:\n  --voice <voice_id>                    Speech voice, or dialogue fallback voice\n  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance\n' : ''}
 `);
       return;
@@ -592,6 +593,8 @@ Usage:
   makefx audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
 ${first === 'music' ? '  makefx audio music batch "prompt" --provider lyria --name <name> --count <2-8> --output-dir <dir> [--space <id>]\n' : ''}
 ${first === 'music' ? 'Provider selection:\n  --provider <elevenlabs|lyria>        Music provider (default: server default)\n' : ''}
+${first === 'speech' || first === 'dialogue' ? 'Model selection:\n  --model <model_id>                   ElevenLabs model (default: eleven_v3)\n' : ''}
+${first === 'speech' || first === 'dialogue' ? 'Voice selection:\n  --voice <voice_id>                    Speech voice, or dialogue fallback voice\n  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance\n' : ''}
 `);
       return;
     }
@@ -601,6 +604,7 @@ Usage:
   makefx audio ${first} generate "prompt" --name <name> -o <file> [--space <id>]
   makefx audio ${first} batch "prompt" --name <name> --count <2-8> --output-dir <dir> [--space <id>]
 ${first === 'music' ? '\nProvider selection:\n  --provider <elevenlabs|lyria>        Music provider (default: server default)\n' : ''}
+${first === 'speech' || first === 'dialogue' ? '\nModel selection:\n  --model <model_id>                   ElevenLabs model (default: eleven_v3)\n' : ''}
 ${first === 'speech' || first === 'dialogue' ? '\nVoice selection:\n  --voice <voice_id>                    Speech voice, or dialogue fallback voice\n  --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance\n' : ''}
 `);
     return;
@@ -646,6 +650,9 @@ Modes:
 Voice selection:
   --voice <voice_id>                    Speech voice, or dialogue fallback voice
   --dialogue-voices <id,id,...>         Dialogue voices ordered by first speaker appearance
+
+Model selection:
+  --model <model_id>                   ElevenLabs speech/dialogue model (default: eleven_v3)
 
 Low-level compatibility:
   makefx audio generate "prompt" --name <name> --type <type> -o <file> [--space <id>]
