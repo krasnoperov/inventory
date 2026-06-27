@@ -46,6 +46,24 @@
   background: var(--color-bg);
 }
 
+/* Role ribbon — names the card's place in the source→final story. A label,
+   not an overlay: it sits in the card corner, never over the media itself. */
+.roleTab {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 0;
+  padding: 1px 8px 2px;
+  border-bottom-right-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-bg);
+}
+.roleSource { background: var(--canvas-thread-lineage); }
+.roleFinal { background: var(--canvas-thread-composition); }
+
 .thumb {
   width: 100%;
   height: 100%;
@@ -72,7 +90,7 @@
 .starFlag {
   position: absolute;
   z-index: 2;
-  top: 6px;
+  bottom: 6px;
   left: 6px;
   padding: 0 5px;
   height: 18px;
@@ -319,6 +337,19 @@
 .thread:disabled:hover { background: transparent; color: var(--color-text-muted); border-color: transparent; }
 
 .threadSwatch { width: 9px; height: 9px; border-radius: var(--radius-full); flex: 0 0 auto; }
+
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--font-size-small-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.legendDot { width: 9px; height: 9px; border-radius: var(--radius-full); }
+.legendSource { background: var(--canvas-thread-lineage); }
+.legendFinal { background: var(--canvas-thread-composition); }
+.legendNum { font-family: var(--font-mono); font-size: var(--font-size-micro-sm); color: var(--color-text-muted); }
 .threadCount {
   font-family: var(--font-mono);
   font-size: var(--font-size-micro-sm);

@@ -123,6 +123,11 @@ function AssetNodeView({ data }: NodeProps<AssetFlowNode>) {
         <span className={styles.kindGlyph} title={asset.media_kind}>{mediaGlyph(asset.media_kind)}</span>
         {stats.starred > 0 && <span className={styles.starFlag} title={`${stats.starred} starred`}>★{stats.starred > 1 ? stats.starred : ''}</span>}
       </div>
+      {(model.role === 'source' || model.role === 'final') && (
+        <span className={`${styles.roleTab} ${model.role === 'final' ? styles.roleFinal : styles.roleSource}`}>
+          {model.role === 'final' ? 'FINAL' : 'SOURCE'}
+        </span>
+      )}
       {/* Specimen ledger — engraved beneath the plate. */}
       <div className={styles.ledger}>
         <button className={styles.name} onClick={(e) => { e.stopPropagation(); onOpen(asset); }} title={`Open ${asset.name}`}>
@@ -205,7 +210,14 @@ function RelationsCanvasInner({
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('force');
   const [families, setFamilies] = useState<Set<RelationFamily>>(() => new Set(ALL_FAMILIES));
   const [focusId, setFocusId] = useState<string | null>(null);
+  // Story lens: the default for this view — show the source→final trunk and
+  // hide exploration noise; "Graph" drops to the raw, fully-laid-out graph.
+  const [storyMode, setStoryMode] = useState(true);
+  const [showAttempts, setShowAttempts] = useState(false);
   const draggedRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  // Story always reads top→bottom as a pipeline, so it forces the layered layout.
+  const effectiveLayout: LayoutMode = storyMode ? 'layered' : layoutMode;
 
   // Resolve the three edge tokens (light-dark pairs) to concrete colours so they
   // can drive SVG strokes, arrow markers and the minimap. Re-read if the OS
@@ -244,47 +256,86 @@ function RelationsCanvasInner({
     [assets, variants, lineage, relations, collections, collectionItems, compositions, compositionItems, grouping],
   );
 
-  // Layout over the full structure so toggling edge filters never reflows.
+  // Which asset nodes are on stage. In the story lens we hide attempts and
+  // orphans by default so only the source→final trunk shows; "Show attempts"
+  // brings them back (dimmed). The raw graph shows everything.
+  const isOffTrunk = useCallback(
+    (role: string) => role === 'attempt' || role === 'orphan',
+    [],
+  );
+  const visibleAssetIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of graph.assetNodes) {
+      if (!storyMode || showAttempts || !isOffTrunk(n.role)) set.add(n.id);
+    }
+    return set;
+  }, [graph.assetNodes, storyMode, showAttempts, isOffTrunk]);
+  // Compositions are a raw-graph concept (and empty in practice) — keep them out
+  // of the story pipeline.
+  const compositionsVisible = !storyMode && families.has('composition');
+
+  // Layout runs over the *visible* set so the layered pipeline ranks the real
+  // finals at the bottom (their hidden attempt-children don't push them up).
   const positions = useMemo(() => {
     const layoutNodes = [
-      ...graph.assetNodes.map((n) => ({ id: n.id, width: ASSET_W, height: ASSET_H, groupKey: n.groupKey })),
-      ...graph.compositionNodes.map((n) => ({ id: n.id, width: COMP_W, height: COMP_H })),
+      ...graph.assetNodes
+        .filter((n) => visibleAssetIds.has(n.id))
+        .map((n) => ({ id: n.id, width: ASSET_W, height: ASSET_H, groupKey: n.groupKey })),
+      ...(compositionsVisible ? graph.compositionNodes.map((n) => ({ id: n.id, width: COMP_W, height: COMP_H })) : []),
     ];
-    const layoutEdges = graph.edges.map((e) => ({ source: e.source, target: e.target }));
-    const result = layoutMode === 'layered' ? layoutLayered(layoutNodes, layoutEdges) : layoutForce(layoutNodes, layoutEdges);
+    const layoutEdges = graph.edges
+      .filter((e) => (visibleAssetIds.has(e.source) || compositionsVisible) && (visibleAssetIds.has(e.target) || compositionsVisible))
+      .map((e) => ({ source: e.source, target: e.target }));
+    const result = effectiveLayout === 'layered' ? layoutLayered(layoutNodes, layoutEdges) : layoutForce(layoutNodes, layoutEdges);
     return new Map(result.map((p) => [p.id, p]));
-  }, [graph, layoutMode]);
+  }, [graph, effectiveLayout, visibleAssetIds, compositionsVisible]);
 
-  // Layout/grouping changes are explicit "re-arrange everything" actions.
+  // Layout / grouping / story changes are explicit "re-arrange everything" actions.
   useEffect(() => {
     draggedRef.current.clear();
-  }, [layoutMode, grouping]);
+  }, [layoutMode, grouping, storyMode, showAttempts]);
 
-  const visibleEdges = useMemo(() => graph.edges.filter((e) => families.has(e.family)), [graph.edges, families]);
+  const visibleEdges = useMemo(
+    () =>
+      graph.edges.filter(
+        (e) =>
+          families.has(e.family) &&
+          (visibleAssetIds.has(e.source) || (compositionsVisible && isCompositionNodeId(e.source))) &&
+          (visibleAssetIds.has(e.target) || (compositionsVisible && isCompositionNodeId(e.target))),
+      ),
+    [graph.edges, families, visibleAssetIds, compositionsVisible],
+  );
   const neighbours = useMemo(() => (focusId ? neighbourSet(focusId, visibleEdges) : null), [focusId, visibleEdges]);
 
   const rfNodes = useMemo<Node[]>(() => {
-    const assetNodes: Node[] = graph.assetNodes.map((model) => {
-      const pos = draggedRef.current.get(model.id) ?? positions.get(model.id) ?? { x: 0, y: 0 };
-      return {
-        id: model.id,
-        type: 'asset',
-        position: { x: pos.x, y: pos.y },
-        data: { model, spaceId, dimmed: !!neighbours && !neighbours.has(model.id), focused: focusId === model.id, onOpen: onAssetClick },
-      } satisfies AssetFlowNode;
-    });
-    const compNodes: Node[] = graph.compositionNodes.map((model) => {
-      const pos = draggedRef.current.get(model.id) ?? positions.get(model.id) ?? { x: 0, y: 0 };
-      return {
-        id: model.id,
-        type: 'composition',
-        position: { x: pos.x, y: pos.y },
-        hidden: !families.has('composition'),
-        data: { model, dimmed: !!neighbours && !neighbours.has(model.id), focused: focusId === model.id },
-      } satisfies CompFlowNode;
-    });
+    const assetNodes: Node[] = graph.assetNodes
+      .filter((model) => visibleAssetIds.has(model.id))
+      .map((model) => {
+        const pos = draggedRef.current.get(model.id) ?? positions.get(model.id) ?? { x: 0, y: 0 };
+        // In the story lens, revealed attempts/orphans render dimmed so the
+        // trunk keeps the spotlight.
+        const storyDim = storyMode && showAttempts && isOffTrunk(model.role);
+        const focusDim = !!neighbours && !neighbours.has(model.id);
+        return {
+          id: model.id,
+          type: 'asset',
+          position: { x: pos.x, y: pos.y },
+          data: { model, spaceId, dimmed: storyDim || focusDim, focused: focusId === model.id, onOpen: onAssetClick },
+        } satisfies AssetFlowNode;
+      });
+    const compNodes: Node[] = compositionsVisible
+      ? graph.compositionNodes.map((model) => {
+          const pos = draggedRef.current.get(model.id) ?? positions.get(model.id) ?? { x: 0, y: 0 };
+          return {
+            id: model.id,
+            type: 'composition',
+            position: { x: pos.x, y: pos.y },
+            data: { model, dimmed: !!neighbours && !neighbours.has(model.id), focused: focusId === model.id },
+          } satisfies CompFlowNode;
+        })
+      : [];
     return [...compNodes, ...assetNodes];
-  }, [graph, positions, neighbours, focusId, families, spaceId, onAssetClick]);
+  }, [graph, positions, neighbours, focusId, spaceId, onAssetClick, visibleAssetIds, compositionsVisible, storyMode, showAttempts, isOffTrunk]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(rfNodes);
   useEffect(() => setNodes(rfNodes), [rfNodes, setNodes]);
@@ -347,7 +398,7 @@ function RelationsCanvasInner({
   // box would span the whole graph (just noise).
   const positionByNode = useMemo(() => new Map(nodes.map((n) => [n.id, n.position])), [nodes]);
   const regions = useMemo(() => {
-    if (grouping === 'none' || layoutMode !== 'force' || graph.groups.length < 2) return [];
+    if (storyMode || grouping === 'none' || effectiveLayout !== 'force' || graph.groups.length < 2) return [];
     return graph.groups
       .map((group: GroupModel) => {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -373,7 +424,7 @@ function RelationsCanvasInner({
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
-  }, [graph.groups, grouping, layoutMode, positionByNode]);
+  }, [graph.groups, grouping, effectiveLayout, storyMode, positionByNode]);
 
   const didFit = useRef(false);
   useEffect(() => {
@@ -381,6 +432,15 @@ function RelationsCanvasInner({
     didFit.current = true;
     requestAnimationFrame(() => fitView({ padding: 0.14, maxZoom: 1 }));
   }, [nodes.length, fitView]);
+
+  // Re-frame when switching lens/layout or revealing attempts — the visible set
+  // (and its bounds) changes substantially.
+  const didMountFit = useRef(false);
+  useEffect(() => {
+    if (!didMountFit.current) { didMountFit.current = true; return; }
+    const t = requestAnimationFrame(() => fitView({ padding: 0.14, maxZoom: 1 }));
+    return () => cancelAnimationFrame(t);
+  }, [storyMode, showAttempts, effectiveLayout, fitView]);
 
   if (assets.length === 0) {
     return (
@@ -438,39 +498,78 @@ function RelationsCanvasInner({
 
       <div className={styles.dock} role="toolbar" aria-label="Relations canvas controls">
         <div className={styles.segment}>
-          <span className={styles.segLabel}>Layout</span>
-          <button className={layoutMode === 'force' ? styles.segOn : styles.segOff} onClick={() => setLayoutMode('force')} title="Organic clusters">Clusters</button>
-          <button className={layoutMode === 'layered' ? styles.segOn : styles.segOff} onClick={() => setLayoutMode('layered')} title="Top-down provenance flow">Flow</button>
+          <button className={storyMode ? styles.segOn : styles.segOff} onClick={() => setStoryMode(true)} title="Source → final pipeline, noise hidden">Story</button>
+          <button className={!storyMode ? styles.segOn : styles.segOff} onClick={() => setStoryMode(false)} title="Raw graph: every asset and layout control">Graph</button>
         </div>
         <span className={styles.dockDivider} />
-        <div className={styles.segment}>
-          <span className={styles.segLabel}>Group</span>
-          {GROUPINGS.map((g) => (
-            <button key={g.id} className={grouping === g.id ? styles.segOn : styles.segOff} onClick={() => setGrouping(g.id)}>{g.label}</button>
-          ))}
-        </div>
-        <span className={styles.dockDivider} />
-        <div className={styles.segment}>
-          <span className={styles.segLabel}>Threads</span>
-          {ALL_FAMILIES.map((f) => {
-            const count = familyCounts[f];
-            const empty = count === 0;
-            return (
-              <button
-                key={f}
-                className={`${styles.thread} ${families.has(f) && !empty ? styles.threadOn : styles.threadOff}`}
-                onClick={() => !empty && toggleFamily(f)}
-                disabled={empty}
-                aria-disabled={empty}
-                title={empty ? `${RELATION_FAMILY_LABELS[f]}: none in this space` : RELATION_FAMILY_HINTS[f]}
-              >
-                <span className={styles.threadSwatch} style={{ background: familyColors[f] }} />
-                {RELATION_FAMILY_LABELS[f]}
-                <span className={styles.threadCount}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
+
+        {storyMode ? (
+          <>
+            <div className={styles.segment}>
+              <span className={styles.legend}>
+                <span className={`${styles.legendDot} ${styles.legendSource}`} />Sources
+                <span className={styles.legendNum}>{graph.storyCounts.sources}</span>
+              </span>
+              <span className={styles.legend}>
+                <span className={`${styles.legendDot} ${styles.legendFinal}`} />Finals
+                <span className={styles.legendNum}>{graph.storyCounts.finals}</span>
+              </span>
+            </div>
+            {(graph.storyCounts.attempts > 0 || graph.storyCounts.orphans > 0) && (
+              <>
+                <span className={styles.dockDivider} />
+                <button
+                  className={showAttempts ? styles.segOn : styles.segOff}
+                  onClick={() => setShowAttempts((v) => !v)}
+                  title="Reveal dead-end attempts and unlinked assets"
+                >
+                  {showAttempts ? 'Hide' : 'Show'} attempts
+                  <span className={styles.threadCount}>
+                    +{graph.storyCounts.attempts}
+                    {graph.storyCounts.orphans > 0 ? ` · ${graph.storyCounts.orphans} unlinked` : ''}
+                  </span>
+                </button>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <div className={styles.segment}>
+              <span className={styles.segLabel}>Layout</span>
+              <button className={layoutMode === 'force' ? styles.segOn : styles.segOff} onClick={() => setLayoutMode('force')} title="Organic clusters">Clusters</button>
+              <button className={layoutMode === 'layered' ? styles.segOn : styles.segOff} onClick={() => setLayoutMode('layered')} title="Top-down provenance flow">Flow</button>
+            </div>
+            <span className={styles.dockDivider} />
+            <div className={styles.segment}>
+              <span className={styles.segLabel}>Group</span>
+              {GROUPINGS.map((g) => (
+                <button key={g.id} className={grouping === g.id ? styles.segOn : styles.segOff} onClick={() => setGrouping(g.id)}>{g.label}</button>
+              ))}
+            </div>
+            <span className={styles.dockDivider} />
+            <div className={styles.segment}>
+              <span className={styles.segLabel}>Threads</span>
+              {ALL_FAMILIES.map((f) => {
+                const count = familyCounts[f];
+                const empty = count === 0;
+                return (
+                  <button
+                    key={f}
+                    className={`${styles.thread} ${families.has(f) && !empty ? styles.threadOn : styles.threadOff}`}
+                    onClick={() => !empty && toggleFamily(f)}
+                    disabled={empty}
+                    aria-disabled={empty}
+                    title={empty ? `${RELATION_FAMILY_LABELS[f]}: none in this space` : RELATION_FAMILY_HINTS[f]}
+                  >
+                    <span className={styles.threadSwatch} style={{ background: familyColors[f] }} />
+                    {RELATION_FAMILY_LABELS[f]}
+                    <span className={styles.threadCount}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
         {focusId && (
           <>
             <span className={styles.dockDivider} />

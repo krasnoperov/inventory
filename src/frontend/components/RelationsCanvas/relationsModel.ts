@@ -41,6 +41,16 @@ export type RelationFamily = 'lineage' | 'relation' | 'composition';
 export type GroupingAxis = 'collection' | 'type' | 'none';
 export type LayoutMode = 'force' | 'layered';
 
+/**
+ * Role of an asset in the source→final narrative (the "Story" lens).
+ *  - source:  a lineage root (nothing was forged before it)
+ *  - final:   a delivered/approved/starred result, or a lineage leaf as fallback
+ *  - trunk:   an intermediate step on a path from a source to a final
+ *  - attempt: in the lineage graph but off every source→final path (a dead end)
+ *  - orphan:  no lineage at all (standalone upload or one-off)
+ */
+export type AssetRole = 'source' | 'final' | 'trunk' | 'attempt' | 'orphan';
+
 // Edge families are tinted from app tokens, not arbitrary hex: lineage carries
 // the brand's provenance purple (matches the landing-page lineage metaphor),
 // authored relations take the warm "human note" amber, compositions the green
@@ -83,6 +93,7 @@ export interface AssetNodeModel {
   groupLabel: string;
   groupColor: string;
   typeColor: string; // hue for the asset type, independent of the grouping spine
+  role: AssetRole;
 }
 
 export interface CompositionNodeModel {
@@ -108,11 +119,20 @@ export interface GroupModel {
   nodeIds: string[];
 }
 
+export interface StoryCounts {
+  sources: number;
+  finals: number;
+  trunk: number;
+  attempts: number;
+  orphans: number;
+}
+
 export interface RelationsGraph {
   assetNodes: AssetNodeModel[];
   compositionNodes: CompositionNodeModel[];
   edges: GraphEdgeModel[];
   groups: GroupModel[];
+  storyCounts: StoryCounts;
 }
 
 const COMP_PREFIX = 'comp:';
@@ -246,6 +266,7 @@ export function buildRelationsGraph(input: BuildGraphInput): RelationsGraph {
       groupLabel: group.label,
       groupColor: group.color,
       typeColor: colorForType(asset.type || 'untyped'),
+      role: 'orphan', // refined below once lineage is known
     };
   });
 
@@ -253,7 +274,8 @@ export function buildRelationsGraph(input: BuildGraphInput): RelationsGraph {
   const edges: GraphEdgeModel[] = [];
 
   // 1) Lineage — reuse the canvas collapse (severed + intra-asset already dropped).
-  for (const edge of buildLineageAssetEdges(lineage, variants)) {
+  const lineageEdges = buildLineageAssetEdges(lineage, variants);
+  for (const edge of lineageEdges) {
     edges.push({
       id: `lin:${edge.id}`,
       source: edge.source,
@@ -315,16 +337,132 @@ export function buildRelationsGraph(input: BuildGraphInput): RelationsGraph {
     });
   }
 
+  // Classify every asset for the source→final story and stamp the role back
+  // onto its node.
+  const finalAssetIds = computeFinalAssetIds(assets, variants, collections, collectionItems, variantToAsset);
+  const roles = classifyRoles(
+    assets.map((a) => a.id),
+    lineageEdges.map((e) => ({ source: e.source, target: e.target })),
+    finalAssetIds,
+  );
+  const storyCounts: StoryCounts = { sources: 0, finals: 0, trunk: 0, attempts: 0, orphans: 0 };
+  const ROLE_COUNT_KEY: Record<AssetRole, keyof StoryCounts> = {
+    source: 'sources',
+    final: 'finals',
+    trunk: 'trunk',
+    attempt: 'attempts',
+    orphan: 'orphans',
+  };
+  for (const node of assetNodes) {
+    node.role = roles.get(node.id) ?? 'orphan';
+    storyCounts[ROLE_COUNT_KEY[node.role]] += 1;
+  }
+
   return {
     assetNodes,
     compositionNodes,
     edges,
     groups: [...groups.values()].filter((g) => g.nodeIds.length > 0),
+    storyCounts,
   };
 }
 
 export function isCompositionNodeId(id: string): boolean {
   return id.startsWith(COMP_PREFIX);
+}
+
+// A "final" asset: delivered, approved, or starred. These signals vary per
+// space (some use a deliverables collection, some star/approve variants), so we
+// union them; the caller falls back to lineage leaves when none are present.
+function computeFinalAssetIds(
+  assets: Asset[],
+  variants: Variant[],
+  collections: SpaceCollection[],
+  collectionItems: CollectionItem[],
+  variantToAsset: Map<string, string>,
+): Set<string> {
+  const finals = new Set<string>();
+  const deliverableCollectionIds = new Set(
+    collections.filter((c) => c.kind === 'deliverables').map((c) => c.id),
+  );
+  for (const item of collectionItems) {
+    if (!deliverableCollectionIds.has(item.collection_id)) continue;
+    const assetId =
+      item.subject_type === 'asset'
+        ? item.asset_id
+        : item.variant_id
+          ? variantToAsset.get(item.variant_id) ?? null
+          : null;
+    if (assetId) finals.add(assetId);
+  }
+  for (const v of variants) {
+    if (v.quality_rating === 'approved' || v.starred) finals.add(v.asset_id);
+  }
+  return finals;
+}
+
+/**
+ * Assign a story role to every asset from the lineage edges + the flagged
+ * finals. Trunk = nodes reachable forward from a source AND backward from a
+ * final. Anything in the graph but off-trunk is an attempt; anything with no
+ * lineage is an orphan. When no finals are flagged at all, lineage leaves stand
+ * in as finals so the narrative still has a bottom band.
+ */
+export function classifyRoles(
+  assetIds: string[],
+  edges: LayoutEdge[],
+  flaggedFinals: Set<string>,
+): Map<string, AssetRole> {
+  const all = new Set(assetIds);
+  const children = new Map<string, string[]>();
+  const parents = new Map<string, string[]>();
+  const inGraph = new Set<string>();
+  for (const e of edges) {
+    if (!all.has(e.source) || !all.has(e.target)) continue;
+    (children.get(e.source) ?? children.set(e.source, []).get(e.source)!).push(e.target);
+    (parents.get(e.target) ?? parents.set(e.target, []).get(e.target)!).push(e.source);
+    inGraph.add(e.source);
+    inGraph.add(e.target);
+  }
+
+  const sources = new Set([...inGraph].filter((id) => !(parents.get(id)?.length)));
+  const leaves = new Set([...inGraph].filter((id) => !(children.get(id)?.length)));
+  // Finals: flagged ∩ inGraph, or fall back to leaves if the space flags none.
+  const flaggedInGraph = [...flaggedFinals].filter((id) => inGraph.has(id));
+  const finals = new Set(flaggedInGraph.length > 0 ? flaggedInGraph : [...leaves]);
+
+  const reach = (seeds: Iterable<string>, adj: Map<string, string[]>): Set<string> => {
+    const seen = new Set<string>();
+    const queue = [...seeds];
+    while (queue.length) {
+      const id = queue.pop()!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      for (const n of adj.get(id) ?? []) if (!seen.has(n)) queue.push(n);
+    }
+    return seen;
+  };
+  const fromSources = reach(sources, children);
+  const toFinals = reach(finals, parents);
+
+  const roles = new Map<string, AssetRole>();
+  for (const id of assetIds) {
+    if (!inGraph.has(id)) {
+      roles.set(id, 'orphan');
+      continue;
+    }
+    const onTrunk = fromSources.has(id) && toFinals.has(id);
+    if (!onTrunk) {
+      roles.set(id, 'attempt');
+    } else if (sources.has(id)) {
+      roles.set(id, 'source');
+    } else if (finals.has(id)) {
+      roles.set(id, 'final');
+    } else {
+      roles.set(id, 'trunk');
+    }
+  }
+  return roles;
 }
 
 // ---- Layout -----------------------------------------------------------------

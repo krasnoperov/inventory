@@ -10,7 +10,7 @@ import type {
   SpaceRelation,
   Variant,
 } from '../../space/protocol';
-import { buildRelationsGraph, isCompositionNodeId, layoutForce, layoutLayered, neighbourSet } from './relationsModel';
+import { buildRelationsGraph, classifyRoles, isCompositionNodeId, layoutForce, layoutLayered, neighbourSet } from './relationsModel';
 
 function asset(id: string, type = 'character', tags = '[]'): Asset {
   return {
@@ -226,6 +226,66 @@ describe('layout', () => {
     const dist = Math.hypot(c1.x - c2.x, c1.y - c2.y);
     // Cohesion should pull each group to its own anchor, well clear of the other.
     assert.ok(dist > 600, `expected separated centroids, got ${dist}`);
+  });
+});
+
+describe('classifyRoles (story lens)', () => {
+  test('classifies source, trunk, final, off-trunk attempt and orphan', () => {
+    // s -> m -> f (the trunk), m -> x (a dead-end attempt), o is unlinked.
+    const edges = [
+      { source: 's', target: 'm' },
+      { source: 'm', target: 'f' },
+      { source: 'm', target: 'x' },
+    ];
+    const roles = classifyRoles(['s', 'm', 'f', 'x', 'o'], edges, new Set(['f']));
+    assert.equal(roles.get('s'), 'source');
+    assert.equal(roles.get('m'), 'trunk');
+    assert.equal(roles.get('f'), 'final');
+    assert.equal(roles.get('x'), 'attempt');
+    assert.equal(roles.get('o'), 'orphan');
+  });
+
+  test('falls back to lineage leaves as finals when none are flagged', () => {
+    const edges = [
+      { source: 's', target: 'm' },
+      { source: 'm', target: 'f1' },
+      { source: 'm', target: 'f2' },
+    ];
+    const roles = classifyRoles(['s', 'm', 'f1', 'f2'], edges, new Set());
+    assert.equal(roles.get('s'), 'source');
+    assert.equal(roles.get('m'), 'trunk');
+    assert.equal(roles.get('f1'), 'final');
+    assert.equal(roles.get('f2'), 'final');
+  });
+
+  test('a root that reaches no final is an attempt, not a source', () => {
+    // Real space shape: an abandoned branch whose root leads nowhere useful.
+    const edges = [
+      { source: 'good', target: 'fin' },
+      { source: 'dead', target: 'deadchild' }, // separate branch, no flagged final
+    ];
+    const roles = classifyRoles(['good', 'fin', 'dead', 'deadchild'], edges, new Set(['fin']));
+    assert.equal(roles.get('good'), 'source');
+    assert.equal(roles.get('fin'), 'final');
+    assert.equal(roles.get('dead'), 'attempt');
+    assert.equal(roles.get('deadchild'), 'attempt');
+  });
+});
+
+describe('buildRelationsGraph story counts', () => {
+  test('flags approved variants and deliverables collections as finals', () => {
+    const a = asset('a');
+    const b = asset('b');
+    const variants = [variant('a-v1', 'a'), variant('b-v1', 'b', { quality_rating: 'approved' })];
+    const lineage: Lineage[] = [
+      { id: 'l1', parent_variant_id: 'a-v1', child_variant_id: 'b-v1', relation_type: 'derived', severed: false, created_at: 1 },
+    ];
+    const graph = buildRelationsGraph({ assets: [a, b], variants, lineage, relations: [], grouping: 'none', ...emptyExtras });
+    const byId = new Map(graph.assetNodes.map((n) => [n.id, n.role]));
+    assert.equal(byId.get('a'), 'source');
+    assert.equal(byId.get('b'), 'final');
+    assert.equal(graph.storyCounts.sources, 1);
+    assert.equal(graph.storyCounts.finals, 1);
   });
 });
 
