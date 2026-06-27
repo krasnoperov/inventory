@@ -110,7 +110,7 @@ INVENTORY_AUDIO_PROVIDER = "elevenlabs"
 MAKEFX_MEDIA_CDN_BASE_URL = "https://cdn.makefx.app"
 # Comma-separated user IDs. Grants billing-admin routes AND non-billable
 # ('internal') paid-generation access to every tool.
-ADMIN_USER_IDS = "1"
+ADMIN_USER_IDS = "1,2"
 
 # Durable Objects - Production
 [[env.production.durable_objects.bindings]]
