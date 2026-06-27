@@ -101,6 +101,34 @@ describe('SpaceSharingDAO', () => {
     assert.equal(await sharingDAO.resolveAccessRequest(request.id, ownerId, 'approved'), null);
   });
 
+  test('does not grant access when an access request is canceled before approval is committed', async () => {
+    const request = await sharingDAO.createAccessRequest({
+      spaceId: 'space-1',
+      requesterUserId: requesterId,
+      requestedRole: 'editor',
+    });
+    const originalAssertNoActiveMembership = (sharingDAO as unknown as {
+      assertNoActiveMembership: (spaceId: string, userId: string) => Promise<void>;
+    }).assertNoActiveMembership.bind(sharingDAO);
+    (sharingDAO as unknown as {
+      assertNoActiveMembership: (spaceId: string, userId: string) => Promise<void>;
+    }).assertNoActiveMembership = async (spaceId, userId) => {
+      await originalAssertNoActiveMembership(spaceId, userId);
+      await sharingDAO.cancelAccessRequest(request.id, requesterId);
+    };
+
+    const approved = await sharingDAO.resolveAccessRequest(request.id, ownerId, 'approved');
+
+    assert.equal(approved, null);
+    assert.equal(await memberDAO.getMember('space-1', requesterId), null);
+    const rows = await db
+      .selectFrom('space_access_requests')
+      .select(['id', 'status'])
+      .where('id', '=', request.id)
+      .execute();
+    assert.deepEqual(rows, [{ id: request.id, status: 'canceled' }]);
+  });
+
   test('updates, rejects, and cancels access requests without changing membership', async () => {
     const request = await sharingDAO.createAccessRequest({
       spaceId: 'space-1',
@@ -199,6 +227,35 @@ describe('SpaceSharingDAO', () => {
     assert.equal(acceptedInvitations.length, 1);
     assert.equal(acceptedInvitations[0].invitedBy?.id, ownerId);
     assert.equal(acceptedInvitations[0].acceptedBy?.id, inviteeId);
+  });
+
+  test('does not grant access when an invitation is revoked before acceptance is committed', async () => {
+    const invitation = await sharingDAO.createInvitation({
+      spaceId: 'space-1',
+      email: 'invitee@example.com',
+      role: 'viewer',
+      invitedByUserId: ownerId,
+    });
+    const originalAssertNoActiveMembership = (sharingDAO as unknown as {
+      assertNoActiveMembership: (spaceId: string, userId: string) => Promise<void>;
+    }).assertNoActiveMembership.bind(sharingDAO);
+    (sharingDAO as unknown as {
+      assertNoActiveMembership: (spaceId: string, userId: string) => Promise<void>;
+    }).assertNoActiveMembership = async (spaceId, userId) => {
+      await originalAssertNoActiveMembership(spaceId, userId);
+      await sharingDAO.revokeInvitation(invitation.id);
+    };
+
+    const accepted = await sharingDAO.acceptInvitation(invitation.id, inviteeId);
+
+    assert.equal(accepted, null);
+    assert.equal(await memberDAO.getMember('space-1', inviteeId), null);
+    const rows = await db
+      .selectFrom('space_invitations')
+      .select(['id', 'status'])
+      .where('id', '=', invitation.id)
+      .execute();
+    assert.deepEqual(rows, [{ id: invitation.id, status: 'revoked' }]);
   });
 
   test('revokes invitations and allows a new pending invite for the same email', async () => {

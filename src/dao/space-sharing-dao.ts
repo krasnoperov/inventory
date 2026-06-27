@@ -202,11 +202,6 @@ export class SpaceSharingDAO {
         request.space_id,
         request.requester_user_id
       );
-      await this.upsertActiveMember(
-        request.space_id,
-        request.requester_user_id,
-        request.requested_role
-      );
     }
 
     const resolvedAt = nowIso();
@@ -222,6 +217,14 @@ export class SpaceSharingDAO {
       .where('status', '=', 'pending')
       .returningAll()
       .executeTakeFirst();
+
+    if (result && status === 'approved') {
+      await this.upsertActiveMember(
+        request.space_id,
+        request.requester_user_id,
+        request.requested_role
+      );
+    }
 
     return result ?? null;
   }
@@ -393,11 +396,6 @@ export class SpaceSharingDAO {
     }
 
     await this.assertNoActiveMembership(invitation.space_id, acceptedByUserId);
-    await this.upsertActiveMember(
-      invitation.space_id,
-      acceptedByUserId,
-      invitation.role
-    );
 
     const resolvedAt = nowIso();
     const result = await this.db
@@ -412,6 +410,14 @@ export class SpaceSharingDAO {
       .where('status', '=', 'pending')
       .returningAll()
       .executeTakeFirst();
+
+    if (result) {
+      await this.upsertActiveMember(
+        invitation.space_id,
+        acceptedByUserId,
+        invitation.role
+      );
+    }
 
     return result ?? null;
   }
