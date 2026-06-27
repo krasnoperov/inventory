@@ -171,7 +171,7 @@ describe('buildRelationsGraph', () => {
       { id: 'l1', parent_variant_id: 'a-v1', child_variant_id: 'ghost-v1', relation_type: 'derived', severed: false, created_at: 1 },
     ];
     const compositionItems: CompositionItem[] = [
-      { id: 'ci1', composition_id: 'gone', asset_id: 'a', variant_id: 'a-v1', metadata: '{}', sort_index: 0, created_by: 'u', created_at: 1, updated_at: 1 },
+      { id: 'ci1', composition_id: 'gone', role: 'character', asset_id: 'a', variant_id: 'a-v1', metadata: '{}', sort_index: 0, created_by: 'u', created_at: 1, updated_at: 1 },
     ];
     const graph = buildRelationsGraph({
       assets: [a],
