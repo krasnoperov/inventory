@@ -33,6 +33,7 @@ and consistency across images, video, and audio.
 | [persistent-chat.md](./persistent-chat.md) | AI chat system and message flows |
 | [websocket.md](./websocket.md) | WebSocket message contract |
 | [rotation-and-tiles.md](./rotation-and-tiles.md) | Rotation views and tile set pipelines |
+| [space-sharing-rollout.md](./space-sharing-rollout.md) | Stage and production smoke checklist for Space sharing |
 
 ## Quick Links
 

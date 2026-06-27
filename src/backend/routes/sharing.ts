@@ -28,7 +28,7 @@ import {
 import type { AppContext } from './types';
 
 const sharingRoutes = createOpenApiRouter();
-const log = loggers.notificationEmailService;
+const log = loggers.spaceSharing;
 
 sharingRoutes.use('/api/spaces/*', authMiddleware);
 
@@ -366,7 +366,20 @@ sharingRoutes.openapi(createSpaceAccessRequestRoute, async (c) => {
       message: body.message ?? null,
     });
     if (!existing) {
+      log.info('Space access request created', {
+        spaceId,
+        requesterUserId: userId,
+        requestedRole: request.requested_role,
+        requestId: request.id,
+      });
       await notifyAccessRequestCreated(c, spaceId, request);
+    } else {
+      log.info('Duplicate space access request returned existing pending request', {
+        spaceId,
+        requesterUserId: userId,
+        requestedRole: existing.requested_role,
+        requestId: existing.id,
+      });
     }
 
     return c.json({
@@ -485,6 +498,13 @@ sharingRoutes.openapi(approveSpaceAccessRequestRoute, async (c) => {
     if (!approved) {
       return c.json({ error: 'Access request not found' }, 404);
     }
+    log.info('Space access request approved', {
+      spaceId,
+      requestId,
+      requesterUserId: approved.requester_user_id,
+      role: approved.requested_role,
+      resolvedByUserId: userId,
+    });
     await notifyAccessAccepted(c, spaceId, approved.requester_user_id, approved.requested_role);
 
     return c.json({
@@ -515,6 +535,12 @@ sharingRoutes.openapi(rejectSpaceAccessRequestRoute, async (c) => {
   if (!rejected) {
     return c.json({ error: 'Access request not found' }, 404);
   }
+  log.info('Space access request rejected', {
+    spaceId,
+    requestId,
+    requesterUserId: rejected.requester_user_id,
+    resolvedByUserId: userId,
+  });
 
   return c.json({
     success: true as const,
@@ -538,6 +564,12 @@ sharingRoutes.openapi(revokeSpaceInvitationRoute, async (c) => {
   if (!revoked) {
     return c.json({ error: 'Invitation not found' }, 404);
   }
+  log.info('Space invitation revoked', {
+    spaceId,
+    invitationId,
+    role: revoked.role,
+    revokedByUserId: userId,
+  });
   await notifyAccessRevoked(c, spaceId, revoked.email, revoked.role);
 
   return c.json({
@@ -560,6 +592,12 @@ sharingRoutes.openapi(acceptSpaceInvitationRoute, async (c) => {
     if (!accepted) {
       return c.json({ error: 'Invitation not found' }, 404);
     }
+    log.info('Space invitation accepted', {
+      spaceId,
+      invitationId,
+      acceptedByUserId: userId,
+      role: accepted.role,
+    });
     await notifyAccessAccepted(c, spaceId, userId, accepted.role);
 
     return c.json({
