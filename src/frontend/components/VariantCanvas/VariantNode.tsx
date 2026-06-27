@@ -4,6 +4,7 @@ import { type Asset, type Variant, getVariantMediaUrl, isVariantReady, isVariant
 import { formatBytes } from '../../lib/format';
 import { Thumbnail } from '../Thumbnail';
 import { ImageLightbox } from '../ImageLightbox';
+import { getAudioCardMetadata } from '../assetCardMetadata';
 import styles from './VariantNode.module.css';
 
 /** Layout direction for handle positioning */
@@ -145,6 +146,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
 
   const nodeClasses = [
     styles.node,
+    variant.media_kind === 'audio' ? styles.audioNode : '',
     selected ? styles.selected : '',
     isActive ? styles.active : '',
     isSelected ? styles.highlighted : '',
@@ -154,6 +156,15 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     isVariantFailed(variant) ? styles.failed : '',
     isExpanded ? styles.expanded : '',
   ].filter(Boolean).join(' ');
+  const audioMetadata = getAudioCardMetadata(variant);
+  const audioFacts = [
+    audioMetadata.name ? ['name', audioMetadata.name] : null,
+    audioMetadata.model ? ['model', audioMetadata.model] : null,
+    audioMetadata.voice ? ['voice', audioMetadata.voice] : null,
+  ].filter(
+    (fact): fact is [string, string] => Boolean(fact),
+  );
+  const showAudioDetails = variant.media_kind === 'audio' && (audioFacts.length > 0 || audioMetadata.prompt);
 
   // Render thumbnail based on variant status and media kind
   const renderThumbnail = () => {
@@ -251,6 +262,23 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
           </div>
         ) : null}
       </div>
+
+      {showAudioDetails && (
+        <div className={styles.audioDetails}>
+          {audioFacts.length > 0 && (
+            <div className={styles.audioFacts}>
+              {audioFacts.map(([key, value]) => (
+                <span key={key} title={value}>{value}</span>
+              ))}
+            </div>
+          )}
+          {audioMetadata.prompt && (
+            <p className={styles.audioPrompt} title={audioMetadata.prompt}>
+              {audioMetadata.prompt}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Label - only for ghost nodes (shows source/target asset name) */}
       {isGhost && (
