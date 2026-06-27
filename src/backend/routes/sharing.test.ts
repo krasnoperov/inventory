@@ -31,6 +31,7 @@ describe('sharingRoutes', () => {
   let requesterId: string;
   let inviteeId: string;
   let memberDAO: MemberDAO;
+  let sharingDAO: SpaceSharingDAO;
   let fetch: FetchLike;
   let sent: SendEmailMessage[];
   let emailShouldThrow: boolean;
@@ -40,7 +41,7 @@ describe('sharingRoutes', () => {
     const userDAO = new UserDAO(db);
     const spaceDAO = new SpaceDAO(db);
     memberDAO = new MemberDAO(db);
-    const sharingDAO = new SpaceSharingDAO(db);
+    sharingDAO = new SpaceSharingDAO(db);
     sent = [];
     emailShouldThrow = false;
     const env = {
@@ -175,6 +176,51 @@ describe('sharingRoutes', () => {
     });
     assert.equal(canceled.request?.status, 'canceled');
     assert.equal(await memberDAO.getMember('space-1', requesterId), null);
+  });
+
+  test('does not send a duplicate owner email when a concurrent retry wins the insert race', async () => {
+    currentUserId = Number(requesterId);
+    const originalGetPending = sharingDAO.getPendingAccessRequestForUser.bind(sharingDAO);
+    let insertedRaceWinner = false;
+    sharingDAO.getPendingAccessRequestForUser = async (spaceId, userId) => {
+      const existing = await originalGetPending(spaceId, userId);
+      if (!existing && !insertedRaceWinner) {
+        insertedRaceWinner = true;
+        await db.insertInto('space_access_requests').values({
+          id: 'request-race-winner',
+          space_id: spaceId,
+          requester_user_id: userId,
+          requested_role: 'viewer',
+          status: 'pending',
+          message: 'first submit',
+          created_at: '2026-06-27T10:00:00.000Z',
+          updated_at: '2026-06-27T10:00:00.000Z',
+          resolved_at: null,
+          resolved_by_user_id: null,
+        }).execute();
+      }
+      return existing;
+    };
+
+    const response = await apiFetch('POST /api/spaces/:id/access-requests', {
+      fetch,
+      baseUrl,
+      headers: { Authorization: 'Bearer requester-token' },
+      params: { id: 'space-1' },
+      json: { requestedRole: 'editor', message: 'retry submit' },
+    });
+
+    assert.equal(response.request.id, 'request-race-winner');
+    assert.equal(response.request.requested_role, 'viewer');
+    assert.equal(sent.length, 0);
+    const pendingRows = await db
+      .selectFrom('space_access_requests')
+      .select('id')
+      .where('space_id', '=', 'space-1')
+      .where('requester_user_id', '=', requesterId)
+      .where('status', '=', 'pending')
+      .execute();
+    assert.deepEqual(pendingRows, [{ id: 'request-race-winner' }]);
   });
 
   test('lets an owner list sharing state, invite by normalized email, and revoke without membership', async () => {

@@ -358,14 +358,13 @@ sharingRoutes.openapi(createSpaceAccessRequestRoute, async (c) => {
   const sharingDAO = c.get('container').get(SpaceSharingDAO);
 
   try {
-    const existing = await sharingDAO.getPendingAccessRequestForUser(spaceId, userId);
-    const request = await sharingDAO.createAccessRequest({
+    const { request, created } = await sharingDAO.createAccessRequestWithResult({
       spaceId,
       requesterUserId: userId,
       requestedRole: body.requestedRole ?? 'viewer',
       message: body.message ?? null,
     });
-    if (!existing) {
+    if (created) {
       log.info('Space access request created', {
         spaceId,
         requesterUserId: userId,
@@ -377,8 +376,8 @@ sharingRoutes.openapi(createSpaceAccessRequestRoute, async (c) => {
       log.info('Duplicate space access request returned existing pending request', {
         spaceId,
         requesterUserId: userId,
-        requestedRole: existing.requested_role,
-        requestId: existing.id,
+        requestedRole: request.requested_role,
+        requestId: request.id,
       });
     }
 
