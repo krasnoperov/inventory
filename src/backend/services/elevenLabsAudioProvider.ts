@@ -112,6 +112,7 @@ export class ElevenLabsApiError extends Error {
 
 const BASE_URL = 'https://api.elevenlabs.io/v1';
 const DEFAULT_OUTPUT_FORMAT = 'mp3_44100_128';
+const DEFAULT_SPEECH_MODEL = 'eleven_v3';
 const DEFAULT_MUSIC_MODEL = 'music_v1';
 const DEFAULT_SOUND_EFFECT_MODEL = 'eleven_text_to_sound_v2';
 const TEXT_ENCODER = new TextEncoder();
@@ -178,7 +179,7 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
       throw new ElevenLabsApiError('Select a voice before generating speech', 0, false);
     }
 
-    const model = this.resolveModel();
+    const model = this.resolveModel(options, 'speech');
     const response = await this.postWithTiming(
       `/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps`,
       {
@@ -200,7 +201,7 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
     dialogue: ParsedDialogueLine[]
   ): Promise<AudioGenerationResult> {
     const speakerVoiceIds = this.assignDialogueVoices(dialogue);
-    const model = this.resolveModel();
+    const model = this.resolveModel(options, 'dialogue');
     const inputs = dialogue.map(line => ({
       text: line.text,
       voice_id: speakerVoiceIds.get(line.speaker)!,
@@ -245,8 +246,8 @@ export class ElevenLabsAudioProvider implements AudioGenerationProvider {
     return new Map(assignments.map(([speaker, voiceId]) => [speaker, voiceId as string]));
   }
 
-  private resolveModel(): string | undefined {
-    return this.config.modelId || undefined;
+  private resolveModel(options: AudioGenerateOptions, kind: 'speech' | 'dialogue'): string {
+    return options.model?.trim() || this.config.modelId?.trim() || defaultModelForKind(kind);
   }
 
   private async postWithTiming(path: string, body: unknown): Promise<ElevenLabsTimingResponse> {
@@ -425,8 +426,8 @@ export class ElevenLabsSoundEffectProvider extends BaseElevenLabsGeneratedAudioP
   }
 }
 
-function defaultModelForKind(kind: 'speech' | 'dialogue'): string {
-  return kind === 'dialogue' ? 'eleven_v3' : 'eleven_multilingual_v2';
+function defaultModelForKind(_kind: 'speech' | 'dialogue'): string {
+  return DEFAULT_SPEECH_MODEL;
 }
 
 function getDurationMs(response: ElevenLabsTimingResponse): number | null {

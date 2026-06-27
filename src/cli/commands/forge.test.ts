@@ -1772,6 +1772,34 @@ test('explicit audio modes send canonical asset types', async () => {
   }
 });
 
+test('speech audio generate forwards explicit ElevenLabs model', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await executeAudioCommand('generate', {
+    positionals: ['Selected', 'voice', 'narration'],
+    options: {
+      space: 'space-1',
+      name: 'Narration',
+      voice: 'voice-narrator',
+      model: 'eleven_v3',
+      o: 'narration.wav',
+    },
+  }, deps, { mode: 'speech' });
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Narration',
+    assetType: 'speech',
+    prompt: 'Selected voice narration',
+    model: 'eleven_v3',
+    aspectRatio: undefined,
+    disableStyle: false,
+    mediaKind: 'audio',
+    voiceId: 'voice-narrator',
+  });
+  assert.equal((client.estimateParams[0] as { model?: string }).model, 'eleven_v3');
+});
+
 test('audio music provider option is forwarded for Lyria requests', async () => {
   const client = new FakeClient();
   const { deps } = depsFor(client);
@@ -1813,6 +1841,26 @@ test('audio provider option is music-only', async () => {
     }, deps, { mode: 'speech' }),
     /--provider is only supported for audio music/
   );
+});
+
+test('audio model option is speech and dialogue only', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeAudioCommand('generate', {
+      positionals: ['Heroic loop'],
+      options: {
+        space: 'space-1',
+        name: 'Hero Loop',
+        model: 'eleven_v3',
+        o: 'hero-loop.wav',
+      },
+    }, deps, { mode: 'music' }),
+    /--model is only supported for speech and dialogue audio/
+  );
+
+  assert.equal(client.connected, false);
 });
 
 test('dialogue audio generate reads multiline prompt from input file', async () => {
@@ -2072,6 +2120,39 @@ test('dialogue audio batch sends dialogue voice IDs', async () => {
     mediaKind: 'audio',
     dialogueVoiceIds: ['voice-ada', 'voice-ben'],
   });
+});
+
+test('dialogue audio batch forwards explicit ElevenLabs model', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await executeAudioCommand('batch', {
+    positionals: ['Ada:', 'Hello', 'Ben:', 'Hi'],
+    options: {
+      space: 'space-1',
+      name: 'Dialogue Set',
+      count: '2',
+      mode: 'explore',
+      model: 'eleven_v3',
+      'dialogue-voices': 'voice-ada,voice-ben',
+      'output-dir': 'audio',
+    },
+  }, deps, { mode: 'dialogue' });
+
+  assert.deepEqual(client.batchParams, {
+    name: 'Dialogue Set',
+    assetType: 'dialogue',
+    prompt: 'Ada: Hello Ben: Hi',
+    count: 2,
+    mode: 'explore',
+    referenceVariantIds: undefined,
+    model: 'eleven_v3',
+    aspectRatio: undefined,
+    disableStyle: false,
+    mediaKind: 'audio',
+    dialogueVoiceIds: ['voice-ada', 'voice-ben'],
+  });
+  assert.equal((client.estimateParams[0] as { model?: string }).model, 'eleven_v3');
 });
 
 test('audio commands reject references before opening a website job', async () => {
