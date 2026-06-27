@@ -425,6 +425,48 @@ type GenerationPreflightInput = {
   videoTier?: string;
 };
 
+async function checkProviderRuntimeReadiness(input: GenerationPreflightInput): Promise<
+  { allowed: true } | { allowed: false; denyReason: GenerationLimitDenyReason; denyMessage: string }
+> {
+  const byok = await hasByokForBillingService(input.env, input.userId, input.billingService, input.byokContext);
+
+  if (input.billingService === 'nanobanana' || input.billingService === 'veo') {
+    if (byok || input.env.GOOGLE_AI_API_KEY) return { allowed: true };
+    return {
+      allowed: false,
+      denyReason: 'provider_key_required',
+      denyMessage: 'Google AI provider key is not configured.',
+    };
+  }
+
+  if (input.billingService === 'elevenlabs') {
+    if (byok || input.env.ELEVENLABS_API_KEY) return { allowed: true };
+    return {
+      allowed: false,
+      denyReason: 'provider_key_required',
+      denyMessage: 'ElevenLabs provider key is not configured.',
+    };
+  }
+
+  if (input.billingService === 'lyria') {
+    if (!input.env.LYRIA_PROJECT_ID) {
+      return {
+        allowed: false,
+        denyReason: 'provider_key_required',
+        denyMessage: 'Lyria project is not configured.',
+      };
+    }
+    if (byok || input.env.LYRIA_API_KEY || input.env.LYRIA_ACCESS_TOKEN) return { allowed: true };
+    return {
+      allowed: false,
+      denyReason: 'provider_key_required',
+      denyMessage: 'Lyria provider key is not configured.',
+    };
+  }
+
+  return { allowed: true };
+}
+
 async function buildGenerationUsageEstimate(input: GenerationPreflightInput & {
   operationKind: GenerationUsageEstimate['operation'];
 }): Promise<GenerationUsageEstimate> {
@@ -517,6 +559,11 @@ async function buildGenerationUsageEstimate(input: GenerationPreflightInput & {
 }
 
 async function preflightGenerationAdmission(input: GenerationPreflightInput): Promise<{ allowed: true } | { allowed: false; denyReason?: GenerationLimitDenyReason; denyMessage?: string }> {
+  const readiness = await checkProviderRuntimeReadiness(input);
+  if (!readiness.allowed) {
+    return readiness;
+  }
+
   const estimate = await buildGenerationUsageEstimate({ ...input, operationKind: 'generate' });
   if (!estimate.allowed) {
     return {

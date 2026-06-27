@@ -149,20 +149,10 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm run db:migrate:production
 
-      - name: Deploy application worker
+      - name: Deploy production bundle
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm run deploy:production
-
-      - name: Deploy generation worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm exec wrangler deploy --config wrangler.generation.toml --env production
-
-      - name: Deploy polar worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm exec wrangler deploy --config wrangler.polar.toml --env production
 
   deployment-result:
     name: Deployment result

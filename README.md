@@ -160,7 +160,7 @@ Access at http://localhost:3001/
 | `pnpm run typecheck` | TypeScript type checking |
 | `pnpm run lint` | ESLint |
 | `pnpm run deploy:stage` | Deploy to stage environment |
-| `pnpm run deploy:production` | Deploy to production |
+| `pnpm run deploy:production` | Deploy the full production bundle: app, generation, and polar workers |
 
 ## Project Structure
 

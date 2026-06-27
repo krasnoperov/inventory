@@ -198,7 +198,12 @@ function createMockContext(
   const ctx: ControllerContext = {
     spaceId: 'space-1',
     repo: repo as SpaceRepository,
-    env: {} as Env,
+    env: {
+      GOOGLE_AI_API_KEY: 'google-ai-test-key',
+      ELEVENLABS_API_KEY: 'elevenlabs-test-key',
+      LYRIA_PROJECT_ID: 'lyria-project-test',
+      LYRIA_API_KEY: 'lyria-test-key',
+    } as Env,
     sql: sql as SqlStorage,
     broadcast: mock.fn((msg: ServerMessage) => broadcasts.push(msg)) as BroadcastFn,
     send: mock.fn(),
@@ -359,6 +364,75 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(asMock(ctx.send).mock.calls.length, 0);
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 1);
       assert.strictEqual(workflowCreate.mock.calls.length, 1);
+    });
+
+    test('blocks ElevenLabs generation before creating assets when runtime key is missing', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 1000 }) as any;
+      ctx.env.ELEVENLABS_API_KEY = undefined;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-missing-elevenlabs-key',
+          name: 'Narration',
+          assetType: 'speech',
+          mediaKind: 'audio',
+          prompt: 'Hello there, traveler.',
+        } as any
+      );
+
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'generate:error',
+        requestId: 'request-missing-elevenlabs-key',
+        error: 'ElevenLabs provider key is not configured.',
+        code: 'PROVIDER_KEY_REQUIRED',
+      });
+      assert.strictEqual(asMock(repo.createAsset).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
+    });
+
+    test('blocks Lyria generation before creating assets when platform config is missing', async () => {
+      const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
+      const repo = createMockRepo();
+      const { ctx } = createMockContext(repo);
+      ctx.env.DB = createQuotaCheckDb({ quotaLimit: 1000 }) as any;
+      ctx.env.LYRIA_PROJECT_ID = undefined;
+      ctx.env.INVENTORY_AUDIO_PROVIDER = 'elevenlabs';
+      ctx.env.GENERATION_WORKFLOW = { create: workflowCreate } as any;
+      const controller = new GenerationController(ctx);
+
+      await controller.handleGenerateRequest(
+        {} as WebSocket,
+        { userId: '42', role: 'editor' } as any,
+        {
+          type: 'generate:request',
+          requestId: 'request-missing-lyria-config',
+          name: 'Theme',
+          assetType: 'music',
+          mediaKind: 'audio',
+          prompt: 'A bright orchestral loop.',
+          musicProvider: 'lyria',
+        } as any
+      );
+
+      assert.deepStrictEqual(asMock(ctx.send).mock.calls[0].arguments[1], {
+        type: 'generate:error',
+        requestId: 'request-missing-lyria-config',
+        error: 'Lyria project is not configured.',
+        code: 'PROVIDER_KEY_REQUIRED',
+      });
+      assert.strictEqual(asMock(repo.createAsset).mock.calls.length, 0);
+      assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 0);
+      assert.strictEqual(workflowCreate.mock.calls.length, 0);
     });
 
     test('creates collection placements for generated assets with pinned variants', async () => {
@@ -939,6 +1013,7 @@ describe('GenerationController pipeline hooks', () => {
         })),
       });
       ctx.env = {
+        ...ctx.env,
         DB: { prepare },
         GENERATION_WORKFLOW: { create: mock.fn() },
       } as any;
