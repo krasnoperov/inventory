@@ -212,6 +212,8 @@ test('audio collection cards surface playback and compact metadata', async ({ pa
   await expect(page.locator('[title="Rachel"]')).toBeVisible();
   await expect(page.getByText('eleven_v3')).toBeVisible();
   await expect(page.getByText('Merchant: Rachel, Traveler: Adam')).toBeVisible();
+  await expect(page.getByText('Model', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Voice', { exact: true })).toHaveCount(0);
   await expect(page.getByText(/Fresh apples and clean maps/)).toBeVisible();
 
   await screenshot(page, 'space-board-audio-collection', { fullPage: true });

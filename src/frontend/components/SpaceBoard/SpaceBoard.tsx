@@ -214,11 +214,9 @@ export function SpaceBoard({
     const aspectRatio = aspectRatioForVariant(displayVariant);
     const isAudioCard = displayVariant ? isVariantAudioReady(displayVariant) : false;
     const audioMetadata = getAudioCardMetadata(displayVariant);
-    const audioFacts = [
-      audioMetadata.name ? ['Name', audioMetadata.name] : null,
-      audioMetadata.model ? ['Model', audioMetadata.model] : null,
-      audioMetadata.voice ? ['Voice', audioMetadata.voice] : null,
-    ].filter((fact): fact is [string, string] => Boolean(fact));
+    const audioFacts = [audioMetadata.name, audioMetadata.model, audioMetadata.voice].filter(
+      (fact): fact is string => Boolean(fact),
+    );
     const showAudioSummary = isAudioCard;
     const thumbnail = (
       <Thumbnail
@@ -267,9 +265,8 @@ export function SpaceBoard({
             </div>
             {audioFacts.length > 0 && (
               <div className={styles.audioMetaRow}>
-                {audioFacts.map(([label, value]) => (
-                  <span key={label} className={styles.audioMeta} title={value}>
-                    <span>{label}</span>
+                {audioFacts.map((value) => (
+                  <span key={value} className={styles.audioMeta} title={value}>
                     {value}
                   </span>
                 ))}
