@@ -2,7 +2,15 @@ import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import { ApiFetchError, apiFetch, type FetchLike } from '../api/client';
 import { loadSession } from './config';
 import type { SpaceAccessRole, SpaceSharingResponse } from '../shared/api/schemas';
-import type { ProviderSpendSummaryResponse, Space, UserProfile } from '../api/types';
+import type {
+  CancelSpaceAccessRequestResponse,
+  GetSpaceAccessResponse,
+  ProviderSpendSummaryResponse,
+  Space,
+  SpaceAccessRequestResponse,
+  SpaceAccessState,
+  UserProfile,
+} from '../api/types';
 import type { Asset, Lineage, Variant } from './hooks/useSpaceWebSocket';
 import type { ProductionRecord } from './productionHandoff';
 import type { StartSession } from './app-context';
@@ -35,6 +43,17 @@ export const spacesQueryKey = ['spaces'] as const;
 export const userProfileQueryKey = ['user-profile'] as const;
 export const providerKeysQueryKey = ['provider-keys'] as const;
 export const spaceSharingQueryKey = (spaceId: string) => ['spaces', spaceId, 'sharing'] as const;
+
+export class SpaceAccessRequiredError extends Error {
+  readonly name = 'SpaceAccessRequiredError';
+
+  constructor(
+    readonly spaceId: string,
+    readonly access: SpaceAccessState,
+  ) {
+    super('Space access required');
+  }
+}
 
 export interface AdminSpendFilters {
   from?: string;
@@ -154,6 +173,42 @@ export function spacePageQueryOptions(
         members: membersResult.status === 'fulfilled' ? membersResult.value.members || [] : [],
       };
     },
+  });
+}
+
+export function spaceAccessQueryOptions(
+  spaceId: string,
+  baseUrl?: string,
+  headers?: HeadersInit,
+  fetchImpl?: FetchLike,
+) {
+  return queryOptions({
+    queryKey: ['spaces', spaceId, 'access'],
+    queryFn: async (): Promise<GetSpaceAccessResponse> =>
+      apiFetch('GET /api/spaces/:id/access', {
+        params: { id: spaceId },
+        baseUrl,
+        headers,
+        fetch: fetchImpl,
+      }),
+  });
+}
+
+export async function createSpaceAccessRequest(
+  spaceId: string,
+  requestedRole: 'viewer' | 'editor' = 'viewer',
+): Promise<SpaceAccessRequestResponse> {
+  return apiFetch('POST /api/spaces/:id/access-requests', {
+    params: { id: spaceId },
+    json: { requestedRole },
+  });
+}
+
+export async function cancelMySpaceAccessRequest(
+  spaceId: string,
+): Promise<CancelSpaceAccessRequestResponse> {
+  return apiFetch('DELETE /api/spaces/:id/access-requests/me', {
+    params: { id: spaceId },
   });
 }
 
