@@ -2,6 +2,7 @@ import { z } from '@hono/zod-openapi';
 import {
   AuthGoogleResponseSchema,
   AuthSessionResponseSchema,
+  ApproveSpaceAccessRequestRequestSchema,
   BillingStatusResponseSchema,
   BillingUrlQuerySchema,
   BillingUrlResponseSchema,
@@ -206,6 +207,7 @@ export const apiEndpoints = {
     method: 'POST',
     path: '/api/spaces/:id/access-requests/:requestId/approve',
     paramsSchema: SpaceAccessRequestParamsSchema,
+    jsonSchema: ApproveSpaceAccessRequestRequestSchema,
     responseSchema: SpaceAccessRequestResponseSchema,
   },
   'POST /api/spaces/:id/access-requests/:requestId/reject': {

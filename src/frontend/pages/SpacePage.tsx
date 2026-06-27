@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
@@ -29,6 +29,7 @@ import {
   CanvasToolbarTitle,
 } from '../components/CanvasToolbar';
 import { UsageIndicator } from '../components/UsageIndicator';
+import { SpaceSharingPanel } from '../components/SpaceSharingPanel';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { SpaceBoard } from '../components/SpaceBoard';
 import { SpaceCanvas } from '../components/SpaceCanvas';
@@ -48,11 +49,24 @@ import {
 } from '../productionShortcuts';
 import { applyCreatedOutputCollectionPlacements } from '../collectionPlacements';
 import type { CollectionPlacementInput } from '../../shared/websocket-types';
-import { spacePageQueryOptions } from '../queries';
+import {
+  approveSpaceAccessRequest,
+  inviteSpaceEmail,
+  rejectSpaceAccessRequest,
+  revokeSpaceInvitation,
+  revokeSpaceMember,
+  spacePageQueryOptions,
+  spaceSharingQueryOptions,
+  updateSpaceMemberRole,
+} from '../queries';
+import type { SpaceAccessRole } from '../../shared/api/schemas';
 import styles from './SpacePage.module.css';
+
+const sharingActionKey = (prefix: string, id: string) => `${prefix}:${id}`;
 
 export default function SpacePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const params = useParams();
   const spaceId = params.id;
@@ -63,12 +77,21 @@ export default function SpacePage() {
   });
   const space = spaceDataQuery.data?.space ?? null;
   const members = spaceDataQuery.data?.members ?? [];
+  const isOwner = space?.role === 'owner';
   const isLoading = spaceDataQuery.isPending;
   const error = spaceDataQuery.error instanceof Error ? spaceDataQuery.error.message : null;
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
   const [relationSubject, setRelationSubject] = useState<SpaceSubject | null>(null);
+  const [showSharingPanel, setShowSharingPanel] = useState(false);
+  const [sharingActionError, setSharingActionError] = useState<string | null>(null);
+  const [busySharingAction, setBusySharingAction] = useState<string | null>(null);
+
+  const sharingQuery = useQuery({
+    ...spaceSharingQueryOptions(spaceId || ''),
+    enabled: Boolean(user && spaceId && isOwner && showSharingPanel),
+  });
 
   // Set page title
   useDocumentTitle(space?.name);
@@ -358,6 +381,72 @@ export default function SpacePage() {
     setShowCompositionPanel(true);
   }, [compositions.length, createComposition]);
 
+  const refreshSharingState = useCallback(async () => {
+    if (!spaceId) return;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['spaces', spaceId] }),
+      sharingQuery.refetch(),
+    ]);
+  }, [queryClient, sharingQuery, spaceId]);
+
+  const runSharingAction = useCallback(async (
+    actionKey: string,
+    action: () => Promise<unknown>,
+  ) => {
+    if (!spaceId || busySharingAction) return false;
+    setBusySharingAction(actionKey);
+    setSharingActionError(null);
+    try {
+      await action();
+      await refreshSharingState();
+      return true;
+    } catch (err) {
+      setSharingActionError(err instanceof Error ? err.message : 'Sharing action failed');
+      return false;
+    } finally {
+      setBusySharingAction(null);
+    }
+  }, [busySharingAction, refreshSharingState, spaceId]);
+
+  const handleInviteMember = useCallback((email: string, role: SpaceAccessRole) => (
+    runSharingAction('invite', () => inviteSpaceEmail(spaceId || '', email, role))
+  ), [runSharingAction, spaceId]);
+
+  const handleApproveRequest = useCallback((requestId: string, role: SpaceAccessRole) => (
+    runSharingAction(
+      sharingActionKey(`approve-${role}`, requestId),
+      () => approveSpaceAccessRequest(spaceId || '', requestId, role),
+    )
+  ), [runSharingAction, spaceId]);
+
+  const handleRejectRequest = useCallback((requestId: string) => (
+    runSharingAction(
+      sharingActionKey('reject-request', requestId),
+      () => rejectSpaceAccessRequest(spaceId || '', requestId),
+    )
+  ), [runSharingAction, spaceId]);
+
+  const handleRevokeInvitation = useCallback((invitationId: string) => (
+    runSharingAction(
+      sharingActionKey('revoke-invitation', invitationId),
+      () => revokeSpaceInvitation(spaceId || '', invitationId),
+    )
+  ), [runSharingAction, spaceId]);
+
+  const handleChangeMemberRole = useCallback((memberUserId: string, role: SpaceAccessRole) => (
+    runSharingAction(
+      sharingActionKey('member-role', memberUserId),
+      () => updateSpaceMemberRole(spaceId || '', memberUserId, role),
+    )
+  ), [runSharingAction, spaceId]);
+
+  const handleRevokeMember = useCallback((memberUserId: string) => (
+    runSharingAction(
+      sharingActionKey('revoke-member', memberUserId),
+      () => revokeSpaceMember(spaceId || '', memberUserId),
+    )
+  ), [runSharingAction, spaceId]);
+
   // Export space as ZIP
   const handleExport = useCallback(async () => {
     if (isExporting) return;
@@ -559,6 +648,23 @@ export default function SpacePage() {
             >
               {members.length}
             </CanvasToolbarStat>
+            {isOwner && (
+              <CanvasToolbarButton
+                active={showSharingPanel}
+                onClick={() => {
+                  setSharingActionError(null);
+                  setShowSharingPanel((value) => !value);
+                }}
+                title="Manage sharing"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M19 8v6" />
+                  <path d="M22 11h-6" />
+                </svg>
+              </CanvasToolbarButton>
+            )}
             <CanvasToolbarStat
               title="Assets"
               icon={(
@@ -693,6 +799,26 @@ export default function SpacePage() {
             </>
           )}
         </CanvasToolbar>
+
+        {showSharingPanel && isOwner && (
+          <div className={styles.sharingPanelContainer}>
+            <SpaceSharingPanel
+              currentUserRole={space.role}
+              sharing={sharingQuery.data ?? null}
+              isLoading={sharingQuery.isPending}
+              error={sharingQuery.error instanceof Error ? sharingQuery.error.message : null}
+              actionError={sharingActionError}
+              busyAction={busySharingAction}
+              onClose={() => setShowSharingPanel(false)}
+              onInvite={handleInviteMember}
+              onApproveRequest={handleApproveRequest}
+              onRejectRequest={handleRejectRequest}
+              onRevokeInvitation={handleRevokeInvitation}
+              onChangeMemberRole={handleChangeMemberRole}
+              onRevokeMember={handleRevokeMember}
+            />
+          </div>
+        )}
 
         {/* Jobs overlay - compact toast-style at bottom left */}
         {jobs.size > 0 && (

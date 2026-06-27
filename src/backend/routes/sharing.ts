@@ -331,6 +331,7 @@ sharingRoutes.openapi(createSpaceInvitationRoute, async (c) => {
 sharingRoutes.openapi(approveSpaceAccessRequestRoute, async (c) => {
   const userId = String(c.get('userId')!);
   const { id: spaceId, requestId } = c.req.valid('param');
+  const body = c.req.valid('json') ?? {};
   const ownerError = await requireOwner(c, spaceId, userId);
   if (ownerError) return ownerError;
 
@@ -341,6 +342,13 @@ sharingRoutes.openapi(approveSpaceAccessRequestRoute, async (c) => {
   }
 
   try {
+    if (body.role && body.role !== request.requested_role) {
+      const updated = await sharingDAO.updateAccessRequestRole(requestId, body.role);
+      if (!updated) {
+        return c.json({ error: 'Access request not found' }, 404);
+      }
+    }
+
     const approved = await sharingDAO.resolveAccessRequest(requestId, userId, 'approved');
     if (!approved) {
       return c.json({ error: 'Access request not found' }, 404);

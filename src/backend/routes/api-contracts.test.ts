@@ -777,6 +777,7 @@ describe('API contracts', () => {
       baseUrl,
       headers: authHeaders,
       params: { id: space.id, requestId: accessRequest.id },
+      json: {},
     });
     assert.equal(approved.request.status, 'approved');
 

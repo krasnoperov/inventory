@@ -1,6 +1,7 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
 import { ApiFetchError, apiFetch, type FetchLike } from '../api/client';
 import { loadSession } from './config';
+import type { SpaceAccessRole, SpaceSharingResponse } from '../shared/api/schemas';
 import type { ProviderSpendSummaryResponse, Space, UserProfile } from '../api/types';
 import type { Asset, Lineage, Variant } from './hooks/useSpaceWebSocket';
 import type { ProductionRecord } from './productionHandoff';
@@ -33,6 +34,7 @@ export const sessionQueryKey = ['start-session'] as const;
 export const spacesQueryKey = ['spaces'] as const;
 export const userProfileQueryKey = ['user-profile'] as const;
 export const providerKeysQueryKey = ['provider-keys'] as const;
+export const spaceSharingQueryKey = (spaceId: string) => ['spaces', spaceId, 'sharing'] as const;
 
 export interface AdminSpendFilters {
   from?: string;
@@ -181,6 +183,65 @@ export function assetDetailsQueryOptions(
         throw mapAssetError(error);
       }
     },
+  });
+}
+
+export function spaceSharingQueryOptions(
+  spaceId: string,
+  baseUrl?: string,
+  headers?: HeadersInit,
+  fetchImpl?: FetchLike,
+) {
+  return queryOptions({
+    queryKey: spaceSharingQueryKey(spaceId),
+    queryFn: (): Promise<SpaceSharingResponse> =>
+      apiFetch('GET /api/spaces/:id/sharing', {
+        params: { id: spaceId },
+        baseUrl,
+        headers,
+        fetch: fetchImpl,
+      }),
+  });
+}
+
+export function inviteSpaceEmail(spaceId: string, email: string, role: SpaceAccessRole) {
+  return apiFetch('POST /api/spaces/:id/invitations', {
+    params: { id: spaceId },
+    json: { email, role },
+  });
+}
+
+export function approveSpaceAccessRequest(spaceId: string, requestId: string, role: SpaceAccessRole) {
+  return apiFetch('POST /api/spaces/:id/access-requests/:requestId/approve', {
+    params: { id: spaceId, requestId },
+    json: { role },
+  });
+}
+
+export function rejectSpaceAccessRequest(spaceId: string, requestId: string) {
+  return apiFetch('POST /api/spaces/:id/access-requests/:requestId/reject', {
+    params: { id: spaceId, requestId },
+  });
+}
+
+export function revokeSpaceInvitation(spaceId: string, invitationId: string) {
+  return apiFetch('POST /api/spaces/:id/invitations/:invitationId/revoke', {
+    params: { id: spaceId, invitationId },
+  });
+}
+
+export function updateSpaceMemberRole(spaceId: string, userId: string, role: SpaceAccessRole) {
+  return fetchJson<{ success: boolean }>(`/api/spaces/${spaceId}/members/${userId}`, undefined, {
+    'Content-Type': 'application/json',
+  }, undefined, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+}
+
+export function revokeSpaceMember(spaceId: string, userId: string) {
+  return fetchJson<{ success: boolean }>(`/api/spaces/${spaceId}/members/${userId}`, undefined, undefined, undefined, {
+    method: 'DELETE',
   });
 }
 

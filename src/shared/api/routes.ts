@@ -3,6 +3,7 @@ import {
   AuthGoogleResponseSchema,
   AuthSessionResponseSchema,
   AuthSessionStateResponseSchema,
+  ApproveSpaceAccessRequestRequestSchema,
   BinaryResponseSchema,
   CollectionIdParamsSchema,
   CollectionItemParamsSchema,
@@ -468,6 +469,14 @@ export const approveSpaceAccessRequestRoute = createRoute({
   path: '/api/spaces/{id}/access-requests/{requestId}/approve',
   request: {
     params: SpaceAccessRequestParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: ApproveSpaceAccessRequestRequestSchema,
+        },
+      },
+      required: false,
+    },
   },
   responses: {
     200: {
