@@ -120,14 +120,23 @@ export class SpaceSharingDAO {
         resolved_at: null,
         resolved_by_user_id: null,
       })
+      .onConflict((oc) => oc.doNothing())
       .returningAll()
       .executeTakeFirst();
 
-    if (!request) {
+    if (request) {
+      return request;
+    }
+
+    const concurrentlyCreated = await this.getPendingAccessRequestForUser(
+      data.spaceId,
+      data.requesterUserId
+    );
+    if (!concurrentlyCreated) {
       throw new Error('Failed to create space access request');
     }
 
-    return request;
+    return concurrentlyCreated;
   }
 
   async listAccessRequests(
@@ -289,14 +298,23 @@ export class SpaceSharingDAO {
         expires_at: data.expiresAt ?? null,
         resolved_at: null,
       })
+      .onConflict((oc) => oc.doNothing())
       .returningAll()
       .executeTakeFirst();
 
-    if (!invitation) {
+    if (invitation) {
+      return invitation;
+    }
+
+    const concurrentlyCreated = await this.getPendingInvitationForEmail(
+      data.spaceId,
+      normalizedEmail
+    );
+    if (!concurrentlyCreated) {
       throw new Error('Failed to create space invitation');
     }
 
-    return invitation;
+    return concurrentlyCreated;
   }
 
   async listInvitations(

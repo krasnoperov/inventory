@@ -101,6 +101,45 @@ describe('SpaceSharingDAO', () => {
     assert.equal(await sharingDAO.resolveAccessRequest(request.id, ownerId, 'approved'), null);
   });
 
+  test('returns the pending access request when a duplicate create wins the insert race', async () => {
+    const originalGetPending = (sharingDAO as unknown as {
+      getPendingAccessRequestForUser: (spaceId: string, userId: string) => Promise<unknown>;
+    }).getPendingAccessRequestForUser.bind(sharingDAO);
+    let insertedRaceWinner = false;
+    (sharingDAO as unknown as {
+      getPendingAccessRequestForUser: (spaceId: string, userId: string) => Promise<unknown>;
+    }).getPendingAccessRequestForUser = async (spaceId, userId) => {
+      const existing = await originalGetPending(spaceId, userId);
+      if (!existing && !insertedRaceWinner) {
+        insertedRaceWinner = true;
+        await db.insertInto('space_access_requests').values({
+          id: 'request-race-winner',
+          space_id: spaceId,
+          requester_user_id: userId,
+          requested_role: 'viewer',
+          status: 'pending',
+          message: 'first submit',
+          created_at: '2026-06-27T10:00:00.000Z',
+          updated_at: '2026-06-27T10:00:00.000Z',
+          resolved_at: null,
+          resolved_by_user_id: null,
+        }).execute();
+      }
+      return existing;
+    };
+
+    const request = await sharingDAO.createAccessRequest({
+      spaceId: 'space-1',
+      requesterUserId: requesterId,
+      requestedRole: 'editor',
+      message: 'retry submit',
+    });
+
+    assert.equal(request.id, 'request-race-winner');
+    assert.equal(request.requested_role, 'viewer');
+    assert.equal((await sharingDAO.listAccessRequests('space-1', 'pending')).length, 1);
+  });
+
   test('does not grant access when an access request is canceled before approval is committed', async () => {
     const request = await sharingDAO.createAccessRequest({
       spaceId: 'space-1',
@@ -227,6 +266,47 @@ describe('SpaceSharingDAO', () => {
     assert.equal(acceptedInvitations.length, 1);
     assert.equal(acceptedInvitations[0].invitedBy?.id, ownerId);
     assert.equal(acceptedInvitations[0].acceptedBy?.id, inviteeId);
+  });
+
+  test('returns the pending invitation when a duplicate create wins the insert race', async () => {
+    const originalGetPending = (sharingDAO as unknown as {
+      getPendingInvitationForEmail: (spaceId: string, email: string) => Promise<unknown>;
+    }).getPendingInvitationForEmail.bind(sharingDAO);
+    let insertedRaceWinner = false;
+    (sharingDAO as unknown as {
+      getPendingInvitationForEmail: (spaceId: string, email: string) => Promise<unknown>;
+    }).getPendingInvitationForEmail = async (spaceId, email) => {
+      const existing = await originalGetPending(spaceId, email);
+      if (!existing && !insertedRaceWinner) {
+        insertedRaceWinner = true;
+        await db.insertInto('space_invitations').values({
+          id: 'invite-race-winner',
+          space_id: spaceId,
+          email,
+          normalized_email: email,
+          role: 'viewer',
+          status: 'pending',
+          invited_by_user_id: ownerId,
+          accepted_by_user_id: null,
+          created_at: '2026-06-27T10:00:00.000Z',
+          updated_at: '2026-06-27T10:00:00.000Z',
+          expires_at: null,
+          resolved_at: null,
+        }).execute();
+      }
+      return existing;
+    };
+
+    const invitation = await sharingDAO.createInvitation({
+      spaceId: 'space-1',
+      email: 'Invitee@Example.COM',
+      role: 'editor',
+      invitedByUserId: ownerId,
+    });
+
+    assert.equal(invitation.id, 'invite-race-winner');
+    assert.equal(invitation.role, 'viewer');
+    assert.equal((await sharingDAO.listInvitations('space-1', 'pending')).length, 1);
   });
 
   test('does not grant access when an invitation is revoked before acceptance is committed', async () => {
