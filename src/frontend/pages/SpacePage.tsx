@@ -32,6 +32,7 @@ import { UsageIndicator } from '../components/UsageIndicator';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { SpaceBoard } from '../components/SpaceBoard';
 import { SpaceCanvas } from '../components/SpaceCanvas';
+import { RelationsCanvas } from '../components/RelationsCanvas';
 import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -107,6 +108,7 @@ export default function SpacePage() {
     assets,
     variants,
     lineage,
+    relations,
     collections,
     collectionItems,
     stylePresets,
@@ -213,8 +215,9 @@ export default function SpacePage() {
   const [isImporting, setIsImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  // Board (scrolling wall) vs canvas (floating collection frames) view
-  const [viewMode, setViewMode] = useState<'wall' | 'canvas'>('wall');
+  // Board (scrolling wall) vs canvas (floating collection frames) vs relations
+  // (asset graph with typed edges) view.
+  const [viewMode, setViewMode] = useState<'wall' | 'canvas' | 'relations'>('wall');
 
   // Tile Set panel state
   const [showTileSetPanel, setShowTileSetPanel] = useState(false);
@@ -466,7 +469,21 @@ export default function SpacePage() {
 
       {/* Full-screen canvas container */}
       <div className={styles.canvasContainer}>
-        {viewMode === 'canvas' ? (
+        {viewMode === 'relations' ? (
+          <RelationsCanvas
+            spaceId={spaceId || ''}
+            assets={assets}
+            variants={variants}
+            lineage={lineage}
+            relations={relations}
+            collections={collections}
+            collectionItems={collectionItems}
+            compositions={compositions}
+            compositionItems={compositionItems}
+            isInitialSyncPending={!hasSynced}
+            onAssetClick={handleAssetOpen}
+          />
+        ) : viewMode === 'canvas' ? (
           <SpaceCanvas
             spaceId={spaceId || ''}
             assets={assets}
@@ -559,6 +576,18 @@ export default function SpacePage() {
                 <rect x="14" y="16" width="7" height="4" rx="1.5" />
               </svg>
             )}
+          </CanvasToolbarButton>
+          <CanvasToolbarButton
+            active={viewMode === 'relations'}
+            onClick={() => setViewMode((mode) => (mode === 'relations' ? 'wall' : 'relations'))}
+            title={viewMode === 'relations' ? 'Switch to board view' : 'Switch to relations view'}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="5" cy="6" r="2.5" />
+              <circle cx="19" cy="6" r="2.5" />
+              <circle cx="12" cy="18" r="2.5" />
+              <path d="M7 7.5 17 7.5M6.5 8 11 16M17.5 8 13 16" />
+            </svg>
           </CanvasToolbarButton>
           <CanvasToolbarDivider />
           <CanvasToolbarButton

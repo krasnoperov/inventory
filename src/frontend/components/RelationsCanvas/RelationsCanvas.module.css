@@ -1,0 +1,387 @@
+.canvas {
+  position: absolute;
+  inset: 0;
+  --rf-zoom: 1;
+  /* System mono for the catalog ledger — provenance reads as coded data. */
+  --font-mono: ui-monospace, 'SFMono-Regular', 'SF Mono', 'Menlo', 'Consolas', monospace;
+  /* The ReactFlow Background draws the dot grid; keep the base a flat token. */
+  background: var(--color-bg);
+}
+
+.canvas :global(.react-flow__attribution) {
+  display: none;
+}
+
+/* ---- Specimen card ------------------------------------------------------- */
+
+.specimen {
+  width: 196px;
+  --spine: var(--color-text-muted);
+  position: relative;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--spine);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-header);
+  overflow: hidden;
+  transition: box-shadow 0.14s ease, border-color 0.14s ease;
+}
+
+/* Emphasis lives on the frame, never on the media (media invariant). */
+.specimen.focused {
+  border-color: var(--spine);
+  box-shadow: 0 0 0 1px var(--spine), 0 0 24px -2px var(--spine), var(--shadow-elevated);
+}
+
+/* De-emphasis mutes only the card chrome + ledger; the plate stays untouched. */
+.specimen.dimmed {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+.specimen.dimmed .ledger { opacity: 0.4; }
+
+.plate {
+  position: relative;
+  height: 116px;
+  background: var(--color-bg);
+}
+
+.thumb {
+  width: 100%;
+  height: 100%;
+}
+
+/* Ledger collapses below a zoom threshold → contact-sheet density on overview,
+   full catalog readout up close. Driven by the mirrored --rf-zoom. */
+.ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  padding: 0.4rem 0.5rem;
+  border-top: 1px solid var(--color-border);
+  overflow: hidden;
+  max-height: clamp(0px, calc((var(--rf-zoom) - 0.5) * 520px), 120px);
+  opacity: clamp(0, calc((var(--rf-zoom) - 0.5) * 5), 1);
+  transition: max-height 0.12s ease, opacity 0.12s ease;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+/* Role chip lives in the ledger (never over media). */
+.roleChip {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-bg);
+}
+.roleSource { background: var(--canvas-thread-lineage); }
+.roleFinal { background: var(--canvas-thread-composition); }
+
+.star {
+  flex: 0 0 auto;
+  font-size: var(--font-size-micro-sm);
+  font-weight: 700;
+  color: var(--color-star);
+}
+
+.name {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.name:hover { color: var(--color-primary); }
+.name:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-xs); }
+
+.kind {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+}
+
+.coords {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.stamp {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  /* Coloured by the asset TYPE, independent of the grouping spine — so a card
+     can encode both its collection (spine) and its type (stamp) at once. */
+  color: var(--stamp);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tally {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  font-weight: 600;
+  display: inline-flex;
+  gap: 1px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.tReady { color: var(--color-success); }
+.tPending { color: var(--color-primary); }
+.tFailed { color: var(--color-error); }
+.tSep { color: var(--color-text-muted); opacity: 0.6; }
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  overflow: hidden;
+  max-height: 16px;
+}
+.tag {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.tag::before { content: '#'; opacity: 0.5; }
+
+/* ---- Assembler (composition hub) ----------------------------------------- */
+
+.assembler {
+  width: 184px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px dashed var(--canvas-thread-composition);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-header);
+}
+.assembler.focused { box-shadow: 0 0 0 1px var(--canvas-thread-composition), 0 0 24px -4px var(--canvas-thread-composition); }
+.assembler.dimmed { opacity: 0.45; }
+
+.assemblerGlyph { font-size: 1.05rem; color: var(--canvas-thread-composition); }
+.assemblerBody { display: flex; flex-direction: column; min-width: 0; }
+.assemblerName {
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.assemblerMeta {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  color: var(--color-text-muted);
+}
+
+/* ---- Group plates -------------------------------------------------------- */
+
+.regionLayer { position: absolute; inset: 0 auto auto 0; width: 1px; height: 1px; pointer-events: none; z-index: -1; }
+
+.region {
+  position: absolute;
+  inset: 0 auto auto 0;
+  --plate: var(--color-text-muted);
+  /* Boundary only — no fill. With ~10 clusters a tinted fill turns every box
+     overlap into hatched noise; a thin coloured outline reads cleanly even when
+     two boundaries cross, and the colour still lives on the border + label. */
+  border: 1px dashed var(--plate);
+  border-radius: var(--radius-xl);
+}
+
+.regionLabel {
+  position: absolute;
+  top: -11px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  /* A solid chip lifted onto the boundary so the label stays readable over
+     whatever nodes sit behind it. */
+  background: var(--color-surface);
+  border: 1px solid var(--plate);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--plate);
+}
+.regionCount {
+  font-size: var(--font-size-micro-sm);
+  color: var(--color-text-muted);
+}
+
+/* ---- Edge motion --------------------------------------------------------- */
+
+.canvas :global(.react-flow__edge .react-flow__edge-text) {
+  font-family: var(--font-mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas :global(.react-flow__edge.animated .react-flow__edge-path) {
+    animation: none !important;
+  }
+}
+
+/* ---- Control dock -------------------------------------------------------- */
+/* Speaks the app's CanvasToolbar dialect (surface, hairline, radius-md) but
+   docks bottom-centre so it never collides with the top-left space toolbar. */
+
+.dock {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: calc(100% - 1.5rem);
+  padding: 0.35rem 0.55rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevated);
+  overflow-x: auto;
+}
+
+.segment { display: flex; align-items: center; gap: 0.3rem; }
+
+.segLabel {
+  font-size: var(--font-size-micro-sm);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-right: 0.1rem;
+  white-space: nowrap;
+}
+
+.dockDivider { width: 1px; height: 18px; background: var(--color-border); flex: 0 0 auto; }
+
+.segOn,
+.segOff,
+.thread {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 26px;
+  padding: 0 0.55rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--font-size-small-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.segOff,
+.threadOff { background: transparent; color: var(--color-text-muted); }
+.segOff:hover,
+.threadOff:hover { background: var(--color-bg); color: var(--color-text); border-color: var(--color-border); }
+
+.segOn { background: var(--color-primary); color: var(--button-primary-text); }
+
+.threadOn { color: var(--color-text); background: var(--color-bg); border-color: var(--color-border); }
+.threadOff .threadSwatch { opacity: 0.35; }
+
+.thread:disabled { cursor: default; opacity: 0.4; }
+.thread:disabled:hover { background: transparent; color: var(--color-text-muted); border-color: transparent; }
+
+.threadSwatch { width: 9px; height: 9px; border-radius: var(--radius-full); flex: 0 0 auto; }
+
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--font-size-small-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.legendDot { width: 9px; height: 9px; border-radius: var(--radius-full); }
+.legendSource { background: var(--canvas-thread-lineage); }
+.legendFinal { background: var(--canvas-thread-composition); }
+.legendNum { font-family: var(--font-mono); font-size: var(--font-size-micro-sm); color: var(--color-text-muted); }
+
+.traceName {
+  max-width: 220px;
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.threadCount {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro-sm);
+  color: var(--color-text-muted);
+  margin-left: 0.1rem;
+}
+
+.clearFocus {
+  height: 26px;
+  padding: 0 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-small-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segOn:focus-visible,
+.segOff:focus-visible,
+.thread:focus-visible,
+.clearFocus:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.controls { border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
+.minimap { border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.4rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+.emptyIcon { font-size: 2rem; opacity: 0.7; }
+
+@media (max-width: 768px) {
+  .dock { left: 0.5rem; right: 0.5rem; transform: none; max-width: none; }
+}

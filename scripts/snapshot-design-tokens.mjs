@@ -50,6 +50,7 @@ const TIER_PREFIXES = {
     '--thumb-badge-',
     '--landing-',
     '--terminal-',
+    '--canvas-',
   ],
 };
 
@@ -264,6 +265,9 @@ const GROUPS = [
 
   // ---- component: terminal (fixed dark). Colours + one shadow. ----
   { match: /^--terminal-(.+)$/, group: 'terminal', leaf: ($1) => kebabToCamel($1), type: undefined },
+
+  // ---- component: relations canvas (asset graph). Edge-thread + star colours. ----
+  { match: /^--canvas-(.+)$/, group: 'canvas', leaf: ($1) => kebabToCamel($1), type: undefined },
 ];
 
 function kebabToCamel(s) {
