@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Thumbnail } from '../Thumbnail';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
+import { getAudioCardMetadata } from '../assetCardMetadata';
 import type {
   Asset,
   CollectionItem,
@@ -14,7 +15,7 @@ import type {
   SpaceCollection,
   Variant,
 } from '../../space/protocol';
-import { isVariantForgeTrayReady, isVariantReady } from '../../space/protocol';
+import { isVariantAudioReady, isVariantForgeTrayReady, isVariantReady } from '../../space/protocol';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import {
   aspectRatioForVariant,
@@ -211,30 +212,76 @@ export function SpaceBoard({
     const cardKey = `${collectionId ?? 'unfiled'}:${item?.id ?? asset.id}`;
     const targetCollectionId = cardTargets[cardKey] ?? orderedCollections[0]?.id ?? '';
     const aspectRatio = aspectRatioForVariant(displayVariant);
+    const isAudioCard = displayVariant ? isVariantAudioReady(displayVariant) : false;
+    const audioMetadata = getAudioCardMetadata(displayVariant);
+    const audioFacts = [
+      audioMetadata.name ? ['Name', audioMetadata.name] : null,
+      audioMetadata.model ? ['Model', audioMetadata.model] : null,
+      audioMetadata.voice ? ['Voice', audioMetadata.voice] : null,
+    ].filter((fact): fact is [string, string] => Boolean(fact));
+    const showAudioSummary = isAudioCard;
+    const thumbnail = (
+      <Thumbnail
+        variant={displayVariant}
+        size="fill"
+        spaceId={spaceId}
+        className={styles.thumbnail}
+        showAudioControls={isAudioCard}
+      />
+    );
 
     return (
       <article
         key={cardKey}
-        className={styles.assetCard}
+        className={`${styles.assetCard} ${isAudioCard ? styles.audioAssetCard : ''}`}
         style={{ '--card-aspect': aspectRatio } as CSSProperties}
       >
-        <button className={styles.thumbnailButton} onClick={() => onAssetClick(asset)} title={asset.name}>
-          <Thumbnail
-            variant={displayVariant}
-            size="fill"
-            spaceId={spaceId}
-            className={styles.thumbnail}
-          />
-        </button>
-        <div className={styles.caption}>
-          <button className={styles.assetName} onClick={() => onAssetClick(asset)}>
-            {asset.name}
-          </button>
-          <div className={styles.assetMeta}>
-            <span>{item?.subject_type === 'variant' ? 'variant' : asset.type}</span>
-            {item?.role && item.role !== asset.type && <span>{item.role}</span>}
+        {isAudioCard ? (
+          <div className={styles.thumbnailButton} title={asset.name}>
+            {thumbnail}
           </div>
-        </div>
+        ) : (
+          <button className={styles.thumbnailButton} onClick={() => onAssetClick(asset)} title={asset.name}>
+            {thumbnail}
+          </button>
+        )}
+        {!isAudioCard && (
+          <div className={styles.caption}>
+            <button className={styles.assetName} onClick={() => onAssetClick(asset)}>
+              {asset.name}
+            </button>
+            <div className={styles.assetMeta}>
+              <span>{item?.subject_type === 'variant' ? 'variant' : asset.type}</span>
+              {item?.role && item.role !== asset.type && <span>{item.role}</span>}
+            </div>
+          </div>
+        )}
+        {showAudioSummary && (
+          <div className={styles.audioSummary}>
+            <button className={styles.audioAssetName} onClick={() => onAssetClick(asset)}>
+              {asset.name}
+            </button>
+            <div className={styles.audioAssetMeta}>
+              <span>{item?.subject_type === 'variant' ? 'variant' : asset.type}</span>
+              {item?.role && item.role !== asset.type && <span>{item.role}</span>}
+            </div>
+            {audioFacts.length > 0 && (
+              <div className={styles.audioMetaRow}>
+                {audioFacts.map(([label, value]) => (
+                  <span key={label} className={styles.audioMeta} title={value}>
+                    <span>{label}</span>
+                    {value}
+                  </span>
+                ))}
+              </div>
+            )}
+            {audioMetadata.prompt && (
+              <p className={styles.audioPrompt} title={audioMetadata.prompt}>
+                {audioMetadata.prompt}
+              </p>
+            )}
+          </div>
+        )}
         {(canEdit || onAddToTray || onCreateRelation || onPlaceInComposition) && (
           <details className={styles.cardMenu}>
             <summary title={`Actions for ${asset.name}`}>Actions</summary>

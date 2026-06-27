@@ -329,7 +329,14 @@
 .assetCard {
   position: relative;
   min-width: 0;
+  align-self: flex-start;
   flex: var(--card-aspect, 1) 1 calc(var(--card-aspect, 1) * var(--row-h));
+}
+
+.audioAssetCard {
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 
 /* Zero-height fillers swallow the trailing free space so the last row keeps
@@ -355,9 +362,19 @@
   transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
+.audioAssetCard .thumbnailButton {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: default;
+}
+
 .thumbnailButton:hover {
   box-shadow: var(--shadow-elevated);
   transform: translateY(-1px);
+}
+
+.audioAssetCard .thumbnailButton:hover {
+  box-shadow: none;
+  transform: none;
 }
 
 .thumbnail {
@@ -423,6 +440,86 @@
   font-size: var(--font-size-micro);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.audioSummary {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.55rem 0.6rem 0.65rem;
+}
+
+.audioAssetName {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.audioAssetName:hover {
+  text-decoration: underline;
+}
+
+.audioAssetMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  text-transform: capitalize;
+}
+
+.audioMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.audioMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.18rem 0.38rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--font-size-micro-sm);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audioMeta span {
+  color: var(--color-text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.audioPrompt {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-micro);
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 .cardMenu {
