@@ -28,6 +28,7 @@ import { formatUtcDateTime } from '../../lib/dates';
 import { formatBytes } from '../../lib/format';
 import { ImageLightbox } from '../ImageLightbox';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
+import { getAudioCardMetadata } from '../assetCardMetadata';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import { buildAncestryTrail } from './variantLineage';
 import styles from './VariantDetailsPanel.module.css';
@@ -116,8 +117,24 @@ export function VariantDetailsPanel({
   }, [variant, spaceId]);
 
   const recipe = useMemo(() => parseJsonObject(variant.recipe), [variant.recipe]);
-  const prompt = typeof recipe?.prompt === 'string' ? recipe.prompt : null;
+  const audioMetadata = useMemo(() => getAudioCardMetadata(variant), [variant]);
+  const isAudioVariant = variant.media_kind === 'audio';
+  const prompt = isAudioVariant
+    ? audioMetadata.prompt
+    : (typeof recipe?.prompt === 'string' ? recipe.prompt : null);
   const keyFacts = useMemo(() => extractKeyFacts(variant, recipe), [variant, recipe]);
+  const visibleKeyFacts = useMemo(() => {
+    if (!isAudioVariant || !audioMetadata.model) return keyFacts;
+    return keyFacts.filter((fact) => fact.toLowerCase() !== audioMetadata.model?.toLowerCase());
+  }, [audioMetadata.model, isAudioVariant, keyFacts]);
+  const audioFacts = useMemo(
+    () => [
+      audioMetadata.name ? ['Name', audioMetadata.name] : null,
+      audioMetadata.model ? ['Model', audioMetadata.model] : null,
+      audioMetadata.voice ? ['Voice', audioMetadata.voice] : null,
+    ].filter((fact): fact is [string, string] => Boolean(fact)),
+    [audioMetadata.name, audioMetadata.model, audioMetadata.voice],
+  );
 
   const dimWidth = variant.media_width ?? measuredDims?.width ?? null;
   const dimHeight = variant.media_height ?? measuredDims?.height ?? null;
@@ -281,6 +298,20 @@ export function VariantDetailsPanel({
           />
         )}
 
+        {isAudioVariant && audioFacts.length > 0 && (
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Audio</h3>
+            <dl className={styles.audioFacts}>
+              {audioFacts.map(([label, value]) => (
+                <div key={label} className={styles.audioFact}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
+
         {/* Prompt - full text, no truncation */}
         {prompt && (
           <section className={styles.section}>
@@ -290,9 +321,9 @@ export function VariantDetailsPanel({
         )}
 
         {/* Key facts - operation · type · provider · model */}
-        {keyFacts.length > 0 && (
+        {visibleKeyFacts.length > 0 && (
           <div className={styles.facts}>
-            {keyFacts.map((fact) => (
+            {visibleKeyFacts.map((fact) => (
               <span key={fact} className={styles.chip}>{fact}</span>
             ))}
           </div>

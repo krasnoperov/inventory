@@ -13,6 +13,10 @@
   overflow: visible;
 }
 
+.audioNode {
+  width: 256px;
+}
+
 .node:hover .thumbnail {
   box-shadow: 0 4px 20px oklch(55% 0.18 276 / 0.25);
 }
@@ -75,6 +79,44 @@
 .mediaPreview {
   border: none;
   border-radius: 0;
+}
+
+.audioDetails {
+  width: 256px;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.55rem 0.6rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: 0 4px 18px oklch(0% 0 0 / 0.08);
+}
+
+.audioFacts {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.audioFacts span {
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro-sm);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audioPrompt {
+  margin: 0;
+  max-height: calc(1.35em * 4);
+  color: var(--color-text);
+  font-size: var(--font-size-micro);
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 /* Generating state */
