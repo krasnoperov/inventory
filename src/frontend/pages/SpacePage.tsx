@@ -11,9 +11,6 @@ import type {
   Asset,
   Variant,
   ChatForgeContext,
-  SpaceRelationContext,
-  SpaceRelationType,
-  SpaceSubject,
   GenerationEstimateResult,
 } from '../hooks/useSpaceWebSocket';
 import { HeaderNav } from '../components/HeaderNav';
@@ -39,16 +36,11 @@ import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import { StylePanel } from '../components/ForgeTray/StylePanel';
-import { RelationEditorDialog } from '../components/RelationsPanel';
 import { CompositionDetail } from '../components/CompositionDetail';
 import {
   applyCompositionShortcut,
-  applyRelationShortcut,
   type CompositionShortcut,
-  type RelationShortcut,
 } from '../productionShortcuts';
-import { applyCreatedOutputCollectionPlacements } from '../collectionPlacements';
-import type { CollectionPlacementInput } from '../../shared/websocket-types';
 import {
   approveSpaceAccessRequest,
   inviteSpaceEmail,
@@ -83,7 +75,6 @@ export default function SpacePage() {
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
-  const [relationSubject, setRelationSubject] = useState<SpaceSubject | null>(null);
   const [showSharingPanel, setShowSharingPanel] = useState(false);
   const [sharingActionError, setSharingActionError] = useState<string | null>(null);
   const [busySharingAction, setBusySharingAction] = useState<string | null>(null);
@@ -148,7 +139,6 @@ export default function SpacePage() {
     requestChatHistory,
     clearChatSession,
     forkAsset,
-    createRelation,
     createCollection,
     updateCollection,
     deleteCollection,
@@ -305,37 +295,13 @@ export default function SpacePage() {
     spaceId: spaceId || '',
   });
 
-  const handleUpload = useCallback(async (file: File, assetId: string, shortcut?: {
-    relation?: RelationShortcut;
-    collectionPlacements?: CollectionPlacementInput[];
-  }) => {
-    const variant = await uploadImage(file, assetId);
-    if (!variant) return;
-    applyCreatedOutputCollectionPlacements(
-      shortcut?.collectionPlacements,
-      { assetId, variantId: variant.id },
-      collectionItems,
-      addCollectionItem,
-      'variant'
-    );
-    applyRelationShortcut(shortcut?.relation, variant, createRelation);
-  }, [addCollectionItem, collectionItems, createRelation, uploadImage]);
+  const handleUpload = useCallback(async (file: File, assetId: string) => {
+    await uploadImage(file, assetId);
+  }, [uploadImage]);
 
-  const handleUploadNewAsset = useCallback(async (file: File, assetName: string, shortcut?: {
-    relation?: RelationShortcut;
-    collectionPlacements?: CollectionPlacementInput[];
-  }) => {
-    const result = await uploadNewAsset({ file, assetName });
-    if (!result) return;
-    applyCreatedOutputCollectionPlacements(
-      shortcut?.collectionPlacements,
-      { assetId: result.asset.id, variantId: result.variant.id },
-      collectionItems,
-      addCollectionItem,
-      'asset'
-    );
-    applyRelationShortcut(shortcut?.relation, result.variant, createRelation);
-  }, [addCollectionItem, collectionItems, createRelation, uploadNewAsset]);
+  const handleUploadNewAsset = useCallback(async (file: File, assetName: string) => {
+    await uploadNewAsset({ file, assetName });
+  }, [uploadNewAsset]);
 
   // Handle add to forge tray
   const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
@@ -356,16 +322,6 @@ export default function SpacePage() {
     addTemporaryUserMessage(content);
     sendPersistentChatMessage(content, forgeContext);
   }, [sendPersistentChatMessage, addTemporaryUserMessage]);
-
-  const handleCreateRelation = useCallback((params: {
-    subject: SpaceSubject;
-    object: SpaceSubject;
-    relationType: SpaceRelationType;
-    context: SpaceRelationContext | null;
-  }) => {
-    createRelation(params);
-    setRelationSubject(null);
-  }, [createRelation]);
 
   const handleOpenCompositions = useCallback(() => {
     requestSync();
@@ -612,7 +568,6 @@ export default function SpacePage() {
             onAssetClick={handleAssetOpen}
             onAddToTray={canEdit ? handleAddToTray : undefined}
             onRegenerateVariant={canEdit ? handleRegenerateVariant : undefined}
-            onCreateRelation={canEdit ? setRelationSubject : undefined}
             compositions={compositions}
             compositionItems={compositionItems}
             onPlaceInComposition={canEdit ? handlePlaceInComposition : undefined}
@@ -946,16 +901,6 @@ export default function SpacePage() {
             styleReferenceCollections={collections.filter((collection) => collection.kind === 'style_refs')}
           />
         </div>
-      )}
-      {relationSubject && (
-        <RelationEditorDialog
-          mode="create"
-          sourceSubject={relationSubject}
-          assets={assets}
-          variants={variants}
-          onCreate={handleCreateRelation}
-          onCancel={() => setRelationSubject(null)}
-        />
       )}
     </div>
   );

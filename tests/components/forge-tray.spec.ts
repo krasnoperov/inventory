@@ -129,11 +129,20 @@ function groupLabel(mode: string): 'Image' | 'Video' | 'Audio' {
   return 'Audio';
 }
 
-/** Pick a media mode: open the popover, choose the group, then the audio sub-mode. */
+async function revealOptions(page: import('@playwright/test').Page) {
+  await page.getByLabel('Prompt').focus();
+  await expect(page.getByLabel('Media type')).toBeVisible();
+}
+
+async function selectMediaGroup(page: import('@playwright/test').Page, group: 'Image' | 'Video' | 'Audio') {
+  await revealOptions(page);
+  await page.getByLabel('Media type').selectOption(group.toLowerCase());
+}
+
+/** Pick a media mode from the tray options row, then the audio sub-mode when needed. */
 async function selectMode(page: import('@playwright/test').Page, config: typeof MEDIA_OPERATION_MATRIX[number]) {
   const group = groupLabel(config.mode);
-  await page.getByTitle('Media type', { exact: true }).click();
-  await page.getByTitle(`${group} media`).click();
+  await selectMediaGroup(page, group);
   if (group === 'Audio') {
     await page.getByTitle(`${config.label} mode`).click();
   }
@@ -165,7 +174,7 @@ test('forge tray renders a screenshot matrix for every media mode', async ({ pag
   }
 });
 
-test('forge tray collapses the media type into a popover trigger', async ({ page }) => {
+test('forge tray exposes media type as the first options dropdown', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
   await mountComponent(page, 'ForgeTray', {
@@ -176,20 +185,17 @@ test('forge tray collapses the media type into a popover trigger', async ({ page
   });
   await disableAnimations(page);
 
-  const trigger = page.getByTitle('Media type', { exact: true });
-  await expect(trigger).toBeVisible();
-  // Choices are hidden until the trigger is clicked.
+  const mediaType = page.getByLabel('Media type');
+  await expect(mediaType).toHaveCount(1);
   await expect(page.getByTitle('Video media')).toHaveCount(0);
 
-  await trigger.click();
-  await expect(page.getByTitle('Image media')).toBeVisible();
-  await expect(page.getByTitle('Video media')).toBeVisible();
-  await expect(page.getByTitle('Audio media')).toBeVisible();
+  await revealOptions(page);
+  await expect(mediaType).toBeVisible();
+  await expect(mediaType).toHaveValue('image');
   await page.mouse.move(0, 0);
-  await screenshot(page, 'forge-tray-mode-popover', { fullPage: true });
+  await screenshot(page, 'forge-tray-mode-select', { fullPage: true });
 
-  await page.getByTitle('Video media').click();
-  await expect(page.getByTitle('Video media')).toHaveCount(0); // popover closed
+  await mediaType.selectOption('video');
   await expect(page.getByLabel('Asset name')).toHaveValue('Video 1');
 });
 
@@ -205,14 +211,15 @@ test('forge tray makes the prompt the hero above the controls', async ({ page })
   await disableAnimations(page);
 
   const prompt = page.getByLabel('Prompt');
-  const trigger = page.getByTitle('Media type', { exact: true });
   const submit = page.getByRole('button', { name: 'Generate' });
 
+  await revealOptions(page);
+  const mediaType = page.getByLabel('Media type');
   const promptBox = await prompt.boundingBox();
-  const triggerBox = await trigger.boundingBox();
+  const mediaTypeBox = await mediaType.boundingBox();
   expect(promptBox).not.toBeNull();
-  expect(triggerBox).not.toBeNull();
-  expect(promptBox!.y).toBeLessThan(triggerBox!.y);
+  expect(mediaTypeBox).not.toBeNull();
+  expect(promptBox!.y).toBeLessThan(mediaTypeBox!.y);
 
   await expect(submit).toBeDisabled();
   await prompt.fill('A cozy campfire at dusk');
@@ -233,13 +240,11 @@ test('forge tray auto-names by media group and stays editable', async ({ page })
   const name = page.getByLabel('Asset name');
   await expect(name).toHaveValue('Image 1');
 
-  await page.getByTitle('Media type', { exact: true }).click();
-  await page.getByTitle('Audio media').click();
+  await selectMediaGroup(page, 'Audio');
   await expect(name).toHaveValue('Audio 1');
 
   await name.fill('My jingle');
-  await page.getByTitle('Media type', { exact: true }).click();
-  await page.getByTitle('Image media').click();
+  await selectMediaGroup(page, 'Image');
   await expect(name).toHaveValue('My jingle');
 });
 
@@ -255,10 +260,10 @@ test('forge tray image options expose batch count', async ({ page }) => {
   await disableAnimations(page);
 
   await page.getByLabel('Prompt').fill('Four explorations of a logo');
-  await page.getByRole('button', { name: '×4', exact: true }).click();
+  await page.getByLabel('Batch count').selectOption('4');
 
-  await expect(page.getByRole('button', { name: 'Explore' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Set' })).toBeVisible();
+  await expect(page.getByLabel('Batch mode')).toBeVisible();
+  await expect(page.getByLabel('Batch mode')).toHaveValue('explore');
   await expect(page.getByRole('button', { name: /Generate ×4/ })).toBeVisible();
 
   await page.mouse.move(0, 0);
@@ -284,12 +289,12 @@ test('forge tray image model selection enforces reference budget', async ({ page
 
   await expect(page.getByRole('button', { name: 'Derive' })).toBeEnabled();
 
-  await page.getByRole('button', { name: 'Flash' }).click();
+  await page.getByLabel('Image model').selectOption('flash');
 
   await expect(page.getByText('Flash supports 1 reference. Remove references or switch Pro.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Derive' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: '2K' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: '4K' })).toBeDisabled();
+  await expect(page.locator('select[aria-label="Image size"] option[value="2K"]')).toBeDisabled();
+  await expect(page.locator('select[aria-label="Image size"] option[value="4K"]')).toBeDisabled();
 
   await page.getByTitle('Remove').first().click();
   await expect(page.getByText('Flash supports 1 reference. Remove references or switch Pro.')).toHaveCount(0);
@@ -310,7 +315,7 @@ test('forge tray keeps one fork setup slot when style consumes Flash reference b
 
   // Engage the tray so the per-mode options reveal before adjusting them.
   await page.getByLabel('Prompt').click();
-  await page.getByRole('button', { name: 'Flash' }).click();
+  await page.getByLabel('Image model').selectOption('flash');
   await expect(page.getByTitle('Add reference')).toBeVisible();
 
   await page.getByTitle('Add reference').click();
@@ -339,7 +344,7 @@ test('forge tray counts style-only references against the selected model budget'
 
   // Engage the tray so the per-mode options reveal before adjusting them.
   await page.getByLabel('Prompt').click();
-  await page.getByRole('button', { name: 'Flash' }).click();
+  await page.getByLabel('Image model').selectOption('flash');
   await page.getByLabel('Prompt').fill('Create a finished asset in the active style');
 
   await expect(page.getByText('Flash supports 1 reference including style. Reduce style images or switch Pro.')).toBeVisible();
@@ -357,29 +362,27 @@ test('forge tray video mode exposes Veo options and audio default-on status', as
   });
   await disableAnimations(page);
 
-  await page.getByTitle('Media type', { exact: true }).click();
-  await page.getByTitle('Video media').click();
+  await selectMediaGroup(page, 'Video');
 
-  await expect(page.getByRole('group', { name: 'Video resolution' })).toBeVisible();
-  await expect(page.getByRole('button', { name: '720p' })).toBeVisible();
-  await page.getByRole('button', { name: '1080p' }).click();
-  await expect(page.getByRole('button', { name: '1080p' })).toHaveClass(/active/);
+  await expect(page.getByLabel('Video resolution')).toBeVisible();
+  await expect(page.getByLabel('Video resolution')).toHaveValue('720p');
+  await page.getByLabel('Video resolution').selectOption('1080p');
+  await expect(page.getByLabel('Video resolution')).toHaveValue('1080p');
 
-  await expect(page.getByRole('group', { name: 'Video duration' })).toBeVisible();
-  await page.getByRole('button', { name: '6s' }).click();
-  await expect(page.getByRole('button', { name: '6s' })).toHaveClass(/active/);
+  await expect(page.getByLabel('Video duration')).toBeVisible();
+  await page.getByLabel('Video duration').selectOption('6');
+  await expect(page.getByLabel('Video duration')).toHaveValue('6');
 
-  await expect(page.getByRole('group', { name: 'Video tier' })).toBeVisible();
-  await page.getByRole('button', { name: 'Fast' }).click();
-  await expect(page.getByRole('button', { name: 'Fast' })).toHaveClass(/active/);
-  await page.getByRole('button', { name: '4k' }).click();
-  await expect(page.getByRole('button', { name: '4k' })).toHaveClass(/active/);
-  await page.getByRole('button', { name: 'Lite' }).click();
-  await expect(page.getByRole('button', { name: 'Lite' })).toHaveClass(/active/);
-  await expect(page.getByRole('button', { name: '1080p' })).toHaveClass(/active/);
-  await expect(page.getByRole('button', { name: '4k' })).toBeDisabled();
+  await expect(page.getByLabel('Video tier')).toBeVisible();
+  await page.getByLabel('Video tier').selectOption('fast');
+  await expect(page.getByLabel('Video tier')).toHaveValue('fast');
+  await page.getByLabel('Video resolution').selectOption('4k');
+  await expect(page.getByLabel('Video resolution')).toHaveValue('4k');
+  await page.getByLabel('Video tier').selectOption('lite');
+  await expect(page.getByLabel('Video tier')).toHaveValue('lite');
+  await expect(page.getByLabel('Video resolution')).toHaveValue('1080p');
+  await expect(page.locator('select[aria-label="Video resolution"] option[value="4k"]')).toBeDisabled();
 
-  await expect(page.getByText('Audio default on')).toBeVisible();
   await expect(page.getByLabel('Audio')).toHaveCount(0);
 });
 
@@ -394,8 +397,7 @@ test('forge tray video picker enforces the three-reference budget', async ({ pag
   });
   await disableAnimations(page);
 
-  await page.getByTitle('Media type', { exact: true }).click();
-  await page.getByTitle('Video media').click();
+  await selectMediaGroup(page, 'Video');
   await page.getByTitle('Add reference').click();
 
   await page.getByRole('button', { name: /Image Ref One/ }).click();
@@ -429,7 +431,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
 
   await page.getByLabel('Prompt').fill('A cozy campfire at dusk');
 
-  await page.getByRole('button', { name: 'Style' }).click();
+  await page.getByLabel('Style selector').selectOption('manage');
   await expect(page.getByText('Style Library')).toBeVisible();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
@@ -456,7 +458,8 @@ test('style library creates a preset from a style collection', async ({ page }) 
     collectionItems: [styleCollectionItem],
   });
 
-  await page.getByLabel('Style', { exact: true }).click();
+  await revealOptions(page);
+  await page.getByLabel('Style selector').selectOption('manage');
   await page.getByLabel('Preset name').fill('Painterly market');
   await page.getByLabel('Style prompt').fill('sun-washed watercolor with ink outlines');
   await page.getByLabel('Style description').fill('For the market scene');
@@ -486,7 +489,8 @@ test('style library sets a preset as default', async ({ page }) => {
     collections: [styleCollection],
   });
 
-  await page.getByLabel('Style', { exact: true }).click();
+  await revealOptions(page);
+  await page.getByLabel('Style selector').selectOption('manage');
   await page.getByRole('button', { name: 'Set default' }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -507,7 +511,7 @@ test('forge tray submits a named style preset for generation', async ({ page }) 
 
   await page.getByLabel('Prompt').fill('A tiled city fountain');
   await page.getByLabel('Style selector').selectOption(`preset:${russafaPreset.id}`);
-  await expect(page.getByText('Style: Russafa watercolor · 3 refs')).toBeVisible();
+  await expect(page.getByLabel('Style selector')).toHaveValue(`preset:${russafaPreset.id}`);
   await page.getByRole('button', { name: /Generate/ }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -528,7 +532,7 @@ test('forge tray submits no-style override for one request', async ({ page }) =>
 
   await page.getByLabel('Prompt').fill('A clean icon sheet');
   await page.getByLabel('Style selector').selectOption('none');
-  await expect(page.getByText('Style: No style')).toBeVisible();
+  await expect(page.getByLabel('Style selector')).toHaveValue('none');
   await page.getByRole('button', { name: /Generate/ }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -553,7 +557,8 @@ test('forge tray submits custom selected style refs', async ({ page }) => {
   await page.getByLabel('Style selector').selectOption('custom');
   await page.getByLabel('Image Ref One').check();
   await page.getByRole('button', { name: /Close/i }).click();
-  await expect(page.getByText('Style: Custom selected refs · 1 ref')).toBeVisible();
+  await expect(page.getByLabel('Style selector')).toHaveValue('custom');
+  await expect(page.locator('select[aria-label="Style selector"] option[value="custom"]')).toHaveText('Custom refs (1)');
   await page.getByRole('button', { name: /Generate/ }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -576,7 +581,8 @@ test('forge tray submits no-style override for empty custom style refs', async (
   await page.getByLabel('Prompt').fill('A hand-painted doorway');
   await page.getByLabel('Style selector').selectOption('custom');
   await page.getByRole('button', { name: /Close/i }).click();
-  await expect(page.getByText('Style: Custom selected refs · 0 refs')).toBeVisible();
+  await expect(page.getByLabel('Style selector')).toHaveValue('custom');
+  await expect(page.locator('select[aria-label="Style selector"] option[value="custom"]')).toHaveText('Custom refs');
   await page.getByRole('button', { name: /Generate/ }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -688,15 +694,14 @@ test('forge tray dark theme polish', async ({ page }) => {
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-dark-image', { fullPage: true });
 
-  await page.getByTitle('Media type', { exact: true }).click();
-  await page.getByTitle('Audio media').click();
+  await selectMediaGroup(page, 'Audio');
   await page.getByTitle('Speech mode').click();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-dark-speech', { fullPage: true });
 
-  await page.getByTitle('Media type', { exact: true }).click();
+  await revealOptions(page);
   await page.mouse.move(0, 0);
-  await screenshot(page, 'forge-tray-dark-popover', { fullPage: true });
+  await screenshot(page, 'forge-tray-dark-mode-select', { fullPage: true });
 });
 
 test('forge tray picker disables references incompatible with the selected media mode', async ({ page }) => {
@@ -717,8 +722,7 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(page.getByRole('button', { name: /Hero Speech/ })).toBeDisabled();
   await page.getByRole('button', { name: /Close/i }).click();
 
-  await page.getByTitle('Media type', { exact: true }).click();
-  await page.getByTitle('Video media').click();
+  await selectMediaGroup(page, 'Video');
   await page.getByTitle('Add reference').click();
   await expect(page.getByText('Video references')).toBeVisible();
   await expect(page.getByRole('button', { name: /Hero Image/ })).toBeEnabled();

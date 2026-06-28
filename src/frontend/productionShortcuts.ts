@@ -2,7 +2,6 @@ import type {
   Asset,
   CompositionItem,
   CompositionItemRole,
-  SpaceRelationContext,
   SpaceRelationType,
   SpaceSubject,
   Variant,
@@ -12,16 +11,6 @@ export type CompositionShortcut =
   | { kind: 'none' }
   | { kind: 'output'; compositionId: string }
   | { kind: 'slot'; compositionId: string; role: CompositionItemRole; itemId?: string };
-
-export type RelationShortcut =
-  | { kind: 'none' }
-  | { kind: 'relation'; relationType: SpaceRelationType; object: SpaceSubject };
-
-export interface RelationShortcutOption {
-  key: string;
-  label: string;
-  shortcut: RelationShortcut;
-}
 
 const SINGLE_SLOT_ROLES = new Set<CompositionItemRole>(['background', 'map']);
 const SLOT_OPTIONS: Array<{ role: CompositionItemRole; noun: string; phrase: string }> = [
@@ -40,14 +29,6 @@ export const COMMON_RELATION_SHORTCUT_TYPES: Array<{ type: SpaceRelationType; ph
   { type: 'background_for', phrase: 'Use as background in' },
   { type: 'style_reference_for', phrase: 'Use as style reference for' },
 ];
-
-export function relationShortcutKey(shortcut: RelationShortcut): string {
-  if (shortcut.kind === 'none') return 'none';
-  const target = shortcut.object.subjectType === 'asset'
-    ? `asset:${shortcut.object.assetId ?? ''}`
-    : `variant:${shortcut.object.variantId ?? ''}`;
-  return `relation:${shortcut.relationType}:${target}`;
-}
 
 /** Role a finished variant can take when placed into a composition. */
 export type CompositionPlacementRole = 'output' | CompositionItemRole;
@@ -92,33 +73,6 @@ export function resolveCompositionPlacementShortcut(
   return existing
     ? { kind: 'slot', compositionId, role, itemId: existing.id }
     : { kind: 'slot', compositionId, role };
-}
-
-function getAssetLabel(asset: Asset): string {
-  return asset.name.trim() || 'Untitled asset';
-}
-
-export function buildRelationShortcutOptions(assets: Asset[]): RelationShortcutOption[] {
-  const options: RelationShortcutOption[] = [
-    { key: 'none', label: 'No relation shortcut', shortcut: { kind: 'none' } },
-  ];
-
-  for (const asset of assets) {
-    for (const config of COMMON_RELATION_SHORTCUT_TYPES) {
-      const shortcut: RelationShortcut = {
-        kind: 'relation',
-        relationType: config.type,
-        object: { subjectType: 'asset', assetId: asset.id },
-      };
-      options.push({
-        key: relationShortcutKey(shortcut),
-        label: `${config.phrase} ${getAssetLabel(asset)}`,
-        shortcut,
-      });
-    }
-  }
-
-  return options;
 }
 
 export function buildImmediateRelationLabel(relationType: SpaceRelationType, targetLabel: string): string {
@@ -182,24 +136,5 @@ export function applyCompositionShortcut(
     assetId: variant.asset_id,
     variantId: variant.id,
     sortIndex: maxSort + 1,
-  });
-}
-
-export function applyRelationShortcut(
-  shortcut: RelationShortcut | undefined,
-  variant: Variant,
-  createRelation: (params: {
-    subject: SpaceSubject;
-    object: SpaceSubject;
-    relationType: SpaceRelationType;
-    context?: SpaceRelationContext | string | null;
-  }) => void,
-): void {
-  if (!shortcut || shortcut.kind === 'none') return;
-  createRelation({
-    subject: { subjectType: 'variant', variantId: variant.id },
-    object: shortcut.object,
-    relationType: shortcut.relationType,
-    context: null,
   });
 }
