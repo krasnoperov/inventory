@@ -45,9 +45,7 @@ import { CompositionDetail, CompositionUsageList } from '../components/Compositi
 import { StyleReferenceUsagePanel } from '../components/StyleReferenceUsagePanel';
 import {
   applyCompositionShortcut,
-  applyRelationShortcut,
   type CompositionShortcut,
-  type RelationShortcut,
 } from '../productionShortcuts';
 import { applyCreatedOutputCollectionPlacements } from '../collectionPlacements';
 import { CollectionPlacementPicker } from '../components/CollectionPlacementPicker';
@@ -662,21 +660,9 @@ export default function AssetDetailPage() {
     spaceId: spaceId || '',
   });
 
-  const handleUpload = useCallback(async (file: File, assetId: string, shortcut?: {
-    relation?: RelationShortcut;
-    collectionPlacements?: CollectionPlacementInput[];
-  }) => {
-    const variant = await uploadImage(file, assetId);
-    if (!variant) return;
-    applyCreatedOutputCollectionPlacements(
-      shortcut?.collectionPlacements,
-      { assetId, variantId: variant.id },
-      collectionItems,
-      addCollectionItem,
-      'variant'
-    );
-    applyRelationShortcut(shortcut?.relation, variant, createRelation);
-  }, [addCollectionItem, collectionItems, createRelation, uploadImage]);
+  const handleUpload = useCallback(async (file: File, assetId: string) => {
+    await uploadImage(file, assetId);
+  }, [uploadImage]);
 
   const handleExportTrainingData = useCallback((pipeline: 'tiles' | 'rotations' | 'all') => {
     if (!spaceId) return;

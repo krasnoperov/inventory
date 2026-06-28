@@ -15,12 +15,7 @@ import {
   type StylePresetRaw,
   type StylePresetUpdateParams,
 } from '../../hooks/useSpaceWebSocket';
-import {
-  buildRelationShortcutOptions,
-  relationShortcutKey,
-  type RelationShortcut,
-} from '../../productionShortcuts';
-import type { CollectionPlacementInput, MediaKind, MusicGenerationProvider } from '../../../shared/websocket-types';
+import type { MediaKind, MusicGenerationProvider } from '../../../shared/websocket-types';
 import {
   IMAGE_ASPECT_RATIOS,
   IMAGE_MODEL_SELECTIONS,
@@ -52,7 +47,6 @@ import { StylePanel } from './StylePanel';
 import { VoicePicker } from './VoicePicker';
 import { Thumbnail } from '../Thumbnail';
 import { Link } from '../Link';
-import { CollectionPlacementPicker } from '../CollectionPlacementPicker';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
   canUseSlotMediaKindForForgeMode,
@@ -113,7 +107,6 @@ export interface ForgeSubmitParams {
   videoDurationSeconds?: VideoGenerationDurationSeconds;
   /** Veo model tier (video mode) */
   videoTier?: VideoGenerationTier;
-  collectionPlacements?: CollectionPlacementInput[];
 }
 
 export interface ForgeTrayProps {
@@ -124,15 +117,9 @@ export interface ForgeTrayProps {
   /** Current asset context (for Asset Detail page) */
   currentAsset?: Asset | null;
   /** Callback for uploading a media file to create a variant on existing asset */
-  onUpload?: (file: File, assetId: string, shortcut?: {
-    relation?: RelationShortcut;
-    collectionPlacements?: CollectionPlacementInput[];
-  }) => Promise<void>;
+  onUpload?: (file: File, assetId: string) => Promise<void>;
   /** Callback for uploading a media file to create a NEW asset (SpacePage) */
-  onUploadNewAsset?: (file: File, assetName: string, shortcut?: {
-    relation?: RelationShortcut;
-    collectionPlacements?: CollectionPlacementInput[];
-  }) => Promise<void>;
+  onUploadNewAsset?: (file: File, assetName: string) => Promise<void>;
   /** Whether an upload is in progress */
   isUploading?: boolean;
   /** Persistent chat messages */
@@ -243,45 +230,6 @@ function getMediaGroup(mode: ForgeMediaMode): MediaGroup {
   return 'audio';
 }
 
-const ICON_PROPS = {
-  viewBox: '0 0 24 24',
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.8,
-  strokeLinecap: 'round',
-  strokeLinejoin: 'round',
-  width: 18,
-  height: 18,
-} as const;
-
-function mediaGroupIcon(group: MediaGroup) {
-  switch (group) {
-    case 'image':
-      return (
-        <svg {...ICON_PROPS}>
-          <rect x="3" y="3" width="18" height="18" rx="2.5" />
-          <circle cx="8.5" cy="8.5" r="1.5" />
-          <path d="M21 15l-5-5L5 21" />
-        </svg>
-      );
-    case 'video':
-      return (
-        <svg {...ICON_PROPS}>
-          <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
-          <path d="M10 9.5l5 2.5-5 2.5z" />
-        </svg>
-      );
-    case 'audio':
-      return (
-        <svg {...ICON_PROPS}>
-          <path d="M11 5L6 9H2v6h4l5 4z" />
-          <path d="M15.5 8.5a5 5 0 010 7" />
-          <path d="M19 5a9 9 0 010 14" />
-        </svg>
-      );
-  }
-}
-
 // Get button label for operation
 function getOperationLabel(operation: ForgeOperation, mediaMode: ForgeMediaMode): string {
   const modeConfig = getForgeMediaModeConfig(mediaMode);
@@ -325,24 +273,12 @@ function isVeoImageInput(slot: { variant: Variant }): boolean {
   return slot.variant.media_kind === 'image' || Boolean(slot.variant.image_key);
 }
 
-function getVeoReferenceModeLabel(imageSlotCount: number, styleApplies: boolean, styleImageCount: number): string {
-  if (styleApplies && styleImageCount > 0) return 'Reference images';
-  if (imageSlotCount === 0) return 'Text-to-video';
-  if (imageSlotCount === 1) return 'Image-to-video';
-  if (imageSlotCount === 2) return 'First/last frames';
-  return 'Reference images';
-}
-
 function isEnabledPreset(preset: StylePresetRaw): boolean {
   return preset.enabled === true || preset.enabled === 1;
 }
 
 function isDefaultPreset(preset: StylePresetRaw): boolean {
   return preset.is_default === true || preset.is_default === 1;
-}
-
-function formatRefCount(count: number): string {
-  return `${count} ref${count === 1 ? '' : 's'}`;
 }
 
 function getCollectionStyleVariantIds(
@@ -430,8 +366,6 @@ export function ForgeTray({
   const [videoResolution, setVideoResolution] = useState<VideoGenerationResolution>(DEFAULT_VIDEO_GENERATION_RESOLUTION);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState<VideoGenerationDurationSeconds>(DEFAULT_VIDEO_GENERATION_DURATION_SECONDS);
   const [videoTier, setVideoTier] = useState<VideoGenerationTier>(DEFAULT_VIDEO_GENERATION_TIER);
-  const [relationShortcut, setRelationShortcut] = useState<RelationShortcut>({ kind: 'none' });
-  const [collectionPlacements, setCollectionPlacements] = useState<CollectionPlacementInput[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const estimateRequestIdRef = useRef<string | null>(null);
@@ -565,13 +499,6 @@ export function ForgeTray({
     ? styleVariantIds.length
     : selectedStylePreset?.reference_count ?? 0;
   const styleImageCount = mediaModeConfig.supportsStyle && !styleOverride ? selectedStyleCount : 0;
-  const styleChipLabel = (() => {
-    if (!mediaModeConfig.supportsStyle) return '';
-    if (styleSelection.mode === 'none') return 'Style: No style';
-    if (styleSelection.mode === 'custom') return `Style: Custom selected refs · ${formatRefCount(styleVariantIds.length)}`;
-    if (selectedStylePreset) return `Style: ${selectedStylePreset.name} · ${formatRefCount(selectedStylePreset.reference_count)}`;
-    return 'Style: Default style';
-  })();
   const referenceSlotLimit = currentMediaGroup === 'image'
     ? getImageModelMaxReferenceImages(imageModel)
     : currentMediaGroup === 'video'
@@ -602,11 +529,6 @@ export function ForgeTray({
     () => slots.filter(isVeoImageInput).map((slot) => slot.id),
     [slots]
   );
-  const veoModeLabel = getVeoReferenceModeLabel(veoImageSlotIds.length, videoStyleApplies, styleImageCount);
-  const relationShortcutOptions = useMemo(
-    () => buildRelationShortcutOptions(allAssets),
-    [allAssets],
-  );
   const styleReferenceCollections = useMemo(
     () => collections.filter((collection) => collection.kind === 'style_refs'),
     [collections],
@@ -630,7 +552,6 @@ export function ForgeTray({
     }
     return options;
   }, [allAssets, allVariants, collectionItems, styleReferenceCollections]);
-  const selectedRelationShortcutKey = relationShortcutKey(relationShortcut);
   const selectedStyleControlValue = styleSelection.mode === 'preset'
     ? `preset:${styleSelection.presetId}`
     : styleSelection.mode;
@@ -704,16 +625,21 @@ export function ForgeTray({
   const handleStyleSelectionChange = useCallback((value: string) => {
     if (value === 'default') {
       setStyleSelection({ mode: 'default' });
+      setShowStylePanel(false);
     } else if (value === 'none') {
       setStyleSelection({ mode: 'none' });
+      setShowStylePanel(false);
     } else if (value === 'custom') {
       setStyleSelection((current) => ({
         mode: 'custom',
         variantIds: current.mode === 'custom' ? current.variantIds : [],
       }));
       setShowStylePanel(true);
+    } else if (value === 'manage') {
+      setShowStylePanel(true);
     } else if (value.startsWith('preset:')) {
       setStyleSelection({ mode: 'preset', presetId: value.slice('preset:'.length) });
+      setShowStylePanel(false);
     }
   }, []);
 
@@ -756,10 +682,7 @@ export function ForgeTray({
     // If we have a target asset, upload to it directly
     if (targetAsset && onUpload) {
       try {
-        await onUpload(file, targetAsset.id, {
-          relation: relationShortcut,
-          collectionPlacements,
-        });
+        await onUpload(file, targetAsset.id);
       } catch (error) {
         console.error('Upload failed:', error);
       }
@@ -774,16 +697,13 @@ export function ForgeTray({
       setUploadAssetName(defaultName);
       setShowUploadPrompt(true);
     }
-  }, [targetAsset, onUpload, onUploadNewAsset, relationShortcut, collectionPlacements]);
+  }, [targetAsset, onUpload, onUploadNewAsset]);
 
   const handleUploadPromptSubmit = useCallback(async () => {
     if (!pendingUploadFile || !onUploadNewAsset || !uploadAssetName.trim()) return;
 
     try {
-      await onUploadNewAsset(pendingUploadFile, uploadAssetName.trim(), {
-        relation: relationShortcut,
-        collectionPlacements,
-      });
+      await onUploadNewAsset(pendingUploadFile, uploadAssetName.trim());
     } catch (error) {
       console.error('Upload failed:', error);
     }
@@ -792,7 +712,7 @@ export function ForgeTray({
     setPendingUploadFile(null);
     setUploadAssetName('');
     setShowUploadPrompt(false);
-  }, [pendingUploadFile, onUploadNewAsset, uploadAssetName, relationShortcut, collectionPlacements]);
+  }, [pendingUploadFile, onUploadNewAsset, uploadAssetName]);
 
   const handleUploadPromptCancel = useCallback(() => {
     setPendingUploadFile(null);
@@ -832,10 +752,7 @@ export function ForgeTray({
     // If we have a target asset, upload to it directly
     if (targetAsset && onUpload) {
       try {
-        await onUpload(uploadFile, targetAsset.id, {
-          relation: relationShortcut,
-          collectionPlacements,
-        });
+        await onUpload(uploadFile, targetAsset.id);
       } catch (error) {
         console.error('Drop upload failed:', error);
       }
@@ -849,7 +766,7 @@ export function ForgeTray({
       setUploadAssetName(defaultName);
       setShowUploadPrompt(true);
     }
-  }, [onUpload, onUploadNewAsset, targetAsset, relationShortcut, collectionPlacements]);
+  }, [onUpload, onUploadNewAsset, targetAsset]);
 
   const handleRemoveSlot = useCallback((e: React.MouseEvent, slotId: string) => {
     e.stopPropagation();
@@ -914,9 +831,6 @@ export function ForgeTray({
           ? dialogueVoiceIds
           : undefined,
         musicProvider: mediaMode === 'music' && musicProviderExplicit ? musicProvider : undefined,
-        collectionPlacements: collectionPlacements.length > 0 && effectiveBatchCount === 1
-          ? collectionPlacements
-          : undefined,
       });
 
       // Clear on success
@@ -934,14 +848,12 @@ export function ForgeTray({
       setVideoResolution(DEFAULT_VIDEO_GENERATION_RESOLUTION);
       setVideoDurationSeconds(DEFAULT_VIDEO_GENERATION_DURATION_SECONDS);
       setVideoTier(DEFAULT_VIDEO_GENERATION_TIER);
-      setRelationShortcut({ kind: 'none' });
-      setCollectionPlacements([]);
     } catch (error) {
       console.error('Forge submit failed:', error);
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, styleSelection, styleVariantIds, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier, collectionPlacements]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, styleSelection, styleVariantIds, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -1048,8 +960,6 @@ export function ForgeTray({
   // Empty-state reference add lives in the control bar; once slots exist the
   // thumbnail strip carries its own "+".
   const showUpload = !!((onUpload && targetAsset) || onUploadNewAsset);
-  const showRelationShortcuts = relationShortcutOptions.length > 1 && showUpload;
-  const showCollectionPlacements = collections.length > 0 && effectiveBatchCount === 1;
   const estimate = activeEstimate?.success ? activeEstimate.estimate : undefined;
   const estimateError = activeEstimate && !activeEstimate.success ? activeEstimate.error : undefined;
   const estimateMeterLabel = estimate ? ESTIMATE_METER_LABELS[estimate.meterEventName] ?? estimate.meterEventName : '';
@@ -1058,35 +968,13 @@ export function ForgeTray({
     ? `${estimateRemaining.toLocaleString()} remaining`
     : null;
 
-  // Media-type popover (single trigger button → floating choices)
-  const [showModePopover, setShowModePopover] = useState(false);
-  const modeSwitchRef = useRef<HTMLDivElement>(null);
   const currentAssetVariantCount = useMemo(
     () => (currentAsset ? allVariants.filter((v) => v.asset_id === currentAsset.id).length : 0),
     [currentAsset, allVariants]
   );
 
-  useEffect(() => {
-    if (!showModePopover) return;
-    const onDocPointer = (e: MouseEvent) => {
-      if (modeSwitchRef.current && !modeSwitchRef.current.contains(e.target as Node)) {
-        setShowModePopover(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowModePopover(false);
-    };
-    document.addEventListener('mousedown', onDocPointer);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDocPointer);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [showModePopover]);
-
-  const handlePickGroup = useCallback((group: MediaGroup) => {
-    handleSelectGroup(group);
-    setShowModePopover(false);
+  const handleMediaGroupSelect = useCallback((value: string) => {
+    handleSelectGroup(value as MediaGroup);
   }, [handleSelectGroup]);
 
   // Per-mode options row visibility
@@ -1102,8 +990,7 @@ export function ForgeTray({
     prompt.trim().length > 0 ||
     slots.length > 0 ||
     showStylePanel ||
-    showChat ||
-    showModePopover;
+    showChat;
 
   // Build tray class with drag-over state
   const trayClasses = [styles.tray];
@@ -1188,44 +1075,63 @@ export function ForgeTray({
             aria-label="Prompt"
           />
 
-          {/* Per-mode options + shortcuts — collapsed to a compact bar until the tray is engaged */}
+          {/* Mode + per-mode options — collapsed to a compact bar until the tray is engaged */}
           <div
             className={`${styles.optionsReveal} ${isTrayExpanded ? styles.optionsRevealOpen : ''}`}
             data-testid="forge-options-reveal"
           >
             <div className={styles.optionsRevealInner}>
-          {showOptionsRow && (
-            <div className={styles.optionsRow}>
-              {currentMediaGroup === 'image' && (
-                <>
-                  <div className={styles.miniSeg} role="group" aria-label="Image model">
-                    {IMAGE_MODEL_SELECTIONS.map((model) => (
-                      <button
-                        key={model}
-                        type="button"
-                        className={`${styles.miniSegText} ${imageModel === model ? styles.active : ''}`}
-                        onClick={() => setImageModel(model)}
-                        disabled={isSubmitting}
-                        title={model === 'pro' ? 'Pro model' : 'Flash model'}
-                      >
-                        {model === 'pro' ? 'Pro' : 'Flash'}
-                      </button>
+              {showOptionsRow && (
+                <div className={styles.optionsRow}>
+                  <select
+                    className={`${styles.paramSelect} ${styles.modeSelect}`}
+                    value={currentMediaGroup}
+                    onChange={(event) => handleMediaGroupSelect(event.target.value)}
+                    disabled={isSubmitting}
+                    aria-label="Media type"
+                    title="Media type"
+                  >
+                    {MEDIA_GROUP_OPTIONS.map((option) => (
+                      <option key={option.group} value={option.group}>
+                        {option.label}
+                      </option>
                     ))}
-                  </div>
-                  <div className={styles.miniSeg} role="group" aria-label="Image size">
+                  </select>
+                  <span className={styles.optionsDivider} aria-hidden="true" />
+                  {currentMediaGroup === 'image' && (
+                    <>
+                      <select
+                    className={styles.paramSelect}
+                    value={imageModel}
+                    onChange={(event) => setImageModel(event.target.value as ImageModelSelection)}
+                    disabled={isSubmitting}
+                    aria-label="Image model"
+                    title="Image model"
+                  >
+                    {IMAGE_MODEL_SELECTIONS.map((model) => (
+                      <option key={model} value={model}>
+                        {model === 'pro' ? 'Pro' : 'Flash'}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className={styles.paramSelect}
+                    value={imageSize}
+                    onChange={(event) => setImageSize(event.target.value as ImageSize)}
+                    disabled={isSubmitting}
+                    aria-label="Image size"
+                    title="Image size"
+                  >
                     {IMAGE_SIZES.map((size) => (
-                      <button
+                      <option
                         key={size}
-                        type="button"
-                        className={`${styles.miniSegItem} ${imageSize === size ? styles.active : ''}`}
-                        onClick={() => setImageSize(size)}
-                        disabled={isSubmitting || !isImageSizeSupportedByModel(imageModel, size)}
-                        title={!isImageSizeSupportedByModel(imageModel, size) ? 'Flash supports 1K output' : `${size} image size`}
+                        value={size}
+                        disabled={!isImageSizeSupportedByModel(imageModel, size)}
                       >
                         {size}
-                      </button>
+                      </option>
                     ))}
-                  </div>
+                  </select>
                   <select
                     className={styles.paramSelect}
                     value={aspectRatio}
@@ -1239,102 +1145,89 @@ export function ForgeTray({
                     ))}
                   </select>
                   {showBatchControls && (
-                    <div className={styles.miniSeg} role="group" aria-label="Batch count">
+                    <select
+                      className={styles.paramSelect}
+                      value={batchCount}
+                      onChange={(event) => setBatchCount(Number(event.target.value))}
+                      disabled={isSubmitting}
+                      aria-label="Batch count"
+                      title="Batch count"
+                    >
                       {[1, 2, 4, 8].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          className={`${styles.miniSegItem} ${batchCount === n ? styles.active : ''}`}
-                          onClick={() => setBatchCount(n)}
-                          disabled={isSubmitting}
-                        >
+                        <option key={n} value={n}>
                           ×{n}
-                        </button>
+                        </option>
                       ))}
-                    </div>
+                    </select>
                   )}
                   {effectiveBatchCount > 1 && showBatchControls && (
-                    <div className={styles.miniSeg} role="group" aria-label="Batch mode">
-                      <button
-                        type="button"
-                        className={`${styles.miniSegText} ${batchMode === 'explore' ? styles.active : ''}`}
-                        onClick={() => setBatchMode('explore')}
-                        disabled={isSubmitting}
-                        title="Explore: 1 asset, multiple variants"
-                      >
+                    <select
+                      className={styles.paramSelect}
+                      value={batchMode}
+                      onChange={(event) => setBatchMode(event.target.value as 'explore' | 'set')}
+                      disabled={isSubmitting}
+                      aria-label="Batch mode"
+                      title="Batch mode"
+                    >
+                      <option value="explore">
                         Explore
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.miniSegText} ${batchMode === 'set' ? styles.active : ''}`}
-                        onClick={() => setBatchMode('set')}
-                        disabled={isSubmitting}
-                        title="Set: multiple assets, 1 variant each"
-                      >
+                      </option>
+                      <option value="set">
                         Set
-                      </button>
-                    </div>
+                      </option>
+                    </select>
                   )}
                 </>
               )}
 
               {currentMediaGroup === 'video' && (
                 <>
-                  <span className={styles.optChipMuted} title="Veo reference mode">
-                    {veoModeLabel}
-                  </span>
-                  <div className={styles.miniSeg} role="group" aria-label="Video resolution">
-                    {VIDEO_GENERATION_RESOLUTIONS.map((resolution) => {
-                      const isSupported = isVideoGenerationResolutionSupportedForTier(resolution, videoTier);
-                      return (
-                        <button
-                          key={resolution}
-                          type="button"
-                          className={`${styles.miniSegText} ${videoResolution === resolution ? styles.active : ''}`}
-                          onClick={() => setVideoResolution(resolution)}
-                          disabled={isSubmitting || !isSupported}
-                          title={isSupported
-                            ? `Video resolution ${resolution}`
-                            : `${resolution} requires Generate or Fast tier`}
-                        >
-                          {resolution}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className={styles.miniSeg} role="group" aria-label="Video duration">
-                    {VIDEO_GENERATION_DURATION_SECONDS.map((duration) => (
-                      <button
-                        key={duration}
-                        type="button"
-                        className={`${styles.miniSegItem} ${videoDurationSeconds === duration ? styles.active : ''}`}
-                        onClick={() => setVideoDurationSeconds(duration)}
-                        disabled={isSubmitting}
-                        title={`Video duration ${duration}s`}
-                      >
-                        {duration}s
-                      </button>
-                    ))}
-                  </div>
-                  <div className={styles.miniSeg} role="group" aria-label="Video tier">
+                  <select
+                    className={styles.paramSelect}
+                    value={videoTier}
+                    onChange={(event) => handleVideoTierSelect(event.target.value as VideoGenerationTier)}
+                    disabled={isSubmitting}
+                    aria-label="Video tier"
+                    title="Video tier"
+                  >
                     {VIDEO_GENERATION_TIERS.map((tier) => (
-                      <button
-                        key={tier}
-                        type="button"
-                        className={`${styles.miniSegText} ${videoTier === tier ? styles.active : ''}`}
-                        onClick={() => handleVideoTierSelect(tier)}
-                        disabled={isSubmitting}
-                        title={`Veo ${tier} tier`}
-                      >
+                      <option key={tier} value={tier}>
                         {VIDEO_TIER_LABELS[tier]}
-                      </button>
+                      </option>
                     ))}
-                  </div>
-                  {VIDEO_GENERATION_AUDIO_ALWAYS_ON && (
-                    <span className={styles.optChipMuted} title="Video generation defaults to audio">
-                      Audio default on
-                    </span>
-                  )}
+                  </select>
+                  <select
+                    className={styles.paramSelect}
+                    value={videoResolution}
+                    onChange={(event) => setVideoResolution(event.target.value as VideoGenerationResolution)}
+                    disabled={isSubmitting}
+                    aria-label="Video resolution"
+                    title="Video resolution"
+                  >
+                    {VIDEO_GENERATION_RESOLUTIONS.map((resolution) => (
+                      <option
+                        key={resolution}
+                        value={resolution}
+                        disabled={!isVideoGenerationResolutionSupportedForTier(resolution, videoTier)}
+                      >
+                        {resolution}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className={styles.paramSelect}
+                    value={videoDurationSeconds}
+                    onChange={(event) => setVideoDurationSeconds(Number(event.target.value) as VideoGenerationDurationSeconds)}
+                    disabled={isSubmitting}
+                    aria-label="Video duration"
+                    title="Video duration"
+                  >
+                    {VIDEO_GENERATION_DURATION_SECONDS.map((duration) => (
+                      <option key={duration} value={duration}>
+                        {duration}s
+                      </option>
+                    ))}
+                  </select>
                 </>
               )}
 
@@ -1396,61 +1289,20 @@ export function ForgeTray({
                     aria-label="Style selector"
                     title="Style selector"
                   >
-                    <option value="default">Default style</option>
+                    <option value="default">Default</option>
                     {enabledStylePresets.map((preset) => (
                       <option key={preset.id} value={`preset:${preset.id}`}>
                         {preset.name}
                       </option>
                     ))}
                     <option value="none">No style</option>
-                    <option value="custom">Custom selected refs</option>
+                    <option value="custom">
+                      {styleVariantIds.length > 0 ? `Custom refs (${styleVariantIds.length})` : 'Custom refs'}
+                    </option>
+                    <option value="manage">Manage styles...</option>
                   </select>
-                  <span className={styles.styleChip} title={styleChipLabel}>
-                    {styleChipLabel}
-                  </span>
                 </>
               )}
-            </div>
-          )}
-
-          {showRelationShortcuts && (
-            <div className={styles.shortcutRow}>
-              <select
-                className={styles.shortcutSelect}
-                value={selectedRelationShortcutKey}
-                onChange={(event) => {
-                  const option = relationShortcutOptions.find((entry) => entry.key === event.target.value);
-                  setRelationShortcut(option?.shortcut ?? { kind: 'none' });
-                }}
-                disabled={isSubmitting || isUploading}
-                aria-label="Upload relation shortcut"
-                title="Upload relation shortcut"
-              >
-                {relationShortcutOptions.map((option) => (
-                  <option key={option.key} value={option.key}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {showCollectionPlacements && (
-            <div className={styles.shortcutRow}>
-              <details className={styles.placementDetails}>
-                <summary>
-                  Collection placement
-                  {collectionPlacements.length > 0 && <span>{collectionPlacements.length}</span>}
-                </summary>
-                <CollectionPlacementPicker
-                  collections={collections}
-                  value={collectionPlacements}
-                  onChange={setCollectionPlacements}
-                  label="Collection placement"
-                  defaultSubjectType={effectiveDestinationType === 'new_asset' ? 'asset' : 'variant'}
-                  allowSubjectChoice={effectiveDestinationType === 'new_asset'}
-                  showPinToCreatedVariant={effectiveDestinationType === 'new_asset'}
-                  disabled={isSubmitting || isUploading}
-                />
-              </details>
             </div>
           )}
             </div>
@@ -1512,47 +1364,9 @@ export function ForgeTray({
 
           <div className={styles.hairline} />
 
-          {/* Control bar: mode-switcher popover + minimal options + submit */}
+          {/* Control bar: reference actions + submit */}
           <div className={styles.controlBar}>
             <div className={styles.controlBarLeft}>
-              {/* Media-type switcher (popover) */}
-              <div className={styles.modeSwitch} ref={modeSwitchRef}>
-                {showModePopover && (
-                  <div className={styles.modePopover} role="menu" aria-label="Media type">
-                    {MEDIA_GROUP_OPTIONS.map((option) => (
-                      <button
-                        key={option.group}
-                        type="button"
-                        className={`${styles.modePopItem} ${currentMediaGroup === option.group ? styles.active : ''}`}
-                        onClick={() => handlePickGroup(option.group)}
-                        disabled={isSubmitting}
-                        title={`${option.label} media`}
-                        aria-label={`${option.label} media`}
-                      >
-                        {mediaGroupIcon(option.group)}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className={`${styles.modeTrigger} ${showModePopover ? styles.open : ''}`}
-                  onClick={() => setShowModePopover((p) => !p)}
-                  disabled={isSubmitting}
-                  title="Media type"
-                  aria-haspopup="menu"
-                  aria-expanded={showModePopover}
-                  aria-label="Media type"
-                >
-                  {mediaGroupIcon(currentMediaGroup)}
-                  <svg className={styles.chevron} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
-                    <path d={showModePopover ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'} />
-                  </svg>
-                </button>
-              </div>
-
-              <div className={styles.vdivider} aria-hidden="true" />
-
               {/* References (image/video) */}
               {currentMediaGroup !== 'audio' && canAddMore && (
                 <button
@@ -1589,23 +1403,6 @@ export function ForgeTray({
                       <line x1="12" y1="3" x2="12" y2="15" />
                     </svg>
                   )}
-                </button>
-              )}
-
-              {/* Style (image/video) */}
-              {showStyleControls && (
-                <button
-                  type="button"
-                  className={`${styles.ctlIcon} ${styleSelection.mode !== 'none' && styleImageCount > 0 ? styles.active : ''} ${showStylePanel ? styles.open : ''}`}
-                  onClick={() => setShowStylePanel((prev) => !prev)}
-                  disabled={isSubmitting}
-                  title={styleChipLabel || 'Configure style'}
-                  aria-label="Style"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" width="16" height="16">
-                    <path d="M12 3 21 12 12 21 3 12Z" />
-                  </svg>
-                  {styleImageCount > 0 && <span className={styles.iconButtonCount}>{styleImageCount}</span>}
                 </button>
               )}
 

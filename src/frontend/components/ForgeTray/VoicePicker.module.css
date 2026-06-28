@@ -12,36 +12,30 @@
   color: var(--color-text-muted);
 }
 
-/* Styled dropdown — console chip with a custom chevron */
 .select {
   flex: 1 1 8rem;
   min-width: 0;
-  height: 2rem;
-  padding: 0 1.75rem 0 0.625rem;
-  background-color: var(--ctl-track);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.5rem center;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  font-size: 0.8125rem;
-  font-weight: 500;
+  max-width: 14rem;
+  height: 1.875rem;
+  padding: 0 1.25rem 0 0.5rem;
+  background: var(--ctl-surface);
+  border: 1px solid var(--ctl-line);
+  border-radius: 8px;
   font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 520;
   color: var(--color-text);
   cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  outline: none;
 }
 
 .select:hover:not(:disabled) {
-  background-color: var(--ctl-hover);
+  border-color: var(--color-primary);
 }
 
 .select:focus-visible {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px oklch(55% 0.18 276 / 0.25);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .select:disabled {

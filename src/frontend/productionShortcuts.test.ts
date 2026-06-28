@@ -2,35 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
   applyCompositionShortcut,
-  applyRelationShortcut,
-  buildRelationShortcutOptions,
   COMPOSITION_PLACEMENT_ROLES,
   resolveCompositionPlacementShortcut,
 } from './productionShortcuts';
-import type { Asset, Composition, CompositionItem, Variant } from './hooks/useSpaceWebSocket';
+import type { Composition, CompositionItem, Variant } from './hooks/useSpaceWebSocket';
 
 const baseTime = 1_700_000_000_000;
-
-const scene: Asset = {
-  id: 'scene',
-  name: 'Scene X',
-  type: 'scene',
-  media_kind: 'image',
-  tags: '',
-  parent_asset_id: null,
-  active_variant_id: 'scene-v1',
-  created_by: 'user-1',
-  created_at: baseTime,
-  updated_at: baseTime,
-};
-
-const thumb: Asset = {
-  ...scene,
-  id: 'thumb',
-  name: 'Scene thumbnail',
-  type: 'reference',
-  active_variant_id: 'thumb-v1',
-};
 
 const outputVariant: Variant = {
   id: 'generated-v1',
@@ -147,27 +124,6 @@ describe('production shortcuts', () => {
     ]]);
   });
 
-  test('upload-thumbnail relation creates an ordinary manual relation from the uploaded variant', () => {
-    const calls: unknown[] = [];
-
-    applyRelationShortcut(
-      {
-        kind: 'relation',
-        relationType: 'thumbnail_for',
-        object: { subjectType: 'asset', assetId: scene.id },
-      },
-      { ...outputVariant, id: 'thumb-v1', asset_id: thumb.id },
-      (...args) => calls.push(args),
-    );
-
-    assert.deepEqual(calls, [[{
-      subject: { subjectType: 'variant', variantId: 'thumb-v1' },
-      object: { subjectType: 'asset', assetId: 'scene' },
-      relationType: 'thumbnail_for',
-      context: null,
-    }]]);
-  });
-
   test('placement roles offer output plus every composition slot in product language', () => {
     const labels = COMPOSITION_PLACEMENT_ROLES.map((option) => option.label);
     assert.equal(COMPOSITION_PLACEMENT_ROLES[0].role, 'output');
@@ -199,11 +155,5 @@ describe('production shortcuts', () => {
       resolveCompositionPlacementShortcut('composition-1', 'output', [backgroundItem]),
       { kind: 'output', compositionId: 'composition-1' },
     );
-  });
-
-  test('relation shortcut labels use product language', () => {
-    const relationOptions = buildRelationShortcutOptions([scene]).map((option) => option.label);
-    assert.ok(relationOptions.includes('Mark as thumbnail for Scene X'));
-    assert.ok(relationOptions.includes('Use as background in Scene X'));
   });
 });

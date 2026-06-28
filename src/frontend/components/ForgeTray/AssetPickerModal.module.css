@@ -124,18 +124,21 @@
 }
 
 .typeFilter {
-  padding: 8px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
+  height: 1.875rem;
+  padding: 0 1.25rem 0 0.5rem;
+  border: 1px solid var(--ctl-line, var(--color-border));
+  border-radius: 8px;
+  background: var(--ctl-surface, var(--color-surface));
   color: var(--color-text);
-  font-size: 0.875rem;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 520;
   cursor: pointer;
   min-width: 120px;
+  outline: none;
 }
 
 .typeFilter:focus {
-  outline: none;
   border-color: var(--color-primary);
 }
 
