@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { useVoices, type Voice } from '../../hooks/useVoices';
+import { IconButton, UiSelect, type SelectOption } from '../../ui';
 import styles from './VoicePicker.module.css';
 
 export interface VoicePickerProps {
@@ -22,12 +23,12 @@ function voiceLabel(voice: Voice): string {
   return hints.length > 0 ? `${voice.name} — ${hints.join(', ')}` : voice.name;
 }
 
-function voiceOptions(voices: Voice[]) {
-  return voices.map((voice) => (
-    <option key={voice.voiceId} value={voice.voiceId}>
-      {voiceLabel(voice)}
-    </option>
-  ));
+function voiceOptions(voices: Voice[]): Array<SelectOption<string>> {
+  return voices.map((voice) => ({
+    value: voice.voiceId,
+    label: voiceLabel(voice),
+    textValue: voice.name,
+  }));
 }
 
 /**
@@ -96,14 +97,14 @@ export function VoicePicker({
   if (mode === 'speech') {
     return (
       <div className={styles.voicePicker} title="Voice for speech generation">
-        <select
-          className={styles.select}
+        <UiSelect
+          className={styles.voiceSelect}
           value={voiceId ?? firstVoiceId ?? ''}
-          onChange={(e) => onVoiceIdChange(e.target.value)}
+          options={voiceOptions(voices)}
+          onValueChange={onVoiceIdChange}
           disabled={disabled}
-        >
-          {voiceOptions(voices)}
-        </select>
+          label="Speech voice"
+        />
       </div>
     );
   }
@@ -115,40 +116,44 @@ export function VoicePicker({
       {rows.map((id, index) => (
         <div key={index} className={styles.dialogueRow}>
           <span className={styles.speakerIndex}>{index + 1}.</span>
-          <select
-            className={styles.select}
+          <UiSelect
+            className={styles.voiceSelect}
             value={id || firstVoiceId || ''}
-            onChange={(e) => handleDialogueChange(index, e.target.value)}
+            options={voiceOptions(voices)}
+            onValueChange={(nextValue) => handleDialogueChange(index, nextValue)}
             disabled={disabled}
-          >
-            {voiceOptions(voices)}
-          </select>
+            label={`Speaker ${index + 1} voice`}
+          />
           {rows.length > 1 && (
-            <button
-              type="button"
+            <IconButton
               className={styles.iconButton}
               onClick={() => handleRemoveSpeaker(index)}
               disabled={disabled}
               title="Remove voice"
+              aria-label="Remove voice"
+              variant="ghost"
+              size="sm"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
                 <path d="M5 12h14" />
               </svg>
-            </button>
+            </IconButton>
           )}
         </div>
       ))}
-      <button
-        type="button"
+      <IconButton
         className={styles.iconButton}
         onClick={handleAddSpeaker}
         disabled={disabled}
         title="Add speaker voice"
+        aria-label="Add speaker voice"
+        variant="ghost"
+        size="sm"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
           <path d="M12 5v14M5 12h14" />
         </svg>
-      </button>
+      </IconButton>
     </div>
   );
 }

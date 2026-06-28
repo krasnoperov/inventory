@@ -134,9 +134,24 @@ async function revealOptions(page: import('@playwright/test').Page) {
   await expect(page.getByLabel('Media type')).toBeVisible();
 }
 
+async function selectDropdown(page: import('@playwright/test').Page, label: string, optionName: string | RegExp) {
+  await page.getByLabel(label).click();
+  await page.getByRole('option', { name: optionName }).click();
+}
+
+async function expectDropdownValue(page: import('@playwright/test').Page, label: string, valueText: string | RegExp) {
+  await expect(page.getByLabel(label)).toContainText(valueText);
+}
+
+async function expectDropdownOptionDisabled(page: import('@playwright/test').Page, label: string, optionName: string | RegExp) {
+  await page.getByLabel(label).click();
+  await expect(page.getByRole('option', { name: optionName })).toBeDisabled();
+  await page.keyboard.press('Escape');
+}
+
 async function selectMediaGroup(page: import('@playwright/test').Page, group: 'Image' | 'Video' | 'Audio') {
   await revealOptions(page);
-  await page.getByLabel('Media type').selectOption(group.toLowerCase());
+  await selectDropdown(page, 'Media type', group);
 }
 
 /** Pick a media mode from the tray options row, then the audio sub-mode when needed. */
@@ -144,7 +159,7 @@ async function selectMode(page: import('@playwright/test').Page, config: typeof 
   const group = groupLabel(config.mode);
   await selectMediaGroup(page, group);
   if (group === 'Audio') {
-    await page.getByTitle(`${config.label} mode`).click();
+    await selectDropdown(page, 'Audio type', config.shortLabel);
   }
 }
 
@@ -191,11 +206,11 @@ test('forge tray exposes media type as the first options dropdown', async ({ pag
 
   await revealOptions(page);
   await expect(mediaType).toBeVisible();
-  await expect(mediaType).toHaveValue('image');
+  await expectDropdownValue(page, 'Media type', 'Image');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-mode-select', { fullPage: true });
 
-  await mediaType.selectOption('video');
+  await selectDropdown(page, 'Media type', 'Video');
   await expect(page.getByLabel('Asset name')).toHaveValue('Video 1');
 });
 
@@ -260,10 +275,10 @@ test('forge tray image options expose batch count', async ({ page }) => {
   await disableAnimations(page);
 
   await page.getByLabel('Prompt').fill('Four explorations of a logo');
-  await page.getByLabel('Batch count').selectOption('4');
+  await selectDropdown(page, 'Batch count', 'x4');
 
   await expect(page.getByLabel('Batch mode')).toBeVisible();
-  await expect(page.getByLabel('Batch mode')).toHaveValue('explore');
+  await expectDropdownValue(page, 'Batch mode', 'Explore');
   await expect(page.getByRole('button', { name: /Generate ×4/ })).toBeVisible();
 
   await page.mouse.move(0, 0);
@@ -289,12 +304,12 @@ test('forge tray image model selection enforces reference budget', async ({ page
 
   await expect(page.getByRole('button', { name: 'Derive' })).toBeEnabled();
 
-  await page.getByLabel('Image model').selectOption('flash');
+  await selectDropdown(page, 'Image model', 'Flash');
 
   await expect(page.getByText('Flash supports 1 reference. Remove references or switch Pro.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Derive' })).toBeDisabled();
-  await expect(page.locator('select[aria-label="Image size"] option[value="2K"]')).toBeDisabled();
-  await expect(page.locator('select[aria-label="Image size"] option[value="4K"]')).toBeDisabled();
+  await expectDropdownOptionDisabled(page, 'Image size', '2K');
+  await expectDropdownOptionDisabled(page, 'Image size', '4K');
 
   await page.getByTitle('Remove').first().click();
   await expect(page.getByText('Flash supports 1 reference. Remove references or switch Pro.')).toHaveCount(0);
@@ -315,7 +330,7 @@ test('forge tray keeps one fork setup slot when style consumes Flash reference b
 
   // Engage the tray so the per-mode options reveal before adjusting them.
   await page.getByLabel('Prompt').click();
-  await page.getByLabel('Image model').selectOption('flash');
+  await selectDropdown(page, 'Image model', 'Flash');
   await expect(page.getByTitle('Add reference')).toBeVisible();
 
   await page.getByTitle('Add reference').click();
@@ -344,7 +359,7 @@ test('forge tray counts style-only references against the selected model budget'
 
   // Engage the tray so the per-mode options reveal before adjusting them.
   await page.getByLabel('Prompt').click();
-  await page.getByLabel('Image model').selectOption('flash');
+  await selectDropdown(page, 'Image model', 'Flash');
   await page.getByLabel('Prompt').fill('Create a finished asset in the active style');
 
   await expect(page.getByText('Flash supports 1 reference including style. Reduce style images or switch Pro.')).toBeVisible();
@@ -365,23 +380,23 @@ test('forge tray video mode exposes Veo options and audio default-on status', as
   await selectMediaGroup(page, 'Video');
 
   await expect(page.getByLabel('Video resolution')).toBeVisible();
-  await expect(page.getByLabel('Video resolution')).toHaveValue('720p');
-  await page.getByLabel('Video resolution').selectOption('1080p');
-  await expect(page.getByLabel('Video resolution')).toHaveValue('1080p');
+  await expectDropdownValue(page, 'Video resolution', '720p');
+  await selectDropdown(page, 'Video resolution', '1080p');
+  await expectDropdownValue(page, 'Video resolution', '1080p');
 
   await expect(page.getByLabel('Video duration')).toBeVisible();
-  await page.getByLabel('Video duration').selectOption('6');
-  await expect(page.getByLabel('Video duration')).toHaveValue('6');
+  await selectDropdown(page, 'Video duration', '6s');
+  await expectDropdownValue(page, 'Video duration', '6s');
 
   await expect(page.getByLabel('Video tier')).toBeVisible();
-  await page.getByLabel('Video tier').selectOption('fast');
-  await expect(page.getByLabel('Video tier')).toHaveValue('fast');
-  await page.getByLabel('Video resolution').selectOption('4k');
-  await expect(page.getByLabel('Video resolution')).toHaveValue('4k');
-  await page.getByLabel('Video tier').selectOption('lite');
-  await expect(page.getByLabel('Video tier')).toHaveValue('lite');
-  await expect(page.getByLabel('Video resolution')).toHaveValue('1080p');
-  await expect(page.locator('select[aria-label="Video resolution"] option[value="4k"]')).toBeDisabled();
+  await selectDropdown(page, 'Video tier', 'Fast');
+  await expectDropdownValue(page, 'Video tier', 'Fast');
+  await selectDropdown(page, 'Video resolution', '4k');
+  await expectDropdownValue(page, 'Video resolution', '4k');
+  await selectDropdown(page, 'Video tier', 'Lite');
+  await expectDropdownValue(page, 'Video tier', 'Lite');
+  await expectDropdownValue(page, 'Video resolution', '1080p');
+  await expectDropdownOptionDisabled(page, 'Video resolution', '4k');
 
   await expect(page.getByLabel('Audio')).toHaveCount(0);
 });
@@ -431,7 +446,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
 
   await page.getByLabel('Prompt').fill('A cozy campfire at dusk');
 
-  await page.getByLabel('Style selector').selectOption('manage');
+  await selectDropdown(page, 'Style selector', 'Manage styles...');
   await expect(page.getByText('Style Library')).toBeVisible();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
@@ -459,7 +474,7 @@ test('style library creates a preset from a style collection', async ({ page }) 
   });
 
   await revealOptions(page);
-  await page.getByLabel('Style selector').selectOption('manage');
+  await selectDropdown(page, 'Style selector', 'Manage styles...');
   await page.getByLabel('Preset name').fill('Painterly market');
   await page.getByLabel('Style prompt').fill('sun-washed watercolor with ink outlines');
   await page.getByLabel('Style description').fill('For the market scene');
@@ -490,7 +505,7 @@ test('style library sets a preset as default', async ({ page }) => {
   });
 
   await revealOptions(page);
-  await page.getByLabel('Style selector').selectOption('manage');
+  await selectDropdown(page, 'Style selector', 'Manage styles...');
   await page.getByRole('button', { name: 'Set default' }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -510,8 +525,8 @@ test('forge tray submits a named style preset for generation', async ({ page }) 
   });
 
   await page.getByLabel('Prompt').fill('A tiled city fountain');
-  await page.getByLabel('Style selector').selectOption(`preset:${russafaPreset.id}`);
-  await expect(page.getByLabel('Style selector')).toHaveValue(`preset:${russafaPreset.id}`);
+  await selectDropdown(page, 'Style selector', russafaPreset.name);
+  await expectDropdownValue(page, 'Style selector', russafaPreset.name);
   await page.getByRole('button', { name: /Generate/ }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -531,8 +546,8 @@ test('forge tray submits no-style override for one request', async ({ page }) =>
   });
 
   await page.getByLabel('Prompt').fill('A clean icon sheet');
-  await page.getByLabel('Style selector').selectOption('none');
-  await expect(page.getByLabel('Style selector')).toHaveValue('none');
+  await selectDropdown(page, 'Style selector', 'No style');
+  await expectDropdownValue(page, 'Style selector', 'No style');
   await page.getByRole('button', { name: /Generate/ }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -554,11 +569,10 @@ test('forge tray submits custom selected style refs', async ({ page }) => {
   });
 
   await page.getByLabel('Prompt').fill('A hand-painted doorway');
-  await page.getByLabel('Style selector').selectOption('custom');
+  await selectDropdown(page, 'Style selector', 'Custom refs');
   await page.getByLabel('Image Ref One').check();
   await page.getByRole('button', { name: /Close/i }).click();
-  await expect(page.getByLabel('Style selector')).toHaveValue('custom');
-  await expect(page.locator('select[aria-label="Style selector"] option[value="custom"]')).toHaveText('Custom refs (1)');
+  await expectDropdownValue(page, 'Style selector', 'Custom refs (1)');
   await page.getByRole('button', { name: /Generate/ }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -579,10 +593,9 @@ test('forge tray submits no-style override for empty custom style refs', async (
   });
 
   await page.getByLabel('Prompt').fill('A hand-painted doorway');
-  await page.getByLabel('Style selector').selectOption('custom');
+  await selectDropdown(page, 'Style selector', 'Custom refs');
   await page.getByRole('button', { name: /Close/i }).click();
-  await expect(page.getByLabel('Style selector')).toHaveValue('custom');
-  await expect(page.locator('select[aria-label="Style selector"] option[value="custom"]')).toHaveText('Custom refs');
+  await expectDropdownValue(page, 'Style selector', 'Custom refs');
   await page.getByRole('button', { name: /Generate/ }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -695,7 +708,7 @@ test('forge tray dark theme polish', async ({ page }) => {
   await screenshot(page, 'forge-tray-dark-image', { fullPage: true });
 
   await selectMediaGroup(page, 'Audio');
-  await page.getByTitle('Speech mode').click();
+  await selectDropdown(page, 'Audio type', 'Speech');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-dark-speech', { fullPage: true });
 
