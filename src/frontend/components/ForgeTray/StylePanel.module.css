@@ -145,8 +145,8 @@
   width: 100%;
   height: 1.875rem;
   padding: 0 1.25rem 0 0.5rem;
-  background: var(--ctl-surface);
-  border: 1px solid var(--ctl-line);
+  background: var(--ctl-surface, var(--color-surface));
+  border: 1px solid var(--ctl-line, var(--color-border));
   border-radius: 8px;
   color: var(--color-text);
   font-family: inherit;
