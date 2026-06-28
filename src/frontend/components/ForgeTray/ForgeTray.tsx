@@ -47,6 +47,7 @@ import { StylePanel } from './StylePanel';
 import { VoicePicker } from './VoicePicker';
 import { Thumbnail } from '../Thumbnail';
 import { Link } from '../Link';
+import { UiSelect, type SelectOption } from '../../ui';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
   canUseSlotMediaKindForForgeMode,
@@ -193,6 +194,11 @@ const MEDIA_GROUP_OPTIONS: { group: MediaGroup; label: string }[] = [
   { group: 'audio', label: 'Audio' },
 ];
 
+const MEDIA_GROUP_SELECT_OPTIONS: Array<SelectOption<MediaGroup>> = MEDIA_GROUP_OPTIONS.map((option) => ({
+  value: option.group,
+  label: option.label,
+}));
+
 const MEDIA_GROUP_LABEL: Record<MediaGroup, string> = {
   image: 'Image',
   video: 'Video',
@@ -205,11 +211,31 @@ const MUSIC_PROVIDER_OPTIONS: Array<{ value: MusicGenerationProvider; label: str
   { value: 'lyria', label: 'Lyria' },
 ];
 
+const MUSIC_PROVIDER_SELECT_OPTIONS: Array<SelectOption<MusicGenerationProvider>> = MUSIC_PROVIDER_OPTIONS.map((option) => ({
+  value: option.value,
+  label: option.label,
+}));
+
 const VIDEO_TIER_LABELS: Record<VideoGenerationTier, string> = {
   generate: 'Generate',
   fast: 'Fast',
   lite: 'Lite',
 };
+
+const IMAGE_MODEL_SELECT_OPTIONS: Array<SelectOption<ImageModelSelection>> = IMAGE_MODEL_SELECTIONS.map((model) => ({
+  value: model,
+  label: model === 'pro' ? 'Pro' : 'Flash',
+}));
+
+const IMAGE_ASPECT_RATIO_SELECT_OPTIONS: Array<SelectOption<ImageAspectRatio>> = IMAGE_ASPECT_RATIOS.map((ratio) => ({
+  value: ratio,
+  label: ratio,
+}));
+
+const VIDEO_TIER_SELECT_OPTIONS: Array<SelectOption<VideoGenerationTier>> = VIDEO_GENERATION_TIERS.map((tier) => ({
+  value: tier,
+  label: VIDEO_TIER_LABELS[tier],
+}));
 
 type StyleSelection =
   | { mode: 'default' }
@@ -985,6 +1011,66 @@ export function ForgeTray({
     showBatchControls ||
     showStyleControls;
 
+  const imageSizeOptions = useMemo<Array<SelectOption<ImageSize>>>(
+    () => IMAGE_SIZES.map((size) => ({
+      value: size,
+      label: size,
+      disabled: !isImageSizeSupportedByModel(imageModel, size),
+    })),
+    [imageModel],
+  );
+
+  const batchCountOptions = useMemo<Array<SelectOption<string>>>(
+    () => [1, 2, 4, 8].map((count) => ({
+      value: String(count),
+      label: `x${count}`,
+    })),
+    [],
+  );
+
+  const videoResolutionOptions = useMemo<Array<SelectOption<VideoGenerationResolution>>>(
+    () => VIDEO_GENERATION_RESOLUTIONS.map((resolution) => ({
+      value: resolution,
+      label: resolution,
+      disabled: !isVideoGenerationResolutionSupportedForTier(resolution, videoTier),
+    })),
+    [videoTier],
+  );
+
+  const videoDurationOptions = useMemo<Array<SelectOption<string>>>(
+    () => VIDEO_GENERATION_DURATION_SECONDS.map((duration) => ({
+      value: String(duration),
+      label: `${duration}s`,
+    })),
+    [],
+  );
+
+  const audioModeOptions = useMemo<Array<SelectOption<ForgeMediaMode>>>(
+    () => AUDIO_MODE_CONFIGS.map((config) => ({
+      value: config.mode,
+      label: config.shortLabel,
+      textValue: config.label,
+    })),
+    [],
+  );
+
+  const styleSelectOptions = useMemo<Array<SelectOption<string>>>(
+    () => [
+      { value: 'default', label: 'Default' },
+      ...enabledStylePresets.map((preset) => ({
+        value: `preset:${preset.id}`,
+        label: preset.name,
+      })),
+      { value: 'none', label: 'No style' },
+      {
+        value: 'custom',
+        label: styleVariantIds.length > 0 ? `Custom refs (${styleVariantIds.length})` : 'Custom refs',
+      },
+      { value: 'manage', label: 'Manage styles...' },
+    ],
+    [enabledStylePresets, styleVariantIds.length],
+  );
+
   const isTrayExpanded =
     trayFocused ||
     prompt.trim().length > 0 ||
@@ -1083,170 +1169,116 @@ export function ForgeTray({
             <div className={styles.optionsRevealInner}>
               {showOptionsRow && (
                 <div className={styles.optionsRow}>
-                  <select
-                    className={`${styles.paramSelect} ${styles.modeSelect}`}
+                  <UiSelect
+                    className={styles.selectMode}
                     value={currentMediaGroup}
-                    onChange={(event) => handleMediaGroupSelect(event.target.value)}
+                    options={MEDIA_GROUP_SELECT_OPTIONS}
+                    onValueChange={handleMediaGroupSelect}
                     disabled={isSubmitting}
-                    aria-label="Media type"
+                    label="Media type"
                     title="Media type"
-                  >
-                    {MEDIA_GROUP_OPTIONS.map((option) => (
-                      <option key={option.group} value={option.group}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   <span className={styles.optionsDivider} aria-hidden="true" />
                   {currentMediaGroup === 'image' && (
                     <>
-                      <select
-                    className={styles.paramSelect}
-                    value={imageModel}
-                    onChange={(event) => setImageModel(event.target.value as ImageModelSelection)}
-                    disabled={isSubmitting}
-                    aria-label="Image model"
-                    title="Image model"
-                  >
-                    {IMAGE_MODEL_SELECTIONS.map((model) => (
-                      <option key={model} value={model}>
-                        {model === 'pro' ? 'Pro' : 'Flash'}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className={styles.paramSelect}
-                    value={imageSize}
-                    onChange={(event) => setImageSize(event.target.value as ImageSize)}
-                    disabled={isSubmitting}
-                    aria-label="Image size"
-                    title="Image size"
-                  >
-                    {IMAGE_SIZES.map((size) => (
-                      <option
-                        key={size}
-                        value={size}
-                        disabled={!isImageSizeSupportedByModel(imageModel, size)}
-                      >
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className={styles.paramSelect}
-                    value={aspectRatio}
-                    onChange={(e) => setAspectRatio(e.target.value as ImageAspectRatio)}
-                    disabled={isSubmitting}
-                    aria-label="Aspect ratio"
-                    title="Aspect ratio"
-                  >
-                    {IMAGE_ASPECT_RATIOS.map((ratio) => (
-                      <option key={ratio} value={ratio}>{ratio}</option>
-                    ))}
-                  </select>
+                      <UiSelect
+                        className={styles.selectParam}
+                        value={imageModel}
+                        options={IMAGE_MODEL_SELECT_OPTIONS}
+                        onValueChange={setImageModel}
+                        disabled={isSubmitting}
+                        label="Image model"
+                        title="Image model"
+                      />
+                      <UiSelect
+                        className={styles.selectParam}
+                        value={imageSize}
+                        options={imageSizeOptions}
+                        onValueChange={setImageSize}
+                        disabled={isSubmitting}
+                        label="Image size"
+                        title="Image size"
+                      />
+                      <UiSelect
+                        className={styles.selectParam}
+                        value={aspectRatio}
+                        options={IMAGE_ASPECT_RATIO_SELECT_OPTIONS}
+                        onValueChange={setAspectRatio}
+                        disabled={isSubmitting}
+                        label="Aspect ratio"
+                        title="Aspect ratio"
+                      />
                   {showBatchControls && (
-                    <select
-                      className={styles.paramSelect}
-                      value={batchCount}
-                      onChange={(event) => setBatchCount(Number(event.target.value))}
+                    <UiSelect
+                      className={styles.selectParam}
+                      value={String(batchCount)}
+                      options={batchCountOptions}
+                      onValueChange={(nextValue) => setBatchCount(Number(nextValue))}
                       disabled={isSubmitting}
-                      aria-label="Batch count"
+                      label="Batch count"
                       title="Batch count"
-                    >
-                      {[1, 2, 4, 8].map((n) => (
-                        <option key={n} value={n}>
-                          ×{n}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   )}
                   {effectiveBatchCount > 1 && showBatchControls && (
-                    <select
-                      className={styles.paramSelect}
+                    <UiSelect
+                      className={styles.selectParam}
                       value={batchMode}
-                      onChange={(event) => setBatchMode(event.target.value as 'explore' | 'set')}
+                      options={[
+                        { value: 'explore', label: 'Explore' },
+                        { value: 'set', label: 'Set' },
+                      ]}
+                      onValueChange={setBatchMode}
                       disabled={isSubmitting}
-                      aria-label="Batch mode"
+                      label="Batch mode"
                       title="Batch mode"
-                    >
-                      <option value="explore">
-                        Explore
-                      </option>
-                      <option value="set">
-                        Set
-                      </option>
-                    </select>
+                    />
                   )}
                 </>
               )}
 
               {currentMediaGroup === 'video' && (
                 <>
-                  <select
-                    className={styles.paramSelect}
+                  <UiSelect
+                    className={styles.selectParam}
                     value={videoTier}
-                    onChange={(event) => handleVideoTierSelect(event.target.value as VideoGenerationTier)}
+                    options={VIDEO_TIER_SELECT_OPTIONS}
+                    onValueChange={handleVideoTierSelect}
                     disabled={isSubmitting}
-                    aria-label="Video tier"
+                    label="Video tier"
                     title="Video tier"
-                  >
-                    {VIDEO_GENERATION_TIERS.map((tier) => (
-                      <option key={tier} value={tier}>
-                        {VIDEO_TIER_LABELS[tier]}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className={styles.paramSelect}
+                  />
+                  <UiSelect
+                    className={styles.selectParam}
                     value={videoResolution}
-                    onChange={(event) => setVideoResolution(event.target.value as VideoGenerationResolution)}
+                    options={videoResolutionOptions}
+                    onValueChange={setVideoResolution}
                     disabled={isSubmitting}
-                    aria-label="Video resolution"
+                    label="Video resolution"
                     title="Video resolution"
-                  >
-                    {VIDEO_GENERATION_RESOLUTIONS.map((resolution) => (
-                      <option
-                        key={resolution}
-                        value={resolution}
-                        disabled={!isVideoGenerationResolutionSupportedForTier(resolution, videoTier)}
-                      >
-                        {resolution}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className={styles.paramSelect}
-                    value={videoDurationSeconds}
-                    onChange={(event) => setVideoDurationSeconds(Number(event.target.value) as VideoGenerationDurationSeconds)}
+                  />
+                  <UiSelect
+                    className={styles.selectParam}
+                    value={String(videoDurationSeconds)}
+                    options={videoDurationOptions}
+                    onValueChange={(nextValue) => setVideoDurationSeconds(Number(nextValue) as VideoGenerationDurationSeconds)}
                     disabled={isSubmitting}
-                    aria-label="Video duration"
+                    label="Video duration"
                     title="Video duration"
-                  >
-                    {VIDEO_GENERATION_DURATION_SECONDS.map((duration) => (
-                      <option key={duration} value={duration}>
-                        {duration}s
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </>
               )}
 
               {currentMediaGroup === 'audio' && (
                 <>
-                  <div className={styles.audioModes} role="group" aria-label="Audio type">
-                    {AUDIO_MODE_CONFIGS.map((config) => (
-                      <button
-                        key={config.mode}
-                        type="button"
-                        className={`${styles.audioMode} ${mediaMode === config.mode ? styles.active : ''}`}
-                        onClick={() => handleSelectAudioMode(config.mode)}
-                        disabled={isSubmitting}
-                        title={`${config.label} mode`}
-                      >
-                        {config.shortLabel}
-                      </button>
-                    ))}
-                  </div>
+                  <UiSelect
+                    className={styles.selectParam}
+                    value={mediaMode}
+                    options={audioModeOptions}
+                    onValueChange={handleSelectAudioMode}
+                    disabled={isSubmitting}
+                    label="Audio type"
+                    title="Audio type"
+                  />
                   {showVoicePicker && (
                     <>
                       <div className={styles.optSpacer} />
@@ -1261,46 +1293,30 @@ export function ForgeTray({
                     </>
                   )}
                   {mediaMode === 'music' && (
-                    <div className={styles.musicProviderSeg} role="group" aria-label="Music provider">
-                      {MUSIC_PROVIDER_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`${styles.miniSegText} ${musicProvider === option.value ? styles.active : ''}`}
-                          onClick={() => handleSelectMusicProvider(option.value)}
-                          disabled={isSubmitting}
-                          title={`${option.label} music provider`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
+                    <UiSelect
+                      className={styles.selectParam}
+                      value={musicProvider}
+                      options={MUSIC_PROVIDER_SELECT_OPTIONS}
+                      onValueChange={handleSelectMusicProvider}
+                      disabled={isSubmitting}
+                      label="Music provider"
+                      title="Music provider"
+                    />
                   )}
                 </>
               )}
 
               {showStyleControls && (
                 <>
-                  <select
-                    className={styles.styleSelect}
+                  <UiSelect
+                    className={styles.selectStyle}
                     value={selectedStyleControlValue}
-                    onChange={(event) => handleStyleSelectionChange(event.target.value)}
+                    options={styleSelectOptions}
+                    onValueChange={handleStyleSelectionChange}
                     disabled={isSubmitting}
-                    aria-label="Style selector"
+                    label="Style selector"
                     title="Style selector"
-                  >
-                    <option value="default">Default</option>
-                    {enabledStylePresets.map((preset) => (
-                      <option key={preset.id} value={`preset:${preset.id}`}>
-                        {preset.name}
-                      </option>
-                    ))}
-                    <option value="none">No style</option>
-                    <option value="custom">
-                      {styleVariantIds.length > 0 ? `Custom refs (${styleVariantIds.length})` : 'Custom refs'}
-                    </option>
-                    <option value="manage">Manage styles...</option>
-                  </select>
+                  />
                 </>
               )}
             </div>

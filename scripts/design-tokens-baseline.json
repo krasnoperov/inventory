@@ -43,7 +43,6 @@
     ],
     "src/frontend/components/ForgeTray/AssetPickerModal.module.css": [
       "oklch(55% 0.18 276/0.4)",
-      "white",
       "white"
     ],
     "src/frontend/components/ForgeTray/ForgeChat.module.css": [
@@ -82,7 +81,6 @@
     ],
     "src/frontend/components/ForgeTray/StylePanel.module.css": [
       "oklch(55% 0.18 276/0.08)",
-      "white",
       "white",
       "white"
     ],

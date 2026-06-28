@@ -12,35 +12,10 @@
   color: var(--color-text-muted);
 }
 
-.select {
+.voiceSelect {
   flex: 1 1 8rem;
-  min-width: 0;
-  max-width: 14rem;
-  height: 1.875rem;
-  padding: 0 1.25rem 0 0.5rem;
-  background: var(--ctl-surface);
-  border: 1px solid var(--ctl-line);
-  border-radius: 8px;
-  font-family: inherit;
-  font-size: 0.75rem;
-  font-weight: 520;
-  color: var(--color-text);
-  cursor: pointer;
-  outline: none;
-}
-
-.select:hover:not(:disabled) {
-  border-color: var(--color-primary);
-}
-
-.select:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  --ui-select-min-width: 0;
+  --ui-select-max-width: 14rem;
 }
 
 .dialogueRow {
@@ -59,33 +34,11 @@
 }
 
 .iconButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  --ui-button-height: 2rem;
   width: 2rem;
   height: 2rem;
   padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
   color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.iconButton:hover:not(:disabled) {
-  color: var(--color-text);
-  background: var(--ctl-hover);
-}
-
-.iconButton:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.iconButton:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .hint {

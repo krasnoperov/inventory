@@ -5,6 +5,7 @@ import type {
   StylePresetRaw,
   StylePresetUpdateParams,
 } from '../../hooks/useSpaceWebSocket';
+import { Button, IconButton, UiSelect, type SelectOption } from '../../ui';
 import styles from './StylePanel.module.css';
 
 export interface StyleReferenceOption {
@@ -60,6 +61,15 @@ export function StylePanel({
     [stylePresets],
   );
   const selectedCollectionId = collectionId || styleReferenceCollections[0]?.id || '';
+  const collectionOptions = useMemo<Array<SelectOption<string>>>(
+    () => styleReferenceCollections.length === 0
+      ? [{ value: '', label: 'No style collections' }]
+      : styleReferenceCollections.map((collection) => ({
+        value: collection.id,
+        label: collection.name,
+      })),
+    [styleReferenceCollections],
+  );
 
   const handleCreatePreset = useCallback(() => {
     const trimmedName = name.trim();
@@ -83,11 +93,11 @@ export function StylePanel({
       <div className={styles.stylePanel} onClick={(event) => event.stopPropagation()}>
         <div className={styles.header}>
           <span className={styles.title}>Style Library</span>
-          <button className={styles.closeButton} onClick={onClose} title="Close" aria-label="Close">
+          <IconButton className={styles.closeButton} onClick={onClose} title="Close" aria-label="Close" variant="ghost" size="sm">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
-          </button>
+          </IconButton>
         </div>
 
         <div className={styles.body}>
@@ -103,18 +113,14 @@ export function StylePanel({
                 placeholder="Preset name"
                 aria-label="Preset name"
               />
-              <select
+              <UiSelect
                 value={selectedCollectionId}
-                onChange={(event) => setCollectionId(event.target.value)}
-                aria-label="Style collection"
+                options={collectionOptions}
+                onValueChange={setCollectionId}
+                label="Style collection"
                 disabled={styleReferenceCollections.length === 0}
-              >
-                {styleReferenceCollections.length === 0 ? (
-                  <option value="">No style collections</option>
-                ) : styleReferenceCollections.map((collection) => (
-                  <option key={collection.id} value={collection.id}>{collection.name}</option>
-                ))}
-              </select>
+                fullWidth
+              />
               <textarea
                 value={stylePrompt}
                 onChange={(event) => setStylePrompt(event.target.value)}
@@ -136,13 +142,14 @@ export function StylePanel({
                 />
                 <span>Set as space default</span>
               </label>
-              <button
-                className={styles.primaryButton}
+              <Button
                 onClick={handleCreatePreset}
                 disabled={!name.trim() || !selectedCollectionId || !createStylePreset}
+                variant="primary"
+                size="sm"
               >
                 Create preset
-              </button>
+              </Button>
             </div>
           </section>
 
@@ -199,19 +206,22 @@ export function StylePanel({
                         />
                         <span>Enabled</span>
                       </label>
-                      <button
+                      <Button
                         onClick={() => updateStylePreset?.(preset.id, { isDefault: true, enabled: true })}
                         disabled={isDefault || !enabled || !updateStylePreset}
+                        variant="secondary"
+                        size="sm"
                       >
                         Set default
-                      </button>
-                      <button
-                        className={styles.deleteButton}
+                      </Button>
+                      <Button
                         onClick={() => deleteStylePreset?.(preset.id)}
                         disabled={!deleteStylePreset}
+                        variant="danger"
+                        size="sm"
                       >
                         Delete
-                      </button>
+                      </Button>
                     </div>
                   </article>
                 );
