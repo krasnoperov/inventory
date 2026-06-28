@@ -124,22 +124,9 @@
 }
 
 .typeFilter {
-  height: 1.875rem;
-  padding: 0 1.25rem 0 0.5rem;
-  border: 1px solid var(--ctl-line, var(--color-border));
-  border-radius: 8px;
-  background: var(--ctl-surface, var(--color-surface));
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: 0.75rem;
-  font-weight: 520;
-  cursor: pointer;
   min-width: 120px;
-  outline: none;
-}
-
-.typeFilter:focus {
-  border-color: var(--color-primary);
+  --ui-select-min-width: 120px;
+  --ui-select-max-width: 12rem;
 }
 
 .content {
@@ -299,20 +286,11 @@
 }
 
 .doneButton {
-  padding: 0.625rem 1.25rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--forge-button-border);
-  background: var(--forge-button-bg);
-  color: white;
-  font-weight: 600;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  --ui-button-height: 2.25rem;
   box-shadow: var(--forge-button-shadow);
 }
 
 .doneButton:hover {
-  background: var(--forge-button-hover-bg);
   transform: translateY(-1px);
   box-shadow: 0 6px 20px oklch(55% 0.18 276 / 0.4), inset 0 1px 0 oklch(100% 0 0 / 0.3);
 }

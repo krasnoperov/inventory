@@ -906,49 +906,19 @@
   flex: 1 1 auto;
 }
 
-.paramSelect,
-.styleSelect {
-  min-width: 3.75rem;
-  max-width: 9rem;
-  height: 1.875rem;
-  padding: 0 1.25rem 0 0.5rem;
-  border: 1px solid var(--ctl-line);
-  border-radius: 8px;
-  background: var(--ctl-surface);
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: 0.75rem;
-  font-weight: 520;
-  cursor: pointer;
-  outline: none;
+.selectParam {
+  --ui-select-min-width: 3.75rem;
+  --ui-select-max-width: 9rem;
 }
 
-.styleSelect {
-  width: 6rem;
-  min-width: 5.75rem;
-  max-width: 6rem;
+.selectMode {
+  --ui-select-min-width: 5rem;
+  --ui-select-max-width: 5.75rem;
 }
 
-.modeSelect {
-  min-width: 5rem;
-  max-width: 5.75rem;
-}
-
-.paramSelect:hover:not(:disabled),
-.styleSelect:hover:not(:disabled) {
-  border-color: var(--color-primary);
-}
-
-.paramSelect:focus-visible,
-.styleSelect:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.paramSelect:disabled,
-.styleSelect:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.selectStyle {
+  --ui-select-min-width: 5.75rem;
+  --ui-select-max-width: 6rem;
 }
 
 /* Mini segmented (batch count, destination, video count) */
@@ -1018,45 +988,6 @@
   cursor: not-allowed;
 }
 
-/* Audio sub-mode buttons */
-.audioModes {
-  display: inline-flex;
-  gap: 0.25rem;
-}
-
-.audioMode {
-  height: 1.875rem;
-  padding: 0 0.75rem;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.audioMode:hover:not(.active):not(:disabled) {
-  color: var(--color-text);
-  background: var(--ctl-hover);
-}
-
-.audioMode.active {
-  background: var(--ctl-accent-bg);
-  color: var(--color-primary);
-  font-weight: 600;
-}
-
-.musicProviderSeg {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  background: var(--ctl-track);
-  border-radius: 9px;
-}
-
 /* Control bar */
 .controlBar {
   display: flex;
@@ -1121,9 +1052,6 @@
 .ctlIcon:focus-visible,
 .miniSegItem:focus-visible,
 .miniSegText:focus-visible,
-.paramSelect:focus-visible,
-.styleSelect:focus-visible,
-.audioMode:focus-visible,
 .nameChip:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;

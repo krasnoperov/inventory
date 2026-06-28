@@ -7,6 +7,7 @@ import {
   type ForgeMediaMode,
   getForgeMediaModeConfig,
 } from './forgeMediaMode';
+import { Button, UiSelect, type SelectOption } from '../../ui';
 import styles from './AssetPickerModal.module.css';
 
 export interface AssetPickerModalProps {
@@ -53,6 +54,16 @@ export function AssetPickerModal({
     const types = new Set(allAssets.map(a => a.type));
     return Array.from(types).sort();
   }, [allAssets]);
+  const assetTypeOptions = useMemo<Array<SelectOption<string>>>(
+    () => [
+      { value: '', label: 'All types' },
+      ...assetTypes.map((type) => ({
+        value: type,
+        label: type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' '),
+      })),
+    ],
+    [assetTypes],
+  );
 
   // Get primary variant for an asset
   const getPrimaryVariant = useCallback((asset: Asset) => {
@@ -145,18 +156,13 @@ export function AssetPickerModal({
               autoFocus
             />
           </div>
-          <select
+          <UiSelect
             className={styles.typeFilter}
-            value={typeFilter || ''}
-            onChange={(e) => setTypeFilter(e.target.value || null)}
-          >
-            <option value="">All types</option>
-            {assetTypes.map((type) => (
-              <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
-              </option>
-            ))}
-          </select>
+            value={typeFilter ?? ''}
+            options={assetTypeOptions}
+            onValueChange={(nextValue) => setTypeFilter(nextValue || null)}
+            label="Asset type"
+          />
         </div>
 
         <div className={styles.content}>
@@ -270,9 +276,9 @@ export function AssetPickerModal({
         </div>
 
         <div className={styles.footer}>
-          <button className={styles.doneButton} onClick={onClose}>
+          <Button className={styles.doneButton} onClick={onClose} variant="primary">
             Done
-          </button>
+          </Button>
         </div>
       </div>
     </div>
