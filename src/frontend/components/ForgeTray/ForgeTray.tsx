@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
 import type { ForgeOperation } from '../../stores/forgeTrayStore';
 import {
@@ -117,6 +118,8 @@ export interface ForgeTrayProps {
   onBrandBackground?: boolean;
   /** Current asset context (for Asset Detail page) */
   currentAsset?: Asset | null;
+  /** Compact context shown above the prompt/options area. */
+  contextSlot?: ReactNode;
   /** Callback for uploading a media file to create a variant on existing asset */
   onUpload?: (file: File, assetId: string) => Promise<void>;
   /** Callback for uploading a media file to create a NEW asset (SpacePage) */
@@ -336,6 +339,7 @@ export function ForgeTray({
   onSubmit,
   onBrandBackground = true,
   currentAsset,
+  contextSlot,
   onUpload,
   onUploadNewAsset,
   isUploading = false,
@@ -1125,6 +1129,14 @@ export function ForgeTray({
           }
         }}
       >
+        {contextSlot && (
+          <div
+            className={styles.contextSlot}
+            onFocusCapture={(e) => e.stopPropagation()}
+          >
+            {contextSlot}
+          </div>
+        )}
         <div className={styles.inputArea}>
           {/* Asset-detail header — existing asset context + destination toggle */}
           {showDestinationToggle && (

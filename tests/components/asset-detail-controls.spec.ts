@@ -59,6 +59,50 @@ function collection(id: string, name: string, kind: string) {
   };
 }
 
+function asset(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'asset-1',
+    name: 'Hero reveal video',
+    type: 'animation',
+    media_kind: 'video',
+    tags: '',
+    parent_asset_id: null,
+    active_variant_id: 'variant-video',
+    created_by: 'user-1',
+    created_at: baseTime,
+    updated_at: baseTime,
+    ...overrides,
+  };
+}
+
+function fullVariant(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'variant-video',
+    asset_id: 'asset-1',
+    media_kind: 'video',
+    workflow_id: null,
+    status: 'completed',
+    error_message: null,
+    image_key: null,
+    thumb_key: 'thumbs/hero-reveal.webp',
+    media_key: 'videos/hero-reveal.mp4',
+    media_mime_type: 'video/mp4',
+    media_size_bytes: 1200000,
+    media_width: 1920,
+    media_height: 1080,
+    media_duration_ms: 8000,
+    recipe: '{}',
+    starred: false,
+    created_by: 'user-1',
+    created_at: baseTime,
+    updated_at: baseTime,
+    description: null,
+    quality_rating: null,
+    rated_at: null,
+    ...overrides,
+  };
+}
+
 async function selectDropdown(page: import('@playwright/test').Page, label: string, optionName: string) {
   await page.getByRole('combobox', { name: label, exact: true }).click();
   await page.getByRole('option', { name: optionName, exact: true }).click();
@@ -113,4 +157,66 @@ test('asset detail controls use shared selects and collection buttons', async ({
     expect.objectContaining({ eventName: 'applyAsset', args: [] }),
     expect.objectContaining({ eventName: 'applyVariant', args: [] }),
   ]));
+});
+
+test('asset details strip makes video facts and full details action visible', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 420 });
+  await mountComponent(page, 'AssetDetailsStrip', {
+    asset: asset(),
+    assetCollectionCount: 1,
+    fullDetailsOpen: false,
+    onToggleFullDetails: '__record__:toggleFullDetails',
+    selectedVariant: fullVariant(),
+    selectedVariantCollectionCount: 1,
+    variantCount: 3,
+  });
+
+  await expect(page.getByRole('region', { name: 'Asset details' })).toBeVisible();
+  await expect(page.getByText('Hero reveal video')).toBeVisible();
+  await expect(page.getByText('Video', { exact: true })).toBeVisible();
+  await expect(page.getByText('Animation')).toBeVisible();
+  await expect(page.getByText('Video · Completed')).toBeVisible();
+  await expect(page.getByText('1920x1080')).toBeVisible();
+  await expect(page.getByText('8.0s')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Open full details' }).click();
+  await screenshot(page, 'asset-details-strip-video', { fullPage: true });
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toEqual([
+    { eventName: 'toggleFullDetails', args: [] },
+  ]);
+});
+
+test('asset details strip also exposes image facts without a hidden click target', async ({ page }) => {
+  await page.setViewportSize({ width: 620, height: 360 });
+  await mountComponent(page, 'AssetDetailsStrip', {
+    asset: asset({
+      name: 'Hero portrait',
+      type: 'character',
+      media_kind: 'image',
+    }),
+    assetCollectionCount: 0,
+    fullDetailsOpen: true,
+    onToggleFullDetails: '__record__:toggleFullDetails',
+    selectedVariant: fullVariant({
+      media_kind: 'image',
+      media_key: 'images/hero.png',
+      media_mime_type: 'image/png',
+      media_width: 1024,
+      media_height: 1024,
+      media_duration_ms: null,
+    }),
+    selectedVariantCollectionCount: 0,
+    variantCount: 1,
+  });
+
+  await expect(page.getByRole('region', { name: 'Asset details' })).toBeVisible();
+  await expect(page.getByText('Hero portrait')).toBeVisible();
+  await expect(page.getByText('Image', { exact: true })).toBeVisible();
+  await expect(page.getByText('Character')).toBeVisible();
+  await expect(page.getByText('Image · Completed')).toBeVisible();
+  await expect(page.getByText('1024x1024')).toBeVisible();
+  await expect(page.getByText('Duration')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Hide full details' })).toBeVisible();
 });
