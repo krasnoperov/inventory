@@ -7,13 +7,14 @@ import type {
   TileSetRequestParams,
 } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
+import { Checkbox, TextArea } from '../../ui';
 import styles from './TileSetPanel.module.css';
 
 const TILE_TYPES: { value: TileType; label: string; icon: string }[] = [
-  { value: 'terrain', label: 'Terrain', icon: '????' },
-  { value: 'building', label: 'Building', icon: '????' },
-  { value: 'decoration', label: 'Decor', icon: '????' },
-  { value: 'custom', label: 'Custom', icon: '????' },
+  { value: 'terrain', label: 'Terrain', icon: 'T' },
+  { value: 'building', label: 'Building', icon: 'B' },
+  { value: 'decoration', label: 'Decor', icon: 'D' },
+  { value: 'custom', label: 'Custom', icon: 'C' },
 ];
 
 const GRID_SIZES = [2, 3, 4, 5] as const;
@@ -276,12 +277,13 @@ export function TileSetPanel({
           {/* Theme prompt */}
           <div className={styles.inputGroup}>
             <span className={styles.sectionLabel}>Theme / Description</span>
-            <textarea
+            <TextArea
               className={styles.textArea}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="e.g. lush green forest floor with mossy stones and fallen leaves"
               rows={3}
+              fullWidth
             />
             <span className={styles.inputHint}>
               Describe the overall theme. Each tile will be generated with adjacency context.
@@ -315,8 +317,8 @@ export function TileSetPanel({
           {/* No style checkbox */}
           {hasDefaultStyle && (
             <label className={styles.noStyleCheck}>
-              <input
-                type="checkbox"
+              <Checkbox
+                className={styles.noStyleCheckbox}
                 checked={disableStyle}
                 onChange={(e) => setDisableStyle(e.target.checked)}
               />

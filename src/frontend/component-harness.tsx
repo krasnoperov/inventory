@@ -10,10 +10,12 @@ import { CompositionPlacementControl } from './components/CompositionPlacementCo
 import { ForgeTray } from './components/ForgeTray';
 import { Pagination } from './components/Pagination';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
+import { RotationPanel } from './components/RotationPanel/RotationPanel';
 import { SpaceBoard } from './components/SpaceBoard';
 import { SpaceCanvas } from './components/SpaceCanvas';
 import { SpaceSharingPanel } from './components/SpaceSharingPanel';
 import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
+import { TileSetPanel } from './components/TileSetPanel/TileSetPanel';
 import { VariantCanvas } from './components/VariantCanvas';
 import { BillingPlanActions } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
@@ -422,11 +424,13 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   ProductionControls: ProductionControlsHarness,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
   RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,
+  RotationPanel: RotationPanel as unknown as ComponentType<Record<string, unknown>>,
   SpaceBoard: SpaceBoard as unknown as ComponentType<Record<string, unknown>>,
   SpaceCanvas: SpaceCanvas as unknown as ComponentType<Record<string, unknown>>,
   SpaceSharingPanel: SpaceSharingPanel as unknown as ComponentType<Record<string, unknown>>,
   SpaceAccessRequestView: SpaceAccessRequestView as unknown as ComponentType<Record<string, unknown>>,
   StyleReferenceUsagePanel: StyleReferenceUsagePanel as unknown as ComponentType<Record<string, unknown>>,
+  TileSetPanel: TileSetPanel as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
   VoicePicker: VoicePicker as unknown as ComponentType<Record<string, unknown>>,
 };
