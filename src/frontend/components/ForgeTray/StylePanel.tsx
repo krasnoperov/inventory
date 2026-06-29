@@ -5,7 +5,7 @@ import type {
   StylePresetRaw,
   StylePresetUpdateParams,
 } from '../../hooks/useSpaceWebSocket';
-import { Button, IconButton, UiSelect, type SelectOption } from '../../ui';
+import { Button, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from '../../ui';
 import styles from './StylePanel.module.css';
 
 export interface StyleReferenceOption {
@@ -107,11 +107,12 @@ export function StylePanel({
               <span>{styleReferenceCollections.length} collections</span>
             </div>
             <div className={styles.formGrid}>
-              <input
+              <TextInput
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Preset name"
                 aria-label="Preset name"
+                fullWidth
               />
               <UiSelect
                 value={selectedCollectionId}
@@ -121,18 +122,20 @@ export function StylePanel({
                 disabled={styleReferenceCollections.length === 0}
                 fullWidth
               />
-              <textarea
+              <TextArea
                 value={stylePrompt}
                 onChange={(event) => setStylePrompt(event.target.value)}
                 placeholder="Style prompt"
                 aria-label="Style prompt"
                 rows={3}
+                fullWidth
               />
-              <input
+              <TextInput
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Description"
                 aria-label="Style description"
+                fullWidth
               />
               <label className={styles.checkRow}>
                 <input
@@ -171,11 +174,12 @@ export function StylePanel({
                       </div>
                       {isDefault && <span className={styles.defaultBadge}>Default</span>}
                     </div>
-                    <textarea
-                      className={styles.compactTextarea}
+                    <TextArea
                       defaultValue={preset.style_prompt}
                       aria-label={`Style prompt for ${preset.name}`}
                       rows={2}
+                      compact
+                      fullWidth
                       onBlur={(event) => {
                         if (event.target.value !== preset.style_prompt) {
                           updateStylePreset?.(preset.id, { stylePrompt: event.target.value });
@@ -183,11 +187,11 @@ export function StylePanel({
                       }}
                       disabled={!updateStylePreset}
                     />
-                    <input
-                      className={styles.compactInput}
+                    <TextInput
                       defaultValue={preset.description ?? ''}
                       aria-label={`Description for ${preset.name}`}
                       placeholder="Description"
+                      fullWidth
                       onBlur={(event) => {
                         const next = event.target.value.trim() || null;
                         if (next !== (preset.description ?? null)) {

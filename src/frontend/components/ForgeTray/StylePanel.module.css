@@ -101,31 +101,6 @@
   gap: 0.5rem;
 }
 
-.formGrid input:not([type="checkbox"]),
-.formGrid textarea,
-.compactInput,
-.compactTextarea {
-  width: 100%;
-  min-height: 34px;
-  padding: 0.45rem 0.6rem;
-  background: var(--forge-slot-bg);
-  border: 1px solid var(--forge-bar-border-inner);
-  border-radius: var(--radius-md);
-  color: var(--color-text);
-  font: inherit;
-  font-size: 0.8125rem;
-}
-
-.formGrid textarea {
-  min-height: 70px;
-  resize: vertical;
-}
-
-.compactTextarea {
-  min-height: 54px;
-  resize: vertical;
-}
-
 .checkRow,
 .refRow {
   display: flex;
@@ -170,8 +145,6 @@
 }
 
 .presetMain span,
-.presetCard p,
-.muted,
 .refRow small,
 .emptyState {
   color: var(--color-text-muted);
