@@ -67,11 +67,6 @@
       "white",
       "white"
     ],
-    "src/frontend/components/ForgeTray/StylePanel.module.css": [
-      "oklch(55% 0.18 276/0.08)",
-      "white",
-      "white"
-    ],
     "src/frontend/components/HyperbolicCanvas/HyperbolicCanvas.module.css": [
       "rgba(0,0,0,0.4)",
       "rgba(110,168,254,0)",
