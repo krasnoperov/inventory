@@ -7,7 +7,7 @@ import type {
   SpaceSharingResponse,
 } from '../../shared/api/schemas';
 import { formatUtcDateTime } from '../lib/dates';
-import { Button, IconButton, UiSelect, type SelectOption } from '../ui';
+import { Button, IconButton, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './SpaceSharingPanel.module.css';
 
 type InviteHandler = (email: string, role: SpaceAccessRole) => boolean | Promise<boolean>;
@@ -175,13 +175,13 @@ export function SpaceSharingPanel({
           <form className={styles.inviteForm} onSubmit={handleInvite}>
             <label className={styles.field}>
               <span className={styles.label}>Email</span>
-              <input
-                className={styles.input}
+              <TextInput
                 type="email"
                 value={inviteEmail}
                 placeholder="teammate@example.com"
                 disabled={Boolean(busyAction) || !onInvite}
                 onChange={(event) => setInviteEmail(event.currentTarget.value)}
+                fullWidth
               />
             </label>
             <label className={styles.field}>
