@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import type { Asset } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
+import { Button } from '../ui';
 import styles from './AssetMenu.module.css';
 
 export interface AssetMenuProps {
@@ -91,9 +92,10 @@ export function AssetMenu({
 
       <div className={styles.section}>
         {onRename && (
-          <button
+          <Button
             className={styles.action}
             onClick={() => handleAction(onRename)}
+            variant="ghost"
           >
             <span className={styles.actionIcon}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
@@ -102,13 +104,14 @@ export function AssetMenu({
               </svg>
             </span>
             <span className={styles.actionLabel}>Rename</span>
-          </button>
+          </Button>
         )}
 
         {onCreateRelation && (
-          <button
+          <Button
             className={styles.action}
             onClick={() => handleAction(onCreateRelation)}
+            variant="ghost"
           >
             <span className={styles.actionIcon}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
@@ -117,15 +120,16 @@ export function AssetMenu({
               </svg>
             </span>
             <span className={styles.actionLabel}>Create Relation</span>
-          </button>
+          </Button>
         )}
       </div>
 
       {onDelete && (
         <div className={styles.section}>
-          <button
+          <Button
             className={`${styles.action} ${styles.danger}`}
             onClick={() => handleAction(onDelete)}
+            variant="ghost"
           >
             <span className={styles.actionIcon}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
@@ -134,7 +138,7 @@ export function AssetMenu({
               </svg>
             </span>
             <span className={styles.actionLabel}>Delete Asset</span>
-          </button>
+          </Button>
         </div>
       )}
     </div>
