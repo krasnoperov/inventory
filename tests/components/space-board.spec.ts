@@ -269,7 +269,7 @@ test('audio cards keep completed playback while a sibling regeneration is runnin
   expect((calls[0].args[0] as { id: string }).id).toBe('audio-variant');
 });
 
-test('collection menus use shared dropdown controls', async ({ page }) => {
+test('collection menus use shared form controls', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 780 });
   await mountComponent(page, 'SpaceBoard', {
     spaceId: 'space-1',
@@ -323,21 +323,27 @@ test('collection menus use shared dropdown controls', async ({ page }) => {
   });
 
   await page.getByText('New collection').click();
+  await page.getByPlaceholder('Collection name').fill('Props');
   await selectDropdown(page, 'New collection kind', 'Style References');
+  await page.getByRole('button', { name: 'Create' }).click();
   await page.getByText('New collection').click();
 
   await page.getByText('Manage').first().click();
+  await page.getByRole('textbox', { name: 'Collection name' }).first().fill('Cast updated');
   await selectDropdown(page, 'Collection kind', 'Scenes');
   await selectDropdown(page, 'Asset to add to Cast', 'Forest background');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await screenshot(page, 'space-board-collection-manage-menu', { fullPage: true });
   await page.getByText('Manage').first().click();
 
   await page.getByTitle('Actions for Hero sprite').click();
+  await page.getByLabel('Role for Hero sprite').fill('lead');
   await selectDropdown(page, 'Collection target for Hero sprite', 'Backgrounds');
   await selectDropdown(page, 'Pinned variant for Hero sprite', 'Variant 2 star');
   await screenshot(page, 'space-board-collection-menus', { fullPage: true });
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.some((call) => call.eventName === 'createCollection')).toBe(true);
   expect(calls.some((call) => call.eventName === 'updateCollection')).toBe(true);
   expect(calls.some((call) => call.eventName === 'addCollectionItem')).toBe(true);
   expect(calls.some((call) => call.eventName === 'updateCollectionItem')).toBe(true);
