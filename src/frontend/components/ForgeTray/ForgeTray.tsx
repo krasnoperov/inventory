@@ -48,7 +48,7 @@ import { StylePanel } from './StylePanel';
 import { VoicePicker } from './VoicePicker';
 import { Thumbnail } from '../Thumbnail';
 import { Link } from '../Link';
-import { Button, IconButton, TextInput, UiSelect, type SelectOption } from '../../ui';
+import { Button, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from '../../ui';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
   canUseSlotMediaKindForForgeMode,
@@ -1203,7 +1203,7 @@ export function ForgeTray({
           )}
 
           {/* Prompt — the hero. Everything else is in service of this line. */}
-          <textarea
+          <TextArea
             ref={textareaRef}
             className={styles.promptTextarea}
             value={prompt}
@@ -1213,6 +1213,7 @@ export function ForgeTray({
             disabled={isSubmitting}
             rows={1}
             aria-label="Prompt"
+            fullWidth
           />
 
           {/* Mode + per-mode options — collapsed to a compact bar until the tray is engaged */}
