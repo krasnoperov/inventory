@@ -812,8 +812,12 @@ test('forge tray picker disables references incompatible with the selected media
   await page.getByTitle('Add reference').click();
   await expect(page.getByText('Image references')).toBeVisible();
   await expect(page.getByRole('button', { name: /Hero Image/ })).toBeEnabled();
-  await expect(page.getByRole('button', { name: /Hero Video/ })).toBeDisabled();
+  const incompatibleVideo = page.getByRole('button', { name: /Hero Video, animation \/ video\. Image mode cannot use video references/ });
+  await expect(incompatibleVideo).toBeDisabled();
   await expect(page.getByRole('button', { name: /Hero Speech/ })).toBeDisabled();
+  await expect(page.getByText('Image mode cannot use video references')).toHaveCount(0);
+  await expect(page.getByText('Unavailable')).toHaveCount(2);
+  await expect(incompatibleVideo).toHaveCSS('opacity', '1');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-asset-picker', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
