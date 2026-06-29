@@ -28,7 +28,7 @@ import {
   type ProductionRecord,
 } from '../productionHandoff';
 import { productionRecordsQueryOptions, spacePageQueryOptions } from '../queries';
-import { Button, IconButton, UiSelect, type SelectOption } from '../ui';
+import { Button, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './ProductionPage.module.css';
 
 interface PlacementFormState {
@@ -189,21 +189,23 @@ export function ProductionPlacementControls({
         <div className={styles.inlineFields}>
           <label className={styles.field}>
             <span>Shot ID</span>
-            <input
+            <TextInput
               value={form.shotId}
               onChange={(event) => onFormChange('shotId', event.target.value)}
               placeholder="shot-001"
               disabled={!canEdit}
+              fullWidth
             />
           </label>
           <label className={styles.field}>
             <span>Scene Label</span>
-            <input
+            <TextInput
               value={form.sceneLabel}
               onChange={(event) => onFormChange('sceneLabel', event.target.value)}
               placeholder="Market"
               disabled={!canEdit}
               required
+              fullWidth
             />
           </label>
         </div>
@@ -211,7 +213,7 @@ export function ProductionPlacementControls({
         <div className={styles.inlineFields}>
           <label className={styles.field}>
             <span>Start ms</span>
-            <input
+            <TextInput
               type="number"
               min="0"
               step="1"
@@ -219,11 +221,12 @@ export function ProductionPlacementControls({
               onChange={(event) => onFormChange('timelineStartMs', event.target.value)}
               disabled={!canEdit}
               required
+              fullWidth
             />
           </label>
           <label className={styles.field}>
             <span>Duration ms</span>
-            <input
+            <TextInput
               type="number"
               min="0"
               step="1"
@@ -231,38 +234,43 @@ export function ProductionPlacementControls({
               onChange={(event) => onFormChange('durationMs', event.target.value)}
               placeholder="optional"
               disabled={!canEdit}
+              fullWidth
             />
           </label>
         </div>
 
         <label className={styles.field}>
           <span>Motion Prompt</span>
-          <textarea
+          <TextArea
             value={form.motionPrompt}
             onChange={(event) => onFormChange('motionPrompt', event.target.value)}
             placeholder="Camera move, action note, or renderer instruction"
             disabled={!canEdit}
             rows={3}
+            compact
+            fullWidth
           />
         </label>
 
         <label className={styles.field}>
           <span>Source Refs</span>
-          <input
+          <TextInput
             value={form.sourceRefs}
             onChange={(event) => onFormChange('sourceRefs', event.target.value)}
             placeholder="references/source.png, script.md"
             disabled={!canEdit}
+            fullWidth
           />
         </label>
 
         <label className={styles.field}>
           <span>Source Variant IDs</span>
-          <input
+          <TextInput
             value={form.sourceVariantIds}
             onChange={(event) => onFormChange('sourceVariantIds', event.target.value)}
             placeholder="variant-id-1, variant-id-2"
             disabled={!canEdit}
+            fullWidth
           />
         </label>
 
@@ -545,10 +553,11 @@ export default function ProductionPage() {
           </div>
           <label className={styles.productionField}>
             <span>Production ID</span>
-            <input
+            <TextInput
               value={productionId}
               onChange={(event) => setProductionId(event.target.value)}
               placeholder="episode-01"
+              fullWidth
             />
           </label>
         </section>
