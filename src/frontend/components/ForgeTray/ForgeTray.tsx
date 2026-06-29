@@ -894,19 +894,25 @@ export function ForgeTray({
     if (isSubmitting) return;
 
     const selectDestination = (nextDestination: DestinationType) => {
-      if (nextDestination === 'existing_asset' && !canUseExistingDestination) return;
+      const resolvedDestination = nextDestination === 'existing_asset' && !canUseExistingDestination
+        ? 'new_asset'
+        : nextDestination;
       e.preventDefault();
-      setDestinationType(nextDestination);
-      const targetRef = nextDestination === 'existing_asset' ? currentDestinationRef : newDestinationRef;
+      setDestinationType(resolvedDestination);
+      const targetRef = resolvedDestination === 'existing_asset' ? currentDestinationRef : newDestinationRef;
       requestAnimationFrame(() => targetRef.current?.focus());
     };
 
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'Home') {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      selectDestination(destinationType === 'existing_asset' ? 'new_asset' : 'existing_asset');
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      selectDestination(destinationType === 'existing_asset' ? 'new_asset' : 'existing_asset');
+    } else if (e.key === 'Home') {
       selectDestination('existing_asset');
-    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'End') {
+    } else if (e.key === 'End') {
       selectDestination('new_asset');
     }
-  }, [canUseExistingDestination, isSubmitting]);
+  }, [canUseExistingDestination, destinationType, isSubmitting]);
 
   // Toggle chat panel
   const handleToggleChat = useCallback(() => {

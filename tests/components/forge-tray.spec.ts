@@ -775,31 +775,57 @@ test('forge tray destination toggle supports radio keyboard navigation', async (
 
   await expect(current).toBeChecked();
   await current.focus();
-  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowLeft');
   await expect(next).toBeChecked();
   await expect(next).toBeFocused();
+
+  await page.keyboard.press('ArrowRight');
+  await expect(current).toBeChecked();
+  await expect(current).toBeFocused();
 
   await page.keyboard.press('ArrowUp');
-  await expect(current).toBeChecked();
-  await expect(current).toBeFocused();
-
-  await page.keyboard.press('ArrowDown');
   await expect(next).toBeChecked();
   await expect(next).toBeFocused();
 
-  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowDown');
   await expect(current).toBeChecked();
   await expect(current).toBeFocused();
 
-  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('End');
   await expect(next).toBeChecked();
   await expect(next).toBeFocused();
 
   await page.keyboard.press('Home');
   await expect(current).toBeChecked();
   await expect(current).toBeFocused();
+});
 
-  await page.keyboard.press('End');
+test('forge tray destination toggle skips disabled current destination', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: matrixAssets,
+    allVariants: matrixVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    currentAsset: matrixAssets[0],
+  });
+  await disableAnimations(page);
+
+  await selectMediaGroup(page, 'Video');
+
+  const current = page.getByRole('radio', { name: 'Current' });
+  const next = page.getByRole('radio', { name: 'New' });
+
+  await expect(current).toBeDisabled();
+  await expect(next).toBeChecked();
+  await next.focus();
+
+  await page.keyboard.press('ArrowRight');
+  await expect(next).toBeChecked();
+  await expect(next).toBeFocused();
+
+  await page.keyboard.press('Home');
   await expect(next).toBeChecked();
   await expect(next).toBeFocused();
 });
