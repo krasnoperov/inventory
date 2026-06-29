@@ -1442,7 +1442,7 @@ export function ForgeTray({
           <div className={styles.controlBar}>
             <div className={styles.controlBarLeft}>
               {/* References (image/video) */}
-              {currentMediaGroup !== 'audio' && canAddMore && (
+              {currentMediaGroup !== 'audio' && canAddMore && slots.length === 0 && (
                 <IconButton
                   type="button"
                   className={`${styles.controlIconAction} ${slots.length > 0 ? styles.active : ''}`}
