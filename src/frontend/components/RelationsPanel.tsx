@@ -10,7 +10,7 @@ import {
 } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
 import { buildImmediateRelationLabel, COMMON_RELATION_SHORTCUT_TYPES } from '../productionShortcuts';
-import { Button, IconButton, UiSelect, type SelectOption } from '../ui';
+import { Button, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from '../ui';
 import { Thumbnail } from './Thumbnail';
 import styles from './RelationsPanel.module.css';
 
@@ -372,11 +372,12 @@ export function RelationEditorDialog({
           <div className={styles.targetPicker}>
             <label className={styles.field}>
               <span>Target</span>
-              <input
+              <TextInput
                 type="search"
                 placeholder="Search assets and variants"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                fullWidth
               />
             </label>
             <div className={styles.targetOptions}>
@@ -430,15 +431,31 @@ export function RelationEditorDialog({
 
         <label className={styles.field}>
           <span>Label</span>
-          <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="UI thumbnail" />
+          <TextInput
+            value={label}
+            onChange={(event) => setLabel(event.target.value)}
+            placeholder="UI thumbnail"
+            fullWidth
+          />
         </label>
         <label className={styles.field}>
           <span>Context</span>
-          <input value={context} onChange={(event) => setContext(event.target.value)} placeholder="inventory grid" />
+          <TextInput
+            value={context}
+            onChange={(event) => setContext(event.target.value)}
+            placeholder="inventory grid"
+            fullWidth
+          />
         </label>
         <label className={styles.field}>
           <span>Notes</span>
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
+          <TextArea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            rows={3}
+            compact
+            fullWidth
+          />
         </label>
 
         <div className={styles.dialogActions}>
