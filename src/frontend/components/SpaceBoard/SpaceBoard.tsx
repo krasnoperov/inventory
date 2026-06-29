@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { Thumbnail } from '../Thumbnail';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
+import { Button, UiSelect, type SelectOption } from '../../ui';
 import type {
   Asset,
   CollectionItem,
@@ -77,6 +78,11 @@ function renderRowFillers() {
   ));
 }
 
+const COLLECTION_KIND_OPTIONS: Array<SelectOption<CollectionKind>> = COLLECTION_KINDS.map((kind) => ({
+  value: kind,
+  label: COLLECTION_KIND_LABELS[kind],
+}));
+
 export function SpaceBoard({
   spaceId,
   assets,
@@ -107,6 +113,17 @@ export function SpaceBoard({
   const [cardTargets, setCardTargets] = useState<Record<string, string>>({});
 
   const orderedCollections = useMemo(() => sortCollections(collections), [collections]);
+  const collectionOptions = useMemo<Array<SelectOption<string>>>(
+    () => orderedCollections.map((collection) => ({ value: collection.id, label: collection.name })),
+    [orderedCollections],
+  );
+  const assetOptions = useMemo<Array<SelectOption<string>>>(
+    () => [
+      { value: '', label: 'Add asset...' },
+      ...assets.map((candidate) => ({ value: candidate.id, label: candidate.name })),
+    ],
+    [assets],
+  );
   const unfiledAssets = useMemo(
     () => getUnfiledAssets(assets, collectionItems, variants),
     [assets, collectionItems, variants],
@@ -219,6 +236,13 @@ export function SpaceBoard({
     const aspectRatio = aspectRatioForVariant(displayVariant);
     const isAudioCard = displayVariant ? isVariantAudioReady(displayVariant) : false;
     const audioMetadata = getAudioCardMetadata(displayVariant);
+    const pinnedVariantOptions: Array<SelectOption<string>> = [
+      ...(itemCollection?.kind !== 'style_refs' ? [{ value: '', label: 'Main variant' }] : []),
+      ...assetVariants.map((variant, index) => ({
+        value: variant.id,
+        label: `Variant ${index + 1}${variant.starred ? ' star' : ''}`,
+      })),
+    ];
     const audioFacts = [audioMetadata.name, audioMetadata.model, audioMetadata.voice].filter(
       (fact): fact is string => Boolean(fact),
     );
@@ -301,37 +325,42 @@ export function SpaceBoard({
             <summary title={`Actions for ${asset.name}`}>Actions</summary>
             <div className={styles.cardMenuPanel}>
               {onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) && (
-                <button onClick={() => onAddToTray(displayVariant, asset)}>Add to Forge Tray</button>
+                <Button className={styles.menuButton} onClick={() => onAddToTray(displayVariant, asset)}>
+                  Add to Forge Tray
+                </Button>
               )}
               {onRegenerateVariant && displayVariant && isVariantAudioReady(displayVariant) && (
-                <button onClick={() => onRegenerateVariant(displayVariant)}>
+                <Button className={styles.menuButton} onClick={() => onRegenerateVariant(displayVariant)}>
                   Regenerate audio
-                </button>
+                </Button>
               )}
               {onCreateRelation && (
-                <button onClick={() => onCreateRelation({ subjectType: 'asset', assetId: asset.id })}>
+                <Button className={styles.menuButton} onClick={() => onCreateRelation({ subjectType: 'asset', assetId: asset.id })}>
                   Create relation
-                </button>
+                </Button>
               )}
               {canEdit && orderedCollections.length > 0 && (
                 <>
                   <label>
                     <span>Add to collection</span>
-                    <select
+                    <UiSelect
+                      className={styles.select}
+                      fullWidth
+                      label={`Collection target for ${asset.name}`}
                       value={targetCollectionId}
-                      onChange={(event) => setCardTargets((prev) => ({ ...prev, [cardKey]: event.target.value }))}
-                    >
-                      {orderedCollections.map((collection) => (
-                        <option key={collection.id} value={collection.id}>{collection.name}</option>
-                      ))}
-                    </select>
+                      options={collectionOptions}
+                      onValueChange={(value) => setCardTargets((prev) => ({ ...prev, [cardKey]: value }))}
+                    />
                   </label>
-                  <button onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}>
+                  <Button
+                    className={styles.menuButton}
+                    onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}
+                  >
                     Add asset
-                  </button>
-                  <button onClick={() => markAssetAsStyleReference(asset.id)}>
+                  </Button>
+                  <Button className={styles.menuButton} onClick={() => markAssetAsStyleReference(asset.id)}>
                     Mark style ref
-                  </button>
+                  </Button>
                 </>
               )}
               {canEdit && onPlaceInComposition && displayVariant && isVariantReady(displayVariant) && compositions.length > 0 && (
@@ -356,40 +385,44 @@ export function SpaceBoard({
                   {item.subject_type === 'asset' && assetVariants.length > 0 && (
                     <label>
                       <span>Pinned variant</span>
-                      <select
+                      <UiSelect
+                        className={styles.select}
+                        fullWidth
                         value={itemPinnedVariantId}
-                        aria-label={`Pinned variant for ${asset.name}`}
-                        onChange={(event) => {
+                        label={`Pinned variant for ${asset.name}`}
+                        options={pinnedVariantOptions}
+                        onValueChange={(value) => {
                           const pinnedVariantId =
-                            event.target.value || getPinnedVariantIdForAssetCollection(itemCollection, asset);
+                            value || getPinnedVariantIdForAssetCollection(itemCollection, asset);
                           updateCollectionItem(item.collection_id, item.id, { pinnedVariantId });
                         }}
-                      >
-                        {itemCollection?.kind !== 'style_refs' && <option value="">Main variant</option>}
-                        {assetVariants.map((variant, index) => (
-                          <option key={variant.id} value={variant.id}>
-                            Variant {index + 1}{variant.starred ? ' star' : ''}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </label>
                   )}
                 </>
               )}
               {item && canEdit && collectionId && itemIndex !== undefined && collectionItemIds.length > 0 && (
                 <div className={styles.menuButtonRow}>
-                  <button onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, -1))} disabled={itemIndex === 0}>
+                  <Button
+                    className={styles.menuButton}
+                    onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, -1))}
+                    disabled={itemIndex === 0}
+                  >
                     Move up
-                  </button>
-                  <button onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, 1))} disabled={itemIndex === collectionItemIds.length - 1}>
+                  </Button>
+                  <Button
+                    className={styles.menuButton}
+                    onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, 1))}
+                    disabled={itemIndex === collectionItemIds.length - 1}
+                  >
                     Move down
-                  </button>
+                  </Button>
                 </div>
               )}
               {item && canEdit && collectionId && (
-                <button className={styles.removeMenuButton} onClick={() => deleteCollectionItem(collectionId, item.id)}>
+                <Button className={styles.menuButton} variant="danger" onClick={() => deleteCollectionItem(collectionId, item.id)}>
                   Remove from collection
-                </button>
+                </Button>
               )}
             </div>
           </details>
@@ -431,16 +464,14 @@ export function SpaceBoard({
                 </label>
                 <label>
                   <span>Kind</span>
-                  <select
-                    className={styles.compactSelect}
+                  <UiSelect
+                    className={styles.select}
+                    fullWidth
                     value={collection.kind}
-                    aria-label="Collection kind"
-                    onChange={(event) => updateCollection(collection.id, { kind: event.target.value as CollectionKind })}
-                  >
-                    {COLLECTION_KINDS.map((kind) => (
-                      <option key={kind} value={kind}>{COLLECTION_KIND_LABELS[kind]}</option>
-                    ))}
-                  </select>
+                    label="Collection kind"
+                    options={COLLECTION_KIND_OPTIONS}
+                    onValueChange={(kind) => updateCollection(collection.id, { kind })}
+                  />
                 </label>
                 <label className={styles.colorField}>
                   <span>Color</span>
@@ -454,26 +485,41 @@ export function SpaceBoard({
                 </label>
                 {assets.length > 0 && (
                   <div className={styles.addRow}>
-                    <select
+                    <UiSelect
+                      className={styles.addSelect}
+                      fullWidth
+                      label={`Asset to add to ${collection.name}`}
                       value={selectedAssetId}
-                      onChange={(event) => setAddTargets((prev) => ({ ...prev, [collection.id]: event.target.value }))}
+                      options={assetOptions}
+                      onValueChange={(value) => setAddTargets((prev) => ({ ...prev, [collection.id]: value }))}
+                    />
+                    <Button
+                      className={styles.menuButton}
+                      onClick={() => selectedAssetId && addAssetToCollection(collection.id, selectedAssetId, getCollectionRole(collection.id))}
                     >
-                      <option value="">Add asset...</option>
-                      {assets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>{asset.name}</option>
-                      ))}
-                    </select>
-                    <button onClick={() => selectedAssetId && addAssetToCollection(collection.id, selectedAssetId, getCollectionRole(collection.id))}>
                       Add
-                    </button>
+                    </Button>
                   </div>
                 )}
                 <div className={styles.menuButtonRow}>
-                  <button onClick={() => moveCollection(collection, -1)} disabled={index === 0}>Move up</button>
-                  <button onClick={() => moveCollection(collection, 1)} disabled={index === orderedCollections.length - 1}>Move down</button>
+                  <Button
+                    className={styles.menuButton}
+                    onClick={() => moveCollection(collection, -1)}
+                    disabled={index === 0}
+                  >
+                    Move up
+                  </Button>
+                  <Button
+                    className={styles.menuButton}
+                    onClick={() => moveCollection(collection, 1)}
+                    disabled={index === orderedCollections.length - 1}
+                  >
+                    Move down
+                  </Button>
                 </div>
-                <button
-                  className={styles.removeMenuButton}
+                <Button
+                  className={styles.menuButton}
+                  variant="danger"
                   onClick={() => {
                     if (window.confirm(`Delete "${collection.name}"? Assets and variants will remain in the space.`)) {
                       deleteCollection(collection.id);
@@ -481,7 +527,7 @@ export function SpaceBoard({
                   }}
                 >
                   Delete collection
-                </button>
+                </Button>
               </div>
             </details>
           )}
@@ -537,17 +583,18 @@ export function SpaceBoard({
                   if (event.key === 'Enter') handleCreateCollection();
                 }}
               />
-              <select value={newKind} onChange={(event) => {
-                const kind = event.target.value as CollectionKind;
-                setNewKind(kind);
-                setNewColor(COLLECTION_KIND_COLORS[kind]);
-              }}>
-                {COLLECTION_KINDS.map((kind) => (
-                  <option key={kind} value={kind}>{COLLECTION_KIND_LABELS[kind]}</option>
-                ))}
-              </select>
+              <UiSelect
+                className={styles.createKindSelect}
+                label="New collection kind"
+                value={newKind}
+                options={COLLECTION_KIND_OPTIONS}
+                onValueChange={(kind) => {
+                  setNewKind(kind);
+                  setNewColor(COLLECTION_KIND_COLORS[kind]);
+                }}
+              />
               <input type="color" value={newColor} onChange={(event) => setNewColor(event.target.value)} aria-label="New collection color" />
-              <button onClick={handleCreateCollection}>Create</button>
+              <Button className={styles.menuButton} onClick={handleCreateCollection}>Create</Button>
             </div>
           </details>
         )}
@@ -559,7 +606,7 @@ export function SpaceBoard({
             <h3>Start with production sections</h3>
             <p>Collections organize assets without changing lineage or parent fields.</p>
           </div>
-          <button onClick={createStarterCollections}>Create starters</button>
+          <Button className={styles.menuButton} onClick={createStarterCollections}>Create starters</Button>
         </section>
       )}
 

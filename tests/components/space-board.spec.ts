@@ -171,6 +171,11 @@ const regeneratingAudioVariant = {
   updated_at: baseTime + 1,
 };
 
+async function selectDropdown(page: import('@playwright/test').Page, label: string, optionName: string, index = 0) {
+  await page.getByRole('combobox', { name: label, exact: true }).nth(index).click();
+  await page.getByRole('option', { name: optionName, exact: true }).click();
+}
+
 // Composition placement points a composition at a finished render. A pending /
 // failed variant has no usable media, so the post-generation control must not
 // offer to place it. Guard that only the ready card exposes the action.
@@ -262,4 +267,78 @@ test('audio cards keep completed playback while a sibling regeneration is runnin
   expect(calls).toHaveLength(1);
   expect(calls[0].eventName).toBe('regenerate');
   expect((calls[0].args[0] as { id: string }).id).toBe('audio-variant');
+});
+
+test('collection menus use shared dropdown controls', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 780 });
+  await mountComponent(page, 'SpaceBoard', {
+    spaceId: 'space-1',
+    assets: [asset('hero', 'Hero sprite'), asset('background', 'Forest background')],
+    variants: [readyVariant('hero'), { ...readyVariant('hero'), id: 'hero-alt-v', starred: true }, readyVariant('background')],
+    collections: [
+      {
+        id: 'cast',
+        name: 'Cast',
+        kind: 'cast',
+        color: null,
+        description: null,
+        sort_index: 0,
+        created_at: baseTime,
+        updated_at: baseTime,
+      },
+      {
+        id: 'backgrounds',
+        name: 'Backgrounds',
+        kind: 'backgrounds',
+        color: null,
+        description: null,
+        sort_index: 1,
+        created_at: baseTime,
+        updated_at: baseTime,
+      },
+    ],
+    collectionItems: [
+      {
+        id: 'cast-hero',
+        collection_id: 'cast',
+        subject_type: 'asset',
+        asset_id: 'hero',
+        variant_id: null,
+        pinned_variant_id: null,
+        role: 'character',
+        sort_index: 0,
+        created_at: baseTime,
+        updated_at: baseTime,
+      },
+    ],
+    canEdit: true,
+    onAssetClick: '__noop__',
+    createCollection: '__record__:createCollection',
+    updateCollection: '__record__:updateCollection',
+    deleteCollection: '__record__:deleteCollection',
+    addCollectionItem: '__record__:addCollectionItem',
+    updateCollectionItem: '__record__:updateCollectionItem',
+    reorderCollectionItems: '__record__:reorderCollectionItems',
+    deleteCollectionItem: '__record__:deleteCollectionItem',
+  });
+
+  await page.getByText('New collection').click();
+  await selectDropdown(page, 'New collection kind', 'Style References');
+  await page.getByText('New collection').click();
+
+  await page.getByText('Manage').first().click();
+  await selectDropdown(page, 'Collection kind', 'Scenes');
+  await selectDropdown(page, 'Asset to add to Cast', 'Forest background');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByText('Manage').first().click();
+
+  await page.getByTitle('Actions for Hero sprite').click();
+  await selectDropdown(page, 'Collection target for Hero sprite', 'Backgrounds');
+  await selectDropdown(page, 'Pinned variant for Hero sprite', 'Variant 2 star');
+  await screenshot(page, 'space-board-collection-menus', { fullPage: true });
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.some((call) => call.eventName === 'updateCollection')).toBe(true);
+  expect(calls.some((call) => call.eventName === 'addCollectionItem')).toBe(true);
+  expect(calls.some((call) => call.eventName === 'updateCollectionItem')).toBe(true);
 });
