@@ -159,7 +159,7 @@ test('asset detail controls use shared selects and collection buttons', async ({
   ]));
 });
 
-test('asset collection placement forms stay hidden until requested', async ({ page }) => {
+test('asset collection membership is compact until management is requested', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 540 });
   await mountComponent(page, 'AssetDetailControls', {
     value: 'character',
@@ -179,20 +179,33 @@ test('asset collection placement forms stay hidden until requested', async ({ pa
     onVariantPlacementDraftsChange: '__record__:variantDrafts',
   });
 
-  await expect(page.getByText('Asset collections')).toBeVisible();
+  await expect(page.getByText('Collections', { exact: true })).toBeVisible();
+  await expect(page.getByText('Cast')).toBeVisible();
+  await expect(page.getByText('Asset')).toBeVisible();
+  await expect(page.getByText('hero')).toBeVisible();
+  await expect(page.getByText('Style refs')).toBeVisible();
+  await expect(page.getByText('Selected variant')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Manage collections' })).toBeVisible();
+  await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Add selected variant to collections', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add asset to collection' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add variant to collection' })).toHaveCount(0);
+
+  await screenshot(page, 'collection-membership-compact', { fullPage: true });
+
+  await page.getByRole('button', { name: 'Manage collections' }).click();
+  await expect(page.getByLabel('Role in Cast')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove' }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add asset to collection' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add variant to collection' })).toBeVisible();
-
   await page.getByRole('button', { name: 'Add asset to collection' }).click();
   await expect(page.getByText('Add asset to collections', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Add to Style refs')).toBeVisible();
 
   await page.getByRole('button', { name: 'Hide' }).click();
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
-
-  await screenshot(page, 'asset-collections-placement-hidden', { fullPage: true });
 });
 
 test('asset collection placement shortcut opens selected variant picker', async ({ page }) => {
