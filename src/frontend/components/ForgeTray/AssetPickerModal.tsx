@@ -7,7 +7,7 @@ import {
   type ForgeMediaMode,
   getForgeMediaModeConfig,
 } from './forgeMediaMode';
-import { Button, UiSelect, type SelectOption } from '../../ui';
+import { Button, IconButton, UiSelect, type SelectOption } from '../../ui';
 import styles from './AssetPickerModal.module.css';
 
 export interface AssetPickerModalProps {
@@ -134,11 +134,11 @@ export function AssetPickerModal({
         <div className={styles.header}>
           <h2 className={styles.title}>Add to Forge Tray</h2>
           <span className={styles.modeHint}>{mediaModeConfig.label} references</span>
-          <button className={styles.closeButton} onClick={onClose} aria-label="Close">
+          <IconButton className={styles.closeButton} onClick={onClose} title="Close" aria-label="Close" variant="ghost" size="sm">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
-          </button>
+          </IconButton>
         </div>
 
         <div className={styles.filters}>
@@ -276,7 +276,7 @@ export function AssetPickerModal({
         </div>
 
         <div className={styles.footer}>
-          <Button className={styles.doneButton} onClick={onClose} variant="primary">
+          <Button onClick={onClose} variant="primary">
             Done
           </Button>
         </div>
