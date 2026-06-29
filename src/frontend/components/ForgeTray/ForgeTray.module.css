@@ -332,15 +332,13 @@
 .typeButton:focus-visible,
 .segment:focus-visible,
 .batchSelect:focus-visible,
-.forgeButton:focus-visible,
 .nameInput:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
 .typeButton:focus:not(:focus-visible),
-.segment:focus:not(:focus-visible),
-.forgeButton:focus:not(:focus-visible) {
+.segment:focus:not(:focus-visible) {
   outline: none;
 }
 
@@ -432,22 +430,10 @@
   white-space: nowrap;
 }
 
-/* Glossy Primary Forge Button — the single accent of the tray */
 .forgeButton {
-  display: flex;
-  align-items: center;
-  gap: 0.4375rem;
-  height: var(--ctl-h);
-  padding: 0 1.0625rem;
-  background: var(--forge-button-bg);
-  border: 1px solid var(--forge-button-border);
+  --ui-button-height: var(--ctl-h);
+  --ui-button-pad-x: 1.0625rem;
   border-radius: 10px;
-  color: white;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: var(--forge-button-shadow);
   flex-shrink: 0;
 }
 
@@ -455,25 +441,6 @@
   font-family: var(--mono);
   font-size: 0.6875rem;
   opacity: 0.65;
-}
-
-.forgeButton:hover:not(:disabled) {
-  background: var(--forge-button-hover-bg);
-  transform: translateY(-1px);
-  box-shadow:
-    0 6px 20px oklch(55% 0.18 276 / 0.5),
-    inset 0 1px 0 oklch(100% 0 0 / 0.35);
-}
-
-.forgeButton:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.forgeButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .forgeButton svg {
