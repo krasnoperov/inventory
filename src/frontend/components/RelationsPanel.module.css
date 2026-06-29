@@ -33,13 +33,13 @@
   color: var(--color-text);
 }
 
-.iconButton,
+.headerAction,
 .closeButton {
   --ui-button-height: 1.75rem;
   color: var(--color-text-muted);
 }
 
-.iconButton svg,
+.headerAction svg,
 .closeButton svg {
   width: 14px;
   height: 14px;
@@ -314,8 +314,7 @@
   gap: 0.625rem;
 }
 
-.primaryButton,
-.secondaryButton {
+.dialogActionButton {
   --ui-button-height: 2.125rem;
   --ui-button-pad-x: 0.875rem;
   --ui-button-font-size: 0.8125rem;

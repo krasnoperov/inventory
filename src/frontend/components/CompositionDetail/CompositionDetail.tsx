@@ -215,7 +215,7 @@ export function CompositionDetail({
           <h2>Exact variant production structure</h2>
         </div>
         {onClose && (
-          <IconButton className={styles.iconButton} onClick={onClose} title="Close composition detail" aria-label="Close composition detail">
+          <IconButton className={styles.panelIconAction} onClick={onClose} title="Close composition detail" aria-label="Close composition detail">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 6 6 18" />
               <path d="m6 6 12 12" />
@@ -382,7 +382,7 @@ export function CompositionDetail({
           <div className={styles.picker}>
             <div className={styles.pickerHeader}>
               <strong>Choose exact variant</strong>
-              <IconButton className={styles.iconButton} onClick={() => setPickerTarget(null)} title="Close variant picker" aria-label="Close variant picker">
+              <IconButton className={styles.panelIconAction} onClick={() => setPickerTarget(null)} title="Close variant picker" aria-label="Close variant picker">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6 6 18" />
                   <path d="m6 6 12 12" />

@@ -160,7 +160,7 @@ export function RelationsPanel({
       <div className={styles.header}>
         <h2 className={styles.title}>Relations</h2>
         <IconButton
-          className={styles.iconButton}
+          className={styles.headerAction}
           onClick={() => onCreate(primarySubject)}
           title="Create relation"
           aria-label="Create relation"
@@ -442,8 +442,8 @@ export function RelationEditorDialog({
         </label>
 
         <div className={styles.dialogActions}>
-          <Button className={styles.secondaryButton} onClick={onCancel} variant="secondary">Cancel</Button>
-          <Button type="submit" className={styles.primaryButton} disabled={!canSubmit} variant="primary">
+          <Button className={styles.dialogActionButton} onClick={onCancel} variant="secondary">Cancel</Button>
+          <Button type="submit" className={styles.dialogActionButton} disabled={!canSubmit} variant="primary">
             {mode === 'edit' ? 'Save' : 'Create'}
           </Button>
         </div>
