@@ -358,7 +358,9 @@ export function AssetDetailsStrip({
   const dimensions = formatDimensions(selectedVariant);
   const duration = formatDuration(selectedVariant?.media_duration_ms);
   const collectionCount = assetCollectionCount + selectedVariantCollectionCount;
-  const detailsActionLabel = `${fullDetailsOpen ? 'Hide' : 'Show'} ${formatMediaKind(asset.media_kind).toLowerCase()} details`;
+  const mediaKindLabel = formatMediaKind(asset.media_kind);
+  const detailsActionText = `${mediaKindLabel} details`;
+  const detailsActionLabel = `${fullDetailsOpen ? 'Hide' : 'Show'} ${mediaKindLabel.toLowerCase()} details`;
 
   return (
     <section className={styles.assetDetailsStrip} aria-label="Asset details">
@@ -423,7 +425,7 @@ export function AssetDetailsStrip({
         aria-label={detailsActionLabel}
         title={detailsActionLabel}
       >
-        Details
+        {detailsActionText}
         <svg
           className={styles.assetDetailsChevron}
           viewBox="0 0 16 16"
