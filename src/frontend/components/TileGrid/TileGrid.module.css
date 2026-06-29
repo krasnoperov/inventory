@@ -128,18 +128,14 @@
 }
 
 .refineButton {
-  padding: 0.375rem 0.75rem;
-  border-radius: var(--radius-md);
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: background 0.15s;
-}
+  --ui-button-height: 1.875rem;
+  --ui-button-pad-x: 0.75rem;
+  --ui-button-font-size: 0.75rem;
+  --ctl-surface: var(--color-bg-elevated);
+  --ctl-hover: var(--color-bg-hover);
 
-.refineButton:hover {
-  background: var(--color-bg-hover);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
 }
 
 .failedHint {
@@ -149,24 +145,18 @@
 }
 
 .retryButton {
+  --ui-button-height: 1.25rem;
+  --ui-button-pad-x: 0.5rem;
+  --ui-button-font-size: 0.5625rem;
+
   position: absolute;
   bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 2px 8px;
   border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  font-size: 0.5625rem;
   font-weight: 600;
-  cursor: pointer;
   text-transform: uppercase;
   z-index: 3;
-}
-
-.retryButton:hover {
-  opacity: 0.9;
 }
 
 .ratingApproved {

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { TileSet, TilePosition, Variant } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
+import { Button } from '../../ui';
 import styles from './TileGrid.module.css';
 
 interface TileGridProps {
@@ -67,20 +68,24 @@ export function TileGrid({
       {tileSet.status === 'completed' && (onRefineEdges || onExportTrainingData) && (
         <div className={styles.actionBar}>
           {onRefineEdges && (
-            <button
+            <Button
               className={styles.refineButton}
               onClick={() => onRefineEdges(tileSet.id)}
+              variant="secondary"
+              size="sm"
             >
               Refine Edges
-            </button>
+            </Button>
           )}
           {onExportTrainingData && (
-            <button
+            <Button
               className={styles.refineButton}
-              onClick={onExportTrainingData}
+              onClick={() => onExportTrainingData()}
+              variant="secondary"
+              size="sm"
             >
               Export Training Data
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -159,16 +164,18 @@ export function TileGrid({
                           err
                         </span>
                         {onRetryTile && (
-                          <button
+                          <Button
                             className={styles.retryButton}
                             onClick={(e) => {
                               e.stopPropagation();
                               onRetryTile(tileSet.id, x, y);
                             }}
                             title="Retry this tile"
+                            variant="primary"
+                            size="sm"
                           >
                             Retry
-                          </button>
+                          </Button>
                         )}
                       </>
                     )}

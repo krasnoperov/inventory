@@ -20,6 +20,7 @@ import { SpaceCanvas } from './components/SpaceCanvas';
 import { SpaceSharingPanel } from './components/SpaceSharingPanel';
 import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
 import { Thumbnail } from './components/Thumbnail';
+import { TileGrid } from './components/TileGrid/TileGrid';
 import { TileSetPanel } from './components/TileSetPanel/TileSetPanel';
 import { VariantCanvas } from './components/VariantCanvas';
 import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPanel';
@@ -504,6 +505,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   SpaceAccessRequestView: SpaceAccessRequestView as unknown as ComponentType<Record<string, unknown>>,
   StyleReferenceUsagePanel: StyleReferenceUsagePanel as unknown as ComponentType<Record<string, unknown>>,
   Thumbnail: Thumbnail as unknown as ComponentType<Record<string, unknown>>,
+  TileGrid: TileGrid as unknown as ComponentType<Record<string, unknown>>,
   TileSetPanel: TileSetPanel as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
   VariantDetailsPanel: VariantDetailsPanel as unknown as ComponentType<Record<string, unknown>>,
