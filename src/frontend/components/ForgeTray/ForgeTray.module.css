@@ -246,190 +246,6 @@
   transform: scale(1.05);
 }
 
-/* Media selection — square icon buttons (type + audio sub-mode) and voice */
-.selector {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.125rem 0.625rem;
-}
-
-/* Faint track holds the square buttons as one group (no per-button borders) */
-.typeRow {
-  display: inline-flex;
-  gap: 0.25rem;
-  padding: 0.1875rem;
-  background: var(--ctl-track);
-  border-radius: calc(var(--radius-md) + 3px);
-  width: fit-content;
-}
-
-.typeButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.125rem;
-  height: 2.125rem;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.typeButton:hover:not(.active):not(:disabled) {
-  color: var(--color-text);
-  background: var(--ctl-hover);
-}
-
-.typeButton.active {
-  color: var(--color-primary);
-  background: var(--ctl-accent-bg);
-}
-
-.typeButton:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* Control bar: minimal options (left), name + submit (right) */
-.actionBar {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem 0.625rem;
-  padding: 0.25rem 0.625rem 0.5rem;
-  flex-wrap: wrap;
-}
-
-.actionBarLeft {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  flex-wrap: wrap;
-  flex: 1 1 auto;
-}
-
-.actionBarRight {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  margin-left: auto;
-}
-
-/* Thin group separator (hairline) */
-.divider {
-  flex: 0 0 auto;
-  width: 1px;
-  height: 18px;
-  background: var(--color-border);
-  opacity: 0.7;
-  margin: 0 0.25rem;
-}
-
-/* Keyboard focus — one consistent ring, no stray click outlines */
-.typeButton:focus-visible,
-.segment:focus-visible,
-.batchSelect:focus-visible,
-.nameInput:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.typeButton:focus:not(:focus-visible),
-.segment:focus:not(:focus-visible) {
-  outline: none;
-}
-
-/* Segmented control — faint track, soft raised pill for the active item */
-.segmented {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.125rem;
-  padding: 0.1875rem;
-  background: var(--ctl-track);
-  border: none;
-  border-radius: var(--radius-md);
-}
-
-.segment {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  padding: 0.3125rem 0.625rem;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-  white-space: nowrap;
-}
-
-.segment:hover:not(:disabled):not(.active) {
-  color: var(--color-text);
-  background: var(--ctl-hover);
-}
-
-.segment.active {
-  background: var(--ctl-active-bg);
-  color: var(--color-text);
-  font-weight: 600;
-  box-shadow: var(--ctl-active-shadow);
-}
-
-.segment:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.segment svg {
-  flex-shrink: 0;
-  opacity: 0.85;
-}
-
-/* Name — auto-generated, quietly editable */
-.nameInput {
-  width: 100%;
-  max-width: 9rem;
-  min-width: 4rem;
-  padding: 0.25rem 0;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
-  outline: none;
-  font-size: 0.8125rem;
-  font-family: inherit;
-  color: var(--color-text-muted);
-  text-align: right;
-  text-overflow: ellipsis;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.nameInput:hover:not(:disabled),
-.nameInput:focus {
-  color: var(--color-text);
-  border-bottom-color: var(--color-border);
-}
-
-.nameInput:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.nameReadonly {
-  max-width: 9rem;
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .forgeButton {
   --ui-button-height: var(--ctl-h);
   --ui-button-pad-x: 1.0625rem;
@@ -473,10 +289,6 @@
     left: 0.5rem;
     right: 0.5rem;
     width: auto;
-  }
-
-  .actionBar {
-    flex-wrap: wrap;
   }
 
   .forgeButton {
@@ -590,31 +402,6 @@
 
 .noStyleCheck:hover {
   color: var(--color-text);
-}
-
-/* Batch Count Selector — borderless, matches the icon actions */
-.batchSelect {
-  height: 2rem;
-  padding: 0 0.4375rem;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  outline: none;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.batchSelect:hover:not(:disabled) {
-  color: var(--color-text);
-  background: var(--ctl-hover);
-}
-
-.batchSelect:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Forge Error Message */
@@ -793,7 +580,7 @@
   --ui-select-max-width: 6rem;
 }
 
-/* Mini segmented (batch count, destination, video count) */
+/* Mini destination control */
 .miniSeg {
   display: inline-flex;
   align-items: center;
@@ -801,37 +588,6 @@
   padding: 3px;
   background: var(--ctl-track);
   border-radius: 9px;
-}
-
-.miniSegItem {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.75rem;
-  height: 1.5rem;
-  padding: 0 0.375rem;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.miniSegItem:hover:not(.active):not(.disabled):not(:disabled) {
-  color: var(--color-text);
-}
-
-.miniSegItem.active {
-  background: var(--color-primary);
-  color: #fff;
-}
-
-.miniSegItem.disabled {
-  opacity: 0.45;
-  cursor: default;
 }
 
 .miniSegText {
@@ -906,7 +662,6 @@
   box-shadow: none;
 }
 
-.miniSegItem:focus-visible,
 .miniSegText:focus-visible,
 .nameChip:focus-visible {
   outline: 2px solid var(--color-primary);
