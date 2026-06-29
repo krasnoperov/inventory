@@ -23,6 +23,11 @@ async function resetScrollablePanels(page: Page) {
   });
 }
 
+async function selectOption(page: Page, label: string, optionName: string | RegExp) {
+  await page.getByLabel(label).click();
+  await page.getByRole('option', { name: optionName }).click();
+}
+
 const sourceAsset = {
   id: 'hero',
   name: 'Hero Character',
@@ -74,23 +79,26 @@ test('tile set panel uses shared fields without changing submit payload', async 
   });
 
   await expect(page.getByRole('heading', { name: 'Create Tile Set' })).toBeVisible();
+  await selectOption(page, 'Tile Type', 'Building');
+  await selectOption(page, 'Grid Size', '4x4');
+  await selectOption(page, 'Generation Mode', 'Single-Shot');
   await page.getByPlaceholder('e.g. lush green forest floor with mossy stones and fallen leaves').fill('mossy forest floor');
   await page.getByLabel('No style').check();
   await resetScrollablePanels(page);
   await screenshot(page, 'tile-set-panel-shared-fields', { fullPage: true });
 
-  await page.getByRole('button', { name: 'Generate 3x3 Tiles' }).click();
+  await page.getByRole('button', { name: 'Generate 4x4 Tiles' }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls).toContainEqual(expect.objectContaining({
     eventName: 'submitTileSet',
     args: [expect.objectContaining({
-      tileType: 'terrain',
-      gridWidth: 3,
-      gridHeight: 3,
+      tileType: 'building',
+      gridWidth: 4,
+      gridHeight: 4,
       prompt: 'mossy forest floor',
       disableStyle: true,
-      generationMode: 'sequential',
+      generationMode: 'single-shot',
     })],
   }));
 });
@@ -111,6 +119,8 @@ test('rotation panel uses shared fields without changing submit payload', async 
   });
 
   await expect(page.getByRole('heading', { name: 'Generate Rotation Set' })).toBeVisible();
+  await selectOption(page, 'Configuration', /Turnaround/);
+  await selectOption(page, 'Generation Mode', 'Single-Shot');
   await page.getByPlaceholder('e.g. a pixel art warrior character').fill('pixel art warrior');
   await page.getByLabel('No style').check();
   await resetScrollablePanels(page);
@@ -123,10 +133,10 @@ test('rotation panel uses shared fields without changing submit payload', async 
     eventName: 'submitRotation',
     args: [expect.objectContaining({
       sourceVariantId: 'hero-variant',
-      config: '4-directional',
+      config: 'turnaround',
       subjectDescription: 'pixel art warrior',
       disableStyle: true,
-      generationMode: 'sequential',
+      generationMode: 'single-shot',
     })],
   }));
 });
