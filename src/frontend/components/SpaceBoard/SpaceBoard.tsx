@@ -2,7 +2,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { Thumbnail } from '../Thumbnail';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
-import { Button, UiSelect, type SelectOption } from '../../ui';
+import { Button, TextInput, UiSelect, type SelectOption } from '../../ui';
 import type {
   Asset,
   CollectionItem,
@@ -375,11 +375,11 @@ export function SpaceBoard({
                 <>
                   <label>
                     <span>Role</span>
-                    <input
-                      className={styles.roleInput}
+                    <TextInput
                       value={item.role}
                       aria-label={`Role for ${asset.name}`}
                       onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                      fullWidth
                     />
                   </label>
                   {item.subject_type === 'asset' && assetVariants.length > 0 && (
@@ -455,11 +455,12 @@ export function SpaceBoard({
               <div className={styles.collectionMenuPanel}>
                 <label>
                   <span>Name</span>
-                  <input
+                  <TextInput
                     className={styles.collectionNameInput}
                     value={collection.name}
                     aria-label="Collection name"
                     onChange={(event) => updateCollection(collection.id, { name: event.target.value })}
+                    fullWidth
                   />
                 </label>
                 <label>
@@ -575,13 +576,14 @@ export function SpaceBoard({
           <details className={styles.createControls}>
             <summary>New collection</summary>
             <div className={styles.createPanel}>
-              <input
+              <TextInput
                 value={newName}
                 placeholder="Collection name"
                 onChange={(event) => setNewName(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') handleCreateCollection();
                 }}
+                fullWidth
               />
               <UiSelect
                 className={styles.createKindSelect}

@@ -121,23 +121,13 @@
   align-items: center;
 }
 
-.createPanel input:not([type='color']),
-.collectionMenuPanel input:not([type='color']),
-.cardMenuPanel input {
-  min-height: 32px;
-  min-width: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-  font-size: var(--font-size-small-sm);
-}
-
-.createPanel input:not([type='color']),
-.collectionMenuPanel input:not([type='color']),
-.cardMenuPanel input {
-  padding: 0.35rem 0.55rem;
+.createPanel,
+.collectionMenuPanel,
+.cardMenuPanel {
+  --ui-text-input-height: 32px;
+  --ui-text-field-font-size: var(--font-size-small-sm);
+  --ctl-surface: var(--color-surface);
+  --ctl-line: var(--color-border);
 }
 
 .createPanel input[type='color'],
