@@ -464,7 +464,7 @@
 
 /* ============================================================
    Design-system layout (Forge Tray.dc.html) — mode popover,
-   options row, asset header, control bar. Theme-aware tokens.
+   options row, destination header, control bar. Theme-aware tokens.
    ============================================================ */
 
 .hairline {
@@ -472,8 +472,8 @@
   background: var(--forge-bar-border-inner);
 }
 
-/* Asset-detail header */
-.assetHeader {
+/* Asset-detail destination control */
+.destinationHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -481,35 +481,13 @@
   padding: 0.625rem 0.75rem 0.5rem;
 }
 
-.assetHeaderInfo {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.assetThumb {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 7px;
-  border: 1px solid var(--ctl-line);
-  background: repeating-linear-gradient(45deg, var(--ctl-track), var(--ctl-track) 5px, transparent 5px, transparent 10px);
-  flex: none;
-}
-
-.assetHeaderName {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.assetHeaderMeta {
+.destinationLabel {
   font-family: var(--mono);
   font-size: 0.625rem;
+  font-weight: 650;
   color: var(--color-text-muted);
+  letter-spacing: 0;
+  text-transform: uppercase;
   flex: none;
 }
 
