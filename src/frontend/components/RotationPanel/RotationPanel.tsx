@@ -8,12 +8,13 @@ import type {
   RotationRequestParams,
 } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
+import { Checkbox, TextInput } from '../../ui';
 import styles from './RotationPanel.module.css';
 
 const CONFIGS: { value: RotationConfig; label: string; icon: string; count: number }[] = [
-  { value: '4-directional', label: '4-Dir', icon: '???', count: 4 },
-  { value: '8-directional', label: '8-Dir', icon: '???', count: 8 },
-  { value: 'turnaround', label: 'Turnaround', icon: '????', count: 5 },
+  { value: '4-directional', label: '4-Dir', icon: '4', count: 4 },
+  { value: '8-directional', label: '8-Dir', icon: '8', count: 8 },
+  { value: 'turnaround', label: 'Turnaround', icon: '360', count: 5 },
 ];
 
 interface RotationPanelProps {
@@ -354,12 +355,12 @@ export function RotationPanel({
           {/* Subject description */}
           <div className={styles.inputGroup}>
             <span className={styles.sectionLabel}>Subject Description</span>
-            <input
-              type="text"
+            <TextInput
               className={styles.textInput}
               value={subjectDescription}
               onChange={(e) => setSubjectDescription(e.target.value)}
               placeholder="e.g. a pixel art warrior character"
+              fullWidth
             />
             <span className={styles.inputHint}>
               Helps the AI maintain consistency across views
@@ -393,8 +394,8 @@ export function RotationPanel({
           {/* No style checkbox */}
           {hasDefaultStyle && (
             <label className={styles.noStyleCheck}>
-              <input
-                type="checkbox"
+              <Checkbox
+                className={styles.noStyleCheckbox}
                 checked={disableStyle}
                 onChange={(e) => setDisableStyle(e.target.checked)}
               />

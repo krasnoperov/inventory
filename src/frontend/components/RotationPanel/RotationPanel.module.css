@@ -421,9 +421,9 @@
   white-space: nowrap;
 }
 
-.noStyleCheck input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
+.noStyleCheckbox {
+  --ui-checkbox-size: 14px;
+
   accent-color: var(--color-primary);
   cursor: pointer;
 }
