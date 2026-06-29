@@ -407,6 +407,8 @@ export function ForgeTray({
 
   // Destination state
   const [destinationType, setDestinationType] = useState<DestinationType>('existing_asset');
+  const currentDestinationRef = useRef<HTMLButtonElement>(null);
+  const newDestinationRef = useRef<HTMLButtonElement>(null);
   // The asset name is auto-derived (Image N / Video N / Audio N). It only becomes
   // user-controlled once the user types into the (subtle) name field; until then
   // it tracks the auto default so switching media type relabels it.
@@ -888,6 +890,24 @@ export function ForgeTray({
     }
   }, [handleSubmit]);
 
+  const handleDestinationKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (isSubmitting) return;
+
+    const selectDestination = (nextDestination: DestinationType) => {
+      if (nextDestination === 'existing_asset' && !canUseExistingDestination) return;
+      e.preventDefault();
+      setDestinationType(nextDestination);
+      const targetRef = nextDestination === 'existing_asset' ? currentDestinationRef : newDestinationRef;
+      requestAnimationFrame(() => targetRef.current?.focus());
+    };
+
+    if (e.key === 'ArrowLeft' || e.key === 'Home') {
+      selectDestination('existing_asset');
+    } else if (e.key === 'ArrowRight' || e.key === 'End') {
+      selectDestination('new_asset');
+    }
+  }, [canUseExistingDestination, isSubmitting]);
+
   // Toggle chat panel
   const handleToggleChat = useCallback(() => {
     setShowChat(prev => !prev);
@@ -1123,21 +1143,34 @@ export function ForgeTray({
                     </span>
                   )}
                 </div>
-                <div className={styles.miniSeg} role="group" aria-label="Destination">
+                <div
+                  className={styles.miniSeg}
+                  role="radiogroup"
+                  aria-label="Destination"
+                  onKeyDown={handleDestinationKeyDown}
+                >
                   <button
+                    ref={currentDestinationRef}
                     type="button"
+                    role="radio"
+                    aria-checked={destinationType === 'existing_asset'}
                     className={`${styles.miniSegText} ${destinationType === 'existing_asset' ? styles.active : ''}`}
                     onClick={() => setDestinationType('existing_asset')}
                     disabled={isSubmitting || !canUseExistingDestination}
+                    tabIndex={destinationType === 'existing_asset' ? 0 : -1}
                     title={!canUseExistingDestination ? `${mediaModeConfig.label} mode creates ${selectedMediaKind} assets` : 'Add to current asset'}
                   >
                     Current
                   </button>
                   <button
+                    ref={newDestinationRef}
                     type="button"
+                    role="radio"
+                    aria-checked={destinationType === 'new_asset'}
                     className={`${styles.miniSegText} ${destinationType === 'new_asset' ? styles.active : ''}`}
                     onClick={() => setDestinationType('new_asset')}
                     disabled={isSubmitting}
+                    tabIndex={destinationType === 'new_asset' ? 0 : -1}
                     title="Create new asset"
                   >
                     New
