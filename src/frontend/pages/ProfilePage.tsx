@@ -11,7 +11,7 @@ import { BillingSection } from '../components/BillingSection';
 import { apiFetch } from '../../api/client';
 import type { ProviderKeyProvider, ProviderKeySummary, UserProfile } from '../../api/types';
 import { providerKeysQueryOptions, userProfileQueryOptions } from '../queries';
-import { Button } from '../ui';
+import { Button, Checkbox, TextInput } from '../ui';
 import styles from './ProfilePage.module.css';
 
 const providerHelp: Record<ProviderKeyProvider, string> = {
@@ -72,15 +72,15 @@ export function ProfileProviderKeyRow({
       </div>
 
       <div className={styles.providerControls}>
-        <input
+        <TextInput
           type="password"
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
-          className={formStyles.input}
           placeholder={provider.configured ? 'Replace API key' : 'API key'}
           autoComplete="off"
           disabled={isSaving || isDeleting}
           aria-label={`${provider.label} API key`}
+          fullWidth
         />
         <div className={styles.providerActions}>
           <Button
@@ -126,8 +126,8 @@ export function ProfileDangerZone({
 
       <div className={styles.dangerPanel}>
         <label className={styles.confirmationCheck}>
-          <input
-            type="checkbox"
+          <Checkbox
+            className={styles.dangerCheckbox}
             checked={deleteAcknowledged}
             onChange={(event) => onAcknowledgedChange(event.target.checked)}
             disabled={isDeletingAccount}
@@ -141,15 +141,15 @@ export function ProfileDangerZone({
           <label htmlFor="delete-email" className={formStyles.label}>
             Type your email to confirm
           </label>
-          <input
+          <TextInput
             id="delete-email"
             type="email"
             value={deleteEmail}
             onChange={(event) => onDeleteEmailChange(event.target.value)}
-            className={formStyles.input}
             placeholder={profileEmail || 'you@example.com'}
             autoComplete="off"
             disabled={isDeletingAccount}
+            fullWidth
           />
         </div>
 
@@ -356,14 +356,14 @@ export default function ProfilePage() {
                 <label htmlFor="name" className={formStyles.label}>
                   Name *
                 </label>
-                <input
+                <TextInput
                   id="name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className={formStyles.input}
                   placeholder="Enter your name"
                   disabled={isSaving}
+                  fullWidth
                 />
               </div>
 
@@ -371,13 +371,14 @@ export default function ProfilePage() {
                 <label htmlFor="email" className={formStyles.label}>
                   Email
                 </label>
-                <input
+                <TextInput
                   id="email"
                   type="email"
                   value={profile?.email || ''}
-                  className={`${formStyles.input} ${formStyles.readonly}`}
+                  className={formStyles.readonly}
                   disabled
                   readOnly
+                  fullWidth
                 />
               </div>
 
