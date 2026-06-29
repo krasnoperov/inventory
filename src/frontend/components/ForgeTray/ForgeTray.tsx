@@ -1484,8 +1484,7 @@ export function ForgeTray({
             <div className={styles.controlBarRight}>
               {/* Name — auto-generated, quietly editable (new asset only; existing shows in header) */}
               {showNameInput && (
-                <input
-                  type="text"
+                <TextInput
                   className={styles.nameChip}
                   value={nameValue}
                   onChange={(e) => handleNameChange(e.target.value)}
