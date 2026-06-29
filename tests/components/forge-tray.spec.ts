@@ -252,6 +252,10 @@ test('forge tray auto-names by media group and stays editable', async ({ page })
   });
   await disableAnimations(page);
 
+  await expect(page.getByLabel('Asset name')).toHaveCount(0);
+  await screenshot(page, 'forge-tray-collapsed-no-name-chip', { fullPage: true });
+  await revealOptions(page);
+
   const name = page.getByLabel('Asset name');
   await expect(name).toHaveValue('Image 1');
 
@@ -261,6 +265,23 @@ test('forge tray auto-names by media group and stays editable', async ({ page })
   await name.fill('My jingle');
   await selectMediaGroup(page, 'Image');
   await expect(name).toHaveValue('My jingle');
+
+  await page.mouse.click(10, 10);
+  await expect(name).toBeVisible();
+
+  await page.getByLabel('Prompt').fill('A compact chime');
+  await page.getByRole('button', { name: 'Generate' }).click();
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toEqual([
+    expect.objectContaining({
+      eventName: 'forge-submit',
+      args: [
+        expect.objectContaining({
+          destination: expect.objectContaining({ assetName: 'My jingle' }),
+        }),
+      ],
+    }),
+  ]);
 });
 
 test('forge tray image options expose batch count', async ({ page }) => {
