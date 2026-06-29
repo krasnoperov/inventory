@@ -18,35 +18,47 @@ export function StyleReferenceUsagePanel({
   if (collections.length === 0 && presets.length === 0 && outputs.length === 0) {
     return null;
   }
+  const usageCount = collections.length + presets.length + outputs.length;
 
   return (
-    <div className={styles.panel}>
-      <strong>Style reference usage</strong>
+    <section className={styles.panel} aria-label="Style reference usage">
+      <div className={styles.header}>
+        <h2 className={styles.title}>
+          Style usage
+          <span className={styles.countBadge}>{usageCount}</span>
+        </h2>
+      </div>
       {collections.length > 0 && (
-        <div>
-          <span>Collections</span>
-          {collections.map((collection) => (
-            <small key={collection.id}>{collection.name}</small>
-          ))}
+        <div className={styles.group}>
+          <div className={styles.groupTitle}>Collections</div>
+          <div className={styles.items}>
+            {collections.map((collection) => (
+              <span key={collection.id} className={styles.item}>{collection.name}</span>
+            ))}
+          </div>
         </div>
       )}
       {presets.length > 0 && (
-        <div>
-          <span>Presets</span>
-          {presets.map((preset) => (
-            <small key={preset.id}>{preset.name}</small>
-          ))}
+        <div className={styles.group}>
+          <div className={styles.groupTitle}>Presets</div>
+          <div className={styles.items}>
+            {presets.map((preset) => (
+              <span key={preset.id} className={styles.item}>{preset.name}</span>
+            ))}
+          </div>
         </div>
       )}
       {outputs.length > 0 && (
-        <div>
-          <span>Generated outputs</span>
-          {outputs.map((output) => (
-            <Link key={output.id} to={`/spaces/${spaceId}/assets/${output.id}`}>{output.name}</Link>
-          ))}
+        <div className={styles.group}>
+          <div className={styles.groupTitle}>Generated outputs</div>
+          <div className={styles.items}>
+            {outputs.map((output) => (
+              <Link key={output.id} className={styles.itemLink} to={`/spaces/${spaceId}/assets/${output.id}`}>{output.name}</Link>
+            ))}
+          </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
