@@ -8,7 +8,7 @@ import type {
   RotationRequestParams,
 } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
-import { Checkbox, TextInput } from '../../ui';
+import { Button, Checkbox, TextInput } from '../../ui';
 import styles from './RotationPanel.module.css';
 
 const CONFIGS: { value: RotationConfig; label: string; icon: string; count: number }[] = [
@@ -51,6 +51,7 @@ export function RotationPanel({
   const [disableStyle, setDisableStyle] = useState(false);
   const [generationMode, setGenerationMode] = useState<'sequential' | 'single-shot'>('sequential');
   const [dismissedFailedSetId, setDismissedFailedSetId] = useState<string | null>(null);
+  const [selectedCompletedViewId, setSelectedCompletedViewId] = useState<string | null>(null);
 
   // Check if there's an active rotation set for this variant
   const activeSet = rotationSets.find(
@@ -233,6 +234,12 @@ export function RotationPanel({
   // Completed view
   if (completedSet) {
     const views = rotationViews.filter((rv) => rv.rotation_set_id === completedSet.id);
+    const selectedView = views.find((view) => view.id === selectedCompletedViewId) ?? views.find((view) => view.variant_id);
+    const selectedVariant = selectedView?.variant_id
+      ? variants.find((variant) => variant.id === selectedView.variant_id && variant.status === 'completed')
+      : undefined;
+    const selectedRating = selectedVariant?.quality_rating;
+
     return (
       <div className={styles.backdrop} onClick={handleBackdropClick}>
         <div className={styles.modal}>
@@ -253,36 +260,48 @@ export function RotationPanel({
                   ? getR2ImageUrl(variant.thumb_key || variant.image_key)
                   : undefined;
                 const rating = variant?.quality_rating;
+                const ratingClass = rating === 'approved'
+                  ? styles.directionApproved
+                  : rating === 'rejected'
+                    ? styles.directionRejected
+                    : '';
+                const isSelected = selectedView?.id === view.id;
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={view.id}
-                    className={`${styles.directionCell} ${styles.completed}`}
+                    className={`${styles.directionCell} ${styles.completed} ${styles.selectableDirection} ${isSelected ? styles.selected : ''} ${ratingClass}`}
+                    onClick={() => setSelectedCompletedViewId(view.id)}
+                    aria-pressed={isSelected}
                   >
                     {viewThumb && <img src={viewThumb} alt={view.direction} className={styles.directionThumb} />}
                     <span className={styles.directionLabel}>{view.direction}</span>
-                    {rating === 'approved' && (
-                      <span className={styles.ratingBadge} data-rating="approved">&#10003;</span>
-                    )}
-                    {rating === 'rejected' && (
-                      <span className={styles.ratingBadge} data-rating="rejected">&#10007;</span>
-                    )}
-                    {onRateVariant && variant && (
-                      <div className={styles.ratingButtons}>
-                        <button
-                          className={`${styles.rateBtn} ${styles.rateBtnApprove}`}
-                          onClick={(e) => { e.stopPropagation(); onRateVariant(variant.id, 'approved'); }}
-                        >&#10003;</button>
-                        <button
-                          className={`${styles.rateBtn} ${styles.rateBtnReject}`}
-                          onClick={(e) => { e.stopPropagation(); onRateVariant(variant.id, 'rejected'); }}
-                        >&#10007;</button>
-                      </div>
-                    )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
+            {onRateVariant && selectedVariant && (
+              <div className={styles.ratingActions} aria-label="Selected rotation view rating">
+                <span className={styles.ratingContext}>{selectedView?.direction}</span>
+                <Button
+                  size="sm"
+                  variant={selectedRating === 'approved' ? 'primary' : 'secondary'}
+                  onClick={() => onRateVariant(selectedVariant.id, 'approved')}
+                  aria-pressed={selectedRating === 'approved'}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant={selectedRating === 'rejected' ? 'danger' : 'secondary'}
+                  onClick={() => onRateVariant(selectedVariant.id, 'rejected')}
+                  aria-pressed={selectedRating === 'rejected'}
+                >
+                  Reject
+                </Button>
+              </div>
+            )}
           </div>
           <div className={styles.footer}>
             <button className={styles.cancelButton} onClick={onClose}>
