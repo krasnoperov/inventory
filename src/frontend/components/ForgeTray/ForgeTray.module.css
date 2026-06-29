@@ -81,15 +81,17 @@
 
 /* Auto-expanding Prompt Textarea */
 .promptTextarea {
-  width: 100%;
+  --ui-textarea-min-height: 44px;
+  --ui-text-field-font-size: 1.0625rem;
+
   min-height: 44px;
   max-height: 220px;
   padding: 1rem 1.125rem 0.5rem;
   background: transparent;
   border: none;
+  border-radius: 0;
   outline: none;
   font-size: 1.0625rem;
-  font-family: inherit;
   color: var(--color-text);
   line-height: 1.45;
   resize: none;
@@ -104,6 +106,10 @@
 .promptTextarea:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.promptTextarea:focus-visible {
+  box-shadow: none;
 }
 
 /* Custom scrollbar for textarea */
