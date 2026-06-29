@@ -12,7 +12,7 @@ import {
   type Edge,
   BackgroundVariant,
 } from '@xyflow/react';
-import { type Asset, type SpaceSubject, type Variant, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
 import { AssetNode, type AssetNodeType } from './AssetNode';
 import { applyLayout, type LayoutAlgorithm } from './layouts';
 
@@ -44,8 +44,6 @@ export interface AssetCanvasProps {
   jobs?: Map<string, { assetId?: string; status: string }>;
   isInitialSyncPending?: boolean;
   onAssetClick?: (asset: Asset) => void;
-  onAddToTray?: (variant: Variant, asset: Asset) => void;
-  onCreateRelation?: (subject: SpaceSubject) => void;
   /** Layout direction: TB (top-bottom), LR (left-right), BT, RL. Default: LR */
   layoutDirection?: LayoutDirection;
   /** Layout algorithm to use */
@@ -66,8 +64,6 @@ function AssetCanvasInner({
   jobs,
   isInitialSyncPending,
   onAssetClick,
-  onAddToTray,
-  onCreateRelation,
   layoutDirection = 'LR',
   layoutAlgorithm = 'dagre',
   dimensionsReady,
@@ -123,8 +119,6 @@ function AssetCanvasInner({
           spaceId,
           isGenerating: isAssetGenerating(asset.id),
           onAssetClick,
-          onAddToTray,
-          onCreateRelation,
           // Exact thumbnail width so the card matches the image aspect ratio
           thumbWidth: dims ? dims.width - NODE_PADDING : undefined,
         },
@@ -142,7 +136,7 @@ function AssetCanvasInner({
     });
 
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
-  }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, onAddToTray, onCreateRelation, imageDimensions, layoutDirection, layoutAlgorithm, spaceId]);
+  }, [assets, getAssetVariant, isAssetGenerating, onAssetClick, imageDimensions, layoutDirection, layoutAlgorithm, spaceId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<AssetNodeType>(initialNodes);
   const [edges, setEdges] = useEdgesState(initialEdges);
@@ -226,8 +220,6 @@ export function AssetCanvas({
   jobs,
   isInitialSyncPending,
   onAssetClick,
-  onAddToTray,
-  onCreateRelation,
   layoutDirection = 'LR',
   layoutAlgorithm = 'dagre',
 }: AssetCanvasProps) {
@@ -312,8 +304,6 @@ export function AssetCanvas({
         jobs={jobs}
         isInitialSyncPending={isInitialSyncPending}
         onAssetClick={onAssetClick}
-        onAddToTray={onAddToTray}
-        onCreateRelation={onCreateRelation}
         layoutDirection={layoutDirection}
         layoutAlgorithm={layoutAlgorithm}
         dimensionsReady={dimensionsReady}
