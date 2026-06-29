@@ -459,6 +459,47 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await screenshot(page, 'forge-tray-chat-sheet', { fullPage: true });
 });
 
+test('forge tray control bar keeps compact icon actions interactive', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: matrixAssets,
+    allVariants: matrixVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    onUploadNewAsset: '__noop__',
+    sendChatMessage: '__noop__',
+    requestChatHistory: '__noop__',
+    clearChatSession: '__noop__',
+  });
+  await disableAnimations(page);
+
+  const addReferenceButton = page.getByRole('button', { name: 'Add reference' });
+  const uploadButton = page.getByRole('button', { name: 'Upload media' });
+  const chatButton = page.getByRole('button', { name: 'Chat' });
+
+  for (const action of [addReferenceButton, uploadButton, chatButton]) {
+    await expect(action).toBeVisible();
+    const box = await action.boundingBox();
+    if (!box) throw new Error('Expected icon action to have a rendered box');
+    expect(Math.abs(box.width - box.height)).toBeLessThanOrEqual(1);
+  }
+
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-icon-actions', { fullPage: true });
+
+  await addReferenceButton.click();
+  await expect(page.getByText('Image references')).toBeVisible();
+  await page.getByRole('button', { name: /Close/i }).click();
+
+  const fileChooserPromise = page.waitForEvent('filechooser');
+  await uploadButton.click();
+  await fileChooserPromise;
+
+  await chatButton.click();
+  await expect(page.getByText('Chat with Claude')).toBeVisible();
+});
+
 test('style library creates a preset from a style collection', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 

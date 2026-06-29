@@ -331,7 +331,6 @@
 /* Keyboard focus — one consistent ring, no stray click outlines */
 .typeButton:focus-visible,
 .segment:focus-visible,
-.iconButton:focus-visible,
 .batchSelect:focus-visible,
 .forgeButton:focus-visible,
 .nameInput:focus-visible {
@@ -341,7 +340,6 @@
 
 .typeButton:focus:not(:focus-visible),
 .segment:focus:not(:focus-visible),
-.iconButton:focus:not(:focus-visible),
 .forgeButton:focus:not(:focus-visible) {
   outline: none;
 }
@@ -394,59 +392,6 @@
 .segment svg {
   flex-shrink: 0;
   opacity: 0.85;
-}
-
-/* Icon action (Style, Chat) — borderless, soft fill on hover/active */
-.iconButton {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.iconButton:hover:not(:disabled) {
-  color: var(--color-text);
-  background: var(--ctl-hover);
-}
-
-.iconButton.active {
-  color: var(--color-primary);
-  background: var(--ctl-accent-bg);
-}
-
-.iconButton.open {
-  color: var(--color-primary);
-  background: var(--ctl-accent-bg);
-}
-
-.iconButton:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.iconButtonCount {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  min-width: 13px;
-  height: 13px;
-  padding: 0 3px;
-  border-radius: 7px;
-  background: var(--color-primary);
-  color: white;
-  font-size: 0.5625rem;
-  font-weight: 600;
-  line-height: 13px;
-  text-align: center;
 }
 
 /* Name — auto-generated, quietly editable */
@@ -1011,45 +956,29 @@
   margin-left: auto;
 }
 
-/* Control-bar icon button */
-.ctlIcon {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--ctl-h);
-  height: var(--ctl-h);
-  border: none;
-  background: transparent;
+.controlIconAction {
+  --ui-button-height: var(--ctl-h);
   border-radius: 10px;
   color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.ctlIcon:hover:not(:disabled) {
+.controlIconAction:hover:not(:disabled) {
   color: var(--color-text);
   background: var(--ctl-hover);
 }
 
-.ctlIcon.active {
+.controlIconAction.active {
   color: var(--color-text);
   background: var(--ctl-surface);
   box-shadow: inset 0 0 0 1px var(--ctl-line);
 }
 
-.ctlIcon.open {
+.controlIconAction.open {
   color: var(--color-primary);
   background: var(--ctl-accent-bg);
   box-shadow: none;
 }
 
-.ctlIcon:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.ctlIcon:focus-visible,
 .miniSegItem:focus-visible,
 .miniSegText:focus-visible,
 .nameChip:focus-visible {
