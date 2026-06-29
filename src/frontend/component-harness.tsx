@@ -15,6 +15,7 @@ import { SpaceSharingPanel } from './components/SpaceSharingPanel';
 import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
 import { VariantCanvas } from './components/VariantCanvas';
 import { AdminSpendView } from './pages/AdminSpendPage';
+import { AssetCollectionsPanel, AssetTypeSelect } from './pages/AssetDetailPage';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import './styles/theme.css';
@@ -30,6 +31,8 @@ declare global {
 
 const ProductionPlacementHarness = ProductionPlacementControls as unknown as ComponentType<Record<string, unknown>>;
 const ProductionHandoffHarness = ProductionHandoffControls as unknown as ComponentType<Record<string, unknown>>;
+const AssetTypeSelectHarness = AssetTypeSelect as unknown as ComponentType<Record<string, unknown>>;
+const AssetCollectionsPanelHarness = AssetCollectionsPanel as unknown as ComponentType<Record<string, unknown>>;
 
 function ProductionControlsHarness(props: Record<string, unknown>) {
   return (
@@ -40,11 +43,23 @@ function ProductionControlsHarness(props: Record<string, unknown>) {
   );
 }
 
+function AssetDetailControlsHarness(props: Record<string, unknown>) {
+  return (
+    <div style={{ display: 'grid', gap: '12px', maxWidth: '760px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <AssetTypeSelectHarness {...props} />
+      </div>
+      <AssetCollectionsPanelHarness {...props} />
+    </div>
+  );
+}
+
 const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeader: AppHeader as ComponentType<Record<string, unknown>>,
   AdminSpendView: AdminSpendView as unknown as ComponentType<Record<string, unknown>>,
   AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
+  AssetDetailControls: AssetDetailControlsHarness,
   CollectionPlacementPicker: CollectionPlacementPicker as unknown as ComponentType<Record<string, unknown>>,
   CompositionDetail: CompositionDetail as unknown as ComponentType<Record<string, unknown>>,
   CompositionUsageList: CompositionUsageList as unknown as ComponentType<Record<string, unknown>>,

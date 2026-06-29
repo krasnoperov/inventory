@@ -171,63 +171,9 @@
   height: 26px;
 }
 
-.typeSelect {
-  max-width: 130px;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.typeSelect:hover {
-  border-color: var(--color-primary);
-}
-
-.collectionAddBar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  max-width: min(760px, 100%);
-  padding: 0.45rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.08);
-  font-size: var(--font-size-small-sm);
-}
-
-.collectionAddBar span {
-  color: var(--color-text-muted);
-}
-
-.collectionAddBar select,
-.collectionAddBar input,
-.collectionAddBar button {
-  min-height: 30px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-  font-size: var(--font-size-small-sm);
-}
-
-.collectionAddBar select,
-.collectionAddBar input {
-  min-width: 120px;
-  padding: 0.25rem 0.45rem;
-}
-
-.collectionAddBar button {
-  padding: 0.25rem 0.6rem;
-  cursor: pointer;
+.assetTypeSelect {
+  --ui-select-min-width: 7.5rem;
+  --ui-select-max-width: 8.5rem;
 }
 
 .inspectorDock {
@@ -311,10 +257,7 @@
   white-space: nowrap;
 }
 
-.collectionMembershipRow input,
-.collectionMembershipRow select,
-.collectionMembershipRow button,
-.collectionApplyButton {
+.collectionMembershipRow input {
   min-height: 30px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -322,25 +265,16 @@
   color: var(--color-text);
   font: inherit;
   font-size: var(--font-size-small-sm);
-}
-
-.collectionMembershipRow input,
-.collectionMembershipRow select {
   min-width: 0;
   padding: 0.25rem 0.45rem;
 }
 
-.collectionMembershipRow button {
-  padding: 0.25rem 0.6rem;
-  color: var(--color-danger);
-  background: var(--color-danger-bg);
-  cursor: pointer;
+.collectionPanelAction {
+  justify-self: start;
 }
 
-.collectionApplyButton {
-  justify-self: start;
-  padding: 0.25rem 0.7rem;
-  cursor: pointer;
+.variantCollectionRemoveButton {
+  grid-column: 4;
 }
 
 /* Tile Grid overlay - top right */
@@ -624,6 +558,10 @@
 
   .collectionMembershipRow {
     grid-template-columns: 1fr;
+  }
+
+  .variantCollectionRemoveButton {
+    grid-column: auto;
   }
 
   .inspectorPanel {

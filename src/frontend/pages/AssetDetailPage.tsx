@@ -50,9 +50,11 @@ import {
 import { applyCreatedOutputCollectionPlacements } from '../collectionPlacements';
 import { CollectionPlacementPicker } from '../components/CollectionPlacementPicker';
 import type { CollectionPlacementInput } from '../../shared/websocket-types';
+import type { CollectionItem, SpaceCollection } from '../space/protocol';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
+import { Button, UiSelect, type SelectOption } from '../ui';
 import styles from './AssetDetailPage.module.css';
 
 // Confirmation dialog types
@@ -66,6 +68,179 @@ interface ConfirmDialog {
 type RelationEditorState =
   | { mode: 'create'; subject: SpaceSubject }
   | { mode: 'edit'; relation: SpaceRelation };
+
+interface AssetTypeSelectProps {
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}
+
+interface AssetCollectionsPanelProps {
+  assetPlacementDrafts: CollectionPlacementInput[];
+  collections: SpaceCollection[];
+  collectionItems: CollectionItem[];
+  onApplyAssetPlacements: () => void;
+  onApplyVariantPlacements: () => void;
+  onAssetPlacementDraftsChange: (value: CollectionPlacementInput[]) => void;
+  onDeleteCollectionItem: (collectionId: string, itemId: string) => void;
+  onUpdateCollectionItem: (collectionId: string, itemId: string, changes: { role?: string; pinnedVariantId?: string | null }) => void;
+  onVariantPlacementDraftsChange: (value: CollectionPlacementInput[]) => void;
+  selectedVariant: Variant | null;
+  variantPlacementDrafts: CollectionPlacementInput[];
+  variants: Variant[];
+}
+
+function titleizeAssetType(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1).replace('-', ' ');
+}
+
+function getVariantOptionLabel(variant: Variant, index: number) {
+  return `Variant ${index + 1}${variant.starred ? ' star' : ''}`;
+}
+
+const ASSET_TYPE_OPTIONS: Array<SelectOption<string>> = PREDEFINED_ASSET_TYPES.map((type) => ({
+  value: type,
+  label: titleizeAssetType(type),
+}));
+
+export function AssetTypeSelect({
+  value,
+  disabled = false,
+  onChange,
+}: AssetTypeSelectProps) {
+  return (
+    <UiSelect
+      value={value}
+      options={ASSET_TYPE_OPTIONS}
+      onValueChange={onChange}
+      disabled={disabled}
+      label="Asset type"
+      className={styles.assetTypeSelect}
+    />
+  );
+}
+
+export function AssetCollectionsPanel({
+  assetPlacementDrafts,
+  collections,
+  collectionItems,
+  onApplyAssetPlacements,
+  onApplyVariantPlacements,
+  onAssetPlacementDraftsChange,
+  onDeleteCollectionItem,
+  onUpdateCollectionItem,
+  onVariantPlacementDraftsChange,
+  selectedVariant,
+  variantPlacementDrafts,
+  variants,
+}: AssetCollectionsPanelProps) {
+  const assetCollectionMemberships = collectionItems.filter((item) => item.subject_type === 'asset');
+  const selectedVariantCollectionMemberships = selectedVariant
+    ? collectionItems.filter((item) => item.subject_type === 'variant' && item.variant_id === selectedVariant.id)
+    : [];
+  const variantOptions = useMemo<Array<SelectOption<string>>>(() => [
+    { value: '', label: 'Main variant' },
+    ...variants.map((variant, index) => ({
+      value: variant.id,
+      label: getVariantOptionLabel(variant, index),
+    })),
+  ], [variants]);
+
+  if (collections.length === 0) return null;
+
+  return (
+    <section className={styles.collectionPanel} aria-label="Collection membership">
+      <div className={styles.collectionPanelHeader}>
+        <span>Asset collections</span>
+        {assetCollectionMemberships.length > 0 && <span>{assetCollectionMemberships.length}</span>}
+      </div>
+      {assetCollectionMemberships.map((item) => {
+        const collection = collections.find((entry) => entry.id === item.collection_id);
+        const collectionName = collection?.name ?? 'collection';
+        return (
+          <div key={item.id} className={styles.collectionMembershipRow}>
+            <span>{collection?.name ?? 'Collection'}</span>
+            <input
+              value={item.role}
+              aria-label={`Role in ${collectionName}`}
+              onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+            />
+            <UiSelect
+              value={item.pinned_variant_id ?? ''}
+              options={variantOptions}
+              onValueChange={(nextValue) => onUpdateCollectionItem(item.collection_id, item.id, { pinnedVariantId: nextValue || null })}
+              label={`Pinned variant in ${collectionName}`}
+              fullWidth
+            />
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
+            >
+              Remove
+            </Button>
+          </div>
+        );
+      })}
+      <CollectionPlacementPicker
+        collections={collections}
+        value={assetPlacementDrafts}
+        onChange={onAssetPlacementDraftsChange}
+        label="Add asset to collections"
+        defaultSubjectType="asset"
+        showPinToCreatedVariant={Boolean(selectedVariant)}
+      />
+      {assetPlacementDrafts.length > 0 && (
+        <Button size="sm" className={styles.collectionPanelAction} onClick={() => onApplyAssetPlacements()}>
+          Add asset placement
+        </Button>
+      )}
+
+      {selectedVariant && (
+        <>
+          <div className={styles.collectionPanelHeader}>
+            <span>Selected variant collections</span>
+            {selectedVariantCollectionMemberships.length > 0 && <span>{selectedVariantCollectionMemberships.length}</span>}
+          </div>
+          {selectedVariantCollectionMemberships.map((item) => {
+            const collection = collections.find((entry) => entry.id === item.collection_id);
+            const collectionName = collection?.name ?? 'collection';
+            return (
+              <div key={item.id} className={styles.collectionMembershipRow}>
+                <span>{collection?.name ?? 'Collection'}</span>
+                <input
+                  value={item.role}
+                  aria-label={`Variant role in ${collectionName}`}
+                  onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                />
+                <Button
+                  size="sm"
+                  variant="danger"
+                  className={styles.variantCollectionRemoveButton}
+                  onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
+                >
+                  Remove
+                </Button>
+              </div>
+            );
+          })}
+          <CollectionPlacementPicker
+            collections={collections}
+            value={variantPlacementDrafts}
+            onChange={onVariantPlacementDraftsChange}
+            label="Add selected variant to collections"
+            defaultSubjectType="variant"
+          />
+          {variantPlacementDrafts.length > 0 && (
+            <Button size="sm" className={styles.collectionPanelAction} onClick={() => onApplyVariantPlacements()}>
+              Add variant placement
+            </Button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
 
 export default function AssetDetailPage() {
   const navigate = useNavigate();
@@ -103,7 +278,7 @@ export default function AssetDetailPage() {
   const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
   const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
-  const collectionPanelRef = React.useRef<HTMLElement | null>(null);
+  const collectionPanelRef = React.useRef<HTMLDivElement | null>(null);
   const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
   // Variant selection state (persisted in store)
@@ -806,18 +981,11 @@ export default function AssetDetailPage() {
                 </h1>
               )}
             </CanvasToolbarTitle>
-            <select
-              className={styles.typeSelect}
+            <AssetTypeSelect
               value={asset.type}
-              onChange={(e) => handleTypeChange(e.target.value)}
+              onChange={handleTypeChange}
               disabled={actionInProgress}
-            >
-              {PREDEFINED_ASSET_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t.charAt(0).toUpperCase() + t.slice(1).replace('-', ' ')}
-                </option>
-              ))}
-            </select>
+            />
             <CanvasToolbarBadge>
               {formatMediaKind(asset.media_kind)}
             </CanvasToolbarBadge>
@@ -906,86 +1074,25 @@ export default function AssetDetailPage() {
             {showInspector && (
               <div className={styles.inspectorPanel}>
                 {canEdit && collections.length > 0 && (
-                  <section ref={collectionPanelRef} className={styles.collectionPanel} aria-label="Collection membership">
-                    <div className={styles.collectionPanelHeader}>
-                      <span>Asset collections</span>
-                      {assetCollectionMemberships.length > 0 && <span>{assetCollectionMemberships.length}</span>}
-                    </div>
-                    {assetCollectionMemberships.map((item) => {
-                      const collection = collections.find((entry) => entry.id === item.collection_id);
-                      return (
-                        <div key={item.id} className={styles.collectionMembershipRow}>
-                          <span>{collection?.name ?? 'Collection'}</span>
-                          <input
-                            value={item.role}
-                            aria-label={`Role in ${collection?.name ?? 'collection'}`}
-                            onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
-                          />
-                          <select
-                            value={item.pinned_variant_id ?? ''}
-                            aria-label={`Pinned variant in ${collection?.name ?? 'collection'}`}
-                            onChange={(event) => updateCollectionItem(item.collection_id, item.id, { pinnedVariantId: event.target.value || null })}
-                          >
-                            <option value="">Main variant</option>
-                            {variants.map((variant, index) => (
-                              <option key={variant.id} value={variant.id}>
-                                Variant {index + 1}{variant.starred ? ' star' : ''}
-                              </option>
-                            ))}
-                          </select>
-                          <button onClick={() => deleteCollectionItem(item.collection_id, item.id)}>Remove</button>
-                        </div>
-                      );
-                    })}
-                    <CollectionPlacementPicker
+                  <div ref={collectionPanelRef}>
+                    <AssetCollectionsPanel
+                      assetPlacementDrafts={assetPlacementDrafts}
                       collections={collections}
-                      value={assetPlacementDrafts}
-                      onChange={setAssetPlacementDrafts}
-                      label="Add asset to collections"
-                      defaultSubjectType="asset"
-                      showPinToCreatedVariant={Boolean(selectedVariant)}
+                      collectionItems={[
+                        ...assetCollectionMemberships,
+                        ...selectedVariantCollectionMemberships,
+                      ]}
+                      onApplyAssetPlacements={handleApplyAssetPlacements}
+                      onApplyVariantPlacements={handleApplyVariantPlacements}
+                      onAssetPlacementDraftsChange={setAssetPlacementDrafts}
+                      onDeleteCollectionItem={deleteCollectionItem}
+                      onUpdateCollectionItem={updateCollectionItem}
+                      onVariantPlacementDraftsChange={setVariantPlacementDrafts}
+                      selectedVariant={selectedVariant}
+                      variantPlacementDrafts={variantPlacementDrafts}
+                      variants={variants}
                     />
-                    {assetPlacementDrafts.length > 0 && (
-                      <button className={styles.collectionApplyButton} onClick={handleApplyAssetPlacements}>
-                        Add asset placement
-                      </button>
-                    )}
-
-                    {selectedVariant && (
-                      <>
-                        <div className={styles.collectionPanelHeader}>
-                          <span>Selected variant collections</span>
-                          {selectedVariantCollectionMemberships.length > 0 && <span>{selectedVariantCollectionMemberships.length}</span>}
-                        </div>
-                        {selectedVariantCollectionMemberships.map((item) => {
-                          const collection = collections.find((entry) => entry.id === item.collection_id);
-                          return (
-                            <div key={item.id} className={styles.collectionMembershipRow}>
-                              <span>{collection?.name ?? 'Collection'}</span>
-                              <input
-                                value={item.role}
-                                aria-label={`Variant role in ${collection?.name ?? 'collection'}`}
-                                onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
-                              />
-                              <button onClick={() => deleteCollectionItem(item.collection_id, item.id)}>Remove</button>
-                            </div>
-                          );
-                        })}
-                        <CollectionPlacementPicker
-                          collections={collections}
-                          value={variantPlacementDrafts}
-                          onChange={setVariantPlacementDrafts}
-                          label="Add selected variant to collections"
-                          defaultSubjectType="variant"
-                        />
-                        {variantPlacementDrafts.length > 0 && (
-                          <button className={styles.collectionApplyButton} onClick={handleApplyVariantPlacements}>
-                            Add variant placement
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </section>
+                  </div>
                 )}
 
                 <StyleReferenceUsagePanel
