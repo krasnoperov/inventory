@@ -9,7 +9,7 @@ import { ErrorMessage } from '../components/forms';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
 import { formatUtcDate } from '../lib/dates';
-import { TextInput } from '../ui';
+import { Button, IconButton, TextInput } from '../ui';
 import styles from './DashboardPage.module.css';
 
 interface CreateSpaceDialogProps {
@@ -32,13 +32,14 @@ export function CreateSpaceDialog({
       <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
         <div className={styles.modalHeader}>
           <h2 className={styles.modalTitle}>Create New Space</h2>
-          <button
+          <IconButton
             className={styles.modalClose}
             onClick={onClose}
             aria-label="Close"
+            variant="ghost"
           >
             ×
-          </button>
+          </IconButton>
         </div>
 
         <form
@@ -64,21 +65,23 @@ export function CreateSpaceDialog({
           </div>
 
           <div className={styles.modalActions}>
-            <button
+            <Button
               type="button"
               className={styles.cancelButton}
               onClick={onClose}
               disabled={isCreating}
+              variant="secondary"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               className={styles.submitButton}
               disabled={isCreating}
+              variant="primary"
             >
               {isCreating ? 'Creating...' : 'Create Space'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
