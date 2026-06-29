@@ -8,6 +8,7 @@
 
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { IconButton } from '../../ui';
 import styles from './ImageLightbox.module.css';
 
 export interface ImageLightboxProps {
@@ -47,11 +48,11 @@ export function ImageLightbox({ src, alt = '', caption, onClose }: ImageLightbox
       role="dialog"
       aria-modal="true"
     >
-      <button className={styles.close} onClick={onClose} aria-label="Close">
+      <IconButton className={styles.close} onClick={onClose} aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="22" height="22">
           <path d="M18 6L6 18M6 6l12 12" />
         </svg>
-      </button>
+      </IconButton>
       <img className={styles.image} src={src} alt={alt} />
       {caption && <div className={styles.caption}>{caption}</div>}
     </div>,

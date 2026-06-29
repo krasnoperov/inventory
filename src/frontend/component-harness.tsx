@@ -10,6 +10,7 @@ import { CompositionDetail, CompositionUsageList } from './components/Compositio
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
 import { CanvasToolbar, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { ForgeTray } from './components/ForgeTray';
+import { ImageLightbox } from './components/ImageLightbox';
 import { Pagination } from './components/Pagination';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
 import { RotationPanel } from './components/RotationPanel/RotationPanel';
@@ -486,6 +487,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   GoogleLoginButton: GoogleLoginButton as unknown as ComponentType<Record<string, unknown>>,
   LandingCreateSpaceDialog: LandingCreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
+  ImageLightbox: ImageLightbox as unknown as ComponentType<Record<string, unknown>>,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
   ProfileBillingActions: ProfileBillingActionsHarness,
   ProductionControls: ProductionControlsHarness,
