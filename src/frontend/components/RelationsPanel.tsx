@@ -420,18 +420,19 @@ export function RelationEditorDialog({
               {options.map((option) => {
                 const selected = targetSubject && subjectKey(targetSubject) === subjectKey(option.subject);
                 return (
-                  <button
+                  <Button
                     key={option.key}
-                    type="button"
                     className={`${styles.targetOption} ${selected ? styles.targetOptionSelected : ''}`}
                     onClick={() => setTargetSubject(option.subject)}
+                    variant="ghost"
+                    aria-pressed={selected ? 'true' : undefined}
                   >
                     <Thumbnail variant={option.variant} size="xs" className={styles.targetThumb} />
                     <span className={styles.targetText}>
                       <span>{option.title}</span>
                       <small>{option.subtitle}</small>
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
               {options.length === 0 && <div className={styles.emptyTarget}>No matching targets</div>}
