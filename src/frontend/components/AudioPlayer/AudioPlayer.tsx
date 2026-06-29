@@ -19,6 +19,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatPlaybackTime } from '../../lib/format';
 import { waveformBars } from '../../lib/audioWaveform';
+import { IconButton } from '../../ui';
 import styles from './AudioPlayer.module.css';
 
 export interface AudioPlayerProps {
@@ -154,12 +155,12 @@ function AudioPlayerComponent({ src, seed, className }: AudioPlayerProps) {
       </div>
 
       <div className={styles.transport}>
-        <button
-          type="button"
+        <IconButton
           className={styles.playButton}
           onClick={togglePlay}
           aria-label={isPlaying ? 'Pause' : 'Play'}
           aria-pressed={isPlaying}
+          variant="primary"
         >
           {isPlaying ? (
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -171,7 +172,7 @@ function AudioPlayerComponent({ src, seed, className }: AudioPlayerProps) {
               <path d="M8 5.14v13.72a1 1 0 0 0 1.52.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14z" />
             </svg>
           )}
-        </button>
+        </IconButton>
 
         <span className={styles.time}>
           {formatPlaybackTime(currentTime)}

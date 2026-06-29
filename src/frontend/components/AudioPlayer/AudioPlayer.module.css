@@ -77,28 +77,19 @@
 }
 
 .playButton {
+  --ui-button-height: 2.25rem;
+  --ui-button-pad-x: 0;
+
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
   border: none;
   border-radius: var(--radius-full);
   background: var(--color-primary);
   color: var(--button-primary-text);
-  cursor: pointer;
-  transition: background 0.15s ease;
 }
 
-.playButton:hover {
+.playButton:hover:not(:disabled) {
   background: var(--color-primary-hover);
-}
-
-.playButton:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
 }
 
 .playButton svg {
