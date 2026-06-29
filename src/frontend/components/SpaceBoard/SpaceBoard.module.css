@@ -122,16 +122,8 @@
 }
 
 .createPanel input:not([type='color']),
-.createPanel select,
-.createPanel button,
 .collectionMenuPanel input:not([type='color']),
-.collectionMenuPanel select,
-.collectionMenuPanel button,
-.cardMenuPanel input,
-.cardMenuPanel select,
-.cardMenuPanel button,
-.addRow select,
-.addRow button {
+.cardMenuPanel input {
   min-height: 32px;
   min-width: 0;
   border: 1px solid var(--color-border);
@@ -143,21 +135,9 @@
 }
 
 .createPanel input:not([type='color']),
-.createPanel select,
 .collectionMenuPanel input:not([type='color']),
-.collectionMenuPanel select,
-.cardMenuPanel input,
-.cardMenuPanel select,
-.addRow select {
+.cardMenuPanel input {
   padding: 0.35rem 0.55rem;
-}
-
-.createPanel button,
-.collectionMenuPanel button,
-.cardMenuPanel button,
-.addRow button {
-  padding: 0.35rem 0.7rem;
-  cursor: pointer;
 }
 
 .createPanel input[type='color'],
@@ -185,13 +165,7 @@
 }
 
 .starterPanel button {
-  min-height: 34px;
-  padding: 0.4rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--button-ghost-bg);
-  color: var(--button-ghost-text);
-  cursor: pointer;
+  justify-self: end;
 }
 
 .collectionsRail {
@@ -210,6 +184,11 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--surface-glass);
+}
+
+.collection:has(.cardMenu[open]),
+.collection:has(.collectionMenu[open]) {
+  z-index: 3;
 }
 
 /* Soft collection-colored wash so each group reads as one unit without a
@@ -275,6 +254,33 @@
   width: 100%;
 }
 
+.select,
+.addSelect,
+.createKindSelect {
+  --ui-select-height: 32px;
+  --ui-select-font-size: var(--font-size-small-sm);
+  --ui-select-min-width: 0;
+  --ui-select-max-width: none;
+  --ctl-surface: var(--color-surface);
+  --ctl-line: var(--color-border);
+}
+
+.addSelect {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.createKindSelect {
+  min-width: 8rem;
+}
+
+.menuButton {
+  --ui-button-height: 32px;
+  --ui-button-font-size: var(--font-size-small-sm);
+  --ui-button-pad-x: 0.7rem;
+  border-radius: var(--radius-sm);
+}
+
 .collectionMenuPanel label,
 .cardMenuPanel label {
   display: grid;
@@ -295,21 +301,12 @@
   gap: 0.5rem;
 }
 
-.addRow select {
-  flex: 1;
-}
-
 .menuButtonRow {
   flex-wrap: wrap;
 }
 
-.menuButtonRow button {
+.menuButtonRow .menuButton {
   flex: 1;
-}
-
-.removeMenuButton {
-  color: var(--color-danger) !important;
-  background: var(--color-danger-bg) !important;
 }
 
 .previewStrip {
@@ -331,6 +328,10 @@
   min-width: 0;
   align-self: flex-start;
   flex: var(--card-aspect, 1) 1 calc(var(--card-aspect, 1) * var(--row-h));
+}
+
+.assetCard:has(.cardMenu[open]) {
+  z-index: 4;
 }
 
 .audioAssetCard {
@@ -569,6 +570,11 @@
 .cardMenuPanel {
   top: calc(100% + 0.35rem);
   width: min(260px, calc(100vw - 2rem));
+}
+
+.assetCard:first-child .cardMenuPanel {
+  left: 0;
+  right: auto;
 }
 
 .emptyCollection {
