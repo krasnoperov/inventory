@@ -9,7 +9,82 @@ import { ErrorMessage } from '../components/forms';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
 import { formatUtcDate } from '../lib/dates';
+import { TextInput } from '../ui';
 import styles from './DashboardPage.module.css';
+
+interface CreateSpaceDialogProps {
+  isCreating: boolean;
+  newSpaceName: string;
+  onClose: () => void;
+  onNameChange: (value: string) => void;
+  onSubmit: () => void;
+}
+
+export function CreateSpaceDialog({
+  isCreating,
+  newSpaceName,
+  onClose,
+  onNameChange,
+  onSubmit,
+}: CreateSpaceDialogProps) {
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <h2 className={styles.modalTitle}>Create New Space</h2>
+          <button
+            className={styles.modalClose}
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+        >
+          <div className={styles.formGroup}>
+            <label htmlFor="spaceName" className={styles.label}>
+              Space Name *
+            </label>
+            <TextInput
+              id="spaceName"
+              value={newSpaceName}
+              onChange={(event) => onNameChange(event.target.value)}
+              className={styles.input}
+              placeholder="Enter space name"
+              disabled={isCreating}
+              autoFocus
+              fullWidth
+            />
+          </div>
+
+          <div className={styles.modalActions}>
+            <button
+              type="button"
+              className={styles.cancelButton}
+              onClick={onClose}
+              disabled={isCreating}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={styles.submitButton}
+              disabled={isCreating}
+            >
+              {isCreating ? 'Creating...' : 'Create Space'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -46,9 +121,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleCreateSpace = async (event: React.FormEvent) => {
-    event.preventDefault();
-
+  const handleCreateSpace = async () => {
     if (!newSpaceName.trim()) {
       setError('Space name is required');
       return;
@@ -162,56 +235,13 @@ export default function DashboardPage() {
 
       {/* Create Space Modal */}
       {showCreateModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowCreateModal(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Create New Space</h2>
-              <button
-                className={styles.modalClose}
-                onClick={() => setShowCreateModal(false)}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSpace}>
-              <div className={styles.formGroup}>
-                <label htmlFor="spaceName" className={styles.label}>
-                  Space Name *
-                </label>
-                <input
-                  id="spaceName"
-                  type="text"
-                  value={newSpaceName}
-                  onChange={(e) => setNewSpaceName(e.target.value)}
-                  className={styles.input}
-                  placeholder="Enter space name"
-                  disabled={isCreating}
-                  autoFocus
-                />
-              </div>
-
-              <div className={styles.modalActions}>
-                <button
-                  type="button"
-                  className={styles.cancelButton}
-                  onClick={() => setShowCreateModal(false)}
-                  disabled={isCreating}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={styles.submitButton}
-                  disabled={isCreating}
-                >
-                  {isCreating ? 'Creating...' : 'Create Space'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CreateSpaceDialog
+          isCreating={isCreating}
+          newSpaceName={newSpaceName}
+          onClose={() => setShowCreateModal(false)}
+          onNameChange={setNewSpaceName}
+          onSubmit={handleCreateSpace}
+        />
       )}
     </div>
   );
