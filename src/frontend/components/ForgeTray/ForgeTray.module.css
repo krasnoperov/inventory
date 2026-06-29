@@ -645,35 +645,26 @@
   box-shadow: none;
 }
 
-.miniSegText:focus-visible,
-.nameChip:focus-visible {
+.miniSegText:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
 /* Name chip */
 .nameChip {
-  display: inline-flex;
-  align-items: center;
-  height: var(--ctl-h);
+  --ui-text-input-height: var(--ctl-h);
+  --ui-text-field-font-size: 0.75rem;
   max-width: 7rem;
   min-width: 3.5rem;
-  padding: 0 0.6875rem;
-  border-radius: 10px;
-  border: 1px solid var(--ctl-line);
-  background: var(--ctl-surface);
-  color: var(--color-text-muted);
   font-family: var(--mono);
-  font-size: 0.75rem;
-  outline: none;
+  color: var(--color-text-muted);
   text-overflow: ellipsis;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease;
 }
 
 .nameChip:hover:not(:disabled),
 .nameChip:focus {
   color: var(--color-text);
-  border-color: var(--color-primary);
 }
 
 .nameChipStatic {
