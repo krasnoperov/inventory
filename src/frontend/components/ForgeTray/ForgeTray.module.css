@@ -50,6 +50,10 @@
   border-color: var(--color-primary);
 }
 
+.contextSlot {
+  margin: 0.375rem 0.375rem 0;
+}
+
 /* Unified Input Area - Contains textarea, thumbs, and controls */
 .inputArea {
   display: flex;

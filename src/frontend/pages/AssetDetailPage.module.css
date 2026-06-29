@@ -176,6 +176,102 @@
   --ui-select-max-width: 8.5rem;
 }
 
+.assetDetailsStrip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem;
+  border: 1px solid var(--forge-bar-border-inner);
+  border-radius: var(--radius-lg);
+  background: var(--forge-input-bg);
+}
+
+.assetDetailsIdentity {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.assetDetailsEyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.assetDetailsEyebrow span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assetDetailsEyebrow span + span {
+  padding: 0.08rem 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  text-transform: none;
+}
+
+.assetDetailsName {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assetDetailsFacts {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.assetDetailsFacts div {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 4.75rem;
+  padding: 0.22rem 0.38rem;
+  border-radius: var(--radius-sm);
+  background: var(--ctl-track, var(--color-bg));
+}
+
+.assetDetailsFacts dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: 650;
+}
+
+.assetDetailsFacts dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assetDetailsAction {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  white-space: nowrap;
+}
+
 .inspectorDock {
   display: grid;
   gap: 0.5rem;
@@ -554,6 +650,21 @@
 
   .jobsOverlay {
     max-width: calc(100% - 1rem);
+  }
+
+  .assetDetailsStrip {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .assetDetailsFacts div {
+    min-width: min(7rem, 100%);
+  }
+
+  .assetDetailsAction {
+    grid-column: auto;
+    grid-row: auto;
+    justify-self: start;
   }
 
   .collectionMembershipRow {

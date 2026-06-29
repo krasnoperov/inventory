@@ -17,7 +17,7 @@ import { VariantCanvas } from './components/VariantCanvas';
 import { BillingPlanActions } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AdminSpendView } from './pages/AdminSpendPage';
-import { AssetCollectionsPanel, AssetTypeSelect } from './pages/AssetDetailPage';
+import { AssetCollectionsPanel, AssetDetailsStrip, AssetTypeSelect } from './pages/AssetDetailPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
@@ -36,6 +36,7 @@ const ProductionPlacementHarness = ProductionPlacementControls as unknown as Com
 const ProductionHandoffHarness = ProductionHandoffControls as unknown as ComponentType<Record<string, unknown>>;
 const AssetTypeSelectHarness = AssetTypeSelect as unknown as ComponentType<Record<string, unknown>>;
 const AssetCollectionsPanelHarness = AssetCollectionsPanel as unknown as ComponentType<Record<string, unknown>>;
+const AssetDetailsStripHarness = AssetDetailsStrip as unknown as ComponentType<Record<string, unknown>>;
 const ProfileProviderKeyRowHarness = ProfileProviderKeyRow as unknown as ComponentType<Record<string, unknown>>;
 const ProfileDangerZoneHarness = ProfileDangerZone as unknown as ComponentType<Record<string, unknown>>;
 const BillingPlanActionsHarness = BillingPlanActions as unknown as ComponentType<Record<string, unknown>>;
@@ -60,6 +61,14 @@ function AssetDetailControlsHarness(props: Record<string, unknown>) {
   );
 }
 
+function AssetDetailsStripPreview(props: Record<string, unknown>) {
+  return (
+    <div style={{ maxWidth: '520px' }}>
+      <AssetDetailsStripHarness {...props} />
+    </div>
+  );
+}
+
 function ProfileBillingActionsHarness(props: Record<string, unknown>) {
   return (
     <div style={{ display: 'grid', gap: '16px', maxWidth: '640px' }}>
@@ -76,6 +85,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
   AssetDetailControls: AssetDetailControlsHarness,
+  AssetDetailsStrip: AssetDetailsStripPreview,
   CollectionPlacementPicker: CollectionPlacementPicker as unknown as ComponentType<Record<string, unknown>>,
   CompositionDetail: CompositionDetail as unknown as ComponentType<Record<string, unknown>>,
   CompositionUsageList: CompositionUsageList as unknown as ComponentType<Record<string, unknown>>,

@@ -90,12 +90,42 @@ interface AssetCollectionsPanelProps {
   variants: Variant[];
 }
 
+interface AssetDetailsStripProps {
+  asset: Asset;
+  assetCollectionCount: number;
+  fullDetailsOpen: boolean;
+  onToggleFullDetails: () => void;
+  selectedVariant: Variant | null;
+  selectedVariantCollectionCount: number;
+  variantCount: number;
+}
+
 function titleizeAssetType(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1).replace('-', ' ');
 }
 
 function getVariantOptionLabel(variant: Variant, index: number) {
   return `Variant ${index + 1}${variant.starred ? ' star' : ''}`;
+}
+
+function titleizeStatus(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1).replace('-', ' ');
+}
+
+function formatDimensions(variant: Variant | null) {
+  if (!variant?.media_width || !variant.media_height) return null;
+  return `${variant.media_width}x${variant.media_height}`;
+}
+
+function formatDuration(ms: number | null | undefined) {
+  if (!ms) return null;
+  const seconds = ms / 1000;
+  return seconds >= 10 ? `${Math.round(seconds)}s` : `${seconds.toFixed(1)}s`;
+}
+
+function formatSelectedVariant(variant: Variant | null) {
+  if (!variant) return 'None';
+  return `${formatMediaKind(variant.media_kind)} · ${titleizeStatus(variant.status)}`;
 }
 
 const ASSET_TYPE_OPTIONS: Array<SelectOption<string>> = PREDEFINED_ASSET_TYPES.map((type) => ({
@@ -238,6 +268,75 @@ export function AssetCollectionsPanel({
           )}
         </>
       )}
+    </section>
+  );
+}
+
+export function AssetDetailsStrip({
+  asset,
+  assetCollectionCount,
+  fullDetailsOpen,
+  onToggleFullDetails,
+  selectedVariant,
+  selectedVariantCollectionCount,
+  variantCount,
+}: AssetDetailsStripProps) {
+  const dimensions = formatDimensions(selectedVariant);
+  const duration = formatDuration(selectedVariant?.media_duration_ms);
+  const collectionCount = assetCollectionCount + selectedVariantCollectionCount;
+
+  return (
+    <section className={styles.assetDetailsStrip} aria-label="Asset details">
+      <div className={styles.assetDetailsIdentity}>
+        <div className={styles.assetDetailsEyebrow}>
+          <span>Asset details</span>
+          <span>{formatMediaKind(asset.media_kind)}</span>
+        </div>
+        <div className={styles.assetDetailsName} title={asset.name}>
+          {asset.name}
+        </div>
+      </div>
+
+      <dl className={styles.assetDetailsFacts}>
+        <div>
+          <dt>Type</dt>
+          <dd>{titleizeAssetType(asset.type)}</dd>
+        </div>
+        <div>
+          <dt>Variants</dt>
+          <dd>{variantCount}</dd>
+        </div>
+        <div>
+          <dt>Selected</dt>
+          <dd>{formatSelectedVariant(selectedVariant)}</dd>
+        </div>
+        {dimensions && (
+          <div>
+            <dt>Size</dt>
+            <dd>{dimensions}</dd>
+          </div>
+        )}
+        {duration && (
+          <div>
+            <dt>Duration</dt>
+            <dd>{duration}</dd>
+          </div>
+        )}
+        <div>
+          <dt>Collections</dt>
+          <dd>{collectionCount}</dd>
+        </div>
+      </dl>
+
+      <Button
+        size="sm"
+        variant="secondary"
+        className={styles.assetDetailsAction}
+        onClick={() => onToggleFullDetails()}
+        aria-expanded={fullDetailsOpen}
+      >
+        {fullDetailsOpen ? 'Hide full details' : 'Open full details'}
+      </Button>
     </section>
   );
 }
@@ -1242,6 +1341,17 @@ export default function AssetDetailPage() {
         onSubmit={handleForgeSubmit}
         onBrandBackground={false}
         currentAsset={asset}
+        contextSlot={(
+          <AssetDetailsStrip
+            asset={asset}
+            assetCollectionCount={assetCollectionMemberships.length}
+            fullDetailsOpen={showInspector}
+            onToggleFullDetails={() => setShowInspector((open) => !open)}
+            selectedVariant={selectedVariant}
+            selectedVariantCollectionCount={selectedVariantCollectionMemberships.length}
+            variantCount={variants.length}
+          />
+        )}
         onUpload={handleUpload}
         isUploading={isUploading}
         chatMessages={chatMessages}
