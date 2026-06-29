@@ -120,6 +120,8 @@ export interface ForgeTrayProps {
   currentAsset?: Asset | null;
   /** Compact context shown above the prompt/options area. */
   contextSlot?: ReactNode;
+  /** Disable fixed positioning when the page owns the surrounding dock. */
+  floating?: boolean;
   /** Callback for uploading a media file to create a variant on existing asset */
   onUpload?: (file: File, assetId: string) => Promise<void>;
   /** Callback for uploading a media file to create a NEW asset (SpacePage) */
@@ -340,6 +342,7 @@ export function ForgeTray({
   onBrandBackground = true,
   currentAsset,
   contextSlot,
+  floating = true,
   onUpload,
   onUploadNewAsset,
   isUploading = false,
@@ -1105,6 +1108,7 @@ export function ForgeTray({
 
   // Build tray class with drag-over state
   const trayClasses = [styles.tray];
+  if (!floating) trayClasses.push(styles.embedded);
   if (onBrandBackground) trayClasses.push(styles.onBrandBackground);
   if (isDragOver) trayClasses.push(styles.dragOver);
   if (isTrayExpanded) trayClasses.push(styles.expanded);

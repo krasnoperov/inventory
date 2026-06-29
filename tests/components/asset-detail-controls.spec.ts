@@ -327,9 +327,9 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Hide audio details' })).toBeVisible();
 });
 
-test('asset details context renders expanded details below the ForgeTray strip', async ({ page }) => {
-  await page.setViewportSize({ width: 620, height: 520 });
-  await mountComponent(page, 'AssetDetailsContext', {
+test('asset details dock renders expanded details above ForgeTray', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+  await mountComponent(page, 'AssetGenerationDock', {
     asset: asset(),
     assetCollectionCount: 1,
     assetTypeDisabled: false,
@@ -341,11 +341,20 @@ test('asset details context renders expanded details below the ForgeTray strip',
     variantCount: 3,
   });
 
+  await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Hide video details' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Expanded asset details' })).toBeVisible();
   await expect(page.getByText('Asset collections')).toBeVisible();
   await expect(page.getByText('Relations')).toBeVisible();
+  await expect(page.getByLabel('Prompt')).toBeVisible();
 
-  await screenshot(page, 'asset-details-context-expanded', { fullPage: true });
+  const detailsBeforePrompt = await page.evaluate(() => {
+    const details = document.querySelector('[aria-label="Asset details"]');
+    const prompt = document.querySelector('[aria-label="Prompt"]');
+    return Boolean(details && prompt && details.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(detailsBeforePrompt).toBe(true);
+
+  await screenshot(page, 'asset-details-above-forge-tray', { fullPage: true });
 });
