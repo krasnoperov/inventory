@@ -50,6 +50,13 @@
   border-color: var(--color-primary);
 }
 
+.tray.embedded {
+  position: static;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+}
+
 .contextSlot {
   margin: 0.375rem 0.375rem 0;
 }

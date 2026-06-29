@@ -455,6 +455,23 @@ export function AssetDetailsContext({
   );
 }
 
+export function AssetGenerationDock({
+  details,
+  tray,
+}: {
+  details: React.ReactNode;
+  tray: React.ReactNode;
+}) {
+  return (
+    <section className={styles.assetGenerationDock} aria-label="Asset generation controls">
+      <div className={styles.assetDetailsDock}>
+        {details}
+      </div>
+      {tray}
+    </section>
+  );
+}
+
 export default function AssetDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -1362,14 +1379,9 @@ export default function AssetDetailPage() {
         </div>
       )}
 
-      {/* Forge Tray - persistent bottom bar for generation */}
-      <ForgeTray
-        allAssets={wsAssets}
-        allVariants={wsVariants}
-        onSubmit={handleForgeSubmit}
-        onBrandBackground={false}
-        currentAsset={asset}
-        contextSlot={(
+      {/* Asset details + Forge Tray - persistent bottom controls */}
+      <AssetGenerationDock
+        details={(
           <AssetDetailsContext
             asset={asset}
             assetCollectionCount={assetCollectionMemberships.length}
@@ -1437,27 +1449,37 @@ export default function AssetDetailPage() {
             )}
           </AssetDetailsContext>
         )}
-        onUpload={handleUpload}
-        isUploading={isUploading}
-        chatMessages={chatMessages}
-        isChatLoading={isChatLoading}
-        chatProgress={chatProgress}
-        chatError={chatError}
-        chatHistoryLoaded={historyLoaded}
-        sendChatMessage={handleSendChatMessage}
-        requestChatHistory={requestChatHistory}
-        clearChatSession={clearChatSession}
-        spaceId={spaceId}
-        createStylePreset={createStylePreset}
-        updateStylePreset={updateStylePreset}
-        deleteStylePreset={deleteStylePreset}
-        stylePresets={stylePresets}
-        collections={collections}
-        collectionItems={collectionItems}
-        forgeError={forgeError}
-        forgeErrorCode={forgeErrorCode}
-        generationEstimate={generationEstimate}
-        sendGenerationEstimateRequest={sendGenerationEstimateRequest}
+        tray={(
+          <ForgeTray
+            allAssets={wsAssets}
+            allVariants={wsVariants}
+            onSubmit={handleForgeSubmit}
+            onBrandBackground={false}
+            currentAsset={asset}
+            floating={false}
+            onUpload={handleUpload}
+            isUploading={isUploading}
+            chatMessages={chatMessages}
+            isChatLoading={isChatLoading}
+            chatProgress={chatProgress}
+            chatError={chatError}
+            chatHistoryLoaded={historyLoaded}
+            sendChatMessage={handleSendChatMessage}
+            requestChatHistory={requestChatHistory}
+            clearChatSession={clearChatSession}
+            spaceId={spaceId}
+            createStylePreset={createStylePreset}
+            updateStylePreset={updateStylePreset}
+            deleteStylePreset={deleteStylePreset}
+            stylePresets={stylePresets}
+            collections={collections}
+            collectionItems={collectionItems}
+            forgeError={forgeError}
+            forgeErrorCode={forgeErrorCode}
+            generationEstimate={generationEstimate}
+            sendGenerationEstimateRequest={sendGenerationEstimateRequest}
+          />
+        )}
       />
 
       {/* Rotation Panel modal */}

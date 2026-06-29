@@ -17,7 +17,7 @@ import { VariantCanvas } from './components/VariantCanvas';
 import { BillingPlanActions } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AdminSpendView } from './pages/AdminSpendPage';
-import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetTypeSelect } from './pages/AssetDetailPage';
+import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTypeSelect } from './pages/AssetDetailPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
@@ -36,6 +36,7 @@ const ProductionPlacementHarness = ProductionPlacementControls as unknown as Com
 const ProductionHandoffHarness = ProductionHandoffControls as unknown as ComponentType<Record<string, unknown>>;
 const AssetTypeSelectHarness = AssetTypeSelect as unknown as ComponentType<Record<string, unknown>>;
 const AssetCollectionsPanelHarness = AssetCollectionsPanel as unknown as ComponentType<Record<string, unknown>>;
+const AssetGenerationDockHarness = AssetGenerationDock as unknown as ComponentType<Record<string, unknown>>;
 const AssetDetailsContextHarness = AssetDetailsContext as unknown as ComponentType<Record<string, unknown>>;
 const AssetDetailsStripHarness = AssetDetailsStrip as unknown as ComponentType<Record<string, unknown>>;
 const ProfileProviderKeyRowHarness = ProfileProviderKeyRow as unknown as ComponentType<Record<string, unknown>>;
@@ -87,6 +88,34 @@ function AssetDetailsContextPreview(props: Record<string, unknown>) {
   );
 }
 
+function AssetGenerationDockPreview(props: Record<string, unknown>) {
+  return (
+    <AssetGenerationDockHarness
+      details={(
+        <AssetDetailsContextHarness {...props}>
+          <section aria-label="Expanded asset details" style={{ display: 'grid', gap: 8 }}>
+            <div style={{ padding: 8, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)' }}>
+              Asset collections
+            </div>
+            <div style={{ padding: 8, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)' }}>
+              Relations
+            </div>
+          </section>
+        </AssetDetailsContextHarness>
+      )}
+      tray={(
+        <ForgeTray
+          allAssets={[]}
+          allVariants={[]}
+          onSubmit={() => undefined}
+          onBrandBackground={false}
+          floating={false}
+        />
+      )}
+    />
+  );
+}
+
 function ProfileBillingActionsHarness(props: Record<string, unknown>) {
   return (
     <div style={{ display: 'grid', gap: '16px', maxWidth: '640px' }}>
@@ -103,6 +132,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
   AssetDetailControls: AssetDetailControlsHarness,
+  AssetGenerationDock: AssetGenerationDockPreview,
   AssetDetailsContext: AssetDetailsContextPreview,
   AssetDetailsStrip: AssetDetailsStripPreview,
   CollectionPlacementPicker: CollectionPlacementPicker as unknown as ComponentType<Record<string, unknown>>,
