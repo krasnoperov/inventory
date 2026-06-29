@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from '../hooks/useSearchParams';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { FormContainer, FormTitle } from '../components/forms';
+import { Button } from '../ui';
 import styles from './AuthorizationApprovalPage.module.css';
 
 interface ApprovalRequest {
@@ -12,6 +13,37 @@ interface ApprovalRequest {
     id: number;
     email: string;
   };
+}
+
+interface AuthorizationDecisionActionsProps {
+  submitting: boolean;
+  onDecision: (approved: boolean) => void;
+}
+
+export function AuthorizationDecisionActions({
+  submitting,
+  onDecision,
+}: AuthorizationDecisionActionsProps) {
+  return (
+    <div className={styles.actions}>
+      <Button
+        onClick={() => onDecision(false)}
+        disabled={submitting}
+        className={styles.actionButton}
+        variant="secondary"
+      >
+        Deny
+      </Button>
+      <Button
+        onClick={() => onDecision(true)}
+        disabled={submitting}
+        className={styles.actionButton}
+        variant="primary"
+      >
+        Grant Access
+      </Button>
+    </div>
+  );
 }
 
 export default function AuthorizationApprovalPage() {
@@ -126,22 +158,7 @@ export default function AuthorizationApprovalPage() {
           </ul>
         </div>
 
-        <div className={styles.actions}>
-          <button
-            onClick={() => handleDecision(false)}
-            disabled={submitting}
-            className={styles.denyButton}
-          >
-            Deny
-          </button>
-          <button
-            onClick={() => handleDecision(true)}
-            disabled={submitting}
-            className={styles.approveButton}
-          >
-            Grant Access
-          </button>
-        </div>
+        <AuthorizationDecisionActions submitting={submitting} onDecision={handleDecision} />
       </FormContainer>
     </div>
   );
