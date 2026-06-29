@@ -5,7 +5,7 @@ import type {
   StylePresetRaw,
   StylePresetUpdateParams,
 } from '../../hooks/useSpaceWebSocket';
-import { Button, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from '../../ui';
+import { Button, Checkbox, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from '../../ui';
 import styles from './StylePanel.module.css';
 
 export interface StyleReferenceOption {
@@ -138,8 +138,7 @@ export function StylePanel({
                 fullWidth
               />
               <label className={styles.checkRow}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={makeDefault}
                   onChange={(event) => setMakeDefault(event.target.checked)}
                 />
@@ -202,8 +201,7 @@ export function StylePanel({
                     />
                     <div className={styles.presetActions}>
                       <label className={styles.checkRow}>
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={enabled}
                           disabled={isDefault || !updateStylePreset}
                           onChange={(event) => updateStylePreset?.(preset.id, { enabled: event.target.checked })}
@@ -244,8 +242,7 @@ export function StylePanel({
             <div className={styles.refList}>
               {customStyleOptions.map((option) => (
                 <label key={option.variantId} className={styles.refRow}>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={customStyleVariantIds.includes(option.variantId)}
                     onChange={() => onToggleCustomStyleVariant?.(option.variantId)}
                     disabled={!onToggleCustomStyleVariant}
