@@ -7,7 +7,7 @@ import type {
   TileSetRequestParams,
 } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
-import { Checkbox, TextArea } from '../../ui';
+import { Button, Checkbox, IconButton, TextArea } from '../../ui';
 import styles from './TileSetPanel.module.css';
 
 const TILE_TYPES: { value: TileType; label: string; icon: string }[] = [
@@ -18,6 +18,15 @@ const TILE_TYPES: { value: TileType; label: string; icon: string }[] = [
 ];
 
 const GRID_SIZES = [2, 3, 4, 5] as const;
+
+function CloseIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
 
 interface TileSetPanelProps {
   tileSets: TileSet[];
@@ -110,12 +119,9 @@ export function TileSetPanel({
         <div className={styles.modal}>
           <div className={styles.header}>
             <h2 className={styles.title}>Tile Set in Progress</h2>
-            <button className={styles.closeButton} onClick={onClose}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+            <IconButton onClick={onClose} aria-label="Close tile set panel" title="Close" variant="ghost" size="sm">
+              <CloseIcon />
+            </IconButton>
           </div>
           <div className={styles.content}>
             <div className={styles.progressSection}>
@@ -160,15 +166,15 @@ export function TileSetPanel({
             </div>
           </div>
           <div className={styles.footer}>
-            <button
-              className={styles.cancelButton}
+            <Button
+              variant="secondary"
               onClick={() => onCancel(activeSet.id)}
             >
               Cancel
-            </button>
-            <button className={styles.cancelButton} onClick={onClose}>
+            </Button>
+            <Button variant="secondary" onClick={onClose}>
               Close
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -188,12 +194,9 @@ export function TileSetPanel({
         <div className={styles.modal}>
           <div className={styles.header}>
             <h2 className={styles.title}>Tile Set Failed</h2>
-            <button className={styles.closeButton} onClick={onClose}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+            <IconButton onClick={onClose} aria-label="Close tile set panel" title="Close" variant="ghost" size="sm">
+              <CloseIcon />
+            </IconButton>
           </div>
           <div className={styles.content}>
             <div className={styles.errorSection}>
@@ -207,19 +210,19 @@ export function TileSetPanel({
             </div>
           </div>
           <div className={styles.footer}>
-            <button
-              className={styles.cancelButton}
+            <Button
+              variant="secondary"
               onClick={() => setDismissedFailedSetId(failedSet.id)}
             >
               Configure New
-            </button>
-            <button
-              className={styles.startButton}
+            </Button>
+            <Button
+              variant="primary"
               onClick={handleStart}
               disabled={!prompt.trim()}
             >
               Try Again
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -232,12 +235,9 @@ export function TileSetPanel({
       <div className={styles.modal}>
         <div className={styles.header}>
           <h2 className={styles.title}>Create Tile Set</h2>
-          <button className={styles.closeButton} onClick={onClose}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <IconButton onClick={onClose} aria-label="Close tile set panel" title="Close" variant="ghost" size="sm">
+            <CloseIcon />
+          </IconButton>
         </div>
 
         <div className={styles.content}>
@@ -328,16 +328,16 @@ export function TileSetPanel({
         </div>
 
         <div className={styles.footer}>
-          <button className={styles.cancelButton} onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            className={styles.startButton}
+          </Button>
+          <Button
+            variant="primary"
             onClick={handleStart}
             disabled={!prompt.trim()}
           >
             Generate {gridSize}x{gridSize} Tiles
-          </button>
+          </Button>
         </div>
       </div>
     </div>
