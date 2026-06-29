@@ -48,11 +48,12 @@ function printUsage(): void {
 
   console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--first-frame <variant_or_file>] [--last-frame <variant_or_file>] [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio] [--space <id>]
   makefx video generate --follow <variant_id> -o <file> [--space <id>]
   makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio] [--space <id>]
   makefx video refine --follow <variant_id> -o <file> [--space <id>]
   makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio] [--space <id>]
+  makefx video derive --first-frame <variant_or_file> [--last-frame <variant_or_file>] --name <name> --type <type> "prompt" -o <file> [--aspect ${aspectValues}] [--resolution ${resolutionValues}] [--duration ${durationValues}] [--tier ${tierValues}] [--audio] [--space <id>]
   makefx video derive --follow <variant_id> -o <file> [--space <id>]
 
 Video:
@@ -60,6 +61,15 @@ Video:
   --resolution <value>  Veo output resolution (${resolutionByTier})
   --duration <seconds>  Veo output duration: ${durationValues}
   --tier <tier>         Veo model tier: ${tierValues}
+  --first-frame <ref>   Veo start frame image variant or local image path
+  --last-frame <ref>    Veo final frame image variant or local image path
+
+Veo 3.1 frames:
+  --first-frame resolves to the first referenceVariantId and becomes the Veo top-level image input.
+  --last-frame resolves to the second referenceVariantId and becomes Veo config.lastFrame.
+  Use both flags together for first/last-frame generation; --last-frame requires --first-frame.
+  Frame flags disable style injection so style refs cannot be prepended ahead of the start/end frames.
+  Do not combine frame flags with --refs or --style-preset. Use --refs when you want generic Veo reference images instead of first/last-frame inputs.
 
 Audio:
   --audio       Request native synchronized Veo audio (default)

@@ -76,6 +76,13 @@ makefx video generate "A looping idle animation for a tiny robot" \
   --name "Robot Idle" \
   --type animation \
   -o video/robot-idle.mp4
+
+makefx video derive "move from the entrance to the desk" \
+  --first-frame refs/start.png \
+  --last-frame refs/end.png \
+  --name "Desk Move" \
+  --type animation \
+  -o video/desk-move.mp4
 ```
 
 Inspect and reuse tracked results:

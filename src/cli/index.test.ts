@@ -278,6 +278,29 @@ test('nested video subcommand help does not require auth', async () => {
     assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
     assert.equal(result.stderr, '');
     assert.ok(result.stdout.includes('makefx video generate "prompt"'));
+    assert.ok(result.stdout.includes('--first-frame <ref>'));
+    assert.ok(result.stdout.includes('--last-frame <ref>'));
+    assert.ok(result.stdout.includes('Veo 3.1 frames:'));
+    assert.ok(result.stdout.includes('top-level image input'));
+    assert.ok(result.stdout.includes('config.lastFrame'));
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('video derive help explains frame flags versus refs', async () => {
+  const cwd = await createCliCwd();
+  try {
+    const result = await runCli(['help', 'video', 'derive'], cwd, {
+      XDG_CONFIG_HOME: path.join(cwd, 'xdg-config'),
+      HOME: cwd,
+    });
+
+    assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
+    assert.equal(result.stderr, '');
+    assert.ok(result.stdout.includes('makefx video derive --first-frame <variant_or_file>'));
+    assert.ok(result.stdout.includes('Use both flags together for first/last-frame generation'));
+    assert.ok(result.stdout.includes('Use --refs when you want generic Veo reference images'));
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
