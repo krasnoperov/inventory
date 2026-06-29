@@ -138,10 +138,23 @@ test('composition detail creates compositions and sets an exact output variant',
   const output = page.getByRole('heading', { name: 'Output' }).locator('xpath=ancestor::section[1]');
   await output.getByRole('button', { name: 'Add' }).click();
   await page.getByLabel('Search exact variants').fill('Scene Bar');
+  await screenshot(page, 'composition-variant-picker', { fullPage: true });
   await page.getByRole('dialog', { name: 'Choose exact variant' }).getByRole('button', { name: /Scene Bar/ }).click();
 
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining(
     'update-composition:["composition-1",{"outputAssetId":"scene","outputVariantId":"scene-v1"}]',
+  ));
+});
+
+test('composition detail renames the selected composition from the shared text field', async ({ page }) => {
+  await mountComponent(page, 'CompositionDetail', detailProps());
+
+  await page.getByRole('button', { name: 'Scene Bar composition', exact: true }).click();
+  await page.getByLabel('Composition name').fill('Scene Bar final');
+  await page.keyboard.press('Enter');
+
+  await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining(
+    'update-composition:["composition-1",{"name":"Scene Bar final"}]',
   ));
 });
 
