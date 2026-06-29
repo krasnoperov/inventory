@@ -11,6 +11,7 @@ import {
   type CompositionPlacementRole,
   type CompositionShortcut,
 } from '../../productionShortcuts';
+import { Button, UiSelect, type SelectOption } from '../../ui';
 import styles from './CompositionPlacementControl.module.css';
 
 interface CompositionPlacementControlProps {
@@ -40,6 +41,20 @@ export function CompositionPlacementControl({
   const [compositionId, setCompositionId] = useState(() => compositions[0]?.id ?? '');
   const [role, setRole] = useState<CompositionPlacementRole>('output');
   const [placedLabel, setPlacedLabel] = useState<string | null>(null);
+  const compositionOptions = useMemo<Array<SelectOption<string>>>(
+    () => compositions.map((composition) => ({
+      value: composition.id,
+      label: composition.name,
+    })),
+    [compositions],
+  );
+  const roleOptions = useMemo<Array<SelectOption<CompositionPlacementRole>>>(
+    () => COMPOSITION_PLACEMENT_ROLES.map((option) => ({
+      value: option.role,
+      label: option.label,
+    })),
+    [],
+  );
 
   const selectedComposition = useMemo(
     () => compositions.find((composition) => composition.id === compositionId) ?? compositions[0] ?? null,
@@ -58,39 +73,35 @@ export function CompositionPlacementControl({
   return (
     <div className={`${styles.control} ${className ?? ''}`.trim()}>
       <span className={styles.title}>Add to composition</span>
-      <label className={styles.field}>
+      <div className={styles.field}>
         <span>Composition</span>
-        <select
+        <UiSelect
+          className={styles.select}
           value={selectedComposition.id}
-          aria-label="Composition"
-          onChange={(event) => {
-            setCompositionId(event.target.value);
+          options={compositionOptions}
+          label="Composition"
+          onValueChange={(nextCompositionId) => {
+            setCompositionId(nextCompositionId);
             setPlacedLabel(null);
           }}
-        >
-          {compositions.map((composition) => (
-            <option key={composition.id} value={composition.id}>{composition.name}</option>
-          ))}
-        </select>
-      </label>
-      <label className={styles.field}>
+        />
+      </div>
+      <div className={styles.field}>
         <span>Role</span>
-        <select
+        <UiSelect
+          className={styles.select}
           value={role}
-          aria-label="Composition role"
-          onChange={(event) => {
-            setRole(event.target.value as CompositionPlacementRole);
+          options={roleOptions}
+          label="Composition role"
+          onValueChange={(nextRole) => {
+            setRole(nextRole);
             setPlacedLabel(null);
           }}
-        >
-          {COMPOSITION_PLACEMENT_ROLES.map((option) => (
-            <option key={option.role} value={option.role}>{option.label}</option>
-          ))}
-        </select>
-      </label>
-      <button type="button" className={styles.placeButton} onClick={handlePlace}>
+        />
+      </div>
+      <Button className={styles.placeButton} onClick={handlePlace} variant="secondary" size="sm">
         Place
-      </button>
+      </Button>
       {placedLabel && <span className={styles.placed}>{placedLabel}</span>}
     </div>
   );

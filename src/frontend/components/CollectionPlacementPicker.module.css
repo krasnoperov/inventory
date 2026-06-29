@@ -1,4 +1,5 @@
 .picker {
+  width: min(100%, 36rem);
   display: grid;
   gap: 0.5rem;
 }
@@ -24,8 +25,8 @@
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--chip-border);
   border-radius: var(--radius-sm);
-  background: var(--chip-bg);
-  color: var(--chip-text);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: var(--font-size-small-sm);
   cursor: pointer;
 }
@@ -41,7 +42,7 @@
 
 .placementRow {
   display: grid;
-  grid-template-columns: minmax(8rem, 1fr) repeat(4, minmax(7rem, max-content));
+  grid-template-columns: minmax(7rem, 1fr) minmax(7rem, 9rem) minmax(8rem, 10rem) minmax(8rem, 10rem) max-content;
   gap: 0.4rem;
   align-items: center;
 }
@@ -56,7 +57,6 @@
   white-space: nowrap;
 }
 
-.select,
 .input {
   min-width: 0;
   min-height: 32px;
@@ -67,6 +67,14 @@
   color: var(--color-text);
   font: inherit;
   font-size: var(--font-size-small-sm);
+}
+
+.select {
+  width: 100%;
+  --ui-select-min-width: 0;
+  --ui-select-max-width: 100%;
+  --ui-select-height: 2rem;
+  --ui-select-font-size: var(--font-size-small-sm);
 }
 
 .pinToggle {
