@@ -4,7 +4,7 @@ import type {
   ChatForgeContext,
   ForgeChatProgressResult,
 } from '../../hooks/useSpaceWebSocket';
-import { Button, IconButton } from '../../ui';
+import { Button, IconButton, TextInput } from '../../ui';
 import styles from './ForgeChat.module.css';
 
 /** Progress state for description phase */
@@ -304,14 +304,15 @@ export function ForgeChat({
 
       {/* Input Area */}
       <div className={styles.inputArea}>
-        <input
+        <TextInput
           ref={inputRef}
-          className={styles.input}
+          className={styles.chatInput}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           disabled={isLoading}
+          fullWidth
         />
         <IconButton
           className={styles.sendButton}
