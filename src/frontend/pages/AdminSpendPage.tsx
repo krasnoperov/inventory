@@ -11,7 +11,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useNavigate } from '../hooks/useNavigate';
 import { useSearchParams } from '../hooks/useSearchParams';
 import { adminSpendQueryOptions, type AdminSpendFilters } from '../queries';
-import { Button, ButtonLink, UiSelect, type SelectOption } from '../ui';
+import { Button, ButtonLink, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './AdminSpendPage.module.css';
 
 type SpendAggregate = ProviderSpendSummaryResponse['totals'];
@@ -203,40 +203,50 @@ export function AdminSpendView({
         >
           <label>
             <span>From</span>
-            <input
+            <TextInput
+              className={styles.filterInput}
               type="date"
               value={draftFilters.from ?? ''}
               onChange={(event) => onDraftChange('from', event.target.value)}
+              fullWidth
             />
           </label>
           <label>
             <span>To</span>
-            <input
+            <TextInput
+              className={styles.filterInput}
               type="date"
               value={draftFilters.to ?? ''}
               onChange={(event) => onDraftChange('to', event.target.value)}
+              fullWidth
             />
           </label>
           <label>
             <span>User ID</span>
-            <input
+            <TextInput
+              className={styles.filterInput}
               inputMode="numeric"
               value={draftFilters.userId ?? ''}
               onChange={(event) => onDraftChange('userId', event.target.value)}
+              fullWidth
             />
           </label>
           <label>
             <span>Space ID</span>
-            <input
+            <TextInput
+              className={styles.filterInput}
               value={draftFilters.spaceId ?? ''}
               onChange={(event) => onDraftChange('spaceId', event.target.value)}
+              fullWidth
             />
           </label>
           <label>
             <span>Provider</span>
-            <input
+            <TextInput
+              className={styles.filterInput}
               value={draftFilters.provider ?? ''}
               onChange={(event) => onDraftChange('provider', event.target.value)}
+              fullWidth
             />
           </label>
           <label>

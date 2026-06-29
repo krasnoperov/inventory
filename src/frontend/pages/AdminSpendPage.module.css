@@ -86,15 +86,13 @@
   text-transform: uppercase;
 }
 
-.filters input {
-  width: 100%;
-  min-height: 40px;
+.filterInput {
+  --ui-text-input-height: 40px;
+  --ui-text-field-font-size: var(--font-size-small-sm);
+  --ctl-surface: var(--color-bg);
+  --ctl-line: var(--color-border);
+
   min-width: 0;
-  padding: 0.5rem 0.625rem;
-  color: var(--color-text);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
 }
 
 .mediaSelect {
