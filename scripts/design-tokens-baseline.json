@@ -4,9 +4,7 @@
   "files": {
     "src/frontend/components/AssetCanvas/AssetNode.module.css": [
       "oklch(55% 0.18 276/0.25)",
-      "oklch(55% 0.18 276/0.3)",
-      "oklch(55% 0.18 276/0.4)",
-      "white"
+      "oklch(55% 0.18 276/0.3)"
     ],
     "src/frontend/components/AssetCard.module.css": [
       "white"

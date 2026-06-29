@@ -91,41 +91,6 @@
   font-weight: 500;
 }
 
-/* Hover actions - counter-scaled to stay clickable */
-.actions {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  transform: scale(calc(1 / var(--rf-zoom, 1)));
-  transform-origin: top right;
-}
-
-.thumbnail:hover .actions {
-  opacity: 1;
-}
-
-.actionButton {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: var(--color-primary);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 2px 8px oklch(55% 0.18 276 / 0.4);
-}
-
-.actionButton:hover {
-  background: var(--color-accent);
-}
-
 /* Label - positioned below node, counter-scaled */
 .label {
   position: absolute;
