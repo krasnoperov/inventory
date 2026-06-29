@@ -603,46 +603,6 @@
   margin-top: 1.25rem;
 }
 
-.uploadPromptCancel {
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text);
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.uploadPromptCancel:hover {
-  background: var(--color-bg);
-  border-color: var(--color-text-muted);
-}
-
-.uploadPromptSubmit {
-  padding: 0.5rem 1rem;
-  background: var(--color-primary);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: white;
-  cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.1s ease;
-}
-
-.uploadPromptSubmit:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  transform: translateY(-1px);
-}
-
-.uploadPromptSubmit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
 /* No Style Checkbox */
 .noStyleCheck {
   display: flex;
