@@ -256,59 +256,34 @@
   gap: 0.25rem;
 }
 
-.rowActions button,
-.smallButton,
-.dangerButton,
-.iconButton,
-.missingRow button {
-  border: 1px solid var(--color-border);
+.actionButton {
+  --ui-button-height: 28px;
+  --ui-button-font-size: 0.75rem;
+  --ui-button-pad-x: 0.5rem;
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
 }
 
-.rowActions button,
-.smallButton,
-.dangerButton,
-.missingRow button {
-  min-height: 28px;
-  padding: 0.25rem 0.5rem;
-}
-
-.rowActions button:hover,
-.smallButton:hover,
-.iconButton:hover,
-.missingRow button:hover {
-  border-color: var(--color-primary);
-}
-
-.rowActions svg {
-  width: 14px;
-  height: 14px;
-  display: block;
-}
-
-.dangerButton {
-  border-color: var(--color-error);
-  color: var(--color-error);
-}
-
-.iconButton {
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+.iconButton,
+.rowIconButton {
+  --ui-button-height: 32px;
+  --ui-button-pad-x: 0;
+  border-radius: var(--radius-sm);
   flex: 0 0 auto;
 }
 
-.iconButton svg {
+.rowIconButton {
+  --ui-button-height: 28px;
+}
+
+.iconButton svg,
+.rowIconButton svg {
   width: 16px;
   height: 16px;
+}
+
+.rowIconButton svg {
+  width: 14px;
+  height: 14px;
 }
 
 .emptyText {

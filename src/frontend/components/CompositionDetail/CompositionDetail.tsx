@@ -11,6 +11,7 @@ import type {
   Variant,
 } from '../../hooks/useSpaceWebSocket';
 import { Thumbnail } from '../Thumbnail';
+import { Button, IconButton } from '../../ui';
 import styles from './CompositionDetail.module.css';
 
 const ROLE_CONFIG: Array<{
@@ -214,12 +215,12 @@ export function CompositionDetail({
           <h2>Exact variant production structure</h2>
         </div>
         {onClose && (
-          <button className={styles.iconButton} type="button" onClick={onClose} title="Close composition detail">
+          <IconButton className={styles.iconButton} onClick={onClose} title="Close composition detail" aria-label="Close composition detail">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 6 6 18" />
               <path d="m6 6 12 12" />
             </svg>
-          </button>
+          </IconButton>
         )}
       </div>
 
@@ -228,9 +229,9 @@ export function CompositionDetail({
           <div className={styles.sectionHeader}>
             <span>Compositions</span>
             {canEdit && onCreateComposition && (
-              <button className={styles.smallButton} type="button" onClick={() => onCreateComposition()}>
+              <Button className={styles.actionButton} size="sm" onClick={() => onCreateComposition()}>
                 New
-              </button>
+              </Button>
             )}
           </div>
           <div className={styles.compositionList}>
@@ -278,13 +279,14 @@ export function CompositionDetail({
                 </button>
               )}
               {canEdit && onDeleteComposition && (
-                <button
-                  className={styles.dangerButton}
-                  type="button"
+                <Button
+                  className={styles.actionButton}
+                  variant="danger"
+                  size="sm"
                   onClick={() => onDeleteComposition(selectedComposition.id)}
                 >
                   Delete
-                </button>
+                </Button>
               )}
             </div>
 
@@ -336,7 +338,7 @@ export function CompositionDetail({
                         <div key={item.id} className={styles.missingRow}>
                           Missing source variant {item.variant_id}
                           {canEdit && (
-                            <button type="button" onClick={() => onDeleteItem(selectedComposition.id, item.id)}>Remove</button>
+                            <Button className={styles.actionButton} size="sm" onClick={() => onDeleteItem(selectedComposition.id, item.id)}>Remove</Button>
                           )}
                         </div>
                       );
@@ -380,12 +382,12 @@ export function CompositionDetail({
           <div className={styles.picker}>
             <div className={styles.pickerHeader}>
               <strong>Choose exact variant</strong>
-              <button className={styles.iconButton} type="button" onClick={() => setPickerTarget(null)} title="Close variant picker">
+              <IconButton className={styles.iconButton} onClick={() => setPickerTarget(null)} title="Close variant picker" aria-label="Close variant picker">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6 6 18" />
                   <path d="m6 6 12 12" />
                 </svg>
-              </button>
+              </IconButton>
             </div>
             <input
               aria-label="Search exact variants"
@@ -434,7 +436,7 @@ function SlotBlock({ title, empty, canEdit, single, hasItems, onAdd, children }:
       <div className={styles.slotHeader}>
         <h3>{title}</h3>
         {canEdit && (!single || !hasChildren) && (
-          <button type="button" className={styles.smallButton} onClick={onAdd}>Add</button>
+          <Button className={styles.actionButton} size="sm" onClick={onAdd}>Add</Button>
         )}
       </div>
       <div className={styles.slotBody}>
@@ -481,22 +483,22 @@ function VariantUsageRow({
       </div>
       <div className={styles.rowActions}>
         {canEdit && onMoveUp && (
-          <button type="button" onClick={onMoveUp} title="Move up">
+          <IconButton className={styles.rowIconButton} onClick={onMoveUp} title="Move up" aria-label="Move up">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="m18 15-6-6-6 6" />
             </svg>
-          </button>
+          </IconButton>
         )}
         {canEdit && onMoveDown && (
-          <button type="button" onClick={onMoveDown} title="Move down">
+          <IconButton className={styles.rowIconButton} onClick={onMoveDown} title="Move down" aria-label="Move down">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="m6 9 6 6 6-6" />
             </svg>
-          </button>
+          </IconButton>
         )}
-        {onOpenAsset && <button type="button" onClick={() => onOpenAsset(asset.id)}>Open</button>}
-        {canEdit && <button type="button" onClick={onReplace}>Replace</button>}
-        {canEdit && <button type="button" onClick={onRemove}>Remove</button>}
+        {onOpenAsset && <Button className={styles.actionButton} size="sm" onClick={() => onOpenAsset(asset.id)}>Open</Button>}
+        {canEdit && <Button className={styles.actionButton} size="sm" onClick={onReplace}>Replace</Button>}
+        {canEdit && <Button className={styles.actionButton} size="sm" onClick={onRemove}>Remove</Button>}
       </div>
     </div>
   );
