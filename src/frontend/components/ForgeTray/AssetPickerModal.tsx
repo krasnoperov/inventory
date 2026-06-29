@@ -7,7 +7,7 @@ import {
   type ForgeMediaMode,
   getForgeMediaModeConfig,
 } from './forgeMediaMode';
-import { Button, IconButton, UiSelect, type SelectOption } from '../../ui';
+import { Button, IconButton, TextInput, UiSelect, type SelectOption } from '../../ui';
 import styles from './AssetPickerModal.module.css';
 
 export interface AssetPickerModalProps {
@@ -147,13 +147,13 @@ export function AssetPickerModal({
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <input
-              type="text"
+            <TextInput
               className={styles.searchInput}
               placeholder="Search assets..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               autoFocus
+              fullWidth
             />
           </div>
           <UiSelect

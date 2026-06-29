@@ -94,21 +94,7 @@
 }
 
 .searchInput {
-  width: 100%;
-  padding: 0.625rem 0.75rem 0.625rem 2.25rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: 0.875rem;
-  font-family: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.searchInput:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: var(--focus-ring);
+  padding-left: 2.25rem;
 }
 
 .typeFilter {
