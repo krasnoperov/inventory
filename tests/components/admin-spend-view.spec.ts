@@ -57,6 +57,8 @@ test('admin spend view uses shared filter controls', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Provider Cost' })).toBeVisible();
   await expect(page.getByText('$0.31').first()).toBeVisible();
   await page.getByRole('button', { name: 'Reset' }).click();
+  await page.getByLabel('User ID').fill('42');
+  await page.getByLabel('Provider').fill('openai');
   await selectDropdown(page, 'Media', 'Video');
   await page.getByRole('button', { name: 'Apply' }).click();
 
@@ -64,6 +66,8 @@ test('admin spend view uses shared filter controls', async ({ page }) => {
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls).toEqual(expect.arrayContaining([
+    expect.objectContaining({ eventName: 'draft', args: ['userId', '42'] }),
+    expect.objectContaining({ eventName: 'draft', args: ['provider', 'openai'] }),
     expect.objectContaining({ eventName: 'draft', args: ['mediaKind', 'video'] }),
     expect.objectContaining({ eventName: 'apply', args: [] }),
     expect.objectContaining({ eventName: 'clear', args: [] }),
