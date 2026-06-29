@@ -24,6 +24,7 @@ import { AdminSpendView } from './pages/AdminSpendPage';
 import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
 import { CreateSpaceDialog } from './pages/DashboardPage';
 import { LandingCreateSpaceDialog } from './pages/LandingPage';
+import { GoogleLoginButton } from './pages/LoginPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
@@ -436,6 +437,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   CompositionUsageList: CompositionUsageList as unknown as ComponentType<Record<string, unknown>>,
   CompositionPlacementControl: CompositionPlacementControl as unknown as ComponentType<Record<string, unknown>>,
   CreateSpaceDialog: CreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
+  GoogleLoginButton: GoogleLoginButton as unknown as ComponentType<Record<string, unknown>>,
   LandingCreateSpaceDialog: LandingCreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
