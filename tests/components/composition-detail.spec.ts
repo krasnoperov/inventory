@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mountComponent } from './harness';
+import { mountComponent, screenshot } from './harness';
 
 const baseTime = 1_700_000_000_000;
 
@@ -129,6 +129,8 @@ test('composition detail creates compositions and sets an exact output variant',
   await mountComponent(page, 'CompositionDetail', detailProps({
     compositions: [{ ...composition, output_asset_id: null, output_variant_id: null }],
   }));
+
+  await screenshot(page, 'composition-detail-controls', { fullPage: true });
 
   await page.getByRole('button', { name: 'New' }).click();
   await expect.poll(() => calls(page)).toContain('create-composition');
