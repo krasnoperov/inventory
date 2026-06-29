@@ -901,9 +901,9 @@ export function ForgeTray({
       requestAnimationFrame(() => targetRef.current?.focus());
     };
 
-    if (e.key === 'ArrowLeft' || e.key === 'Home') {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'Home') {
       selectDestination('existing_asset');
-    } else if (e.key === 'ArrowRight' || e.key === 'End') {
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'End') {
       selectDestination('new_asset');
     }
   }, [canUseExistingDestination, isSubmitting]);

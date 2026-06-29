@@ -779,9 +779,29 @@ test('forge tray destination toggle supports radio keyboard navigation', async (
   await expect(next).toBeChecked();
   await expect(next).toBeFocused();
 
+  await page.keyboard.press('ArrowUp');
+  await expect(current).toBeChecked();
+  await expect(current).toBeFocused();
+
+  await page.keyboard.press('ArrowDown');
+  await expect(next).toBeChecked();
+  await expect(next).toBeFocused();
+
   await page.keyboard.press('ArrowLeft');
   await expect(current).toBeChecked();
   await expect(current).toBeFocused();
+
+  await page.keyboard.press('ArrowRight');
+  await expect(next).toBeChecked();
+  await expect(next).toBeFocused();
+
+  await page.keyboard.press('Home');
+  await expect(current).toBeChecked();
+  await expect(current).toBeFocused();
+
+  await page.keyboard.press('End');
+  await expect(next).toBeChecked();
+  await expect(next).toBeFocused();
 });
 
 test('forge tray collapses after touching the destination toggle then leaving', async ({ page }) => {
