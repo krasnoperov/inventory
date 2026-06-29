@@ -226,6 +226,10 @@ export function AssetPickerModal({
                       : isAtReferenceBudget && !isInTray
                         ? 'Reference budget reached'
                         : undefined;
+                  const assetMediaLabel = `${asset.type} / ${asset.media_kind}`;
+                  const actionLabel = disabledReason
+                    ? `${asset.name}, ${assetMediaLabel}. ${disabledReason}`
+                    : `${asset.name}, ${assetMediaLabel}`;
 
                   return (
                     <button
@@ -234,6 +238,7 @@ export function AssetPickerModal({
                       onClick={() => handleAssetClick(asset)}
                       disabled={!canSelect}
                       title={disabledReason}
+                      aria-label={actionLabel}
                     >
                       <div className={styles.thumbnailWrapper}>
                         <Thumbnail
@@ -253,8 +258,10 @@ export function AssetPickerModal({
                       </div>
                       <div className={styles.assetInfo}>
                         <span className={styles.assetName}>{asset.name}</span>
-                        <span className={styles.assetType}>{asset.type} / {asset.media_kind}</span>
-                        {disabledReason && <span className={styles.disabledReason}>{disabledReason}</span>}
+                        <span className={styles.assetMeta}>
+                          <span className={styles.assetType}>{assetMediaLabel}</span>
+                          {disabledReason && <span className={styles.unavailableBadge}>Unavailable</span>}
+                        </span>
                       </div>
                     </button>
                   );
