@@ -136,6 +136,22 @@ makefx video derive \
   "Slow dolly-in, subtle crowd movement, keep the hero centered" \
   -o video/episode-01/shot-001.mp4
 
+makefx video derive \
+  --first-frame KEYFRAME_START_VARIANT_ID \
+  --last-frame KEYFRAME_END_VARIANT_ID \
+  --name "Episode 01 Shot 002" \
+  --type animation \
+  --duration 8 \
+  --resolution 1080p \
+  --tier generate \
+  --production-id episode-01 \
+  --shot-id shot-002 \
+  --scene-label "Market" \
+  --timeline-start-ms 8000 \
+  --duration-ms 8000 \
+  "Move smoothly from the wide market entrance to the hero at the stall" \
+  -o video/episode-01/shot-002.mp4
+
 makefx video refine \
   --variant VIDEO_VARIANT_ID \
   --production-id episode-01 \

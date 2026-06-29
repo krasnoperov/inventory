@@ -2287,6 +2287,151 @@ test('video derive accepts image and video refs and sends video request', async 
   });
 });
 
+test('video generate sends first and last frames as ordered referenceVariantIds', async () => {
+  const firstFrame = completedVariant({
+    id: 'variant-start-frame',
+    image_key: 'images/space/start-frame.png',
+    media_key: 'images/space/start-frame.png',
+  });
+  const lastFrame = completedVariant({
+    id: 'variant-last-frame',
+    image_key: 'images/space/last-frame.png',
+    media_key: 'images/space/last-frame.png',
+  });
+  const client = new FakeClient({ assets: [], variants: [firstFrame, lastFrame], lineage: [] });
+  const { deps, manifests } = depsFor(client);
+
+  await executeVideoCommand('generate', {
+    positionals: ['slow', 'dolly', 'from', 'doorway', 'to', 'desk'],
+    options: {
+      space: 'space-1',
+      'first-frame': 'variant-start-frame',
+      'last-frame': 'variant-last-frame',
+      name: 'Doorway To Desk',
+      type: 'animation',
+      o: 'doorway-to-desk.mp4',
+    },
+  }, deps);
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Doorway To Desk',
+    assetType: 'animation',
+    prompt: 'slow dolly from doorway to desk',
+    referenceVariantIds: ['variant-start-frame', 'variant-last-frame'],
+    aspectRatio: undefined,
+    disableStyle: true,
+    mediaKind: 'video',
+  });
+  assert.deepEqual((manifests[0] as { refs: string[] }).refs, ['variant-start-frame', 'variant-last-frame']);
+  assert.deepEqual(
+    (manifests[0] as { referenceVariantIds: string[] }).referenceVariantIds,
+    ['variant-start-frame', 'variant-last-frame']
+  );
+});
+
+test('video derive accepts first and last frame flags instead of refs', async () => {
+  const firstFrame = completedVariant({
+    id: 'variant-start-frame',
+    image_key: 'images/space/start-frame.png',
+    media_key: 'images/space/start-frame.png',
+  });
+  const lastFrame = completedVariant({
+    id: 'variant-last-frame',
+    image_key: 'images/space/last-frame.png',
+    media_key: 'images/space/last-frame.png',
+  });
+  const client = new FakeClient({ assets: [], variants: [firstFrame, lastFrame], lineage: [] });
+  const { deps } = depsFor(client);
+
+  await executeVideoCommand('derive', {
+    positionals: ['move', 'between', 'the', 'keyframes'],
+    options: {
+      space: 'space-1',
+      firstFrame: 'variant-start-frame',
+      lastFrame: 'variant-last-frame',
+      name: 'Keyframe Move',
+      type: 'animation',
+      o: 'keyframe-move.mp4',
+    },
+  }, deps);
+
+  assert.deepEqual(client.generateParams, {
+    name: 'Keyframe Move',
+    assetType: 'animation',
+    prompt: 'move between the keyframes',
+    referenceVariantIds: ['variant-start-frame', 'variant-last-frame'],
+    aspectRatio: undefined,
+    disableStyle: true,
+    mediaKind: 'video',
+  });
+});
+
+test('video frame flags reject ambiguous combinations before opening a website job', async () => {
+  const client = new FakeClient();
+  const { deps } = depsFor(client);
+
+  await assert.rejects(
+    () => executeVideoCommand('generate', {
+      positionals: ['move', 'between', 'frames'],
+      options: {
+        space: 'space-1',
+        'last-frame': 'variant-last-frame',
+        name: 'Missing Start',
+        type: 'animation',
+        o: 'missing-start.mp4',
+      },
+    }, deps),
+    /--last-frame requires --first-frame/
+  );
+
+  await assert.rejects(
+    () => executeVideoCommand('derive', {
+      positionals: ['move', 'between', 'frames'],
+      options: {
+        space: 'space-1',
+        refs: 'variant-ref',
+        'first-frame': 'variant-start-frame',
+        name: 'Ambiguous Frames',
+        type: 'animation',
+        o: 'ambiguous.mp4',
+      },
+    }, deps),
+    /--first-frame and --last-frame cannot be combined with --refs/
+  );
+
+  await assert.rejects(
+    () => executeVideoCommand('refine', {
+      positionals: ['move', 'between', 'frames'],
+      options: {
+        space: 'space-1',
+        variant: 'variant-source',
+        'first-frame': 'variant-start-frame',
+        o: 'refine.mp4',
+      },
+    }, deps),
+    /--first-frame and --last-frame are only supported for video generate and video derive/
+  );
+
+  await assert.rejects(
+    () => executeVideoCommand('generate', {
+      positionals: ['move', 'between', 'frames'],
+      options: {
+        space: 'space-1',
+        'first-frame': 'variant-start-frame',
+        'style-preset': 'Painterly',
+        name: 'Styled Frames',
+        type: 'animation',
+        o: 'styled.mp4',
+      },
+    }, deps),
+    /--first-frame and --last-frame cannot be combined with --style-preset/
+  );
+
+  assert.equal(client.connected, false);
+  assert.equal(client.generateParams, undefined);
+  assert.equal(client.refineParams, undefined);
+});
+
 test('video --audio flag is forwarded to website jobs', async () => {
   const client = new FakeClient();
   const { deps } = depsFor(client);

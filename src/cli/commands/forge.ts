@@ -280,6 +280,10 @@ interface VideoGenerationOptions {
   videoTier?: VideoGenerationTier;
 }
 
+interface VideoFrameReferenceOptions {
+  refs: string[];
+}
+
 interface FollowCommandOptions {
   audioMode?: AudioForgeMediaMode;
 }
@@ -410,6 +414,7 @@ export async function executeForgeCommand(
   validateImageCommandReferenceCount(command, parsed, mediaKind, imageOptions.model);
   validateVideoAudioOptions(parsed, mediaKind);
   parseVideoGenerationOptions(parsed, mediaKind);
+  validateVideoFrameReferenceOptions(command, parsed, mediaKind);
   if (command !== 'batch') {
     validateProductionMetadataOptions(parsed);
   }
@@ -541,10 +546,21 @@ async function executeGenerate(
   const assetType = requireOption(parsed, 'type');
   const musicProvider = parseMusicProviderOption(parsed, mediaKind, assetType);
   const startedAt = new Date().toISOString();
+  const videoFrameRefs = parseVideoFrameReferenceOptions(parsed, 'generate', mediaKind).refs;
+  const state = videoFrameRefs.length > 0 ? await requestSpaceState(client) : undefined;
+  const referenceVariantIds = videoFrameRefs.length > 0
+    ? await resolveReferenceVariantIds(
+      videoFrameRefs,
+      ctx,
+      deps,
+      state?.variants as Variant[] | undefined,
+      CLI_GENERATION_MEDIA_KIND
+    )
+    : [];
   const scene = parseSceneMetadata(parsed, {
     prompt,
-    refs: [],
-    referenceVariantIds: [],
+    refs: videoFrameRefs,
+    referenceVariantIds,
     mediaKind,
   });
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
@@ -552,6 +568,7 @@ async function executeGenerate(
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
   const styleSelection = await resolveStyleSelection(parsed, ctx, deps);
+  const disableStyle = parsed.options['no-style'] === 'true' || videoFrameRefs.length > 0;
 
   await printPreflightEstimate(client, {
     operation: 'generate',
@@ -573,10 +590,11 @@ async function executeGenerate(
     name,
     assetType,
     prompt,
+    ...(referenceVariantIds.length > 0 ? { referenceVariantIds } : {}),
     ...imageOptions,
     ...audioModelOptions,
     aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
-    disableStyle: parsed.options['no-style'] === 'true',
+    disableStyle,
     ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
     mediaKind,
     ...audioVoiceOptions,
@@ -605,8 +623,8 @@ async function executeGenerate(
     name,
     assetType,
     startedAt,
-    refs: [],
-    referenceVariantIds: [],
+    refs: videoFrameRefs,
+    referenceVariantIds,
     scene,
   });
   await downloadResult(result, outputPath, ctx, deps);
@@ -753,29 +771,35 @@ async function executeDerive(
   const outputPath = getOutputPath(parsed);
   const name = requireOption(parsed, 'name');
   const assetType = requireOption(parsed, 'type');
-  const refs = parseRefs(requireOption(parsed, 'refs'));
+  const videoFrameRefs = parseVideoFrameReferenceOptions(parsed, 'derive', mediaKind).refs;
+  const refs = parsed.options.refs ? parseRefs(requireOption(parsed, 'refs')) : [];
+  const referenceRefs = videoFrameRefs.length > 0 ? videoFrameRefs : refs;
+  if (referenceRefs.length === 0) {
+    throw new Error('--refs is required');
+  }
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
   if (mediaKind === 'image') {
-    validateImageReferenceCount(imageOptions.model, refs.length);
+    validateImageReferenceCount(imageOptions.model, referenceRefs.length);
   }
   const state = await requestSpaceState(client);
   const referenceVariantIds = await resolveReferenceVariantIds(
-    refs,
+    referenceRefs,
     ctx,
     deps,
     state.variants as Variant[],
-    mediaKind
+    videoFrameRefs.length > 0 ? CLI_GENERATION_MEDIA_KIND : mediaKind
   );
   const startedAt = new Date().toISOString();
   const scene = parseSceneMetadata(parsed, {
     prompt,
-    refs,
+    refs: referenceRefs,
     referenceVariantIds,
     mediaKind,
   });
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
   const styleSelection = await resolveStyleSelection(parsed, ctx, deps);
+  const disableStyle = parsed.options['no-style'] === 'true' || videoFrameRefs.length > 0;
 
   await printPreflightEstimate(client, {
     operation: 'derive',
@@ -798,7 +822,7 @@ async function executeDerive(
     referenceVariantIds,
     ...imageOptions,
     aspectRatio: imageOptions.aspectRatio ?? videoOptions.aspectRatio,
-    disableStyle: parsed.options['no-style'] === 'true',
+    disableStyle,
     ...(styleSelection.stylePresetId ? { stylePresetId: styleSelection.stylePresetId } : {}),
     mediaKind,
     ...videoAudioOptions,
@@ -825,7 +849,7 @@ async function executeDerive(
     name,
     assetType,
     startedAt,
-    refs,
+    refs: referenceRefs,
     referenceVariantIds,
     scene,
   });
@@ -1783,6 +1807,67 @@ function parseVideoGenerationOptions(
     ...(videoDurationSeconds ? { videoDurationSeconds } : {}),
     ...(videoTier ? { videoTier } : {}),
   };
+}
+
+function parseVideoFrameReferenceOptions(
+  parsed: ParsedArgs,
+  command: ForgeCommand,
+  mediaKind: GenerationMediaKind
+): VideoFrameReferenceOptions {
+  validateVideoFrameReferenceOptions(command, parsed, mediaKind);
+
+  const firstFrame = readVideoFrameOption(parsed, 'first-frame', 'firstFrame');
+  const lastFrame = readVideoFrameOption(parsed, 'last-frame', 'lastFrame');
+  return {
+    refs: [
+      ...(firstFrame ? [firstFrame] : []),
+      ...(lastFrame ? [lastFrame] : []),
+    ],
+  };
+}
+
+function validateVideoFrameReferenceOptions(
+  command: ForgeCommand,
+  parsed: ParsedArgs,
+  mediaKind: GenerationMediaKind
+): void {
+  const firstFrame = readVideoFrameOption(parsed, 'first-frame', 'firstFrame');
+  const lastFrame = readVideoFrameOption(parsed, 'last-frame', 'lastFrame');
+  if (!firstFrame && !lastFrame) return;
+
+  if (mediaKind !== 'video') {
+    throw new Error('--first-frame and --last-frame are only supported for video generation');
+  }
+  if (command !== 'generate' && command !== 'derive') {
+    throw new Error('--first-frame and --last-frame are only supported for video generate and video derive');
+  }
+  if (lastFrame && !firstFrame) {
+    throw new Error('--last-frame requires --first-frame');
+  }
+  if (parsed.options.refs) {
+    throw new Error('--first-frame and --last-frame cannot be combined with --refs');
+  }
+  if (readStylePresetOption(parsed)) {
+    throw new Error('--first-frame and --last-frame cannot be combined with --style-preset');
+  }
+}
+
+function readVideoFrameOption(
+  parsed: ParsedArgs,
+  kebabName: string,
+  camelName: string
+): string | undefined {
+  const value = parsed.options[kebabName] ?? parsed.options[camelName];
+  if (value === undefined) return undefined;
+  const flag = `--${kebabName}`;
+  if (value === 'true') {
+    throw new Error(`${flag} requires a variant ID or local image path`);
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`${flag} requires a variant ID or local image path`);
+  }
+  return trimmed;
 }
 
 function parseDialogueVoiceIds(value: string | undefined): string[] | undefined {

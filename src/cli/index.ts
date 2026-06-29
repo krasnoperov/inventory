@@ -139,7 +139,16 @@ function videoCapabilityHelp(): string {
   --aspect <ratio>      Veo aspect ratio: ${videoAspectValues()}
   --resolution <value>  Veo output resolution (${resolutionLines})
   --duration <seconds>  Veo output duration: ${videoDurationValues()}
-  --tier <tier>         Veo model tier: ${videoTierValues()}`;
+  --tier <tier>         Veo model tier: ${videoTierValues()}
+  --first-frame <ref>   Veo start frame image variant or local image path
+  --last-frame <ref>    Veo final frame image variant or local image path
+
+Veo 3.1 frames:
+  --first-frame resolves to the first referenceVariantId and becomes the Veo top-level image input.
+  --last-frame resolves to the second referenceVariantId and becomes Veo config.lastFrame.
+  Use both flags together for first/last-frame generation; --last-frame requires --first-frame.
+  Frame flags disable style injection so style refs cannot be prepended ahead of the start/end frames.
+  Do not combine frame flags with --refs or --style-preset. Use --refs when you want generic Veo reference images instead of first/last-frame inputs.`;
 }
 
 function configureLocalTls(args: string[]): void {
@@ -336,10 +345,10 @@ Audio:
   audio sfx generate "prompt" --name <name> -o <file>
 
 Video:
-  video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio]
+  video generate "prompt" --name <name> --type <type> -o <file> [--first-frame <variant_or_file>] [--last-frame <variant_or_file>] [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio]
   video generate --follow <variant_id> -o <file>
   video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio]
-  video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio]
+  video derive (--refs <variant_or_file,variant_or_file> | --first-frame <variant_or_file> [--last-frame <variant_or_file>]) --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio]
 
 Options:
   --env <environment>          Target environment (production|stage|local), default: production
@@ -360,6 +369,7 @@ Examples:
   makefx batch "Three Russafa market keyframes" --name "Market Keyframe" --type scene --count 3 --output-dir keyframes
   makefx audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
   makefx video generate "A looping idle animation" --name "Idle Animation" --type animation --duration 6 --resolution 1080p --tier fast -o idle.mp4
+  makefx video derive --first-frame keyframes/start.png --last-frame keyframes/end.png --name "Camera Move" --type animation "slow dolly from start to end" -o move.mp4
   makefx productions export --production-id s01e01-a2
   makefx upload hero.png --name "Hero" --collection collection_cast
   makefx upload hero.png --name "Hero" --collection-name "Cast" --json
@@ -665,7 +675,7 @@ function printVideoHelp(positionals: string[]): void {
   if (subcommand === 'generate') {
     console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--first-frame <variant_or_file>] [--last-frame <variant_or_file>] [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio] [--space <id>]
   makefx video generate --follow <variant_id> -o <file> [--space <id>]
 
 ${videoCapabilityHelp()}
@@ -702,6 +712,7 @@ Production metadata:
     console.log(`
 Usage:
   makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio] [--space <id>]
+  makefx video derive --first-frame <variant_or_file> [--last-frame <variant_or_file>] --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio] [--space <id>]
   makefx video derive --follow <variant_id> -o <file> [--space <id>]
 
 ${videoCapabilityHelp()}
@@ -718,10 +729,11 @@ Production metadata:
 
   console.log(`
 Usage:
-  makefx video generate "prompt" --name <name> --type <type> -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio] [--space <id>]
+  makefx video generate "prompt" --name <name> --type <type> -o <file> [--first-frame <variant_or_file>] [--last-frame <variant_or_file>] [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio] [--space <id>]
   makefx video generate --follow <variant_id> -o <file> [--space <id>]
   makefx video refine --variant <variant_id> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio] [--space <id>]
   makefx video derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio] [--space <id>]
+  makefx video derive --first-frame <variant_or_file> [--last-frame <variant_or_file>] --name <name> --type <type> "prompt" -o <file> [--aspect ${videoAspectValues()}] [--resolution ${videoResolutionValues()}] [--duration ${videoDurationValues()}] [--tier ${videoTierValues()}] [--audio] [--space <id>]
 
 ${videoCapabilityHelp()}
 

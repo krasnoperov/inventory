@@ -679,12 +679,31 @@ makefx video derive \
   --type animation \
   "animate the pose into a short attack" \
   -o video/attack.mp4
+
+makefx video derive \
+  --first-frame KEYFRAME_START_VARIANT_ID \
+  --last-frame KEYFRAME_END_VARIANT_ID \
+  --name "Camera Move" \
+  --type animation \
+  "slow dolly from the doorway to the desk" \
+  -o video/camera-move.mp4
 ```
 
 `video derive --refs` accepts completed image variant IDs, completed video
 variant IDs, and local image paths. Local image paths use the same mirror
 registry as image refs: matching mirrored content reuses the recorded variant,
 while changed files stop with guidance to upload or reference intentionally.
+For Veo 3.1 first/last-frame generation, prefer `--first-frame <ref>` and
+`--last-frame <ref>` on `video generate` or `video derive`. These flags accept
+completed image variant IDs and local image paths. The CLI mirrors local files
+as image references, resolves both flags to ordered `referenceVariantIds`, and
+sends those IDs to the Space job. The backend then expands the first resolved
+image to Veo's top-level `image` parameter and the second resolved image to
+`config.lastFrame`. Frame flags disable style injection so style references
+cannot be prepended ahead of the start/end frames. `--last-frame` requires
+`--first-frame`, and frame flags cannot be combined with `--refs` or
+`--style-preset`; use `--refs` when you want generic Veo reference images
+instead of first/last-frame inputs.
 Video batch generation is not exposed because website batch jobs reject
 `mediaKind: "video"`.
 
