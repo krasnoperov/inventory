@@ -1105,6 +1105,7 @@ export function ForgeTray({
     slots.length > 0 ||
     showStylePanel ||
     showChat;
+  const showNameChip = showNameInput && (isTrayExpanded || nameEdited || showDestinationToggle);
 
   // Build tray class with drag-over state
   const trayClasses = [styles.tray];
@@ -1484,7 +1485,7 @@ export function ForgeTray({
 
             <div className={styles.controlBarRight}>
               {/* Name — auto-generated, quietly editable (new asset only; existing shows in header) */}
-              {showNameInput && (
+              {showNameChip && (
                 <TextInput
                   className={styles.nameChip}
                   value={nameValue}
