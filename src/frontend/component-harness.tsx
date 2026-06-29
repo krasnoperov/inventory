@@ -15,6 +15,7 @@ import { SpaceSharingPanel } from './components/SpaceSharingPanel';
 import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
 import { VariantCanvas } from './components/VariantCanvas';
 import { BillingPlanActions } from './components/BillingSection';
+import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AssetCollectionsPanel, AssetTypeSelect } from './pages/AssetDetailPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
@@ -91,6 +92,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   SpaceAccessRequestView: SpaceAccessRequestView as unknown as ComponentType<Record<string, unknown>>,
   StyleReferenceUsagePanel: StyleReferenceUsagePanel as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
+  VoicePicker: VoicePicker as unknown as ComponentType<Record<string, unknown>>,
 };
 
 function revive(value: unknown): unknown {

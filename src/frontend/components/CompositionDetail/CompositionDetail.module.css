@@ -263,7 +263,7 @@
   border-radius: var(--radius-sm);
 }
 
-.iconButton,
+.panelIconAction,
 .rowIconButton {
   --ui-button-height: 32px;
   --ui-button-pad-x: 0;
@@ -275,7 +275,7 @@
   --ui-button-height: 28px;
 }
 
-.iconButton svg,
+.panelIconAction svg,
 .rowIconButton svg {
   width: 16px;
   height: 16px;

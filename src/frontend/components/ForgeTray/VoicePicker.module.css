@@ -33,11 +33,8 @@
   text-align: right;
 }
 
-.iconButton {
+.speakerAction {
   --ui-button-height: 2rem;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
   color: var(--color-text-muted);
 }
 

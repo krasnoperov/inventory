@@ -126,7 +126,7 @@ export function VoicePicker({
           />
           {rows.length > 1 && (
             <IconButton
-              className={styles.iconButton}
+              className={styles.speakerAction}
               onClick={() => handleRemoveSpeaker(index)}
               disabled={disabled}
               title="Remove voice"
@@ -142,7 +142,7 @@ export function VoicePicker({
         </div>
       ))}
       <IconButton
-        className={styles.iconButton}
+        className={styles.speakerAction}
         onClick={handleAddSpeaker}
         disabled={disabled}
         title="Add speaker voice"
