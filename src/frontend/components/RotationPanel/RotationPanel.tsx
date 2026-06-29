@@ -8,7 +8,7 @@ import type {
   RotationRequestParams,
 } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
-import { Button, Checkbox, TextInput } from '../../ui';
+import { Button, Checkbox, IconButton, TextInput } from '../../ui';
 import styles from './RotationPanel.module.css';
 
 const CONFIGS: { value: RotationConfig; label: string; icon: string; count: number }[] = [
@@ -16,6 +16,15 @@ const CONFIGS: { value: RotationConfig; label: string; icon: string; count: numb
   { value: '8-directional', label: '8-Dir', icon: '8', count: 8 },
   { value: 'turnaround', label: 'Turnaround', icon: '360', count: 5 },
 ];
+
+function CloseIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
 
 interface RotationPanelProps {
   sourceVariant: Variant;
@@ -124,12 +133,9 @@ export function RotationPanel({
         <div className={styles.modal}>
           <div className={styles.header}>
             <h2 className={styles.title}>Rotation in Progress</h2>
-            <button className={styles.closeButton} onClick={onClose}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+            <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
+              <CloseIcon />
+            </IconButton>
           </div>
           <div className={styles.content}>
             <div className={styles.progressSection}>
@@ -165,15 +171,15 @@ export function RotationPanel({
             </div>
           </div>
           <div className={styles.footer}>
-            <button
-              className={styles.cancelButton}
+            <Button
+              variant="secondary"
               onClick={() => onCancel(activeSet.id)}
             >
               Cancel Rotation
-            </button>
-            <button className={styles.cancelButton} onClick={onClose}>
+            </Button>
+            <Button variant="secondary" onClick={onClose}>
               Close
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -193,12 +199,9 @@ export function RotationPanel({
         <div className={styles.modal}>
           <div className={styles.header}>
             <h2 className={styles.title}>Rotation Failed</h2>
-            <button className={styles.closeButton} onClick={onClose}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+            <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
+              <CloseIcon />
+            </IconButton>
           </div>
           <div className={styles.content}>
             <div className={styles.errorSection}>
@@ -212,19 +215,19 @@ export function RotationPanel({
             </div>
           </div>
           <div className={styles.footer}>
-            <button
-              className={styles.cancelButton}
+            <Button
+              variant="secondary"
               onClick={() => setDismissedFailedSetId(failedSet.id)}
             >
               Configure New
-            </button>
-            <button
-              className={styles.startButton}
+            </Button>
+            <Button
+              variant="primary"
               onClick={handleStart}
               disabled={!sourceVariant.image_key}
             >
               Try Again
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -245,12 +248,9 @@ export function RotationPanel({
         <div className={styles.modal}>
           <div className={styles.header}>
             <h2 className={styles.title}>Rotation Complete</h2>
-            <button className={styles.closeButton} onClick={onClose}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+            <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
+              <CloseIcon />
+            </IconButton>
           </div>
           <div className={styles.content}>
             <div className={styles.compassGrid}>
@@ -304,21 +304,21 @@ export function RotationPanel({
             )}
           </div>
           <div className={styles.footer}>
-            <button className={styles.cancelButton} onClick={onClose}>
+            <Button variant="secondary" onClick={onClose}>
               Close
-            </button>
+            </Button>
             {onExportTrainingData && (
-              <button className={styles.cancelButton} onClick={onExportTrainingData}>
+              <Button variant="secondary" onClick={onExportTrainingData}>
                 Export Training Data
-              </button>
+              </Button>
             )}
-            <button
-              className={styles.startButton}
+            <Button
+              variant="primary"
               onClick={handleStart}
               disabled={!sourceVariant.image_key}
             >
               Generate New Set
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -331,12 +331,9 @@ export function RotationPanel({
       <div className={styles.modal}>
         <div className={styles.header}>
           <h2 className={styles.title}>Generate Rotation Set</h2>
-          <button className={styles.closeButton} onClick={onClose}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
+            <CloseIcon />
+          </IconButton>
         </div>
 
         <div className={styles.content}>
@@ -424,16 +421,16 @@ export function RotationPanel({
         </div>
 
         <div className={styles.footer}>
-          <button className={styles.cancelButton} onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            className={styles.startButton}
+          </Button>
+          <Button
+            variant="primary"
             onClick={handleStart}
             disabled={!sourceVariant.image_key}
           >
             Start Rotation
-          </button>
+          </Button>
         </div>
       </div>
     </div>
