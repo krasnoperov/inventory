@@ -234,9 +234,27 @@ test('composition reverse lookup includes exact variant and asset matches', asyn
   await expect(page.getByRole('button', { name: /Pinned variant scene/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Output variant scene/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Other cast scene/ })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
+  await expect(page.getByText('Composition usage')).toBeVisible();
+  await expect(page.getByText('3', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: /Pinned variant scene/ }).click();
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining('open-composition:["composition-2"]'));
+
+  await screenshot(page, 'composition-usage-compact', { fullPage: true });
+});
+
+test('composition reverse lookup stays hidden when empty', async ({ page }) => {
+  await mountComponent(page, 'CompositionUsageList', {
+    targetAssetId: 'bar',
+    assets,
+    variants,
+    compositions: [composition],
+    compositionItems: [],
+    onOpenComposition: '__record__:open-composition',
+  });
+
+  await expect(page.getByRole('region', { name: 'Composition usage' })).toHaveCount(0);
 });
 
 test('composition detail distinguishes exact usage from collections, hierarchy, and lineage', async ({ page }) => {

@@ -404,14 +404,77 @@
 }
 
 .usageList {
-  width: min(320px, calc(100vw - 1rem));
+  width: min(760px, 100%);
   max-height: 220px;
+  display: grid;
+  gap: 0.4rem;
   overflow: auto;
-  padding: 0.5rem;
+  padding: 0.625rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.usageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.usageTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.usageCount {
+  min-width: 1.25rem;
+  padding: 0.08rem 0.32rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
   background: var(--color-surface);
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.1);
+  font-size: var(--font-size-micro);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.usageList .usageButton {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+}
+
+.usageList .usageButton:hover {
+  background: transparent;
+  border-color: var(--color-border);
+}
+
+.usageList .usageButton strong {
+  font-weight: 650;
+}
+
+.usageRole {
+  justify-self: end;
+  max-width: 10rem;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 @media (max-width: 720px) {
