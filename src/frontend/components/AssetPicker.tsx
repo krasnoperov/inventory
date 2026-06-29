@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { type Asset, type Variant } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
+import { TextInput } from '../ui';
 import { Thumbnail } from './Thumbnail';
 import styles from './AssetPicker.module.css';
 
@@ -50,6 +51,7 @@ export function AssetPicker({
     return (
       <div key={asset.id}>
         <button
+          type="button"
           className={`${styles.option} ${isSelected ? styles.selected : ''}`}
           onClick={() => onSelect(asset.id)}
         >
@@ -80,12 +82,14 @@ export function AssetPicker({
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-        <input
+        <TextInput
           type="text"
           className={styles.searchInput}
+          aria-label="Search assets"
           placeholder="Search assets..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          fullWidth
         />
       </div>
 
