@@ -47,7 +47,7 @@ import { StylePanel } from './StylePanel';
 import { VoicePicker } from './VoicePicker';
 import { Thumbnail } from '../Thumbnail';
 import { Link } from '../Link';
-import { UiSelect, type SelectOption } from '../../ui';
+import { IconButton, UiSelect, type SelectOption } from '../../ui';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
   canUseSlotMediaKindForForgeMode,
@@ -1385,30 +1385,32 @@ export function ForgeTray({
             <div className={styles.controlBarLeft}>
               {/* References (image/video) */}
               {currentMediaGroup !== 'audio' && canAddMore && (
-                <button
+                <IconButton
                   type="button"
-                  className={`${styles.ctlIcon} ${slots.length > 0 ? styles.active : ''}`}
+                  className={`${styles.controlIconAction} ${slots.length > 0 ? styles.active : ''}`}
                   onClick={handleAddClick}
                   disabled={isSubmitting}
                   title="Add reference"
                   aria-label="Add reference"
+                  variant="ghost"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
                     <rect x="3" y="3" width="13" height="13" rx="2.5" />
                     <path d="M8 21h11a2 2 0 0 0 2-2V8" />
                   </svg>
-                </button>
+                </IconButton>
               )}
 
               {/* Upload */}
               {showUpload && (
-                <button
+                <IconButton
                   type="button"
-                  className={styles.ctlIcon}
+                  className={styles.controlIconAction}
                   onClick={handleUploadClick}
                   disabled={isSubmitting || isUploading}
                   title={targetAsset ? `Upload media to "${targetAsset.name}"` : 'Upload media to create new asset'}
                   aria-label="Upload media"
+                  variant="ghost"
                 >
                   {isUploading ? (
                     <span className={styles.spinner} />
@@ -1419,23 +1421,24 @@ export function ForgeTray({
                       <line x1="12" y1="3" x2="12" y2="15" />
                     </svg>
                   )}
-                </button>
+                </IconButton>
               )}
 
               {/* Chat (all modes) */}
               {sendChatMessage && (
-                <button
+                <IconButton
                   type="button"
-                  className={`${styles.ctlIcon} ${showChat ? styles.active : ''}`}
+                  className={`${styles.controlIconAction} ${showChat ? styles.active : ''}`}
                   onClick={handleToggleChat}
                   disabled={isSubmitting}
                   title="Chat with Claude about your prompt"
                   aria-label="Chat"
+                  variant="ghost"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" width="16" height="16">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                   </svg>
-                </button>
+                </IconButton>
               )}
             </div>
 
