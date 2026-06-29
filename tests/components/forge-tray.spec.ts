@@ -707,10 +707,25 @@ test('style reference usage panel displays reverse usage', async ({ page }) => {
     outputs: [matrixAssets[0]],
   });
 
-  await expect(page.getByText('Style reference usage')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
+  await expect(page.getByText('Style usage')).toBeVisible();
+  await expect(page.getByText('3', { exact: true })).toBeVisible();
   await expect(page.getByText('Russafa refs')).toBeVisible();
   await expect(page.getByText('Russafa watercolor')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Hero Image' })).toHaveAttribute('href', '/spaces/space-1/assets/asset-image');
+
+  await screenshot(page, 'style-reference-usage-compact', { fullPage: true });
+});
+
+test('style reference usage panel stays hidden when empty', async ({ page }) => {
+  await mountComponent(page, 'StyleReferenceUsagePanel', {
+    spaceId: 'space-1',
+    collections: [],
+    presets: [],
+    outputs: [],
+  });
+
+  await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCount(0);
 });
 
 test('forge tray with references renders the reference strip', async ({ page }) => {
