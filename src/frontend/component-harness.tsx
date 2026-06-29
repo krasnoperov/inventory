@@ -21,6 +21,7 @@ import { VariantCanvas } from './components/VariantCanvas';
 import { BillingPlanActions } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AdminSpendView } from './pages/AdminSpendPage';
+import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
 import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
 import { CreateSpaceDialog } from './pages/DashboardPage';
 import { LandingCreateSpaceDialog } from './pages/LandingPage';
@@ -427,6 +428,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
   AssetPicker: AssetPicker as unknown as ComponentType<Record<string, unknown>>,
+  AuthorizationDecisionActions: AuthorizationDecisionActions as unknown as ComponentType<Record<string, unknown>>,
   AssetDetailControls: AssetDetailControlsHarness,
   AssetTitleInlineEditor: AssetTitleInlineEditorPreview,
   AssetGenerationDock: AssetGenerationDockPreview,
