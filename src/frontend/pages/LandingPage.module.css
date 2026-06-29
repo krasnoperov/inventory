@@ -1253,6 +1253,8 @@
 }
 
 .modalClose {
+  --ui-button-height: 2rem;
+
   background: none;
   border: none;
   font-size: 2rem;
@@ -1324,14 +1326,15 @@
 }
 
 .cancelButton {
-  padding: 0.75rem 1.5rem;
+  --ui-button-height: 44px;
+  --ui-button-pad-x: 1.5rem;
+  --ui-button-font-size: 1rem;
+
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-border);
   font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
@@ -1340,31 +1343,22 @@
   border-color: var(--color-text-muted);
 }
 
-.cancelButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .submitButton {
-  padding: 0.75rem 1.5rem;
+  --ui-button-height: 44px;
+  --ui-button-pad-x: 1.5rem;
+  --ui-button-font-size: 1rem;
+
   border-radius: var(--radius-md);
   background: var(--landing-accent);
   color: var(--landing-on-accent);
   border: none;
   font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
   box-shadow: var(--landing-accent-shadow);
   transition: background 0.2s ease;
 }
 
 .submitButton:hover {
   background: var(--landing-accent-hover);
-}
-
-.submitButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* =============================================================================
