@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { screenshot } from './harness';
 
 const t = 1_700_000_000_000;
 const asset = (id: string, name: string) => ({
@@ -24,13 +25,33 @@ families.forEach((f) => {
 });
 const allVariants = assets.map((a) => variant(a.id));
 
+async function mockMedia(page: import('@playwright/test').Page) {
+  const image = '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180"><rect width="240" height="180" fill="#668cff"/><circle cx="120" cy="90" r="42" fill="#ffffff"/></svg>';
+  await page.route('**/api/images/**', (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: image,
+    }),
+  );
+  await page.route('**/api/spaces/**/variants/**/media', (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: image,
+    }),
+  );
+}
+
+async function sizeCanvasHarness(page: import('@playwright/test').Page) {
+  await page.addStyleTag({ content: '[data-testid="harness-root"]{position:fixed;inset:0;}' });
+}
+
 // The detail view drops its separate "Derivatives:" text list because the
 // canvas already shows derivatives as clickable lineage nodes. Guard that.
 test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
   // Harness root is unsized; VariantCanvas's .canvas is height:100%.
-  await page.addStyleTag({ content: '[data-testid="harness-root"]{position:fixed;inset:0;}' });
+  await sizeCanvasHarness(page);
   await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
     spaceId: 'space-1', asset: assets[0], variants: [variant('crops')], lineage,
     selectedVariantId: 'crops-v', allVariants, allAssets: assets,
@@ -65,7 +86,7 @@ test('variant canvas retries failed audio variants and renders queued state', as
 
   await page.setViewportSize({ width: 900, height: 650 });
   await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
-  await page.addStyleTag({ content: '[data-testid="harness-root"]{position:fixed;inset:0;}' });
+  await sizeCanvasHarness(page);
   await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
     spaceId: 'space-1',
     asset: audioAsset,
@@ -94,4 +115,54 @@ test('variant canvas retries failed audio variants and renders queued state', as
     onRetry: '__record__:retry',
   });
   await expect(page.getByText('Queued')).toBeVisible();
+});
+
+test('variant canvas previews stay free of hover action overlays', async ({ page }) => {
+  const cleanAsset = {
+    ...asset('crystal', 'Crystal Gate'),
+    type: 'prop',
+    active_variant_id: 'crystal-v',
+  };
+  const cleanVariant = {
+    ...variant('crystal'),
+    id: 'crystal-v',
+    image_key: 'images/space/crystal-v.png',
+    thumb_key: 'images/space/crystal-v_thumb.webp',
+    media_key: 'images/space/crystal-v.png',
+    media_width: 240,
+    media_height: 180,
+    recipe: JSON.stringify({ prompt: 'A blue crystal gate.' }),
+  };
+
+  await mockMedia(page);
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    asset: cleanAsset,
+    variants: [cleanVariant],
+    lineage: [],
+    selectedVariantId: 'crystal-v',
+    allVariants: [cleanVariant],
+    allAssets: [cleanAsset],
+    onVariantClick: '__record__:variant-click',
+    onAddToTray: '__record__:tray',
+    onSetActive: '__record__:active',
+  });
+
+  await expect(page.locator('.react-flow__node')).toBeVisible();
+  const preview = page.locator('[class*="thumbnail"]').first();
+  await expect(preview.locator('img')).toBeVisible();
+  await preview.hover();
+  await expect(page.getByRole('button', { name: 'View full size' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add to Tray' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Use as main variant' })).toHaveCount(0);
+  await screenshot(page, 'variant-canvas-clean-node', { fullPage: true });
+
+  await preview.click();
+  await expect(page.getByRole('complementary', { name: 'Variant details' })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => window.__componentHarnessCalls ?? []))
+    .toContain('variant-click');
 });

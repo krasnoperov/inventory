@@ -5,7 +5,7 @@ import { useNavigate } from '../hooks/useNavigate';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useParams } from '../hooks/useParams';
-import { useForgeTrayStore, type PrefillAudioParams } from '../stores/forgeTrayStore';
+import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore } from '../stores/chatStore';
 import { useAssetDetailStore, useSelectedVariantId } from '../stores/assetDetailStore';
 import { HeaderNav } from '../components/HeaderNav';
@@ -654,7 +654,7 @@ export default function AssetDetailPage() {
   const [editNameValue, setEditNameValue] = useState('');
 
   // Forge tray store
-  const { addSlot, prefillFromVariant } = useForgeTrayStore();
+  const { addSlot } = useForgeTrayStore();
 
   // Persistent chat state from Zustand store (shared across pages)
   const chatMessages = useChatStore((state) => state.messages);
@@ -698,7 +698,6 @@ export default function AssetDetailPage() {
     deleteAsset,
     starVariant,
     retryVariant,
-    regenerateVariant,
     updateAsset,
     addCollectionItem,
     updateCollectionItem,
@@ -1116,47 +1115,6 @@ export default function AssetDetailPage() {
     setVariantPlacementDrafts([]);
   }, [addCollectionItem, asset, collectionItems, selectedVariant, variantPlacementDrafts]);
 
-  // Handle retry recipe - restore ForgeTray state from variant's recipe and lineage
-  const handleRetryRecipe = useCallback((variant: Variant) => {
-    // Parse the recipe to get the prompt and parentVariantIds (fallback)
-    let prompt = '';
-    let recipeParentVariantIds: string[] = [];
-    let audioParams: PrefillAudioParams | undefined;
-    try {
-      const recipe = JSON.parse(variant.recipe);
-      prompt = recipe.prompt || '';
-      // Recipe stores parentVariantIds for retry support (in case lineage is missing)
-      recipeParentVariantIds = recipe.parentVariantIds || [];
-      // Carry audio params so regeneration reuses the same voices/provider.
-      if (variant.media_kind === 'audio') {
-        audioParams = {
-          voiceId: recipe.voiceId,
-          dialogueVoiceIds: recipe.dialogueVoiceIds,
-          musicProvider: recipe.musicProvider,
-        };
-      }
-    } catch {
-      // Ignore parse errors
-    }
-
-    // Find parent variant IDs from lineage first, fall back to recipe
-    let parentVariantIds = lineage
-      .filter(l => l.child_variant_id === variant.id)
-      .map(l => l.parent_variant_id);
-
-    // If lineage is empty, use recipe's parentVariantIds (legacy/retry support)
-    if (parentVariantIds.length === 0 && recipeParentVariantIds.length > 0) {
-      parentVariantIds = recipeParentVariantIds;
-    }
-
-    // Prefill the forge tray with the same state
-    prefillFromVariant(parentVariantIds, prompt, wsAssets, wsVariants, audioParams);
-  }, [lineage, prefillFromVariant, wsAssets, wsVariants]);
-
-  const handleRegenerateVariant = useCallback((variant: Variant) => {
-    regenerateVariant(variant.id);
-  }, [regenerateVariant]);
-
   const handleCreateCompositionFromVariant = useCallback(() => {
     if (!canEdit || !asset || !selectedVariant) return;
     const id = createComposition({
@@ -1277,8 +1235,6 @@ export default function AssetDetailPage() {
           onAddToTray={handleAddToTray}
           onSetActive={handleSetActiveVariant}
           onRetry={retryVariant}
-          onRetryRecipe={handleRetryRecipe}
-          onRegenerateVariant={handleRegenerateVariant}
           allVariants={wsVariants}
           allAssets={wsAssets}
           onGhostNodeClick={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
