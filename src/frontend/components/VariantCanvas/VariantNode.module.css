@@ -189,41 +189,6 @@
   transform-origin: top left;
 }
 
-/* Hover actions - counter-scaled to stay clickable */
-.actions {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  transform: scale(calc(1 / var(--rf-zoom, 1)));
-  transform-origin: bottom right;
-}
-
-.thumbnail:hover .actions {
-  opacity: 1;
-}
-
-.actionButton {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.actionButton:hover {
-  color: white;
-}
-
 /* Label - positioned below node, counter-scaled */
 .label {
   position: absolute;

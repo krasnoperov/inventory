@@ -1,9 +1,7 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { type Asset, type Variant, getVariantMediaUrl, isVariantReady, isVariantImageReady, isVariantForgeTrayReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
-import { formatBytes } from '../../lib/format';
+import { type Asset, type Variant, isVariantReady, isVariantLoading, isVariantFailed } from '../../hooks/useSpaceWebSocket';
 import { Thumbnail } from '../Thumbnail';
-import { ImageLightbox } from '../ImageLightbox';
 import { getAudioCardMetadata } from '../assetCardMetadata';
 import styles from './VariantNode.module.css';
 
@@ -16,13 +14,7 @@ export interface VariantNodeData extends Record<string, unknown> {
   isActive?: boolean;
   isSelected?: boolean;
   onVariantClick?: (variant: Variant) => void;
-  onAddToTray?: (variant: Variant, asset: Asset) => void;
-  onSetActive?: (variantId: string) => void;
   onRetry?: (variantId: string) => void;
-  /** Restore ForgeTray to the state used to create this variant */
-  onRetryRecipe?: (variant: Variant) => void;
-  /** Create a same-recipe sibling variant without replacing the current one */
-  onRegenerateVariant?: (variant: Variant) => void;
   /** Ghost node: variant from another asset */
   isGhost?: boolean;
   /** Ghost node is a derivative (child) rather than a parent */
@@ -60,11 +52,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     isActive,
     isSelected,
     onVariantClick,
-    onAddToTray,
-    onSetActive,
     onRetry,
-    onRetryRecipe,
-    onRegenerateVariant,
     isGhost,
     isDerivative,
     onGhostClick,
@@ -79,9 +67,6 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     thumbWidth,
     thumbHeight,
   } = data;
-
-  // Full-resolution lightbox (the quick-view from the thumbnail hover button).
-  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   // Determine handle positions based on layout direction
   const getHandlePositions = () => {
@@ -104,47 +89,6 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       onVariantClick?.(variant);
     }
   }, [variant, isGhost, asset.id, onVariantClick, onGhostClick, onToggleExpand]);
-
-  const handleOpenLightbox = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setLightboxOpen(true);
-  }, []);
-
-  const handleCloseLightbox = useCallback(() => setLightboxOpen(false), []);
-
-  // Derived fields for the hover quick-view lightbox caption.
-  const dimensionsLabel = variant.media_width && variant.media_height
-    ? `${variant.media_width}×${variant.media_height}`
-    : null;
-  const sizeLabel = formatBytes(variant.media_size_bytes);
-  const canViewFullSize = isVariantImageReady(variant);
-  const fullSizeUrl = canViewFullSize ? getVariantMediaUrl(variant, spaceId) : undefined;
-  const lightboxCaption = [asset.name, dimensionsLabel, sizeLabel].filter(Boolean).join(' · ');
-
-  const handleAddToTray = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isVariantForgeTrayReady(variant)) {
-      onAddToTray?.(variant, asset);
-    }
-  }, [variant, asset, onAddToTray]);
-
-  const handleSetActive = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isVariantReady(variant)) {
-      onSetActive?.(variant.id);
-    }
-  }, [variant, onSetActive]);
-
-  const handleRetryRecipe = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (variant.media_kind === 'audio' && isVariantReady(variant) && onRegenerateVariant) {
-      onRegenerateVariant(variant);
-      return;
-    }
-    if (isVariantForgeTrayReady(variant) && onRetryRecipe) {
-      onRetryRecipe(variant);
-    }
-  }, [variant, onRegenerateVariant, onRetryRecipe]);
 
   const handleForkedToClick = useCallback((e: React.MouseEvent, assetId: string) => {
     e.stopPropagation();
@@ -211,56 +155,6 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         <span className={styles.starIndicator}>★</span>
       ) : null}
 
-      {/* Hover actions - only for completed variants */}
-      {isVariantForgeTrayReady(variant) ? (
-        <div className={styles.actions}>
-          {canViewFullSize && (
-            <button
-              className={styles.actionButton}
-              onClick={handleOpenLightbox}
-              title="View full size"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-              </svg>
-            </button>
-          )}
-          {onAddToTray && isVariantForgeTrayReady(variant) && (
-            <button
-              className={styles.actionButton}
-              onClick={handleAddToTray}
-              title="Add to Forge Tray"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </button>
-          )}
-          {!isActive && onSetActive && (
-            <button
-              className={styles.actionButton}
-              onClick={handleSetActive}
-              title="Use as main variant"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </button>
-          )}
-          {onRetryRecipe && isVariantForgeTrayReady(variant) && (
-            <button
-              className={styles.actionButton}
-              onClick={handleRetryRecipe}
-              title={variant.media_kind === 'audio' && onRegenerateVariant ? 'Regenerate audio' : 'Retry with same recipe'}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <path d="M1 4v6h6" />
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-              </svg>
-            </button>
-          )}
-        </div>
-      ) : null}
     </div>
   );
 
@@ -338,16 +232,6 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       {/* Output handle (for outgoing edges to child variants) - hidden for ghost nodes */}
       {showBottomHandle && (
         <Handle type="source" position={sourcePosition} className={styles.handle} />
-      )}
-
-      {/* Full-resolution lightbox (portaled to body, escapes canvas transform) */}
-      {lightboxOpen && fullSizeUrl && (
-        <ImageLightbox
-          src={fullSizeUrl}
-          alt={asset.name}
-          caption={lightboxCaption}
-          onClose={handleCloseLightbox}
-        />
       )}
     </div>
   );
