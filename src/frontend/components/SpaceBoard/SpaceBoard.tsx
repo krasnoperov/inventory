@@ -2,7 +2,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { Thumbnail } from '../Thumbnail';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
-import { Button, TextInput, UiSelect, type SelectOption } from '../../ui';
+import { Button, ColorInput, TextInput, UiSelect, type SelectOption } from '../../ui';
 import type {
   Asset,
   CollectionItem,
@@ -476,9 +476,7 @@ export function SpaceBoard({
                 </label>
                 <label className={styles.colorField}>
                   <span>Color</span>
-                  <input
-                    className={styles.colorInput}
-                    type="color"
+                  <ColorInput
                     value={color}
                     aria-label="Collection color"
                     onChange={(event) => updateCollection(collection.id, { color: event.target.value })}
@@ -595,7 +593,11 @@ export function SpaceBoard({
                   setNewColor(COLLECTION_KIND_COLORS[kind]);
                 }}
               />
-              <input type="color" value={newColor} onChange={(event) => setNewColor(event.target.value)} aria-label="New collection color" />
+              <ColorInput
+                value={newColor}
+                onChange={(event) => setNewColor(event.target.value)}
+                aria-label="New collection color"
+              />
               <Button className={styles.menuButton} onClick={handleCreateCollection}>Create</Button>
             </div>
           </details>
