@@ -733,7 +733,7 @@ test('forge tray with references renders the reference strip', async ({ page }) 
   await screenshot(page, 'forge-tray-references', { fullPage: true });
 });
 
-test('forge tray on asset detail shows Current/New header', async ({ page }) => {
+test('forge tray on asset detail shows compact Current/New destination control', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
   await mountComponent(page, 'ForgeTray', {
@@ -745,7 +745,8 @@ test('forge tray on asset detail shows Current/New header', async ({ page }) => 
   });
   await disableAnimations(page);
 
-  await expect(page.getByText('Hero Image')).toBeVisible();
+  await expect(page.getByText('Hero Image')).toHaveCount(0);
+  await expect(page.getByText('Destination')).toBeVisible();
   await expect(page.getByRole('radiogroup', { name: 'Destination' })).toBeVisible();
   await expect(page.getByRole('radio', { name: 'Current' })).toBeChecked();
   await expect(page.getByRole('radio', { name: 'New' })).not.toBeChecked();

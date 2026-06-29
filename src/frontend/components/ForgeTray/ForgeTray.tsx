@@ -1024,11 +1024,6 @@ export function ForgeTray({
     ? `${estimateRemaining.toLocaleString()} remaining`
     : null;
 
-  const currentAssetVariantCount = useMemo(
-    () => (currentAsset ? allVariants.filter((v) => v.asset_id === currentAsset.id).length : 0),
-    [currentAsset, allVariants]
-  );
-
   const handleMediaGroupSelect = useCallback((value: string) => {
     handleSelectGroup(value as MediaGroup);
   }, [handleSelectGroup]);
@@ -1138,7 +1133,7 @@ export function ForgeTray({
           </div>
         )}
         <div className={styles.inputArea}>
-          {/* Asset-detail header — existing asset context + destination toggle */}
+          {/* Asset-detail destination toggle. Context lives in the slot above. */}
           {showDestinationToggle && (
             <>
               {/* The destination toggle sits above the collapsible options. Stop
@@ -1147,20 +1142,10 @@ export function ForgeTray({
                   bubble, otherwise focus leaving the header for outside the tray
                   would never reach the tray handler and it would stay expanded. */}
               <div
-                className={styles.assetHeader}
+                className={styles.destinationHeader}
                 onFocusCapture={(e) => e.stopPropagation()}
               >
-                <div className={styles.assetHeaderInfo}>
-                  <span className={styles.assetThumb} aria-hidden="true" />
-                  <span className={styles.assetHeaderName} title={currentAsset?.name ?? undefined}>
-                    {currentAsset?.name ?? 'Asset'}
-                  </span>
-                  {currentAssetVariantCount > 0 && (
-                    <span className={styles.assetHeaderMeta}>
-                      {currentAssetVariantCount} variant{currentAssetVariantCount === 1 ? '' : 's'}
-                    </span>
-                  )}
-                </div>
+                <span className={styles.destinationLabel}>Destination</span>
                 <div
                   className={styles.miniSeg}
                   role="radiogroup"
