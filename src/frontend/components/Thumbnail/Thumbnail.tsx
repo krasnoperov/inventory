@@ -19,6 +19,7 @@ import {
   getVariantDisplayImageUrl,
   getVariantMediaUrl,
 } from '../../hooks/useSpaceWebSocket';
+import { Button } from '../../ui';
 import { AudioPlayer } from '../AudioPlayer/AudioPlayer';
 import styles from './Thumbnail.module.css';
 
@@ -132,9 +133,9 @@ function ThumbnailComponent({
         <span className={styles.errorIcon}>⚠</span>
         <span className={styles.errorLabel}>Failed</span>
         {onRetry && (
-          <button className={styles.retryButton} onClick={handleRetryClick}>
+          <Button className={styles.retryButton} onClick={handleRetryClick} variant="secondary">
             Retry
-          </button>
+          </Button>
         )}
       </div>
     );
