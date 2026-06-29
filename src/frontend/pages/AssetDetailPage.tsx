@@ -178,6 +178,7 @@ export function AssetCollectionsPanel({
   variantPlacementDrafts,
   variants,
 }: AssetCollectionsPanelProps) {
+  const [managementOpen, setManagementOpen] = useState(false);
   const [assetPlacementOpen, setAssetPlacementOpen] = useState(false);
   const [variantPlacementOpen, setVariantPlacementOpen] = useState(false);
   const assetCollectionMemberships = collectionItems.filter((item) => item.subject_type === 'asset');
@@ -197,8 +198,57 @@ export function AssetCollectionsPanel({
   const setResolvedVariantPlacementOpen = onVariantPlacementControlsOpenChange ?? setVariantPlacementOpen;
   const showAssetPlacementControls = resolvedAssetPlacementOpen || assetPlacementDrafts.length > 0;
   const showVariantPlacementControls = resolvedVariantPlacementOpen || variantPlacementDrafts.length > 0;
+  const showManagement = managementOpen || showAssetPlacementControls || showVariantPlacementControls;
+  const totalMembershipCount = assetCollectionMemberships.length + selectedVariantCollectionMemberships.length;
+  const getCollectionName = useCallback((collectionId: string) => (
+    collections.find((entry) => entry.id === collectionId)?.name ?? 'Collection'
+  ), [collections]);
+  const getPinnedVariantLabel = useCallback((variantId: string | null | undefined) => {
+    if (!variantId) return null;
+    const variantIndex = variants.findIndex((entry) => entry.id === variantId);
+    if (variantIndex === -1) return 'Pinned variant';
+    return getVariantOptionLabel(variants[variantIndex], variantIndex);
+  }, [variants]);
 
   if (collections.length === 0) return null;
+
+  if (!showManagement) {
+    return (
+      <section className={styles.collectionPanel} aria-label="Collection membership">
+        <div className={styles.collectionPanelHeader}>
+          <span>Collections</span>
+          <span>{totalMembershipCount}</span>
+        </div>
+        {totalMembershipCount > 0 ? (
+          <div className={styles.collectionSummaryList}>
+            {assetCollectionMemberships.map((item) => {
+              const pinnedVariant = getPinnedVariantLabel(item.pinned_variant_id);
+              return (
+                <div key={item.id} className={styles.collectionSummaryRow}>
+                  <span className={styles.collectionSummaryName}>{getCollectionName(item.collection_id)}</span>
+                  <span className={styles.collectionSummaryMeta}>Asset</span>
+                  {item.role && <span className={styles.collectionSummaryMeta}>{item.role}</span>}
+                  {pinnedVariant && <span className={styles.collectionSummaryMeta}>{pinnedVariant}</span>}
+                </div>
+              );
+            })}
+            {selectedVariantCollectionMemberships.map((item) => (
+              <div key={item.id} className={styles.collectionSummaryRow}>
+                <span className={styles.collectionSummaryName}>{getCollectionName(item.collection_id)}</span>
+                <span className={styles.collectionSummaryMeta}>Selected variant</span>
+                {item.role && <span className={styles.collectionSummaryMeta}>{item.role}</span>}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.collectionSummaryEmpty}>No collection membership</p>
+        )}
+        <Button size="sm" variant="secondary" className={styles.collectionPanelAction} onClick={() => setManagementOpen(true)}>
+          Manage collections
+        </Button>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.collectionPanel} aria-label="Collection membership">
@@ -265,6 +315,16 @@ export function AssetCollectionsPanel({
             >
               Hide
             </Button>
+            {managementOpen && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className={styles.collectionPanelAction}
+                onClick={() => setManagementOpen(false)}
+              >
+                Done
+              </Button>
+            )}
           </div>
         </div>
       ) : (
@@ -331,6 +391,16 @@ export function AssetCollectionsPanel({
                 >
                   Hide
                 </Button>
+                {managementOpen && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={styles.collectionPanelAction}
+                    onClick={() => setManagementOpen(false)}
+                  >
+                    Done
+                  </Button>
+                )}
               </div>
             </div>
           ) : (
@@ -339,6 +409,16 @@ export function AssetCollectionsPanel({
             </Button>
           )}
         </>
+      )}
+      {managementOpen && !showAssetPlacementControls && !showVariantPlacementControls && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className={styles.collectionPanelAction}
+          onClick={() => setManagementOpen(false)}
+        >
+          Done
+        </Button>
       )}
     </section>
   );
