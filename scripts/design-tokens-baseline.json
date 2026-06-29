@@ -82,15 +82,9 @@
     "src/frontend/components/RotationPanel/RotationPanel.module.css": [
       "oklch(55% 0.18 276/0.08)",
       "oklch(55% 0.18 276/0.08)",
-      "oklch(55% 0.2 25/0.8)",
-      "oklch(55% 0.2 25/0.9)",
       "oklch(60% 0.16 145)",
       "oklch(60% 0.16 145/0.08)",
-      "oklch(65% 0.2 145/0.8)",
-      "oklch(65% 0.2 145/0.9)",
       "oklch(from var(--color-error)l c h/0.12)",
-      "white",
-      "white",
       "white"
     ],
     "src/frontend/components/Thumbnail/Thumbnail.module.css": [
