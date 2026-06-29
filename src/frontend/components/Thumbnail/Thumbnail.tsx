@@ -8,7 +8,7 @@
  * - empty (no variant)
  */
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import {
   type Variant,
   isVariantReady,
@@ -74,6 +74,12 @@ function ThumbnailComponent({
   fullResolution = false,
   className,
 }: ThumbnailProps) {
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [variant?.id, variant?.thumb_key, variant?.image_key, variant?.media_key, spaceId, fullResolution]);
+
   const handleRetryClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -153,8 +159,14 @@ function ThumbnailComponent({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         />
-      ) : imageSrc ? (
-        <img src={imageSrc} alt="" className={styles.image} draggable={false} />
+      ) : imageSrc && !imageLoadFailed ? (
+        <img
+          src={imageSrc}
+          alt=""
+          className={styles.image}
+          draggable={false}
+          onError={() => setImageLoadFailed(true)}
+        />
       ) : isVariantAudioReady(variant) ? (
         <div className={styles.audioPreview}>
           {/* Compact-only glyph: shown where there's no room for the player. */}
