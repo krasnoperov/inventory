@@ -1,3 +1,4 @@
+import { Button, IconButton } from '../ui';
 import styles from './Pagination.module.css';
 
 export interface PaginationProps {
@@ -41,19 +42,21 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
   };
 
   const pageNumbers = getPageNumbers();
+  const navClassName = [styles.pagination, className].filter(Boolean).join(' ');
 
   return (
-    <nav className={`${styles.pagination} ${className || ''}`} aria-label="Pagination">
-      <button
+    <nav className={navClassName} aria-label="Pagination">
+      <IconButton
         className={styles.pageButton}
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         aria-label="Previous page"
+        variant="secondary"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M10 12L6 8L10 4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-      </button>
+      </IconButton>
 
       {pageNumbers.map((page, index) => {
         if (page === 'ellipsis') {
@@ -65,28 +68,30 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
         }
 
         return (
-          <button
+          <Button
             key={page}
-            className={`${styles.pageButton} ${page === currentPage ? styles.active : ''}`}
+            className={styles.pageButton}
             onClick={() => onPageChange(page)}
             aria-label={`Page ${page}`}
             aria-current={page === currentPage ? 'page' : undefined}
+            variant={page === currentPage ? 'primary' : 'secondary'}
           >
             {page}
-          </button>
+          </Button>
         );
       })}
 
-      <button
+      <IconButton
         className={styles.pageButton}
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         aria-label="Next page"
+        variant="secondary"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M6 4L10 8L6 12" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-      </button>
+      </IconButton>
     </nav>
   );
 }
