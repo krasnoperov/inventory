@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mountComponent } from './harness';
+import { mountComponent, screenshot } from './harness';
 
 const baseTime = 1_700_000_000_000;
 
@@ -73,6 +73,11 @@ async function mockMedia(page: import('@playwright/test').Page) {
   );
 }
 
+async function selectDropdown(page: import('@playwright/test').Page, label: string, optionName: string) {
+  await page.getByLabel(label).click();
+  await page.getByRole('option', { name: optionName }).click();
+}
+
 test('relation dialog creates a manual relation with searchable variant target', async ({ page }) => {
   await mockMedia(page);
   await mountComponent(page, 'RelationEditorDialog', {
@@ -85,13 +90,15 @@ test('relation dialog creates a manual relation with searchable variant target',
     onUpdate: '__record__:update-relation',
   });
 
-  await page.getByLabel('Type').selectOption('thumbnail_for');
+  await selectDropdown(page, 'Type', 'Thumbnail for');
   await page.getByPlaceholder('Search assets and variants').fill('atlas-searchable');
   await expect(page.getByText('Atlas Sheet variant')).toBeVisible();
   await page.getByText('Atlas Sheet variant').click();
   await page.getByLabel('Label').fill('Inventory tile');
   await page.getByLabel('Context').fill('catalog grid');
   await page.getByLabel('Notes').fill('Use the trimmed 64px sprite.');
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'relation-dialog-create', { fullPage: true });
   await page.getByRole('button', { name: 'Create' }).click();
 
   const details = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -165,7 +172,7 @@ test('relation dialog edits type label context and notes without changing endpoi
     onUpdate: '__record__:update-relation',
   });
 
-  await page.getByLabel('Type').selectOption('alternate_of');
+  await selectDropdown(page, 'Type', 'Alternate of');
   await page.getByLabel('Label').fill('Palette swap');
   await page.getByLabel('Context').fill('shop preview');
   await page.getByLabel('Notes').fill('Keep both choices visible.');
@@ -245,6 +252,8 @@ test('relations panel shows incoming reverse links and clears relations separate
   await expect(page.getByText('Thumbnail for -> Atlas Sheet')).toBeVisible();
   await expect(page.getByText('Map Source -> Map for')).toBeVisible();
   await expect(page.getByText('derived')).toHaveCount(0);
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'relations-panel-list', { fullPage: true });
 
   await page.locator('article').filter({ hasText: 'Map Source' }).getByRole('button', { name: 'Clear' }).click();
   const details = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);

@@ -10,10 +10,13 @@ import {
 } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
 import { buildImmediateRelationLabel, COMMON_RELATION_SHORTCUT_TYPES } from '../productionShortcuts';
+import { Button, IconButton, UiSelect, type SelectOption } from '../ui';
 import { Thumbnail } from './Thumbnail';
 import styles from './RelationsPanel.module.css';
 
-export const RELATION_TYPES: Array<{ value: SpaceRelationType; label: string }> = [
+type RelationTypeOption = SelectOption<SpaceRelationType> & { label: string };
+
+export const RELATION_TYPES: RelationTypeOption[] = [
   { value: 'thumbnail_for', label: 'Thumbnail for' },
   { value: 'map_for', label: 'Map for' },
   { value: 'alternate_of', label: 'Alternate of' },
@@ -54,6 +57,21 @@ function buildRelationContext(label: string, context: string, notes: string): Sp
   if (context.trim()) next.context = context.trim();
   if (notes.trim()) next.notes = notes.trim();
   return Object.keys(next).length > 0 ? next : null;
+}
+
+function getRelationShortcutLabel(type: SpaceRelationType): string {
+  switch (type) {
+    case 'thumbnail_for':
+      return 'Thumbnail';
+    case 'map_for':
+      return 'Map';
+    case 'background_for':
+      return 'Background';
+    case 'style_reference_for':
+      return 'Style ref';
+    default:
+      return getRelationTypeLabel(type);
+  }
 }
 
 function subjectKey(subject: SpaceSubject): string {
@@ -141,12 +159,19 @@ export function RelationsPanel({
     <section className={styles.panel} aria-label="Manual relations">
       <div className={styles.header}>
         <h2 className={styles.title}>Relations</h2>
-        <button className={styles.iconButton} type="button" onClick={() => onCreate(primarySubject)} title="Create relation">
+        <IconButton
+          className={styles.iconButton}
+          onClick={() => onCreate(primarySubject)}
+          title="Create relation"
+          aria-label="Create relation"
+          variant="secondary"
+          size="sm"
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
             <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
           </svg>
-        </button>
+        </IconButton>
       </div>
       <RelationList
         title="Outgoing"
@@ -218,8 +243,8 @@ function RelationList({
                   </div>
                 </div>
                 <div className={styles.rowActions}>
-                  <button type="button" className={styles.rowButton} onClick={() => onEdit(relation)}>Edit</button>
-                  <button type="button" className={styles.rowButton} onClick={() => onDelete(relation.id)}>Clear</button>
+                  <Button className={styles.rowButton} onClick={() => onEdit(relation)} variant="ghost" size="sm">Edit</Button>
+                  <Button className={styles.rowButton} onClick={() => onDelete(relation.id)} variant="ghost" size="sm">Clear</Button>
                 </div>
               </article>
             );
@@ -309,11 +334,18 @@ export function RelationEditorDialog({
       <form className={styles.dialog} onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()}>
         <div className={styles.dialogHeader}>
           <h3 className={styles.dialogTitle}>{mode === 'edit' ? 'Edit relation' : 'Create relation'}</h3>
-          <button className={styles.closeButton} type="button" onClick={onCancel} title="Close">
+          <IconButton
+            className={styles.closeButton}
+            onClick={onCancel}
+            title="Close"
+            aria-label="Close"
+            variant="secondary"
+            size="sm"
+          >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
-          </button>
+          </IconButton>
         </div>
 
         <div className={styles.subjectLine}>
@@ -325,14 +357,16 @@ export function RelationEditorDialog({
           <span>{targetSubject ? getSubjectLabel(targetSubject, assets, variants) : 'Select target'}</span>
         </div>
 
-        <label className={styles.field}>
+        <div className={styles.field}>
           <span>Type</span>
-          <select value={relationType} onChange={(event) => setRelationType(event.target.value as SpaceRelationType)}>
-            {RELATION_TYPES.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-        </label>
+          <UiSelect
+            value={relationType}
+            options={RELATION_TYPES}
+            onValueChange={setRelationType}
+            label="Type"
+            fullWidth
+          />
+        </div>
 
         {mode === 'create' && (
           <div className={styles.targetPicker}>
@@ -370,21 +404,27 @@ export function RelationEditorDialog({
 
         {mode === 'create' && targetSubject && (
           <div className={styles.quickRelations} aria-label="Relation shortcuts">
-            {COMMON_RELATION_SHORTCUT_TYPES.map((shortcut) => (
-              <button
-                key={shortcut.type}
-                type="button"
-                className={styles.quickRelationButton}
-                onClick={() => onCreate({
-                  subject: sourceSubject,
-                  object: targetSubject,
-                  relationType: shortcut.type,
-                  context: null,
-                })}
-              >
-                {buildImmediateRelationLabel(shortcut.type, getSubjectLabel(targetSubject, assets, variants))}
-              </button>
-            ))}
+            {COMMON_RELATION_SHORTCUT_TYPES.map((shortcut) => {
+              const fullLabel = buildImmediateRelationLabel(shortcut.type, getSubjectLabel(targetSubject, assets, variants));
+              return (
+                <Button
+                  key={shortcut.type}
+                  className={styles.quickRelationButton}
+                  onClick={() => onCreate({
+                    subject: sourceSubject,
+                    object: targetSubject,
+                    relationType: shortcut.type,
+                    context: null,
+                  })}
+                  variant="secondary"
+                  size="sm"
+                  title={fullLabel}
+                  aria-label={fullLabel}
+                >
+                  {getRelationShortcutLabel(shortcut.type)}
+                </Button>
+              );
+            })}
           </div>
         )}
 
@@ -402,10 +442,10 @@ export function RelationEditorDialog({
         </label>
 
         <div className={styles.dialogActions}>
-          <button type="button" className={styles.secondaryButton} onClick={onCancel}>Cancel</button>
-          <button type="submit" className={styles.primaryButton} disabled={!canSubmit}>
+          <Button className={styles.secondaryButton} onClick={onCancel} variant="secondary">Cancel</Button>
+          <Button type="submit" className={styles.primaryButton} disabled={!canSubmit} variant="primary">
             {mode === 'edit' ? 'Save' : 'Create'}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
