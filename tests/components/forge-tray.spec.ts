@@ -500,6 +500,46 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
   await expect(page.getByText('Chat with Claude')).toBeVisible();
 });
 
+test('forge chat actions send messages and apply suggested prompts', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+  const suggestedPrompt = 'Paint a lantern-lit forest gate';
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    chatMessages: [{
+      id: 'chat-1',
+      role: 'assistant',
+      content: 'Try this direction.',
+      createdAt: baseTime,
+      suggestedPrompt,
+    }],
+    sendChatMessage: '__record__:chat-send',
+    requestChatHistory: '__noop__',
+    clearChatSession: '__noop__',
+  });
+  await disableAnimations(page);
+
+  await page.getByLabel('Prompt').fill('Seed prompt');
+  await page.getByTitle('Chat with Claude about your prompt').click();
+  await expect(page.getByText('Chat with Claude')).toBeVisible();
+
+  await page.getByPlaceholder('Type a message...').fill('Make it moodier');
+  await page.getByRole('button', { name: 'Send message' }).click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].eventName).toBe('chat-send');
+  expect(calls[0].args[0]).toBe('Make it moodier');
+  expect(calls[0].args[1]).toEqual({ prompt: 'Seed prompt', slotVariantIds: [] });
+
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByLabel('Prompt')).toHaveValue(suggestedPrompt);
+  await expect(page.getByText('Chat with Claude')).toHaveCount(0);
+});
+
 test('style library creates a preset from a style collection', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 

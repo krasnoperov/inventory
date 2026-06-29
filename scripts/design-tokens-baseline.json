@@ -49,8 +49,6 @@
       "oklch(55% 0.18 276/0.08)",
       "oklch(55% 0.18 276/0.2)",
       "oklch(65% 0.18 145)",
-      "white",
-      "white",
       "white"
     ],
     "src/frontend/components/ForgeTray/ForgeSlots.module.css": [

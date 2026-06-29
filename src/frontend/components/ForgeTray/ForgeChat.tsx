@@ -4,6 +4,7 @@ import type {
   ChatForgeContext,
   ForgeChatProgressResult,
 } from '../../hooks/useSpaceWebSocket';
+import { Button, IconButton } from '../../ui';
 import styles from './ForgeChat.module.css';
 
 /** Progress state for description phase */
@@ -158,28 +159,33 @@ export function ForgeChat({
       {/* Header */}
       <div className={styles.header}>
         <h3 className={styles.title}>Chat with Claude</h3>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div className={styles.headerActions}>
           {messages.length > 0 && (
-            <button
-              className={styles.closeButton}
+            <IconButton
+              className={`${styles.closeButton} ${styles.mutedAction}`}
               onClick={handleClear}
               title="Clear chat"
-              style={{ opacity: 0.7 }}
+              aria-label="Clear chat"
+              variant="ghost"
+              size="sm"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                 <path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" />
               </svg>
-            </button>
+            </IconButton>
           )}
-          <button
+          <IconButton
             className={styles.closeButton}
             onClick={onClose}
             title="Close (Esc)"
+            aria-label="Close chat"
+            variant="ghost"
+            size="sm"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
-          </button>
+          </IconButton>
         </div>
       </div>
 
@@ -229,15 +235,17 @@ export function ForgeChat({
               <div className={styles.suggestedPrompt}>
                 <div className={styles.suggestedLabel}>Suggested Prompt</div>
                 <div className={styles.suggestedText}>"{msg.suggestedPrompt}"</div>
-                <button
+                <Button
                   className={styles.applyButton}
                   onClick={() => handleApply(msg.suggestedPrompt!)}
+                  variant="primary"
+                  size="sm"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                   Apply
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -305,17 +313,19 @@ export function ForgeChat({
           placeholder="Type a message..."
           disabled={isLoading}
         />
-        <button
+        <IconButton
           className={styles.sendButton}
           onClick={handleSend}
           disabled={!inputValue.trim() || isLoading}
           title="Send (Enter)"
+          aria-label="Send message"
+          variant="primary"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
             <line x1="22" y1="2" x2="11" y2="13" />
             <polygon points="22 2 15 22 11 13 2 9 22 2" />
           </svg>
-        </button>
+        </IconButton>
       </div>
       </div>
     </div>
