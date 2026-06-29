@@ -18,6 +18,7 @@ import { SpaceBoard } from './components/SpaceBoard';
 import { SpaceCanvas } from './components/SpaceCanvas';
 import { SpaceSharingPanel } from './components/SpaceSharingPanel';
 import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
+import { Thumbnail } from './components/Thumbnail';
 import { TileSetPanel } from './components/TileSetPanel/TileSetPanel';
 import { VariantCanvas } from './components/VariantCanvas';
 import { BillingPlanActions } from './components/BillingSection';
@@ -499,6 +500,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   SpaceSharingPanel: SpaceSharingPanel as unknown as ComponentType<Record<string, unknown>>,
   SpaceAccessRequestView: SpaceAccessRequestView as unknown as ComponentType<Record<string, unknown>>,
   StyleReferenceUsagePanel: StyleReferenceUsagePanel as unknown as ComponentType<Record<string, unknown>>,
+  Thumbnail: Thumbnail as unknown as ComponentType<Record<string, unknown>>,
   TileSetPanel: TileSetPanel as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
   VoicePicker: VoicePicker as unknown as ComponentType<Record<string, unknown>>,
