@@ -171,7 +171,7 @@ test('asset details strip makes video facts and full details action visible', as
     variantCount: 3,
   });
 
-  await expect(page.getByRole('region', { name: 'Asset details' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
   await expect(page.getByText('Hero reveal video')).toBeVisible();
   await expect(page.getByText('Video', { exact: true })).toBeVisible();
   await expect(page.getByText('Animation')).toBeVisible();
@@ -211,7 +211,7 @@ test('asset details strip also exposes image facts without a hidden click target
     variantCount: 1,
   });
 
-  await expect(page.getByRole('region', { name: 'Asset details' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
   await expect(page.getByText('Hero portrait')).toBeVisible();
   await expect(page.getByText('Image', { exact: true })).toBeVisible();
   await expect(page.getByText('Character')).toBeVisible();
@@ -219,4 +219,25 @@ test('asset details strip also exposes image facts without a hidden click target
   await expect(page.getByText('1024x1024')).toBeVisible();
   await expect(page.getByText('Duration')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Hide full details' })).toBeVisible();
+});
+
+test('asset details context renders expanded details below the ForgeTray strip', async ({ page }) => {
+  await page.setViewportSize({ width: 620, height: 520 });
+  await mountComponent(page, 'AssetDetailsContext', {
+    asset: asset(),
+    assetCollectionCount: 1,
+    fullDetailsOpen: true,
+    onToggleFullDetails: '__record__:toggleFullDetails',
+    selectedVariant: fullVariant(),
+    selectedVariantCollectionCount: 1,
+    variantCount: 3,
+  });
+
+  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide full details' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Expanded asset details' })).toBeVisible();
+  await expect(page.getByText('Asset collections')).toBeVisible();
+  await expect(page.getByText('Relations')).toBeVisible();
+
+  await screenshot(page, 'asset-details-context-expanded', { fullPage: true });
 });
