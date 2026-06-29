@@ -544,9 +544,11 @@ export function CompositionUsageList({
 
   return (
     <section className={styles.usageList} aria-label="Composition usage">
-      <div className={styles.sectionHeader}>
-        <span>Used in compositions</span>
-        <small>{usages.length}</small>
+      <div className={styles.usageHeader}>
+        <h2 className={styles.usageTitle}>
+          Composition usage
+          <span className={styles.usageCount}>{usages.length}</span>
+        </h2>
       </div>
       {usages.map(({ composition, exactItems, outputMatches }) => (
         <button
@@ -556,7 +558,7 @@ export function CompositionUsageList({
           onClick={() => onOpenComposition(composition.id)}
         >
           <strong>{composition.name}</strong>
-          <span>
+          <span className={styles.usageRole}>
             {outputMatches ? 'output' : exactItems.map((item) => roleLabel(item.role)).join(', ')}
           </span>
         </button>
