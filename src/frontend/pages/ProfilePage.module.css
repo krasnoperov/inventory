@@ -196,10 +196,9 @@
   line-height: 1.45;
 }
 
-.confirmationCheck input {
-  width: 1.125rem;
-  height: 1.125rem;
-  margin: 0.1rem 0 0;
+.dangerCheckbox {
+  --ui-checkbox-size: 1.125rem;
+  margin-top: 0.1rem;
   accent-color: var(--color-danger);
 }
 
