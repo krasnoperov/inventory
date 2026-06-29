@@ -252,11 +252,15 @@ test('relations panel shows incoming reverse links and clears relations separate
   await expect(page.getByText('Thumbnail for -> Atlas Sheet')).toBeVisible();
   await expect(page.getByText('Map Source -> Map for')).toBeVisible();
   await expect(page.getByText('derived')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Edit relation' })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Clear relation' })).toHaveCount(2);
   await page.mouse.move(0, 0);
-  await screenshot(page, 'relations-panel-list', { fullPage: true });
+  await screenshot(page, 'relations-panel-compact-list', { fullPage: true });
 
-  await page.locator('article').filter({ hasText: 'Map Source' }).getByRole('button', { name: 'Clear' }).click();
+  await page.locator('article').filter({ hasText: 'Thumbnail for' }).getByRole('button', { name: 'Edit relation' }).click();
+  await page.locator('article').filter({ hasText: 'Map Source' }).getByRole('button', { name: 'Clear relation' }).click();
   const details = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(details.at(-2)).toMatchObject({ eventName: 'open-edit' });
   expect(details.at(-1)).toEqual({ eventName: 'delete-relation', args: ['relation-in'] });
 });
 
