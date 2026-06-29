@@ -1,5 +1,6 @@
 import type { CollectionPlacementInput } from '../../shared/websocket-types';
 import type { SpaceCollection } from '../space/protocol';
+import { UiSelect, type SelectOption } from '../ui';
 import styles from './CollectionPlacementPicker.module.css';
 
 export const KNOWN_COLLECTION_ITEM_ROLES = [
@@ -23,6 +24,20 @@ const ROLE_LABELS: Record<string, string> = {
   deliverable: 'Deliverable',
   custom: 'Custom',
 };
+
+const ROLE_OPTIONS: Array<SelectOption<string>> = KNOWN_COLLECTION_ITEM_ROLES.map((role) => ({
+  value: role,
+  label: ROLE_LABELS[role],
+}));
+
+const SUBJECT_TYPE_OPTIONS: Array<SelectOption<'asset' | 'variant'>> = [
+  { value: 'asset', label: 'Asset' },
+  { value: 'variant', label: 'Exact variant' },
+];
+
+function isKnownCollectionItemRole(role: string | undefined): role is typeof KNOWN_COLLECTION_ITEM_ROLES[number] {
+  return Boolean(role && KNOWN_COLLECTION_ITEM_ROLES.includes(role as typeof KNOWN_COLLECTION_ITEM_ROLES[number]));
+}
 
 interface CollectionPlacementPickerProps {
   collections: SpaceCollection[];
@@ -119,29 +134,23 @@ export function CollectionPlacementPicker({
           {value.map((placement) => {
             const collection = collections.find((candidate) => candidate.id === placement.collectionId);
             if (!collection) return null;
-            const selectedRole = KNOWN_COLLECTION_ITEM_ROLES.includes(placement.role as typeof KNOWN_COLLECTION_ITEM_ROLES[number])
-              ? placement.role
-              : 'custom';
+            const selectedRole = isKnownCollectionItemRole(placement.role) ? placement.role : 'custom';
             const subjectType = placement.subjectType ?? defaultSubjectType;
 
             return (
               <div key={placement.collectionId} className={styles.placementRow}>
                 <span className={styles.collectionName}>{collection.name}</span>
-                <select
+                <UiSelect
                   className={styles.select}
                   value={selectedRole}
+                  options={ROLE_OPTIONS}
                   disabled={disabled}
-                  aria-label={`Role for ${collection.name}`}
-                  onChange={(event) => {
-                    const role = event.target.value;
+                  label={`Role for ${collection.name}`}
+                  onValueChange={(role) => {
                     setPlacement(collection.id, { role: role === 'custom' ? 'custom' : role });
                   }}
-                >
-                  {KNOWN_COLLECTION_ITEM_ROLES.map((role) => (
-                    <option key={role} value={role}>{ROLE_LABELS[role]}</option>
-                  ))}
-                </select>
-                {selectedRole === 'custom' ? (
+                />
+                {selectedRole === 'custom' && (
                   <input
                     className={styles.input}
                     value={placement.role && placement.role !== 'custom' ? placement.role : ''}
@@ -150,26 +159,21 @@ export function CollectionPlacementPicker({
                     aria-label={`Custom role for ${collection.name}`}
                     onChange={(event) => setPlacement(collection.id, { role: event.target.value || 'custom' })}
                   />
-                ) : (
-                  <span />
                 )}
                 {allowSubjectChoice && (
-                  <select
+                  <UiSelect
                     className={styles.select}
                     value={subjectType}
+                    options={SUBJECT_TYPE_OPTIONS}
                     disabled={disabled}
-                    aria-label={`Collection subject for ${collection.name}`}
-                    onChange={(event) => {
-                      const nextSubjectType = event.target.value as 'asset' | 'variant';
+                    label={`Collection subject for ${collection.name}`}
+                    onValueChange={(nextSubjectType) => {
                       setPlacement(collection.id, {
                         subjectType: nextSubjectType,
                         pinToCreatedVariant: showPinToCreatedVariant && nextSubjectType === 'asset',
                       });
                     }}
-                  >
-                    <option value="asset">Asset</option>
-                    <option value="variant">Exact variant</option>
-                  </select>
+                  />
                 )}
                 {showPinToCreatedVariant && subjectType === 'asset' && (
                   <label className={styles.pinToggle}>

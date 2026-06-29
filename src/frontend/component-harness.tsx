@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
 import { AssetCanvas } from './components/AssetCanvas';
 import { AssetCard } from './components/AssetCard';
+import { CollectionPlacementPicker } from './components/CollectionPlacementPicker';
 import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
 import { ForgeTray } from './components/ForgeTray';
@@ -29,6 +30,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeader: AppHeader as ComponentType<Record<string, unknown>>,
   AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
+  CollectionPlacementPicker: CollectionPlacementPicker as unknown as ComponentType<Record<string, unknown>>,
   CompositionDetail: CompositionDetail as unknown as ComponentType<Record<string, unknown>>,
   CompositionUsageList: CompositionUsageList as unknown as ComponentType<Record<string, unknown>>,
   CompositionPlacementControl: CompositionPlacementControl as unknown as ComponentType<Record<string, unknown>>,

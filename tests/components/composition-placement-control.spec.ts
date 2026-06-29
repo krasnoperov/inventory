@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mountComponent } from './harness';
+import { mountComponent, screenshot } from './harness';
 
 const baseTime = 1_700_000_000_000;
 
@@ -50,8 +50,12 @@ test('places a finished variant into the chosen composition and role', async ({ 
     onPlace: '__record__:place',
   });
 
-  await page.getByLabel('Composition', { exact: true }).selectOption('c2');
-  await page.getByLabel('Composition role').selectOption('character');
+  await page.getByLabel('Composition', { exact: true }).click();
+  await page.getByRole('option', { name: 'Hero card' }).click();
+  await page.getByLabel('Composition role').click();
+  await page.getByRole('option', { name: 'Character' }).click();
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'composition-placement-control', { fullPage: true });
   await page.getByRole('button', { name: 'Place' }).click();
 
   // Confirmation reflects the resolved target in product language.
