@@ -15,6 +15,7 @@ import { SpaceSharingPanel } from './components/SpaceSharingPanel';
 import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
 import { VariantCanvas } from './components/VariantCanvas';
 import { AdminSpendView } from './pages/AdminSpendPage';
+import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import './styles/theme.css';
 import './styles/global.css';
@@ -25,6 +26,18 @@ declare global {
     __componentHarnessCallDetails?: Array<{ eventName: string; args: unknown[] }>;
     __setHarnessProps?: (props: Record<string, unknown>) => void;
   }
+}
+
+const ProductionPlacementHarness = ProductionPlacementControls as unknown as ComponentType<Record<string, unknown>>;
+const ProductionHandoffHarness = ProductionHandoffControls as unknown as ComponentType<Record<string, unknown>>;
+
+function ProductionControlsHarness(props: Record<string, unknown>) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 380px) minmax(320px, 1fr)', gap: '16px', alignItems: 'start' }}>
+      <ProductionPlacementHarness {...props} />
+      <ProductionHandoffHarness {...props} />
+    </div>
+  );
 }
 
 const registry: Record<string, ComponentType<Record<string, unknown>>> = {
@@ -38,6 +51,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   CompositionPlacementControl: CompositionPlacementControl as unknown as ComponentType<Record<string, unknown>>,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
+  ProductionControls: ProductionControlsHarness,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
   RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,
   SpaceBoard: SpaceBoard as unknown as ComponentType<Record<string, unknown>>,

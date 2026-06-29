@@ -99,7 +99,6 @@
 
 .productionField input,
 .field input,
-.field select,
 .field textarea {
   width: 100%;
   min-width: 0;
@@ -118,7 +117,6 @@
 
 .productionField input:focus,
 .field input:focus,
-.field select:focus,
 .field textarea:focus {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;
@@ -230,53 +228,6 @@
   font-weight: 700;
 }
 
-.primaryButton,
-.secondaryButton,
-.textButton,
-.iconButton {
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.primaryButton {
-  padding: 0.65rem 0.875rem;
-  color: var(--button-primary-text);
-  background: var(--button-primary-bg);
-  box-shadow: var(--button-primary-shadow);
-}
-
-.secondaryButton,
-.textButton {
-  padding: 0.45rem 0.625rem;
-  background: var(--color-bg);
-  border-color: var(--color-border);
-  color: var(--color-text);
-}
-
-.textButton {
-  padding: 0.25rem 0.5rem;
-  color: var(--color-primary);
-}
-
-.primaryButton:hover:not(:disabled),
-.secondaryButton:hover:not(:disabled),
-.textButton:hover:not(:disabled),
-.iconButton:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: var(--color-primary);
-}
-
-.primaryButton:disabled,
-.secondaryButton:disabled,
-.iconButton:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 .formError {
   margin: 0;
   color: var(--color-error);
@@ -345,19 +296,12 @@
   -webkit-box-orient: vertical;
 }
 
-.iconButton {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface);
-  border-color: var(--color-border);
+.recordIconButton {
+  --ui-button-height: 1.875rem;
   color: var(--color-text-muted);
 }
 
-.iconButton svg {
+.recordIconButton svg {
   width: 15px;
   height: 15px;
 }
