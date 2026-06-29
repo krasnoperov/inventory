@@ -29,6 +29,7 @@ import { formatBytes } from '../../lib/format';
 import { ImageLightbox } from '../ImageLightbox';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
+import { Button, IconButton } from '../../ui';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import { buildAncestryTrail } from './variantLineage';
 import styles from './VariantDetailsPanel.module.css';
@@ -190,29 +191,32 @@ export function VariantDetailsPanel({
 
   return createPortal(
     <aside className={styles.panel} aria-label="Variant details">
-      <button className={styles.closeButton} onClick={onClose} title="Close">
+      <IconButton className={styles.closeButton} onClick={onClose} title="Close" aria-label="Close variant details" variant="ghost" size="sm">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
           <path d="M18 6L6 18M6 6l12 12" />
         </svg>
-      </button>
+      </IconButton>
 
       <div className={styles.scroll}>
         {/* Actions Row */}
         <div className={styles.actions}>
           {canViewFullSize && (
-            <button className={styles.actionButton} onClick={() => setLightboxOpen(true)} title="View full size">
+            <IconButton className={styles.actionButton} onClick={() => setLightboxOpen(true)} title="View full size" aria-label="View full size" variant="ghost">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                 <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
               </svg>
-            </button>
+            </IconButton>
           )}
-          <button
+          <IconButton
             className={`${styles.actionButton} ${variant.starred ? styles.starred : ''}`}
             onClick={handleStarClick}
             title={variant.starred ? 'Unstar' : 'Star'}
+            aria-label={variant.starred ? 'Unstar variant' : 'Star variant'}
+            aria-pressed={variant.starred}
+            variant="ghost"
           >
             {variant.starred ? '★' : '☆'}
-          </button>
+          </IconButton>
           <a
             className={styles.actionButton}
             href={getVariantMediaUrl(variant, spaceId)}
@@ -226,25 +230,27 @@ export function VariantDetailsPanel({
             </svg>
           </a>
           {onAddToTray && isVariantForgeTrayReady(variant) && (
-            <button className={styles.actionButton} onClick={handleAddToTray} title="Add to Tray">
+            <IconButton className={styles.actionButton} onClick={handleAddToTray} title="Add to Tray" aria-label="Add to Tray" variant="ghost">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                 <path d="M12 5v14M5 12h14" />
               </svg>
-            </button>
+            </IconButton>
           )}
           {onCreateRelation && (
-            <button className={styles.actionButton} onClick={handleCreateRelationClick} title="Create relation">
+            <IconButton className={styles.actionButton} onClick={handleCreateRelationClick} title="Create relation" aria-label="Create relation" variant="ghost">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                 <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
                 <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
               </svg>
-            </button>
+            </IconButton>
           )}
           {onAddVariantToCollection && (
-            <button
+            <IconButton
               className={styles.actionButton}
               onClick={handleAddVariantToCollectionClick}
               title="Select variant for collection placement"
+              aria-label="Select variant for collection placement"
+              variant="ghost"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                 <path d="M4 6h16" />
@@ -253,30 +259,34 @@ export function VariantDetailsPanel({
                 <path d="M18 15v6" />
                 <path d="M15 18h6" />
               </svg>
-            </button>
+            </IconButton>
           )}
           {!isActive && onSetActive && (
-            <button
+            <IconButton
               className={`${styles.actionButton} ${styles.setActive}`}
               onClick={handleSetActive}
               title="Use as main variant"
+              aria-label="Use as main variant"
+              variant="ghost"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-            </button>
+            </IconButton>
           )}
           {onDeleteVariant && variantCount > 1 && (
-            <button
+            <IconButton
               className={`${styles.actionButton} ${styles.delete}`}
               onClick={handleDeleteClick}
               title="Delete"
+              aria-label="Delete variant"
+              variant="ghost"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                 <polyline points="3 6 5 6 21 6" />
                 <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
               </svg>
-            </button>
+            </IconButton>
           )}
         </div>
 
@@ -363,10 +373,12 @@ export function VariantDetailsPanel({
         {/* Raw metadata - full JSON behind a disclosure */}
         {(provenanceJson || providerJson || recipeJson) && (
           <div className={styles.raw}>
-            <button
+            <Button
               className={styles.rawToggle}
               onClick={() => setShowRawMeta((prev) => !prev)}
               aria-expanded={showRawMeta}
+              variant="ghost"
+              size="sm"
             >
               <svg
                 className={`${styles.rawChevron} ${showRawMeta ? styles.rawChevronOpen : ''}`}
@@ -375,7 +387,7 @@ export function VariantDetailsPanel({
                 <polyline points="9 18 15 12 9 6" />
               </svg>
               Raw metadata
-            </button>
+            </Button>
             {showRawMeta && (
               <div className={styles.rawBody}>
                 {recipeJson && (

@@ -22,6 +22,7 @@ import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel'
 import { Thumbnail } from './components/Thumbnail';
 import { TileSetPanel } from './components/TileSetPanel/TileSetPanel';
 import { VariantCanvas } from './components/VariantCanvas';
+import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPanel';
 import { BillingPlanActions } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AdminSpendView } from './pages/AdminSpendPage';
@@ -505,6 +506,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   Thumbnail: Thumbnail as unknown as ComponentType<Record<string, unknown>>,
   TileSetPanel: TileSetPanel as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
+  VariantDetailsPanel: VariantDetailsPanel as unknown as ComponentType<Record<string, unknown>>,
   VoicePicker: VoicePicker as unknown as ComponentType<Record<string, unknown>>,
 };
 
