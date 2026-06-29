@@ -74,6 +74,16 @@ interface AssetTypeSelectProps {
   onChange: (value: string) => void;
 }
 
+interface AssetTitleInlineEditorProps {
+  assetName: string;
+  editingName: boolean;
+  editNameValue: string;
+  onEditNameValueChange: (value: string) => void;
+  onNameKeyDown: React.KeyboardEventHandler<HTMLInputElement>;
+  onSaveName: () => void;
+  onStartEditName: () => void;
+}
+
 interface AssetCollectionsPanelProps {
   assetPlacementControlsOpen?: boolean;
   assetPlacementDrafts: CollectionPlacementInput[];
@@ -157,6 +167,44 @@ export function AssetTypeSelect({
       label="Asset type"
       className={className ?? styles.assetTypeSelect}
     />
+  );
+}
+
+export function AssetTitleInlineEditor({
+  assetName,
+  editingName,
+  editNameValue,
+  onEditNameValueChange,
+  onNameKeyDown,
+  onSaveName,
+  onStartEditName,
+}: AssetTitleInlineEditorProps) {
+  if (editingName) {
+    return (
+      <TextInput
+        className={styles.titleInput}
+        value={editNameValue}
+        onChange={(event) => onEditNameValueChange(event.target.value)}
+        onKeyDown={onNameKeyDown}
+        onBlur={onSaveName}
+        aria-label="Asset name"
+        autoFocus
+      />
+    );
+  }
+
+  return (
+    <h1 className={styles.titleHeading}>
+      <button
+        type="button"
+        className={styles.title}
+        onClick={onStartEditName}
+        title="Click to rename"
+        aria-label={`Rename ${assetName}`}
+      >
+        {assetName}
+      </button>
+    </h1>
   );
 }
 
@@ -1275,25 +1323,15 @@ export default function AssetDetailPage() {
               </svg>
             </CanvasToolbarLink>
             <CanvasToolbarTitle className={styles.assetTitleSlot}>
-              {editingName ? (
-                <input
-                  type="text"
-                  className={styles.titleInput}
-                  value={editNameValue}
-                  onChange={(e) => setEditNameValue(e.target.value)}
-                  onKeyDown={handleNameKeyDown}
-                  onBlur={handleSaveName}
-                  autoFocus
-                />
-              ) : (
-                <h1
-                  className={styles.title}
-                  onClick={handleStartEditName}
-                  title="Click to rename"
-                >
-                  {asset.name}
-                </h1>
-              )}
+              <AssetTitleInlineEditor
+                assetName={asset.name}
+                editingName={editingName}
+                editNameValue={editNameValue}
+                onEditNameValueChange={setEditNameValue}
+                onNameKeyDown={handleNameKeyDown}
+                onSaveName={handleSaveName}
+                onStartEditName={handleStartEditName}
+              />
             </CanvasToolbarTitle>
             {wsStatus === 'connected' && (
               <CanvasToolbarGroup>

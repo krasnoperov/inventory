@@ -140,17 +140,25 @@
   text-decoration: underline;
 }
 
+.titleHeading {
+  margin: 0;
+}
+
 .title {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
-  margin: 0;
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
   transition: color 0.15s ease;
+  text-align: left;
 }
 
 .title:hover {
@@ -158,6 +166,9 @@
 }
 
 .titleInput {
+  --ui-text-input-height: 26px;
+  --ui-text-field-font-size: 0.875rem;
+
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
@@ -166,9 +177,7 @@
   border-radius: var(--radius-sm);
   padding: 0.25rem 0.5rem;
   outline: none;
-  font-family: inherit;
   width: min(220px, 42vw);
-  height: 26px;
 }
 
 .assetTypeSelect {

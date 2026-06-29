@@ -7,6 +7,7 @@ import { AssetPicker } from './components/AssetPicker';
 import { CollectionPlacementPicker } from './components/CollectionPlacementPicker';
 import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
+import { CanvasToolbar, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { ForgeTray } from './components/ForgeTray';
 import { Pagination } from './components/Pagination';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
@@ -20,7 +21,7 @@ import { VariantCanvas } from './components/VariantCanvas';
 import { BillingPlanActions } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AdminSpendView } from './pages/AdminSpendPage';
-import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTypeSelect } from './pages/AssetDetailPage';
+import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
@@ -48,6 +49,7 @@ declare global {
 const ProductionPlacementHarness = ProductionPlacementControls as unknown as ComponentType<Record<string, unknown>>;
 const ProductionHandoffHarness = ProductionHandoffControls as unknown as ComponentType<Record<string, unknown>>;
 const AssetTypeSelectHarness = AssetTypeSelect as unknown as ComponentType<Record<string, unknown>>;
+const AssetTitleInlineEditorHarness = AssetTitleInlineEditor as unknown as ComponentType<Record<string, unknown>>;
 const AssetCollectionsPanelHarness = AssetCollectionsPanel as unknown as ComponentType<Record<string, unknown>>;
 const AssetGenerationDockHarness = AssetGenerationDock as unknown as ComponentType<Record<string, unknown>>;
 const AssetDetailsContextHarness = AssetDetailsContext as unknown as ComponentType<Record<string, unknown>>;
@@ -298,6 +300,18 @@ function AssetDetailControlsHarness(props: Record<string, unknown>) {
   );
 }
 
+function AssetTitleInlineEditorPreview(props: Record<string, unknown>) {
+  return (
+    <div style={{ position: 'relative', minHeight: '72px', padding: '12px' }}>
+      <CanvasToolbar ariaLabel="Asset title preview">
+        <CanvasToolbarTitle>
+          <AssetTitleInlineEditorHarness {...props} />
+        </CanvasToolbarTitle>
+      </CanvasToolbar>
+    </div>
+  );
+}
+
 function AssetDetailsStripPreview(props: Record<string, unknown>) {
   return (
     <div style={{ maxWidth: '520px' }}>
@@ -411,6 +425,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
   AssetPicker: AssetPicker as unknown as ComponentType<Record<string, unknown>>,
   AssetDetailControls: AssetDetailControlsHarness,
+  AssetTitleInlineEditor: AssetTitleInlineEditorPreview,
   AssetGenerationDock: AssetGenerationDockPreview,
   AssetDetailsContext: AssetDetailsContextPreview,
   AssetDetailsStrip: AssetDetailsStripPreview,
