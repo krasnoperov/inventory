@@ -259,3 +259,35 @@ test('relations panel shows incoming reverse links and clears relations separate
   const details = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(details.at(-1)).toEqual({ eventName: 'delete-relation', args: ['relation-in'] });
 });
+
+test('relations panel keeps empty state compact with create action available', async ({ page }) => {
+  await mockMedia(page);
+  await mountComponent(page, 'RelationsPanel', {
+    assets,
+    variants,
+    subjects: [
+      { subjectType: 'asset', assetId: 'hero' },
+      { subjectType: 'variant', variantId: 'hero-variant' },
+    ],
+    primarySubject: { subjectType: 'asset', assetId: 'hero' },
+    relations: [],
+    onCreate: '__record__:open-create',
+    onEdit: '__record__:open-edit',
+    onDelete: '__record__:delete-relation',
+  });
+
+  await expect(page.getByRole('region', { name: 'Manual relations' })).toBeVisible();
+  await expect(page.getByText('No manual relations')).toBeVisible();
+  await expect(page.getByText('No outgoing relations')).toHaveCount(0);
+  await expect(page.getByText('No incoming relations')).toHaveCount(0);
+  await expect(page.getByText('Outgoing')).toHaveCount(0);
+  await expect(page.getByText('Incoming')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Create relation' }).click();
+  const details = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(details).toEqual([
+    { eventName: 'open-create', args: [{ subjectType: 'asset', assetId: 'hero' }] },
+  ]);
+
+  await screenshot(page, 'relations-panel-empty-compact', { fullPage: true });
+});
