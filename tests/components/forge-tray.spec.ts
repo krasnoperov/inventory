@@ -298,6 +298,7 @@ test('forge tray image options expose batch count', async ({ page }) => {
   await page.getByLabel('Prompt').fill('Four explorations of a logo');
   await selectDropdown(page, 'Batch count', 'x4');
 
+  await expect(page.getByLabel('Style selector')).toHaveCount(0);
   await expect(page.getByLabel('Batch mode')).toBeVisible();
   await expectDropdownValue(page, 'Batch mode', 'Explore');
   await expect(page.getByRole('button', { name: /Generate ×4/ })).toBeVisible();

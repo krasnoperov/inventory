@@ -1014,7 +1014,13 @@ export function ForgeTray({
   // Show destination toggle on AssetDetailPage (has currentAsset) so user can choose existing vs new
   const showDestinationToggle = !!currentAsset;
   const showNameInput = effectiveDestinationType === 'new_asset';
-  const showStyleControls = mediaModeConfig.supportsStyle;
+  const canManageStyles = !!spaceId;
+  const hasStyleChoices =
+    enabledStylePresets.length > 0 ||
+    customStyleOptions.length > 0 ||
+    styleVariantIds.length > 0 ||
+    styleSelection.mode !== 'default';
+  const showStyleControls = mediaModeConfig.supportsStyle && (canManageStyles || hasStyleChoices);
   const showBatchControls = effectiveDestinationType === 'new_asset' && mediaModeConfig.supportsBatch;
   // Empty-state reference add lives in the control bar; once slots exist the
   // thumbnail strip carries its own "+".
@@ -1082,22 +1088,29 @@ export function ForgeTray({
     [],
   );
 
-  const styleSelectOptions = useMemo<Array<SelectOption<string>>>(
-    () => [
+  const styleSelectOptions = useMemo<Array<SelectOption<string>>>(() => {
+    const options: Array<SelectOption<string>> = [
       { value: 'default', label: 'Default' },
       ...enabledStylePresets.map((preset) => ({
         value: `preset:${preset.id}`,
         label: preset.name,
       })),
       { value: 'none', label: 'No style' },
-      {
+    ];
+
+    if (customStyleOptions.length > 0 || canManageStyles || styleVariantIds.length > 0) {
+      options.push({
         value: 'custom',
         label: styleVariantIds.length > 0 ? `Custom refs (${styleVariantIds.length})` : 'Custom refs',
-      },
-      { value: 'manage', label: 'Manage styles...' },
-    ],
-    [enabledStylePresets, styleVariantIds.length],
-  );
+      });
+    }
+
+    if (canManageStyles) {
+      options.push({ value: 'manage', label: 'Manage styles...' });
+    }
+
+    return options;
+  }, [canManageStyles, customStyleOptions.length, enabledStylePresets, styleVariantIds.length]);
 
   const isTrayExpanded =
     trayFocused ||
