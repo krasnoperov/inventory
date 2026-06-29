@@ -1406,9 +1406,11 @@ export function ForgeTray({
                     />
                     {slotBadge && <span className={styles.slotBadge}>{slotBadge}</span>}
                     <button
+                      type="button"
                       className={styles.removeButton}
                       onClick={(e) => handleRemoveSlot(e, slot.id)}
-                      title="Remove"
+                      title={`Remove ${slot.asset.name}`}
+                      aria-label={`Remove ${slot.asset.name}`}
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="8" height="8">
                         <path d="M18 6L6 18M6 6l12 12" />
@@ -1420,9 +1422,11 @@ export function ForgeTray({
               })}
               {canAddMore && (
                 <button
+                  type="button"
                   className={styles.addThumbButton}
                   onClick={handleAddClick}
-                  title="Add reference"
+                  title="Add another reference"
+                  aria-label="Add another reference"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                     <path d="M12 5v14M5 12h14" />

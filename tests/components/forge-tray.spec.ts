@@ -766,8 +766,14 @@ test('forge tray with references renders the reference strip', async ({ page }) 
   await page.getByRole('button', { name: /Hero Image/ }).click();
   await page.getByRole('button', { name: /Done/i }).click();
 
+  await expect(page.getByRole('button', { name: 'Remove Hero Image' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add reference' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add another reference' })).toBeVisible();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-references', { fullPage: true });
+
+  await page.getByRole('button', { name: 'Remove Hero Image' }).click();
+  await expect(page.getByRole('button', { name: 'Remove Hero Image' })).toHaveCount(0);
 });
 
 test('forge tray on asset detail shows compact Current/New destination control', async ({ page }) => {
