@@ -130,3 +130,72 @@ test('rotation panel uses shared fields without changing submit payload', async 
     })],
   }));
 });
+
+test('rotation panel keeps rating controls in footer chrome', async ({ page }) => {
+  await mockImages(page);
+  await page.setViewportSize({ width: 900, height: 820 });
+
+  const completedRotationSet = {
+    id: 'rotation-set-1',
+    source_variant_id: sourceVariant.id,
+    status: 'completed',
+    config: JSON.stringify({ type: '4-directional' }),
+    total_steps: 4,
+    current_step: 4,
+    error_message: null,
+    created_at: baseTime,
+    updated_at: baseTime,
+  };
+  const northVariant = { ...sourceVariant, id: 'rotation-north', quality_rating: 'approved' };
+  const eastVariant = { ...sourceVariant, id: 'rotation-east', quality_rating: null };
+  const southVariant = { ...sourceVariant, id: 'rotation-south', quality_rating: 'rejected' };
+  const westVariant = { ...sourceVariant, id: 'rotation-west', quality_rating: null };
+  const rotationViews = [
+    { id: 'view-north', rotation_set_id: completedRotationSet.id, variant_id: northVariant.id, direction: 'North', step_index: 0, prompt: null, created_at: baseTime, updated_at: baseTime },
+    { id: 'view-east', rotation_set_id: completedRotationSet.id, variant_id: eastVariant.id, direction: 'East', step_index: 1, prompt: null, created_at: baseTime, updated_at: baseTime },
+    { id: 'view-south', rotation_set_id: completedRotationSet.id, variant_id: southVariant.id, direction: 'South', step_index: 2, prompt: null, created_at: baseTime, updated_at: baseTime },
+    { id: 'view-west', rotation_set_id: completedRotationSet.id, variant_id: westVariant.id, direction: 'West', step_index: 3, prompt: null, created_at: baseTime, updated_at: baseTime },
+  ];
+
+  await mountComponent(page, 'RotationPanel', {
+    sourceVariant,
+    sourceAsset,
+    rotationSets: [completedRotationSet],
+    rotationViews,
+    variants: [sourceVariant, northVariant, eastVariant, southVariant, westVariant],
+    hasDefaultStyle: true,
+    onSubmit: '__record__:submitRotation',
+    onCancel: '__record__:cancelRotation',
+    onClose: '__record__:closeRotation',
+    onRateVariant: '__record__:rateRotation',
+    onExportTrainingData: '__record__:exportRotation',
+  });
+
+  await expect(page.getByRole('heading', { name: 'Rotation Complete' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Reject' })).toHaveAttribute('aria-pressed', 'false');
+
+  const approvedDirection = page.getByRole('button', { name: /North/ });
+  const approvedBorderColor = await approvedDirection.evaluate((element) => getComputedStyle(element).borderLeftColor);
+  await approvedDirection.hover();
+  await expect.poll(
+    () => approvedDirection.evaluate((element) => getComputedStyle(element).borderLeftColor),
+  ).toBe(approvedBorderColor);
+
+  await page.getByRole('button', { name: /East/ }).click();
+  await page.getByRole('button', { name: /East/ }).hover();
+  await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Reject' })).toHaveCount(1);
+  await expect(page.locator('[class*="ratingBadge"], [class*="ratingButtons"]')).toHaveCount(0);
+
+  await resetScrollablePanels(page);
+  await screenshot(page, 'rotation-panel-rating-chrome', { fullPage: true });
+
+  await page.getByRole('button', { name: 'Reject' }).click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toContainEqual(expect.objectContaining({
+    eventName: 'rateRotation',
+    args: ['rotation-east', 'rejected'],
+  }));
+});
