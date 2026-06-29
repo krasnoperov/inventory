@@ -93,7 +93,7 @@ export function StylePanel({
       <div className={styles.stylePanel} onClick={(event) => event.stopPropagation()}>
         <div className={styles.header}>
           <span className={styles.title}>Style Library</span>
-          <IconButton className={styles.closeButton} onClick={onClose} title="Close" aria-label="Close" variant="ghost" size="sm">
+          <IconButton onClick={onClose} title="Close" aria-label="Close" variant="ghost" size="sm">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
