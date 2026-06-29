@@ -154,7 +154,10 @@ export function RelationsPanel({
     () => relations.filter((relation) => relationMatchesAny(relation, subjects, 'object')),
     [relations, subjects],
   );
-  const relationCount = outgoing.length + incoming.length;
+  const relationCount = useMemo(
+    () => new Set([...outgoing, ...incoming].map((relation) => relation.id)).size,
+    [incoming, outgoing],
+  );
 
   return (
     <section className={styles.panel} aria-label="Manual relations">
