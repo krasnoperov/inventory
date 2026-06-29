@@ -38,19 +38,14 @@
 
 .closeButton,
 .iconButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--color-border);
+  --ui-button-height: 32px;
+  --ui-button-pad-x: 0;
+  width: 32px;
   border-radius: var(--radius-sm);
-  background: transparent;
   color: var(--color-text-muted);
-  cursor: pointer;
 }
 
 .closeButton {
-  width: 32px;
-  height: 32px;
   flex: 0 0 auto;
 }
 
@@ -62,8 +57,6 @@
 
 .closeButton:disabled,
 .iconButton:disabled,
-.button:disabled,
-.select:disabled,
 .input:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -122,8 +115,7 @@
   text-transform: uppercase;
 }
 
-.input,
-.select {
+.input {
   min-height: 36px;
   width: 100%;
   border: 1px solid var(--color-border);
@@ -139,12 +131,15 @@
 }
 
 .select {
-  padding: 0.4rem 0.55rem;
+  --ui-select-height: 36px;
+  --ui-select-font-size: var(--font-size-small);
+  --ui-select-min-width: 0;
+  --ui-select-max-width: none;
+  --ctl-surface: var(--color-bg);
+  --ctl-line: var(--color-border);
 }
 
 .input:focus,
-.select:focus,
-.button:focus-visible,
 .closeButton:focus-visible,
 .iconButton:focus-visible {
   outline: none;
@@ -261,41 +256,11 @@
   flex-wrap: wrap;
 }
 
-.button {
-  min-height: 32px;
-  padding: 0.35rem 0.65rem;
-  border: 1px solid var(--color-border);
+.actionButton {
+  --ui-button-height: 32px;
+  --ui-button-font-size: var(--font-size-small-sm);
+  --ui-button-pad-x: 0.65rem;
   border-radius: var(--radius-sm);
-  background: var(--button-ghost-bg);
-  color: var(--button-ghost-text);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--font-size-small-sm);
-}
-
-.button:hover:not(:disabled) {
-  background: var(--button-ghost-bg-hover);
-  border-color: var(--button-ghost-border);
-}
-
-.button.primary {
-  background: var(--button-primary-bg);
-  border: var(--button-primary-border);
-  color: var(--button-primary-text);
-  box-shadow: var(--button-primary-shadow);
-}
-
-.button.primary:hover:not(:disabled) {
-  background: var(--button-primary-bg-hover);
-}
-
-.button.danger {
-  color: var(--color-error);
-}
-
-.button.danger:hover:not(:disabled) {
-  background: var(--color-danger-bg);
-  border-color: var(--color-error);
 }
 
 @media (max-width: 720px) {
