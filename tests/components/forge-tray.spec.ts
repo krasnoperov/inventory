@@ -814,6 +814,8 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(page.getByRole('button', { name: /Hero Image/ })).toBeEnabled();
   await expect(page.getByRole('button', { name: /Hero Video/ })).toBeDisabled();
   await expect(page.getByRole('button', { name: /Hero Speech/ })).toBeDisabled();
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-asset-picker', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
 
   await selectMediaGroup(page, 'Video');

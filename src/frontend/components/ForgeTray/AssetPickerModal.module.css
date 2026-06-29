@@ -66,23 +66,11 @@
 }
 
 .closeButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  --ui-button-height: 32px;
+  --ui-button-pad-x: 0;
   width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
   border-radius: var(--radius-sm);
-  transition: all 0.15s ease;
   margin-left: auto;
-}
-
-.closeButton:hover {
-  background: var(--color-bg);
-  color: var(--color-text);
 }
 
 .filters {
@@ -283,20 +271,6 @@
   justify-content: flex-end;
   padding: 12px 1.25rem;
   border-top: 1px solid var(--color-border);
-}
-
-.doneButton {
-  --ui-button-height: 2.25rem;
-  box-shadow: var(--forge-button-shadow);
-}
-
-.doneButton:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px oklch(55% 0.18 276 / 0.4), inset 0 1px 0 oklch(100% 0 0 / 0.3);
-}
-
-.doneButton:active {
-  transform: translateY(0);
 }
 
 /* Responsive */
