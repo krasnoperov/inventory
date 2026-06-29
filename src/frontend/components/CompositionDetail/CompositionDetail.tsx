@@ -11,7 +11,7 @@ import type {
   Variant,
 } from '../../hooks/useSpaceWebSocket';
 import { Thumbnail } from '../Thumbnail';
-import { Button, IconButton } from '../../ui';
+import { Button, IconButton, TextInput } from '../../ui';
 import styles from './CompositionDetail.module.css';
 
 const ROLE_CONFIG: Array<{
@@ -257,11 +257,12 @@ export function CompositionDetail({
           <section className={styles.detail}>
             <div className={styles.titleRow}>
               {editingName ? (
-                <input
+                <TextInput
                   aria-label="Composition name"
                   className={styles.nameInput}
                   defaultValue={selectedComposition.name}
                   autoFocus
+                  fullWidth
                   onBlur={(event) => renameComposition(event.currentTarget.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') renameComposition(event.currentTarget.value);
@@ -389,7 +390,7 @@ export function CompositionDetail({
                 </svg>
               </IconButton>
             </div>
-            <input
+            <TextInput
               aria-label="Search exact variants"
               className={styles.searchInput}
               value={query}
