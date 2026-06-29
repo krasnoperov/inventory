@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mountComponent } from './harness';
+import { mountComponent, screenshot } from './harness';
 
 const createdAt = '2026-06-27T10:00:00.000Z';
 const joinedAt = 1_782_558_000_000;
@@ -63,6 +63,11 @@ const sharing = {
   ],
 };
 
+async function selectDropdown(page: import('@playwright/test').Page, label: string, optionName: string) {
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: optionName, exact: true }).click();
+}
+
 test('owner sharing panel exposes request, invite, member, and invitation controls', async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 760 });
   await mountComponent(page, 'SpaceSharingPanel', {
@@ -83,11 +88,12 @@ test('owner sharing panel exposes request, invite, member, and invitation contro
   await expect(page.getByRole('button', { name: 'Approve viewer' })).toBeVisible();
 
   await page.getByLabel('Email').fill('new@example.test');
-  await page.getByLabel('Invite role').selectOption('editor');
+  await selectDropdown(page, 'Invite role', 'editor');
   await page.getByRole('button', { name: 'Send invite' }).click();
   await page.getByRole('button', { name: 'Approve viewer' }).click();
   await page.getByRole('button', { name: 'Reject' }).click();
-  await page.getByLabel('Change role for Edit Person').selectOption('viewer');
+  await selectDropdown(page, 'Change role for Edit Person', 'viewer');
+  await screenshot(page, 'space-sharing-panel-owner');
   await page.getByRole('button', { name: 'Revoke' }).first().click();
   await page
     .locator('section[aria-labelledby="sharing-invitations-heading"]')

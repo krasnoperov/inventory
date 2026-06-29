@@ -7,6 +7,7 @@ import type {
   SpaceSharingResponse,
 } from '../../shared/api/schemas';
 import { formatUtcDateTime } from '../lib/dates';
+import { Button, IconButton, UiSelect, type SelectOption } from '../ui';
 import styles from './SpaceSharingPanel.module.css';
 
 type InviteHandler = (email: string, role: SpaceAccessRole) => boolean | Promise<boolean>;
@@ -33,6 +34,10 @@ interface SpaceSharingPanelProps {
 }
 
 const roleOptions: SpaceAccessRole[] = ['viewer', 'editor'];
+const ROLE_SELECT_OPTIONS: Array<SelectOption<SpaceAccessRole>> = roleOptions.map((role) => ({
+  value: role,
+  label: role,
+}));
 
 function displayName(user: { email: string; name: string | null }) {
   return user.name?.trim() || user.email;
@@ -84,30 +89,29 @@ function RequestActions({
 
   return (
     <div className={styles.actions}>
-      <button
-        type="button"
-        className={styles.button}
+      <Button
+        className={styles.actionButton}
         disabled={Boolean(busyAction) || !onApproveRequest}
         onClick={() => void onApproveRequest?.(request.id, 'viewer')}
       >
         {busyAction === viewerKey ? 'Approving...' : 'Approve viewer'}
-      </button>
-      <button
-        type="button"
-        className={`${styles.button} ${styles.primary}`}
+      </Button>
+      <Button
+        className={styles.actionButton}
+        variant="primary"
         disabled={Boolean(busyAction) || !onApproveRequest}
         onClick={() => void onApproveRequest?.(request.id, 'editor')}
       >
         {busyAction === editorKey ? 'Approving...' : 'Approve editor'}
-      </button>
-      <button
-        type="button"
-        className={`${styles.button} ${styles.danger}`}
+      </Button>
+      <Button
+        className={styles.actionButton}
+        variant="danger"
         disabled={Boolean(busyAction) || !onRejectRequest}
         onClick={() => void onRejectRequest?.(request.id)}
       >
         {busyAction === rejectKey ? 'Rejecting...' : 'Reject'}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -155,9 +159,9 @@ export function SpaceSharingPanel({
             {isOwner ? 'Manage members, requests, and pending invitations.' : 'People with access to this space.'}
           </p>
         </div>
-        <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Close sharing panel">
+        <IconButton className={styles.closeButton} onClick={onClose} aria-label="Close sharing panel">
           <CloseIcon />
-        </button>
+        </IconButton>
       </div>
 
       <div className={styles.content}>
@@ -182,25 +186,24 @@ export function SpaceSharingPanel({
             </label>
             <label className={styles.field}>
               <span className={styles.label}>Role</span>
-              <select
+              <UiSelect
                 className={styles.select}
                 value={inviteRole}
-                aria-label="Invite role"
+                label="Invite role"
+                options={ROLE_SELECT_OPTIONS}
                 disabled={Boolean(busyAction) || !onInvite}
-                onChange={(event) => setInviteRole(event.currentTarget.value as SpaceAccessRole)}
-              >
-                {roleOptions.map((role) => (
-                  <option key={role} value={role}>{role}</option>
-                ))}
-              </select>
+                onValueChange={setInviteRole}
+                fullWidth
+              />
             </label>
-            <button
+            <Button
               type="submit"
-              className={`${styles.button} ${styles.primary}`}
+              className={styles.actionButton}
+              variant="primary"
               disabled={Boolean(busyAction) || !inviteEmail.trim() || !onInvite}
             >
               {busyAction === 'invite' ? 'Sending...' : 'Send invite'}
-            </button>
+            </Button>
           </form>
         )}
 
@@ -260,17 +263,15 @@ export function SpaceSharingPanel({
                     </div>
                     <div className={styles.meta}>
                       {isOwner && !isOwnerMember ? (
-                        <select
+                        <UiSelect
                           className={styles.select}
-                          value={member.role}
-                          aria-label={`Change role for ${displayName(member.user)}`}
+                          value={member.role as SpaceAccessRole}
+                          label={`Change role for ${displayName(member.user)}`}
+                          options={ROLE_SELECT_OPTIONS}
                           disabled={Boolean(busyAction) || !onChangeMemberRole}
-                          onChange={(event) => void onChangeMemberRole?.(member.user_id, event.currentTarget.value as SpaceAccessRole)}
-                        >
-                          {roleOptions.map((role) => (
-                            <option key={role} value={role}>{role}</option>
-                          ))}
-                        </select>
+                          onValueChange={(role) => void onChangeMemberRole?.(member.user_id, role)}
+                          fullWidth
+                        />
                       ) : (
                         <RoleBadge role={member.role} />
                       )}
@@ -278,14 +279,14 @@ export function SpaceSharingPanel({
                     </div>
                     <div className={styles.actions}>
                       {isOwner && !isOwnerMember ? (
-                        <button
-                          type="button"
-                          className={`${styles.button} ${styles.danger}`}
+                        <Button
+                          className={styles.actionButton}
+                          variant="danger"
                           disabled={Boolean(busyAction) || !onRevokeMember}
                           onClick={() => void onRevokeMember?.(member.user_id)}
                         >
                           {busyRevoke ? 'Revoking...' : busyRole ? 'Updating...' : 'Revoke'}
-                        </button>
+                        </Button>
                       ) : (
                         null
                       )}
@@ -320,14 +321,14 @@ export function SpaceSharingPanel({
                         {expires && <span className={styles.secondary}>Expires {expires}</span>}
                       </div>
                       <div className={styles.actions}>
-                        <button
-                          type="button"
-                          className={`${styles.button} ${styles.danger}`}
+                        <Button
+                          className={styles.actionButton}
+                          variant="danger"
                           disabled={Boolean(busyAction) || !onRevokeInvitation}
                           onClick={() => void onRevokeInvitation?.(invitation.id)}
                         >
                           {busyRevoke ? 'Revoking...' : 'Revoke'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   );
