@@ -1,1 +1,1 @@
-export { BillingSection } from './BillingSection';
+export { BillingPlanActions, BillingSection } from './BillingSection';

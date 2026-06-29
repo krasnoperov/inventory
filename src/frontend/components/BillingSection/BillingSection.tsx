@@ -3,10 +3,21 @@ import { apiFetch } from '../../../api/client';
 import { useBillingStatus, formatBillingPlanStatus, formatMeterName, formatNumber, type MeterStatus } from '../../hooks/useBillingStatus';
 import { calculateGeminiSpend, formatBillingPeriod, formatUsd, useBillingUsage } from '../../hooks/useBillingUsage';
 import { formatUtcDate } from '../../lib/dates';
+import { Button } from '../../ui';
 import styles from './BillingSection.module.css';
 
 interface UsageBarProps {
   meter: MeterStatus;
+}
+
+interface BillingPlanActionsProps {
+  canManagePlan: boolean;
+  canStartPlan: boolean;
+  isOpeningPortal: boolean;
+  isStartingCheckout: boolean;
+  onManageBilling: () => void;
+  onUpgrade: () => void;
+  planDisplayName: string;
 }
 
 function UsageBar({ meter }: UsageBarProps) {
@@ -40,6 +51,43 @@ function UsageBar({ meter }: UsageBarProps) {
           </span>
           <span className={styles.percentage}>{Math.round(meter.percentUsed)}%</span>
         </div>
+      )}
+    </div>
+  );
+}
+
+export function BillingPlanActions({
+  canManagePlan,
+  canStartPlan,
+  isOpeningPortal,
+  isStartingCheckout,
+  onManageBilling,
+  onUpgrade,
+  planDisplayName,
+}: BillingPlanActionsProps) {
+  if (!canManagePlan && !canStartPlan) return null;
+
+  return (
+    <div className={styles.planActions}>
+      {canManagePlan && (
+        <Button
+          className={styles.planAction}
+          variant="secondary"
+          onClick={() => onManageBilling()}
+          disabled={isOpeningPortal}
+        >
+          {isOpeningPortal ? 'Opening portal...' : 'Manage plan'}
+        </Button>
+      )}
+      {canStartPlan && (
+        <Button
+          className={styles.planAction}
+          variant="primary"
+          onClick={() => onUpgrade()}
+          disabled={isStartingCheckout}
+        >
+          {isStartingCheckout ? 'Opening checkout...' : `Start ${planDisplayName}`}
+        </Button>
       )}
     </div>
   );
@@ -196,14 +244,14 @@ export function BillingSection() {
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
         <h2 className={styles.sectionTitle}>Usage & Billing</h2>
-        <button
-          type="button"
-          className={styles.refreshButton}
+        <Button
+          size="sm"
+          className={styles.refreshAction}
           onClick={() => void handleRefreshUsage()}
           disabled={isLoading || isUsageLoading}
         >
           Refresh
-        </button>
+        </Button>
       </div>
 
       <div className={styles.subscriptionCard}>
@@ -228,30 +276,15 @@ export function BillingSection() {
         )}
       </div>
 
-      {(canManagePlan || canStartPlan) && (
-        <div className={styles.planActions}>
-          {canManagePlan && (
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={() => void handleManageBilling()}
-              disabled={isOpeningPortal}
-            >
-              {isOpeningPortal ? 'Opening portal...' : 'Manage plan'}
-            </button>
-          )}
-          {canStartPlan && (
-            <button
-              type="button"
-              onClick={handleUpgrade}
-              disabled={isStartingCheckout}
-              className={styles.upgradeButton}
-            >
-              {isStartingCheckout ? 'Opening checkout...' : `Start ${billing.plan.displayName}`}
-            </button>
-          )}
-        </div>
-      )}
+      <BillingPlanActions
+        canManagePlan={canManagePlan}
+        canStartPlan={canStartPlan}
+        isOpeningPortal={isOpeningPortal}
+        isStartingCheckout={isStartingCheckout}
+        onManageBilling={() => void handleManageBilling()}
+        onUpgrade={() => void handleUpgrade()}
+        planDisplayName={billing.plan.displayName}
+      />
 
       {geminiSpendCard}
 
