@@ -291,3 +291,39 @@ test('relations panel keeps empty state compact with create action available', a
 
   await screenshot(page, 'relations-panel-empty-compact', { fullPage: true });
 });
+
+test('relations panel count de-duplicates relations matching both directions', async ({ page }) => {
+  await mockMedia(page);
+  await mountComponent(page, 'RelationsPanel', {
+    assets,
+    variants,
+    subjects: [
+      { subjectType: 'asset', assetId: 'hero' },
+      { subjectType: 'asset', assetId: 'atlas' },
+    ],
+    primarySubject: { subjectType: 'asset', assetId: 'hero' },
+    relations: [{
+      id: 'relation-loop',
+      subject_type: 'asset',
+      subject_asset_id: 'hero',
+      subject_variant_id: null,
+      object_type: 'asset',
+      object_asset_id: 'atlas',
+      object_variant_id: null,
+      relation_type: 'alternate_of',
+      context: null,
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: baseTime,
+      updated_at: baseTime,
+    }],
+    onCreate: '__record__:open-create',
+    onEdit: '__record__:open-edit',
+    onDelete: '__record__:delete-relation',
+  });
+
+  await expect(page.getByText('Relations')).toBeVisible();
+  await expect(page.getByText('1', { exact: true })).toBeVisible();
+  await expect(page.getByText('Alternate of -> Atlas Sheet')).toBeVisible();
+  await expect(page.getByText('Hero Character -> Alternate of')).toBeVisible();
+});
