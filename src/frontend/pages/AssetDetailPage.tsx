@@ -527,7 +527,7 @@ export function AssetDetailsContext({
     <div className={styles.assetDetailsContext}>
       <AssetDetailsStrip {...stripProps} />
       {stripProps.fullDetailsOpen && children && (
-        <div className={styles.assetExpandedDetailsPanel}>
+        <div className={styles.assetExpandedDetailsPanel} role="region" aria-label="Expanded asset details">
           {children}
         </div>
       )}

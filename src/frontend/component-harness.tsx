@@ -21,6 +21,16 @@ import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGen
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
+import type {
+  Asset,
+  CollectionItem,
+  Composition,
+  CompositionItem,
+  SpaceCollection,
+  SpaceRelation,
+  StylePresetRaw,
+  Variant,
+} from './space/protocol';
 import './styles/theme.css';
 import './styles/global.css';
 
@@ -42,6 +52,228 @@ const AssetDetailsStripHarness = AssetDetailsStrip as unknown as ComponentType<R
 const ProfileProviderKeyRowHarness = ProfileProviderKeyRow as unknown as ComponentType<Record<string, unknown>>;
 const ProfileDangerZoneHarness = ProfileDangerZone as unknown as ComponentType<Record<string, unknown>>;
 const BillingPlanActionsHarness = BillingPlanActions as unknown as ComponentType<Record<string, unknown>>;
+
+const stackBaseTime = 1_700_000_000_000;
+
+function stackAsset(id: string, name: string, type = 'character'): Asset {
+  return {
+    id,
+    name,
+    type,
+    media_kind: 'image',
+    tags: '',
+    parent_asset_id: null,
+    active_variant_id: `${id}-variant`,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  };
+}
+
+function stackVariant(assetId: string, id = `${assetId}-variant`): Variant {
+  return {
+    id,
+    asset_id: assetId,
+    media_kind: 'image',
+    workflow_id: null,
+    status: 'completed',
+    error_message: null,
+    image_key: `images/space/${id}.png`,
+    thumb_key: `images/space/${id}_thumb.webp`,
+    media_key: `images/space/${id}.png`,
+    media_mime_type: 'image/png',
+    media_size_bytes: 123,
+    media_width: 1024,
+    media_height: 1024,
+    media_duration_ms: null,
+    recipe: '{}',
+    starred: false,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+    description: null,
+    quality_rating: null,
+    rated_at: null,
+  };
+}
+
+const stackAssets: Asset[] = [
+  stackAsset('hero', 'Hero Character'),
+  stackAsset('atlas', 'Atlas Sheet', 'sprite-sheet'),
+  stackAsset('map', 'Map Source', 'reference'),
+  stackAsset('scene', 'Scene Bar', 'scene'),
+  stackAsset('output', 'Generated Output', 'scene'),
+];
+
+const stackVariants: Variant[] = [
+  stackVariant('hero', 'hero-variant'),
+  stackVariant('atlas', 'atlas-variant'),
+  stackVariant('map', 'map-variant'),
+  stackVariant('scene', 'scene-variant'),
+  stackVariant('output', 'output-variant'),
+];
+
+const stackCollections: SpaceCollection[] = [
+  {
+    id: 'cast',
+    name: 'Cast',
+    kind: 'cast',
+    color: null,
+    description: null,
+    sort_index: 0,
+    item_count: 1,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  },
+  {
+    id: 'style',
+    name: 'Style refs',
+    kind: 'style_refs',
+    color: null,
+    description: null,
+    sort_index: 1,
+    item_count: 1,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  },
+];
+
+const stackCollectionItems: CollectionItem[] = [
+  {
+    id: 'cast-hero',
+    collection_id: 'cast',
+    subject_type: 'asset',
+    asset_id: 'hero',
+    variant_id: null,
+    role: 'hero',
+    pinned_variant_id: 'hero-variant',
+    sort_index: 0,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  },
+  {
+    id: 'style-hero',
+    collection_id: 'style',
+    subject_type: 'variant',
+    asset_id: null,
+    variant_id: 'hero-variant',
+    role: 'style_ref',
+    pinned_variant_id: null,
+    sort_index: 1,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  },
+];
+
+const stackStylePreset: StylePresetRaw = {
+  id: 'preset-russafa',
+  name: 'Russafa watercolor',
+  description: null,
+  style_prompt: 'Loose watercolor game concept art',
+  collection_id: 'style',
+  enabled: true,
+  is_default: true,
+  created_by: 'user-1',
+  created_at: stackBaseTime,
+  updated_at: stackBaseTime,
+  collection_name: 'Style refs',
+  reference_count: 1,
+  style_reference_variant_ids: ['hero-variant'],
+  style_reference_image_keys: ['images/space/hero-variant.png'],
+};
+
+const stackRelations: SpaceRelation[] = [
+  {
+    id: 'relation-out',
+    subject_type: 'asset',
+    subject_asset_id: 'hero',
+    subject_variant_id: null,
+    object_type: 'asset',
+    object_asset_id: 'atlas',
+    object_variant_id: null,
+    relation_type: 'thumbnail_for',
+    context: JSON.stringify({ label: 'Card art' }),
+    sort_index: 0,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  },
+  {
+    id: 'relation-in',
+    subject_type: 'asset',
+    subject_asset_id: 'map',
+    subject_variant_id: null,
+    object_type: 'variant',
+    object_asset_id: null,
+    object_variant_id: 'hero-variant',
+    relation_type: 'map_for',
+    context: JSON.stringify({ context: 'world map' }),
+    sort_index: 1,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  },
+];
+
+const stackCompositions: Composition[] = [
+  {
+    id: 'composition-1',
+    name: 'Scene Bar composition',
+    description: null,
+    status: 'draft',
+    output_asset_id: 'output',
+    output_variant_id: 'output-variant',
+    metadata: '{}',
+    sort_index: 0,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  },
+  {
+    id: 'composition-2',
+    name: 'Pinned variant scene',
+    description: null,
+    status: 'draft',
+    output_asset_id: null,
+    output_variant_id: null,
+    metadata: '{}',
+    sort_index: 1,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  },
+];
+
+const stackCompositionItems: CompositionItem[] = [
+  {
+    id: 'composition-item-1',
+    composition_id: 'composition-1',
+    role: 'character',
+    asset_id: 'hero',
+    variant_id: 'hero-variant',
+    metadata: '{}',
+    sort_index: 0,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  },
+  {
+    id: 'composition-item-2',
+    composition_id: 'composition-2',
+    role: 'thumbnail',
+    asset_id: null,
+    variant_id: 'hero-variant',
+    metadata: '{}',
+    sort_index: 0,
+    created_by: 'user-1',
+    created_at: stackBaseTime,
+    updated_at: stackBaseTime,
+  },
+];
 
 function ProductionControlsHarness(props: Record<string, unknown>) {
   return (
@@ -89,24 +321,67 @@ function AssetDetailsContextPreview(props: Record<string, unknown>) {
 }
 
 function AssetGenerationDockPreview(props: Record<string, unknown>) {
+  const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? null;
+
   return (
     <AssetGenerationDockHarness
       details={(
-        <AssetDetailsContextHarness {...props}>
-          <section aria-label="Expanded asset details" style={{ display: 'grid', gap: 8 }}>
-            <div style={{ padding: 8, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)' }}>
-              Asset collections
-            </div>
-            <div style={{ padding: 8, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)' }}>
-              Relations
-            </div>
-          </section>
+        <AssetDetailsContextHarness
+          {...props}
+          asset={stackAssets[0]}
+          assetCollectionCount={1}
+          fullDetailsOpen
+          selectedVariant={selectedVariant}
+          selectedVariantCollectionCount={1}
+          variantCount={stackVariants.filter((variant) => variant.asset_id === 'hero').length}
+        >
+          <AssetCollectionsPanel
+            assetPlacementDrafts={[]}
+            collections={stackCollections}
+            collectionItems={stackCollectionItems}
+            onApplyAssetPlacements={() => undefined}
+            onApplyVariantPlacements={() => undefined}
+            onAssetPlacementDraftsChange={() => undefined}
+            onDeleteCollectionItem={() => undefined}
+            onUpdateCollectionItem={() => undefined}
+            onVariantPlacementDraftsChange={() => undefined}
+            selectedVariant={selectedVariant}
+            variantPlacementDrafts={[]}
+            variants={stackVariants}
+          />
+          <StyleReferenceUsagePanel
+            spaceId="space-1"
+            collections={[stackCollections[1]]}
+            presets={[stackStylePreset]}
+            outputs={[stackAssets[4]]}
+          />
+          <RelationsPanel
+            assets={stackAssets}
+            variants={stackVariants}
+            relations={stackRelations}
+            subjects={[
+              { subjectType: 'asset', assetId: 'hero' },
+              { subjectType: 'variant', variantId: 'hero-variant' },
+            ]}
+            primarySubject={{ subjectType: 'asset', assetId: 'hero' }}
+            onCreate={() => undefined}
+            onEdit={() => undefined}
+            onDelete={() => undefined}
+          />
+          <CompositionUsageList
+            targetAssetId="hero"
+            assets={stackAssets}
+            variants={stackVariants}
+            compositions={stackCompositions}
+            compositionItems={stackCompositionItems}
+            onOpenComposition={() => undefined}
+          />
         </AssetDetailsContextHarness>
       )}
       tray={(
         <ForgeTray
-          allAssets={[]}
-          allVariants={[]}
+          allAssets={stackAssets}
+          allVariants={stackVariants}
           onSubmit={() => undefined}
           onBrandBackground={false}
           floating={false}

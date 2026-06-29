@@ -340,7 +340,7 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Hide audio details' })).toBeVisible();
 });
 
-test('asset details dock renders expanded details above ForgeTray', async ({ page }) => {
+test('asset details dock renders the real expanded stack above ForgeTray', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 720 });
   await mountComponent(page, 'AssetGenerationDock', {
     asset: asset(),
@@ -356,10 +356,16 @@ test('asset details dock renders expanded details above ForgeTray', async ({ pag
 
   await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Hide video details' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide image details' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Expanded asset details' })).toBeVisible();
-  await expect(page.getByText('Asset collections')).toBeVisible();
-  await expect(page.getByText('Relations')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Manual relations' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Collection membership' }).getByText('Collections', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Style reference usage' }).getByText('Style usage')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Manual relations' }).getByText('Relations')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Composition usage' }).getByText('Composition usage')).toBeVisible();
   await expect(page.getByLabel('Prompt')).toBeVisible();
 
   const detailsBeforePrompt = await page.evaluate(() => {
@@ -369,5 +375,30 @@ test('asset details dock renders expanded details above ForgeTray', async ({ pag
   });
   expect(detailsBeforePrompt).toBe(true);
 
-  await screenshot(page, 'asset-details-above-forge-tray', { fullPage: true });
+  await screenshot(page, 'asset-details-stack-desktop', { fullPage: true });
+});
+
+test('asset details dock keeps the real expanded stack usable on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await mountComponent(page, 'AssetGenerationDock', {
+    asset: asset(),
+    assetCollectionCount: 1,
+    assetTypeDisabled: false,
+    fullDetailsOpen: true,
+    onAssetTypeChange: '__record__:type',
+    onToggleFullDetails: '__record__:toggleFullDetails',
+    selectedVariant: fullVariant(),
+    selectedVariantCollectionCount: 1,
+    variantCount: 3,
+  });
+
+  await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Manual relations' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
+  await expect(page.getByLabel('Prompt')).toBeVisible();
+
+  await screenshot(page, 'asset-details-stack-mobile', { fullPage: true });
 });
