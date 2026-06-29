@@ -11,27 +11,17 @@
 }
 
 .authButton,
-.primaryButton,
-.secondaryButton {
+.filterButton {
+  --ui-button-height: 40px;
+  --ui-button-font-size: var(--font-size-small-sm);
+  --ui-button-pad-x: 1rem;
   min-height: 40px;
   border-radius: var(--radius-md);
   font-weight: 700;
 }
 
-.authButton,
-.primaryButton {
-  padding: 0.625rem 1rem;
-  color: var(--button-primary-text);
-  background: var(--button-primary-bg);
-  border: var(--button-primary-border);
-  box-shadow: var(--button-primary-shadow);
-}
-
-.secondaryButton {
-  padding: 0.625rem 0.875rem;
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+.filterButton {
+  --ui-button-pad-x: 0.875rem;
 }
 
 .main {
@@ -89,15 +79,14 @@
   min-width: 0;
 }
 
-.filters span {
+.filters label > span {
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
   font-weight: 700;
   text-transform: uppercase;
 }
 
-.filters input,
-.filters select {
+.filters input {
   width: 100%;
   min-height: 40px;
   min-width: 0;
@@ -106,6 +95,15 @@
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+}
+
+.mediaSelect {
+  --ui-select-height: 40px;
+  --ui-select-font-size: var(--font-size-small-sm);
+  --ui-select-min-width: 0;
+  --ui-select-max-width: none;
+  --ctl-surface: var(--color-bg);
+  --ctl-line: var(--color-border);
 }
 
 .filterActions {

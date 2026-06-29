@@ -14,6 +14,7 @@ import { SpaceCanvas } from './components/SpaceCanvas';
 import { SpaceSharingPanel } from './components/SpaceSharingPanel';
 import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
 import { VariantCanvas } from './components/VariantCanvas';
+import { AdminSpendView } from './pages/AdminSpendPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import './styles/theme.css';
 import './styles/global.css';
@@ -28,6 +29,7 @@ declare global {
 
 const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeader: AppHeader as ComponentType<Record<string, unknown>>,
+  AdminSpendView: AdminSpendView as unknown as ComponentType<Record<string, unknown>>,
   AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
   CollectionPlacementPicker: CollectionPlacementPicker as unknown as ComponentType<Record<string, unknown>>,

@@ -11,6 +11,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useNavigate } from '../hooks/useNavigate';
 import { useSearchParams } from '../hooks/useSearchParams';
 import { adminSpendQueryOptions, type AdminSpendFilters } from '../queries';
+import { Button, ButtonLink, UiSelect, type SelectOption } from '../ui';
 import styles from './AdminSpendPage.module.css';
 
 type SpendAggregate = ProviderSpendSummaryResponse['totals'];
@@ -20,6 +21,10 @@ type SpendRow = SpendAggregate & Partial<Record<
 >>;
 
 const MEDIA_KINDS: Array<NonNullable<AdminSpendFilters['mediaKind']>> = ['image', 'audio', 'video'];
+const MEDIA_KIND_OPTIONS: Array<SelectOption<string>> = [
+  { value: '', label: 'All' },
+  ...MEDIA_KINDS.map((kind) => ({ value: kind, label: kind[0].toUpperCase() + kind.slice(1) })),
+];
 
 function compactFilters(filters: AdminSpendFilters): AdminSpendFilters {
   return Object.fromEntries(
@@ -154,6 +159,165 @@ function SpendTable({
   );
 }
 
+interface AdminSpendViewProps {
+  summary?: ProviderSpendSummaryResponse;
+  draftFilters: AdminSpendFilters;
+  isLoading?: boolean;
+  error?: unknown;
+  onDraftChange: (key: keyof AdminSpendFilters, value: string) => void;
+  onApplyFilters: () => void;
+  onClearFilters: () => void;
+}
+
+export function AdminSpendView({
+  summary,
+  draftFilters,
+  isLoading = false,
+  error = null,
+  onDraftChange,
+  onApplyFilters,
+  onClearFilters,
+}: AdminSpendViewProps) {
+  const topSpaces = (summary?.bySpace ?? []).slice(0, 25);
+  const topAssets = (summary?.byAsset ?? []).slice(0, 25);
+  const topProviders = summary?.byProvider ?? [];
+  const topModels = (summary?.byModel ?? []).slice(0, 25);
+
+  return (
+    <main className={styles.main}>
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <div>
+            <p className={styles.kicker}>Admin</p>
+            <h1>Provider Cost</h1>
+          </div>
+          <div className={styles.period}>{summary ? formatPeriod(summary.period) : isLoading ? 'Loading' : 'No data'}</div>
+        </div>
+
+        <form
+          className={styles.filters}
+          onSubmit={(event) => {
+            event.preventDefault();
+            onApplyFilters();
+          }}
+        >
+          <label>
+            <span>From</span>
+            <input
+              type="date"
+              value={draftFilters.from ?? ''}
+              onChange={(event) => onDraftChange('from', event.target.value)}
+            />
+          </label>
+          <label>
+            <span>To</span>
+            <input
+              type="date"
+              value={draftFilters.to ?? ''}
+              onChange={(event) => onDraftChange('to', event.target.value)}
+            />
+          </label>
+          <label>
+            <span>User ID</span>
+            <input
+              inputMode="numeric"
+              value={draftFilters.userId ?? ''}
+              onChange={(event) => onDraftChange('userId', event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Space ID</span>
+            <input
+              value={draftFilters.spaceId ?? ''}
+              onChange={(event) => onDraftChange('spaceId', event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Provider</span>
+            <input
+              value={draftFilters.provider ?? ''}
+              onChange={(event) => onDraftChange('provider', event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Media</span>
+            <UiSelect
+              className={styles.mediaSelect}
+              fullWidth
+              label="Media"
+              value={draftFilters.mediaKind ?? ''}
+              options={MEDIA_KIND_OPTIONS}
+              onValueChange={(value) => onDraftChange('mediaKind', value)}
+            />
+          </label>
+          <div className={styles.filterActions}>
+            <Button type="submit" className={styles.filterButton} variant="primary">Apply</Button>
+            <Button type="button" className={styles.filterButton} onClick={() => onClearFilters()}>Reset</Button>
+          </div>
+        </form>
+
+        <ErrorMessage message={spendErrorMessage(error)} />
+
+        {summary && (
+          <>
+            <section className={styles.statsGrid}>
+              <Stat
+                label="Provider cost"
+                value={formatUsd(summary.totals.amountMicroUsd)}
+                detail={`${formatNumber(summary.totals.quantity)} units`}
+              />
+              <Stat
+                label="Ledger entries"
+                value={formatNumber(summary.totals.entries)}
+                detail={`${formatNumber(summary.totals.unpricedEntries)} unpriced`}
+              />
+              <Stat
+                label="Spaces"
+                value={formatNumber(summary.bySpace.length)}
+                detail={`${formatNumber(topSpaces.length)} shown`}
+              />
+              <Stat
+                label="Assets"
+                value={formatNumber(summary.byAsset.length)}
+                detail={`${formatNumber(topAssets.length)} shown`}
+              />
+            </section>
+
+            <div className={styles.tablesGrid}>
+              <SpendTable
+                title="Spaces"
+                rows={topSpaces}
+                labelHeader="Space"
+                label={(row) => String(row.spaceId ?? 'No space')}
+              />
+              <SpendTable
+                title="Assets"
+                rows={topAssets}
+                labelHeader="Asset"
+                label={(row) => String(row.assetId ?? 'No asset')}
+                secondary={(row) => row.spaceId ? `Space ${row.spaceId}` : null}
+              />
+              <SpendTable
+                title="Providers"
+                rows={topProviders}
+                labelHeader="Provider"
+                label={(row) => String(row.provider)}
+              />
+              <SpendTable
+                title="Models"
+                rows={topModels}
+                labelHeader="Model"
+                label={(row) => String(row.providerModel)}
+                secondary={(row) => String(row.provider)}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
 export default function AdminSpendPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -174,12 +338,6 @@ export default function AdminSpendPage() {
     setDraftFilters(filters);
   }, [filters]);
 
-  const summary = spendQuery.data;
-  const topSpaces = (summary?.bySpace ?? []).slice(0, 25);
-  const topAssets = (summary?.byAsset ?? []).slice(0, 25);
-  const topProviders = summary?.byProvider ?? [];
-  const topModels = (summary?.byModel ?? []).slice(0, 25);
-
   const updateDraft = (key: keyof AdminSpendFilters, value: string) => {
     setDraftFilters((current) => compactFilters({
       ...current,
@@ -187,8 +345,7 @@ export default function AdminSpendPage() {
     }));
   };
 
-  const applyFilters = (event: React.FormEvent) => {
-    event.preventDefault();
+  const applyFilters = () => {
     setSearchParams(writeFiltersToSearch(compactFilters(draftFilters)));
   };
 
@@ -200,7 +357,7 @@ export default function AdminSpendPage() {
   const headerRightSlot = user ? (
     <HeaderNav userName={user.name} userEmail={user.email} />
   ) : (
-    <Link to="/login" className={styles.authButton}>Sign In</Link>
+    <ButtonLink to="/login" className={styles.authButton} variant="primary">Sign In</ButtonLink>
   );
 
   return (
@@ -215,132 +372,15 @@ export default function AdminSpendPage() {
         isLoading={spendQuery.isFetching}
       />
 
-      <main className={styles.main}>
-        <div className={styles.container}>
-          <div className={styles.header}>
-            <div>
-              <p className={styles.kicker}>Admin</p>
-              <h1>Provider Cost</h1>
-            </div>
-            <div className={styles.period}>{summary ? formatPeriod(summary.period) : 'Loading'}</div>
-          </div>
-
-          <form className={styles.filters} onSubmit={applyFilters}>
-            <label>
-              <span>From</span>
-              <input
-                type="date"
-                value={draftFilters.from ?? ''}
-                onChange={(event) => updateDraft('from', event.target.value)}
-              />
-            </label>
-            <label>
-              <span>To</span>
-              <input
-                type="date"
-                value={draftFilters.to ?? ''}
-                onChange={(event) => updateDraft('to', event.target.value)}
-              />
-            </label>
-            <label>
-              <span>User ID</span>
-              <input
-                inputMode="numeric"
-                value={draftFilters.userId ?? ''}
-                onChange={(event) => updateDraft('userId', event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Space ID</span>
-              <input
-                value={draftFilters.spaceId ?? ''}
-                onChange={(event) => updateDraft('spaceId', event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Provider</span>
-              <input
-                value={draftFilters.provider ?? ''}
-                onChange={(event) => updateDraft('provider', event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Media</span>
-              <select
-                value={draftFilters.mediaKind ?? ''}
-                onChange={(event) => updateDraft('mediaKind', event.target.value)}
-              >
-                <option value="">All</option>
-                {MEDIA_KINDS.map((kind) => (
-                  <option key={kind} value={kind}>{kind}</option>
-                ))}
-              </select>
-            </label>
-            <div className={styles.filterActions}>
-              <button type="submit" className={styles.primaryButton}>Apply</button>
-              <button type="button" className={styles.secondaryButton} onClick={resetFilters}>Reset</button>
-            </div>
-          </form>
-
-          <ErrorMessage message={spendErrorMessage(spendQuery.error)} />
-
-          {summary && (
-            <>
-              <section className={styles.statsGrid}>
-                <Stat
-                  label="Provider cost"
-                  value={formatUsd(summary.totals.amountMicroUsd)}
-                  detail={`${formatNumber(summary.totals.quantity)} units`}
-                />
-                <Stat
-                  label="Ledger entries"
-                  value={formatNumber(summary.totals.entries)}
-                  detail={`${formatNumber(summary.totals.unpricedEntries)} unpriced`}
-                />
-                <Stat
-                  label="Spaces"
-                  value={formatNumber(summary.bySpace.length)}
-                  detail={`${formatNumber(topSpaces.length)} shown`}
-                />
-                <Stat
-                  label="Assets"
-                  value={formatNumber(summary.byAsset.length)}
-                  detail={`${formatNumber(topAssets.length)} shown`}
-                />
-              </section>
-
-              <div className={styles.tablesGrid}>
-                <SpendTable
-                  title="Spaces"
-                  rows={topSpaces}
-                  labelHeader="Space"
-                  label={(row) => String(row.spaceId ?? 'No space')}
-                />
-                <SpendTable
-                  title="Assets"
-                  rows={topAssets}
-                  labelHeader="Asset"
-                  label={(row) => String(row.assetId ?? 'No asset')}
-                  secondary={(row) => row.spaceId ? `Space ${row.spaceId}` : null}
-                />
-                <SpendTable
-                  title="Providers"
-                  rows={topProviders}
-                  labelHeader="Provider"
-                  label={(row) => String(row.provider)}
-                />
-                <SpendTable
-                  title="Models"
-                  rows={topModels}
-                  labelHeader="Model"
-                  label={(row) => String(row.providerModel)}
-                  secondary={(row) => String(row.provider)}
-                />
-              </div>
-            </>
-          )}
-        </div>
-      </main>
+      <AdminSpendView
+        summary={spendQuery.data}
+        draftFilters={draftFilters}
+        isLoading={spendQuery.isFetching}
+        error={spendQuery.error}
+        onDraftChange={updateDraft}
+        onApplyFilters={applyFilters}
+        onClearFilters={resetFilters}
+      />
     </div>
   );
 }
