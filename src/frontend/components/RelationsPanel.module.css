@@ -27,10 +27,28 @@
 }
 
 .title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
   margin: 0;
   font-size: 0.875rem;
   font-weight: 700;
   color: var(--color-text);
+}
+
+.countBadge {
+  min-width: 1.25rem;
+  height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.35rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
 }
 
 .headerAction,
@@ -105,7 +123,7 @@
 .rowLabel,
 .rowMeta,
 .rowNotes,
-.empty {
+.compactEmpty {
   color: var(--color-text-muted);
   font-size: 0.75rem;
   line-height: 1.35;
@@ -127,8 +145,8 @@
   border-radius: var(--radius-xs);
 }
 
-.empty {
-  padding: 0.375rem 0;
+.compactEmpty {
+  padding: 0.125rem 0;
 }
 
 .dialogOverlay {

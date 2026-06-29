@@ -154,11 +154,15 @@ export function RelationsPanel({
     () => relations.filter((relation) => relationMatchesAny(relation, subjects, 'object')),
     [relations, subjects],
   );
+  const relationCount = outgoing.length + incoming.length;
 
   return (
     <section className={styles.panel} aria-label="Manual relations">
       <div className={styles.header}>
-        <h2 className={styles.title}>Relations</h2>
+        <h2 className={styles.title}>
+          Relations
+          <span className={styles.countBadge}>{relationCount}</span>
+        </h2>
         <IconButton
           className={styles.headerAction}
           onClick={() => onCreate(primarySubject)}
@@ -173,33 +177,40 @@ export function RelationsPanel({
           </svg>
         </IconButton>
       </div>
-      <RelationList
-        title="Outgoing"
-        emptyLabel="No outgoing relations"
-        direction="outgoing"
-        relations={outgoing}
-        assets={assets}
-        variants={variants}
-        onEdit={onEdit}
-        onDelete={onDelete}
-      />
-      <RelationList
-        title="Incoming"
-        emptyLabel="No incoming relations"
-        direction="incoming"
-        relations={incoming}
-        assets={assets}
-        variants={variants}
-        onEdit={onEdit}
-        onDelete={onDelete}
-      />
+      {relationCount === 0 ? (
+        <div className={styles.compactEmpty}>No manual relations</div>
+      ) : (
+        <>
+          {outgoing.length > 0 && (
+            <RelationList
+              title="Outgoing"
+              direction="outgoing"
+              relations={outgoing}
+              assets={assets}
+              variants={variants}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          )}
+          {incoming.length > 0 && (
+            <RelationList
+              title="Incoming"
+              direction="incoming"
+              relations={incoming}
+              assets={assets}
+              variants={variants}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          )}
+        </>
+      )}
     </section>
   );
 }
 
 function RelationList({
   title,
-  emptyLabel,
   direction,
   relations,
   assets,
@@ -208,7 +219,6 @@ function RelationList({
   onDelete,
 }: {
   title: string;
-  emptyLabel: string;
   direction: 'outgoing' | 'incoming';
   relations: SpaceRelation[];
   assets: Asset[];
@@ -219,38 +229,34 @@ function RelationList({
   return (
     <div className={styles.group}>
       <div className={styles.groupTitle}>{title}</div>
-      {relations.length === 0 ? (
-        <div className={styles.empty}>{emptyLabel}</div>
-      ) : (
-        <div className={styles.rows}>
-          {relations.map((relation) => {
-            const source = relationSubject(relation);
-            const target = relationObject(relation);
-            const context = parseRelationContext(relation.context);
-            return (
-              <article key={`${direction}-${relation.id}`} className={styles.row}>
-                <div className={styles.rowMain}>
-                  <span className={styles.directionBadge}>{direction === 'outgoing' ? 'Out' : 'In'}</span>
-                  <div className={styles.rowText}>
-                    <div className={styles.rowTitle}>
-                      {direction === 'outgoing'
-                        ? `${getRelationTypeLabel(relation.relation_type)} -> ${getSubjectLabel(target, assets, variants)}`
-                        : `${getSubjectLabel(source, assets, variants)} -> ${getRelationTypeLabel(relation.relation_type)}`}
-                    </div>
-                    {context.label && <div className={styles.rowLabel}>{context.label}</div>}
-                    {context.context && <div className={styles.rowMeta}>{context.context}</div>}
-                    {context.notes && <div className={styles.rowNotes}>{context.notes}</div>}
+      <div className={styles.rows}>
+        {relations.map((relation) => {
+          const source = relationSubject(relation);
+          const target = relationObject(relation);
+          const context = parseRelationContext(relation.context);
+          return (
+            <article key={`${direction}-${relation.id}`} className={styles.row}>
+              <div className={styles.rowMain}>
+                <span className={styles.directionBadge}>{direction === 'outgoing' ? 'Out' : 'In'}</span>
+                <div className={styles.rowText}>
+                  <div className={styles.rowTitle}>
+                    {direction === 'outgoing'
+                      ? `${getRelationTypeLabel(relation.relation_type)} -> ${getSubjectLabel(target, assets, variants)}`
+                      : `${getSubjectLabel(source, assets, variants)} -> ${getRelationTypeLabel(relation.relation_type)}`}
                   </div>
+                  {context.label && <div className={styles.rowLabel}>{context.label}</div>}
+                  {context.context && <div className={styles.rowMeta}>{context.context}</div>}
+                  {context.notes && <div className={styles.rowNotes}>{context.notes}</div>}
                 </div>
-                <div className={styles.rowActions}>
-                  <Button className={styles.rowButton} onClick={() => onEdit(relation)} variant="ghost" size="sm">Edit</Button>
-                  <Button className={styles.rowButton} onClick={() => onDelete(relation.id)} variant="ghost" size="sm">Clear</Button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
+              </div>
+              <div className={styles.rowActions}>
+                <Button className={styles.rowButton} onClick={() => onEdit(relation)} variant="ghost" size="sm">Edit</Button>
+                <Button className={styles.rowButton} onClick={() => onDelete(relation.id)} variant="ghost" size="sm">Clear</Button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }
