@@ -357,6 +357,11 @@
   align-items: center;
 }
 
+.variantCollectionMembershipRow {
+  grid-template-columns: minmax(7rem, 12rem) minmax(7rem, 18rem) auto;
+  justify-content: start;
+}
+
 .collectionMembershipRow span {
   min-width: 0;
   overflow: hidden;
@@ -428,7 +433,7 @@
 }
 
 .variantCollectionRemoveButton {
-  grid-column: 4;
+  grid-column: auto;
 }
 
 /* Tile Grid overlay - top right */

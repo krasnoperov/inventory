@@ -344,7 +344,7 @@ export function AssetCollectionsPanel({
             const collection = collections.find((entry) => entry.id === item.collection_id);
             const collectionName = collection?.name ?? 'collection';
             return (
-              <div key={item.id} className={styles.collectionMembershipRow}>
+              <div key={item.id} className={`${styles.collectionMembershipRow} ${styles.variantCollectionMembershipRow}`}>
                 <span>{collection?.name ?? 'Collection'}</span>
                 <TextInput
                   value={item.role}
