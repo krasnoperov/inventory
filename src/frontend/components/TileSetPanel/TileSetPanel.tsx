@@ -7,17 +7,27 @@ import type {
   TileSetRequestParams,
 } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
-import { Button, Checkbox, IconButton, TextArea } from '../../ui';
+import { Button, Checkbox, IconButton, TextArea, UiSelect, type SelectOption } from '../../ui';
 import styles from './TileSetPanel.module.css';
 
-const TILE_TYPES: { value: TileType; label: string; icon: string }[] = [
-  { value: 'terrain', label: 'Terrain', icon: 'T' },
-  { value: 'building', label: 'Building', icon: 'B' },
-  { value: 'decoration', label: 'Decor', icon: 'D' },
-  { value: 'custom', label: 'Custom', icon: 'C' },
+type GenerationMode = 'sequential' | 'single-shot';
+
+const TILE_TYPE_OPTIONS: Array<SelectOption<TileType>> = [
+  { value: 'terrain', label: 'Terrain' },
+  { value: 'building', label: 'Building' },
+  { value: 'decoration', label: 'Decor' },
+  { value: 'custom', label: 'Custom' },
 ];
 
 const GRID_SIZES = [2, 3, 4, 5] as const;
+const GRID_SIZE_OPTIONS: Array<SelectOption<string>> = GRID_SIZES.map((size) => ({
+  value: String(size),
+  label: `${size}x${size}`,
+}));
+const GENERATION_MODE_OPTIONS: Array<SelectOption<GenerationMode>> = [
+  { value: 'sequential', label: 'Sequential' },
+  { value: 'single-shot', label: 'Single-Shot' },
+];
 
 function CloseIcon() {
   return (
@@ -51,7 +61,7 @@ export function TileSetPanel({
   const [gridSize, setGridSize] = useState(3);
   const [prompt, setPrompt] = useState('');
   const [disableStyle, setDisableStyle] = useState(false);
-  const [generationMode, setGenerationMode] = useState<'sequential' | 'single-shot'>('sequential');
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('sequential');
   const [dismissedFailedSetId, setDismissedFailedSetId] = useState<string | null>(null);
 
   // Check for active tile sets
@@ -241,37 +251,28 @@ export function TileSetPanel({
         </div>
 
         <div className={styles.content}>
-          {/* Tile type selection */}
           <div className={styles.inputGroup}>
             <span className={styles.sectionLabel}>Tile Type</span>
-            <div className={styles.typeGrid}>
-              {TILE_TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  className={`${styles.typeCard} ${tileType === t.value ? styles.selected : ''}`}
-                  onClick={() => setTileType(t.value)}
-                >
-                  <span className={styles.typeIcon}>{t.icon}</span>
-                  <span className={styles.typeLabel}>{t.label}</span>
-                </button>
-              ))}
-            </div>
+            <UiSelect
+              className={styles.select}
+              value={tileType}
+              options={TILE_TYPE_OPTIONS}
+              onValueChange={setTileType}
+              label="Tile Type"
+              fullWidth
+            />
           </div>
 
-          {/* Grid size */}
           <div className={styles.inputGroup}>
             <span className={styles.sectionLabel}>Grid Size</span>
-            <div className={styles.sizeButtons}>
-              {GRID_SIZES.map((size) => (
-                <button
-                  key={size}
-                  className={`${styles.sizeButton} ${gridSize === size ? styles.selected : ''}`}
-                  onClick={() => setGridSize(size)}
-                >
-                  {size}x{size}
-                </button>
-              ))}
-            </div>
+            <UiSelect
+              className={styles.select}
+              value={String(gridSize)}
+              options={GRID_SIZE_OPTIONS}
+              onValueChange={(value) => setGridSize(Number(value))}
+              label="Grid Size"
+              fullWidth
+            />
           </div>
 
           {/* Theme prompt */}
@@ -290,23 +291,16 @@ export function TileSetPanel({
             </span>
           </div>
 
-          {/* Generation mode toggle */}
           <div className={styles.inputGroup}>
             <span className={styles.sectionLabel}>Generation Mode</span>
-            <div className={styles.sizeButtons}>
-              <button
-                className={`${styles.sizeButton} ${generationMode === 'sequential' ? styles.selected : ''}`}
-                onClick={() => setGenerationMode('sequential')}
-              >
-                Sequential
-              </button>
-              <button
-                className={`${styles.sizeButton} ${generationMode === 'single-shot' ? styles.selected : ''}`}
-                onClick={() => setGenerationMode('single-shot')}
-              >
-                Single-Shot
-              </button>
-            </div>
+            <UiSelect
+              className={styles.select}
+              value={generationMode}
+              options={GENERATION_MODE_OPTIONS}
+              onValueChange={setGenerationMode}
+              label="Generation Mode"
+              fullWidth
+            />
             <span className={styles.inputHint}>
               {generationMode === 'sequential'
                 ? 'Generates tiles one-by-one with adjacency context (higher quality).'

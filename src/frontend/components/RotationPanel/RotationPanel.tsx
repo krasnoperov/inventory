@@ -8,13 +8,19 @@ import type {
   RotationRequestParams,
 } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
-import { Button, Checkbox, IconButton, TextInput } from '../../ui';
+import { Button, Checkbox, IconButton, TextInput, UiSelect, type SelectOption } from '../../ui';
 import styles from './RotationPanel.module.css';
 
-const CONFIGS: { value: RotationConfig; label: string; icon: string; count: number }[] = [
-  { value: '4-directional', label: '4-Dir', icon: '4', count: 4 },
-  { value: '8-directional', label: '8-Dir', icon: '8', count: 8 },
-  { value: 'turnaround', label: 'Turnaround', icon: '360', count: 5 },
+type GenerationMode = 'sequential' | 'single-shot';
+
+const CONFIG_OPTIONS: Array<SelectOption<RotationConfig>> = [
+  { value: '4-directional', label: '4-Dir · 4 views' },
+  { value: '8-directional', label: '8-Dir · 8 views' },
+  { value: 'turnaround', label: 'Turnaround · 5 views' },
+];
+const GENERATION_MODE_OPTIONS: Array<SelectOption<GenerationMode>> = [
+  { value: 'sequential', label: 'Sequential' },
+  { value: 'single-shot', label: 'Single-Shot' },
 ];
 
 function CloseIcon() {
@@ -58,7 +64,7 @@ export function RotationPanel({
     sourceVariant.description || sourceAsset.name
   );
   const [disableStyle, setDisableStyle] = useState(false);
-  const [generationMode, setGenerationMode] = useState<'sequential' | 'single-shot'>('sequential');
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('sequential');
   const [dismissedFailedSetId, setDismissedFailedSetId] = useState<string | null>(null);
   const [selectedCompletedViewId, setSelectedCompletedViewId] = useState<string | null>(null);
 
@@ -350,22 +356,16 @@ export function RotationPanel({
             </div>
           </div>
 
-          {/* Config selection */}
           <div className={styles.configSection}>
             <span className={styles.sectionLabel}>Configuration</span>
-            <div className={styles.configGrid}>
-              {CONFIGS.map((c) => (
-                <button
-                  key={c.value}
-                  className={`${styles.configCard} ${config === c.value ? styles.selected : ''}`}
-                  onClick={() => setConfig(c.value)}
-                >
-                  <span className={styles.configIcon}>{c.icon}</span>
-                  <span className={styles.configLabel}>{c.label}</span>
-                  <span className={styles.configCount}>{c.count} views</span>
-                </button>
-              ))}
-            </div>
+            <UiSelect
+              className={styles.select}
+              value={config}
+              options={CONFIG_OPTIONS}
+              onValueChange={setConfig}
+              label="Configuration"
+              fullWidth
+            />
           </div>
 
           {/* Subject description */}
@@ -383,23 +383,16 @@ export function RotationPanel({
             </span>
           </div>
 
-          {/* Generation mode toggle */}
           <div className={styles.inputGroup}>
             <span className={styles.sectionLabel}>Generation Mode</span>
-            <div className={styles.modeButtons}>
-              <button
-                className={`${styles.modeButton} ${generationMode === 'sequential' ? styles.selected : ''}`}
-                onClick={() => setGenerationMode('sequential')}
-              >
-                Sequential
-              </button>
-              <button
-                className={`${styles.modeButton} ${generationMode === 'single-shot' ? styles.selected : ''}`}
-                onClick={() => setGenerationMode('single-shot')}
-              >
-                Single-Shot
-              </button>
-            </div>
+            <UiSelect
+              className={styles.select}
+              value={generationMode}
+              options={GENERATION_MODE_OPTIONS}
+              onValueChange={setGenerationMode}
+              label="Generation Mode"
+              fullWidth
+            />
             <span className={styles.inputHint}>
               {generationMode === 'sequential'
                 ? 'Generates views one-by-one with reference context (higher consistency).'
