@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
 import { AssetCanvas } from './components/AssetCanvas';
 import { AssetCard } from './components/AssetCard';
+import { AssetPicker } from './components/AssetPicker';
 import { CollectionPlacementPicker } from './components/CollectionPlacementPicker';
 import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
@@ -406,6 +407,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AdminSpendView: AdminSpendView as unknown as ComponentType<Record<string, unknown>>,
   AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
+  AssetPicker: AssetPicker as unknown as ComponentType<Record<string, unknown>>,
   AssetDetailControls: AssetDetailControlsHarness,
   AssetGenerationDock: AssetGenerationDockPreview,
   AssetDetailsContext: AssetDetailsContextPreview,
