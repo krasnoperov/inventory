@@ -6,6 +6,7 @@ import { UsageIndicator } from '../components/UsageIndicator';
 import { WorkspaceChrome } from '../components/WorkspaceChrome';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { Button, ButtonLink } from '../ui';
 import UnknownPage from './UnknownPage';
 import {
   cancelMySpaceAccessRequest,
@@ -87,27 +88,27 @@ export function SpaceAccessRequestView({
 
         <div className={styles.actions}>
           {isPending ? (
-            <button
-              type="button"
-              className={styles.secondaryButton}
+            <Button
+              className={styles.actionButton}
+              variant="secondary"
               onClick={() => onCancel?.()}
               disabled={isCanceling}
             >
               {isCanceling ? 'Canceling...' : 'Cancel request'}
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
-              className={styles.primaryButton}
+            <Button
+              className={styles.actionButton}
+              variant="primary"
               onClick={() => onRequest?.()}
               disabled={isRequesting}
             >
               {isRequesting ? 'Sending...' : wasCanceled ? 'Request again' : 'Request access'}
-            </button>
+            </Button>
           )}
-          <Link to="/dashboard" className={styles.secondaryButton}>
+          <ButtonLink to="/dashboard" className={styles.actionButton}>
             Back to dashboard
-          </Link>
+          </ButtonLink>
         </div>
       </section>
     </main>
@@ -167,7 +168,7 @@ export default function SpaceAccessRequestPage({ spaceId }: { spaceId: string })
   const headerRightSlot = user ? (
     <HeaderNav userName={user.name} userEmail={user.email} />
   ) : (
-    <Link to="/login" className={styles.secondaryButton}>Sign in</Link>
+    <ButtonLink to="/login" className={styles.headerAction}>Sign in</ButtonLink>
   );
 
   const fallbackAccess = useMemo<SpaceAccessState>(() => ({
