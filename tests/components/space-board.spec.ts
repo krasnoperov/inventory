@@ -325,12 +325,18 @@ test('collection menus use shared form controls', async ({ page }) => {
   await page.getByText('New collection').click();
   await page.getByPlaceholder('Collection name').fill('Props');
   await selectDropdown(page, 'New collection kind', 'Style References');
+  await page.getByLabel('New collection color').fill('#123456');
   await page.getByRole('button', { name: 'Create' }).click();
   await page.getByText('New collection').click();
 
   await page.getByText('Manage').first().click();
   await page.getByRole('textbox', { name: 'Collection name' }).first().fill('Cast updated');
   await selectDropdown(page, 'Collection kind', 'Scenes');
+  await page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Cast' }) })
+    .getByLabel('Collection color')
+    .fill('#654321');
   await selectDropdown(page, 'Asset to add to Cast', 'Forest background');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await screenshot(page, 'space-board-collection-manage-menu', { fullPage: true });
@@ -345,6 +351,10 @@ test('collection menus use shared form controls', async ({ page }) => {
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls.some((call) => call.eventName === 'createCollection')).toBe(true);
   expect(calls.some((call) => call.eventName === 'updateCollection')).toBe(true);
+  expect(calls.some((call) => {
+    const patch = call.args[1] as { color?: string } | undefined;
+    return call.eventName === 'updateCollection' && patch?.color === '#654321';
+  })).toBe(true);
   expect(calls.some((call) => call.eventName === 'addCollectionItem')).toBe(true);
   expect(calls.some((call) => call.eventName === 'updateCollectionItem')).toBe(true);
 });
