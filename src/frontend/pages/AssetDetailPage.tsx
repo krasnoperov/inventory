@@ -75,16 +75,20 @@ interface AssetTypeSelectProps {
 }
 
 interface AssetCollectionsPanelProps {
+  assetPlacementControlsOpen?: boolean;
   assetPlacementDrafts: CollectionPlacementInput[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
+  onAssetPlacementControlsOpenChange?: (open: boolean) => void;
   onApplyAssetPlacements: () => void;
   onApplyVariantPlacements: () => void;
   onAssetPlacementDraftsChange: (value: CollectionPlacementInput[]) => void;
   onDeleteCollectionItem: (collectionId: string, itemId: string) => void;
   onUpdateCollectionItem: (collectionId: string, itemId: string, changes: { role?: string; pinnedVariantId?: string | null }) => void;
+  onVariantPlacementControlsOpenChange?: (open: boolean) => void;
   onVariantPlacementDraftsChange: (value: CollectionPlacementInput[]) => void;
   selectedVariant: Variant | null;
+  variantPlacementControlsOpen?: boolean;
   variantPlacementDrafts: CollectionPlacementInput[];
   variants: Variant[];
 }
@@ -157,19 +161,25 @@ export function AssetTypeSelect({
 }
 
 export function AssetCollectionsPanel({
+  assetPlacementControlsOpen,
   assetPlacementDrafts,
   collections,
   collectionItems,
+  onAssetPlacementControlsOpenChange,
   onApplyAssetPlacements,
   onApplyVariantPlacements,
   onAssetPlacementDraftsChange,
   onDeleteCollectionItem,
   onUpdateCollectionItem,
+  onVariantPlacementControlsOpenChange,
   onVariantPlacementDraftsChange,
   selectedVariant,
+  variantPlacementControlsOpen,
   variantPlacementDrafts,
   variants,
 }: AssetCollectionsPanelProps) {
+  const [assetPlacementOpen, setAssetPlacementOpen] = useState(false);
+  const [variantPlacementOpen, setVariantPlacementOpen] = useState(false);
   const assetCollectionMemberships = collectionItems.filter((item) => item.subject_type === 'asset');
   const selectedVariantCollectionMemberships = selectedVariant
     ? collectionItems.filter((item) => item.subject_type === 'variant' && item.variant_id === selectedVariant.id)
@@ -181,6 +191,12 @@ export function AssetCollectionsPanel({
       label: getVariantOptionLabel(variant, index),
     })),
   ], [variants]);
+  const resolvedAssetPlacementOpen = assetPlacementControlsOpen ?? assetPlacementOpen;
+  const resolvedVariantPlacementOpen = variantPlacementControlsOpen ?? variantPlacementOpen;
+  const setResolvedAssetPlacementOpen = onAssetPlacementControlsOpenChange ?? setAssetPlacementOpen;
+  const setResolvedVariantPlacementOpen = onVariantPlacementControlsOpenChange ?? setVariantPlacementOpen;
+  const showAssetPlacementControls = resolvedAssetPlacementOpen || assetPlacementDrafts.length > 0;
+  const showVariantPlacementControls = resolvedVariantPlacementOpen || variantPlacementDrafts.length > 0;
 
   if (collections.length === 0) return null;
 
@@ -218,17 +234,42 @@ export function AssetCollectionsPanel({
           </div>
         );
       })}
-      <CollectionPlacementPicker
-        collections={collections}
-        value={assetPlacementDrafts}
-        onChange={onAssetPlacementDraftsChange}
-        label="Add asset to collections"
-        defaultSubjectType="asset"
-        showPinToCreatedVariant={Boolean(selectedVariant)}
-      />
-      {assetPlacementDrafts.length > 0 && (
-        <Button size="sm" className={styles.collectionPanelAction} onClick={() => onApplyAssetPlacements()}>
-          Add asset placement
+      {showAssetPlacementControls ? (
+        <div className={styles.collectionPlacementControls}>
+          <CollectionPlacementPicker
+            collections={collections}
+            value={assetPlacementDrafts}
+            onChange={onAssetPlacementDraftsChange}
+            label="Add asset to collections"
+            defaultSubjectType="asset"
+            showPinToCreatedVariant={Boolean(selectedVariant)}
+          />
+          <div className={styles.collectionPanelActions}>
+            {assetPlacementDrafts.length > 0 && (
+              <Button
+                size="sm"
+                className={styles.collectionPanelAction}
+                  onClick={() => {
+                    onApplyAssetPlacements();
+                    setResolvedAssetPlacementOpen(false);
+                  }}
+              >
+                Add asset placement
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className={styles.collectionPanelAction}
+              onClick={() => setResolvedAssetPlacementOpen(false)}
+            >
+              Hide
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button size="sm" className={styles.collectionPanelAction} onClick={() => setResolvedAssetPlacementOpen(true)}>
+          Add asset to collection
         </Button>
       )}
 
@@ -260,16 +301,41 @@ export function AssetCollectionsPanel({
               </div>
             );
           })}
-          <CollectionPlacementPicker
-            collections={collections}
-            value={variantPlacementDrafts}
-            onChange={onVariantPlacementDraftsChange}
-            label="Add selected variant to collections"
-            defaultSubjectType="variant"
-          />
-          {variantPlacementDrafts.length > 0 && (
-            <Button size="sm" className={styles.collectionPanelAction} onClick={() => onApplyVariantPlacements()}>
-              Add variant placement
+          {showVariantPlacementControls ? (
+            <div className={styles.collectionPlacementControls}>
+              <CollectionPlacementPicker
+                collections={collections}
+                value={variantPlacementDrafts}
+                onChange={onVariantPlacementDraftsChange}
+                label="Add selected variant to collections"
+                defaultSubjectType="variant"
+              />
+              <div className={styles.collectionPanelActions}>
+                {variantPlacementDrafts.length > 0 && (
+                  <Button
+                    size="sm"
+                    className={styles.collectionPanelAction}
+                    onClick={() => {
+                      onApplyVariantPlacements();
+                      setResolvedVariantPlacementOpen(false);
+                    }}
+                  >
+                    Add variant placement
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={styles.collectionPanelAction}
+                  onClick={() => setResolvedVariantPlacementOpen(false)}
+                >
+                  Hide
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button size="sm" className={styles.collectionPanelAction} onClick={() => setResolvedVariantPlacementOpen(true)}>
+              Add variant to collection
             </Button>
           )}
         </>
@@ -419,6 +485,7 @@ export default function AssetDetailPage() {
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
   const [assetPlacementDrafts, setAssetPlacementDrafts] = useState<CollectionPlacementInput[]>([]);
   const [variantPlacementDrafts, setVariantPlacementDrafts] = useState<CollectionPlacementInput[]>([]);
+  const [variantPlacementControlsOpen, setVariantPlacementControlsOpen] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
   const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
@@ -867,6 +934,7 @@ export default function AssetDetailPage() {
     if (!assetId || !canEdit) return;
     setSelectedVariantId(assetId, variant.id);
     setVariantPlacementDrafts([]);
+    setVariantPlacementControlsOpen(true);
     setShowInspector(true);
     requestAnimationFrame(() => {
       collectionPanelRef.current?.scrollIntoView({ block: 'nearest' });
@@ -1325,8 +1393,10 @@ export default function AssetDetailPage() {
                   onAssetPlacementDraftsChange={setAssetPlacementDrafts}
                   onDeleteCollectionItem={deleteCollectionItem}
                   onUpdateCollectionItem={updateCollectionItem}
+                  onVariantPlacementControlsOpenChange={setVariantPlacementControlsOpen}
                   onVariantPlacementDraftsChange={setVariantPlacementDrafts}
                   selectedVariant={selectedVariant}
+                  variantPlacementControlsOpen={variantPlacementControlsOpen}
                   variantPlacementDrafts={variantPlacementDrafts}
                   variants={variants}
                 />

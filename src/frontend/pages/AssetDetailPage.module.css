@@ -370,6 +370,17 @@
   justify-self: start;
 }
 
+.collectionPlacementControls {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.collectionPanelActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .variantCollectionRemoveButton {
   grid-column: 4;
 }

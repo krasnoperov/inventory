@@ -159,6 +159,75 @@ test('asset detail controls use shared selects and collection buttons', async ({
   ]));
 });
 
+test('asset collection placement forms stay hidden until requested', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 540 });
+  await mountComponent(page, 'AssetDetailControls', {
+    value: 'character',
+    disabled: false,
+    collections,
+    collectionItems,
+    variants,
+    selectedVariant,
+    assetPlacementDrafts: [],
+    variantPlacementDrafts: [],
+    onChange: '__record__:type',
+    onApplyAssetPlacements: '__record__:applyAsset',
+    onApplyVariantPlacements: '__record__:applyVariant',
+    onAssetPlacementDraftsChange: '__record__:assetDrafts',
+    onDeleteCollectionItem: '__record__:deleteItem',
+    onUpdateCollectionItem: '__record__:updateItem',
+    onVariantPlacementDraftsChange: '__record__:variantDrafts',
+  });
+
+  await expect(page.getByText('Asset collections')).toBeVisible();
+  await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Add selected variant to collections', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add asset to collection' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add variant to collection' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add asset to collection' }).click();
+  await expect(page.getByText('Add asset to collections', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Add to Style refs')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Hide' }).click();
+  await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
+
+  await screenshot(page, 'asset-collections-placement-hidden', { fullPage: true });
+});
+
+test('asset collection placement shortcut opens selected variant picker', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 540 });
+  await mountComponent(page, 'AssetDetailControls', {
+    value: 'character',
+    disabled: false,
+    collections,
+    collectionItems,
+    variants,
+    selectedVariant,
+    assetPlacementDrafts: [],
+    variantPlacementControlsOpen: true,
+    variantPlacementDrafts: [],
+    onChange: '__record__:type',
+    onApplyAssetPlacements: '__record__:applyAsset',
+    onApplyVariantPlacements: '__record__:applyVariant',
+    onAssetPlacementDraftsChange: '__record__:assetDrafts',
+    onDeleteCollectionItem: '__record__:deleteItem',
+    onUpdateCollectionItem: '__record__:updateItem',
+    onVariantPlacementControlsOpenChange: '__record__:variantPlacementOpen',
+    onVariantPlacementDraftsChange: '__record__:variantDrafts',
+  });
+
+  await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Add selected variant to collections', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Add to Cast')).toBeVisible();
+  await page.getByRole('button', { name: 'Hide' }).click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toEqual(expect.arrayContaining([
+    { eventName: 'variantPlacementOpen', args: [false] },
+  ]));
+});
+
 test('asset details strip makes video facts and details disclosure visible', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 420 });
   await mountComponent(page, 'AssetDetailsStrip', {
