@@ -47,7 +47,7 @@ import { StylePanel } from './StylePanel';
 import { VoicePicker } from './VoicePicker';
 import { Thumbnail } from '../Thumbnail';
 import { Link } from '../Link';
-import { IconButton, UiSelect, type SelectOption } from '../../ui';
+import { Button, IconButton, UiSelect, type SelectOption } from '../../ui';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
   canUseSlotMediaKindForForgeMode,
@@ -1596,19 +1596,19 @@ export function ForgeTray({
               autoFocus
             />
             <div className={styles.uploadPromptActions}>
-              <button
-                className={styles.uploadPromptCancel}
+              <Button
                 onClick={handleUploadPromptCancel}
+                variant="secondary"
               >
                 Cancel
-              </button>
-              <button
-                className={styles.uploadPromptSubmit}
+              </Button>
+              <Button
                 onClick={handleUploadPromptSubmit}
                 disabled={!uploadAssetName.trim() || isUploading}
+                variant="primary"
               >
                 {isUploading ? 'Uploading...' : 'Create Asset'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

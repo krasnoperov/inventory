@@ -494,7 +494,20 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
 
   const fileChooserPromise = page.waitForEvent('filechooser');
   await uploadButton.click();
-  await fileChooserPromise;
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
+    name: 'forest-gate.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('fake image'),
+  });
+  await expect(page.getByText('Create New Asset')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create Asset' })).toBeEnabled();
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-upload-prompt', { fullPage: true });
+  await page.getByPlaceholder('Asset name').fill('');
+  await expect(page.getByRole('button', { name: 'Create Asset' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByText('Create New Asset')).toHaveCount(0);
 
   await chatButton.click();
   await expect(page.getByText('Chat with Claude')).toBeVisible();
