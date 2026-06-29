@@ -52,7 +52,7 @@ import type { CollectionItem, SpaceCollection } from '../space/protocol';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
-import { Button, UiSelect, type SelectOption } from '../ui';
+import { Button, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './AssetDetailPage.module.css';
 
 // Confirmation dialog types
@@ -262,10 +262,11 @@ export function AssetCollectionsPanel({
         return (
           <div key={item.id} className={styles.collectionMembershipRow}>
             <span>{collection?.name ?? 'Collection'}</span>
-            <input
+            <TextInput
               value={item.role}
               aria-label={`Role in ${collectionName}`}
               onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+              fullWidth
             />
             <UiSelect
               value={item.pinned_variant_id ?? ''}
@@ -345,10 +346,11 @@ export function AssetCollectionsPanel({
             return (
               <div key={item.id} className={styles.collectionMembershipRow}>
                 <span>{collection?.name ?? 'Collection'}</span>
-                <input
+                <TextInput
                   value={item.role}
                   aria-label={`Variant role in ${collectionName}`}
                   onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                  fullWidth
                 />
                 <Button
                   size="sm"
