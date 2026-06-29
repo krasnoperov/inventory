@@ -270,6 +270,11 @@
   white-space: nowrap;
 }
 
+.assetDetailsTypeSelect {
+  --ui-select-min-width: 8rem;
+  --ui-select-max-width: 8rem;
+}
+
 .assetDetailsAction {
   grid-column: 2;
   grid-row: 1;
