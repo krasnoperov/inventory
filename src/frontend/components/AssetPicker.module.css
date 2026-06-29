@@ -40,21 +40,20 @@
 }
 
 .option {
-  display: flex;
-  align-items: center;
+  --ui-button-height: auto;
+  --ui-button-pad-x: 0.75rem;
+  --ui-button-font-size: 0.875rem;
+  --ctl-hover: var(--color-bg);
+
   gap: 0.75rem;
+  justify-content: flex-start;
   width: 100%;
-  padding: 0.625rem 0.75rem;
+  padding-block: 0.625rem;
   border: none;
-  background: transparent;
-  border-radius: var(--radius-md);
-  cursor: pointer;
   text-align: left;
-  transition: all 0.15s ease;
 }
 
-.option:hover {
-  background: var(--color-bg);
+.option:hover:not(:disabled) {
   transform: translateX(2px);
 }
 

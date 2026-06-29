@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { type Asset, type Variant } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
-import { TextInput } from '../ui';
+import { Button, TextInput } from '../ui';
 import { Thumbnail } from './Thumbnail';
 import styles from './AssetPicker.module.css';
 
@@ -50,10 +50,10 @@ export function AssetPicker({
 
     return (
       <div key={asset.id}>
-        <button
-          type="button"
+        <Button
           className={`${styles.option} ${isSelected ? styles.selected : ''}`}
           onClick={() => onSelect(asset.id)}
+          variant="ghost"
         >
           <Thumbnail variant={variant} size="xs" className={styles.thumbnail} />
           <div className={styles.optionInfo}>
@@ -69,7 +69,7 @@ export function AssetPicker({
               </svg>
             </span>
           )}
-        </button>
+        </Button>
       </div>
     );
   };
