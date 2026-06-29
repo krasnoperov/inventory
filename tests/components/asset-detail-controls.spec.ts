@@ -250,6 +250,7 @@ test('asset details strip makes video facts and details disclosure visible', asy
   await expect(page.getByText('Video · Completed')).toBeVisible();
   await expect(page.getByText('1920x1080')).toBeVisible();
   await expect(page.getByText('8.0s')).toBeVisible();
+  await expect(page.getByText('Video details')).toBeVisible();
 
   await page.getByRole('button', { name: 'Show video details' }).click();
   await screenshot(page, 'asset-details-strip-video', { fullPage: true });
@@ -291,7 +292,39 @@ test('asset details strip also exposes image facts without a hidden click target
   await expect(page.getByText('Image · Completed')).toBeVisible();
   await expect(page.getByText('1024x1024')).toBeVisible();
   await expect(page.getByText('Duration')).toHaveCount(0);
+  await expect(page.getByText('Image details')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Hide image details' })).toBeVisible();
+});
+
+test('asset details strip names audio details explicitly', async ({ page }) => {
+  await page.setViewportSize({ width: 620, height: 360 });
+  await mountComponent(page, 'AssetDetailsStrip', {
+    asset: asset({
+      name: 'Narration pass',
+      type: 'sound',
+      media_kind: 'audio',
+    }),
+    assetCollectionCount: 0,
+    fullDetailsOpen: true,
+    onToggleFullDetails: '__record__:toggleFullDetails',
+    selectedVariant: fullVariant({
+      media_kind: 'audio',
+      media_key: 'audio/narration.mp3',
+      media_mime_type: 'audio/mpeg',
+      media_width: null,
+      media_height: null,
+      media_duration_ms: 42000,
+    }),
+    selectedVariantCollectionCount: 0,
+    variantCount: 1,
+  });
+
+  await expect(page.getByText('Narration pass')).toBeVisible();
+  await expect(page.getByText('Audio', { exact: true })).toBeVisible();
+  await expect(page.getByText('Audio · Completed')).toBeVisible();
+  await expect(page.getByText('42s')).toBeVisible();
+  await expect(page.getByText('Audio details')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide audio details' })).toBeVisible();
 });
 
 test('asset details context renders expanded details below the ForgeTray strip', async ({ page }) => {
