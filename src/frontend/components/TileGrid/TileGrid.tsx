@@ -36,6 +36,10 @@ export function TileGrid({
   );
 
   const positions = tilePositions.filter((tp) => tp.tile_set_id === tileSet.id);
+  const selectedVariant = selectedVariantId
+    ? variants.find((variant) => variant.id === selectedVariantId && variant.status === 'completed')
+    : undefined;
+  const selectedRating = (selectedVariant as (Variant & { quality_rating?: string }) | undefined)?.quality_rating;
   const hasFailedTiles = positions.some((p) => {
     const variant = variants.find((v) => v.id === p.variant_id);
     return variant?.status === 'failed';
@@ -65,7 +69,7 @@ export function TileGrid({
         <div className={styles.errorBanner}>{tileSet.error_message}</div>
       )}
       {/* Action bar for completed sets */}
-      {tileSet.status === 'completed' && (onRefineEdges || onExportTrainingData) && (
+      {tileSet.status === 'completed' && (onRefineEdges || onExportTrainingData || (onRateVariant && selectedVariant)) && (
         <div className={styles.actionBar}>
           {onRefineEdges && (
             <Button
@@ -86,6 +90,28 @@ export function TileGrid({
             >
               Export Training Data
             </Button>
+          )}
+          {onRateVariant && selectedVariant && (
+            <div className={styles.ratingActions} aria-label="Selected tile rating">
+              <Button
+                className={`${styles.ratingAction} ${selectedRating === 'approved' ? styles.ratingActionActive : ''}`}
+                onClick={() => onRateVariant(selectedVariant.id, 'approved')}
+                variant="secondary"
+                size="sm"
+                aria-pressed={selectedRating === 'approved'}
+              >
+                Approve
+              </Button>
+              <Button
+                className={`${styles.ratingAction} ${selectedRating === 'rejected' ? styles.ratingActionActive : ''}`}
+                onClick={() => onRateVariant(selectedVariant.id, 'rejected')}
+                variant="secondary"
+                size="sm"
+                aria-pressed={selectedRating === 'rejected'}
+              >
+                Reject
+              </Button>
+            </div>
           )}
         </div>
       )}
@@ -114,43 +140,24 @@ export function TileGrid({
               : undefined;
             const isSelected = variant?.id === selectedVariantId;
             const qualityRating = (variant as Variant & { quality_rating?: string })?.quality_rating;
+            const ratingClass = qualityRating === 'approved'
+              ? styles.cellApproved
+              : qualityRating === 'rejected'
+                ? styles.cellRejected
+                : '';
 
             return (
               <div
                 key={`${x}-${y}`}
-                className={`${styles.cell} ${isSelected ? styles.selected : ''} ${isGenerating ? styles.generating : ''} ${isFailed ? styles.failed : ''}`}
+                className={`${styles.cell} ${isSelected ? styles.selected : ''} ${isGenerating ? styles.generating : ''} ${isFailed ? styles.failed : ''} ${ratingClass}`}
                 onClick={() => handleCellClick(variant?.id)}
               >
                 {imageUrl && isCompleted ? (
-                  <>
-                    <img
-                      src={imageUrl}
-                      alt={`Tile ${x},${y}`}
-                      className={styles.cellImage}
-                    />
-                    {/* Quality rating overlay */}
-                    {qualityRating === 'approved' && (
-                      <span className={styles.ratingApproved} title="Approved">&#10003;</span>
-                    )}
-                    {qualityRating === 'rejected' && (
-                      <span className={styles.ratingRejected} title="Rejected">&#10005;</span>
-                    )}
-                    {/* Rating buttons (on hover) */}
-                    {onRateVariant && variant && (
-                      <div className={styles.ratingButtons}>
-                        <button
-                          className={`${styles.rateBtn} ${styles.rateBtnApprove}`}
-                          onClick={(e) => { e.stopPropagation(); onRateVariant(variant.id, 'approved'); }}
-                          title="Approve"
-                        >&#9650;</button>
-                        <button
-                          className={`${styles.rateBtn} ${styles.rateBtnReject}`}
-                          onClick={(e) => { e.stopPropagation(); onRateVariant(variant.id, 'rejected'); }}
-                          title="Reject"
-                        >&#9660;</button>
-                      </div>
-                    )}
-                  </>
+                  <img
+                    src={imageUrl}
+                    alt={`Tile ${x},${y}`}
+                    className={styles.cellImage}
+                  />
                 ) : (
                   <div className={styles.cellEmpty}>
                     {isGenerating && (
