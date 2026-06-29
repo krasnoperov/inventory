@@ -14,8 +14,10 @@ import { SpaceCanvas } from './components/SpaceCanvas';
 import { SpaceSharingPanel } from './components/SpaceSharingPanel';
 import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
 import { VariantCanvas } from './components/VariantCanvas';
+import { BillingPlanActions } from './components/BillingSection';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AssetCollectionsPanel, AssetTypeSelect } from './pages/AssetDetailPage';
+import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import './styles/theme.css';
@@ -33,6 +35,9 @@ const ProductionPlacementHarness = ProductionPlacementControls as unknown as Com
 const ProductionHandoffHarness = ProductionHandoffControls as unknown as ComponentType<Record<string, unknown>>;
 const AssetTypeSelectHarness = AssetTypeSelect as unknown as ComponentType<Record<string, unknown>>;
 const AssetCollectionsPanelHarness = AssetCollectionsPanel as unknown as ComponentType<Record<string, unknown>>;
+const ProfileProviderKeyRowHarness = ProfileProviderKeyRow as unknown as ComponentType<Record<string, unknown>>;
+const ProfileDangerZoneHarness = ProfileDangerZone as unknown as ComponentType<Record<string, unknown>>;
+const BillingPlanActionsHarness = BillingPlanActions as unknown as ComponentType<Record<string, unknown>>;
 
 function ProductionControlsHarness(props: Record<string, unknown>) {
   return (
@@ -54,6 +59,16 @@ function AssetDetailControlsHarness(props: Record<string, unknown>) {
   );
 }
 
+function ProfileBillingActionsHarness(props: Record<string, unknown>) {
+  return (
+    <div style={{ display: 'grid', gap: '16px', maxWidth: '640px' }}>
+      <ProfileProviderKeyRowHarness {...props} />
+      <BillingPlanActionsHarness {...props} />
+      <ProfileDangerZoneHarness {...props} />
+    </div>
+  );
+}
+
 const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeader: AppHeader as ComponentType<Record<string, unknown>>,
   AdminSpendView: AdminSpendView as unknown as ComponentType<Record<string, unknown>>,
@@ -66,6 +81,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   CompositionPlacementControl: CompositionPlacementControl as unknown as ComponentType<Record<string, unknown>>,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
+  ProfileBillingActions: ProfileBillingActionsHarness,
   ProductionControls: ProductionControlsHarness,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
   RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,

@@ -11,6 +11,7 @@ import { BillingSection } from '../components/BillingSection';
 import { apiFetch } from '../../api/client';
 import type { ProviderKeyProvider, ProviderKeySummary, UserProfile } from '../../api/types';
 import { providerKeysQueryOptions, userProfileQueryOptions } from '../queries';
+import { Button } from '../ui';
 import styles from './ProfilePage.module.css';
 
 const providerHelp: Record<ProviderKeyProvider, string> = {
@@ -19,6 +20,151 @@ const providerHelp: Record<ProviderKeyProvider, string> = {
   elevenlabs: 'Speech, dialogue, sound effects, and ElevenLabs music',
   lyria: 'Google Lyria music generation',
 };
+
+interface ProfileProviderKeyRowProps {
+  draft: string;
+  isDeleting: boolean;
+  isSaving: boolean;
+  onDelete: () => void;
+  onDraftChange: (value: string) => void;
+  onSave: () => void;
+  provider: ProviderKeySummary;
+}
+
+interface ProfileDangerZoneProps {
+  canDeleteAccount: boolean;
+  deleteAcknowledged: boolean;
+  deleteEmail: string;
+  deleteError: string | null;
+  isDeletingAccount: boolean;
+  onAcknowledgedChange: (value: boolean) => void;
+  onDeleteAccount: () => void;
+  onDeleteEmailChange: (value: string) => void;
+  profileEmail: string;
+}
+
+export function ProfileProviderKeyRow({
+  draft,
+  isDeleting,
+  isSaving,
+  onDelete,
+  onDraftChange,
+  onSave,
+  provider,
+}: ProfileProviderKeyRowProps) {
+  const status = provider.configured
+    ? provider.keyHint
+    : provider.platformConfigured ? 'Platform key' : 'Not configured';
+
+  return (
+    <div className={styles.providerRow}>
+      <div className={styles.providerInfo}>
+        <div className={styles.providerTitleRow}>
+          <h3 className={styles.providerName}>{provider.label}</h3>
+          <span
+            className={styles.providerStatus}
+            data-state={provider.configured ? 'configured' : provider.platformConfigured ? 'platform' : 'missing'}
+          >
+            {status}
+          </span>
+        </div>
+        <p className={styles.providerDescription}>{providerHelp[provider.provider]}</p>
+      </div>
+
+      <div className={styles.providerControls}>
+        <input
+          type="password"
+          value={draft}
+          onChange={(event) => onDraftChange(event.target.value)}
+          className={formStyles.input}
+          placeholder={provider.configured ? 'Replace API key' : 'API key'}
+          autoComplete="off"
+          disabled={isSaving || isDeleting}
+          aria-label={`${provider.label} API key`}
+        />
+        <div className={styles.providerActions}>
+          <Button
+            variant="primary"
+            className={styles.fullWidthAction}
+            disabled={isSaving || isDeleting || !draft.trim()}
+            onClick={() => onSave()}
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </Button>
+          <Button
+            variant="secondary"
+            className={styles.fullWidthAction}
+            disabled={isSaving || isDeleting || !provider.configured}
+            onClick={() => onDelete()}
+          >
+            {isDeleting ? 'Removing...' : 'Remove'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ProfileDangerZone({
+  canDeleteAccount,
+  deleteAcknowledged,
+  deleteEmail,
+  deleteError,
+  isDeletingAccount,
+  onAcknowledgedChange,
+  onDeleteAccount,
+  onDeleteEmailChange,
+  profileEmail,
+}: ProfileDangerZoneProps) {
+  return (
+    <section className={styles.dangerSection} aria-labelledby="delete-account-title">
+      <div className={styles.sectionHeader}>
+        <h2 id="delete-account-title" className={styles.sectionTitle}>Delete account</h2>
+      </div>
+
+      <ErrorMessage message={deleteError} />
+
+      <div className={styles.dangerPanel}>
+        <label className={styles.confirmationCheck}>
+          <input
+            type="checkbox"
+            checked={deleteAcknowledged}
+            onChange={(event) => onAcknowledgedChange(event.target.checked)}
+            disabled={isDeletingAccount}
+          />
+          <span>
+            I understand this permanently deletes my account, owned Spaces, assets, provider keys, and billing records.
+          </span>
+        </label>
+
+        <div className={formStyles.formGroup}>
+          <label htmlFor="delete-email" className={formStyles.label}>
+            Type your email to confirm
+          </label>
+          <input
+            id="delete-email"
+            type="email"
+            value={deleteEmail}
+            onChange={(event) => onDeleteEmailChange(event.target.value)}
+            className={formStyles.input}
+            placeholder={profileEmail || 'you@example.com'}
+            autoComplete="off"
+            disabled={isDeletingAccount}
+          />
+        </div>
+
+        <Button
+          variant="danger"
+          className={styles.fullWidthAction}
+          disabled={!canDeleteAccount}
+          onClick={() => onDeleteAccount()}
+        >
+          {isDeletingAccount ? 'Deleting...' : 'Delete account permanently'}
+        </Button>
+      </div>
+    </section>
+  );
+}
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -235,13 +381,14 @@ export default function ProfilePage() {
                 />
               </div>
 
-              <button
+              <Button
                 type="submit"
-                className={formStyles.submitButton}
+                variant="primary"
+                className={styles.fullWidthAction}
                 disabled={isSaving}
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
-              </button>
+              </Button>
             </form>
 
             <BillingSection />
@@ -260,110 +407,38 @@ export default function ProfilePage() {
                   const draft = providerDrafts[provider.provider] ?? '';
                   const isProviderSaving = savingProvider === provider.provider;
                   const isProviderDeleting = deletingProvider === provider.provider;
-                  const status = provider.configured
-                    ? provider.keyHint
-                    : provider.platformConfigured ? 'Platform key' : 'Not configured';
+                  const handleDraftChange = (value: string) => setProviderDrafts((prev) => ({
+                    ...prev,
+                    [provider.provider]: value,
+                  }));
 
                   return (
-                    <div key={provider.provider} className={styles.providerRow}>
-                      <div className={styles.providerInfo}>
-                        <div className={styles.providerTitleRow}>
-                          <h3 className={styles.providerName}>{provider.label}</h3>
-                          <span
-                            className={styles.providerStatus}
-                            data-state={provider.configured ? 'configured' : provider.platformConfigured ? 'platform' : 'missing'}
-                          >
-                            {status}
-                          </span>
-                        </div>
-                        <p className={styles.providerDescription}>{providerHelp[provider.provider]}</p>
-                      </div>
-
-                      <div className={styles.providerControls}>
-                        <input
-                          type="password"
-                          value={draft}
-                          onChange={(event) => setProviderDrafts((prev) => ({
-                            ...prev,
-                            [provider.provider]: event.target.value,
-                          }))}
-                          className={formStyles.input}
-                          placeholder={provider.configured ? 'Replace API key' : 'API key'}
-                          autoComplete="off"
-                          disabled={isProviderSaving || isProviderDeleting}
-                          aria-label={`${provider.label} API key`}
-                        />
-                        <div className={styles.providerActions}>
-                          <button
-                            type="button"
-                            className={formStyles.submitButton}
-                            disabled={isProviderSaving || isProviderDeleting || !draft.trim()}
-                            onClick={() => void handleSaveProvider(provider.provider)}
-                          >
-                            {isProviderSaving ? 'Saving...' : 'Save'}
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.secondaryButton}
-                            disabled={isProviderSaving || isProviderDeleting || !provider.configured}
-                            onClick={() => void handleDeleteProvider(provider.provider)}
-                          >
-                            {isProviderDeleting ? 'Removing...' : 'Remove'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <ProfileProviderKeyRow
+                      key={provider.provider}
+                      draft={draft}
+                      isDeleting={isProviderDeleting}
+                      isSaving={isProviderSaving}
+                      onDelete={() => void handleDeleteProvider(provider.provider)}
+                      onDraftChange={handleDraftChange}
+                      onSave={() => void handleSaveProvider(provider.provider)}
+                      provider={provider}
+                    />
                   );
                 })}
               </div>
             </section>
 
-            <section className={styles.dangerSection} aria-labelledby="delete-account-title">
-              <div className={styles.sectionHeader}>
-                <h2 id="delete-account-title" className={styles.sectionTitle}>Delete account</h2>
-              </div>
-
-              <ErrorMessage message={deleteError} />
-
-              <div className={styles.dangerPanel}>
-                <label className={styles.confirmationCheck}>
-                  <input
-                    type="checkbox"
-                    checked={deleteAcknowledged}
-                    onChange={(event) => setDeleteAcknowledged(event.target.checked)}
-                    disabled={isDeletingAccount}
-                  />
-                  <span>
-                    I understand this permanently deletes my account, owned Spaces, assets, provider keys, and billing records.
-                  </span>
-                </label>
-
-                <div className={formStyles.formGroup}>
-                  <label htmlFor="delete-email" className={formStyles.label}>
-                    Type your email to confirm
-                  </label>
-                  <input
-                    id="delete-email"
-                    type="email"
-                    value={deleteEmail}
-                    onChange={(event) => setDeleteEmail(event.target.value)}
-                    className={formStyles.input}
-                    placeholder={profile?.email ?? 'you@example.com'}
-                    autoComplete="off"
-                    disabled={isDeletingAccount}
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  className={styles.dangerButton}
-                  disabled={!canDeleteAccount}
-                  onClick={() => void handleDeleteAccount()}
-                >
-                  {isDeletingAccount ? 'Deleting...' : 'Delete account permanently'}
-                </button>
-              </div>
-            </section>
+            <ProfileDangerZone
+              canDeleteAccount={canDeleteAccount}
+              deleteAcknowledged={deleteAcknowledged}
+              deleteEmail={deleteEmail}
+              deleteError={deleteError}
+              isDeletingAccount={isDeletingAccount}
+              onAcknowledgedChange={setDeleteAcknowledged}
+              onDeleteAccount={() => void handleDeleteAccount()}
+              onDeleteEmailChange={setDeleteEmail}
+              profileEmail={profile?.email ?? ''}
+            />
           </FormContainer>
         )}
       </main>
