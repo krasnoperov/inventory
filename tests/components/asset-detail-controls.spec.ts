@@ -164,7 +164,9 @@ test('asset details strip makes video facts and full details action visible', as
   await mountComponent(page, 'AssetDetailsStrip', {
     asset: asset(),
     assetCollectionCount: 1,
+    assetTypeDisabled: false,
     fullDetailsOpen: false,
+    onAssetTypeChange: '__record__:type',
     onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: fullVariant(),
     selectedVariantCollectionCount: 1,
@@ -174,7 +176,8 @@ test('asset details strip makes video facts and full details action visible', as
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
   await expect(page.getByText('Hero reveal video')).toBeVisible();
   await expect(page.getByText('Video', { exact: true })).toBeVisible();
-  await expect(page.getByText('Animation')).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Asset type' })).toBeVisible();
+  await selectDropdown(page, 'Asset type', 'Environment');
   await expect(page.getByText('Video · Completed')).toBeVisible();
   await expect(page.getByText('1920x1080')).toBeVisible();
   await expect(page.getByText('8.0s')).toBeVisible();
@@ -183,9 +186,10 @@ test('asset details strip makes video facts and full details action visible', as
   await screenshot(page, 'asset-details-strip-video', { fullPage: true });
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(calls).toEqual([
+  expect(calls).toEqual(expect.arrayContaining([
+    { eventName: 'type', args: ['environment'] },
     { eventName: 'toggleFullDetails', args: [] },
-  ]);
+  ]));
 });
 
 test('asset details strip also exposes image facts without a hidden click target', async ({ page }) => {
@@ -226,7 +230,9 @@ test('asset details context renders expanded details below the ForgeTray strip',
   await mountComponent(page, 'AssetDetailsContext', {
     asset: asset(),
     assetCollectionCount: 1,
+    assetTypeDisabled: false,
     fullDetailsOpen: true,
+    onAssetTypeChange: '__record__:type',
     onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: fullVariant(),
     selectedVariantCollectionCount: 1,

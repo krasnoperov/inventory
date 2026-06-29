@@ -12,13 +12,11 @@ import { HeaderNav } from '../components/HeaderNav';
 import { WorkspaceChrome } from '../components/WorkspaceChrome';
 import {
   CanvasToolbar,
-  CanvasToolbarBadge,
   CanvasToolbarButton,
   CanvasToolbarDivider,
   CanvasToolbarGroup,
   CanvasToolbarLink,
   CanvasToolbarLive,
-  CanvasToolbarStat,
   CanvasToolbarTitle,
 } from '../components/CanvasToolbar';
 import { UsageIndicator } from '../components/UsageIndicator';
@@ -70,6 +68,7 @@ type RelationEditorState =
   | { mode: 'edit'; relation: SpaceRelation };
 
 interface AssetTypeSelectProps {
+  className?: string;
   value: string;
   disabled?: boolean;
   onChange: (value: string) => void;
@@ -93,7 +92,9 @@ interface AssetCollectionsPanelProps {
 interface AssetDetailsStripProps {
   asset: Asset;
   assetCollectionCount: number;
+  assetTypeDisabled?: boolean;
   fullDetailsOpen: boolean;
+  onAssetTypeChange?: (value: string) => void;
   onToggleFullDetails: () => void;
   selectedVariant: Variant | null;
   selectedVariantCollectionCount: number;
@@ -138,6 +139,7 @@ const ASSET_TYPE_OPTIONS: Array<SelectOption<string>> = PREDEFINED_ASSET_TYPES.m
 }));
 
 export function AssetTypeSelect({
+  className,
   value,
   disabled = false,
   onChange,
@@ -149,7 +151,7 @@ export function AssetTypeSelect({
       onValueChange={onChange}
       disabled={disabled}
       label="Asset type"
-      className={styles.assetTypeSelect}
+      className={className ?? styles.assetTypeSelect}
     />
   );
 }
@@ -279,7 +281,9 @@ export function AssetCollectionsPanel({
 export function AssetDetailsStrip({
   asset,
   assetCollectionCount,
+  assetTypeDisabled = false,
   fullDetailsOpen,
+  onAssetTypeChange,
   onToggleFullDetails,
   selectedVariant,
   selectedVariantCollectionCount,
@@ -304,7 +308,18 @@ export function AssetDetailsStrip({
       <dl className={styles.assetDetailsFacts}>
         <div>
           <dt>Type</dt>
-          <dd>{titleizeAssetType(asset.type)}</dd>
+          <dd>
+            {onAssetTypeChange ? (
+              <AssetTypeSelect
+                className={styles.assetDetailsTypeSelect}
+                value={asset.type}
+                onChange={onAssetTypeChange}
+                disabled={assetTypeDisabled}
+              />
+            ) : (
+              titleizeAssetType(asset.type)
+            )}
+          </dd>
         </div>
         <div>
           <dt>Variants</dt>
@@ -1100,31 +1115,11 @@ export default function AssetDetailPage() {
                 </h1>
               )}
             </CanvasToolbarTitle>
-            <AssetTypeSelect
-              value={asset.type}
-              onChange={handleTypeChange}
-              disabled={actionInProgress}
-            />
-            <CanvasToolbarBadge>
-              {formatMediaKind(asset.media_kind)}
-            </CanvasToolbarBadge>
-            <CanvasToolbarDivider />
-            <CanvasToolbarGroup>
-              <CanvasToolbarStat
-                title="Variants"
-                icon={(
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                    <path d="M7 7h10" />
-                    <path d="M7 12h10" />
-                    <path d="M7 17h6" />
-                  </svg>
-                )}
-              >
-                {variants.length} variant{variants.length !== 1 ? 's' : ''}
-              </CanvasToolbarStat>
-              {wsStatus === 'connected' && <CanvasToolbarLive />}
-            </CanvasToolbarGroup>
+            {wsStatus === 'connected' && (
+              <CanvasToolbarGroup>
+                <CanvasToolbarLive />
+              </CanvasToolbarGroup>
+            )}
             <CanvasToolbarDivider />
             {rotationEnabled && selectedVariant?.status === 'completed' && selectedVariant?.image_key && (
               <CanvasToolbarButton
@@ -1297,7 +1292,9 @@ export default function AssetDetailPage() {
           <AssetDetailsContext
             asset={asset}
             assetCollectionCount={assetCollectionMemberships.length}
+            assetTypeDisabled={actionInProgress}
             fullDetailsOpen={showInspector}
+            onAssetTypeChange={handleTypeChange}
             onToggleFullDetails={() => setShowInspector((open) => !open)}
             selectedVariant={selectedVariant}
             selectedVariantCollectionCount={selectedVariantCollectionMemberships.length}
