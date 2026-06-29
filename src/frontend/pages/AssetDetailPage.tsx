@@ -100,6 +100,10 @@ interface AssetDetailsStripProps {
   variantCount: number;
 }
 
+interface AssetDetailsContextProps extends AssetDetailsStripProps {
+  children?: React.ReactNode;
+}
+
 function titleizeAssetType(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1).replace('-', ' ');
 }
@@ -338,6 +342,22 @@ export function AssetDetailsStrip({
         {fullDetailsOpen ? 'Hide full details' : 'Open full details'}
       </Button>
     </section>
+  );
+}
+
+export function AssetDetailsContext({
+  children,
+  ...stripProps
+}: AssetDetailsContextProps) {
+  return (
+    <div className={styles.assetDetailsContext}>
+      <AssetDetailsStrip {...stripProps} />
+      {stripProps.fullDetailsOpen && children && (
+        <div className={styles.assetExpandedDetailsPanel}>
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1160,74 +1180,6 @@ export default function AssetDetailPage() {
 
           {/* Derivatives aren't listed here — the canvas already shows them as
               clickable lineage nodes. */}
-
-          <div className={styles.inspectorDock}>
-            <button
-              className={styles.inspectorToggle}
-              onClick={() => setShowInspector((open) => !open)}
-              aria-expanded={showInspector}
-            >
-              Details
-              <span>{assetCollectionMemberships.length + selectedVariantCollectionMemberships.length}</span>
-            </button>
-            {showInspector && (
-              <div className={styles.inspectorPanel}>
-                {canEdit && collections.length > 0 && (
-                  <div ref={collectionPanelRef}>
-                    <AssetCollectionsPanel
-                      assetPlacementDrafts={assetPlacementDrafts}
-                      collections={collections}
-                      collectionItems={[
-                        ...assetCollectionMemberships,
-                        ...selectedVariantCollectionMemberships,
-                      ]}
-                      onApplyAssetPlacements={handleApplyAssetPlacements}
-                      onApplyVariantPlacements={handleApplyVariantPlacements}
-                      onAssetPlacementDraftsChange={setAssetPlacementDrafts}
-                      onDeleteCollectionItem={deleteCollectionItem}
-                      onUpdateCollectionItem={updateCollectionItem}
-                      onVariantPlacementDraftsChange={setVariantPlacementDrafts}
-                      selectedVariant={selectedVariant}
-                      variantPlacementDrafts={variantPlacementDrafts}
-                      variants={variants}
-                    />
-                  </div>
-                )}
-
-                <StyleReferenceUsagePanel
-                  spaceId={spaceId || ''}
-                  collections={styleUsage.collections}
-                  presets={styleUsage.presets}
-                  outputs={styleUsage.outputs}
-                />
-
-                {relationSubjects.length > 0 && (
-                  <RelationsPanel
-                    assets={relationAssets}
-                    variants={relationVariants}
-                    relations={wsRelations}
-                    subjects={relationSubjects}
-                    primarySubject={{ subjectType: 'asset', assetId }}
-                    onCreate={handleOpenCreateRelation}
-                    onEdit={handleOpenEditRelation}
-                    onDelete={deleteRelation}
-                  />
-                )}
-
-                {assetId && (
-                  <CompositionUsageList
-                    targetAssetId={assetId}
-                    assets={wsAssets}
-                    variants={wsVariants}
-                    compositions={compositions}
-                    compositionItems={compositionItems}
-                    onOpenComposition={handleOpenComposition}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
         </div>
 
         {/* Jobs overlay - bottom left */}
@@ -1342,7 +1294,7 @@ export default function AssetDetailPage() {
         onBrandBackground={false}
         currentAsset={asset}
         contextSlot={(
-          <AssetDetailsStrip
+          <AssetDetailsContext
             asset={asset}
             assetCollectionCount={assetCollectionMemberships.length}
             fullDetailsOpen={showInspector}
@@ -1350,7 +1302,60 @@ export default function AssetDetailPage() {
             selectedVariant={selectedVariant}
             selectedVariantCollectionCount={selectedVariantCollectionMemberships.length}
             variantCount={variants.length}
-          />
+          >
+            {canEdit && collections.length > 0 && (
+              <div ref={collectionPanelRef}>
+                <AssetCollectionsPanel
+                  assetPlacementDrafts={assetPlacementDrafts}
+                  collections={collections}
+                  collectionItems={[
+                    ...assetCollectionMemberships,
+                    ...selectedVariantCollectionMemberships,
+                  ]}
+                  onApplyAssetPlacements={handleApplyAssetPlacements}
+                  onApplyVariantPlacements={handleApplyVariantPlacements}
+                  onAssetPlacementDraftsChange={setAssetPlacementDrafts}
+                  onDeleteCollectionItem={deleteCollectionItem}
+                  onUpdateCollectionItem={updateCollectionItem}
+                  onVariantPlacementDraftsChange={setVariantPlacementDrafts}
+                  selectedVariant={selectedVariant}
+                  variantPlacementDrafts={variantPlacementDrafts}
+                  variants={variants}
+                />
+              </div>
+            )}
+
+            <StyleReferenceUsagePanel
+              spaceId={spaceId || ''}
+              collections={styleUsage.collections}
+              presets={styleUsage.presets}
+              outputs={styleUsage.outputs}
+            />
+
+            {relationSubjects.length > 0 && (
+              <RelationsPanel
+                assets={relationAssets}
+                variants={relationVariants}
+                relations={wsRelations}
+                subjects={relationSubjects}
+                primarySubject={{ subjectType: 'asset', assetId }}
+                onCreate={handleOpenCreateRelation}
+                onEdit={handleOpenEditRelation}
+                onDelete={deleteRelation}
+              />
+            )}
+
+            {assetId && (
+              <CompositionUsageList
+                targetAssetId={assetId}
+                assets={wsAssets}
+                variants={wsVariants}
+                compositions={compositions}
+                compositionItems={compositionItems}
+                onOpenComposition={handleOpenComposition}
+              />
+            )}
+          </AssetDetailsContext>
         )}
         onUpload={handleUpload}
         isUploading={isUploading}
