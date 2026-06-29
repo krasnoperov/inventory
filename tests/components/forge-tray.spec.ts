@@ -746,14 +746,88 @@ test('forge tray on asset detail shows Current/New header', async ({ page }) => 
   await disableAnimations(page);
 
   await expect(page.getByText('Hero Image')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Current' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'New' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Destination' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Current' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: 'New' })).not.toBeChecked();
 
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-asset-detail', { fullPage: true });
 
-  await page.getByRole('button', { name: 'New' }).click();
+  await page.getByRole('radio', { name: 'New' }).click();
   await expect(page.getByLabel('Asset name')).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'New' })).toBeChecked();
+});
+
+test('forge tray destination toggle supports radio keyboard navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: matrixAssets,
+    allVariants: matrixVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    currentAsset: matrixAssets[0],
+  });
+  await disableAnimations(page);
+
+  const current = page.getByRole('radio', { name: 'Current' });
+  const next = page.getByRole('radio', { name: 'New' });
+
+  await expect(current).toBeChecked();
+  await current.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(next).toBeChecked();
+  await expect(next).toBeFocused();
+
+  await page.keyboard.press('ArrowRight');
+  await expect(current).toBeChecked();
+  await expect(current).toBeFocused();
+
+  await page.keyboard.press('ArrowUp');
+  await expect(next).toBeChecked();
+  await expect(next).toBeFocused();
+
+  await page.keyboard.press('ArrowDown');
+  await expect(current).toBeChecked();
+  await expect(current).toBeFocused();
+
+  await page.keyboard.press('End');
+  await expect(next).toBeChecked();
+  await expect(next).toBeFocused();
+
+  await page.keyboard.press('Home');
+  await expect(current).toBeChecked();
+  await expect(current).toBeFocused();
+});
+
+test('forge tray destination toggle skips disabled current destination', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: matrixAssets,
+    allVariants: matrixVariants,
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    currentAsset: matrixAssets[0],
+  });
+  await disableAnimations(page);
+
+  await selectMediaGroup(page, 'Video');
+
+  const current = page.getByRole('radio', { name: 'Current' });
+  const next = page.getByRole('radio', { name: 'New' });
+
+  await expect(current).toBeDisabled();
+  await expect(next).toBeChecked();
+  await next.focus();
+
+  await page.keyboard.press('ArrowRight');
+  await expect(next).toBeChecked();
+  await expect(next).toBeFocused();
+
+  await page.keyboard.press('Home');
+  await expect(next).toBeChecked();
+  await expect(next).toBeFocused();
 });
 
 test('forge tray collapses after touching the destination toggle then leaving', async ({ page }) => {
@@ -780,7 +854,7 @@ test('forge tray collapses after touching the destination toggle then leaving', 
 
   // Focusing the destination toggle and then clicking outside must collapse the
   // tray again — the header's blur has to reach the tray handler.
-  await page.getByRole('button', { name: 'New' }).click();
+  await page.getByRole('radio', { name: 'New' }).click();
   await page.mouse.click(10, 10);
   await expect.poll(revealHeight).toBeLessThan(2);
 });
