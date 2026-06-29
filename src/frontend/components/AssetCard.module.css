@@ -64,51 +64,6 @@
   opacity: 0.5;
 }
 
-/* Hover overlay */
-.hoverOverlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.15s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.overlayActions {
-  display: flex;
-  gap: 8px;
-}
-
-.overlayButton {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 12px;
-  background: transparent;
-  border: var(--thumb-action-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text);
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: var(--thumb-action-shadow);
-}
-
-.overlayButton:hover {
-  transform: scale(1.05);
-}
-
-.overlayButton svg {
-  flex-shrink: 0;
-}
-
 /* Generating Placeholder */
 .generatingPlaceholder {
   display: flex;
@@ -243,22 +198,20 @@
 
 /* Add to Tray Button */
 .addButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  --ui-button-height: var(--thumb-action-size);
+  --ui-button-pad-x: 0;
+  --ctl-hover: var(--color-primary);
+
   width: var(--thumb-action-size);
-  height: var(--thumb-action-size);
   border: var(--thumb-action-border);
   background: var(--thumb-action-bg);
   color: var(--color-text-muted);
   border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
   flex-shrink: 0;
   box-shadow: var(--thumb-action-shadow);
 }
 
-.addButton:hover {
+.addButton:hover:not(:disabled) {
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: white;
@@ -283,18 +236,9 @@
     -webkit-line-clamp: 3;
   }
 
-  .overlayButton {
-    padding: 6px 10px;
-    font-size: 10px;
-  }
-
-  .overlayButton svg {
-    width: 14px;
-    height: 14px;
-  }
-
   .addButton {
+    --ui-button-height: 24px;
+
     width: 24px;
-    height: 24px;
   }
 }

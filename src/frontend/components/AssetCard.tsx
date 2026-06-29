@@ -4,6 +4,7 @@ import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
 import { getAudioCardMetadata } from './assetCardMetadata';
 import { Thumbnail } from './Thumbnail';
+import { IconButton } from '../ui';
 import styles from './AssetCard.module.css';
 
 export interface AssetCardProps {
@@ -37,7 +38,6 @@ export function AssetCard(props: AssetCardProps) {
   } = props;
   const [showAssetMenu, setShowAssetMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
-  const [isHovered, setIsHovered] = useState(false);
 
   // Get primary variant (active_variant_id or first variant)
   const primaryVariant = useMemo(() => {
@@ -77,15 +77,12 @@ export function AssetCard(props: AssetCardProps) {
   const depthClass = `depth${Math.min(depth, 2)}`;
   const isAudioCard = primaryVariant ? isVariantAudioReady(primaryVariant) : false;
   const audioMetadata = useMemo(() => getAudioCardMetadata(primaryVariant), [primaryVariant]);
-  const showHoverActions = isHovered && primaryVariant && !isAudioCard && isVariantForgeTrayReady(primaryVariant);
   const hasAudioDetails = isAudioCard && (audioMetadata.name || audioMetadata.model || audioMetadata.voice || audioMetadata.prompt);
 
   return (
     <div
       className={`${styles.card} ${styles[depthClass]} ${isAudioCard ? styles.audioCard : ''}`}
       onContextMenu={handleContextMenu}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Thumbnail Area */}
       <div className={styles.thumbnailArea} onClick={handleCardClick}>
@@ -98,39 +95,6 @@ export function AssetCard(props: AssetCardProps) {
               className={styles.thumbnailPreview}
               showAudioControls={isAudioCard}
             />
-            {/* Hover overlay with actions */}
-            {showHoverActions && (
-              <div className={styles.hoverOverlay}>
-                <div className={styles.overlayActions}>
-                  <button
-                    className={styles.overlayButton}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAssetClick?.(asset);
-                    }}
-                    title="View details"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                    <span>View</span>
-                  </button>
-                  {onAddToTray && isVariantForgeTrayReady(primaryVariant) && (
-                    <button
-                      className={styles.overlayButton}
-                      onClick={handleAddToTray}
-                      title="Add to Forge Tray"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
-                      <span>Add</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <div className={styles.emptyThumbnail}>
@@ -183,16 +147,18 @@ export function AssetCard(props: AssetCardProps) {
           )}
         </div>
         {onAddToTray && primaryVariant && isVariantForgeTrayReady(primaryVariant) && (
-          <button
+          <IconButton
             className={styles.addButton}
             onClick={handleAddToTray}
             title="Add to Forge Tray"
+            aria-label="Add to Forge Tray"
+            variant="ghost"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
               <path d="M12 5v14" />
               <path d="M5 12h14" />
             </svg>
-          </button>
+          </IconButton>
         )}
       </div>
 

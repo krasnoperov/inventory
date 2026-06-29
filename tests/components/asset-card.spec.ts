@@ -53,6 +53,52 @@ const variant = {
   description: null,
 };
 
+const imageAsset = {
+  id: 'image-asset',
+  name: 'Crystal Gate',
+  type: 'prop',
+  media_kind: 'image',
+  tags: '',
+  parent_asset_id: null,
+  active_variant_id: 'image-variant',
+  created_by: 'u1',
+  created_at: baseTime,
+  updated_at: baseTime,
+};
+
+const imageVariant = {
+  id: 'image-variant',
+  asset_id: imageAsset.id,
+  media_kind: 'image',
+  workflow_id: null,
+  status: 'completed',
+  error_message: null,
+  image_key: 'images/space/image-variant.png',
+  thumb_key: 'images/space/image-variant_thumb.webp',
+  media_key: 'images/space/image-variant.png',
+  media_mime_type: 'image/png',
+  media_size_bytes: 123,
+  media_width: 240,
+  media_height: 180,
+  media_duration_ms: null,
+  recipe: '{}',
+  generation_provenance: null,
+  starred: false,
+  created_by: 'u1',
+  created_at: baseTime,
+  updated_at: baseTime,
+  description: null,
+};
+
+async function mockMedia(page: import('@playwright/test').Page) {
+  await page.route('**/api/images/**', (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180"><rect width="240" height="180" fill="#668cff"/><circle cx="120" cy="90" r="42" fill="#ffffff"/></svg>',
+    }),
+  );
+}
+
 test('audio asset card surfaces playback, model, voice, and prompt', async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 560 });
   await mountComponent(page, 'AssetCard', {
@@ -74,4 +120,22 @@ test('audio asset card surfaces playback, model, voice, and prompt', async ({ pa
   await expect(page.getByText(/Fresh apples and clean maps/)).toBeVisible();
 
   await screenshot(page, 'asset-card-audio');
+});
+
+test('asset card add action uses shared icon button outside media', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 380 });
+  await mockMedia(page);
+  await mountComponent(page, 'AssetCard', {
+    asset: imageAsset,
+    variants: [imageVariant],
+    spaceId: 'space-1',
+    canEdit: true,
+    onAssetClick: '__record__:open',
+    onAddToTray: '__record__:tray',
+  });
+
+  await expect(page.getByRole('button', { name: 'Add to Forge Tray' })).toBeVisible();
+  await page.locator('[class*="thumbnailArea"]').hover();
+  await expect(page.getByRole('button', { name: 'View' })).toHaveCount(0);
+  await screenshot(page, 'asset-card-shared-actions', { fullPage: true });
 });
