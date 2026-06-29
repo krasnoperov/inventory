@@ -28,6 +28,7 @@ import {
   type ProductionRecord,
 } from '../productionHandoff';
 import { productionRecordsQueryOptions, spacePageQueryOptions } from '../queries';
+import { Button, IconButton, UiSelect, type SelectOption } from '../ui';
 import styles from './ProductionPage.module.css';
 
 interface PlacementFormState {
@@ -46,6 +47,30 @@ interface VariantOption {
   variant: Variant;
   asset: Asset;
   label: string;
+}
+
+interface ProductionPlacementControlsProps {
+  activeProductionId: string;
+  canEdit: boolean;
+  form: PlacementFormState;
+  formError: string | null;
+  isSaving: boolean;
+  onFormChange: <K extends keyof PlacementFormState>(key: K, value: PlacementFormState[K]) => void;
+  onNewPlacement: () => void;
+  onSubmit: () => void;
+  onVariantChange: (variantId: string) => void;
+  selectedOption: VariantOption | null;
+  spaceId: string;
+  variantOptions: VariantOption[];
+}
+
+interface ProductionHandoffControlsProps {
+  copyStatus: string | null;
+  handoff: ReturnType<typeof createProductionHandoff> | null;
+  handoffJson: string;
+  onCopyText: (label: string, value: string) => void;
+  sceneArgs: string;
+  sortedRecords: ProductionRecord[];
 }
 
 const emptyForm: PlacementFormState = {
@@ -87,6 +112,208 @@ function recordToForm(record: ProductionRecord): PlacementFormState {
     sourceRefs: parseJsonStringArray(record.source_refs).join(', '),
     sourceVariantIds: parseJsonStringArray(record.source_variant_ids).join(', '),
   };
+}
+
+export function ProductionPlacementControls({
+  activeProductionId,
+  canEdit,
+  form,
+  formError,
+  isSaving,
+  onFormChange,
+  onNewPlacement,
+  onSubmit,
+  onVariantChange,
+  selectedOption,
+  spaceId,
+  variantOptions,
+}: ProductionPlacementControlsProps) {
+  const variantSelectOptions = useMemo<Array<SelectOption<string>>>(() => [
+    { value: '', label: 'Select completed media...' },
+    ...variantOptions.map(option => ({
+      value: option.variant.id,
+      label: option.label,
+    })),
+  ], [variantOptions]);
+
+  return (
+    <section className={styles.panel}>
+      <div className={styles.panelHeader}>
+        <h2>{form.id ? 'Edit Placement' : 'Manual Placement'}</h2>
+        {form.id && (
+          <Button size="sm" variant="ghost" onClick={onNewPlacement}>
+            New
+          </Button>
+        )}
+      </div>
+      <form
+        className={styles.form}
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <label className={styles.field}>
+          <span>Variant</span>
+          <UiSelect
+            value={form.variantId}
+            options={variantSelectOptions}
+            onValueChange={onVariantChange}
+            disabled={!canEdit || variantOptions.length === 0}
+            label="Variant"
+            fullWidth
+          />
+        </label>
+
+        {selectedOption && (
+          <div className={styles.selectedPreview}>
+            <Thumbnail
+              variant={selectedOption.variant}
+              size="sm"
+              spaceId={spaceId}
+              showAudioControls
+              showVideoControls
+            />
+            <div>
+              <strong>{selectedOption.asset.name}</strong>
+              <span>{selectedOption.asset.type} / {formatMediaKind(selectedOption.variant.media_kind)}</span>
+              {getVariantMediaUrl(selectedOption.variant, spaceId) && (
+                <a href={getVariantMediaUrl(selectedOption.variant, spaceId)} target="_blank" rel="noreferrer">
+                  Open media
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className={styles.inlineFields}>
+          <label className={styles.field}>
+            <span>Shot ID</span>
+            <input
+              value={form.shotId}
+              onChange={(event) => onFormChange('shotId', event.target.value)}
+              placeholder="shot-001"
+              disabled={!canEdit}
+            />
+          </label>
+          <label className={styles.field}>
+            <span>Scene Label</span>
+            <input
+              value={form.sceneLabel}
+              onChange={(event) => onFormChange('sceneLabel', event.target.value)}
+              placeholder="Market"
+              disabled={!canEdit}
+              required
+            />
+          </label>
+        </div>
+
+        <div className={styles.inlineFields}>
+          <label className={styles.field}>
+            <span>Start ms</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.timelineStartMs}
+              onChange={(event) => onFormChange('timelineStartMs', event.target.value)}
+              disabled={!canEdit}
+              required
+            />
+          </label>
+          <label className={styles.field}>
+            <span>Duration ms</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.durationMs}
+              onChange={(event) => onFormChange('durationMs', event.target.value)}
+              placeholder="optional"
+              disabled={!canEdit}
+            />
+          </label>
+        </div>
+
+        <label className={styles.field}>
+          <span>Motion Prompt</span>
+          <textarea
+            value={form.motionPrompt}
+            onChange={(event) => onFormChange('motionPrompt', event.target.value)}
+            placeholder="Camera move, action note, or renderer instruction"
+            disabled={!canEdit}
+            rows={3}
+          />
+        </label>
+
+        <label className={styles.field}>
+          <span>Source Refs</span>
+          <input
+            value={form.sourceRefs}
+            onChange={(event) => onFormChange('sourceRefs', event.target.value)}
+            placeholder="references/source.png, script.md"
+            disabled={!canEdit}
+          />
+        </label>
+
+        <label className={styles.field}>
+          <span>Source Variant IDs</span>
+          <input
+            value={form.sourceVariantIds}
+            onChange={(event) => onFormChange('sourceVariantIds', event.target.value)}
+            placeholder="variant-id-1, variant-id-2"
+            disabled={!canEdit}
+          />
+        </label>
+
+        {formError && <p className={styles.formError}>{formError}</p>}
+        {!canEdit && <p className={styles.muted}>Viewer access can inspect records but cannot place or delete them.</p>}
+
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={!canEdit || !activeProductionId || isSaving}
+        >
+          {isSaving ? 'Saving...' : form.id ? 'Update Placement' : 'Place Variant'}
+        </Button>
+      </form>
+    </section>
+  );
+}
+
+export function ProductionHandoffControls({
+  copyStatus,
+  handoff,
+  handoffJson,
+  onCopyText,
+  sceneArgs,
+  sortedRecords,
+}: ProductionHandoffControlsProps) {
+  return (
+    <section className={styles.panel}>
+      <div className={styles.panelHeader}>
+        <h2>Media Handoff</h2>
+        {copyStatus && <span className={styles.copyStatus}>{copyStatus}</span>}
+      </div>
+      <div className={styles.copyActions}>
+        <Button
+          size="sm"
+          onClick={() => onCopyText('JSON', handoffJson)}
+          disabled={!handoff || sortedRecords.length === 0}
+        >
+          Copy JSON
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => onCopyText('Scene args', sceneArgs)}
+          disabled={!sceneArgs}
+        >
+          Copy Scene Args
+        </Button>
+      </div>
+      <pre className={styles.handoffPreview}>{handoffJson || 'No handoff data loaded.'}</pre>
+    </section>
+  );
 }
 
 export default function ProductionPage() {
@@ -327,152 +554,20 @@ export default function ProductionPage() {
         </section>
 
         <div className={styles.workspace}>
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <h2>{form.id ? 'Edit Placement' : 'Manual Placement'}</h2>
-              {form.id && (
-                <button type="button" className={styles.textButton} onClick={() => setForm(emptyForm)}>
-                  New
-                </button>
-              )}
-            </div>
-            <form
-              className={styles.form}
-              onSubmit={(event) => {
-                event.preventDefault();
-                placeMutation.mutate();
-              }}
-            >
-              <label className={styles.field}>
-                <span>Variant</span>
-                <select
-                  value={form.variantId}
-                  onChange={(event) => handleVariantChange(event.target.value)}
-                  disabled={!canEdit || variantOptions.length === 0}
-                  required
-                >
-                  <option value="">Select completed media...</option>
-                  {variantOptions.map(option => (
-                    <option key={option.variant.id} value={option.variant.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {selectedOption && (
-                <div className={styles.selectedPreview}>
-                  <Thumbnail
-                    variant={selectedOption.variant}
-                    size="sm"
-                    spaceId={spaceId}
-                    showAudioControls
-                    showVideoControls
-                  />
-                  <div>
-                    <strong>{selectedOption.asset.name}</strong>
-                    <span>{selectedOption.asset.type} / {formatMediaKind(selectedOption.variant.media_kind)}</span>
-                    {getVariantMediaUrl(selectedOption.variant, spaceId) && (
-                      <a href={getVariantMediaUrl(selectedOption.variant, spaceId)} target="_blank" rel="noreferrer">
-                        Open media
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className={styles.inlineFields}>
-                <label className={styles.field}>
-                  <span>Shot ID</span>
-                  <input
-                    value={form.shotId}
-                    onChange={(event) => handleFormChange('shotId', event.target.value)}
-                    placeholder="shot-001"
-                    disabled={!canEdit}
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span>Scene Label</span>
-                  <input
-                    value={form.sceneLabel}
-                    onChange={(event) => handleFormChange('sceneLabel', event.target.value)}
-                    placeholder="Market"
-                    disabled={!canEdit}
-                    required
-                  />
-                </label>
-              </div>
-
-              <div className={styles.inlineFields}>
-                <label className={styles.field}>
-                  <span>Start ms</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={form.timelineStartMs}
-                    onChange={(event) => handleFormChange('timelineStartMs', event.target.value)}
-                    disabled={!canEdit}
-                    required
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span>Duration ms</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={form.durationMs}
-                    onChange={(event) => handleFormChange('durationMs', event.target.value)}
-                    placeholder="optional"
-                    disabled={!canEdit}
-                  />
-                </label>
-              </div>
-
-              <label className={styles.field}>
-                <span>Motion Prompt</span>
-                <textarea
-                  value={form.motionPrompt}
-                  onChange={(event) => handleFormChange('motionPrompt', event.target.value)}
-                  placeholder="Camera move, action note, or renderer instruction"
-                  disabled={!canEdit}
-                  rows={3}
-                />
-              </label>
-
-              <label className={styles.field}>
-                <span>Source Refs</span>
-                <input
-                  value={form.sourceRefs}
-                  onChange={(event) => handleFormChange('sourceRefs', event.target.value)}
-                  placeholder="references/source.png, script.md"
-                  disabled={!canEdit}
-                />
-              </label>
-
-              <label className={styles.field}>
-                <span>Source Variant IDs</span>
-                <input
-                  value={form.sourceVariantIds}
-                  onChange={(event) => handleFormChange('sourceVariantIds', event.target.value)}
-                  placeholder="variant-id-1, variant-id-2"
-                  disabled={!canEdit}
-                />
-              </label>
-
-              {formError && <p className={styles.formError}>{formError}</p>}
-              {!canEdit && <p className={styles.muted}>Viewer access can inspect records but cannot place or delete them.</p>}
-
-              <button
-                type="submit"
-                className={styles.primaryButton}
-                disabled={!canEdit || !activeProductionId || placeMutation.isPending}
-              >
-                {placeMutation.isPending ? 'Saving...' : form.id ? 'Update Placement' : 'Place Variant'}
-              </button>
-            </form>
-          </section>
+          <ProductionPlacementControls
+            activeProductionId={activeProductionId}
+            canEdit={canEdit}
+            form={form}
+            formError={formError}
+            isSaving={placeMutation.isPending}
+            onFormChange={handleFormChange}
+            onNewPlacement={() => setForm(emptyForm)}
+            onSubmit={() => placeMutation.mutate()}
+            onVariantChange={handleVariantChange}
+            selectedOption={selectedOption}
+            spaceId={spaceId}
+            variantOptions={variantOptions}
+          />
 
           <section className={styles.recordsPanel}>
             <div className={styles.panelHeader}>
@@ -516,23 +611,23 @@ export default function ProductionPage() {
                         {record.motion_prompt && <p>{record.motion_prompt}</p>}
                       </div>
                       <div className={styles.recordActions}>
-                        <button
-                          type="button"
-                          className={styles.iconButton}
+                        <IconButton
+                          className={styles.recordIconButton}
                           onClick={() => setForm(recordToForm(record))}
+                          aria-label="Edit placement"
                           title="Edit placement"
                         >
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M12 20h9" />
                             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
                           </svg>
-                        </button>
+                        </IconButton>
                         {canEdit && (
-                          <button
-                            type="button"
-                            className={styles.iconButton}
+                          <IconButton
+                            className={styles.recordIconButton}
                             onClick={() => deleteMutation.mutate(record.id)}
                             disabled={deleteMutation.isPending}
+                            aria-label="Delete placement"
                             title="Delete placement"
                           >
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -540,7 +635,7 @@ export default function ProductionPage() {
                               <path d="M19 6l-1 14H6L5 6" />
                               <path d="M10 11v6M14 11v6" />
                             </svg>
-                          </button>
+                          </IconButton>
                         )}
                       </div>
                     </article>
@@ -550,31 +645,14 @@ export default function ProductionPage() {
             )}
           </section>
 
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <h2>Media Handoff</h2>
-              {copyStatus && <span className={styles.copyStatus}>{copyStatus}</span>}
-            </div>
-            <div className={styles.copyActions}>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => copyText('JSON', handoffJson)}
-                disabled={!handoff || sortedRecords.length === 0}
-              >
-                Copy JSON
-              </button>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => copyText('Scene args', sceneArgs)}
-                disabled={!sceneArgs}
-              >
-                Copy Scene Args
-              </button>
-            </div>
-            <pre className={styles.handoffPreview}>{handoffJson || 'No handoff data loaded.'}</pre>
-          </section>
+          <ProductionHandoffControls
+            copyStatus={copyStatus}
+            handoff={handoff}
+            handoffJson={handoffJson}
+            onCopyText={copyText}
+            sceneArgs={sceneArgs}
+            sortedRecords={sortedRecords}
+          />
         </div>
       </main>
     </div>
