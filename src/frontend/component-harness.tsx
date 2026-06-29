@@ -1,6 +1,7 @@
 import { StrictMode, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
+import { AudioPlayer } from './components/AudioPlayer/AudioPlayer';
 import { AssetCanvas } from './components/AssetCanvas';
 import { AssetCard } from './components/AssetCard';
 import { AssetMenu } from './components/AssetMenu';
@@ -469,6 +470,7 @@ function ProfileBillingActionsHarness(props: Record<string, unknown>) {
 const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeader: AppHeader as ComponentType<Record<string, unknown>>,
   AdminSpendView: AdminSpendView as unknown as ComponentType<Record<string, unknown>>,
+  AudioPlayer: AudioPlayer as unknown as ComponentType<Record<string, unknown>>,
   AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
   AssetMenu: AssetMenu as unknown as ComponentType<Record<string, unknown>>,
