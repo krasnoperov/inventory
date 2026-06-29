@@ -47,7 +47,7 @@ import { StylePanel } from './StylePanel';
 import { VoicePicker } from './VoicePicker';
 import { Thumbnail } from '../Thumbnail';
 import { Link } from '../Link';
-import { Button, IconButton, UiSelect, type SelectOption } from '../../ui';
+import { Button, IconButton, TextInput, UiSelect, type SelectOption } from '../../ui';
 import {
   FORGE_MEDIA_MODE_CONFIGS,
   canUseSlotMediaKindForForgeMode,
@@ -1623,8 +1623,7 @@ export function ForgeTray({
             <p className={styles.uploadPromptDescription}>
               Enter a name for the new asset that will be created from your uploaded media file.
             </p>
-            <input
-              type="text"
+            <TextInput
               className={styles.uploadPromptInput}
               value={uploadAssetName}
               onChange={(e) => setUploadAssetName(e.target.value)}
@@ -1634,6 +1633,7 @@ export function ForgeTray({
               }}
               placeholder="Asset name"
               autoFocus
+              fullWidth
             />
             <div className={styles.uploadPromptActions}>
               <Button
