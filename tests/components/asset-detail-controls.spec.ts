@@ -159,7 +159,7 @@ test('asset detail controls use shared selects and collection buttons', async ({
   ]));
 });
 
-test('asset details strip makes video facts and full details action visible', async ({ page }) => {
+test('asset details strip makes video facts and details disclosure visible', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 420 });
   await mountComponent(page, 'AssetDetailsStrip', {
     asset: asset(),
@@ -182,7 +182,7 @@ test('asset details strip makes video facts and full details action visible', as
   await expect(page.getByText('1920x1080')).toBeVisible();
   await expect(page.getByText('8.0s')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Open full details' }).click();
+  await page.getByRole('button', { name: 'Show video details' }).click();
   await screenshot(page, 'asset-details-strip-video', { fullPage: true });
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -222,7 +222,7 @@ test('asset details strip also exposes image facts without a hidden click target
   await expect(page.getByText('Image · Completed')).toBeVisible();
   await expect(page.getByText('1024x1024')).toBeVisible();
   await expect(page.getByText('Duration')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Hide full details' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide image details' })).toBeVisible();
 });
 
 test('asset details context renders expanded details below the ForgeTray strip', async ({ page }) => {
@@ -240,7 +240,7 @@ test('asset details context renders expanded details below the ForgeTray strip',
   });
 
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Hide full details' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide video details' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Expanded asset details' })).toBeVisible();
   await expect(page.getByText('Asset collections')).toBeVisible();
   await expect(page.getByText('Relations')).toBeVisible();

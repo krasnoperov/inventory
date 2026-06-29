@@ -292,6 +292,7 @@ export function AssetDetailsStrip({
   const dimensions = formatDimensions(selectedVariant);
   const duration = formatDuration(selectedVariant?.media_duration_ms);
   const collectionCount = assetCollectionCount + selectedVariantCollectionCount;
+  const detailsActionLabel = `${fullDetailsOpen ? 'Hide' : 'Show'} ${formatMediaKind(asset.media_kind).toLowerCase()} details`;
 
   return (
     <section className={styles.assetDetailsStrip} aria-label="Asset details">
@@ -350,11 +351,21 @@ export function AssetDetailsStrip({
       <Button
         size="sm"
         variant="secondary"
-        className={styles.assetDetailsAction}
+        className={`${styles.assetDetailsAction} ${fullDetailsOpen ? styles.assetDetailsActionOpen : ''}`}
         onClick={() => onToggleFullDetails()}
         aria-expanded={fullDetailsOpen}
+        aria-label={detailsActionLabel}
+        title={detailsActionLabel}
       >
-        {fullDetailsOpen ? 'Hide full details' : 'Open full details'}
+        Details
+        <svg
+          className={styles.assetDetailsChevron}
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M4 6l4 4 4-4" />
+        </svg>
       </Button>
     </section>
   );

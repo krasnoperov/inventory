@@ -280,6 +280,32 @@
   grid-row: 1;
   justify-self: end;
   white-space: nowrap;
+  --ui-button-pad-x: 0.55rem;
+  font-family: var(--mono);
+  font-size: var(--font-size-micro);
+  text-transform: uppercase;
+}
+
+.assetDetailsActionOpen {
+  color: var(--color-primary);
+  background: var(--ctl-accent-bg);
+  border-color: var(--color-primary);
+}
+
+.assetDetailsChevron {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.15s ease;
+}
+
+.assetDetailsActionOpen .assetDetailsChevron {
+  transform: rotate(180deg);
 }
 
 .assetExpandedDetailsPanel {
