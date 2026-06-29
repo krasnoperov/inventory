@@ -31,10 +31,6 @@
   cursor: pointer;
 }
 
-.collectionToggle input {
-  margin: 0;
-}
-
 .placementRows {
   display: grid;
   gap: 0.45rem;
@@ -58,15 +54,8 @@
 }
 
 .input {
-  min-width: 0;
-  min-height: 32px;
-  padding: 0.3rem 0.45rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-  font-size: var(--font-size-small-sm);
+  --ui-text-input-height: 2rem;
+  --ui-text-field-font-size: var(--font-size-small-sm);
 }
 
 .select {

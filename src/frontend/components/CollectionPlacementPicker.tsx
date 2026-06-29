@@ -1,6 +1,6 @@
 import type { CollectionPlacementInput } from '../../shared/websocket-types';
 import type { SpaceCollection } from '../space/protocol';
-import { UiSelect, type SelectOption } from '../ui';
+import { Checkbox, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './CollectionPlacementPicker.module.css';
 
 export const KNOWN_COLLECTION_ITEM_ROLES = [
@@ -119,8 +119,7 @@ export function CollectionPlacementPicker({
       <div className={styles.collectionList}>
         {collections.map((collection) => (
           <label key={collection.id} className={styles.collectionToggle}>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={selectedByCollection.has(collection.id)}
               disabled={disabled}
               onChange={(event) => toggleCollection(collection, event.target.checked)}
@@ -151,13 +150,14 @@ export function CollectionPlacementPicker({
                   }}
                 />
                 {selectedRole === 'custom' && (
-                  <input
+                  <TextInput
                     className={styles.input}
                     value={placement.role && placement.role !== 'custom' ? placement.role : ''}
                     placeholder="Custom role"
                     disabled={disabled}
                     aria-label={`Custom role for ${collection.name}`}
                     onChange={(event) => setPlacement(collection.id, { role: event.target.value || 'custom' })}
+                    fullWidth
                   />
                 )}
                 {allowSubjectChoice && (
@@ -177,8 +177,7 @@ export function CollectionPlacementPicker({
                 )}
                 {showPinToCreatedVariant && subjectType === 'asset' && (
                   <label className={styles.pinToggle}>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={placement.pinToCreatedVariant !== false}
                       disabled={disabled}
                       onChange={(event) => setPlacement(collection.id, { pinToCreatedVariant: event.target.checked })}
