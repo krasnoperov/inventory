@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import { Link } from './Link';
+import { ButtonLink, IconButton } from '../ui';
 import styles from './CanvasToolbar.module.css';
 
 const mergeClasses = (...values: Array<string | undefined | false>) =>
@@ -85,12 +85,18 @@ export function CanvasToolbarButton({
   danger = false,
   className,
   type = 'button',
+  title,
   ...props
 }: CanvasToolbarButtonProps) {
+  const ariaLabel = props['aria-label'] ?? (typeof title === 'string' ? title : 'Toolbar action');
+
   return (
-    <button
+    <IconButton
       {...props}
+      aria-label={ariaLabel}
+      title={title}
       type={type}
+      variant={active ? 'primary' : 'ghost'}
       className={mergeClasses(
         styles.button,
         active && styles.active,
@@ -111,13 +117,14 @@ interface CanvasToolbarLinkProps {
 
 export function CanvasToolbarLink({ to, children, title, className, ariaLabel }: CanvasToolbarLinkProps) {
   return (
-    <Link
+    <ButtonLink
       to={to}
+      variant="ghost"
       className={mergeClasses(styles.button, className)}
       title={title}
       aria-label={ariaLabel || title}
     >
       {children}
-    </Link>
+    </ButtonLink>
   );
 }

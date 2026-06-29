@@ -8,7 +8,7 @@ import { AssetPicker } from './components/AssetPicker';
 import { CollectionPlacementPicker } from './components/CollectionPlacementPicker';
 import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
-import { CanvasToolbar, CanvasToolbarTitle } from './components/CanvasToolbar';
+import { CanvasToolbar, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { ForgeTray } from './components/ForgeTray';
 import { Pagination } from './components/Pagination';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
@@ -317,6 +317,47 @@ function AssetTitleInlineEditorPreview(props: Record<string, unknown>) {
   );
 }
 
+function CanvasToolbarControlsPreview(props: Record<string, unknown>) {
+  const onAction = props.onAction as (() => void) | undefined;
+
+  return (
+    <div style={{ position: 'relative', minHeight: '72px', padding: '12px' }}>
+      <CanvasToolbar ariaLabel="Toolbar preview">
+        <CanvasToolbarTitle>Crystal Gate</CanvasToolbarTitle>
+        <CanvasToolbarDivider />
+        <CanvasToolbarButton title="Board view" onClick={onAction}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="4" width="8" height="6" rx="1.5" />
+            <rect x="14" y="4" width="7" height="9" rx="1.5" />
+            <rect x="3" y="13" width="8" height="7" rx="1.5" />
+            <rect x="14" y="16" width="7" height="4" rx="1.5" />
+          </svg>
+        </CanvasToolbarButton>
+        <CanvasToolbarButton active title="Relations view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="5" cy="6" r="2.5" />
+            <circle cx="19" cy="6" r="2.5" />
+            <circle cx="12" cy="18" r="2.5" />
+            <path d="M7 7.5 17 7.5M6.5 8 11 16M17.5 8 13 16" />
+          </svg>
+        </CanvasToolbarButton>
+        <CanvasToolbarButton danger title="Delete asset">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 6h18" />
+            <path d="M8 6V4h8v2" />
+            <path d="M19 6l-1 14H6L5 6" />
+          </svg>
+        </CanvasToolbarButton>
+        <CanvasToolbarLink to="/spaces/space-1" title="Back to space">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </CanvasToolbarLink>
+      </CanvasToolbar>
+    </div>
+  );
+}
+
 function AssetDetailsStripPreview(props: Record<string, unknown>) {
   return (
     <div style={{ maxWidth: '520px' }}>
@@ -430,6 +471,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
   AssetMenu: AssetMenu as unknown as ComponentType<Record<string, unknown>>,
   AssetPicker: AssetPicker as unknown as ComponentType<Record<string, unknown>>,
+  CanvasToolbarControls: CanvasToolbarControlsPreview,
   AuthorizationDecisionActions: AuthorizationDecisionActions as unknown as ComponentType<Record<string, unknown>>,
   AssetDetailControls: AssetDetailControlsHarness,
   AssetTitleInlineEditor: AssetTitleInlineEditorPreview,
