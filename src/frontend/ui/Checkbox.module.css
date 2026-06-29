@@ -1,0 +1,18 @@
+.checkbox {
+  width: var(--ui-checkbox-size, 0.875rem);
+  height: var(--ui-checkbox-size, 0.875rem);
+  margin: 0;
+  flex: none;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.checkbox:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

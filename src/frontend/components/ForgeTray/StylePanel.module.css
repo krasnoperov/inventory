@@ -111,11 +111,6 @@
   color: var(--color-text);
 }
 
-.checkRow input,
-.refRow input {
-  margin: 0;
-}
-
 .presetCard {
   display: grid;
   gap: 0.45rem;
