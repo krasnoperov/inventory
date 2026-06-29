@@ -108,6 +108,43 @@ async function selectDropdown(page: import('@playwright/test').Page, label: stri
   await page.getByRole('option', { name: optionName, exact: true }).click();
 }
 
+test('asset detail title rename uses shared inline field', async ({ page }) => {
+  await page.setViewportSize({ width: 520, height: 180 });
+  await mountComponent(page, 'AssetTitleInlineEditor', {
+    assetName: 'Hero Character',
+    editingName: false,
+    editNameValue: '',
+    onEditNameValueChange: '__record__:editName',
+    onNameKeyDown: '__noop__',
+    onSaveName: '__record__:saveName',
+    onStartEditName: '__record__:startEdit',
+  });
+
+  await expect(page.getByRole('button', { name: 'Rename Hero Character' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hero Character' })).toBeVisible();
+
+  await mountComponent(page, 'AssetTitleInlineEditor', {
+    assetName: 'Hero Character',
+    editingName: true,
+    editNameValue: 'Hero Character',
+    onEditNameValueChange: '__record__:editName',
+    onNameKeyDown: '__noop__',
+    onSaveName: '__record__:saveName',
+    onStartEditName: '__record__:startEdit',
+  });
+
+  const input = page.getByLabel('Asset name');
+  await expect(input).toBeFocused();
+  await input.fill('Hero Portrait');
+  await screenshot(page, 'asset-title-inline-editor', { fullPage: true });
+  await input.blur();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCalls ?? []);
+  expect(calls).toEqual(expect.arrayContaining([
+    'editName:["Hero Portrait"]',
+  ]));
+});
+
 test('asset detail controls use shared selects and collection buttons', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 720 });
   await mountComponent(page, 'AssetDetailControls', {
