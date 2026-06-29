@@ -26,7 +26,7 @@ const failedTileSet = {
   status: 'completed',
 };
 
-function variant(id: string, status = 'completed') {
+function variant(id: string, status = 'completed', qualityRating: 'approved' | 'rejected' | null = null) {
   return {
     id,
     asset_id: 'asset-1',
@@ -48,7 +48,7 @@ function variant(id: string, status = 'completed') {
     created_at: baseTime,
     updated_at: baseTime,
     description: null,
-    quality_rating: null,
+    quality_rating: qualityRating,
     rated_at: null,
   };
 }
@@ -78,7 +78,7 @@ test('tile grid actions use shared button styling', async ({ page }) => {
   await mockMedia(page);
   await mountComponent(page, 'TileGrid', {
     tileSet: completedTileSet,
-    variants: [variant('tile-a'), variant('tile-b'), variant('tile-c'), variant('tile-d')],
+    variants: [variant('tile-a', 'completed', 'approved'), variant('tile-b'), variant('tile-c'), variant('tile-d')],
     tilePositions: [
       tilePosition('tile-set-1', 'tile-a', 0, 0),
       tilePosition('tile-set-1', 'tile-b', 1, 0),
@@ -89,16 +89,24 @@ test('tile grid actions use shared button styling', async ({ page }) => {
     onCellClick: '__record__:cell',
     onRefineEdges: '__record__:refine',
     onExportTrainingData: '__record__:export',
+    onRateVariant: '__record__:rate',
   });
 
   await expect(page.getByRole('button', { name: 'Refine Edges' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Export Training Data' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Reject' })).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('[class*="cell"]').first().hover();
+  await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Reject' })).toHaveCount(1);
   await screenshot(page, 'tile-grid-shared-actions', { fullPage: true });
 
   await page.getByRole('button', { name: 'Refine Edges' }).click();
   await page.getByRole('button', { name: 'Export Training Data' }).click();
+  await page.getByRole('button', { name: 'Reject' }).click();
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(calls.map((call) => call.eventName)).toEqual(['refine', 'export']);
+  expect(calls.map((call) => call.eventName)).toEqual(['refine', 'export', 'rate']);
+  expect(calls[2].args).toEqual(['tile-a', 'rejected']);
 });
 
 test('tile grid failed cell retry uses shared button styling', async ({ page }) => {
