@@ -1458,11 +1458,12 @@ export function ForgeTray({
                 />
               )}
 
-              <button
+              <Button
                 className={styles.forgeButton}
                 onClick={handleSubmit}
                 disabled={!canSubmit || estimate?.allowed === false}
                 title={`${operationLabel} (Cmd+Enter)`}
+                variant="primary"
               >
                 {isSubmitting ? (
                   <span className={styles.spinner} />
@@ -1473,7 +1474,7 @@ export function ForgeTray({
                 )}
                 <span className={styles.buttonLabel}>{operationLabel}</span>
                 <span className={styles.kbd} aria-hidden="true">↵</span>
-              </button>
+              </Button>
             </div>
           </div>
 
