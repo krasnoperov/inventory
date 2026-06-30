@@ -203,6 +203,9 @@ test('composition placement is gated to finished variants', async ({ page }) => 
 
   // Only the finished variant's card renders the placement control.
   await expect(page.getByText('Add to composition')).toHaveCount(1);
+  await expect(page.locator('[class*="starterPanel"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="starterPanel"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await screenshot(page, 'space-board-starter-panel', { fullPage: true });
 });
 
 test('media triggers open image assets without changing thumbnail chrome', async ({ page }) => {
@@ -396,6 +399,8 @@ test('collection menus use shared form controls', async ({ page }) => {
   });
 
   await page.getByText('New collection').click();
+  await expect(page.locator('[class*="createControls"] summary')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="createControls"] summary')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await page.getByPlaceholder('Collection name').fill('Props');
   await selectDropdown(page, 'New collection kind', 'Style References');
   await page.getByLabel('New collection color').fill('#123456');

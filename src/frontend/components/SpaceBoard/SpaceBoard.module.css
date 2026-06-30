@@ -54,11 +54,10 @@
   justify-content: center;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--surface-glass);
+  background: var(--color-surface);
   color: var(--color-text);
   font-size: var(--font-size-small-sm);
   cursor: pointer;
-  backdrop-filter: blur(12px);
 }
 
 .createControls summary {
@@ -138,10 +137,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  background: var(--surface-glass);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  backdrop-filter: blur(12px);
 }
 
 .starterPanel button {
