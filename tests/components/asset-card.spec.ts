@@ -187,6 +187,7 @@ test('asset card add action uses shared icon button outside media', async ({ pag
     'border-color',
   );
   await addToTray.hover();
+  await expect(addToTray).toHaveCSS('transform', 'none');
   await expect(addToTray).toHaveCSS(
     'color',
     await resolvedColor(page, 'var(--button-primary-text)'),
