@@ -173,6 +173,10 @@ test('asset canvas image previews stay free of hover action overlays', async ({ 
 
   const preview = page.locator('[class*="thumbnail"]').first();
   await preview.hover();
+  await expect(page.locator('.react-flow__node [class*="node"]:has([class*="mediaPreview"])').first()).toHaveCSS(
+    'box-shadow',
+    'none',
+  );
   await expect(page.getByRole('button', { name: 'Add to Forge Tray' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Create relation' })).toHaveCount(0);
   await screenshot(page, 'asset-canvas-clean-node', { fullPage: true });
