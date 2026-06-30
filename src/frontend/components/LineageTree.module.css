@@ -60,12 +60,12 @@
   overflow: hidden;
   border: 2px solid var(--color-border);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s ease;
 }
 
 .node:hover {
   border-color: var(--color-primary);
-  transform: scale(1.05);
+  transform: none;
 }
 
 .nodeImage {
@@ -249,13 +249,13 @@
   border: 2px solid var(--color-border);
   background: var(--color-bg);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s ease;
   min-width: 80px;
 }
 
 .graphNode:hover {
   border-color: var(--color-primary);
-  transform: translateY(-2px);
+  transform: none;
 }
 
 .graphNode.currentNode {
