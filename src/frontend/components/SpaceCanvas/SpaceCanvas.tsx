@@ -416,7 +416,7 @@ function SpaceCanvasInner({
   if (assets.length === 0) {
     return (
       <div className={styles.empty}>
-        <span className={styles.emptyIcon}>{isInitialSyncPending ? '⏳' : '🎨'}</span>
+        <span className={`${styles.emptyMark} ${isInitialSyncPending ? styles.emptyMarkLoading : ''}`} aria-hidden="true" />
         <p>{isInitialSyncPending ? 'Loading assets…' : 'No assets yet'}</p>
       </div>
     );

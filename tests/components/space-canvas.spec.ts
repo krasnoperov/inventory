@@ -71,6 +71,42 @@ async function frameBoxes(page: import('@playwright/test').Page) {
   );
 }
 
+test('space canvas empty state uses minimal chrome', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 520 });
+  await mountComponent(page, 'SpaceCanvas', {
+    spaceId: 'space-1',
+    assets: [],
+    variants: [],
+    collections: [],
+    collectionItems: [],
+    lineage: [],
+    isInitialSyncPending: false,
+    onAssetClick: '__noop__',
+  });
+
+  await expect(page.getByText('No assets yet')).toBeVisible();
+  await expect(page.locator('[class*="emptyMark"]')).toBeVisible();
+  await expect(page.getByText('🎨')).toHaveCount(0);
+  await expect(page.getByText('⏳')).toHaveCount(0);
+  await screenshot(page, 'space-canvas-empty-state', { fullPage: true });
+
+  await mountComponent(page, 'SpaceCanvas', {
+    spaceId: 'space-1',
+    assets: [],
+    variants: [],
+    collections: [],
+    collectionItems: [],
+    lineage: [],
+    isInitialSyncPending: true,
+    onAssetClick: '__noop__',
+  });
+
+  await expect(page.getByText('Loading assets…')).toBeVisible();
+  await expect(page.locator('[class*="emptyMarkLoading"]')).toBeVisible();
+  await expect(page.getByText('🎨')).toHaveCount(0);
+  await expect(page.getByText('⏳')).toHaveCount(0);
+});
+
 test('re-packs so a live-grown frame never overlaps the one below it', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
 
