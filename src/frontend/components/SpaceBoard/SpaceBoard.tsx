@@ -109,6 +109,7 @@ export function SpaceBoard({
   const [newName, setNewName] = useState('');
   const [newKind, setNewKind] = useState<CollectionKind>('custom');
   const [newColor, setNewColor] = useState(COLLECTION_KIND_COLORS.custom);
+  const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [addTargets, setAddTargets] = useState<Record<string, string>>({});
   const [cardTargets, setCardTargets] = useState<Record<string, string>>({});
 
@@ -139,6 +140,7 @@ export function SpaceBoard({
       sortIndex: orderedCollections.length,
     });
     setNewName('');
+    setIsCreatePanelOpen(false);
   };
 
   const createStarterCollections = () => {
@@ -575,39 +577,45 @@ export function SpaceBoard({
           <p>{collections.length} collections · {assets.length} assets{unfiledAssets.length > 0 ? ` · ${unfiledAssets.length} unfiled` : ''}</p>
         </div>
         {canEdit && (
-          <details className={styles.createControls}>
-            <summary>
+          <div className={styles.createControls}>
+            <Button
+              className={styles.createTrigger}
+              onClick={() => setIsCreatePanelOpen((open) => !open)}
+              aria-expanded={isCreatePanelOpen}
+            >
               <span aria-hidden="true">+</span>
               <span>New collection</span>
-            </summary>
-            <div className={styles.createPanel}>
-              <TextInput
-                value={newName}
-                placeholder="Collection name"
-                onChange={(event) => setNewName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') handleCreateCollection();
-                }}
-                fullWidth
-              />
-              <UiSelect
-                className={styles.createKindSelect}
-                label="New collection kind"
-                value={newKind}
-                options={COLLECTION_KIND_OPTIONS}
-                onValueChange={(kind) => {
-                  setNewKind(kind);
-                  setNewColor(COLLECTION_KIND_COLORS[kind]);
-                }}
-              />
-              <ColorInput
-                value={newColor}
-                onChange={(event) => setNewColor(event.target.value)}
-                aria-label="New collection color"
-              />
-              <Button className={styles.menuButton} onClick={handleCreateCollection}>Create</Button>
-            </div>
-          </details>
+            </Button>
+            {isCreatePanelOpen && (
+              <div className={styles.createPanel}>
+                <TextInput
+                  value={newName}
+                  placeholder="Collection name"
+                  onChange={(event) => setNewName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') handleCreateCollection();
+                  }}
+                  fullWidth
+                />
+                <UiSelect
+                  className={styles.createKindSelect}
+                  label="New collection kind"
+                  value={newKind}
+                  options={COLLECTION_KIND_OPTIONS}
+                  onValueChange={(kind) => {
+                    setNewKind(kind);
+                    setNewColor(COLLECTION_KIND_COLORS[kind]);
+                  }}
+                />
+                <ColorInput
+                  value={newColor}
+                  onChange={(event) => setNewColor(event.target.value)}
+                  aria-label="New collection color"
+                />
+                <Button className={styles.menuButton} onClick={handleCreateCollection}>Create</Button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
