@@ -53,9 +53,7 @@
 
 .node.active .thumbnail,
 .node.active .audioCard {
-  box-shadow:
-    -3px 0 0 var(--color-success),
-    0 4px 20px var(--color-status-completed-bg);
+  box-shadow: -3px 0 0 var(--color-success);
 }
 
 .node.starred .thumbnail,
