@@ -406,15 +406,13 @@
   padding: 1.5rem 0.5rem 0.45rem;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.15s ease;
   pointer-events: none;
 }
 
 .assetCard:hover .caption,
 .assetCard:focus-within .caption {
   opacity: 1;
-  transform: none;
   pointer-events: auto;
 }
 
