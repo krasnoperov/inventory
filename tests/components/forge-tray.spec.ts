@@ -719,6 +719,31 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
   await expect(page.getByText('Chat with Claude')).toHaveCount(0);
 });
 
+test('forge chat loading dots avoid scale motion', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    isChatLoading: true,
+    sendChatMessage: '__noop__',
+    requestChatHistory: '__noop__',
+    clearChatSession: '__noop__',
+  });
+
+  await page.getByTitle('Chat with Claude about your prompt').click();
+  await expect(page.getByText('Chat with Claude')).toBeVisible();
+
+  const loadingDots = page.locator('span[class*="loadingDot"]');
+  await expect(loadingDots).toHaveCount(3);
+  await expect(loadingDots.first()).toHaveCSS('transform', 'none');
+  await expect(loadingDots.first()).not.toHaveCSS('animation-name', /bounce/);
+
+  await screenshot(page, 'forge-chat-flat-loading-dots', { fullPage: true });
+});
+
 test('style library creates a preset from a style collection', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
