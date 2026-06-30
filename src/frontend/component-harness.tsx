@@ -51,6 +51,7 @@ import PricingPage from './pages/PricingPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import profileStyles from './pages/ProfilePage.module.css';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
+import productionStyles from './pages/ProductionPage.module.css';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import spacePageStyles from './pages/SpacePage.module.css';
 import UnknownPage from './pages/UnknownPage';
@@ -924,6 +925,17 @@ function SpacePageOverlayChromePreview() {
   );
 }
 
+function AppPrimaryActionChromePreview() {
+  return (
+    <div style={{ display: 'grid', gap: '0.75rem', padding: '2rem', width: '320px' }}>
+      <a href="/dashboard" className={dashboardStyles.authButton}>Dashboard primary</a>
+      <a href="/spaces/space-1" className={spacePageStyles.authButton}>Space primary</a>
+      <a href="/production" className={productionStyles.authButton}>Production primary</a>
+      <a href="/assets/asset-1" className={assetDetailStyles.authButton}>Asset primary</a>
+    </div>
+  );
+}
+
 function ProfileSignInButtonPreview() {
   return (
     <div className={profileStyles.page}>
@@ -951,6 +963,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   BillingUsageMeters: BillingUsageMetersPreview,
   CanvasToolbarControls: CanvasToolbarControlsPreview,
   AuthorizationDecisionActions: AuthorizationDecisionActions as unknown as ComponentType<Record<string, unknown>>,
+  AppPrimaryActionChrome: AppPrimaryActionChromePreview,
   AssetDetailControls: AssetDetailControlsHarness,
   AssetTitleInlineEditor: AssetTitleInlineEditorPreview,
   AssetGenerationDock: AssetGenerationDockPreview,
