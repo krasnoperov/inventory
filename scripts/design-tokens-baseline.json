@@ -24,9 +24,6 @@
       "oklch(80% 0.15 90/0.15)",
       "oklch(85% 0.18 90)"
     ],
-    "src/frontend/components/ForgeTray/ForgeChat.module.css": [
-      "oklch(65% 0.18 145)"
-    ],
     "src/frontend/components/Thumbnail/Thumbnail.module.css": [
       "black",
       "black"
@@ -37,10 +34,6 @@
       "oklch(30% 0.05 260/0.08)",
       "oklch(94% 0.02 245)",
       "oklch(97% 0.01 255)"
-    ],
-    "src/frontend/pages/UnknownPage.module.css": [
-      "#fff",
-      "rgba(0,0,0,0.04)"
     ]
   }
 }

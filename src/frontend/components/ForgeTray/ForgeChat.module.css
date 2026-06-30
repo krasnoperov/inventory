@@ -300,7 +300,7 @@
 }
 
 .progressCheck {
-  color: var(--color-success, oklch(65% 0.18 145));
+  color: var(--color-success);
   flex-shrink: 0;
 }
 

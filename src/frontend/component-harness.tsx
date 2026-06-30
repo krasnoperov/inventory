@@ -41,6 +41,7 @@ import { HyperbolicCanvas } from './components/HyperbolicCanvas/HyperbolicCanvas
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
+import UnknownPage from './pages/UnknownPage';
 import type {
   Asset,
   CollectionItem,
@@ -616,6 +617,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   TileGrid: TileGrid as unknown as ComponentType<Record<string, unknown>>,
   TileSetPanel: TileSetPanel as unknown as ComponentType<Record<string, unknown>>,
   TopLoadingBar: TopLoadingBar as unknown as ComponentType<Record<string, unknown>>,
+  UnknownPage: UnknownPage as unknown as ComponentType<Record<string, unknown>>,
   UsageIndicatorView: UsageIndicatorView as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
   VariantDetailsPanel: VariantDetailsPanel as unknown as ComponentType<Record<string, unknown>>,
