@@ -62,12 +62,12 @@ async function sizeHarness(page: import('@playwright/test').Page) {
   });
 }
 
-async function resolvedBoxShadow(page: import('@playwright/test').Page, value: string) {
-  return page.evaluate((shadowValue) => {
+async function resolvedColor(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((colorValue) => {
     const probe = document.createElement('div');
-    probe.style.boxShadow = shadowValue;
+    probe.style.color = colorValue;
     document.body.appendChild(probe);
-    const resolved = getComputedStyle(probe).boxShadow;
+    const resolved = getComputedStyle(probe).color;
     probe.remove();
     return resolved;
   }, value);
@@ -94,11 +94,12 @@ test('hyperbolic canvas uses tokenized node surfaces', async ({ page }) => {
   await expect(page.getByText('Hero Character')).toBeVisible();
   await expect(page.locator('[class*="thumb"]').first()).toHaveCSS(
     'box-shadow',
-    await resolvedBoxShadow(page, 'var(--shadow-header)'),
+    'none',
   );
+  await expect(page.locator('[class*="thumb"]').first()).toHaveCSS('border-top-width', '1px');
   await expect(page.getByText('Drag to pan')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
 
-  await screenshot(page, 'hyperbolic-canvas-token-surfaces', { fullPage: true });
+  await screenshot(page, 'hyperbolic-canvas-flat-node-surfaces', { fullPage: true });
 });
 
 test('hyperbolic canvas generating chrome stays static', async ({ page }) => {
@@ -130,7 +131,11 @@ test('hyperbolic canvas generating chrome stays static', async ({ page }) => {
   await expect(generatingThumb).toHaveCSS('animation-name', 'none');
   await expect(generatingThumb).toHaveCSS(
     'box-shadow',
-    await resolvedBoxShadow(page, 'var(--shadow-header)'),
+    'none',
+  );
+  await expect(generatingThumb).toHaveCSS(
+    'border-top-color',
+    await resolvedColor(page, 'var(--color-accent)'),
   );
 
   await screenshot(page, 'hyperbolic-canvas-flat-generating-chrome', { fullPage: true });
