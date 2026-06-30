@@ -25,6 +25,7 @@ import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel'
 import { Thumbnail } from './components/Thumbnail';
 import { TileGrid } from './components/TileGrid/TileGrid';
 import { TileSetPanel } from './components/TileSetPanel/TileSetPanel';
+import { TopLoadingBar } from './components/TopLoadingBar';
 import { UsageIndicatorView } from './components/UsageIndicator/UsageIndicator';
 import { VariantCanvas } from './components/VariantCanvas';
 import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPanel';
@@ -614,6 +615,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   Thumbnail: Thumbnail as unknown as ComponentType<Record<string, unknown>>,
   TileGrid: TileGrid as unknown as ComponentType<Record<string, unknown>>,
   TileSetPanel: TileSetPanel as unknown as ComponentType<Record<string, unknown>>,
+  TopLoadingBar: TopLoadingBar as unknown as ComponentType<Record<string, unknown>>,
   UsageIndicatorView: UsageIndicatorView as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
   VariantDetailsPanel: VariantDetailsPanel as unknown as ComponentType<Record<string, unknown>>,
