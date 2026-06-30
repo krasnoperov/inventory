@@ -149,6 +149,17 @@ async function expectDropdownOptionDisabled(page: import('@playwright/test').Pag
   await page.keyboard.press('Escape');
 }
 
+async function resolvedBackground(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((backgroundValue) => {
+    const probe = document.createElement('div');
+    probe.style.background = backgroundValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 async function selectMediaGroup(page: import('@playwright/test').Page, group: 'Image' | 'Video' | 'Audio') {
   await revealOptions(page);
   await selectDropdown(page, 'Media type', group);
@@ -324,6 +335,14 @@ test('forge tray image model selection enforces reference budget', async ({ page
   await page.getByRole('button', { name: /Image Ref One/ }).click();
   await page.getByRole('button', { name: /Image Ref Two/ }).click();
   await page.getByRole('button', { name: /Done/i }).click();
+
+  const addAnotherReference = page.getByTitle('Add another reference');
+  await addAnotherReference.hover();
+  await expect(addAnotherReference).toHaveCSS(
+    'background-color',
+    await resolvedBackground(page, 'var(--color-status-processing-bg)'),
+  );
+  await screenshot(page, 'forge-tray-add-reference-token-hover', { fullPage: true });
 
   await expect(page.getByRole('button', { name: 'Derive' })).toBeEnabled();
 
