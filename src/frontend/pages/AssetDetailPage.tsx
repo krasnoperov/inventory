@@ -263,7 +263,7 @@ export function AssetCollectionsPanel({
 
   if (!showManagement) {
     return (
-      <section className={styles.collectionPanel} aria-label="Collection membership">
+      <section className={`${styles.collectionPanel} ${styles.collectionPanelCompact}`} aria-label="Collection membership">
         <div className={styles.collectionPanelHeader}>
           <span>Collections</span>
           <span>{totalMembershipCount}</span>
@@ -292,8 +292,14 @@ export function AssetCollectionsPanel({
         ) : (
           <p className={styles.collectionSummaryEmpty}>No collection membership</p>
         )}
-        <Button size="sm" variant="secondary" className={styles.collectionPanelAction} onClick={() => setManagementOpen(true)}>
-          Manage collections
+        <Button
+          size="sm"
+          variant="secondary"
+          className={styles.collectionPanelAction}
+          aria-label="Manage collections"
+          onClick={() => setManagementOpen(true)}
+        >
+          Manage
         </Button>
       </section>
     );

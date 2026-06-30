@@ -348,6 +348,15 @@
   border-radius: var(--radius-md);
 }
 
+.collectionPanelCompact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.35rem 0.6rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
 .collectionPanelHeader {
   display: flex;
   align-items: center;
@@ -356,6 +365,22 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
   font-weight: 650;
+}
+
+.collectionPanelCompact .collectionPanelHeader {
+  justify-content: start;
+}
+
+.collectionPanelCompact .collectionPanelHeader span:last-child {
+  min-width: 1.35rem;
+  min-height: 1.35rem;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .collectionMembershipRow {
@@ -385,6 +410,12 @@
   gap: 0.25rem;
 }
 
+.collectionPanelCompact .collectionSummaryList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .collectionSummaryRow {
   display: flex;
   flex-wrap: wrap;
@@ -393,6 +424,14 @@
   min-width: 0;
   padding: 0.3rem 0;
   border-top: 1px solid var(--color-border);
+}
+
+.collectionPanelCompact .collectionSummaryRow {
+  min-height: 28px;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
 }
 
 .collectionSummaryName {
@@ -419,6 +458,12 @@
   white-space: nowrap;
 }
 
+.collectionPanelCompact .collectionSummaryMeta {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .collectionSummaryEmpty {
   margin: 0;
   color: var(--color-text-muted);
@@ -427,6 +472,13 @@
 
 .collectionPanelAction {
   justify-self: start;
+}
+
+.collectionPanelCompact .collectionPanelAction {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+  justify-self: end;
 }
 
 .collectionPlacementControls {
