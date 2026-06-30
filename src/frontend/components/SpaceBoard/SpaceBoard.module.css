@@ -56,7 +56,6 @@
   position: relative;
 }
 
-.collectionMenu summary,
 .cardMenu summary {
   list-style: none;
   min-height: 32px;
@@ -78,12 +77,10 @@
     opacity 0.15s ease;
 }
 
-.collectionMenu summary:hover,
 .cardMenu summary:hover {
   background: var(--ctl-hover, var(--button-ghost-bg-hover));
 }
 
-.collectionMenu summary:focus-visible,
 .cardMenu summary:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
@@ -97,7 +94,6 @@
   font-size: var(--font-size-micro);
 }
 
-.collectionMenu summary,
 .cardMenu summary {
   width: 32px;
   min-height: 32px;
@@ -107,7 +103,6 @@
   color: var(--color-text-muted);
 }
 
-.collectionMenu summary::before,
 .cardMenu summary::before {
   content: "...";
   color: var(--color-text-muted);
@@ -122,13 +117,23 @@
 
 .collection:hover .collectionMenu,
 .collection:focus-within .collectionMenu,
-.collectionMenu[open] {
+.collectionMenuOpen {
   opacity: 1;
 }
 
-.collectionMenu summary::-webkit-details-marker,
 .cardMenu summary::-webkit-details-marker {
   display: none;
+}
+
+.collectionMenuTrigger {
+  --ui-button-height: 32px;
+  --ui-button-pad-x: 0;
+  --ctl-hover: var(--button-ghost-bg-hover);
+
+  width: 32px;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .createPanel,
@@ -198,7 +203,7 @@
 }
 
 .collection:has(.cardMenu[open]),
-.collection:has(.collectionMenu[open]) {
+.collectionMenuHostOpen {
   z-index: 3;
 }
 
