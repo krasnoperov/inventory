@@ -48,7 +48,6 @@
       "white"
     ],
     "src/frontend/components/ForgeTray/ForgeTray.module.css": [
-      "#fff",
       "oklch(16% 0.02 250/0.78)",
       "oklch(20% 0.015 264/0.05)",
       "oklch(20% 0.015 264/0.07)",
