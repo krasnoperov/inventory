@@ -152,7 +152,7 @@ function AssetNodeView({ data }: NodeProps<AssetFlowNode>) {
         </div>
         <div className={styles.coords}>
           <span className={styles.stamp}>{asset.type}</span>
-          <span className={styles.kind} title={asset.media_kind}>{mediaGlyph(asset.media_kind)}</span>
+          <span className={styles.kind} title={asset.media_kind}>{mediaKindLabel(asset.media_kind)}</span>
           <Tally stats={stats} />
         </div>
         {tags.length > 0 && (
@@ -167,10 +167,10 @@ function AssetNodeView({ data }: NodeProps<AssetFlowNode>) {
   );
 }
 
-function mediaGlyph(kind: string): string {
-  if (kind === 'audio') return '♪';
-  if (kind === 'video') return '▶';
-  return '◧';
+function mediaKindLabel(kind: string): string {
+  if (kind === 'audio') return 'AUD';
+  if (kind === 'video') return 'VID';
+  return 'IMG';
 }
 
 interface CompNodeData extends Record<string, unknown> {
@@ -184,7 +184,7 @@ function CompositionNodeView({ data }: NodeProps<CompFlowNode>) {
   const { model, dimmed, focused } = data;
   return (
     <div className={`${styles.assembler} ${dimmed ? styles.dimmed : ''} ${focused ? styles.focused : ''}`}>
-      <span className={styles.assemblerGlyph} aria-hidden>▦</span>
+      <span className={styles.assemblerKind} title="Composition">CMP</span>
       <div className={styles.assemblerBody}>
         <span className={styles.assemblerName}>{model.composition.name}</span>
         <span className={styles.assemblerMeta}>
