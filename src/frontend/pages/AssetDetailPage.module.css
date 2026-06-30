@@ -543,19 +543,11 @@
 }
 
 .dismissButton {
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-xs);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-  font-size: 0.6875rem;
-  cursor: pointer;
-  flex-shrink: 0;
-}
+  --ui-button-height: 1.5rem;
+  --ui-button-pad-x: 0.5rem;
+  --ui-button-font-size: 0.6875rem;
 
-.dismissButton:hover {
-  background: var(--color-bg);
-  color: var(--color-text);
+  flex-shrink: 0;
 }
 
 /* (Variant details panel moved to VariantNode component) */
@@ -657,35 +649,15 @@
 }
 
 .dialogCancel {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.dialogCancel:hover {
-  background: var(--color-bg);
+  --ui-button-height: 2.25rem;
+  --ui-button-pad-x: 1rem;
+  --ui-button-font-size: 0.875rem;
 }
 
 .dialogConfirm {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: var(--color-error);
-  color: white;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.dialogConfirm:hover {
-  opacity: 0.9;
+  --ui-button-height: 2.25rem;
+  --ui-button-pad-x: 1rem;
+  --ui-button-font-size: 0.875rem;
 }
 
 /* Responsive */
