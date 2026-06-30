@@ -35,6 +35,7 @@ import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGen
 import { CreateSpaceDialog } from './pages/DashboardPage';
 import { LandingCreateSpaceDialog } from './pages/LandingPage';
 import { GoogleLoginButton } from './pages/LoginPage';
+import { HyperbolicCanvas } from './components/HyperbolicCanvas/HyperbolicCanvas';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
@@ -591,6 +592,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   CompositionPlacementControl: CompositionPlacementControl as unknown as ComponentType<Record<string, unknown>>,
   CreateSpaceDialog: CreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
   GoogleLoginButton: GoogleLoginButton as unknown as ComponentType<Record<string, unknown>>,
+  HyperbolicCanvas: HyperbolicCanvas as unknown as ComponentType<Record<string, unknown>>,
   LandingCreateSpaceDialog: LandingCreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   ImageLightbox: ImageLightbox as unknown as ComponentType<Record<string, unknown>>,
