@@ -83,8 +83,12 @@
 
   width: 32px;
   color: var(--color-text-muted);
-  font-weight: 700;
-  letter-spacing: 0.04em;
+}
+
+.menuTriggerIcon {
+  display: block;
+  flex: none;
+  fill: currentColor;
 }
 
 .createPanel,
@@ -546,7 +550,7 @@
   background: transparent;
 }
 
-.cardMenuTrigger span {
+.cardMenuTrigger .menuTriggerIcon {
   color: oklch(100% 0 0 / 0.92);
 }
 

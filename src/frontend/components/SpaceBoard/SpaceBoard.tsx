@@ -78,6 +78,16 @@ function renderRowFillers() {
   ));
 }
 
+function MoreMenuIcon() {
+  return (
+    <svg className={styles.menuTriggerIcon} viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <circle cx="4" cy="8" r="1.35" />
+      <circle cx="8" cy="8" r="1.35" />
+      <circle cx="12" cy="8" r="1.35" />
+    </svg>
+  );
+}
+
 const COLLECTION_KIND_OPTIONS: Array<SelectOption<CollectionKind>> = COLLECTION_KINDS.map((kind) => ({
   value: kind,
   label: COLLECTION_KIND_LABELS[kind],
@@ -363,7 +373,7 @@ export function SpaceBoard({
               size="sm"
               onClick={() => toggleCardMenu(cardKey)}
             >
-              <span aria-hidden="true">...</span>
+              <MoreMenuIcon />
             </IconButton>
             {isCardMenuOpen && (
               <div className={styles.cardMenuPanel}>
@@ -513,7 +523,7 @@ export function SpaceBoard({
                 size="sm"
                 onClick={() => toggleCollectionMenu(collection.id)}
               >
-                <span aria-hidden="true">...</span>
+                <MoreMenuIcon />
               </IconButton>
               {isCollectionMenuOpen && (
                 <div className={styles.collectionMenuPanel}>
