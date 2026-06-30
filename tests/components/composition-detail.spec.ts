@@ -133,6 +133,8 @@ test('composition detail creates compositions and sets an exact output variant',
   await expect(page.getByRole('button', { name: /Scene Bar composition draft/ }).first()).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('complementary', { name: 'Composition detail' })).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('complementary', { name: 'Composition detail' })).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.getByText('Composition Detail', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('Compositions', { exact: true })).toHaveCSS('text-transform', 'none');
 
   await screenshot(page, 'composition-detail-controls', { fullPage: true });
 
@@ -255,6 +257,8 @@ test('composition reverse lookup includes exact variant and asset matches', asyn
   await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
   await expect(page.getByText('Composition usage')).toBeVisible();
   await expect(page.getByText('3', { exact: true })).toBeVisible();
+  await expect(page.getByText('Thumbnails', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('output', { exact: true })).toHaveCSS('text-transform', 'none');
 
   await page.getByRole('button', { name: /Pinned variant scene/ }).click();
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining('open-composition:["composition-2"]'));
