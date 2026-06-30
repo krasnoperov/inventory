@@ -115,6 +115,7 @@ test('audio asset card surfaces playback, model, voice, and prompt', async ({ pa
   await expect(titleButton).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(titleButton.locator('[class*="audioDetails"]')).toHaveCount(0);
   await expect(page.locator('button[class*="thumbnailButton"]')).toHaveCount(0);
+  await expect(page.locator('[class*="thumbnailArea"]').first()).toHaveCSS('cursor', 'auto');
   await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
   await expect(page.getByText('Name')).toBeVisible();
   await expect(page.locator('[title="Rachel"]')).toBeVisible();
@@ -154,6 +155,7 @@ test('asset card add action uses shared icon button outside media', async ({ pag
   });
   await expect(thumbnailButton).toBeVisible();
   await expect(thumbnailButton).toHaveClass(/thumbnailButton/);
+  await expect(thumbnailButton).toHaveCSS('cursor', 'pointer');
   const titleButton = page.locator('button[class*="titleButton"]');
   await expect(titleButton).toBeVisible();
   const nameLabel = titleButton.locator('[class*="name"]');
