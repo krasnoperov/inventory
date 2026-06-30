@@ -5,9 +5,7 @@
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: var(--color-overlay-scrim);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--color-bg);
   z-index: 2000;
   cursor: zoom-out;
   animation: fadeIn 0.15s ease-out;
