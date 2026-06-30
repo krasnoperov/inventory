@@ -339,7 +339,7 @@ export function ForgeTray({
   allAssets,
   allVariants,
   onSubmit,
-  onBrandBackground = true,
+  onBrandBackground = false,
   currentAsset,
   contextSlot,
   floating = true,
