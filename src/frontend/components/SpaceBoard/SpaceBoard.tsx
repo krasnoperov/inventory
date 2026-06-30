@@ -274,9 +274,9 @@ export function SpaceBoard({
         )}
         {!isAudioCard && (
           <div className={styles.caption}>
-            <button className={styles.assetName} onClick={() => onAssetClick(asset)}>
+            <Button className={styles.assetName} onClick={() => onAssetClick(asset)} variant="ghost" size="sm">
               {asset.name}
-            </button>
+            </Button>
             <div className={styles.assetMeta}>
               <span>{item?.subject_type === 'variant' ? 'variant' : asset.type}</span>
               {item?.role && item.role !== asset.type && <span>{item.role}</span>}
@@ -285,9 +285,9 @@ export function SpaceBoard({
         )}
         {showAudioSummary && (
           <div className={styles.audioSummary}>
-            <button className={styles.audioAssetName} onClick={() => onAssetClick(asset)}>
+            <Button className={styles.audioAssetName} onClick={() => onAssetClick(asset)} variant="ghost" size="sm">
               {asset.name}
-            </button>
+            </Button>
             <div className={styles.audioAssetMeta}>
               <span>{item?.subject_type === 'variant' ? 'variant' : asset.type}</span>
               {item?.role && item.role !== asset.type && <span>{item.role}</span>}
