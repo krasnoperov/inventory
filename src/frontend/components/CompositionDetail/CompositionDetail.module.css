@@ -7,7 +7,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-elevated);
+  box-shadow: none;
   overflow: hidden;
   color: var(--color-text);
 }
