@@ -37,6 +37,7 @@ import { useImageUpload } from '../hooks/useImageUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import { StylePanel } from '../components/ForgeTray/StylePanel';
 import { CompositionDetail } from '../components/CompositionDetail';
+import { IconButton } from '../ui';
 import {
   applyCompositionShortcut,
   type CompositionShortcut,
@@ -794,13 +795,16 @@ export default function SpacePage() {
                     {job.error && <span className={styles.jobError}>{job.error}</span>}
                   </div>
                   {(job.status === 'completed' || job.status === 'failed') && (
-                    <button
+                    <IconButton
                       className={styles.dismissButton}
                       onClick={() => clearJob(job.jobId)}
+                      aria-label="Dismiss job"
                       title="Dismiss"
+                      variant="ghost"
+                      size="sm"
                     >
                       ×
-                    </button>
+                    </IconButton>
                   )}
                 </div>
               );
