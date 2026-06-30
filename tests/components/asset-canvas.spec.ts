@@ -166,6 +166,10 @@ test('asset canvas image previews stay free of hover action overlays', async ({ 
     'box-shadow',
     await resolvedShadow(page, 'var(--shadow-header)'),
   );
+  await expect(page.locator('.react-flow__node [class*="node"]:has([class*="mediaPreview"])').first()).toHaveCSS(
+    'box-shadow',
+    'none',
+  );
 
   const preview = page.locator('[class*="thumbnail"]').first();
   await preview.hover();

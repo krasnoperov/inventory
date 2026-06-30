@@ -10,7 +10,7 @@
   padding: 6px;
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
   cursor: pointer;
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.08);
+  box-shadow: none;
   /* Allow label to overflow outside node bounds */
   overflow: visible;
 }
