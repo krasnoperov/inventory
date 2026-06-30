@@ -94,11 +94,11 @@
   right: 0;
   top: calc(100% + 0.4rem);
   z-index: 8;
-  width: min(360px, calc(100vw - 2rem));
+  width: min(340px, calc(100vw - 2rem));
   display: grid;
-  gap: 0.6rem;
-  padding: 0.75rem;
-  background: var(--color-surface-elevated);
+  gap: 0.5rem;
+  padding: 0.625rem;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: none;
@@ -112,7 +112,7 @@
 .createPanel,
 .collectionMenuPanel,
 .cardMenuPanel {
-  --ui-text-input-height: 32px;
+  --ui-text-input-height: 30px;
   --ui-text-field-font-size: var(--font-size-small-sm);
   --ctl-surface: var(--color-surface);
   --ctl-line: var(--color-border);
@@ -206,7 +206,7 @@
 .select,
 .addSelect,
 .createKindSelect {
-  --ui-select-height: 32px;
+  --ui-select-height: 30px;
   --ui-select-font-size: var(--font-size-small-sm);
   --ui-select-min-width: 0;
   --ui-select-max-width: none;
@@ -224,7 +224,7 @@
 }
 
 .menuButton {
-  --ui-button-height: 32px;
+  --ui-button-height: 30px;
   --ui-button-font-size: var(--font-size-small-sm);
   --ui-button-pad-x: 0.7rem;
   border-radius: var(--radius-sm);
@@ -236,6 +236,17 @@
   gap: 0.25rem;
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
+}
+
+.collectionMenuPanel label {
+  grid-template-columns: 4rem minmax(0, 1fr);
+  align-items: center;
+}
+
+.collectionMenuPanel label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .colorField {
@@ -541,7 +552,7 @@
 
 .cardMenuPanel {
   top: calc(100% + 0.35rem);
-  width: min(260px, calc(100vw - 2rem));
+  width: min(248px, calc(100vw - 2rem));
 }
 
 .assetCard:first-child .cardMenuPanel {
@@ -578,6 +589,15 @@
     left: 0;
     right: auto;
     grid-template-columns: 1fr;
+  }
+
+  .collectionMenuPanel label {
+    grid-template-columns: 1fr;
+  }
+
+  .addRow {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .collectionHeader {

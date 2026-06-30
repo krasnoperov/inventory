@@ -443,6 +443,8 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(collectionMenu.locator('summary')).toHaveCount(0);
   await collectionMenuTrigger.click();
   await expect(collectionMenuTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(createTrigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('[class*="createPanel"]')).toHaveCount(0);
   await expect(page.locator('[class*="collectionMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');
   await page.getByRole('textbox', { name: 'Collection name' }).first().fill('Cast updated');
   await selectDropdown(page, 'Collection kind', 'Scenes');

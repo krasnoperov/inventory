@@ -115,6 +115,33 @@ export function SpaceBoard({
   const [addTargets, setAddTargets] = useState<Record<string, string>>({});
   const [cardTargets, setCardTargets] = useState<Record<string, string>>({});
 
+  const toggleCreatePanel = () => {
+    const nextOpen = !isCreatePanelOpen;
+    setIsCreatePanelOpen(nextOpen);
+    if (nextOpen) {
+      setOpenCollectionMenuId(null);
+      setOpenCardMenuKey(null);
+    }
+  };
+
+  const toggleCollectionMenu = (collectionId: string) => {
+    const nextOpenId = openCollectionMenuId === collectionId ? null : collectionId;
+    setOpenCollectionMenuId(nextOpenId);
+    if (nextOpenId) {
+      setIsCreatePanelOpen(false);
+      setOpenCardMenuKey(null);
+    }
+  };
+
+  const toggleCardMenu = (cardKey: string) => {
+    const nextOpenKey = openCardMenuKey === cardKey ? null : cardKey;
+    setOpenCardMenuKey(nextOpenKey);
+    if (nextOpenKey) {
+      setIsCreatePanelOpen(false);
+      setOpenCollectionMenuId(null);
+    }
+  };
+
   const orderedCollections = useMemo(() => sortCollections(collections), [collections]);
   const collectionOptions = useMemo<Array<SelectOption<string>>>(
     () => orderedCollections.map((collection) => ({ value: collection.id, label: collection.name })),
@@ -334,7 +361,7 @@ export function SpaceBoard({
               aria-expanded={isCardMenuOpen}
               variant="ghost"
               size="sm"
-              onClick={() => setOpenCardMenuKey((openKey) => (openKey === cardKey ? null : cardKey))}
+              onClick={() => toggleCardMenu(cardKey)}
             >
               <span aria-hidden="true">...</span>
             </IconButton>
@@ -484,7 +511,7 @@ export function SpaceBoard({
                 aria-expanded={isCollectionMenuOpen}
                 variant="ghost"
                 size="sm"
-                onClick={() => setOpenCollectionMenuId((openId) => (openId === collection.id ? null : collection.id))}
+                onClick={() => toggleCollectionMenu(collection.id)}
               >
                 <span aria-hidden="true">...</span>
               </IconButton>
@@ -612,7 +639,7 @@ export function SpaceBoard({
           <div className={styles.createControls}>
             <Button
               className={styles.createTrigger}
-              onClick={() => setIsCreatePanelOpen((open) => !open)}
+              onClick={toggleCreatePanel}
               aria-expanded={isCreatePanelOpen}
             >
               <span aria-hidden="true">+</span>
