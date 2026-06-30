@@ -32,7 +32,7 @@ import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPa
 import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AuthContext, type AuthContextType } from './contexts/AuthContextProvider';
-import { UiSelect, type SelectOption } from './ui';
+import { Button, IconButton, UiSelect, type SelectOption } from './ui';
 import type { MeterStatus } from './hooks/useBillingStatus';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
@@ -662,6 +662,21 @@ function UiSelectPreview() {
   );
 }
 
+function UiButtonPreview() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '2rem' }}>
+      <Button variant="primary">Primary</Button>
+      <Button variant="secondary">Secondary</Button>
+      <Button variant="ghost" size="sm">Ghost small</Button>
+      <IconButton variant="secondary" size="sm" aria-label="Preview icon action">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </IconButton>
+    </div>
+  );
+}
+
 function DocsPagePreview(props: Record<string, unknown>) {
   return (
     <AuthContext.Provider value={docsAuthValue}>
@@ -716,6 +731,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   TileSetPanel: TileSetPanel as unknown as ComponentType<Record<string, unknown>>,
   TopLoadingBar: TopLoadingBar as unknown as ComponentType<Record<string, unknown>>,
   UnknownPage: UnknownPage as unknown as ComponentType<Record<string, unknown>>,
+  UiButton: UiButtonPreview,
   UiSelect: UiSelectPreview,
   UsageIndicatorView: UsageIndicatorView as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
