@@ -143,11 +143,6 @@
   aspect-ratio: 1;
   border-radius: var(--forge-slot-radius);
   cursor: default;
-  transition: transform 0.15s ease;
-}
-
-.slotItem:hover .slotThumb {
-  transform: scale(1.05);
 }
 
 .slotPreview {
@@ -188,8 +183,7 @@
     background-color 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease,
-    opacity 0.15s ease,
-    transform 0.15s ease;
+    opacity 0.15s ease;
   box-shadow: none;
   z-index: 1;
 }
@@ -202,7 +196,6 @@
   background: var(--color-error);
   border-color: var(--color-error);
   color: var(--button-primary-text);
-  transform: scale(1.1);
 }
 
 /* Add Thumbnail Button */
@@ -216,8 +209,7 @@
     background-color 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease,
-    opacity 0.15s ease,
-    transform 0.15s ease;
+    opacity 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -225,7 +217,6 @@
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: var(--color-status-processing-bg);
-  transform: scale(1.05);
 }
 
 .forgeButton {
