@@ -29,6 +29,18 @@
   box-shadow: -3px 0 0 var(--color-success);
 }
 
+.thumbnail.starred {
+  border-color: var(--color-star-border);
+  box-shadow: 0 0 0 2px var(--color-star-border);
+}
+
+.thumbnail.active.starred {
+  border-color: var(--color-success);
+  box-shadow:
+    -3px 0 0 var(--color-success),
+    0 0 0 2px var(--color-star-border);
+}
+
 .thumbnail.active:hover {
   border-color: var(--color-success);
 }
@@ -304,20 +316,6 @@
 .xs .retryButton,
 .sm .retryButton {
   display: none;
-}
-
-.starBadge {
-  position: absolute;
-  top: 0.25rem;
-  right: 0.25rem;
-  color: var(--color-star);
-  font-size: 0.875rem;
-}
-
-/* Smaller badges for xs/sm */
-.xs .starBadge,
-.sm .starBadge {
-  font-size: 0.625rem;
 }
 
 @keyframes spin {

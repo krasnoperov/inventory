@@ -14,6 +14,85 @@ async function resolvedColor(page: import('@playwright/test').Page, value: strin
   }, value);
 }
 
+async function resolvedShadow(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((shadowValue) => {
+    const probe = document.createElement('div');
+    probe.style.boxShadow = shadowValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
+async function mockImage(page: import('@playwright/test').Page) {
+  const image = '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="#668cff"/><circle cx="80" cy="60" r="28" fill="#ffffff"/></svg>';
+  await page.route('**/api/images/**', (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: image,
+    }),
+  );
+}
+
+const completedImageVariant = {
+  id: 'variant-image',
+  asset_id: 'asset-1',
+  media_kind: 'image',
+  workflow_id: null,
+  status: 'completed',
+  error_message: null,
+  image_key: 'images/space/variant-image.png',
+  thumb_key: 'images/space/variant-image_thumb.webp',
+  media_key: 'images/space/variant-image.png',
+  media_mime_type: 'image/png',
+  media_size_bytes: 123,
+  media_width: 160,
+  media_height: 120,
+  media_duration_ms: null,
+  transcript_key: null,
+  transcript_mime_type: null,
+  transcript_size_bytes: null,
+  word_timings_key: null,
+  word_timings_mime_type: null,
+  word_timings_size_bytes: null,
+  render_metadata_key: null,
+  render_metadata_mime_type: null,
+  render_metadata_size_bytes: null,
+  recipe: '{}',
+  starred: false,
+  created_by: 'user-1',
+  created_at: baseTime,
+  updated_at: baseTime,
+  description: null,
+  quality_rating: null,
+  rated_at: null,
+};
+
+test('thumbnail starred state stays in surrounding chrome', async ({ page }) => {
+  await mockImage(page);
+  await page.setViewportSize({ width: 240, height: 220 });
+  await mountComponent(page, 'Thumbnail', {
+    size: 'md',
+    showBadges: true,
+    isActive: true,
+    variant: {
+      ...completedImageVariant,
+      starred: true,
+    },
+  });
+
+  const thumbnail = page.locator('[class*="thumbnail"]').first();
+  await expect(thumbnail.locator('img')).toBeVisible();
+  await expect(page.getByText('★')).toHaveCount(0);
+  await expect(thumbnail.locator('[class*="starBadge"]')).toHaveCount(0);
+  await expect(thumbnail).toHaveCSS(
+    'box-shadow',
+    await resolvedShadow(page, '-3px 0 0 var(--color-success), 0 0 0 2px var(--color-star-border)'),
+  );
+  await screenshot(page, 'thumbnail-starred-chrome', { fullPage: true });
+});
+
 test('thumbnail failed retry action uses shared button styling', async ({ page }) => {
   await page.setViewportSize({ width: 240, height: 220 });
   await mountComponent(page, 'Thumbnail', {
