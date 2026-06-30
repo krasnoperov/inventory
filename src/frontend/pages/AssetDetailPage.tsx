@@ -67,6 +67,13 @@ type RelationEditorState =
   | { mode: 'create'; subject: SpaceSubject }
   | { mode: 'edit'; relation: SpaceRelation };
 
+const JOB_STATUS_LABELS = {
+  pending: 'Queued',
+  processing: 'Generating',
+  completed: 'Done',
+  failed: 'Failed',
+} as const;
+
 interface AssetTypeSelectProps {
   className?: string;
   value: string;
@@ -1369,19 +1376,9 @@ export default function AssetDetailPage() {
             <div className={styles.jobsOverlay}>
               {assetJobs.map((job) => (
                 <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
-                  <div className={styles.jobStatus}>
-                    {job.status === 'pending' && '⏳'}
-                    {job.status === 'processing' && '🎨'}
-                    {job.status === 'completed' && '✓'}
-                    {job.status === 'failed' && '✗'}
-                  </div>
+                  <span className={styles.jobStatus} aria-label={`${JOB_STATUS_LABELS[job.status]} job`} />
                   <div className={styles.jobInfo}>
-                    <span className={styles.jobTitle}>
-                      {job.status === 'pending' && 'Queued'}
-                      {job.status === 'processing' && 'Creating variant...'}
-                      {job.status === 'completed' && 'Done'}
-                      {job.status === 'failed' && 'Failed'}
-                    </span>
+                    <span className={styles.jobTitle}>{JOB_STATUS_LABELS[job.status]}</span>
                     {job.prompt && job.status !== 'completed' && (
                       <span className={styles.jobPrompt}>
                         "{job.prompt.length > 60 ? job.prompt.slice(0, 60) + '...' : job.prompt}"

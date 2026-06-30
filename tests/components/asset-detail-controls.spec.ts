@@ -446,7 +446,11 @@ test('asset detail overlays use flat chrome', async ({ page }) => {
   await mountComponent(page, 'AssetDetailOverlayChrome', {});
 
   await expect(page.getByRole('region', { name: 'Tile grid overlay' })).toHaveCSS('box-shadow', 'none');
-  await expect(page.getByRole('region', { name: 'Generation jobs' }).locator('[class*="jobCard"]')).toHaveCSS('box-shadow', 'none');
+  const generationJobs = page.getByRole('region', { name: 'Generation jobs' });
+  await expect(generationJobs.locator('[class*="jobCard"]')).toHaveCSS('box-shadow', 'none');
+  await expect(generationJobs.getByLabel('Generating job')).toBeVisible();
+  await expect(generationJobs).toContainText('Generating');
+  await expect(generationJobs).not.toContainText('Creating variant...');
 
   await screenshot(page, 'asset-detail-flat-overlays', { fullPage: true });
 });

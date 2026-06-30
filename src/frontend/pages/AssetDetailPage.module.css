@@ -562,8 +562,30 @@
 }
 
 .jobStatus {
-  font-size: 1rem;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 999px;
   flex-shrink: 0;
+  border: 2px solid currentColor;
+  background: var(--color-surface);
+}
+
+.jobCard.pending .jobStatus {
+  color: var(--color-text-muted);
+}
+
+.jobCard.processing .jobStatus {
+  color: var(--color-status-processing);
+}
+
+.jobCard.completed .jobStatus {
+  color: var(--color-status-completed);
+  background: currentColor;
+}
+
+.jobCard.failed .jobStatus {
+  color: var(--color-status-failed);
+  background: currentColor;
 }
 
 .jobInfo {
