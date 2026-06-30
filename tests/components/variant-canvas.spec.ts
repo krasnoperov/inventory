@@ -56,6 +56,27 @@ async function resolvedBackground(page: import('@playwright/test').Page, value: 
   }, value);
 }
 
+async function resolvedShadow(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((shadowValue) => {
+    const probe = document.createElement('div');
+    probe.style.boxShadow = shadowValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
+async function expectLocatorAfterShadow(
+  page: import('@playwright/test').Page,
+  locator: import('@playwright/test').Locator,
+  shadow: string,
+) {
+  await expect.poll(
+    async () => locator.evaluate((node) => getComputedStyle(node, '::after').boxShadow),
+  ).toBe(await resolvedShadow(page, shadow));
+}
+
 // The detail view drops its separate "Derivatives:" text list because the
 // canvas already shows derivatives as clickable lineage nodes. Guard that.
 test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
@@ -73,6 +94,10 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
     await expect(page.getByText(`Sprite: ${f}_grow`)).toBeVisible();
   }
   await expect(page.locator('.react-flow__node [class*="label"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  const ghostLabel = page.getByTitle('To: Sprite: wheat_grow');
+  const ghostNode = ghostLabel.locator('xpath=ancestor::div[contains(@class, "node")][1]');
+  const ghostPreview = ghostNode.locator('[class*="thumbnail"]').first();
+  await expectLocatorAfterShadow(page, ghostPreview, 'var(--relation-ring)');
   await screenshot(page, 'variant-canvas-lineage-labels', { fullPage: true });
 });
 
