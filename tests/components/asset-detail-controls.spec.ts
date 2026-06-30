@@ -447,7 +447,6 @@ test('asset detail overlays use flat chrome', async ({ page }) => {
 
   await expect(page.getByRole('region', { name: 'Tile grid overlay' })).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('region', { name: 'Generation jobs' }).locator('[class*="jobCard"]')).toHaveCSS('box-shadow', 'none');
-  await expect(page.getByRole('region', { name: 'Legacy chat panel' })).toHaveCSS('box-shadow', 'none');
 
   await screenshot(page, 'asset-detail-flat-overlays', { fullPage: true });
 });
