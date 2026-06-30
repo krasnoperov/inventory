@@ -82,6 +82,9 @@ test('owner sharing panel exposes request, invite, member, and invitation contro
     onRevokeMember: '__record__:revokeMember',
   });
 
+  const panel = page.getByRole('dialog', { name: 'Space sharing' });
+  await expect(panel).toHaveCSS('box-shadow', 'none');
+  await expect(panel).toHaveCSS('border-top-width', '1px');
   await expect(page.getByRole('heading', { name: 'Incoming requests' })).toBeVisible();
   await expect(page.getByText('requester@example.test')).toBeVisible();
   await expect(page.getByText('pending@example.test')).toBeVisible();
@@ -93,7 +96,7 @@ test('owner sharing panel exposes request, invite, member, and invitation contro
   await page.getByRole('button', { name: 'Approve viewer' }).click();
   await page.getByRole('button', { name: 'Reject' }).click();
   await selectDropdown(page, 'Change role for Edit Person', 'viewer');
-  await screenshot(page, 'space-sharing-panel-owner');
+  await screenshot(page, 'space-sharing-panel-flat-owner');
   await page.getByRole('button', { name: 'Revoke' }).first().click();
   await page
     .locator('section[aria-labelledby="sharing-invitations-heading"]')
