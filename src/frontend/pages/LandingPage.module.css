@@ -1045,26 +1045,12 @@
   margin: 0;
 }
 
-/* Dashboard primary action — matches the marketing CTA (flat accent). */
 .createButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.8125rem 1.375rem;
-  border-radius: var(--radius-lg);
-  background: var(--landing-accent);
-  color: var(--landing-on-accent);
-  border: none;
-  font-weight: 600;
-  font-size: 0.9375rem;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  white-space: nowrap;
-  box-shadow: var(--landing-accent-shadow);
-}
+  --ui-button-height: 2.75rem;
+  --ui-button-pad-x: 1.375rem;
+  --ui-button-font-size: 0.9375rem;
 
-.createButton:hover {
-  background: var(--landing-accent-hover);
+  white-space: nowrap;
 }
 
 /* Loading state */
@@ -1107,20 +1093,9 @@
 }
 
 .emptyCreateButton {
-  padding: 0.8125rem 1.5rem;
-  border-radius: var(--radius-lg);
-  background: var(--landing-accent);
-  color: var(--landing-on-accent);
-  border: none;
-  font-weight: 600;
-  font-size: 0.9375rem;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  box-shadow: var(--landing-accent-shadow);
-}
-
-.emptyCreateButton:hover {
-  background: var(--landing-accent-hover);
+  --ui-button-height: 2.75rem;
+  --ui-button-pad-x: 1.5rem;
+  --ui-button-font-size: 0.9375rem;
 }
 
 /* Spaces List */
@@ -1325,40 +1300,10 @@
   border-top: 1px solid var(--color-border);
 }
 
-.cancelButton {
+.modalActionButton {
   --ui-button-height: 44px;
   --ui-button-pad-x: 1.5rem;
   --ui-button-font-size: 1rem;
-
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  font-weight: 600;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.cancelButton:hover {
-  background: var(--color-bg);
-  border-color: var(--color-text-muted);
-}
-
-.submitButton {
-  --ui-button-height: 44px;
-  --ui-button-pad-x: 1.5rem;
-  --ui-button-font-size: 1rem;
-
-  border-radius: var(--radius-md);
-  background: var(--landing-accent);
-  color: var(--landing-on-accent);
-  border: none;
-  font-weight: 600;
-  box-shadow: var(--landing-accent-shadow);
-  transition: background 0.2s ease;
-}
-
-.submitButton:hover {
-  background: var(--landing-accent-hover);
 }
 
 /* =============================================================================
@@ -1440,8 +1385,7 @@
     flex-direction: column-reverse;
   }
 
-  .cancelButton,
-  .submitButton {
+  .modalActionButton {
     width: 100%;
   }
 }

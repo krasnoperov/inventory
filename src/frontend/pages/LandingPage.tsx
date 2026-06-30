@@ -155,7 +155,7 @@ export function LandingCreateSpaceDialog({
           <div className={styles.modalActions}>
             <Button
               type="button"
-              className={styles.cancelButton}
+              className={styles.modalActionButton}
               onClick={onClose}
               disabled={isCreating}
               variant="secondary"
@@ -164,7 +164,7 @@ export function LandingCreateSpaceDialog({
             </Button>
             <Button
               type="submit"
-              className={styles.submitButton}
+              className={styles.modalActionButton}
               disabled={isCreating}
               variant="primary"
             >
@@ -600,12 +600,13 @@ export default function LandingPage() {
                   <p className={styles.kicker}>Your workspace</p>
                   <h1 className={styles.spacesTitle}>Your Spaces</h1>
                 </div>
-                <button
+                <Button
                   className={styles.createButton}
                   onClick={() => setShowCreateModal(true)}
+                  variant="primary"
                 >
                   + Create Space
-                </button>
+                </Button>
               </div>
 
               <ErrorMessage
@@ -621,12 +622,13 @@ export default function LandingPage() {
                   <p className={styles.emptyDescription}>
                     Create your first space to start organizing your production assets.
                   </p>
-                  <button
+                  <Button
                     className={styles.emptyCreateButton}
                     onClick={() => setShowCreateModal(true)}
+                    variant="primary"
                   >
                     Create Your First Space
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className={styles.spacesList}>

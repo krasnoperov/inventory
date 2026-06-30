@@ -67,7 +67,7 @@ export function CreateSpaceDialog({
           <div className={styles.modalActions}>
             <Button
               type="button"
-              className={styles.cancelButton}
+              className={styles.modalActionButton}
               onClick={onClose}
               disabled={isCreating}
               variant="secondary"
@@ -76,7 +76,7 @@ export function CreateSpaceDialog({
             </Button>
             <Button
               type="submit"
-              className={styles.submitButton}
+              className={styles.modalActionButton}
               disabled={isCreating}
               variant="primary"
             >
@@ -184,12 +184,13 @@ export default function DashboardPage() {
         <div className={styles.container}>
           <div className={styles.header}>
             <h1 className={styles.title}>Your Spaces</h1>
-            <button
+            <Button
               className={styles.createButton}
               onClick={() => setShowCreateModal(true)}
+              variant="primary"
             >
               + Create Space
-            </button>
+            </Button>
           </div>
 
           <ErrorMessage message={error} />
@@ -203,12 +204,13 @@ export default function DashboardPage() {
               <p className={styles.emptyDescription}>
                 Create your first space to start organizing your inventory.
               </p>
-              <button
+              <Button
                 className={styles.emptyCreateButton}
                 onClick={() => setShowCreateModal(true)}
+                variant="primary"
               >
                 Create Your First Space
-              </button>
+              </Button>
             </div>
           ) : (
             <div className={styles.spacesList}>
