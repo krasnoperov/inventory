@@ -1119,6 +1119,43 @@ export function ForgeTray({
     showStylePanel ||
     showChat;
   const showNameChip = showNameInput && (isTrayExpanded || nameEdited || showDestinationToggle);
+  const destinationToggle = showDestinationToggle ? (
+    <div
+      className={styles.miniSeg}
+      role="radiogroup"
+      aria-label="Destination"
+      onKeyDown={handleDestinationKeyDown}
+    >
+      <Button
+        ref={currentDestinationRef}
+        role="radio"
+        aria-checked={destinationType === 'existing_asset'}
+        variant={destinationType === 'existing_asset' ? 'primary' : 'ghost'}
+        size="sm"
+        className={`${styles.miniSegText} ${destinationType === 'existing_asset' ? styles.active : ''}`}
+        onClick={() => setDestinationType('existing_asset')}
+        disabled={isSubmitting || !canUseExistingDestination}
+        tabIndex={destinationType === 'existing_asset' ? 0 : -1}
+        title={!canUseExistingDestination ? `${mediaModeConfig.label} mode creates ${selectedMediaKind} assets` : 'Add to current asset'}
+      >
+        Current
+      </Button>
+      <Button
+        ref={newDestinationRef}
+        role="radio"
+        aria-checked={destinationType === 'new_asset'}
+        variant={destinationType === 'new_asset' ? 'primary' : 'ghost'}
+        size="sm"
+        className={`${styles.miniSegText} ${destinationType === 'new_asset' ? styles.active : ''}`}
+        onClick={() => setDestinationType('new_asset')}
+        disabled={isSubmitting}
+        tabIndex={destinationType === 'new_asset' ? 0 : -1}
+        title="Create new asset"
+      >
+        New
+      </Button>
+    </div>
+  ) : null;
 
   // Build tray class with drag-over state
   const trayClasses = [styles.tray];
@@ -1151,59 +1188,6 @@ export function ForgeTray({
           </div>
         )}
         <div className={styles.inputArea}>
-          {/* Asset-detail destination toggle. Context lives in the slot above. */}
-          {showDestinationToggle && (
-            <>
-              {/* The destination toggle sits above the collapsible options. Stop
-                  its focus from expanding the tray so the buttons don't shift out
-                  from under a click (the tray grows upward). Blur must still
-                  bubble, otherwise focus leaving the header for outside the tray
-                  would never reach the tray handler and it would stay expanded. */}
-              <div
-                className={styles.destinationHeader}
-                onFocusCapture={(e) => e.stopPropagation()}
-              >
-                <span className={styles.destinationLabel}>Destination</span>
-                <div
-                  className={styles.miniSeg}
-                  role="radiogroup"
-                  aria-label="Destination"
-                  onKeyDown={handleDestinationKeyDown}
-                >
-                  <Button
-                    ref={currentDestinationRef}
-                    role="radio"
-                    aria-checked={destinationType === 'existing_asset'}
-                    variant={destinationType === 'existing_asset' ? 'primary' : 'ghost'}
-                    size="sm"
-                    className={`${styles.miniSegText} ${destinationType === 'existing_asset' ? styles.active : ''}`}
-                    onClick={() => setDestinationType('existing_asset')}
-                    disabled={isSubmitting || !canUseExistingDestination}
-                    tabIndex={destinationType === 'existing_asset' ? 0 : -1}
-                    title={!canUseExistingDestination ? `${mediaModeConfig.label} mode creates ${selectedMediaKind} assets` : 'Add to current asset'}
-                  >
-                    Current
-                  </Button>
-                  <Button
-                    ref={newDestinationRef}
-                    role="radio"
-                    aria-checked={destinationType === 'new_asset'}
-                    variant={destinationType === 'new_asset' ? 'primary' : 'ghost'}
-                    size="sm"
-                    className={`${styles.miniSegText} ${destinationType === 'new_asset' ? styles.active : ''}`}
-                    onClick={() => setDestinationType('new_asset')}
-                    disabled={isSubmitting}
-                    tabIndex={destinationType === 'new_asset' ? 0 : -1}
-                    title="Create new asset"
-                  >
-                    New
-                  </Button>
-                </div>
-              </div>
-              <div className={styles.hairline} />
-            </>
-          )}
-
           {/* Prompt — the hero. Everything else is in service of this line. */}
           <TextArea
             ref={textareaRef}
@@ -1446,6 +1430,8 @@ export function ForgeTray({
           {/* Control bar: reference actions + submit */}
           <div className={styles.controlBar}>
             <div className={styles.controlBarLeft}>
+              {destinationToggle}
+
               {/* References (image/video) */}
               {currentMediaGroup !== 'audio' && canAddMore && slots.length === 0 && (
                 <IconButton

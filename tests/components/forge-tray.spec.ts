@@ -790,7 +790,7 @@ test('forge tray on asset detail shows compact Current/New destination control',
   await disableAnimations(page);
 
   await expect(page.getByText('Hero Image')).toHaveCount(0);
-  await expect(page.getByText('Destination')).toBeVisible();
+  await expect(page.getByText('Destination')).toHaveCount(0);
   await expect(page.getByRole('radiogroup', { name: 'Destination' })).toBeVisible();
   await expect(page.getByRole('radio', { name: 'Current' })).toBeChecked();
   await expect(page.getByRole('radio', { name: 'New' })).not.toBeChecked();
@@ -897,8 +897,8 @@ test('forge tray collapses after touching the destination toggle then leaving', 
   await page.getByLabel('Prompt').click();
   await expect.poll(revealHeight).toBeGreaterThan(20);
 
-  // Focusing the destination toggle and then clicking outside must collapse the
-  // tray again — the header's blur has to reach the tray handler.
+  // Touching the destination toggle and then clicking outside must collapse the
+  // tray again.
   await page.getByRole('radio', { name: 'New' }).click();
   await page.mouse.click(10, 10);
   await expect.poll(revealHeight).toBeLessThan(2);
