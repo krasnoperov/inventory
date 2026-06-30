@@ -106,10 +106,14 @@ test('audio asset card surfaces playback, model, voice, and prompt', async ({ pa
     variants: [variant],
     spaceId: 'space-1',
     canEdit: true,
-    onAssetClick: '__noop__',
+    onAssetClick: '__record__:open',
     onAddToTray: '__noop__',
   });
 
+  const titleButton = page.locator('button[class*="titleButton"]');
+  await expect(titleButton).toBeVisible();
+  await expect(titleButton).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(titleButton.locator('[class*="audioDetails"]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
   await expect(page.getByText('Name')).toBeVisible();
   await expect(page.locator('[title="Rachel"]')).toBeVisible();
@@ -119,6 +123,12 @@ test('audio asset card surfaces playback, model, voice, and prompt', async ({ pa
   await expect(page.getByText('Merchant: Rachel, Traveler: Adam')).toBeVisible();
   await expect(page.getByText(/Fresh apples and clean maps/)).toBeVisible();
 
+  await titleButton.click();
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].eventName).toBe('open');
+  expect((calls[0].args[0] as { id: string }).id).toBe('audio-asset');
+
   await screenshot(page, 'asset-card-audio');
 });
 
@@ -126,7 +136,10 @@ test('asset card add action uses shared icon button outside media', async ({ pag
   await page.setViewportSize({ width: 320, height: 380 });
   await mockMedia(page);
   await mountComponent(page, 'AssetCard', {
-    asset: imageAsset,
+    asset: {
+      ...imageAsset,
+      name: 'Crystal Gate With An Extremely Long Decorative Production Name',
+    },
     variants: [imageVariant],
     spaceId: 'space-1',
     canEdit: true,
@@ -135,6 +148,15 @@ test('asset card add action uses shared icon button outside media', async ({ pag
   });
 
   await expect(page.getByRole('button', { name: 'Add to Forge Tray' })).toBeVisible();
+  const titleButton = page.locator('button[class*="titleButton"]');
+  await expect(titleButton).toBeVisible();
+  const nameLabel = titleButton.locator('[class*="name"]');
+  await expect.poll(() => nameLabel.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true);
+  await titleButton.click();
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.map((call) => call.eventName)).toEqual(['open']);
+  expect((calls[0].args[0] as { id: string }).id).toBe('image-asset');
+
   await page.locator('[class*="thumbnailArea"]').hover();
   await expect(page.getByRole('button', { name: 'View' })).toHaveCount(0);
   await screenshot(page, 'asset-card-shared-actions', { fullPage: true });
