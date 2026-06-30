@@ -127,6 +127,8 @@ test('audio asset card surfaces playback, model, voice, and prompt', async ({ pa
   await expect(titleButton.locator('[class*="audioDetails"]')).toHaveCount(0);
   await expect(page.locator('button[class*="thumbnailButton"]')).toHaveCount(0);
   await expect(page.locator('[class*="thumbnailArea"]').first()).toHaveCSS('cursor', 'auto');
+  await expect(page.getByText('Audio', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('Audio', { exact: true })).toHaveCSS('letter-spacing', 'normal');
   await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
   await expect(page.getByText('Name')).toBeVisible();
   await expect(page.getByText('Name')).toHaveCSS('text-transform', 'none');

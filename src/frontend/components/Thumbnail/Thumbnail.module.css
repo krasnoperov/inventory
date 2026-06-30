@@ -149,8 +149,8 @@
   font-size: var(--font-size-micro);
   color: var(--color-text-muted);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .audioPlayer {
