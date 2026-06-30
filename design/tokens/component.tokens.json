@@ -6,45 +6,6 @@
     "com.inventory.note": "Generated from CSS. Do not edit by hand. Run `pnpm run tokens:snapshot` after changing the canonical CSS."
   },
   "forge": {
-    "barBg": {
-      "$value": [
-        {
-          "color": {
-            "colorSpace": "oklch",
-            "components": [
-              1,
-              0,
-              0
-            ],
-            "alpha": 0.25
-          },
-          "position": 0
-        },
-        {
-          "color": {
-            "colorSpace": "oklch",
-            "components": [
-              1,
-              0,
-              0
-            ],
-            "alpha": 0.15
-          },
-          "position": 1
-        }
-      ],
-      "$type": "gradient",
-      "$extensions": {
-        "com.inventory.cssVar": "--forge-bar-bg",
-        "com.inventory.sourceFile": "theme.css",
-        "com.inventory.lightDark": [
-          "linear-gradient(180deg, oklch(100% 0 0 / 0.25) 0%, oklch(100% 0 0 / 0.15) 100%)",
-          "linear-gradient(180deg, oklch(100% 0 0 / 0.12) 0%, oklch(100% 0 0 / 0.06) 100%)"
-        ],
-        "com.inventory.gradientDirection": "180deg",
-        "com.inventory.cssValue": "linear-gradient(180deg, light-dark(oklch(100% 0 0 / 0.25), oklch(100% 0 0 / 0.12)) 0%, light-dark(oklch(100% 0 0 / 0.15), oklch(100% 0 0 / 0.06)) 100%)"
-      }
-    },
     "barBorder": {
       "$value": {
         "colorSpace": "oklch",
