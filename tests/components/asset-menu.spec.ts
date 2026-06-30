@@ -40,6 +40,7 @@ test('asset context menu actions use shared button styling', async ({ page }) =>
   const deleteAction = page.getByRole('button', { name: 'Delete Asset' });
   await expect(deleteAction).toBeVisible();
   await deleteAction.hover();
+  await expect(deleteAction).toHaveCSS('transform', 'none');
   await expect(deleteAction).toHaveCSS(
     'background-color',
     await resolvedBackground(page, 'var(--color-danger-bg)'),
