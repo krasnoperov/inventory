@@ -23,7 +23,8 @@
   height: auto;
   object-fit: contain;
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-floating);
+  outline: 1px solid var(--color-border);
+  box-shadow: none;
   cursor: default;
 }
 

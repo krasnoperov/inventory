@@ -15,8 +15,12 @@ test('image lightbox close action uses shared icon button styling', async ({ pag
 
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('img', { name: 'Crystal Gate preview' })).toBeVisible();
+  const image = page.getByRole('img', { name: 'Crystal Gate preview' });
+  await expect(image).toHaveCSS('box-shadow', 'none');
+  await expect(image).toHaveCSS('outline-style', 'solid');
+  await expect(image).toHaveCSS('outline-width', '1px');
   await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgb(243, 245, 249)');
-  await screenshot(page, 'image-lightbox-shared-close', { fullPage: true });
+  await screenshot(page, 'image-lightbox-flat-media-chrome', { fullPage: true });
 });
