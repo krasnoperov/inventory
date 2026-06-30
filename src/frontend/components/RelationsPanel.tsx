@@ -237,15 +237,21 @@ function RelationList({
           const source = relationSubject(relation);
           const target = relationObject(relation);
           const context = parseRelationContext(relation.context);
+          const relationTypeLabel = getRelationTypeLabel(relation.relation_type);
+          const relatedSubject = direction === 'outgoing'
+            ? getSubjectLabel(target, assets, variants)
+            : getSubjectLabel(source, assets, variants);
           return (
             <article key={`${direction}-${relation.id}`} className={styles.row}>
               <div className={styles.rowMain}>
                 <span className={styles.directionBadge}>{direction === 'outgoing' ? 'Out' : 'In'}</span>
                 <div className={styles.rowText}>
                   <div className={styles.rowTitle}>
-                    {direction === 'outgoing'
-                      ? `${getRelationTypeLabel(relation.relation_type)} -> ${getSubjectLabel(target, assets, variants)}`
-                      : `${getSubjectLabel(source, assets, variants)} -> ${getRelationTypeLabel(relation.relation_type)}`}
+                    {direction === 'incoming' && <span className={styles.relatedSubject}>{relatedSubject}</span>}
+                    <span className={styles.relationSeparator} aria-hidden="true" />
+                    <span className={styles.relationType}>{relationTypeLabel}</span>
+                    <span className={styles.relationSeparator} aria-hidden="true" />
+                    {direction === 'outgoing' && <span className={styles.relatedSubject}>{relatedSubject}</span>}
                   </div>
                   {context.label && <div className={styles.rowLabel}>{context.label}</div>}
                   {context.context && <div className={styles.rowMeta}>{context.context}</div>}
