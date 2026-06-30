@@ -377,6 +377,74 @@
         "com.inventory.cssValue": "0 12px 24px light-dark(oklch(0% 0 0 / 0.1), oklch(0% 0 0 / 0.3))"
       }
     },
+    "modal": {
+      "$value": [
+        {
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 16,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 32,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          },
+          "color": {
+            "colorSpace": "oklch",
+            "components": [
+              0,
+              0,
+              0
+            ],
+            "alpha": 0.12
+          }
+        },
+        {
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 2,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 8,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          },
+          "color": {
+            "colorSpace": "oklch",
+            "components": [
+              0,
+              0,
+              0
+            ],
+            "alpha": 0.08
+          }
+        }
+      ],
+      "$type": "shadow",
+      "$extensions": {
+        "com.inventory.cssVar": "--shadow-modal",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "0 16px 32px oklch(0% 0 0 / 0.12), 0 2px 8px oklch(0% 0 0 / 0.08)",
+          "0 16px 32px oklch(0% 0 0 / 0.36), 0 2px 8px oklch(0% 0 0 / 0.24)"
+        ],
+        "com.inventory.cssValue": "0 16px 32px light-dark(oklch(0% 0 0 / 0.12), oklch(0% 0 0 / 0.36)), 0 2px 8px light-dark(oklch(0% 0 0 / 0.08), oklch(0% 0 0 / 0.24))"
+      }
+    },
     "elevated": {
       "$value": {
         "offsetX": {

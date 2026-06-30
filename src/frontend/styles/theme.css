@@ -85,6 +85,7 @@
 
   /* ---- Semantic: shadows ---- */
   --shadow-header: 0 12px 24px light-dark(oklch(0% 0 0 / 0.1), oklch(0% 0 0 / 0.3));
+  --shadow-modal: 0 16px 32px light-dark(oklch(0% 0 0 / 0.12), oklch(0% 0 0 / 0.36)), 0 2px 8px light-dark(oklch(0% 0 0 / 0.08), oklch(0% 0 0 / 0.24));
   --shadow-elevated: 0 24px 40px light-dark(oklch(0% 0 0 / 0.16), oklch(0% 0 0 / 0.4));
   --shadow-floating: 0 30px 50px light-dark(oklch(0% 0 0 / 0.12), oklch(0% 0 0 / 0.35));
   --shadow-player: 0 -12px 24px light-dark(oklch(0% 0 0 / 0.15), oklch(0% 0 0 / 0.35));
