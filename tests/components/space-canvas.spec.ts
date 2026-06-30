@@ -133,6 +133,7 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
 
   // Cards render inside the frames (thumbnail button titled by asset name).
   await expect(page.getByRole('button', { name: 'Hero' }).first()).toBeVisible();
+  await expect(page.locator('[class*="colorDot"]').first()).toHaveCSS('box-shadow', 'none');
 
   // Frames are laid out without overlapping each other.
   await expect(page.locator('.react-flow__node')).toHaveCount(3);
@@ -164,6 +165,7 @@ test('space canvas frame card triggers open assets without changing media chrome
   await expect(thumbnailTrigger).toBeVisible();
   await expect(thumbnailTrigger).toHaveCSS('padding', '0px');
   await expect(thumbnailTrigger).toHaveCSS('border-top-width', '0px');
+  await expect(page.locator('[class*="colorDot"]').first()).toHaveCSS('box-shadow', 'none');
 
   await thumbnailTrigger.hover();
   await expect(nameTrigger).toBeVisible();

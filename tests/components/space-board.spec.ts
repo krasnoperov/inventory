@@ -236,6 +236,7 @@ test('media triggers open image assets without changing thumbnail chrome', async
   await expect(imageThumbnailTrigger).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(imageThumbnailTrigger).toHaveCSS('padding', '0px');
   await expect(imageThumbnailTrigger).toHaveCSS('border-top-width', '0px');
+  await expect(page.locator('[class*="colorDot"]').first()).toHaveCSS('box-shadow', 'none');
 
   await expect(page.locator('div[class*="thumbnailButton"][title="Merchant greeting"]')).toBeVisible();
   await expect(page.locator('button[class*="thumbnailButton"][title="Merchant greeting"]')).toHaveCount(0);
