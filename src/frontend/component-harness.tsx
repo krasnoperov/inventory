@@ -11,7 +11,7 @@ import { CompositionDetail, CompositionUsageList } from './components/Compositio
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
 import { CanvasToolbar, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { ForgeTray } from './components/ForgeTray';
-import { FormContainer, FormTitle } from './components/forms';
+import { FormContainer, FormTitle, formStyles } from './components/forms';
 import { ImageLightbox } from './components/ImageLightbox';
 import { LineageTree } from './components/LineageTree';
 import { Pagination } from './components/Pagination';
@@ -46,7 +46,9 @@ import DocsPage from './pages/DocsPage';
 import { LandingCreateSpaceDialog } from './pages/LandingPage';
 import { GoogleLoginButton } from './pages/LoginPage';
 import { HyperbolicCanvas } from './components/HyperbolicCanvas/HyperbolicCanvas';
+import PricingPage from './pages/PricingPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
+import profileStyles from './pages/ProfilePage.module.css';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import UnknownPage from './pages/UnknownPage';
@@ -766,6 +768,7 @@ function FormContainerPreview() {
         <FormTitle>Shared form</FormTitle>
         <TextInput aria-label="Project name" defaultValue="Market scene" fullWidth />
         <Button variant="primary">Continue</Button>
+        <button type="button" className={formStyles.submitButton}>Legacy submit</button>
       </FormContainer>
     </div>
   );
@@ -798,6 +801,29 @@ function DocsPagePreview(props: Record<string, unknown>) {
     <AuthContext.Provider value={docsAuthValue}>
       <DocsPage slug={typeof props.slug === 'string' ? props.slug : 'quickstart'} />
     </AuthContext.Provider>
+  );
+}
+
+function PricingPagePreview() {
+  return (
+    <AuthContext.Provider value={docsAuthValue}>
+      <PricingPage />
+    </AuthContext.Provider>
+  );
+}
+
+function ProfileSignInButtonPreview() {
+  return (
+    <div className={profileStyles.page}>
+      <AppHeader
+        leftSlot={(
+          <a href="/" className={profileStyles.brand}>
+            Make Effects
+          </a>
+        )}
+        rightSlot={<a href="/login" className={profileStyles.authButton}>Sign In</a>}
+      />
+    </div>
   );
 }
 
@@ -834,7 +860,9 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   ImageLightbox: ImageLightbox as unknown as ComponentType<Record<string, unknown>>,
   LineageTree: LineageTreePreview,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
+  PricingPage: PricingPagePreview,
   ProfileBillingActions: ProfileBillingActionsHarness,
+  ProfileSignInButton: ProfileSignInButtonPreview,
   PublicThemeToggle: PublicThemeToggle as unknown as ComponentType<Record<string, unknown>>,
   ProductionControls: ProductionControlsHarness,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
