@@ -202,5 +202,7 @@ test('thumbnail video preview uses tokenized backdrop and semantic contrast text
     'color',
     await resolvedColor(page, 'var(--button-primary-text)'),
   );
+  await expect(label).toHaveCSS('text-transform', 'none');
+  await expect(label).toHaveCSS('letter-spacing', 'normal');
   await screenshot(page, 'thumbnail-video-token-contrast', { fullPage: true });
 });
