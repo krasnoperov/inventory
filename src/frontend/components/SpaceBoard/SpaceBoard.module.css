@@ -372,7 +372,7 @@
   overflow: hidden;
   background: var(--color-surface);
   cursor: pointer;
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 
 .audioAssetCard .thumbnailButton {
@@ -382,8 +382,8 @@
 
 .thumbnailButton:hover:not(:disabled) {
   background: var(--color-surface-elevated);
-  box-shadow: var(--shadow-elevated);
-  transform: translateY(-1px);
+  box-shadow: none;
+  transform: none;
 }
 
 .audioAssetCard .thumbnailButton:hover {

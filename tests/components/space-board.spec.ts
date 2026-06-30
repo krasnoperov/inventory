@@ -242,6 +242,8 @@ test('media triggers open image assets without changing thumbnail chrome', async
   await expect(page.locator('button[class*="thumbnailButton"][title="Merchant greeting"]')).toHaveCount(0);
 
   await imageThumbnailTrigger.hover();
+  await expect(imageThumbnailTrigger).toHaveCSS('box-shadow', 'none');
+  await expect(imageThumbnailTrigger).toHaveCSS('transform', 'none');
   await screenshot(page, 'space-board-media-triggers', { fullPage: true });
   await imageThumbnailTrigger.click();
 
