@@ -52,7 +52,7 @@ import type { CollectionItem, SpaceCollection } from '../space/protocol';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
-import { Button, TextInput, UiSelect, type SelectOption } from '../ui';
+import { Button, IconButton, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './AssetDetailPage.module.css';
 
 // Confirmation dialog types
@@ -272,8 +272,23 @@ export function AssetCollectionsPanel({
     return (
       <section className={`${styles.collectionPanel} ${styles.collectionPanelCompact}`} aria-label="Collection membership">
         <div className={styles.collectionPanelHeader}>
-          <span>Collections</span>
-          <span>{totalMembershipCount}</span>
+          <span className={styles.collectionPanelHeaderText}>
+            <span>Collections</span>
+            <span>{totalMembershipCount}</span>
+          </span>
+          <IconButton
+            size="sm"
+            variant="ghost"
+            className={styles.collectionPanelIconAction}
+            aria-label="Manage collections"
+            title="Manage collections"
+            onClick={() => setManagementOpen(true)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+          </IconButton>
         </div>
         {totalMembershipCount > 0 ? (
           <div className={styles.collectionSummaryList}>
@@ -299,15 +314,6 @@ export function AssetCollectionsPanel({
         ) : (
           <p className={styles.collectionSummaryEmpty}>No collection membership</p>
         )}
-        <Button
-          size="sm"
-          variant="secondary"
-          className={styles.collectionPanelAction}
-          aria-label="Manage collections"
-          onClick={() => setManagementOpen(true)}
-        >
-          Manage
-        </Button>
       </section>
     );
   }

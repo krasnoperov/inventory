@@ -349,9 +349,8 @@
 }
 
 .collectionPanelCompact {
-  grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 0.35rem 0.6rem;
+  gap: 0.35rem;
   padding: 0;
   background: transparent;
   border: 0;
@@ -371,7 +370,14 @@
   justify-content: start;
 }
 
-.collectionPanelCompact .collectionPanelHeader span:last-child {
+.collectionPanelHeaderText {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.collectionPanelCompact .collectionPanelHeaderText span:last-child {
   min-width: 1.35rem;
   min-height: 1.35rem;
   display: inline-grid;
@@ -380,6 +386,17 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.collectionPanelIconAction {
+  --ui-button-height: 1.75rem;
+  flex: none;
+  margin-left: 0.15rem;
+  color: var(--color-text-muted);
+}
+
+.collectionPanelIconAction:hover:not(:disabled) {
   color: var(--color-text);
 }
 
@@ -472,13 +489,6 @@
 
 .collectionPanelAction {
   justify-self: start;
-}
-
-.collectionPanelCompact .collectionPanelAction {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: start;
-  justify-self: end;
 }
 
 .collectionPlacementControls {
