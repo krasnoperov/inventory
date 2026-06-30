@@ -232,24 +232,19 @@
 }
 
 .dismissButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border-radius: var(--radius-xs);
-  background: transparent;
-  border: none;
-  color: var(--color-text-muted);
-  font-size: 0.625rem;
-  cursor: pointer;
+  --ui-button-height: 1.125rem;
+  --ui-button-font-size: 0.625rem;
+  --ctl-hover: transparent;
+
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.15s;
 }
 
 .jobCard:hover .dismissButton {
+  opacity: 1;
+}
+
+.dismissButton:focus-visible {
   opacity: 1;
 }
 
