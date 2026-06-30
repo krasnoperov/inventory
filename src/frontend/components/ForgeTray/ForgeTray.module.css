@@ -6,13 +6,11 @@
   z-index: 500;
 
   /* Console-style control surfaces — borderless, grouped in faint tracks (theme-aware) */
-  --ctl-track: light-dark(oklch(20% 0.015 264 / 0.05), oklch(100% 0 0 / 0.05));
-  --ctl-hover: light-dark(oklch(20% 0.015 264 / 0.07), oklch(100% 0 0 / 0.09));
-  --ctl-active-bg: light-dark(oklch(100% 0 0), oklch(100% 0 0 / 0.1));
-  --ctl-active-shadow: 0 1px 2px light-dark(oklch(0% 0 0 / 0.12), oklch(0% 0 0 / 0.35));
+  --ctl-track: var(--color-bg);
+  --ctl-hover: var(--color-surface-elevated);
   /* Defined surfaces for the mode trigger / name chip */
-  --ctl-surface: light-dark(oklch(98% 0.003 264), oklch(25.5% 0.008 264));
-  --ctl-line: light-dark(oklch(89% 0.004 264), oklch(33% 0.008 264));
+  --ctl-surface: var(--color-surface-elevated);
+  --ctl-line: var(--color-border);
   --ctl-h: 2.375rem;
   --mono: ui-monospace, "SF Mono", "Geist Mono", Menlo, monospace;
 
@@ -201,7 +199,7 @@
 .removeButton:hover:not(:disabled) {
   background: var(--color-error);
   border-color: var(--color-error);
-  color: white;
+  color: var(--button-primary-text);
   transform: scale(1.1);
 }
 
@@ -253,8 +251,8 @@
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid oklch(100% 0 0 / 0.3);
-  border-top-color: white;
+  border: 2px solid var(--button-ghost-border);
+  border-top-color: var(--button-primary-text);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

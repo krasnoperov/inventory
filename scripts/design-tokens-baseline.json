@@ -37,16 +37,6 @@
       "oklch(65% 0.18 145)",
       "white"
     ],
-    "src/frontend/components/ForgeTray/ForgeTray.module.css": [
-      "oklch(20% 0.015 264/0.05)",
-      "oklch(20% 0.015 264/0.07)",
-      "oklch(25.5% 0.008 264)",
-      "oklch(33% 0.008 264)",
-      "oklch(89% 0.004 264)",
-      "oklch(98% 0.003 264)",
-      "white",
-      "white"
-    ],
     "src/frontend/components/LineageTree.module.css": [
       "white",
       "white",
