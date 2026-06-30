@@ -180,6 +180,7 @@ test('asset card add action uses shared icon button outside media', async ({ pag
   expect((calls[1].args[0] as { id: string }).id).toBe('image-asset');
 
   await page.locator('[class*="thumbnailArea"]').hover();
+  await expect(page.locator('[class*="card"]').first()).toHaveCSS('box-shadow', 'none');
   await addToTray.hover();
   await expect(addToTray).toHaveCSS(
     'color',
