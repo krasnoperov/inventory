@@ -563,6 +563,12 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
       role: 'assistant',
       content: 'Try this direction.',
       createdAt: baseTime,
+      descriptions: [{
+        variantId: 'variant-1',
+        assetName: 'Crystal gate',
+        description: 'A blue crystal gate with a clean silhouette.',
+        cached: false,
+      }],
       suggestedPrompt,
     }],
     sendChatMessage: '__record__:chat-send',
@@ -574,6 +580,10 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
   await page.getByLabel('Prompt').fill('Seed prompt');
   await page.getByTitle('Chat with Claude about your prompt').click();
   await expect(page.getByText('Chat with Claude')).toBeVisible();
+  await expect(page.locator('[class*="suggestedPrompt"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await page.getByText('Image analysis (1)').hover();
+  await expect(page.locator('[class*="descriptionsSummary"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await screenshot(page, 'forge-tray-chat-token-surfaces', { fullPage: true });
 
   await page.getByPlaceholder('Type a message...').fill('Make it moodier');
   await page.getByRole('button', { name: 'Send message' }).click();
