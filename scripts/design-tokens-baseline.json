@@ -31,18 +31,12 @@
       "black",
       "black"
     ],
-    "src/frontend/pages/AssetDetailPage.module.css": [
-      "white"
-    ],
     "src/frontend/pages/DocsPage.module.css": [
       "oklch(0.78 0.12 230/0.16)",
       "oklch(18% 0.035 260)",
       "oklch(30% 0.05 260/0.08)",
       "oklch(94% 0.02 245)",
       "oklch(97% 0.01 255)"
-    ],
-    "src/frontend/pages/SpacePage.module.css": [
-      "white"
     ],
     "src/frontend/pages/UnknownPage.module.css": [
       "#fff",
