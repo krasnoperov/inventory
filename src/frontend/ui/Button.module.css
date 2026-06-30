@@ -26,8 +26,8 @@
 }
 
 .button:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .button:disabled {
@@ -71,7 +71,7 @@
 .sm {
   --ui-button-height: 1.875rem;
   --ui-button-pad-x: 0.625rem;
-  --ui-button-font-size: 0.75rem;
+  --ui-button-font-size: var(--font-size-micro);
 }
 
 .md {
