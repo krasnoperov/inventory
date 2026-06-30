@@ -78,10 +78,11 @@ alias instead.
 Text placed on brand/glass surfaces uses the on-brand text ramp:
 `--text-on-brand-strong`, `--text-on-brand-muted`, `--text-on-brand-subtle`.
 
-### Glass surfaces & borders
+### Translucent surfaces & borders
 
-inventory uses translucent glass over the brand background. Pair a glass surface
-with a glass border and a per-component `backdrop-filter: blur(...)`.
+Inventory now defaults to solid app surfaces for work areas, dialogs, and tray
+controls. The glass tokens remain for legacy translucent accents only; do not
+pair them with backdrop blur for new UI.
 
 | Token | Role |
 |-|-|
@@ -222,8 +223,9 @@ reach for the semantic layer instead.
 
 ### Forge tray (`--forge-*`)
 
-The glossy-glass generation bar. Bar shell: `--forge-bar-bg` (vertical glass
-gradient), `--forge-bar-border`, `--forge-bar-border-inner`, `--forge-bar-shadow`.
+The generation tray uses the semantic app surface by default. The older
+`--forge-bar-*` shell tokens remain for compatibility with legacy surfaces;
+prefer semantic surface, border, and shadow tokens for new tray chrome.
 Input: `--forge-input-bg`, `--forge-input-border`, `--forge-input-focus-glow`.
 Action button: `--forge-button-bg`, `--forge-button-border`, `--forge-button-shadow`,
 `--forge-button-hover-bg`. Slots: `--forge-slot-size` (aliases `--thumb-size-sm`),
