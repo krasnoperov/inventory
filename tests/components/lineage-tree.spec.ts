@@ -110,6 +110,9 @@ test('lineage tree uses shared controls for graph toggle and sever actions', asy
   const lineageNode = page.getByAltText('Parent variant').locator('..');
   await lineageNode.hover();
   await expect(lineageNode).toHaveCSS('transform', 'none');
+  await severAction.hover();
+  await expect(severAction).toHaveCSS('transform', 'none');
+  await expect(severAction).toHaveCSS('transition-property', 'background-color, color, opacity');
   await severAction.click();
   await expect.poll(() => page.evaluate(() => window.__componentHarnessCalls ?? [])).toContain('severLineage');
 
