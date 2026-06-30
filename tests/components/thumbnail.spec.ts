@@ -111,6 +111,10 @@ test('thumbnail video preview uses tokenized backdrop and semantic contrast text
 
   const label = page.getByText('Video');
   await expect(label).toBeVisible();
+  await expect(page.locator('[class*="thumbnail"]').first()).toHaveCSS(
+    'transition-property',
+    'border-color, box-shadow',
+  );
   await expect(label.locator('xpath=ancestor::div[contains(@class, "videoPreview")]')).toHaveCSS(
     'background-color',
     await resolvedColor(page, 'var(--thumb-video-backdrop)'),
