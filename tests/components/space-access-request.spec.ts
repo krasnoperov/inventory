@@ -19,6 +19,7 @@ test('private Space access view lets a signed-in non-member request access', asy
 
   await expect(page.getByRole('heading', { name: 'This Space is private' })).toBeVisible();
   await expect(page.getByText('rina@example.com')).toBeVisible();
+  await expect(page.locator('[class*="identity"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByRole('button', { name: 'Request access' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Request access' }).click();

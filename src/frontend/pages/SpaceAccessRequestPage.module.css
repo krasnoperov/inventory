@@ -84,7 +84,7 @@
   padding: 0.875rem 1rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--surface-glass-background);
+  background: var(--color-surface-elevated);
 }
 
 .identityLabel {
