@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { mountComponent, screenshot } from './harness';
 
 const baseTime = 1_700_000_000_000;
@@ -54,6 +54,23 @@ async function resolvedColor(page: Page, value: string) {
     probe.remove();
     return resolved;
   }, value);
+}
+
+async function resolvedShadow(page: Page, value: string) {
+  return page.evaluate((shadowValue) => {
+    const probe = document.createElement('div');
+    probe.style.boxShadow = shadowValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
+async function expectLocatorAfterShadow(page: Page, locator: Locator, shadow: string) {
+  await expect.poll(
+    async () => locator.evaluate((node) => getComputedStyle(node, '::after').boxShadow),
+  ).toBe(await resolvedShadow(page, shadow));
 }
 
 const sourceAsset = {
@@ -217,14 +234,19 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Reject' })).toHaveAttribute('aria-pressed', 'false');
 
   const approvedDirection = page.getByRole('button', { name: /North/ });
+  await expectLocatorAfterShadow(page, approvedDirection, 'var(--selection-ring)');
   const approvedBorderColor = await approvedDirection.evaluate((element) => getComputedStyle(element).borderLeftColor);
   await approvedDirection.hover();
   await expect.poll(
     () => approvedDirection.evaluate((element) => getComputedStyle(element).borderLeftColor),
   ).toBe(approvedBorderColor);
 
-  await page.getByRole('button', { name: /East/ }).click();
-  await page.getByRole('button', { name: /East/ }).hover();
+  const eastDirection = page.getByRole('button', { name: /East/ });
+  await eastDirection.focus();
+  await expect(eastDirection).toHaveCSS('box-shadow', await resolvedShadow(page, 'var(--focus-ring)'));
+  await expectLocatorAfterShadow(page, eastDirection, 'none');
+  await eastDirection.click();
+  await eastDirection.hover();
   await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Reject' })).toHaveCount(1);
   await expect(page.locator('[class*="ratingBadge"], [class*="ratingButtons"]')).toHaveCount(0);
