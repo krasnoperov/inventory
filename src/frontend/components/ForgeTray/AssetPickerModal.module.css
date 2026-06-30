@@ -151,8 +151,8 @@
 }
 
 .assetItem:hover .thumbnailWrapper {
-  box-shadow: var(--shadow-header);
-  transform: translateY(-2px);
+  box-shadow: none;
+  transform: none;
 }
 
 .assetItem:hover .assetThumbnail {
@@ -181,7 +181,7 @@
   position: relative;
   border-radius: var(--thumb-radius);
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition: none;
 }
 
 .thumbnailWrapper::after {

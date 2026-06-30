@@ -1058,10 +1058,9 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(incompatibleVideo).toHaveCSS('opacity', '1');
   const heroImageChoice = page.getByRole('button', { name: /Hero Image, character \/ image/ }).first();
   await heroImageChoice.hover();
-  await expect(heroImageChoice.locator('[class*="thumbnailWrapper"]').first()).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--shadow-header)'),
-  );
+  const heroImageThumbnail = heroImageChoice.locator('[class*="thumbnailWrapper"]').first();
+  await expect(heroImageThumbnail).toHaveCSS('box-shadow', 'none');
+  await expect(heroImageThumbnail).toHaveCSS('transform', 'none');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-asset-picker', { fullPage: true });
 
@@ -1069,7 +1068,7 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(heroImageChoice).toHaveAttribute('aria-pressed', 'true');
   await expectLocatorAfterShadow(
     page,
-    heroImageChoice.locator('[class*="thumbnailWrapper"]').first(),
+    heroImageThumbnail,
     'var(--selection-ring)',
   );
   await page.mouse.move(0, 0);
