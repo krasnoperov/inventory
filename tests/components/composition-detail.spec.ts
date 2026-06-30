@@ -139,6 +139,7 @@ test('composition detail creates compositions and sets an exact output variant',
 
   const output = page.getByRole('heading', { name: 'Output' }).locator('xpath=ancestor::section[1]');
   await output.getByRole('button', { name: 'Add' }).click();
+  await expect(page.locator('[class*="pickerOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await page.getByLabel('Search exact variants').fill('Scene Bar');
   await screenshot(page, 'composition-variant-picker', { fullPage: true });
   await page.getByRole('dialog', { name: 'Choose exact variant' }).getByRole('button', { name: /Scene Bar/ }).click();
