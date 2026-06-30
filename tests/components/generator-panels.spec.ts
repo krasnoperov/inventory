@@ -34,6 +34,28 @@ async function expectTransparentBackdrop(page: Page) {
   await expect(backdrop).toHaveCSS('backdrop-filter', 'none');
 }
 
+async function resolvedBackground(page: Page, value: string) {
+  return page.evaluate((backgroundValue) => {
+    const probe = document.createElement('div');
+    probe.style.background = backgroundValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
+async function resolvedColor(page: Page, value: string) {
+  return page.evaluate((colorValue) => {
+    const probe = document.createElement('div');
+    probe.style.color = colorValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 const sourceAsset = {
   id: 'hero',
   name: 'Hero Character',
@@ -217,4 +239,147 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
     eventName: 'rateRotation',
     args: ['rotation-east', 'rejected'],
   }));
+});
+
+test('generator panels use tokenized completed progress surfaces', async ({ page }) => {
+  await mockImages(page);
+  await page.setViewportSize({ width: 900, height: 820 });
+
+  const tileSet = {
+    id: 'tile-set-progress',
+    asset_id: sourceAsset.id,
+    tile_type: 'terrain',
+    grid_width: 2,
+    grid_height: 2,
+    status: 'generating',
+    seed_variant_id: null,
+    config: '{}',
+    current_step: 1,
+    total_steps: 4,
+    error_message: null,
+    created_by: 'user-1',
+    created_at: baseTime,
+    updated_at: baseTime,
+  };
+  const completedTileVariant = { ...sourceVariant, id: 'tile-complete' };
+  const processingTileVariant = { ...sourceVariant, id: 'tile-processing', status: 'processing', image_key: null, thumb_key: null };
+
+  await mountComponent(page, 'TileSetPanel', {
+    tileSets: [tileSet],
+    tilePositions: [
+      { id: 'tile-pos-1', tile_set_id: tileSet.id, variant_id: completedTileVariant.id, grid_x: 0, grid_y: 0, created_at: baseTime },
+      { id: 'tile-pos-2', tile_set_id: tileSet.id, variant_id: processingTileVariant.id, grid_x: 1, grid_y: 0, created_at: baseTime },
+    ],
+    variants: [completedTileVariant, processingTileVariant],
+    hasDefaultStyle: true,
+    onSubmit: '__record__:submitTileSet',
+    onCancel: '__record__:cancelTileSet',
+    onClose: '__record__:closeTileSet',
+  });
+
+  const completedSurface = await resolvedBackground(page, 'var(--color-status-completed-bg)');
+  const completedBorder = await resolvedColor(page, 'var(--color-status-completed)');
+  const tileProgressCell = page.locator('[class*="progressCell"][class*="completed"]').first();
+  await expect(tileProgressCell).toHaveCSS('background-color', completedSurface);
+  await expect(tileProgressCell).toHaveCSS('border-color', completedBorder);
+  await screenshot(page, 'tile-set-panel-tokenized-progress', { fullPage: true });
+
+  const rotationSet = {
+    id: 'rotation-progress',
+    source_variant_id: sourceVariant.id,
+    status: 'generating',
+    config: JSON.stringify({ type: '4-directional' }),
+    total_steps: 4,
+    current_step: 1,
+    error_message: null,
+    created_at: baseTime,
+    updated_at: baseTime,
+  };
+  const completedRotationVariant = { ...sourceVariant, id: 'rotation-complete' };
+  const completedEastRotationVariant = { ...sourceVariant, id: 'rotation-complete-east' };
+  const rotationViews = [
+    { id: 'rotation-view-1', rotation_set_id: rotationSet.id, variant_id: completedRotationVariant.id, direction: 'North', step_index: 0, prompt: null, created_at: baseTime, updated_at: baseTime },
+    { id: 'rotation-view-2', rotation_set_id: rotationSet.id, variant_id: completedEastRotationVariant.id, direction: 'East', step_index: 1, prompt: null, created_at: baseTime, updated_at: baseTime },
+  ];
+
+  await mountComponent(page, 'RotationPanel', {
+    sourceVariant,
+    sourceAsset,
+    rotationSets: [rotationSet],
+    rotationViews,
+    variants: [sourceVariant, completedRotationVariant, completedEastRotationVariant],
+    hasDefaultStyle: true,
+    onSubmit: '__record__:submitRotation',
+    onCancel: '__record__:cancelRotation',
+    onClose: '__record__:closeRotation',
+  });
+
+  const rotationProgressCell = page.locator('[class*="directionCell"][class*="completed"]').nth(1);
+  await expect(rotationProgressCell).toHaveCSS('background-color', completedSurface);
+  await expect(rotationProgressCell).toHaveCSS('border-color', completedBorder);
+  await screenshot(page, 'rotation-panel-tokenized-progress', { fullPage: true });
+});
+
+test('generator panels use tokenized failed error surfaces', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 820 });
+
+  const failedTileSet = {
+    id: 'tile-set-failed',
+    asset_id: sourceAsset.id,
+    tile_type: 'terrain',
+    grid_width: 2,
+    grid_height: 2,
+    status: 'failed',
+    seed_variant_id: null,
+    config: JSON.stringify({ prompt: 'mossy forest floor' }),
+    current_step: 1,
+    total_steps: 4,
+    error_message: 'Tile set provider failed',
+    created_by: 'user-1',
+    created_at: baseTime,
+    updated_at: baseTime,
+  };
+
+  await mountComponent(page, 'TileSetPanel', {
+    tileSets: [failedTileSet],
+    tilePositions: [],
+    variants: [sourceVariant],
+    hasDefaultStyle: true,
+    onSubmit: '__record__:submitTileSet',
+    onCancel: '__record__:cancelTileSet',
+    onClose: '__record__:closeTileSet',
+  });
+
+  const failedSurface = await resolvedBackground(page, 'var(--color-status-failed-bg)');
+  await expect(page.getByText('Tile Set Failed')).toBeVisible();
+  await expect(page.locator('[class*="errorIcon"]').first()).toHaveCSS('background-color', failedSurface);
+  await screenshot(page, 'tile-set-panel-tokenized-error', { fullPage: true });
+
+  const failedRotationSet = {
+    id: 'rotation-failed',
+    source_variant_id: sourceVariant.id,
+    status: 'failed',
+    config: JSON.stringify({ type: '4-directional', subjectDescription: 'pixel art warrior' }),
+    total_steps: 4,
+    current_step: 1,
+    error_message: 'Rotation provider failed',
+    created_at: baseTime,
+    updated_at: baseTime,
+  };
+
+  await mountComponent(page, 'RotationPanel', {
+    sourceVariant,
+    sourceAsset,
+    rotationSets: [failedRotationSet],
+    rotationViews: [],
+    variants: [sourceVariant],
+    hasDefaultStyle: true,
+    onSubmit: '__record__:submitRotation',
+    onCancel: '__record__:cancelRotation',
+    onClose: '__record__:closeRotation',
+  });
+
+  await expect(page.getByText('Rotation Failed')).toBeVisible();
+  await expect(page.locator('[class*="errorIcon"]').first()).toHaveCSS('background-color', failedSurface);
+  await screenshot(page, 'rotation-panel-tokenized-error', { fullPage: true });
 });
