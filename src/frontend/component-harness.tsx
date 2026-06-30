@@ -41,6 +41,7 @@ import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage'
 import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
 import assetDetailStyles from './pages/AssetDetailPage.module.css';
 import { CreateSpaceDialog } from './pages/DashboardPage';
+import dashboardStyles from './pages/DashboardPage.module.css';
 import DocsPage from './pages/DocsPage';
 import { LandingCreateSpaceDialog } from './pages/LandingPage';
 import { GoogleLoginButton } from './pages/LoginPage';
@@ -770,6 +771,28 @@ function FormContainerPreview() {
   );
 }
 
+function DashboardHoverChromePreview() {
+  return (
+    <div className={dashboardStyles.container} style={{ padding: '2rem', maxWidth: '680px' }}>
+      <div className={dashboardStyles.header}>
+        <h1 className={dashboardStyles.title}>Spaces</h1>
+        <a className={dashboardStyles.authButton} href="/profile">Profile</a>
+      </div>
+      <div className={dashboardStyles.spacesList}>
+        <a className={dashboardStyles.spaceCard} href="/spaces/preview">
+          <div className={dashboardStyles.spaceCardHeader}>
+            <h3 className={dashboardStyles.spaceName}>Gameplay board</h3>
+            <span className={`${dashboardStyles.roleBadge} ${dashboardStyles.roleBadgeOwner}`}>owner</span>
+          </div>
+          <div className={dashboardStyles.spaceCardFooter}>
+            <span className={dashboardStyles.spaceDate}>Created Jun 30, 2026</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function DocsPagePreview(props: Record<string, unknown>) {
   return (
     <AuthContext.Provider value={docsAuthValue}>
@@ -801,6 +824,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   CompositionUsageList: CompositionUsageList as unknown as ComponentType<Record<string, unknown>>,
   CompositionPlacementControl: CompositionPlacementControl as unknown as ComponentType<Record<string, unknown>>,
   CreateSpaceDialog: CreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
+  DashboardHoverChrome: DashboardHoverChromePreview,
   DocsPage: DocsPagePreview,
   GoogleLoginButton: GoogleLoginButton as unknown as ComponentType<Record<string, unknown>>,
   HyperbolicCanvas: HyperbolicCanvas as unknown as ComponentType<Record<string, unknown>>,
