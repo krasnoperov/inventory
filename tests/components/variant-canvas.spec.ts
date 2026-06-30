@@ -254,6 +254,43 @@ test('variant canvas starred chrome stays flat', async ({ page }) => {
   await screenshot(page, 'variant-canvas-starred-flat-chrome');
 });
 
+test('variant canvas hover chrome stays flat', async ({ page }) => {
+  const hoverAsset = {
+    ...asset('hover', 'Hover Sprite'),
+    active_variant_id: null,
+  };
+  const hoverVariant = {
+    ...variant('hover'),
+    id: 'hover-v',
+    image_key: 'images/space/hover-v.png',
+    thumb_key: 'images/space/hover-v_thumb.webp',
+    media_key: 'images/space/hover-v.png',
+    media_width: 240,
+    media_height: 180,
+  };
+
+  await mockMedia(page);
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    asset: hoverAsset,
+    variants: [hoverVariant],
+    lineage: [],
+    allVariants: [hoverVariant],
+    allAssets: [hoverAsset],
+    onVariantClick: '__record__:variant-click',
+  });
+
+  const preview = page.locator('[class*="thumbnail"]').first();
+  await expect(preview.locator('img')).toBeVisible();
+  await preview.hover();
+  await expect(preview).toHaveCSS('box-shadow', 'none');
+  await page.waitForSelector('[class*="ready"] .react-flow__node');
+  await screenshot(page, 'variant-canvas-flat-hover-chrome');
+});
+
 test('variant canvas active and forked-from chrome uses tokenized surfaces', async ({ page }) => {
   const source = asset('source', 'Source sprite');
   const forked = {
