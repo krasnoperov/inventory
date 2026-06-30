@@ -20,25 +20,7 @@
 }
 
 .toggleButton {
-  padding: 0.375rem 0.75rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.toggleButton:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.toggleButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  white-space: nowrap;
 }
 
 .tree {
@@ -149,19 +131,19 @@
   position: absolute;
   top: 2px;
   right: 2px;
-  width: 16px;
-  height: 16px;
   border-radius: 50%;
-  border: none;
-  background: var(--color-error);
-  color: white;
-  font-size: 0.5rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  --ui-button-height: 1.125rem;
   opacity: 0;
-  transition: opacity 0.2s, transform 0.2s;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.severButton svg {
+  width: 0.625rem;
+  height: 0.625rem;
 }
 
 .node:hover .severButton {
@@ -169,7 +151,6 @@
 }
 
 .severButton:hover {
-  background: var(--color-danger);
   transform: scale(1.1);
 }
 

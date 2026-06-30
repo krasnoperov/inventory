@@ -1,4 +1,4 @@
-import { StrictMode, type ComponentType } from 'react';
+import { StrictMode, type ComponentProps, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
 import { AudioPlayer } from './components/AudioPlayer/AudioPlayer';
@@ -12,6 +12,7 @@ import { CompositionPlacementControl } from './components/CompositionPlacementCo
 import { CanvasToolbar, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { ForgeTray } from './components/ForgeTray';
 import { ImageLightbox } from './components/ImageLightbox';
+import { LineageTree } from './components/LineageTree';
 import { Pagination } from './components/Pagination';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
 import { RelationsCanvas } from './components/RelationsCanvas/RelationsCanvas';
@@ -500,6 +501,64 @@ function RelationsCanvasPreview(props: Record<string, unknown>) {
   );
 }
 
+const lineagePreviewCurrent = {
+  id: 'hero-variant',
+  asset_id: 'hero',
+  image_key: 'images/space/hero-variant.png',
+  thumb_key: 'images/space/hero-variant_thumb.webp',
+};
+
+function LineageTreePreview(props: Record<string, unknown>) {
+  const overrides = props as Partial<ComponentProps<typeof LineageTree>>;
+  const defaults: ComponentProps<typeof LineageTree> = {
+    currentVariant: lineagePreviewCurrent,
+    parents: [
+      {
+        variant: {
+          id: 'map-variant',
+          asset_id: 'map',
+          image_key: 'images/space/map-variant.png',
+          thumb_key: 'images/space/map-variant_thumb.webp',
+        },
+        relation_type: 'derived',
+        lineage_id: 'lineage-map-hero',
+      },
+    ],
+    children: [
+      {
+        variant: {
+          id: 'atlas-variant',
+          asset_id: 'atlas',
+          image_key: 'images/space/atlas-variant.png',
+          thumb_key: 'images/space/atlas-variant_thumb.webp',
+        },
+        relation_type: 'refined',
+        lineage_id: 'lineage-hero-atlas',
+      },
+      {
+        variant: {
+          id: 'output-variant',
+          asset_id: 'output',
+          image_key: 'images/space/output-variant.png',
+          thumb_key: 'images/space/output-variant_thumb.webp',
+        },
+        relation_type: 'forked',
+        severed: true,
+        lineage_id: 'lineage-hero-output',
+      },
+    ],
+    onSelectVariant: () => undefined,
+    onSeverLineage: () => undefined,
+    spaceId: 'space-1',
+  };
+
+  return (
+    <div style={{ maxWidth: '520px' }}>
+      <LineageTree {...defaults} {...overrides} />
+    </div>
+  );
+}
+
 function ProfileBillingActionsHarness(props: Record<string, unknown>) {
   return (
     <div style={{ display: 'grid', gap: '16px', maxWidth: '640px' }}>
@@ -534,6 +593,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   LandingCreateSpaceDialog: LandingCreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   ImageLightbox: ImageLightbox as unknown as ComponentType<Record<string, unknown>>,
+  LineageTree: LineageTreePreview,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
   ProfileBillingActions: ProfileBillingActionsHarness,
   ProductionControls: ProductionControlsHarness,
