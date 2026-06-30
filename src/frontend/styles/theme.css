@@ -36,8 +36,6 @@
   --color-primary-hover: light-dark(oklch(50% 0.18 276), oklch(70% 0.16 276));
   --color-error: var(--palette-red);
   --color-success: light-dark(oklch(55% 0.15 145), oklch(70% 0.13 145));
-  /* Modal/lightbox scrim — intentionally dark in both themes */
-  --color-overlay-scrim: oklch(0% 0 0 / 0.8);
 
   /* ---- Semantic: brand ---- */
   --gradient-brand: var(--color-bg); /* solid, matches app style */
