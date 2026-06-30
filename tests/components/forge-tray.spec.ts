@@ -536,10 +536,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect(page.getByText('Style Library')).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('[class*="stylePanel"]').first()).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--shadow-modal)'),
-  );
+  await expect(page.locator('[class*="stylePanel"]').first()).toHaveCSS('box-shadow', 'none');
   await expect(page.locator('[class*="defaultBadge"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
@@ -550,10 +547,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect(page.getByText('Chat with Claude')).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--shadow-modal)'),
-  );
+  await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS('box-shadow', 'none');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-chat-sheet', { fullPage: true });
 });
@@ -1054,10 +1048,7 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(page.getByText('Image references')).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('[class*="modal"]').first()).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--shadow-modal)'),
-  );
+  await expect(page.locator('[class*="modal"]').first()).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('button', { name: /Hero Image/ })).toBeEnabled();
   const incompatibleVideo = page.getByRole('button', { name: /Hero Video, animation \/ video\. Image mode cannot use video references/ });
   await expect(incompatibleVideo).toBeDisabled();

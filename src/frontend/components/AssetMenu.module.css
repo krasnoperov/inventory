@@ -5,7 +5,7 @@
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-modal);
+  box-shadow: none;
   min-width: 200px;
   overflow: hidden;
   animation: menuAppear 0.15s ease;
