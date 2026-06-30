@@ -903,6 +903,8 @@ test('style reference usage panel displays reverse usage', async ({ page }) => {
   });
 
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('border-top-width', '0px');
+  await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.getByText('Style usage')).toBeVisible();
   await expect(page.getByText('3', { exact: true })).toBeVisible();
   await expect(page.getByText('Russafa refs')).toBeVisible();
