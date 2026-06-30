@@ -244,6 +244,10 @@ test('media triggers open image assets without changing thumbnail chrome', async
   await imageThumbnailTrigger.hover();
   await expect(imageThumbnailTrigger).toHaveCSS('box-shadow', 'none');
   await expect(imageThumbnailTrigger).toHaveCSS('transform', 'none');
+  const imageCaption = page.locator('[class*="caption"]').filter({ hasText: 'Hero sprite' });
+  await expect(imageCaption).toHaveCSS('opacity', '1');
+  await expect(imageCaption).toHaveCSS('transform', 'none');
+  await expect(imageCaption).toHaveCSS('transition-property', 'opacity');
   await screenshot(page, 'space-board-media-triggers', { fullPage: true });
   await imageThumbnailTrigger.click();
 
