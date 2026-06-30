@@ -32,7 +32,7 @@ import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPa
 import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AuthContext, type AuthContextType } from './contexts/AuthContextProvider';
-import { Button, Checkbox, IconButton, UiSelect, type SelectOption } from './ui';
+import { Button, Checkbox, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from './ui';
 import type { MeterStatus } from './hooks/useBillingStatus';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
@@ -696,6 +696,16 @@ function UiCheckboxPreview() {
   );
 }
 
+function UiTextFieldPreview() {
+  return (
+    <div style={{ display: 'grid', gap: '0.75rem', width: '320px', padding: '2rem' }}>
+      <TextInput aria-label="Preview text input" defaultValue="Sprite name" fullWidth />
+      <TextArea aria-label="Preview text area" defaultValue="A concise prompt for a clean game asset." fullWidth compact />
+      <TextInput aria-label="Disabled text input" value="Disabled" disabled readOnly fullWidth />
+    </div>
+  );
+}
+
 function DocsPagePreview(props: Record<string, unknown>) {
   return (
     <AuthContext.Provider value={docsAuthValue}>
@@ -753,6 +763,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   UiButton: UiButtonPreview,
   UiCheckbox: UiCheckboxPreview,
   UiSelect: UiSelectPreview,
+  UiTextField: UiTextFieldPreview,
   UsageIndicatorView: UsageIndicatorView as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
   VariantDetailsPanel: VariantDetailsPanel as unknown as ComponentType<Record<string, unknown>>,
