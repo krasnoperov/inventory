@@ -473,6 +473,8 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
 
   await selectDropdown(page, 'Style selector', 'Manage styles...');
   await expect(page.getByText('Style Library')).toBeVisible();
+  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
@@ -480,6 +482,8 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
 
   await page.getByTitle('Chat with Claude about your prompt').click();
   await expect(page.getByText('Chat with Claude')).toBeVisible();
+  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-chat-sheet', { fullPage: true });
 });
@@ -515,6 +519,8 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
 
   await addReferenceButton.click();
   await expect(page.getByText('Image references')).toBeVisible();
+  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await page.getByRole('button', { name: /Close/i }).click();
 
   const fileChooserPromise = page.waitForEvent('filechooser');
@@ -526,6 +532,8 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
     buffer: Buffer.from('fake image'),
   });
   await expect(page.getByText('Create New Asset')).toBeVisible();
+  await expect(page.locator('[class*="uploadPromptOverlay"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="uploadPromptOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.getByRole('button', { name: 'Create Asset' })).toBeEnabled();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-upload-prompt', { fullPage: true });
@@ -948,6 +956,8 @@ test('forge tray picker disables references incompatible with the selected media
 
   await page.getByTitle('Add reference').click();
   await expect(page.getByText('Image references')).toBeVisible();
+  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.getByRole('button', { name: /Hero Image/ })).toBeEnabled();
   const incompatibleVideo = page.getByRole('button', { name: /Hero Video, animation \/ video\. Image mode cannot use video references/ });
   await expect(incompatibleVideo).toBeDisabled();
