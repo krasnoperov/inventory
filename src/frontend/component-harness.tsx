@@ -31,10 +31,12 @@ import { VariantCanvas } from './components/VariantCanvas';
 import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPanel';
 import { BillingPlanActions } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
+import { AuthContext, type AuthContextType } from './contexts/AuthContextProvider';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
 import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
 import { CreateSpaceDialog } from './pages/DashboardPage';
+import DocsPage from './pages/DocsPage';
 import { LandingCreateSpaceDialog } from './pages/LandingPage';
 import { GoogleLoginButton } from './pages/LoginPage';
 import { HyperbolicCanvas } from './components/HyperbolicCanvas/HyperbolicCanvas';
@@ -75,6 +77,13 @@ const AssetDetailsStripHarness = AssetDetailsStrip as unknown as ComponentType<R
 const ProfileProviderKeyRowHarness = ProfileProviderKeyRow as unknown as ComponentType<Record<string, unknown>>;
 const ProfileDangerZoneHarness = ProfileDangerZone as unknown as ComponentType<Record<string, unknown>>;
 const BillingPlanActionsHarness = BillingPlanActions as unknown as ComponentType<Record<string, unknown>>;
+const docsAuthValue: AuthContextType = {
+  user: null,
+  loading: false,
+  login: () => undefined,
+  logout: async () => undefined,
+  refreshUser: async () => undefined,
+};
 
 const stackBaseTime = 1_700_000_000_000;
 
@@ -574,6 +583,14 @@ function ProfileBillingActionsHarness(props: Record<string, unknown>) {
   );
 }
 
+function DocsPagePreview(props: Record<string, unknown>) {
+  return (
+    <AuthContext.Provider value={docsAuthValue}>
+      <DocsPage slug={typeof props.slug === 'string' ? props.slug : 'quickstart'} />
+    </AuthContext.Provider>
+  );
+}
+
 const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeader: AppHeader as ComponentType<Record<string, unknown>>,
   AdminSpendView: AdminSpendView as unknown as ComponentType<Record<string, unknown>>,
@@ -594,6 +611,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   CompositionUsageList: CompositionUsageList as unknown as ComponentType<Record<string, unknown>>,
   CompositionPlacementControl: CompositionPlacementControl as unknown as ComponentType<Record<string, unknown>>,
   CreateSpaceDialog: CreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
+  DocsPage: DocsPagePreview,
   GoogleLoginButton: GoogleLoginButton as unknown as ComponentType<Record<string, unknown>>,
   HyperbolicCanvas: HyperbolicCanvas as unknown as ComponentType<Record<string, unknown>>,
   LandingCreateSpaceDialog: LandingCreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
