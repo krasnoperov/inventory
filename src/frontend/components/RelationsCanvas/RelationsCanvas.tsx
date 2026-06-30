@@ -514,7 +514,7 @@ function RelationsCanvasInner({
           pannable
           zoomable
           nodeColor={(node) => (node.type === 'composition' ? familyColors.composition : (node.data as AssetNodeData).model?.groupColor ?? 'var(--color-text-muted)')}
-          maskColor="oklch(0% 0 0 / 0.55)"
+          maskColor="var(--canvas-minimap-mask)"
         />
       </ReactFlow>
 
