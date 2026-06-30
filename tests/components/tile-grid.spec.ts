@@ -96,6 +96,27 @@ async function resolvedColor(page: import('@playwright/test').Page, value: strin
   }, value);
 }
 
+async function resolvedShadow(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((shadowValue) => {
+    const probe = document.createElement('div');
+    probe.style.boxShadow = shadowValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
+async function expectAfterShadow(
+  page: import('@playwright/test').Page,
+  selector: string,
+  shadow: string,
+) {
+  await expect.poll(
+    async () => page.locator(selector).evaluate((node) => getComputedStyle(node, '::after').boxShadow),
+  ).toBe(await resolvedShadow(page, shadow));
+}
+
 test('tile grid actions use shared button styling', async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 520 });
   await mockMedia(page);
@@ -119,7 +140,19 @@ test('tile grid actions use shared button styling', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Export Training Data' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Reject' })).toHaveAttribute('aria-pressed', 'false');
-  await page.locator('[class*="cell"]').first().hover();
+  const selectedTile = page.getByRole('button', { name: 'Tile 0,0, selected' });
+  await expect(selectedTile).toHaveAttribute('aria-pressed', 'true');
+  await expectAfterShadow(page, 'button[aria-label="Tile 0,0, selected"]', 'var(--selection-ring)');
+  await selectedTile.focus();
+  await expectAfterShadow(
+    page,
+    'button[aria-label="Tile 0,0, selected"]',
+    'var(--focus-ring), var(--selection-ring)',
+  );
+  const unselectedTile = page.getByRole('button', { name: 'Tile 1,0' });
+  await unselectedTile.focus();
+  await expectAfterShadow(page, 'button[aria-label="Tile 1,0"]', 'var(--focus-ring)');
+  await selectedTile.hover();
   await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Reject' })).toHaveCount(1);
   await screenshot(page, 'tile-grid-shared-actions', { fullPage: true });

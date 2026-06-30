@@ -37,6 +37,7 @@ const TIER_PREFIXES = {
     '--radius-',
     '--shadow-',
     '--focus-ring',
+    '--selection-ring',
     '--header-height',
     '--layout-gap',
     '--panel-spacing',
@@ -210,6 +211,8 @@ const GROUPS = [
   { match: /^--thumb-radius(?:-(.+))?$/, group: 'thumb.radius', leaf: ($1) => $1 ? kebabToCamel($1) : 'default', type: 'dimension' },
   // --focus-ring is a spread-only box-shadow (focus outline).
   { match: /^--focus-ring$/, group: '', leaf: () => 'focusRing', type: 'shadow' },
+  // --selection-ring is an inset box-shadow for selected tiles/cards.
+  { match: /^--selection-ring$/, group: '', leaf: () => 'selectionRing', type: 'shadow' },
   // theme.css core shadows. Single- and multi-layer box-shadows; the parser's
   // conformance check excludes any whose colour is a light-dark() pair.
   { match: /^--shadow-(.+)$/, group: 'shadow', leaf: ($1) => kebabToCamel($1), type: 'shadow' },
