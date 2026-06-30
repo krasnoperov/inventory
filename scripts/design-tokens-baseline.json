@@ -47,10 +47,7 @@
     ],
     "src/frontend/components/Thumbnail/Thumbnail.module.css": [
       "black",
-      "black",
-      "white",
-      "white",
-      "white"
+      "black"
     ],
     "src/frontend/components/TileGrid/TileGrid.module.css": [
       "oklch(from var(--color-error)l c h/0.08)",
