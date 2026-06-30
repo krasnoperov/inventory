@@ -158,14 +158,10 @@ test('asset canvas image previews stay free of hover action overlays', async ({ 
 
   await sizeCanvasHarness(page);
   await expect(page.getByText('Crystal Gate')).toBeVisible();
-  await expect(page.locator('.react-flow__controls').first()).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--shadow-header)'),
-  );
-  await expect(page.locator('.react-flow__minimap').first()).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--shadow-header)'),
-  );
+  await expect(page.locator('.react-flow__controls').first()).toHaveCSS('box-shadow', 'none');
+  await expect(page.locator('.react-flow__controls').first()).toHaveCSS('border-top-width', '1px');
+  await expect(page.locator('.react-flow__minimap').first()).toHaveCSS('box-shadow', 'none');
+  await expect(page.locator('.react-flow__minimap').first()).toHaveCSS('border-top-width', '1px');
   await expect(page.locator('.react-flow__node [class*="node"]:has([class*="mediaPreview"])').first()).toHaveCSS(
     'box-shadow',
     'none',
@@ -179,7 +175,7 @@ test('asset canvas image previews stay free of hover action overlays', async ({ 
   );
   await expect(page.getByRole('button', { name: 'Add to Forge Tray' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Create relation' })).toHaveCount(0);
-  await screenshot(page, 'asset-canvas-clean-node', { fullPage: true });
+  await screenshot(page, 'asset-canvas-flat-flow-controls', { fullPage: true });
 
   await preview.click();
   await expect
