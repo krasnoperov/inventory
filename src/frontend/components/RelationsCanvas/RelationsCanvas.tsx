@@ -101,6 +101,14 @@ function Tally({ stats }: { stats: VariantStats }) {
   );
 }
 
+function StarCountIcon() {
+  return (
+    <svg className={styles.starIcon} viewBox="0 0 24 24" width="10" height="10" aria-hidden="true">
+      <path d="M12 3.2l2.55 5.17 5.7.83-4.13 4.02.98 5.68L12 16.22 6.9 18.9l.98-5.68L3.75 9.2l5.7-.83L12 3.2z" />
+    </svg>
+  );
+}
+
 function AssetNodeView({ data }: NodeProps<AssetFlowNode>) {
   const { model, spaceId, dimmed, focused, onOpen } = data;
   const { asset, stats } = model;
@@ -135,7 +143,12 @@ function AssetNodeView({ data }: NodeProps<AssetFlowNode>) {
           <Button className={styles.name} onClick={(e) => { e.stopPropagation(); onOpen(asset); }} title={`Open ${asset.name}`} variant="ghost" size="sm">
             {asset.name}
           </Button>
-          {stats.starred > 0 && <span className={styles.star} title={`${stats.starred} starred`}>★{stats.starred > 1 ? stats.starred : ''}</span>}
+          {stats.starred > 0 && (
+            <span className={styles.star} title={`${stats.starred} starred`}>
+              <StarCountIcon />
+              {stats.starred > 1 ? <span>{stats.starred}</span> : null}
+            </span>
+          )}
         </div>
         <div className={styles.coords}>
           <span className={styles.stamp}>{asset.type}</span>
