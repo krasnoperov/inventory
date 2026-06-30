@@ -61,6 +61,8 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
   for (const f of families) {
     await expect(page.getByText(`Sprite: ${f}_grow`)).toBeVisible();
   }
+  await expect(page.locator('.react-flow__node [class*="label"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await screenshot(page, 'variant-canvas-lineage-labels', { fullPage: true });
 });
 
 test('variant canvas retries failed audio variants and renders queued state', async ({ page }) => {

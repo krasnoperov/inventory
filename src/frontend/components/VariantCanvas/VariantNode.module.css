@@ -201,7 +201,7 @@
   justify-content: center;
   gap: 4px;
   padding: 4px 8px;
-  background: var(--surface-glass);
+  background: var(--color-surface);
   border: calc(1px / var(--rf-zoom, 1)) solid var(--color-border);
   border-radius: var(--radius-sm);
   white-space: nowrap;
