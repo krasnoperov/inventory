@@ -314,7 +314,7 @@
   padding: 1.5rem;
   width: 90%;
   max-width: 400px;
-  box-shadow: var(--shadow-elevated);
+  box-shadow: none;
 }
 
 .uploadPromptTitle {
