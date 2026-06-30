@@ -15,7 +15,9 @@ async function mockImages(page: Page) {
 test('relations canvas dock uses shared controls for graph options', async ({ page }) => {
   await mockImages(page);
   await page.setViewportSize({ width: 980, height: 760 });
-  await mountComponent(page, 'RelationsCanvas', {});
+  await mountComponent(page, 'RelationsCanvas', {
+    onAssetClick: '__record__:assetClick',
+  });
 
   await expect(page.getByRole('toolbar', { name: 'Relations canvas controls' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Story' })).toBeVisible();
@@ -27,6 +29,17 @@ test('relations canvas dock uses shared controls for graph options', async ({ pa
   await page.getByRole('button', { name: 'Type' }).click();
   await page.getByRole('button', { name: /Relation/ }).click();
 
+  const heroName = page.getByRole('button', { name: 'Hero Character' }).first();
+  await expect(heroName).toBeVisible();
+  await expect(heroName).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await heroName.click();
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].eventName).toBe('assetClick');
+  expect((calls[0].args[0] as { id: string }).id).toBe('hero');
+
+  await page.locator('.react-flow__controls-zoomin').click();
+  await page.locator('.react-flow__controls-zoomin').click();
   await screenshot(page, 'relations-canvas-shared-dock', { fullPage: true });
 
   await expect(page.getByRole('button', { name: 'Flow' })).toBeVisible();
