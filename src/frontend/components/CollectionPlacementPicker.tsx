@@ -122,9 +122,10 @@ export function CollectionPlacementPicker({
             <Checkbox
               checked={selectedByCollection.has(collection.id)}
               disabled={disabled}
+              aria-label={getCollectionPlacementLabel(collection)}
               onChange={(event) => toggleCollection(collection, event.target.checked)}
             />
-            <span>{getCollectionPlacementLabel(collection)}</span>
+            <span>{collection.name}</span>
           </label>
         ))}
       </div>
