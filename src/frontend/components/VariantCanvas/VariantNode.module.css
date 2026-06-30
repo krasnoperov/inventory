@@ -44,7 +44,7 @@
 .node.active .audioCard {
   box-shadow:
     -3px 0 0 var(--color-success),
-    0 4px 20px oklch(70% 0.2 145 / 0.3);
+    0 4px 20px var(--color-status-completed-bg);
 }
 
 .node.starred .thumbnail,
@@ -273,13 +273,13 @@
   cursor: pointer;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  background: oklch(70% 0.15 145 / 0.15);
+  background: var(--color-status-completed-bg);
   transition: color 0.15s ease, background 0.15s ease;
 }
 
 .forkedFromLink:hover {
   color: var(--color-success);
-  background: oklch(70% 0.15 145 / 0.25);
+  background: var(--color-status-completed-bg);
 }
 
 /* Expanded node state */

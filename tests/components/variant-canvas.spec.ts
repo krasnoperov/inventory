@@ -45,6 +45,17 @@ async function sizeCanvasHarness(page: import('@playwright/test').Page) {
   await page.addStyleTag({ content: '[data-testid="harness-root"]{position:fixed;inset:0;}' });
 }
 
+async function resolvedBackground(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((backgroundValue) => {
+    const probe = document.createElement('div');
+    probe.style.background = backgroundValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 // The detail view drops its separate "Derivatives:" text list because the
 // canvas already shows derivatives as clickable lineage nodes. Guard that.
 test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
@@ -167,4 +178,66 @@ test('variant canvas previews stay free of hover action overlays', async ({ page
   await expect
     .poll(() => page.evaluate(() => window.__componentHarnessCalls ?? []))
     .toContain('variant-click');
+});
+
+test('variant canvas active and forked-from chrome uses tokenized surfaces', async ({ page }) => {
+  const source = asset('source', 'Source sprite');
+  const forked = {
+    ...asset('forked', 'Forked sprite'),
+    active_variant_id: 'forked-v',
+  };
+  const forkedVariant = {
+    ...variant('forked'),
+    id: 'forked-v',
+    image_key: 'images/space/forked-v.png',
+    thumb_key: 'images/space/forked-v_thumb.webp',
+    media_key: 'images/space/forked-v.png',
+    media_width: 240,
+    media_height: 180,
+  };
+  const sourceVariant = {
+    ...variant('source'),
+    id: 'source-v',
+  };
+  const forkedLineage = [{
+    id: 'fork-source-to-forked',
+    parent_variant_id: sourceVariant.id,
+    child_variant_id: forkedVariant.id,
+    relation_type: 'forked',
+    severed: false,
+    created_at: t,
+  }];
+
+  await mockMedia(page);
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    asset: forked,
+    variants: [forkedVariant],
+    lineage: forkedLineage,
+    selectedVariantId: 'forked-v',
+    allVariants: [forkedVariant, sourceVariant],
+    allAssets: [source, forked],
+    onVariantClick: '__record__:variant-click',
+    onGhostNodeClick: '__record__:ghost-click',
+  });
+
+  await expect(page.locator('.react-flow__node')).toBeVisible();
+  const activePreview = page.locator('[class*="thumbnail"]').first();
+  const completedSurface = await resolvedBackground(page, 'var(--color-status-completed-bg)');
+  const completedSurfacePattern = completedSurface.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await expect(activePreview).toHaveCSS('box-shadow', new RegExp(completedSurfacePattern));
+  const forkedFrom = page.getByTitle('Forked from: Source sprite');
+  await expect(forkedFrom).toHaveCSS(
+    'background-color',
+    completedSurface,
+  );
+  await forkedFrom.hover();
+  await expect(forkedFrom).toHaveCSS(
+    'background-color',
+    completedSurface,
+  );
+  await screenshot(page, 'variant-canvas-tokenized-node-chrome', { fullPage: true });
 });
