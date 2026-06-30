@@ -357,28 +357,6 @@
   margin-top: 1.25rem;
 }
 
-/* No Style Checkbox */
-.noStyleCheck {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.noStyleCheck input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  accent-color: var(--color-primary);
-  cursor: pointer;
-}
-
-.noStyleCheck:hover {
-  color: var(--color-text);
-}
-
 /* Forge Error Message */
 .forgeError {
   display: flex;
@@ -597,9 +575,4 @@
 .nameChip:hover:not(:disabled),
 .nameChip:focus {
   color: var(--color-text);
-}
-
-.nameChipStatic {
-  white-space: nowrap;
-  overflow: hidden;
 }
