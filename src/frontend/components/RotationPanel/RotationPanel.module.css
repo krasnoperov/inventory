@@ -199,6 +199,7 @@
 .directionCell {
   box-sizing: border-box;
   aspect-ratio: 1;
+  min-height: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -207,8 +208,9 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg);
-  font: inherit;
-  font-size: 0.6875rem;
+  --ui-button-height: auto;
+  --ui-button-pad-x: 0;
+  --ui-button-font-size: 0.6875rem;
   color: var(--color-text-muted);
   overflow: hidden;
   position: relative;
@@ -225,8 +227,9 @@
   cursor: pointer;
 }
 
-.selectableDirection:hover {
+.directionCell.selectableDirection:hover:not(:disabled) {
   border-color: var(--color-text-muted);
+  background: var(--color-bg);
 }
 
 .directionCell.selected {

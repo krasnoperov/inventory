@@ -274,16 +274,17 @@ export function RotationPanel({
                 const isSelected = selectedView?.id === view.id;
 
                 return (
-                  <button
-                    type="button"
+                  <Button
                     key={view.id}
+                    variant="ghost"
+                    size="sm"
                     className={`${styles.directionCell} ${styles.completed} ${styles.selectableDirection} ${isSelected ? styles.selected : ''} ${ratingClass}`}
                     onClick={() => setSelectedCompletedViewId(view.id)}
                     aria-pressed={isSelected}
                   >
                     {viewThumb && <img src={viewThumb} alt={view.direction} className={styles.directionThumb} />}
                     <span className={styles.directionLabel}>{view.direction}</span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
