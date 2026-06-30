@@ -386,22 +386,23 @@
 }
 
 .assetName {
+  --ui-button-height: auto;
+  --ui-button-pad-x: 0;
+  --ui-button-font-size: var(--font-size-small-sm);
+  --ctl-hover: transparent;
+
   max-width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
   color: oklch(100% 0 0);
-  font: inherit;
-  font-size: var(--font-size-small-sm);
   font-weight: 600;
+  justify-content: flex-start;
   text-align: left;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  cursor: pointer;
 }
 
-.assetName:hover {
+.assetName:hover:not(:disabled) {
+  color: oklch(100% 0 0);
   text-decoration: underline;
 }
 
@@ -430,22 +431,23 @@
 }
 
 .audioAssetName {
+  --ui-button-height: auto;
+  --ui-button-pad-x: 0;
+  --ui-button-font-size: var(--font-size-small-sm);
+  --ctl-hover: transparent;
+
   min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
   color: var(--color-text);
-  font: inherit;
-  font-size: var(--font-size-small-sm);
   font-weight: 650;
+  justify-content: flex-start;
   text-align: left;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  cursor: pointer;
 }
 
-.audioAssetName:hover {
+.audioAssetName:hover:not(:disabled) {
+  color: var(--color-text);
   text-decoration: underline;
 }
 

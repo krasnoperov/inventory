@@ -205,6 +205,42 @@ test('composition placement is gated to finished variants', async ({ page }) => 
   await expect(page.getByText('Add to composition')).toHaveCount(1);
 });
 
+test('asset name triggers open image and audio assets', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await mountComponent(page, 'SpaceBoard', {
+    spaceId: 'space-1',
+    assets: [asset('hero', 'Hero sprite'), audioAsset],
+    variants: [readyVariant('hero'), audioVariant],
+    collections: [deliverables],
+    collectionItems: [audioCollectionItem],
+    canEdit: true,
+    onAssetClick: '__record__:assetClick',
+    createCollection: '__noop__',
+    updateCollection: '__noop__',
+    deleteCollection: '__noop__',
+    addCollectionItem: '__noop__',
+    updateCollectionItem: '__noop__',
+    reorderCollectionItems: '__noop__',
+    deleteCollectionItem: '__noop__',
+  });
+
+  const imageNameTrigger = page.locator('button[class*="assetName"]').filter({ hasText: 'Hero sprite' });
+  const audioNameTrigger = page.locator('button[class*="audioAssetName"]').filter({ hasText: 'Merchant greeting' });
+
+  await expect(imageNameTrigger).toBeVisible();
+  await expect(audioNameTrigger).toBeVisible();
+
+  await page.getByTitle('Hero sprite').first().hover();
+  await expect(imageNameTrigger).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await imageNameTrigger.click();
+  await audioNameTrigger.click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.map((call) => call.eventName)).toEqual(['assetClick', 'assetClick']);
+  expect((calls[0].args[0] as { id: string }).id).toBe('hero');
+  expect((calls[1].args[0] as { id: string }).id).toBe('audio-asset');
+});
+
 test('audio collection cards surface playback and compact metadata', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await mountComponent(page, 'SpaceBoard', {
