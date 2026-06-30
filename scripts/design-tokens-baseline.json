@@ -77,8 +77,6 @@
       "white"
     ],
     "src/frontend/components/TileGrid/TileGrid.module.css": [
-      "oklch(55% 0.18 276/0.9)",
-      "oklch(55% 0.2 25/0.9)",
       "oklch(from var(--color-error)l c h/0.08)",
       "oklch(from var(--color-error)l c h/0.1)",
       "oklch(from var(--color-error)l c h/0.2)",

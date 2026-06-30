@@ -101,12 +101,12 @@
 }
 
 .statusBadge.generating {
-  background: oklch(55% 0.18 276 / 0.9);
+  background: var(--color-status-processing);
   color: white;
 }
 
 .statusBadge.failed {
-  background: oklch(55% 0.2 25 / 0.9);
+  background: var(--color-status-failed);
   color: white;
 }
 
