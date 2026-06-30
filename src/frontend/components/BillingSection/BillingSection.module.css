@@ -270,25 +270,19 @@
 }
 
 .progressBar.ok {
-  background: linear-gradient(90deg, var(--color-success), oklch(75% 0.15 145));
+  background: var(--color-status-completed);
 }
 
 .progressBar.warning {
-  background: linear-gradient(90deg,
-    light-dark(oklch(80% 0.15 90), oklch(75% 0.13 90)),
-    light-dark(oklch(85% 0.18 90), oklch(80% 0.15 90))
-  );
+  background: var(--palette-amber);
 }
 
 .progressBar.critical {
-  background: linear-gradient(90deg,
-    light-dark(oklch(70% 0.18 50), oklch(65% 0.15 50)),
-    light-dark(oklch(75% 0.16 50), oklch(70% 0.14 50))
-  );
+  background: var(--palette-orange);
 }
 
 .progressBar.exceeded {
-  background: linear-gradient(90deg, var(--color-error), oklch(65% 0.18 25));
+  background: var(--color-status-failed);
 }
 
 /* Meter Footer */
@@ -307,23 +301,23 @@
 }
 
 .statusBadge.ok {
-  background: oklch(55% 0.15 145 / 0.15);
-  color: var(--color-success);
+  background: var(--color-status-completed-bg);
+  color: var(--color-status-completed);
 }
 
 .statusBadge.warning {
-  background: light-dark(oklch(80% 0.15 90 / 0.15), oklch(75% 0.13 90 / 0.2));
-  color: light-dark(oklch(60% 0.12 85), oklch(80% 0.15 90));
+  background: var(--palette-amber-bg);
+  color: var(--palette-amber);
 }
 
 .statusBadge.critical {
-  background: light-dark(oklch(70% 0.18 50 / 0.15), oklch(65% 0.15 50 / 0.2));
-  color: light-dark(oklch(60% 0.16 50), oklch(75% 0.16 50));
+  background: var(--palette-orange-bg);
+  color: var(--palette-orange);
 }
 
 .statusBadge.exceeded {
-  background: oklch(55% 0.2 25 / 0.15);
-  color: var(--color-error);
+  background: var(--color-status-failed-bg);
+  color: var(--color-status-failed);
 }
 
 .percentage {
