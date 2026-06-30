@@ -519,6 +519,8 @@ test('forge tray video picker enforces the three-reference budget', async ({ pag
     'transition-property',
     'transform',
   );
+  await page.locator('[class*="slotThumb"]').first().hover();
+  await expect(page.getByRole('button', { name: /Remove Image Ref One/i })).toHaveCSS('box-shadow', 'none');
   await screenshot(page, 'forge-tray-video-references', { fullPage: true });
 });
 

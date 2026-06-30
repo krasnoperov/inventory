@@ -190,7 +190,7 @@
     color 0.15s ease,
     opacity 0.15s ease,
     transform 0.15s ease;
-  box-shadow: var(--thumb-action-shadow);
+  box-shadow: none;
   z-index: 1;
 }
 
