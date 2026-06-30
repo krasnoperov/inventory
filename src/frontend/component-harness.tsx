@@ -52,6 +52,7 @@ import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import profileStyles from './pages/ProfilePage.module.css';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
+import spacePageStyles from './pages/SpacePage.module.css';
 import UnknownPage from './pages/UnknownPage';
 import type {
   Asset,
@@ -892,6 +893,37 @@ function LandingDualChromePreview() {
   );
 }
 
+function SpacePageOverlayChromePreview() {
+  return (
+    <div className={spacePageStyles.page}>
+      <div className={spacePageStyles.canvasContainer}>
+        <aside className={spacePageStyles.chatPanel} aria-label="Chat panel preview">
+          <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)' }}>
+            <strong>Prompt notes</strong>
+          </div>
+          <div style={{ padding: '1rem', color: 'var(--color-text-muted)' }}>
+            Keep this chat surface aligned with the flat Space chrome.
+          </div>
+        </aside>
+        <div className={spacePageStyles.jobsOverlay}>
+          <div className={`${spacePageStyles.jobCard} ${spacePageStyles.processing}`}>
+            <div className={spacePageStyles.jobStatus}>↻</div>
+            <div className={spacePageStyles.jobInfo}>
+              <span className={spacePageStyles.jobAssetName}>Crystal Gate</span>
+            </div>
+          </div>
+          <div className={`${spacePageStyles.jobCard} ${spacePageStyles.completed}`}>
+            <div className={spacePageStyles.jobStatus}>✓</div>
+            <div className={spacePageStyles.jobInfo}>
+              <span className={spacePageStyles.jobAssetName}>Scout Variant</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProfileSignInButtonPreview() {
   return (
     <div className={profileStyles.page}>
@@ -953,6 +985,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   RotationPanel: RotationPanel as unknown as ComponentType<Record<string, unknown>>,
   SpaceBoard: SpaceBoard as unknown as ComponentType<Record<string, unknown>>,
   SpaceCanvas: SpaceCanvas as unknown as ComponentType<Record<string, unknown>>,
+  SpacePageOverlayChrome: SpacePageOverlayChromePreview,
   SpaceSharingPanel: SpaceSharingPanel as unknown as ComponentType<Record<string, unknown>>,
   SpaceAccessRequestView: SpaceAccessRequestView as unknown as ComponentType<Record<string, unknown>>,
   StyleReferenceUsagePanel: StyleReferenceUsagePanel as unknown as ComponentType<Record<string, unknown>>,
