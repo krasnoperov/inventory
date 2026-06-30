@@ -251,7 +251,7 @@
 .addButton:hover:not(:disabled) {
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: white;
+  color: var(--button-primary-text);
   transform: scale(1.1);
 }
 
