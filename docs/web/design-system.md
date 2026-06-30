@@ -73,26 +73,23 @@ alias instead.
 | `--gradient-brand` | app background — aliases `--color-bg` (solid, matches app style) |
 | `--brand-gradient-start` | violet gradient stop (hue 277) for brand fills/buttons |
 | `--brand-gradient-end` | indigo gradient stop (hue 308) |
-| `--gradient-player` | 135° violet→indigo glass gradient for the media player surface |
+| `--gradient-player` | 135° violet→indigo accent gradient for the media player surface |
 
-Text placed on brand/glass surfaces uses the on-brand text ramp:
+Text placed on brand or accent surfaces uses the on-brand text ramp:
 `--text-on-brand-strong`, `--text-on-brand-muted`, `--text-on-brand-subtle`.
 
-### Translucent surfaces & borders
+### Solid Surfaces And Translucent Borders
 
-Inventory now defaults to solid app surfaces for work areas, dialogs, and tray
-controls. The glass tokens remain for legacy translucent accents only; do not
-pair them with backdrop blur for new UI.
+Inventory defaults to solid app surfaces for work areas, dialogs, and tray
+controls. Use `--color-surface` and `--color-surface-elevated` for component
+chrome. Translucent border tokens remain only for legacy component edges; do
+not pair them with backdrop blur or translucent fills for new UI.
 
 | Token | Role |
 |-|-|
-| `--surface-glass` | base glass fill (white at ~12%) |
-| `--surface-glass-strong` | elevated glass |
-| `--surface-glass-intense` | most prominent glass (floating) |
-| `--surface-glass-background` | secondary glass panel |
 | `--surface-code-bg` | inline / block code background |
-| `--border-glass` | default glass border |
-| `--border-glass-strong` | emphatic glass border |
+| `--border-glass` | legacy translucent component border |
+| `--border-glass-strong` | emphatic legacy translucent border |
 
 Chips reuse this language via `--chip-bg`, `--chip-border`, `--chip-text`.
 
@@ -223,14 +220,14 @@ reach for the semantic layer instead.
 
 ### Forge tray (`--forge-*`)
 
-The generation tray uses the semantic app surface by default. The older
-`--forge-bar-*` shell tokens remain for compatibility with legacy surfaces;
-prefer semantic surface, border, and shadow tokens for new tray chrome.
+The generation tray uses the semantic app surface by default. The remaining
+`--forge-bar-*` tokens support legacy tray borders and shadows; prefer semantic
+surface, border, and shadow tokens for new tray chrome.
 Input: `--forge-input-bg`, `--forge-input-border`, `--forge-input-focus-glow`.
 Action button: `--forge-button-bg`, `--forge-button-border`, `--forge-button-shadow`,
 `--forge-button-hover-bg`. Slots: `--forge-slot-size` (aliases `--thumb-size-sm`),
 `--forge-slot-radius` (aliases `--thumb-radius-sm`), `--forge-slot-border`
-(aliases `--border-glass`), `--forge-slot-bg`.
+(aliases `--border-glass` for legacy slot edges), `--forge-slot-bg`.
 
 ### Thumbnail action buttons (`--thumb-action-*`)
 
