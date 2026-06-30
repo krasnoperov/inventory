@@ -22,7 +22,9 @@
 
   width: min(520px, calc(100vw - 2rem));
 
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Drag-over state for file drop */
@@ -141,7 +143,7 @@
   aspect-ratio: 1;
   border-radius: var(--forge-slot-radius);
   cursor: default;
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
 .slotItem:hover .slotThumb {
