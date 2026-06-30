@@ -99,6 +99,17 @@ async function mockMedia(page: import('@playwright/test').Page) {
   );
 }
 
+async function resolvedColor(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((colorValue) => {
+    const probe = document.createElement('div');
+    probe.style.color = colorValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 test('audio asset card surfaces playback, model, voice, and prompt', async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 560 });
   await mountComponent(page, 'AssetCard', {
@@ -149,7 +160,8 @@ test('asset card add action uses shared icon button outside media', async ({ pag
     onAddToTray: '__record__:tray',
   });
 
-  await expect(page.getByRole('button', { name: 'Add to Forge Tray' })).toBeVisible();
+  const addToTray = page.getByRole('button', { name: 'Add to Forge Tray' });
+  await expect(addToTray).toBeVisible();
   const thumbnailButton = page.getByRole('button', {
     name: 'Open Crystal Gate With An Extremely Long Decorative Production Name',
   });
@@ -168,6 +180,11 @@ test('asset card add action uses shared icon button outside media', async ({ pag
   expect((calls[1].args[0] as { id: string }).id).toBe('image-asset');
 
   await page.locator('[class*="thumbnailArea"]').hover();
+  await addToTray.hover();
+  await expect(addToTray).toHaveCSS(
+    'color',
+    await resolvedColor(page, 'var(--button-primary-text)'),
+  );
   await expect(page.getByRole('button', { name: 'View' })).toHaveCount(0);
   await screenshot(page, 'asset-card-shared-actions', { fullPage: true });
 });
