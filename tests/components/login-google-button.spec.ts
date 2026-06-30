@@ -9,5 +9,8 @@ test('google login action uses shared button styling', async ({ page }) => {
 
   const button = page.getByRole('button', { name: 'Sign in with Google' });
   await expect(button).toBeVisible();
+  await button.hover();
+  await expect(button).toHaveCSS('box-shadow', 'none');
+  await expect(button).toHaveCSS('transform', 'none');
   await screenshot(page, 'login-google-shared-button', { fullPage: true });
 });
