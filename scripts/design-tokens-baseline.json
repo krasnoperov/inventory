@@ -2,10 +2,6 @@
   "_comment": "Per-file multiset of hardcoded color values still present in tech-debt CSS. Each entry is the file's complete sorted, lowercased multiset of hex/rgb/rgba/hsl/hsla/oklch/color-mix/named-color matches. The guard fails on ANY mismatch (regression, partial sweep, or value-swap that keeps the count the same). To clear an entry, sweep the file to zero hardcodes and remove the key; to record a deliberate change, regenerate via `pnpm tokens:guard --update-baseline`.",
   "_generatedAt": "2026-06-18",
   "files": {
-    "src/frontend/components/AssetCanvas/AssetNode.module.css": [
-      "oklch(55% 0.18 276/0.25)",
-      "oklch(55% 0.18 276/0.3)"
-    ],
     "src/frontend/components/AssetCard.module.css": [
       "white"
     ],
@@ -111,11 +107,6 @@
       "oklch(95% 0.05 85)"
     ],
     "src/frontend/components/VariantCanvas/VariantNode.module.css": [
-      "oklch(55% 0.18 276/0.05)",
-      "oklch(55% 0.18 276/0.1)",
-      "oklch(55% 0.18 276/0.2)",
-      "oklch(55% 0.18 276/0.25)",
-      "oklch(55% 0.18 276/0.3)",
       "oklch(70% 0.15 145/0.15)",
       "oklch(70% 0.15 145/0.25)",
       "oklch(70% 0.2 145/0.3)"

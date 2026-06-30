@@ -27,17 +27,17 @@
 
 .node:hover .thumbnail,
 .node:hover .audioCard {
-  box-shadow: 0 4px 20px oklch(55% 0.18 276 / 0.25);
+  box-shadow: var(--shadow-floating);
 }
 
 .node.selected .thumbnail,
 .node.selected .audioCard {
-  box-shadow: 0 0 18px oklch(55% 0.18 276 / 0.3);
+  box-shadow: var(--focus-ring);
 }
 
 .node.highlighted .thumbnail,
 .node.highlighted .audioCard {
-  box-shadow: 0 0 18px oklch(55% 0.18 276 / 0.05);
+  box-shadow: var(--shadow-header);
 }
 
 .node.active .thumbnail,
@@ -252,13 +252,13 @@
   cursor: pointer;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  background: oklch(55% 0.18 276 / 0.1);
+  background: var(--color-status-processing-bg);
   transition: color 0.15s ease, background 0.15s ease;
 }
 
 .forkedToLink:hover {
   color: var(--color-primary);
-  background: oklch(55% 0.18 276 / 0.2);
+  background: var(--color-status-processing-bg);
 }
 
 /* Forked-from link - shown on local variants that were forked from another asset */

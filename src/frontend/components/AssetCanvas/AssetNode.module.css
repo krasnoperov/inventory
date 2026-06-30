@@ -17,12 +17,12 @@
 
 .node:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 4px 20px oklch(55% 0.18 276 / 0.25);
+  box-shadow: var(--shadow-floating);
 }
 
 .node.selected {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px oklch(55% 0.18 276 / 0.3);
+  box-shadow: var(--focus-ring);
 }
 
 /* Thumbnail container - fixed height; width is set inline to match the
