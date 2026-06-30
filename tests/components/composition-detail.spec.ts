@@ -130,6 +130,8 @@ test('composition detail creates compositions and sets an exact output variant',
     compositions: [{ ...composition, output_asset_id: null, output_variant_id: null }],
   }));
 
+  await expect(page.getByRole('button', { name: /Scene Bar composition draft/ }).first()).toHaveAttribute('aria-pressed', 'true');
+
   await screenshot(page, 'composition-detail-controls', { fullPage: true });
 
   await page.getByRole('button', { name: 'New' }).click();
