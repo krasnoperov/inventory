@@ -604,6 +604,8 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
   await expect(page.getByText('Create New Asset')).toBeVisible();
   await expect(page.locator('[class*="uploadPromptOverlay"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="uploadPromptOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('box-shadow', 'none');
+  await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByRole('button', { name: 'Create Asset' })).toBeEnabled();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-upload-prompt', { fullPage: true });
