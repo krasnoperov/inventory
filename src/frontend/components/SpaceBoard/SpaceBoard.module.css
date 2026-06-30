@@ -56,58 +56,12 @@
   position: relative;
 }
 
-.cardMenu summary {
-  list-style: none;
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  border: 1px solid var(--ctl-line, var(--color-border));
-  border-radius: var(--radius-md);
-  background: var(--ctl-surface, var(--color-surface));
-  color: var(--color-text);
-  font-size: var(--font-size-small-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    opacity 0.15s ease;
-}
-
-.cardMenu summary:hover {
-  background: var(--ctl-hover, var(--button-ghost-bg-hover));
-}
-
-.cardMenu summary:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
 .createTrigger {
   --ui-button-height: 30px;
   --ui-button-pad-x: 0.625rem;
   --ui-button-font-size: var(--font-size-micro);
 
   font-size: var(--font-size-micro);
-}
-
-.cardMenu summary {
-  width: 32px;
-  min-height: 32px;
-  padding: 0;
-  border-color: transparent;
-  background: transparent;
-  color: var(--color-text-muted);
-}
-
-.cardMenu summary::before {
-  content: "...";
-  color: var(--color-text-muted);
-  font-weight: 700;
-  letter-spacing: 0.04em;
 }
 
 .collectionMenu {
@@ -121,10 +75,7 @@
   opacity: 1;
 }
 
-.cardMenu summary::-webkit-details-marker {
-  display: none;
-}
-
+.cardMenuTrigger,
 .collectionMenuTrigger {
   --ui-button-height: 32px;
   --ui-button-pad-x: 0;
@@ -202,7 +153,7 @@
   background: var(--color-surface);
 }
 
-.collection:has(.cardMenu[open]),
+.collection:has(.assetCardMenuHostOpen),
 .collectionMenuHostOpen {
   z-index: 3;
 }
@@ -341,7 +292,7 @@
   flex: var(--card-aspect, 1) 1 calc(var(--card-aspect, 1) * var(--row-h));
 }
 
-.assetCard:has(.cardMenu[open]) {
+.assetCardMenuHostOpen {
   z-index: 4;
 }
 
@@ -567,23 +518,24 @@
 
 .assetCard:hover .cardMenu,
 .assetCard:focus-within .cardMenu,
-.cardMenu[open] {
+.cardMenuOpen {
   opacity: 1;
 }
 
-.cardMenu summary {
+.cardMenuTrigger {
+  --ui-button-height: 26px;
+
   width: 26px;
-  min-height: 26px;
   border-radius: var(--radius-sm);
   background: transparent;
   backdrop-filter: none;
 }
 
-.cardMenu summary:hover {
+.cardMenuTrigger:hover:not(:disabled) {
   background: transparent;
 }
 
-.cardMenu summary::before {
+.cardMenuTrigger span {
   color: oklch(100% 0 0 / 0.92);
 }
 

@@ -176,6 +176,17 @@ async function selectDropdown(page: import('@playwright/test').Page, label: stri
   await page.getByRole('option', { name: optionName, exact: true }).click();
 }
 
+async function resolvedBackground(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((backgroundValue) => {
+    const probe = document.createElement('div');
+    probe.style.background = backgroundValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 // Composition placement points a composition at a finished render. A pending /
 // failed variant has no usable media, so the post-generation control must not
 // offer to place it. Guard that only the ready card exposes the action.
@@ -201,7 +212,9 @@ test('composition placement is gated to finished variants', async ({ page }) => 
     deleteCollectionItem: '__noop__',
   });
 
-  // Only the finished variant's card renders the placement control.
+  // Only the finished variant's card renders the placement control once its
+  // controlled action menu is open.
+  await page.getByTitle('Actions for Ready sprite').click();
   await expect(page.getByText('Add to composition')).toHaveCount(1);
   await expect(page.locator('[class*="starterPanel"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="starterPanel"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
@@ -314,8 +327,8 @@ test('audio collection cards surface playback and compact metadata', async ({ pa
 
   await expect(page.getByRole('button', { name: 'Play' })).toHaveCount(2);
   await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-  await expect(page.getByRole('button', { name: 'Merchant greeting' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Legacy ambience' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Merchant greeting', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Legacy ambience', exact: true })).toBeVisible();
   await expect(page.locator('[title="Rachel"]')).toBeVisible();
   await expect(page.getByText('eleven_v3')).toBeVisible();
   await expect(page.getByText('Merchant: Rachel, Traveler: Adam')).toBeVisible();
@@ -416,7 +429,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await createTrigger.click();
   await expect(createTrigger).toHaveAttribute('aria-expanded', 'true');
   await expect(createTrigger).toHaveCSS('backdrop-filter', 'none');
-  await expect(createTrigger).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(createTrigger).toHaveCSS('background-color', await resolvedBackground(page, 'var(--button-ghost-bg-hover)'));
   await expect(page.locator('[class*="createPanel"]')).toHaveCSS('box-shadow', 'none');
   await page.getByPlaceholder('Collection name').fill('Props');
   await selectDropdown(page, 'New collection kind', 'Style References');
@@ -444,7 +457,11 @@ test('collection menus use shared form controls', async ({ page }) => {
   await collectionMenuTrigger.click();
   await expect(collectionMenuTrigger).toHaveAttribute('aria-expanded', 'false');
 
-  await page.getByTitle('Actions for Hero sprite').click();
+  const cardMenu = page.locator('[class*="cardMenu"]').first();
+  const cardMenuTrigger = page.getByRole('button', { name: 'Actions for Hero sprite' });
+  await expect(cardMenu.locator('summary')).toHaveCount(0);
+  await cardMenuTrigger.click();
+  await expect(cardMenuTrigger).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('[class*="cardMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');
   await page.getByLabel('Role for Hero sprite').fill('lead');
   await selectDropdown(page, 'Collection target for Hero sprite', 'Backgrounds');
