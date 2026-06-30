@@ -272,14 +272,15 @@ export function CompositionDetail({
                   }}
                 />
               ) : (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className={styles.nameButton}
                   onClick={() => canEdit && setEditingName(true)}
                   disabled={!canEdit}
                 >
                   {selectedComposition.name}
-                </button>
+                </Button>
               )}
               {canEdit && onDeleteComposition && (
                 <Button
