@@ -23,7 +23,8 @@ const completedTileSet = {
 const failedTileSet = {
   ...completedTileSet,
   id: 'tile-set-failed',
-  status: 'completed',
+  status: 'failed',
+  error_message: 'Tile provider failed',
 };
 
 function variant(id: string, status = 'completed', qualityRating: 'approved' | 'rejected' | null = null) {
@@ -84,6 +85,17 @@ async function resolvedBackground(page: import('@playwright/test').Page, value: 
   }, value);
 }
 
+async function resolvedColor(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((colorValue) => {
+    const probe = document.createElement('div');
+    probe.style.color = colorValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 test('tile grid actions use shared button styling', async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 520 });
   await mockMedia(page);
@@ -133,13 +145,37 @@ test('tile grid failed cell retry uses shared button styling', async ({ page }) 
   });
 
   await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
-  await expect(page.getByText('gen', { exact: true })).toHaveCSS(
+  const generatingBadge = page.getByText('gen', { exact: true });
+  const failedBadge = page.getByText('err', { exact: true });
+  const failedCell = page.locator('[class*="cell"][class*="failed"]').first();
+  const errorBanner = page.getByText('Tile provider failed');
+  await expect(generatingBadge).toHaveCSS(
     'background-color',
     await resolvedBackground(page, 'var(--color-status-processing)'),
   );
-  await expect(page.getByText('err', { exact: true })).toHaveCSS(
+  await expect(generatingBadge).toHaveCSS(
+    'color',
+    await resolvedColor(page, 'var(--button-primary-text)'),
+  );
+  await expect(failedBadge).toHaveCSS(
     'background-color',
     await resolvedBackground(page, 'var(--color-status-failed)'),
+  );
+  await expect(failedBadge).toHaveCSS(
+    'color',
+    await resolvedColor(page, 'var(--button-primary-text)'),
+  );
+  await expect(failedCell).toHaveCSS(
+    'background-color',
+    await resolvedBackground(page, 'var(--color-status-failed-bg)'),
+  );
+  await expect(errorBanner).toHaveCSS(
+    'background-color',
+    await resolvedBackground(page, 'var(--color-status-failed-bg)'),
+  );
+  await expect(errorBanner).toHaveCSS(
+    'border-color',
+    await resolvedColor(page, 'var(--color-error)'),
   );
   await screenshot(page, 'tile-grid-retry-action', { fullPage: true });
 

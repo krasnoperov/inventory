@@ -39,13 +39,6 @@
       "black",
       "black"
     ],
-    "src/frontend/components/TileGrid/TileGrid.module.css": [
-      "oklch(from var(--color-error)l c h/0.08)",
-      "oklch(from var(--color-error)l c h/0.1)",
-      "oklch(from var(--color-error)l c h/0.2)",
-      "white",
-      "white"
-    ],
     "src/frontend/components/TileSetPanel/TileSetPanel.module.css": [
       "oklch(60% 0.16 145)",
       "oklch(60% 0.16 145/0.08)",
