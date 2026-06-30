@@ -93,6 +93,7 @@ function ThumbnailComponent({
     styles.thumbnail,
     styles[size],
     showBadges && isActive ? styles.active : '',
+    showBadges && variant && isVariantReady(variant) && variant.starred ? styles.starred : '',
     className,
   ].filter(Boolean).join(' ');
 
@@ -219,13 +220,6 @@ function ThumbnailComponent({
             <polyline points="21 15 16 10 5 21" />
           </svg>
         </div>
-      )}
-
-      {/* Badges - only for completed variants */}
-      {showBadges && isVariantReady(variant) && (
-        <>
-          {variant.starred && <span className={styles.starBadge}>★</span>}
-        </>
       )}
     </div>
   );
