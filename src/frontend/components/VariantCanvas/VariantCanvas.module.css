@@ -60,25 +60,21 @@
   background: var(--color-bg);
 }
 
-.emptyIcon {
-  font-size: 4rem;
+.emptyMark {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   display: block;
-  margin-bottom: 1.5rem;
-  opacity: 0.6;
+  margin-bottom: 0.75rem;
 }
 
 .emptyText {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: var(--font-size-base);
+  font-weight: 500;
   color: var(--color-text);
-  margin: 0 0 0.75rem 0;
-}
-
-.emptySubtext {
-  color: var(--color-text-muted);
   margin: 0;
-  line-height: 1.6;
-  font-size: 1rem;
 }
 
 /* React Flow overrides for dark mode compatibility */

@@ -77,6 +77,27 @@ async function expectLocatorAfterShadow(
   ).toBe(await resolvedShadow(page, shadow));
 }
 
+test('variant canvas empty state uses minimal chrome', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 520 });
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    asset: asset('empty', 'Empty asset'),
+    variants: [],
+    lineage: [],
+    allVariants: [],
+    allAssets: [asset('empty', 'Empty asset')],
+    onVariantClick: '__noop__',
+  });
+
+  await expect(page.getByText('No variants yet')).toBeVisible();
+  await expect(page.locator('[class*="emptyMark"]')).toBeVisible();
+  await expect(page.getByText('🎨')).toHaveCount(0);
+  await expect(page.getByText('Use the Forge Tray below')).toHaveCount(0);
+  await screenshot(page, 'variant-canvas-empty-state', { fullPage: true });
+});
+
 // The detail view drops its separate "Derivatives:" text list because the
 // canvas already shows derivatives as clickable lineage nodes. Guard that.
 test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
