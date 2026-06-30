@@ -1,0 +1,32 @@
+.toggle.toggle {
+  --ui-button-height: 2rem;
+  --ui-button-pad-x: 0.6875rem;
+  --ui-button-font-size: 0.75rem;
+  --ctl-surface: transparent;
+  --ctl-line: var(--landing-chip-border, var(--color-border));
+  --ctl-hover: transparent;
+
+  gap: 0.4375rem;
+  color: var(--landing-text-muted, var(--color-text-muted));
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, monospace;
+  font-weight: 600;
+}
+
+.toggle.toggle:hover:not(:disabled) {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--landing-accent, var(--color-primary));
+}
+
+@media (max-width: 760px) {
+  .toggle.toggle {
+    --ui-button-pad-x: 0.5625rem;
+  }
+}

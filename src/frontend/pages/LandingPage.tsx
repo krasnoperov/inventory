@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
+import { PublicThemeToggle } from '../components/PublicThemeToggle';
 import { ErrorMessage } from '../components/forms';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
@@ -573,15 +574,10 @@ export default function LandingPage() {
             <nav className={styles.nav} aria-label="Public navigation">
               <Link to="/pricing" className={styles.navLink}>Pricing</Link>
               <Link to="/docs/quickstart" className={styles.navLink}>Docs</Link>
-              <button
-                type="button"
-                className={styles.themeToggle}
-                onClick={() => setScheme((s) => (s === 'dark' ? 'light' : 'dark'))}
-                aria-label="Toggle theme"
-              >
-                <span className={styles.themeToggleDot} aria-hidden="true" />
-                {scheme === 'dark' ? 'Light' : 'Dark'}
-              </button>
+              <PublicThemeToggle
+                scheme={scheme}
+                onToggle={() => setScheme((s) => (s === 'dark' ? 'light' : 'dark'))}
+              />
               <Link to="/login" className={styles.authButton}>Sign in</Link>
             </nav>
           )

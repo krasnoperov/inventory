@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { Link } from '../components/Link';
+import { PublicThemeToggle, type PublicThemeScheme } from '../components/PublicThemeToggle';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import styles from './PricingPage.module.css';
 
-type ColorScheme = 'dark' | 'light';
+type ColorScheme = PublicThemeScheme;
 
 type PricingPlan = {
   name: string;
@@ -85,15 +86,7 @@ function PublicNav({
     <nav className={styles.nav} aria-label="Public navigation">
       <Link to="/" className={styles.navLink}>Home</Link>
       <Link to="/docs/quickstart" className={styles.navLink}>Docs</Link>
-      <button
-        type="button"
-        className={styles.themeToggle}
-        onClick={onToggleScheme}
-        aria-label="Toggle theme"
-      >
-        <span className={styles.themeToggleDot} aria-hidden="true" />
-        {scheme === 'dark' ? 'Light' : 'Dark'}
-      </button>
+      <PublicThemeToggle scheme={scheme} onToggle={onToggleScheme} />
       <Link to="/login" className={styles.authButton}>Sign in</Link>
     </nav>
   );
