@@ -107,6 +107,9 @@ test('lineage tree uses shared controls for graph toggle and sever actions', asy
 
   const severAction = page.getByRole('button', { name: 'Sever this lineage link' }).first();
   await expect(severAction).toBeVisible();
+  const lineageNode = page.getByAltText('Parent variant').locator('..');
+  await lineageNode.hover();
+  await expect(lineageNode).toHaveCSS('transform', 'none');
   await severAction.click();
   await expect.poll(() => page.evaluate(() => window.__componentHarnessCalls ?? [])).toContain('severLineage');
 
@@ -117,6 +120,8 @@ test('lineage tree uses shared controls for graph toggle and sever actions', asy
     'background-color',
     await resolvedBackground(page, 'var(--color-status-processing-bg)'),
   );
+  await currentGraphNode.hover();
+  await expect(currentGraphNode).toHaveCSS('transform', 'none');
 
-  await screenshot(page, 'lineage-tree-shared-controls');
+  await screenshot(page, 'lineage-tree-flat-hover-controls');
 });
