@@ -644,7 +644,7 @@
   padding: 1.5rem;
   max-width: 400px;
   width: 90%;
-  box-shadow: var(--shadow-elevated);
+  box-shadow: none;
 }
 
 .dialogTitle {

@@ -222,7 +222,7 @@
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 480px;
-  box-shadow: var(--shadow-elevated);
+  box-shadow: none;
 }
 
 .modalHeader {
