@@ -35,6 +35,8 @@ test('usage indicator warning state uses semantic status tokens', async ({ page 
     'background-color',
     await resolvedStyle(page, 'background', 'var(--color-star)'),
   );
+  await indicator.hover();
+  await expect(indicator).toHaveCSS('transform', 'none');
   await screenshot(page, 'usage-indicator-warning-token-surface', { fullPage: true });
 });
 
@@ -60,5 +62,7 @@ test('usage indicator exceeded state uses semantic status tokens', async ({ page
     'background-color',
     await resolvedStyle(page, 'background', 'var(--color-status-failed)'),
   );
+  await indicator.hover();
+  await expect(indicator).toHaveCSS('transform', 'none');
   await screenshot(page, 'usage-indicator-exceeded-token-surface', { fullPage: true });
 });
