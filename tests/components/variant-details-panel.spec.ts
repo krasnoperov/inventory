@@ -69,8 +69,11 @@ test('variant details panel uses shared action controls', async ({ page }) => {
   await expect(page.getByRole('complementary', { name: 'Variant details' })).not.toHaveCSS('animation-name', /slideIn/);
   await expect(page.getByRole('button', { name: 'Close variant details' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'View full size' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Star variant' })).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.getByRole('button', { name: 'Star variant' })).toHaveCSS(
+  const starButton = page.getByRole('button', { name: 'Star variant' });
+  await expect(starButton).toHaveAttribute('aria-pressed', 'false');
+  await expect(starButton).toHaveText('');
+  await expect(starButton.locator('svg')).toHaveCount(1);
+  await expect(starButton).toHaveCSS(
     'transition-property',
     'border-color, background-color, color',
   );
@@ -84,7 +87,7 @@ test('variant details panel uses shared action controls', async ({ page }) => {
   await expect(page.getByText('Provider', { exact: true })).toBeVisible();
   await screenshot(page, 'variant-details-panel-actions', { fullPage: true });
 
-  await page.getByRole('button', { name: 'Star variant' }).click();
+  await starButton.click();
   await page.getByRole('button', { name: 'Add to Tray' }).click();
   await page.getByRole('button', { name: 'Create relation' }).click();
   await page.getByRole('button', { name: 'Select variant for collection placement' }).click();
