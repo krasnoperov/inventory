@@ -1383,12 +1383,14 @@ export default function AssetDetailPage() {
                     {job.error && <span className={styles.jobError}>{job.error}</span>}
                   </div>
                   {(job.status === 'completed' || job.status === 'failed') && (
-                    <button
+                    <Button
                       className={styles.dismissButton}
                       onClick={() => clearJob(job.jobId)}
+                      variant="ghost"
+                      size="sm"
                     >
                       Dismiss
-                    </button>
+                    </Button>
                   )}
                 </div>
               ))}
@@ -1405,18 +1407,20 @@ export default function AssetDetailPage() {
             <h3 className={styles.dialogTitle}>{confirmDialog.title}</h3>
             <p className={styles.dialogMessage}>{confirmDialog.message}</p>
             <div className={styles.dialogActions}>
-              <button
+              <Button
                 className={styles.dialogCancel}
                 onClick={() => setConfirmDialog(null)}
+                variant="secondary"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 className={styles.dialogConfirm}
                 onClick={confirmDialog.onConfirm}
+                variant="danger"
               >
                 {confirmDialog.type === 'deleteAsset' ? 'Delete Asset' : 'Delete'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
