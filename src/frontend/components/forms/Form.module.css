@@ -5,7 +5,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: 2.25rem 2.5rem;
-  box-shadow: var(--shadow-elevated);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   gap: 1.4rem;
