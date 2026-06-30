@@ -267,7 +267,7 @@
   height: var(--thumb-badge-size);
   border-radius: 50%;
   background: var(--thumb-badge-bg);
-  color: white;
+  color: var(--button-primary-text);
   display: flex;
   align-items: center;
   justify-content: center;

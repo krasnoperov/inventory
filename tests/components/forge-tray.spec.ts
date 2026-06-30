@@ -160,6 +160,17 @@ async function resolvedBackground(page: import('@playwright/test').Page, value: 
   }, value);
 }
 
+async function resolvedColor(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((colorValue) => {
+    const probe = document.createElement('div');
+    probe.style.color = colorValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 async function selectMediaGroup(page: import('@playwright/test').Page, group: 'Image' | 'Video' | 'Audio') {
   await revealOptions(page);
   await selectDropdown(page, 'Media type', group);
@@ -333,6 +344,10 @@ test('forge tray image model selection enforces reference budget', async ({ page
   await page.getByLabel('Prompt').fill('Combine these references');
   await page.getByTitle('Add reference').click();
   await page.getByRole('button', { name: /Image Ref One/ }).click();
+  await expect(page.locator('[class*="checkmark"]').first()).toHaveCSS(
+    'color',
+    await resolvedColor(page, 'var(--button-primary-text)'),
+  );
   await page.getByRole('button', { name: /Image Ref Two/ }).click();
   await page.getByRole('button', { name: /Done/i }).click();
 
@@ -578,6 +593,11 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
     chatMessages: [{
+      id: 'chat-user-1',
+      role: 'user',
+      content: 'Can you make the scene moodier?',
+      createdAt: baseTime,
+    }, {
       id: 'chat-1',
       role: 'assistant',
       content: 'Try this direction.',
@@ -599,6 +619,10 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
   await page.getByLabel('Prompt').fill('Seed prompt');
   await page.getByTitle('Chat with Claude about your prompt').click();
   await expect(page.getByText('Chat with Claude')).toBeVisible();
+  await expect(page.getByText('Can you make the scene moodier?')).toHaveCSS(
+    'color',
+    await resolvedColor(page, 'var(--button-primary-text)'),
+  );
   await expect(page.locator('[class*="suggestedPrompt"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await page.getByText('Image analysis (1)').hover();
   await expect(page.locator('[class*="descriptionsSummary"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');

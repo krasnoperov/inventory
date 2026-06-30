@@ -151,7 +151,7 @@
 
 .message.user .messageBubble {
   background: var(--color-primary);
-  color: white;
+  color: var(--button-primary-text);
   border-bottom-right-radius: 4px;
 }
 
