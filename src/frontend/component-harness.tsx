@@ -14,6 +14,7 @@ import { ForgeTray } from './components/ForgeTray';
 import { ImageLightbox } from './components/ImageLightbox';
 import { Pagination } from './components/Pagination';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
+import { RelationsCanvas } from './components/RelationsCanvas/RelationsCanvas';
 import { RotationPanel } from './components/RotationPanel/RotationPanel';
 import { SpaceBoard } from './components/SpaceBoard';
 import { SpaceCanvas } from './components/SpaceCanvas';
@@ -40,6 +41,7 @@ import type {
   CollectionItem,
   Composition,
   CompositionItem,
+  Lineage,
   SpaceCollection,
   SpaceRelation,
   StylePresetRaw,
@@ -231,6 +233,25 @@ const stackRelations: SpaceRelation[] = [
     created_by: 'user-1',
     created_at: stackBaseTime,
     updated_at: stackBaseTime,
+  },
+];
+
+const stackLineage: Lineage[] = [
+  {
+    id: 'lineage-hero-atlas',
+    parent_variant_id: 'hero-variant',
+    child_variant_id: 'atlas-variant',
+    relation_type: 'derived',
+    severed: false,
+    created_at: stackBaseTime,
+  },
+  {
+    id: 'lineage-atlas-output',
+    parent_variant_id: 'atlas-variant',
+    child_variant_id: 'output-variant',
+    relation_type: 'refined',
+    severed: false,
+    created_at: stackBaseTime + 1,
   },
 ];
 
@@ -459,6 +480,26 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
   );
 }
 
+function RelationsCanvasPreview(props: Record<string, unknown>) {
+  return (
+    <div style={{ position: 'relative', width: '900px', height: '640px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+      <RelationsCanvas
+        {...props}
+        spaceId="space-1"
+        assets={stackAssets}
+        variants={stackVariants}
+        lineage={stackLineage}
+        relations={stackRelations}
+        collections={stackCollections}
+        collectionItems={stackCollectionItems}
+        compositions={stackCompositions}
+        compositionItems={stackCompositionItems}
+        onAssetClick={() => undefined}
+      />
+    </div>
+  );
+}
+
 function ProfileBillingActionsHarness(props: Record<string, unknown>) {
   return (
     <div style={{ display: 'grid', gap: '16px', maxWidth: '640px' }}>
@@ -498,6 +539,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   ProductionControls: ProductionControlsHarness,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
   RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,
+  RelationsCanvas: RelationsCanvasPreview,
   RotationPanel: RotationPanel as unknown as ComponentType<Record<string, unknown>>,
   SpaceBoard: SpaceBoard as unknown as ComponentType<Record<string, unknown>>,
   SpaceCanvas: SpaceCanvas as unknown as ComponentType<Record<string, unknown>>,
