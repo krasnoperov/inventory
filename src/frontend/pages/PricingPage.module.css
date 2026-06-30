@@ -58,15 +58,15 @@
   color: var(--landing-on-accent);
   background: var(--landing-accent);
   border-radius: var(--radius-lg);
-  box-shadow: var(--landing-accent-shadow);
-  transition: background 0.2s ease, transform 0.2s ease;
+  box-shadow: none;
+  transition: background-color 0.2s ease;
 }
 
 .authButton:hover,
 .ctaButton:hover,
 .planCtaPrimary:hover {
   background: var(--landing-accent-hover);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .authButton {
@@ -141,14 +141,14 @@
   background: transparent;
   border: 1px solid var(--landing-window-border);
   border-radius: var(--radius-lg);
-  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease;
 }
 
 .ctaButtonSecondary:hover,
 .planCta:hover {
   border-color: var(--landing-accent);
   color: var(--landing-accent-text);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .planGrid {

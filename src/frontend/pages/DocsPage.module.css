@@ -24,13 +24,13 @@
   color: var(--button-primary-text);
   text-decoration: none;
   font-weight: 600;
-  box-shadow: var(--button-primary-shadow);
-  transition: background 0.2s ease, transform 0.2s ease;
+  box-shadow: none;
+  transition: background-color 0.2s ease;
 }
 
 .authButton:hover {
   background: var(--button-primary-bg-hover);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .main {
