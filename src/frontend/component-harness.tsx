@@ -11,6 +11,7 @@ import { CompositionDetail, CompositionUsageList } from './components/Compositio
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
 import { CanvasToolbar, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { ForgeTray } from './components/ForgeTray';
+import { FormContainer, FormTitle } from './components/forms';
 import { ImageLightbox } from './components/ImageLightbox';
 import { LineageTree } from './components/LineageTree';
 import { Pagination } from './components/Pagination';
@@ -728,6 +729,18 @@ function UiTextFieldPreview() {
   );
 }
 
+function FormContainerPreview() {
+  return (
+    <div style={{ width: 'min(520px, 100%)', padding: '2rem' }}>
+      <FormContainer maxWidth={440}>
+        <FormTitle>Shared form</FormTitle>
+        <TextInput aria-label="Project name" defaultValue="Market scene" fullWidth />
+        <Button variant="primary">Continue</Button>
+      </FormContainer>
+    </div>
+  );
+}
+
 function DocsPagePreview(props: Record<string, unknown>) {
   return (
     <AuthContext.Provider value={docsAuthValue}>
@@ -762,6 +775,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   GoogleLoginButton: GoogleLoginButton as unknown as ComponentType<Record<string, unknown>>,
   HyperbolicCanvas: HyperbolicCanvas as unknown as ComponentType<Record<string, unknown>>,
   LandingCreateSpaceDialog: LandingCreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
+  FormContainerPreview,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   ImageLightbox: ImageLightbox as unknown as ComponentType<Record<string, unknown>>,
   LineageTree: LineageTreePreview,
