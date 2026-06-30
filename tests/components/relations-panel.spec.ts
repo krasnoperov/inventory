@@ -264,6 +264,8 @@ test('relations panel shows incoming reverse links and clears relations separate
   });
 
   await expect(page.getByText('Thumbnail for')).toBeVisible();
+  await expect(page.getByText('Outgoing')).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('Incoming')).toHaveCSS('letter-spacing', 'normal');
   await expect(page.getByText('Atlas Sheet')).toBeVisible();
   await expect(page.getByText('Map Source')).toBeVisible();
   await expect(page.getByText('Map for')).toBeVisible();
