@@ -563,7 +563,12 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect(page.getByText('Chat with Claude')).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS('box-shadow', 'none');
+  const chatPanel = page.locator('[class*="chatPanel"]').first();
+  await expect(chatPanel).toHaveCSS('box-shadow', 'none');
+  await expect(chatPanel).toHaveCSS('transform', 'none');
+  await expect.poll(
+    () => chatPanel.evaluate((node) => getComputedStyle(node).animationName),
+  ).not.toContain('slide');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-chat-sheet', { fullPage: true });
 });
