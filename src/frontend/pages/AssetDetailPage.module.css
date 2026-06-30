@@ -228,7 +228,7 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
   font-weight: 650;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .assetDetailsEyebrow span {
@@ -306,7 +306,7 @@
   --ui-button-pad-x: 0.5rem;
   font-family: var(--mono);
   font-size: var(--font-size-micro);
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .assetDetailsActionOpen {
