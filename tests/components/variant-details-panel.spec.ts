@@ -68,6 +68,10 @@ test('variant details panel uses shared action controls', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Close variant details' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'View full size' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Star variant' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: 'Star variant' })).toHaveCSS(
+    'transition-property',
+    'border-color, background-color, color',
+  );
   await expect(page.getByRole('button', { name: 'Add to Tray' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create relation' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Select variant for collection placement' })).toBeVisible();
