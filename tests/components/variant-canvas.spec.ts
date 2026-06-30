@@ -213,6 +213,47 @@ test('variant canvas previews stay free of hover action overlays', async ({ page
     .toContain('variant-click');
 });
 
+test('variant canvas starred chrome stays flat', async ({ page }) => {
+  const starredAsset = {
+    ...asset('starred', 'Starred Sprite'),
+    active_variant_id: 'starred-v',
+  };
+  const starredVariant = {
+    ...variant('starred'),
+    id: 'starred-v',
+    starred: true,
+    image_key: 'images/space/starred-v.png',
+    thumb_key: 'images/space/starred-v_thumb.webp',
+    media_key: 'images/space/starred-v.png',
+    media_width: 240,
+    media_height: 180,
+  };
+
+  await mockMedia(page);
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    asset: starredAsset,
+    variants: [starredVariant],
+    lineage: [],
+    selectedVariantId: 'starred-v',
+    allVariants: [starredVariant],
+    allAssets: [starredAsset],
+    onVariantClick: '__record__:variant-click',
+  });
+
+  await expect(page.getByText('★')).toBeVisible();
+  const preview = page.locator('[class*="thumbnail"]').first();
+  await expect(preview).toHaveCSS(
+    'box-shadow',
+    await resolvedShadow(page, '-3px 0 0 var(--color-success), 0 0 0 2px var(--color-star-border)'),
+  );
+  await page.waitForSelector('[class*="ready"] .react-flow__node');
+  await screenshot(page, 'variant-canvas-starred-flat-chrome');
+});
+
 test('variant canvas active and forked-from chrome uses tokenized surfaces', async ({ page }) => {
   const source = asset('source', 'Source sprite');
   const forked = {

@@ -60,14 +60,14 @@
 
 .node.starred .thumbnail,
 .node.starred .audioCard {
-  box-shadow: 0 0 16px var(--color-star-border);
+  box-shadow: 0 0 0 2px var(--color-star-border);
 }
 
 .node.active.starred .thumbnail,
 .node.active.starred .audioCard {
   box-shadow:
     -3px 0 0 var(--color-success),
-    0 0 16px var(--color-star-border);
+    0 0 0 2px var(--color-star-border);
 }
 
 .audioCard .thumbnail,
