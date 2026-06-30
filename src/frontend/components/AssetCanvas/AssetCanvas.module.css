@@ -21,7 +21,7 @@
   background: var(--color-surface) !important;
   border: 1px solid var(--color-border) !important;
   border-radius: var(--radius-md) !important;
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.1) !important;
+  box-shadow: var(--shadow-header) !important;
 }
 
 .controls button {
@@ -43,7 +43,7 @@
   background: var(--color-surface) !important;
   border: 1px solid var(--color-border) !important;
   border-radius: var(--radius-md) !important;
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.1) !important;
+  box-shadow: var(--shadow-header) !important;
   overflow: hidden;
 }
 

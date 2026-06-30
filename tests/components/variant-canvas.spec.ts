@@ -90,6 +90,14 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
     onVariantClick: '__noop__', onGhostNodeClick: '__noop__',
   });
   await page.waitForSelector('.react-flow__node');
+  await expect(page.locator('.react-flow__controls').first()).toHaveCSS(
+    'box-shadow',
+    await resolvedShadow(page, 'var(--shadow-header)'),
+  );
+  await expect(page.locator('.react-flow__minimap').first()).toHaveCSS(
+    'box-shadow',
+    await resolvedShadow(page, 'var(--shadow-header)'),
+  );
   for (const f of families) {
     await expect(page.getByText(`Sprite: ${f}_grow`)).toBeVisible();
   }
