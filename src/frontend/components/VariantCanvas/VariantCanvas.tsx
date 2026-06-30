@@ -613,11 +613,8 @@ function VariantCanvasInner({
   if (variants.length === 0) {
     return (
       <div className={styles.empty}>
-        <span className={styles.emptyIcon}>🎨</span>
+        <span className={styles.emptyMark} aria-hidden="true" />
         <p className={styles.emptyText}>No variants yet</p>
-        <p className={styles.emptySubtext}>
-          Use the Forge Tray below to create your first variant
-        </p>
       </div>
     );
   }
