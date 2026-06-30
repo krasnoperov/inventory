@@ -14,6 +14,7 @@ import { ForgeTray } from './components/ForgeTray';
 import { ImageLightbox } from './components/ImageLightbox';
 import { LineageTree } from './components/LineageTree';
 import { Pagination } from './components/Pagination';
+import { PublicThemeToggle } from './components/PublicThemeToggle';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
 import { RelationsCanvas } from './components/RelationsCanvas/RelationsCanvas';
 import { RotationPanel } from './components/RotationPanel/RotationPanel';
@@ -596,6 +597,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   LineageTree: LineageTreePreview,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
   ProfileBillingActions: ProfileBillingActionsHarness,
+  PublicThemeToggle: PublicThemeToggle as unknown as ComponentType<Record<string, unknown>>,
   ProductionControls: ProductionControlsHarness,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
   RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,

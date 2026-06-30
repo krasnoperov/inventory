@@ -93,33 +93,6 @@
   background: var(--landing-accent-soft);
 }
 
-.themeToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4375rem;
-  cursor: pointer;
-  font-family: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
-  font-size: 0.75rem;
-  color: var(--landing-text-muted);
-  background: transparent;
-  border: 1px solid var(--landing-chip-border);
-  border-radius: var(--radius-md);
-  padding: 0.4375rem 0.6875rem;
-  transition: border-color 0.2s ease, color 0.2s ease;
-}
-
-.themeToggle:hover {
-  border-color: var(--color-text-muted);
-  color: var(--color-text);
-}
-
-.themeToggleDot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: var(--radius-full);
-  background: var(--landing-accent);
-}
-
 .authButton {
   font-size: 0.875rem;
   font-weight: 600;
