@@ -952,6 +952,12 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(incompatibleVideo).toHaveCSS('opacity', '1');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-asset-picker', { fullPage: true });
+
+  const heroImageChoice = page.getByRole('button', { name: /Hero Image, character \/ image/ }).first();
+  await heroImageChoice.click();
+  await expect(heroImageChoice).toHaveAttribute('aria-pressed', 'true');
+  await heroImageChoice.click();
+  await expect(heroImageChoice).toHaveAttribute('aria-pressed', 'false');
   await page.getByRole('button', { name: /Close/i }).click();
 
   await selectMediaGroup(page, 'Video');

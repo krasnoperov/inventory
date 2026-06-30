@@ -174,9 +174,12 @@ export function AssetPickerModal({
                 {slots.map((slot) => {
                   const primaryVariant = getPrimaryVariant(slot.asset);
                   return (
-                    <button
+                    <Button
                       key={slot.id}
+                      variant="ghost"
+                      size="sm"
                       className={`${styles.assetItem} ${styles.inTray}`}
+                      aria-pressed="true"
                       onClick={() => handleAssetClick(slot.asset)}
                     >
                       <div className={styles.thumbnailWrapper}>
@@ -197,7 +200,7 @@ export function AssetPickerModal({
                         <span className={styles.assetName}>{slot.asset.name}</span>
                         <span className={styles.assetType}>{slot.asset.type}</span>
                       </div>
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -232,13 +235,16 @@ export function AssetPickerModal({
                     : `${asset.name}, ${assetMediaLabel}`;
 
                   return (
-                    <button
+                    <Button
                       key={asset.id}
+                      variant={isInTray ? 'secondary' : 'ghost'}
+                      size="sm"
                       className={`${styles.assetItem} ${isInTray ? styles.inTray : ''} ${!canSelect ? styles.disabled : ''}`}
                       onClick={() => handleAssetClick(asset)}
                       disabled={!canSelect}
                       title={disabledReason}
                       aria-label={actionLabel}
+                      aria-pressed={isInTray}
                     >
                       <div className={styles.thumbnailWrapper}>
                         <Thumbnail
@@ -263,7 +269,7 @@ export function AssetPickerModal({
                           {disabledReason && <span className={styles.unavailableBadge}>Unavailable</span>}
                         </span>
                       </div>
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
