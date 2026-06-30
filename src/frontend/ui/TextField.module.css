@@ -2,11 +2,11 @@
   width: auto;
   min-width: 0;
   border: 1px solid var(--ctl-line, var(--color-border));
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--ctl-surface, var(--color-surface));
   color: var(--color-text);
   font: inherit;
-  font-size: var(--ui-text-field-font-size, 0.8125rem);
+  font-size: var(--ui-text-field-font-size, var(--font-size-small-sm));
   outline: none;
   transition:
     border-color 0.15s ease,
