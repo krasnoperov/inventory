@@ -440,3 +440,14 @@ test('asset details dock keeps the real expanded stack usable on mobile', async 
 
   await screenshot(page, 'asset-details-stack-mobile', { fullPage: true });
 });
+
+test('asset detail overlays use flat chrome', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 460 });
+  await mountComponent(page, 'AssetDetailOverlayChrome', {});
+
+  await expect(page.getByRole('region', { name: 'Tile grid overlay' })).toHaveCSS('box-shadow', 'none');
+  await expect(page.getByRole('region', { name: 'Generation jobs' }).locator('[class*="jobCard"]')).toHaveCSS('box-shadow', 'none');
+  await expect(page.getByRole('region', { name: 'Legacy chat panel' })).toHaveCSS('box-shadow', 'none');
+
+  await screenshot(page, 'asset-detail-flat-overlays', { fullPage: true });
+});
