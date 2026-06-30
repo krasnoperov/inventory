@@ -152,16 +152,16 @@
 }
 
 .nameButton {
-  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: transparent;
-  font: inherit;
-  padding: 0.375rem 0;
-  cursor: pointer;
+  justify-content: flex-start;
+  --ui-button-height: 2rem;
+  --ui-button-pad-x: 0;
+  --ui-button-font-size: 1rem;
 }
 
-.nameButton:disabled {
+.nameButton.nameButton:disabled {
   cursor: default;
+  opacity: 1;
 }
 
 .nameInput {
