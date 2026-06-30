@@ -23,18 +23,7 @@
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.2s ease;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  animation: fadeIn 0.15s ease;
 }
 
 .header {
