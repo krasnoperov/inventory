@@ -92,6 +92,8 @@ test('relation dialog creates a manual relation with searchable variant target',
 
   await expect(page.locator('[class*="dialogOverlay"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="dialogOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="_dialog_"]').first()).toHaveCSS('box-shadow', 'none');
+  await expect(page.locator('[class*="_dialog_"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await selectDropdown(page, 'Type', 'Thumbnail for');
   await page.getByPlaceholder('Search assets and variants').fill('atlas-searchable');
   await expect(page.getByText('Atlas Sheet variant')).toBeVisible();
