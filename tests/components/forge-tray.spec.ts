@@ -251,6 +251,10 @@ test('forge tray exposes media type as the first options dropdown', async ({ pag
     'box-shadow',
     await resolvedShadow(page, 'var(--forge-bar-shadow)'),
   );
+  await expect(page.locator('[class*="tray"]').first()).toHaveCSS(
+    'transition-property',
+    'border-color, box-shadow',
+  );
 
   await revealOptions(page);
   await expect(mediaType).toBeVisible();
@@ -511,6 +515,10 @@ test('forge tray video picker enforces the three-reference budget', async ({ pag
   await expect(page.getByTitle('Add reference')).toHaveCount(0);
   await expect(page.locator('[class*="slotItem"] [class*="slotBadge"]')).toHaveText(['Ref', 'Ref', 'Ref']);
   await expect(page.locator('[class*="slotThumb"] [class*="slotBadge"]')).toHaveCount(0);
+  await expect(page.locator('[class*="slotThumb"]').first()).toHaveCSS(
+    'transition-property',
+    'transform',
+  );
   await screenshot(page, 'forge-tray-video-references', { fullPage: true });
 });
 
