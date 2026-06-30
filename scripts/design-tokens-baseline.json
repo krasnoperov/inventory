@@ -30,12 +30,6 @@
     "src/frontend/components/ForgeTray/ForgeChat.module.css": [
       "oklch(65% 0.18 145)"
     ],
-    "src/frontend/components/LineageTree.module.css": [
-      "white",
-      "white",
-      "white",
-      "white"
-    ],
     "src/frontend/components/RotationPanel/RotationPanel.module.css": [
       "oklch(60% 0.16 145)",
       "oklch(60% 0.16 145/0.08)",
