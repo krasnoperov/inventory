@@ -337,9 +337,11 @@ test('variant canvas active and forked-from chrome uses tokenized surfaces', asy
 
   await expect(page.locator('.react-flow__node')).toBeVisible();
   const activePreview = page.locator('[class*="thumbnail"]').first();
+  await expect(activePreview).toHaveCSS(
+    'box-shadow',
+    await resolvedShadow(page, '-3px 0 0 var(--color-success)'),
+  );
   const completedSurface = await resolvedBackground(page, 'var(--color-status-completed-bg)');
-  const completedSurfacePattern = completedSurface.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  await expect(activePreview).toHaveCSS('box-shadow', new RegExp(completedSurfacePattern));
   const forkedFrom = page.getByTitle('Forked from: Source sprite');
   await expect(forkedFrom).toHaveCSS(
     'background-color',
