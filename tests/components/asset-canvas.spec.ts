@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { mountComponent, screenshot } from './harness';
 
 const baseTime = 1_700_000_000_000;
@@ -105,6 +105,17 @@ async function sizeCanvasHarness(page: import('@playwright/test').Page) {
   });
 }
 
+async function resolvedShadow(page: Page, value: string) {
+  return page.evaluate((shadow) => {
+    const probe = document.createElement('div');
+    probe.style.boxShadow = shadow;
+    document.body.appendChild(probe);
+    const computed = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    return computed;
+  }, value);
+}
+
 test('asset canvas video cards remain navigable from preview and caption', async ({ page }) => {
   await mountComponent(page, 'AssetCanvas', {
     spaceId: 'space-1',
@@ -147,6 +158,14 @@ test('asset canvas image previews stay free of hover action overlays', async ({ 
 
   await sizeCanvasHarness(page);
   await expect(page.getByText('Crystal Gate')).toBeVisible();
+  await expect(page.locator('.react-flow__controls').first()).toHaveCSS(
+    'box-shadow',
+    await resolvedShadow(page, 'var(--shadow-header)'),
+  );
+  await expect(page.locator('.react-flow__minimap').first()).toHaveCSS(
+    'box-shadow',
+    await resolvedShadow(page, 'var(--shadow-header)'),
+  );
 
   const preview = page.locator('[class*="thumbnail"]').first();
   await preview.hover();
