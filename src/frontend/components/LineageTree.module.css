@@ -137,8 +137,7 @@
   transition:
     background-color 0.15s ease,
     color 0.15s ease,
-    opacity 0.2s ease,
-    transform 0.2s ease;
+    opacity 0.2s ease;
 }
 
 .severButton svg {
@@ -148,10 +147,6 @@
 
 .node:hover .severButton {
   opacity: 1;
-}
-
-.severButton:hover {
-  transform: scale(1.1);
 }
 
 .connector.severedConnector .arrow {
