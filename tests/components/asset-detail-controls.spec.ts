@@ -416,6 +416,19 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
   });
   expect(detailsBeforePrompt).toBe(true);
 
+  const stackMetrics = await page.evaluate(() => {
+    const expanded = document.querySelector('[aria-label="Expanded asset details"]');
+    const relations = document.querySelector('[aria-label="Manual relations"]');
+    return {
+      expandedCanScroll: expanded ? expanded.scrollHeight > expanded.clientHeight : false,
+      relationsHasInnerScroll: relations ? relations.scrollHeight > relations.clientHeight : true,
+    };
+  });
+  expect(stackMetrics).toEqual({
+    expandedCanScroll: true,
+    relationsHasInnerScroll: false,
+  });
+
   await screenshot(page, 'asset-details-stack-desktop', { fullPage: true });
 });
 
