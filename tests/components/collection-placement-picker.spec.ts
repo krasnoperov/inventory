@@ -41,6 +41,13 @@ test('collection placement picker updates role subject and pinning', async ({ pa
     showPinToCreatedVariant: true,
   });
 
+  await expect(page.getByText('Add to Cast')).toHaveCount(0);
+  await expect(page.getByText('Add to Style refs')).toHaveCount(0);
+  await expect(page.getByLabel('Add to Cast')).toBeChecked();
+  await expect(page.getByLabel('Add to Style refs')).not.toBeChecked();
+  await expect(page.locator('label').filter({ hasText: 'Cast' })).toBeVisible();
+  await expect(page.locator('label').filter({ hasText: 'Style refs' })).toBeVisible();
+
   await selectDropdown(page, 'Role for Cast', 'Background');
   await page.evaluate((nextProps) => window.__setHarnessProps?.(nextProps), {
     collections,
