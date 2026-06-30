@@ -5,9 +5,6 @@
     "src/frontend/components/AssetCard.module.css": [
       "white"
     ],
-    "src/frontend/components/AssetMenu.module.css": [
-      "oklch(55% 0.2 25/0.1)"
-    ],
     "src/frontend/components/BillingSection/BillingSection.module.css": [
       "oklch(55% 0.15 145/0.15)",
       "oklch(55% 0.2 25/0.15)",
