@@ -73,6 +73,17 @@ async function mockMedia(page: import('@playwright/test').Page) {
   );
 }
 
+async function resolvedBackground(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((backgroundValue) => {
+    const probe = document.createElement('div');
+    probe.style.background = backgroundValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 test('tile grid actions use shared button styling', async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 520 });
   await mockMedia(page);
@@ -113,12 +124,23 @@ test('tile grid failed cell retry uses shared button styling', async ({ page }) 
   await page.setViewportSize({ width: 360, height: 420 });
   await mountComponent(page, 'TileGrid', {
     tileSet: failedTileSet,
-    variants: [variant('tile-failed', 'failed')],
-    tilePositions: [tilePosition('tile-set-failed', 'tile-failed', 0, 0)],
+    variants: [variant('tile-failed', 'failed'), variant('tile-generating', 'processing')],
+    tilePositions: [
+      tilePosition('tile-set-failed', 'tile-failed', 0, 0),
+      tilePosition('tile-set-failed', 'tile-generating', 1, 0),
+    ],
     onRetryTile: '__record__:retry',
   });
 
   await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
+  await expect(page.getByText('gen', { exact: true })).toHaveCSS(
+    'background-color',
+    await resolvedBackground(page, 'var(--color-status-processing)'),
+  );
+  await expect(page.getByText('err', { exact: true })).toHaveCSS(
+    'background-color',
+    await resolvedBackground(page, 'var(--color-status-failed)'),
+  );
   await screenshot(page, 'tile-grid-retry-action', { fullPage: true });
 
   await page.getByRole('button', { name: 'Retry' }).click();
