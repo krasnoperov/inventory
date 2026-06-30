@@ -485,25 +485,6 @@
   background: var(--forge-bar-border-inner);
 }
 
-/* Asset-detail destination control */
-.destinationHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.625rem 0.75rem 0.5rem;
-}
-
-.destinationLabel {
-  font-family: var(--mono);
-  font-size: 0.625rem;
-  font-weight: 650;
-  color: var(--color-text-muted);
-  letter-spacing: 0;
-  text-transform: uppercase;
-  flex: none;
-}
-
 /* Per-mode options row */
 .optionsRow {
   display: flex;
