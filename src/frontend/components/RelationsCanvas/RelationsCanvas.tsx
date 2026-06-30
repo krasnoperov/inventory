@@ -480,7 +480,7 @@ function RelationsCanvasInner({
   if (assets.length === 0) {
     return (
       <div className={styles.empty}>
-        <span className={styles.emptyIcon}>{isInitialSyncPending ? '◴' : '⊹'}</span>
+        <span className={`${styles.emptyMark} ${isInitialSyncPending ? styles.emptyMarkLoading : ''}`} aria-hidden="true" />
         <p>{isInitialSyncPending ? 'Charting relations…' : 'No assets to chart yet'}</p>
       </div>
     );

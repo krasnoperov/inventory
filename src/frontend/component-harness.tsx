@@ -553,7 +553,6 @@ function RelationsCanvasPreview(props: Record<string, unknown>) {
   return (
     <div style={{ position: 'relative', width: '900px', height: '640px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
       <RelationsCanvas
-        {...props}
         spaceId="space-1"
         assets={stackAssets}
         variants={stackVariants}
@@ -563,6 +562,7 @@ function RelationsCanvasPreview(props: Record<string, unknown>) {
         collectionItems={stackCollectionItems}
         compositions={stackCompositions}
         compositionItems={stackCompositionItems}
+        {...props}
         onAssetClick={(props.onAssetClick as ((asset: Asset) => void) | undefined) ?? (() => undefined)}
       />
     </div>

@@ -16,6 +16,46 @@ async function boxShadow(page: Page, selector: string) {
   return page.locator(selector).first().evaluate((node) => getComputedStyle(node).boxShadow);
 }
 
+test('relations canvas empty state uses minimal chrome', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 640 });
+  await mountComponent(page, 'RelationsCanvas', {
+    assets: [],
+    variants: [],
+    lineage: [],
+    relations: [],
+    collections: [],
+    collectionItems: [],
+    compositions: [],
+    compositionItems: [],
+    isInitialSyncPending: false,
+    onAssetClick: '__noop__',
+  });
+
+  await expect(page.getByText('No assets to chart yet')).toBeVisible();
+  await expect(page.locator('[class*="emptyMark"]')).toBeVisible();
+  await expect(page.getByText('⊹')).toHaveCount(0);
+  await expect(page.getByText('◴')).toHaveCount(0);
+  await screenshot(page, 'relations-canvas-empty-state', { fullPage: true });
+
+  await mountComponent(page, 'RelationsCanvas', {
+    assets: [],
+    variants: [],
+    lineage: [],
+    relations: [],
+    collections: [],
+    collectionItems: [],
+    compositions: [],
+    compositionItems: [],
+    isInitialSyncPending: true,
+    onAssetClick: '__noop__',
+  });
+
+  await expect(page.getByText('Charting relations…')).toBeVisible();
+  await expect(page.locator('[class*="emptyMarkLoading"]')).toBeVisible();
+  await expect(page.getByText('⊹')).toHaveCount(0);
+  await expect(page.getByText('◴')).toHaveCount(0);
+});
+
 test('relations canvas dock uses shared controls for graph options', async ({ page }) => {
   await mockImages(page);
   await page.setViewportSize({ width: 980, height: 760 });
